@@ -19,7 +19,9 @@ export function redirectSystemPath({ path }) {
             url.protocol === 'driversagainstflock:' &&
             deepLinkPath === 'e2e-mocks'
         ) {
-            return '/?e2eMapApiMocks=1';
+            return url.searchParams.get('auth') === '1'
+                ? '/?e2eMapApiMocks=1&e2eAuthMock=1'
+                : '/?e2eMapApiMocks=1';
         }
 
         if (

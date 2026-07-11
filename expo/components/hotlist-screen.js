@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from '../lib/safe-area-insets';
 import { Icon } from './design-system/icon';
-import { DafButton } from './design-system/primitives';
+import { DafButton, DafSegmentedControl } from './design-system/primitives';
 import { dafSemanticColors } from './design-system/tokens';
 import { getHotlist } from './hotlist-api';
 import { toggleNearestDrawer } from './map/navigation';
@@ -85,45 +85,6 @@ function formatCount(value) {
     const number = Number(value ?? 0);
 
     return Number.isFinite(number) ? number.toLocaleString() : '0';
-}
-
-function HotlistSegmentedControl({ onChange, value }) {
-    return (
-        <View
-            className="dark:border-daf-border-dark h-[42px] flex-row rounded-dafPill border border-daf-border bg-daf-surface-alt p-1 dark:bg-daf-surface-inverse"
-            testID="hotlist-window-control"
-        >
-            {WINDOW_OPTIONS.map((option) => {
-                const selected = option.value === value;
-
-                return (
-                    <Pressable
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
-                        className={`min-h-[34px] flex-1 items-center justify-center rounded-dafPill px-2 ${
-                            selected
-                                ? 'dark:bg-daf-surface-dark bg-white'
-                                : 'bg-transparent'
-                        }`}
-                        key={option.value}
-                        onPress={() => onChange(option.value)}
-                        testID={`hotlist-window-${option.value}`}
-                    >
-                        <Text
-                            className={`text-[13px] font-semibold ${
-                                selected
-                                    ? 'text-daf-text-primary dark:text-white'
-                                    : 'text-daf-text-secondary dark:text-neutral-300'
-                            }`}
-                            numberOfLines={1}
-                        >
-                            {option.label}
-                        </Text>
-                    </Pressable>
-                );
-            })}
-        </View>
-    );
 }
 
 function HotlistStatTile({ stat }) {
@@ -425,8 +386,11 @@ export default function HotlistScreen() {
                     </View>
                 </View>
 
-                <HotlistSegmentedControl
+                <DafSegmentedControl
                     onChange={setTimeWindow}
+                    options={WINDOW_OPTIONS}
+                    testID="hotlist-window-control"
+                    testIDPrefix="hotlist-window"
                     value={timeWindow}
                 />
             </View>

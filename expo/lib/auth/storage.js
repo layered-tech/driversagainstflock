@@ -1,8 +1,9 @@
-import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import {
     AUTH_LEGACY_BACKEND_TOKEN_STORAGE_KEY,
     AUTH_OAUTH_REQUEST_STORAGE_KEY,
+    AUTH_SESSION_STORAGE_KEY,
     AUTH_STORAGE_TIMEOUT_MS,
     AUTH_TOKEN_STORAGE_KEY,
 } from './constants';
@@ -19,29 +20,118 @@ function withTimeout(promise, timeoutMs, message) {
     });
 }
 
-export async function getStoredToken() {
+function parseStoredAuth(value) {
+    if (!value) {
+        return null;
+    }
+
+    try {
+        const parsedValue = JSON.parse(value);
+
+        if (parsedValue?.accessToken) {
+            return {
+                accessToken: parsedValue.accessToken,
+                obtainedAt: parsedValue.obtainedAt ?? null,
+                scopes: Array.isArray(parsedValue.scopes)
+                    ? parsedValue.scopes
+                    : [],
+            };
+        }
+    } catch {}
+
+    return null;
+}
+
+function buildMigratedAuth(legacyToken) {
+    if (!legacyToken) {
+        return null;
+    }
+
+    return {
+        accessToken: legacyToken,
+        obtainedAt: null,
+        scopes: ['openid'],
+    };
+}
+
+export async function getStoredAuth() {
     if (Platform.OS === 'web') {
         globalThis.localStorage?.removeItem(
             AUTH_LEGACY_BACKEND_TOKEN_STORAGE_KEY,
         );
 
-        return globalThis.localStorage?.getItem(AUTH_TOKEN_STORAGE_KEY) ?? null;
+        const storedAuth = parseStoredAuth(
+            globalThis.localStorage?.getItem(AUTH_SESSION_STORAGE_KEY) ?? null,
+        );
+
+        if (storedAuth) {
+            return storedAuth;
+        }
+
+        const migratedAuth = buildMigratedAuth(
+            globalThis.localStorage?.getItem(AUTH_TOKEN_STORAGE_KEY) ?? null,
+        );
+
+        if (migratedAuth) {
+            globalThis.localStorage?.setItem(
+                AUTH_SESSION_STORAGE_KEY,
+                JSON.stringify(migratedAuth),
+            );
+            globalThis.localStorage?.removeItem(AUTH_TOKEN_STORAGE_KEY);
+        }
+
+        return migratedAuth;
     }
 
     forgetLegacyStoredToken();
 
-    return withTimeout(
-        SecureStore.getItemAsync(AUTH_TOKEN_STORAGE_KEY),
-        AUTH_STORAGE_TIMEOUT_MS,
-        'Saved login state could not be read.',
+    const storedAuth = parseStoredAuth(
+        await withTimeout(
+            SecureStore.getItemAsync(AUTH_SESSION_STORAGE_KEY),
+            AUTH_STORAGE_TIMEOUT_MS,
+            'Saved login state could not be read.',
+        ),
     );
+
+    if (storedAuth) {
+        return storedAuth;
+    }
+
+    const migratedAuth = buildMigratedAuth(
+        await withTimeout(
+            SecureStore.getItemAsync(AUTH_TOKEN_STORAGE_KEY),
+            AUTH_STORAGE_TIMEOUT_MS,
+            'Saved login state could not be read.',
+        ),
+    );
+
+    if (migratedAuth) {
+        await withTimeout(
+            SecureStore.setItemAsync(
+                AUTH_SESSION_STORAGE_KEY,
+                JSON.stringify(migratedAuth),
+            ),
+            AUTH_STORAGE_TIMEOUT_MS,
+            'Login could not be saved.',
+        );
+        SecureStore.deleteItemAsync(AUTH_TOKEN_STORAGE_KEY).catch(() => {});
+    }
+
+    return migratedAuth;
 }
 
-export async function setStoredToken(token) {
+export async function setStoredAuth(auth) {
+    const storedAuth = auth ? JSON.stringify(auth) : null;
+
     if (Platform.OS === 'web') {
-        if (token) {
-            globalThis.localStorage?.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+        if (storedAuth) {
+            globalThis.localStorage?.setItem(
+                AUTH_SESSION_STORAGE_KEY,
+                storedAuth,
+            );
+            globalThis.localStorage?.removeItem(AUTH_TOKEN_STORAGE_KEY);
         } else {
+            globalThis.localStorage?.removeItem(AUTH_SESSION_STORAGE_KEY);
             globalThis.localStorage?.removeItem(AUTH_TOKEN_STORAGE_KEY);
             globalThis.localStorage?.removeItem(
                 AUTH_LEGACY_BACKEND_TOKEN_STORAGE_KEY,
@@ -51,15 +141,17 @@ export async function setStoredToken(token) {
         return;
     }
 
-    if (token) {
+    if (storedAuth) {
         await withTimeout(
-            SecureStore.setItemAsync(AUTH_TOKEN_STORAGE_KEY, token),
+            SecureStore.setItemAsync(AUTH_SESSION_STORAGE_KEY, storedAuth),
             AUTH_STORAGE_TIMEOUT_MS,
             'Login could not be saved.',
         );
+        SecureStore.deleteItemAsync(AUTH_TOKEN_STORAGE_KEY).catch(() => {});
     } else {
         await withTimeout(
             Promise.all([
+                SecureStore.deleteItemAsync(AUTH_SESSION_STORAGE_KEY),
                 SecureStore.deleteItemAsync(AUTH_TOKEN_STORAGE_KEY),
                 SecureStore.deleteItemAsync(
                     AUTH_LEGACY_BACKEND_TOKEN_STORAGE_KEY,
@@ -95,6 +187,7 @@ function parseStoredOAuthRequest(value) {
         if (parsedValue?.state) {
             return {
                 codeVerifier: parsedValue.codeVerifier ?? null,
+                scopes: parsedValue.scopes ?? null,
                 state: parsedValue.state,
             };
         }
@@ -102,6 +195,7 @@ function parseStoredOAuthRequest(value) {
 
     return {
         codeVerifier: null,
+        scopes: null,
         state: value,
     };
 }

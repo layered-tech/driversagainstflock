@@ -1,12 +1,12 @@
 import {
-    AUTH_CALLBACK_URL,
-    OPENSTREETMAP_AUTHORIZATION_URL,
-    OPENSTREETMAP_TOKEN_URL,
-    OPENSTREETMAP_USERINFO_URL,
-} from './constants';
+    getOSMOAuthAuthorizationURL,
+    getOSMOAuthTokenURL,
+    getOSMOAuthUserinfoURL,
+} from '../osm/config';
+import { AUTH_CALLBACK_URL } from './constants';
 import { fetchWithTimeout, readJSONResponse } from './http';
 
-const OPENSTREETMAP_IDENTITY_SCOPES = ['openid'];
+export const OPENSTREETMAP_DEFAULT_SCOPES = ['openid', 'write_api'];
 
 function getOpenStreetMapClientID() {
     return process.env.EXPO_PUBLIC_OPENSTREETMAP_CLIENT_ID?.trim() ?? '';
@@ -47,6 +47,7 @@ function normalizeOpenStreetMapUser(userInfo) {
 export function buildOpenStreetMapAuthorizationURL({
     codeChallenge,
     codeChallengeMethod,
+    scopes = OPENSTREETMAP_DEFAULT_SCOPES,
     state,
 }) {
     const params = new URLSearchParams({
@@ -55,11 +56,11 @@ export function buildOpenStreetMapAuthorizationURL({
         code_challenge_method: codeChallengeMethod,
         redirect_uri: AUTH_CALLBACK_URL,
         response_type: 'code',
-        scope: OPENSTREETMAP_IDENTITY_SCOPES.join(' '),
+        scope: scopes.join(' '),
         state,
     });
 
-    return `${OPENSTREETMAP_AUTHORIZATION_URL}?${params.toString()}`;
+    return `${getOSMOAuthAuthorizationURL()}?${params.toString()}`;
 }
 
 export async function exchangeOpenStreetMapAuthorizationCode({
@@ -73,7 +74,7 @@ export async function exchangeOpenStreetMapAuthorizationCode({
         grant_type: 'authorization_code',
         redirect_uri: AUTH_CALLBACK_URL,
     });
-    const response = await fetchWithTimeout(OPENSTREETMAP_TOKEN_URL, {
+    const response = await fetchWithTimeout(getOSMOAuthTokenURL(), {
         body: body.toString(),
         headers: {
             Accept: 'application/json',
@@ -91,7 +92,7 @@ export async function exchangeOpenStreetMapAuthorizationCode({
 }
 
 export async function fetchOpenStreetMapUser(accessToken) {
-    const response = await fetchWithTimeout(OPENSTREETMAP_USERINFO_URL, {
+    const response = await fetchWithTimeout(getOSMOAuthUserinfoURL(), {
         headers: {
             Accept: 'application/json',
             Authorization: `Bearer ${accessToken}`,

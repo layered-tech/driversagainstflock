@@ -1,0 +1,44 @@
+appId: com.anonymous.drivefree.dev
+name: Contribute Signed Out Mocked
+tags:
+  - contribute
+  - map
+---
+- setLocation:
+    latitude: 30.26715
+    longitude: -97.74035
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    commands:
+      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 30000
+- openLink: 'driversagainstflock://e2e-mocks'
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 10000
+
+# Without the auth mock the start sheet must show the signed-out card
+- extendedWaitUntil:
+    visible:
+      id: 'map-contribute-button'
+    timeout: 30000
+- tapOn:
+    id: 'map-contribute-button'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-start-sheet'
+    timeout: 10000
+- assertVisible: 'Start a changeset'
+- assertVisible: 'Not signed in'
+- assertVisible:
+    id: 'contribute-sign-in-button'

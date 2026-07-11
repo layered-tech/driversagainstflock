@@ -9,7 +9,7 @@ import {
     useState,
 } from 'react';
 import { setAnalyticsUser } from './analytics';
-import { AUTH_CALLBACK_URL } from './auth/constants';
+import { APP_ENVIRONMENT, AUTH_CALLBACK_URL } from './auth/constants';
 import {
     createOAuthState,
     createPKCEChallenge,
@@ -20,25 +20,49 @@ import {
     buildOpenStreetMapAuthorizationURL,
     exchangeOpenStreetMapAuthorizationCode,
     fetchOpenStreetMapUser,
+    OPENSTREETMAP_DEFAULT_SCOPES,
 } from './auth/openstreetmap';
 import {
     forgetStoredOAuthRequest,
+    getStoredAuth,
     getStoredOAuthRequest,
-    getStoredToken,
+    setStoredAuth,
     setStoredOAuthRequest,
-    setStoredToken,
 } from './auth/storage';
+import { fetchOSMPermissions } from './osm/client';
+import { OSM_ERROR_CODES } from './osm/errors';
 import { addSentryBreadcrumb, setSentryUser } from './sentry';
 
 WebBrowser.maybeCompleteAuthSession();
 
 const AuthContext = createContext(null);
 
+const OSM_WRITE_SCOPE = 'write_api';
+
+let e2eMockSessionHandler = null;
+
+export function injectE2EMockSession(session) {
+    if (APP_ENVIRONMENT !== 'development' && APP_ENVIRONMENT !== 'e2e') {
+        return;
+    }
+
+    e2eMockSessionHandler?.(session);
+}
+
+function parseGrantedScopes(tokenData, requestedScopes) {
+    if (typeof tokenData?.scope === 'string' && tokenData.scope.trim()) {
+        return tokenData.scope.trim().split(/\s+/);
+    }
+
+    return requestedScopes ?? OPENSTREETMAP_DEFAULT_SCOPES;
+}
+
 export function AuthProvider({ children }) {
     const [isLoading, setIsLoading] = useState(true);
     const [isSigningIn, setIsSigningIn] = useState(false);
     const [token, setToken] = useState(null);
     const [user, setUser] = useState(null);
+    const [grantedScopes, setGrantedScopes] = useState([]);
     const [permissions, setPermissions] = useState(null);
     const authLoadGenerationRef = useRef(0);
     const oauthCompletionRef = useRef(null);
@@ -53,11 +77,12 @@ export function AuthProvider({ children }) {
         authLoadGenerationRef.current += 1;
         setToken(null);
         setUser(null);
+        setGrantedScopes([]);
         setPermissions(null);
         setIsSigningIn(false);
         setIsLoading(false);
         pendingOAuthRequestRef.current = null;
-        await setStoredToken(null);
+        await setStoredAuth(null);
         await forgetStoredOAuthRequest();
     }, []);
 
@@ -136,6 +161,10 @@ export function AuthProvider({ children }) {
                     code: params.code,
                     codeVerifier: expectedRequest.codeVerifier,
                 });
+                const nextGrantedScopes = parseGrantedScopes(
+                    tokenData,
+                    expectedRequest.scopes,
+                );
                 const data = await fetchOpenStreetMapUser(
                     tokenData.access_token,
                 );
@@ -149,6 +178,7 @@ export function AuthProvider({ children }) {
 
                 setToken(tokenData.access_token);
                 setUser(data.user ?? null);
+                setGrantedScopes(nextGrantedScopes);
                 setPermissions(null);
                 addSentryBreadcrumb({
                     category: 'auth',
@@ -158,12 +188,17 @@ export function AuthProvider({ children }) {
                     message: 'OpenStreetMap sign-in completed',
                 });
 
-                await setStoredToken(tokenData.access_token);
+                await setStoredAuth({
+                    accessToken: tokenData.access_token,
+                    obtainedAt: Date.now(),
+                    scopes: nextGrantedScopes,
+                });
                 await forgetStoredOAuthRequest();
 
                 return {
                     ...data,
                     permissions: null,
+                    scopes: nextGrantedScopes,
                     token: tokenData.access_token,
                 };
             })();
@@ -191,8 +226,8 @@ export function AuthProvider({ children }) {
         let isMounted = true;
         const loadGeneration = authLoadGenerationRef.current;
 
-        getStoredToken()
-            .then(async (storedToken) => {
+        getStoredAuth()
+            .then(async (storedAuth) => {
                 if (
                     !isMounted ||
                     authLoadGenerationRef.current !== loadGeneration
@@ -200,10 +235,13 @@ export function AuthProvider({ children }) {
                     return;
                 }
 
-                setToken(storedToken);
+                setToken(storedAuth?.accessToken ?? null);
+                setGrantedScopes(storedAuth?.scopes ?? []);
 
-                if (storedToken) {
-                    const data = await loadUser(storedToken, { apply: false });
+                if (storedAuth?.accessToken) {
+                    const data = await loadUser(storedAuth.accessToken, {
+                        apply: false,
+                    });
 
                     if (
                         isMounted &&
@@ -221,8 +259,9 @@ export function AuthProvider({ children }) {
                 ) {
                     setToken(null);
                     setUser(null);
+                    setGrantedScopes([]);
                     setPermissions(null);
-                    await setStoredToken(null).catch(() => {});
+                    await setStoredAuth(null).catch(() => {});
                 }
             })
             .finally(() => {
@@ -237,7 +276,26 @@ export function AuthProvider({ children }) {
         return () => {
             isMounted = false;
         };
-    }, [clearSession, loadUser]);
+        // Hydrate from storage on mount only: the effect always passes an
+        // explicit token to loadUser, and re-running on token changes would
+        // wipe sessions that exist only in memory (e2e mock injection).
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        e2eMockSessionHandler = (session) => {
+            authLoadGenerationRef.current += 1;
+            setToken(session?.accessToken ?? null);
+            setUser(session?.user ?? null);
+            setGrantedScopes(session?.scopes ?? []);
+            setPermissions(null);
+            setIsLoading(false);
+        };
+
+        return () => {
+            e2eMockSessionHandler = null;
+        };
+    }, []);
 
     useEffect(() => {
         setSentryUser(user);
@@ -256,10 +314,12 @@ export function AuthProvider({ children }) {
         const authURL = buildOpenStreetMapAuthorizationURL({
             codeChallenge,
             codeChallengeMethod,
+            scopes: OPENSTREETMAP_DEFAULT_SCOPES,
             state,
         });
         const oauthRequest = {
             codeVerifier,
+            scopes: OPENSTREETMAP_DEFAULT_SCOPES,
             state,
         };
 
@@ -299,6 +359,56 @@ export function AuthProvider({ children }) {
         }
     }, [completeOpenStreetMapLogin, isSigningIn]);
 
+    const hasWriteScope = grantedScopes.includes(OSM_WRITE_SCOPE);
+
+    const ensureWriteAccess = useCallback(
+        async ({ verifyWithServer = false } = {}) => {
+            if (token && grantedScopes.includes(OSM_WRITE_SCOPE)) {
+                const currentSession = {
+                    accessToken: token,
+                    scopes: grantedScopes,
+                    user,
+                };
+
+                if (!verifyWithServer) {
+                    return currentSession;
+                }
+
+                try {
+                    const serverPermissions = await fetchOSMPermissions({
+                        accessToken: token,
+                    });
+
+                    if (serverPermissions?.includes('allow_write_api')) {
+                        return currentSession;
+                    }
+                } catch (error) {
+                    // Only auth failures mean the token lost write access;
+                    // transient errors must not trigger a surprise re-auth.
+                    if (
+                        error?.code !== OSM_ERROR_CODES.unauthorized &&
+                        error?.code !== OSM_ERROR_CODES.forbidden
+                    ) {
+                        throw error;
+                    }
+                }
+            }
+
+            const freshSession = await signInWithOpenStreetMap();
+
+            if (!freshSession?.token) {
+                return null;
+            }
+
+            return {
+                accessToken: freshSession.token,
+                scopes: freshSession.scopes ?? OPENSTREETMAP_DEFAULT_SCOPES,
+                user: freshSession.user ?? null,
+            };
+        },
+        [grantedScopes, signInWithOpenStreetMap, token, user],
+    );
+
     const signOut = useCallback(async () => {
         await clearSession();
     }, [clearSession]);
@@ -306,6 +416,9 @@ export function AuthProvider({ children }) {
     const value = useMemo(
         () => ({
             completeOpenStreetMapLogin,
+            ensureWriteAccess,
+            grantedScopes,
+            hasWriteScope,
             isAuthenticated: Boolean(token),
             isLoading,
             isSigningIn,
@@ -318,6 +431,9 @@ export function AuthProvider({ children }) {
         }),
         [
             completeOpenStreetMapLogin,
+            ensureWriteAccess,
+            grantedScopes,
+            hasWriteScope,
             isLoading,
             isSigningIn,
             loadUser,

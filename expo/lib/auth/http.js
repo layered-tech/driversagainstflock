@@ -18,15 +18,13 @@ export async function readJSONResponse(response) {
 }
 
 export async function fetchWithTimeout(url, options = {}) {
+    const { timeoutMs = AUTH_REQUEST_TIMEOUT_MS, ...fetchOptions } = options;
     const controller = new AbortController();
-    const timeoutId = setTimeout(
-        () => controller.abort(),
-        AUTH_REQUEST_TIMEOUT_MS,
-    );
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
         return await fetch(url, {
-            ...options,
+            ...fetchOptions,
             signal: controller.signal,
         });
     } catch (error) {
