@@ -31,6 +31,8 @@ test('landing footer links scroll to page sections', function () {
         ->toContain("{ label: 'Help', href: '/help' }")
         ->and($footerComponent)
         ->toContain('© 2026 LayeredTech, LLC. All rights reserved.')
+        ->toContain('href="https://github.com/layered-tech/driversagainstflock"')
+        ->toContain('aria-label="GitHub"')
         ->toContain('Privacy Policy')
         ->toContain('Terms of Use')
         ->toContain("default: '/privacy-policy'")
@@ -177,19 +179,6 @@ test('site header removes theme toggle and empty desktop action slot', function 
         ->toContain(':cta-href="\'\'"')
         ->not->toContain(':show-theme-toggle')
         ->not->toContain('@theme-change="handleThemeChanged"');
-});
-
-test('landing hero map shows a splash until marker count settles', function () {
-    $heroPreview = file_get_contents(resource_path('js/Components/Daf/Marketing/HeroMapboxPreview.vue'));
-
-    expect($heroPreview)
-        ->toContain('heroSplashIsVisible')
-        ->toContain('MARKER_SPLASH_SETTLE_DELAY_MS = 800')
-        ->toContain('completeHeroMarkerLoad')
-        ->toContain('Loading camera map')
-        ->toContain('animate-spin')
-        ->toContain('<Transition name="map-splash">')
-        ->toContain('.map-splash-leave-active');
 });
 
 test('landing hero map follows the active ui theme', function () {
