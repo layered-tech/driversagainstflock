@@ -1,0 +1,74 @@
+appId: com.anonymous.drivefree.dev
+name: Expanded Search Results Panel Mocked
+tags:
+  - map
+  - search
+---
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    commands:
+      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- extendedWaitUntil:
+    visible:
+      id: "map-search-input-map"
+    timeout: 30000
+- openLink: "driversagainstflock://e2e-mocks"
+- extendedWaitUntil:
+    visible:
+      id: "map-search-input-map"
+    timeout: 10000
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+
+- tapOn:
+    id: "map-search-input-map"
+- inputText: "walmart"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      id: "submitted-search-result-0"
+    timeout: 30000
+- assertVisible:
+    id: "submitted-search-result-count"
+- assertVisible:
+    text: '2 places for "walmart"'
+- tapOn:
+    id: "submitted-search-result-0"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: "selected-place-title"
+    timeout: 30000
+- assertVisible:
+    text: "Walmart Supercenter"
+- extendedWaitUntil:
+    visible:
+      id: "selected-place-back-to-results-button"
+    timeout: 10000
+- tapOn:
+    id: "selected-place-back-to-results-button"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: "submitted-search-result-1"
+    timeout: 30000
+- tapOn:
+    id: "submitted-search-result-1"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: "selected-place-title"
+    timeout: 30000
+- assertVisible:
+    text: "Walmart Neighborhood Market"
+- assertVisible:
+    text: ".*Grocery store.*"

@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- page name="Web — Full map" description="Full-screen map app: header nav, Map/Directions switch, search, top-right controls, route-choice modal." -->
+<helmet>
+  <script src="./ds-base.js"></script>
+  <style>
+    *{ box-sizing:border-box; }
+    .daf-ctl{ -webkit-tap-highlight-color:transparent; }
+    .daf-nav a{ color:inherit; text-decoration:none; transition:color var(--dur-base) var(--ease-standard); }
+    .daf-nav a:hover{ color:var(--text-primary); }
+    /* route-selection dimming — driven by data-route on the root, so no style holes */
+    .route-fast, .route-private{ transition:opacity var(--dur-base) var(--ease-standard); }
+    [data-route="fast"] .route-private{ opacity:0.4; }
+    [data-route="private"] .route-fast{ opacity:0.4; }
+    /* settings disclosure chevron */
+    .daf-chev{ transition:transform var(--dur-base) var(--ease-standard); }
+    button[aria-expanded="true"] .daf-chev{ transform:rotate(180deg); }
+    /* dismissable side panels — driven by data-*-collapsed on root, no style holes */
+    .route-panel, .marker-panel{ transition:transform var(--dur-base) var(--ease-standard); }
+    [data-route-collapsed="collapsed"] .route-panel{ transform:translateX(calc(-100% - 16px)); }
+    [data-marker-collapsed="collapsed"] .marker-panel{ transform:translateX(calc(100% + 16px)); }
+    .route-chev, .marker-chev{ transition:transform var(--dur-base) var(--ease-standard); }
+    [data-route-collapsed="collapsed"] .route-chev{ transform:rotate(180deg); }
+    [data-marker-collapsed="collapsed"] .marker-chev{ transform:rotate(180deg); }
+    /* live pulse on the node-totals card */
+    @keyframes daf-pulse-dot{ 0%{ transform:scale(1); opacity:0.55; } 70%{ transform:scale(2.6); opacity:0; } 100%{ transform:scale(2.6); opacity:0; } }
+    @media (prefers-reduced-motion: no-preference){ .daf-live-ring{ animation:daf-pulse-dot 2.4s var(--ease-standard) infinite; } }
+    /* map-type vertical toggle — driven by data-maptype, no style holes */
+    .daf-mt-opt{ border:1.5px solid var(--border-light); transition:border-color var(--dur-base) var(--ease-standard), box-shadow var(--dur-base) var(--ease-standard); }
+    .daf-mt-opt:hover{ border-color:var(--border-strong); }
+    [data-maptype="map"] .daf-mt-map, [data-maptype="satellite"] .daf-mt-sat{ border-color:var(--text-brand); box-shadow:0 0 0 1px var(--text-brand) inset; }
+    .daf-mt-check{ opacity:0; transform:scale(0.7); transition:opacity var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-standard); }
+    [data-maptype="map"] .daf-mt-map .daf-mt-check, [data-maptype="satellite"] .daf-mt-sat .daf-mt-check{ opacity:1; transform:scale(1); }
+  </style>
+</helmet>
+
+<div data-theme="{{ theme }}" data-route="{{ routeMode }}" data-route-collapsed="{{ routeCollapsed }}" data-marker-collapsed="{{ markerCollapsed }}" data-screen-label="Web — Full map" style="position:fixed; inset:0; display:flex; flex-direction:column; overflow:hidden; font-family:var(--font-ui); color:var(--text-primary); background:var(--surface-page);">
+
+  <!-- ===== HEADER (opaque) ===== -->
+  <x-import component-from-global-scope="DesignSystem_aa8750.SiteHeader" logo-src="assets/logo-mark.png" variant="app" logo-href="WebLanding.dc.html" links="{{ navLinks }}" hint-size="100%,64px"></x-import>
+
+  <!-- ===== MAP REGION ===== -->
+  <div style="position:relative; flex:1 1 auto; min-height:0;">
+
+    <!-- map canvas -->
+    <dc-import name="SchematicMap" view="{{ mapType }}" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
+
+    <!-- route lines (directions) -->
+    <sc-if value="{{ showDirections }}" hint-placeholder-val="{{ true }}">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; z-index:2;">
+        <path d="M55 63 C 53 52, 51 42, 47 34 S 43 25, 41 21" fill="none" stroke="var(--route-fast-casing)" stroke-width="11" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" class="route-fast"></path>
+        <path d="M55 63 C 53 52, 51 42, 47 34 S 43 25, 41 21" fill="none" stroke="var(--route-fast)" stroke-width="7" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" class="route-fast"></path>
+        <path d="M55 63 C 67 58, 74 47, 66 37 S 49 24, 41 21" fill="none" stroke="var(--route-private-casing)" stroke-width="11" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" class="route-private"></path>
+        <path d="M55 63 C 67 58, 74 47, 66 37 S 49 24, 41 21" fill="none" stroke="var(--route-private)" stroke-width="7" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" class="route-private"></path>
+      </svg>
+    </sc-if>
+
+    <!-- surveillance markers -->
+    <div class="daf-ctl" onClick="{{ c1Pick }}" style="position:absolute; left:39%; top:33%; transform:translate(-50%,-50%); cursor:pointer; z-index:4;">
+      <x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="camera" heading="120" selected="{{ c1Sel }}" hint-size="44px,44px"></x-import>
+    </div>
+    <div class="daf-ctl" onClick="{{ c2Pick }}" style="position:absolute; left:62%; top:29%; transform:translate(-50%,-50%); cursor:pointer; z-index:4;">
+      <x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="camera" heading="225" selected="{{ c2Sel }}" hint-size="44px,44px"></x-import>
+    </div>
+    <div class="daf-ctl" onClick="{{ c3Pick }}" style="position:absolute; left:30%; top:67%; transform:translate(-50%,-50%); cursor:pointer; z-index:4;">
+      <x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="camera" heading="15" selected="{{ c3Sel }}" hint-size="44px,44px"></x-import>
+    </div>
+    <div class="daf-ctl" onClick="{{ a1Pick }}" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); cursor:pointer; z-index:4;">
+      <x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="alpr" selected="{{ a1Sel }}" hint-size="44px,44px"></x-import>
+    </div>
+    <div class="daf-ctl" onClick="{{ a2Pick }}" style="position:absolute; left:57%; top:57%; transform:translate(-50%,-50%); cursor:pointer; z-index:4;">
+      <x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="alpr" selected="{{ a2Sel }}" hint-size="44px,44px"></x-import>
+    </div>
+
+    <!-- user location -->
+    <div style="position:absolute; left:55%; top:63%; transform:translate(-50%,-50%); z-index:3;">
+      <x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="user" heading="34" hint-size="64px,64px"></x-import>
+    </div>
+
+    <!-- clusters + places (map browse) -->
+    <sc-if value="{{ showClusters }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute; left:13%; top:19%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="cluster" count="14" hint-size="40px,40px"></x-import></div>
+      <div style="position:absolute; left:86%; top:24%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="cluster" count="8" hint-size="40px,40px"></x-import></div>
+      <div style="position:absolute; left:82%; top:81%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="cluster" count="5" hint-size="40px,40px"></x-import></div>
+      <div style="position:absolute; left:45%; top:43%; transform:translate(-50%,-100%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="place" icon-name="coffee" label="Ritual Coffee" hint-size="46px,72px"></x-import></div>
+      <div style="position:absolute; left:69%; top:74%; transform:translate(-50%,-100%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="place" icon-name="fuel" label="Shell" hint-size="46px,72px"></x-import></div>
+    </sc-if>
+
+    <!-- destination + monitored nodes (directions) -->
+    <sc-if value="{{ showDirections }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute; left:41%; top:21%; transform:translate(-50%,-100%); z-index:6;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="destination" icon-name="flag" label="Ferry Building" selected="{{ true }}" hint-size="46px,72px"></x-import></div>
+      <div style="position:absolute; left:51%; top:42.5%; transform:translate(-50%,-50%); z-index:5;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="monitored" hint-size="16px,16px"></x-import></div>
+      <div style="position:absolute; left:47%; top:34%; transform:translate(-50%,-50%); z-index:5;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="monitored" hint-size="16px,16px"></x-import></div>
+    </sc-if>
+
+    <!-- ===== TOP-MIDDLE: Map / Directions switch + nodes-in-view counter ===== -->
+    <div style="position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:30; display:flex; align-items:center; gap:10px;">
+      <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="glass" options="{{ segOptions }}" value="{{ mode }}" onChange="{{ setMode }}" hint-size="240px,44px"></x-import>
+
+      <!-- nodes-in-view counter, grouped to the right of the toggle -->
+      <div style="display:inline-flex; align-items:center; gap:11px; height:44px; padding:0 18px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-radius:var(--radius-pill); box-shadow:var(--shadow-float); color:var(--text-primary); white-space:nowrap;">
+        <span style="position:relative; flex:0 0 auto; width:7px; height:7px; display:inline-flex; align-items:center; justify-content:center;">
+          <span class="daf-live-ring" style="position:absolute; inset:0; border-radius:50%; background:var(--text-brand);"></span>
+          <span style="position:relative; width:7px; height:7px; border-radius:50%; background:var(--text-brand);"></span>
+        </span>
+        <span style="font-family:var(--font-display); font-size:22px; line-height:1; font-weight:var(--fw-medium); letter-spacing:-0.02em; font-variant-numeric:tabular-nums; color:var(--text-primary);">32</span>
+        <span style="font-size:var(--fs-body-sm); color:var(--text-secondary); line-height:1.1;">nodes in view</span>
+      </div>
+    </div>
+
+    <!-- ===== TOP-LEFT: search / directions ===== -->
+    <div style="position:absolute; top:16px; left:16px; z-index:25; display:flex; flex-direction:column; gap:10px; width:380px; max-width:calc(100% - 32px);">
+
+      <!-- MAP MODE: single search field -->
+      <sc-if value="{{ showSearch }}" hint-placeholder-val="{{ true }}">
+        <x-import component-from-global-scope="DesignSystem_aa8750.Combobox" tone="glass" size="lg" placeholder="Search places, addresses, ZIP…" options="{{ placeOptions }}" onSelect="{{ onPlace }}" hint-size="100%,52px"></x-import>
+      </sc-if>
+
+      <!-- DIRECTIONS MODE: start / stops / destination -->
+      <sc-if value="{{ showDirections }}" hint-placeholder-val="{{ true }}">
+        <div style="background:var(--surface-raised); border:1px solid var(--border-glass); border-radius:var(--radius-2xl); box-shadow:var(--shadow-float); padding:14px; color:var(--text-primary);">
+
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+            <span style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:var(--radius-md); background:var(--brand-soft); color:var(--text-brand);"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg></span>
+            <span style="font-family:var(--font-display); font-size:var(--fs-body-lg); font-weight:var(--fw-bold); letter-spacing:var(--ls-heading);">Directions</span>
+            <span style="flex:1;"></span>
+            <button class="daf-ctl" aria-label="Close directions" onClick="{{ exitDirections }}" style="width:30px; height:30px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; color:var(--text-tertiary); cursor:pointer; border-radius:var(--radius-md);"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></button>
+          </div>
+
+          <!-- waypoint rows -->
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <sc-for list="{{ waypoints }}" as="wp" hint-placeholder-count="2">
+              <div onDragOver="{{ wp.onDragOver }}" onDrop="{{ wp.onDrop }}" style="display:flex; align-items:center; gap:8px;">
+
+                <!-- drag handle -->
+                <div draggable="true" onDragStart="{{ wp.onDragStart }}" onDragEnd="{{ wp.onDragEnd }}" aria-label="Drag to reorder" style="flex:0 0 auto; cursor:grab; display:grid; grid-template-columns:repeat(2, 2px); grid-auto-rows:2px; gap:3px; padding:6px 3px; color:var(--text-tertiary);">
+                  <span style="width:2px; height:2px; border-radius:50%; background:currentColor;"></span>
+                  <span style="width:2px; height:2px; border-radius:50%; background:currentColor;"></span>
+                  <span style="width:2px; height:2px; border-radius:50%; background:currentColor;"></span>
+                  <span style="width:2px; height:2px; border-radius:50%; background:currentColor;"></span>
+                  <span style="width:2px; height:2px; border-radius:50%; background:currentColor;"></span>
+                  <span style="width:2px; height:2px; border-radius:50%; background:currentColor;"></span>
+                </div>
+
+                <!-- node rail -->
+                <div style="position:relative; flex:0 0 auto; width:14px; align-self:stretch; display:flex; align-items:center; justify-content:center;">
+                  <sc-if value="{{ wp.showConnector }}" hint-placeholder-val="{{ true }}">
+                    <span style="position:absolute; left:50%; top:50%; height:calc(100% + 8px); width:0; transform:translateX(-50%); border-left:2px dotted var(--border-strong); z-index:0;"></span>
+                  </sc-if>
+                  <sc-if value="{{ wp.isOrigin }}" hint-placeholder-val="{{ true }}">
+                    <span style="position:relative; z-index:1; width:12px; height:12px; border-radius:50%; border:3px solid var(--text-secondary); background:var(--surface-raised); box-sizing:border-box;"></span>
+                  </sc-if>
+                  <sc-if value="{{ wp.isStop }}" hint-placeholder-val="{{ false }}">
+                    <span style="position:relative; z-index:1; width:9px; height:9px; border-radius:50%; background:var(--text-tertiary);"></span>
+                  </sc-if>
+                  <sc-if value="{{ wp.isDestination }}" hint-placeholder-val="{{ true }}">
+                    <span style="position:relative; z-index:1; width:12px; height:12px; border-radius:3px; background:var(--text-brand);"></span>
+                  </sc-if>
+                </div>
+
+                <!-- field -->
+                <input value="{{ wp.value }}" placeholder="{{ wp.placeholder }}" onChange="{{ wp.onChange }}" style="flex:1; min-width:0; border:1.5px solid transparent; background:var(--surface-card-alt); border-radius:var(--radius-md); padding:9px 12px; font-family:var(--font-ui); font-size:var(--fs-body); color:var(--text-primary); outline:none;" style-focus="border-color:var(--text-brand); background:var(--surface-raised);">
+
+                <!-- remove (stops only) -->
+                <sc-if value="{{ wp.canRemove }}" hint-placeholder-val="{{ false }}">
+                  <button class="daf-ctl" aria-label="Remove stop" onClick="{{ wp.onRemove }}" style="flex:0 0 auto; width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; color:var(--text-tertiary); cursor:pointer; border-radius:var(--radius-md);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></button>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- add stop -->
+          <button class="daf-ctl" onClick="{{ addStop }}" style="display:flex; align-items:center; gap:8px; margin-top:10px; padding:8px 4px; border:none; background:transparent; cursor:pointer; color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body); font-weight:var(--fw-medium); white-space:nowrap;">
+            <span style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--surface-card-alt); color:var(--text-secondary); flex:0 0 auto;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></span>
+            Add stop
+          </button>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- ===== TOP-RIGHT: settings + zoom + locate ===== -->
+    <div style="position:absolute; top:16px; right:16px; z-index:25; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
+      <div class="daf-ctl" onClick="{{ openOptions }}"><x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Map options" variant="glass" size="md" hint-size="44px,44px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"></path><path d="m6.08 9.5-3.49 1.59a1 1 0 0 0 0 1.81l8.59 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.49-1.59"></path><path d="m6.08 14.5-3.49 1.59a1 1 0 0 0 0 1.81l8.59 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.49-1.59"></path></svg></x-import></div>
+
+      <div style="display:flex; flex-direction:column; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-radius:var(--radius-pill); box-shadow:var(--shadow-float); overflow:hidden;">
+        <button class="daf-ctl" aria-label="Zoom in" style="width:46px; height:46px; border:none; background:transparent; color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+        <span style="height:1px; background:var(--border-glass);"></span>
+        <button class="daf-ctl" aria-label="Zoom out" style="width:46px; height:46px; border:none; background:transparent; color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center;"><span style="width:14px; height:2px; border-radius:2px; background:currentColor;"></span></button>
+      </div>
+
+      <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Track my location" variant="brand" size="md" hint-size="46px,46px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="2" x2="5" y1="12" y2="12"></line><line x1="19" x2="22" y1="12" y2="12"></line><line x1="12" x2="12" y1="2" y2="5"></line><line x1="12" x2="12" y1="19" y2="22"></line><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="1"></circle></svg></x-import>
+    </div>
+
+    <!-- ===== BOTTOM-LEFT: route-choice panel (always shown) ===== -->
+    <div style="position:absolute; left:16px; bottom:24px; z-index:30; width:440px; max-width:calc(100% - 32px);">
+      <div role="dialog" aria-modal="false" class="route-panel" style="position:relative; background:var(--surface-raised); border:1px solid var(--border-glass); border-radius:var(--radius-2xl); box-shadow:var(--shadow-sheet); padding:var(--space-6); color:var(--text-primary);">
+
+        <button class="daf-ctl route-handle" onClick="{{ toggleRouteCollapsed }}" aria-label="Hide route panel" style="position:absolute; top:50%; right:-21px; transform:translateY(-50%); width:22px; height:60px; display:flex; align-items:center; justify-content:center; padding:0; border:1px solid var(--border-glass); border-left:none; border-radius:0 var(--radius-md) var(--radius-md) 0; background:var(--surface-raised); color:var(--text-tertiary); cursor:pointer;" style-hover="color:var(--text-primary);"><span class="route-chev" style="display:inline-flex;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></span></button>
+
+        <span style="display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; margin-bottom:14px; border-radius:var(--radius-md); background:var(--brand-soft); color:var(--text-brand);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg></span>
+
+        <h2 style="margin:0; font-family:var(--font-display); font-size:var(--fs-h3); line-height:var(--lh-h3); font-weight:var(--fw-bold); letter-spacing:var(--ls-heading); color:var(--text-primary);">Choose your route</h2>
+        <p style="margin:8px 0 0; font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); text-wrap:pretty;">Two ways to the Ferry Building. The private route skips <b style="color:var(--text-primary);">4 cameras</b> for 3 extra minutes.</p>
+
+        <div style="margin-top:18px; display:grid; gap:8px;">
+          <x-import component-from-global-scope="DesignSystem_aa8750.RouteCard" kind="private" eta="27 min" arrival="arrive 6:15" distance="13.1 mi" cameras="{{ c0 }}" recommended="{{ true }}" selected="{{ privateSelected }}" onClick="{{ pickPrivate }}" hint-size="100%,76px"></x-import>
+          <x-import component-from-global-scope="DesignSystem_aa8750.RouteCard" kind="fast" eta="24 min" arrival="arrive 6:12" distance="12.4 mi" cameras="{{ c4 }}" selected="{{ fastSelected }}" onClick="{{ pickFast }}" hint-size="100%,76px"></x-import>
+        </div>
+
+        <!-- avoid-cameras buffer, tucked behind a Settings disclosure -->
+        <div style="margin-top:18px; padding-top:16px; border-top:1px solid var(--border-glass);">
+          <button class="daf-ctl" onClick="{{ toggleSettings }}" aria-expanded="{{ settingsOpen }}" style="display:flex; align-items:center; gap:9px; width:100%; padding:4px 2px; border:none; background:transparent; cursor:pointer; color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; flex:0 0 auto;"><line x1="4" x2="4" y1="21" y2="14"></line><line x1="4" x2="4" y1="10" y2="3"></line><line x1="12" x2="12" y1="21" y2="12"></line><line x1="12" x2="12" y1="8" y2="3"></line><line x1="20" x2="20" y1="21" y2="16"></line><line x1="20" x2="20" y1="12" y2="3"></line><line x1="2" x2="6" y1="14" y2="14"></line><line x1="10" x2="14" y1="8" y2="8"></line><line x1="18" x2="22" y1="16" y2="16"></line></svg>
+            <span>Advanced Settings</span>
+            <span style="flex:1;"></span>
+            <span style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary);">{{ bufferLabel }}</span>
+            <span class="daf-chev" style="display:inline-flex; color:var(--text-tertiary);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m6 9 6 6 6-6"></path></svg></span>
+          </button>
+          <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:14px; display:grid; gap:14px;">
+              <div style="display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--surface-card-alt); border-radius:var(--radius-md);">
+                <span style="flex:1; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary);">Allow ALPR near start &amp; destination</span>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Switch" checked="{{ allowNearEnds }}" onChange="{{ setAllowNearEnds }}" hint-size="48px,28px"></x-import>
+              </div>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Slider" label="Avoid cameras by" show-value="{{ true }}" min="{{ bufMin }}" max="{{ bufMax }}" step="{{ bufStep }}" value="{{ bufferFt }}" onChange="{{ setBuffer }}" format-value="{{ fmtBuffer }}" hint-size="100%,52px"></x-import>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:var(--space-6);">
+          <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="ghost" size="md" hint-size="auto,44px">Cancel</x-import>
+          <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="md" hint-size="auto,44px">View Route</x-import>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== BOTTOM-RIGHT: marker details card ===== -->
+    <div style="position:absolute; right:16px; bottom:24px; z-index:30; width:380px; max-width:calc(100% - 32px); display:flex; flex-direction:column; gap:12px; align-items:stretch;">
+
+      <div role="dialog" aria-modal="false" class="marker-panel" style="position:relative; background:var(--surface-raised); border:1px solid var(--border-glass); border-radius:var(--radius-2xl); box-shadow:var(--shadow-sheet); padding:var(--space-6); color:var(--text-primary);">
+
+        <button class="daf-ctl marker-handle" onClick="{{ toggleMarkerCollapsed }}" aria-label="Hide camera details" style="position:absolute; top:50%; left:-21px; transform:translateY(-50%); width:22px; height:60px; display:flex; align-items:center; justify-content:center; padding:0; border:1px solid var(--border-glass); border-right:none; border-radius:var(--radius-md) 0 0 var(--radius-md); background:var(--surface-raised); color:var(--text-tertiary); cursor:pointer;" style-hover="color:var(--text-primary);"><span class="marker-chev" style="display:inline-flex;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m9 18 6-6-6-6"></path></svg></span></button>
+
+        <button class="daf-ctl" aria-label="Close marker details" style="position:absolute; top:14px; right:14px; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; color:var(--text-tertiary); cursor:pointer; border-radius:var(--radius-md);"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></button>
+
+        <!-- ===== CAMERA marker ===== -->
+        <sc-if value="{{ isCamera }}" hint-placeholder-val="{{ true }}">
+          <h2 style="margin:0 36px 2px 0; font-family:var(--font-display); font-size:var(--fs-h3); line-height:var(--lh-h3); font-weight:var(--fw-bold); letter-spacing:var(--ls-heading); color:var(--text-primary);">ALPR camera</h2>
+          <div style="font-size:var(--fs-body-sm); font-family:var(--font-mono); color:var(--text-tertiary); margin-bottom:14px;">37.7841, -122.4194</div>
+
+          <div style="display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap;">
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="alert" hint-size="auto,24px">ALPR</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="neutral" hint-size="auto,24px">Flock Safety</x-import>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px 16px; margin-bottom:16px;">
+            <div><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">Manufacturer</div><div style="font-size:var(--fs-body-sm); font-weight:var(--fw-medium);">Flock Safety</div></div>
+            <div><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">Direction</div><div style="font-size:var(--fs-body-sm); font-weight:var(--fw-medium);">160° · facing S</div></div>
+            <div><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">OSM ID</div><div style="font-size:var(--fs-body-sm); font-family:var(--font-mono);">node/11482931</div></div>
+            <div><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">Updated</div><div style="font-size:var(--fs-body-sm); font-family:var(--font-mono);">2025-11-02</div></div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:9px; padding:10px 12px; background:var(--surface-card-alt); border-radius:var(--radius-sm); margin-bottom:16px;">
+            <span style="color:var(--text-tertiary); flex:0 0 auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg></span>
+            <span style="font-size:var(--fs-caption); color:var(--text-secondary);">From OpenStreetMap contributors</span>
+          </div>
+
+          <div style="display:grid; gap:8px;">
+            <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="secondary" size="md" full-width="{{ true }}" hint-size="100%,46px">Open on OpenStreetMap  ↗</x-import>
+          </div>
+        </sc-if>
+
+        <!-- ===== PLACE — business ===== -->
+        <sc-if value="{{ isBusiness }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:flex-start; gap:13px; margin:0 36px 14px 0;">
+            <span style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:var(--radius-md); background:var(--brand-soft); color:var(--text-brand);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M10 2v2"></path><path d="M14 2v2"></path><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"></path><path d="M6 2v2"></path></svg></span>
+            <div style="min-width:0;">
+              <h2 style="margin:0 0 2px; font-family:var(--font-display); font-size:var(--fs-h3); line-height:var(--lh-h3); font-weight:var(--fw-bold); letter-spacing:var(--ls-heading); color:var(--text-primary);">Ritual Coffee Roasters</h2>
+              <div style="display:flex; align-items:center; gap:6px; font-size:var(--fs-body-sm); color:var(--text-secondary);">
+                <span style="color:var(--warning);"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="display:block;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></span>
+                <span style="font-weight:var(--fw-semibold); color:var(--text-primary);">4.6</span>
+                <span>(1,248)</span>
+                <span style="color:var(--text-tertiary);">·</span>
+                <span>Café · $$</span>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:var(--fs-body-sm); font-family:var(--font-mono); color:var(--text-tertiary); margin-bottom:14px;">1026 Valencia St, San Francisco</div>
+
+          <div style="display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap;">
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="brand" hint-size="auto,24px">Coffee shop</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="info" hint-size="auto,24px">Open now</x-import>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px 16px; margin-bottom:16px;">
+            <div><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">Hours</div><div style="font-size:var(--fs-body-sm); font-weight:var(--fw-medium);">Closes 8:00 PM</div></div>
+            <div><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">Phone</div><div style="font-size:var(--fs-body-sm); font-weight:var(--fw-medium);">(415) 641-1011</div></div>
+            <div><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">Website</div><div style="font-size:var(--fs-body-sm); font-weight:var(--fw-medium); color:var(--text-brand);">ritualcoffee.com</div></div>
+            <div><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">Neighborhood</div><div style="font-size:var(--fs-body-sm); font-weight:var(--fw-medium);">Mission District</div></div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:9px; padding:10px 12px; background:rgba(255,176,46,0.12); border-radius:var(--radius-sm); margin-bottom:16px;">
+            <span style="color:var(--warning); flex:0 0 auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><circle cx="12" cy="12" r="1"></circle><path d="M18.944 12.33a1 1 0 0 0 0-.66 7.5 7.5 0 0 0-13.888 0 1 1 0 0 0 0 .66 7.5 7.5 0 0 0 13.888 0"></path></svg></span>
+            <span style="font-size:var(--fs-caption); color:var(--text-secondary);"><b style="color:var(--text-primary); font-weight:var(--fw-semibold);">3 ALPR cameras</b> within 500 ft</span>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="md" full-width="{{ true }}" hint-size="100%,46px">Directions</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="secondary" size="md" full-width="{{ true }}" hint-size="100%,46px">Save</x-import>
+          </div>
+        </sc-if>
+
+        <!-- ===== PLACE — residential address ===== -->
+        <sc-if value="{{ isResidential }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:flex-start; gap:13px; margin:0 36px 14px 0;">
+            <span style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:var(--radius-md); background:var(--surface-card-alt); color:var(--text-secondary);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></span>
+            <div style="min-width:0;">
+              <h2 style="margin:0 0 2px; font-family:var(--font-display); font-size:var(--fs-h3); line-height:var(--lh-h3); font-weight:var(--fw-bold); letter-spacing:var(--ls-heading); color:var(--text-primary);">412 Hayes St</h2>
+              <div style="font-size:var(--fs-body-sm); color:var(--text-secondary);">Hayes Valley, San Francisco</div>
+            </div>
+          </div>
+          <div style="font-size:var(--fs-body-sm); font-family:var(--font-mono); color:var(--text-tertiary); margin-bottom:14px;">37.7765, -122.4242</div>
+
+          <div style="display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap;">
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="neutral" hint-size="auto,24px">Residential</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="ghost" hint-size="auto,24px">Address</x-import>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px 16px; margin-bottom:16px;">
+            <div><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">Neighborhood</div><div style="font-size:var(--fs-body-sm); font-weight:var(--fw-medium);">Hayes Valley</div></div>
+            <div><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">ZIP</div><div style="font-size:var(--fs-body-sm); font-family:var(--font-mono);">94102</div></div>
+            <div><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">County</div><div style="font-size:var(--fs-body-sm); font-weight:var(--fw-medium);">San Francisco</div></div>
+            <div><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">Plus code</div><div style="font-size:var(--fs-body-sm); font-family:var(--font-mono);">QHHC+R8</div></div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:9px; padding:10px 12px; background:rgba(255,176,46,0.12); border-radius:var(--radius-sm); margin-bottom:16px;">
+            <span style="color:var(--warning); flex:0 0 auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><circle cx="12" cy="12" r="1"></circle><path d="M18.944 12.33a1 1 0 0 0 0-.66 7.5 7.5 0 0 0-13.888 0 1 1 0 0 0 0 .66 7.5 7.5 0 0 0 13.888 0"></path></svg></span>
+            <span style="font-size:var(--fs-caption); color:var(--text-secondary);"><b style="color:var(--text-primary); font-weight:var(--fw-semibold);">2 ALPR cameras</b> within 500 ft</span>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="md" full-width="{{ true }}" hint-size="100%,46px">Directions</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="secondary" size="md" full-width="{{ true }}" hint-size="100%,46px">Save</x-import>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+
+    <!-- ===== MAP OPTIONS MODAL ===== -->
+    <sc-if value="{{ optionsOpen }}" hint-placeholder-val="{{ false }}">
+      <x-import component-from-global-scope="DesignSystem_aa8750.Dialog" open="{{ true }}" onClose="{{ closeOptions }}" icon="layers" tone="brand" size="sm" title="Map options" hint-size="380px,400px">
+        <div style="display:flex; flex-direction:column; gap:22px;">
+          <div>
+            <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:10px;">Map type</div>
+            <div data-maptype="{{ mapType }}" style="display:flex; flex-direction:column; gap:10px;">
+
+              <button class="daf-ctl daf-mt-opt daf-mt-map" onClick="{{ pickMap }}" aria-label="Use the standard map" style="display:flex; align-items:center; gap:14px; width:100%; padding:10px; border-radius:var(--radius-lg); background:var(--surface-card-alt); cursor:pointer; text-align:left; font-family:var(--font-ui);">
+                <span style="position:relative; flex:0 0 auto; width:92px; height:58px; border-radius:var(--radius-md); overflow:hidden; border:1px solid var(--border-glass);">
+                  <svg viewBox="0 0 120 76" preserveAspectRatio="xMidYMid slice" style="position:absolute; inset:0; width:100%; height:100%; display:block; background:var(--map-land);"><rect x="0" y="0" width="120" height="76" fill="var(--map-land)"></rect><rect x="34" y="26" width="52" height="34" rx="4" fill="var(--map-land-alt)"></rect><path d="M120 -4 L120 34 C 96 30, 86 14, 92 -4 Z" fill="var(--map-water)"></path><ellipse cx="20" cy="62" rx="26" ry="16" fill="var(--map-park)"></ellipse><g stroke="var(--map-road-minor)" stroke-width="2" stroke-linecap="round"><line x1="40" y1="-4" x2="40" y2="80"></line><line x1="78" y1="-4" x2="78" y2="80"></line><line x1="-4" y1="28" x2="124" y2="28"></line><line x1="-4" y1="54" x2="124" y2="54"></line></g><g stroke="var(--map-road)" stroke-width="4" stroke-linecap="round" fill="none"><path d="M60 -4 C 64 26, 56 50, 62 80"></path><path d="M-4 40 C 40 46, 84 36, 124 42"></path></g></svg>
+                </span>
+                <span style="font-size:var(--fs-body); font-weight:var(--fw-semibold); color:var(--text-primary);">Map</span>
+                <span class="daf-mt-check" style="margin-left:auto; display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--text-brand); color:#fff; flex:0 0 auto;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M20 6 9 17l-5-5"></path></svg></span>
+              </button>
+
+              <button class="daf-ctl daf-mt-opt daf-mt-sat" onClick="{{ pickSatellite }}" aria-label="Use satellite imagery" style="display:flex; align-items:center; gap:14px; width:100%; padding:10px; border-radius:var(--radius-lg); background:var(--surface-card-alt); cursor:pointer; text-align:left; font-family:var(--font-ui);">
+                <span style="position:relative; flex:0 0 auto; width:92px; height:58px; border-radius:var(--radius-md); overflow:hidden; border:1px solid var(--border-glass); --map-land:#3a3f2e; --map-land-alt:#454a38; --map-water:#1e3046; --map-park:#36492c; --map-road:#e9e4d6; --map-road-minor:rgba(233,228,214,0.4);">
+                  <svg viewBox="0 0 120 76" preserveAspectRatio="xMidYMid slice" style="position:absolute; inset:0; width:100%; height:100%; display:block; background:var(--map-land);"><rect x="0" y="0" width="120" height="76" fill="var(--map-land)"></rect><rect x="34" y="26" width="52" height="34" rx="4" fill="var(--map-land-alt)"></rect><path d="M120 -4 L120 34 C 96 30, 86 14, 92 -4 Z" fill="var(--map-water)"></path><ellipse cx="20" cy="62" rx="26" ry="16" fill="var(--map-park)"></ellipse><g stroke="var(--map-road-minor)" stroke-width="2" stroke-linecap="round"><line x1="40" y1="-4" x2="40" y2="80"></line><line x1="78" y1="-4" x2="78" y2="80"></line><line x1="-4" y1="28" x2="124" y2="28"></line><line x1="-4" y1="54" x2="124" y2="54"></line></g><g stroke="var(--map-road)" stroke-width="4" stroke-linecap="round" fill="none"><path d="M60 -4 C 64 26, 56 50, 62 80"></path><path d="M-4 40 C 40 46, 84 36, 124 42"></path></g></svg>
+                </span>
+                <span style="font-size:var(--fs-body); font-weight:var(--fw-semibold); color:var(--text-primary);">Satellite</span>
+                <span class="daf-mt-check" style="margin-left:auto; display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--text-brand); color:#fff; flex:0 0 auto;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M20 6 9 17l-5-5"></path></svg></span>
+              </button>
+
+            </div>
+          </div>
+          <div>
+            <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:10px;">Appearance</div>
+            <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="light" options="{{ themeModeOptions }}" value="{{ themeMode }}" onChange="{{ setThemeMode }}" hint-size="100%,44px"></x-import>
+          </div>
+        </div>
+      </x-import>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:800},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;,&quot;auto&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark' | 'auto'&quot;},&quot;markerCard&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;camera&quot;,&quot;business&quot;,&quot;residential&quot;],&quot;default&quot;:&quot;camera&quot;,&quot;tsType&quot;:&quot;'camera' | 'business' | 'residential'&quot;}}">
+class Component extends DCLogic {
+  state = {
+    themeMode: this.props.theme ?? 'light',
+    mapType: 'map',
+    optionsOpen: false,
+    systemDark: false,
+    mode: 'map',
+    routeMode: 'private',
+    selectedId: null,
+    bufferFt: 250,
+    allowNearEnds: false,
+    settingsOpen: false,
+    routeCollapsed: false,
+    markerCollapsed: false,
+    waypoints: [{ id: 'wp-a', value: 'Your location' }, { id: 'wp-b', value: 'Ferry Building' }],
+    dragIndex: null,
+  };
+  nextId = 1;
+
+  // The Light/Dark/Auto tweak drives the initial appearance; the Map options modal flips it live.
+  componentDidUpdate(prevProps) {
+    if (prevProps.theme !== this.props.theme) {
+      this.setState({ themeMode: this.props.theme ?? 'light' });
+    }
+  }
+  componentDidMount() {
+    try {
+      this._mq = window.matchMedia('(prefers-color-scheme: dark)');
+      this.setState({ systemDark: this._mq.matches });
+      this._mqHandler = (e) => this.setState({ systemDark: e.matches });
+      this._mq.addEventListener('change', this._mqHandler);
+    } catch (_) {}
+  }
+  componentWillUnmount() {
+    try { this._mq && this._mq.removeEventListener('change', this._mqHandler); } catch (_) {}
+  }
+
+  setMode(m) { this.setState({ mode: m }); }
+  setRoute(m) { this.setState({ routeMode: m }); }
+
+  // ---- directions waypoints ----
+  addStop() {
+    this.setState(s => {
+      const wp = s.waypoints.slice();
+      wp.splice(wp.length - 1, 0, { id: 'wp-' + (this.nextId++), value: '' });
+      return { waypoints: wp };
+    });
+  }
+  removeWp(id) {
+    this.setState(s => ({ waypoints: s.waypoints.filter(w => w.id !== id) }));
+  }
+  setWpValue(id, v) {
+    this.setState(s => ({ waypoints: s.waypoints.map(w => (w.id === id ? { ...w, value: v } : w)) }));
+  }
+  dragStart(i, e) {
+    this.setState({ dragIndex: i });
+    try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i)); } catch (_) {}
+  }
+  dragOver(i, e) {
+    e.preventDefault();
+    const from = this.state.dragIndex;
+    if (from == null || from === i) return;
+    this.setState(s => {
+      const wp = s.waypoints.slice();
+      const [moved] = wp.splice(from, 1);
+      wp.splice(i, 0, moved);
+      return { waypoints: wp, dragIndex: i };
+    });
+  }
+  dragEnd() { this.setState({ dragIndex: null }); }
+  setMapType(t) { this.setState({ mapType: t }); }
+  setThemeMode(m) { this.setState({ themeMode: m }); }
+  openOptions() { this.setState({ optionsOpen: true }); }
+  closeOptions() { this.setState({ optionsOpen: false }); }
+  setBuffer(v) { this.setState({ bufferFt: v }); }
+  setAllowNearEnds(v) { this.setState({ allowNearEnds: v }); }
+  toggleSettings() { this.setState(s => ({ settingsOpen: !s.settingsOpen })); }  select(id) { this.setState(s => ({ selectedId: s.selectedId === id ? null : id })); }
+  toggleRouteCollapsed() { this.setState(s => ({ routeCollapsed: !s.routeCollapsed })); }
+  toggleMarkerCollapsed() { this.setState(s => ({ markerCollapsed: !s.markerCollapsed })); }
+
+  renderVals() {
+    const { mode, routeMode, selectedId } = this.state;
+    const themeMode = this.state.themeMode;
+    const theme = themeMode === 'auto' ? (this.state.systemDark ? 'dark' : 'light') : themeMode;
+
+    // Per-marker selection + click handlers (flat, so positions stay literal in the template).
+    const ids = ['c1', 'c2', 'c3', 'a1', 'a2'];
+    const markerVals = {};
+    for (const id of ids) {
+      markerVals[id + 'Sel'] = id === selectedId;
+      markerVals[id + 'Pick'] = () => this.select(id);
+    }
+
+    const wps = this.state.waypoints;
+    const n = wps.length;
+    const waypoints = wps.map((w, i) => ({
+      id: w.id,
+      value: w.value,
+      isOrigin: i === 0,
+      isStop: i > 0 && i < n - 1,
+      isDestination: i === n - 1,
+      showConnector: i < n - 1,
+      canRemove: i > 0 && i < n - 1,
+      placeholder: i === 0 ? 'Choose starting point' : (i === n - 1 ? 'Choose destination' : 'Add stop'),
+      onChange: (e) => this.setWpValue(w.id, e.target.value),
+      onRemove: () => this.removeWp(w.id),
+      onDragStart: (e) => this.dragStart(i, e),
+      onDragOver: (e) => this.dragOver(i, e),
+      onDrop: (e) => { e.preventDefault(); this.dragEnd(); },
+      onDragEnd: () => this.dragEnd(),
+    }));
+
+    const placeOptions = [
+      { value: 'ferry',    label: 'Ferry Building',          sublabel: '1 Ferry Building, San Francisco', icon: 'flag',    meta: '2.1 mi' },
+      { value: 'ritual',   label: 'Ritual Coffee Roasters',  sublabel: '1026 Valencia St',                icon: 'coffee',  meta: '0.8 mi' },
+      { value: 'shell',    label: 'Shell',                   sublabel: '598 S Van Ness Ave',              icon: 'fuel',    meta: '1.2 mi' },
+      { value: 'dolores',  label: 'Dolores Park',            sublabel: 'Dolores St & 19th St',            icon: 'map-pin', meta: '1.5 mi' },
+      { value: 'caltrain', label: 'Caltrain — 4th & King',   sublabel: '700 4th St',                      icon: 'map-pin', meta: '2.4 mi' },
+    ];
+
+    const markerCard = this.props.markerCard ?? 'camera';
+
+    return {
+      theme,
+      isCamera: markerCard === 'camera',
+      isBusiness: markerCard === 'business',
+      isResidential: markerCard === 'residential',
+      navLinks: [
+        { label: 'John Doe', href: 'WebLanding.dc.html#johndoe' },
+        { label: 'How it works', href: 'WebLanding.dc.html#how' },
+        { label: 'Android Auto', href: 'WebLanding.dc.html#android-auto' },
+        { label: 'Apps', href: 'WebLanding.dc.html#apps' },
+        { label: 'FAQ', href: 'WebLanding.dc.html#faq' },
+        { label: 'Hotlist', href: 'Hotlist.dc.html' },
+        { label: 'Contribute', href: 'Help.dc.html' },
+      ],
+      mode,
+      showDirections: mode === 'directions',
+      showSearch: mode === 'map',
+      showClusters: mode === 'map',
+      waypoints,
+      addStop: () => this.addStop(),
+      segOptions: [{ value: 'map', label: 'Map' }, { value: 'directions', label: 'Directions' }],
+      setMode: (m) => this.setMode(m),
+      ...markerVals,
+      placeOptions,
+      routeMode,
+      fastSelected: routeMode === 'fast',
+      privateSelected: routeMode === 'private',
+      c0: 0,
+      c4: 4,
+      bufferFt: this.state.bufferFt,
+      bufMin: 0,
+      bufMax: 1000,
+      bufStep: 50,
+      setBuffer: (v) => this.setBuffer(v),
+      fmtBuffer: (v) => `${v.toLocaleString()} ft`,
+      bufferLabel: `${this.state.bufferFt.toLocaleString()} ft`,
+      allowNearEnds: this.state.allowNearEnds,
+      setAllowNearEnds: (v) => this.setAllowNearEnds(v),
+      settingsOpen: this.state.settingsOpen,
+      toggleSettings: () => this.toggleSettings(),
+      routeCollapsed: this.state.routeCollapsed ? 'collapsed' : 'open',
+      markerCollapsed: this.state.markerCollapsed ? 'collapsed' : 'open',
+      toggleRouteCollapsed: () => this.toggleRouteCollapsed(),
+      toggleMarkerCollapsed: () => this.toggleMarkerCollapsed(),
+      mapType: this.state.mapType,
+      pickMap: () => this.setMapType('map'),
+      pickSatellite: () => this.setMapType('satellite'),
+      themeMode,
+      setThemeMode: (m) => this.setThemeMode(m),
+      themeModeOptions: [{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'auto', label: 'Auto' }],
+      optionsOpen: this.state.optionsOpen,
+      openOptions: () => this.openOptions(),
+      closeOptions: () => this.closeOptions(),
+      noop: () => {},
+      enterDirections: () => this.setMode('directions'),
+      exitDirections: () => this.setMode('map'),
+      onPlace: (opt) => this.setState(s => {
+        const wp = s.waypoints.slice();
+        wp[wp.length - 1] = { ...wp[wp.length - 1], value: (opt && opt.label) || wp[wp.length - 1].value };
+        return { mode: 'directions', waypoints: wp };
+      }),
+      pickFast: () => this.setRoute('fast'),
+      pickPrivate: () => this.setRoute('private'),
+    };
+  }
+}
+</script>
+</body>
+</html>

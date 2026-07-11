@@ -1,0 +1,35 @@
+/* ============================================================
+   Drivers Against Flock — Radius, borders & blur
+   (Elevation/shadow tokens live in colors.css — they're theme-aware.)
+
+   Radii are a deliberate, visible ladder. Each step maps to a role:
+     xs   chips of metadata, swatches, inline tags
+     sm   inputs, small controls, icon tiles
+     md   route cards, list rows, banners
+     lg   default card / panel
+     xl   hero panels, large surfaces
+     2xl  marketing blocks, modal shells
+     pill fully-round: buttons, toggles, search, badges
+   ============================================================ */
+
+:root {
+  /* Corner radii */
+  --radius-xs:    6px;   /* tags, swatches            */
+  --radius-sm:    10px;  /* inputs, icon tiles        */
+  --radius-md:    14px;  /* route cards, list rows    */
+  --radius-lg:    18px;  /* default card / panel      */
+  --radius-xl:    24px;  /* hero panels               */
+  --radius-2xl:   32px;  /* marketing / modal shells  */
+  --radius-pill:  999px; /* buttons, toggles, search  */
+  --radius-sheet: 22px;  /* bottom-sheet top corners  */
+
+  /* Border widths */
+  --bw-hairline: 1px;    /* @kind other */
+  --bw-regular:  1.5px;  /* @kind other */
+  --bw-route:    7px;    /* @kind other */
+  --bw-casing:   11px;   /* @kind other */
+
+  /* Backdrop blur for glass surfaces */
+  --blur-glass: 16px;    /* @kind other */
+  --blur-soft:  8px;     /* @kind other */
+}

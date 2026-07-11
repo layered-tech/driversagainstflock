@@ -1,0 +1,98 @@
+{
+  "cli": {
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "environment": "development",
+      "env": {
+        "APP_ENV": "development"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      }
+    },
+    "e2e-test": {
+      "withoutCredentials": true,
+      "environment": "development",
+      "env": {
+        "APP_ENV": "e2e",
+        "EXPO_PUBLIC_API_BASE_URL": "https://driversagainstflock.ngrok.dev/api"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      }
+    },
+    "staging": {
+      "autoIncrement": true,
+      "distribution": "internal",
+      "environment": "preview",
+      "env": {
+        "APP_ENV": "staging"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "environment": "production",
+      "env": {
+        "APP_ENV": "production"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
+    "production-apk": {
+      "autoIncrement": true,
+      "environment": "production",
+      "env": {
+        "APP_ENV": "production"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    }
+  },
+  "submit": {
+    "testing": {
+      "android": {
+        "serviceAccountKeyPath": "./daf-service-account-e7f700481f08.json",
+        "releaseStatus": "draft",
+        "track": "internal"
+      },
+      "ios": {
+        "ascAppId": "6741054638"
+      }
+    },
+    "staging": {
+      "android": {
+        "serviceAccountKeyPath": "./daf-service-account-e7f700481f08.json",
+        "releaseStatus": "draft",
+        "track": "alpha"
+      },
+      "ios": {
+        "ascAppId": "6741054638"
+      }
+    },
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./daf-service-account-e7f700481f08.json",
+        "releaseStatus": "draft",
+        "track": "production"
+      },
+      "ios": {
+        "ascAppId": "6741054638"
+      }
+    }
+  }
+}

@@ -1,0 +1,1 @@
+- Do not use `composer dev` in this project. Laravel Valet is already running locally and handles serving the application.

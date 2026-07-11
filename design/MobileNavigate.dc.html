@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- page name="Mobile · Routing & navigation" description="iOS routing: directions form, route comparison, active navigation, police-ahead alert." -->
+<helmet>
+  <script src="./ds-base.js"></script>
+  <style>
+    *{ box-sizing:border-box; }
+    .daf-slb, .daf-slb *{ box-sizing:content-box; }
+    body{ margin:0; background:var(--surface-card-alt); }
+    .daf-board::-webkit-scrollbar{ height:10px; width:10px; }
+    /* mobile route cards: drop the middle separator dot so the camera count never wraps in the narrow sheet */
+    [data-route-cards] button[aria-pressed] span[aria-hidden="true"]{ display:none; }
+    /* advanced-settings disclosure chevron */
+    .daf-chev{ transition:transform var(--dur-base) var(--ease-standard); }
+    button[aria-expanded="true"] .daf-chev{ transform:rotate(180deg); }
+  </style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="font-family:var(--font-ui); background:var(--surface-card-alt); min-height:100vh; padding:48px 40px 80px; color:var(--text-primary);">
+  <div style="max-width:1500px; margin:0 auto;">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px;">
+      <img src="assets/logo-mark.png" alt="DAF" style="width:36px; height:36px; object-fit:contain;">
+      <span style="font-family:var(--font-display); font-weight:700; font-size:24px; letter-spacing:var(--ls-heading);">Drivers Against Flock — Mobile · Navigate</span>
+    </div>
+    <p style="font-size:15px; color:var(--text-secondary); margin:0 0 18px; max-width:70ch;">Getting there with fewer cameras: directions, route choice, active guidance, and police reports.</p>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin:0 0 40px;">
+      <a href="MobileApp.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">All screens</a>
+      <a href="MobileExplore.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Explore</a>
+      <span style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; font-weight:600; color:var(--text-brand); background:var(--brand-soft); border:1px solid transparent; padding:6px 13px; border-radius:var(--radius-pill);">Navigate</span>
+      <a href="MobileContribute.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Contribute</a>
+      <a href="MobileSettings.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Settings</a>
+      <a href="MobileAndroid.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Android</a>
+    </div>
+
+    <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">iOS · Routing &amp; navigation</div>
+    <div style="display:flex; flex-wrap:wrap; gap:44px 40px;">
+
+      <!-- 05 DIRECTIONS FORM -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">05 · Directions form</div>
+        <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
+            <div style="position:absolute; inset:0; background:rgba(11,14,18,0.18);"></div>
+            <div style="position:absolute; top:56px; left:12px; right:12px; z-index:10;">
+              <x-import component-from-global-scope="DesignSystem_aa8750.Card" tone="light" padding="14px" hint-size="100%,auto">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+                  <span style="color:var(--text-secondary);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></span>
+                  <span style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-title);">Directions</span>
+                </div>
+                <div style="display:flex; gap:10px; align-items:stretch;">
+                  <div style="position:relative; width:12px; flex:0 0 auto; display:flex; flex-direction:column; gap:8px;">
+                    <span style="position:absolute; left:50%; top:25%; bottom:25%; width:2px; transform:translateX(-50%); background:var(--border-strong); z-index:0;"></span>
+                    <div style="flex:1; display:flex; align-items:center; justify-content:center;"><span style="position:relative; z-index:1; width:11px; height:11px; border-radius:50%; background:var(--brand); border:2px solid var(--surface-card);"></span></div>
+                    <div style="flex:1; display:flex; align-items:center; justify-content:center;"><span style="position:relative; z-index:1; width:11px; height:11px; border-radius:2px; background:var(--marker-destination);"></span></div>
+                  </div>
+                  <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
+                    <x-import component-from-global-scope="DesignSystem_aa8750.Input" tone="light" value="Your location" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
+                    <x-import component-from-global-scope="DesignSystem_aa8750.Input" tone="light" value="Ferry Building" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
+                  </div>
+                  <div style="display:flex; align-items:center;"><x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Swap" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m17 3 4 4-4 4"></path><path d="M21 7H7"></path><path d="m7 21-4-4 4-4"></path><path d="M3 17h14"></path></svg></x-import></div>
+                </div>
+                <div style="display:flex; gap:8px; margin-top:12px;">
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" selected="{{ true }}" hint-size="auto,34px">Current location</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Add stop</x-import>
+                </div>
+              </x-import>
+            </div>
+            <div style="position:absolute; left:12px; right:12px; bottom:46px; z-index:10;">
+              <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Get directions</x-import>
+            </div>
+          </div>
+        </x-import>
+      </div>
+
+      <!-- 06 ROUTE COMPARISON -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">06 · Route comparison</div>
+        <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible; z-index:2; pointer-events:none;">
+              <path d="M52 64 C 50 52, 48 40, 44 30 S 40 20, 40 16" fill="none" stroke="var(--route-fast-casing)" stroke-width="11" vector-effect="non-scaling-stroke" stroke-linecap="round"></path>
+              <path d="M52 64 C 50 52, 48 40, 44 30 S 40 20, 40 16" fill="none" stroke="var(--route-fast)" stroke-width="7" vector-effect="non-scaling-stroke" stroke-linecap="round" opacity="0.45"></path>
+              <path d="M52 64 C 64 58, 70 46, 62 34 S 48 20, 40 16" fill="none" stroke="var(--route-private-casing)" stroke-width="11" vector-effect="non-scaling-stroke" stroke-linecap="round"></path>
+              <path d="M52 64 C 64 58, 70 46, 62 34 S 48 20, 40 16" fill="none" stroke="var(--route-private)" stroke-width="7" vector-effect="non-scaling-stroke" stroke-linecap="round"></path>
+            </svg>
+            <div style="position:absolute; left:40%; top:16%; transform:translate(-50%,-100%); z-index:6;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="destination" icon-name="flag" selected="{{ true }}" hint-size="46px,72px"></x-import></div>
+            <div style="position:absolute; left:52%; top:64%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="user" heading="20" hint-size="64px,64px"></x-import></div>
+            <div style="position:absolute; left:47%; top:34%; transform:translate(-50%,-50%); z-index:5;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="monitored" hint-size="16px,16px"></x-import></div>
+            <div style="position:absolute; left:49%; top:46%; transform:translate(-50%,-50%); z-index:5;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="monitored" hint-size="16px,16px"></x-import></div>
+            <div style="position:absolute; left:12px; top:60px; z-index:10;"><x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Back" variant="glass" size="md" hint-size="44px,44px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import></div>
+            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+              <x-import component-from-global-scope="DesignSystem_aa8750.BottomSheet" title="Choose your route" subtitle="2 routes · 1 avoids cameras" hint-size="100%,400px">
+                <div style="display:grid; gap:8px; margin-bottom:12px;" data-route-cards="">
+                  <x-import component-from-global-scope="DesignSystem_aa8750.RouteCard" kind="private" eta="27 min" arrival="ETA 6:15" distance="13 mi" cameras="{{ c0 }}" recommended="{{ true }}" selected="{{ true }}" hint-size="100%,76px"></x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.RouteCard" kind="fast" eta="24 min" arrival="ETA 6:12" distance="12 mi" cameras="{{ c4 }}" hint-size="100%,76px"></x-import>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; font-size:var(--fs-caption); color:var(--text-secondary); margin-bottom:12px;">
+                  <span style="color:var(--node-monitored); flex:0 0 auto; display:inline-flex;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg></span>
+                  <span>Private adds <b style="color:var(--text-primary);">3 min</b> to skip 4 monitored points</span>
+                </div>
+                <div style="border-top:1px solid var(--border); padding-top:12px; margin-bottom:12px;">
+                  <button class="daf-ctl" onClick="{{ toggleAdv }}" aria-expanded="{{ advOpen }}" style="display:flex; align-items:center; gap:9px; width:100%; padding:4px 2px; border:none; background:transparent; cursor:pointer; color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); -webkit-tap-highlight-color:transparent;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; flex:0 0 auto;"><line x1="4" x2="4" y1="21" y2="14"></line><line x1="4" x2="4" y1="10" y2="3"></line><line x1="12" x2="12" y1="21" y2="12"></line><line x1="12" x2="12" y1="8" y2="3"></line><line x1="20" x2="20" y1="21" y2="16"></line><line x1="20" x2="20" y1="12" y2="3"></line><line x1="2" x2="6" y1="14" y2="14"></line><line x1="10" x2="14" y1="8" y2="8"></line><line x1="18" x2="22" y1="16" y2="16"></line></svg>
+                    <span>Advanced Settings</span>
+                    <span style="flex:1;"></span>
+                    <span style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary);">{{ bufferLabel }}</span>
+                    <span class="daf-chev" style="display:inline-flex; color:var(--text-tertiary);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m6 9 6 6 6-6"></path></svg></span>
+                  </button>
+                  <sc-if value="{{ advOpen }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin-top:12px; display:grid; gap:12px;">
+                      <div style="display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--surface-card-alt); border-radius:var(--radius-md);">
+                        <span style="flex:1; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary);">Allow ALPR near start &amp; destination</span>
+                        <x-import component-from-global-scope="DesignSystem_aa8750.Switch" checked="{{ allowNearEnds }}" onChange="{{ setAllowNearEnds }}" hint-size="48px,28px"></x-import>
+                      </div>
+                      <x-import component-from-global-scope="DesignSystem_aa8750.Slider" label="Avoid cameras by" show-value="{{ true }}" min="{{ bufMin }}" max="{{ bufMax }}" step="{{ bufStep }}" value="{{ bufferFt }}" onChange="{{ setBuffer }}" format-value="{{ fmtBuffer }}" hint-size="100%,52px"></x-import>
+                    </div>
+                  </sc-if>
+                </div>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Start drive</x-import>
+              </x-import>
+            </div>
+          </div>
+        </x-import>
+      </div>
+
+      <!-- 07 ACTIVE NAVIGATION -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">07 · Active navigation</div>
+        <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui); background:var(--map-land);">
+            <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible; z-index:2; pointer-events:none;">
+              <path d="M50 78 C 50 62, 52 50, 50 40 S 46 24, 48 12" fill="none" stroke="var(--route-private-casing)" stroke-width="13" vector-effect="non-scaling-stroke" stroke-linecap="round"></path>
+              <path d="M50 78 C 50 62, 52 50, 50 40 S 46 24, 48 12" fill="none" stroke="var(--route-private)" stroke-width="8" vector-effect="non-scaling-stroke" stroke-linecap="round"></path>
+            </svg>
+            <div style="position:absolute; left:50%; bottom:20%; transform:translate(-50%,50%); z-index:3; display:flex; flex-direction:column; align-items:center; gap:8px;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="user" heading="0" hint-size="64px,64px"></x-import><span style="font-family:var(--font-ui); font-size:12px; font-weight:700; letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-primary); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); padding:3px 10px; border-radius:var(--radius-pill); box-shadow:var(--shadow-marker); white-space:nowrap;">Market St</span></div>
+            <div style="position:absolute; top:56px; left:12px; right:12px; z-index:10;">
+              <x-import component-from-global-scope="DesignSystem_aa8750.NavBanner" maneuver="right" distance="500 ft" instruction="Turn right onto Market St" then="then continue 1.2 mi" hint-size="100%,auto"></x-import>
+            </div>
+            <div class="daf-slb" style="position:absolute; left:12px; top:145px; z-index:10;"><x-import component-from-global-scope="DesignSystem_aa8750.SpeedLimitBadge" limit="35" current="{{ n41 }}" size="lg" hint-size="80px,115px"></x-import></div>
+            <div style="position:absolute; right:12px; top:145px; z-index:10; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
+              <button aria-label="Zoom in" style="width:46px; height:46px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+              <button aria-label="Zoom out" style="width:46px; height:46px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><span style="width:15px; height:2px; border-radius:2px; background:currentColor;"></span></button>
+              <button aria-label="Recenter" style="width:46px; height:46px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="2" x2="5" y1="12" y2="12"></line><line x1="19" x2="22" y1="12" y2="12"></line><line x1="12" x2="12" y1="2" y2="5"></line><line x1="12" x2="12" y1="19" y2="22"></line><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="1"></circle></svg></button>
+            </div>
+            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10; background:var(--surface-sheet); border-top-left-radius:var(--radius-sheet); border-top-right-radius:var(--radius-sheet); box-shadow:var(--shadow-sheet); padding:16px 16px 30px; display:flex; align-items:center; gap:14px;">
+              <div style="flex:1;">
+                <div style="margin-bottom:7px;"><x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="brand" hint-size="auto,26px">Private route</x-import></div>
+                <div style="display:flex; align-items:baseline; gap:8px;"><span style="font-family:var(--font-mono); font-weight:800; font-size:24px; color:var(--text-brand);">12 min</span><span style="font-family:var(--font-mono); font-size:var(--fs-body-sm); color:var(--text-secondary);">4.1 mi · 6:15</span></div>
+                <div style="font-size:var(--fs-body-sm); color:var(--text-secondary);">Ferry Building Marketplace</div>
+              </div>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="danger" size="md" hint-size="auto,46px">Exit</x-import>
+            </div>
+          </div>
+        </x-import>
+      </div>
+
+      <!-- 07B POLICE AHEAD ALERT -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">07b · Police ahead</div>
+        <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui); background:var(--map-land);">
+            <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible; z-index:2; pointer-events:none;">
+              <path d="M50 78 C 50 62, 52 50, 50 40 S 46 24, 48 12" fill="none" stroke="var(--route-private-casing)" stroke-width="13" vector-effect="non-scaling-stroke" stroke-linecap="round"></path>
+              <path d="M50 78 C 50 62, 52 50, 50 40 S 46 24, 48 12" fill="none" stroke="var(--route-private)" stroke-width="8" vector-effect="non-scaling-stroke" stroke-linecap="round"></path>
+            </svg>
+            <div style="position:absolute; left:50%; bottom:20%; transform:translate(-50%,50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="user" heading="0" hint-size="64px,64px"></x-import></div>
+            <div style="position:absolute; left:50%; top:41%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="police" label="Police" hint-size="132px,132px"></x-import></div>
+            <div style="position:absolute; left:47%; top:16%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="police-hidden" label="Hidden" hint-size="132px,132px"></x-import></div>
+            <div style="position:absolute; top:56px; left:12px; right:12px; z-index:10;">
+              <x-import component-from-global-scope="DesignSystem_aa8750.NavBanner" maneuver="right" distance="500 ft" instruction="Turn right onto Market St" then="then continue 1.2 mi" hint-size="100%,auto"></x-import>
+            </div>
+            <div class="daf-slb" style="position:absolute; left:12px; top:145px; z-index:10;"><x-import component-from-global-scope="DesignSystem_aa8750.SpeedLimitBadge" limit="35" current="{{ n41 }}" size="lg" hint-size="80px,115px"></x-import></div>
+            <!-- bottom stack: police alert card + ETA sheet, 12px gap all around the card -->
+            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10; display:flex; flex-direction:column; gap:12px;">
+              <!-- police alert card -->
+              <div style="position:relative; overflow:hidden; margin:0 12px; display:flex; gap:13px; align-items:flex-start; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-float); padding:14px 14px 18px;">
+                <span style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:var(--radius-md); background:rgba(46,139,255,0.14); color:var(--info);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg></span>
+                <div style="flex:1; min-width:0;">
+                  <div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;">
+                    <span style="font-size:16px; font-weight:var(--fw-semibold); color:var(--text-primary);">Police reported ahead</span>
+                    <span style="font-family:var(--font-mono); font-weight:800; font-size:15px; color:var(--info);">800 ft</span>
+                  </div>
+                  <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:2px;">Reported on Waze 4 min ago. Hidden police 1.2 mi ahead.</div>
+                </div>
+                <button aria-label="Dismiss alert" style="flex:0 0 auto; width:32px; height:32px; margin:-4px -4px 0 0; border:none; background:transparent; border-radius:var(--radius-pill); color:var(--text-tertiary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></button>
+                <!-- expiry timer: bar drains left as the alert ages out -->
+                <span aria-hidden="true" style="position:absolute; left:0; right:0; bottom:0; height:4px; background:var(--surface-card-alt);"></span>
+                <span aria-hidden="true" style="position:absolute; left:0; bottom:0; height:4px; width:58%; background:var(--info); border-top-right-radius:2px;"></span>
+              </div>
+              <!-- ETA / destination sheet -->
+              <div style="background:var(--surface-sheet); border-top-left-radius:var(--radius-sheet); border-top-right-radius:var(--radius-sheet); box-shadow:var(--shadow-sheet); padding:16px 16px 30px; display:flex; align-items:center; gap:14px;">
+                <div style="flex:1;">
+                  <div style="margin-bottom:7px;"><x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="brand" hint-size="auto,26px">Private route</x-import></div>
+                  <div style="display:flex; align-items:baseline; gap:8px;"><span style="font-family:var(--font-mono); font-weight:800; font-size:24px; color:var(--text-brand);">12 min</span><span style="font-family:var(--font-mono); font-size:var(--fs-body-sm); color:var(--text-secondary);">4.1 mi · 6:15</span></div>
+                  <div style="font-size:var(--fs-body-sm); color:var(--text-secondary);">Ferry Building Marketplace</div>
+                </div>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="danger" size="md" hint-size="auto,46px">Exit</x-import>
+              </div>
+            </div>
+          </div>
+        </x-import>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1500,&quot;height&quot;:1100},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
+class Component extends DCLogic {
+  state = { advOpen: false, bufferFt: 250, allowNearEnds: false };
+  toggleAdv() { this.setState(s => ({ advOpen: !s.advOpen })); }
+  setBuffer(v) { this.setState({ bufferFt: v }); }
+  setAllowNearEnds(v) { this.setState({ allowNearEnds: v }); }
+  renderVals() {
+    const R = React.createElement;
+    const svg = (w, kids, opts) => R('svg', { width: w, height: w, viewBox: '0 0 24 24', fill: (opts && opts.fill) || 'none', stroke: (opts && opts.fill) ? 'none' : 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, kids);
+
+    // Map-home SearchBar accessories — mirrors the DS SearchBar's own anatomy: a leading
+    // menu button + search glyph, and trailing mic + divider-separated directions button.
+    // The shipped bundle only exposes leading/trailing slots, so we compose them here using
+    // the same Lucide glyphs (menu, search, mic, corner-up-right) and IconBtn styling.
+    const iconBtn = (extra) => ({ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto', width: 36, height: 36, padding: 0, border: 'none', background: 'transparent', borderRadius: 'var(--radius-pill)', cursor: 'pointer', WebkitTapHighlightColor: 'transparent', ...extra });
+    const searchLeading = R('div', { style: { display: 'flex', alignItems: 'center', gap: 4, height: '100%' } },
+      R('button', { key: 'm', type: 'button', 'aria-label': 'Open menu', style: iconBtn({ color: 'var(--text-primary)' }) },
+        svg(20, [R('path', { key: 1, d: 'M4 12h16' }), R('path', { key: 2, d: 'M4 6h16' }), R('path', { key: 3, d: 'M4 18h16' })])),
+      R('span', { key: 's', style: { display: 'inline-flex', flex: '0 0 auto', color: 'var(--text-tertiary)', marginLeft: 2 } },
+        svg(18, [R('circle', { key: 1, cx: 11, cy: 11, r: 8 }), R('path', { key: 2, d: 'm21 21-4.3-4.3' })]))
+    );
+    const searchTrailing = R('div', { style: { display: 'flex', alignItems: 'center', gap: 4, height: '100%' } },
+      R('button', { key: 'mic', type: 'button', 'aria-label': 'Voice search', style: iconBtn({ color: 'var(--text-secondary)' }) },
+        svg(20, [R('path', { key: 1, d: 'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z' }), R('path', { key: 2, d: 'M19 10v2a7 7 0 0 1-14 0v-2' }), R('line', { key: 3, x1: 12, x2: 12, y1: 19, y2: 22 })])),
+      R('span', { key: 'd', 'aria-hidden': 'true', style: { flex: '0 0 auto', width: 1, height: 24, background: 'var(--border-glass)' } }),
+      R('button', { key: 'dir', type: 'button', 'aria-label': 'Directions', style: iconBtn({ color: 'var(--text-primary)' }) },
+        svg(20, [R('polyline', { key: 1, points: '15 14 20 9 15 4' }), R('path', { key: 2, d: 'M4 20v-7a4 4 0 0 1 4-4h12' })]))
+    );
+    const chipStyle = { height: '30px', fontSize: '13px', padding: '0 12px' };
+
+    // Clear (✕) affordance for the search-screen SearchBar. The shipped SearchBar
+    // exposes a `trailing` slot (no onClear prop), so the clear control goes there.
+    const searchClear = R('button', {
+      type: 'button', 'aria-label': 'Clear search',
+      style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, padding: 0, border: 'none', background: 'transparent', borderRadius: 'var(--radius-pill)', color: 'var(--text-tertiary)', cursor: 'pointer', flex: '0 0 auto' },
+    }, svg(18, [R('path', { key: 1, d: 'M18 6 6 18' }), R('path', { key: 2, d: 'm6 6 12 12' })]));
+
+    // OSM editing flow — action + form icons (Lucide geometry, via the shared svg() helper)
+    const pencilIcon = svg(18, [R('path', { key: 1, d: 'M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z' }), R('path', { key: 2, d: 'm15 5 4 4' })]);
+    const trashIcon = svg(18, [R('path', { key: 1, d: 'M3 6h18' }), R('path', { key: 2, d: 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6' }), R('path', { key: 3, d: 'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2' }), R('line', { key: 4, x1: 10, x2: 10, y1: 11, y2: 17 }), R('line', { key: 5, x1: 14, x2: 14, y1: 11, y2: 17 })]);
+    const uploadIcon = svg(18, [R('path', { key: 1, d: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' }), R('polyline', { key: 2, points: '17 8 12 3 7 8' }), R('line', { key: 3, x1: 12, x2: 12, y1: 3, y2: 15 })]);
+    const plusIcon = svg(18, [R('path', { key: 1, d: 'M5 12h14' }), R('path', { key: 2, d: 'M12 5v14' })]);
+    const deleteBtnStyle = { color: 'var(--alert-500)' };
+    const nodeTypeOpts = [ { value: 'alpr', label: 'ALPR' }, { value: 'cctv', label: 'CCTV' }, { value: 'gantry', label: 'Gantry' } ];
+    const mfrOpts = [ { value: 'flock', label: 'Flock' }, { value: 'motorola', label: 'Motorola' }, { value: 'other', label: 'Other' } ];
+
+    const theme = this.props.theme ?? 'light';
+
+    return {
+      theme,
+      isDark: theme === 'dark',
+      searchClear,
+      searchLeading, searchTrailing, chipStyle,
+      pencilIcon, trashIcon, uploadIcon, plusIcon, deleteBtnStyle,
+      nodeTypeOpts, nodeType: 'alpr',
+      mfrOpts, mfr: 'flock',
+      todOpts: [ { value: 'auto', label: 'Auto' }, { value: 'dawn', label: 'Dawn' }, { value: 'day', label: 'Day' }, { value: 'dusk', label: 'Dusk' }, { value: 'night', label: 'Night' } ],
+      tod: 'day',
+
+      // Hotlist screen — recently added nodes (mobile read of the web Hotlist template)
+      hotWin: '7',
+      hotWinOptions: [ { value: '24', label: '24h' }, { value: '7', label: '7 days' }, { value: '30', label: '30 days' } ],
+      setHotWin: () => {},
+      hotStats: [
+        { label: 'Added · 7 days', value: '38', sub: '+11 vs last week' },
+        { label: 'Flock readers', value: '21', sub: '55% of new' },
+      ],
+      hotChips: [
+        { label: 'All · 38', sel: true },
+        { label: 'Flock · 21', sel: false },
+        { label: 'Other vendors · 17', sel: false },
+      ],
+      hotRows: [
+        { typeLabel: 'ALPR reader', street: '16th St & Mission St', osm: 'node/11820431', operator: 'Flock Safety', added: '2h ago' },
+        { typeLabel: 'ALPR reader', street: 'Embarcadero & Market St', osm: 'node/11819007', operator: 'Flock Safety', added: '5h ago' },
+        { typeLabel: 'ALPR reader', street: 'Cesar Chavez & Guerrero', osm: 'node/11817754', operator: 'Flock Safety', added: '9h ago' },
+        { typeLabel: 'ALPR reader', street: 'Geary Blvd & 19th Ave', osm: 'node/11815320', operator: 'Genetec', added: '14h ago' },
+        { typeLabel: 'ALPR reader', street: 'Bayshore Blvd on-ramp', osm: 'node/11813998', operator: 'Genetec', added: '22h ago' },
+        { typeLabel: 'ALPR reader', street: 'Van Ness Ave & Lombard', osm: 'node/11810442', operator: 'Motorola Solutions', added: 'yesterday' },
+        { typeLabel: 'ALPR reader', street: 'Cesar Chavez & Hwy 101', osm: 'node/11806915', operator: 'Leonardo ELSAG', added: '2d ago' },
+      ],
+
+      w: 390,
+      h: 844,
+      aw: 412,
+      ah: 892,
+      chips: ['Restaurants', 'Gas', 'Coffee', 'Hotels', 'Groceries', 'Parking'],
+      c0: 0,
+      c4: 4,
+      n41: 41,
+      n58: 58,
+      advOpen: this.state.advOpen,
+      toggleAdv: () => this.toggleAdv(),
+      bufferFt: this.state.bufferFt,
+      bufMin: 0,
+      bufMax: 1000,
+      bufStep: 50,
+      setBuffer: (v) => this.setBuffer(v),
+      fmtBuffer: (v) => `${v.toLocaleString()} ft`,
+      bufferLabel: `${this.state.bufferFt.toLocaleString()} ft`,
+      allowNearEnds: this.state.allowNearEnds,
+      setAllowNearEnds: (v) => this.setAllowNearEnds(v),
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

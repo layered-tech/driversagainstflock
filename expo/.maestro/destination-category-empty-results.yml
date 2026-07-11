@@ -1,0 +1,39 @@
+appId: com.anonymous.drivefree.dev
+name: Destination Category Empty Results Mocked
+tags:
+  - map
+  - search
+---
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    commands:
+      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- extendedWaitUntil:
+    visible:
+      id: "map-search-input-map"
+    timeout: 30000
+- openLink: "driversagainstflock://e2e-mocks"
+- extendedWaitUntil:
+    visible:
+      id: "map-search-directions-button-map"
+    timeout: 10000
+
+- tapOn:
+    id: "map-destination-category-gas-map"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: "submitted-search-result-count"
+    timeout: 30000
+- assertVisible:
+    text: '0 places for "gas stations"'
+- assertVisible:
+    text: "No places found nearby"

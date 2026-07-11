@@ -1,0 +1,24 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="Brand — Signal Green" subtitle="Privacy = go = safe. Primary brand ramp." -->
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" /><link rel="stylesheet" href="../styles.css" />
+<style>
+  html,body{margin:0}
+  body{font-family:var(--font-ui);background:var(--surface-card);padding:20px;color:var(--text-ink)}
+  .ramp{display:grid;grid-template-columns:repeat(9,1fr);gap:0;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--border-light)}
+  .sw{height:84px;display:flex;flex-direction:column;justify-content:flex-end;padding:8px}
+  .sw b{font-family:var(--font-mono);font-size:11px;font-weight:600}
+  .sw small{font-family:var(--font-mono);font-size:9px;opacity:.7}
+  .meta{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+  .meta .dot{width:14px;height:14px;border-radius:50%;background:var(--brand)}
+  .meta h3{margin:0;font-family:var(--font-display);font-size:15px}
+  .meta span{font-family:var(--font-mono);font-size:11px;color:var(--text-ink-faint)}
+</style></head><body>
+<div class="meta"><span class="dot"></span><h3>Signal Green</h3><span>--brand · #1FBF6B</span></div>
+<div class="ramp" id="r"></div>
+<script>
+const steps=[['050','#E6F9EF'],['100','#C2F0D6'],['200','#8FE2B4'],['300','#56CF8E'],['400','#2FC177'],['500','#1FBF6B'],['600','#149E57'],['700','#0F7D45'],['900','#0A4327']];
+document.getElementById('r').innerHTML=steps.map(([k,v])=>{
+  const dark=parseInt(k)>=300;return `<div class="sw" style="background:${v};color:${dark?'#fff':'#0B0E12'}"><b>${k}</b><small>${v}</small></div>`;
+}).join('');
+</script>
+</body></html>

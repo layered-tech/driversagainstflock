@@ -1,0 +1,52 @@
+appId: com.anonymous.drivefree.dev
+name: Marker OSM Details Toggle Mocked
+tags:
+  - map
+  - markers
+---
+- setLocation:
+    latitude: 30.26715
+    longitude: -97.74035
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    commands:
+      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 30000
+- openLink: 'driversagainstflock://e2e-mocks'
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 10000
+- setLocation:
+    latitude: 30.26715
+    longitude: -97.74035
+
+- extendedWaitUntil:
+    visible:
+      id: 'map-marker-0-map'
+    timeout: 60000
+- tapOn:
+    id: 'map-marker-0-map'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'marker-details-title'
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: 'marker-details-osm-id-value'
+    timeout: 10000
+- assertVisible:
+    id: 'marker-details-manufacturer-value'
+- assertVisible:
+    id: 'marker-details-direction-value'
+- assertVisible:
+    id: 'marker-details-updated-value'

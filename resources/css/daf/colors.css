@@ -1,0 +1,221 @@
+/* ============================================================
+   Drivers Against Flock — Color tokens
+   Light + Dark. Default is LIGHT. Force a theme with
+   [data-theme="light"] / [data-theme="dark"] on any ancestor;
+   with no attribute, the OS preference is honored.
+
+   Base ramps are theme-independent. Semantic aliases flip.
+   Components reference ONLY semantic aliases, never raw ramps,
+   so the whole UI themes from this one file.
+   ============================================================ */
+
+:root {
+  /* ---- Brand: Signal Green (go / private / safe) — same in both themes ---- */
+  --green-050: #E6F9EF;
+  --green-100: #C2F0D6;
+  --green-200: #8FE2B4;
+  --green-300: #56CF8E;
+  --green-400: #2FC177;
+  --green-500: #1FBF6B; /* brand primary */
+  --green-600: #149E57;
+  --green-700: #0F7D45;
+  --green-800: #0C5E34;
+  --green-900: #0A4327;
+
+  /* ---- Ink: warm-cool charcoal neutrals ---- */
+  --ink-950: #0B0E12;
+  --ink-900: #11151B;
+  --ink-850: #161B22;
+  --ink-800: #1A2027;
+  --ink-700: #262E37;
+  --ink-600: #3A434E;
+  --ink-500: #5A6573;
+  --ink-400: #828D9B;
+  --ink-300: #A9B2BD;
+  --ink-200: #CFD5DC;
+  --ink-100: #E7EAEE;
+  --ink-075: #EFF2F5;
+  --ink-050: #F5F7F9;
+  --white:    #FFFFFF;
+
+  /* ---- Functional signal hues (theme-independent ramps) ---- */
+  --azure-500:  #2E8BFF;  /* fastest route */
+  --azure-600:  #1F6FE0;
+  --azure-100:  #D6E7FF;
+  --alert-500:  #FF4D4F;  /* surveillance / ALPR */
+  --alert-600:  #E5383B;
+  --alert-100:  #FFDCDC;
+  --amber-500:  #FFB02E;  /* monitored / caution */
+  --amber-600:  #E5901A;
+  --amber-100:  #FFEFCC;
+  --violet-500: #7A5CFF;  /* destination accent */
+  --violet-600: #6244E5;
+
+  /* ---- Brand semantics (shared) ---- */
+  --brand:          var(--green-500);
+  --brand-hover:    var(--green-400);
+  --brand-press:    var(--green-600);
+  --brand-contrast: var(--ink-950);   /* text/icon on brand fills */
+
+  /* Status (shared) */
+  --success: var(--green-500);
+  --warning: var(--amber-500);
+  --danger:  var(--alert-500);
+  --info:    var(--azure-500);
+  --focus-ring: var(--green-400);
+}
+
+/* ============================================================
+   LIGHT THEME (default)
+   ============================================================ */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Map canvas the UI floats over */
+  --map-land:        #EAEDF0;
+  --map-land-alt:    #E1E5E9;
+  --map-park:        #DCEBD6;
+  --map-water:       #BBD7EE;
+  --map-road:        #FFFFFF;
+  --map-road-minor:  #F4F6F8;
+  --map-ink:         #5A6573;
+
+  /* Surfaces */
+  --surface-page:     #F5F7F9;
+  --surface-card:     #FFFFFF;
+  --surface-card-alt: #EFF2F5;
+  --surface-raised:   #FFFFFF;
+  --surface-sheet:    #FFFFFF;
+  --surface-glass:    rgba(255, 255, 255, 0.80);
+  --surface-glass-2:  rgba(255, 255, 255, 0.92);
+  --surface-marker:   #FFFFFF;
+  --surface-inverse:  #0B0E12;
+
+  /* Text */
+  --text-primary:   #11151B;
+  --text-secondary: #4A5562;
+  --text-tertiary:  #828D9B;
+  --text-disabled:  #A9B2BD;
+  --text-inverse:   #F5F7F9;
+  --text-brand:     var(--green-700);
+  /* legacy aliases (kept so older specimen cards keep working) */
+  --text-ink:       var(--text-primary);
+  --text-ink-soft:  var(--text-secondary);
+  --text-ink-faint: var(--text-tertiary);
+
+  /* Borders & hairlines */
+  --border:         #E7EAEE;
+  --border-light:   #E7EAEE;
+  --border-strong:  #D4D9DF;
+  --border-glass:   rgba(11, 14, 18, 0.10);
+  --border-glass-2: rgba(11, 14, 18, 0.06);
+
+  --brand-soft: var(--green-050);
+
+  /* Map line semantics (route casing = the surface color behind it) */
+  --route-fast:           var(--azure-500);
+  --route-fast-casing:    #FFFFFF;
+  --route-private:        var(--green-500);
+  --route-private-casing: #FFFFFF;
+  --route-inactive:       #A9B2BD;
+
+  /* Markers */
+  --marker-alpr:        var(--alert-500);
+  --marker-alpr-glow:   rgba(255, 77, 79, 0.55);
+  --marker-cone:        rgba(255, 77, 79, 0.30);
+  --marker-cone-edge:   rgba(255, 77, 79, 0.55);
+  --marker-place:       #2A323C;
+  --marker-place-ink:   #FFFFFF;
+  --marker-destination: var(--violet-500);
+  --marker-user:        var(--green-500);
+  --marker-user-halo:   rgba(31, 191, 107, 0.22);
+  --marker-user-cone:   rgba(31, 191, 107, 0.32);
+  --marker-user-cone-edge: rgba(31, 191, 107, 0.60);
+  --node-monitored:     var(--amber-500);
+
+  /* Elevation — soft on light */
+  --shadow-float:  0 1px 2px rgba(11,14,18,0.14), 0 6px 22px rgba(11,14,18,0.16);
+  --shadow-card:   0 1px 2px rgba(11,14,18,0.06), 0 6px 20px rgba(11,14,18,0.08);
+  --shadow-sheet:  0 -8px 40px rgba(11,14,18,0.20);
+  --shadow-marker: 0 3px 10px rgba(11,14,18,0.30);
+  --shadow-focus:  0 0 0 3px rgba(47,193,119,0.40);
+  --ring-glass:    inset 0 0 0 1px rgba(11,14,18,0.04); /* @kind shadow */
+}
+
+/* ============================================================
+   DARK THEME — explicit opt-in; works at :root or on any subtree
+   ============================================================ */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --map-land:        #1A1D23;
+  --map-land-alt:    #21262E;
+  --map-park:        #1B2A20;
+  --map-water:       #15313F;
+  --map-road:        #2E353F;
+  --map-road-minor:  #262C34;
+  --map-ink:         #8A94A2;
+
+  --surface-page:     #0B0E12;
+  --surface-card:     #161B22;
+  --surface-card-alt: #1A2027;
+  --surface-raised:   #1A2027;
+  --surface-sheet:    #11151B;
+  --surface-glass:    rgba(17, 21, 27, 0.82);
+  --surface-glass-2:  rgba(26, 32, 39, 0.92);
+  --surface-marker:   #11151B;
+  --surface-inverse:  #F5F7F9;
+
+  --text-primary:   #F5F7F9;
+  --text-secondary: #A9B2BD;
+  --text-tertiary:  #828D9B;
+  --text-disabled:  #5A6573;
+  --text-inverse:   #11151B;
+  --text-brand:     var(--green-400);
+  --text-ink:       var(--text-primary);
+  --text-ink-soft:  var(--text-secondary);
+  --text-ink-faint: var(--text-tertiary);
+
+  --border:         #262E37;
+  --border-light:   #262E37;
+  --border-strong:  #3A434E;
+  --border-glass:   rgba(255, 255, 255, 0.10);
+  --border-glass-2: rgba(255, 255, 255, 0.06);
+
+  --brand-soft: rgba(31, 191, 107, 0.16);
+
+  --route-fast:           var(--azure-500);
+  --route-fast-casing:    #0B0E12;
+  --route-private:        var(--green-500);
+  --route-private-casing: #0B0E12;
+  --route-inactive:       #5A6573;
+
+  --marker-alpr:        var(--alert-500);
+  --marker-alpr-glow:   rgba(255, 77, 79, 0.65);
+  --marker-cone:        rgba(255, 77, 79, 0.34);
+  --marker-cone-edge:   rgba(255, 77, 79, 0.62);
+  --marker-place:       #E7EAEE;
+  --marker-place-ink:   #11151B;
+  --marker-destination: var(--violet-500);
+  --marker-user:        var(--green-500);
+  --marker-user-halo:   rgba(31, 191, 107, 0.26);
+  --marker-user-cone:   rgba(31, 191, 107, 0.34);
+  --marker-user-cone-edge: rgba(31, 191, 107, 0.65);
+  --node-monitored:     var(--amber-500);
+
+  --shadow-float:  0 1px 2px rgba(0,0,0,0.40), 0 10px 30px rgba(0,0,0,0.50);
+  --shadow-card:   0 1px 2px rgba(0,0,0,0.35), 0 8px 26px rgba(0,0,0,0.45);
+  --shadow-sheet:  0 -10px 44px rgba(0,0,0,0.55);
+  --shadow-marker: 0 4px 14px rgba(0,0,0,0.60);
+  --shadow-focus:  0 0 0 3px rgba(47,193,119,0.45);
+  --ring-glass:    inset 0 0 0 1px rgba(255,255,255,0.08); /* @kind shadow */
+}
+
+/* Speed-limit sign is a real-world white sign — fixed in both themes.
+   Live read-out is gray at/under the limit, hardening to black when over. */
+:root {
+  --speed-ok:         var(--ink-500);   /* read-out text, at/under limit */
+  --speed-limit-ring: var(--ink-400);   /* read-out ring, at/under limit */
+  --speed-over:       var(--ink-900);   /* read-out text + ring, over limit */
+}

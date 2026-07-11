@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- page name="Web — Blog" description="First-party DAF blog index: masthead, category filter, featured post, card grid, and newsletter band — matching the marketing site." -->
+<helmet>
+  <script src="./ds-base.js"></script>
+  <style>
+    *{ box-sizing:border-box; }
+    html{ scroll-behavior:smooth; }
+    body{ margin:0; background:var(--surface-page); }
+    a{ color:inherit; }
+    .blog-card{ transition:transform var(--dur-2, 160ms) var(--ease-standard, ease), box-shadow var(--dur-2, 160ms) var(--ease-standard, ease); }
+    .blog-card:hover{ transform:translateY(-3px); box-shadow:var(--shadow-float); }
+    .blog-card:hover .blog-card-title{ color:var(--text-brand); }
+    .cover{ position:relative; overflow:hidden; background:var(--surface-card);
+      background-image:repeating-linear-gradient(135deg, rgba(127,140,158,0.10) 0 1px, transparent 1px 13px); }
+    .cover-label{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+      font-family:var(--font-mono); font-size:11px; letter-spacing:var(--ls-mono); color:var(--text-tertiary);
+      text-transform:lowercase; white-space:nowrap; }
+    .nl-input{ flex:1 1 auto; min-width:0; height:var(--hit-large); border-radius:var(--radius-pill);
+      border:1px solid rgba(255,255,255,0.16); background:rgba(255,255,255,0.06); color:var(--text-inverse);
+      padding:0 20px; font-family:var(--font-ui); font-size:var(--fs-body); outline:none; }
+    .nl-input::placeholder{ color:color-mix(in oklab, var(--text-inverse) 55%, transparent); }
+    .nl-input:focus{ border-color:var(--brand); }
+    .acc-privacy{ --acc:var(--alert-500); }
+    .acc-product{ --acc:var(--azure-500); }
+    .acc-howto{ --acc:var(--brand); }
+    .acc-research{ --acc:var(--violet-500); }
+    .acc-bar{ background:var(--acc); }
+    .acc-text{ color:var(--acc); }
+    .grid-2{ grid-template-columns:repeat(2,1fr); }
+    .grid-3{ grid-template-columns:repeat(3,1fr); }
+  </style>
+</helmet>
+
+<div data-theme="{{ theme }}" data-screen-label="Web — Blog" style="font-family:var(--font-ui); color:var(--text-primary); background:var(--surface-page); min-height:100vh; -webkit-font-smoothing:antialiased;">
+
+  <!-- ===================== HEADER ===================== -->
+  <x-import component-from-global-scope="DesignSystem_aa8750.SiteHeader" logo-src="assets/logo-mark.png" variant="marketing" logo-href="WebLanding.dc.html" links="{{ navLinks }}" cta="{{ headerCta }}" hint-size="100%,68px"></x-import>
+
+  <!-- ===================== MASTHEAD ===================== -->
+  <section style="border-bottom:1px solid var(--border);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:72px 24px 40px;">
+      <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand); font-weight:var(--fw-bold); margin-bottom:16px;">Field notes</div>
+      <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-display-lg); line-height:var(--lh-display-lg); letter-spacing:var(--ls-display); margin:0 0 18px; text-wrap:balance; max-width:18ch;">Notes from the long way around</h1>
+      <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); max-width:62ch; margin:0;">Surveillance research, product updates, and practical privacy for people who drive. Plain language, real data, no fear-mongering.</p>
+    </div>
+  </section>
+
+  <!-- ===================== FILTER ===================== -->
+  <section style="border-bottom:1px solid var(--border); position:sticky; top:0; z-index:5; background:color-mix(in oklab, var(--surface-page) 88%, transparent); backdrop-filter:blur(10px);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:14px 24px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+      <sc-for list="{{ categories }}" as="c" hint-placeholder-count="5">
+        <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" selected="{{ c.selected }}" onClick="{{ c.onClick }}" hint-size="auto,38px">{{ c.label }}</x-import>
+      </sc-for>
+      <div style="margin-left:auto; font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); letter-spacing:var(--ls-mono);">{{ countLabel }}</div>
+    </div>
+  </section>
+
+  <!-- ===================== FEATURED ===================== -->
+  <sc-if value="{{ showFeatured }}" hint-placeholder-val="{{ true }}">
+    <section>
+      <div style="max-width:var(--width-content); margin:0 auto; padding:48px 24px 8px;">
+        <a href="Article.dc.html" class="blog-card {{ featured.accClass }}" style="display:grid; grid-template-columns:1.15fr 1fr; gap:0; text-decoration:none; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-xl); overflow:hidden; box-shadow:var(--shadow-card);">
+          <div class="cover" style="min-height:380px;">
+            <span class="acc-bar" style="position:absolute; left:0; top:0; bottom:0; width:5px;"></span>
+            <span class="cover-label">{{ featured.coverLabel }}</span>
+          </div>
+          <div style="padding:40px; display:flex; flex-direction:column; justify-content:center; min-width:0;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:18px;">
+              <span class="acc-text" style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold);">{{ featured.category }}</span>
+              <span style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">Featured</span>
+            </div>
+            <h2 class="blog-card-title" style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h1); line-height:var(--lh-h1); letter-spacing:var(--ls-heading); margin:0 0 14px; text-wrap:balance; transition:color 160ms;">{{ featured.title }}</h2>
+            <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); margin:0 0 24px; max-width:48ch;">{{ featured.excerpt }}</p>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span style="display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:50%; background:var(--brand-soft); color:var(--text-brand); font-weight:var(--fw-bold); font-size:13px;">{{ featured.initials }}</span>
+              <div style="min-width:0;">
+                <div style="font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary);">{{ featured.author }}</div>
+                <div style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); letter-spacing:var(--ls-mono);">{{ featured.meta }}</div>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+    </section>
+  </sc-if>
+
+  <!-- ===================== GRID ===================== -->
+  <section>
+    <div style="max-width:var(--width-content); margin:0 auto; padding:40px 24px 80px;">
+      <div class="grid-{{ columns }}" style="display:grid; gap:28px;">
+        <sc-for list="{{ posts }}" as="p" hint-placeholder-count="6">
+          <a href="Article.dc.html" class="blog-card {{ p.accClass }}" style="display:flex; flex-direction:column; text-decoration:none; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow-card);">
+            <div class="cover" style="aspect-ratio:16/10;">
+              <span class="acc-bar" style="position:absolute; left:0; top:0; right:0; height:4px;"></span>
+              <span class="cover-label">{{ p.coverLabel }}</span>
+            </div>
+            <div style="padding:22px; display:flex; flex-direction:column; flex:1;">
+              <div class="acc-text" style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); margin-bottom:10px;">{{ p.category }}</div>
+              <h3 class="blog-card-title" style="font-family:var(--font-display); font-weight:600; font-size:var(--fs-h3); line-height:var(--lh-h3); letter-spacing:var(--ls-heading); margin:0 0 10px; text-wrap:balance; transition:color 160ms;">{{ p.title }}</h3>
+              <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0 0 20px;">{{ p.excerpt }}</p>
+              <div style="margin-top:auto; display:flex; align-items:center; gap:10px;">
+                <span style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:50%; background:var(--brand-soft); color:var(--text-brand); font-weight:var(--fw-bold); font-size:11px;">{{ p.initials }}</span>
+                <div style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); letter-spacing:var(--ls-mono); min-width:0;">{{ p.meta }}</div>
+              </div>
+            </div>
+          </a>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== NEWSLETTER ===================== -->
+  <section style="background:var(--surface-inverse);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:72px 24px; display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:center;">
+      <div>
+        <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--brand); font-weight:var(--fw-bold); margin-bottom:14px;">The slow lane</div>
+        <h2 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h1); line-height:var(--lh-h1); letter-spacing:var(--ls-heading); margin:0 0 12px; color:var(--text-inverse); text-wrap:balance;">We don't keep your trips. Keep up with us instead.</h2>
+        <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); margin:0; color:color-mix(in oklab, var(--text-inverse) 72%, transparent); max-width:44ch;">New research and product notes, roughly monthly. No tracking pixels, no selling your address. Unsubscribe in one tap.</p>
+      </div>
+      <div>
+        <form style="display:flex; gap:10px; flex-wrap:wrap;" onsubmit="{{ onSubscribe }}">
+          <input class="nl-input" type="email" placeholder="you@example.com" aria-label="Email address">
+          <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" hint-size="auto,52px">Subscribe</x-import>
+        </form>
+        <div style="margin-top:14px; font-family:var(--font-mono); font-size:var(--fs-caption); letter-spacing:var(--ls-mono); color:color-mix(in oklab, var(--text-inverse) 55%, transparent);">{{ subscriberLine }}</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer style="border-top:1px solid var(--border); background:var(--surface-card);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:36px 24px;">
+      <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
+        <div style="flex:1 1 200px; display:flex; align-items:center; gap:10px;">
+          <img src="assets/logo-mark.png" alt="DAF" style="width:28px; height:28px; object-fit:contain; border-radius:var(--radius-xs);">
+          <span style="font-family:var(--font-display); font-weight:700; font-size:15px;">Drivers Against Flock</span>
+        </div>
+        <div style="flex:0 1 auto; text-align:center; font-size:var(--fs-body-sm); color:var(--text-tertiary); max-width:42ch;">Camera data from OpenStreetMap contributors. We don't keep your trips. We don't sell them, either.</div>
+        <div style="flex:1 1 200px; display:flex; justify-content:flex-end; gap:22px; font-size:var(--fs-body-sm); color:var(--text-secondary);">
+          <a href="WebLanding.dc.html#how" style="text-decoration:none;">How it works</a>
+          <a href="WebFullMap.dc.html" style="text-decoration:none;">Full map</a>
+          <a href="WebLanding.dc.html#apps" style="text-decoration:none;">Apps</a>
+        </div>
+      </div>
+      <div style="margin-top:28px; padding-top:24px; border-top:1px solid var(--border); display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        <div style="flex:1 1 200px; font-size:var(--fs-caption); color:var(--text-tertiary);">© 2026 LayeredTech, LLC. All rights reserved.</div>
+        <div style="flex:0 1 auto; text-align:center; font-size:var(--fs-body-sm); color:var(--text-secondary);"><a href="mailto:driversagainstflock@proton.me" style="color:inherit; text-decoration:none;">driversagainstflock@proton.me</a></div>
+        <div style="flex:1 1 200px; display:flex; justify-content:flex-end; gap:22px; font-size:var(--fs-body-sm); color:var(--text-secondary);">
+          <a href="Blog.dc.html" style="text-decoration:none;">Blog</a>
+          <a href="PrivacyPolicy.dc.html" style="text-decoration:none;">Privacy Policy</a>
+          <a href="TermsOfUse.dc.html" style="text-decoration:none;">Terms of Use</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:2600},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;columns&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;2&quot;,&quot;3&quot;],&quot;default&quot;:&quot;3&quot;,&quot;tsType&quot;:&quot;2 | 3&quot;}}">
+class Component extends DCLogic {
+  state = { cat: 'All' };
+
+  renderVals() {
+    const theme = this.props.theme ?? 'light';
+    const columns = this.props.columns ?? 3;
+
+    const ACC_CLASS = {
+      'Privacy news': 'acc-privacy',
+      'Product':      'acc-product',
+      'How-to':       'acc-howto',
+      'Research':     'acc-research',
+    };
+
+    const all = [
+      { slug: 'alpr-audit-law', category: 'Privacy news', author: 'Maya Ortiz', initials: 'MO', date: 'Jun 18, 2026', readTime: '6 min', featured: true,
+        title: "California's new ALPR audit law, explained",
+        excerpt: "Departments now have to log every plate search and say why. We read the bill so you don't have to — here's what actually changes for drivers.",
+        coverLabel: 'cover · legislation' },
+      { slug: 'avoid-monitored', category: 'Product', author: 'Devin Park', initials: 'DP', date: 'Jun 11, 2026', readTime: '4 min',
+        title: 'Private routes now avoid monitored intersections, not just cameras',
+        excerpt: 'A quieter update with a big footprint: routing now weights amber monitored nodes, so the private line steers clear of the gray areas too.',
+        coverLabel: 'cover · release note' },
+      { slug: 'mapped-12400', category: 'Research', author: 'Priya Raman', initials: 'PR', date: 'Jun 4, 2026', readTime: '9 min',
+        title: 'We mapped 12,400 roadside cameras. Here is what the data shows.',
+        excerpt: 'Density, clustering, and the surprising places readers go up first. An open look at the dataset behind the red dots.',
+        coverLabel: 'cover · dataset' },
+      { slug: 'home-without-home', category: 'How-to', author: 'Sam Cole', initials: 'SC', date: 'May 28, 2026', readTime: '3 min',
+        title: 'Set a home address without telling us where you live',
+        excerpt: 'Nearby-anchoring lets you save "home" as a block, not a doorstep. Three taps, and your driveway stays yours.',
+        coverLabel: 'cover · how-to' },
+      { slug: 'what-a-reader-sees', category: 'Privacy news', author: 'Maya Ortiz', initials: 'MO', date: 'May 21, 2026', readTime: '7 min',
+        title: 'What a license plate reader actually sees',
+        excerpt: 'Plate, timestamp, location, direction — and a photo of everything around it. We break down one capture, field by field.',
+        coverLabel: 'cover · explainer' },
+      { slug: 'offline-west-coast', category: 'Product', author: 'Devin Park', initials: 'DP', date: 'May 14, 2026', readTime: '5 min',
+        title: 'Offline maps for the whole West Coast, in 400 MB',
+        excerpt: 'New vector packing means you can carry California, Oregon, and Washington with you — and route through dead zones without phoning home.',
+        coverLabel: 'cover · release note' },
+      { slug: 'three-settings', category: 'How-to', author: 'Sam Cole', initials: 'SC', date: 'May 7, 2026', readTime: '4 min',
+        title: 'Three settings every privacy-minded driver should check',
+        excerpt: 'Location precision, trip history, and sign-in. Two minutes in settings buys you a much quieter footprint.',
+        coverLabel: 'cover · how-to' },
+      { slug: 'most-surveilled-miles', category: 'Research', author: 'Priya Raman', initials: 'PR', date: 'Apr 30, 2026', readTime: '8 min',
+        title: 'The 20 most-surveilled miles of interstate in America',
+        excerpt: 'We ranked corridors by readers per mile. The leaderboard is not where most people would guess.',
+        coverLabel: 'cover · dataset' },
+      { slug: 'who-buys-alpr', category: 'Privacy news', author: 'Maya Ortiz', initials: 'MO', date: 'Apr 23, 2026', readTime: '10 min',
+        title: 'Who buys ALPR data — and why it ends up everywhere',
+        excerpt: 'From repo lots to data brokers, a plate scan rarely stays put. Following one record through the resale chain.',
+        coverLabel: 'cover · investigation' },
+    ];
+
+    const decorate = (post) => ({
+      ...post,
+      accClass: ACC_CLASS[post.category] || 'acc-howto',
+      meta: post.author + '  ·  ' + post.date + '  ·  ' + post.readTime,
+    });
+
+    const cats = ['All', 'Privacy news', 'Product', 'How-to', 'Research'];
+    const categories = cats.map(label => ({
+      label,
+      selected: this.state.cat === label,
+      onClick: () => this.setState({ cat: label }),
+    }));
+
+    const isAll = this.state.cat === 'All';
+    const matching = all.filter(p => isAll || p.category === this.state.cat);
+
+    const featuredRaw = all.find(p => p.featured);
+    const showFeatured = isAll && !!featuredRaw;
+    const featured = showFeatured ? decorate(featuredRaw) : decorate(all[0]);
+
+    const gridRaw = showFeatured ? matching.filter(p => p !== featuredRaw) : matching;
+    const posts = gridRaw.map(decorate);
+
+    const total = matching.length;
+    const countLabel = isAll
+      ? all.length + ' notes'
+      : total + (total === 1 ? ' note' : ' notes') + ' · ' + this.state.cat;
+
+    return {
+      theme,
+      columns,
+      categories,
+      countLabel,
+      showFeatured,
+      featured,
+      posts,
+      subscriberLine: '4,210 drivers · 0 trackers',
+      onSubscribe: (e) => { e.preventDefault(); },
+      navLinks: [
+        { label: 'How it works', href: 'WebLanding.dc.html#how' },
+        { label: 'Android Auto', href: 'WebLanding.dc.html#android-auto' },
+        { label: 'Apps', href: 'WebLanding.dc.html#apps' },
+        { label: 'Blog', href: 'Blog.dc.html' },
+        { label: 'Hotlist', href: 'Hotlist.dc.html' },
+        { label: 'Contribute', href: 'Help.dc.html' },
+      ],
+      headerCta: { label: 'Open Full Map', href: 'WebFullMap.dc.html' },
+    };
+  }
+}
+</script>
+</body>
+</html>

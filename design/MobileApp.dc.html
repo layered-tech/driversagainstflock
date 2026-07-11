@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- page name="Mobile app screens" description="Index of the mobile galleries: explore, navigate, contribute, settings, Android parity." -->
+<helmet>
+  <script src="./ds-base.js"></script>
+  <style>
+    *{ box-sizing:border-box; }
+    body{ margin:0; background:var(--surface-card-alt); }
+  </style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="font-family:var(--font-ui); background:var(--surface-card-alt); min-height:100vh; padding:48px 40px 80px; color:var(--text-primary);">
+  <div style="max-width:1100px; margin:0 auto;">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px;">
+      <img src="assets/logo-mark.png" alt="DAF" style="width:36px; height:36px; object-fit:contain;">
+      <span style="font-family:var(--font-display); font-weight:700; font-size:24px; letter-spacing:var(--ls-heading);">Drivers Against Flock — Mobile</span>
+    </div>
+    <p style="font-size:15px; color:var(--text-secondary); margin:0 0 36px; max-width:70ch;">Native-feeling iOS and Android screens built from the shared design system. The gallery is split into focused pages — by what the driver is doing — so each one loads fast.</p>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px;">
+
+      <a href="MobileExplore.dc.html" style="display:flex; flex-direction:column; gap:10px; padding:22px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); text-decoration:none; color:var(--text-primary); transition:border-color 180ms var(--ease-standard), transform 180ms var(--ease-standard), box-shadow 180ms var(--ease-standard);" style-hover="border-color:var(--border-strong); transform:translateY(-2px); box-shadow:var(--shadow-card);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-brand); font-weight:600;">01–04 · iOS</span>
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary);">4 screens</span>
+        </div>
+        <div style="font-family:var(--font-display); font-weight:700; font-size:20px; letter-spacing:var(--ls-heading);">Explore &amp; search</div>
+        <div style="font-size:14px; color:var(--text-secondary); line-height:1.5;">Map home · Search · Place details · ALPR marker</div>
+        <div style="margin-top:auto; font-size:13px; font-weight:600; color:var(--text-brand);">Open gallery →</div>
+      </a>
+
+      <a href="MobileNavigate.dc.html" style="display:flex; flex-direction:column; gap:10px; padding:22px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); text-decoration:none; color:var(--text-primary); transition:border-color 180ms var(--ease-standard), transform 180ms var(--ease-standard), box-shadow 180ms var(--ease-standard);" style-hover="border-color:var(--border-strong); transform:translateY(-2px); box-shadow:var(--shadow-card);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-brand); font-weight:600;">05–07b · iOS</span>
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary);">4 screens</span>
+        </div>
+        <div style="font-family:var(--font-display); font-weight:700; font-size:20px; letter-spacing:var(--ls-heading);">Routing &amp; navigation</div>
+        <div style="font-size:14px; color:var(--text-secondary); line-height:1.5;">Directions form · Route comparison · Active navigation · Police ahead</div>
+        <div style="margin-top:auto; font-size:13px; font-weight:600; color:var(--text-brand);">Open gallery →</div>
+      </a>
+
+      <a href="MobileContribute.dc.html" style="display:flex; flex-direction:column; gap:10px; padding:22px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); text-decoration:none; color:var(--text-primary); transition:border-color 180ms var(--ease-standard), transform 180ms var(--ease-standard), box-shadow 180ms var(--ease-standard);" style-hover="border-color:var(--border-strong); transform:translateY(-2px); box-shadow:var(--shadow-card);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-brand); font-weight:600;">10–15 · iOS</span>
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary);">6 screens</span>
+        </div>
+        <div style="font-family:var(--font-display); font-weight:700; font-size:20px; letter-spacing:var(--ls-heading);">Contribute (OSM)</div>
+        <div style="font-size:14px; color:var(--text-secondary); line-height:1.5;">Start changeset · Place nodes · Camera details · Changeset details · Publish · Hotlist</div>
+        <div style="margin-top:auto; font-size:13px; font-weight:600; color:var(--text-brand);">Open gallery →</div>
+      </a>
+
+      <a href="MobileSettings.dc.html" style="display:flex; flex-direction:column; gap:10px; padding:22px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); text-decoration:none; color:var(--text-primary); transition:border-color 180ms var(--ease-standard), transform 180ms var(--ease-standard), box-shadow 180ms var(--ease-standard);" style-hover="border-color:var(--border-strong); transform:translateY(-2px); box-shadow:var(--shadow-card);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-brand); font-weight:600;">08–09 · iOS</span>
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary);">2 screens</span>
+        </div>
+        <div style="font-family:var(--font-display); font-weight:700; font-size:20px; letter-spacing:var(--ls-heading);">Onboarding &amp; settings</div>
+        <div style="font-size:14px; color:var(--text-secondary); line-height:1.5;">No-location fallback · Map settings</div>
+        <div style="margin-top:auto; font-size:13px; font-weight:600; color:var(--text-brand);">Open gallery →</div>
+      </a>
+
+      <a href="MobileAndroid.dc.html" style="display:flex; flex-direction:column; gap:10px; padding:22px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); text-decoration:none; color:var(--text-primary); transition:border-color 180ms var(--ease-standard), transform 180ms var(--ease-standard), box-shadow 180ms var(--ease-standard);" style-hover="border-color:var(--border-strong); transform:translateY(-2px); box-shadow:var(--shadow-card);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-brand); font-weight:600;">A1–A5 · Android</span>
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary);">5 screens</span>
+        </div>
+        <div style="font-family:var(--font-display); font-weight:700; font-size:20px; letter-spacing:var(--ls-heading);">Android parity</div>
+        <div style="font-size:14px; color:var(--text-secondary); line-height:1.5;">Map home · Route comparison · Active navigation · ALPR marker · Hotlist</div>
+        <div style="margin-top:auto; font-size:13px; font-weight:600; color:var(--text-brand);">Open gallery →</div>
+      </a>
+
+    </div>
+
+    <p style="font-family:var(--font-mono); font-size:12px; color:var(--text-tertiary); margin:24px 0 0;">Screens keep their original numbering (01–15, A1–A5) across the split pages.</p>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:760},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+</body>
+</html>

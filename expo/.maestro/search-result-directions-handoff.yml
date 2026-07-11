@@ -1,0 +1,101 @@
+appId: com.anonymous.drivefree.dev
+name: Search Result Directions Mode Mocked
+tags:
+  - map
+  - directions
+---
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    commands:
+      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- extendedWaitUntil:
+    visible:
+      id: "map-search-input-map"
+    timeout: 30000
+- openLink: "driversagainstflock://e2e-mocks"
+- extendedWaitUntil:
+    visible:
+      id: "map-search-input-map"
+    timeout: 10000
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+
+- tapOn:
+    id: "map-search-input-map"
+- inputText: "Barton Springs Pool"
+- extendedWaitUntil:
+    visible:
+      id: "map-search-result-0-map"
+    timeout: 30000
+- tapOn:
+    id: "map-search-result-0-map"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: "selected-place-get-directions-button"
+      enabled: true
+    timeout: 30000
+- tapOn:
+    id: "selected-place-get-directions-button"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: "directions-route-start-driving-button"
+    timeout: 60000
+- assertVisible:
+    id: "directions-route-option-direct"
+- assertVisible:
+    id: "directions-route-option-ideal"
+- tapOn:
+    id: "directions-route-back-button"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: "selected-place-get-directions-button"
+    timeout: 10000
+- assertVisible:
+    id: "place-details-close-button"
+- tapOn:
+    id: "place-details-close-button"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: "map-search-input-map"
+    timeout: 10000
+
+- tapOn:
+    id: "map-search-input-map"
+- eraseText
+- inputText: "Austin Central Library"
+- extendedWaitUntil:
+    visible:
+      id: "map-search-result-0-map"
+    timeout: 30000
+- tapOn:
+    id: "map-search-result-0-map"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: "selected-place-get-directions-button"
+      enabled: true
+    timeout: 30000
+- tapOn:
+    id: "selected-place-get-directions-button"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: "directions-route-start-driving-button"
+    timeout: 60000
+- assertVisible:
+    id: "directions-route-option-direct"
+- assertVisible:
+    id: "directions-route-option-ideal"

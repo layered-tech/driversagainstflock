@@ -1,0 +1,71 @@
+<!-- @dsCard group="Components" viewport="700x320" name="SearchBar" subtitle="Menu · search · input · clear · directions — light/dark" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="../../../styles.css" />
+<style>
+  html, body { margin: 0; }
+  body {
+    font-family: var(--font-ui); color: var(--text-primary);
+    background:
+      repeating-linear-gradient(0deg, transparent 0 38px, rgba(128,141,155,0.10) 38px 39px),
+      repeating-linear-gradient(90deg, transparent 0 38px, rgba(128,141,155,0.10) 38px 39px),
+      var(--map-land);
+    padding: 26px; transition: background var(--dur-base) var(--ease-standard);
+  }
+  .toolbar { position: fixed; top: 14px; right: 14px; z-index: 20; }
+  .tg { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border-radius: var(--radius-pill);
+        background: var(--surface-glass); color: var(--text-primary); border: 1px solid var(--border-glass);
+        box-shadow: var(--shadow-float); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        font-family: var(--font-ui); font-weight: 600; font-size: 12px; cursor: pointer; }
+  .wrap { max-width: 480px; display: flex; flex-direction: column; gap: 16px; }
+  .lab { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-tertiary); margin: 2px 0 -6px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<script src="../../../_ds_bundle.js"></script>
+<script type="text/babel" data-presets="react">
+const NS = window.DesignSystem_aa8750;
+const { SearchBar, Icon } = NS;
+function ThemeToggle() {
+  const [t, setT] = React.useState('light');
+  React.useEffect(() => { document.documentElement.setAttribute('data-theme', t); }, [t]);
+  return <div className="toolbar"><button className="tg" onClick={() => setT(t === 'light' ? 'dark' : 'light')}><Icon name={t === 'light' ? 'moon' : 'sun'} size={15} />{t === 'light' ? 'Dark' : 'Light'}</button></div>;
+}
+function Demo() {
+  const [q, setQ] = React.useState('Stanford Shopping Center');
+  return (
+    <>
+      <ThemeToggle />
+      <p className="lab">Full bar · menu · search · input · clear · directions</p>
+      <SearchBar
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onMenu={() => {}}
+        onClear={() => setQ('')}
+        onDirections={() => {}}
+      />
+      <p className="lab">Resting · read-only placeholder</p>
+      <SearchBar
+        placeholder="Where to?"
+        readOnly
+        onMenu={() => {}}
+        onVoice={() => {}}
+        onDirections={() => {}}
+      />
+      <p className="lab">Minimal · search + input only</p>
+      <SearchBar placeholder="Search Maps" readOnly />
+    </>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>
+</body>
+</html>

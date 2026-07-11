@@ -1,0 +1,41 @@
+<!-- @dsCard group="Colors" viewport="700x330" name="Surfaces — light & dark" subtitle="One token set, two themes. Glass floats over the map in both." -->
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" /><link rel="stylesheet" href="../styles.css" />
+<style>
+  html,body{margin:0}
+  body{font-family:var(--font-ui);background:var(--surface-page);padding:22px;color:var(--text-primary)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .frame{border-radius:var(--radius-xl);overflow:hidden;border:1px solid var(--border);background:var(--surface-page)}
+  .map{padding:16px;display:flex;flex-direction:column;gap:14px;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 30px, rgba(128,141,155,0.10) 30px 31px),
+      repeating-linear-gradient(90deg, transparent 0 30px, rgba(128,141,155,0.10) 30px 31px),
+      var(--map-land)}
+  .head{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--surface-card);border-bottom:1px solid var(--border)}
+  .head .name{font-family:var(--font-display);font-weight:700;font-size:14px}
+  .tag{font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)}
+  .panel{border-radius:var(--radius-md);padding:14px}
+  .glass{background:var(--surface-glass);border:1px solid var(--border-glass);box-shadow:var(--shadow-float);backdrop-filter:blur(var(--blur-glass));-webkit-backdrop-filter:blur(var(--blur-glass));color:var(--text-primary)}
+  .solid{background:var(--surface-card);border:1px solid var(--border);box-shadow:var(--shadow-card);color:var(--text-primary)}
+  .t{font-family:var(--font-display);font-weight:700;font-size:14px;margin:0 0 3px}
+  .s{font-size:12px;color:var(--text-secondary);margin:0}
+  .lab{font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary);display:block;margin-top:6px}
+  .pin{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--brand);margin-right:6px}
+</style></head><body>
+<div class="grid">
+  <div class="frame" data-theme="light">
+    <div class="head"><span class="name">Light</span><span class="tag">default</span></div>
+    <div class="map">
+      <div class="panel glass"><p class="t"><span class="pin"></span>Glass</p><p class="s">Floating controls, sheets, route cards.</p><span class="lab">--surface-glass · white @ 80% + blur</span></div>
+      <div class="panel solid"><p class="t">Solid</p><p class="s">Sheets, panels, marketing, docs.</p><span class="lab">--surface-card · #FFFFFF</span></div>
+    </div>
+  </div>
+  <div class="frame" data-theme="dark">
+    <div class="head"><span class="name">Dark</span><span class="tag">[data-theme=dark]</span></div>
+    <div class="map">
+      <div class="panel glass"><p class="t"><span class="pin"></span>Glass</p><p class="s">Floating controls, sheets, route cards.</p><span class="lab">--surface-glass · ink @ 82% + blur</span></div>
+      <div class="panel solid"><p class="t">Solid</p><p class="s">Sheets, panels, marketing, docs.</p><span class="lab">--surface-card · #161B22</span></div>
+    </div>
+  </div>
+</div>
+</body></html>

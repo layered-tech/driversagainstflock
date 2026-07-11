@@ -1,0 +1,51 @@
+@import './fonts.css';
+@import './colors.css';
+@import './typography.css';
+@import './spacing.css';
+@import './radius.css';
+@import './motion.css';
+
+@layer base {
+    html {
+        background: var(--surface-page);
+        color: var(--text-primary);
+        font-family: var(--font-ui);
+        min-height: 100%;
+    }
+
+    body {
+        background: var(--surface-page);
+        color: var(--text-primary);
+        font-family: var(--font-ui);
+        min-height: 100%;
+    }
+
+    * {
+        letter-spacing: var(--ls-body);
+    }
+
+    :focus-visible {
+        outline: 2px solid var(--focus-ring);
+        outline-offset: 2px;
+    }
+}
+
+.daf-glass {
+    background: var(--surface-glass);
+    border: var(--bw-hairline) solid var(--border-glass);
+    box-shadow: var(--shadow-float), var(--ring-glass);
+    backdrop-filter: blur(var(--blur-glass));
+}
+
+.daf-pressable {
+    transition:
+        transform var(--dur-fast) var(--ease-standard),
+        background-color var(--dur-fast) var(--ease-standard),
+        border-color var(--dur-fast) var(--ease-standard),
+        color var(--dur-fast) var(--ease-standard),
+        opacity var(--dur-fast) var(--ease-standard);
+}
+
+.daf-pressable:active {
+    transform: scale(var(--press-scale));
+}

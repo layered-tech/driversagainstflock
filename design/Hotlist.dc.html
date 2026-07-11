@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- page name="Web — Hotlist" description="Recently-added surveillance nodes: live stat tiles, a filterable + sortable list, and a small isolated locator map kept in sync with the list." -->
+<helmet>
+  <script src="./ds-base.js"></script>
+  <style>
+    *{ box-sizing:border-box; }
+    html{ scroll-behavior:smooth; }
+    body{ margin:0; background:var(--surface-page); }
+    a{ color:inherit; }
+
+    .hot-grid{ display:grid; grid-template-columns:22px minmax(120px,1.5fr) minmax(110px,1.4fr) 126px 96px 108px 16px; align-items:center; column-gap:14px; }
+
+    .hot-row{ width:100%; text-align:left; border:none; background:transparent; cursor:pointer; padding:14px 18px; border-top:1px solid var(--border); font-family:var(--font-ui); color:var(--text-primary); transition:background var(--dur-base) var(--ease-standard); }
+    .hot-row:hover{ background:var(--surface-card-alt); }
+    .hot-row[data-sel="1"]{ background:var(--brand-soft); }
+    [data-density="compact"] .hot-row{ padding:9px 18px; }
+
+    .hot-th{ display:inline-flex; align-items:center; gap:5px; border:none; background:transparent; padding:0; cursor:pointer; font-family:var(--font-ui); font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); transition:color var(--dur-base) var(--ease-standard); white-space:nowrap; }
+    .hot-th:hover{ color:var(--text-secondary); }
+    .hot-th .hot-arrow{ opacity:0; transition:opacity var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-standard); }
+    .hot-th[data-dir="asc"] .hot-arrow, .hot-th[data-dir="desc"] .hot-arrow{ opacity:1; color:var(--text-brand); }
+    .hot-th[data-dir="asc"] .hot-arrow{ transform:rotate(180deg); }
+    .hot-th[data-dir="asc"], .hot-th[data-dir="desc"]{ color:var(--text-secondary); }
+    .hot-th-static{ font-family:var(--font-ui); font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); white-space:nowrap; }
+
+    .hot-dot{ width:9px; height:9px; border-radius:50%; display:block; }
+    .hot-dot[data-type="alpr"], .hot-dot[data-type="camera"]{ background:var(--marker-alpr); box-shadow:0 0 0 4px rgba(255,77,79,0.14); }
+
+    .hot-pg{ display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:34px; padding:0 9px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface-card); color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); font-variant-numeric:tabular-nums; cursor:pointer; transition:border-color var(--dur-base) var(--ease-standard), color var(--dur-base) var(--ease-standard), background var(--dur-base) var(--ease-standard); }
+    .hot-pg:hover:not(:disabled){ border-color:var(--text-brand); color:var(--text-brand); }
+    .hot-pg:disabled{ opacity:0.4; cursor:default; }
+    .hot-pg[data-sel="1"]{ background:var(--brand-soft); border-color:var(--text-brand); color:var(--text-brand); }
+
+    .hot-search{ width:100%; border:1.5px solid var(--border); background:var(--surface-card); border-radius:var(--radius-pill); padding:10px 14px 10px 40px; font-family:var(--font-ui); font-size:var(--fs-body); color:var(--text-primary); outline:none; transition:border-color var(--dur-base) var(--ease-standard); }
+    .hot-search:focus{ border-color:var(--text-brand); }
+    .hot-search::placeholder{ color:var(--text-tertiary); }
+
+    .hot-main{ display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:24px; align-items:start; }
+    .hot-main[data-map="off"]{ grid-template-columns:minmax(0,1fr); }
+
+    .hot-sub{ color:var(--text-tertiary); }
+    .hot-sub[data-tone="up"]{ color:var(--text-brand); }
+
+    @keyframes hot-pulse{ 0%{ transform:scale(1); opacity:0.5; } 70%{ transform:scale(2.6); opacity:0; } 100%{ transform:scale(2.6); opacity:0; } }
+    @media (prefers-reduced-motion: no-preference){ .hot-live{ animation:hot-pulse 2.4s var(--ease-standard) infinite; } }
+    @media (max-width: 940px){ .hot-main{ grid-template-columns:minmax(0,1fr); } .hot-stats{ grid-template-columns:repeat(2,1fr) !important; } }
+  </style>
+</helmet>
+
+<div data-theme="{{ theme }}" data-density="{{ density }}" data-screen-label="Web — Hotlist" style="font-family:var(--font-ui); color:var(--text-primary); background:var(--surface-page); min-height:100vh; -webkit-font-smoothing:antialiased;">
+
+  <x-import component-from-global-scope="DesignSystem_aa8750.SiteHeader" logo-src="assets/logo-mark.png" variant="marketing" logo-href="WebLanding.dc.html" links="{{ navLinks }}" cta="{{ headerCta }}" hint-size="100%,68px"></x-import>
+
+  <!-- ===================== TITLE BAND ===================== -->
+  <section style="border-bottom:1px solid var(--border);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:40px 24px 32px; display:flex; align-items:flex-end; justify-content:space-between; gap:28px; flex-wrap:wrap;">
+      <div style="min-width:0;">
+        <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand); font-weight:var(--fw-bold); margin-bottom:12px;">Hotlist</div>
+        <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h1); line-height:1.06; letter-spacing:var(--ls-display); margin:0 0 10px; text-wrap:balance;">Recently added nodes</h1>
+        <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); margin:0; max-width:52ch;">Fresh creepy boxes, straight from OpenStreetMap contributors — sorted newest first.</p>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <div style="display:inline-flex; align-items:center; gap:9px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-pill); padding:8px 14px;">
+          <span style="position:relative; flex:0 0 auto; width:7px; height:7px; display:inline-flex; align-items:center; justify-content:center;">
+            <span class="hot-live" style="position:absolute; inset:0; border-radius:50%; background:var(--text-brand);"></span>
+            <span style="position:relative; width:7px; height:7px; border-radius:50%; background:var(--text-brand);"></span>
+          </span>
+          <span style="font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-secondary);">Synced 2 min ago</span>
+        </div>
+        <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="light" options="{{ windowOptions }}" value="{{ windowKey }}" onChange="{{ setWindow }}" hint-size="220px,44px"></x-import>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== STATS ===================== -->
+  <section style="border-bottom:1px solid var(--border);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:28px 24px;">
+      <div class="hot-stats" style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px;">
+        <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+          <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:20px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
+              <span style="display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:var(--radius-sm); background:var(--brand-soft); color:var(--text-brand); flex:0 0 auto;"><x-import component-from-global-scope="DesignSystem_aa8750.Icon" name="{{ s.icon }}" size="18" hint-size="18px,18px"></x-import></span>
+              <span style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); font-weight:var(--fw-bold); line-height:1.2;">{{ s.label }}</span>
+            </div>
+            <div style="font-family:var(--font-mono); font-size:38px; line-height:1; font-weight:600; letter-spacing:-0.02em; color:var(--text-primary); font-variant-numeric:tabular-nums; margin-bottom:8px;">{{ s.value }}</div>
+            <div class="hot-sub" data-tone="{{ s.tone }}" style="display:inline-flex; align-items:center; gap:5px; font-size:var(--fs-body-sm); font-weight:var(--fw-medium);">
+              <sc-if value="{{ s.isUp }}" hint-placeholder-val="{{ false }}">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m5 12 7-7 7 7"></path><path d="M12 19V5"></path></svg>
+              </sc-if>
+              {{ s.sub }}
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== MAIN ===================== -->
+  <section>
+    <div style="max-width:var(--width-content); margin:0 auto; padding:32px 24px 80px;">
+      <div class="hot-main" data-map="{{ showMapAttr }}">
+
+        <!-- ========== LIST COLUMN ========== -->
+        <div style="min-width:0;">
+
+          <!-- toolbar -->
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px;">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <sc-for list="{{ typeChips }}" as="c" hint-placeholder-count="4">
+                <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" selected="{{ c.sel }}" onClick="{{ c.pick }}" hint-size="auto,36px">{{ c.label }}</x-import>
+              </sc-for>
+            </div>
+            <div style="position:relative; flex:0 0 auto; width:268px; max-width:100%;">
+              <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-tertiary); pointer-events:none; display:inline-flex;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg></span>
+              <input class="hot-search" value="{{ query }}" onInput="{{ onQuery }}" placeholder="Filter by city, street, ID…">
+            </div>
+          </div>
+
+          <!-- table card -->
+          <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); overflow:hidden;">
+
+            <!-- header row -->
+            <div class="hot-grid" style="padding:13px 18px; background:var(--surface-card-alt);">
+              <span></span>
+              <button class="hot-th" data-dir="{{ typeDir }}" onClick="{{ sortType }}" aria-label="Sort by node type">Node<span class="hot-arrow" style="display:inline-flex;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m6 9 6 6 6-6"></path></svg></span></button>
+              <button class="hot-th" data-dir="{{ cityDir }}" onClick="{{ sortCity }}" aria-label="Sort by location">Location<span class="hot-arrow" style="display:inline-flex;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m6 9 6 6 6-6"></path></svg></span></button>
+              <span class="hot-th-static">Operator</span>
+              <button class="hot-th" data-dir="{{ addedDir }}" onClick="{{ sortAdded }}" aria-label="Sort by date added">Added<span class="hot-arrow" style="display:inline-flex;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m6 9 6 6 6-6"></path></svg></span></button>
+              <span class="hot-th-static">By</span>
+              <span></span>
+            </div>
+
+            <!-- rows -->
+            <div role="list">
+              <sc-for list="{{ rows }}" as="m" hint-placeholder-count="6">
+                <div role="listitem" class="hot-row hot-grid" data-sel="{{ m.selAttr }}" onClick="{{ m.pick }}">
+                  <span class="hot-dot" data-type="{{ m.type }}"></span>
+                  <span style="min-width:0;">
+                    <span style="display:block; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary); line-height:1.3;">{{ m.typeLabel }}</span>
+                    <span style="display:block; font-size:var(--fs-caption); font-family:var(--font-mono); color:var(--text-tertiary); line-height:1.4;">{{ m.osm }}</span>
+                  </span>
+                  <span style="min-width:0;">
+                    <span style="display:block; font-size:var(--fs-body-sm); font-weight:var(--fw-medium); color:var(--text-primary); line-height:1.3; text-wrap:pretty;">{{ m.street }}</span>
+                    <span style="display:block; font-size:var(--fs-caption); color:var(--text-tertiary); line-height:1.4;">{{ m.city }}</span>
+                  </span>
+                  <span style="min-width:0;"><x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="neutral" size="sm" hint-size="auto,22px">{{ m.operator }}</x-import></span>
+                  <span style="font-size:var(--fs-body-sm); font-family:var(--font-mono); color:var(--text-secondary); white-space:nowrap;">{{ m.addedLabel }}</span>
+                  <span style="font-size:var(--fs-body-sm); font-family:var(--font-mono); color:var(--text-tertiary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ m.contributor }}</span>
+                  <span style="display:inline-flex; color:var(--text-tertiary);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m9 18 6-6-6-6"></path></svg></span>
+                </div>
+              </sc-for>
+            </div>
+
+            <!-- empty state -->
+            <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:56px 24px; text-align:center; border-top:1px solid var(--border);">
+                <span style="display:inline-flex; align-items:center; justify-content:center; width:46px; height:46px; border-radius:var(--radius-md); background:var(--surface-card-alt); color:var(--text-tertiary); margin-bottom:14px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg></span>
+                <div style="font-family:var(--font-display); font-weight:600; font-size:var(--fs-h3); letter-spacing:var(--ls-heading); margin-bottom:6px;">Nothing on the list</div>
+                <p style="font-size:var(--fs-body); color:var(--text-secondary); margin:0 0 18px;">No nodes match these filters in this time window.</p>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="secondary" size="md" onClick="{{ resetFilters }}" hint-size="auto,44px">Clear filters</x-import>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; margin-top:16px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; min-width:0;">
+              <span style="font-size:var(--fs-body-sm); color:var(--text-tertiary); white-space:nowrap;">{{ countLabel }}</span>
+              <span style="font-size:var(--fs-caption); color:var(--text-tertiary); display:inline-flex; align-items:center; gap:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                Data from OpenStreetMap contributors
+              </span>
+            </div>
+            <sc-if value="{{ showPager }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; align-items:center; gap:6px; flex:0 0 auto;">
+                <button class="hot-pg" onClick="{{ prevPage }}" disabled="{{ atFirst }}" aria-label="Previous page"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></button>
+                <sc-for list="{{ pages }}" as="p" hint-placeholder-count="3">
+                  <button class="hot-pg" data-sel="{{ p.selAttr }}" onClick="{{ p.go }}" aria-label="{{ p.aria }}">{{ p.label }}</button>
+                </sc-for>
+                <button class="hot-pg" onClick="{{ nextPage }}" disabled="{{ atLast }}" aria-label="Next page"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m9 18 6-6-6-6"></path></svg></button>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+
+        <!-- ========== MAP COLUMN ========== -->
+        <sc-if value="{{ showMap }}" hint-placeholder-val="{{ true }}">
+          <div style="position:sticky; top:88px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); overflow:hidden;">
+
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; border-bottom:1px solid var(--border);">
+              <span style="font-family:var(--font-display); font-size:var(--fs-body-lg); font-weight:var(--fw-bold); letter-spacing:var(--ls-heading);">Locator</span>
+              <span style="font-size:var(--fs-caption); color:var(--text-tertiary);">{{ mapCountLabel }}</span>
+            </div>
+
+            <!-- isolated map -->
+            <div style="position:relative; height:320px;">
+              <dc-import name="SchematicMap" view="map" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
+              {{ mapPins }}
+            </div>
+
+            <!-- footer: selected detail OR legend -->
+            <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:16px; border-top:1px solid var(--border);">
+                <div style="display:flex; align-items:flex-start; gap:10px; margin-bottom:12px;">
+                  <span class="hot-dot" data-type="{{ selType }}" style="margin-top:6px; flex:0 0 auto;"></span>
+                  <div style="min-width:0;">
+                    <div style="font-size:var(--fs-body); font-weight:var(--fw-semibold); color:var(--text-primary); line-height:1.3;">{{ selTypeLabel }}</div>
+                    <div style="font-size:var(--fs-body-sm); color:var(--text-secondary); line-height:1.4; text-wrap:pretty;">{{ selStreet }}</div>
+                    <div style="font-size:var(--fs-caption); font-family:var(--font-mono); color:var(--text-tertiary); margin-top:3px;">{{ selCoords }}</div>
+                  </div>
+                </div>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="secondary" size="sm" full-width="{{ true }}" hint-size="100%,40px">Open on full map  ↗</x-import>
+              </div>
+            </sc-if>
+            <sc-if value="{{ noSelection }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:16px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:10px;">
+                <div style="display:flex; align-items:center; gap:18px;">
+                  <span style="display:inline-flex; align-items:center; gap:7px; font-size:var(--fs-body-sm); color:var(--text-secondary);"><span class="hot-dot" data-type="alpr"></span>ALPR reader</span>
+                </div>
+                <span style="font-size:var(--fs-caption); color:var(--text-tertiary);">Select a row to locate it on the map.</span>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer style="border-top:1px solid var(--border); background:var(--surface-card);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:36px 24px;">
+      <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
+        <div style="flex:1 1 200px; display:flex; align-items:center; gap:10px;">
+          <img src="assets/logo-mark.png" alt="DAF" style="width:28px; height:28px; object-fit:contain; border-radius:var(--radius-xs);">
+          <span style="font-family:var(--font-display); font-weight:700; font-size:15px;">Drivers Against Flock</span>
+        </div>
+        <div style="flex:0 1 auto; text-align:center; font-size:var(--fs-body-sm); color:var(--text-tertiary); max-width:42ch;">Camera data from OpenStreetMap contributors. We don't keep your trips. We don't sell them, either.</div>
+        <div style="flex:1 1 200px; display:flex; justify-content:flex-end; gap:22px; font-size:var(--fs-body-sm); color:var(--text-secondary);">
+          <a href="WebLanding.dc.html#how" style="text-decoration:none;">How it works</a>
+          <a href="WebFullMap.dc.html" style="text-decoration:none;">Full map</a>
+          <a href="WebLanding.dc.html#apps" style="text-decoration:none;">Apps</a>
+        </div>
+      </div>
+      <div style="margin-top:28px; padding-top:24px; border-top:1px solid var(--border); display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        <div style="flex:1 1 200px; font-size:var(--fs-caption); color:var(--text-tertiary);">© 2026 LayeredTech, LLC. All rights reserved.</div>
+        <div style="flex:0 1 auto; text-align:center; font-size:var(--fs-body-sm); color:var(--text-secondary);"><a href="mailto:driversagainstflock@proton.me" style="color:inherit; text-decoration:none;">driversagainstflock@proton.me</a></div>
+        <div style="flex:1 1 200px; display:flex; justify-content:flex-end; gap:22px; font-size:var(--fs-body-sm); color:var(--text-secondary);">
+          <a href="PrivacyPolicy.dc.html" style="text-decoration:none;">Privacy Policy</a>
+          <a href="TermsOfUse.dc.html" style="text-decoration:none;">Terms of Use</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:1320},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;comfortable&quot;,&quot;compact&quot;],&quot;default&quot;:&quot;comfortable&quot;,&quot;tsType&quot;:&quot;'comfortable' | 'compact'&quot;},&quot;showMap&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = {
+    theme: this.props.theme ?? 'light',
+    windowKey: '7',
+    typeFilter: 'all',
+    opFilter: 'all',
+    query: '',
+    sortKey: 'added',
+    sortDir: 'desc',
+    selectedId: null,
+    page: 1,
+  };
+
+  componentDidUpdate(prev) {
+    if (prev.theme !== this.props.theme) this.setState({ theme: this.props.theme ?? 'light' });
+  }
+  componentDidMount() {
+    // Map pins are rendered via createElement (data-driven positions), so re-render
+    // once the design-system bundle has resolved MapMarker onto the namespace.
+    if (!(window.DesignSystem_aa8750 && window.DesignSystem_aa8750.MapMarker)) {
+      this._poll = setInterval(() => {
+        if (window.DesignSystem_aa8750 && window.DesignSystem_aa8750.MapMarker) {
+          clearInterval(this._poll);
+          this._poll = null;
+          this.forceUpdate();
+        }
+      }, 60);
+    }
+  }
+  componentWillUnmount() { if (this._poll) clearInterval(this._poll); }
+
+  setWindow(k) { this.setState({ windowKey: k, selectedId: null, page: 1 }); }
+  setType(t) { this.setState({ typeFilter: t, selectedId: null, page: 1 }); }
+  setOp(o) { this.setState({ opFilter: o, selectedId: null, page: 1 }); }
+  onQuery(e) { this.setState({ query: e.target.value, selectedId: null, page: 1 }); }
+  pick(id) { this.setState(s => ({ selectedId: s.selectedId === id ? null : id })); }
+  resetFilters() { this.setState({ typeFilter: 'all', opFilter: 'all', query: '', windowKey: '30', selectedId: null, page: 1 }); }
+  setPage(p) { this.setState({ page: p, selectedId: null }); }
+  prevPage() { this.setState(s => ({ page: Math.max(1, s.page - 1), selectedId: null })); }
+  nextPage() { this.setState(s => ({ page: s.page + 1, selectedId: null })); }
+  sortBy(key, defaultDir) {
+    this.setState(s => {
+      if (s.sortKey === key) return { sortDir: s.sortDir === 'asc' ? 'desc' : 'asc', page: 1 };
+      return { sortKey: key, sortDir: defaultDir, page: 1 };
+    });
+  }
+
+  relTime(h) {
+    if (h < 1) return 'just now';
+    if (h < 24) return h + 'h ago';
+    if (h < 48) return 'yesterday';
+    return Math.floor(h / 24) + 'd ago';
+  }
+
+  renderVals() {
+    const theme = this.state.theme;
+    const density = this.props.density ?? 'comfortable';
+    const showMap = this.props.showMap ?? true;
+    const { windowKey, typeFilter, opFilter, query, sortKey, sortDir, selectedId } = this.state;
+
+    const nodes = [
+      { id: 'n1',  type: 'alpr',   typeLabel: 'ALPR reader',    osm: 'node/11820431', operator: 'Flock Safety',   street: '16th St & Mission St',    city: 'Mission District',   addedHrs: 2,   contributor: '@bayrider',    lat: 37.7649, lng: -122.4194, x: 52, y: 56 },
+      { id: 'n2',  type: 'alpr',   typeLabel: 'ALPR reader',    osm: 'node/11819007', operator: 'Flock Safety',   street: 'Embarcadero & Market St', city: 'Financial District', addedHrs: 5,   contributor: '@fogcity',     lat: 37.7937, lng: -122.3965, x: 70, y: 30 },
+      { id: 'n3',  type: 'alpr',   typeLabel: 'ALPR reader',    osm: 'node/11817754', operator: 'Flock Safety',   street: 'Cesar Chavez & Guerrero', city: 'Bernal Heights',     addedHrs: 9,   contributor: '@mapnerd',     lat: 37.7479, lng: -122.4241, x: 44, y: 70 },
+      { id: 'n4',  type: 'alpr',   typeLabel: 'ALPR reader',    osm: 'node/11815320', operator: 'Genetec',        street: 'Geary Blvd & 19th Ave',   city: 'Richmond',           addedHrs: 14,  contributor: '@sutro',       lat: 37.7806, lng: -122.4773, x: 20, y: 34 },
+      { id: 'n5',  type: 'alpr',   typeLabel: 'ALPR reader',    osm: 'node/11813998', operator: 'Genetec',        street: 'Bayshore Blvd on-ramp',   city: 'Bayview',            addedHrs: 22,  contributor: '@transit_sam', lat: 37.7338, lng: -122.4012, x: 62, y: 78 },
+      { id: 'n6',  type: 'alpr',   typeLabel: 'ALPR reader',    osm: 'node/11810442', operator: 'Motorola Solutions', street: 'Van Ness Ave & Lombard',  city: 'Marina',             addedHrs: 30,  contributor: '@goldengate',  lat: 37.8003, lng: -122.4242, x: 40, y: 22 },
+      { id: 'n7',  type: 'alpr',   typeLabel: 'ALPR reader',    osm: 'node/11806915', operator: 'Leonardo ELSAG', street: 'Cesar Chavez & Hwy 101',  city: 'Potrero',            addedHrs: 48,  contributor: '@dolores_j',   lat: 37.7482, lng: -122.4048, x: 58, y: 66 },
+      { id: 'n8',  type: 'alpr',   typeLabel: 'ALPR reader',    osm: 'node/11801238', operator: 'Flock Safety',   street: 'Lincoln Way & 25th Ave',  city: 'Sunset',             addedHrs: 60,  contributor: '@oceanbeach',  lat: 37.7656, lng: -122.4844, x: 16, y: 58 },
+      { id: 'n9',  type: 'alpr',   typeLabel: 'ALPR reader',    osm: 'node/11796602', operator: 'Flock Safety',   street: '3rd St & Palou Ave',      city: 'Bayview',            addedHrs: 84,  contributor: '@shipyard',    lat: 37.7349, lng: -122.3897, x: 74, y: 68 },
+      { id: 'n10', type: 'alpr',   typeLabel: 'ALPR reader',    osm: 'node/11792210', operator: 'Vigilant',       street: 'I-280 & Mariposa St',     city: 'Potrero',            addedHrs: 108, contributor: '@fogcity',     lat: 37.7657, lng: -122.3996, x: 64, y: 60 },
+      { id: 'n11', type: 'alpr',   typeLabel: 'ALPR reader',    osm: 'node/11788955', operator: 'Genetec',        street: 'Divisadero & Oak St',     city: 'NoPa',               addedHrs: 150, contributor: '@panhandle',   lat: 37.7726, lng: -122.4378, x: 34, y: 46 },
+      { id: 'n12', type: 'alpr',   typeLabel: 'ALPR reader',    osm: 'node/11783401', operator: 'Flock Safety',   street: 'Folsom St & 24th St',     city: 'Mission District',   addedHrs: 220, contributor: '@bayrider',    lat: 37.7527, lng: -122.4146, x: 54, y: 64 },
+      { id: 'n13', type: 'alpr',   typeLabel: 'ALPR reader',    osm: 'node/11778820', operator: 'Flock Safety',   street: 'Geary Blvd & Masonic',    city: 'Anza Vista',         addedHrs: 360, contributor: '@sutro',       lat: 37.7818, lng: -122.4470, x: 28, y: 38 },
+      { id: 'n14', type: 'alpr',   typeLabel: 'ALPR reader',    osm: 'node/11770115', operator: 'Vigilant',       street: 'Sloat Blvd & 19th Ave',   city: 'Sunset',             addedHrs: 540, contributor: '@oceanbeach',  lat: 37.7345, lng: -122.4757, x: 14, y: 82 },
+    ];
+
+    const windowHrs = { '24': 24, '7': 168, '30': 720 }[windowKey];
+    const q = query.trim().toLowerCase();
+    const matchesQ = (n) => !q || [n.osm, n.street, n.city, n.operator, n.contributor, n.typeLabel].some(v => v.toLowerCase().includes(q));
+
+    const inWindow = nodes.filter(n => n.addedHrs <= windowHrs && matchesQ(n));
+    const filtered = inWindow.filter(n => opFilter === 'all' || (opFilter === 'flock' ? n.operator === 'Flock Safety' : n.operator !== 'Flock Safety'));
+
+    const sorted = filtered.slice().sort((a, b) => {
+      let av, bv;
+      if (sortKey === 'added') { av = -a.addedHrs; bv = -b.addedHrs; }
+      else if (sortKey === 'type') { av = a.typeLabel; bv = b.typeLabel; }
+      else { av = a.city; bv = b.city; }
+      let r = av < bv ? -1 : av > bv ? 1 : 0;
+      if (r === 0) r = a.addedHrs - b.addedHrs;
+      return sortDir === 'asc' ? r : -r;
+    });
+
+    // pagination
+    const pageSize = 6;
+    const total = sorted.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.min(Math.max(1, this.state.page), totalPages);
+    const start = (page - 1) * pageSize;
+    const pageNodes = sorted.slice(start, start + pageSize);
+
+    const rows = pageNodes.map(n => ({
+      id: n.id,
+      type: n.type,
+      typeLabel: n.typeLabel,
+      osm: n.osm,
+      street: n.street,
+      city: n.city,
+      operator: n.operator,
+      contributor: n.contributor,
+      addedLabel: this.relTime(n.addedHrs),
+      markerVariant: 'alpr',
+      mapXpct: n.x + '%',
+      mapYpct: n.y + '%',
+      sel: selectedId === n.id,
+      dim: selectedId != null && selectedId !== n.id,
+      selAttr: selectedId === n.id ? '1' : '0',
+      pick: () => this.pick(n.id),
+    }));
+
+    const pages = Array.from({ length: totalPages }, (_, i) => ({
+      label: String(i + 1),
+      aria: 'Go to page ' + (i + 1),
+      selAttr: page === i + 1 ? '1' : '0',
+      go: () => this.setPage(i + 1),
+    }));
+    const rangeStart = total === 0 ? 0 : start + 1;
+    const rangeEnd = start + rows.length;
+
+    const cnt = (t) => inWindow.filter(n => t === 'all' || n.type === t).length;
+    const typeChips = [
+      { key: 'all', label: 'All · ' + cnt('all') },
+      { key: 'flock', label: 'Flock · ' + inWindow.filter(n => n.operator === 'Flock Safety').length },
+      { key: 'other', label: 'Other vendors · ' + inWindow.filter(n => n.operator !== 'Flock Safety').length },
+    ].map(c => ({ label: c.label, sel: opFilter === c.key, pick: () => this.setOp(c.key) }));
+
+    const selNode = nodes.find(n => n.id === selectedId) || null;
+
+    // Data-positioned map pins (createElement keeps inline-position holes out of the template).
+    const NS = (typeof window !== 'undefined' && window.DesignSystem_aa8750) || {};
+    const MapMarker = NS.MapMarker;
+    const mapPins = MapMarker ? rows.map(m => React.createElement('div', {
+      key: m.id,
+      onClick: m.pick,
+      style: { position: 'absolute', left: m.mapXpct, top: m.mapYpct, transform: 'translate(-50%,-50%)', cursor: 'pointer', zIndex: 4 },
+    }, React.createElement(MapMarker, { variant: m.markerVariant, selected: m.sel, inactive: m.dim }))) : null;
+
+    const stats = [
+      { icon: 'plus',   label: 'Added this week',  value: '38',  sub: '11 vs last week', tone: 'up',    isUp: true },
+      { icon: 'camera', label: 'Flock readers',     value: '21',  sub: '55% of new',      tone: 'muted', isUp: false },
+      { icon: 'camera', label: 'Other vendors',     value: '17',  sub: '45% of new',      tone: 'muted', isUp: false },
+      { icon: 'clock',  label: 'Avg / day',        value: '5.4', sub: 'last 7 days',     tone: 'muted', isUp: false },
+    ];
+
+    return {
+      theme,
+      density,
+      showMap,
+      showMapAttr: showMap ? 'on' : 'off',
+      navLinks: [
+        { label: 'John Doe', href: 'WebLanding.dc.html#johndoe' },
+        { label: 'How it works', href: 'WebLanding.dc.html#how' },
+        { label: 'Android Auto', href: 'WebLanding.dc.html#android-auto' },
+        { label: 'Apps', href: 'WebLanding.dc.html#apps' },
+        { label: 'FAQ', href: 'WebLanding.dc.html#faq' },
+        { label: 'Hotlist', href: 'Hotlist.dc.html' },
+        { label: 'Contribute', href: 'Help.dc.html' },
+      ],
+      headerCta: { label: 'Open Full Map', href: 'WebFullMap.dc.html' },
+
+      windowKey,
+      windowOptions: [
+        { value: '24', label: '24h' },
+        { value: '7', label: '7 days' },
+        { value: '30', label: '30 days' },
+      ],
+      setWindow: (k) => this.setWindow(k),
+
+      stats,
+      typeChips,
+      query,
+      onQuery: (e) => this.onQuery(e),
+
+      typeDir: sortKey === 'type' ? sortDir : 'none',
+      cityDir: sortKey === 'city' ? sortDir : 'none',
+      addedDir: sortKey === 'added' ? sortDir : 'none',
+      sortType: () => this.sortBy('type', 'asc'),
+      sortCity: () => this.sortBy('city', 'asc'),
+      sortAdded: () => this.sortBy('added', 'desc'),
+
+      rows,
+      showEmpty: total === 0,
+      countLabel: total === 0
+        ? '0 nodes'
+        : 'Showing ' + rangeStart + '\u2013' + rangeEnd + ' of ' + total + (total === 1 ? ' node' : ' nodes'),
+      mapCountLabel: rows.length === 1 ? '1 pin' : rows.length + ' pins',
+      resetFilters: () => this.resetFilters(),
+
+      pages,
+      showPager: totalPages > 1,
+      atFirst: page <= 1,
+      atLast: page >= totalPages,
+      prevPage: () => this.prevPage(),
+      nextPage: () => this.nextPage(),
+
+      mapPins,
+      hasSelection: selNode != null,
+      noSelection: selNode == null,
+      selType: selNode ? selNode.type : 'alpr',
+      selTypeLabel: selNode ? selNode.typeLabel : '',
+      selStreet: selNode ? selNode.street + ', ' + selNode.city : '',
+      selCoords: selNode ? selNode.lat.toFixed(4) + ', ' + selNode.lng.toFixed(4) : '',
+    };
+  }
+}
+</script>
+</body>
+</html>

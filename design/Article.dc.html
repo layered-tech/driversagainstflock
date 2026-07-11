@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <script src="./ds-base.js"></script>
+  <style>
+    *{ box-sizing:border-box; }
+    html{ scroll-behavior:smooth; }
+    body{ margin:0; background:var(--surface-page); }
+    a{ color:inherit; }
+    .prose p{ font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); margin:0 0 22px; }
+    .prose h2{ font-family:var(--font-display); font-weight:700; font-size:var(--fs-h2); line-height:var(--lh-h2); letter-spacing:var(--ls-heading); color:var(--text-primary); margin:42px 0 16px; }
+    .prose ul{ margin:0 0 22px; padding-left:22px; display:flex; flex-direction:column; gap:10px; }
+    .prose li{ font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); }
+    .prose strong{ color:var(--text-primary); font-weight:var(--fw-semibold); }
+    .prose a{ color:var(--text-brand); text-decoration:none; }
+    .prose a:hover{ text-decoration:underline; }
+    .prose blockquote{ margin:34px 0; padding:6px 0 6px 26px; border-left:3px solid var(--brand);
+      font-family:var(--font-display); font-weight:500; font-size:var(--fs-h3); line-height:1.34; letter-spacing:var(--ls-heading); color:var(--text-primary); }
+    .cover{ position:relative; overflow:hidden; background:var(--surface-card);
+      background-image:repeating-linear-gradient(135deg, rgba(127,140,158,0.10) 0 1px, transparent 1px 13px); }
+    .cover-label{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+      font-family:var(--font-mono); font-size:12px; letter-spacing:var(--ls-mono); color:var(--text-tertiary); text-transform:lowercase; }
+    .rel-card{ transition:transform 160ms var(--ease-standard, ease), box-shadow 160ms var(--ease-standard, ease); }
+    .rel-card:hover{ transform:translateY(-3px); box-shadow:var(--shadow-float); }
+    .rel-card:hover .rel-title{ color:var(--text-brand); }
+    .acc-privacy{ --acc:var(--alert-500); }
+    .acc-product{ --acc:var(--azure-500); }
+    .acc-howto{ --acc:var(--brand); }
+    .acc-research{ --acc:var(--violet-500); }
+    .acc-bar{ background:var(--acc); }
+    .acc-text{ color:var(--acc); }
+  </style>
+</helmet>
+
+<div data-theme="{{ theme }}" data-screen-label="Web — Blog article" class="{{ accClass }}" style="font-family:var(--font-ui); color:var(--text-primary); background:var(--surface-page); min-height:100vh; -webkit-font-smoothing:antialiased;">
+
+  <!-- ===================== HEADER ===================== -->
+  <x-import component-from-global-scope="DesignSystem_aa8750.SiteHeader" logo-src="assets/logo-mark.png" variant="marketing" logo-href="WebLanding.dc.html" links="{{ navLinks }}" cta="{{ headerCta }}" hint-size="100%,68px"></x-import>
+
+  <!-- ===================== ARTICLE HEAD ===================== -->
+  <article>
+    <header style="border-bottom:1px solid var(--border);">
+      <div style="max-width:760px; margin:0 auto; padding:56px 24px 40px;">
+        <a href="Blog.dc.html" style="display:inline-flex; align-items:center; gap:7px; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-secondary); text-decoration:none; margin-bottom:28px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg>
+          Back to blog
+        </a>
+        <div class="acc-text" style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); margin-bottom:18px;">{{ category }}</div>
+        <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-display-md); line-height:var(--lh-display-md); letter-spacing:var(--ls-display); margin:0 0 18px; text-wrap:balance;">{{ title }}</h1>
+        <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); margin:0 0 30px; max-width:60ch;">{{ deck }}</p>
+        <div style="display:flex; align-items:center; gap:13px;">
+          <span style="display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:50%; background:var(--brand-soft); color:var(--text-brand); font-weight:var(--fw-bold); font-size:15px;">{{ initials }}</span>
+          <div>
+            <div style="font-size:var(--fs-body); font-weight:var(--fw-semibold); color:var(--text-primary);">{{ author }}</div>
+            <div style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); letter-spacing:var(--ls-mono);">{{ byline }}</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ===================== COVER ===================== -->
+    <div style="max-width:1040px; margin:0 auto; padding:40px 24px 0;">
+      <div class="cover" style="aspect-ratio:21/9; border:1px solid var(--border); border-radius:var(--radius-xl);">
+        <span class="acc-bar" style="position:absolute; left:0; top:0; bottom:0; width:6px;"></span>
+        <span class="cover-label">{{ coverLabel }}</span>
+      </div>
+    </div>
+
+    <!-- ===================== BODY ===================== -->
+    <div class="prose" style="max-width:760px; margin:0 auto; padding:44px 24px 8px; min-width:0;">
+      {{ body }}
+    </div>
+
+    <!-- ===================== STAT STRIP ===================== -->
+    <div style="max-width:760px; margin:0 auto; padding:16px 24px 44px;">
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:28px 0;">
+        <sc-for list="{{ stats }}" as="s" hint-placeholder-count="3">
+          <div>
+            <div style="font-family:var(--font-mono); font-weight:700; font-size:var(--fs-h2); letter-spacing:var(--ls-mono); color:var(--text-primary); font-feature-settings:var(--num-feature);">{{ s.value }}</div>
+            <div style="font-size:var(--fs-body-sm); color:var(--text-secondary); margin-top:4px;">{{ s.label }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- ===================== AUTHOR / SHARE ===================== -->
+    <div style="max-width:760px; margin:0 auto; padding:24px 24px 64px;">
+      <div style="display:flex; gap:18px; align-items:flex-start; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-xl); box-shadow:var(--shadow-card); padding:28px;">
+        <span style="flex:none; display:inline-flex; align-items:center; justify-content:center; width:52px; height:52px; border-radius:50%; background:var(--brand-soft); color:var(--text-brand); font-weight:var(--fw-bold); font-size:17px;">{{ initials }}</span>
+        <div style="min-width:0;">
+          <div style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading); margin-bottom:4px;">{{ author }}</div>
+          <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0;">{{ authorBio }}</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================== RELATED ===================== -->
+  <section style="border-top:1px solid var(--border); background:var(--surface-card);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:56px 24px;">
+      <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); font-weight:var(--fw-bold); margin-bottom:24px;">Keep reading</div>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:28px;">
+        <sc-for list="{{ related }}" as="r" hint-placeholder-count="3">
+          <a href="Article.dc.html" class="rel-card {{ r.accClass }}" style="display:flex; flex-direction:column; text-decoration:none; background:var(--surface-page); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden;">
+            <div class="cover" style="aspect-ratio:16/10;">
+              <span class="acc-bar" style="position:absolute; left:0; top:0; right:0; height:4px;"></span>
+              <span class="cover-label">{{ r.coverLabel }}</span>
+            </div>
+            <div style="padding:20px;">
+              <div class="acc-text" style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); margin-bottom:9px;">{{ r.category }}</div>
+              <h3 class="rel-title" style="font-family:var(--font-display); font-weight:600; font-size:var(--fs-h3); line-height:var(--lh-h3); letter-spacing:var(--ls-heading); margin:0 0 8px; text-wrap:balance; transition:color 160ms;">{{ r.title }}</h3>
+              <div style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); letter-spacing:var(--ls-mono);">{{ r.meta }}</div>
+            </div>
+          </a>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer style="border-top:1px solid var(--border); background:var(--surface-card);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:36px 24px;">
+      <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
+        <div style="flex:1 1 200px; display:flex; align-items:center; gap:10px;">
+          <img src="assets/logo-mark.png" alt="DAF" style="width:28px; height:28px; object-fit:contain; border-radius:var(--radius-xs);">
+          <span style="font-family:var(--font-display); font-weight:700; font-size:15px;">Drivers Against Flock</span>
+        </div>
+        <div style="flex:0 1 auto; text-align:center; font-size:var(--fs-body-sm); color:var(--text-tertiary); max-width:42ch;">Camera data from OpenStreetMap contributors. We don't keep your trips. We don't sell them, either.</div>
+        <div style="flex:1 1 200px; display:flex; justify-content:flex-end; gap:22px; font-size:var(--fs-body-sm); color:var(--text-secondary);">
+          <a href="Blog.dc.html" style="text-decoration:none;">Blog</a>
+          <a href="WebFullMap.dc.html" style="text-decoration:none;">Full map</a>
+          <a href="WebLanding.dc.html#apps" style="text-decoration:none;">Apps</a>
+        </div>
+      </div>
+      <div style="margin-top:28px; padding-top:24px; border-top:1px solid var(--border); display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        <div style="flex:1 1 200px; font-size:var(--fs-caption); color:var(--text-tertiary);">© 2026 LayeredTech, LLC. All rights reserved.</div>
+        <div style="flex:0 1 auto; text-align:center; font-size:var(--fs-body-sm); color:var(--text-secondary);"><a href="mailto:driversagainstflock@proton.me" style="color:inherit; text-decoration:none;">driversagainstflock@proton.me</a></div>
+        <div style="flex:1 1 200px; display:flex; justify-content:flex-end; gap:22px; font-size:var(--fs-body-sm); color:var(--text-secondary);">
+          <a href="PrivacyPolicy.dc.html" style="text-decoration:none;">Privacy Policy</a>
+          <a href="TermsOfUse.dc.html" style="text-decoration:none;">Terms of Use</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1040,&quot;height&quot;:2400},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const theme = this.props.theme ?? 'light';
+    const R = React.createElement;
+
+    const p = (...kids) => R('p', null, ...kids);
+    const h = (t) => R('h2', null, t);
+    const ul = (items) => R('ul', null, items.map((it, i) => R('li', { key: i }, it)));
+    const b = (t) => R('strong', null, t);
+    const quote = (t) => R('blockquote', null, t);
+
+    const body = R(React.Fragment, null,
+      p('For years, a license plate reader could scan you, store it, and share it — and almost no one outside the department would ever know. The plate, the place, the time, the direction you were headed: logged, and frequently pooled into networks you never agreed to join.'),
+      p('That changes, at least in California, on January 1st. The new audit law does not ban automated plate readers. What it does is far less flashy and, we think, far more useful: it forces departments to ', b('write down why'), ' every time they run a search.'),
+      h('What the law actually requires'),
+      p('Strip away the legislative language and three obligations stand out. Each one is small on its own. Together they turn an invisible system into one you can, in principle, inspect.'),
+      ul([
+        R(React.Fragment, null, b('A reason for every query. '), 'No more open-ended browsing — each search needs a stated, case-linked purpose.'),
+        R(React.Fragment, null, b('A retention clock. '), 'Non-hit scans get a hard deletion window instead of sitting in a database indefinitely.'),
+        R(React.Fragment, null, b('A public audit. '), 'Aggregate query counts and access logs are reviewable, so patterns of misuse become visible.'),
+      ]),
+      quote('A camera you can audit is a different machine than a camera you cannot. The hardware is identical; the accountability is not.'),
+      h('Why it matters for drivers'),
+      p('None of this stops a reader from photographing your car. But it changes what happens next — and "what happens next" is where the real privacy cost has always lived. A scan that is deleted in days, attached to a documented reason, and counted in a public log is a scan with far less of an afterlife.'),
+      p('We will keep mapping the cameras regardless, and the private route will keep steering around them. The law and the map are two halves of the same idea: ', b('you should know when you are being watched, and you should have a way around it.'), ' One of those halves just got a little stronger.'),
+      p('We will publish the first audit numbers here as soon as departments start reporting them. If you want them in your inbox, the signup at the bottom of the blog is the only thing on this site that asks for your email — and the only thing we keep.'),
+    );
+
+    const stats = [
+      { value: '12,400', label: 'cameras mapped to date' },
+      { value: '1 Jan', label: 'audit rules take effect' },
+      { value: '0', label: 'trips we store about you' },
+    ];
+
+    const related = [
+      { category: 'Privacy news', accClass: 'acc-privacy', title: 'What a license plate reader actually sees', meta: 'Maya Ortiz · 7 min', coverLabel: 'cover · explainer' },
+      { category: 'Research', accClass: 'acc-research', title: 'We mapped 12,400 roadside cameras', meta: 'Priya Raman · 9 min', coverLabel: 'cover · dataset' },
+      { category: 'How-to', accClass: 'acc-howto', title: 'Three settings every privacy-minded driver should check', meta: 'Sam Cole · 4 min', coverLabel: 'cover · how-to' },
+    ];
+
+    return {
+      theme,
+      category: 'Privacy news',
+      accClass: 'acc-privacy',
+      title: "California's new ALPR audit law, explained",
+      deck: 'Departments now have to log every plate search and say why. We read the bill so you don\u2019t have to — here\u2019s what actually changes for drivers.',
+      author: 'Maya Ortiz',
+      initials: 'MO',
+      byline: 'Jun 18, 2026  ·  6 min read',
+      coverLabel: 'cover · legislation',
+      authorBio: 'Maya writes about surveillance policy and the gap between what the law says and what cameras do. Formerly a transit-data analyst; now keeps DAF honest about the research.',
+      body,
+      stats,
+      related,
+      navLinks: [
+        { label: 'How it works', href: 'WebLanding.dc.html#how' },
+        { label: 'Android Auto', href: 'WebLanding.dc.html#android-auto' },
+        { label: 'Apps', href: 'WebLanding.dc.html#apps' },
+        { label: 'Blog', href: 'Blog.dc.html' },
+        { label: 'Hotlist', href: 'Hotlist.dc.html' },
+        { label: 'Contribute', href: 'Help.dc.html' },
+      ],
+      headerCta: { label: 'Open Full Map', href: 'WebFullMap.dc.html' },
+    };
+  }
+}
+</script>
+</body>
+</html>

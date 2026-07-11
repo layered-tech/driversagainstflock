@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- page name="Web — Terms of Use" description="Plain-language Terms of Use legal page for Drivers Against Flock, matching the marketing site and Privacy Policy." -->
+<helmet>
+  <script src="./ds-base.js"></script>
+  <style>
+    *{ box-sizing:border-box; }
+    html{ scroll-behavior:smooth; }
+    body{ margin:0; background:var(--surface-page); }
+    a{ color:inherit; }
+    .pp-body a{ color:var(--text-brand); text-decoration:none; }
+    .pp-body a:hover{ text-decoration:underline; }
+  </style>
+</helmet>
+
+<div data-theme="{{ theme }}" data-screen-label="Web — Terms of Use" style="font-family:var(--font-ui); color:var(--text-primary); background:var(--surface-page); min-height:100vh; -webkit-font-smoothing:antialiased;">
+
+  <!-- ===================== HEADER ===================== -->
+  <x-import component-from-global-scope="DesignSystem_aa8750.SiteHeader" logo-src="assets/logo-mark.png" variant="marketing" logo-href="WebLanding.dc.html" links="{{ navLinks }}" cta="{{ headerCta }}" hint-size="100%,68px"></x-import>
+
+  <!-- ===================== TITLE ===================== -->
+  <section style="border-bottom:1px solid var(--border);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:72px 24px 56px;">
+      <a href="WebLanding.dc.html" style="display:inline-flex; align-items:center; gap:7px; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-secondary); text-decoration:none; margin-bottom:24px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg>
+        Back to home
+      </a>
+      <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand); font-weight:var(--fw-bold); margin-bottom:16px;">Legal</div>
+      <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-display-lg); line-height:var(--lh-display-lg); letter-spacing:var(--ls-display); margin:0 0 18px; text-wrap:balance;">Terms of Use</h1>
+      <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); max-width:60ch; margin:0 0 20px;">These Terms are the agreement between you and Drivers Against Flock. They cover what the app does, what it doesn't promise, and the rules for using it. By using the app, you agree to them — in plain language below.</p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="ghost" hint-size="auto,24px">Effective {{ updated }}</x-import>
+        <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="ghost" hint-size="auto,24px">Ages 13+</x-import>
+        <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="ghost" hint-size="auto,24px">Drive safely &amp; legally</x-import>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== TL;DR ===================== -->
+  <section style="border-bottom:1px solid var(--border);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:56px 24px;">
+      <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); font-weight:var(--fw-bold); margin-bottom:20px;">The short version</div>
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:20px;">
+        <sc-for list="{{ tldr }}" as="t" hint-placeholder-count="3">
+          <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:24px;">
+            <span style="display:inline-flex; align-items:center; justify-content:center; width:42px; height:42px; border-radius:var(--radius-md); background:var(--brand-soft); color:var(--text-brand); margin-bottom:14px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M20 6 9 17l-5-5"></path></svg></span>
+            <h3 style="font-family:var(--font-display); font-weight:600; font-size:var(--fs-h3); letter-spacing:var(--ls-heading); margin:0 0 6px;">{{ t.title }}</h3>
+            <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0;">{{ t.body }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== BODY ===================== -->
+  <section>
+    <div style="max-width:var(--width-content); margin:0 auto; padding:64px 24px 88px; display:grid; grid-template-columns:240px 1fr; gap:56px; align-items:start;">
+
+      <!-- TOC -->
+      <nav style="position:sticky; top:88px; display:flex; flex-direction:column; gap:2px;">
+        <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); font-weight:var(--fw-bold); margin-bottom:12px;">On this page</div>
+        <sc-for list="{{ sections }}" as="s" hint-placeholder-count="10">
+          <a href="{{ s.anchor }}" style="font-size:var(--fs-body-sm); color:var(--text-secondary); text-decoration:none; padding:6px 0; line-height:1.4;">{{ s.title }}</a>
+        </sc-for>
+      </nav>
+
+      <!-- sections -->
+      <div class="pp-body" style="min-width:0;">
+        <sc-for list="{{ sections }}" as="s" hint-placeholder-count="10">
+          <div id="{{ s.id }}" style="padding-bottom:44px; margin-bottom:44px; border-bottom:1px solid var(--border);">
+            <h2 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h2); line-height:1.15; letter-spacing:var(--ls-heading); margin:0 0 18px; scroll-margin-top:88px;">{{ s.title }}</h2>
+            {{ s.content }}
+          </div>
+        </sc-for>
+
+        <!-- contact -->
+        <div id="contact" style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-xl); box-shadow:var(--shadow-card); padding:32px;">
+          <h2 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h3); letter-spacing:var(--ls-heading); margin:0 0 10px;">Questions about these Terms?</h2>
+          <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0 0 8px;">If anything here is unclear, reach us at <a href="mailto:legal@driversagainstflock.com">legal@driversagainstflock.com</a> — or, as an alternate, <a href="mailto:driversagainstflock@proton.me">driversagainstflock@proton.me</a>.</p>
+          <p style="font-size:var(--fs-body-sm); color:var(--text-tertiary); margin:0;">Drivers Against Flock is operated by LayeredTech, LLC.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer style="border-top:1px solid var(--border); background:var(--surface-card);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:36px 24px;">
+      <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
+        <div style="flex:1 1 200px; display:flex; align-items:center; gap:10px;">
+          <img src="assets/logo-mark.png" alt="DAF" style="width:28px; height:28px; object-fit:contain; border-radius:var(--radius-xs);">
+          <span style="font-family:var(--font-display); font-weight:700; font-size:15px;">Drivers Against Flock</span>
+        </div>
+        <div style="flex:0 1 auto; text-align:center; font-size:var(--fs-body-sm); color:var(--text-tertiary); max-width:42ch;">Camera data from OpenStreetMap contributors. We don't keep your trips. We don't sell them, either.</div>
+        <div style="flex:1 1 200px; display:flex; justify-content:flex-end; gap:22px; font-size:var(--fs-body-sm); color:var(--text-secondary);">
+          <a href="WebLanding.dc.html#how" style="text-decoration:none;">How it works</a>
+          <a href="WebFullMap.dc.html" style="text-decoration:none;">Full map</a>
+          <a href="WebLanding.dc.html#apps" style="text-decoration:none;">Apps</a>
+        </div>
+      </div>
+      <div style="margin-top:28px; padding-top:24px; border-top:1px solid var(--border); display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        <div style="flex:1 1 200px; font-size:var(--fs-caption); color:var(--text-tertiary);">© 2026 LayeredTech, LLC. All rights reserved.</div>
+        <div style="flex:0 1 auto; text-align:center; font-size:var(--fs-body-sm); color:var(--text-secondary);"><a href="mailto:driversagainstflock@proton.me" style="color:inherit; text-decoration:none;">driversagainstflock@proton.me</a></div>
+        <div style="flex:1 1 200px; display:flex; justify-content:flex-end; gap:22px; font-size:var(--fs-body-sm); color:var(--text-secondary);">
+          <a href="PrivacyPolicy.dc.html" style="text-decoration:none;">Privacy Policy</a>
+          <a href="TermsOfUse.dc.html" style="text-decoration:none;">Terms of Use</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:3200},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const theme = this.props.theme ?? 'light';
+    const R = React.createElement;
+
+    const p = (text) => R('p', { style: { fontSize: 'var(--fs-body)', lineHeight: 'var(--lh-body)', color: 'var(--text-secondary)', margin: '0 0 14px' } }, text);
+    const ul = (items) => R('ul', { style: { margin: '0 0 14px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 8 } },
+      items.map((it, i) => R('li', { key: i, style: { fontSize: 'var(--fs-body)', lineHeight: 'var(--lh-body)', color: 'var(--text-secondary)' } }, it)));
+
+    const sectionsRaw = [
+      { id: 'about', title: '1. About Drivers Against Flock', content: [
+        p('These Terms of Use govern your access to and use of Drivers Against Flock, including the mobile app, website, map features, navigation features, routing tools, place search, marker data, and related services. By using Drivers Against Flock, you agree to these Terms. If you do not agree, do not use the app or service.'),
+        p('Drivers Against Flock is a privacy-focused navigation and mapping app designed to help users discover places, view map information, get directions, and choose routes with fewer known ALPR, surveillance, or similar roadside devices.'),
+        p('Drivers Against Flock may provide information about cameras, surveillance devices, routes, places, traffic-related conditions, and other map-based data. This information is provided for general informational and navigation purposes only.'),
+      ] },
+      { id: 'eligibility', title: '2. Eligibility', content: [
+        p('You must be at least 13 years old to use Drivers Against Flock.'),
+        p('By using the app, you confirm that you are old enough to use it and that your use of the app is legal in your location.'),
+      ] },
+      { id: 'safe-legal', title: '3. Safe and legal use', content: [
+        p('You are responsible for using Drivers Against Flock safely and legally. Do not use the app in a way that distracts you while driving. Always obey traffic laws, road signs, posted speed limits, law enforcement instructions, and real-world road conditions.'),
+        p('Drivers Against Flock is not a substitute for your own judgment. Routes, alerts, map markers, directions, and other information may be incomplete, outdated, inaccurate, or unavailable.'),
+        p('You agree not to use Drivers Against Flock to:'),
+        ul([
+          'Violate any law or regulation',
+          'Interfere with public safety or emergency services',
+          'Harass, threaten, stalk, or harm any person',
+          'Damage, tamper with, or interfere with property or infrastructure',
+          'Scrape, copy, or misuse app data without permission',
+          'Reverse engineer, exploit, overload, or disrupt the app or related services',
+          'Use the app for unlawful surveillance, evasion, or other illegal activity',
+        ]),
+      ] },
+      { id: 'navigation', title: '4. Navigation and routing disclaimer', content: [
+        p('Drivers Against Flock may provide directions, routing options, estimated travel times, and route comparisons.'),
+        p('Routes may be incorrect, unsafe, unavailable, or unsuitable for your vehicle or situation. Roads may be closed, restricted, private, dangerous, or otherwise inappropriate. You are solely responsible for deciding whether to follow any route or instruction.'),
+        p('Drivers Against Flock does not guarantee that any route is safe, legal, private, accurate, or free of surveillance devices.'),
+      ] },
+      { id: 'marker-data', title: '5. Surveillance device and marker data', content: [
+        p('Drivers Against Flock may display known or reported ALPR cameras, surveillance devices, or similar markers.'),
+        p('This data may be incomplete, inaccurate, outdated, duplicated, or based on third-party or community-sourced information. A missing marker does not mean a location is free from surveillance. A displayed marker does not guarantee that a device is active, operational, lawful, or accurately classified.'),
+        p('Drivers Against Flock does not guarantee the accuracy, completeness, or availability of any marker data.'),
+      ] },
+      { id: 'location', title: '6. Location features', content: [
+        p('Drivers Against Flock may request access to your device location to support features such as map positioning, nearby search, routing, and navigation.'),
+        p('Location access is optional. The app can still be used without granting location access, though some features may be less convenient or may require manual input.'),
+        p('Use of location-related features is also governed by our Privacy Policy.'),
+      ] },
+      { id: 'osm-login', title: '7. OpenStreetMap login', content: [
+        p('Drivers Against Flock may allow you to sign in using OpenStreetMap.org through OAuth.'),
+        p('If you choose to sign in, you are responsible for maintaining access to your OpenStreetMap account and complying with OpenStreetMap\u2019s own terms and policies.'),
+        p('Drivers Against Flock is not responsible for OpenStreetMap, its availability, its account system, or any changes to its service.'),
+      ] },
+      { id: 'third-party', title: '8. Third-party services', content: [
+        p('Drivers Against Flock may rely on third-party services for maps, routing, directions, place search, authentication, hosting, infrastructure, or other app functionality.'),
+        p('These services may have their own terms, privacy policies, rate limits, restrictions, data practices, and availability. Drivers Against Flock is not responsible for third-party services, data, outages, errors, or changes.'),
+      ] },
+      { id: 'contributions', title: '9. User contributions and reports', content: [
+        p('Drivers Against Flock may allow users to submit, edit, report, or suggest map data, marker locations, corrections, or other content.'),
+        p('If you submit content, you represent that you have the right to submit it and that it is accurate to the best of your knowledge.'),
+        p('You grant Drivers Against Flock a non-exclusive, worldwide, royalty-free license to use, reproduce, modify, display, distribute, and incorporate your submitted content for operating, improving, and providing the app and related services.'),
+        p('Do not submit content that is unlawful, misleading, defamatory, invasive of privacy, threatening, abusive, spam, or otherwise harmful. We may review, edit, reject, or remove submitted content at our discretion.'),
+      ] },
+      { id: 'availability', title: '10. App availability', content: [
+        p('Drivers Against Flock may change, suspend, discontinue, limit, or remove any feature at any time.'),
+        p('We do not guarantee that the app will always be available, uninterrupted, secure, accurate, or error-free.'),
+      ] },
+      { id: 'ip', title: '11. Intellectual property', content: [
+        p('Drivers Against Flock, including its name, branding, design, software, interface, features, and original content, is owned by LayeredTech, LLC or its licensors.'),
+        p('You may not copy, modify, distribute, sell, lease, reverse engineer, or create derivative works from Drivers Against Flock except as allowed by law or with written permission.'),
+        p('Third-party map data, routing data, place data, and other third-party content may be subject to separate rights and licenses.'),
+      ] },
+      { id: 'feedback', title: '12. Feedback', content: [
+        p('If you send us feedback, ideas, suggestions, bug reports, or feature requests, you allow us to use them without restriction or compensation to you.'),
+      ] },
+      { id: 'no-warranties', title: '13. No warranties', content: [
+        p('Drivers Against Flock is provided \u201Cas is\u201D and \u201Cas available.\u201D'),
+        p('To the fullest extent permitted by law, we disclaim all warranties, whether express, implied, or statutory, including warranties of accuracy, reliability, availability, merchantability, fitness for a particular purpose, non-infringement, and safety.'),
+        p('We do not warrant that the app will meet your needs, operate without interruption, be error-free, or provide accurate routes, marker data, map data, place data, or navigation information.'),
+      ] },
+      { id: 'liability', title: '14. Limitation of liability', content: [
+        p('To the fullest extent permitted by law, LayeredTech, LLC and its owners, developers, contributors, affiliates, service providers, and licensors will not be liable for any indirect, incidental, special, consequential, exemplary, or punitive damages, or for any loss of profits, data, goodwill, use, or other intangible losses. This includes damages resulting from:'),
+        ul([
+          'Your use of or inability to use Drivers Against Flock',
+          'Navigation decisions or driving behavior',
+          'Inaccurate, missing, or outdated map, route, place, or marker data',
+          'Third-party services or outages',
+          'Unauthorized access, bugs, errors, or interruptions',
+          'Any conduct or content of other users or third parties',
+        ]),
+        p('To the fullest extent permitted by law, our total liability for any claim related to Drivers Against Flock will not exceed the greater of $100 or the amount you paid to use the app in the 12 months before the claim.'),
+      ] },
+      { id: 'indemnification', title: '15. Indemnification', content: [
+        p('You agree to defend, indemnify, and hold harmless LayeredTech, LLC and its owners, developers, contributors, affiliates, service providers, and licensors from any claims, damages, losses, liabilities, costs, and expenses, including reasonable attorneys\u2019 fees, arising from:'),
+        ul([
+          'Your use of Drivers Against Flock',
+          'Your violation of these Terms',
+          'Your violation of any law or regulation',
+          'Your submitted content',
+          'Your misuse of app data or third-party services',
+        ]),
+      ] },
+      { id: 'termination', title: '16. Termination', content: [
+        p('We may suspend or terminate your access to Drivers Against Flock at any time if we believe you violated these Terms, created risk, caused harm, or misused the app. You may stop using Drivers Against Flock at any time.'),
+        p('Sections that by their nature should survive termination will continue to apply, including intellectual property, disclaimers, limitation of liability, indemnification, and dispute provisions.'),
+      ] },
+      { id: 'changes', title: '17. Changes to these Terms', content: [
+        p('We may update these Terms from time to time. If we make changes, we will update the effective date above. Continued use of Drivers Against Flock after the updated Terms become effective means you accept the updated Terms.'),
+      ] },
+      { id: 'governing-law', title: '18. Governing law', content: [
+        p('These Terms are governed by the laws of the State of Delaware, without regard to conflict of law principles.'),
+        p('Any disputes related to these Terms or Drivers Against Flock will be handled in the courts located in Delaware, unless applicable law requires otherwise.'),
+      ] },
+    ];
+
+    const sections = sectionsRaw.map(s => ({
+      id: s.id,
+      anchor: '#' + s.id,
+      title: s.title,
+      content: R(React.Fragment, null, s.content),
+    }));
+
+    const tldr = [
+      { title: 'Drive safely & legally', body: 'Obey traffic laws and real-world conditions. The app assists your judgment — it never replaces it.' },
+      { title: 'Provided as is', body: 'Routes and marker data may be incomplete or wrong. We make no guarantee a route is safe, legal, or surveillance-free.' },
+      { title: 'Your content, your rights', body: 'Submit only what you have the right to. You keep ownership; you grant us a license to use it to run the app.' },
+    ];
+
+    return {
+      theme,
+      updated: 'June 2026',
+      navLinks: [
+        { label: 'John Doe', href: 'WebLanding.dc.html#johndoe' },
+        { label: 'How it works', href: 'WebLanding.dc.html#how' },
+        { label: 'Android Auto', href: 'WebLanding.dc.html#android-auto' },
+        { label: 'Apps', href: 'WebLanding.dc.html#apps' },
+        { label: 'FAQ', href: 'WebLanding.dc.html#faq' },
+        { label: 'Hotlist', href: 'Hotlist.dc.html' },
+        { label: 'Contribute', href: 'Help.dc.html' },
+      ],
+      headerCta: { label: 'Open Full Map', href: 'WebFullMap.dc.html' },
+      tldr,
+      sections,
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+/* ============================================================
+   Drivers Against Flock — Motion tokens
+   Calm and grounded. Quick feedback, gentle sheets. No bounce
+   on anything safety-critical.
+   ============================================================ */
+
+:root {
+  /* Durations */
+  --dur-instant: 90ms; /* @kind other */
+  --dur-fast:    140ms; /* @kind other */
+  --dur-base:    220ms; /* @kind other */
+  --dur-slow:    320ms; /* @kind other */
+  --dur-sheet:   420ms; /* @kind other */
+
+  /* Easing */
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);   /* @kind other */
+  --ease-exit:     cubic-bezier(0.4, 0, 1, 1);        /* @kind other */
+  --ease-sheet:    cubic-bezier(0.32, 0.72, 0, 1);    /* @kind other */
+  --ease-soft:     cubic-bezier(0.33, 1, 0.68, 1);    /* @kind other */
+
+  /* Press feedback (UI controls compress slightly, never bounce) */
+  --press-scale: 0.97; /* @kind other */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0ms; /* @kind other */
+    --dur-fast: 0ms; /* @kind other */
+    --dur-base: 0ms; /* @kind other */
+    --dur-slow: 0ms; /* @kind other */
+    --dur-sheet: 0ms; /* @kind other */
+    --press-scale: 1; /* @kind other */
+  }
+}

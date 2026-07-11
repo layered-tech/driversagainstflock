@@ -1,0 +1,90 @@
+<!-- @dsCard group="Components" viewport="700x600" name="MapMarker" subtitle="Marker family & states — small dots, large cones, centered pins" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="../../../styles.css" />
+<style>
+  html, body { margin: 0; }
+  body {
+    font-family: var(--font-ui);
+    color: var(--text-primary);
+    background:
+      repeating-linear-gradient(0deg, transparent 0 38px, rgba(128,141,155,0.10) 38px 39px),
+      repeating-linear-gradient(90deg, transparent 0 38px, rgba(128,141,155,0.10) 38px 39px),
+      var(--map-land);
+    padding: 26px;
+    transition: background var(--dur-base) var(--ease-standard);
+  }
+  .toolbar { position: fixed; top: 14px; right: 14px; z-index: 20; }
+  .tg { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border-radius: var(--radius-pill);
+        background: var(--surface-glass); color: var(--text-primary); border: 1px solid var(--border-glass);
+        box-shadow: var(--shadow-float); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        font-family: var(--font-ui); font-weight: 600; font-size: 12px; cursor: pointer; }
+  .wrap { display: flex; flex-direction: column; gap: 18px; max-width: 648px; }
+  .eyebrow { font-size: var(--fs-label); font-weight: var(--fw-bold); letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--text-tertiary); margin: 0 0 2px; }
+  .sect { display: flex; flex-direction: column; gap: 10px; }
+  .markers { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: var(--map-land-alt); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; min-height: 150px; }
+  .mk { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .mk .cap { font-size: var(--fs-label); font-weight: var(--fw-semibold); color: var(--text-secondary); text-transform: uppercase; letter-spacing: var(--ls-label); }
+</style>
+</head>
+<body>
+<div class="wrap" id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<script src="../../../_ds_bundle.js"></script>
+<script type="text/babel" data-presets="react">
+const NS = window.DesignSystem_aa8750;
+const { MapMarker, Icon } = NS;
+
+function ThemeToggle() {
+  const [t, setT] = React.useState('light');
+  React.useEffect(() => { document.documentElement.setAttribute('data-theme', t); }, [t]);
+  return (
+    <div className="toolbar">
+      <button className="tg" onClick={() => setT(t === 'light' ? 'dark' : 'light')}>
+        <Icon name={t === 'light' ? 'moon' : 'sun'} size={15} />{t === 'light' ? 'Dark' : 'Light'}
+      </button>
+    </div>
+  );
+}
+function Mk({ cap, children }) { return <div className="mk">{children}<span className="cap">{cap}</span></div>; }
+
+function Demo() {
+  return (
+    <>
+      <ThemeToggle />
+      <div className="sect">
+        <p className="eyebrow">Surveillance — small dot, large 40° cone of view</p>
+        <div className="markers">
+          <Mk cap="ALPR"><MapMarker variant="alpr" /></Mk>
+          <Mk cap="Camera + cone"><MapMarker variant="camera" heading={200} /></Mk>
+          <Mk cap="Cluster"><MapMarker variant="cluster" count={6} /></Mk>
+          <Mk cap="Monitored"><MapMarker variant="monitored" /></Mk>
+          <Mk cap="Police (Waze)"><MapMarker variant="police" /></Mk>
+          <Mk cap="Hidden police"><MapMarker variant="police-hidden" /></Mk>
+          <Mk cap="User + heading"><MapMarker variant="user" heading={35} /></Mk>
+        </div>
+      </div>
+      <div className="sect">
+        <p className="eyebrow">Places — large centered glyph in the pin head</p>
+        <div className="markers" style={{minHeight: 0}}>
+          <Mk cap="Place"><MapMarker variant="place" iconName="coffee" /></Mk>
+          <Mk cap="Place"><MapMarker variant="place" iconName="fuel" /></Mk>
+          <Mk cap="Destination"><MapMarker variant="destination" /></Mk>
+          <Mk cap="Selected"><MapMarker variant="place" iconName="star" selected /></Mk>
+          <Mk cap="Inactive"><MapMarker variant="place" iconName="home" inactive /></Mk>
+          <Mk cap="Labeled"><MapMarker variant="destination" label="Home" /></Mk>
+        </div>
+      </div>
+    </>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>
+</body>
+</html>

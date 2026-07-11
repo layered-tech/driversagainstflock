@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    [data-view="satellite"]{ --map-land:#3a3f2e; --map-land-alt:#454a38; --map-water:#1e3046; --map-park:#36492c; --map-road:#e9e4d6; --map-road-minor:rgba(233,228,214,0.22); }
+  </style>
+</helmet>
+<div data-view="{{ view }}" style="position:absolute; inset:0; overflow:hidden; background:var(--map-land);">
+  <svg viewBox="0 0 600 900" preserveAspectRatio="xMidYMid slice" style="position:absolute; inset:0; width:100%; height:100%; display:block;">
+    <!-- land base -->
+    <rect x="0" y="0" width="600" height="900" fill="var(--map-land)"></rect>
+    <!-- soft land-alt districts for subtle variety -->
+    <rect x="180" y="320" width="230" height="240" rx="10" fill="var(--map-land-alt)"></rect>
+    <rect x="60" y="120" width="150" height="150" rx="10" fill="var(--map-land-alt)"></rect>
+    <!-- water: top-right bay -->
+    <path d="M600 -20 L600 320 C 520 312, 470 240, 470 158 C 470 86, 548 44, 524 -20 Z" fill="var(--map-water)"></path>
+    <!-- parks -->
+    <path d="M-20 640 C 90 612, 210 656, 232 760 C 248 842, 150 928, 40 928 L -20 928 Z" fill="var(--map-park)"></path>
+    <ellipse cx="470" cy="700" rx="92" ry="70" fill="var(--map-park)"></ellipse>
+    <!-- minor road grid -->
+    <g stroke="var(--map-road-minor)" stroke-width="6" stroke-linecap="round">
+      <line x1="80" y1="-20" x2="80" y2="920"></line>
+      <line x1="185" y1="-20" x2="185" y2="920"></line>
+      <line x1="295" y1="-20" x2="295" y2="920"></line>
+      <line x1="405" y1="-20" x2="405" y2="920"></line>
+      <line x1="515" y1="-20" x2="515" y2="920"></line>
+      <line x1="-20" y1="110" x2="620" y2="110"></line>
+      <line x1="-20" y1="215" x2="620" y2="215"></line>
+      <line x1="-20" y1="325" x2="620" y2="325"></line>
+      <line x1="-20" y1="445" x2="620" y2="445"></line>
+      <line x1="-20" y1="560" x2="620" y2="560"></line>
+      <line x1="-20" y1="685" x2="620" y2="685"></line>
+      <line x1="-20" y1="800" x2="620" y2="800"></line>
+    </g>
+    <!-- arterials: thicker white roads -->
+    <g stroke="var(--map-road)" stroke-width="14" stroke-linecap="round" fill="none">
+      <path d="M300 -20 C 322 200, 276 420, 312 640 C 332 770, 300 860, 300 920"></path>
+      <path d="M-20 268 C 180 300, 360 372, 640 352"></path>
+      <path d="M-20 612 C 200 588, 420 650, 640 600"></path>
+    </g>
+  </svg>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:600}}"></script>
+</body>
+</html>

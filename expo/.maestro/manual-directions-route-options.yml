@@ -1,0 +1,77 @@
+appId: com.anonymous.drivefree.dev
+name: Manual Directions Route Options Mocked
+tags:
+  - map
+  - directions
+---
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    commands:
+      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- extendedWaitUntil:
+    visible:
+      id: "map-search-input-map"
+    timeout: 30000
+- openLink: "driversagainstflock://e2e-mocks"
+- extendedWaitUntil:
+    visible:
+      id: "map-search-directions-button-map"
+    timeout: 10000
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+
+- tapOn:
+    id: "map-search-directions-button-map"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: "map-directions-title-map"
+    timeout: 10000
+- assertVisible:
+    id: "map-directions-start-input-map"
+- assertVisible:
+    id: "map-directions-destination-input-map"
+- tapOn:
+    id: "map-directions-destination-input-map"
+- inputText: "Austin Central Library"
+- extendedWaitUntil:
+    visible:
+      id: "map-directions-search-result-0-map"
+    timeout: 30000
+- tapOn:
+    id: "map-directions-search-result-0-map"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: "map-directions-submit-button-map"
+      enabled: true
+    timeout: 30000
+- tapOn:
+    id: "map-directions-submit-button-map"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: "directions-route-start-driving-button"
+    timeout: 60000
+- assertVisible:
+    id: "directions-route-option-direct"
+- assertVisible:
+    id: "directions-route-option-ideal"
+- tapOn:
+    id: "directions-route-option-ideal"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: "directions-route-option-ideal-selected-badge"
+    timeout: 10000
+- assertVisible:
+    id: "directions-route-start-driving-button"

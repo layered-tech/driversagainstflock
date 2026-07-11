@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- page name="Web — Landing" description="Privacy-first marketing landing: map preview, the John Doe story, how-it-works, Android Auto, app download." -->
+<helmet>
+  <script src="./ds-base.js"></script>
+  <style>
+    *{ box-sizing:border-box; }
+    html{ scroll-behavior:smooth; }
+    body{ margin:0; background:var(--surface-page); }
+    a{ color:inherit; }
+    .daf-nav a:hover{ color:var(--text-primary); }
+    @keyframes dafDraw{ from{ stroke-dashoffset:100; } to{ stroke-dashoffset:0; } }
+    @keyframes dafPulse{ 0%,100%{ box-shadow:0 0 0 5px var(--marker-alpr-glow), var(--shadow-marker); } 50%{ box-shadow:0 0 0 9px rgba(255,77,79,0.16), var(--shadow-marker); } }
+    .daf-cam-on{ animation:dafPulse 2.4s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce){ .daf-cam-on{ animation:none; } }
+
+    /* ---- Accent feature band ----
+       Not a mirror-flip of the theme. In LIGHT mode it's a dramatic deep-ink
+       band; in DARK mode it's a distinct, gently-elevated dark surface (never a
+       blinding white flip). Always a dark context, so text stays light in both. */
+    .daf-band{
+      color-scheme:dark;
+      --surface-page:     #0B0E12;
+      --surface-card:     #161B22;
+      --surface-card-alt: #1A2027;
+      --surface-glass-2:  rgba(26,32,39,0.92);
+      --text-primary:     #F5F7F9;
+      --text-secondary:   #A9B2BD;
+      --text-tertiary:    #828D9B;
+      --text-brand:       var(--green-400);
+      --border:           #262E37;
+      --border-strong:    #3A434E;
+      --border-glass:     rgba(255,255,255,0.10);
+      --brand-soft:       rgba(31,191,107,0.16);
+      --shadow-card:      0 1px 2px rgba(0,0,0,0.35), 0 8px 26px rgba(0,0,0,0.45);
+    }
+    .daf-faq-item{ border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--surface-card); box-shadow:var(--shadow-card); transition:border-color var(--dur-base) var(--ease-standard); }
+    .daf-faq-item[data-open="1"]{ border-color:var(--border-strong); }
+    .daf-faq-q{ width:100%; text-align:left; display:flex; align-items:center; justify-content:space-between; gap:18px; padding:22px 24px; background:none; border:none; cursor:pointer; font-family:var(--font-ui); color:var(--text-primary); }
+    .daf-faq-chev{ flex:0 0 auto; color:var(--text-tertiary); transition:transform var(--dur-base) var(--ease-standard), color var(--dur-base) var(--ease-standard); }
+    .daf-faq-item[data-open="1"] .daf-faq-chev{ transform:rotate(180deg); color:var(--text-brand); }
+    .daf-faq-ans{ display:grid; grid-template-rows:0fr; transition:grid-template-rows var(--dur-base) var(--ease-standard); }
+    .daf-faq-item[data-open="1"] .daf-faq-ans{ grid-template-rows:1fr; }
+    .daf-faq-ans > div{ overflow:hidden; }
+
+    [data-theme="dark"] .daf-band{
+      /* Page is already near-black (#0B0E12) — lift the band so it reads as a
+         band of its own, distinct from a light-mode flip. */
+      --surface-page:     #1A2027;
+      --surface-card:     #222B35;
+      --surface-card-alt: #29333E;
+      --border:           #313B46;
+      --border-strong:    #3E4854;
+      --shadow-card:      0 1px 2px rgba(0,0,0,0.45), 0 8px 26px rgba(0,0,0,0.55);
+    }
+  </style>
+</helmet>
+
+<div data-theme="{{ theme }}" data-screen-label="Web — Landing" style="font-family:var(--font-ui); color:var(--text-primary); background:var(--surface-page); min-height:100vh; -webkit-font-smoothing:antialiased;">
+
+  <!-- ===================== HEADER ===================== -->
+  <x-import component-from-global-scope="DesignSystem_aa8750.SiteHeader" logo-src="assets/logo-mark.png" variant="marketing" logo-href="#top" links="{{ navLinks }}" cta="{{ headerCta }}" hint-size="100%,68px"></x-import>
+
+  <!-- ===================== HERO ===================== -->
+  <section id="top" style="border-bottom:1px solid var(--border);">
+    <!-- SPLIT LAYOUT -->
+    <sc-if value="{{ heroSplit }}" hint-placeholder-val="{{ true }}">
+      <div style="max-width:var(--width-content); margin:0 auto; padding:80px 24px 88px; display:grid; grid-template-columns:1.05fr 1fr; gap:56px; align-items:center;">
+        <div>
+          <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand); font-weight:var(--fw-bold); margin-bottom:18px;">Privacy-first navigation</div>
+          <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-display-lg); line-height:var(--lh-display-lg); letter-spacing:var(--ls-display); margin:0 0 20px; text-wrap:balance;">See what's watching the road. Then drive around it.</h1>
+          <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); max-width:46ch; margin:0 0 28px;">Drivers Against Flock maps the license-plate readers and roadside cameras along your route — then offers a quieter way through. The fastest way, or the one with fewer little boxes on poles.</p>
+          <div style="display:flex; gap:10px; max-width:440px; margin-bottom:16px;">
+            <div style="flex:1;"><x-import component-from-global-scope="DesignSystem_aa8750.Input" tone="light" size="lg" placeholder="Enter your ZIP code" hint-size="100%,52px"></x-import></div>
+            <a href="WebFullMap.dc.html" style="text-decoration:none;"><x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" hint-size="auto,52px">Check my area</x-import></a>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="ghost" hint-size="auto,24px">Free, always</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="ghost" hint-size="auto,24px">No login</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="ghost" hint-size="auto,24px">No tracking, ever</x-import>
+          </div>
+        </div>
+        <div id="preview">{{ heroMapCard }}</div>
+      </div>
+    </sc-if>
+
+    <!-- CENTERED LAYOUT -->
+    <sc-if value="{{ heroCentered }}" hint-placeholder-val="{{ true }}">
+      <div style="max-width:980px; margin:0 auto; padding:76px 24px 0; text-align:center;">
+        <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand); font-weight:var(--fw-bold); margin-bottom:18px;">Privacy-first navigation</div>
+        <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-display-xl); line-height:var(--lh-display-xl); letter-spacing:var(--ls-display); margin:0 0 22px; text-wrap:balance;">These devices are everywhere. Now you can see them.</h1>
+        <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); max-width:60ch; margin:0 auto 30px;">Drivers Against Flock maps the license-plate readers and roadside cameras along your route — then offers a quieter way through. The fastest way, or the one with fewer little boxes on poles.</p>
+        <div style="display:flex; gap:10px; max-width:480px; margin:0 auto 36px;">
+          <div style="flex:1;"><x-import component-from-global-scope="DesignSystem_aa8750.Input" tone="light" size="lg" placeholder="Enter your ZIP code" hint-size="100%,52px"></x-import></div>
+          <a href="WebFullMap.dc.html" style="text-decoration:none;"><x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" hint-size="auto,52px">Check my area</x-import></a>
+        </div>
+      </div>
+      <div id="preview" style="max-width:var(--width-content); margin:0 auto; padding:0 24px 80px;">{{ heroMapCard }}</div>
+    </sc-if>
+  </section>
+
+  <!-- ===================== JOHN DOE (dark band) ===================== -->
+  <section id="johndoe" class="daf-band" style="background:var(--surface-page); color:var(--text-primary); border-bottom:1px solid var(--border);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:88px 24px 96px;">
+      <div style="max-width:64ch; margin-bottom:36px;">
+        <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--alert-500); font-weight:var(--fw-bold); margin-bottom:16px;">One week · one driver</div>
+        <h2 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-display-md); line-height:var(--lh-display-md); letter-spacing:var(--ls-display); margin:0 0 16px;">This is "John Doe." Watch his week resolve, one pattern at a time.</h2>
+        <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); margin:0;">No GPS. No phone. Just the plate reads left behind on public roads. Each pattern below lights up only the cameras that caught it — and traces the route he drove between them.</p>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1.45fr 1fr; gap:24px; align-items:stretch;">
+
+        <!-- MAP -->
+        <div style="position:relative; border-radius:var(--radius-xl); overflow:hidden; border:1px solid var(--border); min-height:520px; box-shadow:var(--shadow-card);">
+          <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
+          {{ johnDoeOverlay }}
+          <!-- tracking chip -->
+          <div style="position:absolute; left:14px; top:14px; z-index:7; display:flex; align-items:center; gap:9px; padding:9px 13px; background:var(--surface-glass-2); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-radius:var(--radius-md); box-shadow:var(--shadow-float);">
+            <span style="width:8px; height:8px; border-radius:50%; background:var(--alert-500); box-shadow:0 0 0 3px var(--marker-alpr-glow); flex:0 0 auto;"></span>
+            <span style="font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary);">{{ activeTitle }}</span>
+            <span style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary);">{{ activeCountLabel }}</span>
+          </div>
+          <!-- legend -->
+          <div style="position:absolute; left:14px; bottom:14px; z-index:7; display:flex; flex-direction:column; align-items:flex-start; gap:7px; padding:10px 13px; background:var(--surface-glass-2); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-radius:var(--radius-md);">
+            <span style="display:flex; align-items:center; gap:6px; font-size:var(--fs-caption); color:var(--text-secondary); white-space:nowrap;"><span style="width:9px; height:9px; border-radius:50%; background:var(--alert-500); flex:0 0 auto;"></span>Activated reader</span>
+            <span style="display:flex; align-items:center; gap:6px; font-size:var(--fs-caption); color:var(--text-secondary); white-space:nowrap;"><span style="width:7px; height:7px; border-radius:50%; background:var(--map-ink); opacity:0.5; flex:0 0 auto;"></span>Other ALPR</span>
+            <span style="display:flex; align-items:center; gap:6px; font-size:var(--fs-caption); color:var(--text-secondary); white-space:nowrap;"><span style="width:15px; height:3px; border-radius:2px; background:var(--route-private); flex:0 0 auto;"></span>His route</span>
+          </div>
+        </div>
+
+        <!-- PATTERNS PANEL -->
+        <div style="display:flex; flex-direction:column; gap:12px;">
+
+          <!-- timer control -->
+          <div style="display:flex; flex-direction:column; gap:9px; padding:14px 16px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg);">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <button onClick="{{ togglePlay }}" aria-label="Pause or resume auto-cycle" style="display:inline-flex; align-items:center; justify-content:center; gap:7px; height:36px; padding:0 14px; border:1px solid var(--border-strong); background:var(--surface-card-alt); color:var(--text-primary); border-radius:var(--radius-md); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:pointer; flex:0 0 auto;">{{ playPauseIcon }}<span>{{ playPauseLabel }}</span></button>
+              <div style="flex:1; height:6px; border-radius:999px; background:var(--surface-card-alt); overflow:hidden;">{{ progressFill }}</div>
+              <span style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap; min-width:52px; text-align:right;">{{ countdownLabel }}</span>
+            </div>
+            <div style="font-size:var(--fs-caption); color:var(--text-tertiary); line-height:1.4;">{{ playHint }}</div>
+          </div>
+
+          <!-- pattern cards -->
+          <sc-for list="{{ patterns }}" as="p" hint-placeholder-count="4">
+            <sc-if value="{{ p.isActive }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ p.onSelect }}" style="cursor:pointer; position:relative; padding:18px 18px 18px 22px; background:var(--surface-card); border:1.5px solid var(--alert-500); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); overflow:hidden;">
+                <span style="position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--alert-500);"></span>
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                  <span style="font-family:var(--font-mono); font-size:var(--fs-caption); font-weight:var(--fw-bold); color:var(--alert-500);">{{ p.num }}</span>
+                  <span style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--alert-500); font-weight:var(--fw-bold);">{{ p.tag }}</span>
+                </div>
+                <div style="font-family:var(--font-display); font-weight:600; font-size:var(--fs-h3); letter-spacing:var(--ls-heading); margin-bottom:4px;">{{ p.title }}</div>
+                <div style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); margin-bottom:11px;">{{ p.when }}</div>
+                <p style="font-size:var(--fs-body-sm); line-height:1.5; color:var(--text-secondary); margin:0 0 13px;">{{ p.desc }}</p>
+                <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                  <sc-for list="{{ p.camChips }}" as="c" hint-placeholder-count="3">
+                    <span style="display:inline-flex; align-items:center; gap:5px; font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-secondary); background:var(--surface-card-alt); border:1px solid var(--border); padding:3px 8px; border-radius:999px;"><span style="width:6px; height:6px; border-radius:50%; background:var(--alert-500); flex:0 0 auto;"></span>{{ c }}</span>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ p.isInactive }}" hint-placeholder-val="{{ true }}">
+              <div onClick="{{ p.onSelect }}" style="cursor:pointer; display:flex; align-items:center; gap:12px; padding:14px 16px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); opacity:0.7;">
+                <span style="font-family:var(--font-mono); font-size:var(--fs-caption); font-weight:var(--fw-bold); color:var(--text-tertiary); flex:0 0 auto;">{{ p.num }}</span>
+                <div style="flex:1; min-width:0;">
+                  <div style="font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary);">{{ p.title }}</div>
+                  <div style="font-size:var(--fs-caption); color:var(--text-tertiary); text-transform:uppercase; letter-spacing:var(--ls-label);">{{ p.tag }}</div>
+                </div>
+                <span style="color:var(--text-tertiary); flex:0 0 auto; display:inline-flex;">{{ chevron }}</span>
+              </div>
+            </sc-if>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== HOW IT WORKS ===================== -->
+  <section id="how" style="border-bottom:1px solid var(--border);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:88px 24px 96px;">
+      <div style="max-width:60ch; margin-bottom:48px;">
+        <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand); font-weight:var(--fw-bold); margin-bottom:16px;">How ALPR tracking works</div>
+        <h2 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-display-md); line-height:var(--lh-display-md); letter-spacing:var(--ls-display); margin:0 0 16px;">A photo of your plate is a point on a map. Enough points are a story.</h2>
+        <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); margin:0;">You don't have to do anything wrong — or anything at all — to end up in the dataset. Here's the chain, in plain terms.</p>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:20px;">
+        <sc-for list="{{ steps }}" as="s" hint-placeholder-count="4">
+          <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:26px 24px 28px; display:flex; flex-direction:column; height:100%;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;">
+              <div style="display:inline-flex; align-items:center; justify-content:center; width:52px; height:52px; border-radius:var(--radius-md); background:var(--brand-soft); color:var(--text-brand);">{{ s.icon }}</div>
+              <div style="font-family:var(--font-mono); font-size:22px; font-weight:var(--fw-bold); color:var(--border-strong);">{{ s.n }}</div>
+            </div>
+            <h3 style="font-family:var(--font-display); font-weight:600; font-size:var(--fs-h3); letter-spacing:var(--ls-heading); margin:0 0 8px;">{{ s.title }}</h3>
+            <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0;">{{ s.body }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== APPS / DOWNLOAD ===================== -->
+  <section id="apps" class="daf-band" style="background:var(--surface-page); color:var(--text-primary);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:88px 24px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:center;">
+        <div>
+          <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand); font-weight:var(--fw-bold); margin-bottom:16px;">Get the app</div>
+          <h2 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-display-md); line-height:var(--lh-display-md); letter-spacing:var(--ls-display); margin:0 0 18px;">Drive a little less surveilled.</h2>
+          <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); max-width:46ch; margin:0 0 28px;">Turn-by-turn navigation that knows where the cameras are. Free, no account, nothing to cancel.</p>
+          <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
+            <a href="#apps" style="text-decoration:none; display:flex; align-items:center; gap:11px; padding:11px 18px; background:var(--surface-inverse); color:var(--text-inverse); border-radius:var(--radius-md); min-width:204px;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.03 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"></path></svg>
+              <span style="display:flex; flex-direction:column; line-height:1.15; white-space:nowrap;"><span style="font-size:11px; opacity:0.7;">Download on</span><span style="font-size:16px; font-weight:var(--fw-bold);">the App Store</span></span>
+            </a>
+            <a href="#apps" style="text-decoration:none; display:flex; align-items:center; gap:11px; padding:11px 18px; background:var(--surface-inverse); color:var(--text-inverse); border-radius:var(--radius-md); min-width:204px;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M22.018 13.298l-3.919 2.218-3.515-3.493 3.543-3.521 3.891 2.202a1.49 1.49 0 0 1 0 2.594zM1.337.924a1.486 1.486 0 0 0-.112.568v21.017c0 .217.045.419.124.6l11.155-11.087L1.337.924zm12.207 10.065l3.258-3.238L3.45.195a1.466 1.466 0 0 0-.946-.179l11.04 10.973zm0 2.067l-11 10.933c.298.036.612-.016.906-.183l13.324-7.54-3.23-3.21z"></path></svg>
+              <span style="display:flex; flex-direction:column; line-height:1.15; white-space:nowrap;"><span style="font-size:11px; opacity:0.7;">Get it on</span><span style="font-size:16px; font-weight:var(--fw-bold);">Google Play</span></span>
+            </a>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:18px; font-size:var(--fs-body-sm); color:var(--text-secondary);">
+            <a href="#apps" style="display:inline-flex; align-items:center; gap:7px; color:var(--text-primary); font-weight:var(--fw-semibold); text-decoration:none;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M4 21h16"></path></svg>
+              Download the APK directly
+            </a>
+            <span>— no Google Play account needed. Verify the SHA-256 checksum before installing.</span>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="brand" hint-size="auto,24px">Android Auto — available now</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="neutral" hint-size="auto,24px">CarPlay — in testing</x-import>
+          </div>
+        </div>
+        <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-2xl); padding:32px;">
+          <div style="font-family:var(--font-display); font-weight:600; font-size:var(--fs-h3); margin-bottom:20px;">Our promise</div>
+          <div style="display:flex; flex-direction:column; gap:16px;">
+            <sc-for list="{{ promises }}" as="p" hint-placeholder-count="4">
+              <div style="display:flex; gap:12px; align-items:flex-start;">
+                <span style="color:var(--brand); flex:0 0 auto; margin-top:1px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+                <div><div style="font-size:var(--fs-body); font-weight:var(--fw-semibold);">{{ p.title }}</div><div style="font-size:var(--fs-body-sm); color:var(--text-secondary);">{{ p.body }}</div></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== ANDROID AUTO ===================== -->
+  <section id="android-auto" style="border-top:1px solid var(--border); border-bottom:1px solid var(--border);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:88px 24px 96px;">
+      <div style="max-width:62ch; margin-bottom:44px;">
+        <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand); font-weight:var(--fw-bold); margin-bottom:16px;">On the dash · available now</div>
+        <h2 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-display-md); line-height:var(--lh-display-md); letter-spacing:var(--ls-display); margin:0 0 16px;">Drivers Against Flock, right on your car's screen.</h2>
+        <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); margin:0;">Plug in and DAF takes over the head unit with full turn-by-turn — big, glanceable directions, your live speed, and the same private routing you get on the phone. CarPlay is on the way.</p>
+      </div>
+
+      <!-- car head unit -->
+      <div style="max-width:1020px; margin:0 auto; background:#0b0e12; padding:16px; border-radius:28px; box-shadow:var(--shadow-sheet); border:1px solid #222a33;">
+        <div data-theme="dark" style="position:relative; aspect-ratio:16 / 8; border-radius:var(--radius-lg); overflow:hidden; display:flex; background:var(--map-land);">
+
+          <!-- left rail: maneuver + trip -->
+          <div style="position:relative; z-index:5; width:38%; min-width:300px; background:var(--surface-card); border-right:1px solid var(--border); display:flex; flex-direction:column; padding:26px 24px;">
+            <div style="display:flex; align-items:center; gap:18px; margin-bottom:8px;">
+              <span style="display:inline-flex; align-items:center; justify-content:center; width:60px; height:60px; border-radius:var(--radius-md); background:var(--brand); color:#fff; flex:0 0 auto;"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M9 18l6-6-6-6"></path></svg></span>
+              <div style="font-family:var(--font-mono); font-weight:800; font-size:34px; color:var(--text-primary); line-height:1;">0.3<span style="font-size:18px; font-weight:600; color:var(--text-secondary); margin-left:4px;">mi</span></div>
+            </div>
+            <div style="font-family:var(--font-display); font-weight:700; font-size:26px; letter-spacing:var(--ls-heading); line-height:1.15; color:var(--text-primary);">Turn right onto<br>Market St</div>
+            <div style="font-size:var(--fs-body); color:var(--text-secondary); margin-top:8px;">then continue 1.2 mi</div>
+
+            <div style="flex:1;"></div>
+
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+              <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="brand" hint-size="auto,26px">Private route</x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="neutral" hint-size="auto,26px">0 cameras ahead</x-import>
+            </div>
+            <div style="display:flex; align-items:baseline; gap:12px; padding-top:16px; border-top:1px solid var(--border);">
+              <span style="font-family:var(--font-mono); font-weight:800; font-size:30px; color:var(--text-brand); line-height:1;">12 min</span>
+              <span style="font-family:var(--font-mono); font-size:var(--fs-body); color:var(--text-secondary);">4.1 mi · arrive 6:15</span>
+            </div>
+          </div>
+
+          <!-- map area -->
+          <div style="position:relative; flex:1;">
+            <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible; z-index:2; pointer-events:none;">
+              <path d="M50 92 C 50 74, 54 60, 48 46 S 40 26, 56 10" fill="none" stroke="var(--route-private-casing)" stroke-width="13" vector-effect="non-scaling-stroke" stroke-linecap="round"></path>
+              <path d="M50 92 C 50 74, 54 60, 48 46 S 40 26, 56 10" fill="none" stroke="var(--route-private)" stroke-width="8" vector-effect="non-scaling-stroke" stroke-linecap="round"></path>
+            </svg>
+            <div style="position:absolute; left:50%; bottom:14%; transform:translate(-50%,50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="user" heading="0" hint-size="64px,64px"></x-import></div>
+            <div style="position:absolute; left:12px; bottom:12px; z-index:6;"><x-import component-from-global-scope="DesignSystem_aa8750.SpeedLimitBadge" limit="35" current="{{ n32 }}" size="{{ n62 }}" hint-size="62px,86px"></x-import></div>
+            <div style="position:absolute; right:12px; bottom:12px; z-index:6; display:flex; flex-direction:column; gap:10px;">
+              <span style="display:inline-flex; align-items:center; justify-content:center; width:50px; height:50px; border-radius:var(--radius-sm); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); box-shadow:var(--shadow-float); color:var(--text-primary);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="2" x2="5" y1="12" y2="12"></line><line x1="19" x2="22" y1="12" y2="12"></line><line x1="12" x2="12" y1="2" y2="5"></line><line x1="12" x2="12" y1="19" y2="22"></line><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="1"></circle></svg></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- feature row -->
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:20px; margin-top:32px;">
+        <sc-for list="{{ autoFeatures }}" as="f" hint-placeholder-count="3">
+          <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:24px;">
+            <div style="display:inline-flex; align-items:center; justify-content:center; width:46px; height:46px; border-radius:var(--radius-md); background:var(--brand-soft); color:var(--text-brand); margin-bottom:14px;">{{ f.icon }}</div>
+            <h3 style="font-family:var(--font-display); font-weight:600; font-size:var(--fs-h3); letter-spacing:var(--ls-heading); margin:0 0 6px;">{{ f.title }}</h3>
+            <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0;">{{ f.body }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FAQ ===================== -->
+  <section id="faq" style="border-top:1px solid var(--border);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:88px 24px 96px;">
+      <div style="max-width:60ch; margin-bottom:40px;">
+        <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand); font-weight:var(--fw-bold); margin-bottom:16px;">Common questions</div>
+        <h2 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-display-md); line-height:var(--lh-display-md); letter-spacing:var(--ls-display); margin:0 0 16px;">The short answers, before you ask.</h2>
+        <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); margin:0;">What we map, where it comes from, and what we do — and don't — do with it.</p>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <sc-for list="{{ faqs }}" as="f" hint-placeholder-count="6">
+          <div class="daf-faq-item" data-open="{{ f.openAttr }}">
+            <button class="daf-faq-q" onClick="{{ f.onToggle }}" aria-expanded="{{ f.expanded }}">
+              <span style="font-family:var(--font-display); font-weight:600; font-size:var(--fs-h3); letter-spacing:var(--ls-heading); line-height:1.3;">{{ f.q }}</span>
+              <span class="daf-faq-chev"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m6 9 6 6 6-6"></path></svg></span>
+            </button>
+            <div class="daf-faq-ans">
+              <div>
+                <p style="margin:0; padding:0 24px 24px; font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary);">{{ f.a }}</p>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer style="border-top:1px solid var(--border); background:var(--surface-card);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:36px 24px;">
+      <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
+        <div style="flex:1 1 200px; display:flex; align-items:center; gap:10px;">
+          <img src="assets/logo-mark.png" alt="DAF" style="width:28px; height:28px; object-fit:contain; border-radius:var(--radius-xs);">
+          <span style="font-family:var(--font-display); font-weight:700; font-size:15px;">Drivers Against Flock</span>
+        </div>
+        <div style="flex:0 1 auto; text-align:center; font-size:var(--fs-body-sm); color:var(--text-tertiary); max-width:42ch;">Camera data from OpenStreetMap contributors. We don't keep your trips. We don't sell them, either.</div>
+        <div style="flex:1 1 200px; display:flex; justify-content:flex-end; gap:22px; font-size:var(--fs-body-sm); color:var(--text-secondary);">
+          <a href="#how" style="text-decoration:none;">How it works</a>
+          <a href="WebFullMap.dc.html" style="text-decoration:none;">Full map</a>
+          <a href="#apps" style="text-decoration:none;">Apps</a>
+        </div>
+      </div>
+      <div style="margin-top:28px; padding-top:24px; border-top:1px solid var(--border); display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        <div style="flex:1 1 200px; font-size:var(--fs-caption); color:var(--text-tertiary);">© 2026 LayeredTech, LLC. All rights reserved.</div>
+        <div style="flex:0 1 auto; text-align:center; font-size:var(--fs-body-sm); color:var(--text-secondary);"><a href="mailto:driversagainstflock@proton.me" style="color:inherit; text-decoration:none;">driversagainstflock@proton.me</a></div>
+        <div style="flex:1 1 200px; display:flex; justify-content:flex-end; gap:22px; font-size:var(--fs-body-sm); color:var(--text-secondary);">
+          <a href="PrivacyPolicy.dc.html" style="text-decoration:none;">Privacy Policy</a>
+          <a href="TermsOfUse.dc.html" style="text-decoration:none;">Terms of Use</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:3200},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;heroLayout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;split&quot;,&quot;centered&quot;],&quot;default&quot;:&quot;split&quot;,&quot;tsType&quot;:&quot;'split' | 'centered'&quot;}}">
+class Component extends DCLogic {
+  state = { active: 0, playing: true, progress: 0, faqOpen: 0 };
+
+  toggleFaq(i) { this.setState(s => ({ faqOpen: s.faqOpen === i ? -1 : i })); }
+  PERIOD = 5400;
+  STEP = 100;
+
+  // every known ALPR in John Doe's town: id -> [x%, y%, label]
+  nodesRaw = {
+    home1:   [25, 73, 'Cypress Ave'],
+    home2:   [33, 64, '3rd & Elm'],
+    ramp:    [45, 55, 'Grand Ave ramp'],
+    dt1:     [61, 35, '2nd & Mission'],
+    dt2:     [69, 43, 'Market & 9th'],
+    mid:     [52, 49, 'Midtown transit'],
+    school:  [48, 81, 'Glenview Elem.'],
+    grocery: [37, 29, 'Berkeley Bowl'],
+    lake:    [18, 47, 'Lakeside Dr'],
+    foothill:[28, 38, 'Foothill Blvd'],
+  };
+
+  patternsRaw = [
+    { id: 'home', tag: 'Where he sleeps', title: 'The home block', when: 'Every day · ~6:00a & ~11:00p',
+      route: ['home2', 'home1'],
+      desc: 'The first read of the morning and the last read of the night land on the same two residential cameras, three blocks apart, all week long. A reader that sees your plate leaving at dawn and returning after dark is, in effect, photographing your driveway.' },
+    { id: 'work', tag: 'Where he works', title: 'The weekday commute', when: 'Mon\u2013Fri · 7:58a out, 6:12p back',
+      route: ['home1', 'home2', 'ramp', 'dt1', 'dt2'],
+      desc: 'Twice every weekday the same chain of readers fires in order \u2014 outbound in the morning, reversed at night. Direction plus timing is what separates \u201Clives here\u201D from \u201Cworks there,\u201D and pins both ends of the trip to an address.' },
+    { id: 'family', tag: 'His family', title: 'School pickup', when: 'Mon\u2013Fri · 3:14p',
+      route: ['dt2', 'mid', 'school'],
+      desc: 'Every weekday afternoon a single camera outside Glenview Elementary catches the plate four minutes before the bell. A recurring stop at a school, at the same minute each day, quietly attaches a child to a person, a place, and a schedule.' },
+    { id: 'weekend', tag: 'His routine', title: 'The Sunday loop', when: 'Sat 10:31a · Sun 8:47a',
+      route: ['home1', 'grocery', 'lake', 'home1'],
+      desc: 'Saturdays cluster at the grocery; Sunday mornings trace the same loop around the lake and back home. The cadence is weekly and predictable \u2014 enough to know, with confidence, where he\u2019ll be next Sunday at 8:47 in the morning.' },
+  ];
+
+  componentDidMount() {
+    this._iv = setInterval(() => {
+      if (!this.state.playing) return;
+      this.setState(s => {
+        const p = s.progress + this.STEP;
+        if (p >= this.PERIOD) return { progress: 0, active: (s.active + 1) % this.patternsRaw.length };
+        return { progress: p };
+      });
+    }, this.STEP);
+  }
+  componentWillUnmount() { clearInterval(this._iv); }
+
+  smoothPath(pts) {
+    if (!pts.length) return '';
+    if (pts.length === 1) return `M ${pts[0][0]} ${pts[0][1]}`;
+    if (pts.length === 2) return `M ${pts[0][0]} ${pts[0][1]} L ${pts[1][0]} ${pts[1][1]}`;
+    let d = `M ${pts[0][0]} ${pts[0][1]}`;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const xc = (pts[i][0] + pts[i + 1][0]) / 2, yc = (pts[i][1] + pts[i + 1][1]) / 2;
+      d += ` Q ${pts[i][0]} ${pts[i][1]} ${xc} ${yc}`;
+    }
+    const n = pts.length - 1;
+    d += ` L ${pts[n][0]} ${pts[n][1]}`;
+    return d;
+  }
+
+  // small inline-svg helper
+  svg(paths, opts) {
+    const o = opts || {};
+    return React.createElement('svg', {
+      width: o.size || 24, height: o.size || 24, viewBox: '0 0 24 24', fill: o.fill || 'none',
+      stroke: o.fill ? 'none' : 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round',
+      style: { display: 'block' },
+    }, paths.map((d, i) => React.createElement('path', { key: i, d })));
+  }
+
+  heroMapCard() {
+    const R = React.createElement;
+    // metro clusters: [x%, y%, count, label]
+    const clusters = [
+      [16, 40, 1204, 'Seattle'], [12, 62, 980, 'Bay Area'], [20, 78, 2310, 'LA'],
+      [34, 82, 760, 'Phoenix'], [50, 86, 1890, 'Houston'], [44, 60, 540, 'Denver'],
+      [62, 50, 1320, 'Chicago'], [78, 46, 2890, 'NYC'], [72, 70, 1410, 'Atlanta'],
+      [82, 80, 1130, 'Miami'], [58, 36, 410, 'Minneapolis'], [86, 38, 690, 'Boston'],
+    ];
+    const dots = [];
+    for (let i = 0; i < 90; i++) {
+      const x = 8 + Math.random() * 84, y = 30 + Math.random() * 62;
+      dots.push(R('span', { key: 'd' + i, style: { position: 'absolute', left: x + '%', top: y + '%', width: 4, height: 4, borderRadius: '50%', background: 'var(--marker-alpr)', opacity: 0.5 } }));
+    }
+    return R('div', { style: { borderRadius: 'var(--radius-2xl)', overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)', background: 'var(--map-water)' } },
+      R('div', { style: { position: 'relative', aspectRatio: '16 / 11', background: 'var(--map-water)' } },
+        // US landmass
+        R('svg', { viewBox: '0 0 1000 620', preserveAspectRatio: 'xMidYMid meet', style: { position: 'absolute', inset: 0, width: '100%', height: '100%' } },
+          R('path', {
+            d: 'M132 250 C118 214 120 180 150 162 L250 138 C300 128 340 150 430 142 C560 130 690 128 800 140 L876 126 C900 150 902 182 884 214 L862 260 C852 312 824 352 800 376 L772 392 C766 430 744 452 724 432 L712 392 C700 388 686 392 678 408 C672 420 660 420 652 404 L640 372 C572 366 512 374 470 402 C440 422 410 422 392 396 L380 360 C320 352 240 356 188 336 C156 324 138 296 132 270 Z',
+            fill: 'var(--map-land)', stroke: 'var(--border-strong)', strokeWidth: 2,
+          })
+        ),
+        ...dots,
+        ...clusters.map(([x, y, c, label], i) => R('div', {
+          key: 'c' + i,
+          style: { position: 'absolute', left: x + '%', top: y + '%', transform: 'translate(-50%,-50%)', display: 'flex', alignItems: 'center', gap: 5 },
+        },
+          R('span', { style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 22, padding: '0 6px', borderRadius: 999, background: 'var(--alert-500)', color: '#fff', fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 11, border: '2px solid var(--surface-card)', boxShadow: 'var(--shadow-marker)' } }, c >= 1000 ? (c / 1000).toFixed(1) + 'k' : c)
+        )),
+        // stat chip
+        R('div', { style: { position: 'absolute', left: 16, bottom: 16, padding: '12px 16px', background: 'var(--surface-glass-2)', backdropFilter: 'blur(var(--blur-glass))', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-glass)' } },
+          R('div', { style: { fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: 24, color: 'var(--text-primary)', lineHeight: 1 } }, '92,418'),
+          R('div', { style: { fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 } }, 'known devices mapped nationwide')
+        )
+      )
+    );
+  }
+
+  johnDoeOverlay() {
+    const R = React.createElement;
+    const pat = this.patternsRaw[this.state.active] || this.patternsRaw[0];
+    const active = new Set(pat.route);
+    const pts = pat.route.map(id => this.nodesRaw[id]).map(p => [p[0], p[1]]);
+    const path = this.smoothPath(pts);
+
+    // all known readers; the ones on this pattern's route light up
+    const nodeEls = Object.entries(this.nodesRaw).map(([id, [x, y]]) => {
+      const on = active.has(id);
+      return R('span', {
+        key: 'n' + id,
+        className: on ? 'daf-cam-on' : null,
+        style: {
+          position: 'absolute', left: x + '%', top: y + '%', transform: 'translate(-50%,-50%)',
+          width: on ? 15 : 9, height: on ? 15 : 9, borderRadius: '50%',
+          background: on ? 'var(--alert-500)' : 'var(--map-ink)',
+          border: on ? '2.5px solid var(--surface-card)' : '1.5px solid var(--surface-card)',
+          boxShadow: on ? '0 0 0 5px var(--marker-alpr-glow), var(--shadow-marker)' : 'none',
+          opacity: on ? 1 : 0.42,
+          transition: 'width .35s ease, height .35s ease, opacity .35s ease, background-color .35s ease',
+          zIndex: on ? 5 : 2,
+        },
+      });
+    });
+
+    // label each activated reader once
+    const seen = {};
+    const labelEls = pat.route.filter(id => (seen[id] ? false : (seen[id] = true))).map(id => {
+      const [x, y, label] = this.nodesRaw[id];
+      return R('span', {
+        key: 'l' + id,
+        style: {
+          position: 'absolute', left: x + '%', top: y + '%', transform: 'translate(-50%,-185%)', zIndex: 6,
+          fontFamily: 'var(--font-ui)', fontSize: 10.5, fontWeight: 700, letterSpacing: 'var(--ls-label)', textTransform: 'uppercase',
+          color: 'var(--text-primary)', background: 'var(--surface-glass-2)', padding: '3px 7px', borderRadius: 'var(--radius-xs)',
+          whiteSpace: 'nowrap', backdropFilter: 'blur(var(--blur-soft))', WebkitBackdropFilter: 'blur(var(--blur-soft))', boxShadow: 'var(--shadow-marker)', pointerEvents: 'none',
+        },
+      }, label);
+    });
+
+    const drawStyle = { strokeDasharray: 100, strokeDashoffset: 100, animation: 'dafDraw 1.15s var(--ease-soft) forwards' };
+    return R('div', { style: { position: 'absolute', inset: 0, pointerEvents: 'none' } },
+      R('svg', { viewBox: '0 0 100 100', preserveAspectRatio: 'none', style: { position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', zIndex: 3 } },
+        R('path', { key: 'c' + this.state.active, d: path, pathLength: 100, fill: 'none', stroke: 'var(--route-private-casing)', strokeWidth: 8, vectorEffect: 'non-scaling-stroke', strokeLinecap: 'round', strokeLinejoin: 'round', style: drawStyle }),
+        R('path', { key: 'r' + this.state.active, d: path, pathLength: 100, fill: 'none', stroke: 'var(--route-private)', strokeWidth: 4, vectorEffect: 'non-scaling-stroke', strokeLinecap: 'round', strokeLinejoin: 'round', style: drawStyle })
+      ),
+      ...nodeEls, ...labelEls
+    );
+  }
+
+  renderVals() {
+    if (!this._hero) this._hero = this.heroMapCard();
+    const heroLayout = this.props.heroLayout ?? 'split';
+    const theme = this.props.theme ?? 'light';
+
+    const steps = [
+      { n: '01', title: 'A camera reads your plate', body: 'Roadside readers photograph every passing plate — no suspicion or stop required.', icon: this.svg(['M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z'], { extra: 1 }) },
+      { n: '02', title: 'It becomes a point', body: 'Each read is logged with a precise time and location — a single dot on a map.', icon: this.svg(['M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0'], {}) },
+      { n: '03', title: 'Points become a pattern', body: 'Strung together, the dots trace your commute, errands, and the places you return to.', icon: this.svg(['M3 3v16a2 2 0 0 0 2 2h16', 'm19 9-5 5-4-4-3 3'], {}) },
+      { n: '04', title: 'The pattern can be queried', body: 'That history can be searched, shared, or pulled long after you have driven on.', icon: this.svg(['m21 21-4.34-4.34', 'M11 8v6', 'M8 11h6'], { circle: 1 }) },
+    ];
+
+    const promises = [
+      { title: 'Free to use', body: 'No subscriptions, no payments, no upsell.' },
+      { title: 'No login required', body: 'Search and route without an account.' },
+      { title: 'We don\u2019t sell your data', body: 'Your trips stay on your device \u2014 we don\u2019t keep them.' },
+      { title: 'Open data', body: 'Camera locations from public OpenStreetMap contributors.' },
+    ];
+
+    // fix step icons that need circle / rect
+    const camIcon = React.createElement('svg', { width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } },
+      React.createElement('path', { d: 'M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z' }),
+      React.createElement('circle', { cx: 12, cy: 13, r: 3 }));
+    const searchIcon = React.createElement('svg', { width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } },
+      React.createElement('circle', { cx: 11, cy: 11, r: 8 }), React.createElement('path', { d: 'm21 21-4.3-4.3' }));
+    steps[0].icon = camIcon;
+    steps[3].icon = searchIcon;
+
+    const ic = (kids) => React.createElement('svg', { width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, kids);
+    const autoFeatures = [
+      { title: 'Glanceable by design', body: 'Oversized type and high contrast, built for a quick look and eyes back on the road.', icon: ic([React.createElement('circle', { key: 1, cx: 12, cy: 12, r: 10 }), React.createElement('path', { key: 2, d: 'M12 6v6l4 2' })]) },
+      { title: 'Private routes on the dash', body: 'Pick the quieter way before you pull out — the same routing you get on your phone.', icon: ic([React.createElement('path', { key: 1, d: 'M20 13c0 5-8 9-8 9s-8-4-8-9a8 8 0 0 1 16 0Z' }), React.createElement('path', { key: 2, d: 'm9 12 2 2 4-4' })]) },
+      { title: 'Camera awareness while driving', body: 'A calm heads-up on monitored points ahead — never an alarm, never a distraction.', icon: ic([React.createElement('path', { key: 1, d: 'M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z' }), React.createElement('circle', { key: 2, cx: 12, cy: 13, r: 3 })]) },
+    ];
+
+    const faqDefs = [
+      { q: 'Is Drivers Against Flock really free?',
+        a: 'Yes — completely. No subscription, no paywall, no account to create, and no ads anywhere. The map and routing stay free for everyone. Running it does cost money, so if you want to chip in there\u2019s a Buy Me a Coffee on our Help page, but it\u2019s never required.' },
+      { q: 'Where does the camera data come from?',
+        a: 'Every reader location is sourced from OpenStreetMap, the open, community-maintained map of the world. Contributors tag license-plate readers and roadside cameras they spot, and we sync those tags around the clock. It\u2019s all public data — nothing scraped, nothing private.' },
+      { q: 'Do you track me or store my trips?',
+        a: 'No. Your searches and routes are computed on your device and stay there. We don\u2019t log where you go, we don\u2019t build a profile, and we have nothing to sell or hand over because we never keep it in the first place.' },
+      { q: 'What kinds of cameras does it show?',
+        a: 'Primarily automated license-plate readers (ALPRs) — the pole- and trailer-mounted units that photograph every passing plate — plus other fixed roadside surveillance cameras tagged in OpenStreetMap. We focus on the devices that quietly build a record of your movements.' },
+      { q: 'Is it legal to use?',
+        a: 'Yes. You\u2019re looking at public information about devices on public roads and choosing your own route, which you\u2019re free to do. Drivers Against Flock doesn\u2019t hide your plate or interfere with any camera — it just shows you where they are so you can decide how to drive.' },
+      { q: 'A camera is missing or in the wrong spot — how do I fix it?',
+        a: 'Because the data lives in OpenStreetMap, anyone can correct it: add, move, or remove a reader directly in OSM and the change flows back to us on the next sync. We\u2019re also building an in-app way to flag cameras you spot, so reporting gets even easier soon.' },
+    ];
+
+    const activeIdx = this.state.active;
+    const pat = this.patternsRaw[activeIdx];
+    const uniqRoute = pat.route.filter((id, i, a) => a.indexOf(id) === i);
+    const patterns = this.patternsRaw.map((p, i) => {
+      const uniq = p.route.filter((id, j, a) => a.indexOf(id) === j);
+      return {
+        id: p.id, tag: p.tag, title: p.title, when: p.when, desc: p.desc,
+        num: String(i + 1).padStart(2, '0'),
+        isActive: i === activeIdx, isInactive: i !== activeIdx,
+        camChips: uniq.map(id => this.nodesRaw[id][2]),
+        onSelect: () => this.setState({ active: i, progress: 0 }),
+      };
+    });
+    const pp = this.state.playing;
+    const secLeft = Math.max(1, Math.ceil((this.PERIOD - this.state.progress) / 1000));
+    const icoStyle = { display: 'block' };
+    const playPauseIcon = pp
+      ? React.createElement('svg', { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'currentColor', style: icoStyle }, React.createElement('rect', { key: 1, x: 6, y: 5, width: 4, height: 14, rx: 1 }), React.createElement('rect', { key: 2, x: 14, y: 5, width: 4, height: 14, rx: 1 }))
+      : React.createElement('svg', { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'currentColor', style: icoStyle }, React.createElement('path', { d: 'M7 4.5v15l13-7.5z' }));
+    const chevron = React.createElement('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: icoStyle }, React.createElement('path', { d: 'm9 18 6-6-6-6' }));
+
+    return {
+      theme,
+      navLinks: [
+        { label: 'John Doe', href: '#johndoe' },
+        { label: 'How it works', href: '#how' },
+        { label: 'Android Auto', href: '#android-auto' },
+        { label: 'Apps', href: '#apps' },
+        { label: 'FAQ', href: '#faq' },
+        { label: 'Hotlist', href: 'Hotlist.dc.html' },
+        { label: 'Contribute', href: 'Help.dc.html' },
+      ],
+      headerCta: { label: 'Open Full Map', href: 'WebFullMap.dc.html' },
+      heroSplit: heroLayout === 'split',
+      heroCentered: heroLayout === 'centered',
+      heroMapCard: this._hero,
+      johnDoeOverlay: this.johnDoeOverlay(),
+      patterns,
+      activeTitle: pat.title,
+      activeCountLabel: uniqRoute.length + ' cameras lit',
+      progressFill: React.createElement('div', { style: { height: '100%', width: Math.min(100, (this.state.progress / this.PERIOD) * 100) + '%', background: 'var(--alert-500)', borderRadius: 999, transition: 'width .12s linear' } }),
+      countdownLabel: pp ? 'Next ' + secLeft + 's' : 'Paused',
+      playPauseIcon, playPauseLabel: pp ? 'Pause' : 'Play',
+      playHint: pp ? 'Auto-cycling through John Doe\u2019s week \u2014 tap a pattern to hold it.' : 'Paused \u2014 tap a pattern, or press Play to resume.',
+      chevron,
+      togglePlay: () => this.setState(s => ({ playing: !s.playing })),
+      steps, promises, autoFeatures,
+      faqs: faqDefs.map((f, i) => ({
+        q: f.q,
+        a: f.a,
+        openAttr: this.state.faqOpen === i ? '1' : '0',
+        expanded: this.state.faqOpen === i ? 'true' : 'false',
+        onToggle: () => this.toggleFaq(i),
+      })),
+      n32: 32,
+      n62: 62,
+    };
+  }
+}
+</script>
+</body>
+</html>

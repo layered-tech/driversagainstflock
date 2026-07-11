@@ -1,0 +1,3 @@
+- Never run `php artisan serve` (or `.ai/bin/php artisan serve`) in this project. Laravel Valet is always hosting the app locally on its `*.test` domain, so a second dev server is never needed and the port will already be unavailable.
+- Do not add an `artisan serve` configuration to `.claude/launch.json` or to any preview tooling for the same reason. Use the Valet URL directly when a preview/browser session is required.
+- If you need the absolute base URL for the running app, use `mcp__laravel-boost__get-absolute-url` (which reads Valet's resolved host), not a self-spawned server.

@@ -1,0 +1,62 @@
+appId: com.anonymous.drivefree.dev
+name: Place Details Drag Mocked
+tags:
+  - map
+  - search
+---
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    commands:
+      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- extendedWaitUntil:
+    visible:
+      id: "map-search-input-map"
+    timeout: 30000
+- openLink: "driversagainstflock://e2e-mocks"
+- extendedWaitUntil:
+    visible:
+      id: "map-search-input-map"
+    timeout: 10000
+
+- tapOn:
+    id: "map-search-input-map"
+- inputText: "Barton Springs Pool"
+- extendedWaitUntil:
+    visible:
+      id: "map-search-result-0-map"
+    timeout: 30000
+- tapOn:
+    id: "map-search-result-0-map"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: "selected-place-title"
+    timeout: 30000
+
+# Dragging the card up must not dismiss it — it stays open.
+- swipe:
+    start: "50%,58%"
+    end: "50%,10%"
+    duration: 500
+- assertVisible:
+    id: "selected-place-title"
+
+# Dragging the card down must close it (same as tapping ✕).
+- swipe:
+    start: "50%,58%"
+    end: "50%,95%"
+    duration: 500
+- extendedWaitUntil:
+    visible:
+      id: "map-search-input-map"
+    timeout: 10000
+- assertNotVisible:
+    id: "selected-place-title"

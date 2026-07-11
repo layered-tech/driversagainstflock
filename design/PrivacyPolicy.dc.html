@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- page name="Web — Privacy Policy" description="Privacy-first legal page: plain-language privacy policy for Drivers Against Flock, matching the marketing site." -->
+<helmet>
+  <script src="./ds-base.js"></script>
+  <style>
+    *{ box-sizing:border-box; }
+    html{ scroll-behavior:smooth; }
+    body{ margin:0; background:var(--surface-page); }
+    a{ color:inherit; }
+    .pp-body a{ color:var(--text-brand); text-decoration:none; }
+    .pp-body a:hover{ text-decoration:underline; }
+  </style>
+</helmet>
+
+<div data-theme="{{ theme }}" data-screen-label="Web — Privacy Policy" style="font-family:var(--font-ui); color:var(--text-primary); background:var(--surface-page); min-height:100vh; -webkit-font-smoothing:antialiased;">
+
+  <!-- ===================== HEADER ===================== -->
+  <x-import component-from-global-scope="DesignSystem_aa8750.SiteHeader" logo-src="assets/logo-mark.png" variant="marketing" logo-href="WebLanding.dc.html" links="{{ navLinks }}" cta="{{ headerCta }}" hint-size="100%,68px"></x-import>
+
+  <!-- ===================== TITLE ===================== -->
+  <section style="border-bottom:1px solid var(--border);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:72px 24px 56px;">
+      <a href="WebLanding.dc.html" style="display:inline-flex; align-items:center; gap:7px; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-secondary); text-decoration:none; margin-bottom:24px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg>
+        Back to home
+      </a>
+      <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand); font-weight:var(--fw-bold); margin-bottom:16px;">Legal</div>
+      <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-display-lg); line-height:var(--lh-display-lg); letter-spacing:var(--ls-display); margin:0 0 18px; text-wrap:balance;">Privacy Policy</h1>
+      <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); max-width:60ch; margin:0 0 20px;">We built Drivers Against Flock because tracking drivers is wrong. It would be hypocritical to turn around and track you. This page explains, in plain language, exactly what that means.</p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="ghost" hint-size="auto,24px">Last updated {{ updated }}</x-import>
+        <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="ghost" hint-size="auto,24px">Location optional</x-import>
+        <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="ghost" hint-size="auto,24px">No ads, ever</x-import>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== TL;DR ===================== -->
+  <section style="border-bottom:1px solid var(--border);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:56px 24px;">
+      <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); font-weight:var(--fw-bold); margin-bottom:20px;">The short version</div>
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:20px;">
+        <sc-for list="{{ tldr }}" as="t" hint-placeholder-count="3">
+          <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:24px;">
+            <span style="display:inline-flex; align-items:center; justify-content:center; width:42px; height:42px; border-radius:var(--radius-md); background:var(--brand-soft); color:var(--text-brand); margin-bottom:14px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M20 6 9 17l-5-5"></path></svg></span>
+            <h3 style="font-family:var(--font-display); font-weight:600; font-size:var(--fs-h3); letter-spacing:var(--ls-heading); margin:0 0 6px;">{{ t.title }}</h3>
+            <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0;">{{ t.body }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== BODY ===================== -->
+  <section>
+    <div style="max-width:var(--width-content); margin:0 auto; padding:64px 24px 88px; display:grid; grid-template-columns:240px 1fr; gap:56px; align-items:start;">
+
+      <!-- TOC -->
+      <nav style="position:sticky; top:88px; display:flex; flex-direction:column; gap:2px;">
+        <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); font-weight:var(--fw-bold); margin-bottom:12px;">On this page</div>
+        <sc-for list="{{ sections }}" as="s" hint-placeholder-count="7">
+          <a href="{{ s.anchor }}" style="font-size:var(--fs-body-sm); color:var(--text-secondary); text-decoration:none; padding:6px 0; line-height:1.4;">{{ s.title }}</a>
+        </sc-for>
+      </nav>
+
+      <!-- sections -->
+      <div class="pp-body" style="min-width:0;">
+        <sc-for list="{{ sections }}" as="s" hint-placeholder-count="7">
+          <div id="{{ s.id }}" style="padding-bottom:44px; margin-bottom:44px; border-bottom:1px solid var(--border);">
+            <h2 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h2); line-height:1.15; letter-spacing:var(--ls-heading); margin:0 0 18px; scroll-margin-top:88px;">{{ s.title }}</h2>
+            {{ s.content }}
+          </div>
+        </sc-for>
+
+        <!-- contact -->
+        <div id="contact" style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-xl); box-shadow:var(--shadow-card); padding:32px;">
+          <h2 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h3); letter-spacing:var(--ls-heading); margin:0 0 10px;">Questions?</h2>
+          <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0 0 8px;">If anything here is unclear, or you want to request deletion of account information, reach us at <a href="mailto:privacy@driversagainstflock.com">privacy@driversagainstflock.com</a> — or, as an alternate, <a href="mailto:driversagainstflock@proton.me">driversagainstflock@proton.me</a>.</p>
+          <p style="font-size:var(--fs-body-sm); color:var(--text-tertiary); margin:0;">Drivers Against Flock is operated by LayeredTech, LLC.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer style="border-top:1px solid var(--border); background:var(--surface-card);">
+    <div style="max-width:var(--width-content); margin:0 auto; padding:36px 24px;">
+      <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
+        <div style="flex:1 1 200px; display:flex; align-items:center; gap:10px;">
+          <img src="assets/logo-mark.png" alt="DAF" style="width:28px; height:28px; object-fit:contain; border-radius:var(--radius-xs);">
+          <span style="font-family:var(--font-display); font-weight:700; font-size:15px;">Drivers Against Flock</span>
+        </div>
+        <div style="flex:0 1 auto; text-align:center; font-size:var(--fs-body-sm); color:var(--text-tertiary); max-width:42ch;">Camera data from OpenStreetMap contributors. We don't keep your trips. We don't sell them, either.</div>
+        <div style="flex:1 1 200px; display:flex; justify-content:flex-end; gap:22px; font-size:var(--fs-body-sm); color:var(--text-secondary);">
+          <a href="WebLanding.dc.html#how" style="text-decoration:none;">How it works</a>
+          <a href="WebFullMap.dc.html" style="text-decoration:none;">Full map</a>
+          <a href="WebLanding.dc.html#apps" style="text-decoration:none;">Apps</a>
+        </div>
+      </div>
+      <div style="margin-top:28px; padding-top:24px; border-top:1px solid var(--border); display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        <div style="flex:1 1 200px; font-size:var(--fs-caption); color:var(--text-tertiary);">© 2026 LayeredTech, LLC. All rights reserved.</div>
+        <div style="flex:0 1 auto; text-align:center; font-size:var(--fs-body-sm); color:var(--text-secondary);"><a href="mailto:driversagainstflock@proton.me" style="color:inherit; text-decoration:none;">driversagainstflock@proton.me</a></div>
+        <div style="flex:1 1 200px; display:flex; justify-content:flex-end; gap:22px; font-size:var(--fs-body-sm); color:var(--text-secondary);">
+          <a href="PrivacyPolicy.dc.html" style="text-decoration:none;">Privacy Policy</a>
+          <a href="TermsOfUse.dc.html" style="text-decoration:none;">Terms of Use</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:2400},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const theme = this.props.theme ?? 'light';
+    const R = React.createElement;
+
+    const p = (text) => R('p', { style: { fontSize: 'var(--fs-body)', lineHeight: 'var(--lh-body)', color: 'var(--text-secondary)', margin: '0 0 14px' } }, text);
+    const ul = (items) => R('ul', { style: { margin: '0 0 14px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 8 } },
+      items.map((it, i) => R('li', { key: i, style: { fontSize: 'var(--fs-body)', lineHeight: 'var(--lh-body)', color: 'var(--text-secondary)' } }, it)));
+    const h = (text) => R('div', { style: { fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--fs-h3)', letterSpacing: 'var(--ls-heading)', color: 'var(--text-primary)', margin: '6px 0 10px' } }, text);
+
+    const sectionsRaw = [
+      { id: 'overview', title: 'Overview', content: [
+        p('Drivers Against Flock ("DAF," "we," "us") is a privacy-focused navigation app operated by LayeredTech, LLC. It is designed to collect only the information needed to provide app features.'),
+        p('The app helps you search for places, view maps, get directions, and choose routes with privacy in mind. DAF works with or without location access — granting it can improve features like showing your current position, searching nearby, and routing from where you are, but the app stays usable if you deny it.'),
+        p('We do not sell personal information. We do not use it for advertising. We do not build advertising profiles about users.'),
+      ] },
+      { id: 'info-we-collect', title: 'Information we collect and use', content: [
+        h('Location information'),
+        p('DAF may request access to your device\u2019s location. If you grant it, your location may be used to provide app features such as:'),
+        ul([
+          'Showing your current location on the map',
+          'Searching for nearby places',
+          'Calculating routes and directions',
+          'Supporting navigation features',
+        ]),
+        p('DAF does not store your location history. When location is needed for a feature, it may be sent to the service required to complete that request — for example, search information may go to Google Maps, and origin, destination, or route information may go to OpenRouteService.'),
+        p('You can deny location access and still use the app, and you can revoke it at any time through your device settings.'),
+        h('Search and routing information'),
+        p('When you search for a place, enter a destination, or request directions, the app may process that information to provide the feature. This can include search terms, manually entered locations, your current location (if enabled), route start and end points, and routing preferences.'),
+        h('OpenStreetMap account information'),
+        p('DAF lets you sign in using the OpenStreetMap.org OAuth provider. If you choose to, we may receive limited account information from OpenStreetMap — your display name, email address, and OpenStreetMap user ID — which we use to identify your account and support connected features. DAF never receives or stores your OpenStreetMap password.'),
+      ] },
+      { id: 'third-party', title: 'Third-party services', content: [
+        p('DAF uses third-party services to provide certain app features:'),
+        ul([
+          'Google Maps — for place searching',
+          'OpenRouteService — for directions and route calculation',
+          'OpenStreetMap.org — for optional account sign-in through OAuth',
+        ]),
+        p('When you use a feature that depends on these services, the information needed to complete your request may be sent to the relevant service. Your use of these services may also be subject to their own privacy policies and terms.'),
+      ] },
+      { id: 'no-sell', title: 'Not sold, not for advertising', content: [
+        ul([
+          'DAF does not sell personal information.',
+          'DAF does not share personal information with advertisers.',
+          'DAF does not use your location, search, routing, or account information to build advertising profiles.',
+        ]),
+      ] },
+      { id: 'how-we-use', title: 'How we use information', content: [
+        p('We use information only to provide, maintain, and improve app functionality, including:'),
+        ul([
+          'Displaying maps and searching for places',
+          'Providing directions and supporting navigation',
+          'Showing route options',
+          'Authenticating users who choose to sign in with OpenStreetMap',
+          'Maintaining app security and reliability',
+        ]),
+      ] },
+      { id: 'sharing', title: 'How information is shared', content: [
+        p('DAF may share information with third-party services only as needed to provide the feature you requested — place search through Google Maps, directions and routing through OpenRouteService, and optional account sign-in through OpenStreetMap OAuth.'),
+        p('We may also disclose information if required by law or legal process, or to protect the rights, safety, and security of DAF, LayeredTech, LLC, our users, or others.'),
+      ] },
+      { id: 'retention', title: 'Data retention', content: [
+        p('DAF does not store your location history. If you sign in with OpenStreetMap, we may retain your display name, email address, and OpenStreetMap user ID for as long as needed to support your account or app features.'),
+        p('If you want your account information deleted, contact us at privacy@driversagainstflock.com, or as an alternate at driversagainstflock@proton.me.'),
+      ] },
+      { id: 'your-choices', title: 'Your choices', content: [
+        p('You control whether DAF can access your location. You can:'),
+        ul([
+          'Deny location access when prompted',
+          'Use the app without location access',
+          'Enter locations manually instead of using your current location',
+          'Revoke location access through your device settings',
+          'Choose whether to sign in with OpenStreetMap',
+          'Request deletion of account information associated with your OpenStreetMap login',
+        ]),
+      ] },
+      { id: 'osm-signin', title: 'OpenStreetMap sign-in', content: [
+        p('DAF uses OpenStreetMap OAuth for optional account sign-in. OAuth lets you sign in with your OpenStreetMap account without giving DAF your OpenStreetMap password.'),
+        p('If you use OpenStreetMap sign-in, OpenStreetMap may provide us with your display name, email address, and OpenStreetMap user ID.'),
+      ] },
+      { id: 'security', title: 'Security', content: [
+        p('We use reasonable technical and organizational measures to protect the information we process. No system can be guaranteed completely secure, but DAF is designed to limit the information collected and avoid storing unnecessary data such as location history.'),
+      ] },
+      { id: 'children', title: 'Children\u2019s privacy', content: [
+        p('DAF is not intended for children under 13. We do not knowingly collect personal information from children under 13. If you believe a child has provided us personal information, contact us and we will take appropriate steps to delete it.'),
+      ] },
+      { id: 'changes', title: 'Changes to this policy', content: [
+        p('We may update this Privacy Policy from time to time. If we make material changes, we will update the "Last updated" date above and may provide additional notice in the app or on our website.'),
+      ] },
+    ];
+
+    const sections = sectionsRaw.map(s => ({
+      id: s.id,
+      anchor: '#' + s.id,
+      title: s.title,
+      content: R(React.Fragment, null, s.content),
+    }));
+
+    const tldr = [
+      { title: 'Location is optional', body: 'The app works with or without it. Deny or revoke access anytime — and we never store your location history.' },
+      { title: 'We don\u2019t sell or advertise', body: 'No selling personal data, no advertisers, no advertising profiles. Ever.' },
+      { title: 'Sign-in is optional', body: 'Use OpenStreetMap OAuth if you want — we never see your password, only the basics you allow.' },
+    ];
+
+    return {
+      theme,
+      updated: 'June 2026',
+      navLinks: [
+        { label: 'John Doe', href: 'WebLanding.dc.html#johndoe' },
+        { label: 'How it works', href: 'WebLanding.dc.html#how' },
+        { label: 'Android Auto', href: 'WebLanding.dc.html#android-auto' },
+        { label: 'Apps', href: 'WebLanding.dc.html#apps' },
+        { label: 'FAQ', href: 'WebLanding.dc.html#faq' },
+        { label: 'Hotlist', href: 'Hotlist.dc.html' },
+        { label: 'Contribute', href: 'Help.dc.html' },
+      ],
+      headerCta: { label: 'Open Full Map', href: 'WebFullMap.dc.html' },
+      tldr,
+      sections,
+    };
+  }
+}
+</script>
+</body>
+</html>

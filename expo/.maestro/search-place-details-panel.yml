@@ -1,0 +1,57 @@
+appId: com.anonymous.drivefree.dev
+name: Search Place Details Panel Mocked
+tags:
+  - map
+  - search
+---
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    commands:
+      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- extendedWaitUntil:
+    visible:
+      id: "map-search-input-map"
+    timeout: 30000
+- openLink: "driversagainstflock://e2e-mocks"
+- extendedWaitUntil:
+    visible:
+      id: "map-search-input-map"
+    timeout: 10000
+
+- tapOn:
+    id: "map-search-input-map"
+- inputText: "Barton Springs Pool"
+- extendedWaitUntil:
+    visible:
+      id: "map-search-result-0-map"
+    timeout: 30000
+- tapOn:
+    id: "map-search-result-0-map"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: "selected-place-title"
+    timeout: 30000
+- assertVisible:
+    text: "Barton Springs Pool"
+- extendedWaitUntil:
+    visible:
+      id: "selected-place-subtitle"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: ".*Swimming pool.*"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "selected-place-get-directions-button"
+      enabled: true
+    timeout: 30000

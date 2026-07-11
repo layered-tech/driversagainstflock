@@ -1,0 +1,62 @@
+appId: com.anonymous.drivefree.dev
+name: Marker Details Drag Mocked
+tags:
+  - map
+  - markers
+---
+- setLocation:
+    latitude: 30.26715
+    longitude: -97.74035
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    commands:
+      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 30000
+- openLink: 'driversagainstflock://e2e-mocks'
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 10000
+- setLocation:
+    latitude: 30.26715
+    longitude: -97.74035
+
+- extendedWaitUntil:
+    visible:
+      id: 'map-marker-0-map'
+    timeout: 60000
+- tapOn:
+    id: 'map-marker-0-map'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'marker-details-title'
+    timeout: 30000
+
+# Dragging the sheet up must not dismiss it — the sheet stays open.
+- swipe:
+    start: '50%,55%'
+    end: '50%,10%'
+    duration: 500
+- assertVisible:
+    id: 'marker-details-title'
+
+# Dragging the sheet down must still close it.
+- swipe:
+    start: '50%,55%'
+    end: '50%,95%'
+    duration: 500
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 10000
+- assertNotVisible:
+    id: 'marker-details-title'

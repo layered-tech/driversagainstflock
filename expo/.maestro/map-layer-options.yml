@@ -1,0 +1,89 @@
+appId: com.anonymous.drivefree.dev
+name: Map Layer Options Mocked
+tags:
+  - map
+  - layers
+---
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    commands:
+      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 30000
+- openLink: 'driversagainstflock://e2e-mocks'
+- extendedWaitUntil:
+    visible:
+      id: 'map-layer-button'
+    timeout: 30000
+
+- tapOn:
+    id: 'map-layer-button'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'map-layer-option-standard'
+    timeout: 10000
+- assertVisible:
+    id: 'map-layer-option-standard-satellite'
+- assertVisible:
+    id: 'map-surveillance-markers-toggle'
+- assertVisible:
+    id: 'map-marker-clusters-toggle'
+- assertVisible:
+    id: 'map-camera-cones-toggle'
+- assertVisible:
+    id: 'map-traffic-toggle'
+- assertVisible:
+    id: 'map-police-alerts-toggle'
+- tapOn:
+    id: 'map-police-alerts-toggle'
+- tapOn:
+    id: 'map-police-alerts-toggle'
+- tapOn:
+    id: 'map-marker-clusters-toggle'
+- tapOn:
+    id: 'map-camera-cones-toggle'
+- tapOn:
+    id: 'map-marker-clusters-toggle'
+- tapOn:
+    id: 'map-camera-cones-toggle'
+- tapOn:
+    id: 'map-traffic-toggle'
+- swipe:
+    start: '50%,90%'
+    end: '50%,35%'
+    duration: 500
+- swipe:
+    start: '50%,90%'
+    end: '50%,35%'
+    duration: 400
+- extendedWaitUntil:
+    visible:
+      id: 'map-light-preset-option-auto'
+    timeout: 10000
+- assertVisible:
+    id: 'offline-map-section-toggle'
+- tapOn:
+    id: 'map-light-preset-option-night'
+- assertVisible:
+    id: 'map-light-preset-option-night'
+- swipe:
+    start: '50%,88%'
+    end: '50%,30%'
+    duration: 500
+- extendedWaitUntil:
+    visible:
+      id: 'offline-map-section-toggle'
+    timeout: 10000
+- assertVisible:
+    id: 'map-settings-reset-button'

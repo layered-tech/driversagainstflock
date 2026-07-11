@@ -1,0 +1,52 @@
+appId: com.anonymous.drivefree.dev
+name: Hotlist Mocked
+tags:
+  - hotlist
+  - drawer
+---
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    commands:
+      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 30000
+- openLink: 'driversagainstflock://e2e-mocks'
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-drawer-button-map'
+    timeout: 10000
+
+- tapOn:
+    id: 'map-search-drawer-button-map'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: 'Hotlist'
+    timeout: 10000
+- tapOn: 'Hotlist'
+- extendedWaitUntil:
+    visible:
+      id: 'hotlist-screen'
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: 'hotlist-drawer-button'
+    timeout: 10000
+- assertVisible: 'Recently added'
+- assertVisible: '7 days'
+- assertVisible: 'All · 38'
+- assertVisible: 'Flock · 21'
+- assertVisible:
+    id: 'hotlist-row-0'
+- assertVisible: '16th St & Mission St'
+- assertVisible: 'node/11820431'
+- assertVisible: 'Data from OpenStreetMap contributors'

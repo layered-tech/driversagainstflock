@@ -1,0 +1,22 @@
+{
+    "agents": [
+        "junie",
+        "codex",
+        "claude_code"
+    ],
+    "cloud": false,
+    "guidelines": true,
+    "mcp": true,
+    "nightwatch": false,
+    "sail": false,
+    "skills": [
+        "laravel-best-practices",
+        "configuring-horizon",
+        "configure-nightwatch",
+        "pulse-development",
+        "socialite-development",
+        "pest-testing",
+        "inertia-vue-development",
+        "tailwindcss-development"
+    ]
+}

@@ -1,0 +1,56 @@
+diff --git a/node_modules/@react-native-firebase/app/ios/RNFBApp/RNFBUtilsModule.h b/node_modules/@react-native-firebase/app/ios/RNFBApp/RNFBUtilsModule.h
+index 43ec807..a62f43d 100644
+--- a/node_modules/@react-native-firebase/app/ios/RNFBApp/RNFBUtilsModule.h
++++ b/node_modules/@react-native-firebase/app/ios/RNFBApp/RNFBUtilsModule.h
+@@ -16,7 +16,6 @@
+  */
+ 
+ #import <Foundation/Foundation.h>
+-#import <Photos/Photos.h>
+ 
+ #import <React/RCTBridgeModule.h>
+ 
+@@ -25,6 +24,5 @@
+ + (BOOL)isRemoteAsset:(NSString *)localFilePath;
+ + (BOOL)unused_isHeic:(NSString *)localFilePath;
+ + (NSString *)valueForKey:(NSString *)key fromQueryItems:(NSArray *)queryItems;
+-+ (PHAsset *)fetchAssetForPath:(NSString *)localFilePath;
+ 
+ @end
+diff --git a/node_modules/@react-native-firebase/app/ios/RNFBApp/RNFBUtilsModule.m b/node_modules/@react-native-firebase/app/ios/RNFBApp/RNFBUtilsModule.m
+index 7d28331..763ba05 100644
+--- a/node_modules/@react-native-firebase/app/ios/RNFBApp/RNFBUtilsModule.m
++++ b/node_modules/@react-native-firebase/app/ios/RNFBApp/RNFBUtilsModule.m
+@@ -51,32 +51,6 @@ + (NSString *)valueForKey:(NSString *)key fromQueryItems:(NSArray *)queryItems {
+   return queryItem.value;
+ }
+ 
+-+ (PHAsset *)fetchAssetForPath:(NSString *)localFilePath {
+-  PHAsset *asset = nil;
+-
+-  if ([localFilePath hasPrefix:@"assets-library://"] || [localFilePath hasPrefix:@"ph://"]) {
+-    if ([localFilePath hasPrefix:@"assets-library://"]) {
+-      NSURL *localFile = [[NSURL alloc] initWithString:localFilePath];
+-      static BOOL hasWarned = NO;
+-      if (!hasWarned) {
+-        NSLog(@"'assets-library://' & 'ph://' URLs are not supported in Catalyst-based targets "
+-              @"or iOS 12 and higher; returning nil (future warnings will be suppressed)");
+-        hasWarned = YES;
+-      }
+-    } else {
+-      NSString *assetId = [localFilePath substringFromIndex:@"ph://".length];
+-      asset = [[PHAsset fetchAssetsWithLocalIdentifiers:@[ assetId ] options:nil] firstObject];
+-    }
+-  } else {
+-    NSURLComponents *components = [NSURLComponents componentsWithString:localFilePath];
+-    NSArray *queryItems = components.queryItems;
+-    NSString *assetId = [self valueForKey:@"id" fromQueryItems:queryItems];
+-    asset = [[PHAsset fetchAssetsWithLocalIdentifiers:@[ assetId ] options:nil] firstObject];
+-  }
+-
+-  return asset;
+-}
+-
+ - (NSString *)getPathForDirectory:(int)directory {
+   NSArray *paths =
+       NSSearchPathForDirectoriesInDomains((NSSearchPathDirectory)directory, NSUserDomainMask, YES);

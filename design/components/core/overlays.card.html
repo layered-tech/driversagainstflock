@@ -1,0 +1,118 @@
+<!-- @dsCard group="Components" viewport="700x560" name="Toast & Tooltip" subtitle="Status toasts · live stack · tooltips — light/dark" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="../../styles.css" />
+<style>
+  html, body { margin: 0; }
+  body {
+    font-family: var(--font-ui);
+    color: var(--text-primary);
+    background:
+      repeating-linear-gradient(0deg, transparent 0 38px, rgba(128,141,155,0.10) 38px 39px),
+      repeating-linear-gradient(90deg, transparent 0 38px, rgba(128,141,155,0.10) 38px 39px),
+      var(--map-land);
+    padding: 26px;
+    transition: background var(--dur-base) var(--ease-standard);
+  }
+  .toolbar { position: fixed; top: 14px; right: 14px; z-index: 90; }
+  .tg { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border-radius: var(--radius-pill);
+        background: var(--surface-glass); color: var(--text-primary); border: 1px solid var(--border-glass);
+        box-shadow: var(--shadow-float); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        font-family: var(--font-ui); font-weight: 600; font-size: 12px; cursor: pointer; }
+  .wrap { display: flex; flex-direction: column; gap: 24px; max-width: 648px; }
+  .eyebrow { font-size: var(--fs-label); font-weight: var(--fw-bold); letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--text-tertiary); margin: 0 0 12px; }
+  .sect { display: flex; flex-direction: column; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .stack { display: flex; flex-direction: column; gap: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel" data-presets="react">
+const NS = window.DesignSystem_aa8750;
+const { Toast, ToastViewport, Tooltip, Button, IconButton, Icon } = NS;
+
+function ThemeToggle() {
+  const [t, setT] = React.useState('light');
+  React.useEffect(() => { document.documentElement.setAttribute('data-theme', t); }, [t]);
+  return (
+    <div className="toolbar">
+      <button className="tg" onClick={() => setT(t === 'light' ? 'dark' : 'light')}>
+        <Icon name={t === 'light' ? 'moon' : 'sun'} size={15} />{t === 'light' ? 'Dark' : 'Light'}
+      </button>
+    </div>
+  );
+}
+
+function Sect({ label, children }) {
+  return <div className="sect"><p className="eyebrow">{label}</p>{children}</div>;
+}
+
+let TID = 0;
+function Demo() {
+  const [toasts, setToasts] = React.useState([]);
+
+  const push = (t) => {
+    const id = ++TID;
+    setToasts((cur) => [...cur, { id, ...t }]);
+    setTimeout(() => setToasts((cur) => cur.filter((x) => x.id !== id)), 4200);
+  };
+  const remove = (id) => setToasts((cur) => cur.filter((x) => x.id !== id));
+
+  return (
+    <>
+      <ThemeToggle />
+
+      <Sect label="Toast · status variants">
+        <div className="stack">
+          <Toast tone="success" title="Re-routed" description="Now avoiding 2 cameras ahead." onDismiss={() => {}} />
+          <Toast tone="info" title="Offline maps updated" description="Bay Area · 412 MB" onDismiss={() => {}} />
+          <Toast tone="warning" title="Heavy traffic on US-101" description="+8 min to your ETA." action={{ label: 'See alternate', onClick: () => {} }} onDismiss={() => {}} />
+          <Toast tone="alert" title="GPS signal lost" description="Reconnecting…" action={{ label: 'Retry', onClick: () => {} }} onDismiss={() => {}} />
+        </div>
+      </Sect>
+
+      <Sect label="Toast · live stack (bottom-right)">
+        <div className="row">
+          <Button variant="secondary" onClick={() => push({ tone: 'success', title: 'Saved place added', description: 'Tartine Bakery' })}>Push success</Button>
+          <Button variant="secondary" onClick={() => push({ tone: 'warning', title: 'Camera reported', description: 'Thanks — verifying nearby.' })}>Push warning</Button>
+        </div>
+      </Sect>
+
+      <Sect label="Tooltip (hover or focus)">
+        <div className="row">
+          <Tooltip content="Recenter map" side="top">
+            <IconButton label="Recenter" variant="glass"><Icon name="navigation" size={20} /></IconButton>
+          </Tooltip>
+          <Tooltip content="Map layers" side="bottom">
+            <IconButton label="Layers" variant="glass"><Icon name="layers" size={20} /></IconButton>
+          </Tooltip>
+          <Tooltip content="Avoids monitored roads" side="right">
+            <IconButton label="Private" variant="glass" active><Icon name="shield-check" size={20} /></IconButton>
+          </Tooltip>
+          <Tooltip content="Report a camera" side="left">
+            <IconButton label="Report" variant="brand"><Icon name="plus" size={22} /></IconButton>
+          </Tooltip>
+        </div>
+      </Sect>
+
+      <ToastViewport placement="bottom-right">
+        {toasts.map((t) => (
+          <Toast key={t.id} tone={t.tone} title={t.title} description={t.description} onDismiss={() => remove(t.id)} />
+        ))}
+      </ToastViewport>
+    </>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>
+</body>
+</html>

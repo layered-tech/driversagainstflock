@@ -1,0 +1,86 @@
+<!-- @dsCard group="Components" viewport="700x420" name="Icon" subtitle="Lucide icon primitive — the one icon set, themable" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="../../../styles.css" />
+<style>
+  html, body { margin: 0; }
+  body {
+    font-family: var(--font-ui);
+    color: var(--text-primary);
+    background:
+      repeating-linear-gradient(0deg, transparent 0 38px, rgba(128,141,155,0.10) 38px 39px),
+      repeating-linear-gradient(90deg, transparent 0 38px, rgba(128,141,155,0.10) 38px 39px),
+      var(--map-land);
+    padding: 26px;
+    transition: background var(--dur-base) var(--ease-standard);
+  }
+  .toolbar { position: fixed; top: 14px; right: 14px; z-index: 20; }
+  .tg { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border-radius: var(--radius-pill);
+        background: var(--surface-glass); color: var(--text-primary); border: 1px solid var(--border-glass);
+        box-shadow: var(--shadow-float); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        font-family: var(--font-ui); font-weight: 600; font-size: 12px; cursor: pointer; }
+  .wrap { max-width: 648px; display: flex; flex-direction: column; gap: 18px; }
+  .eyebrow { font-size: var(--fs-label); font-weight: var(--fw-bold); letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--text-tertiary); margin: 0 0 2px; }
+  .grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 12px 4px;
+          background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); }
+  .cell .nm { font-size: 9px; letter-spacing: 0.02em; color: var(--text-tertiary); text-align: center; line-height: 1.1; }
+  .sizes { display: flex; align-items: flex-end; gap: 20px; padding: 14px 16px; background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text-primary); }
+</style>
+</head>
+<body>
+<div class="wrap" id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<script src="../../../_ds_bundle.js"></script>
+<script type="text/babel" data-presets="react">
+const NS = window.DesignSystem_aa8750;
+const { Icon, ICON_NAMES } = NS;
+
+function ThemeToggle() {
+  const [t, setT] = React.useState('light');
+  React.useEffect(() => { document.documentElement.setAttribute('data-theme', t); }, [t]);
+  return (
+    <div className="toolbar">
+      <button className="tg" onClick={() => setT(t === 'light' ? 'dark' : 'light')}>
+        <Icon name={t === 'light' ? 'moon' : 'sun'} size={15} />{t === 'light' ? 'Dark' : 'Light'}
+      </button>
+    </div>
+  );
+}
+
+function Demo() {
+  return (
+    <>
+      <ThemeToggle />
+      <div>
+        <p className="eyebrow">One icon set — Lucide, {ICON_NAMES.length} shipped</p>
+        <div className="grid">
+          {ICON_NAMES.map((n) => (
+            <div className="cell" key={n}><Icon name={n} size={20} /><span className="nm">{n}</span></div>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="eyebrow">Sizes — 16 meta · 20 control · 28 feature · tinted</p>
+        <div className="sizes">
+          <Icon name="navigation" size={16} />
+          <Icon name="navigation" size={20} />
+          <Icon name="navigation" size={28} />
+          <Icon name="shield-check" size={28} color="var(--brand)" />
+          <Icon name="scan-eye" size={28} color="var(--alert-500)" />
+          <Icon name="triangle-alert" size={28} color="var(--amber-600)" />
+        </div>
+      </div>
+    </>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>
+</body>
+</html>
