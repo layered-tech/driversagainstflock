@@ -1,7 +1,5 @@
-import Constants from 'expo-constants';
+const IS_PRODUCTION = process.env.APP_ENV === 'production';
 
-export const APP_ENVIRONMENT =
-    Constants.expoConfig?.extra?.environment ?? 'production';
 export const OSM_PRODUCTION_BASE_URL = 'https://www.openstreetmap.org';
 export const OSM_DEV_BASE_URL = 'https://api06.dev.openstreetmap.org';
 
@@ -12,7 +10,7 @@ export function getOSMBaseURL() {
         return configuredBaseURL.replace(/\/+$/, '');
     }
 
-    if (APP_ENVIRONMENT === 'production') {
+    if (IS_PRODUCTION) {
         return OSM_PRODUCTION_BASE_URL;
     }
 
