@@ -7,7 +7,7 @@
 </head>
 <body>
 <x-dc>
-<!-- page name="Mobile · Contribute (OSM)" description="Five-step OpenStreetMap changeset flow plus the community hotlist." -->
+<!-- page name="Mobile · Contribute (OSM)" description="Step-by-step OpenStreetMap changeset flow — from the base map to a published changeset — plus the community hotlist." -->
 <helmet>
   <script src="./ds-base.js"></script>
   <style>
@@ -37,12 +37,51 @@
     </div>
 
     <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 6px; padding-bottom:10px; border-bottom:1px solid var(--border);">OpenStreetMap editing · iOS</div>
-    <p style="font-size:15px; color:var(--text-secondary); margin:14px 0 26px; max-width:70ch;">Contributing camera data back to the public map. One flow, five steps — start a changeset, place the nodes, describe each one, describe the changeset, then publish.</p>
+    <p style="font-size:15px; color:var(--text-secondary); margin:14px 0 26px; max-width:70ch;">Contributing camera data back to the public map, step by step. It starts on the base map: open the editor, place a pin on each camera, describe them, describe the changeset, then review and publish. Fresh edits land on the Hotlist below.</p>
     <div style="display:flex; flex-wrap:wrap; gap:44px 40px; margin-bottom:64px;">
 
-      <!-- 10 START CHANGESET -->
+      <!-- 10 BASE MAP -->
       <div style="display:flex; flex-direction:column; gap:14px;">
-        <div style="font-size:13px; font-weight:600;">10 · Start a changeset</div>
+        <div>
+          <div style="font-size:13px; font-weight:600;">10 · Start on the base map</div>
+          <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px;">Tap the pencil → 11</div>
+        </div>
+        <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
+            <div style="position:absolute; left:50%; top:57%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="user" heading="30" hint-size="64px,64px"></x-import></div>
+            <div style="position:absolute; left:56%; top:44%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="alpr" hint-size="40px,40px"></x-import></div>
+            <div style="position:absolute; left:22%; top:24%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="cluster" count="9" hint-size="40px,40px"></x-import></div>
+
+            <!-- top: search -->
+            <div style="position:absolute; top:60px; left:12px; right:12px; z-index:10;">
+              <x-import component-from-global-scope="DesignSystem_aa8750.SearchBar" placeholder="Where to?" read-only="{{ true }}" leading="{{ searchLeading }}" trailing="{{ searchTrailing }}" style="width:100%;" hint-size="100%,52px"></x-import>
+            </div>
+
+            <!-- right-edge map controls, edit pencil highlighted -->
+            <div style="position:absolute; right:12px; top:122px; z-index:10; display:flex; flex-direction:column; gap:12px; align-items:center;">
+              <button aria-label="Filters" style="width:48px; height:48px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="4" x2="4" y1="21" y2="14"></line><line x1="4" x2="4" y1="10" y2="3"></line><line x1="12" x2="12" y1="21" y2="12"></line><line x1="12" x2="12" y1="8" y2="3"></line><line x1="20" x2="20" y1="21" y2="16"></line><line x1="20" x2="20" y1="12" y2="3"></line><line x1="2" x2="6" y1="14" y2="14"></line><line x1="10" x2="14" y1="8" y2="8"></line><line x1="18" x2="22" y1="16" y2="16"></line></svg></button>
+              <button aria-label="Zoom in" style="width:48px; height:48px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+              <button aria-label="Zoom out" style="width:48px; height:48px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><span style="width:15px; height:2px; border-radius:2px; background:currentColor;"></span></button>
+              <button aria-label="Recenter" style="width:48px; height:48px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="2" x2="5" y1="12" y2="12"></line><line x1="19" x2="22" y1="12" y2="12"></line><line x1="12" x2="12" y1="2" y2="5"></line><line x1="12" x2="12" y1="19" y2="22"></line><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="1"></circle></svg></button>
+              <button aria-label="Add a camera to the map" style="width:48px; height:48px; border:1px solid var(--brand); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:0 0 0 4px var(--brand-soft), var(--shadow-float); color:var(--brand); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg></button>
+            </div>
+
+            <!-- coach mark pointing at the pencil -->
+            <div style="position:absolute; right:70px; top:354px; z-index:11; max-width:198px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-float); padding:10px 12px;">
+              <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand); font-weight:var(--fw-bold); margin-bottom:3px;">Contribute</div>
+              <div style="font-size:var(--fs-body-sm); color:var(--text-primary); line-height:1.4;">Spotted a camera that isn't mapped? Add it.</div>
+            </div>
+          </div>
+        </x-import>
+      </div>
+
+      <!-- 11 START CHANGESET -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div>
+          <div style="font-size:13px; font-weight:600;">11 · Start a changeset</div>
+          <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px;">Tap Start editing → 12</div>
+        </div>
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
             <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
@@ -56,9 +95,10 @@
                 </div>
                 <p style="font-size:var(--fs-body-sm); line-height:1.5; color:var(--text-secondary); margin:0 0 16px;">Your edits are public and credited to you. Place new camera nodes or fix existing ones, then publish them together in one changeset.</p>
                 <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:18px;">
-                  <div style="display:flex; align-items:center; gap:11px;"><span style="width:24px; height:24px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-mono); font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;">1</span><span style="font-size:var(--fs-body-sm); color:var(--text-primary);">Drop pins where cameras stand</span></div>
-                  <div style="display:flex; align-items:center; gap:11px;"><span style="width:24px; height:24px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-mono); font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;">2</span><span style="font-size:var(--fs-body-sm); color:var(--text-primary);">Describe each camera you add</span></div>
-                  <div style="display:flex; align-items:center; gap:11px;"><span style="width:24px; height:24px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-mono); font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;">3</span><span style="font-size:var(--fs-body-sm); color:var(--text-primary);">Publish to the public map</span></div>
+                  <div style="display:flex; align-items:center; gap:11px;"><span style="width:24px; height:24px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-mono); font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;">1</span><span style="font-size:var(--fs-body-sm); color:var(--text-primary);">Place a pin on each camera</span></div>
+                  <div style="display:flex; align-items:center; gap:11px;"><span style="width:24px; height:24px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-mono); font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;">2</span><span style="font-size:var(--fs-body-sm); color:var(--text-primary);">Describe each camera</span></div>
+                  <div style="display:flex; align-items:center; gap:11px;"><span style="width:24px; height:24px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-mono); font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;">3</span><span style="font-size:var(--fs-body-sm); color:var(--text-primary);">Describe the changeset</span></div>
+                  <div style="display:flex; align-items:center; gap:11px;"><span style="width:24px; height:24px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-mono); font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;">4</span><span style="font-size:var(--fs-body-sm); color:var(--text-primary);">Review &amp; publish</span></div>
                 </div>
                 <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" full-width="{{ true }}" leading-icon="{{ pencilIcon }}" hint-size="100%,52px">Start editing</x-import>
               </x-import>
@@ -67,9 +107,12 @@
         </x-import>
       </div>
 
-      <!-- 11 PICK LOCATIONS -->
+      <!-- 12 PLACE CAMERAS -->
       <div style="display:flex; flex-direction:column; gap:14px;">
-        <div style="font-size:13px; font-weight:600;">11 · Pick location(s)</div>
+        <div>
+          <div style="font-size:13px; font-weight:600;">12 · Place the cameras</div>
+          <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px;">Step 1 of 4 · tap + per camera → 13</div>
+        </div>
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
             <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
@@ -84,7 +127,7 @@
             <!-- edit top bar -->
             <div style="position:absolute; top:56px; left:12px; right:12px; z-index:10; display:flex; align-items:center; gap:8px; padding:7px 8px 7px 6px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-radius:var(--radius-md); box-shadow:var(--shadow-float);">
               <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
-              <span style="flex:1; min-width:0; font-size:var(--fs-body); font-weight:var(--fw-semibold); color:var(--text-primary);">Place camera nodes</span>
+              <span style="flex:1; min-width:0; font-size:var(--fs-body); font-weight:var(--fw-semibold); color:var(--text-primary);">Place the cameras</span>
               <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-secondary); background:var(--surface-card-alt); border:1px solid var(--border); padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">Step 1 of 4</span>
             </div>
             <div style="position:absolute; top:168px; left:0; right:0; z-index:10; display:flex; justify-content:center;"><x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="glass" style="height:32px; font-size:13px; padding:0 14px;" hint-size="auto,32px">Move the map, then tap + to drop</x-import></div>
@@ -106,22 +149,29 @@
                     <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Remove" variant="plain" size="sm" hint-size="36px,36px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import>
                   </div>
                 </div>
-                <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Next: add details</x-import>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Next: describe cameras</x-import>
               </x-import>
             </div>
           </div>
         </x-import>
       </div>
 
-      <!-- 12 LOCATION DETAILS -->
+      <!-- 13 CAMERA DETAILS -->
       <div style="display:flex; flex-direction:column; gap:14px;">
-        <div style="font-size:13px; font-weight:600;">12 · Add location details</div>
+        <div>
+          <div style="font-size:13px; font-weight:600;">13 · Describe each camera</div>
+          <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px;">Step 2 of 4 · one form per pin → 14</div>
+        </div>
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
             <div style="padding:54px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
               <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
               <span style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading);">Camera details</span>
               <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-secondary); background:var(--surface-card-alt); border:1px solid var(--border); padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">Step 2 of 4</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; padding:9px 16px; background:var(--surface-card-alt); border-bottom:1px solid var(--border);">
+              <span style="font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-brand);">Camera 2 of 2</span>
+              <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); margin-left:auto;">37.7836, -122.4170</span>
             </div>
             <div style="flex:1; overflow:auto; padding:16px; display:flex; flex-direction:column; gap:18px;">
               <div>
@@ -146,19 +196,17 @@
                       <text x="87" y="54" text-anchor="middle" style="font-family:var(--font-mono); font-size:11px; fill:var(--text-tertiary);">E</text>
                       <text x="50" y="93" text-anchor="middle" style="font-family:var(--font-mono); font-size:11px; fill:var(--text-tertiary);">S</text>
                       <text x="13" y="54" text-anchor="middle" style="font-family:var(--font-mono); font-size:11px; fill:var(--text-tertiary);">W</text>
-                      <line x1="50" y1="50" x2="38" y2="16" stroke="var(--border-strong)" stroke-width="2" stroke-linecap="round"></line>
-                      <line x1="50" y1="50" x2="62" y2="84" stroke="var(--brand)" stroke-width="3.5" stroke-linecap="round"></line>
+                      <line x1="50" y1="50" x2="18" y2="62" stroke="var(--brand)" stroke-width="3.5" stroke-linecap="round"></line>
                       <circle cx="50" cy="50" r="4" fill="var(--brand)"></circle>
                     </svg>
                   </div>
                   <div style="flex:1; min-width:0;">
-                    <div style="font-family:var(--font-mono); font-size:22px; font-weight:700; color:var(--text-primary); line-height:1;">160°</div>
+                    <div style="font-family:var(--font-mono); font-size:22px; font-weight:700; color:var(--text-primary); line-height:1;">250°</div>
                     <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:4px;">Drag the needle to the way the camera looks.</div>
                   </div>
                 </div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
-                  <span style="display:inline-flex; align-items:center; gap:4px; height:32px; padding:0 4px 0 12px; border-radius:var(--radius-pill); font-family:var(--font-mono); font-size:13px; font-weight:600; background:var(--brand-soft); color:var(--text-brand);">160° · S<button aria-label="Remove direction" style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border:none; background:transparent; color:inherit; cursor:pointer; padding:0; -webkit-tap-highlight-color:transparent;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></button></span>
-                  <span style="display:inline-flex; align-items:center; gap:4px; height:32px; padding:0 4px 0 12px; border-radius:var(--radius-pill); font-family:var(--font-mono); font-size:13px; font-weight:600; background:var(--surface-card-alt); color:var(--text-secondary);">340° · N<button aria-label="Remove direction" style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border:none; background:transparent; color:inherit; cursor:pointer; padding:0; -webkit-tap-highlight-color:transparent;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></button></span>
+                  <span style="display:inline-flex; align-items:center; gap:4px; height:32px; padding:0 4px 0 12px; border-radius:var(--radius-pill); font-family:var(--font-mono); font-size:13px; font-weight:600; background:var(--brand-soft); color:var(--text-brand);">250° · WSW<button aria-label="Remove direction" style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border:none; background:transparent; color:inherit; cursor:pointer; padding:0; -webkit-tap-highlight-color:transparent;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></button></span>
                   <button aria-label="Add direction" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 14px; border-radius:var(--radius-pill); font-family:var(--font-ui); font-size:13px; font-weight:600; background:transparent; color:var(--text-secondary); border:1px dashed var(--border-strong); cursor:pointer; -webkit-tap-highlight-color:transparent;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Add direction</button>
                 </div>
                 <p style="font-size:var(--fs-caption); color:var(--text-tertiary); margin:8px 0 0;">Add a bearing for each way the camera looks — poles often hold several.</p>
@@ -181,9 +229,12 @@
         </x-import>
       </div>
 
-      <!-- 13 CHANGESET DETAILS -->
+      <!-- 14 CHANGESET DETAILS -->
       <div style="display:flex; flex-direction:column; gap:14px;">
-        <div style="font-size:13px; font-weight:600;">13 · Add changeset details</div>
+        <div>
+          <div style="font-size:13px; font-weight:600;">14 · Describe the changeset</div>
+          <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px;">Step 3 of 4 · comment &amp; source → 15</div>
+        </div>
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
             <div style="padding:54px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
@@ -194,7 +245,7 @@
             <div style="flex:1; overflow:auto; padding:16px; display:flex; flex-direction:column; gap:18px;">
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Comment</div>
-                <div style="min-height:84px; padding:12px 14px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:var(--fs-body-sm); color:var(--text-primary); line-height:1.5;">Added 2 Flock Safety ALPR cameras at the Market St &amp; 5th St intersection. Surveyed on foot, Nov 2025.</div>
+                <div style="min-height:84px; padding:12px 14px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:var(--fs-body-sm); color:var(--text-primary); line-height:1.5;">Added 2 Flock Safety ALPR cameras at the Market St &amp; 5th St intersection. Surveyed on foot, July 2026.</div>
                 <p style="font-size:var(--fs-caption); color:var(--text-tertiary); margin:7px 0 0;">Say what changed and why — other mappers read this.</p>
               </div>
               <div>
@@ -215,15 +266,18 @@
               </div>
             </div>
             <div style="padding:12px 16px 28px; border-top:1px solid var(--border); background:var(--surface-card);">
-              <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Review changeset</x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Next: review &amp; publish</x-import>
             </div>
           </div>
         </x-import>
       </div>
 
-      <!-- 14 PUBLISH -->
+      <!-- 15 REVIEW & PUBLISH -->
       <div style="display:flex; flex-direction:column; gap:14px;">
-        <div style="font-size:13px; font-weight:600;">14 · Publish the changeset</div>
+        <div>
+          <div style="font-size:13px; font-weight:600;">15 · Review &amp; publish</div>
+          <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px;">Step 4 of 4 · tap Publish → 16</div>
+        </div>
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
             <div style="padding:54px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
@@ -265,14 +319,53 @@
         </x-import>
       </div>
 
+      <!-- 16 PUBLISHED -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div>
+          <div style="font-size:13px; font-weight:600;">16 · Published</div>
+          <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px;">Nodes are live → 17</div>
+        </div>
+        <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
+          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
+            <div style="flex:1; overflow:auto; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:60px 24px 24px; text-align:center;">
+              <span style="width:72px; height:72px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); display:inline-flex; align-items:center; justify-content:center; margin-bottom:18px;"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M20 6 9 17l-5-5"></path></svg></span>
+              <div style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h3); letter-spacing:var(--ls-heading); line-height:var(--lh-h3);">Changeset published</div>
+              <div style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-brand); margin-top:6px;">changeset/171,224,908</div>
+              <p style="font-size:var(--fs-body-sm); color:var(--text-secondary); line-height:1.5; margin:12px 0 0; max-width:30ch;">2 cameras added at Market St &amp; 5th St, credited to <b style="color:var(--text-primary);">@daf_mapper</b>.</p>
+              <div style="width:100%; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); padding:2px 14px; margin:20px 0 0; text-align:left;">
+                <div style="display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--border);">
+                  <span style="width:9px; height:9px; border-radius:50%; background:var(--marker-alpr); box-shadow:0 0 0 4px rgba(255,77,79,0.14); flex:0 0 auto;"></span>
+                  <div style="flex:1; min-width:0; font-size:var(--fs-body-sm); font-weight:var(--fw-medium);">ALPR camera · Flock Safety</div>
+                  <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary);">node/12100881</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px; padding:12px 0;">
+                  <span style="width:9px; height:9px; border-radius:50%; background:var(--marker-alpr); box-shadow:0 0 0 4px rgba(255,77,79,0.14); flex:0 0 auto;"></span>
+                  <div style="flex:1; min-width:0; font-size:var(--fs-body-sm); font-weight:var(--fw-medium);">ALPR camera · Flock Safety</div>
+                  <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary);">node/12100882</span>
+                </div>
+              </div>
+              <p style="font-size:var(--fs-caption); color:var(--text-tertiary); margin:14px 0 0;">They'll appear in Explore and on the Hotlist within minutes.</p>
+            </div>
+            <div style="padding:12px 16px 28px; border-top:1px solid var(--border); background:var(--surface-card);">
+              <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">See them on the map</x-import>
+              <div style="height:10px;"></div>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="ghost" size="md" full-width="{{ true }}" hint-size="100%,46px">Add more cameras</x-import>
+            </div>
+          </div>
+        </x-import>
+      </div>
+
     </div>
 
     <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">Community data · iOS</div>
     <div style="display:flex; flex-wrap:wrap; gap:44px 40px;">
 
-      <!-- 15 HOTLIST -->
+      <!-- 17 HOTLIST -->
       <div style="display:flex; flex-direction:column; gap:14px;">
-        <div style="font-size:13px; font-weight:600;">15 · Hotlist</div>
+        <div>
+          <div style="font-size:13px; font-weight:600;">17 · Hotlist</div>
+          <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px;">Where every publish lands — yours on top</div>
+        </div>
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
 
@@ -285,7 +378,7 @@
                 </div>
                 <span style="display:inline-flex; align-items:center; gap:7px; flex:0 0 auto; background:var(--surface-card-alt); border:1px solid var(--border); border-radius:var(--radius-pill); padding:6px 11px; margin-top:2px;">
                   <span style="width:6px; height:6px; border-radius:50%; background:var(--text-brand); flex:0 0 auto;"></span>
-                  <span style="font-size:var(--fs-caption); font-weight:var(--fw-semibold); color:var(--text-secondary); white-space:nowrap;">2 min ago</span>
+                  <span style="font-size:var(--fs-caption); font-weight:var(--fw-semibold); color:var(--text-secondary); white-space:nowrap;">just now</span>
                 </span>
               </div>
               <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="light" options="{{ hotWinOptions }}" value="{{ hotWin }}" onChange="{{ setHotWin }}" style="width:100%;" hint-size="100%,40px"></x-import>
@@ -404,15 +497,17 @@ class Component extends DCLogic {
       hotWinOptions: [ { value: '24', label: '24h' }, { value: '7', label: '7 days' }, { value: '30', label: '30 days' } ],
       setHotWin: () => {},
       hotStats: [
-        { label: 'Added · 7 days', value: '38', sub: '+11 vs last week' },
-        { label: 'Flock readers', value: '21', sub: '55% of new' },
+        { label: 'Added · 7 days', value: '40', sub: '+13 vs last week' },
+        { label: 'Flock readers', value: '23', sub: '58% of new' },
       ],
       hotChips: [
-        { label: 'All · 38', sel: true },
-        { label: 'Flock · 21', sel: false },
+        { label: 'All · 40', sel: true },
+        { label: 'Flock · 23', sel: false },
         { label: 'Other vendors · 17', sel: false },
       ],
       hotRows: [
+        { typeLabel: 'ALPR reader', street: 'Market St & 5th St', osm: 'node/12100881', operator: 'Flock Safety', added: 'just now · you' },
+        { typeLabel: 'ALPR reader', street: 'Market St & 5th St', osm: 'node/12100882', operator: 'Flock Safety', added: 'just now · you' },
         { typeLabel: 'ALPR reader', street: '16th St & Mission St', osm: 'node/11820431', operator: 'Flock Safety', added: '2h ago' },
         { typeLabel: 'ALPR reader', street: 'Embarcadero & Market St', osm: 'node/11819007', operator: 'Flock Safety', added: '5h ago' },
         { typeLabel: 'ALPR reader', street: 'Cesar Chavez & Guerrero', osm: 'node/11817754', operator: 'Flock Safety', added: '9h ago' },
