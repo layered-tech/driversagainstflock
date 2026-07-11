@@ -78,11 +78,11 @@ function RootLayout() {
                                         )}
                                         screenOptions={{
                                             drawerActiveTintColor: isDarkMode
-                                                ? '#93c5fd'
-                                                : '#171717',
+                                                ? '#F5F7F9'
+                                                : '#11151B',
                                             drawerInactiveTintColor: isDarkMode
-                                                ? '#d4d4d4'
-                                                : '#525252',
+                                                ? '#F5F7F9'
+                                                : '#11151B',
                                             drawerItemStyle: {
                                                 borderRadius: 8,
                                             },
@@ -140,6 +140,17 @@ function RootLayout() {
                                                 popToTopOnBlur: true,
                                                 swipeEnabled: false,
                                                 title: 'Contribute',
+                                            }}
+                                        />
+                                        <Drawer.Screen
+                                            name="edits"
+                                            options={{
+                                                drawerItemStyle: {
+                                                    display: 'none',
+                                                },
+                                                popToTopOnBlur: true,
+                                                swipeEnabled: false,
+                                                title: 'Your edits',
                                             }}
                                         />
                                     </Drawer>

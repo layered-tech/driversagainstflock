@@ -33,7 +33,7 @@ export function ContributePageHeader({ onBack, step, testID, title }) {
             <Pressable
                 accessibilityLabel="Back"
                 accessibilityRole="button"
-                className="h-10 w-10 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
+                className="h-[50px] w-[50px] items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
                 hitSlop={6}
                 onPress={onBack}
                 testID="contribute-back-button"

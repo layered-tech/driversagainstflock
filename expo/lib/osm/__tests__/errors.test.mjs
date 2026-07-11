@@ -29,6 +29,8 @@ describe('throwOSMResponseError', () => {
         [401, OSM_ERROR_CODES.unauthorized],
         [403, OSM_ERROR_CODES.forbidden],
         [409, OSM_ERROR_CODES.conflict],
+        [410, OSM_ERROR_CODES.gone],
+        [412, OSM_ERROR_CODES.conflict],
         [413, OSM_ERROR_CODES.tooLarge],
         [429, OSM_ERROR_CODES.rateLimited],
         [500, OSM_ERROR_CODES.server],
@@ -83,5 +85,14 @@ describe('OSMApiError', () => {
         const error = new OSMApiError({ code: 'not-a-real-code' });
 
         assert.match(error.message, /OpenStreetMap had a problem/);
+    });
+
+    test("describes an already-deleted element for the 'gone' code", () => {
+        const error = new OSMApiError({
+            code: OSM_ERROR_CODES.gone,
+            status: 410,
+        });
+
+        assert.match(error.message, /already deleted/);
     });
 });

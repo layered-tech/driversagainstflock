@@ -9,6 +9,7 @@ import { MarkerLoadingIndicator } from './marker-loading-indicator';
 
 export function MapControlsOverlay({
     showFreeDriveButton = true,
+    showContributeEntryButton = true
 }) {
     const {
         defaultMapControlClassName,
@@ -169,7 +170,7 @@ export function MapControlsOverlay({
                 )}
             </MapControlButton>
 
-            <ContributeEntryButton />
+            {showContributeEntryButton ? <ContributeEntryButton /> : null}
 
             {renderMarkerLoadingIndicator ? (
                 <MarkerLoadingIndicator

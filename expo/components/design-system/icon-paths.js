@@ -207,6 +207,11 @@ export const iconPaths = {
     'chevron-right': [['path', { d: 'm9 18 6-6-6-6' }]],
     'chevron-left': [['path', { d: 'm15 18-6-6 6-6' }]],
     'chevron-down': [['path', { d: 'm6 9 6 6 6-6' }]],
+    'ellipsis-vertical': [
+        ['circle', { cx: 12, cy: 5, r: 1 }],
+        ['circle', { cx: 12, cy: 12, r: 1 }],
+        ['circle', { cx: 12, cy: 19, r: 1 }],
+    ],
     pencil: [
         [
             'path',

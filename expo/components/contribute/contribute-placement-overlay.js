@@ -33,7 +33,10 @@ function getMapBoundsMidpoint(bounds) {
     return [(west + east) / 2, (south + north) / 2];
 }
 
-export function ContributePlacementOverlay({ locationController }) {
+export function ContributePlacementOverlay({
+    locationController,
+    mapControls,
+}) {
     const isFocused = useIsFocused();
     const isSystemDarkMode = useColorScheme() === 'dark';
     const {
@@ -128,7 +131,7 @@ export function ContributePlacementOverlay({ locationController }) {
                 <Pressable
                     accessibilityLabel="Back"
                     accessibilityRole="button"
-                    className="h-10 w-10 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
+                    className="h-[50px] w-[50px] items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
                     hitSlop={6}
                     onPress={handleExitRequest}
                     testID="contribute-back-button"
@@ -155,7 +158,7 @@ export function ContributePlacementOverlay({ locationController }) {
                 </View>
             </View>
 
-            <View className="flex-row justify-end" pointerEvents="box-none">
+            <View className="relative h-12" pointerEvents="box-none">
                 <MapControlButton
                     accessibilityLabel="Add camera here"
                     accessibilityRole="button"
@@ -170,6 +173,14 @@ export function ContributePlacementOverlay({ locationController }) {
                         stroke={2.2}
                     />
                 </MapControlButton>
+                {mapControls ? (
+                    <View
+                        className="absolute right-0 top-0"
+                        pointerEvents="box-none"
+                    >
+                        {mapControls}
+                    </View>
+                ) : null}
             </View>
 
             <View className="items-center" pointerEvents="box-none">

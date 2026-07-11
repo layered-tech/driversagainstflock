@@ -2,6 +2,7 @@ export const OSM_ERROR_CODES = {
     badRequest: 'bad-request',
     conflict: 'conflict',
     forbidden: 'forbidden',
+    gone: 'gone',
     network: 'network',
     rateLimited: 'rate-limited',
     server: 'server',
@@ -17,6 +18,8 @@ const OSM_ERROR_MESSAGES = {
         'The changeset was closed before the upload finished — try publishing again.',
     [OSM_ERROR_CODES.forbidden]:
         'Your OpenStreetMap account is not allowed to edit the map — sign in again and allow map editing.',
+    [OSM_ERROR_CODES.gone]:
+        'This camera was already deleted from OpenStreetMap.',
     [OSM_ERROR_CODES.network]:
         'No connection to OpenStreetMap — check your network.',
     [OSM_ERROR_CODES.rateLimited]:
@@ -35,6 +38,8 @@ const OSM_STATUS_ERROR_CODES = {
     401: OSM_ERROR_CODES.unauthorized,
     403: OSM_ERROR_CODES.forbidden,
     409: OSM_ERROR_CODES.conflict,
+    410: OSM_ERROR_CODES.gone,
+    412: OSM_ERROR_CODES.conflict,
     413: OSM_ERROR_CODES.tooLarge,
     429: OSM_ERROR_CODES.rateLimited,
 };

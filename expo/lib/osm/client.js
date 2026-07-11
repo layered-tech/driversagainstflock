@@ -5,17 +5,27 @@ import { addSentryBreadcrumb } from '../sentry';
 import {
     closeMockChangeset,
     createMockChangeset,
+    fetchMockChangesetNodes,
+    fetchMockNode,
+    fetchMockNodesByIds,
     fetchMockOSMPermissions,
+    fetchMockUserChangesets,
     osmApiMocksAreEnabled,
     uploadMockCreatedNodes,
+    uploadMockDeletedNode,
+    uploadMockModifiedNode,
 } from './api-mocks';
 import { getOSMApiBaseURL } from './config';
 import { OSM_ERROR_CODES, OSMApiError, throwOSMResponseError } from './errors';
+import { normalizeOsmJsonChangeset, normalizeOsmJsonNode } from './normalizers';
 import {
     buildChangesetCreateXML,
     buildOsmChangeCreateXML,
+    buildOsmChangeDeleteXML,
+    buildOsmChangeModifyXML,
     parseChangesetCreateResponse,
     parseDiffResult,
+    parseOsmChangeXML,
 } from './xml';
 
 const OSM_CREATED_BY = `DriversAgainstFlock.org (${Platform.OS}:${Constants.expoConfig?.version ?? 'unknown'})`;
@@ -125,6 +135,58 @@ export async function uploadCreatedNodes({
     return parseDiffResult(await response.text());
 }
 
+async function uploadModifiedNode({ accessToken, changesetId, node, signal }) {
+    if (osmApiMocksAreEnabled()) {
+        return uploadMockModifiedNode({ node, signal });
+    }
+
+    const response = await fetchOSM(
+        `${getOSMApiBaseURL()}/changeset/${changesetId}/upload`,
+        {
+            body: buildOsmChangeModifyXML({
+                changesetId,
+                generator: OSM_CREATED_BY,
+                node,
+            }),
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': OSM_XML_CONTENT_TYPE,
+            },
+            method: 'POST',
+            signal,
+            timeoutMs: OSM_UPLOAD_TIMEOUT_MS,
+        },
+    );
+
+    return parseDiffResult(await response.text());
+}
+
+async function uploadDeletedNode({ accessToken, changesetId, node, signal }) {
+    if (osmApiMocksAreEnabled()) {
+        return uploadMockDeletedNode({ node, signal });
+    }
+
+    const response = await fetchOSM(
+        `${getOSMApiBaseURL()}/changeset/${changesetId}/upload`,
+        {
+            body: buildOsmChangeDeleteXML({
+                changesetId,
+                generator: OSM_CREATED_BY,
+                node,
+            }),
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': OSM_XML_CONTENT_TYPE,
+            },
+            method: 'POST',
+            signal,
+            timeoutMs: OSM_UPLOAD_TIMEOUT_MS,
+        },
+    );
+
+    return parseDiffResult(await response.text());
+}
+
 export async function closeChangeset({ accessToken, changesetId, signal }) {
     if (osmApiMocksAreEnabled()) {
         return closeMockChangeset({ signal });
@@ -137,6 +199,27 @@ export async function closeChangeset({ accessToken, changesetId, signal }) {
         method: 'PUT',
         signal,
     });
+}
+
+async function closeChangesetIgnoringFailure({ accessToken, changesetId }) {
+    try {
+        await closeChangeset({ accessToken, changesetId });
+
+        return false;
+    } catch (error) {
+        addSentryBreadcrumb({
+            category: 'osm.publish',
+            data: {
+                changesetId,
+                errorCode: error?.code,
+                errorMessage: error?.message,
+            },
+            level: 'warning',
+            message: 'Changeset close failed',
+        });
+
+        return true;
+    }
 }
 
 export async function fetchOSMPermissions({ accessToken, signal }) {
@@ -154,6 +237,88 @@ export async function fetchOSMPermissions({ accessToken, signal }) {
     const data = await response.json().catch(() => ({}));
 
     return data?.permissions ?? [];
+}
+
+export async function fetchUserChangesets({
+    accessToken,
+    limit = 10,
+    signal,
+    uid,
+}) {
+    if (osmApiMocksAreEnabled()) {
+        return fetchMockUserChangesets({ limit, signal });
+    }
+
+    const headers = { Accept: 'application/json' };
+
+    if (accessToken) {
+        headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    const response = await fetchOSM(
+        `${getOSMApiBaseURL()}/changesets.json?user=${uid}&limit=${limit}`,
+        { headers, signal },
+    );
+    const data = await response.json().catch(() => ({}));
+
+    return (data?.changesets ?? []).map(normalizeOsmJsonChangeset);
+}
+
+export async function fetchChangesetNodes({ changesetId, signal }) {
+    if (osmApiMocksAreEnabled()) {
+        return fetchMockChangesetNodes({ changesetId, signal });
+    }
+
+    const response = await fetchOSM(
+        `${getOSMApiBaseURL()}/changeset/${changesetId}/download`,
+        { signal },
+    );
+
+    return parseOsmChangeXML(await response.text());
+}
+
+export async function fetchNodesByIds({ nodeIds, signal }) {
+    if ((nodeIds ?? []).length === 0) {
+        return [];
+    }
+
+    if (osmApiMocksAreEnabled()) {
+        return fetchMockNodesByIds({ nodeIds, signal });
+    }
+
+    const response = await fetchOSM(
+        `${getOSMApiBaseURL()}/nodes.json?nodes=${nodeIds.join(',')}`,
+        {
+            headers: {
+                Accept: 'application/json',
+            },
+            signal,
+        },
+    );
+    const data = await response.json().catch(() => ({}));
+
+    return (data?.elements ?? [])
+        .filter((element) => element?.type === 'node')
+        .map(normalizeOsmJsonNode);
+}
+
+export async function fetchNode({ nodeId, signal }) {
+    if (osmApiMocksAreEnabled()) {
+        return fetchMockNode({ nodeId, signal });
+    }
+
+    const response = await fetchOSM(
+        `${getOSMApiBaseURL()}/node/${nodeId}.json`,
+        {
+            headers: {
+                Accept: 'application/json',
+            },
+            signal,
+        },
+    );
+    const data = await response.json().catch(() => ({}));
+
+    return normalizeOsmJsonNode(data?.elements?.[0]);
 }
 
 export async function publishNodes({
@@ -179,28 +344,83 @@ export async function publishNodes({
 
     onProgress?.('closing');
 
-    let closeFailed = false;
-
-    try {
-        await closeChangeset({ accessToken, changesetId });
-    } catch (error) {
-        closeFailed = true;
-
-        addSentryBreadcrumb({
-            category: 'osm.publish',
-            data: {
-                changesetId,
-                errorCode: error?.code,
-                errorMessage: error?.message,
-            },
-            level: 'warning',
-            message: 'Changeset close failed',
-        });
-    }
+    const closeFailed = await closeChangesetIgnoringFailure({
+        accessToken,
+        changesetId,
+    });
 
     return {
         changesetId,
         closeFailed,
         nodes: diffNodes,
+    };
+}
+
+export async function publishNodeUpdate({
+    accessToken,
+    changesetTags,
+    node,
+    onProgress,
+}) {
+    onProgress?.('creating-changeset');
+
+    const changesetId = await createChangeset({
+        accessToken,
+        tags: changesetTags,
+    });
+
+    onProgress?.('uploading');
+
+    const diffNodes = await uploadModifiedNode({
+        accessToken,
+        changesetId,
+        node,
+    });
+
+    onProgress?.('closing');
+
+    const closeFailed = await closeChangesetIgnoringFailure({
+        accessToken,
+        changesetId,
+    });
+
+    return {
+        changesetId,
+        closeFailed,
+        newVersion: diffNodes?.[0]?.newVersion ?? null,
+    };
+}
+
+export async function publishNodeDeletion({
+    accessToken,
+    changesetTags,
+    node,
+    onProgress,
+}) {
+    onProgress?.('creating-changeset');
+
+    const changesetId = await createChangeset({
+        accessToken,
+        tags: changesetTags,
+    });
+
+    onProgress?.('uploading');
+
+    await uploadDeletedNode({
+        accessToken,
+        changesetId,
+        node,
+    });
+
+    onProgress?.('closing');
+
+    const closeFailed = await closeChangesetIgnoringFailure({
+        accessToken,
+        changesetId,
+    });
+
+    return {
+        changesetId,
+        closeFailed,
     };
 }

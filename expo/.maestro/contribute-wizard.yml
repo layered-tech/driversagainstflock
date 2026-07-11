@@ -48,6 +48,11 @@ tags:
 - extendedWaitUntil:
     visible: 'Place the cameras'
     timeout: 10000
+- assertVisible:
+    id: 'map-control-rail'
+- extendedWaitUntil:
+    visible: 'Map layer: Standard Satellite. Open map layer options'
+    timeout: 10000
 - tapOn:
     id: 'contribute-add-camera-button'
     retryTapIfNoChange: true

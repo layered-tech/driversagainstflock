@@ -1,6 +1,20 @@
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { Text, useWindowDimensions, View } from 'react-native';
-import { DafBadge } from '../design-system/primitives';
+import { router } from 'expo-router';
+import {
+    Linking,
+    Pressable,
+    Text,
+    useWindowDimensions,
+    View,
+} from 'react-native';
+import { getOSMBaseURL } from '../../lib/osm/config';
+import { Icon } from '../design-system/icon';
+import {
+    DafBadge,
+    DafButton,
+    DafSectionLabel,
+} from '../design-system/primitives';
+import { dafColors, dafSemanticColors } from '../design-system/tokens';
 import { getMarkerCoordinate, getStoredNumber } from './geo';
 import { useMarkerDetailsContext } from './map-screen-context';
 import {
@@ -91,6 +105,12 @@ function getOsmId(marker, osmNodes) {
     return '';
 }
 
+function getEditableNodeId(osmId) {
+    const match = /^node\/(\d+)$/.exec(osmId);
+
+    return match ? match[1] : '';
+}
+
 function getDirectionDegrees(marker, osmNodes) {
     const markerProperties = marker?.properties ?? {};
     const directValue =
@@ -176,9 +196,32 @@ export function MarkerDetailsSheet() {
     const directionLabel =
         getDirectionLabel(selectedMarker, osmNodes) || 'Not reported';
     const osmId = getOsmId(selectedMarker, osmNodes) || 'Unavailable';
+    const editableNodeId = getEditableNodeId(osmId);
     const updatedDate = getUpdatedDate(selectedMarker) || 'Unknown';
     const contentGap = 16;
     const bottomContentPadding = Math.max(insets.bottom + 12, 20);
+
+    const handleEditNodePress = () => {
+        markerDetailsSheetRef.current?.dismiss();
+        router.push({
+            pathname: '/edits/[nodeId]',
+            params: { nodeId: editableNodeId },
+        });
+    };
+
+    const handleDeleteNodePress = () => {
+        markerDetailsSheetRef.current?.dismiss();
+        router.push({
+            pathname: '/edits/[nodeId]',
+            params: { action: 'remove', nodeId: editableNodeId },
+        });
+    };
+
+    const handleOpenInOsmPress = () => {
+        Linking.openURL(`${getOSMBaseURL()}/node/${editableNodeId}`).catch(
+            () => {},
+        );
+    };
 
     return (
         <NativeWindBottomSheetModal
@@ -271,6 +314,65 @@ export function MarkerDetailsSheet() {
                                 />
                             </View>
                         </View>
+
+                        <View
+                            className="flex-row items-center gap-2 rounded-dafSm bg-daf-surface-alt px-3 py-2.5 dark:bg-daf-surface-inverse"
+                            testID="marker-details-osm-attribution"
+                        >
+                            <Icon
+                                color={dafColors.ink[400]}
+                                name="map-pin"
+                                size={16}
+                            />
+                            <Text className="text-xs text-daf-text-secondary dark:text-neutral-300">
+                                From OpenStreetMap contributors
+                            </Text>
+                        </View>
+
+                        {editableNodeId ? (
+                            <View className="gap-2">
+                                <DafSectionLabel>
+                                    Edit this node
+                                </DafSectionLabel>
+                                <View className="flex-row gap-2">
+                                    <DafButton
+                                        className="flex-1"
+                                        icon="pencil"
+                                        onPress={handleEditNodePress}
+                                        testID="marker-details-edit-node-button"
+                                        variant="secondary"
+                                    >
+                                        Edit node
+                                    </DafButton>
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        className="min-h-hitComfy dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95 flex-1 flex-row items-center justify-center gap-2 rounded-dafPill border border-daf-border-glass bg-white/95 px-[18px] active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
+                                        onPress={handleDeleteNodePress}
+                                        testID="marker-details-delete-node-button"
+                                    >
+                                        <Icon
+                                            color={dafSemanticColors.danger}
+                                            name="trash"
+                                            size={17}
+                                            stroke={2.4}
+                                        />
+                                        <Text
+                                            className="text-[15px] font-semibold text-daf-alert"
+                                            numberOfLines={1}
+                                        >
+                                            Delete
+                                        </Text>
+                                    </Pressable>
+                                </View>
+                                <DafButton
+                                    onPress={handleOpenInOsmPress}
+                                    testID="marker-details-open-osm-button"
+                                    variant="ghost"
+                                >
+                                    Open in OpenStreetMap ↗
+                                </DafButton>
+                            </View>
+                        ) : null}
                     </BottomSheetScrollView>
                 ) : null}
             </NativeWindBottomSheetView>

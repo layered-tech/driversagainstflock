@@ -37,12 +37,18 @@ const appVersion =
 export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
     const { debugOverlayIsVisible, mapPreferencesAreLoaded } =
         useSharedMapState();
-    const { isAuthenticated, isLoading, isSigningIn, signOut, user } =
-        useAuth();
+    const {
+        isAuthenticated,
+        isLoading,
+        isSigningIn,
+        signInWithOpenStreetMap,
+        signOut,
+        user,
+    } = useAuth();
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
     const isDarkMode = colorScheme === 'dark';
-    const drawerTintColor = isDarkMode ? '#A9B2BD' : '#4A5562';
+    const drawerTintColor = isDarkMode ? '#F5F7F9' : '#11151B';
     const authButtonBackgroundColor = isDarkMode
         ? 'rgba(31, 191, 107, 0.14)'
         : 'rgba(23, 23, 23, 0.12)';
@@ -64,11 +70,16 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
         try {
             if (isAuthenticated) {
                 await signOut();
+            } else {
+                await signInWithOpenStreetMap();
             }
 
             props.navigation.closeDrawer();
         } catch (error) {
-            Alert.alert('Login failed', error.message || 'Please try again.');
+            Alert.alert(
+                isAuthenticated ? 'Logout failed' : 'Login failed',
+                error.message || 'Please try again.',
+            );
         }
     };
     const handleEmitSentryError = () => {
@@ -112,6 +123,10 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
         requestAnimationFrame(() => {
             onOpenDebugDrawer?.();
         });
+    };
+    const handleYourEditsPress = () => {
+        props.navigation.navigate('edits', { screen: 'index' });
+        props.navigation.closeDrawer();
     };
 
     return (
@@ -216,22 +231,52 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                 ) : null}
 
                 {isAuthenticated ? (
-                    <DrawerItem
-                        accessibilityLabel="Logout"
-                        icon={({ color, size }) => (
-                            <Icon color={color} name="log-out" size={size} />
-                        )}
-                        activeBackgroundColor={authButtonBackgroundColor}
-                        inactiveBackgroundColor={authButtonBackgroundColor}
-                        inactiveTintColor={drawerTintColor}
-                        label={
-                            isLoading || isSigningIn ? 'Loading...' : 'Logout'
-                        }
-                        onPress={handleAuthPress}
-                        style={{ borderRadius: 8, marginHorizontal: 0 }}
-                        testID="drawer-auth-logout-button"
-                    />
+                    <View className="mb-3">
+                        <DrawerItem
+                            accessibilityLabel="Your edits"
+                            icon={({ color, size }) => (
+                                <Icon color={color} name="pencil" size={size} />
+                            )}
+                            activeBackgroundColor={authButtonBackgroundColor}
+                            activeTintColor={drawerTintColor}
+                            inactiveBackgroundColor={authButtonBackgroundColor}
+                            inactiveTintColor={drawerTintColor}
+                            label="Your edits"
+                            onPress={handleYourEditsPress}
+                            style={{ borderRadius: 8, marginHorizontal: 0 }}
+                            testID="drawer-your-edits-button"
+                        />
+                    </View>
                 ) : null}
+
+                <DrawerItem
+                    accessibilityLabel={isAuthenticated ? 'Logout' : 'Login'}
+                    icon={({ color, size }) => (
+                        <Icon
+                            color={color}
+                            name={isAuthenticated ? 'log-out' : 'user'}
+                            size={size}
+                        />
+                    )}
+                    activeBackgroundColor={authButtonBackgroundColor}
+                    activeTintColor={drawerTintColor}
+                    inactiveBackgroundColor={authButtonBackgroundColor}
+                    inactiveTintColor={drawerTintColor}
+                    label={
+                        isLoading || isSigningIn
+                            ? 'Loading...'
+                            : isAuthenticated
+                              ? 'Logout'
+                              : 'Login'
+                    }
+                    onPress={handleAuthPress}
+                    style={{ borderRadius: 8, marginHorizontal: 0 }}
+                    testID={
+                        isAuthenticated
+                            ? 'drawer-auth-logout-button'
+                            : 'drawer-auth-login-button'
+                    }
+                />
             </View>
         </View>
     );
