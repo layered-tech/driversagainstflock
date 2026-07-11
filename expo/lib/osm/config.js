@@ -12,7 +12,7 @@ export function getOSMBaseURL() {
         return configuredBaseURL.replace(/\/+$/, '');
     }
 
-    if (APP_ENVIRONMENT === 'production') {
+    if (APP_ENVIRONMENT === 'production' || APP_ENVIRONMENT === 'staging') {
         return OSM_PRODUCTION_BASE_URL;
     }
 
