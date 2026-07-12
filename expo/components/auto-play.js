@@ -1,5 +1,7 @@
 import {
+    activateNavigationWakeLockAsync,
     addEnhancedLocationListener,
+    deactivateNavigationWakeLockAsync,
     getLastEnhancedLocationAsync,
 } from '@rnmapbox/navigation';
 import * as Location from 'expo-location';
@@ -73,6 +75,8 @@ const SEARCH_DEBOUNCE_MS = 450;
 const NAVIGATION_LOCATION_INTERVAL_MS = 4000;
 const NAVIGATION_LOCATION_DISTANCE_METERS = 12;
 const NAVIGATION_GUIDANCE_MIN_INTERVAL_MS = 1000;
+const AUTO_PLAY_NAVIGATION_WAKE_LOCK_TAG =
+    'driversagainstflock.android-auto-navigation';
 const AUTO_PLAY_ICON_FONT_NAME = 'font_awesome';
 const AUTO_PLAY_ICON_GLYPH_MAP = {
     'arrow-left': 0xf060,
@@ -139,6 +143,29 @@ const AUTO_PLAY_KEEP_TYPE = {
     Left: 0,
     Right: 1,
 };
+
+let autoPlayNavigationWakeLockIsActive = false;
+
+function activateAutoPlayNavigationWakeLock() {
+    autoPlayNavigationWakeLockIsActive = true;
+
+    activateNavigationWakeLockAsync(AUTO_PLAY_NAVIGATION_WAKE_LOCK_TAG)
+        .then(() => {
+            if (!autoPlayNavigationWakeLockIsActive) {
+                deactivateNavigationWakeLockAsync(
+                    AUTO_PLAY_NAVIGATION_WAKE_LOCK_TAG,
+                ).catch(() => {});
+            }
+        })
+        .catch(() => {});
+}
+
+function deactivateAutoPlayNavigationWakeLock() {
+    autoPlayNavigationWakeLockIsActive = false;
+    deactivateNavigationWakeLockAsync(AUTO_PLAY_NAVIGATION_WAKE_LOCK_TAG).catch(
+        () => {},
+    );
+}
 
 function getRootMapButtonDefaultIconColor() {
     return rootMapButtonAppearance.isDarkMapLayer
@@ -2078,6 +2105,7 @@ async function stopAutoPlayNavigation({
     notifyTemplate = true,
     publishSharedState = true,
 } = {}) {
+    deactivateAutoPlayNavigationWakeLock();
     stopAutoDriveSimulation();
     await stopNavigationLocationUpdates();
     activeNavigationRoute = null;
@@ -2151,6 +2179,7 @@ function startAutoPlayNavigation(
             routePreviewIsVisible = false;
         }
 
+        activateAutoPlayNavigationWakeLock();
         updateNavigationGuidance(null);
 
         if (autoDriveIsEnabled) {
@@ -2184,6 +2213,7 @@ function startAutoPlayNavigation(
             });
         }
     } catch (error) {
+        deactivateAutoPlayNavigationWakeLock();
         showAutoPlayError(
             'Navigation unavailable',
             error?.message || 'Navigation could not be started.',
@@ -2386,6 +2416,7 @@ function handleAutoPlayConnect() {
 }
 
 function handleAutoPlayDisconnect() {
+    deactivateAutoPlayNavigationWakeLock();
     rootMapTemplate = null;
     rootMapTemplateIsReady = false;
     activeNavigationRoute = null;

@@ -72,6 +72,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(30)->by($request->ip());
         });
 
+        RateLimiter::for('electronic-horizon', function (Request $request) {
+            if ($user = $request->user('sanctum') ?? $request->user()) {
+                return Limit::perMinute(60)->by($user->id);
+            }
+
+            return Limit::perMinute(30)->by($request->ip());
+        });
+
         RateLimiter::for('markers', function (Request $request) {
             if ($user = $request->user('sanctum') ?? $request->user()) {
                 return Limit::perMinute(120)->by($user->id);

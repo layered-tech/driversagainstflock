@@ -17,6 +17,7 @@ import {
     getSelectedDirectionsRouteOption,
     selectDirectionsRoute,
 } from './directions';
+import { DrivingAlertsOverlay } from './driving-alerts-overlay';
 import {
     DestinationCard,
     ManeuverCard,
@@ -105,6 +106,7 @@ export function DrivingGuidanceOverlay({ children, onLocationAnchorLayout }) {
         setDrivingModeIsActive,
         setPendingDirectionsRequest,
         setPendingSearchResultRestore,
+        upcomingAlerts,
     } = useSharedMapState();
     const { userLocation } = useSharedMapLocationState();
     const routeOption = getSelectedDirectionsRouteOption(directionsRoute);
@@ -362,6 +364,12 @@ export function DrivingGuidanceOverlay({ children, onLocationAnchorLayout }) {
                 </View>
 
                 <View className="flex-1" pointerEvents="none" />
+
+                <DrivingAlertsOverlay
+                    alerts={upcomingAlerts}
+                    bottomInset={insets.bottom}
+                    routeIsActive={routeIsActive}
+                />
 
                 <DrivingLocationRoadStack
                     onLocationAnchorLayout={onLocationAnchorLayout}

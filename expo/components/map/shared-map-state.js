@@ -5,8 +5,10 @@ import {
     getSharedRoutingState,
     setSharedRoutingState,
 } from './shared-routing-state';
+import { useElectronicHorizon } from './use-electronic-horizon';
 import { useMapPreferencesState } from './use-map-preferences-state';
 import { useMarkerLoader } from './use-marker-loader';
+import { useUpcomingElectronicHorizonAlerts } from './use-upcoming-electronic-horizon-alerts';
 import { useWazePoliceAlerts } from './use-waze-police-alerts';
 
 const SharedMapStateContext = createContext(null);
@@ -31,6 +33,16 @@ export function SharedMapStateProvider({ children }) {
     const [pendingSearchResultRestore, setPendingSearchResultRestore] =
         useState(null);
     const [localityBoundary, setLocalityBoundary] = useState(null);
+    const electronicHorizon = useElectronicHorizon({
+        enabled: drivingModeIsActive,
+    });
+    const { upcomingAlerts } = useUpcomingElectronicHorizonAlerts({
+        directionsRoute,
+        electronicHorizon,
+        enabled: drivingModeIsActive,
+        policeAlerts: policeAlertsLoader.policeAlerts,
+        userLocation: mapPreferences.userLocation,
+    });
 
     useEffect(
         () =>
@@ -60,6 +72,7 @@ export function SharedMapStateProvider({ children }) {
         () => ({
             directionsRoute,
             drivingModeIsActive,
+            electronicHorizon,
             debugOverlayIsVisible: mapPreferences.debugOverlayIsVisible,
             debugOverlayVisibility: mapPreferences.debugOverlayVisibility,
             handleMarkerLoadingIndicatorHidden:
@@ -78,6 +91,7 @@ export function SharedMapStateProvider({ children }) {
             preferPrivateRoutes: mapPreferences.preferPrivateRoutes,
             policeAlerts: policeAlertsLoader.policeAlerts,
             policeAlertsVisible: mapPreferences.policeAlertsVisible,
+            upcomingAlerts,
             markerLoadError: markerLoader.markerLoadError,
             markerLoadingIndicatorIsVisible:
                 markerLoader.markerLoadingIndicatorIsVisible,
@@ -109,6 +123,7 @@ export function SharedMapStateProvider({ children }) {
         [
             directionsRoute,
             drivingModeIsActive,
+            electronicHorizon,
             localityBoundary,
             mapPreferences.cameraConesVisible,
             mapPreferences.debugOverlayIsVisible,
@@ -143,6 +158,7 @@ export function SharedMapStateProvider({ children }) {
             pendingDirectionsRequest,
             pendingSearchResultRestore,
             policeAlertsLoader.policeAlerts,
+            upcomingAlerts,
         ],
     );
     const locationValue = useMemo(

@@ -299,6 +299,16 @@ const DIRECTIONS_DEBUG_SEARCH_ZONE_FILTER = [
     ['get', 'debugRole'],
     DIRECTIONS_DEBUG_SEARCH_ZONE,
 ];
+const ELECTRONIC_HORIZON_DEBUG_PATH_FILTER = [
+    '==',
+    ['get', 'debugGeometry'],
+    'path',
+];
+const ELECTRONIC_HORIZON_DEBUG_PROBABILITY_FILTER = [
+    '==',
+    ['get', 'debugGeometry'],
+    'probability',
+];
 const SELECTED_DIRECTIONS_ROUTE_FILTER = ['==', ['get', 'selected'], true];
 const ALTERNATE_DIRECTIONS_ROUTE_FILTER = ['!=', ['get', 'selected'], true];
 const CAMERA_CONE_HIDDEN_FILTER = ['==', ['get', '__cameraConeVisible'], true];
@@ -501,6 +511,7 @@ export const MapCanvas = memo(function MapCanvas() {
         cameraRef,
         directionsDebugFeatureCollection,
         directionsRouteFeatureCollection,
+        electronicHorizonDebugFeatureCollection,
         e2eMapApiMocksEnabled,
         hideCompassDuringNavigation,
         initialCameraSettings,
@@ -542,6 +553,8 @@ export const MapCanvas = memo(function MapCanvas() {
     );
     const directionsDebugGeometryIsVisible =
         directionsDebugFeatureCollection?.features?.length > 0;
+    const electronicHorizonDebugGeometryIsVisible =
+        electronicHorizonDebugFeatureCollection?.features?.length > 0;
     const localityBoundaryIsVisible = Boolean(
         localityBoundary?.boundary?.features?.length,
     );
@@ -992,6 +1005,93 @@ export const MapCanvas = memo(function MapCanvas() {
                                 3,
                                 18,
                                 6,
+                            ],
+                        }}
+                    />
+                </Mapbox.ShapeSource>
+            ) : null}
+            {electronicHorizonDebugGeometryIsVisible ? (
+                <Mapbox.ShapeSource
+                    id="electronic-horizon-debug-source"
+                    shape={electronicHorizonDebugFeatureCollection}
+                >
+                    <Mapbox.LineLayer
+                        id="electronic-horizon-debug-paths"
+                        filter={ELECTRONIC_HORIZON_DEBUG_PATH_FILTER}
+                        slot="top"
+                        style={{
+                            lineCap: 'round',
+                            lineColor: ['get', 'color'],
+                            lineEmissiveStrength: isDuskNightMapLightPreset
+                                ? 1
+                                : 0,
+                            lineJoin: 'round',
+                            lineOpacity: 0.96,
+                            lineWidth: [
+                                'interpolate',
+                                ['linear'],
+                                ['zoom'],
+                                4,
+                                2,
+                                12,
+                                4,
+                                18,
+                                7,
+                            ],
+                        }}
+                    />
+                    <Mapbox.CircleLayer
+                        id="electronic-horizon-debug-probability-points"
+                        filter={ELECTRONIC_HORIZON_DEBUG_PROBABILITY_FILTER}
+                        slot="top"
+                        style={{
+                            circleColor: ['get', 'color'],
+                            circleOpacity: 1,
+                            circlePitchAlignment: 'viewport',
+                            circleRadius: [
+                                'interpolate',
+                                ['linear'],
+                                ['zoom'],
+                                4,
+                                8,
+                                12,
+                                11,
+                                18,
+                                15,
+                            ],
+                            circleStrokeColor: '#FFFFFF',
+                            circleStrokeOpacity: 0.96,
+                            circleStrokeWidth: 2,
+                        }}
+                    />
+                    <Mapbox.SymbolLayer
+                        id="electronic-horizon-debug-probability-labels"
+                        filter={ELECTRONIC_HORIZON_DEBUG_PROBABILITY_FILTER}
+                        slot="top"
+                        style={{
+                            textAllowOverlap: true,
+                            textAnchor: 'bottom',
+                            textColor: '#FFFFFF',
+                            textEmissiveStrength: isDuskNightMapLightPreset
+                                ? 1
+                                : 0,
+                            textField: ['get', 'probabilityLabel'],
+                            textFont: ['Arial Unicode MS Bold'],
+                            textHaloColor: '#0B0E12',
+                            textHaloWidth: 1.25,
+                            textIgnorePlacement: true,
+                            textOffset: [0, -1.4],
+                            textPitchAlignment: 'viewport',
+                            textSize: [
+                                'interpolate',
+                                ['linear'],
+                                ['zoom'],
+                                4,
+                                10,
+                                12,
+                                12,
+                                18,
+                                15,
                             ],
                         }}
                     />

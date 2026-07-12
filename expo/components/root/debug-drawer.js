@@ -1,5 +1,6 @@
 import {
     faCamera,
+    faCodeBranch,
     faCrosshairs,
     faLocationDot,
     faMobileScreen,
@@ -26,6 +27,7 @@ import {
     DEBUG_OVERLAY_CAMERA,
     DEBUG_OVERLAY_CAMERA_FOCUS,
     DEBUG_OVERLAY_DIRECTIONS_GEOMETRY,
+    DEBUG_OVERLAY_ELECTRONIC_HORIZON,
     DEBUG_OVERLAY_NETWORK,
     DEBUG_OVERLAY_SAFE_AREA,
 } from '../map/debug-overlays';
@@ -66,6 +68,12 @@ const DEBUG_DRAWER_ITEMS = [
         key: DEBUG_OVERLAY_DIRECTIONS_GEOMETRY,
         label: 'Directions Geometry',
         testID: 'debug-drawer-directions-geometry-toggle',
+    },
+    {
+        icon: faCodeBranch,
+        key: DEBUG_OVERLAY_ELECTRONIC_HORIZON,
+        label: 'Electronic Horizon',
+        testID: 'debug-drawer-electronic-horizon-toggle',
     },
     {
         icon: faLocationDot,

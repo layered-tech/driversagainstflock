@@ -27,6 +27,41 @@ export type EnhancedLocation = {
 
 export type RawLocation = EnhancedLocation;
 
+/** GeoJSON coordinate order: [longitude, latitude]. */
+export type ElectronicHorizonCoordinate = [number, number];
+
+/** A single Mapbox Electronic Horizon road-graph edge. */
+export type ElectronicHorizonSegment = {
+    coordinates: ElectronicHorizonCoordinate[];
+    /** The native edge identifier is stringified to preserve 64-bit precision in JavaScript. */
+    edgeId: string;
+    /** Whether the edge belongs to the active route; always false during free drive. */
+    isOnRoute?: boolean;
+    /** 0 is the most-probable path; higher values are progressively further branches. */
+    level: number;
+    probability: number;
+};
+
+export type ElectronicHorizon = {
+    /**
+     * The one selected most-probable path. Alert calculations must use this geometry only;
+     * `segments` is exposed so debug UI can label every level-zero edge.
+     */
+    primaryPath: {
+        coordinates: ElectronicHorizonCoordinate[];
+        segments: ElectronicHorizonSegment[];
+    };
+    /** All non-selected Electronic Horizon edges, including a rare secondary level-zero MPP. */
+    branches: ElectronicHorizonSegment[];
+    graphPosition?: {
+        edgeId: string;
+        percentAlong: number;
+    };
+    resultType?: string;
+    /** Unix timestamp in milliseconds. */
+    updatedAt: number;
+};
+
 export type TripSessionState = 'started' | 'stopped' | 'unavailable' | string;
 
 export type NavigationCameraMode = 'following' | 'idle';
@@ -76,6 +111,10 @@ export type UseEnhancedLocationOptions = StartTripSessionOptions & {
     enabled?: boolean;
 };
 
+export type UseElectronicHorizonOptions = StartTripSessionOptions & {
+    enabled?: boolean;
+};
+
 export type NavigationCameraOptions = {
     locationUpdateTimestamp?: number;
     padding?: {
@@ -98,6 +137,16 @@ export type UseNavigationCameraOptions = {
 };
 
 export declare function isSupported(): boolean;
+/** Whether this native build exposes Mapbox Electronic Horizon. */
+export declare function isElectronicHorizonSupported(): boolean;
+/** Whether this Android native build exposes the CPU wake-lock bridge. */
+export declare function isNavigationWakeLockSupported(): boolean;
+export declare function activateNavigationWakeLockAsync(
+    tag: string,
+): Promise<boolean>;
+export declare function deactivateNavigationWakeLockAsync(
+    tag: string,
+): Promise<boolean>;
 export declare function isNavigationPuck3DSupported(): boolean;
 export declare function applyNavigationPuck3DAsync(
     mapViewRef: { current?: unknown } | unknown,
@@ -114,6 +163,7 @@ export declare function startTripSessionAsync(
 export declare function stopTripSessionAsync(): Promise<boolean>;
 export declare function getTripSessionStateAsync(): Promise<TripSessionState>;
 export declare function getLastEnhancedLocationAsync(): Promise<EnhancedLocation | null>;
+export declare function getLastElectronicHorizonAsync(): Promise<ElectronicHorizon | null>;
 export declare function attachNavigationCameraAsync(
     surfaceId: string,
     mapViewTag: number,
@@ -133,6 +183,9 @@ export declare function updateNavigationCameraOptionsAsync(
 export declare function addEnhancedLocationListener(
     listener: (location: EnhancedLocation) => void,
 ): EventSubscription;
+export declare function addElectronicHorizonListener(
+    listener: (event: ElectronicHorizon) => void,
+): EventSubscription;
 export declare function addRawLocationListener(
     listener: (location: RawLocation) => void,
 ): EventSubscription;
@@ -148,6 +201,9 @@ export declare function addNavigationCameraStateListener(
 export declare function useEnhancedLocation(
     options?: UseEnhancedLocationOptions,
 ): EnhancedLocation | null;
+export declare function useElectronicHorizon(
+    options?: UseElectronicHorizonOptions,
+): ElectronicHorizon | null;
 export declare function useNavigationCamera(
     options?: UseNavigationCameraOptions,
 ): {

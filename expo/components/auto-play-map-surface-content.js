@@ -40,7 +40,10 @@ import {
     MINIMUM_DRIVING_COURSE_SPEED_MPS,
     ZOOM_STEP,
 } from './map/constants';
-import { DEBUG_OVERLAY_DIRECTIONS_GEOMETRY } from './map/debug-overlays';
+import {
+    DEBUG_OVERLAY_DIRECTIONS_GEOMETRY,
+    DEBUG_OVERLAY_ELECTRONIC_HORIZON,
+} from './map/debug-overlays';
 import {
     DIRECTIONS_FIELD_DESTINATION,
     DIRECTIONS_FIELD_START,
@@ -49,6 +52,7 @@ import {
     makeDirectionsDebugFeatureCollection,
     makeDirectionsRouteFeatureCollection,
 } from './map/directions';
+import { makeElectronicHorizonDebugFeatureCollection } from './map/electronic-horizon-debug';
 import {
     clampZoomLevel,
     getBoundsFromCameraState,
@@ -76,10 +80,12 @@ import {
     useHeadingWatch,
     useLocationWatch,
 } from './map/use-device-location';
+import { useElectronicHorizon } from './map/use-electronic-horizon';
 import { useMapboxStandardLightPreset } from './map/use-map-light-preset';
 import { useMapPreferencesState } from './map/use-map-preferences-state';
 import { useMapPresentation } from './map/use-map-presentation';
 import { useMarkerLoader } from './map/use-marker-loader';
+import { useUpcomingElectronicHorizonAlerts } from './map/use-upcoming-electronic-horizon-alerts';
 import { useWazePoliceAlerts } from './map/use-waze-police-alerts';
 import { makeWazePoliceAlertFeatureCollection } from './map/waze-alerts-api';
 
@@ -1526,6 +1532,9 @@ export function AutoPlayMapSurfaceContent({
         () => makeMarkerFeatureCollection(markerLoader.markerPoints),
         [markerLoader.markerPoints],
     );
+    const electronicHorizon = useElectronicHorizon({
+        enabled: isRootMapSurface && isDrivingMode,
+    });
     const policeAlertsLoader = useWazePoliceAlerts({
         policeAlertsAreEnabled: mapPreferences.policeAlertsVisible,
         userLocation: mapPreferences.userLocation,
@@ -1537,6 +1546,13 @@ export function AutoPlayMapSurfaceContent({
             ),
         [policeAlertsLoader.policeAlerts],
     );
+    const { upcomingAlerts } = useUpcomingElectronicHorizonAlerts({
+        directionsRoute: activeDirectionsRoute,
+        electronicHorizon,
+        enabled: isRootMapSurface && isDrivingMode,
+        policeAlerts: policeAlertsLoader.policeAlerts,
+        userLocation: mapPreferences.userLocation,
+    });
     const directionsRouteFeatureCollection = useMemo(
         () => makeDirectionsRouteFeatureCollection(displayedDirectionsRoute),
         [displayedDirectionsRoute],
@@ -1555,6 +1571,15 @@ export function AutoPlayMapSurfaceContent({
             debugOverlayVisibility,
             debugOverlaysAreVisible,
         ],
+    );
+    const electronicHorizonDebugFeatureCollection = useMemo(
+        () =>
+            makeElectronicHorizonDebugFeatureCollection(
+                electronicHorizon,
+                debugOverlayVisibility?.[DEBUG_OVERLAY_ELECTRONIC_HORIZON] ===
+                    true,
+            ),
+        [debugOverlayVisibility, electronicHorizon],
     );
     const directionsWaypointMarkers = useMemo(
         () => makeAutoPlayDirectionsWaypointMarkers(displayedDirectionsRoute),
@@ -1592,6 +1617,7 @@ export function AutoPlayMapSurfaceContent({
         controller,
         directionsDebugFeatureCollection,
         directionsRouteFeatureCollection,
+        electronicHorizonDebugFeatureCollection,
         directionsWaypointMarkers,
         hideCompassDuringNavigation: Boolean(
             hideCompassDuringNavigation && activeDirectionsRoute,
@@ -1787,6 +1813,7 @@ export function AutoPlayMapSurfaceContent({
                         }
                         onLocationAnchorLayout={handleLocationAnchorLayout}
                         presentation={presentation}
+                        upcomingAlerts={upcomingAlerts}
                         userLocation={mapPreferences.userLocation}
                         viewportMetrics={viewportMetrics}
                     />

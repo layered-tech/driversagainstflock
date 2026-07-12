@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\V1\DirectionsController as V1DirectionsController;
+use App\Http\Controllers\Api\V1\ElectronicHorizonAlprController;
 use App\Http\Controllers\Api\V1\PoliceAlertsController;
 use App\Http\Controllers\Api\V1\SpeedLimitController;
 use App\Http\Controllers\HotlistController;
@@ -53,6 +54,10 @@ Route::group(['middleware' => ['throttle:speed-limits']], function (Router $rout
 
 Route::group(['middleware' => ['throttle:police-alerts']], function (Router $route) {
     $route->get('v1/police-alerts', PoliceAlertsController::class);
+});
+
+Route::group(['middleware' => ['throttle:electronic-horizon']], function (Router $route) {
+    $route->post('v1/electronic-horizon/alpr', ElectronicHorizonAlprController::class);
 });
 
 Route::group(['middleware' => 'auth:sanctum'], function (Router $router) {

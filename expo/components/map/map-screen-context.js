@@ -82,6 +82,7 @@ export function MapScreenProviders({
 export function useMapCanvasContextValue({
     directionsDebugFeatureCollection,
     directionsRouteFeatureCollection,
+    electronicHorizonDebugFeatureCollection,
     e2eMapApiMocksEnabled,
     handleMapPress,
     handleMarkerSourcePress,
@@ -114,6 +115,7 @@ export function useMapCanvasContextValue({
             initialCameraSettings,
             directionsDebugFeatureCollection,
             directionsRouteFeatureCollection,
+            electronicHorizonDebugFeatureCollection,
             e2eMapApiMocksEnabled,
             isDrivingMode,
             isFollowing: locationController.isFollowing,
@@ -140,6 +142,7 @@ export function useMapCanvasContextValue({
         [
             directionsDebugFeatureCollection,
             directionsRouteFeatureCollection,
+            electronicHorizonDebugFeatureCollection,
             e2eMapApiMocksEnabled,
             handleMapPress,
             handleMarkerSourcePress,
@@ -178,6 +181,9 @@ export function useMapLocationContextValue(userLocation) {
 }
 
 export function useMapControlsContextValue({
+    freeDriveIsActive,
+    handleStartFreeDrive,
+    handleStopFreeDrive,
     handleMarkerLoadingIndicatorHidden,
     locationController,
     mapPreferencesAreLoaded,
@@ -199,8 +205,11 @@ export function useMapControlsContextValue({
             drivingRecenterIconColor: presentation.drivingRecenterIconColor,
             drivingRecenterIsVisible:
                 locationController.drivingRecenterIsVisible,
+            freeDriveIsActive,
             handleDrivingRecenterPress:
                 locationController.handleDrivingRecenterPress,
+            handleStartFreeDrive,
+            handleStopFreeDrive,
             handleLocationTrackingPress:
                 locationController.handleLocationTrackingPress,
             handleMarkerLoadingIndicatorHidden,
@@ -219,6 +228,9 @@ export function useMapControlsContextValue({
             trackingIconColor: presentation.trackingIconColor,
         }),
         [
+            freeDriveIsActive,
+            handleStartFreeDrive,
+            handleStopFreeDrive,
             handleMarkerLoadingIndicatorHidden,
             locationController.drivingRecenterIsVisible,
             locationController.handleDrivingRecenterPress,
@@ -681,6 +693,7 @@ export function useAutoPlayMapScreenContextValues({
     controller,
     directionsDebugFeatureCollection,
     directionsRouteFeatureCollection,
+    electronicHorizonDebugFeatureCollection,
     directionsWaypointMarkers,
     hideCompassDuringNavigation,
     initialCameraSettings,
@@ -697,6 +710,7 @@ export function useAutoPlayMapScreenContextValues({
             cameraRef: controller.cameraRef,
             directionsDebugFeatureCollection,
             directionsRouteFeatureCollection,
+            electronicHorizonDebugFeatureCollection,
             hideCompassDuringNavigation,
             handleCameraChanged: controller.handleCameraChanged,
             handleMapLoaded: controller.handleMapLoaded,
@@ -741,6 +755,7 @@ export function useAutoPlayMapScreenContextValues({
             controller.nativeCameraFollowProps,
             directionsDebugFeatureCollection,
             directionsRouteFeatureCollection,
+            electronicHorizonDebugFeatureCollection,
             hideCompassDuringNavigation,
             initialCameraSettings,
             isDrivingMode,

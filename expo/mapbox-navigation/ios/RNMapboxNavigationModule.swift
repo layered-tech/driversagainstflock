@@ -9,6 +9,7 @@ import UIKit
 
 private let MODULE_NAME = "RNMapboxNavigation"
 private let ENHANCED_LOCATION_EVENT_NAME = "onEnhancedLocation"
+private let ELECTRONIC_HORIZON_EVENT_NAME = "onElectronicHorizon"
 private let RAW_LOCATION_EVENT_NAME = "onRawLocation"
 private let TRIP_SESSION_STATE_EVENT_NAME = "onTripSessionState"
 private let NAVIGATION_CAMERA_STATE_EVENT_NAME = "onNavigationCameraState"
@@ -21,6 +22,14 @@ private let NAVIGATION_CAMERA_MODE_FOLLOWING = "following"
 private let NAVIGATION_CAMERA_MODE_IDLE = "idle"
 
 private let MAXIMUM_LOCATION_TRANSITION_INTERVAL: TimeInterval = 5.0
+
+/// Match the existing Waze-alert search radius so the primary path is long enough to filter the
+/// locally cached 10-mile result without requesting more Waze data. Branches are intentionally
+/// shorter: they are sent only for the debug visualization and never participate in alert matching.
+private let ELECTRONIC_HORIZON_LENGTH_METERS: CLLocationDistance = 16_093.44
+private let ELECTRONIC_HORIZON_BRANCH_LENGTH_METERS: CLLocationDistance = 1_609.344
+private let ELECTRONIC_HORIZON_EXPANSION_LEVEL: UInt = 2
+private let ELECTRONIC_HORIZON_MINIMUM_UPDATE_INTERVAL: TimeInterval = 1.0
 
 // MARK: - Expo module
 
@@ -39,6 +48,7 @@ public final class RNMapboxNavigationModule: Module {
 
     Events(
       ENHANCED_LOCATION_EVENT_NAME,
+      ELECTRONIC_HORIZON_EVENT_NAME,
       NAVIGATION_CAMERA_STATE_EVENT_NAME,
       RAW_LOCATION_EVENT_NAME,
       TRIP_SESSION_STATE_EVENT_NAME
@@ -83,6 +93,10 @@ public final class RNMapboxNavigationModule: Module {
     AsyncFunction("clearNavigationPuck3D") { (mapViewTag: Int) async throws -> Bool in
       let mapView = try await self.resolveMapView(tag: mapViewTag)
       return try await self.clearNavigationPuck3D(from: mapView)
+    }
+
+    AsyncFunction("getLastElectronicHorizon") { () async -> [String: Any]? in
+      await RNMapboxNavigationController.shared.getLastElectronicHorizon()
     }
 
     AsyncFunction("attachNavigationCamera") { (surfaceId: String, mapViewTag: Int, options: [String: Any]?) async throws -> Bool in
@@ -284,6 +298,7 @@ final class RNMapboxNavigationController {
   private var isSubscribed = false
   private var lastEnhancedLocation: [String: Any]?
   private var lastEnhancedCLLocation: CLLocation?
+  private var lastElectronicHorizon: [String: Any]?
   private var cameraSurfaces = [String: NavigationCameraSurface]()
   private var lastLoggedSpeedLimitKey: String?
 
@@ -318,6 +333,7 @@ final class RNMapboxNavigationController {
 
     let navigation = try ensureNavigation()
     subscribeIfNeeded(to: navigation)
+    navigation.electronicHorizon().startUpdatingEHorizon()
 
     if !navigation.tripSession().currentSession.state.isTripSessionActive {
       navigation.tripSession().startFreeDrive()
@@ -325,7 +341,13 @@ final class RNMapboxNavigationController {
   }
 
   func stopTripSession() {
-    provider?.mapboxNavigation.tripSession().setToIdle()
+    guard let navigation = provider?.mapboxNavigation else {
+      return
+    }
+
+    navigation.electronicHorizon().stopUpdatingEHorizon()
+    navigation.tripSession().setToIdle()
+    lastElectronicHorizon = nil
   }
 
   func getTripSessionState() -> String {
@@ -347,6 +369,10 @@ final class RNMapboxNavigationController {
     }
 
     return enhancedLocationPayload(from: state)
+  }
+
+  func getLastElectronicHorizon() -> [String: Any]? {
+    lastElectronicHorizon
   }
 
   // MARK: Navigation camera
@@ -417,10 +443,16 @@ final class RNMapboxNavigationController {
     let backgroundModes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] ?? []
     let allowsBackgroundTracking = backgroundModes.contains("location")
 
-    let config = CoreConfig(
+    var config = CoreConfig(
       credentials: NavigationCoreApiConfiguration(accessToken: accessToken),
       locationSource: .live,
       disableBackgroundTrackingLocation: !allowsBackgroundTracking
+    )
+    config.electronicHorizonConfig = ElectronicHorizonConfig(
+      length: ELECTRONIC_HORIZON_LENGTH_METERS,
+      expansionLevel: ELECTRONIC_HORIZON_EXPANSION_LEVEL,
+      branchLength: ELECTRONIC_HORIZON_BRANCH_LENGTH_METERS,
+      minTimeDeltaBetweenUpdates: ELECTRONIC_HORIZON_MINIMUM_UPDATE_INTERVAL
     )
     let created = MapboxNavigationProvider(coreConfig: config)
     provider = created
@@ -471,6 +503,17 @@ final class RNMapboxNavigationController {
         }
       }
       .store(in: &cancellables)
+
+    let electronicHorizon = navigation.electronicHorizon()
+    let roadGraph = electronicHorizon.roadMatching.roadGraph
+    electronicHorizon.eHorizonEvents
+      .compactMap { $0.event as? EHorizonStatus.Events.PositionUpdated }
+      .sink { [weak self] event in
+        Task { @MainActor in
+          self?.handleElectronicHorizonPositionUpdated(event, roadGraph: roadGraph)
+        }
+      }
+      .store(in: &cancellables)
   }
 
   private func handleLocationMatching(_ state: MapMatchingState) {
@@ -492,6 +535,15 @@ final class RNMapboxNavigationController {
       TRIP_SESSION_STATE_EVENT_NAME,
       ["state": Self.tripSessionStateString(session.state)]
     )
+  }
+
+  private func handleElectronicHorizonPositionUpdated(
+    _ event: EHorizonStatus.Events.PositionUpdated,
+    roadGraph: RoadGraph
+  ) {
+    let payload = electronicHorizonPayload(from: event, roadGraph: roadGraph)
+    lastElectronicHorizon = payload
+    postEvent(ELECTRONIC_HORIZON_EVENT_NAME, payload)
   }
 
   private func sendNavigationCameraState(surfaceId: String, state: String) {
@@ -520,6 +572,201 @@ final class RNMapboxNavigationController {
       surface.detach()
     }
     cameraSurfaces.removeAll()
+  }
+
+  // MARK: Electronic Horizon payload
+
+  /// Builds a single, deterministic primary path for alert matching. Mapbox can return multiple
+  /// level-zero candidates when their probabilities are nearly equal, so choose the highest one at
+  /// each split. Every other edge is preserved in `branches` for the debug-only visualization.
+  private func electronicHorizonPayload(
+    from event: EHorizonStatus.Events.PositionUpdated,
+    roadGraph: RoadGraph
+  ) -> [String: Any] {
+    let primaryEdges = primaryEdges(from: event.startingEdge)
+    let primaryEdgeIdentifiers = Set(primaryEdges.map(\.identifier))
+    let initialFraction = event.position.edgeIdentifier == event.startingEdge.identifier
+      ? event.position.fractionFromStart
+      : nil
+
+    let primarySegments = primaryEdges.enumerated().compactMap { index, edge in
+      electronicHorizonSegment(
+        from: edge,
+        roadGraph: roadGraph,
+        trimAfterFraction: index == 0 ? initialFraction : nil
+      )
+    }
+
+    var primaryCoordinates = [[Double]]()
+    for segment in primarySegments {
+      Self.append(segment.coordinates, to: &primaryCoordinates)
+    }
+
+    var treeEdges = [RoadGraph.Edge]()
+    var visitedEdges = Set<RoadGraph.Edge.Identifier>()
+    collectTreeEdges(from: event.startingEdge, into: &treeEdges, visited: &visitedEdges)
+
+    let branches = treeEdges.compactMap { edge -> ElectronicHorizonSegment? in
+      guard !primaryEdgeIdentifiers.contains(edge.identifier) else {
+        return nil
+      }
+
+      return electronicHorizonSegment(from: edge, roadGraph: roadGraph)
+    }
+
+    let primaryPath: [String: Any] = [
+      "coordinates": primaryCoordinates,
+      "segments": primarySegments.map(\.payload),
+    ]
+
+    return [
+      "branches": branches.map(\.payload),
+      "graphPosition": [
+        "edgeId": String(event.position.edgeIdentifier),
+        "percentAlong": event.position.fractionFromStart,
+      ],
+      "primaryPath": primaryPath,
+      "resultType": event.updatesMostProbablePath ? "update" : "position",
+      "updatedAt": Date().timeIntervalSince1970 * 1000,
+    ]
+  }
+
+  private func primaryEdges(from startingEdge: RoadGraph.Edge) -> [RoadGraph.Edge] {
+    var edges = [RoadGraph.Edge]()
+    var currentEdge: RoadGraph.Edge? = startingEdge
+    var visitedEdgeIdentifiers = Set<RoadGraph.Edge.Identifier>()
+
+    while let edge = currentEdge, visitedEdgeIdentifiers.insert(edge.identifier).inserted {
+      edges.append(edge)
+      currentEdge = edge.outletEdges
+        .filter { $0.level == 0 }
+        .max { $0.probability < $1.probability }
+    }
+
+    return edges
+  }
+
+  private func collectTreeEdges(
+    from edge: RoadGraph.Edge,
+    into edges: inout [RoadGraph.Edge],
+    visited: inout Set<RoadGraph.Edge.Identifier>
+  ) {
+    guard visited.insert(edge.identifier).inserted else {
+      return
+    }
+
+    edges.append(edge)
+
+    for outletEdge in edge.outletEdges {
+      collectTreeEdges(from: outletEdge, into: &edges, visited: &visited)
+    }
+  }
+
+  private func electronicHorizonSegment(
+    from edge: RoadGraph.Edge,
+    roadGraph: RoadGraph,
+    trimAfterFraction: Double? = nil
+  ) -> ElectronicHorizonSegment? {
+    guard let shape = roadGraph.edgeShape(edgeIdentifier: edge.identifier) else {
+      return nil
+    }
+
+    let untrimmedCoordinates = shape.coordinates.map { [$0.longitude, $0.latitude] }
+    let coordinates: [[Double]]
+    if let trimAfterFraction {
+      coordinates = Self.trim(untrimmedCoordinates, afterFraction: trimAfterFraction)
+    } else {
+      coordinates = untrimmedCoordinates
+    }
+
+    guard coordinates.count > 1 else {
+      return nil
+    }
+
+    return ElectronicHorizonSegment(
+      edgeId: String(edge.identifier),
+      coordinates: coordinates,
+      level: Int(edge.level),
+      probability: edge.probability
+    )
+  }
+
+  /// Trims the current edge by route distance, rather than vertex index, so the alert matcher only
+  /// receives geometry ahead of the user's map-matched position.
+  private static func trim(_ coordinates: [[Double]], afterFraction fraction: Double) -> [[Double]] {
+    guard coordinates.count > 1 else {
+      return coordinates
+    }
+
+    let clampedFraction = min(max(fraction, 0), 1)
+    guard clampedFraction > 0 else {
+      return coordinates
+    }
+
+    let locations = coordinates.map { CLLocation(latitude: $0[1], longitude: $0[0]) }
+    let segmentDistances = zip(locations, locations.dropFirst()).map { first, second in
+      first.distance(from: second)
+    }
+    let totalDistance = segmentDistances.reduce(0, +)
+    guard totalDistance > 0 else {
+      return coordinates
+    }
+
+    var remainingDistance = totalDistance * clampedFraction
+    for (index, segmentDistance) in segmentDistances.enumerated() {
+      guard segmentDistance > 0 else {
+        continue
+      }
+
+      if remainingDistance > segmentDistance {
+        remainingDistance -= segmentDistance
+        continue
+      }
+
+      let interpolation = remainingDistance / segmentDistance
+      let start = coordinates[index]
+      let end = coordinates[index + 1]
+      let longitudeDelta = Self.wrappedLongitudeDelta(from: start[0], to: end[0])
+      let longitude = Self.normalizedLongitude(start[0] + longitudeDelta * interpolation)
+      let latitude = start[1] + (end[1] - start[1]) * interpolation
+
+      return [[longitude, latitude]] + Array(coordinates[(index + 1)...])
+    }
+
+    return [coordinates[coordinates.count - 1]]
+  }
+
+  private static func append(_ nextCoordinates: [[Double]], to coordinates: inout [[Double]]) {
+    guard let first = nextCoordinates.first else {
+      return
+    }
+
+    if coordinates.last == first {
+      coordinates.append(contentsOf: nextCoordinates.dropFirst())
+    } else {
+      coordinates.append(contentsOf: nextCoordinates)
+    }
+  }
+
+  private static func wrappedLongitudeDelta(from start: Double, to end: Double) -> Double {
+    let difference = end - start
+    if difference > 180 {
+      return difference - 360
+    }
+    if difference < -180 {
+      return difference + 360
+    }
+    return difference
+  }
+
+  private static func normalizedLongitude(_ longitude: Double) -> Double {
+    if longitude > 180 {
+      return longitude - 360
+    }
+    if longitude < -180 {
+      return longitude + 360
+    }
+    return longitude
   }
 
   // MARK: Payload builders
@@ -705,6 +952,23 @@ final class RNMapboxNavigationController {
       // `.notDetermined` is allowed: the SDK's location manager triggers the system prompt.
       return true
     }
+  }
+}
+
+private struct ElectronicHorizonSegment {
+  let edgeId: String
+  let coordinates: [[Double]]
+  let level: Int
+  let probability: Double
+
+  var payload: [String: Any] {
+    [
+      "coordinates": coordinates,
+      "edgeId": edgeId,
+      "isOnRoute": false,
+      "level": level,
+      "probability": probability,
+    ]
   }
 }
 

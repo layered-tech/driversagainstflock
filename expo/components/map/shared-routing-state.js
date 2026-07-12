@@ -68,9 +68,7 @@ function normalizeRoutingState(state) {
 
     return {
         directionsRoute,
-        drivingModeIsActive: Boolean(
-            directionsRoute && state?.drivingModeIsActive,
-        ),
+        drivingModeIsActive: state?.drivingModeIsActive === true,
     };
 }
 
