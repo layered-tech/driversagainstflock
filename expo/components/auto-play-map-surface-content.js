@@ -11,6 +11,11 @@ import {
     useAutoDriveSimulationIsActive,
 } from './auto-play-drive-simulation';
 import { AutoPlayMapStatusOverlay } from './auto-play-map-status-overlay';
+import {
+    AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VISIBLE_Y_RATIO,
+    getAutoPlayFollowViewportAnchorY,
+    getAutoPlayViewportMetrics,
+} from './auto-play-map-viewport';
 import { useAutoPlayState } from './auto-play-state';
 import { useFollowLocationMode } from './map-follow-location-mode';
 import {
@@ -80,7 +85,6 @@ import { useMarkerLoader } from './map/use-marker-loader';
 import { useWazePoliceAlerts } from './map/use-waze-police-alerts';
 import { makeWazePoliceAlertFeatureCollection } from './map/waze-alerts-api';
 
-const AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VIEWPORT_Y_RATIO = 0.9;
 const CAMERA_DEBUG_CENTER_PRECISION = 6;
 const CAMERA_DEBUG_ORIENTATION_PRECISION = 2;
 const CAMERA_DEBUG_ZOOM_PRECISION = 2;
@@ -95,10 +99,9 @@ const AUTO_PLAY_ZOOM_ANIMATION_DURATION_MS =
 const AUTO_PLAY_ZOOM_BUTTON_ANIMATION_DURATION_MS =
     LOCATION_CAMERA_USER_INTERACTION_ANIMATION_DURATION_MS;
 const AUTO_PLAY_ROOT_MODULE_ID = 'AutoPlayRoot';
-const AUTO_PLAY_ORNAMENT_INSET_MAX_VIEWPORT_FRACTION = 0.35;
 const DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG = {
     applyWindowScaleToMapGestures: false,
-    safeAreaLeftScale: 1,
+    ornamentSafeAreaLeftScale: 1,
 };
 
 const EMPTY_AUTOPLAY_MAP_CONTROL_HANDLERS = {
@@ -216,95 +219,6 @@ function getPositiveDimension(value) {
     const numericValue = Number(value);
 
     return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : 0;
-}
-
-function getSafeAreaInsetValue(value) {
-    const numericValue = Number(value);
-
-    return Number.isFinite(numericValue) ? Math.max(0, numericValue) : 0;
-}
-
-function getSafeAreaInsets(insets, safeAreaLeftScale) {
-    return {
-        bottom: getSafeAreaInsetValue(insets?.bottom),
-        left: getSafeAreaInsetValue(insets?.left) * safeAreaLeftScale,
-        right: getSafeAreaInsetValue(insets?.right),
-        top: getSafeAreaInsetValue(insets?.top),
-    };
-}
-
-function getClampedOrnamentInset(value, viewportExtent) {
-    if (!viewportExtent) {
-        return value;
-    }
-
-    return Math.min(
-        value,
-        viewportExtent * AUTO_PLAY_ORNAMENT_INSET_MAX_VIEWPORT_FRACTION,
-    );
-}
-
-function getViewportMetrics({
-    layoutSize,
-    safeAreaInsets,
-    safeAreaLeftScale,
-    windowInfo,
-}) {
-    const insets = getSafeAreaInsets(safeAreaInsets, safeAreaLeftScale);
-    const width =
-        getPositiveDimension(layoutSize?.width) ||
-        getPositiveDimension(windowInfo?.width);
-    const height =
-        getPositiveDimension(layoutSize?.height) ||
-        getPositiveDimension(windowInfo?.height);
-    // Head-unit visible-area callbacks are debounced and can latch a
-    // transient mid-transition rect that no later event corrects, so a spiked
-    // inset would otherwise pin ornaments (compass, status pills) mid-screen
-    // until the next template change.
-    const ornamentSafeAreaInsets = {
-        bottom: getClampedOrnamentInset(insets.bottom, height),
-        left: getClampedOrnamentInset(insets.left, width),
-        right: getClampedOrnamentInset(insets.right, width),
-        top: getClampedOrnamentInset(insets.top, height),
-    };
-    const visibleLeft = Math.min(insets.left, width);
-    const visibleTop = Math.min(insets.top, height);
-    const visibleRight = Math.max(visibleLeft, width - insets.right);
-    const visibleBottom = Math.max(visibleTop, height - insets.bottom);
-    const visibleWidth = Math.max(0, visibleRight - visibleLeft);
-    const visibleHeight = Math.max(0, visibleBottom - visibleTop);
-
-    return {
-        cameraPadding: {
-            paddingBottom: insets.bottom,
-            paddingLeft: insets.left,
-            paddingRight: insets.right,
-            paddingTop: insets.top,
-        },
-        center: {
-            x: visibleLeft + visibleWidth / 2,
-            y: visibleTop + visibleHeight / 2,
-        },
-        height,
-        key: [
-            width,
-            height,
-            insets.top,
-            insets.right,
-            insets.bottom,
-            insets.left,
-        ].join(':'),
-        safeAreaInsets: ornamentSafeAreaInsets,
-        visibleRect: {
-            bottom: visibleBottom,
-            left: visibleLeft,
-            right: visibleRight,
-            top: visibleTop,
-        },
-        visibleHeight,
-        visibleWidth,
-        width,
-    };
 }
 
 function getPositiveScale(value) {
@@ -589,6 +503,7 @@ function useAutoPlayMapController({
     scheduleSharedMarkerLoad,
     setUserLocation,
     userLocation,
+    followViewportAnchorY,
     viewportMetrics,
 }) {
     const cameraRef = useRef(null);
@@ -729,9 +644,10 @@ function useAutoPlayMapController({
         clampZoomLevel,
         currentCourseHeadingRef,
         currentZoomRef,
-        followSpeedZoomEnabled: false,
+        followSpeedZoomEnabled: true,
+        followViewportAnchorY,
         followViewportBottomOffset: 0,
-        followViewportYRatio: AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VIEWPORT_Y_RATIO,
+        followViewportYRatio: AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VISIBLE_Y_RATIO,
         isDrivingMode,
         isMapReadyRef,
         locationTrackingMode,
@@ -1504,7 +1420,7 @@ export function AutoPlayMapSurfaceContent({
     const {
         applyWindowScaleToMapGestures,
         hideCompassDuringNavigation,
-        safeAreaLeftScale,
+        ornamentSafeAreaLeftScale,
     } = {
         ...DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG,
         ...platformConfig,
@@ -1539,10 +1455,10 @@ export function AutoPlayMapSurfaceContent({
     );
     const viewportMetrics = useMemo(
         () =>
-            getViewportMetrics({
+            getAutoPlayViewportMetrics({
                 layoutSize,
+                ornamentSafeAreaLeftScale,
                 safeAreaInsets: autoPlaySafeAreaInsets,
-                safeAreaLeftScale,
                 windowInfo,
             }),
         [
@@ -1552,10 +1468,14 @@ export function AutoPlayMapSurfaceContent({
             autoPlaySafeAreaInsets.top,
             layoutSize?.height,
             layoutSize?.width,
-            safeAreaLeftScale,
+            ornamentSafeAreaLeftScale,
             windowInfo?.height,
             windowInfo?.width,
         ],
+    );
+    const followViewportAnchorY = useMemo(
+        () => getAutoPlayFollowViewportAnchorY(viewportMetrics),
+        [viewportMetrics],
     );
     const debugOverlaysAreVisible =
         isRootMapSurface &&
@@ -1585,6 +1505,7 @@ export function AutoPlayMapSurfaceContent({
         scheduleSharedMarkerLoad: markerLoader.scheduleMarkerLoad,
         setUserLocation: mapPreferences.setUserLocation,
         userLocation: mapPreferences.userLocation,
+        followViewportAnchorY,
         viewportMetrics,
     });
     const presentation = useMapPresentation({

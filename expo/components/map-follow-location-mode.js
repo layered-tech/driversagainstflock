@@ -15,6 +15,7 @@ import {
     DRIVING_DESTINATION_CAMERA_GAP,
     DRIVING_DESTINATION_SURFACE_HEIGHT,
 } from './map/constants';
+import { getFollowCameraPadding } from './map/follow-camera-padding';
 
 const LOCATION_FOLLOW_CAMERA_PITCH = 55;
 const LOCATION_FOLLOW_ANIMATION_DURATION_MS = 220;
@@ -100,6 +101,7 @@ export function useFollowLocationMode({
     currentCourseHeadingRef,
     currentZoomRef,
     followSpeedZoomEnabled = false,
+    followViewportAnchorY,
     followViewportYRatio,
     followViewportBottomOffset = DEFAULT_LOCATION_FOLLOW_VIEWPORT_BOTTOM_OFFSET,
     isDrivingMode,
@@ -152,48 +154,17 @@ export function useFollowLocationMode({
         };
     }, [cameraViewportInsets, insets.bottom]);
     const followCameraPadding = useMemo(() => {
-        const viewportTopPadding = getNonNegativeNumber(
-            viewportCameraPadding.paddingTop,
-            0,
-        );
-        const viewportBottomPadding = getNonNegativeNumber(
-            viewportCameraPadding.paddingBottom,
-            0,
-        );
-        const targetViewportY =
-            cameraViewportHeight -
-            viewportBottomPadding -
-            resolvedFollowViewportBottomOffset;
-        const requestedTopPadding = Math.round(
-            cameraViewportHeight * (resolvedFollowViewportYRatio * 2 - 1) +
-                viewportBottomPadding,
-        );
-        const maxTopPadding = Math.min(
-            Math.round(
-                cameraViewportHeight * LOCATION_FOLLOW_MAX_TOP_PADDING_RATIO,
-            ),
-            Math.max(0, cameraViewportHeight - viewportBottomPadding),
-        );
-        const destinationAwareTopPadding = Math.round(
-            targetViewportY * 2 - cameraViewportHeight + viewportBottomPadding,
-        );
-
-        return {
-            ...viewportCameraPadding,
-            paddingBottom: viewportBottomPadding,
-            // Mapbox centers the followed coordinate inside the padded viewport.
-            paddingTop: Math.max(
-                viewportTopPadding,
-                0,
-                Math.min(
-                    requestedTopPadding,
-                    maxTopPadding,
-                    destinationAwareTopPadding,
-                ),
-            ),
-        };
+        return getFollowCameraPadding({
+            followViewportAnchorY,
+            followViewportBottomOffset: resolvedFollowViewportBottomOffset,
+            followViewportYRatio: resolvedFollowViewportYRatio,
+            maxTopPaddingRatio: LOCATION_FOLLOW_MAX_TOP_PADDING_RATIO,
+            viewportHeight: cameraViewportHeight,
+            viewportInsets: viewportCameraPadding,
+        });
     }, [
         cameraViewportHeight,
+        followViewportAnchorY,
         resolvedFollowViewportBottomOffset,
         resolvedFollowViewportYRatio,
         viewportCameraPadding,

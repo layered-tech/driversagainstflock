@@ -18,6 +18,7 @@
         "sentry:upload-sourcemaps": "cd expo && sentry-expo-upload-sourcemaps dist",
         "android": "cd expo && npx expo run:android",
         "android:auto": "cd expo && adb forward tcp:5277 tcp:5277 && \"$ANDROID_HOME/extras/google/auto/desktop-head-unit\" -c ./config/android-auto-dhu.ini",
+        "android:auto:portrait": "cd expo && adb forward tcp:5277 tcp:5277 && \"$ANDROID_HOME/extras/google/auto/desktop-head-unit\" -c ./config/android-auto-dhu-portrait.ini",
         "android:no-bundler": "cd expo && npx expo run:android --no-bundler --device",
         "ios": "cd expo && npx expo run:ios",
         "ios:no-bundler": "cd expo && npx expo run:ios --no-bundler --device",
