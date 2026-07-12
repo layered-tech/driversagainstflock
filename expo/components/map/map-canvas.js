@@ -1,5 +1,5 @@
 import Mapbox from '@rnmapbox/maps';
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import {
     ActivityIndicator,
     Platform,
@@ -29,7 +29,6 @@ import {
     ALPR_SYMBOL_VISIBLE_PROPERTY_NAME,
     ANDROID_AUTO_NAVIGATION_PUCK_BEARING_IMAGE,
     ANDROID_AUTO_NAVIGATION_PUCK_SHADOW_IMAGE,
-    EMPTY_FEATURE_COLLECTION,
     INDIVIDUAL_MARKER_FILTER,
     MARKER_CLUSTER_CIRCLE_RADIUS_EXPRESSION,
     MARKER_CLUSTER_FILTER,
@@ -70,9 +69,24 @@ import {
 } from './map-marker-views';
 import {
     useMapCanvasContext,
+    useMapLocationContext,
     usePlaceSheetContext,
 } from './map-screen-context';
 import { NativeWindMapView } from './native-components';
+
+const MAP_PREFERRED_FRAMES_PER_SECOND = 30;
+
+function MapLocationProvider({ isDrivingMode, usesSharedLocationProvider }) {
+    const { userLocation } = useMapLocationContext();
+
+    return (
+        <DrivingLocationProvider
+            enabled={isDrivingMode || usesSharedLocationProvider}
+            isDrivingMode={isDrivingMode}
+            userLocation={userLocation}
+        />
+    );
+}
 
 function buildConeIconImageExpression() {
     const [defaultStyle, ...zoomStyles] = MARKER_CONE_ZOOM_STYLES;
@@ -418,7 +432,7 @@ function makeE2EMarkerTapTargetFeature(marker, index) {
     };
 }
 
-export function MapCanvas() {
+export const MapCanvas = memo(function MapCanvas() {
     const {
         handleCameraChanged,
         handleMapLoaded,
@@ -452,8 +466,9 @@ export function MapCanvas() {
         navigationPuckVariant,
         policeAlertFeatureCollection,
         policeAlertsVisible,
+        preferredFramesPerSecond = MAP_PREFERRED_FRAMES_PER_SECOND,
         submittedSearchResults,
-        userLocation,
+        usesSharedLocationProvider = false,
     } = useMapCanvasContext();
     const {
         directionsWaypointMarkers,
@@ -508,14 +523,6 @@ export function MapCanvas() {
         : MAP_ROUTE_PALETTES.light;
     const markerClusteredSourceID = 'map-markers-clustered-source';
     const markerUnclusteredSourceID = 'map-markers-unclustered-source';
-    const clusteredMarkerFeatureCollection =
-        surveillanceMarkersVisible && markerClustersEnabled
-            ? markerFeatureCollection
-            : EMPTY_FEATURE_COLLECTION;
-    const unclusteredMarkerFeatureCollection =
-        surveillanceMarkersVisible && !markerClustersEnabled
-            ? markerFeatureCollection
-            : EMPTY_FEATURE_COLLECTION;
     const selectedDirectionsRouteColorExpression = useMemo(
         () => makeSelectedDirectionsRouteColorExpression(mapRoutePalette),
         [mapRoutePalette],
@@ -577,6 +584,7 @@ export function MapCanvas() {
             onCameraChanged={handleCameraChanged}
             onDidFinishLoadingMap={handleMapLoaded}
             onPress={handleMapPress}
+            preferredFramesPerSecond={preferredFramesPerSecond}
             styleURL={mapStyleURL}
         >
             <Mapbox.StyleImport
@@ -585,10 +593,11 @@ export function MapCanvas() {
                 existing
                 id={MAPBOX_STANDARD_STYLE_IMPORT_ID}
             />
-            {locationAccessGranted ? (
-                <DrivingLocationProvider
+            {locationAccessGranted &&
+            (isDrivingMode || usesSharedLocationProvider) ? (
+                <MapLocationProvider
                     isDrivingMode={isDrivingMode}
-                    userLocation={userLocation}
+                    usesSharedLocationProvider={usesSharedLocationProvider}
                 />
             ) : null}
             <Mapbox.Camera
@@ -905,59 +914,69 @@ export function MapCanvas() {
                     />
                 </Mapbox.ShapeSource>
             ) : null}
-            <MarkerConeImages />
-            <AlprMarkerImages />
-            <PoliceAlertImages />
-            <Mapbox.ShapeSource
-                id={markerClusteredSourceID}
-                ref={markerShapeSourceRef}
-                cluster
-                clusterMaxZoomLevel={MARKER_CLUSTER_MAX_ZOOM_LEVEL}
-                clusterRadius={MARKER_CLUSTER_RADIUS}
-                hitbox={{ height: 48, width: 48 }}
-                onPress={handleMarkerSourcePress}
-                shape={clusteredMarkerFeatureCollection}
-            >
-                {[
-                    ...renderMarkerConeLayers({
-                        idPrefix: 'map-markers-clustered',
-                        sourceID: markerClusteredSourceID,
-                        visible: cameraConesVisible,
-                    }),
-                    ...renderMarkerClusterLayers({
-                        emissiveStrength: mapOverlayEmissiveStrength,
-                        idPrefix: 'map-markers-clustered',
-                        mapRoutePalette,
-                        sourceID: markerClusteredSourceID,
-                    }),
-                    ...renderMarkerPointLayers({
-                        emissiveStrength: mapOverlayEmissiveStrength,
-                        idPrefix: 'map-markers-clustered',
-                        mapRoutePalette,
-                        sourceID: markerClusteredSourceID,
-                    }),
-                ]}
-            </Mapbox.ShapeSource>
-            <Mapbox.ShapeSource
-                id={markerUnclusteredSourceID}
-                hitbox={{ height: 48, width: 48 }}
-                onPress={handleMarkerSourcePress}
-                shape={unclusteredMarkerFeatureCollection}
-            >
-                {[
-                    ...renderMarkerConeLayers({
-                        idPrefix: 'map-markers-unclustered',
-                        sourceID: markerUnclusteredSourceID,
-                        visible: cameraConesVisible,
-                    }),
-                    ...renderMarkerPointLayers({
-                        emissiveStrength: mapOverlayEmissiveStrength,
-                        idPrefix: 'map-markers-unclustered',
-                        mapRoutePalette,
-                        sourceID: markerUnclusteredSourceID,
-                    }),
-                ]}
-            </Mapbox.ShapeSource>
+            {surveillanceMarkersVisible && cameraConesVisible ? (
+                <MarkerConeImages />
+            ) : null}
+            {surveillanceMarkersVisible ? <AlprMarkerImages /> : null}
+            {policeAlertsAreVisible ? <PoliceAlertImages /> : null}
+            {surveillanceMarkersVisible && markerClustersEnabled ? (
+                <Mapbox.ShapeSource
+                    id={markerClusteredSourceID}
+                    ref={markerShapeSourceRef}
+                    cluster
+                    clusterMaxZoomLevel={MARKER_CLUSTER_MAX_ZOOM_LEVEL}
+                    clusterRadius={MARKER_CLUSTER_RADIUS}
+                    hitbox={{ height: 48, width: 48 }}
+                    onPress={handleMarkerSourcePress}
+                    shape={markerFeatureCollection}
+                >
+                    {[
+                        ...(cameraConesVisible
+                            ? renderMarkerConeLayers({
+                                  idPrefix: 'map-markers-clustered',
+                                  sourceID: markerClusteredSourceID,
+                                  visible: true,
+                              })
+                            : []),
+                        ...renderMarkerClusterLayers({
+                            emissiveStrength: mapOverlayEmissiveStrength,
+                            idPrefix: 'map-markers-clustered',
+                            mapRoutePalette,
+                            sourceID: markerClusteredSourceID,
+                        }),
+                        ...renderMarkerPointLayers({
+                            emissiveStrength: mapOverlayEmissiveStrength,
+                            idPrefix: 'map-markers-clustered',
+                            mapRoutePalette,
+                            sourceID: markerClusteredSourceID,
+                        }),
+                    ]}
+                </Mapbox.ShapeSource>
+            ) : null}
+            {surveillanceMarkersVisible && !markerClustersEnabled ? (
+                <Mapbox.ShapeSource
+                    id={markerUnclusteredSourceID}
+                    hitbox={{ height: 48, width: 48 }}
+                    onPress={handleMarkerSourcePress}
+                    shape={markerFeatureCollection}
+                >
+                    {[
+                        ...(cameraConesVisible
+                            ? renderMarkerConeLayers({
+                                  idPrefix: 'map-markers-unclustered',
+                                  sourceID: markerUnclusteredSourceID,
+                                  visible: true,
+                              })
+                            : []),
+                        ...renderMarkerPointLayers({
+                            emissiveStrength: mapOverlayEmissiveStrength,
+                            idPrefix: 'map-markers-unclustered',
+                            mapRoutePalette,
+                            sourceID: markerUnclusteredSourceID,
+                        }),
+                    ]}
+                </Mapbox.ShapeSource>
+            ) : null}
             {policeAlertsAreVisible ? (
                 <Mapbox.ShapeSource
                     id="police-alerts-source"
@@ -986,15 +1005,6 @@ export function MapCanvas() {
                         }
                         puckBearing={puckBearing}
                         puckBearingEnabled
-                        pulsing={
-                            isFollowing
-                                ? undefined
-                                : {
-                                      color: '#1FBF6B',
-                                      isEnabled: true,
-                                      radius: 'accuracy',
-                                  }
-                        }
                         shadowImage={
                             isFollowing ? navigationPuckShadowImage : undefined
                         }
@@ -1054,4 +1064,4 @@ export function MapCanvas() {
             ) : null}
         </NativeWindMapView>
     );
-}
+});

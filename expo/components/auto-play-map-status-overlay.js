@@ -4,7 +4,12 @@ import {
     getCurrentRoadText,
 } from './map/current-road-context';
 import { MarkerLoadingIndicator } from './map/marker-loading-indicator';
-import { SpeedLimitSign, useRouteSpeedLimit } from './map/speed-limit';
+import {
+    getRouteCurrentSpeedMps,
+    SpeedLimitSign,
+    useRouteSpeedLimit,
+} from './map/speed-limit';
+import { AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE } from './map/speed-limit-layout';
 
 export function AutoPlayMapStatusOverlay({
     activeDirectionsRoute,
@@ -65,8 +70,10 @@ export function AutoPlayMapStatusOverlay({
             ) : null}
 
             <SpeedLimitSign
-                currentSpeedMps={userLocation?.speed}
+                currentSpeedMps={getRouteCurrentSpeedMps(userLocation)}
                 currentSpeedVisible
+                isDarkMode={presentation.isDarkMapLayer}
+                size={AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE}
                 speedLimit={speedLimit}
                 testID="android-auto-speed-limit-sign"
                 valueTestID="android-auto-speed-limit-value"

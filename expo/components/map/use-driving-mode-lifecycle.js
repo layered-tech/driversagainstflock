@@ -1,5 +1,5 @@
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { logMapDrivingStarted } from './analytics';
 import {
@@ -48,14 +48,17 @@ export function useStartDrivingAction({
 }
 
 export function useDrivingModeLifecycle({
+    appStateIsActive = true,
     directionsRoute,
     isDrivingMode,
+    screenIsFocused = true,
     lockOnLocationUpdateAnimationDurationRef,
     pendingDirectionsRequest,
     searchController,
     selectedDirectionsRouteOption,
     setDrivingModeIsActive,
 }) {
+    const wakeLockShouldBeActiveRef = useRef(false);
     const routeOrDestinationIsActive = Boolean(
         directionsRoute ||
         pendingDirectionsRequest?.destinationWaypoint ||
@@ -76,15 +79,16 @@ export function useDrivingModeLifecycle({
     }, [isDrivingMode, selectedDirectionsRouteOption, setDrivingModeIsActive]);
 
     useEffect(() => {
-        if (!isDrivingMode) {
+        if (!appStateIsActive || !isDrivingMode || !screenIsFocused) {
+            wakeLockShouldBeActiveRef.current = false;
             return undefined;
         }
 
-        let isActive = true;
+        wakeLockShouldBeActiveRef.current = true;
 
         activateKeepAwakeAsync(DRIVING_MODE_WAKE_LOCK_TAG)
             .then(() => {
-                if (!isActive) {
+                if (!wakeLockShouldBeActiveRef.current) {
                     deactivateKeepAwake(DRIVING_MODE_WAKE_LOCK_TAG).catch(
                         () => {},
                     );
@@ -93,8 +97,8 @@ export function useDrivingModeLifecycle({
             .catch(() => {});
 
         return () => {
-            isActive = false;
+            wakeLockShouldBeActiveRef.current = false;
             deactivateKeepAwake(DRIVING_MODE_WAKE_LOCK_TAG).catch(() => {});
         };
-    }, [isDrivingMode]);
+    }, [appStateIsActive, isDrivingMode, screenIsFocused]);
 }

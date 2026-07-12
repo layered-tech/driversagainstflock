@@ -24,8 +24,16 @@ import {
     ReroutingCard,
 } from './driving-guidance-cards';
 import { NativeWindSafeAreaView } from './native-components';
-import { useSharedMapState } from './shared-map-state';
-import { SpeedLimitSign, useRouteSpeedLimit } from './speed-limit';
+import {
+    useSharedMapLocationState,
+    useSharedMapState,
+} from './shared-map-state';
+import {
+    getRouteCurrentSpeedMps,
+    SpeedLimitSign,
+    useRouteSpeedLimit,
+} from './speed-limit';
+import { MOBILE_SPEED_LIMIT_BADGE_SIZE } from './speed-limit-layout';
 
 const DRIVING_REROUTE_CONFIRMATION_MS = 2000;
 const DRIVING_REROUTE_COOLDOWN_MS = 8000;
@@ -97,8 +105,8 @@ export function DrivingGuidanceOverlay({ children }) {
         setDrivingModeIsActive,
         setPendingDirectionsRequest,
         setPendingSearchResultRestore,
-        userLocation,
     } = useSharedMapState();
+    const { userLocation } = useSharedMapLocationState();
     const routeOption = getSelectedDirectionsRouteOption(directionsRoute);
     const routeProgress = useMemo(
         () => getDirectionsRouteProgress(directionsRoute, userLocation),
@@ -336,9 +344,11 @@ export function DrivingGuidanceOverlay({ children }) {
             >
                 <View pointerEvents="box-none">
                     <SpeedLimitSign
-                        currentSpeedMps={userLocation?.speed}
+                        currentSpeedMps={getRouteCurrentSpeedMps(userLocation)}
                         currentSpeedPlacement="bottom-right"
                         currentSpeedVisible
+                        isDarkMode={colorScheme === 'dark'}
+                        size={MOBILE_SPEED_LIMIT_BADGE_SIZE}
                         speedLimit={speedLimit}
                     />
                 </View>

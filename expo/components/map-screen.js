@@ -1,4 +1,5 @@
 import { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { useIsFocused } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Pressable, useWindowDimensions, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
@@ -39,6 +40,7 @@ import {
     useMapControlsContextValue,
     useMapDebugControlsContextValue,
     useMapLayerContextValue,
+    useMapLocationContextValue,
     useMapSearchContextValue,
     useMarkerDetailsContextValue,
     usePermissionSheetContextValue,
@@ -49,7 +51,10 @@ import { MapSearchOverlay } from './map/map-search-overlay';
 import { MarkerDetailsSheet } from './map/marker-details-sheet';
 import { NativeWindSafeAreaView } from './map/native-components';
 import { SelectedPlaceSheet } from './map/selected-place-sheet';
-import { useSharedMapState } from './map/shared-map-state';
+import {
+    useSharedMapLocationState,
+    useSharedMapState,
+} from './map/shared-map-state';
 import {
     getDrivingCameraFollowOptions,
     useDrivingModeLifecycle,
@@ -91,6 +96,7 @@ export default function LocationMapScreen({
     const { height: windowHeight, width: windowWidth } = useWindowDimensions();
     const bottomSheetAnimatedPosition = useSharedValue(windowHeight);
     const safeAreaInsets = useSafeAreaInsets();
+    const screenIsFocused = useIsFocused();
     const {
         debugOverlayVisibility,
         drivingModeIsActive,
@@ -129,9 +135,8 @@ export default function LocationMapScreen({
         setLocalityBoundary,
         setPendingDirectionsRequest,
         setPendingSearchResultRestore,
-        setUserLocation,
-        userLocation,
     } = useSharedMapState();
+    const { setUserLocation, userLocation } = useSharedMapLocationState();
     const isDrivingMode = drivingModeIsActive;
     const cameraDebugStateUpdatesEnabled =
         SHOW_MAP_DEBUG_CONTROLS &&
@@ -187,8 +192,11 @@ export default function LocationMapScreen({
         initialCameraSettings,
         isDrivingMode,
         lockOnLocationUpdateAnimationDurationRef,
+        mapBearingUpdatesEnabled: Boolean(selectedMarker),
         mapPreferencesAreLoaded,
+        markersAreVisible: surveillanceMarkersVisible,
         scheduleSharedMarkerLoad,
+        screenIsFocused,
         setUserLocation,
         userLocation,
     });
@@ -357,10 +365,12 @@ export default function LocationMapScreen({
         setSelectedMarker(null);
     }, [markerDetailsSheetRef, setSelectedMarker]);
     useDrivingModeLifecycle({
+        appStateIsActive: locationController.appStateIsActive,
         directionsRoute,
         isDrivingMode,
         lockOnLocationUpdateAnimationDurationRef,
         pendingDirectionsRequest,
+        screenIsFocused,
         searchController,
         selectedDirectionsRouteOption,
         setDrivingModeIsActive,
@@ -434,7 +444,7 @@ export default function LocationMapScreen({
         e2eMapApiMocksEnabled: e2eMapApiMocksAreRequested,
         handleMapPress,
         handleMarkerSourcePress,
-        initialCameraSettings,
+        initialCameraSettings: locationController.remountCameraSettings,
         isDrivingMode,
         locationController,
         mapLightPreset,
@@ -450,8 +460,8 @@ export default function LocationMapScreen({
         policeAlertsVisible,
         presentation,
         searchController,
-        userLocation,
     });
+    const locationValue = useMapLocationContextValue(userLocation);
     const controlsValue = useMapControlsContextValue({
         handleMarkerLoadingIndicatorHidden,
         locationController,
@@ -560,6 +570,7 @@ export default function LocationMapScreen({
             debugControlsValue={debugControlsValue}
             directionsRouteValue={directionsRouteValue}
             layerValue={layerValue}
+            locationValue={locationValue}
             markerDetailsValue={markerDetailsValue}
             permissionSheetValue={permissionSheetValue}
             placeSheetValue={placeSheetValue}
@@ -567,92 +578,98 @@ export default function LocationMapScreen({
             searchValue={searchValue}
         >
             <View className="flex-1 bg-white dark:bg-neutral-950">
-                <MapCanvas />
-                {isDrivingMode ? (
-                    <DrivingGuidanceOverlay>
-                        <MapControlsOverlay />
-                    </DrivingGuidanceOverlay>
-                ) : (
-                    <NativeWindSafeAreaView
-                        className="absolute inset-0 z-40 px-3 pt-3"
-                        edges={['top', 'right', 'left']}
-                        pointerEvents="box-none"
-                    >
-                        {resolvedMapSearchOverlayIsVisible ? (
-                            <MapSearchOverlay
-                                mapControls={
-                                    mapChromeIsVisible ? (
-                                        <MapControlsOverlay />
-                                    ) : null
-                                }
-                            />
-                        ) : null}
-                        {routeComparisonIsActive ? (
-                            <Pressable
-                                accessibilityLabel="Back from route choices"
-                                accessibilityRole="button"
-                                className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90 h-11 w-11 items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82]"
-                                onPress={
-                                    searchController.handleDirectionsModeDismiss
-                                }
-                                testID="directions-route-back-button"
+                {screenIsFocused ? (
+                    <>
+                        <MapCanvas />
+                        {isDrivingMode ? (
+                            <DrivingGuidanceOverlay>
+                                <MapControlsOverlay />
+                            </DrivingGuidanceOverlay>
+                        ) : (
+                            <NativeWindSafeAreaView
+                                className="absolute inset-0 z-40 px-3 pt-3"
+                                edges={['top', 'right', 'left']}
+                                pointerEvents="box-none"
                             >
-                                {/* Nudge the chevron left so it reads as optically centered in the pill. */}
-                                <View className="-translate-x-px">
-                                    <Icon
-                                        color={
-                                            presentation.searchPrimaryIconColor
+                                {resolvedMapSearchOverlayIsVisible ? (
+                                    <MapSearchOverlay
+                                        mapControls={
+                                            mapChromeIsVisible ? (
+                                                <MapControlsOverlay />
+                                            ) : null
                                         }
-                                        name="chevron-left"
-                                        size={22}
                                     />
-                                </View>
-                            </Pressable>
-                        ) : null}
-                        {markerDetailsModeIsActive ? (
-                            <View className="items-end">
-                                <Pressable
-                                    accessibilityLabel="Close marker details"
-                                    accessibilityRole="button"
-                                    className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90 h-11 w-11 items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82]"
-                                    onPress={handleMarkerDetailsClosePress}
-                                    testID="marker-details-close-button"
-                                >
-                                    <Icon
-                                        color={
-                                            presentation.searchPrimaryIconColor
+                                ) : null}
+                                {routeComparisonIsActive ? (
+                                    <Pressable
+                                        accessibilityLabel="Back from route choices"
+                                        accessibilityRole="button"
+                                        className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90 h-11 w-11 items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82]"
+                                        onPress={
+                                            searchController.handleDirectionsModeDismiss
                                         }
-                                        name="x"
-                                        size={21}
-                                    />
-                                </Pressable>
-                            </View>
-                        ) : null}
-                        {placeDetailsModeIsActive ? (
-                            <View className="items-end">
-                                <Pressable
-                                    accessibilityLabel="Close place details"
-                                    accessibilityRole="button"
-                                    className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90 h-11 w-11 items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82]"
-                                    onPress={
-                                        searchController.handleClearSelectedSearchResult
-                                    }
-                                    testID="place-details-close-button"
-                                >
-                                    <Icon
-                                        color={
-                                            presentation.searchPrimaryIconColor
-                                        }
-                                        name="x"
-                                        size={21}
-                                    />
-                                </Pressable>
-                            </View>
-                        ) : null}
-                    </NativeWindSafeAreaView>
-                )}
-                <MapFullScreenSearch />
-                {mapChromeIsVisible ? <MapDebugControls /> : null}
+                                        testID="directions-route-back-button"
+                                    >
+                                        {/* Nudge the chevron left so it reads as optically centered in the pill. */}
+                                        <View className="-translate-x-px">
+                                            <Icon
+                                                color={
+                                                    presentation.searchPrimaryIconColor
+                                                }
+                                                name="chevron-left"
+                                                size={22}
+                                            />
+                                        </View>
+                                    </Pressable>
+                                ) : null}
+                                {markerDetailsModeIsActive ? (
+                                    <View className="items-end">
+                                        <Pressable
+                                            accessibilityLabel="Close marker details"
+                                            accessibilityRole="button"
+                                            className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90 h-11 w-11 items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82]"
+                                            onPress={
+                                                handleMarkerDetailsClosePress
+                                            }
+                                            testID="marker-details-close-button"
+                                        >
+                                            <Icon
+                                                color={
+                                                    presentation.searchPrimaryIconColor
+                                                }
+                                                name="x"
+                                                size={21}
+                                            />
+                                        </Pressable>
+                                    </View>
+                                ) : null}
+                                {placeDetailsModeIsActive ? (
+                                    <View className="items-end">
+                                        <Pressable
+                                            accessibilityLabel="Close place details"
+                                            accessibilityRole="button"
+                                            className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90 h-11 w-11 items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82]"
+                                            onPress={
+                                                searchController.handleClearSelectedSearchResult
+                                            }
+                                            testID="place-details-close-button"
+                                        >
+                                            <Icon
+                                                color={
+                                                    presentation.searchPrimaryIconColor
+                                                }
+                                                name="x"
+                                                size={21}
+                                            />
+                                        </Pressable>
+                                    </View>
+                                ) : null}
+                            </NativeWindSafeAreaView>
+                        )}
+                        <MapFullScreenSearch />
+                        {mapChromeIsVisible ? <MapDebugControls /> : null}
+                    </>
+                ) : null}
                 <MarkerDetailsSheet />
                 <SelectedPlaceSheet />
                 {!isDrivingMode ? <DirectionsRouteSheet /> : null}

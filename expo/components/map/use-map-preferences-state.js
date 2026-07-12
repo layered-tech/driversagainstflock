@@ -1,10 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import { MAP_PREFERENCES_STORAGE_KEY } from './constants';
 import {
     DEBUG_OVERLAY_KEYS,
     getAllDebugOverlayVisibility,
     getDebugOverlayIsVisible,
+    getDebugOverlayVisibilityKey,
     getDebugOverlayVisibilityWithDefaults,
 } from './debug-overlays';
 import {
@@ -26,11 +28,21 @@ import {
     getStoredUserLocation,
     parseStoredMapPreferences,
 } from './map-preferences';
+import { createMapPreferencesPersistenceScheduler } from './map-preferences-persistence';
 import {
     addSharedMapPreferencesStateListener,
     getSharedMapPreferencesState,
     setSharedMapPreferencesState,
 } from './shared-map-preferences-sync';
+
+const mapPreferencesPersistenceScheduler =
+    createMapPreferencesPersistenceScheduler({
+        write: (serializedPreferences) =>
+            AsyncStorage.setItem(
+                MAP_PREFERENCES_STORAGE_KEY,
+                serializedPreferences,
+            ),
+    });
 
 export function useMapPreferencesState() {
     const defaultMapStyleURL = getDefaultMapStyleURL();
@@ -40,6 +52,7 @@ export function useMapPreferencesState() {
     const mapStyleWasSelectedRef = useRef(
         sharedMapPreferences.mapStyleIsUserSelected === true,
     );
+    const persistedSettingsKeyRef = useRef('');
     const [initialCameraSettings, setInitialCameraSettings] = useState(
         () =>
             sharedMapPreferences.initialCameraSettings ??
@@ -124,16 +137,29 @@ export function useMapPreferencesState() {
             );
             setPreferPrivateRoutes(preferences.preferPrivateRoutes === true);
             setPoliceAlertsVisible(preferences.policeAlertsVisible === true);
-            setDebugOverlayVisibilityState(
+            const nextDebugOverlayVisibility =
                 getDebugOverlayVisibilityWithDefaults(
                     preferences.debugOverlayVisibility,
                     preferences.debugOverlayIsVisible === true,
-                ),
+                );
+
+            setDebugOverlayVisibilityState((currentVisibility) =>
+                getDebugOverlayVisibilityKey(currentVisibility) ===
+                getDebugOverlayVisibilityKey(nextDebugOverlayVisibility)
+                    ? currentVisibility
+                    : nextDebugOverlayVisibility,
             );
-            setMapDebugControlOffset({
+            const nextMapDebugControlOffset = {
                 x: preferences.mapDebugControlOffset?.x ?? 0,
                 y: preferences.mapDebugControlOffset?.y ?? 0,
-            });
+            };
+
+            setMapDebugControlOffset((currentOffset) =>
+                currentOffset.x === nextMapDebugControlOffset.x &&
+                currentOffset.y === nextMapDebugControlOffset.y
+                    ? currentOffset
+                    : nextMapDebugControlOffset,
+            );
             setUserLocation(preferences.userLocation ?? null);
         },
         [defaultMapLightPresetPreference, defaultMapStyleURL],
@@ -252,6 +278,22 @@ export function useMapPreferencesState() {
     );
 
     useEffect(() => {
+        const appStateSubscription = AppState.addEventListener(
+            'change',
+            (appState) => {
+                if (appState !== 'active') {
+                    void mapPreferencesPersistenceScheduler.flush();
+                }
+            },
+        );
+
+        return () => {
+            appStateSubscription.remove();
+            void mapPreferencesPersistenceScheduler.flush();
+        };
+    }, []);
+
+    useEffect(() => {
         if (!mapPreferencesAreLoaded) {
             return;
         }
@@ -277,6 +319,27 @@ export function useMapPreferencesState() {
             policeAlertsVisible,
             userLocation,
         });
+    }, [
+        debugOverlayVisibility,
+        initialCameraSettings,
+        mapDebugControlOffset,
+        mapLightPresetPreference,
+        mapPreferencesAreLoaded,
+        mapStyleIsUserSelected,
+        mapStyleURL,
+        mapTrafficEnabled,
+        surveillanceMarkersVisible,
+        markerClustersEnabled,
+        cameraConesVisible,
+        preferPrivateRoutes,
+        policeAlertsVisible,
+        userLocation,
+    ]);
+
+    useEffect(() => {
+        if (!mapPreferencesAreLoaded) {
+            return;
+        }
 
         const preferences = getPersistableMapPreferences(
             mapStyleURL,
@@ -292,16 +355,19 @@ export function useMapPreferencesState() {
             preferPrivateRoutes,
             policeAlertsVisible,
         );
-
-        AsyncStorage.setItem(
-            MAP_PREFERENCES_STORAGE_KEY,
-            JSON.stringify(preferences),
-        ).catch(() => {
-            // Persisted map state should never interrupt map interaction.
+        const settingsKey = JSON.stringify({
+            ...preferences,
+            userLocation: null,
         });
+        const settingsChanged = settingsKey !== persistedSettingsKeyRef.current;
+
+        persistedSettingsKeyRef.current = settingsKey;
+        mapPreferencesPersistenceScheduler.schedule(
+            JSON.stringify(preferences),
+            { immediate: settingsChanged },
+        );
     }, [
         debugOverlayVisibility,
-        initialCameraSettings,
         mapDebugControlOffset,
         mapLightPresetPreference,
         mapPreferencesAreLoaded,

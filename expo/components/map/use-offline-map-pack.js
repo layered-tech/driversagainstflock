@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { offlineManager, OfflinePackDownloadState } from '@rnmapbox/maps';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     formatBytes,
     formatOfflineBounds,
@@ -700,7 +700,7 @@ export function useOfflineMapPack({ currentMapBounds, mapStyleURL }) {
     useEffect(() => {
         if (
             !offlinePack ||
-            offlineDownloadIsComplete ||
+            !offlineDownloadIsActive ||
             selectionDiffersFromPack ||
             isDeletingOfflinePack
         ) {
@@ -734,7 +734,7 @@ export function useOfflineMapPack({ currentMapBounds, mapStyleURL }) {
         };
     }, [
         isDeletingOfflinePack,
-        offlineDownloadIsComplete,
+        offlineDownloadIsActive,
         offlinePack,
         selectionDiffersFromPack,
         updateOfflineDownloadAttemptFromStatus,

@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo } from 'react';
 
 const MapCanvasContext = createContext(null);
+const MapLocationContext = createContext(null);
 const MapControlsContext = createContext(null);
 const MapLayerContext = createContext(null);
 const MarkerDetailsContext = createContext(null);
@@ -31,6 +32,7 @@ export function MapScreenProviders({
     debugControlsValue,
     directionsRouteValue,
     layerValue,
+    locationValue,
     markerDetailsValue,
     permissionSheetValue,
     placeSheetValue,
@@ -40,33 +42,39 @@ export function MapScreenProviders({
 }) {
     return (
         <MapCanvasContext.Provider value={canvasValue}>
-            <MapControlsContext.Provider value={controlsValue}>
-                <MapLayerContext.Provider value={layerValue}>
-                    <MarkerDetailsContext.Provider value={markerDetailsValue}>
-                        <MapSearchContext.Provider value={searchValue}>
-                            <PlaceSheetContext.Provider value={placeSheetValue}>
-                                <PermissionSheetContext.Provider
-                                    value={permissionSheetValue}
+            <MapLocationContext.Provider value={locationValue}>
+                <MapControlsContext.Provider value={controlsValue}>
+                    <MapLayerContext.Provider value={layerValue}>
+                        <MarkerDetailsContext.Provider
+                            value={markerDetailsValue}
+                        >
+                            <MapSearchContext.Provider value={searchValue}>
+                                <PlaceSheetContext.Provider
+                                    value={placeSheetValue}
                                 >
-                                    <DebugControlsContext.Provider
-                                        value={debugControlsValue}
+                                    <PermissionSheetContext.Provider
+                                        value={permissionSheetValue}
                                     >
-                                        <DirectionsRouteContext.Provider
-                                            value={directionsRouteValue}
+                                        <DebugControlsContext.Provider
+                                            value={debugControlsValue}
                                         >
-                                            <SearchResultsContext.Provider
-                                                value={searchResultsValue}
+                                            <DirectionsRouteContext.Provider
+                                                value={directionsRouteValue}
                                             >
-                                                {children}
-                                            </SearchResultsContext.Provider>
-                                        </DirectionsRouteContext.Provider>
-                                    </DebugControlsContext.Provider>
-                                </PermissionSheetContext.Provider>
-                            </PlaceSheetContext.Provider>
-                        </MapSearchContext.Provider>
-                    </MarkerDetailsContext.Provider>
-                </MapLayerContext.Provider>
-            </MapControlsContext.Provider>
+                                                <SearchResultsContext.Provider
+                                                    value={searchResultsValue}
+                                                >
+                                                    {children}
+                                                </SearchResultsContext.Provider>
+                                            </DirectionsRouteContext.Provider>
+                                        </DebugControlsContext.Provider>
+                                    </PermissionSheetContext.Provider>
+                                </PlaceSheetContext.Provider>
+                            </MapSearchContext.Provider>
+                        </MarkerDetailsContext.Provider>
+                    </MapLayerContext.Provider>
+                </MapControlsContext.Provider>
+            </MapLocationContext.Provider>
         </MapCanvasContext.Provider>
     );
 }
@@ -93,7 +101,6 @@ export function useMapCanvasContextValue({
     policeAlertsVisible,
     presentation,
     searchController,
-    userLocation,
 }) {
     return useMemo(
         () => ({
@@ -129,7 +136,6 @@ export function useMapCanvasContextValue({
             policeAlertFeatureCollection,
             policeAlertsVisible,
             submittedSearchResults: searchController.submittedSearchResults,
-            userLocation,
         }),
         [
             directionsDebugFeatureCollection,
@@ -163,9 +169,12 @@ export function useMapCanvasContextValue({
             presentation.mapCompassPosition,
             searchController.handleSubmittedSearchResultPress,
             searchController.submittedSearchResults,
-            userLocation,
         ],
     );
+}
+
+export function useMapLocationContextValue(userLocation) {
+    return useMemo(() => ({ userLocation }), [userLocation]);
 }
 
 export function useMapControlsContextValue({
@@ -680,6 +689,7 @@ export function useAutoPlayMapScreenContextValues({
     mapPreferences,
     markerFeatureCollection,
     policeAlertFeatureCollection,
+    preferredFramesPerSecond,
     presentation,
 }) {
     const canvasValue = useMemo(
@@ -715,8 +725,9 @@ export function useAutoPlayMapScreenContextValues({
             navigationPuckVariant: 'auto-play',
             policeAlertFeatureCollection,
             policeAlertsVisible: mapPreferences.policeAlertsVisible,
+            preferredFramesPerSecond,
             submittedSearchResults: EMPTY_ANDROID_AUTO_SUBMITTED_SEARCH_RESULTS,
-            userLocation: mapPreferences.userLocation,
+            usesSharedLocationProvider: true,
         }),
         [
             controller.cameraRef,
@@ -741,13 +752,16 @@ export function useAutoPlayMapScreenContextValues({
             mapPreferences.markerClustersEnabled,
             mapPreferences.cameraConesVisible,
             mapPreferences.policeAlertsVisible,
-            mapPreferences.userLocation,
             markerFeatureCollection,
             policeAlertFeatureCollection,
+            preferredFramesPerSecond,
             presentation.mapboxAttributionPosition,
             presentation.mapboxLogoPosition,
             presentation.mapCompassPosition,
         ],
+    );
+    const locationValue = useMapLocationContextValue(
+        mapPreferences.userLocation,
     );
     const placeSheetValue = useMemo(
         () => ({
@@ -765,18 +779,23 @@ export function useAutoPlayMapScreenContextValues({
             debugControlsValue: EMPTY_MAP_SCREEN_CONTEXT_VALUE,
             directionsRouteValue: EMPTY_MAP_SCREEN_CONTEXT_VALUE,
             layerValue: EMPTY_MAP_SCREEN_CONTEXT_VALUE,
+            locationValue,
             markerDetailsValue: EMPTY_MAP_SCREEN_CONTEXT_VALUE,
             permissionSheetValue: EMPTY_MAP_SCREEN_CONTEXT_VALUE,
             placeSheetValue,
             searchResultsValue: EMPTY_MAP_SCREEN_CONTEXT_VALUE,
             searchValue: EMPTY_MAP_SCREEN_CONTEXT_VALUE,
         }),
-        [canvasValue, placeSheetValue],
+        [canvasValue, locationValue, placeSheetValue],
     );
 }
 
 export function useMapCanvasContext() {
     return useRequiredContext(MapCanvasContext, 'useMapCanvasContext');
+}
+
+export function useMapLocationContext() {
+    return useRequiredContext(MapLocationContext, 'useMapLocationContext');
 }
 
 export function useMapControlsContext() {

@@ -10,18 +10,7 @@ import {
     getLocationUpdate,
     getSmoothedCourseHeading,
 } from './geo';
-
-const DEFAULT_LOCATION_WATCH_OPTIONS = {
-    accuracy: Location.Accuracy.High,
-    distanceInterval: 1,
-    timeInterval: 1000,
-};
-const DRIVING_LOCATION_WATCH_OPTIONS = {
-    accuracy: Location.Accuracy.BestForNavigation,
-    distanceInterval: 0,
-    mayShowUserSettingsDialog: true,
-    timeInterval: 250,
-};
+import { getLocationWatchOptions } from './location-watch-options';
 
 let lastLoggedEnhancedSpeedLimitKey = '';
 let foregroundEnhancedLocationWatchCount = 0;
@@ -317,6 +306,7 @@ export function useLocationWatch({
     enabled = true,
     handleUserLocationUpdate,
     isDrivingMode,
+    isLocationTrackingActive = false,
     isMountedRef,
     locationAccessGranted,
     setLocationError,
@@ -329,9 +319,11 @@ export function useLocationWatch({
         let subscription = null;
 
         Location.watchPositionAsync(
-            isDrivingMode
-                ? DRIVING_LOCATION_WATCH_OPTIONS
-                : DEFAULT_LOCATION_WATCH_OPTIONS,
+            getLocationWatchOptions({
+                accuracies: Location.Accuracy,
+                isDrivingMode,
+                isLocationTrackingActive,
+            }),
             (location) => {
                 if (isActive) {
                     handleUserLocationUpdate(location);
@@ -362,6 +354,7 @@ export function useLocationWatch({
         enabled,
         handleUserLocationUpdate,
         isDrivingMode,
+        isLocationTrackingActive,
         isMountedRef,
         locationAccessGranted,
         setLocationError,

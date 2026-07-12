@@ -10,6 +10,7 @@ import { useMarkerLoader } from './use-marker-loader';
 import { useWazePoliceAlerts } from './use-waze-police-alerts';
 
 const SharedMapStateContext = createContext(null);
+const SharedMapLocationStateContext = createContext(null);
 
 export function SharedMapStateProvider({ children }) {
     const mapPreferences = useMapPreferencesState();
@@ -104,24 +105,59 @@ export function SharedMapStateProvider({ children }) {
             setCameraConesVisible: mapPreferences.setCameraConesVisible,
             setPreferPrivateRoutes: mapPreferences.setPreferPrivateRoutes,
             setPoliceAlertsVisible: mapPreferences.setPoliceAlertsVisible,
-            setUserLocation: mapPreferences.setUserLocation,
-            userLocation: mapPreferences.userLocation,
         }),
         [
             directionsRoute,
             drivingModeIsActive,
             localityBoundary,
-            mapPreferences,
-            markerLoader,
+            mapPreferences.cameraConesVisible,
+            mapPreferences.debugOverlayIsVisible,
+            mapPreferences.debugOverlayVisibility,
+            mapPreferences.initialCameraSettings,
+            mapPreferences.mapDebugControlOffset,
+            mapPreferences.mapLightPresetPreference,
+            mapPreferences.mapPreferencesAreLoaded,
+            mapPreferences.mapStyleURL,
+            mapPreferences.mapTrafficEnabled,
+            mapPreferences.markerClustersEnabled,
+            mapPreferences.policeAlertsVisible,
+            mapPreferences.preferPrivateRoutes,
+            mapPreferences.selectMapStyleURL,
+            mapPreferences.setCameraConesVisible,
+            mapPreferences.setDebugOverlayIsVisible,
+            mapPreferences.setDebugOverlayVisibility,
+            mapPreferences.setMapDebugControlOffset,
+            mapPreferences.setMapLightPresetPreference,
+            mapPreferences.setMapTrafficEnabled,
+            mapPreferences.setMarkerClustersEnabled,
+            mapPreferences.setPoliceAlertsVisible,
+            mapPreferences.setPreferPrivateRoutes,
+            mapPreferences.setSurveillanceMarkersVisible,
+            mapPreferences.surveillanceMarkersVisible,
+            markerLoader.handleMarkerLoadingIndicatorHidden,
+            markerLoader.markerLoadError,
+            markerLoader.markerLoadingIndicatorIsVisible,
+            markerLoader.markerPoints,
+            markerLoader.renderMarkerLoadingIndicator,
+            markerLoader.scheduleMarkerLoad,
             pendingDirectionsRequest,
             pendingSearchResultRestore,
-            policeAlertsLoader,
+            policeAlertsLoader.policeAlerts,
         ],
+    );
+    const locationValue = useMemo(
+        () => ({
+            setUserLocation: mapPreferences.setUserLocation,
+            userLocation: mapPreferences.userLocation,
+        }),
+        [mapPreferences.setUserLocation, mapPreferences.userLocation],
     );
 
     return (
         <SharedMapStateContext.Provider value={value}>
-            {children}
+            <SharedMapLocationStateContext.Provider value={locationValue}>
+                {children}
+            </SharedMapLocationStateContext.Provider>
         </SharedMapStateContext.Provider>
     );
 }
@@ -136,4 +172,16 @@ export function useSharedMapState() {
     }
 
     return sharedMapState;
+}
+
+export function useSharedMapLocationState() {
+    const sharedMapLocationState = useContext(SharedMapLocationStateContext);
+
+    if (!sharedMapLocationState) {
+        throw new Error(
+            'useSharedMapLocationState must be rendered inside SharedMapStateProvider.',
+        );
+    }
+
+    return sharedMapLocationState;
 }
