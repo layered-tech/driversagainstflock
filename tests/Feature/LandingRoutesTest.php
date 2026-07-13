@@ -2,6 +2,7 @@
 
 use App\Models\OsmNode;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 use MatanYadaev\EloquentSpatial\Objects\Point;
@@ -48,9 +49,17 @@ test('landing apk link points to the download route', function () {
         ->not->toContain("const apkUrl = '/assets/com.anonymous.drivefree.apk';");
 });
 
-test('android apk route redirects to the hosted download', function () {
-    $this->get('/downloads/android-apk')
-        ->assertRedirect('https://drive.proton.me/urls/JN8MTAH4FM#5BvW7rnB6krr');
+test('android apk route downloads the APK from S3', function () {
+    Storage::fake('s3');
+    Storage::disk('s3')->put('android.apk', 'APK contents');
+
+    $response = $this->get('/downloads/android-apk');
+
+    $response
+        ->assertOk()
+        ->assertDownload('android.apk');
+
+    expect($response->streamedContent())->toBe('APK contents');
 });
 
 test('daf site footer fills available viewport space on base pages', function () {

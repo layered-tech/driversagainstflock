@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DownloadAndroidApkController extends Controller
 {
-    private const APK_DOWNLOAD_URL = 'https://drive.proton.me/urls/JN8MTAH4FM#5BvW7rnB6krr';
+    private const APK_PATH = 'android.apk';
 
-    public function __invoke(): RedirectResponse
+    public function __invoke(): StreamedResponse
     {
-        return redirect()->away(self::APK_DOWNLOAD_URL);
+        return Storage::disk('s3')->download(self::APK_PATH);
     }
 }
