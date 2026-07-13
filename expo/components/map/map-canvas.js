@@ -581,6 +581,7 @@ export const MapCanvas = memo(function MapCanvas() {
           : 'course';
     const resolvedNavigationPuckVariant = navigationPuckVariant || 'default';
     const navigationPuckIsVisible = shouldShowNavigationPuck({
+        isDrivingMode,
         isFollowing,
         navigationPuckVariant: resolvedNavigationPuckVariant,
     });

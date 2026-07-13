@@ -9,6 +9,7 @@ describe('location puck state', () => {
     test('always uses the navigation arrow on Auto Play surfaces', () => {
         assert.equal(
             shouldShowNavigationPuck({
+                isDrivingMode: false,
                 isFollowing: false,
                 navigationPuckVariant: 'auto-play',
             }),
@@ -17,9 +18,18 @@ describe('location puck state', () => {
         assert.equal(shouldUseAutoPlayNavigationPuckImages('auto-play'), true);
     });
 
-    test('keeps the phone navigation arrow tied to follow state', () => {
+    test('keeps the phone navigation arrow visible during active navigation', () => {
         assert.equal(
             shouldShowNavigationPuck({
+                isDrivingMode: true,
+                isFollowing: false,
+                navigationPuckVariant: 'default',
+            }),
+            true,
+        );
+        assert.equal(
+            shouldShowNavigationPuck({
+                isDrivingMode: false,
                 isFollowing: false,
                 navigationPuckVariant: 'default',
             }),
@@ -27,6 +37,7 @@ describe('location puck state', () => {
         );
         assert.equal(
             shouldShowNavigationPuck({
+                isDrivingMode: false,
                 isFollowing: true,
                 navigationPuckVariant: 'default',
             }),
