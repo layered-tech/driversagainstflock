@@ -1,13 +1,5 @@
 import { View } from 'react-native';
-import {
-    CurrentRoadPill,
-    getCurrentRoadText,
-} from './map/current-road-context';
-import {
-    AUTO_PLAY_LOCATION_PUCK_HEIGHT,
-    getCurrentRoadPillTop,
-    shouldShowCurrentRoadPill,
-} from './map/current-road-pill-layout';
+import { DrivingLocationRoadStack } from './map/driving-location-road-stack';
 import { MarkerLoadingIndicator } from './map/marker-loading-indicator';
 import {
     getRouteCurrentSpeedMps,
@@ -16,42 +8,12 @@ import {
 } from './map/speed-limit';
 import { AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE } from './map/speed-limit-layout';
 
-function getCurrentRoadPillPosition({
-    followViewportAnchorY,
-    viewportMetrics,
-}) {
-    const visibleRect = viewportMetrics?.visibleRect;
-    const viewportWidth = Number(viewportMetrics?.width);
-    const visibleLeft = Number(visibleRect?.left);
-    const visibleRight = Number(visibleRect?.right);
-    const pillTop = getCurrentRoadPillTop({
-        locationAnchorY: followViewportAnchorY,
-        locationPuckHeight: AUTO_PLAY_LOCATION_PUCK_HEIGHT,
-    });
-
-    if (
-        pillTop === null ||
-        !Number.isFinite(viewportWidth) ||
-        !Number.isFinite(visibleLeft) ||
-        !Number.isFinite(visibleRight) ||
-        visibleRight <= visibleLeft
-    ) {
-        return null;
-    }
-
-    return {
-        left: visibleLeft,
-        right: Math.max(0, viewportWidth - visibleRight),
-        top: pillTop,
-    };
-}
-
 export function AutoPlayMapStatusOverlay({
     activeDirectionsRoute,
-    followViewportAnchorY,
     freeDriveIsActive,
     markerLoader,
     mapPreferencesAreLoaded,
+    onLocationAnchorLayout,
     presentation,
     userLocation,
     viewportMetrics,
@@ -64,42 +26,24 @@ export function AutoPlayMapStatusOverlay({
     const speedLimitIsVisible = Number.isFinite(
         Number(speedLimit?.speedLimitMph),
     );
-    const currentRoadIsVisible = shouldShowCurrentRoadPill({
-        roadText: getCurrentRoadText(userLocation),
-    });
-    const currentRoadPillPosition = getCurrentRoadPillPosition({
-        followViewportAnchorY,
-        viewportMetrics,
-    });
-    const currentRoadPillIsVisible =
-        currentRoadIsVisible && currentRoadPillPosition !== null;
     const markerLoadingIsVisible =
         mapPreferencesAreLoaded && markerLoader.renderMarkerLoadingIndicator;
     const bottomOffset = speedLimitIsVisible ? 10 : 0;
 
-    if (
-        !markerLoadingIsVisible &&
-        !speedLimitIsVisible &&
-        !currentRoadPillIsVisible
-    ) {
-        return null;
-    }
-
     return (
         <>
-            {currentRoadPillIsVisible ? (
-                <View
-                    className="absolute items-center px-3"
-                    pointerEvents="none"
-                    style={currentRoadPillPosition}
-                >
-                    <CurrentRoadPill
-                        className="max-w-full"
-                        testID="android-auto-current-road-pill"
-                        userLocation={userLocation}
-                    />
-                </View>
-            ) : null}
+            <View
+                className="absolute inset-0"
+                pointerEvents="box-none"
+                style={viewportMetrics.cameraPadding}
+            >
+                <View className="flex-1" pointerEvents="none" />
+                <DrivingLocationRoadStack
+                    currentRoadPillTestID="android-auto-current-road-pill"
+                    onLocationAnchorLayout={onLocationAnchorLayout}
+                    userLocation={userLocation}
+                />
+            </View>
 
             {markerLoadingIsVisible || speedLimitIsVisible ? (
                 <View

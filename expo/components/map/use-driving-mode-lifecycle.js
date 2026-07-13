@@ -2,25 +2,9 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useCallback, useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { logMapDrivingStarted } from './analytics';
-import {
-    DRIVING_DESTINATION_CAMERA_GAP,
-    DRIVING_DESTINATION_SURFACE_HEIGHT,
-} from './constants';
-import { MOBILE_DRIVING_LOCATION_FOLLOW_Y_RATIO } from './current-road-pill-layout';
 
 const DRIVING_MODE_WAKE_LOCK_TAG = 'driversagainstflock.driving-mode';
-const DRIVING_CAMERA_FOLLOW_VIEWPORT_BOTTOM_OFFSET =
-    DRIVING_DESTINATION_SURFACE_HEIGHT + DRIVING_DESTINATION_CAMERA_GAP;
 const IDLE_LOCK_ON_CAMERA_ANIMATION_DURATION_MS = 1250;
-
-export function getDrivingCameraFollowOptions() {
-    return {
-        drivingCameraFollowViewportBottomOffset:
-            DRIVING_CAMERA_FOLLOW_VIEWPORT_BOTTOM_OFFSET,
-        drivingCameraFollowViewportYRatio:
-            MOBILE_DRIVING_LOCATION_FOLLOW_Y_RATIO,
-    };
-}
 
 export function useStartDrivingAction({
     directionsRoute,

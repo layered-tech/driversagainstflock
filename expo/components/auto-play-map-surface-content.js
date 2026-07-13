@@ -11,11 +11,7 @@ import {
     useAutoDriveSimulationIsActive,
 } from './auto-play-drive-simulation';
 import { AutoPlayMapStatusOverlay } from './auto-play-map-status-overlay';
-import {
-    AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VISIBLE_Y_RATIO,
-    getAutoPlayFollowViewportAnchorY,
-    getAutoPlayViewportMetrics,
-} from './auto-play-map-viewport';
+import { getAutoPlayViewportMetrics } from './auto-play-map-viewport';
 import { useAutoPlayState } from './auto-play-state';
 import { useFollowLocationMode } from './map-follow-location-mode';
 import {
@@ -646,8 +642,6 @@ function useAutoPlayMapController({
         currentZoomRef,
         followSpeedZoomEnabled: true,
         followViewportAnchorY,
-        followViewportBottomOffset: 0,
-        followViewportYRatio: AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VISIBLE_Y_RATIO,
         isDrivingMode,
         isMapReadyRef,
         locationTrackingMode,
@@ -1429,6 +1423,8 @@ export function AutoPlayMapSurfaceContent({
     const isRootMapSurface = !id || id === AUTO_PLAY_ROOT_MODULE_ID;
     const fittedDirectionsRouteKeyRef = useRef('');
     const [layoutSize, setLayoutSize] = useState(null);
+    const [followViewportAnchorY, setFollowViewportAnchorY] =
+        useState(undefined);
     const mapPreferences = useMapPreferencesState();
     const markerLoader = useMarkerLoader();
     const isDrivingMode = autoPlayState.drivingModeIsActive !== false;
@@ -1473,10 +1469,6 @@ export function AutoPlayMapSurfaceContent({
             windowInfo?.width,
         ],
     );
-    const followViewportAnchorY = useMemo(
-        () => getAutoPlayFollowViewportAnchorY(viewportMetrics),
-        [viewportMetrics],
-    );
     const debugOverlaysAreVisible =
         isRootMapSurface &&
         SHOW_MAP_DEBUG_CONTROLS &&
@@ -1490,6 +1482,11 @@ export function AutoPlayMapSurfaceContent({
             }),
         [applyWindowScaleToMapGestures, windowInfo?.scale],
     );
+    const handleLocationAnchorLayout = useCallback((nextAnchorY) => {
+        setFollowViewportAnchorY((previousAnchorY) =>
+            previousAnchorY === nextAnchorY ? previousAnchorY : nextAnchorY,
+        );
+    }, []);
     const controller = useAutoPlayMapController({
         cameraDebugStateUpdatesEnabled:
             autoPlayCameraDebugStateUpdatesAreEnabled({
@@ -1715,7 +1712,6 @@ export function AutoPlayMapSurfaceContent({
                 {isRootMapSurface ? (
                     <AutoPlayMapStatusOverlay
                         activeDirectionsRoute={activeDirectionsRoute}
-                        followViewportAnchorY={followViewportAnchorY}
                         freeDriveIsActive={
                             controller.enhancedNavigationLocationWatchEnabled
                         }
@@ -1723,6 +1719,7 @@ export function AutoPlayMapSurfaceContent({
                         mapPreferencesAreLoaded={
                             mapPreferences.mapPreferencesAreLoaded
                         }
+                        onLocationAnchorLayout={handleLocationAnchorLayout}
                         presentation={presentation}
                         userLocation={mapPreferences.userLocation}
                         viewportMetrics={viewportMetrics}

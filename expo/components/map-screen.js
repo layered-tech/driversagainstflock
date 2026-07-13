@@ -1,6 +1,6 @@
 import { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useIsFocused } from '@react-navigation/native';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, useWindowDimensions, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from '../lib/safe-area-insets';
@@ -56,7 +56,6 @@ import {
     useSharedMapState,
 } from './map/shared-map-state';
 import {
-    getDrivingCameraFollowOptions,
     useDrivingModeLifecycle,
     useStartDrivingAction,
 } from './map/use-driving-mode-lifecycle';
@@ -93,6 +92,8 @@ export default function LocationMapScreen({
     // Latest-value ref for the route sheet's user-close handler, since the route
     // tracking handlers are created before `searchController` exists.
     const directionsRouteUserCloseRef = useRef(null);
+    const [drivingLocationAnchorY, setDrivingLocationAnchorY] =
+        useState(undefined);
     const { height: windowHeight, width: windowWidth } = useWindowDimensions();
     const bottomSheetAnimatedPosition = useSharedValue(windowHeight);
     const safeAreaInsets = useSafeAreaInsets();
@@ -138,6 +139,13 @@ export default function LocationMapScreen({
     } = useSharedMapState();
     const { setUserLocation, userLocation } = useSharedMapLocationState();
     const isDrivingMode = drivingModeIsActive;
+
+    useEffect(() => {
+        if (!isDrivingMode) {
+            setDrivingLocationAnchorY(undefined);
+        }
+    }, [isDrivingMode]);
+
     const cameraDebugStateUpdatesEnabled =
         SHOW_MAP_DEBUG_CONTROLS &&
         debugOverlayVisibility?.[DEBUG_OVERLAY_CAMERA] === true;
@@ -180,15 +188,10 @@ export default function LocationMapScreen({
         windowHeight,
         windowWidth,
     });
-    const {
-        drivingCameraFollowViewportBottomOffset,
-        drivingCameraFollowViewportYRatio,
-    } = getDrivingCameraFollowOptions();
     const locationController = useMapLocationController({
         cameraFocusPadding,
         cameraDebugStateUpdatesEnabled,
-        drivingCameraFollowViewportBottomOffset,
-        drivingCameraFollowViewportYRatio,
+        drivingCameraFollowViewportAnchorY: drivingLocationAnchorY,
         initialCameraSettings,
         isDrivingMode,
         lockOnLocationUpdateAnimationDurationRef,
@@ -582,7 +585,11 @@ export default function LocationMapScreen({
                     <>
                         <MapCanvas />
                         {isDrivingMode ? (
-                            <DrivingGuidanceOverlay>
+                            <DrivingGuidanceOverlay
+                                onLocationAnchorLayout={
+                                    setDrivingLocationAnchorY
+                                }
+                            >
                                 <MapControlsOverlay />
                             </DrivingGuidanceOverlay>
                         ) : (

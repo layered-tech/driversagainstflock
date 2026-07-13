@@ -1,10 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import {
-    AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VISIBLE_Y_RATIO,
-    getAutoPlayFollowViewportAnchorY,
-    getAutoPlayViewportMetrics,
-} from '../../auto-play-map-viewport.js';
+import { getAutoPlayViewportMetrics } from '../../auto-play-map-viewport.js';
 import { getFollowCameraPadding } from '../follow-camera-padding.js';
 
 const CAMERA_ANCHOR_PIXEL_TOLERANCE = 0.5;
@@ -20,12 +16,9 @@ function getCameraAnchor({ height, padding, width }) {
     };
 }
 
-function getFollowPadding(viewportMetrics) {
+function getFollowPadding(viewportMetrics, followViewportAnchorY) {
     return getFollowCameraPadding({
-        followViewportAnchorY:
-            getAutoPlayFollowViewportAnchorY(viewportMetrics),
-        followViewportBottomOffset: 0,
-        followViewportYRatio: AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VISIBLE_Y_RATIO,
+        followViewportAnchorY,
         maxTopPaddingRatio: 0.95,
         viewportHeight: viewportMetrics.height,
         viewportInsets: viewportMetrics.cameraPadding,
@@ -54,7 +47,10 @@ describe('Auto Play map viewport geometry', () => {
 
         const anchor = getCameraAnchor({
             height: viewportMetrics.height,
-            padding: getFollowPadding(viewportMetrics),
+            padding: getFollowPadding(
+                viewportMetrics,
+                viewportMetrics.center.y,
+            ),
             width: viewportMetrics.width,
         });
 
@@ -115,27 +111,22 @@ describe('Auto Play map viewport geometry', () => {
                 safeAreaInsets,
                 windowInfo,
             });
+            const measuredLayoutAnchorY =
+                viewportMetrics.center.y + viewportMetrics.visibleHeight / 4;
             const anchor = getCameraAnchor({
                 height: viewportMetrics.height,
-                padding: getFollowPadding(viewportMetrics),
+                padding: getFollowPadding(
+                    viewportMetrics,
+                    measuredLayoutAnchorY,
+                ),
                 width: viewportMetrics.width,
             });
 
             assertApproximatelyEqual(anchor.x, expectedX);
-            assertApproximatelyEqual(
-                anchor.y,
-                viewportMetrics.visibleRect.top +
-                    viewportMetrics.visibleHeight *
-                        AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VISIBLE_Y_RATIO,
-            );
+            assertApproximatelyEqual(anchor.y, measuredLayoutAnchorY);
             assert.ok(
                 anchor.y < viewportMetrics.visibleRect.bottom,
                 `${name} should keep the location above the visible bottom`,
-            );
-            assertApproximatelyEqual(
-                viewportMetrics.visibleRect.bottom - anchor.y,
-                viewportMetrics.visibleHeight *
-                    (1 - AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VISIBLE_Y_RATIO),
             );
         });
     });

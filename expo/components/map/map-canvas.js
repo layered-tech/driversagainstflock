@@ -56,6 +56,10 @@ import {
 import { DrivingLocationProvider } from './driving-location-provider';
 import { getMarkerCoordinate } from './geo';
 import {
+    shouldShowNavigationPuck,
+    shouldUseAutoPlayNavigationPuckImages,
+} from './location-puck-state';
+import {
     AlprMarkerImages,
     MarkerConeImages,
     NavigationPuckImages,
@@ -534,21 +538,25 @@ export const MapCanvas = memo(function MapCanvas() {
           ? 'heading'
           : 'course';
     const resolvedNavigationPuckVariant = navigationPuckVariant || 'default';
-    const navigationPuckBearingImage =
-        resolvedNavigationPuckVariant === 'auto-play'
-            ? ANDROID_AUTO_NAVIGATION_PUCK_BEARING_IMAGE
-            : NAVIGATION_PUCK_BEARING_IMAGE;
-    const navigationPuckShadowImage =
-        resolvedNavigationPuckVariant === 'auto-play'
-            ? ANDROID_AUTO_NAVIGATION_PUCK_SHADOW_IMAGE
-            : NAVIGATION_PUCK_SHADOW_IMAGE;
+    const navigationPuckIsVisible = shouldShowNavigationPuck({
+        isFollowing,
+        navigationPuckVariant: resolvedNavigationPuckVariant,
+    });
+    const usesAutoPlayNavigationPuckImages =
+        shouldUseAutoPlayNavigationPuckImages(resolvedNavigationPuckVariant);
+    const navigationPuckBearingImage = usesAutoPlayNavigationPuckImages
+        ? ANDROID_AUTO_NAVIGATION_PUCK_BEARING_IMAGE
+        : NAVIGATION_PUCK_BEARING_IMAGE;
+    const navigationPuckShadowImage = usesAutoPlayNavigationPuckImages
+        ? ANDROID_AUTO_NAVIGATION_PUCK_SHADOW_IMAGE
+        : NAVIGATION_PUCK_SHADOW_IMAGE;
     // iOS Fabric never applies image props back to undefined (rnmapbox
     // FabricOptionalProp limitation), so switching between the navigation
     // arrow and the default dot requires remounting the puck there. Android
     // clears null image props correctly, so it keeps the update-in-place path.
     const locationPuckKey =
         Platform.OS === 'ios'
-            ? `location-puck-${isFollowing ? 'navigation' : 'default'}`
+            ? `location-puck-${navigationPuckIsVisible ? 'navigation' : 'default'}`
             : 'location-puck';
     const mapboxBrandingIsVisible = !isDrivingMode;
 
@@ -1001,15 +1009,19 @@ export const MapCanvas = memo(function MapCanvas() {
                     <Mapbox.LocationPuck
                         key={locationPuckKey}
                         bearingImage={
-                            isFollowing ? navigationPuckBearingImage : undefined
+                            navigationPuckIsVisible
+                                ? navigationPuckBearingImage
+                                : undefined
                         }
                         puckBearing={puckBearing}
                         puckBearingEnabled
                         shadowImage={
-                            isFollowing ? navigationPuckShadowImage : undefined
+                            navigationPuckIsVisible
+                                ? navigationPuckShadowImage
+                                : undefined
                         }
                         topImage={
-                            isFollowing
+                            navigationPuckIsVisible
                                 ? NAVIGATION_PUCK_TOP_TRANSPARENT_IMAGE
                                 : undefined
                         }

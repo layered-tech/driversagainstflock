@@ -1,16 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useColorScheme, useWindowDimensions, View } from 'react-native';
+import { useColorScheme, View } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { getDafTheme } from '../design-system/tokens';
 import { logMapDrivingStopped } from './analytics';
 import { getDirections } from './api';
-import { CurrentRoadPill, getCurrentRoadText } from './current-road-context';
-import {
-    getCurrentRoadPillTop,
-    getMobileDrivingLocationAnchorY,
-    MOBILE_LOCATION_PUCK_HEIGHT,
-    shouldShowCurrentRoadPill,
-} from './current-road-pill-layout';
 import { DEBUG_OVERLAY_DIRECTIONS_GEOMETRY } from './debug-overlays';
 import {
     createCurrentLocationDirectionsWaypoint,
@@ -29,6 +22,7 @@ import {
     ManeuverCard,
     ReroutingCard,
 } from './driving-guidance-cards';
+import { DrivingLocationRoadStack } from './driving-location-road-stack';
 import { NativeWindSafeAreaView } from './native-components';
 import {
     useSharedMapLocationState,
@@ -40,7 +34,6 @@ import {
     useRouteSpeedLimit,
 } from './speed-limit';
 import { MOBILE_SPEED_LIMIT_BADGE_SIZE } from './speed-limit-layout';
-import { getDrivingCameraFollowOptions } from './use-driving-mode-lifecycle';
 
 const DRIVING_REROUTE_CONFIRMATION_MS = 2000;
 const DRIVING_REROUTE_COOLDOWN_MS = 8000;
@@ -98,10 +91,9 @@ function createSearchResultRestoreFromRoute(route) {
     };
 }
 
-export function DrivingGuidanceOverlay({ children }) {
+export function DrivingGuidanceOverlay({ children, onLocationAnchorLayout }) {
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
-    const { height: windowHeight } = useWindowDimensions();
     const offRouteDetectedAtRef = useRef(null);
     const rerouteAbortControllerRef = useRef(null);
     const lastRerouteAtRef = useRef(0);
@@ -139,19 +131,6 @@ export function DrivingGuidanceOverlay({ children }) {
         [directionsRoute, routeProgress, userLocation],
     );
     const routeIsActive = Boolean(directionsRoute && routeOption);
-    const { drivingCameraFollowViewportBottomOffset } =
-        getDrivingCameraFollowOptions();
-    const currentRoadPillTop = getCurrentRoadPillTop({
-        locationAnchorY: getMobileDrivingLocationAnchorY({
-            bottomInset: insets.bottom,
-            followViewportBottomOffset: drivingCameraFollowViewportBottomOffset,
-            viewportHeight: windowHeight,
-        }),
-        locationPuckHeight: MOBILE_LOCATION_PUCK_HEIGHT,
-    });
-    const currentRoadIsVisible = shouldShowCurrentRoadPill({
-        roadText: getCurrentRoadText(userLocation),
-    });
     const headerCardIsVisible = Boolean(
         routeIsActive && (rerouteIsLoading || maneuver),
     );
@@ -384,6 +363,11 @@ export function DrivingGuidanceOverlay({ children }) {
 
                 <View className="flex-1" pointerEvents="none" />
 
+                <DrivingLocationRoadStack
+                    onLocationAnchorLayout={onLocationAnchorLayout}
+                    userLocation={userLocation}
+                />
+
                 {routeIsActive ? (
                     <View
                         className="overflow-hidden shadow-[0px_-10px_28px_rgba(11,14,18,0.16)]"
@@ -397,18 +381,10 @@ export function DrivingGuidanceOverlay({ children }) {
                             routeOption={routeOption}
                         />
                     </View>
-                ) : null}
+                ) : (
+                    <View style={{ height: insets.bottom }} />
+                )}
             </NativeWindSafeAreaView>
-
-            {currentRoadIsVisible && currentRoadPillTop !== null ? (
-                <View
-                    className="absolute left-3 right-3 items-center"
-                    pointerEvents="none"
-                    style={{ top: currentRoadPillTop }}
-                >
-                    <CurrentRoadPill userLocation={userLocation} />
-                </View>
-            ) : null}
         </View>
     );
 }

@@ -12,21 +12,14 @@ import {
     LOCATION_ZOOM_LEVEL,
 } from './map-location-mode-shared';
 import {
-    DRIVING_DESTINATION_CAMERA_GAP,
-    DRIVING_DESTINATION_SURFACE_HEIGHT,
-} from './map/constants';
-import { getFollowCameraPadding } from './map/follow-camera-padding';
+    FOLLOW_CAMERA_MAX_TOP_PADDING_RATIO,
+    getFollowCameraPadding,
+} from './map/follow-camera-padding';
 import { getFollowZoomUpdate } from './map/follow-zoom-update';
 
 const LOCATION_FOLLOW_CAMERA_PITCH = 55;
 const LOCATION_FOLLOW_ANIMATION_DURATION_MS = 220;
 const LOCATION_FOLLOW_NATIVE_ACTIVATION_BUFFER_MS = 80;
-const DEFAULT_LOCATION_FOLLOW_VIEWPORT_Y_RATIO = 0.8;
-const DEFAULT_LOCATION_FOLLOW_VIEWPORT_BOTTOM_OFFSET =
-    DRIVING_DESTINATION_SURFACE_HEIGHT + DRIVING_DESTINATION_CAMERA_GAP;
-const LOCATION_FOLLOW_MIN_VIEWPORT_Y_RATIO = 0.5;
-const LOCATION_FOLLOW_MAX_VIEWPORT_Y_RATIO = 0.95;
-const LOCATION_FOLLOW_MAX_TOP_PADDING_RATIO = 0.95;
 const METERS_PER_SECOND_PER_MPH = 0.44704;
 const RECENTER_REASON_AWAY = 'away';
 const LOCATION_FOLLOW_SPEED_ZOOM_LEVELS = [
@@ -39,21 +32,6 @@ const LOCATION_FOLLOW_SPEED_ZOOM_LEVELS = [
     { speedMph: 55, zoomLevel: 14.5 },
     { speedMph: 65, zoomLevel: 13.75 },
 ];
-
-function clampViewportYRatio(value) {
-    if (!Number.isFinite(value)) {
-        return DEFAULT_LOCATION_FOLLOW_VIEWPORT_Y_RATIO;
-    }
-
-    return Math.max(
-        LOCATION_FOLLOW_MIN_VIEWPORT_Y_RATIO,
-        Math.min(value, LOCATION_FOLLOW_MAX_VIEWPORT_Y_RATIO),
-    );
-}
-
-function getNonNegativeNumber(value, fallback) {
-    return Number.isFinite(value) ? Math.max(0, value) : fallback;
-}
 
 function getFollowSpeedZoomLevel(speed, clampZoomLevel) {
     const firstLevel = LOCATION_FOLLOW_SPEED_ZOOM_LEVELS[0];
@@ -102,8 +80,6 @@ export function useFollowLocationMode({
     currentZoomRef,
     followSpeedZoomEnabled = false,
     followViewportAnchorY,
-    followViewportYRatio,
-    followViewportBottomOffset = DEFAULT_LOCATION_FOLLOW_VIEWPORT_BOTTOM_OFFSET,
     isDrivingMode,
     isMapReadyRef,
     locationTrackingMode,
@@ -119,10 +95,6 @@ export function useFollowLocationMode({
         Number.isFinite(viewportHeight) && viewportHeight > 0
             ? viewportHeight
             : windowHeight;
-    const resolvedFollowViewportBottomOffset = getNonNegativeNumber(
-        followViewportBottomOffset,
-        DEFAULT_LOCATION_FOLLOW_VIEWPORT_BOTTOM_OFFSET,
-    );
     const insets = useSafeAreaInsets();
     const recenterReasonRef = useRef(null);
     const recenterIsNeededRef = useRef(false);
@@ -145,8 +117,6 @@ export function useFollowLocationMode({
     const [recenterIsNeeded, setRecenterIsNeeded] = useState(false);
     const [userZoomOverrideIsActive, setUserZoomOverrideIsActive] =
         useState(false);
-    const resolvedFollowViewportYRatio =
-        clampViewportYRatio(followViewportYRatio);
     const viewportCameraPadding = useMemo(() => {
         if (cameraViewportInsets) {
             return getCameraPadding(cameraViewportInsets);
@@ -160,19 +130,11 @@ export function useFollowLocationMode({
     const followCameraPadding = useMemo(() => {
         return getFollowCameraPadding({
             followViewportAnchorY,
-            followViewportBottomOffset: resolvedFollowViewportBottomOffset,
-            followViewportYRatio: resolvedFollowViewportYRatio,
-            maxTopPaddingRatio: LOCATION_FOLLOW_MAX_TOP_PADDING_RATIO,
+            maxTopPaddingRatio: FOLLOW_CAMERA_MAX_TOP_PADDING_RATIO,
             viewportHeight: cameraViewportHeight,
             viewportInsets: viewportCameraPadding,
         });
-    }, [
-        cameraViewportHeight,
-        followViewportAnchorY,
-        resolvedFollowViewportBottomOffset,
-        resolvedFollowViewportYRatio,
-        viewportCameraPadding,
-    ]);
+    }, [cameraViewportHeight, followViewportAnchorY, viewportCameraPadding]);
     const setNativeFollowZoomLevel = useCallback((nextZoomLevel) => {
         nativeFollowZoomLevelRef.current = nextZoomLevel;
         setNativeFollowZoomLevelState(nextZoomLevel);

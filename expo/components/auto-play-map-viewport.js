@@ -1,9 +1,4 @@
-import { AUTO_PLAY_DRIVING_LOCATION_FOLLOW_VISIBLE_Y_RATIO } from './map/current-road-pill-layout.js';
-
 const AUTO_PLAY_ORNAMENT_INSET_MAX_VIEWPORT_FRACTION = 0.35;
-
-export const AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VISIBLE_Y_RATIO =
-    AUTO_PLAY_DRIVING_LOCATION_FOLLOW_VISIBLE_Y_RATIO;
 
 function getPositiveDimension(value) {
     const numericValue = Number(value);
@@ -110,31 +105,4 @@ export function getAutoPlayViewportMetrics({
         visibleWidth,
         width,
     };
-}
-
-/**
- * Keeps the driving puck at the shared driving anchor within the host-visible
- * map, rather than relative to a full canvas obscured by host content.
- */
-export function getAutoPlayFollowViewportAnchorY(
-    viewportMetrics,
-    visibleYRatio = AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VISIBLE_Y_RATIO,
-) {
-    const height = getPositiveDimension(viewportMetrics?.height);
-    const visibleTop = Number(viewportMetrics?.visibleRect?.top);
-    const visibleBottom = Number(viewportMetrics?.visibleRect?.bottom);
-    const resolvedVisibleYRatio = Number.isFinite(visibleYRatio)
-        ? Math.min(1, Math.max(0, visibleYRatio))
-        : AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VISIBLE_Y_RATIO;
-
-    if (
-        !height ||
-        !Number.isFinite(visibleTop) ||
-        !Number.isFinite(visibleBottom) ||
-        visibleBottom <= visibleTop
-    ) {
-        return undefined;
-    }
-
-    return visibleTop + (visibleBottom - visibleTop) * resolvedVisibleYRatio;
 }

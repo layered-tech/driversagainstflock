@@ -1,76 +1,38 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
+import { shouldShowCurrentRoadPill } from '../current-road-pill-layout.js';
+import { getRetainedCurrentRoadText } from '../current-road-state.js';
 import {
-    AUTO_PLAY_LOCATION_PUCK_HEIGHT,
-    CURRENT_ROAD_PILL_GAP_FROM_LOCATION_PUCK,
-    getCurrentRoadPillTop,
-    getMobileDrivingLocationAnchorY,
-    MOBILE_DRIVING_LOCATION_FOLLOW_Y_RATIO,
-    MOBILE_LOCATION_PUCK_HEIGHT,
-    shouldShowCurrentRoadPill,
-} from '../current-road-pill-layout.js';
+    getNavigationPuckAnchorY,
+    NAVIGATION_PUCK_SIZE,
+} from '../navigation-puck-layout.js';
 
 describe('current road pill layout', () => {
-    test('moves the phone puck up and places the pill beneath it', () => {
-        const locationAnchorY = getMobileDrivingLocationAnchorY({
-            bottomInset: 34,
-            followViewportBottomOffset: 144,
-            viewportHeight: 844,
-        });
-        const pillTop = getCurrentRoadPillTop({
-            locationAnchorY,
-            locationPuckHeight: MOBILE_LOCATION_PUCK_HEIGHT,
-        });
-
-        assert.ok(
-            Math.abs(
-                locationAnchorY - 844 * MOBILE_DRIVING_LOCATION_FOLLOW_Y_RATIO,
-            ) <= 0.5,
-        );
-        assert.ok(locationAnchorY < 844 * 0.8);
+    test('uses the measured puck slot center as the camera anchor', () => {
         assert.equal(
-            pillTop,
-            Math.round(
-                locationAnchorY +
-                    MOBILE_LOCATION_PUCK_HEIGHT / 2 +
-                    CURRENT_ROAD_PILL_GAP_FROM_LOCATION_PUCK,
-            ),
+            getNavigationPuckAnchorY({
+                layoutY: 520,
+            }),
+            520 + NAVIGATION_PUCK_SIZE / 2,
         );
     });
 
-    test('keeps the phone puck inside the camera destination reserve', () => {
+    test('translates car-host layout coordinates into map coordinates', () => {
         assert.equal(
-            getMobileDrivingLocationAnchorY({
-                bottomInset: 100,
-                followViewportBottomOffset: 144,
-                viewportHeight: 400,
+            getNavigationPuckAnchorY({
+                layoutY: 380,
+                viewportTop: 60,
             }),
-            156,
+            60 + 380 + NAVIGATION_PUCK_SIZE / 2,
         );
     });
 
-    test('uses the same map camera bounds on constrained maps', () => {
+    test('rejects incomplete layout measurements', () => {
+        assert.equal(getNavigationPuckAnchorY({ layoutY: undefined }), null);
+        assert.equal(getNavigationPuckAnchorY({ layoutY: null }), null);
         assert.equal(
-            getMobileDrivingLocationAnchorY({
-                bottomInset: 100,
-                followViewportBottomOffset: 144,
-                viewportHeight: 400,
-            }),
-            156,
-        );
-    });
-
-    test('uses the car puck height when positioning the shared car pill', () => {
-        assert.equal(
-            getCurrentRoadPillTop({
-                locationAnchorY: 842.4,
-                locationPuckHeight: AUTO_PLAY_LOCATION_PUCK_HEIGHT,
-            }),
-            Math.round(
-                842.4 +
-                    AUTO_PLAY_LOCATION_PUCK_HEIGHT / 2 +
-                    CURRENT_ROAD_PILL_GAP_FROM_LOCATION_PUCK,
-            ),
+            getNavigationPuckAnchorY({ layoutY: 100, viewportTop: NaN }),
+            null,
         );
     });
 
@@ -83,5 +45,33 @@ describe('current road pill layout', () => {
             true,
         );
         assert.equal(shouldShowCurrentRoadPill({ roadText: '   ' }), false);
+    });
+
+    test('retains the last road through location fixes without road context', () => {
+        assert.equal(
+            getRetainedCurrentRoadText('Main Street', {
+                latitude: 41.8,
+                longitude: -87.6,
+            }),
+            'Main Street',
+        );
+    });
+
+    test('replaces retained roads and clears explicit off-road matches', () => {
+        assert.equal(
+            getRetainedCurrentRoadText('Main Street', {
+                mapboxNavigation: {
+                    roadContext: { primaryText: 'Oak Avenue' },
+                },
+            }),
+            'Oak Avenue',
+        );
+        assert.equal(
+            getRetainedCurrentRoadText('Oak Avenue', {
+                mapboxNavigation: { isOffRoad: true },
+            }),
+            '',
+        );
+        assert.equal(getRetainedCurrentRoadText('Oak Avenue', null), '');
     });
 });
