@@ -392,7 +392,7 @@ class RNMapboxNavigationModule : Module() {
         sendNavigationCameraState(surfaceId, state)
       }
     ).apply {
-      updateOptions(options)
+      applyInitialOptions(options)
     }
   }
 
@@ -584,22 +584,20 @@ class RNMapboxNavigationModule : Module() {
     }
 
     fun updateOptions(options: Map<String, Any?>?) {
-      if (getOptionalBoolean(options, "deferUntilNextLocation")) {
-        // A speed-derived zoom must not reframe the prior matched location.
-        // Keep only the latest full snapshot, then install it immediately
-        // before the next location evaluates the navigation camera.
-        pendingOptions = options?.toMap() ?: emptyMap()
+      if (requestedMode != NAVIGATION_CAMERA_MODE_FOLLOWING) {
+        pendingOptions = null
+        applyOptions(options)
         return
       }
 
+      // Keep the latest passive camera snapshot until a fresh matched location
+      // frames it. Re-evaluating here would animate to the previous location.
+      pendingOptions = options?.toMap() ?: emptyMap()
+    }
+
+    fun applyInitialOptions(options: Map<String, Any?>?) {
       pendingOptions = null
       applyOptions(options)
-
-      viewportDataSource.evaluate()
-
-      if (requestedMode == NAVIGATION_CAMERA_MODE_FOLLOWING) {
-        navigationCamera.requestNavigationCameraToFollowing()
-      }
     }
 
     private fun applyOptions(options: Map<String, Any?>?) {
@@ -653,14 +651,6 @@ class RNMapboxNavigationModule : Module() {
       return when (value) {
         is Number -> value.toDouble()
         else -> null
-      }
-    }
-
-    private fun getOptionalBoolean(map: Map<String, Any?>?, key: String): Boolean {
-      return when (val value = map?.get(key)) {
-        is Boolean -> value
-        is Number -> value.toInt() != 0
-        else -> false
       }
     }
 

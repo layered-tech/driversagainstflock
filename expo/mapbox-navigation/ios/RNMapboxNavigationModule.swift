@@ -251,7 +251,7 @@ final class RNMapboxNavigationController {
     let surface = NavigationCameraSurface(surfaceId: surfaceId, mapView: mapView) { [weak self] state in
       self?.sendNavigationCameraState(surfaceId: surfaceId, state: state)
     }
-    surface.updateOptions(options)
+    surface.applyInitialOptions(options)
 
     if let lastEnhancedCLLocation {
       surface.onEnhancedLocation(lastEnhancedCLLocation)
@@ -280,7 +280,7 @@ final class RNMapboxNavigationController {
       return false
     }
 
-    surface.updateOptions(options, lastLocation: lastEnhancedCLLocation)
+    surface.updateOptions(options)
     return true
   }
 
@@ -635,23 +635,25 @@ private final class NavigationCameraSurface {
     self.onStateChanged = onStateChanged
   }
 
-  func updateOptions(_ options: [String: Any]?, lastLocation: CLLocation? = nil) {
+  func applyInitialOptions(_ options: [String: Any]?) {
     let nextOptions = Self.optionsSnapshot(options)
-
-    if Self.bool(options?["deferUntilNextLocation"]) {
-      // A speed-derived zoom must not animate the map to the previous matched
-      // location. The latest snapshot replaces any older queued update and is
-      // installed immediately before the next location frames the camera.
-      pendingOptions = nextOptions
-      return
-    }
 
     pendingOptions = nil
     applyOptions(nextOptions)
+  }
 
-    if mode == NAVIGATION_CAMERA_MODE_FOLLOWING, let lastLocation {
-      applyCamera(to: lastLocation, animated: true)
+  func updateOptions(_ options: [String: Any]?) {
+    let nextOptions = Self.optionsSnapshot(options)
+
+    guard mode == NAVIGATION_CAMERA_MODE_FOLLOWING else {
+      pendingOptions = nil
+      applyOptions(nextOptions)
+      return
     }
+
+    // Keep the latest passive camera snapshot until a fresh matched location
+    // frames it. Applying it now would animate to the previous location.
+    pendingOptions = nextOptions
   }
 
   func setMode(_ mode: String, lastLocation: CLLocation?) {
@@ -737,17 +739,6 @@ private final class NavigationCameraSurface {
       return numberValue.doubleValue
     default:
       return nil
-    }
-  }
-
-  private static func bool(_ value: Any?) -> Bool {
-    switch value {
-    case let boolValue as Bool:
-      return boolValue
-    case let numberValue as NSNumber:
-      return numberValue.boolValue
-    default:
-      return false
     }
   }
 

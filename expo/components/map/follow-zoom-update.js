@@ -2,7 +2,6 @@ export const FOLLOW_ZOOM_UPDATE_EPSILON = 0.05;
 
 export function getFollowZoomUpdate({
     currentZoomLevel,
-    deferUntilNextLocation = false,
     force = false,
     nextZoomLevel,
     userZoomOverrideIsActive = false,
@@ -14,8 +13,6 @@ export function getFollowZoomUpdate({
                 FOLLOW_ZOOM_UPDATE_EPSILON);
 
     return {
-        deferUntilNextLocation:
-            shouldUpdate && deferUntilNextLocation && !force,
         shouldUpdate,
     };
 }

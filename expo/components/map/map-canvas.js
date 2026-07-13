@@ -1,5 +1,5 @@
 import Mapbox from '@rnmapbox/maps';
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useRef } from 'react';
 import {
     ActivityIndicator,
     Platform,
@@ -56,6 +56,12 @@ import {
 import { DrivingLocationProvider } from './driving-location-provider';
 import { getMarkerCoordinate } from './geo';
 import {
+    createLocationBoundCameraFollowState,
+    getFollowCameraSettings,
+    getLocationUpdateKey,
+    reconcileLocationBoundCameraFollowState,
+} from './location-bound-camera-follow';
+import {
     shouldShowNavigationPuck,
     shouldUseAutoPlayNavigationPuckImages,
 } from './location-puck-state';
@@ -90,6 +96,37 @@ function MapLocationProvider({ isDrivingMode, usesSharedLocationProvider }) {
             userLocation={userLocation}
         />
     );
+}
+
+function useLocationBoundCameraFollowProps(followProps, userLocation) {
+    const desiredSettings = getFollowCameraSettings(followProps);
+    const deferSettingsUntilNextLocation =
+        followProps?.settingsAreDeferredUntilNextLocation === true;
+    const isFollowing = followProps?.enabled === true;
+    const locationKey = getLocationUpdateKey(userLocation);
+    const stateRef = useRef(null);
+
+    // Keep the puck and its follow settings in the same native render commit.
+    if (stateRef.current === null) {
+        stateRef.current = createLocationBoundCameraFollowState({
+            isFollowing,
+            locationKey,
+            settings: desiredSettings,
+        });
+    } else {
+        stateRef.current = reconcileLocationBoundCameraFollowState({
+            deferSettingsUntilNextLocation,
+            desiredSettings,
+            isFollowing,
+            locationKey,
+            state: stateRef.current,
+        });
+    }
+
+    return {
+        ...followProps,
+        ...stateRef.current.appliedSettings,
+    };
 }
 
 function buildConeIconImageExpression() {
@@ -474,6 +511,7 @@ export const MapCanvas = memo(function MapCanvas() {
         submittedSearchResults,
         usesSharedLocationProvider = false,
     } = useMapCanvasContext();
+    const { userLocation } = useMapLocationContext();
     const {
         directionsWaypointMarkers,
         handleSelectedPlaceMarkerPress,
@@ -532,6 +570,10 @@ export const MapCanvas = memo(function MapCanvas() {
         [mapRoutePalette],
     );
     const drivingCameraFollowMode = Mapbox.UserTrackingMode.FollowWithHeading;
+    const locationBoundCameraFollowProps = useLocationBoundCameraFollowProps(
+        nativeCameraFollowProps,
+        userLocation,
+    );
     const puckBearing = isDrivingMode
         ? 'heading'
         : !isFollowing
@@ -611,11 +653,13 @@ export const MapCanvas = memo(function MapCanvas() {
             <Mapbox.Camera
                 ref={cameraRef}
                 defaultSettings={initialCameraSettings}
-                followPadding={nativeCameraFollowProps?.padding}
-                followPitch={nativeCameraFollowProps?.pitch}
-                followUserLocation={nativeCameraFollowProps?.enabled ?? false}
+                followPadding={locationBoundCameraFollowProps.padding}
+                followPitch={locationBoundCameraFollowProps.pitch}
+                followUserLocation={
+                    locationBoundCameraFollowProps.enabled ?? false
+                }
                 followUserMode={drivingCameraFollowMode}
-                followZoomLevel={nativeCameraFollowProps?.zoomLevel}
+                followZoomLevel={locationBoundCameraFollowProps.zoomLevel}
                 maxZoomLevel={MAX_ZOOM_LEVEL}
                 minZoomLevel={MIN_ZOOM_LEVEL}
             />

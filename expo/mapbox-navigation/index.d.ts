@@ -73,11 +73,6 @@ export type UseEnhancedLocationOptions = StartTripSessionOptions & {
 };
 
 export type NavigationCameraOptions = {
-  /**
-   * Queue this options update until the navigation camera processes its next
-   * enhanced location. This is intended for speed-driven zoom changes.
-   */
-  deferUntilNextLocation?: boolean;
   padding?: {
     paddingBottom?: number;
     paddingLeft?: number;
@@ -138,7 +133,9 @@ export declare function addNavigationCameraStateListener(
 export declare function useEnhancedLocation(
   options?: UseEnhancedLocationOptions,
 ): EnhancedLocation | null;
-export declare function useNavigationCamera(options?: UseNavigationCameraOptions): {
+export declare function useNavigationCamera(
+  options?: UseNavigationCameraOptions,
+): {
   attached: boolean;
   isSupported: boolean;
   state: NavigationCameraState;

@@ -86,9 +86,6 @@ function createNavigationModule({
     const padding = options.padding ?? {};
 
     return {
-      ...(options.deferUntilNextLocation === true
-        ? { deferUntilNextLocation: true }
-        : {}),
       padding: {
         paddingBottom: Number(padding.paddingBottom) || 0,
         paddingLeft: Number(padding.paddingLeft) || 0,
@@ -107,9 +104,6 @@ function createNavigationModule({
   function getNavigationCameraOptionsKey(options) {
     const normalizedOptions = normalizeNavigationCameraOptions(options);
 
-    // deferUntilNextLocation is a one-shot command, not part of the camera's
-    // steady-state configuration. Excluding it lets callers clear the marker
-    // after the next location without triggering a second, immediate update.
     return [
       normalizedOptions.padding.paddingBottom,
       normalizedOptions.padding.paddingLeft,
@@ -118,13 +112,6 @@ function createNavigationModule({
       normalizedOptions.pitch ?? '',
       normalizedOptions.zoomLevel ?? '',
     ].join(':');
-  }
-
-  function getImmediateNavigationCameraOptions(options = {}) {
-    const { deferUntilNextLocation: _deferUntilNextLocation, ...immediate } =
-      options;
-
-    return immediate;
   }
 
   function getMapViewTag(mapViewRef) {
@@ -138,7 +125,11 @@ function createNavigationModule({
     return Number.isFinite(Number(tag)) ? Number(tag) : null;
   }
 
-  async function attachNavigationCameraAsync(surfaceId, mapViewTag, options = {}) {
+  async function attachNavigationCameraAsync(
+    surfaceId,
+    mapViewTag,
+    options = {},
+  ) {
     if (!NativeRNMapboxNavigation || !surfaceId || !mapViewTag) {
       return false;
     }
@@ -147,9 +138,7 @@ function createNavigationModule({
       await NativeRNMapboxNavigation.attachNavigationCamera(
         surfaceId,
         mapViewTag,
-        normalizeNavigationCameraOptions(
-          getImmediateNavigationCameraOptions(options),
-        ),
+        normalizeNavigationCameraOptions(options),
       ),
     );
   }
@@ -446,9 +435,9 @@ function createNavigationModule({
       return undefined;
     }, [attached, cameraOptionsKey, enabled, surfaceId]);
 
-    // Keep camera mode changes separate from option changes. A deferred option
-    // update must wait for the next location instead of re-requesting follow
-    // mode, which would immediately frame the last known location.
+    // Native surfaces decide whether an option snapshot can be applied
+    // immediately based on their current following state. Keep mode changes
+    // separate so only a location update frames the queued snapshot.
     React.useEffect(() => {
       if (!enabled || !attached || !isSupported()) {
         return undefined;

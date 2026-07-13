@@ -7,6 +7,7 @@ import {
     startAutoDriveSimulation,
     stopAutoDriveSimulation,
 } from './auto-play-drive-simulation';
+import { getAutoPlayMapGestureCallbacks } from './auto-play-map-gesture-callbacks';
 import {
     getAutoPlayMapControlHandlers,
     setAutoPlayMapButtonAppearanceListener,
@@ -2100,12 +2101,22 @@ function handleAutoPlayConnect() {
         onAppearanceDidChange: (colorScheme) => {
             setAutoPlayMapColorScheme(colorScheme);
         },
-        onDidPan: (translation) => {
-            getAutoPlayMapControlHandlers().handlePan(translation);
-        },
-        onDidUpdateZoomGestureWithCenter: (center, scale) => {
-            getAutoPlayMapControlHandlers().handleZoomGesture(center, scale);
-        },
+        ...getAutoPlayMapGestureCallbacks({
+            // Android Auto only registers its required PanModeListener when
+            // this callback is supplied. Touchscreen hosts hide the native
+            // pan button, but still need that listener before forwarding
+            // drag gestures to the map surface.
+            onPanningInterfaceChanged: () => {},
+            onPan: (translation) => {
+                getAutoPlayMapControlHandlers().handlePan(translation);
+            },
+            onZoomGesture: (center, scale) => {
+                getAutoPlayMapControlHandlers().handleZoomGesture(
+                    center,
+                    scale,
+                );
+            },
+        }),
         onStopNavigation: () => {
             stopAutoPlayNavigation({ notifyTemplate: false });
         },

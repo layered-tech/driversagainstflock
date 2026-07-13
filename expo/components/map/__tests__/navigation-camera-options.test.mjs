@@ -23,7 +23,7 @@ function makeNavigationModule(nativeModule) {
     });
 }
 
-test('navigation camera queues normalized deferred options', async () => {
+test('navigation camera normalizes option updates', async () => {
     const calls = [];
     const navigation = makeNavigationModule({
         async updateNavigationCameraOptions(surfaceId, options) {
@@ -35,7 +35,6 @@ test('navigation camera queues normalized deferred options', async () => {
     const updated = await navigation.updateNavigationCameraOptionsAsync(
         'carplay',
         {
-            deferUntilNextLocation: true,
             padding: {
                 paddingBottom: '24',
                 paddingLeft: undefined,
@@ -51,7 +50,6 @@ test('navigation camera queues normalized deferred options', async () => {
     assert.deepEqual(calls, [
         {
             options: {
-                deferUntilNextLocation: true,
                 padding: {
                     paddingBottom: 24,
                     paddingLeft: 0,
@@ -66,7 +64,7 @@ test('navigation camera queues normalized deferred options', async () => {
     ]);
 });
 
-test('navigation camera attaches with current options instead of a deferred marker', async () => {
+test('navigation camera attaches with current options', async () => {
     const calls = [];
     const navigation = makeNavigationModule({
         async attachNavigationCamera(surfaceId, mapViewTag, options) {
@@ -79,7 +77,6 @@ test('navigation camera attaches with current options instead of a deferred mark
         'carplay',
         42,
         {
-            deferUntilNextLocation: true,
             padding: { paddingTop: 12 },
             zoomLevel: 17,
         },

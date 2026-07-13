@@ -111,8 +111,8 @@ export function useFollowLocationMode({
     const [nativeFollowZoomLevel, setNativeFollowZoomLevelState] =
         useState(LOCATION_ZOOM_LEVEL);
     const [
-        nativeFollowZoomUpdateIsDeferred,
-        setNativeFollowZoomUpdateIsDeferred,
+        followCameraSettingsAreDeferred,
+        setFollowCameraSettingsAreDeferred,
     ] = useState(false);
     const [recenterIsNeeded, setRecenterIsNeeded] = useState(false);
     const [userZoomOverrideIsActive, setUserZoomOverrideIsActive] =
@@ -217,18 +217,25 @@ export function useFollowLocationMode({
         [clampZoomLevel, followSpeedZoomEnabled],
     );
     const syncNativeFollowZoomLevel = useCallback(
-        (location, { deferUntilNextLocation = false, force = false } = {}) => {
+        (
+            location,
+            {
+                deferCameraSettingsUntilNextLocation = false,
+                force = false,
+            } = {},
+        ) => {
             const nextZoomLevel = getFollowZoomLevel(location);
             const zoomUpdate = getFollowZoomUpdate({
                 currentZoomLevel: nativeFollowZoomLevelRef.current,
-                deferUntilNextLocation,
                 force,
                 nextZoomLevel,
                 userZoomOverrideIsActive: userZoomOverrideIsActiveRef.current,
             });
 
-            setNativeFollowZoomUpdateIsDeferred(
-                zoomUpdate.deferUntilNextLocation,
+            setFollowCameraSettingsAreDeferred(
+                zoomUpdate.shouldUpdate &&
+                    deferCameraSettingsUntilNextLocation &&
+                    !force,
             );
 
             if (!zoomUpdate.shouldUpdate) {
@@ -246,7 +253,7 @@ export function useFollowLocationMode({
         (nextZoomLevel) => {
             userZoomOverrideIsActiveRef.current = true;
             setUserZoomOverrideIsActive(true);
-            setNativeFollowZoomUpdateIsDeferred(false);
+            setFollowCameraSettingsAreDeferred(false);
             setNativeFollowZoomLevel(clampZoomLevel(nextZoomLevel));
             currentZoomRef.current = clampZoomLevel(nextZoomLevel);
         },
@@ -265,10 +272,9 @@ export function useFollowLocationMode({
                 !nativeFollowActivationIsSuspended,
             padding: followCameraPadding,
             pitch: LOCATION_FOLLOW_CAMERA_PITCH,
+            settingsAreDeferredUntilNextLocation:
+                followCameraSettingsAreDeferred,
             zoomLevel: nativeFollowZoomLevel,
-            ...(nativeFollowZoomUpdateIsDeferred
-                ? { deferUntilNextLocation: true }
-                : {}),
         }),
         [
             followCameraPadding,
@@ -276,7 +282,7 @@ export function useFollowLocationMode({
             locationTrackingMode,
             nativeFollowActivationIsSuspended,
             nativeFollowZoomLevel,
-            nativeFollowZoomUpdateIsDeferred,
+            followCameraSettingsAreDeferred,
             recenterIsNeeded,
         ],
     );
@@ -443,7 +449,7 @@ export function useFollowLocationMode({
     const stop = useCallback(() => {
         clearPendingUserCameraUpdate();
         clearNativeFollowActivationSuspension();
-        setNativeFollowZoomUpdateIsDeferred(false);
+        setFollowCameraSettingsAreDeferred(false);
         setRecenterNeeded(false);
         setTrackingMode(LOCATION_TRACKING_NONE);
         cameraRef.current?.setCamera({
@@ -472,7 +478,7 @@ export function useFollowLocationMode({
 
         clearPendingUserCameraUpdate();
         clearNativeFollowActivationSuspension();
-        setNativeFollowZoomUpdateIsDeferred(false);
+        setFollowCameraSettingsAreDeferred(false);
         setRecenterNeeded(true);
         return true;
     }, [
@@ -552,11 +558,11 @@ export function useFollowLocationMode({
                 return true;
             }
 
-            setNativeFollowZoomUpdateIsDeferred(false);
+            setFollowCameraSettingsAreDeferred(false);
 
             if (followSpeedZoomEnabled) {
                 syncNativeFollowZoomLevel(location, {
-                    deferUntilNextLocation: true,
+                    deferCameraSettingsUntilNextLocation: true,
                 });
             }
 
@@ -564,7 +570,7 @@ export function useFollowLocationMode({
         },
         [
             followSpeedZoomEnabled,
-            setNativeFollowZoomUpdateIsDeferred,
+            setFollowCameraSettingsAreDeferred,
             syncNativeFollowZoomLevel,
         ],
     );
@@ -633,7 +639,7 @@ export function useFollowLocationMode({
         ) {
             clearPendingUserCameraUpdate();
             clearNativeFollowActivationSuspension();
-            setNativeFollowZoomUpdateIsDeferred(false);
+            setFollowCameraSettingsAreDeferred(false);
             setRecenterNeeded(false);
         }
     }, [
