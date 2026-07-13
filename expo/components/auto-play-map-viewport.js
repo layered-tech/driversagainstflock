@@ -1,6 +1,9 @@
+import { AUTO_PLAY_DRIVING_LOCATION_FOLLOW_VISIBLE_Y_RATIO } from './map/current-road-pill-layout.js';
+
 const AUTO_PLAY_ORNAMENT_INSET_MAX_VIEWPORT_FRACTION = 0.35;
 
-export const AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VISIBLE_Y_RATIO = 0.9;
+export const AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VISIBLE_Y_RATIO =
+    AUTO_PLAY_DRIVING_LOCATION_FOLLOW_VISIBLE_Y_RATIO;
 
 function getPositiveDimension(value) {
     const numericValue = Number(value);
@@ -110,8 +113,8 @@ export function getAutoPlayViewportMetrics({
 }
 
 /**
- * Keeps the driving puck 90% down the host-visible map, not 90% down a
- * full canvas that may be obscured by Android Auto or CarPlay content.
+ * Keeps the driving puck at the shared driving anchor within the host-visible
+ * map, rather than relative to a full canvas obscured by host content.
  */
 export function getAutoPlayFollowViewportAnchorY(
     viewportMetrics,

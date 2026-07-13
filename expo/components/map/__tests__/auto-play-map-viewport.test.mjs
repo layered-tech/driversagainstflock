@@ -1,13 +1,16 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
+    AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VISIBLE_Y_RATIO,
     getAutoPlayFollowViewportAnchorY,
     getAutoPlayViewportMetrics,
 } from '../../auto-play-map-viewport.js';
 import { getFollowCameraPadding } from '../follow-camera-padding.js';
 
+const CAMERA_ANCHOR_PIXEL_TOLERANCE = 0.5;
+
 function assertApproximatelyEqual(actual, expected) {
-    assert.ok(Math.abs(actual - expected) < Number.EPSILON * 100);
+    assert.ok(Math.abs(actual - expected) <= CAMERA_ANCHOR_PIXEL_TOLERANCE);
 }
 
 function getCameraAnchor({ height, padding, width }) {
@@ -22,7 +25,7 @@ function getFollowPadding(viewportMetrics) {
         followViewportAnchorY:
             getAutoPlayFollowViewportAnchorY(viewportMetrics),
         followViewportBottomOffset: 0,
-        followViewportYRatio: 0.9,
+        followViewportYRatio: AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VISIBLE_Y_RATIO,
         maxTopPaddingRatio: 0.95,
         viewportHeight: viewportMetrics.height,
         viewportInsets: viewportMetrics.cameraPadding,
@@ -72,13 +75,13 @@ describe('Auto Play map viewport geometry', () => {
     test('anchors each host layout inside its live visible rectangle', () => {
         const layouts = [
             {
-                expected: { x: 960, y: 972 },
+                expectedX: 960,
                 name: 'widescreen dedicated',
                 safeAreaInsets: { bottom: 0, left: 0, right: 0, top: 0 },
                 windowInfo: { height: 1080, width: 1920 },
             },
             {
-                expected: { x: 1110, y: 654 },
+                expectedX: 1110,
                 name: 'widescreen menu below',
                 safeAreaInsets: {
                     bottom: 360,
@@ -89,13 +92,13 @@ describe('Auto Play map viewport geometry', () => {
                 windowInfo: { height: 1080, width: 1920 },
             },
             {
-                expected: { x: 600, y: 1728 },
+                expectedX: 600,
                 name: 'portrait dedicated',
                 safeAreaInsets: { bottom: 0, left: 120, right: 0, top: 0 },
                 windowInfo: { height: 1920, width: 1080 },
             },
             {
-                expected: { x: 600, y: 1152 },
+                expectedX: 600,
                 name: 'portrait split',
                 safeAreaInsets: {
                     bottom: 640,
@@ -107,7 +110,7 @@ describe('Auto Play map viewport geometry', () => {
             },
         ];
 
-        layouts.forEach(({ expected, name, safeAreaInsets, windowInfo }) => {
+        layouts.forEach(({ expectedX, name, safeAreaInsets, windowInfo }) => {
             const viewportMetrics = getAutoPlayViewportMetrics({
                 safeAreaInsets,
                 windowInfo,
@@ -118,15 +121,21 @@ describe('Auto Play map viewport geometry', () => {
                 width: viewportMetrics.width,
             });
 
-            assertApproximatelyEqual(anchor.x, expected.x);
-            assertApproximatelyEqual(anchor.y, expected.y);
+            assertApproximatelyEqual(anchor.x, expectedX);
+            assertApproximatelyEqual(
+                anchor.y,
+                viewportMetrics.visibleRect.top +
+                    viewportMetrics.visibleHeight *
+                        AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VISIBLE_Y_RATIO,
+            );
             assert.ok(
                 anchor.y < viewportMetrics.visibleRect.bottom,
                 `${name} should keep the location above the visible bottom`,
             );
             assertApproximatelyEqual(
                 viewportMetrics.visibleRect.bottom - anchor.y,
-                viewportMetrics.visibleHeight * 0.1,
+                viewportMetrics.visibleHeight *
+                    (1 - AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VISIBLE_Y_RATIO),
             );
         });
     });

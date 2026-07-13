@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useColorScheme, View } from 'react-native';
+import { useColorScheme, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { getDafTheme } from '../design-system/tokens';
 import { logMapDrivingStopped } from './analytics';
 import { getDirections } from './api';
-import { CurrentRoadPill } from './current-road-context';
+import { CurrentRoadPill, getCurrentRoadText } from './current-road-context';
+import {
+    getCurrentRoadPillTop,
+    getMobileDrivingLocationAnchorY,
+    MOBILE_LOCATION_PUCK_HEIGHT,
+    shouldShowCurrentRoadPill,
+} from './current-road-pill-layout';
 import { DEBUG_OVERLAY_DIRECTIONS_GEOMETRY } from './debug-overlays';
 import {
     createCurrentLocationDirectionsWaypoint,
@@ -34,6 +40,7 @@ import {
     useRouteSpeedLimit,
 } from './speed-limit';
 import { MOBILE_SPEED_LIMIT_BADGE_SIZE } from './speed-limit-layout';
+import { getDrivingCameraFollowOptions } from './use-driving-mode-lifecycle';
 
 const DRIVING_REROUTE_CONFIRMATION_MS = 2000;
 const DRIVING_REROUTE_COOLDOWN_MS = 8000;
@@ -94,6 +101,7 @@ function createSearchResultRestoreFromRoute(route) {
 export function DrivingGuidanceOverlay({ children }) {
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
+    const { height: windowHeight } = useWindowDimensions();
     const offRouteDetectedAtRef = useRef(null);
     const rerouteAbortControllerRef = useRef(null);
     const lastRerouteAtRef = useRef(0);
@@ -131,6 +139,19 @@ export function DrivingGuidanceOverlay({ children }) {
         [directionsRoute, routeProgress, userLocation],
     );
     const routeIsActive = Boolean(directionsRoute && routeOption);
+    const { drivingCameraFollowViewportBottomOffset } =
+        getDrivingCameraFollowOptions();
+    const currentRoadPillTop = getCurrentRoadPillTop({
+        locationAnchorY: getMobileDrivingLocationAnchorY({
+            bottomInset: insets.bottom,
+            followViewportBottomOffset: drivingCameraFollowViewportBottomOffset,
+            viewportHeight: windowHeight,
+        }),
+        locationPuckHeight: MOBILE_LOCATION_PUCK_HEIGHT,
+    });
+    const currentRoadIsVisible = shouldShowCurrentRoadPill({
+        roadText: getCurrentRoadText(userLocation),
+    });
     const headerCardIsVisible = Boolean(
         routeIsActive && (rerouteIsLoading || maneuver),
     );
@@ -320,67 +341,74 @@ export function DrivingGuidanceOverlay({ children }) {
     }, [directionsRoute, handleReroute, routeIsActive, routeProgress]);
 
     return (
-        <NativeWindSafeAreaView
-            className="absolute inset-0 z-50"
-            edges={['top', 'right', 'left']}
-            pointerEvents="box-none"
-        >
-            <View className="px-3 pt-3" pointerEvents="box-none">
-                {routeIsActive ? (
-                    rerouteIsLoading ? (
-                        <ReroutingCard />
-                    ) : (
-                        <ManeuverCard
-                            maneuver={maneuver}
-                            nextManeuver={nextManeuver}
-                        />
-                    )
-                ) : null}
-            </View>
-
-            <View
-                className={`${headerCardIsVisible ? 'pt-3' : ''} flex-row items-start gap-3 px-3`}
+        <View className="absolute inset-0 z-50" pointerEvents="box-none">
+            <NativeWindSafeAreaView
+                className="absolute inset-0"
+                edges={['top', 'right', 'left']}
                 pointerEvents="box-none"
             >
-                <View pointerEvents="box-none">
-                    <SpeedLimitSign
-                        currentSpeedMps={getRouteCurrentSpeedMps(userLocation)}
-                        currentSpeedPlacement="bottom-right"
-                        currentSpeedVisible
-                        isDarkMode={colorScheme === 'dark'}
-                        size={MOBILE_SPEED_LIMIT_BADGE_SIZE}
-                        speedLimit={speedLimit}
-                    />
-                </View>
-                <View
-                    className="min-w-0 flex-1 items-center"
-                    pointerEvents="none"
-                >
-                    {!routeIsActive ? (
-                        <CurrentRoadPill userLocation={userLocation} />
+                <View className="px-3 pt-3" pointerEvents="box-none">
+                    {routeIsActive ? (
+                        rerouteIsLoading ? (
+                            <ReroutingCard />
+                        ) : (
+                            <ManeuverCard
+                                maneuver={maneuver}
+                                nextManeuver={nextManeuver}
+                            />
+                        )
                     ) : null}
                 </View>
-                <View className="items-end" pointerEvents="box-none">
-                    {children}
-                </View>
-            </View>
 
-            <View className="flex-1" pointerEvents="none" />
-
-            {routeIsActive ? (
                 <View
-                    className="overflow-hidden shadow-[0px_-10px_28px_rgba(11,14,18,0.16)]"
+                    className={`${headerCardIsVisible ? 'pt-3' : ''} flex-row items-start gap-3 px-3`}
                     pointerEvents="box-none"
-                    style={destinationSurfaceStyle}
                 >
-                    <DestinationCard
-                        bottomInset={insets.bottom}
-                        directionsRoute={directionsRoute}
-                        onCancelRoute={handleCancelRoute}
-                        routeOption={routeOption}
-                    />
+                    <View pointerEvents="box-none">
+                        <SpeedLimitSign
+                            currentSpeedMps={getRouteCurrentSpeedMps(
+                                userLocation,
+                            )}
+                            currentSpeedPlacement="bottom-right"
+                            currentSpeedVisible
+                            isDarkMode={colorScheme === 'dark'}
+                            size={MOBILE_SPEED_LIMIT_BADGE_SIZE}
+                            speedLimit={speedLimit}
+                        />
+                    </View>
+                    <View className="flex-1" pointerEvents="none" />
+                    <View className="items-end" pointerEvents="box-none">
+                        {children}
+                    </View>
+                </View>
+
+                <View className="flex-1" pointerEvents="none" />
+
+                {routeIsActive ? (
+                    <View
+                        className="overflow-hidden shadow-[0px_-10px_28px_rgba(11,14,18,0.16)]"
+                        pointerEvents="box-none"
+                        style={destinationSurfaceStyle}
+                    >
+                        <DestinationCard
+                            bottomInset={insets.bottom}
+                            directionsRoute={directionsRoute}
+                            onCancelRoute={handleCancelRoute}
+                            routeOption={routeOption}
+                        />
+                    </View>
+                ) : null}
+            </NativeWindSafeAreaView>
+
+            {currentRoadIsVisible && currentRoadPillTop !== null ? (
+                <View
+                    className="absolute left-3 right-3 items-center"
+                    pointerEvents="none"
+                    style={{ top: currentRoadPillTop }}
+                >
+                    <CurrentRoadPill userLocation={userLocation} />
                 </View>
             ) : null}
-        </NativeWindSafeAreaView>
+        </View>
     );
 }

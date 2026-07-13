@@ -6,9 +6,9 @@ import {
     DRIVING_DESTINATION_CAMERA_GAP,
     DRIVING_DESTINATION_SURFACE_HEIGHT,
 } from './constants';
+import { MOBILE_DRIVING_LOCATION_FOLLOW_Y_RATIO } from './current-road-pill-layout';
 
 const DRIVING_MODE_WAKE_LOCK_TAG = 'driversagainstflock.driving-mode';
-const DRIVING_CAMERA_FOLLOW_VIEWPORT_Y_RATIO = 0.8;
 const DRIVING_CAMERA_FOLLOW_VIEWPORT_BOTTOM_OFFSET =
     DRIVING_DESTINATION_SURFACE_HEIGHT + DRIVING_DESTINATION_CAMERA_GAP;
 const IDLE_LOCK_ON_CAMERA_ANIMATION_DURATION_MS = 1250;
@@ -18,7 +18,7 @@ export function getDrivingCameraFollowOptions() {
         drivingCameraFollowViewportBottomOffset:
             DRIVING_CAMERA_FOLLOW_VIEWPORT_BOTTOM_OFFSET,
         drivingCameraFollowViewportYRatio:
-            DRIVING_CAMERA_FOLLOW_VIEWPORT_Y_RATIO,
+            MOBILE_DRIVING_LOCATION_FOLLOW_Y_RATIO,
     };
 }
 

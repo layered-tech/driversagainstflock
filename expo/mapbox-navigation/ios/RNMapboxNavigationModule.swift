@@ -607,6 +607,15 @@ final class RNMapboxNavigationController {
 /// stays entirely within the MapboxMaps instance `@rnmapbox/maps` already resolved.
 @MainActor
 private final class NavigationCameraSurface {
+  private struct CameraOptionsSnapshot {
+    let paddingTop: Double
+    let paddingLeft: Double
+    let paddingBottom: Double
+    let paddingRight: Double
+    let zoom: Double?
+    let pitch: Double?
+  }
+
   private let surfaceId: String
   private weak var mapView: MapView?
   private let onStateChanged: @MainActor (String) -> Void
@@ -618,6 +627,7 @@ private final class NavigationCameraSurface {
   private var paddingRight: Double = 0
   private var zoom: Double?
   private var pitch: Double?
+  private var pendingOptions: CameraOptionsSnapshot?
 
   init(surfaceId: String, mapView: MapView, onStateChanged: @escaping @MainActor (String) -> Void) {
     self.surfaceId = surfaceId
@@ -626,13 +636,18 @@ private final class NavigationCameraSurface {
   }
 
   func updateOptions(_ options: [String: Any]?, lastLocation: CLLocation? = nil) {
-    let padding = options?["padding"] as? [String: Any]
-    paddingTop = Self.double(padding?["paddingTop"]) ?? 0
-    paddingLeft = Self.double(padding?["paddingLeft"]) ?? 0
-    paddingBottom = Self.double(padding?["paddingBottom"]) ?? 0
-    paddingRight = Self.double(padding?["paddingRight"]) ?? 0
-    zoom = Self.double(options?["zoomLevel"])
-    pitch = Self.double(options?["pitch"])
+    let nextOptions = Self.optionsSnapshot(options)
+
+    if Self.bool(options?["deferUntilNextLocation"]) {
+      // A speed-derived zoom must not animate the map to the previous matched
+      // location. The latest snapshot replaces any older queued update and is
+      // installed immediately before the next location frames the camera.
+      pendingOptions = nextOptions
+      return
+    }
+
+    pendingOptions = nil
+    applyOptions(nextOptions)
 
     if mode == NAVIGATION_CAMERA_MODE_FOLLOWING, let lastLocation {
       applyCamera(to: lastLocation, animated: true)
@@ -652,6 +667,7 @@ private final class NavigationCameraSurface {
       }
       onStateChanged(NAVIGATION_CAMERA_MODE_FOLLOWING)
     } else {
+      pendingOptions = nil
       mapView?.camera.cancelAnimations()
       onStateChanged(NAVIGATION_CAMERA_MODE_IDLE)
     }
@@ -662,13 +678,28 @@ private final class NavigationCameraSurface {
       return
     }
 
+    if let pendingOptions {
+      self.pendingOptions = nil
+      applyOptions(pendingOptions)
+    }
+
     applyCamera(to: location, animated: true)
   }
 
   func detach() {
+    pendingOptions = nil
     mapView?.camera.cancelAnimations()
     onStateChanged(NAVIGATION_CAMERA_MODE_IDLE)
     mapView = nil
+  }
+
+  private func applyOptions(_ options: CameraOptionsSnapshot) {
+    paddingTop = options.paddingTop
+    paddingLeft = options.paddingLeft
+    paddingBottom = options.paddingBottom
+    paddingRight = options.paddingRight
+    zoom = options.zoom
+    pitch = options.pitch
   }
 
   private func applyCamera(to location: CLLocation, animated: Bool) {
@@ -707,5 +738,29 @@ private final class NavigationCameraSurface {
     default:
       return nil
     }
+  }
+
+  private static func bool(_ value: Any?) -> Bool {
+    switch value {
+    case let boolValue as Bool:
+      return boolValue
+    case let numberValue as NSNumber:
+      return numberValue.boolValue
+    default:
+      return false
+    }
+  }
+
+  private static func optionsSnapshot(_ options: [String: Any]?) -> CameraOptionsSnapshot {
+    let padding = options?["padding"] as? [String: Any]
+
+    return CameraOptionsSnapshot(
+      paddingTop: double(padding?["paddingTop"]) ?? 0,
+      paddingLeft: double(padding?["paddingLeft"]) ?? 0,
+      paddingBottom: double(padding?["paddingBottom"]) ?? 0,
+      paddingRight: double(padding?["paddingRight"]) ?? 0,
+      zoom: double(options?["zoomLevel"]),
+      pitch: double(options?["pitch"])
+    )
   }
 }

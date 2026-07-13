@@ -86,6 +86,9 @@ function createNavigationModule({
     const padding = options.padding ?? {};
 
     return {
+      ...(options.deferUntilNextLocation === true
+        ? { deferUntilNextLocation: true }
+        : {}),
       padding: {
         paddingBottom: Number(padding.paddingBottom) || 0,
         paddingLeft: Number(padding.paddingLeft) || 0,
@@ -104,6 +107,9 @@ function createNavigationModule({
   function getNavigationCameraOptionsKey(options) {
     const normalizedOptions = normalizeNavigationCameraOptions(options);
 
+    // deferUntilNextLocation is a one-shot command, not part of the camera's
+    // steady-state configuration. Excluding it lets callers clear the marker
+    // after the next location without triggering a second, immediate update.
     return [
       normalizedOptions.padding.paddingBottom,
       normalizedOptions.padding.paddingLeft,
@@ -112,6 +118,13 @@ function createNavigationModule({
       normalizedOptions.pitch ?? '',
       normalizedOptions.zoomLevel ?? '',
     ].join(':');
+  }
+
+  function getImmediateNavigationCameraOptions(options = {}) {
+    const { deferUntilNextLocation: _deferUntilNextLocation, ...immediate } =
+      options;
+
+    return immediate;
   }
 
   function getMapViewTag(mapViewRef) {
@@ -134,7 +147,9 @@ function createNavigationModule({
       await NativeRNMapboxNavigation.attachNavigationCamera(
         surfaceId,
         mapViewTag,
-        normalizeNavigationCameraOptions(options),
+        normalizeNavigationCameraOptions(
+          getImmediateNavigationCameraOptions(options),
+        ),
       ),
     );
   }
@@ -351,6 +366,7 @@ function createNavigationModule({
     const attachKey = options.attachKey ?? '';
     const cameraOptions = options.cameraOptions ?? {};
     const cameraOptionsKey = getNavigationCameraOptionsKey(cameraOptions);
+    const attachedCameraOptionsKeyRef = React.useRef(null);
     const [state, setState] = React.useState('unavailable');
     const [attached, setAttached] = React.useState(false);
 
@@ -387,17 +403,17 @@ function createNavigationModule({
 
       let isActive = true;
 
+      // A deferred marker may remain in props while a surface remounts. An
+      // attached camera must start with its current options, not revive an old
+      // deferred update after it begins following.
       attachNavigationCameraAsync(surfaceId, mapViewTag, cameraOptions)
         .then((attachedCamera) => {
           if (!isActive) {
             return;
           }
 
+          attachedCameraOptionsKeyRef.current = cameraOptionsKey;
           setAttached(attachedCamera);
-
-          if (attachedCamera) {
-            setNavigationCameraModeAsync(surfaceId, mode).catch(() => {});
-          }
         })
         .catch(() => {
           if (isActive) {
@@ -407,6 +423,7 @@ function createNavigationModule({
 
       return () => {
         isActive = false;
+        attachedCameraOptionsKeyRef.current = null;
         setAttached(false);
         detachNavigationCameraAsync(surfaceId).catch(() => {});
       };
@@ -417,13 +434,30 @@ function createNavigationModule({
         return undefined;
       }
 
+      if (attachedCameraOptionsKeyRef.current === cameraOptionsKey) {
+        attachedCameraOptionsKeyRef.current = null;
+        return undefined;
+      }
+
       updateNavigationCameraOptionsAsync(surfaceId, cameraOptions).catch(
         () => {},
       );
+
+      return undefined;
+    }, [attached, cameraOptionsKey, enabled, surfaceId]);
+
+    // Keep camera mode changes separate from option changes. A deferred option
+    // update must wait for the next location instead of re-requesting follow
+    // mode, which would immediately frame the last known location.
+    React.useEffect(() => {
+      if (!enabled || !attached || !isSupported()) {
+        return undefined;
+      }
+
       setNavigationCameraModeAsync(surfaceId, mode).catch(() => {});
 
       return undefined;
-    }, [attached, cameraOptionsKey, enabled, mode, surfaceId]);
+    }, [attached, enabled, mode, surfaceId]);
 
     return {
       attached,

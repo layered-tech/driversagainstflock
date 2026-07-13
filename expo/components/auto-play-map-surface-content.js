@@ -1715,6 +1715,7 @@ export function AutoPlayMapSurfaceContent({
                 {isRootMapSurface ? (
                     <AutoPlayMapStatusOverlay
                         activeDirectionsRoute={activeDirectionsRoute}
+                        followViewportAnchorY={followViewportAnchorY}
                         freeDriveIsActive={
                             controller.enhancedNavigationLocationWatchEnabled
                         }
@@ -1724,6 +1725,7 @@ export function AutoPlayMapSurfaceContent({
                         }
                         presentation={presentation}
                         userLocation={mapPreferences.userLocation}
+                        viewportMetrics={viewportMetrics}
                     />
                 ) : null}
                 <AutoPlayDebugOverlays

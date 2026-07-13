@@ -564,6 +564,7 @@ class RNMapboxNavigationModule : Module() {
     private val onStateChanged: (NavigationCameraState) -> Unit
   ) {
     private var requestedMode = NAVIGATION_CAMERA_MODE_IDLE
+    private var pendingOptions: Map<String, Any?>? = null
     private val stateObserver = NavigationCameraStateChangedObserver { state ->
       onStateChanged(state)
     }
@@ -573,11 +574,35 @@ class RNMapboxNavigationModule : Module() {
     }
 
     fun onLocationMatcherResult(result: LocationMatcherResult) {
+      pendingOptions?.let { options ->
+        pendingOptions = null
+        applyOptions(options)
+      }
+
       viewportDataSource.onLocationChanged(result.enhancedLocation)
       viewportDataSource.evaluate()
     }
 
     fun updateOptions(options: Map<String, Any?>?) {
+      if (getOptionalBoolean(options, "deferUntilNextLocation")) {
+        // A speed-derived zoom must not reframe the prior matched location.
+        // Keep only the latest full snapshot, then install it immediately
+        // before the next location evaluates the navigation camera.
+        pendingOptions = options?.toMap() ?: emptyMap()
+        return
+      }
+
+      pendingOptions = null
+      applyOptions(options)
+
+      viewportDataSource.evaluate()
+
+      if (requestedMode == NAVIGATION_CAMERA_MODE_FOLLOWING) {
+        navigationCamera.requestNavigationCameraToFollowing()
+      }
+    }
+
+    private fun applyOptions(options: Map<String, Any?>?) {
       val padding = options?.get("padding") as? Map<*, *>
       viewportDataSource.followingPadding = EdgeInsets(
         getPaddingDouble(padding, "paddingTop"),
@@ -593,12 +618,6 @@ class RNMapboxNavigationModule : Module() {
       getOptionalDouble(options, "pitch")?.let {
         viewportDataSource.followingPitchPropertyOverride(it)
       }
-
-      viewportDataSource.evaluate()
-
-      if (requestedMode == NAVIGATION_CAMERA_MODE_FOLLOWING) {
-        navigationCamera.requestNavigationCameraToFollowing()
-      }
     }
 
     fun setMode(mode: String) {
@@ -610,11 +629,13 @@ class RNMapboxNavigationModule : Module() {
       if (requestedMode == NAVIGATION_CAMERA_MODE_FOLLOWING) {
         navigationCamera.requestNavigationCameraToFollowing()
       } else {
+        pendingOptions = null
         navigationCamera.requestNavigationCameraToIdle()
       }
     }
 
     fun detach() {
+      pendingOptions = null
       navigationCamera.unregisterNavigationCameraStateChangeObserver(stateObserver)
       navigationCamera.requestNavigationCameraToIdle()
     }
@@ -632,6 +653,14 @@ class RNMapboxNavigationModule : Module() {
       return when (value) {
         is Number -> value.toDouble()
         else -> null
+      }
+    }
+
+    private fun getOptionalBoolean(map: Map<String, Any?>?, key: String): Boolean {
+      return when (val value = map?.get(key)) {
+        is Boolean -> value
+        is Number -> value.toInt() != 0
+        else -> false
       }
     }
 
