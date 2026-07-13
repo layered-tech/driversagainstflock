@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import {
     MAPBOX_STANDARD_LIGHT_PRESET_AUTO,
@@ -9,6 +9,7 @@ import {
 } from './config';
 
 const MAP_LIGHT_PRESET_REFRESH_MS = 60 * 1000;
+const MAP_LIGHT_LOCATION_KEY_PRECISION = 1;
 const SOLAR_ZENITH_SUNRISE_DEGREES = 90.833;
 const SOLAR_ZENITH_CIVIL_TWILIGHT_DEGREES = 96;
 const FIXED_MAP_LIGHT_PRESETS = new Set([
@@ -17,6 +18,17 @@ const FIXED_MAP_LIGHT_PRESETS = new Set([
     MAPBOX_STANDARD_LIGHT_PRESET_DUSK,
     MAPBOX_STANDARD_LIGHT_PRESET_NIGHT,
 ]);
+
+function getMapLightLocationKey(location) {
+    const latitude = Number(location?.latitude);
+    const longitude = Number(location?.longitude);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        return '';
+    }
+
+    return `${latitude.toFixed(MAP_LIGHT_LOCATION_KEY_PRECISION)},${longitude.toFixed(MAP_LIGHT_LOCATION_KEY_PRECISION)}`;
+}
 
 function degreesToRadians(degrees) {
     return (degrees * Math.PI) / 180;
@@ -201,6 +213,8 @@ export function useMapboxStandardLightPreset(
     lightPresetPreference = MAPBOX_STANDARD_LIGHT_PRESET_AUTO,
     location = null,
 ) {
+    const locationRef = useRef(location);
+    const locationKey = getMapLightLocationKey(location);
     const [lightPreset, setLightPreset] = useState(() =>
         getResolvedMapboxStandardLightPreset(
             lightPresetPreference,
@@ -208,6 +222,8 @@ export function useMapboxStandardLightPreset(
             location,
         ),
     );
+
+    locationRef.current = location;
 
     useEffect(() => {
         if (FIXED_MAP_LIGHT_PRESETS.has(lightPresetPreference)) {
@@ -217,7 +233,9 @@ export function useMapboxStandardLightPreset(
         }
 
         const updateLightPreset = () => {
-            setLightPreset(getMapboxStandardLightPresetForLocation(location));
+            setLightPreset(
+                getMapboxStandardLightPresetForLocation(locationRef.current),
+            );
         };
         const intervalId = setInterval(
             updateLightPreset,
@@ -238,7 +256,7 @@ export function useMapboxStandardLightPreset(
             clearInterval(intervalId);
             appStateSubscription.remove();
         };
-    }, [lightPresetPreference, location?.latitude, location?.longitude]);
+    }, [lightPresetPreference, locationKey]);
 
     return lightPreset;
 }

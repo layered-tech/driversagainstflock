@@ -1,6 +1,6 @@
 import { useNavigationCamera } from '@rnmapbox/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useWindowDimensions } from 'react-native';
+import { AppState, useWindowDimensions } from 'react-native';
 import {
     addAutoDriveSimulationLocationListener,
     useAutoDriveSimulationIsActive,
@@ -43,6 +43,7 @@ import {
     normalizeDirectionDegrees,
     normalizeLongitude,
 } from './geo';
+import { shouldUseDeviceLocationWatch } from './location-watch-options';
 import { getPlaceCoordinate } from './place-formatters';
 import { useDeferredCameraDebugState } from './use-deferred-camera-debug-state';
 import {
@@ -65,13 +66,15 @@ const ZOOM_LEVEL_STATE_UPDATE_EPSILON = 0.01;
 export function useMapLocationController({
     cameraFocusPadding = EMPTY_CAMERA_PADDING,
     cameraDebugStateUpdatesEnabled = false,
-    drivingCameraFollowViewportBottomOffset,
-    drivingCameraFollowViewportYRatio,
+    drivingCameraFollowViewportAnchorY,
     initialCameraSettings,
     isDrivingMode,
     lockOnLocationUpdateAnimationDurationRef,
+    mapBearingUpdatesEnabled = false,
     mapPreferencesAreLoaded,
+    markersAreVisible = true,
     scheduleSharedMarkerLoad,
+    screenIsFocused = true,
     setUserLocation,
     userLocation,
 }) {
@@ -90,8 +93,12 @@ export function useMapLocationController({
     const mapPreferencesHydrationHasAppliedRef = useRef(false);
     const markerShapeSourceRef = useRef(null);
     const mapViewRef = useRef(null);
+    const latestCameraSettingsRef = useRef(initialCameraSettings);
+    const latestMapBoundsRef = useRef(null);
     const pendingCameraStopRef = useRef(null);
     const previousDrivingModeRef = useRef(isDrivingMode);
+    const previousMarkersAreVisibleRef = useRef(markersAreVisible);
+    const publishedMapBearingRef = useRef(0);
     const userLocationRef = useRef(null);
     const { currentCameraDebugState, setPendingCameraDebugState } =
         useDeferredCameraDebugState(cameraDebugStateUpdatesEnabled);
@@ -106,10 +113,16 @@ export function useMapLocationController({
         currentMapBounds,
         handleCurrentMapBoundsUpdate,
     } = useMapBoundsState();
+    const [appStateIsActive, setAppStateIsActive] = useState(
+        AppState.currentState === null || AppState.currentState === 'active',
+    );
     const [currentMapBearing, setCurrentMapBearing] = useState(0);
     const [isMapReady, setIsMapReady] = useState(false);
     const [locationTrackingMode, setLocationTrackingMode] = useState(
         LOCATION_TRACKING_NONE,
+    );
+    const [remountCameraSettings, setRemountCameraSettings] = useState(
+        initialCameraSettings,
     );
     const { findCurrentLocation, isLocating, locationError, setLocationError } =
         useCurrentLocation({
@@ -117,6 +130,17 @@ export function useMapLocationController({
             isMountedRef,
             setUserLocation,
         });
+    const phoneLocationUpdatesAreEnabled = screenIsFocused && appStateIsActive;
+
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', (appState) => {
+            const isActive = appState === 'active';
+
+            setAppStateIsActive(isActive);
+        });
+
+        return () => subscription.remove();
+    }, []);
 
     useEffect(() => {
         locationTrackingModeRef.current = locationTrackingMode;
@@ -125,6 +149,34 @@ export function useMapLocationController({
     useEffect(() => {
         userLocationRef.current = userLocation;
     }, [userLocation]);
+
+    useEffect(() => {
+        if (!initialCameraSettings || isMapReadyRef.current) {
+            return;
+        }
+
+        latestCameraSettingsRef.current = initialCameraSettings;
+        setRemountCameraSettings(initialCameraSettings);
+    }, [initialCameraSettings]);
+
+    useEffect(() => {
+        if (screenIsFocused) {
+            return;
+        }
+
+        isMapReadyRef.current = false;
+        setIsMapReady(false);
+        setRemountCameraSettings(latestCameraSettingsRef.current);
+    }, [screenIsFocused]);
+
+    useEffect(() => {
+        if (!mapBearingUpdatesEnabled) {
+            return;
+        }
+
+        publishedMapBearingRef.current = currentMapBearingRef.current;
+        setCurrentMapBearing(currentMapBearingRef.current);
+    }, [mapBearingUpdatesEnabled]);
 
     const setTrackingMode = useCallback((nextMode) => {
         locationTrackingModeRef.current = nextMode;
@@ -203,6 +255,7 @@ export function useMapLocationController({
             if (
                 !bounds ||
                 !isMapReadyRef.current ||
+                !markersAreVisible ||
                 !markerLoadsEnabledRef.current
             ) {
                 return;
@@ -210,8 +263,24 @@ export function useMapLocationController({
 
             scheduleSharedMarkerLoad(bounds, delay);
         },
-        [scheduleSharedMarkerLoad],
+        [markersAreVisible, scheduleSharedMarkerLoad],
     );
+
+    useEffect(() => {
+        const markersWereVisible = previousMarkersAreVisibleRef.current;
+
+        previousMarkersAreVisibleRef.current = markersAreVisible;
+
+        if (
+            markersWereVisible ||
+            !markersAreVisible ||
+            !latestMapBoundsRef.current
+        ) {
+            return;
+        }
+
+        scheduleMarkerLoad(latestMapBoundsRef.current, 0);
+    }, [markersAreVisible, scheduleMarkerLoad]);
 
     const moveCameraToUser = useCallback((location, options = {}) => {
         const nextZoomLevel = clampZoomLevel(
@@ -259,8 +328,7 @@ export function useMapLocationController({
         currentCourseHeadingRef,
         currentZoomRef,
         followSpeedZoomEnabled: true,
-        followViewportBottomOffset: drivingCameraFollowViewportBottomOffset,
-        followViewportYRatio: drivingCameraFollowViewportYRatio,
+        followViewportAnchorY: drivingCameraFollowViewportAnchorY,
         isDrivingMode,
         isMapReadyRef,
         locationTrackingMode,
@@ -446,11 +514,28 @@ export function useMapLocationController({
         (state) => {
             const previousZoomLevel = currentZoomRef.current;
             const nextZoomLevel = state?.properties?.zoom;
-            const nextCameraDebugState = getCameraDebugState(state);
+            const nextCameraDebugState = cameraDebugStateUpdatesEnabled
+                ? getCameraDebugState(state)
+                : null;
             const nextBearing = getStoredNumber(
                 state?.properties?.heading ?? state?.properties?.bearing,
             );
+            const nextCenter = state?.properties?.center;
+            const nextPitch = getStoredNumber(state?.properties?.pitch);
             let zoomLevelChanged = false;
+
+            if (
+                Array.isArray(nextCenter) &&
+                nextCenter.length >= 2 &&
+                Number.isFinite(nextZoomLevel)
+            ) {
+                latestCameraSettingsRef.current = {
+                    centerCoordinate: [...nextCenter],
+                    heading: nextBearing ?? 0,
+                    pitch: nextPitch ?? 0,
+                    zoomLevel: nextZoomLevel,
+                };
+            }
 
             if (nextCameraDebugState) {
                 setPendingCameraDebugState(
@@ -470,15 +555,18 @@ export function useMapLocationController({
                 const normalizedBearing =
                     normalizeDirectionDegrees(nextBearing);
 
+                currentMapBearingRef.current = normalizedBearing;
+
                 if (
+                    mapBearingUpdatesEnabled &&
                     Math.abs(
                         getDirectionDeltaDegrees(
-                            currentMapBearingRef.current,
+                            publishedMapBearingRef.current,
                             normalizedBearing,
                         ),
                     ) > MAP_BEARING_STATE_UPDATE_EPSILON_DEGREES
                 ) {
-                    currentMapBearingRef.current = normalizedBearing;
+                    publishedMapBearingRef.current = normalizedBearing;
                     setCurrentMapBearing(normalizedBearing);
                 }
             }
@@ -490,6 +578,7 @@ export function useMapLocationController({
             const bounds = getBoundsFromCameraState(state);
 
             if (bounds) {
+                latestMapBoundsRef.current = bounds;
                 handleCurrentMapBoundsUpdate(bounds);
                 scheduleMarkerLoad(bounds);
             }
@@ -514,9 +603,11 @@ export function useMapLocationController({
             }
         },
         [
+            cameraDebugStateUpdatesEnabled,
             followLocationMode,
             handleCurrentMapBoundsUpdate,
             isDrivingMode,
+            mapBearingUpdatesEnabled,
             scheduleMarkerLoad,
             setPendingCameraDebugState,
             setTrackingMode,
@@ -624,6 +715,7 @@ export function useMapLocationController({
     // preferences sync, so the simulation becomes the only location source.
     const autoDriveSimulationIsActive = useAutoDriveSimulationIsActive();
     const enhancedNavigationLocationWatchEnabled =
+        phoneLocationUpdatesAreEnabled &&
         locationAccessGranted &&
         !autoDriveSimulationIsActive &&
         mapboxNavigationEnhancedLocationIsSupported() &&
@@ -635,26 +727,37 @@ export function useMapLocationController({
         isMountedRef,
     });
     useLocationWatch({
-        enabled:
-            !enhancedNavigationLocationWatchEnabled &&
-            !autoDriveSimulationIsActive,
+        enabled: shouldUseDeviceLocationWatch({
+            autoDriveSimulationIsActive,
+            enhancedNavigationLocationWatchEnabled,
+            phoneLocationUpdatesAreEnabled,
+        }),
         handleUserLocationUpdate,
         isDrivingMode,
+        isLocationTrackingActive:
+            locationTrackingMode !== LOCATION_TRACKING_NONE,
         isMountedRef,
         locationAccessGranted,
         setLocationError,
     });
 
     useEffect(() => {
-        if (!autoDriveSimulationIsActive) {
+        if (!phoneLocationUpdatesAreEnabled || !autoDriveSimulationIsActive) {
             return undefined;
         }
 
         return addAutoDriveSimulationLocationListener(handleUserLocationUpdate);
-    }, [autoDriveSimulationIsActive, handleUserLocationUpdate]);
+    }, [
+        autoDriveSimulationIsActive,
+        handleUserLocationUpdate,
+        phoneLocationUpdatesAreEnabled,
+    ]);
     useHeadingWatch({
         handleHeadingUpdate: handleCompassHeadingUpdate,
-        isDrivingMode,
+        isDrivingMode:
+            phoneLocationUpdatesAreEnabled &&
+            isDrivingMode &&
+            userLocation?.isMoving !== true,
         locationAccessGranted,
     });
 
@@ -668,7 +771,8 @@ export function useMapLocationController({
         enabled:
             enhancedNavigationLocationWatchEnabled &&
             isDrivingMode &&
-            isMapReady,
+            isMapReady &&
+            phoneLocationUpdatesAreEnabled,
         mapViewRef,
         mode: navigationCameraMode,
         surfaceId: 'android-driving-mode',
@@ -863,6 +967,7 @@ export function useMapLocationController({
         followLocationMode.recenterActionIsNeeded;
 
     return {
+        appStateIsActive,
         bottomSheetRef,
         currentCameraDebugState,
         currentMapBearing,
@@ -892,6 +997,7 @@ export function useMapLocationController({
         moveCameraToPlace,
         nativeCameraFollowProps,
         permissionError,
+        remountCameraSettings,
         requestLocationAccess,
         retryCurrentLocation,
     };

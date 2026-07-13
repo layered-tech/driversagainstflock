@@ -45,10 +45,10 @@ function getDrivingProviderLocation(location, fallbackHeading) {
     };
 }
 
-function useDrivingProviderLocation({ isDrivingMode, userLocation }) {
+function useDrivingProviderLocation({ enabled, userLocation }) {
     const fallbackHeadingRef = useRef(0);
     const providerLocation = useMemo(() => {
-        if (!isDrivingMode) {
+        if (!enabled) {
             return null;
         }
 
@@ -57,7 +57,7 @@ function useDrivingProviderLocation({ isDrivingMode, userLocation }) {
             fallbackHeadingRef.current,
         );
     }, [
-        isDrivingMode,
+        enabled,
         userLocation?.compassHeading,
         userLocation?.compassHeadingRecordedAt,
         userLocation?.courseHeading,
@@ -69,27 +69,31 @@ function useDrivingProviderLocation({ isDrivingMode, userLocation }) {
     ]);
 
     useEffect(() => {
-        if (!isDrivingMode || !providerLocation) {
+        if (!enabled || !providerLocation) {
             fallbackHeadingRef.current = 0;
             return;
         }
 
         fallbackHeadingRef.current = providerLocation.heading;
-    }, [isDrivingMode, providerLocation]);
+    }, [enabled, providerLocation]);
 
     return providerLocation;
 }
 
-export function DrivingLocationProvider({ isDrivingMode, userLocation }) {
+export function DrivingLocationProvider({
+    enabled = isDrivingMode,
+    isDrivingMode,
+    userLocation,
+}) {
     const providerLocation = useDrivingProviderLocation({
-        isDrivingMode,
+        enabled,
         userLocation,
     });
     const heading = Number.isFinite(providerLocation?.heading)
         ? providerLocation.heading
         : 0;
 
-    if (!isDrivingMode || !providerLocation) {
+    if (!enabled || !providerLocation) {
         return null;
     }
 

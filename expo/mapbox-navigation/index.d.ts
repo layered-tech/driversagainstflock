@@ -133,7 +133,9 @@ export declare function addNavigationCameraStateListener(
 export declare function useEnhancedLocation(
   options?: UseEnhancedLocationOptions,
 ): EnhancedLocation | null;
-export declare function useNavigationCamera(options?: UseNavigationCameraOptions): {
+export declare function useNavigationCamera(
+  options?: UseNavigationCameraOptions,
+): {
   attached: boolean;
   isSupported: boolean;
   state: NavigationCameraState;

@@ -1,14 +1,16 @@
 import { useCallback, useRef, useState } from 'react';
 import { getCameraBoundsStateKey } from './camera-state';
 
+export const MAP_BOUNDS_UPDATE_INTERVAL_MS = 500;
+
 export function useMapBoundsState() {
     const currentMapBoundsKeyRef = useRef('');
-    const currentMapBoundsUpdateFrameRef = useRef(null);
+    const currentMapBoundsUpdateTimeoutRef = useRef(null);
     const pendingCurrentMapBoundsRef = useRef(null);
     const [currentMapBounds, setCurrentMapBounds] = useState(null);
 
     const flushCurrentMapBoundsUpdate = useCallback(() => {
-        currentMapBoundsUpdateFrameRef.current = null;
+        currentMapBoundsUpdateTimeoutRef.current = null;
 
         const nextBounds = pendingCurrentMapBoundsRef.current;
 
@@ -23,12 +25,13 @@ export function useMapBoundsState() {
         (bounds) => {
             pendingCurrentMapBoundsRef.current = bounds;
 
-            if (currentMapBoundsUpdateFrameRef.current !== null) {
+            if (currentMapBoundsUpdateTimeoutRef.current !== null) {
                 return;
             }
 
-            currentMapBoundsUpdateFrameRef.current = requestAnimationFrame(
+            currentMapBoundsUpdateTimeoutRef.current = setTimeout(
                 flushCurrentMapBoundsUpdate,
+                MAP_BOUNDS_UPDATE_INTERVAL_MS,
             );
         },
         [flushCurrentMapBoundsUpdate],
@@ -49,12 +52,12 @@ export function useMapBoundsState() {
     );
 
     const cancelCurrentMapBoundsUpdate = useCallback(() => {
-        if (currentMapBoundsUpdateFrameRef.current === null) {
+        if (currentMapBoundsUpdateTimeoutRef.current === null) {
             return;
         }
 
-        cancelAnimationFrame(currentMapBoundsUpdateFrameRef.current);
-        currentMapBoundsUpdateFrameRef.current = null;
+        clearTimeout(currentMapBoundsUpdateTimeoutRef.current);
+        currentMapBoundsUpdateTimeoutRef.current = null;
     }, []);
 
     return {

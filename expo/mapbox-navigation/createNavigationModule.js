@@ -125,7 +125,11 @@ function createNavigationModule({
     return Number.isFinite(Number(tag)) ? Number(tag) : null;
   }
 
-  async function attachNavigationCameraAsync(surfaceId, mapViewTag, options = {}) {
+  async function attachNavigationCameraAsync(
+    surfaceId,
+    mapViewTag,
+    options = {},
+  ) {
     if (!NativeRNMapboxNavigation || !surfaceId || !mapViewTag) {
       return false;
     }
@@ -351,6 +355,7 @@ function createNavigationModule({
     const attachKey = options.attachKey ?? '';
     const cameraOptions = options.cameraOptions ?? {};
     const cameraOptionsKey = getNavigationCameraOptionsKey(cameraOptions);
+    const attachedCameraOptionsKeyRef = React.useRef(null);
     const [state, setState] = React.useState('unavailable');
     const [attached, setAttached] = React.useState(false);
 
@@ -387,17 +392,17 @@ function createNavigationModule({
 
       let isActive = true;
 
+      // A deferred marker may remain in props while a surface remounts. An
+      // attached camera must start with its current options, not revive an old
+      // deferred update after it begins following.
       attachNavigationCameraAsync(surfaceId, mapViewTag, cameraOptions)
         .then((attachedCamera) => {
           if (!isActive) {
             return;
           }
 
+          attachedCameraOptionsKeyRef.current = cameraOptionsKey;
           setAttached(attachedCamera);
-
-          if (attachedCamera) {
-            setNavigationCameraModeAsync(surfaceId, mode).catch(() => {});
-          }
         })
         .catch(() => {
           if (isActive) {
@@ -407,6 +412,7 @@ function createNavigationModule({
 
       return () => {
         isActive = false;
+        attachedCameraOptionsKeyRef.current = null;
         setAttached(false);
         detachNavigationCameraAsync(surfaceId).catch(() => {});
       };
@@ -417,13 +423,30 @@ function createNavigationModule({
         return undefined;
       }
 
+      if (attachedCameraOptionsKeyRef.current === cameraOptionsKey) {
+        attachedCameraOptionsKeyRef.current = null;
+        return undefined;
+      }
+
       updateNavigationCameraOptionsAsync(surfaceId, cameraOptions).catch(
         () => {},
       );
+
+      return undefined;
+    }, [attached, cameraOptionsKey, enabled, surfaceId]);
+
+    // Native surfaces decide whether an option snapshot can be applied
+    // immediately based on their current following state. Keep mode changes
+    // separate so only a location update frames the queued snapshot.
+    React.useEffect(() => {
+      if (!enabled || !attached || !isSupported()) {
+        return undefined;
+      }
+
       setNavigationCameraModeAsync(surfaceId, mode).catch(() => {});
 
       return undefined;
-    }, [attached, cameraOptionsKey, enabled, mode, surfaceId]);
+    }, [attached, enabled, mode, surfaceId]);
 
     return {
       attached,

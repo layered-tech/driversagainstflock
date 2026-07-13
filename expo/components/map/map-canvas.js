@@ -1,5 +1,5 @@
 import Mapbox from '@rnmapbox/maps';
-import { useMemo } from 'react';
+import { memo, useMemo, useRef } from 'react';
 import {
     ActivityIndicator,
     Platform,
@@ -29,7 +29,6 @@ import {
     ALPR_SYMBOL_VISIBLE_PROPERTY_NAME,
     ANDROID_AUTO_NAVIGATION_PUCK_BEARING_IMAGE,
     ANDROID_AUTO_NAVIGATION_PUCK_SHADOW_IMAGE,
-    EMPTY_FEATURE_COLLECTION,
     INDIVIDUAL_MARKER_FILTER,
     MARKER_CLUSTER_CIRCLE_RADIUS_EXPRESSION,
     MARKER_CLUSTER_FILTER,
@@ -57,6 +56,16 @@ import {
 import { DrivingLocationProvider } from './driving-location-provider';
 import { getMarkerCoordinate } from './geo';
 import {
+    createLocationBoundCameraFollowState,
+    getFollowCameraSettings,
+    getLocationUpdateKey,
+    reconcileLocationBoundCameraFollowState,
+} from './location-bound-camera-follow';
+import {
+    shouldShowNavigationPuck,
+    shouldUseAutoPlayNavigationPuckImages,
+} from './location-puck-state';
+import {
     AlprMarkerImages,
     MarkerConeImages,
     NavigationPuckImages,
@@ -70,9 +79,55 @@ import {
 } from './map-marker-views';
 import {
     useMapCanvasContext,
+    useMapLocationContext,
     usePlaceSheetContext,
 } from './map-screen-context';
 import { NativeWindMapView } from './native-components';
+
+const MAP_PREFERRED_FRAMES_PER_SECOND = 30;
+
+function MapLocationProvider({ isDrivingMode, usesSharedLocationProvider }) {
+    const { userLocation } = useMapLocationContext();
+
+    return (
+        <DrivingLocationProvider
+            enabled={isDrivingMode || usesSharedLocationProvider}
+            isDrivingMode={isDrivingMode}
+            userLocation={userLocation}
+        />
+    );
+}
+
+function useLocationBoundCameraFollowProps(followProps, userLocation) {
+    const desiredSettings = getFollowCameraSettings(followProps);
+    const deferSettingsUntilNextLocation =
+        followProps?.settingsAreDeferredUntilNextLocation === true;
+    const isFollowing = followProps?.enabled === true;
+    const locationKey = getLocationUpdateKey(userLocation);
+    const stateRef = useRef(null);
+
+    // Keep the puck and its follow settings in the same native render commit.
+    if (stateRef.current === null) {
+        stateRef.current = createLocationBoundCameraFollowState({
+            isFollowing,
+            locationKey,
+            settings: desiredSettings,
+        });
+    } else {
+        stateRef.current = reconcileLocationBoundCameraFollowState({
+            deferSettingsUntilNextLocation,
+            desiredSettings,
+            isFollowing,
+            locationKey,
+            state: stateRef.current,
+        });
+    }
+
+    return {
+        ...followProps,
+        ...stateRef.current.appliedSettings,
+    };
+}
 
 function buildConeIconImageExpression() {
     const [defaultStyle, ...zoomStyles] = MARKER_CONE_ZOOM_STYLES;
@@ -418,7 +473,7 @@ function makeE2EMarkerTapTargetFeature(marker, index) {
     };
 }
 
-export function MapCanvas() {
+export const MapCanvas = memo(function MapCanvas() {
     const {
         handleCameraChanged,
         handleMapLoaded,
@@ -452,9 +507,11 @@ export function MapCanvas() {
         navigationPuckVariant,
         policeAlertFeatureCollection,
         policeAlertsVisible,
+        preferredFramesPerSecond = MAP_PREFERRED_FRAMES_PER_SECOND,
         submittedSearchResults,
-        userLocation,
+        usesSharedLocationProvider = false,
     } = useMapCanvasContext();
+    const { userLocation } = useMapLocationContext();
     const {
         directionsWaypointMarkers,
         handleSelectedPlaceMarkerPress,
@@ -508,40 +565,41 @@ export function MapCanvas() {
         : MAP_ROUTE_PALETTES.light;
     const markerClusteredSourceID = 'map-markers-clustered-source';
     const markerUnclusteredSourceID = 'map-markers-unclustered-source';
-    const clusteredMarkerFeatureCollection =
-        surveillanceMarkersVisible && markerClustersEnabled
-            ? markerFeatureCollection
-            : EMPTY_FEATURE_COLLECTION;
-    const unclusteredMarkerFeatureCollection =
-        surveillanceMarkersVisible && !markerClustersEnabled
-            ? markerFeatureCollection
-            : EMPTY_FEATURE_COLLECTION;
     const selectedDirectionsRouteColorExpression = useMemo(
         () => makeSelectedDirectionsRouteColorExpression(mapRoutePalette),
         [mapRoutePalette],
     );
     const drivingCameraFollowMode = Mapbox.UserTrackingMode.FollowWithHeading;
+    const locationBoundCameraFollowProps = useLocationBoundCameraFollowProps(
+        nativeCameraFollowProps,
+        userLocation,
+    );
     const puckBearing = isDrivingMode
         ? 'heading'
         : !isFollowing
           ? 'heading'
           : 'course';
     const resolvedNavigationPuckVariant = navigationPuckVariant || 'default';
-    const navigationPuckBearingImage =
-        resolvedNavigationPuckVariant === 'auto-play'
-            ? ANDROID_AUTO_NAVIGATION_PUCK_BEARING_IMAGE
-            : NAVIGATION_PUCK_BEARING_IMAGE;
-    const navigationPuckShadowImage =
-        resolvedNavigationPuckVariant === 'auto-play'
-            ? ANDROID_AUTO_NAVIGATION_PUCK_SHADOW_IMAGE
-            : NAVIGATION_PUCK_SHADOW_IMAGE;
+    const navigationPuckIsVisible = shouldShowNavigationPuck({
+        isDrivingMode,
+        isFollowing,
+        navigationPuckVariant: resolvedNavigationPuckVariant,
+    });
+    const usesAutoPlayNavigationPuckImages =
+        shouldUseAutoPlayNavigationPuckImages(resolvedNavigationPuckVariant);
+    const navigationPuckBearingImage = usesAutoPlayNavigationPuckImages
+        ? ANDROID_AUTO_NAVIGATION_PUCK_BEARING_IMAGE
+        : NAVIGATION_PUCK_BEARING_IMAGE;
+    const navigationPuckShadowImage = usesAutoPlayNavigationPuckImages
+        ? ANDROID_AUTO_NAVIGATION_PUCK_SHADOW_IMAGE
+        : NAVIGATION_PUCK_SHADOW_IMAGE;
     // iOS Fabric never applies image props back to undefined (rnmapbox
     // FabricOptionalProp limitation), so switching between the navigation
     // arrow and the default dot requires remounting the puck there. Android
     // clears null image props correctly, so it keeps the update-in-place path.
     const locationPuckKey =
         Platform.OS === 'ios'
-            ? `location-puck-${isFollowing ? 'navigation' : 'default'}`
+            ? `location-puck-${navigationPuckIsVisible ? 'navigation' : 'default'}`
             : 'location-puck';
     const mapboxBrandingIsVisible = !isDrivingMode;
 
@@ -577,6 +635,7 @@ export function MapCanvas() {
             onCameraChanged={handleCameraChanged}
             onDidFinishLoadingMap={handleMapLoaded}
             onPress={handleMapPress}
+            preferredFramesPerSecond={preferredFramesPerSecond}
             styleURL={mapStyleURL}
         >
             <Mapbox.StyleImport
@@ -585,20 +644,23 @@ export function MapCanvas() {
                 existing
                 id={MAPBOX_STANDARD_STYLE_IMPORT_ID}
             />
-            {locationAccessGranted ? (
-                <DrivingLocationProvider
+            {locationAccessGranted &&
+            (isDrivingMode || usesSharedLocationProvider) ? (
+                <MapLocationProvider
                     isDrivingMode={isDrivingMode}
-                    userLocation={userLocation}
+                    usesSharedLocationProvider={usesSharedLocationProvider}
                 />
             ) : null}
             <Mapbox.Camera
                 ref={cameraRef}
                 defaultSettings={initialCameraSettings}
-                followPadding={nativeCameraFollowProps?.padding}
-                followPitch={nativeCameraFollowProps?.pitch}
-                followUserLocation={nativeCameraFollowProps?.enabled ?? false}
+                followPadding={locationBoundCameraFollowProps.padding}
+                followPitch={locationBoundCameraFollowProps.pitch}
+                followUserLocation={
+                    locationBoundCameraFollowProps.enabled ?? false
+                }
                 followUserMode={drivingCameraFollowMode}
-                followZoomLevel={nativeCameraFollowProps?.zoomLevel}
+                followZoomLevel={locationBoundCameraFollowProps.zoomLevel}
                 maxZoomLevel={MAX_ZOOM_LEVEL}
                 minZoomLevel={MIN_ZOOM_LEVEL}
             />
@@ -905,59 +967,69 @@ export function MapCanvas() {
                     />
                 </Mapbox.ShapeSource>
             ) : null}
-            <MarkerConeImages />
-            <AlprMarkerImages />
-            <PoliceAlertImages />
-            <Mapbox.ShapeSource
-                id={markerClusteredSourceID}
-                ref={markerShapeSourceRef}
-                cluster
-                clusterMaxZoomLevel={MARKER_CLUSTER_MAX_ZOOM_LEVEL}
-                clusterRadius={MARKER_CLUSTER_RADIUS}
-                hitbox={{ height: 48, width: 48 }}
-                onPress={handleMarkerSourcePress}
-                shape={clusteredMarkerFeatureCollection}
-            >
-                {[
-                    ...renderMarkerConeLayers({
-                        idPrefix: 'map-markers-clustered',
-                        sourceID: markerClusteredSourceID,
-                        visible: cameraConesVisible,
-                    }),
-                    ...renderMarkerClusterLayers({
-                        emissiveStrength: mapOverlayEmissiveStrength,
-                        idPrefix: 'map-markers-clustered',
-                        mapRoutePalette,
-                        sourceID: markerClusteredSourceID,
-                    }),
-                    ...renderMarkerPointLayers({
-                        emissiveStrength: mapOverlayEmissiveStrength,
-                        idPrefix: 'map-markers-clustered',
-                        mapRoutePalette,
-                        sourceID: markerClusteredSourceID,
-                    }),
-                ]}
-            </Mapbox.ShapeSource>
-            <Mapbox.ShapeSource
-                id={markerUnclusteredSourceID}
-                hitbox={{ height: 48, width: 48 }}
-                onPress={handleMarkerSourcePress}
-                shape={unclusteredMarkerFeatureCollection}
-            >
-                {[
-                    ...renderMarkerConeLayers({
-                        idPrefix: 'map-markers-unclustered',
-                        sourceID: markerUnclusteredSourceID,
-                        visible: cameraConesVisible,
-                    }),
-                    ...renderMarkerPointLayers({
-                        emissiveStrength: mapOverlayEmissiveStrength,
-                        idPrefix: 'map-markers-unclustered',
-                        mapRoutePalette,
-                        sourceID: markerUnclusteredSourceID,
-                    }),
-                ]}
-            </Mapbox.ShapeSource>
+            {surveillanceMarkersVisible && cameraConesVisible ? (
+                <MarkerConeImages />
+            ) : null}
+            {surveillanceMarkersVisible ? <AlprMarkerImages /> : null}
+            {policeAlertsAreVisible ? <PoliceAlertImages /> : null}
+            {surveillanceMarkersVisible && markerClustersEnabled ? (
+                <Mapbox.ShapeSource
+                    id={markerClusteredSourceID}
+                    ref={markerShapeSourceRef}
+                    cluster
+                    clusterMaxZoomLevel={MARKER_CLUSTER_MAX_ZOOM_LEVEL}
+                    clusterRadius={MARKER_CLUSTER_RADIUS}
+                    hitbox={{ height: 48, width: 48 }}
+                    onPress={handleMarkerSourcePress}
+                    shape={markerFeatureCollection}
+                >
+                    {[
+                        ...(cameraConesVisible
+                            ? renderMarkerConeLayers({
+                                  idPrefix: 'map-markers-clustered',
+                                  sourceID: markerClusteredSourceID,
+                                  visible: true,
+                              })
+                            : []),
+                        ...renderMarkerClusterLayers({
+                            emissiveStrength: mapOverlayEmissiveStrength,
+                            idPrefix: 'map-markers-clustered',
+                            mapRoutePalette,
+                            sourceID: markerClusteredSourceID,
+                        }),
+                        ...renderMarkerPointLayers({
+                            emissiveStrength: mapOverlayEmissiveStrength,
+                            idPrefix: 'map-markers-clustered',
+                            mapRoutePalette,
+                            sourceID: markerClusteredSourceID,
+                        }),
+                    ]}
+                </Mapbox.ShapeSource>
+            ) : null}
+            {surveillanceMarkersVisible && !markerClustersEnabled ? (
+                <Mapbox.ShapeSource
+                    id={markerUnclusteredSourceID}
+                    hitbox={{ height: 48, width: 48 }}
+                    onPress={handleMarkerSourcePress}
+                    shape={markerFeatureCollection}
+                >
+                    {[
+                        ...(cameraConesVisible
+                            ? renderMarkerConeLayers({
+                                  idPrefix: 'map-markers-unclustered',
+                                  sourceID: markerUnclusteredSourceID,
+                                  visible: true,
+                              })
+                            : []),
+                        ...renderMarkerPointLayers({
+                            emissiveStrength: mapOverlayEmissiveStrength,
+                            idPrefix: 'map-markers-unclustered',
+                            mapRoutePalette,
+                            sourceID: markerUnclusteredSourceID,
+                        }),
+                    ]}
+                </Mapbox.ShapeSource>
+            ) : null}
             {policeAlertsAreVisible ? (
                 <Mapbox.ShapeSource
                     id="police-alerts-source"
@@ -982,24 +1054,19 @@ export function MapCanvas() {
                     <Mapbox.LocationPuck
                         key={locationPuckKey}
                         bearingImage={
-                            isFollowing ? navigationPuckBearingImage : undefined
+                            navigationPuckIsVisible
+                                ? navigationPuckBearingImage
+                                : undefined
                         }
                         puckBearing={puckBearing}
                         puckBearingEnabled
-                        pulsing={
-                            isFollowing
-                                ? undefined
-                                : {
-                                      color: '#1FBF6B',
-                                      isEnabled: true,
-                                      radius: 'accuracy',
-                                  }
-                        }
                         shadowImage={
-                            isFollowing ? navigationPuckShadowImage : undefined
+                            navigationPuckIsVisible
+                                ? navigationPuckShadowImage
+                                : undefined
                         }
                         topImage={
-                            isFollowing
+                            navigationPuckIsVisible
                                 ? NAVIGATION_PUCK_TOP_TRANSPARENT_IMAGE
                                 : undefined
                         }
@@ -1054,4 +1121,4 @@ export function MapCanvas() {
             ) : null}
         </NativeWindMapView>
     );
-}
+});

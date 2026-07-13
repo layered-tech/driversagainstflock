@@ -11,6 +11,7 @@ import {
     useAutoDriveSimulationIsActive,
 } from './auto-play-drive-simulation';
 import { AutoPlayMapStatusOverlay } from './auto-play-map-status-overlay';
+import { getAutoPlayViewportMetrics } from './auto-play-map-viewport';
 import { useAutoPlayState } from './auto-play-state';
 import { useFollowLocationMode } from './map-follow-location-mode';
 import {
@@ -80,8 +81,6 @@ import { useMarkerLoader } from './map/use-marker-loader';
 import { useWazePoliceAlerts } from './map/use-waze-police-alerts';
 import { makeWazePoliceAlertFeatureCollection } from './map/waze-alerts-api';
 
-const AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VIEWPORT_Y_RATIO = 0.9;
-const CAMERA_BOUNDS_STATE_PRECISION = 4;
 const CAMERA_DEBUG_CENTER_PRECISION = 6;
 const CAMERA_DEBUG_ORIENTATION_PRECISION = 2;
 const CAMERA_DEBUG_ZOOM_PRECISION = 2;
@@ -96,10 +95,9 @@ const AUTO_PLAY_ZOOM_ANIMATION_DURATION_MS =
 const AUTO_PLAY_ZOOM_BUTTON_ANIMATION_DURATION_MS =
     LOCATION_CAMERA_USER_INTERACTION_ANIMATION_DURATION_MS;
 const AUTO_PLAY_ROOT_MODULE_ID = 'AutoPlayRoot';
-const AUTO_PLAY_ORNAMENT_INSET_MAX_VIEWPORT_FRACTION = 0.35;
 const DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG = {
     applyWindowScaleToMapGestures: false,
-    safeAreaLeftScale: 1,
+    ornamentSafeAreaLeftScale: 1,
 };
 
 const EMPTY_AUTOPLAY_MAP_CONTROL_HANDLERS = {
@@ -219,95 +217,6 @@ function getPositiveDimension(value) {
     return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : 0;
 }
 
-function getSafeAreaInsetValue(value) {
-    const numericValue = Number(value);
-
-    return Number.isFinite(numericValue) ? Math.max(0, numericValue) : 0;
-}
-
-function getSafeAreaInsets(insets, safeAreaLeftScale) {
-    return {
-        bottom: getSafeAreaInsetValue(insets?.bottom),
-        left: getSafeAreaInsetValue(insets?.left) * safeAreaLeftScale,
-        right: getSafeAreaInsetValue(insets?.right),
-        top: getSafeAreaInsetValue(insets?.top),
-    };
-}
-
-function getClampedOrnamentInset(value, viewportExtent) {
-    if (!viewportExtent) {
-        return value;
-    }
-
-    return Math.min(
-        value,
-        viewportExtent * AUTO_PLAY_ORNAMENT_INSET_MAX_VIEWPORT_FRACTION,
-    );
-}
-
-function getViewportMetrics({
-    layoutSize,
-    safeAreaInsets,
-    safeAreaLeftScale,
-    windowInfo,
-}) {
-    const insets = getSafeAreaInsets(safeAreaInsets, safeAreaLeftScale);
-    const width =
-        getPositiveDimension(layoutSize?.width) ||
-        getPositiveDimension(windowInfo?.width);
-    const height =
-        getPositiveDimension(layoutSize?.height) ||
-        getPositiveDimension(windowInfo?.height);
-    // Head-unit visible-area callbacks are debounced and can latch a
-    // transient mid-transition rect that no later event corrects, so a spiked
-    // inset would otherwise pin ornaments (compass, status pills) mid-screen
-    // until the next template change.
-    const ornamentSafeAreaInsets = {
-        bottom: getClampedOrnamentInset(insets.bottom, height),
-        left: getClampedOrnamentInset(insets.left, width),
-        right: getClampedOrnamentInset(insets.right, width),
-        top: getClampedOrnamentInset(insets.top, height),
-    };
-    const visibleLeft = Math.min(insets.left, width);
-    const visibleTop = Math.min(insets.top, height);
-    const visibleRight = Math.max(visibleLeft, width - insets.right);
-    const visibleBottom = Math.max(visibleTop, height - insets.bottom);
-    const visibleWidth = Math.max(0, visibleRight - visibleLeft);
-    const visibleHeight = Math.max(0, visibleBottom - visibleTop);
-
-    return {
-        cameraPadding: {
-            paddingBottom: insets.bottom,
-            paddingLeft: insets.left,
-            paddingRight: insets.right,
-            paddingTop: insets.top,
-        },
-        center: {
-            x: visibleLeft + visibleWidth / 2,
-            y: visibleTop + visibleHeight / 2,
-        },
-        height,
-        key: [
-            width,
-            height,
-            insets.top,
-            insets.right,
-            insets.bottom,
-            insets.left,
-        ].join(':'),
-        safeAreaInsets: ornamentSafeAreaInsets,
-        visibleRect: {
-            bottom: visibleBottom,
-            left: visibleLeft,
-            right: visibleRight,
-            top: visibleTop,
-        },
-        visibleHeight,
-        visibleWidth,
-        width,
-    };
-}
-
 function getPositiveScale(value) {
     const numericValue = Number(value);
 
@@ -388,23 +297,6 @@ function getRoundedCameraValue(value, precision) {
     return Number.isFinite(numericValue)
         ? Number(numericValue.toFixed(precision))
         : null;
-}
-
-function getRoundedCameraBoundsValue(value) {
-    const numericValue = Number(value);
-
-    return Number.isFinite(numericValue)
-        ? numericValue.toFixed(CAMERA_BOUNDS_STATE_PRECISION)
-        : '';
-}
-
-function getCameraBoundsStateKey(bounds) {
-    return [
-        getRoundedCameraBoundsValue(bounds?.sw?.[0]),
-        getRoundedCameraBoundsValue(bounds?.sw?.[1]),
-        getRoundedCameraBoundsValue(bounds?.ne?.[0]),
-        getRoundedCameraBoundsValue(bounds?.ne?.[1]),
-    ].join(',');
 }
 
 function getCameraDebugState(state) {
@@ -600,34 +492,35 @@ function useAutoPlayMapController({
     cameraDebugStateUpdatesEnabled = false,
     initialCameraSettings,
     isDrivingMode,
+    locationUpdatesEnabled = true,
     mapGestureCoordinateScale = 1,
     mapPreferencesAreLoaded,
+    markersAreVisible = true,
     scheduleSharedMarkerLoad,
     setUserLocation,
     userLocation,
+    followViewportAnchorY,
     viewportMetrics,
 }) {
     const cameraRef = useRef(null);
     const currentCompassHeadingRef = useRef(null);
     const currentCourseHeadingRef = useRef(null);
-    const currentMapBoundsKeyRef = useRef('');
-    const currentMapBoundsUpdateFrameRef = useRef(null);
     const currentZoomRef = useRef(DEFAULT_ZOOM_LEVEL);
     const isMapReadyRef = useRef(false);
     const isMountedRef = useRef(false);
     const locationAccessHydrationHasRunRef = useRef(false);
     const locationTrackingModeRef = useRef(LOCATION_TRACKING_NONE);
+    const latestMapBoundsRef = useRef(null);
     const markerLoadsEnabledRef = useRef(false);
     const markerShapeSourceRef = useRef(null);
     const mapViewRef = useRef(null);
     const pendingCameraStopRef = useRef(null);
-    const pendingCurrentMapBoundsRef = useRef(null);
     const previousDrivingModeRef = useRef(isDrivingMode);
+    const previousMarkersAreVisibleRef = useRef(markersAreVisible);
     const userLocationRef = useRef(null);
     const viewportMetricsRef = useRef(viewportMetrics);
     const { currentCameraDebugState, setPendingCameraDebugState } =
         useDeferredCameraDebugState(cameraDebugStateUpdatesEnabled);
-    const [currentMapBounds, setCurrentMapBounds] = useState(null);
     const [isMapReady, setIsMapReady] = useState(false);
     const [locationAccessGranted, setLocationAccessGranted] = useState(false);
     const [locationTrackingMode, setLocationTrackingMode] = useState(
@@ -667,6 +560,7 @@ function useAutoPlayMapController({
             if (
                 !bounds ||
                 !isMapReadyRef.current ||
+                !markersAreVisible ||
                 !markerLoadsEnabledRef.current
             ) {
                 return;
@@ -674,33 +568,24 @@ function useAutoPlayMapController({
 
             scheduleSharedMarkerLoad(bounds, delay);
         },
-        [scheduleSharedMarkerLoad],
+        [markersAreVisible, scheduleSharedMarkerLoad],
     );
-    const flushCurrentMapBoundsUpdate = useCallback(() => {
-        currentMapBoundsUpdateFrameRef.current = null;
 
-        const nextBounds = pendingCurrentMapBoundsRef.current;
+    useEffect(() => {
+        const markersWereVisible = previousMarkersAreVisibleRef.current;
 
-        pendingCurrentMapBoundsRef.current = null;
+        previousMarkersAreVisibleRef.current = markersAreVisible;
 
-        if (nextBounds) {
-            setCurrentMapBounds(nextBounds);
+        if (
+            markersWereVisible ||
+            !markersAreVisible ||
+            !latestMapBoundsRef.current
+        ) {
+            return;
         }
-    }, []);
-    const scheduleCurrentMapBoundsUpdate = useCallback(
-        (bounds) => {
-            pendingCurrentMapBoundsRef.current = bounds;
 
-            if (currentMapBoundsUpdateFrameRef.current !== null) {
-                return;
-            }
-
-            currentMapBoundsUpdateFrameRef.current = requestAnimationFrame(
-                flushCurrentMapBoundsUpdate,
-            );
-        },
-        [flushCurrentMapBoundsUpdate],
-    );
+        scheduleMarkerLoad(latestMapBoundsRef.current, 0);
+    }, [markersAreVisible, scheduleMarkerLoad]);
 
     const moveCameraToUser = useCallback(
         (location, options = {}) => {
@@ -756,8 +641,7 @@ function useAutoPlayMapController({
         currentCourseHeadingRef,
         currentZoomRef,
         followSpeedZoomEnabled: true,
-        followViewportBottomOffset: 0,
-        followViewportYRatio: AUTO_PLAY_DRIVING_CAMERA_FOLLOW_VIEWPORT_Y_RATIO,
+        followViewportAnchorY,
         isDrivingMode,
         isMapReadyRef,
         locationTrackingMode,
@@ -777,10 +661,6 @@ function useAutoPlayMapController({
 
         return () => {
             isMountedRef.current = false;
-            if (currentMapBoundsUpdateFrameRef.current !== null) {
-                cancelAnimationFrame(currentMapBoundsUpdateFrameRef.current);
-                currentMapBoundsUpdateFrameRef.current = null;
-            }
         };
     }, []);
 
@@ -834,7 +714,9 @@ function useAutoPlayMapController({
 
             setLocationAccessGranted(true);
 
-            const currentLocation = await findCurrentLocation();
+            const currentLocation = locationUpdatesEnabled
+                ? await findCurrentLocation()
+                : userLocationRef.current;
 
             if (!isActive || !isMountedRef.current || !currentLocation) {
                 return;
@@ -855,8 +737,34 @@ function useAutoPlayMapController({
     }, [
         findCurrentLocation,
         isDrivingMode,
+        locationUpdatesEnabled,
         mapPreferencesAreLoaded,
         setLocationError,
+    ]);
+
+    useEffect(() => {
+        if (
+            locationUpdatesEnabled ||
+            !locationAccessGranted ||
+            !userLocation ||
+            locationTrackingModeRef.current !== LOCATION_TRACKING_NONE
+        ) {
+            return;
+        }
+
+        if (isDrivingMode) {
+            followLocationMode.start(userLocation);
+            return;
+        }
+
+        lockOnLocationMode.start(userLocation);
+    }, [
+        followLocationMode,
+        isDrivingMode,
+        locationAccessGranted,
+        locationUpdatesEnabled,
+        lockOnLocationMode,
+        userLocation,
     ]);
 
     useEffect(() => {
@@ -936,7 +844,9 @@ function useAutoPlayMapController({
         (state) => {
             const previousZoomLevel = currentZoomRef.current;
             const nextZoomLevel = state?.properties?.zoom;
-            const nextCameraDebugState = getCameraDebugState(state);
+            const nextCameraDebugState = cameraDebugStateUpdatesEnabled
+                ? getCameraDebugState(state)
+                : null;
             let zoomLevelChanged = false;
 
             if (nextCameraDebugState) {
@@ -960,13 +870,7 @@ function useAutoPlayMapController({
             const bounds = getBoundsFromCameraState(state);
 
             if (bounds) {
-                const nextBoundsKey = getCameraBoundsStateKey(bounds);
-
-                if (nextBoundsKey !== currentMapBoundsKeyRef.current) {
-                    currentMapBoundsKeyRef.current = nextBoundsKey;
-                    scheduleCurrentMapBoundsUpdate(bounds);
-                }
-
+                latestMapBoundsRef.current = bounds;
                 scheduleMarkerLoad(bounds);
             }
 
@@ -990,10 +894,10 @@ function useAutoPlayMapController({
             }
         },
         [
+            cameraDebugStateUpdatesEnabled,
             followLocationMode,
             isDrivingMode,
             scheduleMarkerLoad,
-            scheduleCurrentMapBoundsUpdate,
             setPendingCameraDebugState,
             setTrackingMode,
         ],
@@ -1109,6 +1013,7 @@ function useAutoPlayMapController({
     // only location source for the car screen.
     const autoDriveSimulationIsActive = useAutoDriveSimulationIsActive();
     const enhancedNavigationLocationWatchEnabled =
+        locationUpdatesEnabled &&
         locationAccessGranted &&
         !autoDriveSimulationIsActive &&
         mapboxNavigationEnhancedLocationIsSupported();
@@ -1121,25 +1026,35 @@ function useAutoPlayMapController({
     });
     useLocationWatch({
         enabled:
+            locationUpdatesEnabled &&
             !enhancedNavigationLocationWatchEnabled &&
             !autoDriveSimulationIsActive,
         handleUserLocationUpdate,
         isDrivingMode,
+        isLocationTrackingActive:
+            locationTrackingMode !== LOCATION_TRACKING_NONE,
         isMountedRef,
         locationAccessGranted,
         setLocationError,
     });
 
     useEffect(() => {
-        if (!autoDriveSimulationIsActive) {
+        if (!locationUpdatesEnabled || !autoDriveSimulationIsActive) {
             return undefined;
         }
 
         return addAutoDriveSimulationLocationListener(handleUserLocationUpdate);
-    }, [autoDriveSimulationIsActive, handleUserLocationUpdate]);
+    }, [
+        autoDriveSimulationIsActive,
+        handleUserLocationUpdate,
+        locationUpdatesEnabled,
+    ]);
     useHeadingWatch({
         handleHeadingUpdate: handleCompassHeadingUpdate,
-        isDrivingMode,
+        isDrivingMode:
+            locationUpdatesEnabled &&
+            isDrivingMode &&
+            userLocation?.isMoving !== true,
         locationAccessGranted,
     });
 
@@ -1467,7 +1382,6 @@ function useAutoPlayMapController({
     return {
         cameraRef,
         currentCameraDebugState,
-        currentMapBounds,
         drivingRecenterIsVisible,
         fitCameraToBounds,
         handleCameraChanged,
@@ -1500,7 +1414,7 @@ export function AutoPlayMapSurfaceContent({
     const {
         applyWindowScaleToMapGestures,
         hideCompassDuringNavigation,
-        safeAreaLeftScale,
+        ornamentSafeAreaLeftScale,
     } = {
         ...DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG,
         ...platformConfig,
@@ -1509,6 +1423,8 @@ export function AutoPlayMapSurfaceContent({
     const isRootMapSurface = !id || id === AUTO_PLAY_ROOT_MODULE_ID;
     const fittedDirectionsRouteKeyRef = useRef('');
     const [layoutSize, setLayoutSize] = useState(null);
+    const [followViewportAnchorY, setFollowViewportAnchorY] =
+        useState(undefined);
     const mapPreferences = useMapPreferencesState();
     const markerLoader = useMarkerLoader();
     const isDrivingMode = autoPlayState.drivingModeIsActive !== false;
@@ -1535,10 +1451,10 @@ export function AutoPlayMapSurfaceContent({
     );
     const viewportMetrics = useMemo(
         () =>
-            getViewportMetrics({
+            getAutoPlayViewportMetrics({
                 layoutSize,
+                ornamentSafeAreaLeftScale,
                 safeAreaInsets: autoPlaySafeAreaInsets,
-                safeAreaLeftScale,
                 windowInfo,
             }),
         [
@@ -1548,7 +1464,7 @@ export function AutoPlayMapSurfaceContent({
             autoPlaySafeAreaInsets.top,
             layoutSize?.height,
             layoutSize?.width,
-            safeAreaLeftScale,
+            ornamentSafeAreaLeftScale,
             windowInfo?.height,
             windowInfo?.width,
         ],
@@ -1566,6 +1482,11 @@ export function AutoPlayMapSurfaceContent({
             }),
         [applyWindowScaleToMapGestures, windowInfo?.scale],
     );
+    const handleLocationAnchorLayout = useCallback((nextAnchorY) => {
+        setFollowViewportAnchorY((previousAnchorY) =>
+            previousAnchorY === nextAnchorY ? previousAnchorY : nextAnchorY,
+        );
+    }, []);
     const controller = useAutoPlayMapController({
         cameraDebugStateUpdatesEnabled:
             autoPlayCameraDebugStateUpdatesAreEnabled({
@@ -1574,11 +1495,14 @@ export function AutoPlayMapSurfaceContent({
             }),
         initialCameraSettings: mapPreferences.initialCameraSettings,
         isDrivingMode,
+        locationUpdatesEnabled: isRootMapSurface,
         mapGestureCoordinateScale,
         mapPreferencesAreLoaded: mapPreferences.mapPreferencesAreLoaded,
+        markersAreVisible: mapPreferences.surveillanceMarkersVisible,
         scheduleSharedMarkerLoad: markerLoader.scheduleMarkerLoad,
         setUserLocation: mapPreferences.setUserLocation,
         userLocation: mapPreferences.userLocation,
+        followViewportAnchorY,
         viewportMetrics,
     });
     const presentation = useMapPresentation({
@@ -1672,6 +1596,7 @@ export function AutoPlayMapSurfaceContent({
         mapPreferences,
         markerFeatureCollection,
         policeAlertFeatureCollection,
+        preferredFramesPerSecond: isRootMapSurface ? 30 : 20,
         presentation,
     });
     useEffect(() => {
@@ -1794,8 +1719,10 @@ export function AutoPlayMapSurfaceContent({
                         mapPreferencesAreLoaded={
                             mapPreferences.mapPreferencesAreLoaded
                         }
+                        onLocationAnchorLayout={handleLocationAnchorLayout}
                         presentation={presentation}
                         userLocation={mapPreferences.userLocation}
+                        viewportMetrics={viewportMetrics}
                     />
                 ) : null}
                 <AutoPlayDebugOverlays

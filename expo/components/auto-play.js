@@ -7,6 +7,7 @@ import {
     startAutoDriveSimulation,
     stopAutoDriveSimulation,
 } from './auto-play-drive-simulation';
+import { getAutoPlayMapGestureCallbacks } from './auto-play-map-gesture-callbacks';
 import {
     getAutoPlayMapControlHandlers,
     setAutoPlayMapButtonAppearanceListener,
@@ -61,6 +62,7 @@ const LOCATION_TIMEOUT_MS = 10000;
 const SEARCH_DEBOUNCE_MS = 450;
 const NAVIGATION_LOCATION_INTERVAL_MS = 4000;
 const NAVIGATION_LOCATION_DISTANCE_METERS = 12;
+const NAVIGATION_GUIDANCE_MIN_INTERVAL_MS = 1000;
 const AUTO_PLAY_ICON_FONT_NAME = 'font_awesome';
 const AUTO_PLAY_ICON_GLYPH_MAP = {
     'arrow-left': 0xf060,
@@ -176,10 +178,14 @@ let rootMapTemplateIsReady = false;
 let rootMapButtonAppearance = ROOT_MAP_BUTTON_APPEARANCE_DEFAULTS;
 let rootMapButtonAppearanceKey = '';
 let navigationLocationSubscription = null;
+let navigationLocationUpdateGeneration = 0;
 let searchAbortController = null;
 let searchDebounceTimer = null;
 let activeNavigationRoute = null;
 let lastNavigationGuidanceLocation = null;
+let lastNavigationGuidanceUpdatedAt = 0;
+let pendingNavigationGuidanceLocation = null;
+let pendingNavigationGuidanceTimer = null;
 // Latched when the car host invokes NavigationManagerCallback.onAutoDriveEnabled
 // and held until the Android Auto session is destroyed, per the Play Store
 // navigation quality requirements.
@@ -1251,8 +1257,16 @@ function makeAutoPlayRoutingManeuver(route, maneuver) {
     };
 }
 
-function makeAutoPlayRoutingManeuvers(route, userLocation) {
-    const currentManeuver = getActiveDirectionsManeuver(route, userLocation);
+function makeAutoPlayRoutingManeuvers(
+    route,
+    userLocation,
+    routeProgress = getDirectionsRouteProgress(route, userLocation),
+    currentManeuver = getActiveDirectionsManeuver(
+        route,
+        userLocation,
+        routeProgress,
+    ),
+) {
     const currentRoutingManeuver = makeAutoPlayRoutingManeuver(
         route,
         currentManeuver,
@@ -1270,9 +1284,12 @@ function makeAutoPlayRoutingManeuvers(route, userLocation) {
     return [currentRoutingManeuver, nextRoutingManeuver].filter(Boolean);
 }
 
-function getRemainingRouteValues(route, userLocation) {
+function getRemainingRouteValues(
+    route,
+    userLocation,
+    progress = getDirectionsRouteProgress(route, userLocation),
+) {
     const routeOption = getSelectedDirectionsRouteOption(route);
-    const progress = getDirectionsRouteProgress(route, userLocation);
     const routeDistance = Number(routeOption?.distance) || 0;
     const routeDuration = Number(routeOption?.duration) || 0;
     const distanceRemaining = progress
@@ -1289,8 +1306,16 @@ function getRemainingRouteValues(route, userLocation) {
     };
 }
 
-function makeNavigationMessage(route, userLocation) {
-    const activeManeuver = getActiveDirectionsManeuver(route, userLocation);
+function makeNavigationMessage(
+    route,
+    userLocation,
+    routeProgress = getDirectionsRouteProgress(route, userLocation),
+    activeManeuver = getActiveDirectionsManeuver(
+        route,
+        userLocation,
+        routeProgress,
+    ),
+) {
     const routeOption = getSelectedDirectionsRouteOption(route);
     const destinationName =
         route.destination?.label ||
@@ -1322,13 +1347,24 @@ function updateNavigationGuidance(userLocation) {
         return;
     }
 
+    lastNavigationGuidanceUpdatedAt = Date.now();
     lastNavigationGuidanceLocation =
         userLocation ?? lastNavigationGuidanceLocation;
 
     const routeOption = getSelectedDirectionsRouteOption(activeNavigationRoute);
+    const routeProgress = getDirectionsRouteProgress(
+        activeNavigationRoute,
+        userLocation,
+    );
+    const activeManeuver = getActiveDirectionsManeuver(
+        activeNavigationRoute,
+        userLocation,
+        routeProgress,
+    );
     const { distanceRemaining, durationRemaining } = getRemainingRouteValues(
         activeNavigationRoute,
         userLocation,
+        routeProgress,
     );
     const destinationName =
         activeNavigationDestination?.label ||
@@ -1345,10 +1381,17 @@ function updateNavigationGuidance(userLocation) {
             destinationName,
         ),
     );
-    const maneuver = makeNavigationMessage(activeNavigationRoute, userLocation);
+    const maneuver = makeNavigationMessage(
+        activeNavigationRoute,
+        userLocation,
+        routeProgress,
+        activeManeuver,
+    );
     const routingManeuvers = makeAutoPlayRoutingManeuvers(
         activeNavigationRoute,
         userLocation,
+        routeProgress,
+        activeManeuver,
     );
 
     try {
@@ -1382,67 +1425,147 @@ function updateNavigationGuidance(userLocation) {
     });
 }
 
-async function stopNavigationLocationUpdates() {
-    if (!navigationLocationSubscription) {
+function clearScheduledNavigationGuidance() {
+    if (pendingNavigationGuidanceTimer !== null) {
+        clearTimeout(pendingNavigationGuidanceTimer);
+        pendingNavigationGuidanceTimer = null;
+    }
+
+    pendingNavigationGuidanceLocation = null;
+}
+
+function scheduleNavigationGuidance(userLocation) {
+    pendingNavigationGuidanceLocation = userLocation;
+
+    const elapsedSinceLastUpdate = Date.now() - lastNavigationGuidanceUpdatedAt;
+
+    if (elapsedSinceLastUpdate >= NAVIGATION_GUIDANCE_MIN_INTERVAL_MS) {
+        const nextLocation = pendingNavigationGuidanceLocation;
+
+        clearScheduledNavigationGuidance();
+        updateNavigationGuidance(nextLocation);
         return;
     }
 
-    const subscription = navigationLocationSubscription;
-    navigationLocationSubscription = null;
+    if (pendingNavigationGuidanceTimer !== null) {
+        return;
+    }
+
+    pendingNavigationGuidanceTimer = setTimeout(() => {
+        const nextLocation = pendingNavigationGuidanceLocation;
+
+        pendingNavigationGuidanceTimer = null;
+        pendingNavigationGuidanceLocation = null;
+        updateNavigationGuidance(nextLocation);
+    }, NAVIGATION_GUIDANCE_MIN_INTERVAL_MS - elapsedSinceLastUpdate);
+}
+
+async function removeNavigationLocationSubscription(subscription) {
+    if (!subscription) {
+        return;
+    }
+
     await Promise.resolve(subscription.remove()).catch(() => {});
 }
 
-async function startExpoNavigationLocationUpdates() {
-    navigationLocationSubscription = await Location.watchPositionAsync(
+async function stopNavigationLocationUpdates() {
+    navigationLocationUpdateGeneration += 1;
+    clearScheduledNavigationGuidance();
+
+    const subscription = navigationLocationSubscription;
+
+    navigationLocationSubscription = null;
+    await removeNavigationLocationSubscription(subscription);
+}
+
+async function startExpoNavigationLocationUpdates(generation) {
+    const subscription = await Location.watchPositionAsync(
         {
             accuracy: Location.Accuracy.Balanced,
             distanceInterval: NAVIGATION_LOCATION_DISTANCE_METERS,
             timeInterval: NAVIGATION_LOCATION_INTERVAL_MS,
         },
         (position) => {
+            if (generation !== navigationLocationUpdateGeneration) {
+                return;
+            }
+
             const location = getLocationFromPosition(position);
 
             if (location) {
-                updateNavigationGuidance(location);
+                scheduleNavigationGuidance(location);
             }
         },
     ).catch(() => null);
 
-    return getLastKnownLocation();
+    return {
+        lastKnownLocation: await getLastKnownLocation(),
+        subscription,
+    };
 }
 
-async function startEnhancedNavigationLocationUpdates() {
-    navigationLocationSubscription = addEnhancedLocationListener(
-        (enhancedLocation) => {
-            const location = getLocationFromPosition(
-                getEnhancedLocationUpdate(enhancedLocation),
-            );
+async function startEnhancedNavigationLocationUpdates(generation) {
+    const subscription = addEnhancedLocationListener((enhancedLocation) => {
+        if (generation !== navigationLocationUpdateGeneration) {
+            return;
+        }
 
-            if (location) {
-                updateNavigationGuidance(location);
-            }
-        },
-    );
+        const location = getLocationFromPosition(
+            getEnhancedLocationUpdate(enhancedLocation),
+        );
+
+        if (location) {
+            scheduleNavigationGuidance(location);
+        }
+    });
 
     const lastEnhancedLocation = await getLastEnhancedLocationAsync().catch(
         () => null,
     );
 
-    return getLocationFromPosition(
-        getEnhancedLocationUpdate(lastEnhancedLocation),
-    );
+    return {
+        lastKnownLocation: getLocationFromPosition(
+            getEnhancedLocationUpdate(lastEnhancedLocation),
+        ),
+        subscription,
+    };
 }
 
 async function startNavigationLocationUpdates(route) {
-    await stopNavigationLocationUpdates();
+    clearScheduledNavigationGuidance();
+
+    const generation = navigationLocationUpdateGeneration + 1;
+    const previousSubscription = navigationLocationSubscription;
+
+    navigationLocationUpdateGeneration = generation;
+    navigationLocationSubscription = null;
+    await removeNavigationLocationSubscription(previousSubscription);
+
+    if (generation !== navigationLocationUpdateGeneration) {
+        return;
+    }
 
     if (!(await getLocationPermissionIsGranted())) {
         return;
     }
 
-    const lastKnownLocation = mapboxNavigationEnhancedLocationIsSupported()
-        ? await startEnhancedNavigationLocationUpdates()
-        : await startExpoNavigationLocationUpdates();
+    if (generation !== navigationLocationUpdateGeneration) {
+        return;
+    }
+
+    const startedLocationUpdates = mapboxNavigationEnhancedLocationIsSupported()
+        ? await startEnhancedNavigationLocationUpdates(generation)
+        : await startExpoNavigationLocationUpdates(generation);
+
+    if (generation !== navigationLocationUpdateGeneration) {
+        await removeNavigationLocationSubscription(
+            startedLocationUpdates.subscription,
+        );
+        return;
+    }
+
+    navigationLocationSubscription = startedLocationUpdates.subscription;
+    const { lastKnownLocation } = startedLocationUpdates;
 
     if (lastKnownLocation) {
         updateNavigationGuidance(lastKnownLocation);
@@ -1692,7 +1815,7 @@ function startAutoDriveNavigationSimulation(route) {
             const location = getLocationFromPosition(position);
 
             if (location) {
-                updateNavigationGuidance(location);
+                scheduleNavigationGuidance(location);
             }
         },
     });
@@ -1978,12 +2101,22 @@ function handleAutoPlayConnect() {
         onAppearanceDidChange: (colorScheme) => {
             setAutoPlayMapColorScheme(colorScheme);
         },
-        onDidPan: (translation) => {
-            getAutoPlayMapControlHandlers().handlePan(translation);
-        },
-        onDidUpdateZoomGestureWithCenter: (center, scale) => {
-            getAutoPlayMapControlHandlers().handleZoomGesture(center, scale);
-        },
+        ...getAutoPlayMapGestureCallbacks({
+            // Android Auto only registers its required PanModeListener when
+            // this callback is supplied. Touchscreen hosts hide the native
+            // pan button, but still need that listener before forwarding
+            // drag gestures to the map surface.
+            onPanningInterfaceChanged: () => {},
+            onPan: (translation) => {
+                getAutoPlayMapControlHandlers().handlePan(translation);
+            },
+            onZoomGesture: (center, scale) => {
+                getAutoPlayMapControlHandlers().handleZoomGesture(
+                    center,
+                    scale,
+                );
+            },
+        }),
         onStopNavigation: () => {
             stopAutoPlayNavigation({ notifyTemplate: false });
         },

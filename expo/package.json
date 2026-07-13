@@ -18,9 +18,9 @@
     "prebuild": "expo prebuild --clean",
     "prebuild:staging": "APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- expo prebuild --clean",
     "prebuild:production": "APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- expo prebuild --clean",
-    "build:android:staging": "APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- eas build -p android --profile staging --local --no-wait",
-    "build:android:production": "APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- eas build -p android --profile production --local --non-interactive --no-wait",
-    "build:ios:production": "APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- eas build -p ios --profile production --local --no-wait",
+    "build:android:staging": "APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- ./scripts/eas-local-build.sh -p android --profile staging --no-wait",
+    "build:android:production": "APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p android --profile production --non-interactive --no-wait",
+    "build:ios:production": "APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p ios --profile production --no-wait",
     "sentry:upload-sourcemaps": "sentry-expo-upload-sourcemaps dist",
     "android": "expo run:android",
     "android:auto": "adb forward tcp:5277 tcp:5277 && \"$ANDROID_HOME/extras/google/auto/desktop-head-unit\" -c ./config/android-auto-dhu.ini",
@@ -28,8 +28,10 @@
     "ios": "expo run:ios",
     "ios:no-bundler": "expo run:ios --no-bundler --device",
     "start:metro": "expo start --dev-client",
+    "export:external": "./scripts/expo-export-external.sh",
     "e2e": "./scripts/maestro-test.sh .maestro",
-    "e2e-reset": "./scripts/reset-android-location.sh"
+    "e2e-reset": "./scripts/reset-android-location.sh",
+    "test:unit": "node --test lib/osm/__tests__/*.test.mjs components/map/__tests__/*.test.mjs"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.2.0",

@@ -4,7 +4,6 @@ import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { getDafTheme } from '../design-system/tokens';
 import { logMapDrivingStopped } from './analytics';
 import { getDirections } from './api';
-import { CurrentRoadPill } from './current-road-context';
 import { DEBUG_OVERLAY_DIRECTIONS_GEOMETRY } from './debug-overlays';
 import {
     createCurrentLocationDirectionsWaypoint,
@@ -23,9 +22,18 @@ import {
     ManeuverCard,
     ReroutingCard,
 } from './driving-guidance-cards';
+import { DrivingLocationRoadStack } from './driving-location-road-stack';
 import { NativeWindSafeAreaView } from './native-components';
-import { useSharedMapState } from './shared-map-state';
-import { SpeedLimitSign, useRouteSpeedLimit } from './speed-limit';
+import {
+    useSharedMapLocationState,
+    useSharedMapState,
+} from './shared-map-state';
+import {
+    getRouteCurrentSpeedMps,
+    SpeedLimitSign,
+    useRouteSpeedLimit,
+} from './speed-limit';
+import { MOBILE_SPEED_LIMIT_BADGE_SIZE } from './speed-limit-layout';
 
 const DRIVING_REROUTE_CONFIRMATION_MS = 2000;
 const DRIVING_REROUTE_COOLDOWN_MS = 8000;
@@ -83,7 +91,7 @@ function createSearchResultRestoreFromRoute(route) {
     };
 }
 
-export function DrivingGuidanceOverlay({ children }) {
+export function DrivingGuidanceOverlay({ children, onLocationAnchorLayout }) {
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
     const offRouteDetectedAtRef = useRef(null);
@@ -97,8 +105,8 @@ export function DrivingGuidanceOverlay({ children }) {
         setDrivingModeIsActive,
         setPendingDirectionsRequest,
         setPendingSearchResultRestore,
-        userLocation,
     } = useSharedMapState();
+    const { userLocation } = useSharedMapLocationState();
     const routeOption = getSelectedDirectionsRouteOption(directionsRoute);
     const routeProgress = useMemo(
         () => getDirectionsRouteProgress(directionsRoute, userLocation),
@@ -312,65 +320,71 @@ export function DrivingGuidanceOverlay({ children }) {
     }, [directionsRoute, handleReroute, routeIsActive, routeProgress]);
 
     return (
-        <NativeWindSafeAreaView
-            className="absolute inset-0 z-50"
-            edges={['top', 'right', 'left']}
-            pointerEvents="box-none"
-        >
-            <View className="px-3 pt-3" pointerEvents="box-none">
-                {routeIsActive ? (
-                    rerouteIsLoading ? (
-                        <ReroutingCard />
-                    ) : (
-                        <ManeuverCard
-                            maneuver={maneuver}
-                            nextManeuver={nextManeuver}
-                        />
-                    )
-                ) : null}
-            </View>
-
-            <View
-                className={`${headerCardIsVisible ? 'pt-3' : ''} flex-row items-start gap-3 px-3`}
+        <View className="absolute inset-0 z-50" pointerEvents="box-none">
+            <NativeWindSafeAreaView
+                className="absolute inset-0"
+                edges={['top', 'right', 'left']}
                 pointerEvents="box-none"
             >
-                <View pointerEvents="box-none">
-                    <SpeedLimitSign
-                        currentSpeedMps={userLocation?.speed}
-                        currentSpeedPlacement="bottom-right"
-                        currentSpeedVisible
-                        speedLimit={speedLimit}
-                    />
-                </View>
-                <View
-                    className="min-w-0 flex-1 items-center"
-                    pointerEvents="none"
-                >
-                    {!routeIsActive ? (
-                        <CurrentRoadPill userLocation={userLocation} />
+                <View className="px-3 pt-3" pointerEvents="box-none">
+                    {routeIsActive ? (
+                        rerouteIsLoading ? (
+                            <ReroutingCard />
+                        ) : (
+                            <ManeuverCard
+                                maneuver={maneuver}
+                                nextManeuver={nextManeuver}
+                            />
+                        )
                     ) : null}
                 </View>
-                <View className="items-end" pointerEvents="box-none">
-                    {children}
-                </View>
-            </View>
 
-            <View className="flex-1" pointerEvents="none" />
-
-            {routeIsActive ? (
                 <View
-                    className="overflow-hidden shadow-[0px_-10px_28px_rgba(11,14,18,0.16)]"
+                    className={`${headerCardIsVisible ? 'pt-3' : ''} flex-row items-start gap-3 px-3`}
                     pointerEvents="box-none"
-                    style={destinationSurfaceStyle}
                 >
-                    <DestinationCard
-                        bottomInset={insets.bottom}
-                        directionsRoute={directionsRoute}
-                        onCancelRoute={handleCancelRoute}
-                        routeOption={routeOption}
-                    />
+                    <View pointerEvents="box-none">
+                        <SpeedLimitSign
+                            currentSpeedMps={getRouteCurrentSpeedMps(
+                                userLocation,
+                            )}
+                            currentSpeedPlacement="bottom-right"
+                            currentSpeedVisible
+                            isDarkMode={colorScheme === 'dark'}
+                            size={MOBILE_SPEED_LIMIT_BADGE_SIZE}
+                            speedLimit={speedLimit}
+                        />
+                    </View>
+                    <View className="flex-1" pointerEvents="none" />
+                    <View className="items-end" pointerEvents="box-none">
+                        {children}
+                    </View>
                 </View>
-            ) : null}
-        </NativeWindSafeAreaView>
+
+                <View className="flex-1" pointerEvents="none" />
+
+                <DrivingLocationRoadStack
+                    onLocationAnchorLayout={onLocationAnchorLayout}
+                    userLocation={userLocation}
+                />
+
+                {routeIsActive ? (
+                    <View
+                        className="overflow-hidden shadow-[0px_-10px_28px_rgba(11,14,18,0.16)]"
+                        pointerEvents="box-none"
+                        style={destinationSurfaceStyle}
+                    >
+                        <DestinationCard
+                            bottomInset={insets.bottom}
+                            directionsRoute={directionsRoute}
+                            onCancelRoute={handleCancelRoute}
+                            routeOption={routeOption}
+                        />
+                    </View>
+                ) : (
+                    <View style={{ height: insets.bottom }} />
+                )}
+            </NativeWindSafeAreaView>
+        </View>
     );
 }

@@ -7,6 +7,7 @@ import {
     normalizeDirectionsRouteResponse,
 } from './directions';
 import { getCoordinateDistanceMeters, getStoredNumber } from './geo';
+import { getMockSpeedLimitSnapshot } from './speed-limit-mock';
 
 const E2E_MAP_API_MOCKS_ENV = process.env.EXPO_PUBLIC_E2E_MAP_API_MOCKS === '1';
 
@@ -524,11 +525,7 @@ export async function getMockDirections({
 export async function getMockSpeedLimit({ signal } = {}) {
     throwIfAborted(signal);
 
-    return {
-        maxspeed: '35 mph',
-        speedLimitMph: 35,
-        unit: 'mph',
-    };
+    return getMockSpeedLimitSnapshot();
 }
 
 export async function getMockMarkerPoints({ signal } = {}) {

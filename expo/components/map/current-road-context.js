@@ -1,35 +1,60 @@
+import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
+import {
+    getCurrentRoadText,
+    getRetainedCurrentRoadText,
+    shouldClearRetainedCurrentRoadText,
+} from './current-road-state';
 
-function getRoadContext(userLocation) {
-    return userLocation?.mapboxNavigation?.roadContext ?? null;
-}
+export { getCurrentRoadText } from './current-road-state';
 
-export function getCurrentRoadText(userLocation) {
-    const roadContext = getRoadContext(userLocation);
-    const primaryText =
-        typeof roadContext?.primaryText === 'string'
-            ? roadContext.primaryText.trim()
-            : '';
+const CURRENT_ROAD_MISSING_GRACE_MS = 8000;
 
-    if (primaryText) {
-        return primaryText;
+export function useStableCurrentRoadText(userLocation) {
+    const [retainedRoadText, setRetainedRoadText] = useState(() =>
+        getRetainedCurrentRoadText('', userLocation),
+    );
+    const currentRoadText = getCurrentRoadText(userLocation);
+    const shouldClearImmediately =
+        shouldClearRetainedCurrentRoadText(userLocation);
+
+    useEffect(() => {
+        if (currentRoadText) {
+            setRetainedRoadText(currentRoadText);
+            return undefined;
+        }
+
+        if (shouldClearImmediately) {
+            setRetainedRoadText('');
+            return undefined;
+        }
+
+        const missingRoadTimeout = setTimeout(() => {
+            setRetainedRoadText('');
+        }, CURRENT_ROAD_MISSING_GRACE_MS);
+
+        return () => {
+            clearTimeout(missingRoadTimeout);
+        };
+    }, [currentRoadText, shouldClearImmediately]);
+
+    if (currentRoadText) {
+        return currentRoadText;
     }
 
-    const component = Array.isArray(roadContext?.components)
-        ? roadContext.components.find((item) => {
-              return typeof item?.text === 'string' && item.text.trim();
-          })
-        : null;
-
-    return typeof component?.text === 'string' ? component.text.trim() : '';
+    return shouldClearImmediately ? '' : retainedRoadText;
 }
 
 export function CurrentRoadPill({
     className = '',
+    roadText: roadTextOverride,
     testID = 'current-road-pill',
     userLocation,
 }) {
-    const roadText = getCurrentRoadText(userLocation);
+    const roadText =
+        typeof roadTextOverride === 'string'
+            ? roadTextOverride.trim()
+            : getCurrentRoadText(userLocation);
 
     if (!roadText) {
         return null;

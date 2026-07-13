@@ -1,25 +1,14 @@
 import { useRef } from 'react';
 import { Text, View } from 'react-native';
+import { mapApiMocksAreEnabled } from './api-mocks';
+import { getSpeedLimitBadgeLayout } from './speed-limit-layout';
+import {
+    getMockCurrentSpeedMps,
+    getMockSpeedLimitSnapshot,
+} from './speed-limit-mock';
 
 const METERS_PER_SECOND_TO_MILES_PER_HOUR = 2.2369362920544;
 const SPEED_LIMIT_RETENTION_MS = 3000;
-const SPEED_LIMIT_SIGN_WIDTH = 58;
-const SPEED_LIMIT_SIGN_HEIGHT = SPEED_LIMIT_SIGN_WIDTH * 1.2;
-const SPEED_LIMIT_SIGN_BORDER_WIDTH = Math.max(
-    2,
-    SPEED_LIMIT_SIGN_WIDTH * 0.045,
-);
-const SPEED_LIMIT_SIGN_BORDER_RADIUS = SPEED_LIMIT_SIGN_WIDTH * 0.14;
-const SPEED_LIMIT_CONTENT_GAP = SPEED_LIMIT_SIGN_WIDTH * 0.04;
-const SPEED_LIMIT_LABEL_FONT_SIZE = SPEED_LIMIT_SIGN_WIDTH * 0.15;
-const SPEED_LIMIT_LABEL_LINE_HEIGHT = SPEED_LIMIT_LABEL_FONT_SIZE * 1.02;
-const SPEED_LIMIT_LABEL_LETTER_SPACING = SPEED_LIMIT_LABEL_FONT_SIZE * 0.04;
-const SPEED_LIMIT_VALUE_FONT_SIZE = SPEED_LIMIT_SIGN_WIDTH * 0.46;
-const SPEED_LIMIT_VALUE_LINE_HEIGHT = SPEED_LIMIT_VALUE_FONT_SIZE * 0.92;
-const CURRENT_SPEED_DIAMETER = SPEED_LIMIT_SIGN_WIDTH * 0.46;
-const CURRENT_SPEED_CORNER_OVERHANG = CURRENT_SPEED_DIAMETER / 2;
-const CURRENT_SPEED_BORDER_WIDTH = Math.max(3, SPEED_LIMIT_SIGN_WIDTH * 0.07);
-const CURRENT_SPEED_FONT_SIZE = CURRENT_SPEED_DIAMETER * 0.46;
 const SPEED_LIMIT_INK_COLOR = '#11151B';
 const CURRENT_SPEED_OK_COLOR = '#5A6573';
 const CURRENT_SPEED_RING_COLOR = '#828D9B';
@@ -39,7 +28,9 @@ function getWholeMphFromMetersPerSecond(speedMps) {
 
 export function useRouteSpeedLimit({ routeIsActive, userLocation }) {
     const cachedSpeedLimitRef = useRef(null);
-    const speedLimit = userLocation?.mapboxNavigation?.speedLimit;
+    const speedLimit = mapApiMocksAreEnabled()
+        ? getMockSpeedLimitSnapshot()
+        : userLocation?.mapboxNavigation?.speedLimit;
     const retainedSpeedLimit = getRetainedRouteSpeedLimit({
         cachedSpeedLimit: cachedSpeedLimitRef.current,
         routeIsActive,
@@ -49,6 +40,12 @@ export function useRouteSpeedLimit({ routeIsActive, userLocation }) {
     cachedSpeedLimitRef.current = retainedSpeedLimit.cachedSpeedLimit;
 
     return retainedSpeedLimit.speedLimit;
+}
+
+export function getRouteCurrentSpeedMps(userLocation) {
+    return mapApiMocksAreEnabled()
+        ? getMockCurrentSpeedMps()
+        : userLocation?.speed;
 }
 
 function speedLimitIsValid(speedLimit) {
@@ -99,6 +96,8 @@ export function SpeedLimitSign({
     currentSpeedMps,
     currentSpeedPlacement = 'bottom-right',
     currentSpeedVisible = false,
+    isDarkMode = false,
+    size = 'md',
     speedLimit,
     testID = 'driving-speed-limit-sign',
     valueTestID = 'driving-speed-limit-value',
@@ -110,6 +109,10 @@ export function SpeedLimitSign({
     const currentSpeedOverLimit =
         currentSpeedIsVisible && currentSpeedMph > Math.round(speedLimitMph);
     const currentSpeedIsOnRight = currentSpeedPlacement === 'bottom-right';
+    const layout = getSpeedLimitBadgeLayout(size);
+    const markerShadowClassName = isDarkMode
+        ? 'shadow-[0px_4px_14px_rgba(0,0,0,0.60)]'
+        : 'shadow-[0px_3px_10px_rgba(11,14,18,0.30)]';
 
     if (!Number.isFinite(speedLimitMph)) {
         return null;
@@ -117,44 +120,49 @@ export function SpeedLimitSign({
 
     return (
         <View
+            className="relative"
             style={{
-                height: SPEED_LIMIT_SIGN_HEIGHT + CURRENT_SPEED_CORNER_OVERHANG,
-                width: SPEED_LIMIT_SIGN_WIDTH + CURRENT_SPEED_CORNER_OVERHANG,
+                height: layout.containerHeight,
+                width: layout.containerWidth,
             }}
         >
             <View
                 accessibilityLabel={`Speed limit ${Math.round(speedLimitMph)} miles per hour`}
-                className={`${currentSpeedIsOnRight ? 'self-start' : 'self-end'} items-center justify-center overflow-hidden bg-white shadow-[0px_3px_10px_rgba(11,14,18,0.30)]`}
+                className={`absolute left-0 top-0 items-center justify-center overflow-hidden bg-white ${markerShadowClassName}`}
                 style={{
                     borderColor: SPEED_LIMIT_INK_COLOR,
-                    borderRadius: SPEED_LIMIT_SIGN_BORDER_RADIUS,
-                    borderWidth: SPEED_LIMIT_SIGN_BORDER_WIDTH,
-                    gap: SPEED_LIMIT_CONTENT_GAP,
-                    height: SPEED_LIMIT_SIGN_HEIGHT,
-                    width: SPEED_LIMIT_SIGN_WIDTH,
+                    borderRadius: layout.signBorderRadius,
+                    borderWidth: layout.signBorderWidth,
+                    gap: layout.signContentGap,
+                    height: layout.signOuterHeight,
+                    width: layout.signOuterWidth,
                 }}
                 testID={testID}
             >
                 <Text
+                    allowFontScaling={false}
                     className="font-dafUi text-center font-extrabold uppercase"
                     numberOfLines={2}
                     style={{
                         color: SPEED_LIMIT_INK_COLOR,
-                        fontSize: SPEED_LIMIT_LABEL_FONT_SIZE,
-                        letterSpacing: SPEED_LIMIT_LABEL_LETTER_SPACING,
-                        lineHeight: SPEED_LIMIT_LABEL_LINE_HEIGHT,
+                        fontSize: layout.labelFontSize,
+                        includeFontPadding: false,
+                        letterSpacing: layout.labelLetterSpacing,
+                        lineHeight: layout.labelLineHeight,
                     }}
                 >
                     Speed{'\n'}Limit
                 </Text>
                 <Text
+                    allowFontScaling={false}
                     className="font-dafMono text-center font-extrabold"
                     numberOfLines={1}
                     style={{
                         color: SPEED_LIMIT_INK_COLOR,
-                        fontSize: SPEED_LIMIT_VALUE_FONT_SIZE,
+                        fontSize: layout.valueFontSize,
                         fontVariant: ['tabular-nums'],
-                        lineHeight: SPEED_LIMIT_VALUE_LINE_HEIGHT,
+                        includeFontPadding: false,
+                        lineHeight: layout.valueLineHeight,
                     }}
                     testID={valueTestID}
                 >
@@ -165,30 +173,35 @@ export function SpeedLimitSign({
             {currentSpeedIsVisible ? (
                 <View
                     accessibilityLabel={`Current speed ${currentSpeedMph} miles per hour`}
-                    className={`${currentSpeedIsOnRight ? 'self-end' : 'self-start'} items-center justify-center bg-white shadow-[0px_3px_10px_rgba(11,14,18,0.30)]`}
+                    className={`absolute bottom-0 items-center justify-center bg-white ${markerShadowClassName}`}
                     style={{
-                        borderRadius: CURRENT_SPEED_DIAMETER / 2,
+                        borderRadius: layout.currentSpeedDiameter / 2,
                         borderColor: currentSpeedOverLimit
                             ? SPEED_LIMIT_INK_COLOR
                             : CURRENT_SPEED_RING_COLOR,
-                        borderWidth: CURRENT_SPEED_BORDER_WIDTH,
-                        height: CURRENT_SPEED_DIAMETER,
-                        marginTop: -CURRENT_SPEED_CORNER_OVERHANG,
-                        width: CURRENT_SPEED_DIAMETER,
+                        borderWidth: layout.currentSpeedBorderWidth,
+                        height: layout.currentSpeedDiameter,
+                        ...(currentSpeedIsOnRight
+                            ? { right: -layout.currentSpeedCornerOverhang }
+                            : { left: -layout.currentSpeedCornerOverhang }),
+                        width: layout.currentSpeedDiameter,
                     }}
                     testID={`${testID}-current-speed`}
                 >
                     <Text
+                        allowFontScaling={false}
                         className="font-dafMono text-center font-extrabold"
                         numberOfLines={1}
                         style={{
                             color: currentSpeedOverLimit
                                 ? SPEED_LIMIT_INK_COLOR
                                 : CURRENT_SPEED_OK_COLOR,
-                            fontSize: CURRENT_SPEED_FONT_SIZE,
+                            fontSize: layout.currentSpeedFontSize,
                             fontVariant: ['tabular-nums'],
-                            lineHeight: CURRENT_SPEED_FONT_SIZE,
+                            includeFontPadding: false,
+                            lineHeight: layout.currentSpeedFontSize,
                         }}
+                        testID={`${testID}-current-speed-value`}
                     >
                         {currentSpeedMph}
                     </Text>

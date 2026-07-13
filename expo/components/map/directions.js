@@ -13,6 +13,7 @@ const EARTH_RADIUS_METERS = 6371008.8;
 const MANEUVER_COMPLETION_HOLD_DISTANCE_RATIO = 0.35;
 const MAX_MANEUVER_COMPLETION_HOLD_DISTANCE_METERS = 120;
 const MIN_MANEUVER_COMPLETION_HOLD_DISTANCE_METERS = 30;
+const routeProgressDataCache = new WeakMap();
 export const DIRECTIONS_FIELD_START = 'start';
 export const DIRECTIONS_FIELD_STOP = 'stop';
 export const DIRECTIONS_FIELD_DESTINATION = 'destination';
@@ -998,6 +999,41 @@ function getRouteManeuversWithProgress(
     });
 }
 
+function getRouteProgressData(route) {
+    const selectedRoute = getSelectedDirectionsRouteOption(route);
+    const coordinates = selectedRoute?.coordinates ?? [];
+    const maneuvers = selectedRoute?.maneuvers ?? [];
+    const cachedData =
+        selectedRoute && typeof selectedRoute === 'object'
+            ? routeProgressDataCache.get(selectedRoute)
+            : null;
+
+    if (
+        cachedData?.coordinates === coordinates &&
+        cachedData?.maneuvers === maneuvers
+    ) {
+        return cachedData;
+    }
+
+    const cumulativeDistances = getCumulativeRouteDistances(coordinates);
+    const progressData = {
+        coordinates,
+        cumulativeDistances,
+        maneuvers,
+        maneuversWithProgress: getRouteManeuversWithProgress(
+            maneuvers,
+            coordinates,
+            cumulativeDistances,
+        ),
+    };
+
+    if (selectedRoute && typeof selectedRoute === 'object') {
+        routeProgressDataCache.set(selectedRoute, progressData);
+    }
+
+    return progressData;
+}
+
 function getManeuverCompletionHoldDistance(maneuver) {
     const stepDistance = Math.max(
         0,
@@ -1034,8 +1070,7 @@ function getUpcomingManeuver(maneuvers, progressDistance) {
 }
 
 export function getDirectionsRouteProgress(route, userLocation) {
-    const selectedRoute = getSelectedDirectionsRouteOption(route);
-    const coordinates = selectedRoute?.coordinates ?? [];
+    const { coordinates, cumulativeDistances } = getRouteProgressData(route);
 
     if (coordinates.length < 2) {
         return null;
@@ -1046,8 +1081,6 @@ export function getDirectionsRouteProgress(route, userLocation) {
     if (!userCoordinate) {
         return null;
     }
-
-    const cumulativeDistances = getCumulativeRouteDistances(coordinates);
 
     return getClosestRoutePosition(
         coordinates,
@@ -1074,9 +1107,8 @@ export function getActiveDirectionsManeuver(
     userLocation,
     routeProgress = getDirectionsRouteProgress(route, userLocation),
 ) {
-    const selectedRoute = getSelectedDirectionsRouteOption(route);
-    const coordinates = selectedRoute?.coordinates ?? [];
-    const maneuvers = selectedRoute?.maneuvers ?? [];
+    const { coordinates, maneuvers, maneuversWithProgress } =
+        getRouteProgressData(route);
 
     if (coordinates.length < 2 || maneuvers.length === 0) {
         return null;
@@ -1092,12 +1124,6 @@ export function getActiveDirectionsManeuver(
         );
     }
 
-    const cumulativeDistances = getCumulativeRouteDistances(coordinates);
-    const maneuversWithProgress = getRouteManeuversWithProgress(
-        maneuvers,
-        coordinates,
-        cumulativeDistances,
-    );
     const progressDistance = routeProgress.alongRouteDistance;
     const currentManeuver = getCurrentManeuver(
         maneuversWithProgress,
@@ -1149,20 +1175,13 @@ export function getNextDirectionsManeuver(
     userLocation,
     routeProgress = getDirectionsRouteProgress(route, userLocation),
 ) {
-    const selectedRoute = getSelectedDirectionsRouteOption(route);
-    const coordinates = selectedRoute?.coordinates ?? [];
-    const maneuvers = selectedRoute?.maneuvers ?? [];
+    const { coordinates, maneuvers, maneuversWithProgress } =
+        getRouteProgressData(route);
 
     if (coordinates.length < 2 || maneuvers.length < 2) {
         return null;
     }
 
-    const cumulativeDistances = getCumulativeRouteDistances(coordinates);
-    const maneuversWithProgress = getRouteManeuversWithProgress(
-        maneuvers,
-        coordinates,
-        cumulativeDistances,
-    );
     const progressDistance = routeProgress?.alongRouteDistance ?? 0;
     const activeManeuver = getActiveDirectionsManeuver(
         route,

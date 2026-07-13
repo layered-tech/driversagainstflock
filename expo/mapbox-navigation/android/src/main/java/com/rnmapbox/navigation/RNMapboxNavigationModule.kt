@@ -392,7 +392,7 @@ class RNMapboxNavigationModule : Module() {
         sendNavigationCameraState(surfaceId, state)
       }
     ).apply {
-      updateOptions(options)
+      applyInitialOptions(options)
     }
   }
 
@@ -564,6 +564,7 @@ class RNMapboxNavigationModule : Module() {
     private val onStateChanged: (NavigationCameraState) -> Unit
   ) {
     private var requestedMode = NAVIGATION_CAMERA_MODE_IDLE
+    private var pendingOptions: Map<String, Any?>? = null
     private val stateObserver = NavigationCameraStateChangedObserver { state ->
       onStateChanged(state)
     }
@@ -573,11 +574,33 @@ class RNMapboxNavigationModule : Module() {
     }
 
     fun onLocationMatcherResult(result: LocationMatcherResult) {
+      pendingOptions?.let { options ->
+        pendingOptions = null
+        applyOptions(options)
+      }
+
       viewportDataSource.onLocationChanged(result.enhancedLocation)
       viewportDataSource.evaluate()
     }
 
     fun updateOptions(options: Map<String, Any?>?) {
+      if (requestedMode != NAVIGATION_CAMERA_MODE_FOLLOWING) {
+        pendingOptions = null
+        applyOptions(options)
+        return
+      }
+
+      // Keep the latest passive camera snapshot until a fresh matched location
+      // frames it. Re-evaluating here would animate to the previous location.
+      pendingOptions = options?.toMap() ?: emptyMap()
+    }
+
+    fun applyInitialOptions(options: Map<String, Any?>?) {
+      pendingOptions = null
+      applyOptions(options)
+    }
+
+    private fun applyOptions(options: Map<String, Any?>?) {
       val padding = options?.get("padding") as? Map<*, *>
       viewportDataSource.followingPadding = EdgeInsets(
         getPaddingDouble(padding, "paddingTop"),
@@ -593,12 +616,6 @@ class RNMapboxNavigationModule : Module() {
       getOptionalDouble(options, "pitch")?.let {
         viewportDataSource.followingPitchPropertyOverride(it)
       }
-
-      viewportDataSource.evaluate()
-
-      if (requestedMode == NAVIGATION_CAMERA_MODE_FOLLOWING) {
-        navigationCamera.requestNavigationCameraToFollowing()
-      }
     }
 
     fun setMode(mode: String) {
@@ -610,11 +627,13 @@ class RNMapboxNavigationModule : Module() {
       if (requestedMode == NAVIGATION_CAMERA_MODE_FOLLOWING) {
         navigationCamera.requestNavigationCameraToFollowing()
       } else {
+        pendingOptions = null
         navigationCamera.requestNavigationCameraToIdle()
       }
     }
 
     fun detach() {
+      pendingOptions = null
       navigationCamera.unregisterNavigationCameraStateChangeObserver(stateObserver)
       navigationCamera.requestNavigationCameraToIdle()
     }
