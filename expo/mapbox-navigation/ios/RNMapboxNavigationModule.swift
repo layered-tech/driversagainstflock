@@ -1,7 +1,7 @@
 import Combine
 import CoreLocation
 import ExpoModulesCore
-import MapboxMaps
+@_spi(Experimental) import MapboxMaps
 import MapboxNavigationCore
 import UIKit
 
@@ -162,7 +162,10 @@ public final class RNMapboxNavigationModule: Module {
     )
     let configuration = Puck3DConfiguration(
       model: model,
-      modelScale: .constant([resolvedScale, resolvedScale, resolvedScale])
+      modelScale: .constant([resolvedScale, resolvedScale, resolvedScale]),
+      modelCastShadows: .constant(false),
+      modelReceiveShadows: .constant(false),
+      modelEmissiveStrength: .constant(1)
     )
 
     location.options.puckType = .puck3D(configuration)

@@ -20,6 +20,22 @@ export function autoPlaySearchRequestIsCurrent(currentRequest, request) {
     return currentRequest === request && request?.signal?.aborted !== true;
 }
 
+export function getAutoPlayHeaderButtonVisibility({
+    hasActiveNavigation,
+    usesHeaderDrivingModeButton = true,
+    usesHeaderExitNavigationButton = false,
+}) {
+    const navigationExitButtonIsVisible = Boolean(
+        usesHeaderExitNavigationButton && hasActiveNavigation,
+    );
+
+    return {
+        navigationExitButtonIsVisible,
+        trailingNavigationButtonIsVisible:
+            navigationExitButtonIsVisible || usesHeaderDrivingModeButton,
+    };
+}
+
 export function makeAutoPlayTripSteps({
     destinationStep,
     includeOrigin = false,

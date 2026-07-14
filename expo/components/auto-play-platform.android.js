@@ -5,6 +5,10 @@ export const autoPlayPlatform = {
   MapSurface: AndroidAutoMapSurface,
   maneuverCardAppearance: 'dark',
   maneuverCardIconColor: '#ffffff',
+  // Android Auto owns the pan affordance in the map action strip. Keeping the
+  // old driving-mode toggle in the header made it look like the required pan
+  // action had been replaced even though the host may hide PAN on touch units.
+  usesHeaderDrivingModeButton: false,
 
   // MapTemplate callbacks that only exist on Android Auto: double-tap zoom
   // and the Play Store AUTO_DRIVE simulation handshake.

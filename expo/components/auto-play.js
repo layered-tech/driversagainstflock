@@ -24,6 +24,7 @@ import {
 import {
     AUTO_PLAY_TRIP_PREVIEW_TEXT_CONFIGURATION,
     autoPlaySearchRequestIsCurrent,
+    getAutoPlayHeaderButtonVisibility,
     getAutoPlaySearchLoadingCopy,
     makeAutoPlayTripSelectorTrips,
     makeAutoPlayTripSteps,
@@ -2220,10 +2221,15 @@ let cachedRootMapHeaderActionsKey = '';
 
 function getRootMapHeaderActions() {
     const drivingModeKey = getAutoPlayDrivingModeIsActive() ? '1' : '0';
-    const navigationExitButtonIsVisible =
-        autoPlayPlatform?.usesHeaderExitNavigationButton &&
-        Boolean(activeNavigationRoute);
-    const rootMapHeaderActionsKey = `${drivingModeKey}:${navigationExitButtonIsVisible ? 'navigating' : 'ready'}`;
+    const { navigationExitButtonIsVisible, trailingNavigationButtonIsVisible } =
+        getAutoPlayHeaderButtonVisibility({
+            hasActiveNavigation: Boolean(activeNavigationRoute),
+            usesHeaderDrivingModeButton:
+                autoPlayPlatform?.usesHeaderDrivingModeButton !== false,
+            usesHeaderExitNavigationButton:
+                autoPlayPlatform?.usesHeaderExitNavigationButton === true,
+        });
+    const rootMapHeaderActionsKey = `${drivingModeKey}:${navigationExitButtonIsVisible ? 'navigating' : 'ready'}:${trailingNavigationButtonIsVisible ? 'trailing' : 'search-only'}`;
 
     if (
         cachedRootMapHeaderActions &&
@@ -2237,21 +2243,27 @@ function getRootMapHeaderActions() {
         onPress: handleRootHeaderSearchPress,
         type: 'image',
     };
-    const trailingNavigationButton = {
-        image: navigationExitButtonIsVisible
-            ? getRootHeaderExitNavigationButtonImage()
-            : getRootHeaderDrivingModeButtonImage(),
-        onPress: navigationExitButtonIsVisible
-            ? handleRootHeaderExitNavigationPress
-            : handleRootHeaderDrivingModePress,
-        type: 'image',
-    };
+    const trailingNavigationButton = trailingNavigationButtonIsVisible
+        ? {
+              image: navigationExitButtonIsVisible
+                  ? getRootHeaderExitNavigationButtonImage()
+                  : getRootHeaderDrivingModeButtonImage(),
+              onPress: navigationExitButtonIsVisible
+                  ? handleRootHeaderExitNavigationPress
+                  : handleRootHeaderDrivingModePress,
+              type: 'image',
+          }
+        : null;
 
     cachedRootMapHeaderActions = {
-        android: [searchButton, trailingNavigationButton],
+        android: trailingNavigationButton
+            ? [searchButton, trailingNavigationButton]
+            : [searchButton],
         ios: {
             leadingNavigationBarButtons: [searchButton],
-            trailingNavigationBarButtons: [trailingNavigationButton],
+            trailingNavigationBarButtons: trailingNavigationButton
+                ? [trailingNavigationButton]
+                : [],
         },
     };
     cachedRootMapHeaderActionsKey = rootMapHeaderActionsKey;

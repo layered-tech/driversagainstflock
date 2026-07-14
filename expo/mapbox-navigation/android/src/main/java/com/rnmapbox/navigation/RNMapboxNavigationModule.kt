@@ -15,6 +15,7 @@ import com.facebook.react.uimanager.UIManagerHelper
 import com.facebook.react.uimanager.common.UIManagerType
 import com.mapbox.common.location.Location
 import com.mapbox.maps.EdgeInsets
+import com.mapbox.maps.MapboxExperimental
 import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.LocationPuck3D
 import com.mapbox.maps.plugin.ModelScaleMode
@@ -48,7 +49,7 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.types.toJSValueExperimental
 
-@OptIn(ExperimentalMapboxNavigationAPI::class)
+@OptIn(ExperimentalMapboxNavigationAPI::class, MapboxExperimental::class)
 class RNMapboxNavigationModule : Module() {
   private var lastEnhancedLocation: Bundle? = null
   private var lastLoggedSpeedLimitKey: String? = null
@@ -151,7 +152,10 @@ class RNMapboxNavigationModule : Module() {
         modelUri = NAVIGATION_PUCK_MODEL_URI,
         modelScale = listOf(resolvedScale, resolvedScale, resolvedScale),
         modelRotation = listOf(0f, 0f, 0f),
-        modelScaleMode = ModelScaleMode.VIEWPORT
+        modelCastShadows = false,
+        modelReceiveShadows = false,
+        modelScaleMode = ModelScaleMode.VIEWPORT,
+        modelEmissiveStrength = 1f
       )
       location.puckBearing = PuckBearing.HEADING
       location.puckBearingEnabled = true

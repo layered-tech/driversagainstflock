@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
     autoPlaySearchRequestIsCurrent,
+    getAutoPlayHeaderButtonVisibility,
     getAutoPlaySearchLoadingCopy,
     makeAutoPlayTripSelectorTrips,
     makeAutoPlayTripSteps,
@@ -33,6 +34,45 @@ describe('Auto Play template state', () => {
         assert.equal(
             autoPlaySearchRequestIsCurrent(currentRequest, currentRequest),
             false,
+        );
+    });
+
+    test('keeps Android Auto pan in map chrome instead of a driving header action', () => {
+        assert.deepEqual(
+            getAutoPlayHeaderButtonVisibility({
+                hasActiveNavigation: false,
+                usesHeaderDrivingModeButton: false,
+                usesHeaderExitNavigationButton: false,
+            }),
+            {
+                navigationExitButtonIsVisible: false,
+                trailingNavigationButtonIsVisible: false,
+            },
+        );
+    });
+
+    test('preserves the CarPlay driving and navigation header actions', () => {
+        assert.deepEqual(
+            getAutoPlayHeaderButtonVisibility({
+                hasActiveNavigation: false,
+                usesHeaderDrivingModeButton: true,
+                usesHeaderExitNavigationButton: true,
+            }),
+            {
+                navigationExitButtonIsVisible: false,
+                trailingNavigationButtonIsVisible: true,
+            },
+        );
+        assert.deepEqual(
+            getAutoPlayHeaderButtonVisibility({
+                hasActiveNavigation: true,
+                usesHeaderDrivingModeButton: true,
+                usesHeaderExitNavigationButton: true,
+            }),
+            {
+                navigationExitButtonIsVisible: true,
+                trailingNavigationButtonIsVisible: true,
+            },
         );
     });
 
