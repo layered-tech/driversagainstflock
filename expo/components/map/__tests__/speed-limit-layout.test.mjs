@@ -82,4 +82,24 @@ describe('getSpeedLimitBadgeLayout', () => {
             62,
         );
     });
+
+    test('uses native iOS number line boxes without changing Android metrics', () => {
+        const iosLayout = getSpeedLimitBadgeLayout('lg', {
+            platform: 'ios',
+        });
+        const androidLayout = getSpeedLimitBadgeLayout('lg', {
+            platform: 'android',
+        });
+
+        assert.equal(iosLayout.valueLineHeight, undefined);
+        assert.equal(iosLayout.currentSpeedLineHeight, undefined);
+        assertApproximatelyEqual(
+            androidLayout.valueLineHeight,
+            androidLayout.valueFontSize * 0.92,
+        );
+        assert.equal(
+            androidLayout.currentSpeedLineHeight,
+            androidLayout.currentSpeedFontSize,
+        );
+    });
 });

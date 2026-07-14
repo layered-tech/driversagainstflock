@@ -7,7 +7,7 @@ export const SPEED_LIMIT_BADGE_SIZES = Object.freeze({
 export const MOBILE_SPEED_LIMIT_BADGE_SIZE = 'lg';
 export const AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE = 62;
 
-export function getSpeedLimitBadgeLayout(size = 'md') {
+export function getSpeedLimitBadgeLayout(size = 'md', { platform } = {}) {
     const namedSize = SPEED_LIMIT_BADGE_SIZES[size];
     const signWidth =
         typeof size === 'number' && Number.isFinite(size) && size > 0
@@ -22,6 +22,8 @@ export function getSpeedLimitBadgeLayout(size = 'md') {
     const currentSpeedCornerOverhang = currentSpeedContentDiameter / 2;
     const labelFontSize = signWidth * 0.15;
     const valueFontSize = signWidth * 0.46;
+    const currentSpeedFontSize = currentSpeedContentDiameter * 0.46;
+    const usesNativeNumberLineHeight = platform === 'ios';
 
     return {
         containerHeight: signHeight + currentSpeedCornerOverhang,
@@ -30,7 +32,10 @@ export function getSpeedLimitBadgeLayout(size = 'md') {
         currentSpeedContentDiameter,
         currentSpeedCornerOverhang,
         currentSpeedDiameter,
-        currentSpeedFontSize: currentSpeedContentDiameter * 0.46,
+        currentSpeedFontSize,
+        currentSpeedLineHeight: usesNativeNumberLineHeight
+            ? undefined
+            : currentSpeedFontSize,
         labelFontSize,
         labelLetterSpacing: labelFontSize * 0.04,
         labelLineHeight: labelFontSize * 1.02,
@@ -42,6 +47,8 @@ export function getSpeedLimitBadgeLayout(size = 'md') {
         signOuterWidth: signWidth + signBorderWidth * 2,
         signWidth,
         valueFontSize,
-        valueLineHeight: valueFontSize * 0.92,
+        valueLineHeight: usesNativeNumberLineHeight
+            ? undefined
+            : valueFontSize * 0.92,
     };
 }

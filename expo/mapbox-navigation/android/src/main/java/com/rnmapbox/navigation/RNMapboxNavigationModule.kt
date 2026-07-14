@@ -37,6 +37,7 @@ import com.mapbox.navigation.core.trip.session.LocationObserver
 import com.mapbox.navigation.core.trip.session.TripSessionState
 import com.mapbox.navigation.core.trip.session.TripSessionStateObserver
 import com.mapbox.navigation.ui.maps.camera.NavigationCamera
+import com.mapbox.navigation.ui.maps.camera.data.FollowingFrameOptions
 import com.mapbox.navigation.ui.maps.camera.data.MapboxNavigationViewportDataSource
 import com.mapbox.navigation.ui.maps.camera.state.NavigationCameraState
 import com.mapbox.navigation.ui.maps.camera.state.NavigationCameraStateChangedObserver
@@ -140,7 +141,7 @@ class RNMapboxNavigationModule : Module() {
       return@AsyncFunction lastEnhancedLocation?.toJSValueExperimental()
     }.runOnQueue(Queues.MAIN)
 
-    AsyncFunction("applyNavigationPuck3D") { mapViewTag: Int, scale: Double ->
+    AsyncFunction("applyNavigationPuck3D") { mapViewTag: Int, scale: Double, slot: String?, layerAbove: String? ->
       val rnMapView = resolveMapView(mapViewTag)
       val location = rnMapView.mapView.location
       val resolvedScale = scale.toFloat().coerceIn(
@@ -159,6 +160,9 @@ class RNMapboxNavigationModule : Module() {
       )
       location.puckBearing = PuckBearing.HEADING
       location.puckBearingEnabled = true
+      location.slot = slot?.takeIf(MAPBOX_STYLE_SLOTS::contains)
+      location.layerAbove = layerAbove?.takeIf(APP_STYLE_LAYER_IDS::contains)
+      location.layerBelow = null
       location.enabled = true
 
       return@AsyncFunction true
@@ -167,8 +171,13 @@ class RNMapboxNavigationModule : Module() {
     AsyncFunction("clearNavigationPuck3D") { mapViewTag: Int ->
       val rnMapView = resolveMapView(mapViewTag)
       val location = rnMapView.mapView.location
+      val hadNavigationPuck3D = location.locationPuck is LocationPuck3D
 
-      if (location.locationPuck !is LocationPuck3D) {
+      location.layerAbove = null
+      location.layerBelow = null
+      location.slot = null
+
+      if (!hadNavigationPuck3D) {
         return@AsyncFunction false
       }
 
@@ -427,7 +436,9 @@ class RNMapboxNavigationModule : Module() {
   ): NavigationCameraSurface {
     val mapView = rnMapView.mapView
     val mapboxMap = rnMapView.getMapboxMap()
-    val viewportDataSource = MapboxNavigationViewportDataSource(mapboxMap)
+    val viewportDataSource = MapboxNavigationViewportDataSource(mapboxMap).apply {
+      this.options.followingFrameOptions.focalPoint = FollowingFrameOptions.FocalPoint(0.5, 0.5)
+    }
     val navigationCamera = NavigationCamera(
       mapboxMap,
       mapView.camera,
@@ -868,6 +879,8 @@ class RNMapboxNavigationModule : Module() {
     private const val KILOMETERS_PER_HOUR_TO_MILES_PER_HOUR = 0.62137119223733
     private const val LOG_TAG = "RNMapboxNavigation"
     private const val MAXIMUM_NAVIGATION_PUCK_SCALE = 128f
+    private val APP_STYLE_LAYER_IDS = setOf("directions-route-line")
+    private val MAPBOX_STYLE_SLOTS = setOf("bottom", "middle", "top")
     private const val METERS_PER_SECOND_TO_MILES_PER_HOUR = 2.2369362920544
     private const val MINIMUM_NAVIGATION_PUCK_SCALE = 16f
     private const val MODULE_NAME = "RNMapboxNavigation"

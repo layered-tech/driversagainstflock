@@ -56,15 +56,18 @@ test('hands off fallback follow only after the navigation camera owns movement',
     );
 });
 
-test('leaves Android Auto follow padding to the native navigation camera', () => {
+test('leaves Android follow padding to the native navigation camera', () => {
     const followProps = {
         enabled: true,
         padding: initialSettings.padding,
     };
 
-    assert.equal(getMapboxCameraFollowPadding(followProps, true), undefined);
+    assert.equal(
+        getMapboxCameraFollowPadding(followProps, 'android'),
+        undefined,
+    );
     assert.strictEqual(
-        getMapboxCameraFollowPadding(followProps, false),
+        getMapboxCameraFollowPadding(followProps, 'ios'),
         initialSettings.padding,
     );
 });

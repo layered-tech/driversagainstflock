@@ -11,10 +11,7 @@ import {
     useAutoDriveSimulationIsActive,
 } from './auto-play-drive-simulation';
 import { AutoPlayMapStatusOverlay } from './auto-play-map-status-overlay';
-import {
-    getAutoPlayNavigationCameraPadding,
-    getAutoPlayViewportMetrics,
-} from './auto-play-map-viewport';
+import { getAutoPlayViewportMetrics } from './auto-play-map-viewport';
 import { useAutoPlayState } from './auto-play-state';
 import { useFollowLocationMode } from './map-follow-location-mode';
 import {
@@ -654,20 +651,6 @@ function useAutoPlayMapController({
         userLocationRef,
         viewportHeight: viewportMetrics.height,
     });
-    const navigationCameraOptions = useMemo(
-        () => ({
-            ...followLocationMode.nativeCameraFollowProps,
-            padding: getAutoPlayNavigationCameraPadding({
-                followViewportAnchorY,
-                viewportMetrics,
-            }),
-        }),
-        [
-            followLocationMode.nativeCameraFollowProps,
-            followViewportAnchorY,
-            viewportMetrics,
-        ],
-    );
     const activeLocationMode = isDrivingMode
         ? followLocationMode
         : lockOnLocationMode;
@@ -1080,7 +1063,7 @@ function useAutoPlayMapController({
         : 'idle';
     const navigationCamera = useNavigationCamera({
         attachKey: isMapReady ? 'ready' : 'pending',
-        cameraOptions: navigationCameraOptions,
+        cameraOptions: followLocationMode.nativeCameraFollowProps,
         enabled:
             enhancedNavigationLocationWatchEnabled &&
             isDrivingMode &&

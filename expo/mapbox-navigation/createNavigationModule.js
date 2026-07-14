@@ -143,7 +143,12 @@ function createNavigationModule({
         return Number.isFinite(Number(tag)) ? Number(tag) : null;
     }
 
-    async function applyNavigationPuck3DAsync(mapViewRef, scale) {
+    async function applyNavigationPuck3DAsync(
+        mapViewRef,
+        scale,
+        slot,
+        layerAbove,
+    ) {
         if (!isNavigationPuck3DSupported()) {
             return false;
         }
@@ -155,10 +160,23 @@ function createNavigationModule({
             return false;
         }
 
+        const nativeArguments = [
+            mapViewTag,
+            Math.min(Math.max(numericScale, 16), 128),
+        ];
+
+        if (Platform.OS === 'android') {
+            nativeArguments.push(
+                slot === 'bottom' || slot === 'middle' || slot === 'top'
+                    ? slot
+                    : null,
+                layerAbove === 'directions-route-line' ? layerAbove : null,
+            );
+        }
+
         return Boolean(
             await NativeRNMapboxNavigation.applyNavigationPuck3D(
-                mapViewTag,
-                Math.min(Math.max(numericScale, 16), 128),
+                ...nativeArguments,
             ),
         );
     }

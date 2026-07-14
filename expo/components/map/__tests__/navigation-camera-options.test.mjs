@@ -1,9 +1,17 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 
 const require = createRequire(import.meta.url);
 const createNavigationModule = require('../../../mapbox-navigation/createNavigationModule.js');
+const androidNavigationModuleSource = readFileSync(
+    new URL(
+        '../../../mapbox-navigation/android/src/main/java/com/rnmapbox/navigation/RNMapboxNavigationModule.kt',
+        import.meta.url,
+    ),
+    'utf8',
+);
 
 class FakeEventEmitter {
     addListener() {
@@ -13,10 +21,14 @@ class FakeEventEmitter {
     }
 }
 
-function makeNavigationModule(nativeModule, findNodeHandle = () => 42) {
+function makeNavigationModule(
+    nativeModule,
+    findNodeHandle = () => 42,
+    platform = 'ios',
+) {
     return createNavigationModule({
         EventEmitter: FakeEventEmitter,
-        Platform: { OS: 'ios' },
+        Platform: { OS: platform },
         React: {},
         findNodeHandle,
         requireNativeModule: () => nativeModule,
@@ -48,6 +60,46 @@ test('navigation puck applies and clears the native 3D model', async () => {
     assert.deepEqual(calls, [
         { mapViewTag: 42, operation: 'apply', scale: 128 },
         { mapViewTag: 42, operation: 'clear' },
+    ]);
+});
+
+test('Android navigation puck forwards its Mapbox style slot', async () => {
+    const calls = [];
+    const navigation = makeNavigationModule(
+        {
+            async applyNavigationPuck3D(
+                mapViewTag,
+                scale,
+                slot,
+                layerAbove,
+            ) {
+                calls.push({ layerAbove, mapViewTag, scale, slot });
+                return true;
+            },
+            async clearNavigationPuck3D() {
+                return true;
+            },
+        },
+        () => 42,
+        'android',
+    );
+
+    assert.equal(
+        await navigation.applyNavigationPuck3DAsync(
+            { current: {} },
+            62.5,
+            'middle',
+            'directions-route-line',
+        ),
+        true,
+    );
+    assert.deepEqual(calls, [
+        {
+            layerAbove: 'directions-route-line',
+            mapViewTag: 42,
+            scale: 62.5,
+            slot: 'middle',
+        },
     ]);
 });
 
@@ -168,4 +220,11 @@ test('navigation camera attaches with current options', async () => {
             surfaceId: 'carplay',
         },
     ]);
+});
+
+test('Android navigation camera centers locations within follow padding', () => {
+    assert.match(
+        androidNavigationModuleSource,
+        /this\.options\.followingFrameOptions\.focalPoint\s*=\s*FollowingFrameOptions\.FocalPoint\(0\.5, 0\.5\)/,
+    );
 });

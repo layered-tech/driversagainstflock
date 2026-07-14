@@ -21,8 +21,11 @@ export function getFallbackCameraFollowProps(
         : followProps;
 }
 
-export function getMapboxCameraFollowPadding(followProps, omitFollowPadding) {
-    return omitFollowPadding ? undefined : followProps?.padding;
+export function getMapboxCameraFollowPadding(followProps, platformOS) {
+    // @rnmapbox/maps 10 passes this Fabric prop to Android as a raw Java map,
+    // although its view manager only accepts a ReadableMap. Active navigation
+    // applies the same padding through the native NavigationCamera bridge.
+    return platformOS === 'android' ? undefined : followProps?.padding;
 }
 
 function copyPadding(padding) {

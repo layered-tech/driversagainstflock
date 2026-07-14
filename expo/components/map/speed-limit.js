@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { mapApiMocksAreEnabled } from './api-mocks';
 import { getSpeedLimitBadgeLayout } from './speed-limit-layout';
 import {
@@ -109,7 +109,7 @@ export function SpeedLimitSign({
     const currentSpeedOverLimit =
         currentSpeedIsVisible && currentSpeedMph > Math.round(speedLimitMph);
     const currentSpeedIsOnRight = currentSpeedPlacement === 'bottom-right';
-    const layout = getSpeedLimitBadgeLayout(size);
+    const layout = getSpeedLimitBadgeLayout(size, { platform: Platform.OS });
     const markerShadowClassName = isDarkMode
         ? 'shadow-[0px_4px_14px_rgba(0,0,0,0.60)]'
         : 'shadow-[0px_3px_10px_rgba(11,14,18,0.30)]';
@@ -199,7 +199,7 @@ export function SpeedLimitSign({
                             fontSize: layout.currentSpeedFontSize,
                             fontVariant: ['tabular-nums'],
                             includeFontPadding: false,
-                            lineHeight: layout.currentSpeedFontSize,
+                            lineHeight: layout.currentSpeedLineHeight,
                         }}
                         testID={`${testID}-current-speed-value`}
                     >

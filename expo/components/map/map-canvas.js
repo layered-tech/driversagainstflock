@@ -79,6 +79,7 @@ import {
     NavigationPuckImages,
     PoliceAlertImages,
 } from './map-assets';
+import { getMapLayerSlots } from './map-layer-slots';
 import {
     E2EMarkerTapTarget,
     getCoordinateKey,
@@ -347,13 +348,14 @@ function makeMarkerConeFilter(directionProperty, visible) {
     return ['all', INDIVIDUAL_MARKER_FILTER, ['has', directionProperty]];
 }
 
-function renderMarkerConeLayers({ idPrefix, sourceID, visible }) {
+function renderMarkerConeLayers({ idPrefix, slot, sourceID, visible }) {
     return MARKER_CONE_DIRECTION_PROPERTY_NAMES.map((directionProperty) => (
         <Mapbox.SymbolLayer
             key={`${idPrefix}-cone-${directionProperty}`}
             id={`${idPrefix}-cone-${directionProperty}`}
             sourceID={sourceID}
             filter={makeMarkerConeFilter(directionProperty, visible)}
+            slot={slot}
             style={{
                 iconAllowOverlap: true,
                 iconAnchor: 'center',
@@ -371,6 +373,7 @@ function renderMarkerClusterLayers({
     emissiveStrength,
     idPrefix,
     mapRoutePalette,
+    slot,
     sourceID,
 }) {
     return [
@@ -379,6 +382,7 @@ function renderMarkerClusterLayers({
             id={`${idPrefix}-clusters`}
             sourceID={sourceID}
             filter={MARKER_CLUSTER_FILTER}
+            slot={slot}
             style={{
                 circleColor: mapRoutePalette.clusterFill,
                 circleEmissiveStrength: emissiveStrength,
@@ -395,6 +399,7 @@ function renderMarkerClusterLayers({
             id={`${idPrefix}-cluster-count`}
             sourceID={sourceID}
             filter={MARKER_CLUSTER_FILTER}
+            slot={slot}
             style={{
                 textAllowOverlap: true,
                 textColor: mapRoutePalette.clusterText,
@@ -413,6 +418,7 @@ function renderMarkerPointLayers({
     emissiveStrength,
     idPrefix,
     mapRoutePalette,
+    slot,
     sourceID,
 }) {
     const markerDotLayerStyle = {
@@ -429,6 +435,7 @@ function renderMarkerPointLayers({
             sourceID={sourceID}
             filter={INDIVIDUAL_MARKER_FILTER}
             maxZoomLevel={ALPR_SYMBOL_MIN_ZOOM_LEVEL}
+            slot={slot}
             style={markerDotLayerStyle}
         />,
         <Mapbox.CircleLayer
@@ -437,6 +444,7 @@ function renderMarkerPointLayers({
             sourceID={sourceID}
             filter={MARKER_WITHOUT_ALPR_SYMBOL_FILTER}
             minZoomLevel={ALPR_SYMBOL_MIN_ZOOM_LEVEL}
+            slot={slot}
             style={markerDotLayerStyle}
         />,
         <Mapbox.SymbolLayer
@@ -445,6 +453,7 @@ function renderMarkerPointLayers({
             sourceID={sourceID}
             filter={ALPR_SYMBOL_FILTER}
             minZoomLevel={ALPR_SYMBOL_MIN_ZOOM_LEVEL}
+            slot={slot}
             style={{
                 iconAllowOverlap: true,
                 iconAnchor: 'bottom',
@@ -589,6 +598,13 @@ export const MapCanvas = memo(function MapCanvas() {
           ? 'heading'
           : 'course';
     const resolvedNavigationPuckVariant = navigationPuckVariant || 'default';
+    const mapLayerSlots = getMapLayerSlots({
+        navigationPuckVariant: resolvedNavigationPuckVariant,
+        platform: Platform.OS,
+    });
+    const userLocationPuckAboveLayer = directionsRouteIsVisible
+        ? mapLayerSlots.userLocationPuckAboveLayer
+        : undefined;
     const navigationPuckIsVisible = shouldShowNavigationPuck({
         isDrivingMode,
         navigationPuckVariant: resolvedNavigationPuckVariant,
@@ -597,7 +613,7 @@ export const MapCanvas = memo(function MapCanvas() {
         shouldUseAutoPlayNavigationPuckImages(resolvedNavigationPuckVariant);
     const mapboxCameraFollowPadding = getMapboxCameraFollowPadding(
         locationBoundCameraFollowProps,
-        Platform.OS === 'android' && usesAutoPlayNavigationPuckImages,
+        Platform.OS,
     );
     const navigationPuckBearingImage = usesAutoPlayNavigationPuckImages
         ? ANDROID_AUTO_NAVIGATION_PUCK_BEARING_IMAGE
@@ -691,6 +707,7 @@ export const MapCanvas = memo(function MapCanvas() {
         navigationPuckCameraOwnershipKey,
         navigationPuckRequestsNative3D,
         navigationPuckSize,
+        userLocationPuckAboveLayer,
     ]);
 
     useEffect(() => {
@@ -716,6 +733,8 @@ export const MapCanvas = memo(function MapCanvas() {
                 const wasApplied = await applyNavigationPuck3DAsync(
                     mapViewRef,
                     navigationPuckSize,
+                    mapLayerSlots.userLocationPuck,
+                    userLocationPuckAboveLayer,
                 );
 
                 if (
@@ -743,10 +762,12 @@ export const MapCanvas = memo(function MapCanvas() {
         enqueueNavigationPuckOperation,
         mapViewRef,
         mapStyleURL,
+        mapLayerSlots.userLocationPuck,
         navigationPuckCameraOwnershipKey,
         navigationPuck3DStatus,
         navigationPuckRequestsNative3D,
         navigationPuckSize,
+        userLocationPuckAboveLayer,
     ]);
     // iOS Fabric never applies image props back to undefined (rnmapbox
     // FabricOptionalProp limitation), so switching between the navigation
@@ -984,7 +1005,7 @@ export const MapCanvas = memo(function MapCanvas() {
                     <Mapbox.LineLayer
                         id="directions-route-alternate-casing"
                         filter={ALTERNATE_DIRECTIONS_ROUTE_FILTER}
-                        slot="top"
+                        slot={mapLayerSlots.routePath}
                         style={{
                             lineCap: 'round',
                             lineColor: mapRoutePalette.alternateCasing,
@@ -1011,7 +1032,7 @@ export const MapCanvas = memo(function MapCanvas() {
                     <Mapbox.LineLayer
                         id="directions-route-alternate-line"
                         filter={ALTERNATE_DIRECTIONS_ROUTE_FILTER}
-                        slot="top"
+                        slot={mapLayerSlots.routePath}
                         style={{
                             lineCap: 'round',
                             lineColor: mapRoutePalette.alternateLine,
@@ -1036,7 +1057,7 @@ export const MapCanvas = memo(function MapCanvas() {
                     <Mapbox.LineLayer
                         id="directions-route-casing"
                         filter={SELECTED_DIRECTIONS_ROUTE_FILTER}
-                        slot="top"
+                        slot={mapLayerSlots.routePath}
                         style={{
                             lineCap: 'round',
                             lineColor: mapRoutePalette.selectedCasing,
@@ -1063,7 +1084,7 @@ export const MapCanvas = memo(function MapCanvas() {
                     <Mapbox.LineLayer
                         id="directions-route-line"
                         filter={SELECTED_DIRECTIONS_ROUTE_FILTER}
-                        slot="top"
+                        slot={mapLayerSlots.routePath}
                         style={{
                             lineCap: 'round',
                             lineColor: selectedDirectionsRouteColorExpression,
@@ -1142,6 +1163,7 @@ export const MapCanvas = memo(function MapCanvas() {
                         ...(cameraConesVisible
                             ? renderMarkerConeLayers({
                                   idPrefix: 'map-markers-clustered',
+                                  slot: mapLayerSlots.cameraCone,
                                   sourceID: markerClusteredSourceID,
                                   visible: true,
                               })
@@ -1150,12 +1172,14 @@ export const MapCanvas = memo(function MapCanvas() {
                             emissiveStrength: mapOverlayEmissiveStrength,
                             idPrefix: 'map-markers-clustered',
                             mapRoutePalette,
+                            slot: mapLayerSlots.cameraNode,
                             sourceID: markerClusteredSourceID,
                         }),
                         ...renderMarkerPointLayers({
                             emissiveStrength: mapOverlayEmissiveStrength,
                             idPrefix: 'map-markers-clustered',
                             mapRoutePalette,
+                            slot: mapLayerSlots.cameraNode,
                             sourceID: markerClusteredSourceID,
                         }),
                     ]}
@@ -1172,6 +1196,7 @@ export const MapCanvas = memo(function MapCanvas() {
                         ...(cameraConesVisible
                             ? renderMarkerConeLayers({
                                   idPrefix: 'map-markers-unclustered',
+                                  slot: mapLayerSlots.cameraCone,
                                   sourceID: markerUnclusteredSourceID,
                                   visible: true,
                               })
@@ -1180,6 +1205,7 @@ export const MapCanvas = memo(function MapCanvas() {
                             emissiveStrength: mapOverlayEmissiveStrength,
                             idPrefix: 'map-markers-unclustered',
                             mapRoutePalette,
+                            slot: mapLayerSlots.cameraNode,
                             sourceID: markerUnclusteredSourceID,
                         }),
                     ]}

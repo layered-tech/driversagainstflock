@@ -31,6 +31,10 @@ export type TripSessionState = 'started' | 'stopped' | 'unavailable' | string;
 
 export type NavigationCameraMode = 'following' | 'idle';
 
+export type MapboxStyleSlot = 'bottom' | 'middle' | 'top';
+
+export type MapboxAppLayerId = 'directions-route-line';
+
 export type NavigationCameraState =
     | 'following'
     | 'idle'
@@ -98,6 +102,8 @@ export declare function isNavigationPuck3DSupported(): boolean;
 export declare function applyNavigationPuck3DAsync(
     mapViewRef: { current?: unknown } | unknown,
     scale: number,
+    slot?: MapboxStyleSlot,
+    layerAbove?: MapboxAppLayerId,
 ): Promise<boolean>;
 export declare function clearNavigationPuck3DAsync(
     mapViewRef: { current?: unknown } | unknown,
