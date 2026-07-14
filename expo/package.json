@@ -29,9 +29,10 @@
     "ios:no-bundler": "expo run:ios --no-bundler --device",
     "start:metro": "expo start --dev-client",
     "export:external": "./scripts/expo-export-external.sh",
+    "xcodebuild:external": "./scripts/xcodebuild-external.sh",
     "e2e": "./scripts/maestro-test.sh .maestro",
     "e2e-reset": "./scripts/reset-android-location.sh",
-    "test:unit": "node --test lib/osm/__tests__/*.test.mjs components/map/__tests__/*.test.mjs"
+    "test:unit": "node --test lib/osm/__tests__/*.test.mjs components/map/__tests__/*.test.mjs scripts/__tests__/*.test.mjs"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.2.0",

@@ -67,12 +67,7 @@ test('Android navigation puck forwards its Mapbox style slot', async () => {
     const calls = [];
     const navigation = makeNavigationModule(
         {
-            async applyNavigationPuck3D(
-                mapViewTag,
-                scale,
-                slot,
-                layerAbove,
-            ) {
+            async applyNavigationPuck3D(mapViewTag, scale, slot, layerAbove) {
                 calls.push({ layerAbove, mapViewTag, scale, slot });
                 return true;
             },
@@ -226,5 +221,16 @@ test('Android navigation camera centers locations within follow padding', () => 
     assert.match(
         androidNavigationModuleSource,
         /this\.options\.followingFrameOptions\.focalPoint\s*=\s*FollowingFrameOptions\.FocalPoint\(0\.5, 0\.5\)/,
+    );
+});
+
+test('Android navigation puck is placed above the selected route layer', () => {
+    assert.match(
+        androidNavigationModuleSource,
+        /location\.layerAbove\s*=\s*layerAbove\?\.takeIf\(APP_STYLE_LAYER_IDS::contains\)/,
+    );
+    assert.match(
+        androidNavigationModuleSource,
+        /location\.layerAbove\s*=\s*null/,
     );
 });
