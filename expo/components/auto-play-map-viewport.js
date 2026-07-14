@@ -106,3 +106,54 @@ export function getAutoPlayViewportMetrics({
         width,
     };
 }
+
+/**
+ * Mapbox Navigation's following viewport anchors the location at the bottom
+ * edge of its padded frame. Convert the measured React puck slot into that
+ * bottom offset while retaining the host's effective safe area on every edge.
+ */
+export function getAutoPlayNavigationCameraPadding({
+    followViewportAnchorY,
+    viewportMetrics,
+}) {
+    const viewportHeight = getPositiveDimension(viewportMetrics?.height);
+    const cameraPadding = {
+        paddingBottom: getSafeAreaInsetValue(
+            viewportMetrics?.cameraPadding?.paddingBottom,
+        ),
+        paddingLeft: getSafeAreaInsetValue(
+            viewportMetrics?.cameraPadding?.paddingLeft,
+        ),
+        paddingRight: getSafeAreaInsetValue(
+            viewportMetrics?.cameraPadding?.paddingRight,
+        ),
+        paddingTop: getSafeAreaInsetValue(
+            viewportMetrics?.cameraPadding?.paddingTop,
+        ),
+    };
+    const requestedAnchorY =
+        followViewportAnchorY === null || followViewportAnchorY === undefined
+            ? Number.NaN
+            : Number(followViewportAnchorY);
+
+    if (!viewportHeight || !Number.isFinite(requestedAnchorY)) {
+        return cameraPadding;
+    }
+
+    const visibleBottom = Math.max(
+        cameraPadding.paddingTop,
+        viewportHeight - cameraPadding.paddingBottom,
+    );
+    const resolvedAnchorY = Math.min(
+        Math.max(requestedAnchorY, cameraPadding.paddingTop),
+        visibleBottom,
+    );
+
+    return {
+        ...cameraPadding,
+        paddingBottom: Math.max(
+            cameraPadding.paddingBottom,
+            viewportHeight - resolvedAnchorY,
+        ),
+    };
+}

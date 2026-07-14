@@ -438,6 +438,7 @@ class RNMapboxNavigationModule : Module() {
       surfaceId = surfaceId,
       viewportDataSource = viewportDataSource,
       navigationCamera = navigationCamera,
+      pixelDensity = mapView.resources.displayMetrics.density.toDouble(),
       onStateChanged = { state ->
         sendNavigationCameraState(surfaceId, state)
       }
@@ -625,6 +626,7 @@ class RNMapboxNavigationModule : Module() {
     private val surfaceId: String,
     private val viewportDataSource: MapboxNavigationViewportDataSource,
     private val navigationCamera: NavigationCamera,
+    private val pixelDensity: Double,
     private val onStateChanged: (NavigationCameraState) -> Unit
   ) {
     private var requestedMode = NAVIGATION_CAMERA_MODE_IDLE
@@ -727,11 +729,12 @@ class RNMapboxNavigationModule : Module() {
       optionsLocationUpdateTimestamp =
         getOptionalLong(options, "locationUpdateTimestamp")
       val padding = options?.get("padding") as? Map<*, *>
+      // React reports padding in dp; Mapbox EdgeInsets use physical pixels.
       viewportDataSource.followingPadding = EdgeInsets(
-        getPaddingDouble(padding, "paddingTop"),
-        getPaddingDouble(padding, "paddingLeft"),
-        getPaddingDouble(padding, "paddingBottom"),
-        getPaddingDouble(padding, "paddingRight")
+        getPaddingDouble(padding, "paddingTop") * pixelDensity,
+        getPaddingDouble(padding, "paddingLeft") * pixelDensity,
+        getPaddingDouble(padding, "paddingBottom") * pixelDensity,
+        getPaddingDouble(padding, "paddingRight") * pixelDensity
       )
 
       getOptionalDouble(options, "zoomLevel")?.let {

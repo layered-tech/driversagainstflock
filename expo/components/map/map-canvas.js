@@ -92,11 +92,6 @@ import {
 } from './map-screen-context';
 import { NativeWindMapView } from './native-components';
 import {
-    makeNavigationPuckGroundFeatureCollection,
-    NAVIGATION_PUCK_ACCURACY_FEATURE_KIND,
-    NAVIGATION_PUCK_SHADOW_FEATURE_KIND,
-} from './navigation-puck-accuracy';
-import {
     AUTO_PLAY_NAVIGATION_PUCK_SIZE,
     NAVIGATION_PUCK_SIZE,
 } from './navigation-puck-layout';
@@ -306,16 +301,6 @@ const DIRECTIONS_DEBUG_SEARCH_ZONE_FILTER = [
 const SELECTED_DIRECTIONS_ROUTE_FILTER = ['==', ['get', 'selected'], true];
 const ALTERNATE_DIRECTIONS_ROUTE_FILTER = ['!=', ['get', 'selected'], true];
 const CAMERA_CONE_HIDDEN_FILTER = ['==', ['get', '__cameraConeVisible'], true];
-const NAVIGATION_PUCK_ACCURACY_FILTER = [
-    '==',
-    ['get', 'kind'],
-    NAVIGATION_PUCK_ACCURACY_FEATURE_KIND,
-];
-const NAVIGATION_PUCK_SHADOW_FILTER = [
-    '==',
-    ['get', 'kind'],
-    NAVIGATION_PUCK_SHADOW_FEATURE_KIND,
-];
 const MAP_ROUTE_PALETTES = {
     light: {
         alternateCasing: '#ffffff',
@@ -623,31 +608,6 @@ export const MapCanvas = memo(function MapCanvas() {
     const navigationPuckSize = usesAutoPlayNavigationPuckImages
         ? AUTO_PLAY_NAVIGATION_PUCK_SIZE
         : NAVIGATION_PUCK_SIZE;
-    const navigationPuckGroundAccuracy =
-        userLocation?.accuracy ?? userLocation?.coords?.accuracy;
-    const navigationPuckGroundLatitude =
-        userLocation?.latitude ?? userLocation?.coords?.latitude;
-    const navigationPuckGroundLongitude =
-        userLocation?.longitude ?? userLocation?.coords?.longitude;
-    const navigationPuckGroundFeatureCollection = useMemo(
-        () =>
-            locationAccessGranted && navigationPuckIsVisible
-                ? makeNavigationPuckGroundFeatureCollection({
-                      accuracy: navigationPuckGroundAccuracy,
-                      latitude: navigationPuckGroundLatitude,
-                      longitude: navigationPuckGroundLongitude,
-                  })
-                : { type: 'FeatureCollection', features: [] },
-        [
-            locationAccessGranted,
-            navigationPuckGroundAccuracy,
-            navigationPuckGroundLatitude,
-            navigationPuckGroundLongitude,
-            navigationPuckIsVisible,
-        ],
-    );
-    const navigationPuckGroundIsVisible =
-        navigationPuckGroundFeatureCollection.features.length > 0;
     const navigationPuckRequestsNative3D = Boolean(
         locationAccessGranted &&
         navigationPuckIsVisible &&
@@ -1243,50 +1203,6 @@ export const MapCanvas = memo(function MapCanvas() {
             {(directionsWaypointMarkers ?? []).map((marker) => (
                 <RouteWaypointMarker key={marker.id} marker={marker} />
             ))}
-            {navigationPuckGroundIsVisible ? (
-                <Mapbox.ShapeSource
-                    id="navigation-puck-ground-source"
-                    shape={navigationPuckGroundFeatureCollection}
-                >
-                    <Mapbox.FillLayer
-                        id="navigation-puck-accuracy-fill"
-                        filter={NAVIGATION_PUCK_ACCURACY_FILTER}
-                        slot="top"
-                        style={{
-                            fillAntialias: true,
-                            fillColor: '#6B7280',
-                            fillEmissiveStrength: 1,
-                            fillOpacity: 0.07,
-                        }}
-                    />
-                    <Mapbox.LineLayer
-                        id="navigation-puck-accuracy-outline"
-                        filter={NAVIGATION_PUCK_ACCURACY_FILTER}
-                        slot="top"
-                        style={{
-                            lineBlur: 1,
-                            lineColor: '#6B7280',
-                            lineEmissiveStrength: 1,
-                            lineOpacity: 0.1,
-                            lineWidth: 1,
-                        }}
-                    />
-                    <Mapbox.CircleLayer
-                        id="navigation-puck-ground-shadow"
-                        filter={NAVIGATION_PUCK_SHADOW_FILTER}
-                        slot="top"
-                        style={{
-                            circleBlur: 0.8,
-                            circleColor: '#111827',
-                            circleEmissiveStrength: 1,
-                            circleOpacity: 0.16,
-                            circlePitchAlignment: 'map',
-                            circlePitchScale: 'viewport',
-                            circleRadius: navigationPuckSize * 0.22,
-                        }}
-                    />
-                </Mapbox.ShapeSource>
-            ) : null}
             {locationAccessGranted ? (
                 <>
                     {!navigationPuckFallbackIsSuppressed ? (

@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { getAutoPlayViewportMetrics } from '../../auto-play-map-viewport.js';
+import {
+    getAutoPlayNavigationCameraPadding,
+    getAutoPlayViewportMetrics,
+} from '../../auto-play-map-viewport.js';
 import { getFollowCameraPadding } from '../follow-camera-padding.js';
 
 const CAMERA_ANCHOR_PIXEL_TOLERANCE = 0.5;
@@ -26,6 +29,52 @@ function getFollowPadding(viewportMetrics, followViewportAnchorY) {
 }
 
 describe('Auto Play map viewport geometry', () => {
+    test('offsets the navigation puck from the effective safe bottom to its measured slot', () => {
+        const viewportMetrics = getAutoPlayViewportMetrics({
+            safeAreaInsets: { bottom: 120, left: 24, right: 12, top: 16 },
+            windowInfo: { height: 480, width: 800 },
+        });
+
+        assert.deepEqual(
+            getAutoPlayNavigationCameraPadding({
+                followViewportAnchorY: 248,
+                viewportMetrics,
+            }),
+            {
+                paddingBottom: 232,
+                paddingLeft: 24,
+                paddingRight: 12,
+                paddingTop: 16,
+            },
+        );
+    });
+
+    test('never moves the navigation puck below the effective safe area', () => {
+        const viewportMetrics = getAutoPlayViewportMetrics({
+            safeAreaInsets: { bottom: 120, left: 0, right: 0, top: 16 },
+            windowInfo: { height: 480, width: 800 },
+        });
+
+        assert.deepEqual(
+            getAutoPlayNavigationCameraPadding({
+                followViewportAnchorY: 440,
+                viewportMetrics,
+            }),
+            viewportMetrics.cameraPadding,
+        );
+        assert.deepEqual(
+            getAutoPlayNavigationCameraPadding({ viewportMetrics }),
+            viewportMetrics.cameraPadding,
+        );
+        assert.deepEqual(
+            getAutoPlayNavigationCameraPadding({
+                followViewportAnchorY: null,
+                viewportMetrics,
+            }),
+            viewportMetrics.cameraPadding,
+        );
+    });
+
     test('uses raw host insets for the camera while retaining the ornament adjustment', () => {
         const viewportMetrics = getAutoPlayViewportMetrics({
             layoutSize: { height: 320, width: 480 },

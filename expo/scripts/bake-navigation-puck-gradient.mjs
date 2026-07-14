@@ -16,7 +16,28 @@ const androidModelPath = path.join(
 
 const GLB_JSON_CHUNK_TYPE = 0x4e4f534a;
 const GLB_BINARY_CHUNK_TYPE = 0x004e4942;
+const WHITE_BORDER_TOP_MATERIAL = 'White border top';
+const WHITE_BORDER_THICKNESS_MATERIAL = 'White border thickness';
+const WHITE_BORDER_CHAMFER_MATERIAL = 'White border chamfer';
 const NAVIGATION_PUCK_FACE_MATERIAL = 'Blue gradient face';
+const SOURCE_WHITE_BORDER_CONTOUR_ACCESSOR = 'Source white border contour';
+const WHITE_BORDER_RING_POSITION_BUFFER_VIEW = 'White border ring positions';
+const WHITE_BORDER_RING_NORMAL_BUFFER_VIEW = 'White border ring normals';
+const WHITE_BORDER_RING_INDEX_BUFFER_VIEW = 'White border ring indices';
+const WHITE_BORDER_RING_POSITION_ACCESSOR =
+    'White border ring position accessor';
+const WHITE_BORDER_RING_NORMAL_ACCESSOR = 'White border ring normal accessor';
+const WHITE_BORDER_RING_INDEX_ACCESSOR = 'White border ring index accessor';
+const WHITE_BORDER_CHAMFER_POSITION_BUFFER_VIEW =
+    'White border chamfer positions';
+const WHITE_BORDER_CHAMFER_NORMAL_BUFFER_VIEW = 'White border chamfer normals';
+const WHITE_BORDER_CHAMFER_INDEX_BUFFER_VIEW = 'White border chamfer indices';
+const WHITE_BORDER_CHAMFER_POSITION_ACCESSOR =
+    'White border chamfer position accessor';
+const WHITE_BORDER_CHAMFER_NORMAL_ACCESSOR =
+    'White border chamfer normal accessor';
+const WHITE_BORDER_CHAMFER_INDEX_ACCESSOR =
+    'White border chamfer index accessor';
 const BAKED_GRADIENT_IMAGE = 'Baked blue gradient';
 const BAKED_GRADIENT_SAMPLER = 'Baked blue gradient sampler';
 const BAKED_GRADIENT_TEXTURE = 'Baked blue gradient texture';
@@ -24,6 +45,16 @@ const LIGHT_BLUE = [0.42, 0.72, 1, 1];
 const DARK_BLUE = [0.055, 0.31, 0.72, 1];
 const PNG_WIDTH = 4;
 const PNG_HEIGHT = 256;
+const WHITE_BORDER_CHAMFER_SIZE = 0.0075;
+const NAVIGATION_PUCK_VISUAL_CENTER_Z = 0.078056034471642;
+const GENERATED_GEOMETRY_BUFFER_VIEW_NAMES = new Set([
+    WHITE_BORDER_RING_POSITION_BUFFER_VIEW,
+    WHITE_BORDER_RING_NORMAL_BUFFER_VIEW,
+    WHITE_BORDER_RING_INDEX_BUFFER_VIEW,
+    WHITE_BORDER_CHAMFER_POSITION_BUFFER_VIEW,
+    WHITE_BORDER_CHAMFER_NORMAL_BUFFER_VIEW,
+    WHITE_BORDER_CHAMFER_INDEX_BUFFER_VIEW,
+]);
 
 function alignToFour(value) {
     return Math.ceil(value / 4) * 4;
@@ -104,6 +135,200 @@ function readAccessorVectors(document, binary, accessorIndex) {
             ),
         ),
     );
+}
+
+function writeAccessorVectors(document, binary, accessorIndex, vectors) {
+    const accessor = document.accessors[accessorIndex];
+    const bufferView = document.bufferViews[accessor.bufferView];
+    const componentCounts = { VEC2: 2, VEC3: 3, VEC4: 4 };
+    const componentCount = componentCounts[accessor.type];
+
+    assert(accessor.componentType === 5126, 'Expected a float accessor.');
+    assert(componentCount !== undefined, 'Unsupported accessor vector type.');
+    assert(accessor.count === vectors.length, 'Accessor count changed.');
+
+    const byteStride = bufferView.byteStride ?? componentCount * 4;
+    const byteOffset = bufferView.byteOffset + (accessor.byteOffset ?? 0);
+
+    vectors.forEach((vector, vectorIndex) => {
+        assert(vector.length === componentCount, 'Accessor type changed.');
+
+        vector.forEach((component, componentIndex) => {
+            binary.writeFloatLE(
+                component,
+                byteOffset + vectorIndex * byteStride + componentIndex * 4,
+            );
+        });
+    });
+
+    const bounds = getVectorBounds(vectors);
+    accessor.min = bounds.minimum;
+    accessor.max = bounds.maximum;
+}
+
+function getVectorBounds(vectors) {
+    const componentCount = vectors[0].length;
+
+    return {
+        maximum: Array.from({ length: componentCount }, (_, componentIndex) =>
+            Math.max(...vectors.map((vector) => vector[componentIndex])),
+        ),
+        minimum: Array.from({ length: componentCount }, (_, componentIndex) =>
+            Math.min(...vectors.map((vector) => vector[componentIndex])),
+        ),
+    };
+}
+
+function makeFloatVectorBuffer(vectors) {
+    const componentCount = vectors[0].length;
+    const buffer = Buffer.alloc(vectors.length * componentCount * 4);
+
+    vectors.forEach((vector, vectorIndex) => {
+        vector.forEach((component, componentIndex) => {
+            buffer.writeFloatLE(
+                component,
+                (vectorIndex * componentCount + componentIndex) * 4,
+            );
+        });
+    });
+
+    return buffer;
+}
+
+function makeUnsignedShortBuffer(values) {
+    const buffer = Buffer.alloc(values.length * 2);
+
+    values.forEach((value, index) => {
+        buffer.writeUInt16LE(value, index * 2);
+    });
+
+    return buffer;
+}
+
+function findMaterialPrimitive(document, materialName) {
+    const materialIndex = document.materials.findIndex(
+        (material) => material.name === materialName,
+    );
+    assert(materialIndex >= 0, `Missing ${materialName} material.`);
+
+    const primitive = document.meshes
+        .flatMap((mesh) => mesh.primitives)
+        .find((candidate) => candidate.material === materialIndex);
+    assert(primitive !== undefined, `Missing ${materialName} primitive.`);
+
+    return { materialIndex, primitive };
+}
+
+function alignContours(outerContour, innerContour) {
+    assert(
+        outerContour.length === innerContour.length,
+        'Puck contours must have matching vertex counts.',
+    );
+
+    const vertexCount = outerContour.length;
+    let bestShift = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (let shift = 0; shift < vertexCount; shift += 1) {
+        let distance = 0;
+
+        for (let index = 0; index < vertexCount; index += 1) {
+            const outer = outerContour[index];
+            const inner = innerContour[(index + shift) % vertexCount];
+            distance += (outer[0] - inner[0]) ** 2 + (outer[2] - inner[2]) ** 2;
+        }
+
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            bestShift = shift;
+        }
+    }
+
+    return outerContour.map(
+        (_, index) => innerContour[(index + bestShift) % vertexCount],
+    );
+}
+
+function insetContourToward(outerContour, innerContour, distance) {
+    return outerContour.map((outer, index) => {
+        const inner = innerContour[index];
+        const longitudeDelta = inner[0] - outer[0];
+        const latitudeDelta = inner[2] - outer[2];
+        const contourDistance = Math.hypot(longitudeDelta, latitudeDelta);
+        assert(
+            contourDistance > distance,
+            'White border is too narrow for its chamfer.',
+        );
+
+        return [
+            outer[0] + (longitudeDelta / contourDistance) * distance,
+            outer[1],
+            outer[2] + (latitudeDelta / contourDistance) * distance,
+        ];
+    });
+}
+
+function makeRingIndices(vertexCount) {
+    const indices = [];
+
+    for (let index = 0; index < vertexCount; index += 1) {
+        const nextIndex = (index + 1) % vertexCount;
+        indices.push(
+            index,
+            nextIndex,
+            vertexCount + nextIndex,
+            index,
+            vertexCount + nextIndex,
+            vertexCount + index,
+        );
+    }
+
+    return indices;
+}
+
+function subtractVectors(left, right) {
+    return [left[0] - right[0], left[1] - right[1], left[2] - right[2]];
+}
+
+function crossProduct(left, right) {
+    return [
+        left[1] * right[2] - left[2] * right[1],
+        left[2] * right[0] - left[0] * right[2],
+        left[0] * right[1] - left[1] * right[0],
+    ];
+}
+
+function normalizeVector(vector) {
+    const length = Math.hypot(...vector);
+    assert(length > 0, 'Cannot normalize an empty vector.');
+
+    return vector.map((component) => component / length);
+}
+
+function makeChamferNormals(lowerContour, upperContour) {
+    const faceNormals = lowerContour.map((lower, index) => {
+        const nextIndex = (index + 1) % lowerContour.length;
+
+        return normalizeVector(
+            crossProduct(
+                subtractVectors(lowerContour[nextIndex], lower),
+                subtractVectors(upperContour[nextIndex], lower),
+            ),
+        );
+    });
+    const vertexNormals = faceNormals.map((faceNormal, index) => {
+        const previousNormal =
+            faceNormals[(index - 1 + faceNormals.length) % faceNormals.length];
+
+        return normalizeVector(
+            faceNormal.map(
+                (component, componentIndex) =>
+                    component + previousNormal[componentIndex],
+            ),
+        );
+    });
+
+    return [...vertexNormals, ...vertexNormals];
 }
 
 function linearToSrgb(value) {
@@ -251,15 +476,29 @@ function serializeGlb(document, binary) {
 
 function bakeGradient(modelBuffer) {
     const { binary: sourceBinary, document } = parseGlb(modelBuffer);
-    const materialIndex = document.materials.findIndex(
-        (material) => material.name === NAVIGATION_PUCK_FACE_MATERIAL,
+    const { materialIndex, primitive } = findMaterialPrimitive(
+        document,
+        NAVIGATION_PUCK_FACE_MATERIAL,
     );
-    assert(materialIndex >= 0, 'Missing blue puck face material.');
+    const whiteBorder = findMaterialPrimitive(
+        document,
+        WHITE_BORDER_TOP_MATERIAL,
+    );
+    const whiteBorderThickness = findMaterialPrimitive(
+        document,
+        WHITE_BORDER_THICKNESS_MATERIAL,
+    );
+    let sourceWhiteBorderContourAccessorIndex = findNamedIndex(
+        document.accessors,
+        SOURCE_WHITE_BORDER_CONTOUR_ACCESSOR,
+    );
 
-    const primitive = document.meshes
-        .flatMap((mesh) => mesh.primitives)
-        .find((candidate) => candidate.material === materialIndex);
-    assert(primitive !== undefined, 'Missing blue puck face primitive.');
+    if (sourceWhiteBorderContourAccessorIndex < 0) {
+        sourceWhiteBorderContourAccessorIndex =
+            whiteBorder.primitive.attributes.POSITION;
+        document.accessors[sourceWhiteBorderContourAccessorIndex].name =
+            SOURCE_WHITE_BORDER_CONTOUR_ACCESSOR;
+    }
 
     const uvAccessorIndex =
         primitive.attributes.TEXCOORD_0 ?? primitive.attributes.COLOR_0;
@@ -276,12 +515,24 @@ function bakeGradient(modelBuffer) {
         existingImageIndex >= 0
             ? document.images[existingImageIndex].bufferView
             : undefined;
+    const generatedGeometryBufferViewIndexes = new Set(
+        document.bufferViews
+            .map((bufferView, index) => ({ bufferView, index }))
+            .filter(({ bufferView }) =>
+                GENERATED_GEOMETRY_BUFFER_VIEW_NAMES.has(bufferView.name),
+            )
+            .map(({ index }) => index),
+    );
     const geometryLength = Math.max(
         ...document.bufferViews
-            .filter((_, index) => index !== existingImageBufferViewIndex)
+            .filter(
+                (_, index) =>
+                    index !== existingImageBufferViewIndex &&
+                    !generatedGeometryBufferViewIndexes.has(index),
+            )
             .map((bufferView) => bufferView.byteOffset + bufferView.byteLength),
     );
-    const geometryBinary = Buffer.alloc(alignToFour(geometryLength));
+    let geometryBinary = Buffer.alloc(alignToFour(geometryLength));
     sourceBinary.copy(geometryBinary, 0, 0, geometryLength);
 
     const positions = readAccessorVectors(
@@ -301,8 +552,258 @@ function bakeGradient(modelBuffer) {
     primitive.attributes.TEXCOORD_0 = uvAccessorIndex;
     delete primitive.attributes.COLOR_0;
 
+    const sourceWhiteBorderContour = readAccessorVectors(
+        document,
+        geometryBinary,
+        sourceWhiteBorderContourAccessorIndex,
+    );
+    const alignedBlueContour = alignContours(
+        sourceWhiteBorderContour,
+        positions,
+    );
+    const insetWhiteBorderContour = insetContourToward(
+        sourceWhiteBorderContour,
+        alignedBlueContour,
+        WHITE_BORDER_CHAMFER_SIZE,
+    );
+    const topHeight = Math.max(
+        ...sourceWhiteBorderContour.map((position) => position[1]),
+    );
+    const chamferLowerHeight = topHeight - WHITE_BORDER_CHAMFER_SIZE;
+    const lowerWhiteBorderContour = sourceWhiteBorderContour.map(
+        ([longitude, , latitude]) => [longitude, chamferLowerHeight, latitude],
+    );
+    const upperWhiteBorderContour = insetWhiteBorderContour.map(
+        ([longitude, , latitude]) => [longitude, topHeight, latitude],
+    );
+    const whiteBorderRingPositions = [
+        ...upperWhiteBorderContour,
+        ...alignedBlueContour,
+    ];
+    const whiteBorderRingNormals = whiteBorderRingPositions.map(() => [
+        0, 1, 0,
+    ]);
+    const whiteBorderRingIndices = makeRingIndices(
+        sourceWhiteBorderContour.length,
+    );
+    const whiteBorderChamferPositions = [
+        ...lowerWhiteBorderContour,
+        ...upperWhiteBorderContour,
+    ];
+    const whiteBorderChamferNormals = makeChamferNormals(
+        lowerWhiteBorderContour,
+        upperWhiteBorderContour,
+    );
+    const whiteBorderChamferIndices = makeRingIndices(
+        sourceWhiteBorderContour.length,
+    );
+
+    const whiteBorderThicknessPositions = readAccessorVectors(
+        document,
+        geometryBinary,
+        whiteBorderThickness.primitive.attributes.POSITION,
+    );
+    const whiteBorderThicknessMinimumHeight = Math.min(
+        ...whiteBorderThicknessPositions.map((position) => position[1]),
+    );
+    const whiteBorderThicknessMaximumHeight = Math.max(
+        ...whiteBorderThicknessPositions.map((position) => position[1]),
+    );
+    const whiteBorderThicknessMiddleHeight =
+        whiteBorderThicknessMinimumHeight +
+        (whiteBorderThicknessMaximumHeight -
+            whiteBorderThicknessMinimumHeight) /
+            2;
+    const shortenedWhiteBorderThicknessPositions =
+        whiteBorderThicknessPositions.map(([longitude, height, latitude]) => [
+            longitude,
+            height > whiteBorderThicknessMiddleHeight
+                ? chamferLowerHeight
+                : height,
+            latitude,
+        ]);
+    writeAccessorVectors(
+        document,
+        geometryBinary,
+        whiteBorderThickness.primitive.attributes.POSITION,
+        shortenedWhiteBorderThicknessPositions,
+    );
+
+    const appendGeneratedBufferView = (name, buffer, target) => {
+        const byteOffset = alignToFour(geometryBinary.length);
+
+        if (byteOffset > geometryBinary.length) {
+            geometryBinary = Buffer.concat([
+                geometryBinary,
+                Buffer.alloc(byteOffset - geometryBinary.length),
+            ]);
+        }
+
+        const bufferViewIndex = findOrAppendNamedEntry(
+            document,
+            'bufferViews',
+            name,
+            {
+                buffer: 0,
+                byteLength: buffer.length,
+                byteOffset,
+                target,
+            },
+        );
+        geometryBinary = Buffer.concat([geometryBinary, buffer]);
+
+        return bufferViewIndex;
+    };
+    const appendGeneratedPrimitive = ({
+        indexAccessorName,
+        indexBufferViewName,
+        indices,
+        normalAccessorName,
+        normalBufferViewName,
+        normals,
+        positionAccessorName,
+        positionBufferViewName,
+        positions: generatedPositions,
+    }) => {
+        const positionBufferViewIndex = appendGeneratedBufferView(
+            positionBufferViewName,
+            makeFloatVectorBuffer(generatedPositions),
+            34962,
+        );
+        const positionBounds = getVectorBounds(generatedPositions);
+        const positionAccessorIndex = findOrAppendNamedEntry(
+            document,
+            'accessors',
+            positionAccessorName,
+            {
+                bufferView: positionBufferViewIndex,
+                byteOffset: 0,
+                componentType: 5126,
+                count: generatedPositions.length,
+                max: positionBounds.maximum,
+                min: positionBounds.minimum,
+                type: 'VEC3',
+            },
+        );
+        const normalBufferViewIndex = appendGeneratedBufferView(
+            normalBufferViewName,
+            makeFloatVectorBuffer(normals),
+            34962,
+        );
+        const normalAccessorIndex = findOrAppendNamedEntry(
+            document,
+            'accessors',
+            normalAccessorName,
+            {
+                bufferView: normalBufferViewIndex,
+                byteOffset: 0,
+                componentType: 5126,
+                count: normals.length,
+                type: 'VEC3',
+            },
+        );
+        const indexBufferViewIndex = appendGeneratedBufferView(
+            indexBufferViewName,
+            makeUnsignedShortBuffer(indices),
+            34963,
+        );
+        const indexAccessorIndex = findOrAppendNamedEntry(
+            document,
+            'accessors',
+            indexAccessorName,
+            {
+                bufferView: indexBufferViewIndex,
+                byteOffset: 0,
+                componentType: 5123,
+                count: indices.length,
+                max: [Math.max(...indices)],
+                min: [Math.min(...indices)],
+                type: 'SCALAR',
+            },
+        );
+
+        return {
+            attributes: {
+                NORMAL: normalAccessorIndex,
+                POSITION: positionAccessorIndex,
+            },
+            indices: indexAccessorIndex,
+            mode: 4,
+        };
+    };
+    const whiteBorderRingPrimitive = appendGeneratedPrimitive({
+        indexAccessorName: WHITE_BORDER_RING_INDEX_ACCESSOR,
+        indexBufferViewName: WHITE_BORDER_RING_INDEX_BUFFER_VIEW,
+        indices: whiteBorderRingIndices,
+        normalAccessorName: WHITE_BORDER_RING_NORMAL_ACCESSOR,
+        normalBufferViewName: WHITE_BORDER_RING_NORMAL_BUFFER_VIEW,
+        normals: whiteBorderRingNormals,
+        positionAccessorName: WHITE_BORDER_RING_POSITION_ACCESSOR,
+        positionBufferViewName: WHITE_BORDER_RING_POSITION_BUFFER_VIEW,
+        positions: whiteBorderRingPositions,
+    });
+    const whiteBorderChamferPrimitive = appendGeneratedPrimitive({
+        indexAccessorName: WHITE_BORDER_CHAMFER_INDEX_ACCESSOR,
+        indexBufferViewName: WHITE_BORDER_CHAMFER_INDEX_BUFFER_VIEW,
+        indices: whiteBorderChamferIndices,
+        normalAccessorName: WHITE_BORDER_CHAMFER_NORMAL_ACCESSOR,
+        normalBufferViewName: WHITE_BORDER_CHAMFER_NORMAL_BUFFER_VIEW,
+        normals: whiteBorderChamferNormals,
+        positionAccessorName: WHITE_BORDER_CHAMFER_POSITION_ACCESSOR,
+        positionBufferViewName: WHITE_BORDER_CHAMFER_POSITION_BUFFER_VIEW,
+        positions: whiteBorderChamferPositions,
+    });
+
+    Object.assign(whiteBorder.primitive, {
+        ...whiteBorderRingPrimitive,
+        material: whiteBorder.materialIndex,
+    });
+    document.materials[whiteBorder.materialIndex].pbrMetallicRoughness = {
+        ...document.materials[whiteBorder.materialIndex].pbrMetallicRoughness,
+        metallicFactor: 0,
+        roughnessFactor: 1,
+    };
+    const whiteBorderChamferMaterialIndex = findOrAppendNamedEntry(
+        document,
+        'materials',
+        WHITE_BORDER_CHAMFER_MATERIAL,
+        {
+            pbrMetallicRoughness: {
+                baseColorFactor: [0.9, 0.93, 0.97, 1],
+                metallicFactor: 0,
+                roughnessFactor: 1,
+            },
+        },
+    );
+    const existingWhiteBorderChamferPrimitive = document.meshes
+        .flatMap((mesh) => mesh.primitives)
+        .find(
+            (candidate) =>
+                candidate.material === whiteBorderChamferMaterialIndex,
+        );
+    const resolvedWhiteBorderChamferPrimitive = {
+        ...whiteBorderChamferPrimitive,
+        material: whiteBorderChamferMaterialIndex,
+    };
+
+    if (existingWhiteBorderChamferPrimitive) {
+        Object.assign(
+            existingWhiteBorderChamferPrimitive,
+            resolvedWhiteBorderChamferPrimitive,
+        );
+    } else {
+        document.meshes[0].primitives.push(resolvedWhiteBorderChamferPrimitive);
+    }
+
     const gradientPng = makeGradientPng();
-    const imageByteOffset = geometryBinary.length;
+    const imageByteOffset = alignToFour(geometryBinary.length);
+
+    if (imageByteOffset > geometryBinary.length) {
+        geometryBinary = Buffer.concat([
+            geometryBinary,
+            Buffer.alloc(imageByteOffset - geometryBinary.length),
+        ]);
+    }
     const imageBufferViewIndex =
         existingImageBufferViewIndex ?? document.bufferViews.length;
     document.bufferViews[imageBufferViewIndex] = {
@@ -352,6 +853,11 @@ function bakeGradient(modelBuffer) {
         metallicFactor: 0,
         roughnessFactor: 1,
     };
+    const navigationPuckNode = document.nodes.find(
+        (node) => node.name === 'NavigationPuck',
+    );
+    assert(navigationPuckNode !== undefined, 'Missing navigation puck node.');
+    navigationPuckNode.translation = [0, 0, -NAVIGATION_PUCK_VISUAL_CENTER_Z];
     document.asset.generator =
         'Drivers Against Flock navigation puck gradient baker';
 

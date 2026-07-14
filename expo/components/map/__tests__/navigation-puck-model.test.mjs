@@ -86,20 +86,134 @@ function floatAccessorVectors(model, accessorIndex) {
     );
 }
 
-test('navigation puck face stays level with its white border', async () => {
+function unsignedShortAccessorValues(model, accessorIndex) {
+    const accessor = model.document.accessors[accessorIndex];
+    const bufferView = model.document.bufferViews[accessor.bufferView];
+    const byteStride = bufferView.byteStride ?? 2;
+    const accessorOffset =
+        model.binaryChunkOffset +
+        bufferView.byteOffset +
+        (accessor.byteOffset ?? 0);
+
+    assert.equal(accessor.componentType, 5123);
+    assert.equal(accessor.type, 'SCALAR');
+
+    return Array.from({ length: accessor.count }, (_, index) =>
+        model.buffer.readUInt16LE(accessorOffset + index * byteStride),
+    );
+}
+
+function planarPolygonCentroid(positions) {
+    let doubledArea = 0;
+    let weightedHorizontal = 0;
+    let weightedVertical = 0;
+
+    positions.forEach(([horizontal, , vertical], index) => {
+        const [nextHorizontal, , nextVertical] =
+            positions[(index + 1) % positions.length];
+        const cross = horizontal * nextVertical - nextHorizontal * vertical;
+        doubledArea += cross;
+        weightedHorizontal += (horizontal + nextHorizontal) * cross;
+        weightedVertical += (vertical + nextVertical) * cross;
+    });
+
+    return {
+        horizontal: weightedHorizontal / (3 * doubledArea),
+        vertical: weightedVertical / (3 * doubledArea),
+    };
+}
+
+test('navigation puck uses a non-overlapping white ring and chamfer', async () => {
     const iosModel = await readGlb('ios/navigation_puck.glb');
     const androidModel = await readGlb(
         'android/src/main/assets/navigation_puck.glb',
     );
+    const whiteBorder = materialPrimitive(iosModel, 'White border top');
+    const whiteChamfer = materialPrimitive(iosModel, 'White border chamfer');
+    const blueFacePrimitive = materialPrimitive(
+        iosModel,
+        'Blue gradient face',
+    ).primitive;
     const borderTop = verticalBounds(iosModel, 'White border top');
     const borderThickness = verticalBounds(iosModel, 'White border thickness');
+    const borderChamfer = verticalBounds(iosModel, 'White border chamfer');
     const blueFace = verticalBounds(iosModel, 'Blue gradient face');
     const blueThickness = verticalBounds(iosModel, 'Blue thickness');
+    const whiteBorderPositions = floatAccessorVectors(
+        iosModel,
+        whiteBorder.primitive.attributes.POSITION,
+    );
+    const whiteBorderIndices = unsignedShortAccessorValues(
+        iosModel,
+        whiteBorder.primitive.indices,
+    );
+    const blueFacePositions = floatAccessorVectors(
+        iosModel,
+        blueFacePrimitive.attributes.POSITION,
+    );
+    const contourVertexCount = blueFacePositions.length;
+    const whiteBorderInnerContour =
+        whiteBorderPositions.slice(contourVertexCount);
+    const normalizedPositions = (positions) =>
+        positions
+            .map((position) =>
+                position.map((component) => component.toFixed(7)).join(','),
+            )
+            .sort();
 
     assert.deepEqual(androidModel.buffer, iosModel.buffer);
     assert.equal(blueFace.minimum, borderTop.maximum);
     assert.equal(blueFace.maximum, borderTop.maximum);
-    assert.deepEqual(blueThickness, borderThickness);
+    assert.equal(blueThickness.maximum, blueFace.maximum);
+    assert.equal(borderThickness.maximum, borderChamfer.minimum);
+    assert.equal(borderChamfer.maximum, borderTop.minimum);
+    assert.equal(whiteBorderPositions.length, contourVertexCount * 2);
+    assert.equal(whiteBorderIndices.length, contourVertexCount * 6);
+    assert.deepEqual(
+        normalizedPositions(whiteBorderInnerContour),
+        normalizedPositions(blueFacePositions),
+    );
+
+    for (let index = 0; index < whiteBorderIndices.length; index += 3) {
+        const triangle = whiteBorderIndices.slice(index, index + 3);
+        assert.equal(
+            triangle.some((vertexIndex) => vertexIndex < contourVertexCount),
+            true,
+        );
+        assert.equal(
+            triangle.some((vertexIndex) => vertexIndex >= contourVertexCount),
+            true,
+        );
+    }
+
+    assert.equal(whiteBorder.material.pbrMetallicRoughness.metallicFactor, 0);
+    assert.equal(whiteBorder.material.pbrMetallicRoughness.roughnessFactor, 1);
+    assert.deepEqual(
+        whiteChamfer.material.pbrMetallicRoughness.baseColorFactor,
+        [0.9, 0.93, 0.97, 1],
+    );
+    assert.equal(whiteChamfer.material.pbrMetallicRoughness.roughnessFactor, 1);
+});
+
+test('navigation puck visual centroid is centered on its model origin', async () => {
+    const model = await readGlb('ios/navigation_puck.glb');
+    const sourceContourAccessorIndex = model.document.accessors.findIndex(
+        (accessor) => accessor.name === 'Source white border contour',
+    );
+    assert.notEqual(sourceContourAccessorIndex, -1);
+    const sourceContour = floatAccessorVectors(
+        model,
+        sourceContourAccessorIndex,
+    );
+    const centroid = planarPolygonCentroid(sourceContour);
+    const navigationPuckNode = model.document.nodes.find(
+        (node) => node.name === 'NavigationPuck',
+    );
+
+    assert.deepEqual(navigationPuckNode.translation.slice(0, 2), [0, 0]);
+    assert.ok(
+        Math.abs(centroid.vertical + navigationPuckNode.translation[2]) < 1e-9,
+    );
 });
 
 test('navigation puck blue gradient is baked into an emissive texture', async () => {
