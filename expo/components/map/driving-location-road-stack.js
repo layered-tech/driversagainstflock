@@ -13,6 +13,7 @@ import {
 export function DrivingLocationRoadStack({
     currentRoadPillTestID,
     onLocationAnchorLayout,
+    puckSize = NAVIGATION_PUCK_SIZE,
     userLocation,
     viewportTop = 0,
 }) {
@@ -24,13 +25,14 @@ export function DrivingLocationRoadStack({
     const notifyLocationAnchorLayout = useCallback(() => {
         const anchorY = getNavigationPuckAnchorY({
             layoutY: layoutYRef.current,
+            puckSize,
             viewportTop,
         });
 
         if (anchorY !== null) {
             onLocationAnchorLayout?.(anchorY);
         }
-    }, [onLocationAnchorLayout, viewportTop]);
+    }, [onLocationAnchorLayout, puckSize, viewportTop]);
     const handleLayout = useCallback(
         (event) => {
             layoutYRef.current = event.nativeEvent.layout.y;
@@ -50,7 +52,7 @@ export function DrivingLocationRoadStack({
             pointerEvents="none"
         >
             <View
-                style={{ height: NAVIGATION_PUCK_SIZE }}
+                style={{ height: puckSize }}
                 testID="driving-location-puck-layout-slot"
             />
 

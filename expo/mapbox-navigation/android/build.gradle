@@ -36,6 +36,7 @@ dependencies {
   def navigationVersion = safeExtGet("RNMapboxNavigationSdkVersion", "3.24.2")
   def navigationArtifact = safeExtGet("RNMapboxNavigationAndroidArtifact", "android-ndk27")
 
+  implementation "com.facebook.react:react-android"
   implementation "com.mapbox.navigationcore:${navigationArtifact}:${navigationVersion}"
   implementation "com.mapbox.navigationcore:ui-maps-ndk27:${navigationVersion}"
   implementation project(":rnmapbox_maps")

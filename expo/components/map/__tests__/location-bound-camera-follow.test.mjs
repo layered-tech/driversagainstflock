@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
     createLocationBoundCameraFollowState,
+    getFallbackCameraFollowProps,
+    getLocationUpdateKey,
+    getMapboxCameraFollowPadding,
     reconcileLocationBoundCameraFollowState,
 } from '../location-bound-camera-follow.js';
 
@@ -15,6 +18,56 @@ const initialSettings = {
     pitch: 55,
     zoomLevel: 17,
 };
+
+test('hands off fallback follow only after the navigation camera owns movement', () => {
+    const followProps = {
+        enabled: true,
+        padding: initialSettings.padding,
+        pitch: initialSettings.pitch,
+        zoomLevel: initialSettings.zoomLevel,
+    };
+
+    const inactiveFollowProps = getFallbackCameraFollowProps(
+        followProps,
+        'following',
+    );
+
+    assert.strictEqual(
+        getFallbackCameraFollowProps(followProps, 'idle'),
+        followProps,
+    );
+    assert.strictEqual(
+        getFallbackCameraFollowProps(followProps, 'transition_to_overview'),
+        followProps,
+    );
+    assert.deepEqual(inactiveFollowProps, {
+        enabled: false,
+    });
+    assert.strictEqual(
+        getFallbackCameraFollowProps({ ...followProps }, 'following'),
+        inactiveFollowProps,
+    );
+    assert.strictEqual(
+        getFallbackCameraFollowProps(
+            { ...followProps },
+            'transition_to_following',
+        ),
+        inactiveFollowProps,
+    );
+});
+
+test('leaves Android Auto follow padding to the native navigation camera', () => {
+    const followProps = {
+        enabled: true,
+        padding: initialSettings.padding,
+    };
+
+    assert.equal(getMapboxCameraFollowPadding(followProps, true), undefined);
+    assert.strictEqual(
+        getMapboxCameraFollowPadding(followProps, false),
+        initialSettings.padding,
+    );
+});
 
 test('holds passive follow settings until a fresh location arrives', () => {
     const desiredSettings = {
@@ -88,7 +141,7 @@ test('keeps only the latest pending settings for a shared location update', () =
     assert.equal(appliedState.pendingSettings, null);
 });
 
-test('holds a setting derived from the current location until the following fix', () => {
+test('applies a speed setting with the same accepted location update', () => {
     const speedDerivedSettings = {
         ...initialSettings,
         zoomLevel: 16.5,
@@ -98,29 +151,19 @@ test('holds a setting derived from the current location until the following fix'
         locationKey: 'location-1',
         settings: initialSettings,
     });
-    const deferredState = reconcileLocationBoundCameraFollowState({
-        deferSettingsUntilNextLocation: true,
+    const updatedState = reconcileLocationBoundCameraFollowState({
         desiredSettings: speedDerivedSettings,
         isFollowing: true,
         locationKey: 'location-2',
         state: initialState,
     });
 
-    assert.deepEqual(deferredState.appliedSettings, initialSettings);
-    assert.deepEqual(deferredState.pendingSettings, speedDerivedSettings);
-
-    const appliedState = reconcileLocationBoundCameraFollowState({
-        desiredSettings: speedDerivedSettings,
-        isFollowing: true,
-        locationKey: 'location-3',
-        state: deferredState,
-    });
-
-    assert.deepEqual(appliedState.appliedSettings, speedDerivedSettings);
-    assert.equal(appliedState.pendingSettings, null);
+    assert.deepEqual(updatedState.appliedSettings, speedDerivedSettings);
+    assert.equal(updatedState.locationKey, 'location-2');
+    assert.equal(updatedState.pendingSettings, null);
 });
 
-test('applies the prior speed setting while queueing the latest one', () => {
+test('does not leave a prior speed setting queued one location behind', () => {
     const firstSpeedSettings = {
         ...initialSettings,
         zoomLevel: 16.5,
@@ -134,26 +177,26 @@ test('applies the prior speed setting while queueing the latest one', () => {
         locationKey: 'location-1',
         settings: initialSettings,
     });
-    const firstDeferredState = reconcileLocationBoundCameraFollowState({
-        deferSettingsUntilNextLocation: true,
+    const firstUpdatedState = reconcileLocationBoundCameraFollowState({
         desiredSettings: firstSpeedSettings,
         isFollowing: true,
         locationKey: 'location-2',
         state: initialState,
     });
-    const secondDeferredState = reconcileLocationBoundCameraFollowState({
-        deferSettingsUntilNextLocation: true,
+    const secondUpdatedState = reconcileLocationBoundCameraFollowState({
         desiredSettings: secondSpeedSettings,
         isFollowing: true,
         locationKey: 'location-3',
-        state: firstDeferredState,
+        state: firstUpdatedState,
     });
 
-    assert.deepEqual(secondDeferredState.appliedSettings, firstSpeedSettings);
-    assert.deepEqual(secondDeferredState.pendingSettings, secondSpeedSettings);
+    assert.deepEqual(firstUpdatedState.appliedSettings, firstSpeedSettings);
+    assert.equal(firstUpdatedState.pendingSettings, null);
+    assert.deepEqual(secondUpdatedState.appliedSettings, secondSpeedSettings);
+    assert.equal(secondUpdatedState.pendingSettings, null);
 });
 
-test('applies settings immediately while not following or when follow starts', () => {
+test('activates fallback follow without waiting for another location', () => {
     const updatedSettings = {
         ...initialSettings,
         zoomLevel: 18,
@@ -177,6 +220,37 @@ test('applies settings immediately while not following or when follow starts', (
     });
 
     assert.deepEqual(configuredState.appliedSettings, updatedSettings);
+    assert.equal(startedState.isFollowing, true);
     assert.deepEqual(startedState.appliedSettings, updatedSettings);
     assert.equal(startedState.pendingSettings, null);
+});
+
+test('does not treat compass-only changes as accepted position updates', () => {
+    const location = {
+        compassHeading: 20,
+        compassHeadingRecordedAt: 10_500,
+        courseHeading: 15,
+        latitude: 41.88,
+        longitude: -87.63,
+        recordedAt: 10_000,
+    };
+    const headingOnlyLocation = {
+        ...location,
+        compassHeading: 45,
+        compassHeadingRecordedAt: 11_000,
+        courseHeading: 40,
+    };
+    const nextPositionLocation = {
+        ...headingOnlyLocation,
+        recordedAt: 11_500,
+    };
+
+    assert.equal(
+        getLocationUpdateKey(headingOnlyLocation),
+        getLocationUpdateKey(location),
+    );
+    assert.notEqual(
+        getLocationUpdateKey(nextPositionLocation),
+        getLocationUpdateKey(location),
+    );
 });

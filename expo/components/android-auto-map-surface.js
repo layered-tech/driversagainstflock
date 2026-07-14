@@ -9,6 +9,7 @@ import { createAutoPlayMapSurface } from './auto-play-map-surface';
 // README), which breaks pan/zoom gestures on the car screen otherwise.
 const ANDROID_AUTO_SURFACE_PLATFORM_CONFIG = {
     applyWindowScaleToMapGestures: true,
+    hideCompassDuringNavigation: true,
     ornamentSafeAreaLeftScale: 0.65,
 };
 

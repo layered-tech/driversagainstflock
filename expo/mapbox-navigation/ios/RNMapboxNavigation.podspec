@@ -31,6 +31,7 @@ Pod::Spec.new do |s|
   # 'ios/**' (that would look for ios/ios/** and match nothing, producing a source-less aggregate
   # target without `package_product_dependencies`).
   s.source_files = '**/*.{h,m,mm,swift}'
+  s.resources = 'navigation_puck.glb'
 
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',

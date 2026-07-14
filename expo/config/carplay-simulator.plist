@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>hasBackButton</key>
+	<false/>
+	<key>hasHomeButton</key>
+	<false/>
+	<key>hasTouchScreen</key>
+	<true/>
+	<key>hasTouchScreenLofi</key>
+	<false/>
+	<key>hasWheel</key>
+	<false/>
+	<key>hasWheelBump</key>
+	<false/>
+	<key>height</key>
+	<integer>720</integer>
+	<key>protocols</key>
+	<array/>
+	<key>scale</key>
+	<real>2</real>
+	<key>stark</key>
+	<true/>
+	<key>width</key>
+	<integer>1920</integer>
+</dict>
+</plist>

@@ -13,15 +13,83 @@ class FakeEventEmitter {
     }
 }
 
-function makeNavigationModule(nativeModule) {
+function makeNavigationModule(nativeModule, findNodeHandle = () => 42) {
     return createNavigationModule({
         EventEmitter: FakeEventEmitter,
         Platform: { OS: 'ios' },
         React: {},
-        findNodeHandle: () => 42,
+        findNodeHandle,
         requireNativeModule: () => nativeModule,
     });
 }
+
+test('navigation puck applies and clears the native 3D model', async () => {
+    const calls = [];
+    const navigation = makeNavigationModule({
+        async applyNavigationPuck3D(mapViewTag, scale) {
+            calls.push({ mapViewTag, operation: 'apply', scale });
+            return true;
+        },
+        async clearNavigationPuck3D(mapViewTag) {
+            calls.push({ mapViewTag, operation: 'clear' });
+            return true;
+        },
+    });
+
+    assert.equal(navigation.isNavigationPuck3DSupported(), true);
+    assert.equal(
+        await navigation.applyNavigationPuck3DAsync({ current: {} }, 256),
+        true,
+    );
+    assert.equal(
+        await navigation.clearNavigationPuck3DAsync({ current: {} }),
+        true,
+    );
+    assert.deepEqual(calls, [
+        { mapViewTag: 42, operation: 'apply', scale: 128 },
+        { mapViewTag: 42, operation: 'clear' },
+    ]);
+});
+
+test('navigation puck requires native apply and cleanup support', async () => {
+    const navigation = makeNavigationModule({
+        async applyNavigationPuck3D() {
+            return true;
+        },
+    });
+
+    assert.equal(navigation.isNavigationPuck3DSupported(), false);
+    assert.equal(
+        await navigation.applyNavigationPuck3DAsync({ current: {} }, 64),
+        false,
+    );
+});
+
+test('navigation puck resolves the native Mapbox view handle', async () => {
+    const nativeMapView = {};
+    const resolvedViews = [];
+    const navigation = makeNavigationModule(
+        {
+            async applyNavigationPuck3D() {
+                return true;
+            },
+            async clearNavigationPuck3D() {
+                return true;
+            },
+        },
+        (view) => {
+            resolvedViews.push(view);
+            return 42;
+        },
+    );
+
+    await navigation.applyNavigationPuck3DAsync(
+        { current: { _nativeRef: nativeMapView } },
+        64,
+    );
+
+    assert.deepEqual(resolvedViews, [nativeMapView]);
+});
 
 test('navigation camera normalizes option updates', async () => {
     const calls = [];
@@ -41,6 +109,7 @@ test('navigation camera normalizes option updates', async () => {
                 paddingRight: '4.5',
                 paddingTop: 'not-a-number',
             },
+            locationUpdateTimestamp: '10000',
             pitch: '55',
             zoomLevel: '16.75',
         },
@@ -56,6 +125,7 @@ test('navigation camera normalizes option updates', async () => {
                     paddingRight: 4.5,
                     paddingTop: 0,
                 },
+                locationUpdateTimestamp: 10000,
                 pitch: 55,
                 zoomLevel: 16.75,
             },

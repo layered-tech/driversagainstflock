@@ -4,6 +4,26 @@ const FOLLOW_CAMERA_PADDING_KEYS = [
     'paddingRight',
     'paddingTop',
 ];
+const INACTIVE_FALLBACK_CAMERA_FOLLOW_PROPS = Object.freeze({
+    enabled: false,
+});
+const NAVIGATION_CAMERA_OWNED_STATES = new Set([
+    'following',
+    'transition_to_following',
+]);
+
+export function getFallbackCameraFollowProps(
+    followProps,
+    nativeNavigationCameraState,
+) {
+    return NAVIGATION_CAMERA_OWNED_STATES.has(nativeNavigationCameraState)
+        ? INACTIVE_FALLBACK_CAMERA_FOLLOW_PROPS
+        : followProps;
+}
+
+export function getMapboxCameraFollowPadding(followProps, omitFollowPadding) {
+    return omitFollowPadding ? undefined : followProps?.padding;
+}
 
 function copyPadding(padding) {
     if (!padding) {
@@ -47,9 +67,6 @@ export function getLocationUpdateKey(location) {
         latitude,
         longitude,
         location?.recordedAt ?? location?.timestamp ?? '',
-        location?.courseHeading ?? location?.heading ?? '',
-        location?.compassHeading ?? '',
-        location?.compassHeadingRecordedAt ?? '',
     ].join(':');
 }
 
@@ -67,7 +84,6 @@ export function createLocationBoundCameraFollowState({
 }
 
 export function reconcileLocationBoundCameraFollowState({
-    deferSettingsUntilNextLocation = false,
     desiredSettings,
     isFollowing,
     locationKey,
@@ -75,9 +91,8 @@ export function reconcileLocationBoundCameraFollowState({
 }) {
     const locationChanged =
         locationKey !== null && locationKey !== state.locationKey;
-    const shouldApplyImmediately = !isFollowing || !state.isFollowing;
 
-    if (shouldApplyImmediately) {
+    if (!isFollowing || !state.isFollowing) {
         return createLocationBoundCameraFollowState({
             isFollowing,
             locationKey,
@@ -86,25 +101,6 @@ export function reconcileLocationBoundCameraFollowState({
     }
 
     if (locationChanged) {
-        if (deferSettingsUntilNextLocation) {
-            if (state.pendingSettings) {
-                return {
-                    ...state,
-                    appliedSettings: state.pendingSettings,
-                    isFollowing,
-                    locationKey,
-                    pendingSettings: desiredSettings,
-                };
-            }
-
-            return {
-                ...state,
-                isFollowing,
-                locationKey,
-                pendingSettings: desiredSettings,
-            };
-        }
-
         return createLocationBoundCameraFollowState({
             isFollowing,
             locationKey,

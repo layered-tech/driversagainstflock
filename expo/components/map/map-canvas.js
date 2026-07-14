@@ -1,5 +1,10 @@
 import Mapbox from '@rnmapbox/maps';
-import { memo, useMemo, useRef } from 'react';
+import {
+    applyNavigationPuck3DAsync,
+    clearNavigationPuck3DAsync,
+    isNavigationPuck3DSupported,
+} from '@rnmapbox/navigation';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Platform,
@@ -59,6 +64,7 @@ import {
     createLocationBoundCameraFollowState,
     getFollowCameraSettings,
     getLocationUpdateKey,
+    getMapboxCameraFollowPadding,
     reconcileLocationBoundCameraFollowState,
 } from './location-bound-camera-follow';
 import {
@@ -83,6 +89,10 @@ import {
     usePlaceSheetContext,
 } from './map-screen-context';
 import { NativeWindMapView } from './native-components';
+import {
+    AUTO_PLAY_NAVIGATION_PUCK_SIZE,
+    NAVIGATION_PUCK_SIZE,
+} from './navigation-puck-layout';
 
 const MAP_PREFERRED_FRAMES_PER_SECOND = 30;
 
@@ -100,8 +110,6 @@ function MapLocationProvider({ isDrivingMode, usesSharedLocationProvider }) {
 
 function useLocationBoundCameraFollowProps(followProps, userLocation) {
     const desiredSettings = getFollowCameraSettings(followProps);
-    const deferSettingsUntilNextLocation =
-        followProps?.settingsAreDeferredUntilNextLocation === true;
     const isFollowing = followProps?.enabled === true;
     const locationKey = getLocationUpdateKey(userLocation);
     const stateRef = useRef(null);
@@ -115,7 +123,6 @@ function useLocationBoundCameraFollowProps(followProps, userLocation) {
         });
     } else {
         stateRef.current = reconcileLocationBoundCameraFollowState({
-            deferSettingsUntilNextLocation,
             desiredSettings,
             isFollowing,
             locationKey,
@@ -582,17 +589,151 @@ export const MapCanvas = memo(function MapCanvas() {
     const resolvedNavigationPuckVariant = navigationPuckVariant || 'default';
     const navigationPuckIsVisible = shouldShowNavigationPuck({
         isDrivingMode,
-        isFollowing,
         navigationPuckVariant: resolvedNavigationPuckVariant,
     });
     const usesAutoPlayNavigationPuckImages =
         shouldUseAutoPlayNavigationPuckImages(resolvedNavigationPuckVariant);
+    const mapboxCameraFollowPadding = getMapboxCameraFollowPadding(
+        locationBoundCameraFollowProps,
+        Platform.OS === 'android' && usesAutoPlayNavigationPuckImages,
+    );
     const navigationPuckBearingImage = usesAutoPlayNavigationPuckImages
         ? ANDROID_AUTO_NAVIGATION_PUCK_BEARING_IMAGE
         : NAVIGATION_PUCK_BEARING_IMAGE;
     const navigationPuckShadowImage = usesAutoPlayNavigationPuckImages
         ? ANDROID_AUTO_NAVIGATION_PUCK_SHADOW_IMAGE
         : NAVIGATION_PUCK_SHADOW_IMAGE;
+    const navigationPuckSize = usesAutoPlayNavigationPuckImages
+        ? AUTO_PLAY_NAVIGATION_PUCK_SIZE
+        : NAVIGATION_PUCK_SIZE;
+    const navigationPuckRequestsNative3D = Boolean(
+        locationAccessGranted &&
+        navigationPuckIsVisible &&
+        isNavigationPuck3DSupported(),
+    );
+    const [navigationPuck3DStatus, setNavigationPuck3DStatus] =
+        useState('inactive');
+    const navigationPuckUsesNative3D =
+        navigationPuck3DStatus === 'preparing' ||
+        navigationPuck3DStatus === 'active' ||
+        navigationPuck3DStatus === 'clearing';
+    const navigationPuckOperationQueueRef = useRef(Promise.resolve(false));
+    const navigationPuckOperationGenerationRef = useRef(0);
+    const enqueueNavigationPuckOperation = useCallback((operation) => {
+        const result = navigationPuckOperationQueueRef.current
+            .then(operation, operation)
+            .catch(() => false);
+
+        navigationPuckOperationQueueRef.current = result;
+
+        return result;
+    }, []);
+    const clearNativeNavigationPuck = useCallback(
+        () => clearNavigationPuck3DAsync(mapViewRef).catch(() => false),
+        [mapViewRef],
+    );
+    const handleMapFinishedLoading = useCallback(
+        (event) => {
+            handleMapLoaded(event);
+
+            if (navigationPuckRequestsNative3D) {
+                setNavigationPuck3DStatus('preparing');
+            }
+        },
+        [handleMapLoaded, navigationPuckRequestsNative3D],
+    );
+
+    useEffect(() => {
+        const operationGeneration =
+            navigationPuckOperationGenerationRef.current + 1;
+        navigationPuckOperationGenerationRef.current = operationGeneration;
+
+        if (navigationPuckRequestsNative3D) {
+            setNavigationPuck3DStatus('preparing');
+        } else {
+            setNavigationPuck3DStatus((status) =>
+                status === 'inactive' ? 'inactive' : 'clearing',
+            );
+            void enqueueNavigationPuckOperation(async () => {
+                await clearNativeNavigationPuck();
+
+                if (
+                    operationGeneration ===
+                    navigationPuckOperationGenerationRef.current
+                ) {
+                    setNavigationPuck3DStatus('inactive');
+                }
+
+                return true;
+            });
+        }
+
+        return () => {
+            navigationPuckOperationGenerationRef.current += 1;
+            void enqueueNavigationPuckOperation(clearNativeNavigationPuck);
+        };
+    }, [
+        clearNativeNavigationPuck,
+        enqueueNavigationPuckOperation,
+        mapStyleURL,
+        navigationPuckRequestsNative3D,
+        navigationPuckSize,
+    ]);
+
+    useEffect(() => {
+        if (
+            !navigationPuckRequestsNative3D ||
+            navigationPuck3DStatus !== 'preparing'
+        ) {
+            return undefined;
+        }
+
+        const operationGeneration =
+            navigationPuckOperationGenerationRef.current;
+
+        void enqueueNavigationPuckOperation(async () => {
+            if (
+                operationGeneration !==
+                navigationPuckOperationGenerationRef.current
+            ) {
+                return false;
+            }
+
+            try {
+                const wasApplied = await applyNavigationPuck3DAsync(
+                    mapViewRef,
+                    navigationPuckSize,
+                );
+
+                if (
+                    operationGeneration ===
+                    navigationPuckOperationGenerationRef.current
+                ) {
+                    setNavigationPuck3DStatus(wasApplied ? 'active' : 'failed');
+                }
+
+                return wasApplied;
+            } catch {
+                if (
+                    operationGeneration ===
+                    navigationPuckOperationGenerationRef.current
+                ) {
+                    setNavigationPuck3DStatus('failed');
+                }
+
+                return false;
+            }
+        });
+
+        return undefined;
+    }, [
+        enqueueNavigationPuckOperation,
+        mapViewRef,
+        mapStyleURL,
+        navigationPuck3DStatus,
+        navigationPuckRequestsNative3D,
+        navigationPuckSize,
+    ]);
     // iOS Fabric never applies image props back to undefined (rnmapbox
     // FabricOptionalProp limitation), so switching between the navigation
     // arrow and the default dot requires remounting the puck there. Android
@@ -633,7 +774,7 @@ export const MapCanvas = memo(function MapCanvas() {
             compassEnabled={isDrivingMode && !hideCompassDuringNavigation}
             compassPosition={mapCompassPosition}
             onCameraChanged={handleCameraChanged}
-            onDidFinishLoadingMap={handleMapLoaded}
+            onDidFinishLoadingMap={handleMapFinishedLoading}
             onPress={handleMapPress}
             preferredFramesPerSecond={preferredFramesPerSecond}
             styleURL={mapStyleURL}
@@ -654,7 +795,7 @@ export const MapCanvas = memo(function MapCanvas() {
             <Mapbox.Camera
                 ref={cameraRef}
                 defaultSettings={initialCameraSettings}
-                followPadding={locationBoundCameraFollowProps.padding}
+                followPadding={mapboxCameraFollowPadding}
                 followPitch={locationBoundCameraFollowProps.pitch}
                 followUserLocation={
                     locationBoundCameraFollowProps.enabled ?? false
@@ -1050,28 +1191,32 @@ export const MapCanvas = memo(function MapCanvas() {
             ))}
             {locationAccessGranted ? (
                 <>
-                    <NavigationPuckImages />
-                    <Mapbox.LocationPuck
-                        key={locationPuckKey}
-                        bearingImage={
-                            navigationPuckIsVisible
-                                ? navigationPuckBearingImage
-                                : undefined
-                        }
-                        puckBearing={puckBearing}
-                        puckBearingEnabled
-                        shadowImage={
-                            navigationPuckIsVisible
-                                ? navigationPuckShadowImage
-                                : undefined
-                        }
-                        topImage={
-                            navigationPuckIsVisible
-                                ? NAVIGATION_PUCK_TOP_TRANSPARENT_IMAGE
-                                : undefined
-                        }
-                        visible
-                    />
+                    {!navigationPuckUsesNative3D ? (
+                        <>
+                            <NavigationPuckImages />
+                            <Mapbox.LocationPuck
+                                key={locationPuckKey}
+                                bearingImage={
+                                    navigationPuckIsVisible
+                                        ? navigationPuckBearingImage
+                                        : undefined
+                                }
+                                puckBearing={puckBearing}
+                                puckBearingEnabled
+                                shadowImage={
+                                    navigationPuckIsVisible
+                                        ? navigationPuckShadowImage
+                                        : undefined
+                                }
+                                topImage={
+                                    navigationPuckIsVisible
+                                        ? NAVIGATION_PUCK_TOP_TRANSPARENT_IMAGE
+                                        : undefined
+                                }
+                                visible
+                            />
+                        </>
+                    ) : null}
                 </>
             ) : null}
             {surveillanceMarkersVisible

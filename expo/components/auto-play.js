@@ -22,6 +22,13 @@ import {
     setAutoPlayState,
 } from './auto-play-state';
 import {
+    AUTO_PLAY_TRIP_PREVIEW_TEXT_CONFIGURATION,
+    autoPlaySearchRequestIsCurrent,
+    getAutoPlaySearchLoadingCopy,
+    makeAutoPlayTripSelectorTrips,
+    makeAutoPlayTripSteps,
+} from './auto-play-template-state';
+import {
     getDirections,
     getPlaceDetails,
     searchPlaces,
@@ -181,6 +188,8 @@ let navigationLocationSubscription = null;
 let navigationLocationUpdateGeneration = 0;
 let searchAbortController = null;
 let searchDebounceTimer = null;
+let routeLoadAbortController = null;
+let routePreviewIsVisible = false;
 let activeNavigationRoute = null;
 let lastNavigationGuidanceLocation = null;
 let lastNavigationGuidanceUpdatedAt = 0;
@@ -466,6 +475,17 @@ function updateSearchTemplateLoadingRoute(template, title) {
     });
 }
 
+function updateSearchTemplateLoadingResults(template, query) {
+    const loadingCopy = getAutoPlaySearchLoadingCopy(query);
+
+    updateSearchTemplateSection(template, {
+        items: [
+            makeDisabledSearchRow(loadingCopy.title, loadingCopy.detailedText),
+        ],
+        type: 'default',
+    });
+}
+
 function updateSearchTemplateSection(template, section) {
     try {
         const updatePromise = template?.updateSearchResults(section);
@@ -490,29 +510,77 @@ function abortSearchRequest() {
     }
 }
 
+function abortRouteLoadRequest() {
+    if (!routeLoadAbortController) {
+        return;
+    }
+
+    routeLoadAbortController.abort();
+    routeLoadAbortController = null;
+}
+
+function startRouteLoadRequest() {
+    abortRouteLoadRequest();
+    routeLoadAbortController = new AbortController();
+
+    return routeLoadAbortController;
+}
+
+function cancelAutoPlaySearchWork() {
+    abortSearchRequest();
+    abortRouteLoadRequest();
+}
+
 async function runPlaceAutocomplete(template, searchText, startLocation) {
     const input = String(searchText ?? '').trim();
+
+    abortSearchRequest();
 
     if (input.length < PLACE_SEARCH_MIN_QUERY_LENGTH) {
         updateSearchTemplateResults(template, [], input, startLocation);
         return;
     }
 
-    abortSearchRequest();
     const abortController = new AbortController();
     searchAbortController = abortController;
+    updateSearchTemplateLoadingResults(template, input);
 
     try {
         const location = startLocation ?? (await getLastKnownLocation());
+
+        if (
+            !autoPlaySearchRequestIsCurrent(
+                searchAbortController,
+                abortController,
+            )
+        ) {
+            return;
+        }
+
         const results = await searchPlaces({
             input,
             location,
             signal: abortController.signal,
         });
 
+        if (
+            !autoPlaySearchRequestIsCurrent(
+                searchAbortController,
+                abortController,
+            )
+        ) {
+            return;
+        }
+
         updateSearchTemplateResults(template, results, input, startLocation);
     } catch (error) {
-        if (error?.name !== 'AbortError') {
+        if (
+            error?.name !== 'AbortError' &&
+            autoPlaySearchRequestIsCurrent(
+                searchAbortController,
+                abortController,
+            )
+        ) {
             updateSearchTemplateResults(
                 template,
                 [],
@@ -534,22 +602,43 @@ async function runPlaceAutocomplete(template, searchText, startLocation) {
 async function runPlaceTextSearch(template, searchText, startLocation) {
     const textQuery = String(searchText ?? '').trim();
 
+    abortSearchRequest();
+
     if (textQuery.length < PLACE_SEARCH_MIN_QUERY_LENGTH) {
         updateSearchTemplateResults(template, [], textQuery, startLocation);
         return;
     }
 
-    abortSearchRequest();
     const abortController = new AbortController();
     searchAbortController = abortController;
+    updateSearchTemplateLoadingResults(template, textQuery);
 
     try {
         const location = startLocation ?? (await getLastKnownLocation());
+
+        if (
+            !autoPlaySearchRequestIsCurrent(
+                searchAbortController,
+                abortController,
+            )
+        ) {
+            return;
+        }
+
         const results = await searchTextPlaces({
             location,
             signal: abortController.signal,
             textQuery,
         });
+
+        if (
+            !autoPlaySearchRequestIsCurrent(
+                searchAbortController,
+                abortController,
+            )
+        ) {
+            return;
+        }
 
         updateSearchTemplateResults(
             template,
@@ -558,7 +647,13 @@ async function runPlaceTextSearch(template, searchText, startLocation) {
             startLocation,
         );
     } catch (error) {
-        if (error?.name !== 'AbortError') {
+        if (
+            error?.name !== 'AbortError' &&
+            autoPlaySearchRequestIsCurrent(
+                searchAbortController,
+                abortController,
+            )
+        ) {
             updateSearchTemplateResults(
                 template,
                 [],
@@ -578,12 +673,17 @@ async function runPlaceTextSearch(template, searchText, startLocation) {
 }
 
 function schedulePlaceAutocomplete(template, searchText, startLocation) {
-    if (searchDebounceTimer) {
-        clearTimeout(searchDebounceTimer);
+    const input = String(searchText ?? '').trim();
+
+    abortSearchRequest();
+
+    if (input.length < PLACE_SEARCH_MIN_QUERY_LENGTH) {
+        updateSearchTemplateResults(template, [], input, startLocation);
+        return;
     }
 
     searchDebounceTimer = setTimeout(() => {
-        runPlaceAutocomplete(template, searchText, startLocation);
+        runPlaceAutocomplete(template, input, startLocation);
     }, SEARCH_DEBOUNCE_MS);
 }
 
@@ -611,8 +711,10 @@ function getBackHeaderAction(onBeforePop) {
 
 function openSearchTemplate(initialSearchText = '', preferredStartLocation) {
     const { SearchTemplate } = loadAutoPlayModule();
+
+    cancelAutoPlaySearchWork();
     const template = new SearchTemplate({
-        headerActions: getBackHeaderAction(abortSearchRequest),
+        headerActions: getBackHeaderAction(cancelAutoPlaySearchWork),
         initialSearchText,
         onSearchTextChanged: (searchText) => {
             schedulePlaceAutocomplete(
@@ -625,7 +727,7 @@ function openSearchTemplate(initialSearchText = '', preferredStartLocation) {
             runPlaceTextSearch(template, searchText, preferredStartLocation);
         },
         onPopped: () => {
-            abortSearchRequest();
+            cancelAutoPlaySearchWork();
         },
         results: {
             items: [
@@ -729,45 +831,12 @@ function getRouteOptionDetail(routeOption, baselineRouteOption, route) {
         .join(' - ');
 }
 
-function showRoutePreview(route) {
-    const { ListTemplate } = loadAutoPlayModule();
-    const routeOptions = getDirectionsRouteOptions(route);
-    const baselineRouteOption =
-        routeOptions.find(
-            (routeOption) => routeOption.routeKey === DIRECTIONS_ROUTE_FASTEST,
-        ) ?? routeOptions[0];
-    const items = routeOptions.map((routeOption) => ({
-        detailedText: makeAutoText(
-            getRouteOptionDetail(routeOption, baselineRouteOption, route),
-        ),
-        onPress: () => {
-            startAutoPlayNavigation(
-                selectDirectionsRoute(route, routeOption.routeKey),
-            );
-        },
-        title: makeAutoText(`Start ${routeOption.routeLabel} route`),
-        type: 'default',
-    }));
-    const previewTemplate = new ListTemplate({
-        headerActions: getBackHeaderAction(),
-        sections: {
-            items: items.length
-                ? items
-                : [
-                      makeDisabledSearchRow(
-                          'Route unavailable',
-                          'Directions did not include a usable route.',
-                      ),
-                  ],
-            type: 'default',
-        },
-        title: makeAutoText('Route options'),
-    });
+function setAutoPlayRoutePreviewState(route) {
     const selectedRoute = getSelectedDirectionsRouteOption(route);
 
     setAutoPlayState({
         detailText: 'Review the available route options.',
-        directionsRoute: null,
+        directionsRoute: route,
         errorText: '',
         isNavigating: false,
         maneuverText: '',
@@ -779,16 +848,129 @@ function showRoutePreview(route) {
         statusLabel: 'Route ready',
         title: route.destination?.label || 'Destination',
     });
+}
 
-    previewTemplate.push().catch((error) => {
-        setAutoPlayState({
-            errorText: error?.message || 'Route options could not be opened.',
-            statusLabel: 'Route error',
-        });
+function hideAutoPlayRoutePreview() {
+    if (!routePreviewIsVisible) {
+        return;
+    }
+
+    routePreviewIsVisible = false;
+
+    try {
+        rootMapTemplate?.hideTripSelector();
+    } catch {
+        // The native selector may already be closing or disconnected.
+    }
+}
+
+function clearAutoPlayRoutePreviewState() {
+    routePreviewIsVisible = false;
+    setAutoPlayState({
+        detailText: 'Search for a destination to start a private route.',
+        directionsRoute: null,
+        errorText: '',
+        isNavigating: false,
+        maneuverText: '',
+        routeDistanceText: '',
+        routeDurationText: '',
+        routeName: '',
+        statusLabel: 'Ready',
+        title: 'Drivers Against Flock',
     });
 }
 
-async function resolvePlaceForResult(result) {
+async function showRoutePreview(route) {
+    const { HybridAutoPlay } = loadAutoPlayModule();
+
+    if (!rootMapTemplate || !rootMapTemplateIsReady) {
+        showAutoPlayError(
+            'Car screen unavailable',
+            'Car screen is not connected.',
+        );
+        return;
+    }
+
+    const mapTemplate = rootMapTemplate;
+    const routeOptions = getDirectionsRouteOptions(route);
+    const baselineRouteOption =
+        routeOptions.find(
+            (routeOption) => routeOption.routeKey === DIRECTIONS_ROUTE_FASTEST,
+        ) ?? routeOptions[0];
+    const selectedRoute = getSelectedDirectionsRouteOption(route);
+    const tripId = `daf-preview-${route.requestedAt || Date.now()}`;
+    let previewRoute = route;
+    let trips;
+
+    try {
+        trips = makeAutoPlayTripSelectorTrips({
+            makeRouteChoice: (routeOption) =>
+                makeAutoPlayRouteChoice(routeOption, route, {
+                    includeOrigin: true,
+                    selectionSummary: getRouteOptionDetail(
+                        routeOption,
+                        baselineRouteOption,
+                        route,
+                    ),
+                }),
+            routeOptions,
+            selectedRouteKey: selectedRoute?.routeKey,
+            tripId,
+        });
+    } catch (error) {
+        showAutoPlayError(
+            'Route unavailable',
+            error?.message || 'Directions did not include a usable route.',
+        );
+        return;
+    }
+
+    const selectPreviewRoute = (routeId) => {
+        previewRoute = selectDirectionsRoute(route, routeId);
+        setAutoPlayRoutePreviewState(previewRoute);
+    };
+
+    setAutoPlayRoutePreviewState(previewRoute);
+
+    try {
+        // The native selector belongs to the root MapTemplate. Remove the
+        // search screen before presenting it so route previews are drawn over
+        // the map and navigation does not reveal the old search screen.
+        await HybridAutoPlay.popToRootTemplate(false);
+
+        if (rootMapTemplate !== mapTemplate || !rootMapTemplateIsReady) {
+            clearAutoPlayRoutePreviewState();
+            return;
+        }
+
+        mapTemplate.showTripSelector({
+            mapButtons: getRootMapButtons(),
+            onBackPressed: clearAutoPlayRoutePreviewState,
+            onTripSelected: (_selectedTripId, routeId) => {
+                selectPreviewRoute(routeId);
+            },
+            onTripStarted: (_selectedTripId, routeId) => {
+                routePreviewIsVisible = false;
+                startAutoPlayNavigation(selectDirectionsRoute(route, routeId), {
+                    hostNavigationAlreadyStarted: true,
+                });
+            },
+            selectedTripId: tripId,
+            textConfig: AUTO_PLAY_TRIP_PREVIEW_TEXT_CONFIGURATION,
+            trips,
+        });
+        routePreviewIsVisible = true;
+    } catch (error) {
+        routePreviewIsVisible = false;
+        clearAutoPlayRoutePreviewState();
+        showAutoPlayError(
+            'Route options unavailable',
+            error?.message || 'Route options could not be opened.',
+        );
+    }
+}
+
+async function resolvePlaceForResult(result, signal) {
     if (result?.place?.location) {
         return result.place;
     }
@@ -797,7 +979,7 @@ async function resolvePlaceForResult(result) {
         throw new Error('Place details could not be loaded.');
     }
 
-    return getPlaceDetails({ placeId: result.placeId });
+    return getPlaceDetails({ placeId: result.placeId, signal });
 }
 
 async function handleSearchResultSelected(
@@ -806,6 +988,7 @@ async function handleSearchResultSelected(
     template,
 ) {
     abortSearchRequest();
+    const routeLoadController = startRouteLoadRequest();
 
     const title = result?.primaryText || result?.label || 'Destination';
     updateSearchTemplateLoadingRoute(template, title);
@@ -823,7 +1006,20 @@ async function handleSearchResultSelected(
     });
 
     try {
-        const place = await resolvePlaceForResult(result);
+        const place = await resolvePlaceForResult(
+            result,
+            routeLoadController.signal,
+        );
+
+        if (
+            !autoPlaySearchRequestIsCurrent(
+                routeLoadAbortController,
+                routeLoadController,
+            )
+        ) {
+            return;
+        }
+
         const destinationWaypoint = createPlaceDirectionsWaypoint({
             address: result?.secondaryText,
             name: result?.primaryText,
@@ -836,6 +1032,16 @@ async function handleSearchResultSelected(
         }
 
         const startWaypoint = await getStartWaypoint(preferredStartLocation);
+
+        if (
+            !autoPlaySearchRequestIsCurrent(
+                routeLoadAbortController,
+                routeLoadController,
+            )
+        ) {
+            return;
+        }
+
         const routeStart = getDirectionsWaypointApiCoord(startWaypoint);
         const routeEnd = getDirectionsWaypointApiCoord(destinationWaypoint);
 
@@ -845,16 +1051,39 @@ async function handleSearchResultSelected(
 
         const { route } = await getDirections({
             end: routeEnd,
+            signal: routeLoadController.signal,
             start: routeStart,
         });
 
-        showRoutePreview({
+        if (
+            !autoPlaySearchRequestIsCurrent(
+                routeLoadAbortController,
+                routeLoadController,
+            )
+        ) {
+            return;
+        }
+
+        routeLoadAbortController = null;
+
+        await showRoutePreview({
             ...route,
             destination: destinationWaypoint,
             requestedAt: Date.now(),
             start: startWaypoint,
         });
     } catch (error) {
+        if (
+            error?.name === 'AbortError' ||
+            !autoPlaySearchRequestIsCurrent(
+                routeLoadAbortController,
+                routeLoadController,
+            )
+        ) {
+            return;
+        }
+
+        routeLoadAbortController = null;
         showAutoPlayError(
             'Route unavailable',
             error?.message || 'Directions could not be loaded.',
@@ -922,7 +1151,7 @@ function getManeuverCoordinate(routeOption, maneuver, fallbackIndex) {
     );
 }
 
-function makeTripSteps(routeOption, route) {
+function makeTripSteps(routeOption, route, { includeOrigin = false } = {}) {
     const maneuvers = routeOption?.maneuvers ?? [];
     const steps = [];
     let remainingDistance =
@@ -969,7 +1198,9 @@ function makeTripSteps(routeOption, route) {
     });
 
     const destinationCoordinate =
-        routeOption.coordinates?.[routeOption.coordinates.length - 1];
+        normalizeCoordinatePair(
+            routeOption.coordinates?.[routeOption.coordinates.length - 1],
+        ) ?? getWaypointLocationCoordinate(route?.destination);
     const destinationName =
         route?.destination?.label ||
         route?.destination?.inputValue ||
@@ -980,69 +1211,67 @@ function makeTripSteps(routeOption, route) {
         makeTravelEstimates(0, 0, destinationName),
     );
 
-    if (destinationStep) {
-        steps.push(destinationStep);
-    }
+    const startCoordinate =
+        getWaypointLocationCoordinate(route?.start) ??
+        normalizeCoordinatePair(routeOption?.coordinates?.[0]);
+    const startStep = getTripPointFromCoordinate(
+        startCoordinate,
+        route?.start?.label || 'Start',
+        makeTravelEstimates(
+            routeOption?.distance,
+            routeOption?.duration,
+            'Start',
+        ),
+    );
+
+    return makeAutoPlayTripSteps({
+        destinationStep,
+        includeOrigin,
+        maneuverSteps: steps,
+        originStep: startStep,
+    });
+}
+
+function makeAutoPlayRouteChoice(
+    routeOption,
+    route,
+    { includeOrigin = false, selectionSummary } = {},
+) {
+    const routeLabel = routeOption?.routeLabel || 'Route';
+    const routeSummary =
+        selectionSummary ||
+        [
+            formatDirectionsDuration(routeOption?.duration),
+            formatDirectionsDistance(routeOption?.distance),
+        ]
+            .filter(Boolean)
+            .join(' - ');
+    const steps = makeTripSteps(routeOption, route, { includeOrigin });
 
     if (steps.length < 2) {
-        const startCoordinate =
-            getWaypointLocationCoordinate(route?.start) ??
-            normalizeCoordinatePair(routeOption?.coordinates?.[0]);
-        const fallbackDestinationCoordinate =
-            getWaypointLocationCoordinate(route?.destination) ??
-            normalizeCoordinatePair(destinationCoordinate);
-        const startStep = getTripPointFromCoordinate(
-            startCoordinate,
-            route?.start?.label || 'Start',
-            makeTravelEstimates(
-                routeOption?.distance,
-                routeOption?.duration,
-                'Start',
-            ),
-        );
-
-        if (startStep) {
-            steps.unshift(startStep);
-        }
-
-        const fallbackDestinationStep = getTripPointFromCoordinate(
-            fallbackDestinationCoordinate,
-            destinationName,
-            makeTravelEstimates(0, 0, destinationName),
-        );
-
-        if (fallbackDestinationStep && steps.length < 2) {
-            steps.push(fallbackDestinationStep);
-        }
+        return null;
     }
 
-    return steps.filter(Boolean).slice(0, 12);
+    return {
+        additionalInformationVariants: [routeSummary || routeLabel],
+        id: routeOption?.routeKey || 'route',
+        selectionSummaryVariants: [routeSummary || routeLabel],
+        steps,
+        summaryVariants: [`${routeLabel} route`],
+    };
 }
 
 function makeTripConfig(route) {
     const routeOption = getSelectedDirectionsRouteOption(route);
-    const routeLabel = routeOption?.routeLabel || 'Route';
-    const routeSummary = [
-        formatDirectionsDuration(routeOption?.duration),
-        formatDirectionsDistance(routeOption?.distance),
-    ]
-        .filter(Boolean)
-        .join(' - ');
-    const steps = makeTripSteps(routeOption, route);
+    const routeChoice = makeAutoPlayRouteChoice(routeOption, route);
 
-    if (steps.length < 2) {
+    if (!routeChoice) {
         throw new Error('Route did not include enough navigation steps.');
     }
 
     return {
         id: `daf-${routeOption?.routeKey || 'route'}-${Date.now()}`,
-        routeChoice: {
-            additionalInformationVariants: [routeSummary || routeLabel],
-            id: routeOption?.routeKey || 'route',
-            selectionSummaryVariants: [routeSummary || routeLabel],
-            steps,
-            summaryVariants: [`${routeLabel} route`],
-        },
+        routeChoice,
     };
 }
 
@@ -1862,6 +2091,7 @@ async function stopAutoPlayNavigation({
     await stopNavigationLocationUpdates();
     activeNavigationRoute = null;
     activeNavigationDestination = null;
+    routePreviewIsVisible = false;
     lastNavigationGuidanceLocation = null;
 
     if (notifyTemplate && rootMapTemplate) {
@@ -1894,7 +2124,10 @@ async function stopAutoPlayNavigation({
     updateRootTemplateHeaderActions();
 }
 
-function startAutoPlayNavigation(route, { publishSharedState = true } = {}) {
+function startAutoPlayNavigation(
+    route,
+    { hostNavigationAlreadyStarted = false, publishSharedState = true } = {},
+) {
     const { HybridAutoPlay } = loadAutoPlayModule();
 
     if (!rootMapTemplate || !rootMapTemplateIsReady) {
@@ -1915,11 +2148,18 @@ function startAutoPlayNavigation(route, { publishSharedState = true } = {}) {
         return;
     }
 
+    cancelAutoPlaySearchWork();
     activeNavigationRoute = route;
     activeNavigationDestination = route.destination;
 
     try {
-        rootMapTemplate.startNavigation(makeTripConfig(route));
+        if (!hostNavigationAlreadyStarted) {
+            hideAutoPlayRoutePreview();
+            rootMapTemplate.startNavigation(makeTripConfig(route));
+        } else {
+            routePreviewIsVisible = false;
+        }
+
         updateNavigationGuidance(null);
 
         if (autoDriveIsEnabled) {
@@ -1928,7 +2168,9 @@ function startAutoPlayNavigation(route, { publishSharedState = true } = {}) {
             startNavigationLocationUpdates(route);
         }
 
-        HybridAutoPlay.popToRootTemplate(false).catch(() => {});
+        if (!hostNavigationAlreadyStarted) {
+            HybridAutoPlay.popToRootTemplate(false).catch(() => {});
+        }
 
         setAutoPlayState({
             detailText: route.destination?.label || 'Destination',
@@ -2148,10 +2390,11 @@ function handleAutoPlayDisconnect() {
     rootMapTemplateIsReady = false;
     activeNavigationRoute = null;
     activeNavigationDestination = null;
+    routePreviewIsVisible = false;
     lastNavigationGuidanceLocation = null;
     autoDriveIsEnabled = false;
     stopAutoDriveSimulation();
-    abortSearchRequest();
+    cancelAutoPlaySearchWork();
     stopNavigationLocationUpdates();
     setAutoPlayState(DEFAULT_AUTO_PLAY_STATE);
 }

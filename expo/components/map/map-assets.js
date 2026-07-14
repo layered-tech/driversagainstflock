@@ -14,7 +14,10 @@ import {
     POLICE_ALERT_GENERIC_IMAGE,
     POLICE_ALERT_HIDING_IMAGE,
 } from './constants';
-import { NAVIGATION_PUCK_SIZE } from './navigation-puck-layout';
+import {
+    AUTO_PLAY_NAVIGATION_PUCK_SIZE,
+    NAVIGATION_PUCK_SIZE,
+} from './navigation-puck-layout';
 
 const POLICE_BADGE_SHIELD_PATH =
     'M24 4 L40.5 10.2 V21.8 C40.5 32.6 33.9 40.7 24 44 C14.1 40.7 7.5 32.6 7.5 21.8 V10.2 Z';
@@ -161,15 +164,15 @@ export function NavigationPuckImages() {
 
             <Mapbox.Image name={ANDROID_AUTO_NAVIGATION_PUCK_SHADOW_IMAGE}>
                 <NavigationPuckShadowSvg
-                    height={NAVIGATION_PUCK_SIZE}
-                    width={NAVIGATION_PUCK_SIZE}
+                    height={AUTO_PLAY_NAVIGATION_PUCK_SIZE}
+                    width={AUTO_PLAY_NAVIGATION_PUCK_SIZE}
                 />
             </Mapbox.Image>
 
             <Mapbox.Image name={ANDROID_AUTO_NAVIGATION_PUCK_BEARING_IMAGE}>
                 <NavigationPuckBearingSvg
-                    height={NAVIGATION_PUCK_SIZE}
-                    width={NAVIGATION_PUCK_SIZE}
+                    height={AUTO_PLAY_NAVIGATION_PUCK_SIZE}
+                    width={AUTO_PLAY_NAVIGATION_PUCK_SIZE}
                 />
             </Mapbox.Image>
         </Mapbox.Images>

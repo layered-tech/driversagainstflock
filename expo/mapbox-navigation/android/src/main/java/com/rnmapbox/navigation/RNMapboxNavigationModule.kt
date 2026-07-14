@@ -4,14 +4,23 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import com.facebook.react.bridge.ReactContext
+import com.facebook.react.uimanager.UIManagerHelper
+import com.facebook.react.uimanager.common.UIManagerType
 import com.mapbox.common.location.Location
 import com.mapbox.maps.EdgeInsets
+import com.mapbox.maps.plugin.LocationPuck2D
+import com.mapbox.maps.plugin.LocationPuck3D
+import com.mapbox.maps.plugin.ModelScaleMode
+import com.mapbox.maps.plugin.PuckBearing
 import com.mapbox.maps.plugin.animation.camera
+import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.navigation.base.ExperimentalMapboxNavigationAPI
 import com.mapbox.navigation.base.options.NavigationOptions
 import com.mapbox.navigation.base.road.model.Road
@@ -30,6 +39,8 @@ import com.mapbox.navigation.ui.maps.camera.NavigationCamera
 import com.mapbox.navigation.ui.maps.camera.data.MapboxNavigationViewportDataSource
 import com.mapbox.navigation.ui.maps.camera.state.NavigationCameraState
 import com.mapbox.navigation.ui.maps.camera.state.NavigationCameraStateChangedObserver
+import com.mapbox.navigation.ui.maps.camera.transition.NavigationCameraTransitionOptions
+import com.mapbox.navigation.ui.maps.internal.camera.updateFollowingFrameTransitionOptions
 import com.rnmapbox.rnmbx.components.mapview.RNMBXMapView
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.functions.Queues
@@ -126,6 +137,41 @@ class RNMapboxNavigationModule : Module() {
 
     AsyncFunction("getLastEnhancedLocation") {
       return@AsyncFunction lastEnhancedLocation?.toJSValueExperimental()
+    }.runOnQueue(Queues.MAIN)
+
+    AsyncFunction("applyNavigationPuck3D") { mapViewTag: Int, scale: Double ->
+      val rnMapView = resolveMapView(mapViewTag)
+      val location = rnMapView.mapView.location
+      val resolvedScale = scale.toFloat().coerceIn(
+        MINIMUM_NAVIGATION_PUCK_SCALE,
+        MAXIMUM_NAVIGATION_PUCK_SCALE
+      )
+
+      location.locationPuck = LocationPuck3D(
+        modelUri = NAVIGATION_PUCK_MODEL_URI,
+        modelScale = listOf(resolvedScale, resolvedScale, resolvedScale),
+        modelRotation = listOf(0f, 0f, 0f),
+        modelScaleMode = ModelScaleMode.VIEWPORT
+      )
+      location.puckBearing = PuckBearing.HEADING
+      location.puckBearingEnabled = true
+      location.enabled = true
+
+      return@AsyncFunction true
+    }.runOnQueue(Queues.MAIN)
+
+    AsyncFunction("clearNavigationPuck3D") { mapViewTag: Int ->
+      val rnMapView = resolveMapView(mapViewTag)
+      val location = rnMapView.mapView.location
+
+      if (location.locationPuck !is LocationPuck3D) {
+        return@AsyncFunction false
+      }
+
+      location.enabled = false
+      location.locationPuck = LocationPuck2D()
+
+      return@AsyncFunction true
     }.runOnQueue(Queues.MAIN)
 
     AsyncFunction("attachNavigationCamera") { surfaceId: String, mapViewTag: Int, options: Map<String, Any?>? ->
@@ -414,9 +460,23 @@ class RNMapboxNavigationModule : Module() {
   }
 
   private fun resolveMapView(mapViewTag: Int): RNMBXMapView {
-    val rootView = appContext.currentActivity?.window?.decorView?.rootView
-      ?: throw NavigationCameraException("Current activity view hierarchy is unavailable.")
-    val view = rootView.findViewById<View>(mapViewTag)
+    val reactContext = appContext.reactContext as? ReactContext
+    val fabricView = reactContext?.let { context ->
+      runCatching {
+        UIManagerHelper
+          .getUIManager(context, UIManagerType.FABRIC)
+          ?.resolveView(mapViewTag)
+      }.getOrNull()
+    }
+    val expoView = runCatching {
+      appContext.findView<View>(mapViewTag)
+    }.getOrNull()
+    val activityView = appContext.currentActivity
+      ?.window
+      ?.decorView
+      ?.rootView
+      ?.findViewById<View>(mapViewTag)
+    val view = fabricView ?: expoView ?: activityView
       ?: throw NavigationCameraException("Map view with tag $mapViewTag could not be resolved.")
 
     return findMapView(view)
@@ -564,7 +624,13 @@ class RNMapboxNavigationModule : Module() {
     private val onStateChanged: (NavigationCameraState) -> Unit
   ) {
     private var requestedMode = NAVIGATION_CAMERA_MODE_IDLE
+    private var followingRequestPending = false
+    private var lastLocationUpdateAtMs: Long? = null
+    private var lastLocationBoundOptionsAtMs: Long? = null
+    private var latestEnhancedLocation: Location? = null
+    private var optionsLocationUpdateTimestamp: Long? = null
     private var pendingOptions: Map<String, Any?>? = null
+    private val recentEnhancedLocations = linkedMapOf<Long, Location>()
     private val stateObserver = NavigationCameraStateChangedObserver { state ->
       onStateChanged(state)
     }
@@ -574,6 +640,20 @@ class RNMapboxNavigationModule : Module() {
     }
 
     fun onLocationMatcherResult(result: LocationMatcherResult) {
+      rememberEnhancedLocation(result.enhancedLocation)
+
+      if (requestedMode != NAVIGATION_CAMERA_MODE_FOLLOWING) {
+        viewportDataSource.onLocationChanged(result.enhancedLocation)
+        viewportDataSource.evaluate()
+        return
+      }
+
+      val transitionOptions = NavigationCameraTransitionOptions.Builder()
+        .maxDuration(nextLocationTransitionDurationMs())
+        .build()
+
+      navigationCamera.updateFollowingFrameTransitionOptions(transitionOptions)
+
       pendingOptions?.let { options ->
         pendingOptions = null
         applyOptions(options)
@@ -581,12 +661,51 @@ class RNMapboxNavigationModule : Module() {
 
       viewportDataSource.onLocationChanged(result.enhancedLocation)
       viewportDataSource.evaluate()
+
+      if (followingRequestPending) {
+        followingRequestPending = false
+        lastLocationBoundOptionsAtMs = optionsLocationUpdateTimestamp
+        navigationCamera.requestNavigationCameraToFollowing(
+          transitionOptions,
+          transitionOptions
+        )
+      }
     }
 
     fun updateOptions(options: Map<String, Any?>?) {
       if (requestedMode != NAVIGATION_CAMERA_MODE_FOLLOWING) {
         pendingOptions = null
         applyOptions(options)
+        return
+      }
+
+      val locationUpdateTimestamp = getOptionalLong(options, "locationUpdateTimestamp")
+      val appliesToCurrentLocation =
+        locationUpdateTimestamp != null && locationUpdateTimestamp != lastLocationBoundOptionsAtMs
+
+      if (appliesToCurrentLocation) {
+        pendingOptions = null
+        applyOptions(options)
+        lastLocationBoundOptionsAtMs = locationUpdateTimestamp
+        val matchingLocation = recentEnhancedLocations[locationUpdateTimestamp]
+          ?: latestEnhancedLocation
+
+        matchingLocation?.let { location ->
+          viewportDataSource.onLocationChanged(location)
+          viewportDataSource.evaluate()
+
+          if (followingRequestPending) {
+            val transitionOptions = NavigationCameraTransitionOptions.Builder()
+              .maxDuration(0)
+              .build()
+
+            followingRequestPending = false
+            navigationCamera.requestNavigationCameraToFollowing(
+              transitionOptions,
+              transitionOptions
+            )
+          }
+        }
         return
       }
 
@@ -601,6 +720,8 @@ class RNMapboxNavigationModule : Module() {
     }
 
     private fun applyOptions(options: Map<String, Any?>?) {
+      optionsLocationUpdateTimestamp =
+        getOptionalLong(options, "locationUpdateTimestamp")
       val padding = options?.get("padding") as? Map<*, *>
       viewportDataSource.followingPadding = EdgeInsets(
         getPaddingDouble(padding, "paddingTop"),
@@ -619,23 +740,88 @@ class RNMapboxNavigationModule : Module() {
     }
 
     fun setMode(mode: String) {
-      requestedMode = when (mode) {
+      val nextMode = when (mode) {
         NAVIGATION_CAMERA_MODE_FOLLOWING -> NAVIGATION_CAMERA_MODE_FOLLOWING
         else -> NAVIGATION_CAMERA_MODE_IDLE
       }
 
+      if (requestedMode == nextMode) {
+        return
+      }
+
+      requestedMode = nextMode
+
       if (requestedMode == NAVIGATION_CAMERA_MODE_FOLLOWING) {
-        navigationCamera.requestNavigationCameraToFollowing()
+        val matchingLocation = optionsLocationUpdateTimestamp?.let(recentEnhancedLocations::get)
+
+        if (matchingLocation == null) {
+          followingRequestPending = true
+        } else {
+          val transitionOptions = NavigationCameraTransitionOptions.Builder()
+            .maxDuration(0)
+            .build()
+
+          viewportDataSource.onLocationChanged(matchingLocation)
+          viewportDataSource.evaluate()
+          lastLocationBoundOptionsAtMs = optionsLocationUpdateTimestamp
+          followingRequestPending = false
+          navigationCamera.requestNavigationCameraToFollowing(
+            transitionOptions,
+            transitionOptions
+          )
+        }
       } else {
+        followingRequestPending = false
+        lastLocationUpdateAtMs = null
+        lastLocationBoundOptionsAtMs = null
+        pendingOptions?.let(::applyOptions)
         pendingOptions = null
         navigationCamera.requestNavigationCameraToIdle()
       }
     }
 
     fun detach() {
+      followingRequestPending = false
+      lastLocationUpdateAtMs = null
+      lastLocationBoundOptionsAtMs = null
+      latestEnhancedLocation = null
+      optionsLocationUpdateTimestamp = null
       pendingOptions = null
+      recentEnhancedLocations.clear()
       navigationCamera.unregisterNavigationCameraStateChangeObserver(stateObserver)
       navigationCamera.requestNavigationCameraToIdle()
+    }
+
+    private fun nextLocationTransitionDurationMs(): Long {
+      val now = SystemClock.elapsedRealtime()
+      val previousUpdateAtMs = lastLocationUpdateAtMs
+
+      lastLocationUpdateAtMs = now
+
+      if (previousUpdateAtMs == null) {
+        return 0
+      }
+
+      val intervalMs = now - previousUpdateAtMs
+
+      return if (intervalMs in 1..MAXIMUM_LOCATION_TRANSITION_INTERVAL_MS) {
+        intervalMs
+      } else {
+        0
+      }
+    }
+
+    private fun rememberEnhancedLocation(location: Location) {
+      latestEnhancedLocation = location
+
+      val timestamp = location.timestamp ?: return
+
+      recentEnhancedLocations[timestamp] = location
+
+      while (recentEnhancedLocations.size > RECENT_ENHANCED_LOCATION_LIMIT) {
+        val oldestTimestamp = recentEnhancedLocations.keys.firstOrNull() ?: break
+        recentEnhancedLocations.remove(oldestTimestamp)
+      }
     }
 
     private fun getPaddingDouble(map: Map<*, *>?, key: String): Double {
@@ -654,9 +840,19 @@ class RNMapboxNavigationModule : Module() {
       }
     }
 
+    private fun getOptionalLong(map: Map<*, *>?, key: String): Long? {
+      if (map == null || !map.containsKey(key)) {
+        return null
+      }
+
+      return (map[key] as? Number)?.toLong()
+    }
+
     private companion object {
+      private const val MAXIMUM_LOCATION_TRANSITION_INTERVAL_MS = 5000L
       private const val NAVIGATION_CAMERA_MODE_FOLLOWING = "following"
       private const val NAVIGATION_CAMERA_MODE_IDLE = "idle"
+      private const val RECENT_ENHANCED_LOCATION_LIMIT = 8
     }
   }
 
@@ -664,9 +860,12 @@ class RNMapboxNavigationModule : Module() {
     private const val ENHANCED_LOCATION_EVENT_NAME = "onEnhancedLocation"
     private const val KILOMETERS_PER_HOUR_TO_MILES_PER_HOUR = 0.62137119223733
     private const val LOG_TAG = "RNMapboxNavigation"
+    private const val MAXIMUM_NAVIGATION_PUCK_SCALE = 128f
     private const val METERS_PER_SECOND_TO_MILES_PER_HOUR = 2.2369362920544
+    private const val MINIMUM_NAVIGATION_PUCK_SCALE = 16f
     private const val MODULE_NAME = "RNMapboxNavigation"
     private const val NAVIGATION_CAMERA_STATE_EVENT_NAME = "onNavigationCameraState"
+    private const val NAVIGATION_PUCK_MODEL_URI = "asset://navigation_puck.glb"
     private const val RAW_LOCATION_EVENT_NAME = "onRawLocation"
     private const val TRIP_SESSION_STATE_EVENT_NAME = "onTripSessionState"
     private const val UNAVAILABLE_STATE = "unavailable"

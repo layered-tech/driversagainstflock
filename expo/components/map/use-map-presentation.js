@@ -13,6 +13,7 @@ import {
     MAP_SEARCH_BAR_HEIGHT,
 } from './constants';
 import { getMapLayerByStyleURL } from './map-preferences';
+import { getMapboxCompassSafeAreaInsets } from './mapbox-ornament-layout';
 
 const DRIVING_ROUTE_COMPASS_EXTRA_BOTTOM_OFFSET = 18;
 
@@ -102,18 +103,10 @@ export function useMapPresentation({
     const voiceSearchIconColor = voiceSearchIsListening
         ? '#FF4D4F'
         : searchPrimaryIconColor;
-    const mapboxCompassUsesSafeAreaInsets = Platform.OS !== 'ios';
-    const mapboxCompassUsesHorizontalSafeAreaInsets =
-        mapboxCompassUsesSafeAreaInsets && resolvedSearchSource !== 'auto-play';
-    const mapboxCompassInsetBottom = mapboxCompassUsesSafeAreaInsets
-        ? insets.bottom
-        : 0;
-    const mapboxCompassInsetLeft = mapboxCompassUsesHorizontalSafeAreaInsets
-        ? insets.left
-        : 0;
-    const mapboxCompassInsetTop = mapboxCompassUsesSafeAreaInsets
-        ? insets.top
-        : 0;
+    const mapboxCompassInsets = getMapboxCompassSafeAreaInsets({
+        insets,
+        platformOS: Platform.OS,
+    });
     // The car screen surface never renders the phone's bottom destination
     // card — the head unit draws its own ETA card and reports it through the
     // safe-area insets — so lifting the compass by the card height there
@@ -161,17 +154,17 @@ export function useMapPresentation({
 
             return {
                 bottom:
-                    mapboxCompassInsetBottom +
+                    mapboxCompassInsets.bottom +
                     MAP_CONTROL_EDGE_OFFSET +
                     destinationBarOffset,
-                left: mapboxCompassInsetLeft + MAP_CONTROL_EDGE_OFFSET,
+                left: mapboxCompassInsets.left + MAP_CONTROL_EDGE_OFFSET,
             };
         }
 
         return {
-            left: mapboxCompassInsetLeft + MAP_CONTROL_EDGE_OFFSET,
+            left: mapboxCompassInsets.left + MAP_CONTROL_EDGE_OFFSET,
             top:
-                mapboxCompassInsetTop +
+                mapboxCompassInsets.top +
                 MAP_CONTROL_EDGE_OFFSET +
                 MAP_SEARCH_BAR_HEIGHT +
                 MAP_CONTROL_EDGE_OFFSET,
@@ -181,9 +174,9 @@ export function useMapPresentation({
         drivingRouteCompassBottomOffset,
         hasActiveDirectionsRoute,
         isDrivingMode,
-        mapboxCompassInsetBottom,
-        mapboxCompassInsetLeft,
-        mapboxCompassInsetTop,
+        mapboxCompassInsets.bottom,
+        mapboxCompassInsets.left,
+        mapboxCompassInsets.top,
     ]);
     const mapControlLayoutInsets = useMemo(
         () => ({

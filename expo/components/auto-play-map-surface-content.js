@@ -44,6 +44,7 @@ import {
     DIRECTIONS_FIELD_DESTINATION,
     DIRECTIONS_FIELD_START,
     getDirectionsRouteBounds,
+    getDirectionsRouteOptionsBounds,
     getDirectionsWaypointCoordinate,
     makeDirectionsDebugFeatureCollection,
     makeDirectionsRouteFeatureCollection,
@@ -61,6 +62,7 @@ import {
     makeMarkerFeatureCollection,
     normalizeDirectionDegrees,
 } from './map/geo';
+import { getFallbackCameraFollowProps } from './map/location-bound-camera-follow';
 import { MapCanvas } from './map/map-canvas';
 import {
     MapScreenProviders,
@@ -638,16 +640,13 @@ function useAutoPlayMapController({
         cameraRef,
         cameraViewportInsets: viewportMetrics.cameraPadding,
         clampZoomLevel,
-        currentCourseHeadingRef,
         currentZoomRef,
         followSpeedZoomEnabled: true,
         followViewportAnchorY,
         isDrivingMode,
-        isMapReadyRef,
         locationTrackingMode,
         locationTrackingModeRef,
         markerLoadsEnabledRef,
-        pendingCameraStopRef,
         setTrackingMode,
         userLocationRef,
         viewportHeight: viewportMetrics.height,
@@ -1073,12 +1072,10 @@ function useAutoPlayMapController({
         mode: navigationCameraMode,
         surfaceId: 'android-auto',
     });
-    const nativeCameraFollowProps = navigationCamera.attached
-        ? {
-              ...followLocationMode.nativeCameraFollowProps,
-              enabled: false,
-          }
-        : followLocationMode.nativeCameraFollowProps;
+    const nativeCameraFollowProps = getFallbackCameraFollowProps(
+        followLocationMode.nativeCameraFollowProps,
+        navigationCamera.state,
+    );
 
     const handleZoomPress = useCallback(
         (zoomDelta, center) => {
@@ -1250,7 +1247,7 @@ function useAutoPlayMapController({
             return;
         }
 
-        followLocationMode.recenter(currentLocation, { isUserInitiated: true });
+        followLocationMode.recenter(currentLocation);
     }, [
         findCurrentLocation,
         followLocationMode,
@@ -1274,25 +1271,16 @@ function useAutoPlayMapController({
 
             if (isDrivingMode) {
                 followLocationMode.pauseUntilRecenter();
-                cameraRef.current?.fitBounds(
-                    bounds.sw,
-                    bounds.ne,
-                    getCameraPaddingArray(resolvedPadding),
-                    duration,
-                );
             } else {
                 setTrackingMode(LOCATION_TRACKING_NONE);
-                cameraRef.current?.setCamera({
-                    animationDuration: duration,
-                    animationMode: 'easeTo',
-                    bounds: {
-                        ne: bounds.ne,
-                        sw: bounds.sw,
-                    },
-                    padding: resolvedPadding,
-                    pitch: 0,
-                });
             }
+
+            cameraRef.current?.fitBounds(
+                bounds.ne,
+                bounds.sw,
+                getCameraPaddingArray(resolvedPadding),
+                duration,
+            );
 
             return Boolean(cameraRef.current);
         },
@@ -1422,17 +1410,21 @@ export function AutoPlayMapSurfaceContent({
     const autoPlayState = useAutoPlayState();
     const isRootMapSurface = !id || id === AUTO_PLAY_ROOT_MODULE_ID;
     const fittedDirectionsRouteKeyRef = useRef('');
+    const routePreviewWasActiveRef = useRef(false);
     const [layoutSize, setLayoutSize] = useState(null);
     const [followViewportAnchorY, setFollowViewportAnchorY] =
         useState(undefined);
     const mapPreferences = useMapPreferencesState();
     const markerLoader = useMarkerLoader();
     const isDrivingMode = autoPlayState.drivingModeIsActive !== false;
+    const routePreviewIsActive = Boolean(
+        !autoPlayState.isNavigating && autoPlayState.directionsRoute,
+    );
     const autoPlayColorScheme = useAutoPlayColorScheme(colorScheme);
-    const activeDirectionsRoute =
-        autoPlayState.isNavigating && autoPlayState.directionsRoute
-            ? autoPlayState.directionsRoute
-            : null;
+    const displayedDirectionsRoute = autoPlayState.directionsRoute ?? null;
+    const activeDirectionsRoute = autoPlayState.isNavigating
+        ? displayedDirectionsRoute
+        : null;
     const userLocationIsUsableForLightPreset =
         Number.isFinite(Number(mapPreferences.userLocation?.latitude)) &&
         Number.isFinite(Number(mapPreferences.userLocation?.longitude));
@@ -1532,27 +1524,27 @@ export function AutoPlayMapSurfaceContent({
         [policeAlertsLoader.policeAlerts],
     );
     const directionsRouteFeatureCollection = useMemo(
-        () => makeDirectionsRouteFeatureCollection(activeDirectionsRoute),
-        [activeDirectionsRoute],
+        () => makeDirectionsRouteFeatureCollection(displayedDirectionsRoute),
+        [displayedDirectionsRoute],
     );
     const directionsDebugFeatureCollection = useMemo(
         () =>
             makeDirectionsDebugFeatureCollection(
-                activeDirectionsRoute,
+                displayedDirectionsRoute,
                 debugOverlaysAreVisible &&
                     debugOverlayVisibility?.[
                         DEBUG_OVERLAY_DIRECTIONS_GEOMETRY
                     ] === true,
             ),
         [
-            activeDirectionsRoute,
+            displayedDirectionsRoute,
             debugOverlayVisibility,
             debugOverlaysAreVisible,
         ],
     );
     const directionsWaypointMarkers = useMemo(
-        () => makeAutoPlayDirectionsWaypointMarkers(activeDirectionsRoute),
-        [activeDirectionsRoute],
+        () => makeAutoPlayDirectionsWaypointMarkers(displayedDirectionsRoute),
+        [displayedDirectionsRoute],
     );
     const initialCameraSettings = useMemo(
         () =>
@@ -1599,6 +1591,23 @@ export function AutoPlayMapSurfaceContent({
         preferredFramesPerSecond: isRootMapSurface ? 30 : 20,
         presentation,
     });
+    useEffect(() => {
+        const routePreviewWasActive = routePreviewWasActiveRef.current;
+
+        routePreviewWasActiveRef.current = routePreviewIsActive;
+
+        if (!routePreviewWasActive || routePreviewIsActive) {
+            return;
+        }
+
+        if (isDrivingMode) {
+            controller.handleDrivingRecenterPress().catch(() => {});
+        }
+    }, [
+        controller.handleDrivingRecenterPress,
+        isDrivingMode,
+        routePreviewIsActive,
+    ]);
     useEffect(() => {
         if (!isRootMapSurface) {
             return undefined;
@@ -1657,21 +1666,39 @@ export function AutoPlayMapSurfaceContent({
     }, [isRootMapSurface]);
 
     useEffect(() => {
-        if (
-            !isDrivingMode ||
-            mapPreferences.userLocation ||
-            !activeDirectionsRoute
-        ) {
+        if (!displayedDirectionsRoute) {
             return;
         }
 
+        const navigationFallbackFitIsNeeded = Boolean(
+            autoPlayState.isNavigating &&
+            isDrivingMode &&
+            !mapPreferences.userLocation,
+        );
+
+        if (!routePreviewIsActive && !navigationFallbackFitIsNeeded) {
+            return;
+        }
+
+        const bounds = routePreviewIsActive
+            ? getDirectionsRouteOptionsBounds(displayedDirectionsRoute)
+            : (displayedDirectionsRoute.bounds ??
+              getDirectionsRouteBounds(displayedDirectionsRoute));
+        const boundsKey = [bounds?.sw, bounds?.ne]
+            .flat()
+            .filter((coordinate) => Number.isFinite(Number(coordinate)))
+            .join(',');
         const routeFitKey = [
-            activeDirectionsRoute.requestedAt,
-            activeDirectionsRoute.selectedRouteKey,
-            activeDirectionsRoute.routeKey,
-            activeDirectionsRoute.destination?.id,
-            activeDirectionsRoute.destination?.label,
-            activeDirectionsRoute.destination?.inputValue,
+            routePreviewIsActive ? 'preview' : 'navigation',
+            displayedDirectionsRoute.requestedAt,
+            routePreviewIsActive
+                ? 'all-routes'
+                : displayedDirectionsRoute.selectedRouteKey,
+            routePreviewIsActive ? '' : displayedDirectionsRoute.routeKey,
+            displayedDirectionsRoute.destination?.id,
+            displayedDirectionsRoute.destination?.label,
+            displayedDirectionsRoute.destination?.inputValue,
+            boundsKey,
             viewportMetrics.key,
         ].join(':');
 
@@ -1683,17 +1710,14 @@ export function AutoPlayMapSurfaceContent({
         }
 
         fittedDirectionsRouteKeyRef.current = routeFitKey;
-
-        const bounds =
-            activeDirectionsRoute.bounds ??
-            getDirectionsRouteBounds(activeDirectionsRoute);
-
         controller.fitCameraToBounds(bounds);
     }, [
-        activeDirectionsRoute,
+        autoPlayState.isNavigating,
         controller.fitCameraToBounds,
+        displayedDirectionsRoute,
         isDrivingMode,
         mapPreferences.userLocation,
+        routePreviewIsActive,
         viewportMetrics.key,
     ]);
 

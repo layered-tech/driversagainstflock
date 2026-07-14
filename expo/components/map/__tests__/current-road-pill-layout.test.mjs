@@ -3,11 +3,17 @@ import { describe, test } from 'node:test';
 import { shouldShowCurrentRoadPill } from '../current-road-pill-layout.js';
 import { getRetainedCurrentRoadText } from '../current-road-state.js';
 import {
+    AUTO_PLAY_NAVIGATION_PUCK_SIZE,
     getNavigationPuckAnchorY,
     NAVIGATION_PUCK_SIZE,
 } from '../navigation-puck-layout.js';
 
 describe('current road pill layout', () => {
+    test('scales navigation pucks for mobile and car-host surfaces', () => {
+        assert.equal(NAVIGATION_PUCK_SIZE, 75);
+        assert.equal(AUTO_PLAY_NAVIGATION_PUCK_SIZE, 62.5);
+    });
+
     test('uses the measured puck slot center as the camera anchor', () => {
         assert.equal(
             getNavigationPuckAnchorY({
@@ -21,9 +27,10 @@ describe('current road pill layout', () => {
         assert.equal(
             getNavigationPuckAnchorY({
                 layoutY: 380,
+                puckSize: AUTO_PLAY_NAVIGATION_PUCK_SIZE,
                 viewportTop: 60,
             }),
-            60 + 380 + NAVIGATION_PUCK_SIZE / 2,
+            60 + 380 + AUTO_PLAY_NAVIGATION_PUCK_SIZE / 2,
         );
     });
 
@@ -32,6 +39,10 @@ describe('current road pill layout', () => {
         assert.equal(getNavigationPuckAnchorY({ layoutY: null }), null);
         assert.equal(
             getNavigationPuckAnchorY({ layoutY: 100, viewportTop: NaN }),
+            null,
+        );
+        assert.equal(
+            getNavigationPuckAnchorY({ layoutY: 100, puckSize: NaN }),
             null,
         );
     });

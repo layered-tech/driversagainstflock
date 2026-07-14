@@ -1,11 +1,8 @@
 export function shouldShowNavigationPuck({
     isDrivingMode,
-    isFollowing,
     navigationPuckVariant,
 }) {
-    return (
-        isDrivingMode || isFollowing || navigationPuckVariant === 'auto-play'
-    );
+    return isDrivingMode || navigationPuckVariant === 'auto-play';
 }
 
 export function shouldUseAutoPlayNavigationPuckImages(navigationPuckVariant) {

@@ -20,7 +20,7 @@ private let TRIP_SESSION_STATE_UNAVAILABLE = "unavailable"
 private let NAVIGATION_CAMERA_MODE_FOLLOWING = "following"
 private let NAVIGATION_CAMERA_MODE_IDLE = "idle"
 
-private let CAMERA_EASE_DURATION: TimeInterval = 1.0
+private let MAXIMUM_LOCATION_TRANSITION_INTERVAL: TimeInterval = 5.0
 
 // MARK: - Expo module
 
@@ -67,6 +67,16 @@ public final class RNMapboxNavigationModule: Module {
 
     AsyncFunction("getLastEnhancedLocation") { () async -> [String: Any]? in
       await RNMapboxNavigationController.shared.getLastEnhancedLocation()
+    }
+
+    AsyncFunction("applyNavigationPuck3D") { (mapViewTag: Int, scale: Double) async throws -> Bool in
+      let mapView = try await self.resolveMapView(tag: mapViewTag)
+      return try await self.applyNavigationPuck3D(to: mapView, scale: scale)
+    }
+
+    AsyncFunction("clearNavigationPuck3D") { (mapViewTag: Int) async throws -> Bool in
+      let mapView = try await self.resolveMapView(tag: mapViewTag)
+      return try await self.clearNavigationPuck3D(from: mapView)
     }
 
     AsyncFunction("attachNavigationCamera") { (surfaceId: String, mapViewTag: Int, options: [String: Any]?) async throws -> Bool in
@@ -133,6 +143,64 @@ public final class RNMapboxNavigationModule: Module {
 
     return nil
   }
+
+  @MainActor
+  private func applyNavigationPuck3D(to mapView: MapView, scale: Double) throws -> Bool {
+    guard let location = mapView.location else {
+      throw NavigationPuckException("Mapbox location component is unavailable.")
+    }
+
+    guard let modelURL = Self.navigationPuckModelURL() else {
+      throw NavigationPuckException("Bundled navigation_puck.glb could not be found.")
+    }
+
+    let resolvedScale = min(max(scale, 16), 128)
+    let model = Model(
+      id: "drivers-against-flock-navigation-puck",
+      uri: modelURL,
+      orientation: [0, 0, 0]
+    )
+    let configuration = Puck3DConfiguration(
+      model: model,
+      modelScale: .constant([resolvedScale, resolvedScale, resolvedScale])
+    )
+
+    location.options.puckType = .puck3D(configuration)
+    location.options.puckBearing = .heading
+    location.options.puckBearingEnabled = true
+
+    return true
+  }
+
+  @MainActor
+  private func clearNavigationPuck3D(from mapView: MapView) throws -> Bool {
+    guard let location = mapView.location else {
+      throw NavigationPuckException("Mapbox location component is unavailable.")
+    }
+
+    guard
+      let puckType = location.options.puckType,
+      case .puck3D = puckType
+    else {
+      return false
+    }
+
+    location.options.puckType = nil
+
+    return true
+  }
+
+  private static func navigationPuckModelURL() -> URL? {
+    let bundles = [Bundle.main, Bundle(for: RNMapboxNavigationModule.self)]
+
+    for bundle in bundles {
+      if let url = bundle.url(forResource: "navigation_puck", withExtension: "glb") {
+        return url
+      }
+    }
+
+    return nil
+  }
 }
 
 // MARK: - Errors
@@ -151,6 +219,16 @@ private struct MissingAccessTokenException: LocalizedError {
 }
 
 private struct NavigationCameraException: LocalizedError {
+  private let message: String
+
+  init(_ message: String) {
+    self.message = message
+  }
+
+  var errorDescription: String? { message }
+}
+
+private struct NavigationPuckException: LocalizedError {
   private let message: String
 
   init(_ message: String) {
@@ -271,7 +349,7 @@ final class RNMapboxNavigationController {
       return false
     }
 
-    surface.setMode(mode, lastLocation: lastEnhancedCLLocation)
+    surface.setMode(mode)
     return true
   }
 
@@ -608,6 +686,7 @@ final class RNMapboxNavigationController {
 @MainActor
 private final class NavigationCameraSurface {
   private struct CameraOptionsSnapshot {
+    let locationUpdateTimestamp: Int64?
     let paddingTop: Double
     let paddingLeft: Double
     let paddingBottom: Double
@@ -627,7 +706,15 @@ private final class NavigationCameraSurface {
   private var paddingRight: Double = 0
   private var zoom: Double?
   private var pitch: Double?
+  private var followingStateIsPending = false
+  private var lastLocationBoundOptionsAtMs: Int64?
+  private var locationTransitionEndsAtUptime: TimeInterval?
+  private var lastLocationUpdateUptime: TimeInterval?
+  private var latestEnhancedLocation: CLLocation?
+  private var optionsLocationUpdateTimestamp: Int64?
   private var pendingOptions: CameraOptionsSnapshot?
+  private var recentEnhancedLocations = [Int64: CLLocation]()
+  private var recentEnhancedLocationTimestamps = [Int64]()
 
   init(surfaceId: String, mapView: MapView, onStateChanged: @escaping @MainActor (String) -> Void) {
     self.surfaceId = surfaceId
@@ -651,24 +738,57 @@ private final class NavigationCameraSurface {
       return
     }
 
+    let locationUpdateTimestamp = nextOptions.locationUpdateTimestamp
+    let appliesToCurrentLocation = locationUpdateTimestamp != nil
+      && locationUpdateTimestamp != lastLocationBoundOptionsAtMs
+
+    if appliesToCurrentLocation, let locationUpdateTimestamp {
+      pendingOptions = nil
+      applyOptions(nextOptions)
+      lastLocationBoundOptionsAtMs = locationUpdateTimestamp
+
+      if let location = recentEnhancedLocations[locationUpdateTimestamp] ?? latestEnhancedLocation {
+        applyCamera(to: location, duration: remainingLocationTransitionDuration())
+        publishFollowingStateIfNeeded()
+      }
+      return
+    }
+
     // Keep the latest passive camera snapshot until a fresh matched location
     // frames it. Applying it now would animate to the previous location.
     pendingOptions = nextOptions
   }
 
-  func setMode(_ mode: String, lastLocation: CLLocation?) {
+  func setMode(_ mode: String) {
     let nextMode = mode == NAVIGATION_CAMERA_MODE_FOLLOWING
       ? NAVIGATION_CAMERA_MODE_FOLLOWING
       : NAVIGATION_CAMERA_MODE_IDLE
 
+    guard self.mode != nextMode else {
+      return
+    }
+
     self.mode = nextMode
 
     if nextMode == NAVIGATION_CAMERA_MODE_FOLLOWING {
-      if let lastLocation {
-        applyCamera(to: lastLocation, animated: true)
+      followingStateIsPending = true
+
+      if
+        let optionsLocationUpdateTimestamp,
+        let location = recentEnhancedLocations[optionsLocationUpdateTimestamp]
+      {
+        applyCamera(to: location, duration: 0)
+        lastLocationBoundOptionsAtMs = optionsLocationUpdateTimestamp
+        publishFollowingStateIfNeeded()
       }
-      onStateChanged(NAVIGATION_CAMERA_MODE_FOLLOWING)
     } else {
+      followingStateIsPending = false
+      lastLocationBoundOptionsAtMs = nil
+      locationTransitionEndsAtUptime = nil
+      lastLocationUpdateUptime = nil
+      if let pendingOptions {
+        applyOptions(pendingOptions)
+      }
       pendingOptions = nil
       mapView?.camera.cancelAnimations()
       onStateChanged(NAVIGATION_CAMERA_MODE_IDLE)
@@ -676,26 +796,43 @@ private final class NavigationCameraSurface {
   }
 
   func onEnhancedLocation(_ location: CLLocation) {
+    rememberEnhancedLocation(location)
+
     guard mode == NAVIGATION_CAMERA_MODE_FOLLOWING else {
       return
     }
+
+    let transitionDuration = nextLocationTransitionDuration()
+    locationTransitionEndsAtUptime = transitionDuration > 0
+      ? ProcessInfo.processInfo.systemUptime + transitionDuration
+      : nil
 
     if let pendingOptions {
       self.pendingOptions = nil
       applyOptions(pendingOptions)
     }
 
-    applyCamera(to: location, animated: true)
+    applyCamera(to: location, duration: transitionDuration)
+    publishFollowingStateIfNeeded()
   }
 
   func detach() {
+    followingStateIsPending = false
+    lastLocationBoundOptionsAtMs = nil
+    locationTransitionEndsAtUptime = nil
+    lastLocationUpdateUptime = nil
+    latestEnhancedLocation = nil
+    optionsLocationUpdateTimestamp = nil
     pendingOptions = nil
+    recentEnhancedLocations.removeAll()
+    recentEnhancedLocationTimestamps.removeAll()
     mapView?.camera.cancelAnimations()
     onStateChanged(NAVIGATION_CAMERA_MODE_IDLE)
     mapView = nil
   }
 
   private func applyOptions(_ options: CameraOptionsSnapshot) {
+    optionsLocationUpdateTimestamp = options.locationUpdateTimestamp
     paddingTop = options.paddingTop
     paddingLeft = options.paddingLeft
     paddingBottom = options.paddingBottom
@@ -704,7 +841,31 @@ private final class NavigationCameraSurface {
     pitch = options.pitch
   }
 
-  private func applyCamera(to location: CLLocation, animated: Bool) {
+  private func publishFollowingStateIfNeeded() {
+    guard followingStateIsPending else {
+      return
+    }
+
+    followingStateIsPending = false
+    lastLocationBoundOptionsAtMs = optionsLocationUpdateTimestamp
+    onStateChanged(NAVIGATION_CAMERA_MODE_FOLLOWING)
+  }
+
+  private func rememberEnhancedLocation(_ location: CLLocation) {
+    latestEnhancedLocation = location
+
+    let timestamp = Self.locationTimestampMilliseconds(location)
+    recentEnhancedLocations[timestamp] = location
+    recentEnhancedLocationTimestamps.removeAll { $0 == timestamp }
+    recentEnhancedLocationTimestamps.append(timestamp)
+
+    while recentEnhancedLocationTimestamps.count > 8 {
+      let oldestTimestamp = recentEnhancedLocationTimestamps.removeFirst()
+      recentEnhancedLocations.removeValue(forKey: oldestTimestamp)
+    }
+  }
+
+  private func applyCamera(to location: CLLocation, duration: TimeInterval) {
     guard let mapView else {
       return
     }
@@ -722,11 +883,43 @@ private final class NavigationCameraSurface {
       pitch: pitch.map { CGFloat($0) }
     )
 
-    if animated {
-      _ = mapView.camera.ease(to: cameraOptions, duration: CAMERA_EASE_DURATION)
+    mapView.camera.cancelAnimations()
+
+    if duration > 0 {
+      _ = mapView.camera.ease(to: cameraOptions, duration: duration)
     } else {
       mapView.mapboxMap.setCamera(to: cameraOptions)
     }
+  }
+
+  private func nextLocationTransitionDuration() -> TimeInterval {
+    let now = ProcessInfo.processInfo.systemUptime
+    defer {
+      lastLocationUpdateUptime = now
+    }
+
+    guard let previousUpdateUptime = lastLocationUpdateUptime else {
+      return 0
+    }
+
+    let interval = now - previousUpdateUptime
+
+    guard interval > 0, interval <= MAXIMUM_LOCATION_TRANSITION_INTERVAL else {
+      return 0
+    }
+
+    return interval
+  }
+
+  private func remainingLocationTransitionDuration() -> TimeInterval {
+    guard let locationTransitionEndsAtUptime else {
+      return 0
+    }
+
+    return max(
+      0,
+      locationTransitionEndsAtUptime - ProcessInfo.processInfo.systemUptime
+    )
   }
 
   private static func double(_ value: Any?) -> Double? {
@@ -742,10 +935,15 @@ private final class NavigationCameraSurface {
     }
   }
 
+  private static func locationTimestampMilliseconds(_ location: CLLocation) -> Int64 {
+    Int64(location.timestamp.timeIntervalSince1970 * 1000)
+  }
+
   private static func optionsSnapshot(_ options: [String: Any]?) -> CameraOptionsSnapshot {
     let padding = options?["padding"] as? [String: Any]
 
     return CameraOptionsSnapshot(
+      locationUpdateTimestamp: double(options?["locationUpdateTimestamp"]).map { Int64($0) },
       paddingTop: double(padding?["paddingTop"]) ?? 0,
       paddingLeft: double(padding?["paddingLeft"]) ?? 0,
       paddingBottom: double(padding?["paddingBottom"]) ?? 0,

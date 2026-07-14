@@ -60,6 +60,9 @@ diff --git a/node_modules/@iternio/react-native-auto-play/ios/templates/MapTempl
 index 8930590..f46f29c 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift
 +++ b/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift
+@@ -37 +37,2 @@ class MapTemplate: AutoPlayHeaderProviding,
+     var currentTripId: String?
++    var currentRouteId: String?
 @@ -50,6 +50,8 @@ class MapTemplate: AutoPlayHeaderProviding,
          visibleTravelEstimate = config.visibleTravelEstimate
  
@@ -81,6 +84,21 @@ index 8930590..f46f29c 100644
      func onPanButtonPress() {
          if isPanningInterfaceVisible {
              template.dismissPanningInterface(animated: true)
+@@ -544 +552,2 @@ class MapTemplate: AutoPlayHeaderProviding,
+         currentTripId = nil
++        currentRouteId = nil
+@@ -559 +568,2 @@ class MapTemplate: AutoPlayHeaderProviding,
+         let tripId = trip.id
++        let routeId = routeChoice.id
+@@ -561 +571 @@ class MapTemplate: AutoPlayHeaderProviding,
+-        if currentTripId != nil && currentTripId == tripId {
++        if currentTripId == tripId && currentRouteId == routeId {
+@@ -565 +575,2 @@ class MapTemplate: AutoPlayHeaderProviding,
+-        currentTripId = trip.id
++        currentTripId = tripId
++        currentRouteId = routeId
+@@ -567 +578,0 @@ class MapTemplate: AutoPlayHeaderProviding,
+-        let routeId = routeChoice.id
 diff --git a/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js b/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js
 index abdbba8..2d39b0f 100644
 --- a/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js

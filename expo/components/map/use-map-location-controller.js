@@ -43,6 +43,7 @@ import {
     normalizeDirectionDegrees,
     normalizeLongitude,
 } from './geo';
+import { getFallbackCameraFollowProps } from './location-bound-camera-follow';
 import { shouldUseDeviceLocationWatch } from './location-watch-options';
 import { getPlaceCoordinate } from './place-formatters';
 import { useDeferredCameraDebugState } from './use-deferred-camera-debug-state';
@@ -325,16 +326,13 @@ export function useMapLocationController({
     const followLocationMode = useFollowLocationMode({
         cameraRef,
         clampZoomLevel,
-        currentCourseHeadingRef,
         currentZoomRef,
         followSpeedZoomEnabled: true,
         followViewportAnchorY: drivingCameraFollowViewportAnchorY,
         isDrivingMode,
-        isMapReadyRef,
         locationTrackingMode,
         locationTrackingModeRef,
         markerLoadsEnabledRef,
-        pendingCameraStopRef,
         setTrackingMode,
         userLocationRef,
     });
@@ -777,12 +775,10 @@ export function useMapLocationController({
         mode: navigationCameraMode,
         surfaceId: 'android-driving-mode',
     });
-    const nativeCameraFollowProps = navigationCamera.attached
-        ? {
-              ...followLocationMode.nativeCameraFollowProps,
-              enabled: false,
-          }
-        : followLocationMode.nativeCameraFollowProps;
+    const nativeCameraFollowProps = getFallbackCameraFollowProps(
+        followLocationMode.nativeCameraFollowProps,
+        navigationCamera.state,
+    );
 
     const handleZoomPress = useCallback(
         (zoomDelta) => {
@@ -916,7 +912,7 @@ export function useMapLocationController({
             return;
         }
 
-        followLocationMode.recenter(currentLocation, { isUserInitiated: true });
+        followLocationMode.recenter(currentLocation);
     }, [
         findCurrentLocation,
         followLocationMode,
