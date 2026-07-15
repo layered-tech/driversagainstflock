@@ -10,8 +10,8 @@ const CARPLAY_MAP_LAYER_SLOTS = Object.freeze({
     cameraCone: undefined,
     cameraNode: undefined,
     routePath: 'top',
-    userLocationPuck: 'top',
-    userLocationPuckAboveLayer: 'directions-route-line',
+    userLocationPuck: undefined,
+    userLocationPuckAboveLayer: undefined,
 });
 
 const DEFAULT_MAP_LAYER_SLOTS = Object.freeze({

@@ -19,7 +19,7 @@ describe('Mapbox Standard layer slots', () => {
         );
     });
 
-    test('places the CarPlay puck above its selected route line', () => {
+    test('places the CarPlay puck above slotted route layers', () => {
         assert.deepEqual(
             getMapLayerSlots({
                 navigationPuckVariant: 'auto-play',
@@ -29,8 +29,8 @@ describe('Mapbox Standard layer slots', () => {
                 cameraCone: undefined,
                 cameraNode: undefined,
                 routePath: 'top',
-                userLocationPuck: 'top',
-                userLocationPuckAboveLayer: 'directions-route-line',
+                userLocationPuck: undefined,
+                userLocationPuckAboveLayer: undefined,
             },
         );
     });
