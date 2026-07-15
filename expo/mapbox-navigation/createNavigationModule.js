@@ -165,14 +165,12 @@ function createNavigationModule({
             Math.min(Math.max(numericScale, 16), 128),
         ];
 
-        if (Platform.OS === 'android') {
-            nativeArguments.push(
-                slot === 'bottom' || slot === 'middle' || slot === 'top'
-                    ? slot
-                    : null,
-                layerAbove === 'directions-route-line' ? layerAbove : null,
-            );
-        }
+        nativeArguments.push(
+            slot === 'bottom' || slot === 'middle' || slot === 'top'
+                ? slot
+                : null,
+            layerAbove === 'directions-route-line' ? layerAbove : null,
+        );
 
         return Boolean(
             await NativeRNMapboxNavigation.applyNavigationPuck3D(

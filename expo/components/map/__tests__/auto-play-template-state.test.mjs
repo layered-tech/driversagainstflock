@@ -3,7 +3,10 @@ import { describe, test } from 'node:test';
 import {
     autoPlaySearchRequestIsCurrent,
     getAutoPlayHeaderButtonVisibility,
+    getAutoPlayRouteChoiceText,
+    getAutoPlayRoutePreviewFitKey,
     getAutoPlaySearchLoadingCopy,
+    getAutoPlayTripEstimateValues,
     makeAutoPlayTripSelectorTrips,
     makeAutoPlayTripSteps,
 } from '../../auto-play-template-state.js';
@@ -98,6 +101,77 @@ describe('Auto Play template state', () => {
             routeOptions.map((routeOption) => routeOption.routeKey),
             ['fastest', 'private'],
         );
+    });
+
+    test('builds cumulative trip estimates with route totals at the destination', () => {
+        assert.deepEqual(
+            getAutoPlayTripEstimateValues({
+                distance: 1000,
+                duration: 600,
+                maneuvers: [
+                    { distance: 100, duration: 60 },
+                    { distance: 300, duration: 120 },
+                ],
+            }),
+            {
+                destination: {
+                    distanceMeters: 1000,
+                    durationSeconds: 600,
+                },
+                maneuverEstimates: [
+                    { distanceMeters: 0, durationSeconds: 0 },
+                    { distanceMeters: 100, durationSeconds: 60 },
+                ],
+                origin: { distanceMeters: 0, durationSeconds: 0 },
+            },
+        );
+    });
+
+    test('falls back to maneuver sums when route totals are absent', () => {
+        assert.deepEqual(
+            getAutoPlayTripEstimateValues({
+                maneuvers: [
+                    { distance: 125, duration: 45 },
+                    { distance: 375, duration: 135 },
+                ],
+            }).destination,
+            {
+                distanceMeters: 500,
+                durationSeconds: 180,
+            },
+        );
+    });
+
+    test('keeps route titles separate from comparison-only selector copy', () => {
+        assert.deepEqual(
+            getAutoPlayRouteChoiceText({
+                routeLabel: 'Private',
+                selectionSummary:
+                    '2 min slower - 0.5 mi longer - Potentially avoids 3 monitored nodes',
+            }),
+            {
+                additionalInformationVariants: ['Private route'],
+                selectionSummaryVariants: [
+                    '2 min slower - 0.5 mi longer - Potentially avoids 3 monitored nodes',
+                ],
+                summaryVariants: ['Private route'],
+            },
+        );
+    });
+
+    test('changes preview fit identity with the selected route', () => {
+        const bounds = { ne: [-96.7, 32.9], sw: [-96.9, 32.7] };
+        const privateKey = getAutoPlayRoutePreviewFitKey({
+            bounds,
+            route: { requestedAt: 123, selectedRouteKey: 'private' },
+            viewportKey: '1920x720',
+        });
+        const fastestKey = getAutoPlayRoutePreviewFitKey({
+            bounds,
+            route: { requestedAt: 123, selectedRouteKey: 'fastest' },
+            viewportKey: '1920x720',
+        });
+        assert.notEqual(privateKey, fastestKey);
     });
 
     test('keeps the selector origin first and destination last when capped', () => {

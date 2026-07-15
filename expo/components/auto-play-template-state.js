@@ -74,6 +74,87 @@ export function makeAutoPlayTripSteps({
     return [...steps.slice(0, maxSteps - 1), steps[steps.length - 1]];
 }
 
+function getNonnegativeRouteValue(value) {
+    const numericValue = Number(value);
+
+    return Number.isFinite(numericValue) ? Math.max(0, numericValue) : 0;
+}
+
+export function getAutoPlayTripEstimateValues(routeOption) {
+    const maneuvers = [...(routeOption?.maneuvers ?? [])];
+    const maneuverDistanceTotal = maneuvers.reduce(
+        (total, maneuver) =>
+            total + getNonnegativeRouteValue(maneuver?.distance),
+        0,
+    );
+    const maneuverDurationTotal = maneuvers.reduce(
+        (total, maneuver) =>
+            total + getNonnegativeRouteValue(maneuver?.duration),
+        0,
+    );
+    const routeDistance = getNonnegativeRouteValue(routeOption?.distance);
+    const routeDuration = getNonnegativeRouteValue(routeOption?.duration);
+    const destinationDistance = routeDistance || maneuverDistanceTotal;
+    const destinationDuration = routeDuration || maneuverDurationTotal;
+    let elapsedDistance = 0;
+    let elapsedDuration = 0;
+
+    const maneuverEstimates = maneuvers.map((maneuver) => {
+        const estimate = {
+            distanceMeters: Math.min(elapsedDistance, destinationDistance),
+            durationSeconds: Math.min(elapsedDuration, destinationDuration),
+        };
+
+        elapsedDistance += getNonnegativeRouteValue(maneuver?.distance);
+        elapsedDuration += getNonnegativeRouteValue(maneuver?.duration);
+
+        return estimate;
+    });
+
+    return {
+        destination: {
+            distanceMeters: destinationDistance,
+            durationSeconds: destinationDuration,
+        },
+        maneuverEstimates,
+        origin: {
+            distanceMeters: 0,
+            durationSeconds: 0,
+        },
+    };
+}
+
+export function getAutoPlayRouteChoiceText({ routeLabel, selectionSummary }) {
+    const normalizedRouteLabel =
+        String(routeLabel || 'Route').trim() || 'Route';
+    const routeTitle = `${normalizedRouteLabel} route`;
+    const normalizedSelectionSummary = String(selectionSummary || '').trim();
+
+    return {
+        additionalInformationVariants: [routeTitle],
+        selectionSummaryVariants: [normalizedSelectionSummary || routeTitle],
+        summaryVariants: [routeTitle],
+    };
+}
+
+export function getAutoPlayRoutePreviewFitKey({ bounds, route, viewportKey }) {
+    const boundsKey = [bounds?.sw, bounds?.ne]
+        .flat()
+        .filter((coordinate) => Number.isFinite(Number(coordinate)))
+        .join(',');
+
+    return [
+        'preview',
+        route?.requestedAt,
+        route?.selectedRouteKey ?? route?.routeKey,
+        route?.destination?.id,
+        route?.destination?.label,
+        route?.destination?.inputValue,
+        boundsKey,
+        viewportKey,
+    ].join(':');
+}
+
 export function makeAutoPlayTripSelectorTrips({
     makeRouteChoice,
     routeOptions,

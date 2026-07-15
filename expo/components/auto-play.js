@@ -25,7 +25,9 @@ import {
     AUTO_PLAY_TRIP_PREVIEW_TEXT_CONFIGURATION,
     autoPlaySearchRequestIsCurrent,
     getAutoPlayHeaderButtonVisibility,
+    getAutoPlayRouteChoiceText,
     getAutoPlaySearchLoadingCopy,
+    getAutoPlayTripEstimateValues,
     makeAutoPlayTripSelectorTrips,
     makeAutoPlayTripSteps,
 } from './auto-play-template-state';
@@ -107,7 +109,7 @@ const ROOT_MAP_BUTTON_EXIT_ICON_COLOR = {
     darkColor: '#fca5a5',
     lightColor: '#b91c1c',
 };
-const ROOT_MAP_BUTTON_EXIT_BACKGROUND_COLOR = AUTO_PLAY_GLYPH_BACKGROUND_COLOR;
+const ROOT_MAP_BUTTON_EXIT_BACKGROUND_COLOR = 'transparent';
 const AUTO_PLAY_MANEUVER_CARD_BACKGROUND_COLOR = {
     darkColor: '#111827',
     lightColor: '#f9fafb',
@@ -448,6 +450,7 @@ function makeSearchRows(results, query, preferredStartLocation, template) {
                 result,
                 preferredStartLocation,
                 template,
+                { query, results },
             );
         },
         title: makeAutoText(result.primaryText || result.label || 'Place'),
@@ -785,8 +788,6 @@ function getPotentiallyAvoidedNodesText(nodeCount) {
 }
 
 function getRouteOptionDetail(routeOption, baselineRouteOption, route) {
-    const durationLabel = formatDirectionsDuration(routeOption.duration);
-    const distanceLabel = formatDirectionsDistance(routeOption.distance);
     const potentiallyAvoidedNodeCount = getPotentiallyAvoidedNodeCount(
         route,
         baselineRouteOption,
@@ -821,13 +822,7 @@ function getRouteOptionDetail(routeOption, baselineRouteOption, route) {
             ? getPotentiallyAvoidedNodesText(potentiallyAvoidedNodeCount)
             : '';
 
-    return [
-        durationLabel,
-        distanceLabel,
-        baselineDetail,
-        deltaDetail,
-        privateRouteDetail,
-    ]
+    return [baselineDetail, deltaDetail, privateRouteDetail]
         .filter(Boolean)
         .join(' - ');
 }
@@ -934,10 +929,11 @@ async function showRoutePreview(route) {
     setAutoPlayRoutePreviewState(previewRoute);
 
     try {
-        // The native selector belongs to the root MapTemplate. Remove the
-        // search screen before presenting it so route previews are drawn over
-        // the map and navigation does not reveal the old search screen.
-        await HybridAutoPlay.popToRootTemplate(false);
+        // CarPlay presents its selector from the root map. Android Auto can
+        // retain SearchTemplate underneath so Back restores those results.
+        if (autoPlayPlatform?.keepsSearchTemplateUnderRoutePreview !== true) {
+            await HybridAutoPlay.popToRootTemplate(false);
+        }
 
         if (rootMapTemplate !== mapTemplate || !rootMapTemplateIsReady) {
             clearAutoPlayRoutePreviewState();
@@ -987,6 +983,7 @@ async function handleSearchResultSelected(
     result,
     preferredStartLocation,
     template,
+    searchContext = {},
 ) {
     abortSearchRequest();
     const routeLoadController = startRouteLoadRequest();
@@ -1066,6 +1063,13 @@ async function handleSearchResultSelected(
         }
 
         routeLoadAbortController = null;
+
+        updateSearchTemplateResults(
+            template,
+            searchContext.results ?? [],
+            searchContext.query ?? '',
+            preferredStartLocation,
+        );
 
         await showRoutePreview({
             ...route,
@@ -1155,18 +1159,7 @@ function getManeuverCoordinate(routeOption, maneuver, fallbackIndex) {
 function makeTripSteps(routeOption, route, { includeOrigin = false } = {}) {
     const maneuvers = routeOption?.maneuvers ?? [];
     const steps = [];
-    let remainingDistance =
-        Number(routeOption?.distance) ||
-        maneuvers.reduce(
-            (total, maneuver) => total + (maneuver.distance || 0),
-            0,
-        );
-    let remainingDuration =
-        Number(routeOption?.duration) ||
-        maneuvers.reduce(
-            (total, maneuver) => total + (maneuver.duration || 0),
-            0,
-        );
+    const estimateValues = getAutoPlayTripEstimateValues(routeOption);
 
     maneuvers.forEach((maneuver, index) => {
         const coordinate = getManeuverCoordinate(routeOption, maneuver, index);
@@ -1178,8 +1171,8 @@ function makeTripSteps(routeOption, route, { includeOrigin = false } = {}) {
             coordinate,
             instruction,
             makeTravelEstimates(
-                remainingDistance,
-                remainingDuration,
+                estimateValues.maneuverEstimates[index]?.distanceMeters,
+                estimateValues.maneuverEstimates[index]?.durationSeconds,
                 instruction,
             ),
         );
@@ -1187,15 +1180,6 @@ function makeTripSteps(routeOption, route, { includeOrigin = false } = {}) {
         if (step) {
             steps.push(step);
         }
-
-        remainingDistance = Math.max(
-            0,
-            remainingDistance - (maneuver.distance || 0),
-        );
-        remainingDuration = Math.max(
-            0,
-            remainingDuration - (maneuver.duration || 0),
-        );
     });
 
     const destinationCoordinate =
@@ -1209,7 +1193,11 @@ function makeTripSteps(routeOption, route, { includeOrigin = false } = {}) {
     const destinationStep = getTripPointFromCoordinate(
         destinationCoordinate,
         destinationName,
-        makeTravelEstimates(0, 0, destinationName),
+        makeTravelEstimates(
+            estimateValues.destination.distanceMeters,
+            estimateValues.destination.durationSeconds,
+            destinationName,
+        ),
     );
 
     const startCoordinate =
@@ -1219,8 +1207,8 @@ function makeTripSteps(routeOption, route, { includeOrigin = false } = {}) {
         startCoordinate,
         route?.start?.label || 'Start',
         makeTravelEstimates(
-            routeOption?.distance,
-            routeOption?.duration,
+            estimateValues.origin.distanceMeters,
+            estimateValues.origin.durationSeconds,
             'Start',
         ),
     );
@@ -1248,17 +1236,19 @@ function makeAutoPlayRouteChoice(
             .filter(Boolean)
             .join(' - ');
     const steps = makeTripSteps(routeOption, route, { includeOrigin });
+    const routeChoiceText = getAutoPlayRouteChoiceText({
+        routeLabel,
+        selectionSummary: routeSummary,
+    });
 
     if (steps.length < 2) {
         return null;
     }
 
     return {
-        additionalInformationVariants: [routeSummary || routeLabel],
+        ...routeChoiceText,
         id: routeOption?.routeKey || 'route',
-        selectionSummaryVariants: [routeSummary || routeLabel],
         steps,
-        summaryVariants: [`${routeLabel} route`],
     };
 }
 
@@ -2169,9 +2159,7 @@ function startAutoPlayNavigation(
             startNavigationLocationUpdates(route);
         }
 
-        if (!hostNavigationAlreadyStarted) {
-            HybridAutoPlay.popToRootTemplate(false).catch(() => {});
-        }
+        HybridAutoPlay.popToRootTemplate(false).catch(() => {});
 
         setAutoPlayState({
             detailText: route.destination?.label || 'Destination',

@@ -9,6 +9,13 @@ const mapTemplateSource = readFileSync(
     ),
     'utf8',
 );
+const parserSource = readFileSync(
+    new URL(
+        '../../../node_modules/@iternio/react-native-auto-play/ios/templates/Parser.swift',
+        import.meta.url,
+    ),
+    'utf8',
+);
 const autoPlayPatch = readFileSync(
     new URL(
         '../../../patches/@iternio+react-native-auto-play+0.4.7.patch',
@@ -27,4 +34,27 @@ test('CarPlay republishes selection when a route changes within one trip', () =>
         assert.match(source, /currentRouteId = routeId/);
         assert.match(source, /currentRouteId = nil/);
     }
+});
+
+test('CarPlay leaves route estimates in the dedicated preview fields', () => {
+    assert.doesNotMatch(parserSource, /let travelEstimate = parseText/);
+    assert.doesNotMatch(parserSource, /text \+ "\\n " \+ travelEstimate/);
+    assert.match(
+        parserSource,
+        /additionalInformationVariants\.flatMap[\s\S]*?summary \+ "\\n" \+ selection/,
+    );
+    assert.match(
+        parserSource,
+        /additionalInformationVariants: additionalInformationVariants/,
+    );
+    assert.match(
+        parserSource,
+        /selectionSummaryVariants: routeChoice\.selectionSummaryVariants/,
+    );
+
+    assert.match(autoPlayPatch, /-\s*let travelEstimate = parseText/);
+    assert.match(
+        autoPlayPatch,
+        /\+\s*selectionSummaryVariants: routeChoice\.selectionSummaryVariants/,
+    );
 });

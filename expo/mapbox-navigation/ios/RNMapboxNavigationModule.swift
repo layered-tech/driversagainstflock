@@ -69,9 +69,15 @@ public final class RNMapboxNavigationModule: Module {
       await RNMapboxNavigationController.shared.getLastEnhancedLocation()
     }
 
-    AsyncFunction("applyNavigationPuck3D") { (mapViewTag: Int, scale: Double) async throws -> Bool in
+    AsyncFunction("applyNavigationPuck3D") {
+      (mapViewTag: Int, scale: Double, slot: String?, layerAbove: String?) async throws -> Bool in
       let mapView = try await self.resolveMapView(tag: mapViewTag)
-      return try await self.applyNavigationPuck3D(to: mapView, scale: scale)
+      return try await self.applyNavigationPuck3D(
+        to: mapView,
+        scale: scale,
+        slot: slot,
+        layerAbove: layerAbove
+      )
     }
 
     AsyncFunction("clearNavigationPuck3D") { (mapViewTag: Int) async throws -> Bool in
@@ -145,7 +151,12 @@ public final class RNMapboxNavigationModule: Module {
   }
 
   @MainActor
-  private func applyNavigationPuck3D(to mapView: MapView, scale: Double) throws -> Bool {
+  private func applyNavigationPuck3D(
+    to mapView: MapView,
+    scale: Double,
+    slot: String?,
+    layerAbove: String?
+  ) throws -> Bool {
     guard let location = mapView.location else {
       throw NavigationPuckException("Mapbox location component is unavailable.")
     }
@@ -160,13 +171,15 @@ public final class RNMapboxNavigationModule: Module {
       uri: modelURL,
       orientation: [0, 0, 0]
     )
-    let configuration = Puck3DConfiguration(
+    var configuration = Puck3DConfiguration(
       model: model,
       modelScale: .constant([resolvedScale, resolvedScale, resolvedScale]),
       modelCastShadows: .constant(false),
       modelReceiveShadows: .constant(false),
       modelEmissiveStrength: .constant(1)
     )
+    configuration.slot = Self.mapboxStyleSlot(slot)
+    configuration.layerPosition = Self.mapboxPuckLayerPosition(layerAbove)
 
     location.options.puckType = .puck3D(configuration)
     location.options.puckBearing = .heading
@@ -203,6 +216,22 @@ public final class RNMapboxNavigationModule: Module {
     }
 
     return nil
+  }
+
+  private static func mapboxStyleSlot(_ slot: String?) -> Slot? {
+    guard let slot, ["bottom", "middle", "top"].contains(slot) else {
+      return nil
+    }
+
+    return Slot(rawValue: slot)
+  }
+
+  private static func mapboxPuckLayerPosition(_ layerAbove: String?) -> LayerPosition? {
+    guard layerAbove == "directions-route-line" else {
+      return nil
+    }
+
+    return .above("directions-route-line")
   }
 }
 

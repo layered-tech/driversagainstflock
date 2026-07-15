@@ -12,6 +12,13 @@ const androidNavigationModuleSource = readFileSync(
     ),
     'utf8',
 );
+const iosNavigationModuleSource = readFileSync(
+    new URL(
+        '../../../mapbox-navigation/ios/RNMapboxNavigationModule.swift',
+        import.meta.url,
+    ),
+    'utf8',
+);
 
 class FakeEventEmitter {
     addListener() {
@@ -94,6 +101,41 @@ test('Android navigation puck forwards its Mapbox style slot', async () => {
             mapViewTag: 42,
             scale: 62.5,
             slot: 'middle',
+        },
+    ]);
+});
+
+test('iOS navigation puck forwards its Mapbox style slot and relative layer', async () => {
+    const calls = [];
+    const navigation = makeNavigationModule(
+        {
+            async applyNavigationPuck3D(mapViewTag, scale, slot, layerAbove) {
+                calls.push({ layerAbove, mapViewTag, scale, slot });
+                return true;
+            },
+            async clearNavigationPuck3D() {
+                return true;
+            },
+        },
+        () => 42,
+        'ios',
+    );
+
+    assert.equal(
+        await navigation.applyNavigationPuck3DAsync(
+            { current: {} },
+            62.5,
+            'top',
+            'directions-route-line',
+        ),
+        true,
+    );
+    assert.deepEqual(calls, [
+        {
+            layerAbove: 'directions-route-line',
+            mapViewTag: 42,
+            scale: 62.5,
+            slot: 'top',
         },
     ]);
 });
@@ -232,5 +274,20 @@ test('Android navigation puck is placed above the selected route layer', () => {
     assert.match(
         androidNavigationModuleSource,
         /location\.layerAbove\s*=\s*null/,
+    );
+});
+
+test('iOS navigation puck is placed above the selected route layer', () => {
+    assert.match(
+        iosNavigationModuleSource,
+        /configuration\.slot\s*=\s*Self\.mapboxStyleSlot\(slot\)/,
+    );
+    assert.match(
+        iosNavigationModuleSource,
+        /configuration\.layerPosition\s*=\s*Self\.mapboxPuckLayerPosition\(layerAbove\)/,
+    );
+    assert.match(
+        iosNavigationModuleSource,
+        /return \.above\("directions-route-line"\)/,
     );
 });

@@ -19,10 +19,27 @@ describe('Mapbox Standard layer slots', () => {
         );
     });
 
-    test('preserves the existing layer order outside Android Auto', () => {
+    test('places the CarPlay puck above its selected route line', () => {
+        assert.deepEqual(
+            getMapLayerSlots({
+                navigationPuckVariant: 'auto-play',
+                platform: 'ios',
+            }),
+            {
+                cameraCone: undefined,
+                cameraNode: undefined,
+                routePath: 'top',
+                userLocationPuck: 'top',
+                userLocationPuckAboveLayer: 'directions-route-line',
+            },
+        );
+    });
+
+    test('preserves the existing layer order outside car-host pucks', () => {
         for (const options of [
-            { navigationPuckVariant: 'auto-play', platform: 'ios' },
             { navigationPuckVariant: 'default', platform: 'android' },
+            { navigationPuckVariant: 'default', platform: 'ios' },
+            { navigationPuckVariant: 'auto-play', platform: 'web' },
         ]) {
             assert.deepEqual(getMapLayerSlots(options), {
                 cameraCone: undefined,

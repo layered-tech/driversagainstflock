@@ -3,6 +3,7 @@ import { AndroidAutoMapSurface } from './android-auto-map-surface';
 // Android Auto extension of the platform-agnostic auto-play core.
 export const autoPlayPlatform = {
   MapSurface: AndroidAutoMapSurface,
+  keepsSearchTemplateUnderRoutePreview: true,
   maneuverCardAppearance: 'dark',
   maneuverCardIconColor: '#ffffff',
   // Android Auto owns the pan affordance in the map action strip. Keeping the

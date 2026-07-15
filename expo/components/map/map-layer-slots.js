@@ -6,6 +6,14 @@ const ANDROID_AUTO_MAP_LAYER_SLOTS = Object.freeze({
     userLocationPuckAboveLayer: 'directions-route-line',
 });
 
+const CARPLAY_MAP_LAYER_SLOTS = Object.freeze({
+    cameraCone: undefined,
+    cameraNode: undefined,
+    routePath: 'top',
+    userLocationPuck: 'top',
+    userLocationPuckAboveLayer: 'directions-route-line',
+});
+
 const DEFAULT_MAP_LAYER_SLOTS = Object.freeze({
     cameraCone: undefined,
     cameraNode: undefined,
@@ -15,7 +23,17 @@ const DEFAULT_MAP_LAYER_SLOTS = Object.freeze({
 });
 
 export function getMapLayerSlots({ navigationPuckVariant, platform }) {
-    return platform === 'android' && navigationPuckVariant === 'auto-play'
-        ? ANDROID_AUTO_MAP_LAYER_SLOTS
-        : DEFAULT_MAP_LAYER_SLOTS;
+    if (navigationPuckVariant !== 'auto-play') {
+        return DEFAULT_MAP_LAYER_SLOTS;
+    }
+
+    if (platform === 'android') {
+        return ANDROID_AUTO_MAP_LAYER_SLOTS;
+    }
+
+    if (platform === 'ios') {
+        return CARPLAY_MAP_LAYER_SLOTS;
+    }
+
+    return DEFAULT_MAP_LAYER_SLOTS;
 }
