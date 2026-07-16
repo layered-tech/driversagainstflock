@@ -18,6 +18,32 @@ test('landing page is displayed at the home route', function () {
         );
 });
 
+test('public pages render crawler-visible metadata and the branded favicon', function () {
+    $baseUrl = rtrim((string) config('app.url'), '/');
+
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('Private routes around ALPR cameras - Drivers Against Flock')
+        ->assertSee('data-inertia="description"', false)
+        ->assertSee('href="'.$baseUrl.'/favicon-48x48.png"', false)
+        ->assertSee('rel="canonical" href="'.$baseUrl.'/"', false)
+        ->assertSee('property="og:site_name" content="Drivers Against Flock"', false)
+        ->assertSee('"@type":"WebSite"', false)
+        ->assertSee('"@type":"WebPage"', false);
+
+    [$width, $height] = getimagesize(public_path('favicon-48x48.png'));
+
+    expect($width)->toBe(48)
+        ->and($height)->toBe(48)
+        ->and(filesize(public_path('favicon.ico')))->toBeGreaterThan(0);
+
+    collect(['Landing', 'Map', 'Hotlist', 'Help', 'Privacy', 'Terms'])
+        ->each(function (string $page): void {
+            expect(file_get_contents(resource_path("js/Pages/{$page}.vue")))
+                ->toContain('<DafSiteHead />');
+        });
+});
+
 test('landing footer links scroll to page sections', function () {
     $landingPage = file_get_contents(resource_path('js/Pages/Landing.vue'));
     $footerComponent = file_get_contents(resource_path('js/Components/Daf/DafSiteFooter.vue'));
@@ -285,7 +311,67 @@ test('hotlist page is displayed with recent node rows', function () {
             ->where('manufacturerCounts.flock', 1)
             ->where('manufacturerCounts.other', 0)
             ->has('stats', 4)
+            ->where('latestUpdatedAt', $osmUpdatedAt->toJSON())
         );
+});
+
+test('hotlist publishes its latest public update in crawlable metadata and the sitemap', function () {
+    $this->travelTo('2026-06-24 12:00:00');
+
+    $latestUpdatedAt = now()->subMinutes(15);
+
+    OsmNode::query()->create([
+        'osm_id' => 12379768800,
+        'latitude' => 43.0063950,
+        'longitude' => -88.1077715,
+        'location' => new Point(43.0063950, -88.1077715),
+        'tags' => [
+            'operator' => 'Flock Safety',
+            'surveillance:type' => 'ALPR',
+        ],
+        'surveillance_type' => 'ALPR',
+        'osm_updated_at' => $latestUpdatedAt,
+        'osm_version' => 1,
+        'last_synced_at' => now(),
+    ]);
+
+    OsmNode::query()->create([
+        'osm_id' => 12379768801,
+        'latitude' => 43.1063950,
+        'longitude' => -88.2077715,
+        'location' => new Point(43.1063950, -88.2077715),
+        'tags' => [
+            'operator' => 'Flock Safety',
+            'surveillance:type' => 'ALPR',
+        ],
+        'surveillance_type' => 'ALPR',
+        'osm_updated_at' => now()->subMinute(),
+        'osm_version' => 2,
+        'last_synced_at' => now(),
+    ]);
+
+    $baseUrl = rtrim((string) config('app.url'), '/');
+
+    $this->get('/hotlist?window=24&manufacturer=flock')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Hotlist')
+            ->where('latestUpdatedAt', $latestUpdatedAt->toJSON())
+        )
+        ->assertSee('rel="canonical" href="'.$baseUrl.'/hotlist"', false)
+        ->assertSee('"@type":"CollectionPage"', false)
+        ->assertSee('"dateModified":"'.$latestUpdatedAt->toJSON().'"', false);
+
+    $this->get('/sitemap.xml')
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/xml; charset=UTF-8')
+        ->assertSee('<loc>'.$baseUrl.'/hotlist</loc>', false)
+        ->assertSee('<lastmod>'.$latestUpdatedAt->toJSON().'</lastmod>', false);
+
+    $this->get('/robots.txt')
+        ->assertOk()
+        ->assertHeader('Content-Type', 'text/plain; charset=UTF-8')
+        ->assertSee('Sitemap: '.$baseUrl.'/sitemap.xml');
 });
 
 test('hotlist page paginates without capping node totals', function () {

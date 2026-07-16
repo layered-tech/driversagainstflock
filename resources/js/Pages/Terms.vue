@@ -2,7 +2,7 @@
     <div
         class="flex min-h-full flex-col bg-daf-surface-page text-daf-text-primary"
     >
-        <Head title="Terms of Use" />
+        <DafSiteHead />
 
         <DafSiteHeader
             :links="headerLinks"
@@ -193,8 +193,9 @@ import DafBadge from '@/Components/Daf/DafBadge.vue';
 import DafCard from '@/Components/Daf/DafCard.vue';
 import DafIcon from '@/Components/Daf/DafIcon.vue';
 import DafSiteFooter from '@/Components/Daf/DafSiteFooter.vue';
+import DafSiteHead from '@/Components/Daf/DafSiteHead.vue';
 import DafSiteHeader from '@/Components/Daf/DafSiteHeader.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 
 defineProps({
     canLogin: Boolean,

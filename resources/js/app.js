@@ -10,12 +10,12 @@ import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { bootDafTheme } from './design-system/theme';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const siteName = import.meta.env.VITE_SITE_NAME || 'Drivers Against Flock';
 
 bootDafTheme();
 
 createInertiaApp({
-    title: (title) => `${title} - ${appName}`,
+    title: (title) => `${title} - ${siteName}`,
     resolve: (name) =>
         resolvePageComponent(
             `./Pages/${name}.vue`,
