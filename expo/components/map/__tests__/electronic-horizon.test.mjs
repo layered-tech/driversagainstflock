@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
     getDirectionsRouteCoordinatesAhead,
+    getElectronicHorizonCoordinatesBeforeUturn,
     getElectronicHorizonPathPosition,
+    getElectronicHorizonPrimaryCoordinates,
     getUpcomingElectronicHorizonAlerts,
     normalizeElectronicHorizon,
 } from '../electronic-horizon.js';
@@ -13,7 +15,7 @@ const primaryPath = [
 ];
 
 describe('Electronic Horizon geometry', () => {
-    test('normalizes native coordinates into the shared GeoJSON contract', () => {
+    test('normalizes only most-probable-path coordinates into the shared GeoJSON contract', () => {
         const horizon = normalizeElectronicHorizon({
             branches: [
                 {
@@ -40,11 +42,7 @@ describe('Electronic Horizon geometry', () => {
         });
 
         assert.deepEqual(horizon.primaryPath.coordinates, primaryPath);
-        assert.deepEqual(horizon.branches[0].coordinates, [
-            [-97.738, 30.2672],
-            [-97.738, 30.27],
-        ]);
-        assert.equal(horizon.branches[0].level, 1);
+        assert.equal('branches' in horizon, false);
     });
 
     test('calculates a location distance along the primary path', () => {
@@ -56,6 +54,62 @@ describe('Electronic Horizon geometry', () => {
         assert.ok(position.distanceAheadMeters > 400);
         assert.ok(position.distanceAheadMeters < 600);
         assert.ok(position.distanceFromPathMeters < 1);
+    });
+
+    test('cuts a confirmed, imminent U-turn from the free-drive primary path', () => {
+        const path = [
+            [-97.7431, 30.2672],
+            [-97.7431, 30.2682],
+            [-97.7431, 30.2677],
+            [-97.7431, 30.2672],
+        ];
+
+        assert.deepEqual(
+            getElectronicHorizonCoordinatesBeforeUturn(path),
+            path.slice(0, 2),
+        );
+        assert.deepEqual(
+            getElectronicHorizonPrimaryCoordinates({
+                primaryPath: { coordinates: path },
+            }),
+            path.slice(0, 2),
+        );
+    });
+
+    test('retains an ordinary primary path without a confirmed U-turn', () => {
+        const horizon = normalizeElectronicHorizon({
+            primaryPath: { coordinates: primaryPath },
+        });
+
+        assert.deepEqual(horizon.primaryPath.coordinates, primaryPath);
+    });
+
+    test('retains a sharp path that does not return toward its earlier corridor', () => {
+        const path = [
+            [-97.7431, 30.2672],
+            [-97.7431, 30.2682],
+            [-97.7425, 30.2673],
+            [-97.7419, 30.2664],
+        ];
+
+        assert.deepEqual(
+            getElectronicHorizonCoordinatesBeforeUturn(path),
+            path,
+        );
+    });
+
+    test('retains a nearby parallel ramp instead of treating it as a U-turn', () => {
+        const path = [
+            [-97.7431, 30.2672],
+            [-97.7431, 30.2682],
+            [-97.7428, 30.2682],
+            [-97.7428, 30.2672],
+        ];
+
+        assert.deepEqual(
+            getElectronicHorizonCoordinatesBeforeUturn(path),
+            path,
+        );
     });
 });
 
@@ -140,7 +194,7 @@ describe('upcoming Electronic Horizon alerts', () => {
         );
     });
 
-    test('limits ALPR and Waze alerts to the next mile on routes and horizons', () => {
+    test('limits ALPR and Waze alerts to the next two miles on routes and horizons', () => {
         const longPath = [
             [-97.7431, 30.2672],
             [-97.7431, 30.3],
@@ -148,11 +202,13 @@ describe('upcoming Electronic Horizon alerts', () => {
         const alertSources = {
             alprNodes: [
                 { coordinate: [-97.7431, 30.279], id: 'near-alpr' },
-                { coordinate: [-97.7431, 30.284], id: 'far-alpr' },
+                { coordinate: [-97.7431, 30.295], id: 'two-mile-alpr' },
+                { coordinate: [-97.7431, 30.298], id: 'far-alpr' },
             ],
             policeAlerts: [
                 { coordinate: [-97.7431, 30.28], id: 'near-police' },
-                { coordinate: [-97.7431, 30.285], id: 'far-police' },
+                { coordinate: [-97.7431, 30.294], id: 'two-mile-police' },
+                { coordinate: [-97.7431, 30.298], id: 'far-police' },
             ],
         };
         const routeAlerts = getUpcomingElectronicHorizonAlerts({
@@ -166,11 +222,11 @@ describe('upcoming Electronic Horizon alerts', () => {
 
         assert.deepEqual(
             routeAlerts.map((alert) => alert.id),
-            ['near-alpr', 'near-police'],
+            ['near-alpr', 'near-police', 'two-mile-police', 'two-mile-alpr'],
         );
         assert.deepEqual(
             horizonAlerts.map((alert) => alert.id),
-            ['near-alpr', 'near-police'],
+            ['near-alpr', 'near-police', 'two-mile-police', 'two-mile-alpr'],
         );
     });
 });

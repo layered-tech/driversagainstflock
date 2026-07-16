@@ -1,9 +1,24 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { describe, test } from 'node:test';
 
 const require = createRequire(import.meta.url);
 const createNavigationModule = require('../../../mapbox-navigation/createNavigationModule.js');
+const androidNavigationModuleSource = readFileSync(
+    new URL(
+        '../../../mapbox-navigation/android/src/main/java/com/rnmapbox/navigation/RNMapboxNavigationModule.kt',
+        import.meta.url,
+    ),
+    'utf8',
+);
+const iosNavigationModuleSource = readFileSync(
+    new URL(
+        '../../../mapbox-navigation/ios/RNMapboxNavigationModule.swift',
+        import.meta.url,
+    ),
+    'utf8',
+);
 
 class MockEventEmitter {
     static instance = null;
@@ -43,9 +58,41 @@ function createModule(nativeModule) {
 }
 
 describe('Mapbox Navigation Electronic Horizon bridge', () => {
+    test('configures native Electronic Horizon for the most-probable path only', () => {
+        assert.match(
+            androidNavigationModuleSource,
+            /\.expansion\(ELECTRONIC_HORIZON_MPP_ONLY_EXPANSION\)/,
+        );
+        assert.match(
+            androidNavigationModuleSource,
+            /ELECTRONIC_HORIZON_MPP_ONLY_EXPANSION = 0/,
+        );
+        assert.doesNotMatch(
+            androidNavigationModuleSource,
+            /collectElectronicHorizonEdges/,
+        );
+        assert.match(
+            androidNavigationModuleSource,
+            /selectPrimaryPath\(position\.eHorizon\.mpp\(position\)\)/,
+        );
+        assert.match(androidNavigationModuleSource, /paths\.maxByOrNull/);
+        assert.doesNotMatch(
+            androidNavigationModuleSource,
+            /ELECTRONIC_HORIZON_MPP_NEAR_TIE/,
+        );
+        assert.match(
+            iosNavigationModuleSource,
+            /expansionLevel: ELECTRONIC_HORIZON_MPP_ONLY_EXPANSION_LEVEL/,
+        );
+        assert.match(
+            iosNavigationModuleSource,
+            /ELECTRONIC_HORIZON_MPP_ONLY_EXPANSION_LEVEL: UInt = 0/,
+        );
+        assert.doesNotMatch(iosNavigationModuleSource, /collectTreeEdges/);
+    });
+
     test('returns the last native horizon and forwards horizon events', async () => {
         const horizon = {
-            branches: [],
             primaryPath: {
                 coordinates: [
                     [-97.7431, 30.2672],

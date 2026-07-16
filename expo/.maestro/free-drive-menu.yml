@@ -1,0 +1,45 @@
+appId: com.anonymous.drivefree.dev
+name: Free Drive Menu
+tags:
+  - drawer
+  - map
+---
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    commands:
+      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 30000
+- openLink: 'driversagainstflock://e2e-mocks'
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: 'start-free-drive-button'
+    timeout: 10000
+- tapOn:
+    id: 'start-free-drive-button'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-driving'
+    timeout: 10000
+- tapOn:
+    id: 'map-search-drawer-button-driving'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'drawer-auth-login-button'
+    timeout: 10000

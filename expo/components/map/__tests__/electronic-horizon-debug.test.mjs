@@ -26,7 +26,7 @@ describe('Electronic Horizon debug geometry', () => {
         );
     });
 
-    test('renders only the most probable path and each branch with probability labels', () => {
+    test('renders only the most probable path with probability labels', () => {
         const featureCollection = makeElectronicHorizonDebugFeatureCollection(
             {
                 primaryPath: {
@@ -36,24 +36,6 @@ describe('Electronic Horizon debug geometry', () => {
                     ],
                     probability: 0.92,
                 },
-                branches: [
-                    {
-                        coordinates: [
-                            [-97.19, 32.71],
-                            [-97.18, 32.7],
-                        ],
-                        level: 1,
-                        probability: 0.41,
-                    },
-                    {
-                        coordinates: [
-                            [-97.19, 32.71],
-                            [-97.18, 32.72],
-                        ],
-                        level: 2,
-                        probability: 0.17,
-                    },
-                ],
             },
             true,
         );
@@ -64,8 +46,8 @@ describe('Electronic Horizon debug geometry', () => {
             (feature) => feature.geometry.type === 'Point',
         );
 
-        assert.equal(pathFeatures.length, 3);
-        assert.equal(probabilityFeatures.length, 3);
+        assert.equal(pathFeatures.length, 1);
+        assert.equal(probabilityFeatures.length, 1);
         assert.equal(
             pathFeatures[0].properties.color,
             ELECTRONIC_HORIZON_DEBUG_PRIMARY_PATH_COLOR,
@@ -74,11 +56,7 @@ describe('Electronic Horizon debug geometry', () => {
             probabilityFeatures.map(
                 (feature) => feature.properties.probabilityLabel,
             ),
-            ['92%', '41%', '17%'],
-        );
-        assert.notEqual(
-            pathFeatures[1].properties.color,
-            pathFeatures[2].properties.color,
+            ['92%'],
         );
     });
 
@@ -91,20 +69,11 @@ describe('Electronic Horizon debug geometry', () => {
                         ['invalid', 32.71],
                     ],
                 },
-                branches: [
-                    {
-                        coordinates: [
-                            [-97.2, 32.7],
-                            [-97.19, 32.71],
-                        ],
-                        probability: 45,
-                    },
-                ],
             },
             true,
         );
 
-        assert.equal(featureCollection.features.length, 2);
+        assert.equal(featureCollection.features.length, 0);
         assert.equal(formatElectronicHorizonProbability(0.4), '40%');
         assert.equal(formatElectronicHorizonProbability(45), '45%');
         assert.equal(formatElectronicHorizonProbability(-1), null);

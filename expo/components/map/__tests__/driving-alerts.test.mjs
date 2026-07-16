@@ -30,12 +30,12 @@ describe('driving alert presentation', () => {
         assert.equal(formatUpcomingAlertAge('not-a-date', now), null);
     });
 
-    test('maps the remaining alert distance to a one-mile pass timer', () => {
-        assert.equal(getUpcomingAlertPassProgress(1609.344), 1);
-        assert.equal(getUpcomingAlertPassProgress(804.672), 0.5);
+    test('maps the remaining alert distance to a two-mile pass timer', () => {
+        assert.equal(getUpcomingAlertPassProgress(3218.688), 1);
+        assert.equal(getUpcomingAlertPassProgress(1609.344), 0.5);
         assert.equal(getUpcomingAlertPassProgress(0), 0);
         assert.equal(getUpcomingAlertPassProgress(-1), 0);
-        assert.equal(getUpcomingAlertPassProgress(2000), 1);
+        assert.equal(getUpcomingAlertPassProgress(4000), 1);
         assert.equal(getUpcomingAlertPassProgress('invalid'), 0);
     });
 

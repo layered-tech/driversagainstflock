@@ -20,7 +20,10 @@ import { MAP_OVERLAY_LAYOUT_ANIMATION } from './layout-animations';
 import { useMapSearchContext } from './map-screen-context';
 import { SearchGlassShell } from './search-glass-shell';
 
-export function MapSearchOverlay({ mapControls = null }) {
+export function MapSearchOverlay({
+    mapControls = null,
+    showDestinationCategories = true,
+}) {
     const {
         directionsActiveField,
         directionsCurrentLocationWaypoint,
@@ -100,6 +103,7 @@ export function MapSearchOverlay({ mapControls = null }) {
     const searchRightActionIsSubmit =
         !searchRightActionIsClear && searchSubmitIsVisible;
     const destinationCategoriesAreVisible =
+        showDestinationCategories &&
         !searchModeIsDirections &&
         !fullScreenSearchIsVisible &&
         !searchIsFocused &&

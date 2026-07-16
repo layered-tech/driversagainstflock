@@ -92,7 +92,11 @@ function createSearchResultRestoreFromRoute(route) {
     };
 }
 
-export function DrivingGuidanceOverlay({ children, onLocationAnchorLayout }) {
+export function DrivingGuidanceOverlay({
+    children,
+    onLocationAnchorLayout,
+    topOverlay = null,
+}) {
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
     const offRouteDetectedAtRef = useRef(null);
@@ -140,8 +144,10 @@ export function DrivingGuidanceOverlay({ children, onLocationAnchorLayout }) {
     const destinationSurfaceStyle = useMemo(
         () => ({
             backgroundColor: bottomSheetTheme.surface.sheet,
+            borderTopColor: bottomSheetTheme.border.glass,
             borderTopLeftRadius: 22,
             borderTopRightRadius: 22,
+            borderTopWidth: 1,
         }),
         [bottomSheetTheme],
     );
@@ -339,10 +345,11 @@ export function DrivingGuidanceOverlay({ children, onLocationAnchorLayout }) {
                             />
                         )
                     ) : null}
+                    {topOverlay}
                 </View>
 
                 <View
-                    className={`${headerCardIsVisible ? 'pt-3' : ''} flex-row items-start gap-3 px-3`}
+                    className={`${headerCardIsVisible || topOverlay ? 'pt-3' : ''} flex-row items-start gap-3 px-3`}
                     pointerEvents="box-none"
                 >
                     <View pointerEvents="box-none">
@@ -378,7 +385,7 @@ export function DrivingGuidanceOverlay({ children, onLocationAnchorLayout }) {
 
                 {routeIsActive ? (
                     <View
-                        className="overflow-hidden shadow-[0px_-10px_28px_rgba(11,14,18,0.16)]"
+                        className="overflow-hidden"
                         pointerEvents="box-none"
                         style={destinationSurfaceStyle}
                     >

@@ -6,6 +6,8 @@ import {
     getAutoPlayRouteChoiceText,
     getAutoPlayRoutePreviewFitKey,
     getAutoPlaySearchLoadingCopy,
+    getAutoPlaySearchResultsFitKey,
+    getAutoPlaySearchResultsMapIsActive,
     getAutoPlayTripEstimateValues,
     makeAutoPlayTripSelectorTrips,
     makeAutoPlayTripSteps,
@@ -172,6 +174,67 @@ describe('Auto Play template state', () => {
             viewportKey: '1920x720',
         });
         assert.notEqual(privateKey, fastestKey);
+    });
+
+    test('changes search-results fit identity with the query and viewport', () => {
+        const bounds = { ne: [-96.7, 32.9], sw: [-96.9, 32.7] };
+        const coffeeKey = getAutoPlaySearchResultsFitKey({
+            bounds,
+            query: 'coffee',
+            viewportKey: '1920x720',
+        });
+        const gasKey = getAutoPlaySearchResultsFitKey({
+            bounds,
+            query: 'gas',
+            viewportKey: '1920x720',
+        });
+        const resizedCoffeeKey = getAutoPlaySearchResultsFitKey({
+            bounds,
+            query: 'coffee',
+            viewportKey: '1280x720',
+        });
+
+        assert.notEqual(coffeeKey, gasKey);
+        assert.notEqual(coffeeKey, resizedCoffeeKey);
+    });
+
+    test('keeps the search-results map mode tied to its visible panel', () => {
+        assert.equal(
+            getAutoPlaySearchResultsMapIsActive({
+                isNavigating: false,
+                routePreviewIsActive: false,
+                submittedSearchQuery: '',
+                submittedSearchResults: [{ id: 'result-1' }],
+            }),
+            true,
+        );
+        assert.equal(
+            getAutoPlaySearchResultsMapIsActive({
+                isNavigating: false,
+                routePreviewIsActive: false,
+                submittedSearchQuery: 'no matches',
+                submittedSearchResults: [],
+            }),
+            true,
+        );
+        assert.equal(
+            getAutoPlaySearchResultsMapIsActive({
+                isNavigating: false,
+                routePreviewIsActive: true,
+                submittedSearchQuery: 'coffee',
+                submittedSearchResults: [],
+            }),
+            false,
+        );
+        assert.equal(
+            getAutoPlaySearchResultsMapIsActive({
+                isNavigating: true,
+                routePreviewIsActive: false,
+                submittedSearchQuery: 'coffee',
+                submittedSearchResults: [{ id: 'result-1' }],
+            }),
+            false,
+        );
     });
 
     test('keeps the selector origin first and destination last when capped', () => {

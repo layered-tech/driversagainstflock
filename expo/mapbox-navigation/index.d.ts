@@ -51,8 +51,6 @@ export type ElectronicHorizon = {
         coordinates: ElectronicHorizonCoordinate[];
         segments: ElectronicHorizonSegment[];
     };
-    /** All non-selected Electronic Horizon edges, including a rare secondary level-zero MPP. */
-    branches: ElectronicHorizonSegment[];
     graphPosition?: {
         edgeId: string;
         percentAlong: number;

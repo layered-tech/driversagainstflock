@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { getAutoPlaySpeedLimitOverlayLayout } from '../../auto-play-map-status-layout.js';
+import {
+    getAutoPlaySpeedLimitOverlayLayout,
+    getAutoPlayUpcomingAlertOverlayLayout,
+} from '../../auto-play-map-status-layout.js';
 import {
     AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE,
     getSpeedLimitBadgeLayout,
@@ -48,5 +51,26 @@ describe('Auto Play speed-limit layout', () => {
             bottom: 37,
             right: 29,
         });
+    });
+});
+
+describe('Auto Play upcoming alert layout', () => {
+    test('aligns the alert to the visible top-right safe-area edge', () => {
+        const mapControlLayoutInsets = {
+            bottom: 37,
+            left: 25,
+            right: 29,
+            top: 21,
+        };
+
+        assert.deepEqual(
+            getAutoPlayUpcomingAlertOverlayLayout({
+                mapControlLayoutInsets,
+            }).positionStyle,
+            {
+                right: 29,
+                top: 21,
+            },
+        );
     });
 });

@@ -61,7 +61,6 @@ import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.types.toJSValueExperimental
-import java.util.ArrayDeque
 
 @OptIn(
   ExperimentalMapboxNavigationAPI::class,
@@ -338,8 +337,7 @@ class RNMapboxNavigationModule : Module() {
   private fun createNavigationOptions(context: Context): NavigationOptions {
     val electronicHorizonOptions = EHorizonOptions.Builder()
       .length(ELECTRONIC_HORIZON_LENGTH_METERS)
-      .expansion(ELECTRONIC_HORIZON_BRANCH_EXPANSION)
-      .branchLength(ELECTRONIC_HORIZON_BRANCH_LENGTH_METERS)
+      .expansion(ELECTRONIC_HORIZON_MPP_ONLY_EXPANSION)
       .minTimeDeltaBetweenUpdates(ELECTRONIC_HORIZON_MIN_UPDATE_INTERVAL_SECONDS)
       .build()
 
@@ -490,19 +488,6 @@ class RNMapboxNavigationModule : Module() {
       ?: ArrayList()
     val primarySegments = primaryEdgeGeometries.filter { it.coordinates.size >= 2 }
 
-    val primaryEdgeIds = primaryPathEdges.mapTo(mutableSetOf()) { it.id }
-    val branches = collectElectronicHorizonEdges(
-      primaryPathEdges.firstOrNull() ?: position.eHorizon.start
-    )
-      .asSequence()
-      .filterNot { it.id in primaryEdgeIds }
-      .mapNotNull { edge ->
-        electronicHorizonEdgeGeometry(navigation, edge)
-      }
-      .filter { it.coordinates.size >= 2 }
-      .map { geometry -> electronicHorizonEdgeToBundle(geometry) }
-      .toCollection(ArrayList<Bundle>())
-
     return Bundle().apply {
       putBundle(
         "primaryPath",
@@ -514,7 +499,6 @@ class RNMapboxNavigationModule : Module() {
           )
         }
       )
-      putParcelableArrayList("branches", branches)
       putBundle(
         "graphPosition",
         Bundle().apply {
@@ -530,51 +514,46 @@ class RNMapboxNavigationModule : Module() {
   private fun selectPrimaryPath(
     candidatePaths: List<List<EHorizonEdge>>
   ): List<EHorizonEdge>? {
-    return candidatePaths
-      .asSequence()
-      .filter { it.isNotEmpty() }
-      .maxByOrNull { path -> electronicHorizonPathLikelihood(path) }
-  }
+    val paths = candidatePaths.filter { it.isNotEmpty() }
 
-  private fun electronicHorizonPathLikelihood(path: List<EHorizonEdge>): Double {
-    return path.fold(1.0) { likelihood, edge ->
-      val probability = edge.probability
-      val normalizedProbability = when {
-        !probability.isFinite() -> 0.0
-        probability > 1.0 -> probability / 100.0
-        else -> probability
-      }
-      val boundedProbability = normalizedProbability.coerceIn(0.0, 1.0)
+    if (paths.isEmpty()) {
+      return null
+    }
 
-      if (boundedProbability == 0.0) {
-        Double.NEGATIVE_INFINITY
-      } else {
-        likelihood + kotlin.math.ln(boundedProbability)
-      }
+    val splitIndex = sharedElectronicHorizonPrefixLength(paths)
+
+    return paths.maxByOrNull { path ->
+      electronicHorizonCandidateProbability(path, splitIndex)
     }
   }
 
-  private fun collectElectronicHorizonEdges(start: EHorizonEdge): List<EHorizonEdge> {
-    val pendingEdges = ArrayDeque<EHorizonEdge>()
-    val seenEdgeIds = mutableSetOf<Long>()
-    val edges = mutableListOf<EHorizonEdge>()
+  private fun sharedElectronicHorizonPrefixLength(paths: List<List<EHorizonEdge>>): Int {
+    val shortestPathLength = paths.minOf { it.size }
 
-    pendingEdges.addLast(start)
+    for (index in 0 until shortestPathLength) {
+      val edgeId = paths.first()[index].id
 
-    while (pendingEdges.isNotEmpty()) {
-      val edge = pendingEdges.removeFirst()
-
-      if (!seenEdgeIds.add(edge.id)) {
-        continue
-      }
-
-      edges.add(edge)
-      edge.out.forEach { outgoingEdge ->
-        pendingEdges.addLast(outgoingEdge)
+      if (paths.any { path -> path[index].id != edgeId }) {
+        return index
       }
     }
 
-    return edges
+    return shortestPathLength
+  }
+
+  private fun electronicHorizonCandidateProbability(
+    path: List<EHorizonEdge>,
+    splitIndex: Int
+  ): Double {
+    val probability = path.getOrNull(splitIndex)?.probability
+      ?: path.lastOrNull()?.probability
+      ?: 0.0
+
+    return when {
+      !probability.isFinite() -> 0.0
+      probability > 1.0 -> (probability / 100.0).coerceIn(0.0, 1.0)
+      else -> probability.coerceIn(0.0, 1.0)
+    }
   }
 
   private fun electronicHorizonEdgeGeometry(
@@ -1246,10 +1225,9 @@ class RNMapboxNavigationModule : Module() {
   )
 
   private companion object {
-    private const val ELECTRONIC_HORIZON_BRANCH_EXPANSION = 2
-    private const val ELECTRONIC_HORIZON_BRANCH_LENGTH_METERS = 1609.344
     private const val ELECTRONIC_HORIZON_EVENT_NAME = "onElectronicHorizon"
     private const val ELECTRONIC_HORIZON_LENGTH_METERS = 16093.44
+    private const val ELECTRONIC_HORIZON_MPP_ONLY_EXPANSION = 0
     private const val ELECTRONIC_HORIZON_MIN_UPDATE_INTERVAL_SECONDS = 1.0
     private const val ENHANCED_LOCATION_EVENT_NAME = "onEnhancedLocation"
     private const val KILOMETERS_PER_HOUR_TO_MILES_PER_HOUR = 0.62137119223733

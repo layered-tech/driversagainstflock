@@ -23,12 +23,10 @@ private let NAVIGATION_CAMERA_MODE_IDLE = "idle"
 
 private let MAXIMUM_LOCATION_TRANSITION_INTERVAL: TimeInterval = 5.0
 
-/// Match the existing Waze-alert search radius so the primary path is long enough to filter the
-/// locally cached 10-mile result without requesting more Waze data. Branches are intentionally
-/// shorter: they are sent only for the debug visualization and never participate in alert matching.
+/// Match the existing Waze-alert search radius so the most-probable path is long enough to filter
+/// the locally cached 10-mile result without requesting more Waze data.
 private let ELECTRONIC_HORIZON_LENGTH_METERS: CLLocationDistance = 16_093.44
-private let ELECTRONIC_HORIZON_BRANCH_LENGTH_METERS: CLLocationDistance = 1_609.344
-private let ELECTRONIC_HORIZON_EXPANSION_LEVEL: UInt = 2
+private let ELECTRONIC_HORIZON_MPP_ONLY_EXPANSION_LEVEL: UInt = 0
 private let ELECTRONIC_HORIZON_MINIMUM_UPDATE_INTERVAL: TimeInterval = 1.0
 
 // MARK: - Expo module
@@ -450,8 +448,8 @@ final class RNMapboxNavigationController {
     )
     config.electronicHorizonConfig = ElectronicHorizonConfig(
       length: ELECTRONIC_HORIZON_LENGTH_METERS,
-      expansionLevel: ELECTRONIC_HORIZON_EXPANSION_LEVEL,
-      branchLength: ELECTRONIC_HORIZON_BRANCH_LENGTH_METERS,
+      expansionLevel: ELECTRONIC_HORIZON_MPP_ONLY_EXPANSION_LEVEL,
+      branchLength: 1,
       minTimeDeltaBetweenUpdates: ELECTRONIC_HORIZON_MINIMUM_UPDATE_INTERVAL
     )
     let created = MapboxNavigationProvider(coreConfig: config)
@@ -576,15 +574,12 @@ final class RNMapboxNavigationController {
 
   // MARK: Electronic Horizon payload
 
-  /// Builds a single, deterministic primary path for alert matching. Mapbox can return multiple
-  /// level-zero candidates when their probabilities are nearly equal, so choose the highest one at
-  /// each split. Every other edge is preserved in `branches` for the debug-only visualization.
+  /// Builds the single most-probable path for alert matching.
   private func electronicHorizonPayload(
     from event: EHorizonStatus.Events.PositionUpdated,
     roadGraph: RoadGraph
   ) -> [String: Any] {
     let primaryEdges = primaryEdges(from: event.startingEdge)
-    let primaryEdgeIdentifiers = Set(primaryEdges.map(\.identifier))
     let initialFraction = event.position.edgeIdentifier == event.startingEdge.identifier
       ? event.position.fractionFromStart
       : nil
@@ -602,25 +597,12 @@ final class RNMapboxNavigationController {
       Self.append(segment.coordinates, to: &primaryCoordinates)
     }
 
-    var treeEdges = [RoadGraph.Edge]()
-    var visitedEdges = Set<RoadGraph.Edge.Identifier>()
-    collectTreeEdges(from: event.startingEdge, into: &treeEdges, visited: &visitedEdges)
-
-    let branches = treeEdges.compactMap { edge -> ElectronicHorizonSegment? in
-      guard !primaryEdgeIdentifiers.contains(edge.identifier) else {
-        return nil
-      }
-
-      return electronicHorizonSegment(from: edge, roadGraph: roadGraph)
-    }
-
     let primaryPath: [String: Any] = [
       "coordinates": primaryCoordinates,
       "segments": primarySegments.map(\.payload),
     ]
 
     return [
-      "branches": branches.map(\.payload),
       "graphPosition": [
         "edgeId": String(event.position.edgeIdentifier),
         "percentAlong": event.position.fractionFromStart,
@@ -644,22 +626,6 @@ final class RNMapboxNavigationController {
     }
 
     return edges
-  }
-
-  private func collectTreeEdges(
-    from edge: RoadGraph.Edge,
-    into edges: inout [RoadGraph.Edge],
-    visited: inout Set<RoadGraph.Edge.Identifier>
-  ) {
-    guard visited.insert(edge.identifier).inserted else {
-      return
-    }
-
-    edges.append(edge)
-
-    for outletEdge in edge.outletEdges {
-      collectTreeEdges(from: outletEdge, into: &edges, visited: &visited)
-    }
   }
 
   private func electronicHorizonSegment(

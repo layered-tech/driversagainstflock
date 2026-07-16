@@ -296,3 +296,51 @@ index ec0b626..5c53fbf 100644
    }
  
    public setComponent(component: React.ComponentType<RootComponentInitialProps>) {
+diff --git a/node_modules/@iternio/react-native-auto-play/ios/templates/SearchTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/templates/SearchTemplate.swift
+index 8a5efea..d9d9b2d 100644
+--- a/node_modules/@iternio/react-native-auto-play/ios/templates/SearchTemplate.swift
++++ b/node_modules/@iternio/react-native-auto-play/ios/templates/SearchTemplate.swift
+@@ -39,0 +40,9 @@
++    private func completePendingSearchResults(_ items: [CPListItem] = []) {
++        guard let completionHandler else {
++            return
++        }
++
++        self.completionHandler = nil
++        completionHandler(items)
++    }
++
+@@ -48 +57 @@
+-        guard let completionHandler = self.completionHandler else {
++        guard self.completionHandler != nil else {
+@@ -60,3 +69 @@
+-        completionHandler(listItems)
+-
+-        self.completionHandler = nil
++        completePendingSearchResults(listItems)
+@@ -75,0 +83 @@
++        completePendingSearchResults()
+@@ -84,0 +93 @@
++        completePendingSearchResults()
+@@ -95,2 +103,0 @@
+-        self.completionHandler = completionHandler
+-
+@@ -97,0 +105,3 @@
++            self.searchText = searchText
++            completePendingSearchResults()
++            self.completionHandler = completionHandler
+@@ -104,4 +112,0 @@
+-        if searchText == self.searchText {
+-            return
+-        }
+-
+@@ -109,0 +115,6 @@
++        // CarPlay requires every text-update completion handler to be resolved.
++        // Live results are intentionally disabled by the app on this host, so
++        // clear the transient list now and wait for keyboard Search to load the
++        // submitted results into its dedicated list template.
++        completionHandler([])
++
+@@ -127,0 +139,2 @@
++
++        completePendingSearchResults()

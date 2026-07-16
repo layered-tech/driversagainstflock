@@ -458,7 +458,7 @@ function makeDisabledSearchRow(title, detailedText) {
     };
 }
 
-function makeSearchRows(results, query, preferredStartLocation, template) {
+function makeSearchRows(results, query, onPress) {
     if (!results.length) {
         return [
             makeDisabledSearchRow(
@@ -473,12 +473,7 @@ function makeSearchRows(results, query, preferredStartLocation, template) {
     return results.slice(0, 6).map((result) => ({
         detailedText: makeAutoText(getSearchResultSubtitle(result)),
         onPress: () => {
-            handleSearchResultSelected(
-                result,
-                preferredStartLocation,
-                template,
-                { query, results },
-            );
+            onPress(result);
         },
         title: makeAutoText(result.primaryText || result.label || 'Place'),
         type: 'default',
@@ -487,7 +482,12 @@ function makeSearchRows(results, query, preferredStartLocation, template) {
 
 function updateSearchTemplateResults(template, results, query, startLocation) {
     updateSearchTemplateSection(template, {
-        items: makeSearchRows(results, query, startLocation, template),
+        items: makeSearchRows(results, query, (result) => {
+            handleSearchResultSelected(result, startLocation, template, {
+                query,
+                results,
+            });
+        }),
         type: 'default',
     });
 }
@@ -519,13 +519,16 @@ function updateSearchTemplateLoadingResults(template, query) {
 
 function updateSearchTemplateSection(template, section) {
     try {
-        const updatePromise = template?.updateSearchResults(section);
+        const updatePromise =
+            typeof template?.updateSearchResults === 'function'
+                ? template.updateSearchResults(section)
+                : template?.updateSections?.(section);
 
         if (updatePromise && typeof updatePromise.catch === 'function') {
             updatePromise.catch(() => {});
         }
     } catch {
-        // The native SearchTemplate can be removed before debounced search results return.
+        // The native result template can be removed before a search response returns.
     }
 }
 
@@ -560,6 +563,80 @@ function startRouteLoadRequest() {
 function cancelAutoPlaySearchWork() {
     abortSearchRequest();
     abortRouteLoadRequest();
+}
+
+function clearAutoPlaySubmittedSearchResults() {
+    const { submittedSearchQuery, submittedSearchResults } = getAutoPlayState();
+
+    if (!submittedSearchQuery && !(submittedSearchResults?.length > 0)) {
+        return;
+    }
+
+    setAutoPlayState({
+        submittedSearchQuery: '',
+        submittedSearchResults: [],
+    });
+}
+
+function setAutoPlaySubmittedSearchResults({ query, results }) {
+    setAutoPlayState({
+        submittedSearchQuery: query,
+        submittedSearchResults: results,
+    });
+}
+
+function presentAndroidAutoSearchResults({
+    query,
+    results,
+    sourceTemplate,
+    startLocation,
+}) {
+    const { ListTemplate } = loadAutoPlayModule();
+    let resultsTemplate;
+    const dismissResults = () => {
+        cancelAutoPlaySearchWork();
+        clearAutoPlaySubmittedSearchResults();
+    };
+
+    try {
+        resultsTemplate = new ListTemplate({
+            headerActions: getBackHeaderAction(dismissResults),
+            mapConfig: {
+                mapButtons: getRootMapButtons(),
+            },
+            onPopped: dismissResults,
+            sections: {
+                items: makeSearchRows(results, query, (result) => {
+                    handleSearchResultSelected(
+                        result,
+                        startLocation,
+                        resultsTemplate,
+                        { query, results },
+                    );
+                }),
+                type: 'default',
+            },
+            title: makeAutoText('Search results'),
+        });
+        setAutoPlaySubmittedSearchResults({ query, results });
+        resultsTemplate.push().catch(() => {
+            clearAutoPlaySubmittedSearchResults();
+            updateSearchTemplateResults(
+                sourceTemplate,
+                results,
+                query,
+                startLocation,
+            );
+        });
+    } catch {
+        clearAutoPlaySubmittedSearchResults();
+        updateSearchTemplateResults(
+            sourceTemplate,
+            results,
+            query,
+            startLocation,
+        );
+    }
 }
 
 async function runPlaceAutocomplete(template, searchText, startLocation) {
@@ -671,12 +748,21 @@ async function runPlaceTextSearch(template, searchText, startLocation) {
             return;
         }
 
-        updateSearchTemplateResults(
-            template,
-            results,
-            textQuery,
-            startLocation,
-        );
+        if (autoPlayPlatform?.showsSearchResultsOnMap === true) {
+            presentAndroidAutoSearchResults({
+                query: textQuery,
+                results,
+                sourceTemplate: template,
+                startLocation,
+            });
+        } else {
+            updateSearchTemplateResults(
+                template,
+                results,
+                textQuery,
+                startLocation,
+            );
+        }
     } catch (error) {
         if (
             error?.name !== 'AbortError' &&
@@ -744,10 +830,15 @@ function openSearchTemplate(initialSearchText = '', preferredStartLocation) {
     const { SearchTemplate } = loadAutoPlayModule();
 
     cancelAutoPlaySearchWork();
+    clearAutoPlaySubmittedSearchResults();
     const template = new SearchTemplate({
         headerActions: getBackHeaderAction(cancelAutoPlaySearchWork),
         initialSearchText,
         onSearchTextChanged: (searchText) => {
+            if (autoPlayPlatform?.supportsSearchAutocomplete === false) {
+                return;
+            }
+
             schedulePlaceAutocomplete(
                 template,
                 searchText,
@@ -764,7 +855,9 @@ function openSearchTemplate(initialSearchText = '', preferredStartLocation) {
             items: [
                 makeDisabledSearchRow(
                     'Search',
-                    'Enter a destination or use voice.',
+                    autoPlayPlatform?.supportsSearchAutocomplete === false
+                        ? 'Tap the search field, then use the keyboard or its microphone when available.'
+                        : 'Enter a destination or use voice.',
                 ),
             ],
             type: 'default',
@@ -957,7 +1050,7 @@ async function showRoutePreview(route) {
 
     try {
         // CarPlay presents its selector from the root map. Android Auto can
-        // retain SearchTemplate underneath so Back restores those results.
+        // retain the result list underneath so Back restores those results.
         if (autoPlayPlatform?.keepsSearchTemplateUnderRoutePreview !== true) {
             await HybridAutoPlay.popToRootTemplate(false);
         }
@@ -2168,6 +2261,7 @@ function startAutoPlayNavigation(
     }
 
     cancelAutoPlaySearchWork();
+    clearAutoPlaySubmittedSearchResults();
     activeNavigationRoute = route;
     activeNavigationDestination = route.destination;
 

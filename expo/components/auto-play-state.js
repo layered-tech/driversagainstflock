@@ -11,6 +11,8 @@ export const DEFAULT_AUTO_PLAY_STATE = {
     routeDurationText: '',
     routeName: '',
     statusLabel: 'Ready',
+    submittedSearchQuery: '',
+    submittedSearchResults: [],
     title: 'Drivers Against Flock',
 };
 

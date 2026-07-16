@@ -1,4 +1,5 @@
 const METERS_PER_MILE = 1609.344;
+const UPCOMING_ALERT_WARNING_DISTANCE_METERS = METERS_PER_MILE * 2;
 const FEET_PER_METER = 3.28084;
 
 function getAlertId(alert, index) {
@@ -71,10 +72,7 @@ export function getUpcomingAlertPassProgress(distanceMeters) {
 
     return Math.min(
         1,
-        Math.max(
-            0,
-            distance / METERS_PER_MILE,
-        ),
+        Math.max(0, distance / UPCOMING_ALERT_WARNING_DISTANCE_METERS),
     );
 }
 

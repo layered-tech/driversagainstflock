@@ -1,12 +1,28 @@
 export const ELECTRONIC_HORIZON_ALPR_ALERT_PATH_BUFFER_METERS = 85;
-export const ELECTRONIC_HORIZON_ALERT_MAXIMUM_DISTANCE_METERS = 1609.344;
+export const ELECTRONIC_HORIZON_ALERT_MAXIMUM_DISTANCE_METERS = 3218.688;
 export const ELECTRONIC_HORIZON_ALERT_PATH_LENGTH_METERS = 16093.44;
 export const ELECTRONIC_HORIZON_POLICE_ALERT_PATH_BUFFER_METERS = 120;
 
+const ELECTRONIC_HORIZON_U_TURN_ANGLE_DEGREES = 150;
+const ELECTRONIC_HORIZON_U_TURN_MAXIMUM_DISTANCE_METERS = 300;
+const ELECTRONIC_HORIZON_U_TURN_MINIMUM_DISTANCE_METERS = 25;
+const ELECTRONIC_HORIZON_U_TURN_MINIMUM_RETURN_DISTANCE_METERS = 60;
+const ELECTRONIC_HORIZON_U_TURN_MINIMUM_SEGMENT_LENGTH_METERS = 5;
+// A predicted path must nearly retrace its earlier roadway before it is treated as a U-turn.
+// Keeping this within a lane/median width avoids suppressing nearby ramps or parallel roads.
+const ELECTRONIC_HORIZON_U_TURN_RETURN_PROXIMITY_METERS = 15;
 const EARTH_RADIUS_METERS = 6371008.8;
 
 function degreesToRadians(value) {
     return (value * Math.PI) / 180;
+}
+
+function normalizeDirectionDegrees(value) {
+    return ((value % 360) + 360) % 360;
+}
+
+function getDirectionDeltaDegrees(fromHeading, toHeading) {
+    return ((toHeading - fromHeading + 540) % 360) - 180;
 }
 
 function getStoredNumber(value) {
@@ -38,12 +54,14 @@ function getCoordinateDistanceMeters(fromCoordinate, toCoordinate) {
         return null;
     }
 
+    const fromLatitudeRadians = degreesToRadians(fromLatitude);
+    const toLatitudeRadians = degreesToRadians(toLatitude);
     const latitudeDelta = degreesToRadians(toLatitude - fromLatitude);
     const longitudeDelta = degreesToRadians(toLongitude - fromLongitude);
     const haversine =
         Math.sin(latitudeDelta / 2) ** 2 +
-        Math.cos(degreesToRadians(fromLatitude)) *
-            Math.cos(degreesToRadians(toLatitude)) *
+        Math.cos(fromLatitudeRadians) *
+            Math.cos(toLatitudeRadians) *
             Math.sin(longitudeDelta / 2) ** 2;
 
     return (
@@ -51,6 +69,34 @@ function getCoordinateDistanceMeters(fromCoordinate, toCoordinate) {
         2 *
         Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine))
     );
+}
+
+function getCoordinateBearingDegrees(fromCoordinate, toCoordinate) {
+    const fromLongitude = getStoredNumber(fromCoordinate?.[0]);
+    const fromLatitude = getStoredNumber(fromCoordinate?.[1]);
+    const toLongitude = getStoredNumber(toCoordinate?.[0]);
+    const toLatitude = getStoredNumber(toCoordinate?.[1]);
+
+    if (
+        fromLongitude === null ||
+        fromLatitude === null ||
+        toLongitude === null ||
+        toLatitude === null
+    ) {
+        return null;
+    }
+
+    const fromLatitudeRadians = degreesToRadians(fromLatitude);
+    const toLatitudeRadians = degreesToRadians(toLatitude);
+    const longitudeDelta = degreesToRadians(toLongitude - fromLongitude);
+    const y = Math.sin(longitudeDelta) * Math.cos(toLatitudeRadians);
+    const x =
+        Math.cos(fromLatitudeRadians) * Math.sin(toLatitudeRadians) -
+        Math.sin(fromLatitudeRadians) *
+            Math.cos(toLatitudeRadians) *
+            Math.cos(longitudeDelta);
+
+    return normalizeDirectionDegrees((Math.atan2(y, x) * 180) / Math.PI);
 }
 
 export function normalizeElectronicHorizonCoordinate(coordinate) {
@@ -102,12 +148,170 @@ function normalizeElectronicHorizonSegment(segment, index) {
     };
 }
 
+function getElectronicHorizonPathSegments(coordinates) {
+    const segments = [];
+    let distanceFromStartMeters = 0;
+
+    for (let index = 0; index < coordinates.length - 1; index += 1) {
+        if (
+            distanceFromStartMeters >
+            ELECTRONIC_HORIZON_U_TURN_MAXIMUM_DISTANCE_METERS
+        ) {
+            break;
+        }
+
+        const start = coordinates[index];
+        const end = coordinates[index + 1];
+        const lengthMeters = getCoordinateDistanceMeters(start, end);
+        const bearing = getCoordinateBearingDegrees(start, end);
+
+        if (lengthMeters === null || bearing === null) {
+            continue;
+        }
+
+        const nextDistanceFromStartMeters =
+            distanceFromStartMeters + lengthMeters;
+
+        if (
+            nextDistanceFromStartMeters >
+            ELECTRONIC_HORIZON_U_TURN_MAXIMUM_DISTANCE_METERS
+        ) {
+            break;
+        }
+
+        if (
+            lengthMeters <
+            ELECTRONIC_HORIZON_U_TURN_MINIMUM_SEGMENT_LENGTH_METERS
+        ) {
+            distanceFromStartMeters = nextDistanceFromStartMeters;
+
+            continue;
+        }
+
+        segments.push({
+            bearing,
+            distanceFromStartMeters,
+            endIndex: index + 1,
+            lengthMeters,
+            startIndex: index,
+        });
+        distanceFromStartMeters = nextDistanceFromStartMeters;
+    }
+
+    return segments;
+}
+
+function hasReturnedNearEarlierPath({
+    coordinates,
+    pathSegments,
+    reversalSegment,
+}) {
+    const minimumEarlierDistanceMeters = Math.max(
+        0,
+        reversalSegment.distanceFromStartMeters -
+            ELECTRONIC_HORIZON_U_TURN_MINIMUM_RETURN_DISTANCE_METERS,
+    );
+    const earlierCoordinates = pathSegments
+        .filter(
+            (segment) =>
+                segment.distanceFromStartMeters <= minimumEarlierDistanceMeters,
+        )
+        .map((segment) => coordinates[segment.startIndex]);
+
+    if (!earlierCoordinates.length) {
+        return false;
+    }
+
+    return pathSegments.some((segment) => {
+        const distancePastReversalMeters =
+            segment.distanceFromStartMeters +
+            segment.lengthMeters -
+            reversalSegment.distanceFromStartMeters;
+
+        if (
+            distancePastReversalMeters <
+                ELECTRONIC_HORIZON_U_TURN_MINIMUM_DISTANCE_METERS ||
+            segment.distanceFromStartMeters >
+                ELECTRONIC_HORIZON_U_TURN_MAXIMUM_DISTANCE_METERS
+        ) {
+            return false;
+        }
+
+        const endpoint = coordinates[segment.endIndex];
+
+        return earlierCoordinates.some((earlierCoordinate) => {
+            const distanceMeters = getCoordinateDistanceMeters(
+                endpoint,
+                earlierCoordinate,
+            );
+
+            return (
+                distanceMeters !== null &&
+                distanceMeters <=
+                    ELECTRONIC_HORIZON_U_TURN_RETURN_PROXIMITY_METERS
+            );
+        });
+    });
+}
+
+/**
+ * Removes an imminent predicted U-turn from a free-drive most-probable path. It intentionally
+ * fails open for short or ambiguous geometry, leaving real turns and active directions routes
+ * untouched while preventing alerts from following an implausible immediate reversal.
+ */
+export function getElectronicHorizonCoordinatesBeforeUturn(
+    coordinates,
+) {
+    const path = normalizeElectronicHorizonCoordinates(coordinates);
+
+    if (path.length < 2) {
+        return path;
+    }
+
+    const pathSegments = getElectronicHorizonPathSegments(path);
+    const initialSegment = pathSegments[0];
+
+    if (!initialSegment) {
+        return path;
+    }
+
+    const initialHeading = initialSegment.bearing;
+    const reversalSegment = pathSegments.find(
+        (segment) =>
+            segment.distanceFromStartMeters >=
+                ELECTRONIC_HORIZON_U_TURN_MINIMUM_DISTANCE_METERS &&
+            segment.distanceFromStartMeters <=
+                ELECTRONIC_HORIZON_U_TURN_MAXIMUM_DISTANCE_METERS &&
+            Math.abs(
+                getDirectionDeltaDegrees(initialHeading, segment.bearing),
+            ) >= ELECTRONIC_HORIZON_U_TURN_ANGLE_DEGREES,
+    );
+
+    if (
+        !reversalSegment ||
+        !hasReturnedNearEarlierPath({
+            coordinates: path,
+            pathSegments,
+            reversalSegment,
+        })
+    ) {
+        return path;
+    }
+
+    return path.slice(0, reversalSegment.startIndex + 1);
+}
+
 export function normalizeElectronicHorizon(horizon) {
     const primaryPathCoordinates = normalizeElectronicHorizonCoordinates(
         horizon?.primaryPath?.coordinates,
     );
 
-    if (primaryPathCoordinates.length < 2) {
+    const guardedPrimaryPathCoordinates =
+        getElectronicHorizonCoordinatesBeforeUturn(
+            primaryPathCoordinates,
+        );
+
+    if (guardedPrimaryPathCoordinates.length < 2) {
         return null;
     }
 
@@ -116,25 +320,24 @@ export function normalizeElectronicHorizon(horizon) {
               .map(normalizeElectronicHorizonSegment)
               .filter(Boolean)
         : [];
-    const branches = Array.isArray(horizon?.branches)
-        ? horizon.branches
-              .map(normalizeElectronicHorizonSegment)
-              .filter(Boolean)
-        : [];
-
     return {
-        branches,
         primaryPath: {
-            coordinates: primaryPathCoordinates,
+            coordinates: guardedPrimaryPathCoordinates,
             probability: getStoredNumber(horizon?.primaryPath?.probability),
-            segments: primaryPathSegments,
+            segments:
+                guardedPrimaryPathCoordinates.length ===
+                primaryPathCoordinates.length
+                    ? primaryPathSegments
+                    : [],
         },
         updatedAt: getStoredNumber(horizon?.updatedAt) ?? Date.now(),
     };
 }
 
 export function getElectronicHorizonPrimaryCoordinates(horizon) {
-    return normalizeElectronicHorizon(horizon)?.primaryPath.coordinates ?? [];
+    return (
+        normalizeElectronicHorizon(horizon)?.primaryPath.coordinates ?? []
+    );
 }
 
 function coordinateToRelativeMeters(coordinate, origin) {

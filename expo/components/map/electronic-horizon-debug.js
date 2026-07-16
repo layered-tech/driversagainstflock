@@ -5,15 +5,6 @@ const EMPTY_ELECTRONIC_HORIZON_DEBUG_FEATURE_COLLECTION = Object.freeze({
 
 export const ELECTRONIC_HORIZON_DEBUG_PRIMARY_PATH_COLOR = '#1FBF6B';
 
-const ELECTRONIC_HORIZON_DEBUG_BRANCH_COLORS = [
-    '#2E8BFF',
-    '#FFB02E',
-    '#7A5CFF',
-    '#FF4D4F',
-    '#00A6B2',
-    '#E36D9C',
-];
-
 function getFiniteNumber(value) {
     if (value === null || value === undefined || value === '') {
         return null;
@@ -148,17 +139,6 @@ export function formatElectronicHorizonProbability(probability) {
     return `${Math.round(Math.min(percent, 100))}%`;
 }
 
-function getBranchColor(branchIndex, level) {
-    const numericLevel = getFiniteNumber(level);
-    const normalizedLevel =
-        numericLevel !== null ? Math.max(0, Math.floor(numericLevel)) : 0;
-    const colorIndex =
-        (normalizedLevel + Math.max(0, branchIndex)) %
-        ELECTRONIC_HORIZON_DEBUG_BRANCH_COLORS.length;
-
-    return ELECTRONIC_HORIZON_DEBUG_BRANCH_COLORS[colorIndex];
-}
-
 function makePathFeatures({
     color,
     coordinates,
@@ -253,25 +233,6 @@ export function makeElectronicHorizonDebugFeatureCollection(
             }),
         );
     });
-
-    if (Array.isArray(electronicHorizon.branches)) {
-        electronicHorizon.branches.forEach((branch, branchIndex) => {
-            const coordinates = normalizeCoordinates(branch?.coordinates);
-
-            features.push(
-                ...makePathFeatures({
-                    color: getBranchColor(branchIndex, branch?.level),
-                    coordinates,
-                    id: `electronic-horizon-branch-${
-                        branch?.edgeId ?? 'edge'
-                    }-${branchIndex}`,
-                    level: branch?.level,
-                    probability: branch?.probability,
-                    role: 'branch',
-                }),
-            );
-        });
-    }
 
     return features.length
         ? {

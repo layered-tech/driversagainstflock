@@ -6,7 +6,9 @@ import { MapLayerButton } from './map-layer-controls';
 import { useMapControlsContext } from './map-screen-context';
 import { MarkerLoadingIndicator } from './marker-loading-indicator';
 
-export function MapControlsOverlay() {
+export function MapControlsOverlay({
+    showFreeDriveButton = true,
+}) {
     const {
         defaultMapControlClassName,
         defaultMapControlGlassTintColor,
@@ -67,42 +69,46 @@ export function MapControlsOverlay() {
         >
             <MapLayerButton />
 
-            <MapControlButton
-                accessibilityLabel={
-                    freeDriveIsActive ? 'Exit free drive' : 'Start free drive'
-                }
-                accessibilityRole="button"
-                className={`${MAP_CONTROL_BUTTON_CLASS_NAME} ${
-                    freeDriveIsActive
-                        ? 'dark:bg-daf-surface-dark border-daf-alert bg-white'
-                        : defaultMapControlClassName
-                }`}
-                glassTintColor={
-                    freeDriveIsActive
-                        ? 'rgba(255,220,220,0.78)'
-                        : defaultMapControlGlassTintColor
-                }
-                onPress={
-                    freeDriveIsActive
-                        ? handleStopFreeDrive
-                        : handleStartFreeDrive
-                }
-                testID={
-                    freeDriveIsActive
-                        ? 'exit-free-drive-button'
-                        : 'start-free-drive-button'
-                }
-            >
-                <Icon
-                    color={
+            {showFreeDriveButton ? (
+                <MapControlButton
+                    accessibilityLabel={
                         freeDriveIsActive
-                            ? '#FF4D4F'
-                            : defaultMapControlIconColor
+                            ? 'Exit free drive'
+                            : 'Start free drive'
                     }
-                    name={freeDriveIsActive ? 'x' : 'navigation'}
-                    size={21}
-                />
-            </MapControlButton>
+                    accessibilityRole="button"
+                    className={`${MAP_CONTROL_BUTTON_CLASS_NAME} ${
+                        freeDriveIsActive
+                            ? 'dark:bg-daf-surface-dark border-daf-alert bg-white'
+                            : defaultMapControlClassName
+                    }`}
+                    glassTintColor={
+                        freeDriveIsActive
+                            ? 'rgba(255,220,220,0.78)'
+                            : defaultMapControlGlassTintColor
+                    }
+                    onPress={
+                        freeDriveIsActive
+                            ? handleStopFreeDrive
+                            : handleStartFreeDrive
+                    }
+                    testID={
+                        freeDriveIsActive
+                            ? 'exit-free-drive-button'
+                            : 'start-free-drive-button'
+                    }
+                >
+                    <Icon
+                        color={
+                            freeDriveIsActive
+                                ? '#FF4D4F'
+                                : defaultMapControlIconColor
+                        }
+                        name={freeDriveIsActive ? 'x' : 'navigation'}
+                        size={21}
+                    />
+                </MapControlButton>
+            ) : null}
 
             <MapControlButton
                 accessibilityLabel="Zoom in"

@@ -702,8 +702,10 @@ export function useAutoPlayMapScreenContextValues({
     mapPreferences,
     markerFeatureCollection,
     policeAlertFeatureCollection,
+    policeAlertsVisible,
     preferredFramesPerSecond,
     presentation,
+    submittedSearchResults,
 }) {
     const canvasValue = useMemo(
         () => ({
@@ -738,9 +740,12 @@ export function useAutoPlayMapScreenContextValues({
             nativeCameraFollowProps: controller.nativeCameraFollowProps,
             navigationPuckVariant: 'auto-play',
             policeAlertFeatureCollection,
-            policeAlertsVisible: mapPreferences.policeAlertsVisible,
+            policeAlertsVisible:
+                policeAlertsVisible ?? mapPreferences.policeAlertsVisible,
             preferredFramesPerSecond,
-            submittedSearchResults: EMPTY_ANDROID_AUTO_SUBMITTED_SEARCH_RESULTS,
+            submittedSearchResults:
+                submittedSearchResults ??
+                EMPTY_ANDROID_AUTO_SUBMITTED_SEARCH_RESULTS,
             usesSharedLocationProvider: true,
         }),
         [
@@ -769,10 +774,12 @@ export function useAutoPlayMapScreenContextValues({
             mapPreferences.policeAlertsVisible,
             markerFeatureCollection,
             policeAlertFeatureCollection,
+            policeAlertsVisible,
             preferredFramesPerSecond,
             presentation.mapboxAttributionPosition,
             presentation.mapboxLogoPosition,
             presentation.mapCompassPosition,
+            submittedSearchResults,
         ],
     );
     const locationValue = useMapLocationContextValue(

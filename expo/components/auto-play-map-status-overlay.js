@@ -1,9 +1,12 @@
 import { Text, View } from 'react-native';
-import { getAutoPlaySpeedLimitOverlayLayout } from './auto-play-map-status-layout';
+import {
+    getAutoPlaySpeedLimitOverlayLayout,
+    getAutoPlayUpcomingAlertOverlayLayout,
+} from './auto-play-map-status-layout';
 import { Icon } from './design-system/icon';
 import { dafSemanticColors } from './design-system/tokens';
-import { DrivingLocationRoadStack } from './map/driving-location-road-stack';
 import { formatUpcomingAlertDistance } from './map/driving-alerts';
+import { DrivingLocationRoadStack } from './map/driving-location-road-stack';
 import { MarkerLoadingIndicator } from './map/marker-loading-indicator';
 import { AUTO_PLAY_NAVIGATION_PUCK_SIZE } from './map/navigation-puck-layout';
 import {
@@ -107,6 +110,9 @@ export function AutoPlayMapStatusOverlay({
         mapControlLayoutInsets: presentation.mapControlLayoutInsets,
         size: AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE,
     });
+    const upcomingAlertOverlayLayout = getAutoPlayUpcomingAlertOverlayLayout({
+        mapControlLayoutInsets: presentation.mapControlLayoutInsets,
+    });
 
     return (
         <>
@@ -124,14 +130,22 @@ export function AutoPlayMapStatusOverlay({
                 />
             </View>
 
-            {upcomingAlert || markerLoadingIsVisible || speedLimitIsVisible ? (
+            {upcomingAlert ? (
+                <View
+                    className="absolute items-end"
+                    pointerEvents="none"
+                    style={upcomingAlertOverlayLayout.positionStyle}
+                >
+                    <AutoPlayUpcomingAlert alert={upcomingAlert} />
+                </View>
+            ) : null}
+
+            {markerLoadingIsVisible || speedLimitIsVisible ? (
                 <View
                     className="absolute items-end gap-[12px]"
                     pointerEvents="none"
                     style={speedLimitOverlayLayout.positionStyle}
                 >
-                    <AutoPlayUpcomingAlert alert={upcomingAlert} />
-
                     {markerLoadingIsVisible ? (
                         <MarkerLoadingIndicator
                             accessibilityLabel={

@@ -153,7 +153,6 @@ export default function LocationMapScreen({
     const cameraDebugStateUpdatesEnabled =
         SHOW_MAP_DEBUG_CONTROLS &&
         debugOverlayVisibility?.[DEBUG_OVERLAY_CAMERA] === true;
-    const mapSearchOverlayIsVisible = searchOverlayVisible ?? !isDrivingMode;
     const mapLightPreset = useMapboxStandardLightPreset(
         mapLightPresetPreference,
         userLocation,
@@ -270,6 +269,9 @@ export default function LocationMapScreen({
         () => getSelectedDirectionsRouteOption(directionsRoute),
         [directionsRoute],
     );
+    const freeDriveIsActive = isDrivingMode && !selectedDirectionsRouteOption;
+    const mapSearchOverlayIsVisible =
+        searchOverlayVisible ?? (!isDrivingMode || freeDriveIsActive);
     const directionsFormIsActive =
         searchController.searchMode === DIRECTIONS_MODE_DIRECTIONS;
     const routeComparisonIsActive = Boolean(
@@ -293,6 +295,8 @@ export default function LocationMapScreen({
         !markerDetailsModeIsActive &&
         !placeDetailsModeIsActive &&
         !routeComparisonIsActive;
+    const freeDriveSearchOverlayIsVisible =
+        freeDriveIsActive && resolvedMapSearchOverlayIsVisible;
 
     useEffect(() => {
         if (surveillanceMarkersVisible || !selectedMarker) {
@@ -451,7 +455,6 @@ export default function LocationMapScreen({
         selectedDirectionsRouteOption,
         setDrivingModeIsActive,
     });
-    const freeDriveIsActive = isDrivingMode && !selectedDirectionsRouteOption;
     const handleStartFreeDrive = useCallback(() => {
         layerSheetRef.current?.dismiss();
         logMapDrivingStarted({ route: null });
@@ -613,8 +616,17 @@ export default function LocationMapScreen({
                                 onLocationAnchorLayout={
                                     setDrivingLocationAnchorY
                                 }
+                                topOverlay={
+                                    freeDriveSearchOverlayIsVisible ? (
+                                        <MapSearchOverlay
+                                            showDestinationCategories={false}
+                                        />
+                                    ) : null
+                                }
                             >
-                                <MapControlsOverlay />
+                                <MapControlsOverlay
+                                    showFreeDriveButton={freeDriveIsActive}
+                                />
                             </DrivingGuidanceOverlay>
                         ) : (
                             <NativeWindSafeAreaView
