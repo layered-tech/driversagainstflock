@@ -2,11 +2,14 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\SearchMetadata;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
+    public function __construct(private SearchMetadata $searchMetadata) {}
+
     /**
      * The root template that is loaded on the first page visit.
      *
@@ -34,6 +37,7 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'seo' => $this->searchMetadata->forRequest($request),
         ];
     }
 }

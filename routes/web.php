@@ -6,9 +6,24 @@ use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\DownloadAndroidApkController;
 use App\Http\Controllers\HotlistController;
 use App\Http\Controllers\ProfileController;
+use App\Support\SearchMetadata;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+
+Route::get('/sitemap.xml', function (SearchMetadata $searchMetadata) {
+    return response()->view('sitemap', [
+        'urls' => $searchMetadata->sitemapEntries(),
+    ], 200, [
+        'Content-Type' => 'application/xml; charset=UTF-8',
+    ]);
+})->name('sitemap');
+
+Route::get('/robots.txt', function (SearchMetadata $searchMetadata) {
+    return response("User-agent: *\nAllow: /\n\nSitemap: {$searchMetadata->sitemapUrl()}\n", 200, [
+        'Content-Type' => 'text/plain; charset=UTF-8',
+    ]);
+})->name('robots');
 
 Route::get('/', function () {
     return Inertia::render('Landing', [
@@ -46,7 +61,7 @@ Route::get('/privacy-policy', function () {
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
     ]);
-});
+})->name('privacy');
 
 Route::get('/terms-of-use', function () {
     return Inertia::render('Terms', [
@@ -54,7 +69,7 @@ Route::get('/terms-of-use', function () {
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
     ]);
-});
+})->name('terms');
 
 Route::group(['middleware' => ['throttle:directions']], function (Router $route) {
     Route::post('search', SearchController::class);

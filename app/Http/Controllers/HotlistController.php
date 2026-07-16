@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\OsmNode;
+use App\Support\SearchMetadata;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,8 @@ use Inertia\Response;
 
 class HotlistController extends Controller
 {
+    public function __construct(private SearchMetadata $searchMetadata) {}
+
     private const PER_PAGE = 25;
 
     /**
@@ -38,11 +41,15 @@ class HotlistController extends Controller
 
     public function __invoke(Request $request): Response
     {
+        $payload = $this->payload($request);
+        $seo = $this->searchMetadata->forRequest($request, $payload['latestUpdatedAt']);
+
         return Inertia::render('Hotlist', [
             'user' => auth()->user(),
             'canLogin' => Route::has('login'),
             'canRegister' => Route::has('register'),
-            ...$this->payload($request),
+            ...$payload,
+            'seo' => $seo,
         ]);
     }
 
@@ -65,7 +72,8 @@ class HotlistController extends Controller
      *     filters: array{window: string, manufacturer: string, query: string, sort: string, direction: string},
      *     stats: array<int, array{icon: string, label: string, value: string, sub: string, tone: string, isUp: bool}>,
      *     manufacturerCounts: array{all: int, flock: int, other: int},
-     *     latestSyncedAt: string|null
+     *     latestSyncedAt: string|null,
+     *     latestUpdatedAt: string|null
      * }
      */
     private function payload(Request $request): array
@@ -93,6 +101,7 @@ class HotlistController extends Controller
             'stats' => $this->stats($filters['window'], $manufacturerCounts),
             'manufacturerCounts' => $manufacturerCounts,
             'latestSyncedAt' => $this->latestSyncedAt(),
+            'latestUpdatedAt' => $this->searchMetadata->latestHotlistUpdatedAt(),
         ];
     }
 

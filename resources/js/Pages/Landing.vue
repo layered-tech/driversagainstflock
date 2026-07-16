@@ -2,7 +2,7 @@
     <div
         class="flex min-h-full flex-col bg-daf-surface-page text-daf-text-primary"
     >
-        <Head title="Private routes around ALPR cameras" />
+        <DafSiteHead />
 
         <DafSiteHeader
             :links="headerLinks"
@@ -579,11 +579,12 @@ import DafButton from '@/Components/Daf/DafButton.vue';
 import DafCard from '@/Components/Daf/DafCard.vue';
 import DafIcon from '@/Components/Daf/DafIcon.vue';
 import DafSiteFooter from '@/Components/Daf/DafSiteFooter.vue';
+import DafSiteHead from '@/Components/Daf/DafSiteHead.vue';
 import DafSiteHeader from '@/Components/Daf/DafSiteHeader.vue';
 import AndroidAutoScreenStub from '@/Components/Daf/Marketing/AndroidAutoScreenStub.vue';
 import HeroMapboxPreview from '@/Components/Daf/Marketing/HeroMapboxPreview.vue';
 import JohnDoeMapStub from '@/Components/Daf/Marketing/JohnDoeMapStub.vue';
-import { Head, router } from '@inertiajs/vue3';
+import { router } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 const iosUrl =

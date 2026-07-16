@@ -11,8 +11,8 @@ import DafMarkerLoadingProgress from '@/Components/Daf/Map/DafMarkerLoadingProgr
 import DafNodeStatusBadge from '@/Components/Daf/Map/DafNodeStatusBadge.vue';
 import DafRouteCard from '@/Components/Daf/Map/DafRouteCard.vue';
 import DafSearchBar from '@/Components/Daf/Map/DafSearchBar.vue';
+import DafSiteHead from '@/Components/Daf/DafSiteHead.vue';
 import { applyDafTheme, applySystemDafTheme } from '@/design-system/theme';
-import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
 import mapboxgl from 'mapbox-gl';
 import {
@@ -3718,7 +3718,7 @@ function radiansToDegrees(radians) {
 </script>
 
 <template>
-    <Head title="Map" />
+    <DafSiteHead />
 
     <div
         class="flex h-screen min-h-screen flex-col overflow-hidden bg-daf-surface-page text-daf-text-primary"
