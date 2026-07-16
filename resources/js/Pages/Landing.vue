@@ -349,11 +349,12 @@
                                         </span>
                                     </span>
                                 </a>
-                                <a
-                                    :href="androidUrl"
-                                    target="_blank"
-                                    rel="noreferrer"
+                                <button
+                                    aria-controls="android-install-instructions"
+                                    aria-haspopup="dialog"
                                     class="daf-pressable flex min-h-[58px] min-w-[204px] items-center gap-3 rounded-dafMd bg-daf-surface-inverse px-[18px] py-3 text-daf-text-inverse no-underline"
+                                    type="button"
+                                    @click="openAndroidInstallInstructions"
                                 >
                                     <svg
                                         width="22"
@@ -376,7 +377,7 @@
                                             Google Play
                                         </span>
                                     </span>
-                                </a>
+                                </button>
                             </div>
                             <div
                                 class="mt-[18px] flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-daf-body-sm text-daf-text-secondary"
@@ -570,6 +571,129 @@
         </main>
 
         <DafSiteFooter :links="footerLinks" />
+
+        <Modal
+            :show="showingAndroidInstallInstructions"
+            aria-describedby="android-install-instructions-description"
+            aria-labelledby="android-install-instructions-title"
+            max-width="md"
+            @close="closeAndroidInstallInstructions"
+        >
+            <div
+                id="android-install-instructions"
+                class="border border-daf-border bg-daf-surface-card p-6 text-daf-text-primary sm:p-8"
+            >
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <div
+                            class="font-mono text-daf-label font-bold uppercase tracking-[var(--ls-label)] text-daf-text-brand"
+                        >
+                            Android testing
+                        </div>
+                        <h2
+                            id="android-install-instructions-title"
+                            class="mt-2 font-display text-daf-h2 font-semibold tracking-[var(--ls-heading)]"
+                        >
+                            Install the Android app
+                        </h2>
+                    </div>
+                    <button
+                        aria-label="Close Android app install instructions"
+                        class="daf-pressable inline-flex size-10 shrink-0 items-center justify-center rounded-dafPill text-daf-text-secondary hover:bg-daf-surface-alt hover:text-daf-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-daf-focus"
+                        type="button"
+                        @click="closeAndroidInstallInstructions"
+                    >
+                        <DafIcon name="x" size="20" />
+                    </button>
+                </div>
+
+                <p
+                    id="android-install-instructions-description"
+                    class="mt-4 text-daf-body text-daf-text-secondary"
+                >
+                    Google Play only shows the test version after you join the
+                    Android test group with the same Google account you use in
+                    the Play Store.
+                </p>
+
+                <ol class="mt-6 flex flex-col gap-4">
+                    <li
+                        class="flex gap-3 rounded-dafLg border border-daf-border bg-daf-surface-alt p-4"
+                    >
+                        <span
+                            class="inline-flex size-8 shrink-0 items-center justify-center rounded-dafPill bg-daf-brand font-mono text-daf-caption font-bold text-daf-brand-contrast"
+                        >
+                            1
+                        </span>
+                        <div
+                            class="flex min-w-0 flex-1 flex-col items-start gap-3"
+                        >
+                            <div>
+                                <h3
+                                    class="font-display text-daf-h3 font-semibold tracking-[var(--ls-heading)]"
+                                >
+                                    Join the Google Group
+                                </h3>
+                                <p
+                                    class="mt-1 text-daf-body-sm text-daf-text-secondary"
+                                >
+                                    Sign in with your Play Store Google account,
+                                    then join the Android test group.
+                                </p>
+                            </div>
+                            <DafButton
+                                :href="androidTestGroupUrl"
+                                external
+                                size="sm"
+                                variant="secondary"
+                            >
+                                Join the Android test group
+                            </DafButton>
+                        </div>
+                    </li>
+                    <li
+                        class="flex gap-3 rounded-dafLg border border-daf-border bg-daf-surface-alt p-4"
+                    >
+                        <span
+                            class="inline-flex size-8 shrink-0 items-center justify-center rounded-dafPill bg-daf-brand font-mono text-daf-caption font-bold text-daf-brand-contrast"
+                        >
+                            2
+                        </span>
+                        <div
+                            class="flex min-w-0 flex-1 flex-col items-start gap-3"
+                        >
+                            <div>
+                                <h3
+                                    class="font-display text-daf-h3 font-semibold tracking-[var(--ls-heading)]"
+                                >
+                                    Open Google Play
+                                </h3>
+                                <p
+                                    class="mt-1 text-daf-body-sm text-daf-text-secondary"
+                                >
+                                    Return to Google Play to install the app. It
+                                    can take a few minutes for new group access
+                                    to appear.
+                                </p>
+                            </div>
+                            <DafButton :href="androidUrl" external size="sm">
+                                Open Google Play
+                            </DafButton>
+                        </div>
+                    </li>
+                </ol>
+
+                <div class="mt-6 flex justify-end">
+                    <DafButton
+                        type="button"
+                        variant="ghost"
+                        @click="closeAndroidInstallInstructions"
+                    >
+                        Close
+                    </DafButton>
+                </div>
+            </div>
+        </Modal>
     </div>
 </template>
 
@@ -580,6 +704,7 @@ import DafCard from '@/Components/Daf/DafCard.vue';
 import DafIcon from '@/Components/Daf/DafIcon.vue';
 import DafSiteFooter from '@/Components/Daf/DafSiteFooter.vue';
 import DafSiteHeader from '@/Components/Daf/DafSiteHeader.vue';
+import Modal from '@/Components/Modal.vue';
 import AndroidAutoScreenStub from '@/Components/Daf/Marketing/AndroidAutoScreenStub.vue';
 import HeroMapboxPreview from '@/Components/Daf/Marketing/HeroMapboxPreview.vue';
 import JohnDoeMapStub from '@/Components/Daf/Marketing/JohnDoeMapStub.vue';
@@ -590,6 +715,8 @@ const iosUrl =
     'https://apps.apple.com/us/app/drivers-against-flock/id6741054638';
 const androidUrl =
     'https://play.google.com/store/apps/details?id=com.anonymous.drivefree&pli=1';
+const androidTestGroupUrl =
+    'https://groups.google.com/g/drivers-against-flock-android-test';
 const apkUrl = '/downloads/android-apk';
 
 const period = 15000;
@@ -599,6 +726,7 @@ const activePatternIndex = ref(0);
 const faqOpenIndex = ref(0);
 const playing = ref(true);
 const progress = ref(0);
+const showingAndroidInstallInstructions = ref(false);
 let intervalId = null;
 
 const headerLinks = [
@@ -910,6 +1038,14 @@ function openMap() {
             ? `/map?zip=${encodeURIComponent(normalizedZipCode)}`
             : '/map',
     );
+}
+
+function openAndroidInstallInstructions() {
+    showingAndroidInstallInstructions.value = true;
+}
+
+function closeAndroidInstallInstructions() {
+    showingAndroidInstallInstructions.value = false;
 }
 
 function normalizeLandingZipCode(value) {

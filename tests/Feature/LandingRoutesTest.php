@@ -49,6 +49,22 @@ test('landing apk link points to the download route', function () {
         ->not->toContain("const apkUrl = '/assets/com.anonymous.drivefree.apk';");
 });
 
+test('landing Google Play CTA explains Android test enrollment', function () {
+    $landingPage = file_get_contents(resource_path('js/Pages/Landing.vue'));
+
+    expect($landingPage)
+        ->toContain("const androidTestGroupUrl =\n    'https://groups.google.com/g/drivers-against-flock-android-test';")
+        ->toContain('showingAndroidInstallInstructions')
+        ->toContain('openAndroidInstallInstructions')
+        ->toContain('aria-haspopup="dialog"')
+        ->toContain('<Modal')
+        ->toContain(':show="showingAndroidInstallInstructions"')
+        ->toContain('Join the Google Group')
+        ->toContain(':href="androidTestGroupUrl"')
+        ->toContain('Open Google Play')
+        ->toContain(':href="androidUrl"');
+});
+
 test('android apk route downloads the APK from S3', function () {
     Storage::fake('s3');
     Storage::disk('s3')->put('android.apk', 'APK contents');
