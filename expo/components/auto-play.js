@@ -1,6 +1,9 @@
 import {
+    activateAndroidAutoLifecycleAsync,
     addEnhancedLocationListener,
+    deactivateAndroidAutoLifecycleAsync,
     getLastEnhancedLocationAsync,
+    updateAndroidAutoLifecycleStateAsync,
 } from '@rnmapbox/navigation';
 import * as Location from 'expo-location';
 import {
@@ -183,6 +186,8 @@ const ROOT_MAP_CONTROL_BUTTON_IMAGE = {
 
 let autoPlayModule;
 let autoPlayRegistered = false;
+let autoPlayConnectionGeneration = 0;
+let autoPlaySessionRenderState = null;
 let rootMapTemplate = null;
 let rootMapTemplateIsReady = false;
 let rootMapButtonAppearance = ROOT_MAP_BUTTON_APPEARANCE_DEFAULTS;
@@ -431,7 +436,7 @@ function makeDisabledSearchRow(title, detailedText) {
     };
 }
 
-function makeSearchRows(results, query, preferredStartLocation, template) {
+function makeSearchRows(results, query, onPress) {
     if (!results.length) {
         return [
             makeDisabledSearchRow(
@@ -446,12 +451,7 @@ function makeSearchRows(results, query, preferredStartLocation, template) {
     return results.slice(0, 6).map((result) => ({
         detailedText: makeAutoText(getSearchResultSubtitle(result)),
         onPress: () => {
-            handleSearchResultSelected(
-                result,
-                preferredStartLocation,
-                template,
-                { query, results },
-            );
+            onPress(result);
         },
         title: makeAutoText(result.primaryText || result.label || 'Place'),
         type: 'default',
@@ -459,8 +459,17 @@ function makeSearchRows(results, query, preferredStartLocation, template) {
 }
 
 function updateSearchTemplateResults(template, results, query, startLocation) {
+    if (autoPlayPlatform?.publishesSearchTemplateResultsToMap === true) {
+        setAutoPlaySubmittedSearchResults({ query, results });
+    }
+
     updateSearchTemplateSection(template, {
-        items: makeSearchRows(results, query, startLocation, template),
+        items: makeSearchRows(results, query, (result) => {
+            handleSearchResultSelected(result, startLocation, template, {
+                query,
+                results,
+            });
+        }),
         type: 'default',
     });
 }
@@ -492,13 +501,16 @@ function updateSearchTemplateLoadingResults(template, query) {
 
 function updateSearchTemplateSection(template, section) {
     try {
-        const updatePromise = template?.updateSearchResults(section);
+        const updatePromise =
+            typeof template?.updateSearchResults === 'function'
+                ? template.updateSearchResults(section)
+                : template?.updateSections?.(section);
 
         if (updatePromise && typeof updatePromise.catch === 'function') {
             updatePromise.catch(() => {});
         }
     } catch {
-        // The native SearchTemplate can be removed before debounced search results return.
+        // The native result template can be removed before a search response returns.
     }
 }
 
@@ -533,6 +545,80 @@ function startRouteLoadRequest() {
 function cancelAutoPlaySearchWork() {
     abortSearchRequest();
     abortRouteLoadRequest();
+}
+
+function clearAutoPlaySubmittedSearchResults() {
+    const { submittedSearchQuery, submittedSearchResults } = getAutoPlayState();
+
+    if (!submittedSearchQuery && !(submittedSearchResults?.length > 0)) {
+        return;
+    }
+
+    setAutoPlayState({
+        submittedSearchQuery: '',
+        submittedSearchResults: [],
+    });
+}
+
+function setAutoPlaySubmittedSearchResults({ query, results }) {
+    setAutoPlayState({
+        submittedSearchQuery: query,
+        submittedSearchResults: results,
+    });
+}
+
+function presentAndroidAutoSearchResults({
+    query,
+    results,
+    sourceTemplate,
+    startLocation,
+}) {
+    const { ListTemplate } = loadAutoPlayModule();
+    let resultsTemplate;
+    const dismissResults = () => {
+        cancelAutoPlaySearchWork();
+        clearAutoPlaySubmittedSearchResults();
+    };
+
+    try {
+        resultsTemplate = new ListTemplate({
+            headerActions: getBackHeaderAction(dismissResults),
+            mapConfig: {
+                mapButtons: getRootMapButtons(),
+            },
+            onPopped: dismissResults,
+            sections: {
+                items: makeSearchRows(results, query, (result) => {
+                    handleSearchResultSelected(
+                        result,
+                        startLocation,
+                        resultsTemplate,
+                        { query, results },
+                    );
+                }),
+                type: 'default',
+            },
+            title: makeAutoText('Search results'),
+        });
+        setAutoPlaySubmittedSearchResults({ query, results });
+        resultsTemplate.push().catch(() => {
+            clearAutoPlaySubmittedSearchResults();
+            updateSearchTemplateResults(
+                sourceTemplate,
+                results,
+                query,
+                startLocation,
+            );
+        });
+    } catch {
+        clearAutoPlaySubmittedSearchResults();
+        updateSearchTemplateResults(
+            sourceTemplate,
+            results,
+            query,
+            startLocation,
+        );
+    }
 }
 
 async function runPlaceAutocomplete(template, searchText, startLocation) {
@@ -644,12 +730,21 @@ async function runPlaceTextSearch(template, searchText, startLocation) {
             return;
         }
 
-        updateSearchTemplateResults(
-            template,
-            results,
-            textQuery,
-            startLocation,
-        );
+        if (autoPlayPlatform?.showsSearchResultsOnMap === true) {
+            presentAndroidAutoSearchResults({
+                query: textQuery,
+                results,
+                sourceTemplate: template,
+                startLocation,
+            });
+        } else {
+            updateSearchTemplateResults(
+                template,
+                results,
+                textQuery,
+                startLocation,
+            );
+        }
     } catch (error) {
         if (
             error?.name !== 'AbortError' &&
@@ -715,12 +810,21 @@ function getBackHeaderAction(onBeforePop) {
 
 function openSearchTemplate(initialSearchText = '', preferredStartLocation) {
     const { SearchTemplate } = loadAutoPlayModule();
+    const dismissSearch = () => {
+        cancelAutoPlaySearchWork();
+        clearAutoPlaySubmittedSearchResults();
+    };
 
     cancelAutoPlaySearchWork();
+    clearAutoPlaySubmittedSearchResults();
     const template = new SearchTemplate({
-        headerActions: getBackHeaderAction(cancelAutoPlaySearchWork),
+        headerActions: getBackHeaderAction(dismissSearch),
         initialSearchText,
         onSearchTextChanged: (searchText) => {
+            if (autoPlayPlatform?.supportsSearchAutocomplete === false) {
+                return;
+            }
+
             schedulePlaceAutocomplete(
                 template,
                 searchText,
@@ -730,14 +834,14 @@ function openSearchTemplate(initialSearchText = '', preferredStartLocation) {
         onSearchTextSubmitted: (searchText) => {
             runPlaceTextSearch(template, searchText, preferredStartLocation);
         },
-        onPopped: () => {
-            cancelAutoPlaySearchWork();
-        },
+        onPopped: dismissSearch,
         results: {
             items: [
                 makeDisabledSearchRow(
                     'Search',
-                    'Enter a destination or use voice.',
+                    autoPlayPlatform?.supportsSearchAutocomplete === false
+                        ? 'Tap the search field, then use the keyboard or its microphone when available.'
+                        : 'Enter a destination or use voice.',
                 ),
             ],
             type: 'default',
@@ -753,6 +857,7 @@ function openSearchTemplate(initialSearchText = '', preferredStartLocation) {
     });
 
     template.push().catch((error) => {
+        dismissSearch();
         setAutoPlayState({
             errorText: error?.message || 'Search could not be opened.',
             statusLabel: 'Search error',
@@ -930,8 +1035,9 @@ async function showRoutePreview(route) {
 
     try {
         // CarPlay presents its selector from the root map. Android Auto can
-        // retain SearchTemplate underneath so Back restores those results.
+        // retain the result list underneath so Back restores those results.
         if (autoPlayPlatform?.keepsSearchTemplateUnderRoutePreview !== true) {
+            clearAutoPlaySubmittedSearchResults();
             await HybridAutoPlay.popToRootTemplate(false);
         }
 
@@ -2140,6 +2246,7 @@ function startAutoPlayNavigation(
     }
 
     cancelAutoPlaySearchWork();
+    clearAutoPlaySubmittedSearchResults();
     activeNavigationRoute = route;
     activeNavigationDestination = route.destination;
 
@@ -2327,7 +2434,21 @@ async function handleVoiceNavigation(coordinates, query) {
     }
 }
 
-function handleAutoPlayConnect() {
+async function handleAutoPlayConnect() {
+    const connectionGeneration = ++autoPlayConnectionGeneration;
+
+    await activateAndroidAutoLifecycleAsync().catch(() => false);
+
+    if (autoPlaySessionRenderState) {
+        await updateAndroidAutoLifecycleStateAsync(
+            autoPlaySessionRenderState,
+        ).catch(() => false);
+    }
+
+    if (connectionGeneration !== autoPlayConnectionGeneration) {
+        return;
+    }
+
     const { MapTemplate } = loadAutoPlayModule();
 
     rootMapTemplateIsReady = false;
@@ -2336,7 +2457,7 @@ function handleAutoPlayConnect() {
         statusLabel: 'Connected',
     });
 
-    rootMapTemplate = new MapTemplate({
+    const mapTemplate = new MapTemplate({
         component: autoPlayPlatform.MapSurface,
         headerActions: getRootMapHeaderActions(),
         mapButtons: getRootMapButtons(),
@@ -2369,14 +2490,29 @@ function handleAutoPlayConnect() {
             },
         }),
     });
+    rootMapTemplate = mapTemplate;
 
-    rootMapTemplate
+    mapTemplate
         .setRootTemplate()
         .then(() => {
+            if (
+                connectionGeneration !== autoPlayConnectionGeneration ||
+                rootMapTemplate !== mapTemplate
+            ) {
+                return;
+            }
+
             rootMapTemplateIsReady = true;
             syncAutoPlayNavigationFromSharedRoutingState();
         })
         .catch((error) => {
+            if (
+                connectionGeneration !== autoPlayConnectionGeneration ||
+                rootMapTemplate !== mapTemplate
+            ) {
+                return;
+            }
+
             setAutoPlayState({
                 errorText:
                     error?.message || 'The car screen could not be started.',
@@ -2386,6 +2522,9 @@ function handleAutoPlayConnect() {
 }
 
 function handleAutoPlayDisconnect() {
+    autoPlayConnectionGeneration += 1;
+    autoPlaySessionRenderState = null;
+    deactivateAndroidAutoLifecycleAsync().catch(() => {});
     rootMapTemplate = null;
     rootMapTemplateIsReady = false;
     activeNavigationRoute = null;
@@ -2397,6 +2536,11 @@ function handleAutoPlayDisconnect() {
     cancelAutoPlaySearchWork();
     stopNavigationLocationUpdates();
     setAutoPlayState(DEFAULT_AUTO_PLAY_STATE);
+}
+
+function handleAutoPlaySessionRenderState(state) {
+    autoPlaySessionRenderState = state;
+    updateAndroidAutoLifecycleStateAsync(state).catch(() => {});
 }
 
 export default function registerAutoPlay() {
@@ -2427,12 +2571,15 @@ export default function registerAutoPlay() {
     autoPlayPlatform.registerPlatformListeners({
         autoPlayModule: loadAutoPlayModule(),
         makeGlyphImage,
+        onSessionRenderState: handleAutoPlaySessionRenderState,
         onVoiceNavigation: handleVoiceNavigation,
     });
-    HybridAutoPlay.addListener('didConnect', handleAutoPlayConnect);
+    HybridAutoPlay.addListener('didConnect', () => {
+        handleAutoPlayConnect().catch(() => {});
+    });
     HybridAutoPlay.addListener('didDisconnect', handleAutoPlayDisconnect);
 
     if (HybridAutoPlay.isConnected()) {
-        handleAutoPlayConnect();
+        handleAutoPlayConnect().catch(() => {});
     }
 }

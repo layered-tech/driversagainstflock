@@ -9,11 +9,14 @@ import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
 import com.facebook.react.bridge.ReactContext
 import com.facebook.react.uimanager.UIManagerHelper
 import com.facebook.react.uimanager.common.UIManagerType
 import com.mapbox.common.location.Location
+import com.mapbox.geojson.Point
 import com.mapbox.maps.EdgeInsets
 import com.mapbox.maps.MapboxExperimental
 import com.mapbox.maps.plugin.LocationPuck2D
@@ -23,15 +26,23 @@ import com.mapbox.maps.plugin.PuckBearing
 import com.mapbox.maps.plugin.animation.camera
 import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.navigation.base.ExperimentalMapboxNavigationAPI
+import com.mapbox.navigation.base.ExperimentalPreviewMapboxNavigationAPI
+import com.mapbox.navigation.base.options.EHorizonOptions
 import com.mapbox.navigation.base.options.NavigationOptions
 import com.mapbox.navigation.base.road.model.Road
 import com.mapbox.navigation.base.road.model.RoadComponent
 import com.mapbox.navigation.base.speed.model.SpeedLimitInfo
 import com.mapbox.navigation.base.speed.model.SpeedUnit
+import com.mapbox.navigation.base.trip.model.eh.EHorizonEdge
+import com.mapbox.navigation.base.trip.model.eh.EHorizonGraphPosition
+import com.mapbox.navigation.base.trip.model.eh.EHorizonPosition
+import com.mapbox.navigation.base.trip.model.roadobject.RoadObjectEnterExitInfo
+import com.mapbox.navigation.base.trip.model.roadobject.RoadObjectPassInfo
+import com.mapbox.navigation.base.trip.model.roadobject.distanceinfo.RoadObjectDistanceInfo
 import com.mapbox.navigation.core.MapboxNavigation
-import com.mapbox.navigation.core.MapboxNavigationProvider
 import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
 import com.mapbox.navigation.core.lifecycle.MapboxNavigationObserver
+import com.mapbox.navigation.core.trip.session.eh.EHorizonObserver
 import com.mapbox.navigation.core.trip.session.LocationMatcherResult
 import com.mapbox.navigation.core.trip.session.LocationObserver
 import com.mapbox.navigation.core.trip.session.TripSessionState
@@ -50,13 +61,18 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.types.toJSValueExperimental
 
-@OptIn(ExperimentalMapboxNavigationAPI::class, MapboxExperimental::class)
+@OptIn(
+  ExperimentalMapboxNavigationAPI::class,
+  ExperimentalPreviewMapboxNavigationAPI::class,
+  MapboxExperimental::class
+)
 class RNMapboxNavigationModule : Module() {
+  private var activityLifecycleOwner: LifecycleOwner? = null
+  private var androidAutoLifecycleOwner: AndroidAutoSessionLifecycleOwner? = null
   private var lastEnhancedLocation: Bundle? = null
+  private var lastElectronicHorizon: Bundle? = null
   private var lastLoggedSpeedLimitKey: String? = null
-  private var lifecycleAttached = false
   private var mapboxNavigation: MapboxNavigation? = null
-  private var navigationProviderInstanceCreated = false
   private var observerRegistered = false
   private var pendingTripSessionForegroundService: Boolean? = null
   private val navigationCameraSurfaces = mutableMapOf<String, NavigationCameraSurface>()
@@ -87,6 +103,31 @@ class RNMapboxNavigationModule : Module() {
     }
   }
 
+  private val electronicHorizonObserver = object : EHorizonObserver {
+    override fun onPositionUpdated(
+      position: EHorizonPosition,
+      distances: List<RoadObjectDistanceInfo>
+    ) {
+      val navigation = mapboxNavigation ?: return
+      val payload = electronicHorizonToBundle(navigation, position)
+
+      lastElectronicHorizon = Bundle(payload)
+      sendEvent(ELECTRONIC_HORIZON_EVENT_NAME, payload)
+    }
+
+    override fun onRoadObjectEnter(objectEnterExitInfo: RoadObjectEnterExitInfo) = Unit
+
+    override fun onRoadObjectExit(objectEnterExitInfo: RoadObjectEnterExitInfo) = Unit
+
+    override fun onRoadObjectPassed(objectPassInfo: RoadObjectPassInfo) = Unit
+
+    override fun onRoadObjectAdded(roadObjectId: String) = Unit
+
+    override fun onRoadObjectUpdated(roadObjectId: String) = Unit
+
+    override fun onRoadObjectRemoved(roadObjectId: String) = Unit
+  }
+
   private val tripSessionStateObserver = TripSessionStateObserver { state ->
     sendEvent(
       TRIP_SESSION_STATE_EVENT_NAME,
@@ -100,6 +141,7 @@ class RNMapboxNavigationModule : Module() {
     Name(MODULE_NAME)
 
     Events(
+      ELECTRONIC_HORIZON_EVENT_NAME,
       ENHANCED_LOCATION_EVENT_NAME,
       NAVIGATION_CAMERA_STATE_EVENT_NAME,
       RAW_LOCATION_EVENT_NAME,
@@ -126,7 +168,20 @@ class RNMapboxNavigationModule : Module() {
     AsyncFunction("stopTripSession") {
       pendingTripSessionForegroundService = null
       mapboxNavigation?.stopTripSession()
+      lastElectronicHorizon = null
       return@AsyncFunction null
+    }.runOnQueue(Queues.MAIN)
+
+    AsyncFunction("activateAndroidAutoLifecycle") {
+      return@AsyncFunction activateAndroidAutoLifecycle()
+    }.runOnQueue(Queues.MAIN)
+
+    AsyncFunction("deactivateAndroidAutoLifecycle") {
+      return@AsyncFunction deactivateAndroidAutoLifecycle()
+    }.runOnQueue(Queues.MAIN)
+
+    AsyncFunction("updateAndroidAutoLifecycleState") { state: String ->
+      return@AsyncFunction updateAndroidAutoLifecycleState(state)
     }.runOnQueue(Queues.MAIN)
 
     AsyncFunction("getTripSessionState") {
@@ -187,6 +242,10 @@ class RNMapboxNavigationModule : Module() {
       return@AsyncFunction true
     }.runOnQueue(Queues.MAIN)
 
+    AsyncFunction("getLastElectronicHorizon") {
+      return@AsyncFunction lastElectronicHorizon?.toJSValueExperimental()
+    }.runOnQueue(Queues.MAIN)
+
     AsyncFunction("attachNavigationCamera") { surfaceId: String, mapViewTag: Int, options: Map<String, Any?>? ->
       val context = reactContext()
 
@@ -224,6 +283,9 @@ class RNMapboxNavigationModule : Module() {
 
     OnDestroy {
       pendingTripSessionForegroundService = null
+      lastElectronicHorizon = null
+      deactivateAndroidAutoLifecycle()
+      detachActivityLifecycleOwner()
       detachNavigationCameraSurfaces()
       mapboxNavigation?.let { navigation ->
         navigation.stopTripSession()
@@ -234,55 +296,103 @@ class RNMapboxNavigationModule : Module() {
         MapboxNavigationApp.unregisterObserver(navigationObserver)
         observerRegistered = false
       }
-
-      if (navigationProviderInstanceCreated && MapboxNavigationProvider.isCreated()) {
-        MapboxNavigationProvider.destroy()
-        navigationProviderInstanceCreated = false
-      }
     }
   }
 
   private fun ensureNavigationApp(context: Context) {
+    ensureNavigationAppSetup(context)
+    attachActivityLifecycleOwner()
+
+    MapboxNavigationApp.current()?.let {
+      bindNavigation(it)
+    }
+  }
+
+  private fun ensureNavigationAppSetup(context: Context) {
     if (!MapboxNavigationApp.isSetup()) {
-      MapboxNavigationApp.setup(NavigationOptions.Builder(context).build())
+      MapboxNavigationApp.setup(createNavigationOptions(context))
     }
 
     if (!observerRegistered) {
       MapboxNavigationApp.registerObserver(navigationObserver)
       observerRegistered = true
     }
+  }
 
-    attachLifecycleOwner()
+  private fun createNavigationOptions(context: Context): NavigationOptions {
+    val electronicHorizonOptions = EHorizonOptions.Builder()
+      .length(ELECTRONIC_HORIZON_LENGTH_METERS)
+      .expansion(ELECTRONIC_HORIZON_MPP_ONLY_EXPANSION)
+      .minTimeDeltaBetweenUpdates(ELECTRONIC_HORIZON_MIN_UPDATE_INTERVAL_SECONDS)
+      .build()
+
+    return NavigationOptions.Builder(context)
+      .eHorizonOptions(electronicHorizonOptions)
+      .build()
+  }
+
+  private fun attachActivityLifecycleOwner() {
+    val lifecycleOwner = appContext.currentActivity as? LifecycleOwner ?: return
+
+    if (activityLifecycleOwner === lifecycleOwner) {
+      return
+    }
+
+    activityLifecycleOwner?.let { previousLifecycleOwner ->
+      if (previousLifecycleOwner.lifecycle.currentState != Lifecycle.State.DESTROYED) {
+        MapboxNavigationApp.detach(previousLifecycleOwner)
+      }
+    }
+
+    MapboxNavigationApp.attach(lifecycleOwner)
+    activityLifecycleOwner = lifecycleOwner
+  }
+
+  private fun detachActivityLifecycleOwner() {
+    val lifecycleOwner = activityLifecycleOwner ?: return
+
+    if (lifecycleOwner.lifecycle.currentState != Lifecycle.State.DESTROYED) {
+      MapboxNavigationApp.detach(lifecycleOwner)
+    }
+
+    activityLifecycleOwner = null
+  }
+
+  private fun activateAndroidAutoLifecycle(): Boolean {
+    val context = reactContext()
+
+    ensureNavigationAppSetup(context)
+
+    if (androidAutoLifecycleOwner != null) {
+      return true
+    }
+
+    val lifecycleOwner = AndroidAutoSessionLifecycleOwner()
+
+    androidAutoLifecycleOwner = lifecycleOwner
+    MapboxNavigationApp.attach(lifecycleOwner)
+    lifecycleOwner.create()
 
     MapboxNavigationApp.current()?.let {
       bindNavigation(it)
-      return
     }
 
-    ensureNavigationProvider(context).let {
-      bindNavigation(it)
-    }
+    return true
   }
 
-  private fun ensureNavigationProvider(context: Context): MapboxNavigation {
-    if (MapboxNavigationProvider.isCreated()) {
-      return MapboxNavigationProvider.retrieve()
-    }
+  private fun updateAndroidAutoLifecycleState(state: String): Boolean {
+    val lifecycleOwner = androidAutoLifecycleOwner ?: return false
 
-    navigationProviderInstanceCreated = true
-
-    return MapboxNavigationProvider.create(NavigationOptions.Builder(context).build())
+    return lifecycleOwner.updateVisibilityState(state)
   }
 
-  private fun attachLifecycleOwner() {
-    if (lifecycleAttached) {
-      return
-    }
+  private fun deactivateAndroidAutoLifecycle(): Boolean {
+    val lifecycleOwner = androidAutoLifecycleOwner ?: return false
 
-    val lifecycleOwner = appContext.currentActivity as? LifecycleOwner ?: return
+    lifecycleOwner.disconnect()
+    androidAutoLifecycleOwner = null
 
-    MapboxNavigationApp.attach(lifecycleOwner)
-    lifecycleAttached = true
+    return true
   }
 
   private fun bindNavigation(nextNavigation: MapboxNavigation) {
@@ -296,13 +406,16 @@ class RNMapboxNavigationModule : Module() {
 
     mapboxNavigation = nextNavigation
     nextNavigation.registerLocationObserver(locationObserver)
+    nextNavigation.registerEHorizonObserver(electronicHorizonObserver)
     nextNavigation.registerTripSessionStateObserver(tripSessionStateObserver)
   }
 
   private fun unbindNavigation(navigation: MapboxNavigation) {
     navigation.unregisterLocationObserver(locationObserver)
+    navigation.unregisterEHorizonObserver(electronicHorizonObserver)
     navigation.unregisterTripSessionStateObserver(tripSessionStateObserver)
     detachNavigationCameraSurfaces()
+    lastElectronicHorizon = null
 
     if (mapboxNavigation === navigation) {
       mapboxNavigation = null
@@ -320,11 +433,223 @@ class RNMapboxNavigationModule : Module() {
     navigation: MapboxNavigation,
     withForegroundService: Boolean
   ) {
-    if (navigation.getTripSessionState() == TripSessionState.STARTED) {
+    val isStarted = navigation.getTripSessionState() == TripSessionState.STARTED
+
+    if (!isStarted) {
+      navigation.startTripSession(withForegroundService = withForegroundService)
       return
     }
 
-    navigation.startTripSession(withForegroundService = withForegroundService)
+    if (!withForegroundService || navigation.isRunningForegroundService()) {
+      return
+    }
+
+    navigation.stopTripSession()
+    navigation.startTripSession(withForegroundService = true)
+  }
+
+  private fun electronicHorizonToBundle(
+    navigation: MapboxNavigation,
+    position: EHorizonPosition
+  ): Bundle {
+    val primaryPathEdges = runCatching {
+      selectPrimaryPath(position.eHorizon.mpp(position))
+    }.getOrNull().orEmpty()
+    val graphPosition = position.eHorizonGraphPosition
+    val primaryEdgeGeometries = primaryPathEdges.mapNotNull { edge ->
+      electronicHorizonEdgeGeometry(
+        navigation,
+        edge,
+        graphPosition.takeIf { it.edgeId == edge.id }
+      )
+    }
+    val primaryCoordinates: ArrayList<ArrayList<Double>> = mergeElectronicHorizonCoordinates(primaryEdgeGeometries)
+      .takeIf { it.size >= 2 }
+      ?: ArrayList()
+    val primarySegments = primaryEdgeGeometries.filter { it.coordinates.size >= 2 }
+
+    return Bundle().apply {
+      putBundle(
+        "primaryPath",
+        Bundle().apply {
+          putSerializable("coordinates", primaryCoordinates)
+          putParcelableArrayList(
+            "segments",
+            ArrayList(primarySegments.map { geometry -> electronicHorizonEdgeToBundle(geometry) })
+          )
+        }
+      )
+      putBundle(
+        "graphPosition",
+        Bundle().apply {
+          putString("edgeId", graphPosition.edgeId.toString())
+          putDouble("percentAlong", graphPosition.percentAlong)
+        }
+      )
+      putString("resultType", position.eHorizonResultType)
+      putDouble("updatedAt", System.currentTimeMillis().toDouble())
+    }
+  }
+
+  private fun selectPrimaryPath(
+    candidatePaths: List<List<EHorizonEdge>>
+  ): List<EHorizonEdge>? {
+    val paths = candidatePaths.filter { it.isNotEmpty() }
+
+    if (paths.isEmpty()) {
+      return null
+    }
+
+    val splitIndex = sharedElectronicHorizonPrefixLength(paths)
+
+    return paths.maxByOrNull { path ->
+      electronicHorizonCandidateProbability(path, splitIndex)
+    }
+  }
+
+  private fun sharedElectronicHorizonPrefixLength(paths: List<List<EHorizonEdge>>): Int {
+    val shortestPathLength = paths.minOf { it.size }
+
+    for (index in 0 until shortestPathLength) {
+      val edgeId = paths.first()[index].id
+
+      if (paths.any { path -> path[index].id != edgeId }) {
+        return index
+      }
+    }
+
+    return shortestPathLength
+  }
+
+  private fun electronicHorizonCandidateProbability(
+    path: List<EHorizonEdge>,
+    splitIndex: Int
+  ): Double {
+    val probability = path.getOrNull(splitIndex)?.probability
+      ?: path.lastOrNull()?.probability
+      ?: 0.0
+
+    return when {
+      !probability.isFinite() -> 0.0
+      probability > 1.0 -> (probability / 100.0).coerceIn(0.0, 1.0)
+      else -> probability.coerceIn(0.0, 1.0)
+    }
+  }
+
+  private fun electronicHorizonEdgeGeometry(
+    navigation: MapboxNavigation,
+    edge: EHorizonEdge,
+    graphPosition: EHorizonGraphPosition? = null
+  ): ElectronicHorizonEdgeGeometry? {
+    val shape = runCatching {
+      navigation.graphAccessor.getEdgeShape(edge.id)
+    }.getOrNull() ?: return null
+    val graphPositionCoordinate = graphPosition?.let { position ->
+      runCatching {
+        navigation.graphAccessor.getGraphPositionCoordinate(position)
+      }.getOrNull()
+    }
+    val forwardShape = graphPositionCoordinate?.let { coordinate ->
+      trimElectronicHorizonEdgeShape(shape, coordinate)
+    } ?: shape
+    val coordinates = ArrayList(forwardShape.map { point ->
+      arrayListOf(point.longitude(), point.latitude())
+    })
+
+    if (coordinates.isEmpty()) {
+      return null
+    }
+
+    return ElectronicHorizonEdgeGeometry(edge, coordinates)
+  }
+
+  private fun trimElectronicHorizonEdgeShape(shape: List<Point>, currentPosition: Point): List<Point> {
+    if (shape.size < 2) {
+      return shape
+    }
+
+    var closestSegmentIndex = 0
+    var shortestDistanceSquared = Double.POSITIVE_INFINITY
+
+    for (index in 0 until shape.lastIndex) {
+      val distanceSquared = squaredDistanceToSegment(
+        currentPosition,
+        shape[index],
+        shape[index + 1]
+      )
+
+      if (distanceSquared < shortestDistanceSquared) {
+        shortestDistanceSquared = distanceSquared
+        closestSegmentIndex = index
+      }
+    }
+    val forwardShape = ArrayList<Point>()
+
+    forwardShape.add(currentPosition)
+
+    for (index in (closestSegmentIndex + 1) until shape.size) {
+      forwardShape.add(shape[index])
+    }
+
+    return forwardShape
+  }
+
+  private fun squaredDistanceToSegment(point: Point, start: Point, end: Point): Double {
+    val longitudeScale = kotlin.math.cos(
+      Math.toRadians((point.latitude() + start.latitude() + end.latitude()) / 3)
+    )
+    val pointX = point.longitude() * longitudeScale
+    val pointY = point.latitude()
+    val startX = start.longitude() * longitudeScale
+    val startY = start.latitude()
+    val endX = end.longitude() * longitudeScale
+    val endY = end.latitude()
+    val segmentX = endX - startX
+    val segmentY = endY - startY
+    val segmentLengthSquared = segmentX * segmentX + segmentY * segmentY
+
+    if (segmentLengthSquared == 0.0) {
+      val deltaX = pointX - startX
+      val deltaY = pointY - startY
+      return deltaX * deltaX + deltaY * deltaY
+    }
+
+    val projection = (
+      (pointX - startX) * segmentX + (pointY - startY) * segmentY
+      ) / segmentLengthSquared
+    val clampedProjection = projection.coerceIn(0.0, 1.0)
+    val closestX = startX + clampedProjection * segmentX
+    val closestY = startY + clampedProjection * segmentY
+    val deltaX = pointX - closestX
+    val deltaY = pointY - closestY
+
+    return deltaX * deltaX + deltaY * deltaY
+  }
+
+  private fun mergeElectronicHorizonCoordinates(
+    segments: List<ElectronicHorizonEdgeGeometry>
+  ): ArrayList<ArrayList<Double>> {
+    val coordinates = ArrayList<ArrayList<Double>>()
+
+    segments.forEach { segment ->
+      segment.coordinates.forEach { coordinate ->
+        if (coordinates.lastOrNull() != coordinate) {
+          coordinates.add(ArrayList(coordinate))
+        }
+      }
+    }
+
+    return coordinates
+  }
+
+  private fun electronicHorizonEdgeToBundle(geometry: ElectronicHorizonEdgeGeometry): Bundle {
+    return Bundle().apply {
+      putString("edgeId", geometry.edge.id.toString())
+      putSerializable("coordinates", geometry.coordinates)
+      putDouble("level", geometry.edge.level.toDouble())
+      putDouble("probability", geometry.edge.probability)
+      putBoolean("isOnRoute", geometry.edge.isOnRoute)
+    }
   }
 
   private fun matcherResultToBundle(result: LocationMatcherResult): Bundle {
@@ -625,6 +950,73 @@ class RNMapboxNavigationModule : Module() {
     return state.name.lowercase()
   }
 
+  private class AndroidAutoSessionLifecycleOwner : LifecycleOwner {
+    private val lifecycleRegistry = LifecycleRegistry(this)
+
+    override val lifecycle: Lifecycle
+      get() = lifecycleRegistry
+
+    fun create() {
+      if (lifecycle.currentState == Lifecycle.State.INITIALIZED) {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+      }
+    }
+
+    fun updateVisibilityState(state: String): Boolean {
+      when (state) {
+        AUTO_PLAY_RENDER_STATE_WILL_APPEAR -> create()
+        AUTO_PLAY_RENDER_STATE_DID_APPEAR -> resume()
+        AUTO_PLAY_RENDER_STATE_WILL_DISAPPEAR -> moveToStarted()
+        AUTO_PLAY_RENDER_STATE_DID_DISAPPEAR -> stop()
+        else -> return false
+      }
+
+      return true
+    }
+
+    fun disconnect() {
+      stop()
+
+      if (lifecycle.currentState == Lifecycle.State.CREATED) {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+      }
+    }
+
+    private fun resume() {
+      create()
+
+      if (lifecycle.currentState == Lifecycle.State.CREATED) {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+      }
+
+      if (lifecycle.currentState == Lifecycle.State.STARTED) {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+      }
+    }
+
+    private fun moveToStarted() {
+      create()
+
+      if (lifecycle.currentState == Lifecycle.State.CREATED) {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+      }
+
+      if (lifecycle.currentState == Lifecycle.State.RESUMED) {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+      }
+    }
+
+    private fun stop() {
+      if (lifecycle.currentState == Lifecycle.State.RESUMED) {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+      }
+
+      if (lifecycle.currentState == Lifecycle.State.STARTED) {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+      }
+    }
+  }
+
   private class MissingLocationPermissionException :
     Exception("Location permission is required to start a Mapbox Navigation trip session.")
 
@@ -874,7 +1266,20 @@ class RNMapboxNavigationModule : Module() {
     }
   }
 
+  private data class ElectronicHorizonEdgeGeometry(
+    val edge: EHorizonEdge,
+    val coordinates: ArrayList<ArrayList<Double>>
+  )
+
   private companion object {
+    private const val AUTO_PLAY_RENDER_STATE_DID_APPEAR = "didAppear"
+    private const val AUTO_PLAY_RENDER_STATE_DID_DISAPPEAR = "didDisappear"
+    private const val AUTO_PLAY_RENDER_STATE_WILL_APPEAR = "willAppear"
+    private const val AUTO_PLAY_RENDER_STATE_WILL_DISAPPEAR = "willDisappear"
+    private const val ELECTRONIC_HORIZON_EVENT_NAME = "onElectronicHorizon"
+    private const val ELECTRONIC_HORIZON_LENGTH_METERS = 16093.44
+    private const val ELECTRONIC_HORIZON_MPP_ONLY_EXPANSION = 0
+    private const val ELECTRONIC_HORIZON_MIN_UPDATE_INTERVAL_SECONDS = 1.0
     private const val ENHANCED_LOCATION_EVENT_NAME = "onEnhancedLocation"
     private const val KILOMETERS_PER_HOUR_TO_MILES_PER_HOUR = 0.62137119223733
     private const val LOG_TAG = "RNMapboxNavigation"

@@ -1,5 +1,16 @@
 import { getSpeedLimitBadgeLayout } from './map/speed-limit-layout.js';
 
+export function getAutoPlayUpcomingAlertOverlayLayout({
+    mapControlLayoutInsets,
+}) {
+    return {
+        positionStyle: {
+            right: mapControlLayoutInsets.right,
+            top: mapControlLayoutInsets.top,
+        },
+    };
+}
+
 export function getAutoPlaySpeedLimitOverlayLayout({
     mapControlLayoutInsets,
     size,

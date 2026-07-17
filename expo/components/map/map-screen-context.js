@@ -82,6 +82,7 @@ export function MapScreenProviders({
 export function useMapCanvasContextValue({
     directionsDebugFeatureCollection,
     directionsRouteFeatureCollection,
+    electronicHorizonDebugFeatureCollection,
     e2eMapApiMocksEnabled,
     handleMapPress,
     handleMarkerSourcePress,
@@ -114,6 +115,7 @@ export function useMapCanvasContextValue({
             initialCameraSettings,
             directionsDebugFeatureCollection,
             directionsRouteFeatureCollection,
+            electronicHorizonDebugFeatureCollection,
             e2eMapApiMocksEnabled,
             isDrivingMode,
             isFollowing: locationController.isFollowing,
@@ -140,6 +142,7 @@ export function useMapCanvasContextValue({
         [
             directionsDebugFeatureCollection,
             directionsRouteFeatureCollection,
+            electronicHorizonDebugFeatureCollection,
             e2eMapApiMocksEnabled,
             handleMapPress,
             handleMarkerSourcePress,
@@ -178,6 +181,9 @@ export function useMapLocationContextValue(userLocation) {
 }
 
 export function useMapControlsContextValue({
+    freeDriveIsActive,
+    handleStartFreeDrive,
+    handleStopFreeDrive,
     handleMarkerLoadingIndicatorHidden,
     locationController,
     mapPreferencesAreLoaded,
@@ -199,8 +205,11 @@ export function useMapControlsContextValue({
             drivingRecenterIconColor: presentation.drivingRecenterIconColor,
             drivingRecenterIsVisible:
                 locationController.drivingRecenterIsVisible,
+            freeDriveIsActive,
             handleDrivingRecenterPress:
                 locationController.handleDrivingRecenterPress,
+            handleStartFreeDrive,
+            handleStopFreeDrive,
             handleLocationTrackingPress:
                 locationController.handleLocationTrackingPress,
             handleMarkerLoadingIndicatorHidden,
@@ -219,6 +228,9 @@ export function useMapControlsContextValue({
             trackingIconColor: presentation.trackingIconColor,
         }),
         [
+            freeDriveIsActive,
+            handleStartFreeDrive,
+            handleStopFreeDrive,
             handleMarkerLoadingIndicatorHidden,
             locationController.drivingRecenterIsVisible,
             locationController.handleDrivingRecenterPress,
@@ -681,6 +693,7 @@ export function useAutoPlayMapScreenContextValues({
     controller,
     directionsDebugFeatureCollection,
     directionsRouteFeatureCollection,
+    electronicHorizonDebugFeatureCollection,
     directionsWaypointMarkers,
     hideCompassDuringNavigation,
     initialCameraSettings,
@@ -689,14 +702,19 @@ export function useAutoPlayMapScreenContextValues({
     mapPreferences,
     markerFeatureCollection,
     policeAlertFeatureCollection,
+    policeAlertsVisible,
     preferredFramesPerSecond,
     presentation,
+    submittedSearchResults,
+    surveillanceMarkersVisible,
+    userLocationPuckVisible = true,
 }) {
     const canvasValue = useMemo(
         () => ({
             cameraRef: controller.cameraRef,
             directionsDebugFeatureCollection,
             directionsRouteFeatureCollection,
+            electronicHorizonDebugFeatureCollection,
             hideCompassDuringNavigation,
             handleCameraChanged: controller.handleCameraChanged,
             handleMapLoaded: controller.handleMapLoaded,
@@ -715,6 +733,7 @@ export function useAutoPlayMapScreenContextValues({
             mapStyleURL: mapPreferences.mapStyleURL,
             mapTrafficEnabled: mapPreferences.mapTrafficEnabled,
             surveillanceMarkersVisible:
+                surveillanceMarkersVisible ??
                 mapPreferences.surveillanceMarkersVisible,
             markerClustersEnabled: mapPreferences.markerClustersEnabled,
             cameraConesVisible: mapPreferences.cameraConesVisible,
@@ -724,9 +743,13 @@ export function useAutoPlayMapScreenContextValues({
             nativeCameraFollowProps: controller.nativeCameraFollowProps,
             navigationPuckVariant: 'auto-play',
             policeAlertFeatureCollection,
-            policeAlertsVisible: mapPreferences.policeAlertsVisible,
+            policeAlertsVisible:
+                policeAlertsVisible ?? mapPreferences.policeAlertsVisible,
             preferredFramesPerSecond,
-            submittedSearchResults: EMPTY_ANDROID_AUTO_SUBMITTED_SEARCH_RESULTS,
+            submittedSearchResults:
+                submittedSearchResults ??
+                EMPTY_ANDROID_AUTO_SUBMITTED_SEARCH_RESULTS,
+            userLocationPuckVisible,
             usesSharedLocationProvider: true,
         }),
         [
@@ -741,6 +764,7 @@ export function useAutoPlayMapScreenContextValues({
             controller.nativeCameraFollowProps,
             directionsDebugFeatureCollection,
             directionsRouteFeatureCollection,
+            electronicHorizonDebugFeatureCollection,
             hideCompassDuringNavigation,
             initialCameraSettings,
             isDrivingMode,
@@ -754,10 +778,14 @@ export function useAutoPlayMapScreenContextValues({
             mapPreferences.policeAlertsVisible,
             markerFeatureCollection,
             policeAlertFeatureCollection,
+            policeAlertsVisible,
             preferredFramesPerSecond,
             presentation.mapboxAttributionPosition,
             presentation.mapboxLogoPosition,
             presentation.mapCompassPosition,
+            submittedSearchResults,
+            surveillanceMarkersVisible,
+            userLocationPuckVisible,
         ],
     );
     const locationValue = useMapLocationContextValue(

@@ -64,9 +64,14 @@ test('navigation puck applies and clears the native 3D model', async () => {
         await navigation.clearNavigationPuck3DAsync({ current: {} }),
         true,
     );
+    assert.equal(
+        await navigation.applyNavigationPuck3DAsync({ current: {} }, 64),
+        true,
+    );
     assert.deepEqual(calls, [
         { mapViewTag: 42, operation: 'apply', scale: 128 },
         { mapViewTag: 42, operation: 'clear' },
+        { mapViewTag: 42, operation: 'apply', scale: 64 },
     ]);
 });
 

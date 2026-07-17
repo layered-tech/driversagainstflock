@@ -1,7 +1,10 @@
-import { useCallback, useRef, useState } from 'react';
 import * as Location from 'expo-location';
 import { useFocusEffect } from 'expo-router';
-import { LOCATION_CAMERA_ANIMATION_DURATION_MS } from '../map-location-mode-shared';
+import { useCallback, useRef, useState } from 'react';
+import {
+    LOCATION_CAMERA_ANIMATION_DURATION_MS,
+    LOCATION_CAMERA_USER_ANIMATION_DURATION_MS,
+} from '../map-location-mode-shared';
 import { hasPreciseLocation, waitForNextPaint } from './geo';
 
 export function useLocationPermissionFlow({
@@ -18,6 +21,19 @@ export function useLocationPermissionFlow({
     const [isRequestingLocation, setIsRequestingLocation] = useState(false);
     const [locationAccessGranted, setLocationAccessGranted] = useState(false);
     const [permissionError, setPermissionError] = useState('');
+    const schedulePermissionSheetDismiss = useCallback(() => {
+        if (closeTimeoutRef.current) {
+            clearTimeout(closeTimeoutRef.current);
+        }
+
+        const cameraAnimationDuration = isDrivingMode
+            ? LOCATION_CAMERA_ANIMATION_DURATION_MS
+            : LOCATION_CAMERA_USER_ANIMATION_DURATION_MS;
+
+        closeTimeoutRef.current = setTimeout(() => {
+            bottomSheetRef.current?.dismiss();
+        }, cameraAnimationDuration);
+    }, [bottomSheetRef, closeTimeoutRef, isDrivingMode]);
 
     useFocusEffect(
         useCallback(() => {
@@ -112,10 +128,7 @@ export function useLocationPermissionFlow({
 
             if (currentLocation && isMountedRef.current) {
                 startLocationModeAfterPermissionGrant(currentLocation);
-
-                closeTimeoutRef.current = setTimeout(() => {
-                    bottomSheetRef.current?.dismiss();
-                }, LOCATION_CAMERA_ANIMATION_DURATION_MS);
+                schedulePermissionSheetDismiss();
             }
         } catch {
             if (isMountedRef.current) {
@@ -131,10 +144,9 @@ export function useLocationPermissionFlow({
             }
         }
     }, [
-        bottomSheetRef,
-        closeTimeoutRef,
         findCurrentLocation,
         isMountedRef,
+        schedulePermissionSheetDismiss,
         startLocationModeAfterPermissionGrant,
     ]);
 
@@ -143,11 +155,11 @@ export function useLocationPermissionFlow({
 
         if (currentLocation) {
             startLocationModeAfterPermissionGrant(currentLocation);
-            bottomSheetRef.current?.dismiss();
+            schedulePermissionSheetDismiss();
         }
     }, [
-        bottomSheetRef,
         findCurrentLocation,
+        schedulePermissionSheetDismiss,
         startLocationModeAfterPermissionGrant,
     ]);
 

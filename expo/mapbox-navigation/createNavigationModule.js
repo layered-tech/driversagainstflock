@@ -6,6 +6,7 @@ function createNavigationModule({
     requireNativeModule,
 }) {
     const MODULE_NAME = 'RNMapboxNavigation';
+    const ELECTRONIC_HORIZON_EVENT_NAME = 'onElectronicHorizon';
     const ENHANCED_LOCATION_EVENT_NAME = 'onEnhancedLocation';
     const NAVIGATION_CAMERA_STATE_EVENT_NAME = 'onNavigationCameraState';
     const RAW_LOCATION_EVENT_NAME = 'onRawLocation';
@@ -42,6 +43,26 @@ function createNavigationModule({
 
     function isSupported() {
         return isSupportedPlatform() && Boolean(NativeRNMapboxNavigation);
+    }
+
+    function isElectronicHorizonSupported() {
+        return (
+            isSupported() &&
+            typeof NativeRNMapboxNavigation?.getLastElectronicHorizon ===
+                'function'
+        );
+    }
+
+    function isAndroidAutoLifecycleSupported() {
+        return (
+            Platform.OS === 'android' &&
+            typeof NativeRNMapboxNavigation?.activateAndroidAutoLifecycle ===
+                'function' &&
+            typeof NativeRNMapboxNavigation?.deactivateAndroidAutoLifecycle ===
+                'function' &&
+            typeof NativeRNMapboxNavigation?.updateAndroidAutoLifecycleState ===
+                'function'
+        );
     }
 
     function isNavigationPuck3DSupported() {
@@ -89,6 +110,46 @@ function createNavigationModule({
         }
 
         return NativeRNMapboxNavigation.getLastEnhancedLocation();
+    }
+
+    async function getLastElectronicHorizonAsync() {
+        if (!isElectronicHorizonSupported()) {
+            return null;
+        }
+
+        return NativeRNMapboxNavigation.getLastElectronicHorizon();
+    }
+
+    async function activateAndroidAutoLifecycleAsync() {
+        if (!isAndroidAutoLifecycleSupported()) {
+            return false;
+        }
+
+        return Boolean(
+            await NativeRNMapboxNavigation.activateAndroidAutoLifecycle(),
+        );
+    }
+
+    async function deactivateAndroidAutoLifecycleAsync() {
+        if (!isAndroidAutoLifecycleSupported()) {
+            return false;
+        }
+
+        return Boolean(
+            await NativeRNMapboxNavigation.deactivateAndroidAutoLifecycle(),
+        );
+    }
+
+    async function updateAndroidAutoLifecycleStateAsync(state) {
+        if (!isAndroidAutoLifecycleSupported()) {
+            return false;
+        }
+
+        return Boolean(
+            await NativeRNMapboxNavigation.updateAndroidAutoLifecycleState(
+                state,
+            ),
+        );
     }
 
     function normalizeNavigationCameraOptions(options = {}) {
@@ -314,6 +375,17 @@ function createNavigationModule({
         return eventEmitter.addListener(ENHANCED_LOCATION_EVENT_NAME, listener);
     }
 
+    function addElectronicHorizonListener(listener) {
+        if (!eventEmitter || !isElectronicHorizonSupported()) {
+            return makeNoopSubscription();
+        }
+
+        return eventEmitter.addListener(
+            ELECTRONIC_HORIZON_EVENT_NAME,
+            listener,
+        );
+    }
+
     function addRawLocationListener(listener) {
         if (!eventEmitter) {
             return makeNoopSubscription();
@@ -383,6 +455,50 @@ function createNavigationModule({
         }, [enabled, foregroundService]);
 
         return location;
+    }
+
+    function useElectronicHorizon(options = {}) {
+        const enabled = options.enabled !== false;
+        const foregroundService = Boolean(options.foregroundService);
+        const [electronicHorizon, setElectronicHorizon] = React.useState(null);
+
+        React.useEffect(() => {
+            if (!enabled || !isElectronicHorizonSupported()) {
+                setElectronicHorizon(null);
+                return undefined;
+            }
+
+            let isActive = true;
+            const subscription = addElectronicHorizonListener(
+                (nextElectronicHorizon) => {
+                    if (isActive) {
+                        setElectronicHorizon(nextElectronicHorizon);
+                    }
+                },
+            );
+
+            getLastElectronicHorizonAsync()
+                .then((lastElectronicHorizon) => {
+                    if (isActive && lastElectronicHorizon) {
+                        setElectronicHorizon(lastElectronicHorizon);
+                    }
+                })
+                .catch(() => {});
+
+            retainEnhancedLocationTripSessionAsync({ foregroundService }).catch(
+                () => {},
+            );
+
+            return () => {
+                isActive = false;
+                subscription.remove();
+                releaseEnhancedLocationTripSessionAsync({
+                    foregroundService,
+                }).catch(() => {});
+            };
+        }, [enabled, foregroundService]);
+
+        return electronicHorizon;
     }
 
     function useNavigationTripSession() {
@@ -533,6 +649,8 @@ function createNavigationModule({
     }
 
     return {
+        activateAndroidAutoLifecycleAsync,
+        addElectronicHorizonListener,
         addNavigationCameraStateListener,
         addEnhancedLocationListener,
         addRawLocationListener,
@@ -540,15 +658,21 @@ function createNavigationModule({
         applyNavigationPuck3DAsync,
         attachNavigationCameraAsync,
         clearNavigationPuck3DAsync,
+        deactivateAndroidAutoLifecycleAsync,
         detachNavigationCameraAsync,
+        getLastElectronicHorizonAsync,
         getLastEnhancedLocationAsync,
         getTripSessionStateAsync,
+        isElectronicHorizonSupported,
+        isAndroidAutoLifecycleSupported,
         isNavigationPuck3DSupported,
         isSupported,
         setNavigationCameraModeAsync,
         startTripSessionAsync,
         stopTripSessionAsync,
+        updateAndroidAutoLifecycleStateAsync,
         updateNavigationCameraOptionsAsync,
+        useElectronicHorizon,
         useEnhancedLocation,
         useNavigationCamera,
         useNavigationTripSession,

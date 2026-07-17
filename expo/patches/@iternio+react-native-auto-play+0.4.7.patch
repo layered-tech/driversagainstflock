@@ -296,3 +296,99 @@ index ec0b626..5c53fbf 100644
    }
  
    public setComponent(component: React.ComponentType<RootComponentInitialProps>) {
+diff --git a/node_modules/@iternio/react-native-auto-play/ios/templates/SearchTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/templates/SearchTemplate.swift
+index 701338c..0ec0e3d 100644
+--- a/node_modules/@iternio/react-native-auto-play/ios/templates/SearchTemplate.swift
++++ b/node_modules/@iternio/react-native-auto-play/ios/templates/SearchTemplate.swift
+@@ -37,6 +37,15 @@ class SearchTemplate: AutoPlayTemplate, CPSearchTemplateDelegate {
+         invalidate()
+     }
+ 
++    private func completePendingSearchResults(_ items: [CPListItem] = []) {
++        guard let completionHandler else {
++            return
++        }
++
++        self.completionHandler = nil
++        completionHandler(items)
++    }
++
+     @MainActor
+     override func _invalidate() {
+         // if we have pushed a list template update it
+@@ -45,7 +54,7 @@ class SearchTemplate: AutoPlayTemplate, CPSearchTemplateDelegate {
+         }
+ 
+         // otherwise update the search results on the search template
+-        guard let completionHandler = self.completionHandler else {
++        guard self.completionHandler != nil else {
+             return
+         }
+ 
+@@ -57,9 +66,7 @@ class SearchTemplate: AutoPlayTemplate, CPSearchTemplateDelegate {
+             section: results,
+             traitCollection: traitCollection
+         )
+-        completionHandler(listItems)
+-
+-        self.completionHandler = nil
++        completePendingSearchResults(listItems)
+     }
+ 
+     override func onWillAppear(animated: Bool) {
+@@ -73,6 +80,7 @@ class SearchTemplate: AutoPlayTemplate, CPSearchTemplateDelegate {
+     }
+ 
+     override func onWillDisappear(animated: Bool) {
++        completePendingSearchResults()
+         config.onWillDisappear?(animated)
+         template.delegate = nil
+     }
+@@ -82,6 +90,7 @@ class SearchTemplate: AutoPlayTemplate, CPSearchTemplateDelegate {
+     }
+ 
+     override func onPopped() {
++        completePendingSearchResults()
+         config.onPopped?()
+     }
+ 
+@@ -92,21 +101,24 @@ class SearchTemplate: AutoPlayTemplate, CPSearchTemplateDelegate {
+         updatedSearchText searchText: String,
+         completionHandler: @escaping ([CPListItem]) -> Void
+     ) {
+-        self.completionHandler = completionHandler
+-
+         if !isInitialized {
++            self.searchText = searchText
++            completePendingSearchResults()
++            self.completionHandler = completionHandler
+             // this makes sure we show the initial items when opening up the template
+             invalidate()
+             isInitialized = true
+             return
+         }
+ 
+-        if searchText == self.searchText {
+-            return
+-        }
+-
+         self.searchText = searchText
+ 
++        // CarPlay requires every text-update completion handler to be resolved.
++        // Live results are intentionally disabled by the app on this host, so
++        // clear the transient list now and wait for keyboard Search to load the
++        // submitted results into its dedicated list template.
++        completionHandler([])
++
+         if pushedListTemplate != nil {
+             return
+         }
+@@ -126,6 +138,8 @@ class SearchTemplate: AutoPlayTemplate, CPSearchTemplateDelegate {
+         _ searchTemplate: CPSearchTemplate
+     ) {
+ 
++        completePendingSearchResults()
++
+         // Create a new ListTemplate with the search results
+         let listConfig = ListTemplateConfig(
+             id: "\(config.id)-results",

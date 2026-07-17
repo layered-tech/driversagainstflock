@@ -69,4 +69,31 @@ test('route preview waits for the map and applies a selected top-down camera sto
         mapSurfaceSource,
         /fittedDirectionsRouteKeyRef\.current === routeFitKey/,
     );
+    assert.match(
+        mapSurfaceSource,
+        /drivingStatusIsVisible=[\s\S]*?mapContentVisibility\.drivingStatusIsVisible/,
+    );
+    assert.match(
+        mapSurfaceSource,
+        /userLocationPuckVisible:[\s\S]*?mapContentVisibility\.userLocationPuckVisible/,
+    );
+    assert.match(
+        mapSurfaceSource,
+        /mapBrowsingContextIsActive[\s\S]*?routePreviewIsActive \|\| searchResultsMapIsActive/,
+    );
+    assert.match(
+        mapSurfaceSource,
+        /mapBrowsingContextWasActive[\s\S]*?!mapBrowsingContextWasActive[\s\S]*?mapBrowsingContextIsActive[\s\S]*?handleDrivingRecenterPress/,
+    );
+    assert.match(
+        mapSurfaceSource,
+        /if \(isDrivingMode\)[\s\S]*?handleDrivingRecenterPress[\s\S]*?else[\s\S]*?handleLocationRecenterPress/,
+    );
+});
+
+test('CarPlay clears search-map context before presenting route choices', () => {
+    assert.match(
+        autoPlaySource,
+        /keepsSearchTemplateUnderRoutePreview\s*!==\s*true[\s\S]*?clearAutoPlaySubmittedSearchResults\(\)[\s\S]*?popToRootTemplate/,
+    );
 });

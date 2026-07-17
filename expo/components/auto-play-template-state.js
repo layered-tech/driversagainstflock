@@ -155,6 +155,54 @@ export function getAutoPlayRoutePreviewFitKey({ bounds, route, viewportKey }) {
     ].join(':');
 }
 
+export function getAutoPlaySearchResultsFitKey({ bounds, query, viewportKey }) {
+    const boundsKey = [bounds?.sw, bounds?.ne]
+        .flat()
+        .filter((coordinate) => Number.isFinite(Number(coordinate)))
+        .join(',');
+
+    return [
+        'search-results',
+        String(query ?? '').trim(),
+        boundsKey,
+        viewportKey,
+    ].join(':');
+}
+
+export function getAutoPlaySearchResultsMapIsActive({
+    isNavigating,
+    routePreviewIsActive,
+    submittedSearchQuery,
+    submittedSearchResults,
+}) {
+    if (isNavigating || routePreviewIsActive) {
+        return false;
+    }
+
+    return Boolean(
+        submittedSearchResults?.length ||
+            String(submittedSearchQuery ?? '').trim(),
+    );
+}
+
+export function getAutoPlayMapContentVisibility({
+    routePreviewIsActive,
+    searchResultsMapIsActive,
+    surveillanceMarkersVisible,
+}) {
+    const transientMapContextIsActive = Boolean(
+        routePreviewIsActive || searchResultsMapIsActive,
+    );
+
+    return {
+        drivingStatusIsVisible: !transientMapContextIsActive,
+        surveillanceMarkersVisible: Boolean(
+            surveillanceMarkersVisible && !searchResultsMapIsActive,
+        ),
+        userLocationPuckVisible: !transientMapContextIsActive,
+    };
+}
+
 export function makeAutoPlayTripSelectorTrips({
     makeRouteChoice,
     routeOptions,
