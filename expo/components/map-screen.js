@@ -299,6 +299,19 @@ export default function LocationMapScreen({
         freeDriveIsActive && resolvedMapSearchOverlayIsVisible;
 
     useEffect(() => {
+        if (!freeDriveIsActive || !searchController.searchPageIsVisible) {
+            return;
+        }
+
+        logMapDrivingStopped({ route: null });
+        setDrivingModeIsActive(false);
+    }, [
+        freeDriveIsActive,
+        searchController.searchPageIsVisible,
+        setDrivingModeIsActive,
+    ]);
+
+    useEffect(() => {
         if (surveillanceMarkersVisible || !selectedMarker) {
             return;
         }

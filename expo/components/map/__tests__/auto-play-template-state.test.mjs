@@ -3,6 +3,7 @@ import { describe, test } from 'node:test';
 import {
     autoPlaySearchRequestIsCurrent,
     getAutoPlayHeaderButtonVisibility,
+    getAutoPlayMapContentVisibility,
     getAutoPlayRouteChoiceText,
     getAutoPlayRoutePreviewFitKey,
     getAutoPlaySearchLoadingCopy,
@@ -233,6 +234,59 @@ describe('Auto Play template state', () => {
                 submittedSearchQuery: 'coffee',
                 submittedSearchResults: [{ id: 'result-1' }],
             }),
+            false,
+        );
+    });
+
+    test('shows only context-appropriate Auto Play map content', () => {
+        const defaultContext = {
+            routePreviewIsActive: false,
+            searchResultsMapIsActive: false,
+            surveillanceMarkersVisible: true,
+        };
+        const normalVisibility =
+            getAutoPlayMapContentVisibility(defaultContext);
+        const searchVisibility = getAutoPlayMapContentVisibility({
+            ...defaultContext,
+            searchResultsMapIsActive: true,
+        });
+        const routePreviewVisibility = getAutoPlayMapContentVisibility({
+            ...defaultContext,
+            routePreviewIsActive: true,
+        });
+
+        assert.deepEqual(normalVisibility, {
+            drivingStatusIsVisible: true,
+            surveillanceMarkersVisible: true,
+            userLocationPuckVisible: true,
+        });
+        assert.deepEqual(searchVisibility, {
+            drivingStatusIsVisible: false,
+            surveillanceMarkersVisible: false,
+            userLocationPuckVisible: false,
+        });
+        assert.deepEqual(routePreviewVisibility, {
+            drivingStatusIsVisible: false,
+            surveillanceMarkersVisible: true,
+            userLocationPuckVisible: false,
+        });
+        assert.deepEqual(
+            [normalVisibility, searchVisibility, normalVisibility].map(
+                (visibility) => visibility.userLocationPuckVisible,
+            ),
+            [true, false, true],
+        );
+        assert.deepEqual(
+            [normalVisibility, routePreviewVisibility, normalVisibility].map(
+                (visibility) => visibility.userLocationPuckVisible,
+            ),
+            [true, false, true],
+        );
+        assert.equal(
+            getAutoPlayMapContentVisibility({
+                ...defaultContext,
+                surveillanceMarkersVisible: false,
+            }).surveillanceMarkersVisible,
             false,
         );
     });

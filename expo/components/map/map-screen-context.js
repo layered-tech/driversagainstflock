@@ -706,6 +706,8 @@ export function useAutoPlayMapScreenContextValues({
     preferredFramesPerSecond,
     presentation,
     submittedSearchResults,
+    surveillanceMarkersVisible,
+    userLocationPuckVisible = true,
 }) {
     const canvasValue = useMemo(
         () => ({
@@ -731,6 +733,7 @@ export function useAutoPlayMapScreenContextValues({
             mapStyleURL: mapPreferences.mapStyleURL,
             mapTrafficEnabled: mapPreferences.mapTrafficEnabled,
             surveillanceMarkersVisible:
+                surveillanceMarkersVisible ??
                 mapPreferences.surveillanceMarkersVisible,
             markerClustersEnabled: mapPreferences.markerClustersEnabled,
             cameraConesVisible: mapPreferences.cameraConesVisible,
@@ -746,6 +749,7 @@ export function useAutoPlayMapScreenContextValues({
             submittedSearchResults:
                 submittedSearchResults ??
                 EMPTY_ANDROID_AUTO_SUBMITTED_SEARCH_RESULTS,
+            userLocationPuckVisible,
             usesSharedLocationProvider: true,
         }),
         [
@@ -780,6 +784,8 @@ export function useAutoPlayMapScreenContextValues({
             presentation.mapboxLogoPosition,
             presentation.mapCompassPosition,
             submittedSearchResults,
+            surveillanceMarkersVisible,
+            userLocationPuckVisible,
         ],
     );
     const locationValue = useMapLocationContextValue(

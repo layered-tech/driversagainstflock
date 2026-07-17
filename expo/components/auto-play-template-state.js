@@ -181,8 +181,26 @@ export function getAutoPlaySearchResultsMapIsActive({
 
     return Boolean(
         submittedSearchResults?.length ||
-        String(submittedSearchQuery ?? '').trim(),
+            String(submittedSearchQuery ?? '').trim(),
     );
+}
+
+export function getAutoPlayMapContentVisibility({
+    routePreviewIsActive,
+    searchResultsMapIsActive,
+    surveillanceMarkersVisible,
+}) {
+    const transientMapContextIsActive = Boolean(
+        routePreviewIsActive || searchResultsMapIsActive,
+    );
+
+    return {
+        drivingStatusIsVisible: !transientMapContextIsActive,
+        surveillanceMarkersVisible: Boolean(
+            surveillanceMarkersVisible && !searchResultsMapIsActive,
+        ),
+        userLocationPuckVisible: !transientMapContextIsActive,
+    };
 }
 
 export function makeAutoPlayTripSelectorTrips({

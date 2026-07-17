@@ -14,6 +14,7 @@ import { AutoPlayMapStatusOverlay } from './auto-play-map-status-overlay';
 import { getAutoPlayViewportMetrics } from './auto-play-map-viewport';
 import { useAutoPlayState } from './auto-play-state';
 import {
+    getAutoPlayMapContentVisibility,
     getAutoPlayRoutePreviewFitKey,
     getAutoPlaySearchResultsFitKey,
     getAutoPlaySearchResultsMapIsActive,
@@ -1216,12 +1217,7 @@ function useAutoPlayMapController({
         return hasAccess;
     }, []);
 
-    const handleLocationTrackingPress = useCallback(async () => {
-        if (activeLocationMode.isActive(locationTrackingMode)) {
-            activeLocationMode.stop();
-            return;
-        }
-
+    const handleLocationRecenterPress = useCallback(async () => {
         if (!locationAccessGranted && !(await refreshLocationPermission())) {
             setLocationError(
                 'Open the phone app and allow precise location to use car location controls.',
@@ -1241,11 +1237,19 @@ function useAutoPlayMapController({
         activeLocationMode,
         findCurrentLocation,
         locationAccessGranted,
-        locationTrackingMode,
         refreshLocationPermission,
         setLocationError,
         userLocation,
     ]);
+
+    const handleLocationTrackingPress = useCallback(async () => {
+        if (activeLocationMode.isActive(locationTrackingMode)) {
+            activeLocationMode.stop();
+            return;
+        }
+
+        await handleLocationRecenterPress();
+    }, [activeLocationMode, handleLocationRecenterPress, locationTrackingMode]);
 
     const handleDrivingRecenterPress = useCallback(async () => {
         if (!locationAccessGranted && !(await refreshLocationPermission())) {
@@ -1399,6 +1403,7 @@ function useAutoPlayMapController({
         fitCameraToBounds,
         handleCameraChanged,
         handleDrivingRecenterPress,
+        handleLocationRecenterPress,
         handleLocationTrackingPress,
         handleMapLoaded,
         handleMarkerSourcePress,
@@ -1437,7 +1442,7 @@ export function AutoPlayMapSurfaceContent({
     const isRootMapSurface = !id || id === AUTO_PLAY_ROOT_MODULE_ID;
     const fittedDirectionsRouteKeyRef = useRef('');
     const fittedSearchResultsKeyRef = useRef('');
-    const routePreviewWasActiveRef = useRef(false);
+    const mapBrowsingContextWasActiveRef = useRef(false);
     const [layoutSize, setLayoutSize] = useState(null);
     const [followViewportAnchorY, setFollowViewportAnchorY] =
         useState(undefined);
@@ -1462,6 +1467,14 @@ export function AutoPlayMapSurfaceContent({
         routePreviewIsActive,
         submittedSearchQuery: autoPlayState.submittedSearchQuery,
         submittedSearchResults,
+    });
+    const mapBrowsingContextIsActive = Boolean(
+        isRootMapSurface && (routePreviewIsActive || searchResultsMapIsActive),
+    );
+    const mapContentVisibility = getAutoPlayMapContentVisibility({
+        routePreviewIsActive: isRootMapSurface && routePreviewIsActive,
+        searchResultsMapIsActive: isRootMapSurface && searchResultsMapIsActive,
+        surveillanceMarkersVisible: mapPreferences.surveillanceMarkersVisible,
     });
     const userLocationIsUsableForLightPreset =
         Number.isFinite(Number(mapPreferences.userLocation?.latitude)) &&
@@ -1653,23 +1666,30 @@ export function AutoPlayMapSurfaceContent({
         preferredFramesPerSecond: isRootMapSurface ? 30 : 20,
         presentation,
         submittedSearchResults,
+        surveillanceMarkersVisible:
+            mapContentVisibility.surveillanceMarkersVisible,
+        userLocationPuckVisible: mapContentVisibility.userLocationPuckVisible,
     });
     useEffect(() => {
-        const routePreviewWasActive = routePreviewWasActiveRef.current;
+        const mapBrowsingContextWasActive =
+            mapBrowsingContextWasActiveRef.current;
 
-        routePreviewWasActiveRef.current = routePreviewIsActive;
+        mapBrowsingContextWasActiveRef.current = mapBrowsingContextIsActive;
 
-        if (!routePreviewWasActive || routePreviewIsActive) {
+        if (!mapBrowsingContextWasActive || mapBrowsingContextIsActive) {
             return;
         }
 
         if (isDrivingMode) {
             controller.handleDrivingRecenterPress().catch(() => {});
+        } else {
+            controller.handleLocationRecenterPress().catch(() => {});
         }
     }, [
         controller.handleDrivingRecenterPress,
+        controller.handleLocationRecenterPress,
         isDrivingMode,
-        routePreviewIsActive,
+        mapBrowsingContextIsActive,
     ]);
     useEffect(() => {
         if (!isRootMapSurface) {
@@ -1887,6 +1907,9 @@ export function AutoPlayMapSurfaceContent({
                 {isRootMapSurface && !searchResultsMapIsActive ? (
                     <AutoPlayMapStatusOverlay
                         activeDirectionsRoute={activeDirectionsRoute}
+                        drivingStatusIsVisible={
+                            mapContentVisibility.drivingStatusIsVisible
+                        }
                         freeDriveIsActive={
                             controller.enhancedNavigationLocationWatchEnabled
                         }

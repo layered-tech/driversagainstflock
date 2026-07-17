@@ -3,6 +3,7 @@ import { CarPlayMapSurface } from './carplay-map-surface';
 // CarPlay extension of the platform-agnostic auto-play core.
 export const autoPlayPlatform = {
     MapSurface: CarPlayMapSurface,
+    publishesSearchTemplateResultsToMap: true,
     supportsSearchAutocomplete: false,
     usesHeaderExitNavigationButton: true,
 

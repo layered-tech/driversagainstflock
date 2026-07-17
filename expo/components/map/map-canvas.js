@@ -538,6 +538,7 @@ export const MapCanvas = memo(function MapCanvas() {
         policeAlertsVisible,
         preferredFramesPerSecond = MAP_PREFERRED_FRAMES_PER_SECOND,
         submittedSearchResults,
+        userLocationPuckVisible = true,
         usesSharedLocationProvider = false,
     } = useMapCanvasContext();
     const { userLocation } = useMapLocationContext();
@@ -639,6 +640,7 @@ export const MapCanvas = memo(function MapCanvas() {
         : NAVIGATION_PUCK_SIZE;
     const navigationPuckRequestsNative3D = Boolean(
         locationAccessGranted &&
+        userLocationPuckVisible &&
         navigationPuckIsVisible &&
         isNavigationPuck3DSupported(),
     );
@@ -1329,7 +1331,7 @@ export const MapCanvas = memo(function MapCanvas() {
             {(directionsWaypointMarkers ?? []).map((marker) => (
                 <RouteWaypointMarker key={marker.id} marker={marker} />
             ))}
-            {locationAccessGranted ? (
+            {locationAccessGranted && userLocationPuckVisible ? (
                 <>
                     {!navigationPuckFallbackIsSuppressed ? (
                         <>
@@ -1353,7 +1355,7 @@ export const MapCanvas = memo(function MapCanvas() {
                                         ? NAVIGATION_PUCK_TOP_TRANSPARENT_IMAGE
                                         : undefined
                                 }
-                                visible
+                                visible={userLocationPuckVisible}
                             />
                         </>
                     ) : null}

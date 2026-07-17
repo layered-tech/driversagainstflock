@@ -481,6 +481,10 @@ function makeSearchRows(results, query, onPress) {
 }
 
 function updateSearchTemplateResults(template, results, query, startLocation) {
+    if (autoPlayPlatform?.publishesSearchTemplateResultsToMap === true) {
+        setAutoPlaySubmittedSearchResults({ query, results });
+    }
+
     updateSearchTemplateSection(template, {
         items: makeSearchRows(results, query, (result) => {
             handleSearchResultSelected(result, startLocation, template, {
@@ -828,11 +832,15 @@ function getBackHeaderAction(onBeforePop) {
 
 function openSearchTemplate(initialSearchText = '', preferredStartLocation) {
     const { SearchTemplate } = loadAutoPlayModule();
+    const dismissSearch = () => {
+        cancelAutoPlaySearchWork();
+        clearAutoPlaySubmittedSearchResults();
+    };
 
     cancelAutoPlaySearchWork();
     clearAutoPlaySubmittedSearchResults();
     const template = new SearchTemplate({
-        headerActions: getBackHeaderAction(cancelAutoPlaySearchWork),
+        headerActions: getBackHeaderAction(dismissSearch),
         initialSearchText,
         onSearchTextChanged: (searchText) => {
             if (autoPlayPlatform?.supportsSearchAutocomplete === false) {
@@ -848,9 +856,7 @@ function openSearchTemplate(initialSearchText = '', preferredStartLocation) {
         onSearchTextSubmitted: (searchText) => {
             runPlaceTextSearch(template, searchText, preferredStartLocation);
         },
-        onPopped: () => {
-            cancelAutoPlaySearchWork();
-        },
+        onPopped: dismissSearch,
         results: {
             items: [
                 makeDisabledSearchRow(
@@ -873,6 +879,7 @@ function openSearchTemplate(initialSearchText = '', preferredStartLocation) {
     });
 
     template.push().catch((error) => {
+        dismissSearch();
         setAutoPlayState({
             errorText: error?.message || 'Search could not be opened.',
             statusLabel: 'Search error',
@@ -1052,6 +1059,7 @@ async function showRoutePreview(route) {
         // CarPlay presents its selector from the root map. Android Auto can
         // retain the result list underneath so Back restores those results.
         if (autoPlayPlatform?.keepsSearchTemplateUnderRoutePreview !== true) {
+            clearAutoPlaySubmittedSearchResults();
             await HybridAutoPlay.popToRootTemplate(false);
         }
 

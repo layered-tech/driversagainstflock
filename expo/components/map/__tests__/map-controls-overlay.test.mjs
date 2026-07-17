@@ -24,4 +24,11 @@ describe('MapControlsOverlay', () => {
             /<MapControlsOverlay\s+showFreeDriveButton=\{freeDriveIsActive\}/,
         );
     });
+
+    test('exits free drive when mobile search opens', () => {
+        assert.match(
+            mapScreenSource,
+            /if \(!freeDriveIsActive \|\| !searchController\.searchPageIsVisible\) \{[\s\S]*?logMapDrivingStopped\(\{ route: null \}\);[\s\S]*?setDrivingModeIsActive\(false\);/,
+        );
+    });
 });

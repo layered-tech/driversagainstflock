@@ -84,6 +84,7 @@ function AutoPlayUpcomingAlert({ alert }) {
 
 export function AutoPlayMapStatusOverlay({
     activeDirectionsRoute,
+    drivingStatusIsVisible = true,
     freeDriveIsActive,
     markerLoader,
     mapPreferencesAreLoaded,
@@ -98,8 +99,9 @@ export function AutoPlayMapStatusOverlay({
         routeIsActive: routeIsActive || freeDriveIsActive,
         userLocation,
     });
-    const speedLimitIsVisible = Number.isFinite(
-        Number(speedLimit?.speedLimitMph),
+    const speedLimitIsVisible = Boolean(
+        drivingStatusIsVisible &&
+        Number.isFinite(Number(speedLimit?.speedLimitMph)),
     );
     const markerLoadingIsVisible =
         mapPreferencesAreLoaded && markerLoader.renderMarkerLoadingIndicator;
@@ -116,19 +118,21 @@ export function AutoPlayMapStatusOverlay({
 
     return (
         <>
-            <View
-                className="absolute inset-0"
-                pointerEvents="box-none"
-                style={viewportMetrics.cameraPadding}
-            >
-                <View className="flex-1" pointerEvents="none" />
-                <DrivingLocationRoadStack
-                    currentRoadPillTestID="android-auto-current-road-pill"
-                    onLocationAnchorLayout={onLocationAnchorLayout}
-                    puckSize={AUTO_PLAY_NAVIGATION_PUCK_SIZE}
-                    userLocation={userLocation}
-                />
-            </View>
+            {drivingStatusIsVisible ? (
+                <View
+                    className="absolute inset-0"
+                    pointerEvents="box-none"
+                    style={viewportMetrics.cameraPadding}
+                >
+                    <View className="flex-1" pointerEvents="none" />
+                    <DrivingLocationRoadStack
+                        currentRoadPillTestID="android-auto-current-road-pill"
+                        onLocationAnchorLayout={onLocationAnchorLayout}
+                        puckSize={AUTO_PLAY_NAVIGATION_PUCK_SIZE}
+                        userLocation={userLocation}
+                    />
+                </View>
+            ) : null}
 
             {upcomingAlert ? (
                 <View

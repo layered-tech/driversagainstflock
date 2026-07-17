@@ -10,6 +10,10 @@ const androidPlatformSource = readFileSync(
     new URL('../../auto-play-platform.android.js', import.meta.url),
     'utf8',
 );
+const iosPlatformSource = readFileSync(
+    new URL('../../auto-play-platform.ios.js', import.meta.url),
+    'utf8',
+);
 const autoPlayMapStateSource = readFileSync(
     new URL('../../auto-play-state.js', import.meta.url),
     'utf8',
@@ -20,6 +24,10 @@ const autoPlayMapSurfaceSource = readFileSync(
 );
 const mapScreenContextSource = readFileSync(
     new URL('../../map/map-screen-context.js', import.meta.url),
+    'utf8',
+);
+const mapCanvasSource = readFileSync(
+    new URL('../../map/map-canvas.js', import.meta.url),
     'utf8',
 );
 
@@ -60,10 +68,49 @@ test('Android Auto supplies submitted result markers and frames them on its map'
     );
     assert.match(
         autoPlayMapSurfaceSource,
+        /surveillanceMarkersVisible:[\s\S]*?mapContentVisibility\.surveillanceMarkersVisible/,
+    );
+    assert.match(
+        autoPlayMapSurfaceSource,
+        /userLocationPuckVisible:[\s\S]*?mapContentVisibility\.userLocationPuckVisible/,
+    );
+    assert.match(
+        autoPlayMapSurfaceSource,
         /isRootMapSurface && !searchResultsMapIsActive[\s\S]*?<AutoPlayMapStatusOverlay/,
     );
     assert.match(
         mapScreenContextSource,
         /submittedSearchResults:\s*submittedSearchResults/,
+    );
+    assert.match(
+        mapScreenContextSource,
+        /surveillanceMarkersVisible\s*\?\?[\s\S]*?mapPreferences\.surveillanceMarkersVisible/,
+    );
+    assert.match(
+        mapCanvasSource,
+        /navigationPuckRequestsNative3D\s*=\s*Boolean\([\s\S]*?userLocationPuckVisible/,
+    );
+    assert.match(
+        mapCanvasSource,
+        /locationAccessGranted\s*&&\s*userLocationPuckVisible[\s\S]*?<Mapbox\.LocationPuck/,
+    );
+});
+
+test('CarPlay publishes visible search results to the shared map context', () => {
+    assert.match(
+        iosPlatformSource,
+        /publishesSearchTemplateResultsToMap:\s*true/,
+    );
+    assert.match(
+        autoPlaySource,
+        /function updateSearchTemplateResults[\s\S]*?publishesSearchTemplateResultsToMap[\s\S]*?setAutoPlaySubmittedSearchResults/,
+    );
+    assert.match(
+        autoPlaySource,
+        /function openSearchTemplate[\s\S]*?const dismissSearch[\s\S]*?clearAutoPlaySubmittedSearchResults[\s\S]*?onPopped:\s*dismissSearch/,
+    );
+    assert.match(
+        autoPlaySource,
+        /template\.push\(\)\.catch\(\(error\) => \{[\s\S]*?dismissSearch\(\)/,
     );
 });
