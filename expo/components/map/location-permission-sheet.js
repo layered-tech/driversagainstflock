@@ -1,6 +1,7 @@
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Text, TextInput, View } from 'react-native';
 import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
+import { LocationAcquisitionView } from './location-acquisition-view';
 import { usePermissionSheetContext } from './map-screen-context';
 import {
     NativeWindBottomSheetModal,
@@ -59,37 +60,19 @@ export function LocationPermissionSheet() {
             onDismiss={permissionSheetTrackingHandlers.onDismiss}
         >
             <NativeWindBottomSheetView
-                className="dark:bg-daf-surface-dark gap-[22px] bg-white px-[22px]"
+                className="dark:bg-daf-surface-dark flex-1 gap-[22px] bg-white px-[22px]"
                 style={{
                     paddingBottom: insets.bottom + 16,
                     paddingTop: Math.max(insets.top + 46, 80),
                 }}
             >
                 {locationAccessGranted ? (
-                    <View className="gap-3">
-                        <Text className="text-2xl font-bold text-daf-text-primary dark:text-white">
-                            {userLocation
-                                ? 'Map centered'
-                                : 'Finding your location'}
-                        </Text>
-                        <Text className="text-base leading-6 text-daf-text-secondary dark:text-neutral-300">
-                            {userLocation
-                                ? 'The map can now show where you are.'
-                                : locationError ||
-                                  'Waiting for your device to return its current position.'}
-                        </Text>
-                        {!userLocation && !isLocating ? (
-                            <Pressable
-                                accessibilityRole="button"
-                                className="min-h-hitMin flex-row items-center justify-center rounded-dafMd bg-daf-brand dark:bg-daf-brand"
-                                onPress={retryCurrentLocation}
-                            >
-                                <Text className="text-base font-semibold text-daf-brand-contrast">
-                                    Try again
-                                </Text>
-                            </Pressable>
-                        ) : null}
-                    </View>
+                    <LocationAcquisitionView
+                        isLocating={isLocating}
+                        locationError={locationError}
+                        retryCurrentLocation={retryCurrentLocation}
+                        userLocation={userLocation}
+                    />
                 ) : (
                     <>
                         <View className="bg-daf-brand/12 dark:bg-daf-brand/15 h-[58px] w-[58px] items-center justify-center self-start rounded-dafLg">
