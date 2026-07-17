@@ -140,49 +140,60 @@ describe('Mapbox Navigation Electronic Horizon bridge', () => {
     });
 });
 
-describe('Mapbox Navigation wake-lock bridge', () => {
-    test('activates and releases an Android navigation wake lock by tag', async () => {
+describe('Mapbox Navigation Android Auto lifecycle bridge', () => {
+    test('activates and deactivates the car-session lifecycle', async () => {
         const calls = [];
         const navigation = createModule({
-            activateNavigationWakeLock: async (tag) => {
-                calls.push(['activate', tag]);
+            activateAndroidAutoLifecycle: async () => {
+                calls.push('activate');
                 return true;
             },
-            deactivateNavigationWakeLock: async (tag) => {
-                calls.push(['deactivate', tag]);
+            deactivateAndroidAutoLifecycle: async () => {
+                calls.push('deactivate');
+                return true;
+            },
+            updateAndroidAutoLifecycleState: async (state) => {
+                calls.push(['state', state]);
                 return true;
             },
         });
 
-        assert.equal(navigation.isNavigationWakeLockSupported(), true);
+        assert.equal(navigation.isAndroidAutoLifecycleSupported(), true);
         assert.equal(
-            await navigation.activateNavigationWakeLockAsync(
-                'driversagainstflock.android-auto-navigation',
-            ),
+            await navigation.activateAndroidAutoLifecycleAsync(),
             true,
         );
         assert.equal(
-            await navigation.deactivateNavigationWakeLockAsync(
-                'driversagainstflock.android-auto-navigation',
-            ),
+            await navigation.deactivateAndroidAutoLifecycleAsync(),
+            true,
+        );
+        assert.equal(
+            await navigation.updateAndroidAutoLifecycleStateAsync('didAppear'),
             true,
         );
         assert.deepEqual(calls, [
-            ['activate', 'driversagainstflock.android-auto-navigation'],
-            ['deactivate', 'driversagainstflock.android-auto-navigation'],
+            'activate',
+            'deactivate',
+            ['state', 'didAppear'],
         ]);
     });
 
-    test('safely skips wake locks in a native build without the bridge', async () => {
+    test('safely skips lifecycle calls in a native build without the bridge', async () => {
         const navigation = createModule({});
 
-        assert.equal(navigation.isNavigationWakeLockSupported(), false);
+        assert.equal(navigation.isAndroidAutoLifecycleSupported(), false);
         assert.equal(
-            await navigation.activateNavigationWakeLockAsync('route'),
+            await navigation.activateAndroidAutoLifecycleAsync(),
             false,
         );
         assert.equal(
-            await navigation.deactivateNavigationWakeLockAsync('route'),
+            await navigation.deactivateAndroidAutoLifecycleAsync(),
+            false,
+        );
+        assert.equal(
+            await navigation.updateAndroidAutoLifecycleStateAsync(
+                'didDisappear',
+            ),
             false,
         );
     });

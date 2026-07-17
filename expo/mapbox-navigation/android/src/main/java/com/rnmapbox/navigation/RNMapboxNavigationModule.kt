@@ -1,17 +1,17 @@
 package com.rnmapbox.navigation
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
 import com.facebook.react.bridge.ReactContext
 import com.facebook.react.uimanager.UIManagerHelper
 import com.facebook.react.uimanager.common.UIManagerType
@@ -40,7 +40,6 @@ import com.mapbox.navigation.base.trip.model.roadobject.RoadObjectEnterExitInfo
 import com.mapbox.navigation.base.trip.model.roadobject.RoadObjectPassInfo
 import com.mapbox.navigation.base.trip.model.roadobject.distanceinfo.RoadObjectDistanceInfo
 import com.mapbox.navigation.core.MapboxNavigation
-import com.mapbox.navigation.core.MapboxNavigationProvider
 import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
 import com.mapbox.navigation.core.lifecycle.MapboxNavigationObserver
 import com.mapbox.navigation.core.trip.session.eh.EHorizonObserver
@@ -68,17 +67,15 @@ import expo.modules.kotlin.types.toJSValueExperimental
   MapboxExperimental::class
 )
 class RNMapboxNavigationModule : Module() {
+  private var activityLifecycleOwner: LifecycleOwner? = null
+  private var androidAutoLifecycleOwner: AndroidAutoSessionLifecycleOwner? = null
   private var lastEnhancedLocation: Bundle? = null
   private var lastElectronicHorizon: Bundle? = null
   private var lastLoggedSpeedLimitKey: String? = null
-  private var lifecycleAttached = false
   private var mapboxNavigation: MapboxNavigation? = null
-  private var navigationWakeLock: PowerManager.WakeLock? = null
-  private var navigationProviderInstanceCreated = false
   private var observerRegistered = false
   private var pendingTripSessionForegroundService: Boolean? = null
   private val navigationCameraSurfaces = mutableMapOf<String, NavigationCameraSurface>()
-  private val navigationWakeLockTags = mutableSetOf<String>()
 
   private val navigationObserver = object : MapboxNavigationObserver {
     override fun onAttached(mapboxNavigation: MapboxNavigation) {
@@ -175,12 +172,16 @@ class RNMapboxNavigationModule : Module() {
       return@AsyncFunction null
     }.runOnQueue(Queues.MAIN)
 
-    AsyncFunction("activateNavigationWakeLock") { tag: String ->
-      return@AsyncFunction activateNavigationWakeLock(tag)
+    AsyncFunction("activateAndroidAutoLifecycle") {
+      return@AsyncFunction activateAndroidAutoLifecycle()
     }.runOnQueue(Queues.MAIN)
 
-    AsyncFunction("deactivateNavigationWakeLock") { tag: String ->
-      return@AsyncFunction deactivateNavigationWakeLock(tag)
+    AsyncFunction("deactivateAndroidAutoLifecycle") {
+      return@AsyncFunction deactivateAndroidAutoLifecycle()
+    }.runOnQueue(Queues.MAIN)
+
+    AsyncFunction("updateAndroidAutoLifecycleState") { state: String ->
+      return@AsyncFunction updateAndroidAutoLifecycleState(state)
     }.runOnQueue(Queues.MAIN)
 
     AsyncFunction("getTripSessionState") {
@@ -283,7 +284,8 @@ class RNMapboxNavigationModule : Module() {
     OnDestroy {
       pendingTripSessionForegroundService = null
       lastElectronicHorizon = null
-      clearNavigationWakeLocks()
+      deactivateAndroidAutoLifecycle()
+      detachActivityLifecycleOwner()
       detachNavigationCameraSurfaces()
       mapboxNavigation?.let { navigation ->
         navigation.stopTripSession()
@@ -294,15 +296,19 @@ class RNMapboxNavigationModule : Module() {
         MapboxNavigationApp.unregisterObserver(navigationObserver)
         observerRegistered = false
       }
-
-      if (navigationProviderInstanceCreated && MapboxNavigationProvider.isCreated()) {
-        MapboxNavigationProvider.destroy()
-        navigationProviderInstanceCreated = false
-      }
     }
   }
 
   private fun ensureNavigationApp(context: Context) {
+    ensureNavigationAppSetup(context)
+    attachActivityLifecycleOwner()
+
+    MapboxNavigationApp.current()?.let {
+      bindNavigation(it)
+    }
+  }
+
+  private fun ensureNavigationAppSetup(context: Context) {
     if (!MapboxNavigationApp.isSetup()) {
       MapboxNavigationApp.setup(createNavigationOptions(context))
     }
@@ -311,27 +317,6 @@ class RNMapboxNavigationModule : Module() {
       MapboxNavigationApp.registerObserver(navigationObserver)
       observerRegistered = true
     }
-
-    attachLifecycleOwner()
-
-    MapboxNavigationApp.current()?.let {
-      bindNavigation(it)
-      return
-    }
-
-    ensureNavigationProvider(context).let {
-      bindNavigation(it)
-    }
-  }
-
-  private fun ensureNavigationProvider(context: Context): MapboxNavigation {
-    if (MapboxNavigationProvider.isCreated()) {
-      return MapboxNavigationProvider.retrieve()
-    }
-
-    navigationProviderInstanceCreated = true
-
-    return MapboxNavigationProvider.create(createNavigationOptions(context))
   }
 
   private fun createNavigationOptions(context: Context): NavigationOptions {
@@ -346,15 +331,68 @@ class RNMapboxNavigationModule : Module() {
       .build()
   }
 
-  private fun attachLifecycleOwner() {
-    if (lifecycleAttached) {
+  private fun attachActivityLifecycleOwner() {
+    val lifecycleOwner = appContext.currentActivity as? LifecycleOwner ?: return
+
+    if (activityLifecycleOwner === lifecycleOwner) {
       return
     }
 
-    val lifecycleOwner = appContext.currentActivity as? LifecycleOwner ?: return
+    activityLifecycleOwner?.let { previousLifecycleOwner ->
+      if (previousLifecycleOwner.lifecycle.currentState != Lifecycle.State.DESTROYED) {
+        MapboxNavigationApp.detach(previousLifecycleOwner)
+      }
+    }
 
     MapboxNavigationApp.attach(lifecycleOwner)
-    lifecycleAttached = true
+    activityLifecycleOwner = lifecycleOwner
+  }
+
+  private fun detachActivityLifecycleOwner() {
+    val lifecycleOwner = activityLifecycleOwner ?: return
+
+    if (lifecycleOwner.lifecycle.currentState != Lifecycle.State.DESTROYED) {
+      MapboxNavigationApp.detach(lifecycleOwner)
+    }
+
+    activityLifecycleOwner = null
+  }
+
+  private fun activateAndroidAutoLifecycle(): Boolean {
+    val context = reactContext()
+
+    ensureNavigationAppSetup(context)
+
+    if (androidAutoLifecycleOwner != null) {
+      return true
+    }
+
+    val lifecycleOwner = AndroidAutoSessionLifecycleOwner()
+
+    androidAutoLifecycleOwner = lifecycleOwner
+    MapboxNavigationApp.attach(lifecycleOwner)
+    lifecycleOwner.create()
+
+    MapboxNavigationApp.current()?.let {
+      bindNavigation(it)
+    }
+
+    return true
+  }
+
+  private fun updateAndroidAutoLifecycleState(state: String): Boolean {
+    val lifecycleOwner = androidAutoLifecycleOwner ?: return false
+
+    return lifecycleOwner.updateVisibilityState(state)
+  }
+
+  private fun deactivateAndroidAutoLifecycle(): Boolean {
+    val lifecycleOwner = androidAutoLifecycleOwner ?: return false
+
+    lifecycleOwner.disconnect()
+    androidAutoLifecycleOwner = null
+
+    return true
   }
 
   private fun bindNavigation(nextNavigation: MapboxNavigation) {
@@ -395,77 +433,19 @@ class RNMapboxNavigationModule : Module() {
     navigation: MapboxNavigation,
     withForegroundService: Boolean
   ) {
-    if (navigation.getTripSessionState() == TripSessionState.STARTED) {
+    val isStarted = navigation.getTripSessionState() == TripSessionState.STARTED
+
+    if (!isStarted) {
+      navigation.startTripSession(withForegroundService = withForegroundService)
       return
     }
 
-    navigation.startTripSession(withForegroundService = withForegroundService)
-  }
-
-  private fun activateNavigationWakeLock(tag: String): Boolean {
-    val normalizedTag = tag.trim()
-
-    if (normalizedTag.isEmpty()) {
-      return false
-    }
-
-    navigationWakeLockTags.add(normalizedTag)
-    updateNavigationWakeLock()
-
-    return true
-  }
-
-  private fun deactivateNavigationWakeLock(tag: String): Boolean {
-    val normalizedTag = tag.trim()
-
-    if (normalizedTag.isEmpty()) {
-      return false
-    }
-
-    navigationWakeLockTags.remove(normalizedTag)
-    updateNavigationWakeLock()
-
-    return true
-  }
-
-  @SuppressLint("WakelockTimeout")
-  private fun updateNavigationWakeLock() {
-    if (navigationWakeLockTags.isEmpty()) {
-      releaseNavigationWakeLock()
+    if (!withForegroundService || navigation.isRunningForegroundService()) {
       return
     }
 
-    val context = appContext.reactContext?.applicationContext ?: return
-    val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-      ?: return
-    val wakeLock = navigationWakeLock ?: powerManager.newWakeLock(
-      PowerManager.PARTIAL_WAKE_LOCK,
-      "$MODULE_NAME:active-navigation"
-    ).also {
-      it.setReferenceCounted(false)
-      navigationWakeLock = it
-    }
-
-    if (!wakeLock.isHeld) {
-      wakeLock.acquire()
-    }
-  }
-
-  private fun releaseNavigationWakeLock() {
-    navigationWakeLock?.let { wakeLock ->
-      if (wakeLock.isHeld) {
-        runCatching {
-          wakeLock.release()
-        }
-      }
-    }
-
-    navigationWakeLock = null
-  }
-
-  private fun clearNavigationWakeLocks() {
-    navigationWakeLockTags.clear()
-    releaseNavigationWakeLock()
+    navigation.stopTripSession()
+    navigation.startTripSession(withForegroundService = true)
   }
 
   private fun electronicHorizonToBundle(
@@ -970,6 +950,73 @@ class RNMapboxNavigationModule : Module() {
     return state.name.lowercase()
   }
 
+  private class AndroidAutoSessionLifecycleOwner : LifecycleOwner {
+    private val lifecycleRegistry = LifecycleRegistry(this)
+
+    override val lifecycle: Lifecycle
+      get() = lifecycleRegistry
+
+    fun create() {
+      if (lifecycle.currentState == Lifecycle.State.INITIALIZED) {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+      }
+    }
+
+    fun updateVisibilityState(state: String): Boolean {
+      when (state) {
+        AUTO_PLAY_RENDER_STATE_WILL_APPEAR -> create()
+        AUTO_PLAY_RENDER_STATE_DID_APPEAR -> resume()
+        AUTO_PLAY_RENDER_STATE_WILL_DISAPPEAR -> moveToStarted()
+        AUTO_PLAY_RENDER_STATE_DID_DISAPPEAR -> stop()
+        else -> return false
+      }
+
+      return true
+    }
+
+    fun disconnect() {
+      stop()
+
+      if (lifecycle.currentState == Lifecycle.State.CREATED) {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+      }
+    }
+
+    private fun resume() {
+      create()
+
+      if (lifecycle.currentState == Lifecycle.State.CREATED) {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+      }
+
+      if (lifecycle.currentState == Lifecycle.State.STARTED) {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+      }
+    }
+
+    private fun moveToStarted() {
+      create()
+
+      if (lifecycle.currentState == Lifecycle.State.CREATED) {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+      }
+
+      if (lifecycle.currentState == Lifecycle.State.RESUMED) {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+      }
+    }
+
+    private fun stop() {
+      if (lifecycle.currentState == Lifecycle.State.RESUMED) {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+      }
+
+      if (lifecycle.currentState == Lifecycle.State.STARTED) {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+      }
+    }
+  }
+
   private class MissingLocationPermissionException :
     Exception("Location permission is required to start a Mapbox Navigation trip session.")
 
@@ -1225,6 +1272,10 @@ class RNMapboxNavigationModule : Module() {
   )
 
   private companion object {
+    private const val AUTO_PLAY_RENDER_STATE_DID_APPEAR = "didAppear"
+    private const val AUTO_PLAY_RENDER_STATE_DID_DISAPPEAR = "didDisappear"
+    private const val AUTO_PLAY_RENDER_STATE_WILL_APPEAR = "willAppear"
+    private const val AUTO_PLAY_RENDER_STATE_WILL_DISAPPEAR = "willDisappear"
     private const val ELECTRONIC_HORIZON_EVENT_NAME = "onElectronicHorizon"
     private const val ELECTRONIC_HORIZON_LENGTH_METERS = 16093.44
     private const val ELECTRONIC_HORIZON_MPP_ONLY_EXPANSION = 0

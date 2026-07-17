@@ -134,16 +134,21 @@ export type UseNavigationCameraOptions = {
     surfaceId?: string;
 };
 
+export type AndroidAutoLifecycleState =
+    | 'willAppear'
+    | 'didAppear'
+    | 'willDisappear'
+    | 'didDisappear';
+
 export declare function isSupported(): boolean;
 /** Whether this native build exposes Mapbox Electronic Horizon. */
 export declare function isElectronicHorizonSupported(): boolean;
-/** Whether this Android native build exposes the CPU wake-lock bridge. */
-export declare function isNavigationWakeLockSupported(): boolean;
-export declare function activateNavigationWakeLockAsync(
-    tag: string,
-): Promise<boolean>;
-export declare function deactivateNavigationWakeLockAsync(
-    tag: string,
+/** Whether this Android build can bind Mapbox Navigation to the car session. */
+export declare function isAndroidAutoLifecycleSupported(): boolean;
+export declare function activateAndroidAutoLifecycleAsync(): Promise<boolean>;
+export declare function deactivateAndroidAutoLifecycleAsync(): Promise<boolean>;
+export declare function updateAndroidAutoLifecycleStateAsync(
+    state: AndroidAutoLifecycleState,
 ): Promise<boolean>;
 export declare function isNavigationPuck3DSupported(): boolean;
 export declare function applyNavigationPuck3DAsync(

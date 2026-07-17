@@ -53,18 +53,16 @@ function createNavigationModule({
         );
     }
 
-    function isNavigationWakeLockSupported() {
+    function isAndroidAutoLifecycleSupported() {
         return (
             Platform.OS === 'android' &&
-            typeof NativeRNMapboxNavigation?.activateNavigationWakeLock ===
+            typeof NativeRNMapboxNavigation?.activateAndroidAutoLifecycle ===
                 'function' &&
-            typeof NativeRNMapboxNavigation?.deactivateNavigationWakeLock ===
+            typeof NativeRNMapboxNavigation?.deactivateAndroidAutoLifecycle ===
+                'function' &&
+            typeof NativeRNMapboxNavigation?.updateAndroidAutoLifecycleState ===
                 'function'
         );
-    }
-
-    function getNavigationWakeLockTag(tag) {
-        return typeof tag === 'string' ? tag.trim() : '';
     }
 
     function isNavigationPuck3DSupported() {
@@ -122,30 +120,34 @@ function createNavigationModule({
         return NativeRNMapboxNavigation.getLastElectronicHorizon();
     }
 
-    async function activateNavigationWakeLockAsync(tag) {
-        const wakeLockTag = getNavigationWakeLockTag(tag);
-
-        if (!wakeLockTag || !isNavigationWakeLockSupported()) {
+    async function activateAndroidAutoLifecycleAsync() {
+        if (!isAndroidAutoLifecycleSupported()) {
             return false;
         }
 
         return Boolean(
-            await NativeRNMapboxNavigation.activateNavigationWakeLock(
-                wakeLockTag,
-            ),
+            await NativeRNMapboxNavigation.activateAndroidAutoLifecycle(),
         );
     }
 
-    async function deactivateNavigationWakeLockAsync(tag) {
-        const wakeLockTag = getNavigationWakeLockTag(tag);
-
-        if (!wakeLockTag || !isNavigationWakeLockSupported()) {
+    async function deactivateAndroidAutoLifecycleAsync() {
+        if (!isAndroidAutoLifecycleSupported()) {
             return false;
         }
 
         return Boolean(
-            await NativeRNMapboxNavigation.deactivateNavigationWakeLock(
-                wakeLockTag,
+            await NativeRNMapboxNavigation.deactivateAndroidAutoLifecycle(),
+        );
+    }
+
+    async function updateAndroidAutoLifecycleStateAsync(state) {
+        if (!isAndroidAutoLifecycleSupported()) {
+            return false;
+        }
+
+        return Boolean(
+            await NativeRNMapboxNavigation.updateAndroidAutoLifecycleState(
+                state,
             ),
         );
     }
@@ -647,7 +649,7 @@ function createNavigationModule({
     }
 
     return {
-        activateNavigationWakeLockAsync,
+        activateAndroidAutoLifecycleAsync,
         addElectronicHorizonListener,
         addNavigationCameraStateListener,
         addEnhancedLocationListener,
@@ -656,18 +658,19 @@ function createNavigationModule({
         applyNavigationPuck3DAsync,
         attachNavigationCameraAsync,
         clearNavigationPuck3DAsync,
-        deactivateNavigationWakeLockAsync,
+        deactivateAndroidAutoLifecycleAsync,
         detachNavigationCameraAsync,
         getLastElectronicHorizonAsync,
         getLastEnhancedLocationAsync,
         getTripSessionStateAsync,
         isElectronicHorizonSupported,
+        isAndroidAutoLifecycleSupported,
         isNavigationPuck3DSupported,
-        isNavigationWakeLockSupported,
         isSupported,
         setNavigationCameraModeAsync,
         startTripSessionAsync,
         stopTripSessionAsync,
+        updateAndroidAutoLifecycleStateAsync,
         updateNavigationCameraOptionsAsync,
         useElectronicHorizon,
         useEnhancedLocation,

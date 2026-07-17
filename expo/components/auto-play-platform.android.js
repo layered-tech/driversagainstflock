@@ -21,7 +21,15 @@ export const autoPlayPlatform = {
         };
     },
 
-    registerPlatformListeners({ autoPlayModule, onVoiceNavigation }) {
+    registerPlatformListeners({
+        autoPlayModule,
+        onSessionRenderState,
+        onVoiceNavigation,
+    }) {
+        autoPlayModule.HybridAutoPlay.addListenerRenderState(
+            'AutoPlayRoot',
+            onSessionRenderState,
+        );
         // "Hey Google, navigate to…" style OS voice events only fire on Android.
         autoPlayModule.HybridAutoPlay.addListenerVoiceInput(onVoiceNavigation);
     },
