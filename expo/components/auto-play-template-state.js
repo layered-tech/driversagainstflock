@@ -199,8 +199,33 @@ export function getAutoPlayMapContentVisibility({
         surveillanceMarkersVisible: Boolean(
             surveillanceMarkersVisible && !searchResultsMapIsActive,
         ),
-        userLocationPuckVisible: !transientMapContextIsActive,
+        userLocationPuckVisible: true,
     };
+}
+
+export function getAutoPlayNavigationPuckRefreshKey({
+    isNavigating,
+    isRootMapSurface,
+    routePreviewIsActive,
+    searchResultsMapIsActive,
+}) {
+    if (!isRootMapSurface) {
+        return 'secondary-map';
+    }
+
+    if (isNavigating) {
+        return 'root-navigation';
+    }
+
+    if (routePreviewIsActive) {
+        return 'root-route-preview';
+    }
+
+    if (searchResultsMapIsActive) {
+        return 'root-search-results';
+    }
+
+    return 'root-map';
 }
 
 export function makeAutoPlayTripSelectorTrips({

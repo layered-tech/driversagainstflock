@@ -76,6 +76,10 @@ test('Android Auto supplies submitted result markers and frames them on its map'
     );
     assert.match(
         autoPlayMapSurfaceSource,
+        /getAutoPlayNavigationPuckRefreshKey\([\s\S]*?navigationPuckRefreshKey,/,
+    );
+    assert.match(
+        autoPlayMapSurfaceSource,
         /isRootMapSurface && !searchResultsMapIsActive[\s\S]*?<AutoPlayMapStatusOverlay/,
     );
     assert.match(
@@ -84,11 +88,19 @@ test('Android Auto supplies submitted result markers and frames them on its map'
     );
     assert.match(
         mapScreenContextSource,
+        /useAutoPlayMapScreenContextValues\(\{[\s\S]*?navigationPuckRefreshKey,[\s\S]*?navigationPuckVariant:\s*'auto-play'/,
+    );
+    assert.match(
+        mapScreenContextSource,
         /surveillanceMarkersVisible\s*\?\?[\s\S]*?mapPreferences\.surveillanceMarkersVisible/,
     );
     assert.match(
         mapCanvasSource,
         /navigationPuckRequestsNative3D\s*=\s*Boolean\([\s\S]*?userLocationPuckVisible/,
+    );
+    assert.match(
+        mapCanvasSource,
+        /navigationPuckRefreshKey\s*=\s*'default'[\s\S]*?navigationPuckLifecycle\.request\([\s\S]*?navigationPuckRefreshKey/,
     );
     assert.match(
         mapCanvasSource,

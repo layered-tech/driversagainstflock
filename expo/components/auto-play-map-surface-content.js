@@ -15,6 +15,7 @@ import { getAutoPlayViewportMetrics } from './auto-play-map-viewport';
 import { useAutoPlayState } from './auto-play-state';
 import {
     getAutoPlayMapContentVisibility,
+    getAutoPlayNavigationPuckRefreshKey,
     getAutoPlayRoutePreviewFitKey,
     getAutoPlaySearchResultsFitKey,
     getAutoPlaySearchResultsMapIsActive,
@@ -1476,6 +1477,12 @@ export function AutoPlayMapSurfaceContent({
         searchResultsMapIsActive: isRootMapSurface && searchResultsMapIsActive,
         surveillanceMarkersVisible: mapPreferences.surveillanceMarkersVisible,
     });
+    const navigationPuckRefreshKey = getAutoPlayNavigationPuckRefreshKey({
+        isNavigating: autoPlayState.isNavigating,
+        isRootMapSurface,
+        routePreviewIsActive,
+        searchResultsMapIsActive,
+    });
     const userLocationIsUsableForLightPreset =
         Number.isFinite(Number(mapPreferences.userLocation?.latitude)) &&
         Number.isFinite(Number(mapPreferences.userLocation?.longitude));
@@ -1660,6 +1667,7 @@ export function AutoPlayMapSurfaceContent({
         mapLightPreset,
         mapPreferences,
         markerFeatureCollection,
+        navigationPuckRefreshKey,
         policeAlertFeatureCollection,
         policeAlertsVisible:
             mapPreferences.policeAlertsVisible && !searchResultsMapIsActive,

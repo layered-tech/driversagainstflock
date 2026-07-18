@@ -4,6 +4,7 @@ import {
     autoPlaySearchRequestIsCurrent,
     getAutoPlayHeaderButtonVisibility,
     getAutoPlayMapContentVisibility,
+    getAutoPlayNavigationPuckRefreshKey,
     getAutoPlayRouteChoiceText,
     getAutoPlayRoutePreviewFitKey,
     getAutoPlaySearchLoadingCopy,
@@ -263,24 +264,24 @@ describe('Auto Play template state', () => {
         assert.deepEqual(searchVisibility, {
             drivingStatusIsVisible: false,
             surveillanceMarkersVisible: false,
-            userLocationPuckVisible: false,
+            userLocationPuckVisible: true,
         });
         assert.deepEqual(routePreviewVisibility, {
             drivingStatusIsVisible: false,
             surveillanceMarkersVisible: true,
-            userLocationPuckVisible: false,
+            userLocationPuckVisible: true,
         });
         assert.deepEqual(
             [normalVisibility, searchVisibility, normalVisibility].map(
                 (visibility) => visibility.userLocationPuckVisible,
             ),
-            [true, false, true],
+            [true, true, true],
         );
         assert.deepEqual(
             [normalVisibility, routePreviewVisibility, normalVisibility].map(
                 (visibility) => visibility.userLocationPuckVisible,
             ),
-            [true, false, true],
+            [true, true, true],
         );
         assert.equal(
             getAutoPlayMapContentVisibility({
@@ -288,6 +289,37 @@ describe('Auto Play template state', () => {
                 surveillanceMarkersVisible: false,
             }).surveillanceMarkersVisible,
             false,
+        );
+    });
+
+    test('refreshes the puck at each retained car-host map context', () => {
+        const defaultContext = {
+            isNavigating: false,
+            isRootMapSurface: true,
+            routePreviewIsActive: false,
+            searchResultsMapIsActive: false,
+        };
+
+        assert.deepEqual(
+            [
+                defaultContext,
+                { ...defaultContext, searchResultsMapIsActive: true },
+                { ...defaultContext, routePreviewIsActive: true },
+                { ...defaultContext, isNavigating: true },
+            ].map(getAutoPlayNavigationPuckRefreshKey),
+            [
+                'root-map',
+                'root-search-results',
+                'root-route-preview',
+                'root-navigation',
+            ],
+        );
+        assert.equal(
+            getAutoPlayNavigationPuckRefreshKey({
+                ...defaultContext,
+                isRootMapSurface: false,
+            }),
+            'secondary-map',
         );
     });
 

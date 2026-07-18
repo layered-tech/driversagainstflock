@@ -96,6 +96,7 @@ import {
     AUTO_PLAY_NAVIGATION_PUCK_SIZE,
     NAVIGATION_PUCK_SIZE,
 } from './navigation-puck-layout';
+import { createNavigationPuckLifecycle } from './navigation-puck-lifecycle';
 
 const MAP_PREFERRED_FRAMES_PER_SECOND = 30;
 
@@ -533,6 +534,7 @@ export const MapCanvas = memo(function MapCanvas() {
         markerFeatureCollection,
         markerShapeSourceRef,
         nativeCameraFollowProps,
+        navigationPuckRefreshKey = 'default',
         navigationPuckVariant,
         policeAlertFeatureCollection,
         policeAlertsVisible,
@@ -646,6 +648,8 @@ export const MapCanvas = memo(function MapCanvas() {
     );
     const [navigationPuck3DStatus, setNavigationPuck3DStatus] =
         useState('inactive');
+    const [navigationPuckMapLoadEpoch, setNavigationPuckMapLoadEpoch] =
+        useState(0);
     const navigationPuckFallbackIsSuppressed =
         shouldSuppressNavigationPuckFallback({
             navigationPuck3DStatus,
@@ -660,130 +664,49 @@ export const MapCanvas = memo(function MapCanvas() {
                   locationBoundCameraFollowProps.enabled,
               )
             : 'camera-ownership-is-stable';
-    const navigationPuckOperationQueueRef = useRef(Promise.resolve(false));
-    const navigationPuckOperationGenerationRef = useRef(0);
-    const enqueueNavigationPuckOperation = useCallback((operation) => {
-        const result = navigationPuckOperationQueueRef.current
-            .then(operation, operation)
-            .catch(() => false);
+    const navigationPuckLifecycleRef = useRef(null);
 
-        navigationPuckOperationQueueRef.current = result;
+    if (navigationPuckLifecycleRef.current === null) {
+        navigationPuckLifecycleRef.current = createNavigationPuckLifecycle({
+            applyNavigationPuck: applyNavigationPuck3DAsync,
+            clearNavigationPuck: clearNavigationPuck3DAsync,
+            onStatusChange: setNavigationPuck3DStatus,
+        });
+    }
 
-        return result;
-    }, []);
-    const clearNativeNavigationPuck = useCallback(
-        () => clearNavigationPuck3DAsync(mapViewRef).catch(() => false),
-        [mapViewRef],
-    );
+    const navigationPuckLifecycle = navigationPuckLifecycleRef.current;
     const handleMapFinishedLoading = useCallback(
         (event) => {
             handleMapLoaded(event);
 
-            if (navigationPuckRequestsNative3D) {
-                setNavigationPuck3DStatus('preparing');
-            }
+            setNavigationPuckMapLoadEpoch((epoch) => epoch + 1);
         },
-        [handleMapLoaded, navigationPuckRequestsNative3D],
+        [handleMapLoaded],
     );
 
     useEffect(() => {
-        const operationGeneration =
-            navigationPuckOperationGenerationRef.current + 1;
-        navigationPuckOperationGenerationRef.current = operationGeneration;
-
-        if (navigationPuckRequestsNative3D) {
-            setNavigationPuck3DStatus('preparing');
-        } else {
-            setNavigationPuck3DStatus((status) =>
-                status === 'inactive' ? 'inactive' : 'clearing',
-            );
-            void enqueueNavigationPuckOperation(async () => {
-                await clearNativeNavigationPuck();
-
-                if (
-                    operationGeneration ===
-                    navigationPuckOperationGenerationRef.current
-                ) {
-                    setNavigationPuck3DStatus('inactive');
-                }
-
-                return true;
-            });
-        }
-
-        return () => {
-            navigationPuckOperationGenerationRef.current += 1;
-            void enqueueNavigationPuckOperation(clearNativeNavigationPuck);
-        };
+        void navigationPuckLifecycle.request({
+            layerAbove: userLocationPuckAboveLayer,
+            mapViewRef,
+            requested: navigationPuckRequestsNative3D,
+            scale: navigationPuckSize,
+            slot: mapLayerSlots.userLocationPuck,
+        });
     }, [
-        clearNativeNavigationPuck,
-        enqueueNavigationPuckOperation,
+        mapLayerSlots.userLocationPuck,
         mapStyleURL,
         navigationPuckCameraOwnershipKey,
+        navigationPuckLifecycle,
+        navigationPuckMapLoadEpoch,
+        navigationPuckRefreshKey,
         navigationPuckRequestsNative3D,
         navigationPuckSize,
         userLocationPuckAboveLayer,
     ]);
 
     useEffect(() => {
-        if (
-            !navigationPuckRequestsNative3D ||
-            navigationPuck3DStatus !== 'preparing'
-        ) {
-            return undefined;
-        }
-
-        const operationGeneration =
-            navigationPuckOperationGenerationRef.current;
-
-        void enqueueNavigationPuckOperation(async () => {
-            if (
-                operationGeneration !==
-                navigationPuckOperationGenerationRef.current
-            ) {
-                return false;
-            }
-
-            try {
-                const wasApplied = await applyNavigationPuck3DAsync(
-                    mapViewRef,
-                    navigationPuckSize,
-                    mapLayerSlots.userLocationPuck,
-                    userLocationPuckAboveLayer,
-                );
-
-                if (
-                    operationGeneration ===
-                    navigationPuckOperationGenerationRef.current
-                ) {
-                    setNavigationPuck3DStatus(wasApplied ? 'active' : 'failed');
-                }
-
-                return wasApplied;
-            } catch {
-                if (
-                    operationGeneration ===
-                    navigationPuckOperationGenerationRef.current
-                ) {
-                    setNavigationPuck3DStatus('failed');
-                }
-
-                return false;
-            }
-        });
-
-        return undefined;
-    }, [
-        enqueueNavigationPuckOperation,
-        mapViewRef,
-        mapStyleURL,
-        mapLayerSlots.userLocationPuck,
-        navigationPuckCameraOwnershipKey,
-        navigationPuck3DStatus,
-        navigationPuckRequestsNative3D,
-        navigationPuckSize,
-        userLocationPuckAboveLayer,
-    ]);
+        return () => navigationPuckLifecycle.invalidate();
+    }, [navigationPuckLifecycle]);
     // iOS Fabric never applies image props back to undefined (rnmapbox
     // FabricOptionalProp limitation), so switching between the navigation
     // arrow and the default dot requires remounting the puck there. Android
