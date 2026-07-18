@@ -9,7 +9,14 @@
 <x-dc>
 <!-- page name="Mobile · Contribute (OSM)" description="Step-by-step OpenStreetMap changeset flow — from the base map to a published changeset — plus the community hotlist." -->
 <helmet>
-  <script src="./ds-base.js"></script>
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/motion.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/styles.css">
+  <script src="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/_ds_bundle.js"></script>
   <style>
     *{ box-sizing:border-box; }
     .daf-slb, .daf-slb *{ box-sizing:content-box; }
@@ -188,28 +195,8 @@
               </div>
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Directions faced</div>
-                <div style="display:flex; gap:14px; align-items:center; padding:14px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md);">
-                  <div style="width:84px; height:84px; flex:0 0 auto;">
-                    <svg viewBox="0 0 100 100" width="84" height="84" style="display:block;">
-                      <circle cx="50" cy="50" r="44" fill="none" stroke="var(--border-strong)" stroke-width="2"></circle>
-                      <text x="50" y="17" text-anchor="middle" style="font-family:var(--font-mono); font-size:11px; fill:var(--text-tertiary);">N</text>
-                      <text x="87" y="54" text-anchor="middle" style="font-family:var(--font-mono); font-size:11px; fill:var(--text-tertiary);">E</text>
-                      <text x="50" y="93" text-anchor="middle" style="font-family:var(--font-mono); font-size:11px; fill:var(--text-tertiary);">S</text>
-                      <text x="13" y="54" text-anchor="middle" style="font-family:var(--font-mono); font-size:11px; fill:var(--text-tertiary);">W</text>
-                      <line x1="50" y1="50" x2="18" y2="62" stroke="var(--brand)" stroke-width="3.5" stroke-linecap="round"></line>
-                      <circle cx="50" cy="50" r="4" fill="var(--brand)"></circle>
-                    </svg>
-                  </div>
-                  <div style="flex:1; min-width:0;">
-                    <div style="font-family:var(--font-mono); font-size:22px; font-weight:700; color:var(--text-primary); line-height:1;">250°</div>
-                    <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:4px;">Drag the needle to the way the camera looks.</div>
-                  </div>
-                </div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
-                  <span style="display:inline-flex; align-items:center; gap:4px; height:32px; padding:0 4px 0 12px; border-radius:var(--radius-pill); font-family:var(--font-mono); font-size:13px; font-weight:600; background:var(--brand-soft); color:var(--text-brand);">250° · WSW<button aria-label="Remove direction" style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border:none; background:transparent; color:inherit; cursor:pointer; padding:0; -webkit-tap-highlight-color:transparent;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></button></span>
-                  <button aria-label="Add direction" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 14px; border-radius:var(--radius-pill); font-family:var(--font-ui); font-size:13px; font-weight:600; background:transparent; color:var(--text-secondary); border:1px dashed var(--border-strong); cursor:pointer; -webkit-tap-highlight-color:transparent;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Add direction</button>
-                </div>
-                <p style="font-size:var(--fs-caption); color:var(--text-tertiary); margin:8px 0 0;">Add a bearing for each way the camera looks — poles often hold several.</p>
+                <dc-import name="DirectionDial" initial="250" lat="37.7836" lon="-122.4170" hint-size="100%,470px"></dc-import>
+                <p style="font-size:var(--fs-caption); color:var(--text-tertiary); margin:10px 0 0; text-wrap:pretty;">Drag the ring until the cone covers what the camera sees — poles often hold several directions. Slide the imagery to fine-tune where the pole sits.</p>
               </div>
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Mounted on</div>
@@ -537,10 +524,8 @@
               </div>
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Directions faced</div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                  <span style="display:inline-flex; align-items:center; gap:4px; height:32px; padding:0 4px 0 12px; border-radius:var(--radius-pill); font-family:var(--font-mono); font-size:13px; font-weight:600; background:var(--brand-soft); color:var(--text-brand);">310° · NW<button aria-label="Remove direction" style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border:none; background:transparent; color:inherit; cursor:pointer; padding:0; -webkit-tap-highlight-color:transparent;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></button></span>
-                  <button aria-label="Add direction" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 14px; border-radius:var(--radius-pill); font-family:var(--font-ui); font-size:13px; font-weight:600; background:transparent; color:var(--text-secondary); border:1px dashed var(--border-strong); cursor:pointer; -webkit-tap-highlight-color:transparent;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Add direction</button>
-                </div>
+                <dc-import name="DirectionDial" initial="310,130" lat="37.7524" lon="-122.4206" hint-size="100%,470px"></dc-import>
+                <p style="font-size:var(--fs-caption); color:var(--text-tertiary); margin:10px 0 0; text-wrap:pretty;">Each cone is a direction this camera covers. Drag the ring to re-aim the selected one.</p>
               </div>
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Mounted on</div>

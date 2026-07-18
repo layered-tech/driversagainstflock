@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/motion.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/styles.css">
+  <script src="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/_ds_bundle.js"></script>
+</helmet>
+<div style="font-family:var(--font-ui); width:100%; max-width:360px; margin:0 auto;">
+
+  <!-- dial: rotating bezel + satellite window. Drag ring = rotate to aim; drag imagery = fine-tune pole position -->
+  <div ref="{{ boxRef }}" onPointerDown="{{ down }}" onPointerMove="{{ move }}" onPointerUp="{{ up }}" onPointerCancel="{{ up }}" style="position:relative; width:330px; height:330px; margin:0 auto; border-radius:50%; background:var(--surface-card); border:1px solid var(--border); box-shadow:var(--shadow-float); touch-action:none; cursor:grab; user-select:none; -webkit-user-select:none;">
+
+    <!-- satellite window -->
+    <div style="position:absolute; left:37px; top:37px; width:256px; height:256px; border-radius:50%; overflow:hidden; background:#54524d;">
+      <div style="position:absolute; left:50%; top:50%; width:880px; height:880px; margin:-440px 0 0 -440px;">
+        <div style="{{ satXform }}">
+          <svg width="880" height="880" viewBox="0 0 880 880" style="display:block;">
+            <defs>
+              <filter id="dafTreeWarp" x="-30%" y="-30%" width="160%" height="160%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.12" numOctaves="2" seed="7" result="n"></feTurbulence>
+                <feDisplacementMap in="SourceGraphic" in2="n" scale="9"></feDisplacementMap>
+              </filter>
+              <filter id="dafGrain">
+                <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"></feTurbulence>
+                <feColorMatrix type="saturate" values="0"></feColorMatrix>
+              </filter>
+              <linearGradient id="dafConeHot" x1="0" y1="1" x2="0" y2="0">
+                <stop offset="0" stop-color="rgba(255,77,79,0.62)"></stop>
+                <stop offset="1" stop-color="rgba(255,77,79,0.05)"></stop>
+              </linearGradient>
+              <linearGradient id="dafConeDim" x1="0" y1="1" x2="0" y2="0">
+                <stop offset="0" stop-color="rgba(255,77,79,0.55)"></stop>
+                <stop offset="1" stop-color="rgba(255,77,79,0.04)"></stop>
+              </linearGradient>
+            </defs>
+            <!-- blocks base -->
+            <rect x="0" y="0" width="880" height="880" fill="#6f6a61"></rect>
+            <!-- sidewalks -->
+            <rect x="0" y="432" width="880" height="18" fill="#99948b"></rect>
+            <rect x="0" y="534" width="880" height="18" fill="#99948b"></rect>
+            <rect x="432" y="0" width="18" height="880" fill="#99948b"></rect>
+            <rect x="518" y="0" width="18" height="880" fill="#99948b"></rect>
+            <!-- roads -->
+            <rect x="0" y="450" width="880" height="84" fill="#46484c"></rect>
+            <rect x="450" y="0" width="68" height="880" fill="#46484c"></rect>
+            <!-- curbs -->
+            <rect x="0" y="449.2" width="450" height="1" fill="rgba(255,255,255,0.16)"></rect>
+            <rect x="518" y="449.2" width="362" height="1" fill="rgba(255,255,255,0.16)"></rect>
+            <rect x="0" y="533.8" width="450" height="1" fill="rgba(255,255,255,0.16)"></rect>
+            <rect x="518" y="533.8" width="362" height="1" fill="rgba(255,255,255,0.16)"></rect>
+            <rect x="449.2" y="0" width="1" height="450" fill="rgba(255,255,255,0.16)"></rect>
+            <rect x="449.2" y="534" width="1" height="346" fill="rgba(255,255,255,0.16)"></rect>
+            <rect x="517.8" y="0" width="1" height="450" fill="rgba(255,255,255,0.16)"></rect>
+            <rect x="517.8" y="534" width="1" height="346" fill="rgba(255,255,255,0.16)"></rect>
+            <!-- asphalt tone patches -->
+            <rect x="200" y="455" width="120" height="40" fill="rgba(0,0,0,0.05)"></rect>
+            <rect x="560" y="494" width="160" height="38" fill="rgba(255,255,255,0.03)"></rect>
+            <rect x="455" y="560" width="60" height="120" fill="rgba(0,0,0,0.05)"></rect>
+            <rect x="60" y="496" width="90" height="36" fill="rgba(255,255,255,0.03)"></rect>
+            <!-- center lines -->
+            <rect x="0" y="489" width="414" height="1.8" fill="#d9b459" opacity="0.8"></rect>
+            <rect x="0" y="492.4" width="414" height="1.8" fill="#d9b459" opacity="0.8"></rect>
+            <rect x="549" y="489" width="331" height="1.8" fill="#d9b459" opacity="0.8"></rect>
+            <rect x="549" y="492.4" width="331" height="1.8" fill="#d9b459" opacity="0.8"></rect>
+            <rect x="482.2" y="0" width="1.8" height="405" fill="#d9b459" opacity="0.8"></rect>
+            <rect x="485.6" y="0" width="1.8" height="405" fill="#d9b459" opacity="0.8"></rect>
+            <rect x="482.2" y="575" width="1.8" height="305" fill="#d9b459" opacity="0.8"></rect>
+            <rect x="485.6" y="575" width="1.8" height="305" fill="#d9b459" opacity="0.8"></rect>
+            <!-- stop lines -->
+            <rect x="414" y="494" width="5" height="38" fill="rgba(255,255,255,0.72)"></rect>
+            <rect x="549" y="452" width="5" height="38" fill="rgba(255,255,255,0.72)"></rect>
+            <rect x="452" y="405" width="32" height="5" fill="rgba(255,255,255,0.72)"></rect>
+            <rect x="484" y="575" width="32" height="5" fill="rgba(255,255,255,0.72)"></rect>
+            <!-- crosswalk ladders -->
+            <g fill="rgba(255,255,255,0.72)">
+              <rect x="424" y="454" width="20" height="5"></rect><rect x="424" y="464" width="20" height="5"></rect><rect x="424" y="474" width="20" height="5"></rect><rect x="424" y="484" width="20" height="5"></rect><rect x="424" y="494" width="20" height="5"></rect><rect x="424" y="504" width="20" height="5"></rect><rect x="424" y="514" width="20" height="5"></rect><rect x="424" y="524" width="20" height="5"></rect>
+              <rect x="524" y="454" width="20" height="5"></rect><rect x="524" y="464" width="20" height="5"></rect><rect x="524" y="474" width="20" height="5"></rect><rect x="524" y="484" width="20" height="5"></rect><rect x="524" y="494" width="20" height="5"></rect><rect x="524" y="504" width="20" height="5"></rect><rect x="524" y="514" width="20" height="5"></rect><rect x="524" y="524" width="20" height="5"></rect>
+              <rect x="454" y="412" width="5" height="20"></rect><rect x="464" y="412" width="5" height="20"></rect><rect x="474" y="412" width="5" height="20"></rect><rect x="484" y="412" width="5" height="20"></rect><rect x="494" y="412" width="5" height="20"></rect><rect x="504" y="412" width="5" height="20"></rect>
+              <rect x="454" y="552" width="5" height="20"></rect><rect x="464" y="552" width="5" height="20"></rect><rect x="474" y="552" width="5" height="20"></rect><rect x="484" y="552" width="5" height="20"></rect><rect x="494" y="552" width="5" height="20"></rect><rect x="504" y="552" width="5" height="20"></rect>
+            </g>
+            <!-- manholes -->
+            <circle cx="350" cy="507" r="3.5" fill="#3a3c40" stroke="rgba(0,0,0,0.35)" stroke-width="1"></circle>
+            <circle cx="484" cy="300" r="3.5" fill="#3a3c40" stroke="rgba(0,0,0,0.35)" stroke-width="1"></circle>
+            <circle cx="600" cy="480" r="3" fill="#3a3c40" stroke="rgba(0,0,0,0.35)" stroke-width="1"></circle>
+            <!-- parking lot NE -->
+            <rect x="560" y="340" width="120" height="85" fill="#55575b"></rect>
+            <g fill="rgba(255,255,255,0.45)">
+              <rect x="580" y="345" width="1.5" height="33"></rect><rect x="600" y="345" width="1.5" height="33"></rect><rect x="620" y="345" width="1.5" height="33"></rect><rect x="640" y="345" width="1.5" height="33"></rect><rect x="660" y="345" width="1.5" height="33"></rect>
+            </g>
+            <!-- building shadows -->
+            <g fill="rgba(15,17,20,0.28)">
+              <rect x="42" y="44" width="180" height="150"></rect><rect x="254" y="36" width="160" height="118"></rect><rect x="62" y="234" width="150" height="130"></rect><rect x="252" y="194" width="166" height="150"></rect><rect x="256" y="364" width="110" height="54"></rect>
+              <rect x="572" y="48" width="200" height="160"></rect><rect x="706" y="248" width="150" height="170"></rect><rect x="812" y="48" width="60" height="170"></rect>
+              <rect x="50" y="594" width="190" height="180"></rect><rect x="278" y="604" width="140" height="120"></rect><rect x="82" y="804" width="240" height="64"></rect>
+              <rect x="592" y="604" width="180" height="170"></rect><rect x="806" y="594" width="66" height="220"></rect><rect x="602" y="808" width="200" height="62"></rect>
+            </g>
+            <!-- roofs -->
+            <rect x="36" y="36" width="180" height="150" fill="#a79e8f"></rect>
+            <rect x="248" y="28" width="160" height="118" fill="#837c72"></rect>
+            <rect x="56" y="226" width="150" height="130" fill="#b3aa9a"></rect>
+            <rect x="246" y="186" width="166" height="150" fill="#6d675f"></rect>
+            <rect x="250" y="356" width="110" height="54" fill="#90887c"></rect>
+            <rect x="566" y="40" width="200" height="160" fill="#8d857a"></rect>
+            <rect x="700" y="240" width="150" height="170" fill="#a29a8c"></rect>
+            <rect x="806" y="40" width="60" height="170" fill="#79736a"></rect>
+            <rect x="44" y="586" width="190" height="180" fill="#b0a696"></rect>
+            <rect x="272" y="596" width="140" height="120" fill="#7b756c"></rect>
+            <rect x="76" y="796" width="240" height="64" fill="#8a8478"></rect>
+            <rect x="586" y="596" width="180" height="170" fill="#9c948a"></rect>
+            <rect x="800" y="586" width="66" height="220" fill="#6a655d"></rect>
+            <rect x="596" y="800" width="200" height="62" fill="#ada393"></rect>
+            <!-- parapets -->
+            <g fill="none" stroke="rgba(0,0,0,0.16)" stroke-width="2">
+              <rect x="43" y="43" width="166" height="136"></rect>
+              <rect x="253" y="193" width="152" height="136"></rect>
+              <rect x="573" y="47" width="186" height="146"></rect>
+              <rect x="707" y="247" width="136" height="156"></rect>
+              <rect x="51" y="593" width="176" height="166"></rect>
+              <rect x="593" y="603" width="166" height="156"></rect>
+            </g>
+            <!-- rooftop units -->
+            <g>
+              <rect x="72" y="73" width="12" height="10" fill="rgba(15,17,20,0.3)"></rect><rect x="70" y="70" width="12" height="10" fill="#cfc9be"></rect>
+              <rect x="152" y="123" width="12" height="10" fill="rgba(15,17,20,0.3)"></rect><rect x="150" y="120" width="12" height="10" fill="#cfc9be"></rect>
+              <rect x="302" y="63" width="12" height="10" fill="rgba(15,17,20,0.3)"></rect><rect x="300" y="60" width="12" height="10" fill="#cfc9be"></rect>
+              <rect x="302" y="233" width="12" height="10" fill="rgba(15,17,20,0.3)"></rect><rect x="300" y="230" width="12" height="10" fill="#cfc9be"></rect>
+              <rect x="362" y="293" width="12" height="10" fill="rgba(15,17,20,0.3)"></rect><rect x="360" y="290" width="12" height="10" fill="#cfc9be"></rect>
+              <rect x="270" y="250" width="20" height="60" fill="rgba(255,255,255,0.08)"></rect>
+              <rect x="622" y="93" width="12" height="10" fill="rgba(15,17,20,0.3)"></rect><rect x="620" y="90" width="12" height="10" fill="#cfc9be"></rect>
+              <rect x="702" y="143" width="12" height="10" fill="rgba(15,17,20,0.3)"></rect><rect x="700" y="140" width="12" height="10" fill="#cfc9be"></rect>
+              <rect x="102" y="643" width="12" height="10" fill="rgba(15,17,20,0.3)"></rect><rect x="100" y="640" width="12" height="10" fill="#cfc9be"></rect>
+              <rect x="162" y="703" width="12" height="10" fill="rgba(15,17,20,0.3)"></rect><rect x="160" y="700" width="12" height="10" fill="#cfc9be"></rect>
+              <rect x="642" y="653" width="12" height="10" fill="rgba(15,17,20,0.3)"></rect><rect x="640" y="650" width="12" height="10" fill="#cfc9be"></rect>
+              <rect x="712" y="703" width="12" height="10" fill="rgba(15,17,20,0.3)"></rect><rect x="710" y="700" width="12" height="10" fill="#cfc9be"></rect>
+            </g>
+            <!-- tree shadows -->
+            <g fill="rgba(15,17,20,0.22)">
+              <ellipse cx="124" cy="446" rx="12" ry="11"></ellipse><ellipse cx="234" cy="446" rx="14" ry="13"></ellipse><ellipse cx="339" cy="446" rx="11" ry="10"></ellipse><ellipse cx="604" cy="446" rx="13" ry="12"></ellipse><ellipse cx="694" cy="446" rx="11" ry="10"></ellipse><ellipse cx="804" cy="446" rx="14" ry="13"></ellipse>
+              <ellipse cx="164" cy="548" rx="12" ry="11"></ellipse><ellipse cx="304" cy="548" rx="11" ry="10"></ellipse><ellipse cx="574" cy="548" rx="13" ry="12"></ellipse><ellipse cx="664" cy="548" rx="12" ry="11"></ellipse><ellipse cx="784" cy="548" rx="14" ry="13"></ellipse>
+              <ellipse cx="445" cy="155" rx="13" ry="12"></ellipse><ellipse cx="445" cy="305" rx="11" ry="10"></ellipse>
+              <ellipse cx="531" cy="185" rx="12" ry="11"></ellipse><ellipse cx="531" cy="345" rx="14" ry="13"></ellipse><ellipse cx="531" cy="645" rx="12" ry="11"></ellipse><ellipse cx="531" cy="725" rx="11" ry="10"></ellipse>
+              <ellipse cx="204" cy="305" rx="17" ry="16"></ellipse><ellipse cx="754" cy="185" rx="15" ry="14"></ellipse><ellipse cx="684" cy="765" rx="19" ry="18"></ellipse><ellipse cx="154" cy="705" rx="16" ry="15"></ellipse><ellipse cx="344" cy="655" rx="13" ry="12"></ellipse>
+            </g>
+            <!-- tree canopies -->
+            <g filter="url(#dafTreeWarp)">
+              <circle cx="120" cy="441" r="12" fill="#435940"></circle><circle cx="230" cy="441" r="14" fill="#37493a"></circle><circle cx="335" cy="441" r="11" fill="#4c6243"></circle><circle cx="600" cy="441" r="13" fill="#435940"></circle><circle cx="690" cy="441" r="11" fill="#4c6243"></circle><circle cx="800" cy="441" r="14" fill="#37493a"></circle>
+              <circle cx="160" cy="543" r="12" fill="#37493a"></circle><circle cx="300" cy="543" r="11" fill="#435940"></circle><circle cx="570" cy="543" r="13" fill="#4c6243"></circle><circle cx="660" cy="543" r="12" fill="#435940"></circle><circle cx="780" cy="543" r="14" fill="#37493a"></circle>
+              <circle cx="441" cy="150" r="13" fill="#435940"></circle><circle cx="441" cy="300" r="11" fill="#4c6243"></circle>
+              <circle cx="527" cy="180" r="12" fill="#37493a"></circle><circle cx="527" cy="340" r="14" fill="#435940"></circle><circle cx="527" cy="640" r="12" fill="#4c6243"></circle><circle cx="527" cy="720" r="11" fill="#37493a"></circle>
+              <circle cx="200" cy="300" r="17" fill="#37493a"></circle><circle cx="750" cy="180" r="15" fill="#435940"></circle><circle cx="680" cy="760" r="19" fill="#37493a"></circle><circle cx="150" cy="700" r="16" fill="#435940"></circle><circle cx="340" cy="650" r="13" fill="#4c6243"></circle>
+            </g>
+            <!-- cars -->
+            <g>
+              <g transform="translate(92 462) rotate(90)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#c7c9cc"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(20,24,28,0.55)"></rect></g>
+              <g transform="translate(124 462) rotate(90)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#e8e6e1"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(20,24,28,0.55)"></rect></g>
+              <g transform="translate(262 462) rotate(90)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#2f3438"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(120,130,140,0.5)"></rect></g>
+              <g transform="translate(600 462) rotate(90)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#e8e6e1"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(20,24,28,0.55)"></rect></g>
+              <g transform="translate(700 462) rotate(90)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#a63c38"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(20,24,28,0.55)"></rect></g>
+              <g transform="translate(210 524) rotate(90)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#e8e6e1"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(20,24,28,0.55)"></rect></g>
+              <g transform="translate(620 524) rotate(90)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#c7c9cc"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(20,24,28,0.55)"></rect></g>
+              <g transform="translate(810 524) rotate(90)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#2f3438"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(120,130,140,0.5)"></rect></g>
+              <g transform="translate(200 505) rotate(90)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#e8e6e1"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(20,24,28,0.55)"></rect></g>
+              <g transform="translate(372 505) rotate(90)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#c7c9cc"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(20,24,28,0.55)"></rect></g>
+              <g transform="translate(400 505) rotate(90)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#a63c38"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(20,24,28,0.55)"></rect></g>
+              <g transform="translate(650 505) rotate(90)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#2f3438"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(120,130,140,0.5)"></rect></g>
+              <g transform="translate(610 478) rotate(270)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#4a5a6d"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(20,24,28,0.55)"></rect></g>
+              <g transform="translate(750 478) rotate(270)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#e8e6e1"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(20,24,28,0.55)"></rect></g>
+              <g transform="translate(467 150) rotate(180)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#c7c9cc"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(20,24,28,0.55)"></rect></g>
+              <g transform="translate(467 385) rotate(180)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#e8e6e1"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(20,24,28,0.55)"></rect></g>
+              <g transform="translate(501 640)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#2f3438"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(120,130,140,0.5)"></rect></g>
+              <g transform="translate(501 760)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#e8e6e1"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(20,24,28,0.55)"></rect></g>
+              <g transform="translate(590 359)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#e8e6e1"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(20,24,28,0.55)"></rect></g>
+              <g transform="translate(631 359)"><rect x="-4" y="-8.5" width="8" height="17" rx="2" fill="#2f3438"></rect><rect x="-3" y="-5" width="6" height="3.2" rx="1" fill="rgba(120,130,140,0.5)"></rect></g>
+            </g>
+            <!-- warm grade + grain -->
+            <rect x="0" y="0" width="880" height="880" fill="#8a7a5c" opacity="0.05"></rect>
+            <rect x="0" y="0" width="880" height="880" filter="url(#dafGrain)" opacity="0.06"></rect>
+          </svg>
+        </div>
+      </div>
+
+      <!-- view cones: one per direction; the selected one is pinned to the notch -->
+      <sc-for list="{{ cones }}" as="c" hint-placeholder-count="1">
+        <div style="{{ c.style }}">
+          <svg width="256" height="256" viewBox="0 0 256 256" style="display:block;">
+            <path d="M128 128 L87.6 17.1 A118 118 0 0 1 168.4 17.1 Z" fill="{{ c.fill }}"></path>
+            <path d="M128 128 L87.6 17.1 M168.4 17.1 L128 128" stroke="rgba(255,77,79,0.85)" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="{{ c.edgeOpacity }}"></path>
+            <path d="M128 128 L128 12" stroke="rgba(255,255,255,0.6)" stroke-width="1.2" stroke-dasharray="2 6" fill="none" stroke-linecap="round" opacity="{{ c.edgeOpacity }}"></path>
+          </svg>
+        </div>
+      </sc-for>
+
+      <!-- the node being edited -->
+      <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); pointer-events:none; z-index:3;">
+        <x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="alpr" hint-size="40px,40px"></x-import>
+      </div>
+
+      <div style="position:absolute; inset:0; border-radius:50%; box-shadow:inset 0 2px 10px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.10); pointer-events:none; z-index:4;"></div>
+      <div style="position:absolute; left:50%; bottom:11px; transform:translateX(-50%); z-index:5; pointer-events:none; background:rgba(11,14,18,0.78); border:1px solid rgba(255,255,255,0.16); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border-radius:var(--radius-pill); padding:5px 12px; font-family:var(--font-mono); font-size:13px; font-weight:600; letter-spacing:0.02em; color:#fff; white-space:nowrap;">{{ headingLabel }}</div>
+    </div>
+
+    <!-- rotating bezel -->
+    <div style="position:absolute; inset:0; pointer-events:none;">
+      <div style="{{ ringXform }}">
+        <svg width="330" height="330" viewBox="0 0 330 330" style="position:absolute; inset:0; display:block;">
+          <circle cx="165" cy="165" r="163.5" fill="none" stroke="var(--border)" stroke-width="1"></circle>
+          <circle cx="165" cy="165" r="129" fill="none" stroke="var(--border)" stroke-width="1"></circle>
+          <path d="{{ minorD }}" stroke="var(--text-tertiary)" stroke-width="1" fill="none" opacity="0.55"></path>
+          <path d="{{ majorD }}" stroke="var(--text-primary)" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.85"></path>
+        </svg>
+        <sc-for list="{{ labels }}" as="l" hint-placeholder-count="4">
+          <span style="{{ l.style }}">{{ l.txt }}</span>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- fixed index notch: read the aim here -->
+    <svg width="330" height="330" viewBox="0 0 330 330" style="position:absolute; inset:0; pointer-events:none; display:block;">
+      <polygon points="165,27 156.5,7 173.5,7" fill="var(--alert-500)" stroke="rgba(255,255,255,0.85)" stroke-width="1.5" stroke-linejoin="round"></polygon>
+    </svg>
+  </div>
+
+  <!-- map controls -->
+  <div style="display:flex; justify-content:center; align-items:center; gap:10px; margin-top:14px;">
+    <button type="button" aria-label="Zoom in" onClick="{{ zoomIn }}" style="{{ zoomInStyle }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+    <button type="button" aria-label="Zoom out" onClick="{{ zoomOut }}" style="{{ zoomOutStyle }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M5 12h14"></path></svg></button>
+    <button type="button" aria-label="Re-center on this camera" onClick="{{ recenter }}" style="{{ recenterStyle }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="2" x2="5" y1="12" y2="12"></line><line x1="19" x2="22" y1="12" y2="12"></line><line x1="12" x2="12" y1="2" y2="5"></line><line x1="12" x2="12" y1="19" y2="22"></line><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="1"></circle></svg></button>
+  </div>
+  <div style="text-align:center; font-family:var(--font-mono); font-size:11px; letter-spacing:0.02em; color:var(--text-tertiary); margin-top:9px;">{{ coordsLabel }}</div>
+
+  <!-- directions on this pole -->
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;">
+    <sc-for list="{{ chips }}" as="c" hint-placeholder-count="1">
+      <span role="button" onClick="{{ c.onSelect }}" style="{{ c.style }}">{{ c.label }}<button type="button" aria-label="Remove direction" onClick="{{ c.onRemove }}" style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border:none; background:transparent; color:inherit; cursor:pointer; padding:0; -webkit-tap-highlight-color:transparent;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></button></span>
+    </sc-for>
+    <button type="button" aria-label="Add direction" onClick="{{ onAdd }}" style="{{ addStyle }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Add direction</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:560},&quot;initial&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;250&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Data&quot;},&quot;lat&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:37.7836,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Data&quot;},&quot;lon&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:-122.417,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Data&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const hs = String(props.initial ?? '250').split(',').map((s) => (((parseFloat(s) || 0) % 360) + 360) % 360);
+    this.state = { hs, active: hs.length ? 0 : -1, rot: hs.length ? (360 - hs[0]) % 360 : 0, px: 0, py: 0, z: 1, anim: false };
+    this._drag = null;
+    this._minor = this._ticks(6, 152, 158.5);
+    this._major = this._ticks(30, 146, 158.5);
+  }
+  _ticks(step, r1, r2) {
+    let d = '';
+    for (let a = 0; a < 360; a += step) {
+      const s = Math.sin(a * Math.PI / 180), c = Math.cos(a * Math.PI / 180);
+      d += 'M' + (165 + r1 * s).toFixed(1) + ' ' + (165 - r1 * c).toFixed(1) + 'L' + (165 + r2 * s).toFixed(1) + ' ' + (165 - r2 * c).toFixed(1);
+    }
+    return d;
+  }
+  _pt(e) {
+    const r = this._box.getBoundingClientRect();
+    const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    return { a: Math.atan2(dx, -dy) * 180 / Math.PI, d: Math.hypot(dx, dy) };
+  }
+  _pulse() { clearTimeout(this._t); this.setState({ anim: true }); this._t = setTimeout(() => this.setState({ anim: false }), 420); }
+  componentWillUnmount() { clearTimeout(this._t); }
+  _spinTo(h) { // nearest rotation putting bearing h under the notch
+    const cur = ((this.state.rot % 360) + 360) % 360;
+    let d = ((360 - h) % 360) - cur;
+    d = ((d + 540) % 360) - 180;
+    return this.state.rot + d;
+  }
+  renderVals() {
+    const { hs, active, rot, px, py, z, anim } = this.state;
+    const T = anim ? 'transform 380ms cubic-bezier(0.22, 0.8, 0.3, 1)' : 'none';
+    const rad = rot * Math.PI / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+    const lat0 = parseFloat(this.props.lat ?? '37.7836'), lon0 = parseFloat(this.props.lon ?? '-122.4170');
+    const mx = ((-px * cos) - py * sin) / z, my = (px * sin - py * cos) / z;
+    const lat = lat0 - my * 0.00000405, lon = lon0 + mx * 0.0000051;
+    const WIND = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+    const wind = (h) => WIND[Math.round(h / 22.5) % 16];
+    const hd = (h) => Math.round(h) % 360;
+    const btn = (on) => ({ width: 46, height: 46, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', background: 'var(--surface-card)', borderRadius: 'var(--radius-sm)', boxShadow: 'var(--shadow-card)', color: 'var(--text-primary)', cursor: 'pointer', padding: 0, WebkitTapHighlightColor: 'transparent', opacity: on ? 1 : 0.35, pointerEvents: on ? 'auto' : 'none' });
+    const offC = Math.hypot(px, py) > 1;
+    const labels = [];
+    for (let a = 0; a < 360; a += 30) {
+      const card = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' }[a];
+      labels.push({
+        txt: card || String(a),
+        style: { position: 'absolute', left: 165 + 139 * Math.sin(a * Math.PI / 180), top: 165 - 139 * Math.cos(a * Math.PI / 180), transform: 'translate(-50%, -50%) rotate(' + (-rot) + 'deg)', transition: T, fontFamily: 'var(--font-mono)', fontSize: card ? 14 : 10, fontWeight: card ? 700 : 500, letterSpacing: '0.02em', color: a === 0 ? 'var(--alert-500)' : (card ? 'var(--text-primary)' : 'var(--text-tertiary)'), lineHeight: 1, pointerEvents: 'none' },
+      });
+    }
+    const cones = hs.map((h, i) => ({
+      fill: i === active ? 'url(#dafConeHot)' : 'url(#dafConeDim)',
+      edgeOpacity: i === active ? 1 : 0,
+      style: { position: 'absolute', inset: 0, transform: 'rotate(' + (h + rot) + 'deg)', transition: T, pointerEvents: 'none', opacity: i === active ? 1 : 0.42, zIndex: i === active ? 2 : 1 },
+    }));
+    const chip = (sel) => ({ display: 'inline-flex', alignItems: 'center', gap: 4, height: 32, padding: '0 4px 0 12px', borderRadius: 'var(--radius-pill)', fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600, cursor: 'pointer', border: '1px solid ' + (sel ? 'transparent' : 'var(--border)'), background: sel ? 'var(--brand-soft)' : 'var(--surface-card)', color: sel ? 'var(--text-brand)' : 'var(--text-secondary)', WebkitTapHighlightColor: 'transparent' });
+    const chips = hs.map((h, i) => ({
+      label: hd(h) + '° · ' + wind(h),
+      style: chip(i === active),
+      onSelect: () => { this.setState({ active: i, rot: this._spinTo(this.state.hs[i]) }); this._pulse(); },
+      onRemove: (ev) => {
+        ev.stopPropagation();
+        this.setState((s) => {
+          const list = s.hs.slice(); list.splice(i, 1);
+          let a2 = s.active; if (i < a2) a2 -= 1; else if (i === a2) a2 = Math.min(i, list.length - 1);
+          return { hs: list, active: a2 };
+        }, () => { const s = this.state; if (s.active >= 0) { this.setState({ rot: this._spinTo(s.hs[s.active]) }); this._pulse(); } });
+      },
+    }));
+    return {
+      boxRef: (el) => { this._box = el; },
+      down: (e) => {
+        const p = this._pt(e); if (p.d > 168) return;
+        e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+        this._drag = p.d > 128 ? { m: 'ring', last: p.a } : { m: 'pan', x: e.clientX, y: e.clientY };
+        this.setState({ anim: false });
+      },
+      move: (e) => {
+        const g = this._drag; if (!g) return;
+        if (g.m === 'ring') {
+          const p = this._pt(e); let d = p.a - g.last; d = ((d + 540) % 360) - 180; g.last = p.a;
+          this.setState((s) => {
+            const rot2 = s.rot + d, list = s.hs.slice();
+            if (s.active >= 0) list[s.active] = (((360 - rot2) % 360) + 360) % 360;
+            return { rot: rot2, hs: list };
+          });
+        } else {
+          const dx = e.clientX - g.x, dy = e.clientY - g.y; g.x = e.clientX; g.y = e.clientY;
+          this.setState((s) => {
+            let x = s.px + dx, y = s.py + dy; const m = Math.hypot(x, y);
+            if (m > 150) { x *= 150 / m; y *= 150 / m; }
+            return { px: x, py: y };
+          });
+        }
+      },
+      up: () => { if (!this._drag) return; this._drag = null; this.setState((s) => ({ rot: ((s.rot % 360) + 360) % 360 })); },
+      satXform: { position: 'absolute', inset: 0, transform: 'translate(' + px + 'px, ' + py + 'px) rotate(' + rot + 'deg) scale(' + z + ')', transition: T, willChange: 'transform' },
+      ringXform: { position: 'absolute', inset: 0, transform: 'rotate(' + rot + 'deg)', transition: T },
+      minorD: this._minor, majorD: this._major,
+      labels, cones, chips,
+      headingLabel: active >= 0 ? hd(hs[active]) + '° · ' + wind(hs[active]) : 'No direction yet',
+      coordsLabel: lat.toFixed(6) + ', ' + lon.toFixed(6),
+      onAdd: () => {
+        const s0 = this.state;
+        const base = s0.active >= 0 ? s0.hs[s0.active] + 180 : 360 - (((s0.rot % 360) + 360) % 360);
+        const h = ((base % 360) + 360) % 360;
+        this.setState({ hs: s0.hs.concat([h]), active: s0.hs.length, rot: this._spinTo(h) });
+        this._pulse();
+      },
+      zoomIn: () => { this.setState((s) => ({ z: Math.min(2.4, s.z * 1.35) })); this._pulse(); },
+      zoomOut: () => { this.setState((s) => ({ z: Math.max(0.72, s.z / 1.35) })); this._pulse(); },
+      recenter: () => { this.setState({ px: 0, py: 0 }); this._pulse(); },
+      zoomInStyle: btn(z < 2.39),
+      zoomOutStyle: btn(z > 0.73),
+      recenterStyle: Object.assign(btn(true), { color: offC ? 'var(--text-brand)' : 'var(--text-primary)', borderColor: offC ? 'var(--brand)' : 'var(--border)' }),
+      addStyle: { display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 14px', borderRadius: 'var(--radius-pill)', fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 600, background: 'transparent', color: 'var(--text-secondary)', border: '1px dashed var(--border-strong)', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' },
+    };
+  }
+}
+</script>
+</body>
+</html>
