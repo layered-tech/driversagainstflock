@@ -54,7 +54,7 @@ export default function CameraDetailsScreen() {
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
     const params = useLocalSearchParams();
-    const { pins, updatePinDetails } = useContribute();
+    const { pins, updatePinDetails, updatePinLocation } = useContribute();
     const [rawSelectedDirectionIndex, setRawSelectedDirectionIndex] =
         useState(0);
     const cameraIndex = parseCameraIndexParam(params.index);
@@ -107,6 +107,13 @@ export default function CameraDetailsScreen() {
             updatePinDetails(pinId, { operator });
         },
         [pinId, updatePinDetails],
+    );
+
+    const handleLocationChange = useCallback(
+        (location) => {
+            updatePinLocation(pinId, location);
+        },
+        [pinId, updatePinLocation],
     );
 
     const handleDialChange = useCallback(
@@ -235,7 +242,11 @@ export default function CameraDetailsScreen() {
                             Directions faced
                         </DafSectionLabel>
                         <CompassDial
+                            directions={directions}
+                            location={pin}
                             onChange={handleDialChange}
+                            onLocationChange={handleLocationChange}
+                            selectedDirectionIndex={selectedDirectionIndex}
                             testID="contribute-direction-dial"
                             value={selectedBearing}
                         />

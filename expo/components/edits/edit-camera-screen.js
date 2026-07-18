@@ -20,6 +20,7 @@ import {
     EDIT_MOUNT_OPTIONS,
     parseNodeDetails,
 } from '../../lib/osm/edit-tags';
+import { normalizeNodeLocation } from '../../lib/osm/node-location';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { CompassDial } from '../contribute/compass-dial';
 import { buildChangesetTags, formatBearingChip } from '../contribute/osm-tags';
@@ -177,6 +178,7 @@ export default function EditCameraScreen() {
     const [loadError, setLoadError] = useState(null);
     const [loadStatus, setLoadStatus] = useState('loading');
     const [node, setNode] = useState(null);
+    const [nodeLocation, setNodeLocation] = useState(null);
     const [publishError, setPublishError] = useState(null);
     const [publishStatus, setPublishStatus] = useState('idle');
     const [rawSelectedDirectionIndex, setRawSelectedDirectionIndex] =
@@ -234,8 +236,17 @@ export default function EditCameraScreen() {
                     return;
                 }
 
+                const fetchedNodeLocation = normalizeNodeLocation(fetchedNode);
+
+                if (!fetchedNodeLocation) {
+                    throw new Error(
+                        'OpenStreetMap returned this camera without a valid location.',
+                    );
+                }
+
                 setDetails(parseNodeDetails(fetchedNode?.tags ?? {}));
                 setNode(fetchedNode);
+                setNodeLocation(fetchedNodeLocation);
                 setRawSelectedDirectionIndex(0);
                 setLoadStatus('loaded');
             })
@@ -324,6 +335,10 @@ export default function EditCameraScreen() {
         [updateDetails],
     );
 
+    const handleLocationChange = useCallback((location) => {
+        setNodeLocation(location);
+    }, []);
+
     const handleDialChange = useCallback(
         (degrees) => {
             if (directions.length === 0) {
@@ -394,7 +409,7 @@ export default function EditCameraScreen() {
     }, []);
 
     const handleSavePress = useCallback(async () => {
-        if (saveIsInFlightRef.current || !node || !details) {
+        if (saveIsInFlightRef.current || !node || !nodeLocation || !details) {
             return;
         }
 
@@ -424,8 +439,8 @@ export default function EditCameraScreen() {
                 }),
                 node: {
                     id: node.id,
-                    latitude: node.latitude,
-                    longitude: node.longitude,
+                    latitude: nodeLocation.latitude,
+                    longitude: nodeLocation.longitude,
                     tags: buildUpdatedNodeTags(node.tags, details),
                     version: node.version,
                 },
@@ -440,7 +455,13 @@ export default function EditCameraScreen() {
         } finally {
             saveIsInFlightRef.current = false;
         }
-    }, [details, ensureWriteAccess, node, openStreetMapAccessToken]);
+    }, [
+        details,
+        ensureWriteAccess,
+        node,
+        nodeLocation,
+        openStreetMapAccessToken,
+    ]);
 
     return (
         <View
@@ -556,7 +577,13 @@ export default function EditCameraScreen() {
                                     Directions faced
                                 </DafSectionLabel>
                                 <CompassDial
+                                    directions={directions}
+                                    location={nodeLocation}
                                     onChange={handleDialChange}
+                                    onLocationChange={handleLocationChange}
+                                    selectedDirectionIndex={
+                                        selectedDirectionIndex
+                                    }
                                     testID="edit-camera-direction-dial"
                                     value={selectedBearing}
                                 />

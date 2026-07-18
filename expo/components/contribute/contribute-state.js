@@ -11,6 +11,7 @@ import {
 import { AppState } from 'react-native';
 import { useAuth } from '../../lib/auth';
 import { publishNodes } from '../../lib/osm/client';
+import { updatePinLocationInList } from '../../lib/osm/node-location';
 import {
     clearStoredDraft,
     readCoachMarkDismissed,
@@ -247,6 +248,12 @@ export function ContributeProvider({ children }) {
         );
     }, []);
 
+    const updatePinLocation = useCallback((pinId, location) => {
+        setPins((currentPins) =>
+            updatePinLocationInList(currentPins, pinId, location),
+        );
+    }, []);
+
     const updateChangeset = useCallback((changesetPatch) => {
         setChangeset((currentChangeset) => ({
             ...currentChangeset,
@@ -384,6 +391,7 @@ export function ContributeProvider({ children }) {
             storedDraftSummary,
             updateChangeset,
             updatePinDetails,
+            updatePinLocation,
         }),
         [
             addPinAtCoordinate,
@@ -410,6 +418,7 @@ export function ContributeProvider({ children }) {
             storedDraftSummary,
             updateChangeset,
             updatePinDetails,
+            updatePinLocation,
         ],
     );
 

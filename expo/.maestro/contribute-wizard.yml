@@ -85,6 +85,21 @@ tags:
 - extendedWaitUntil:
     visible: 'Camera 1 of 2'
     timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: 'contribute-direction-dial'
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 60
+- assertVisible:
+    id: 'contribute-direction-dial-marker'
+- assertVisible:
+    id: 'contribute-direction-dial-controls'
+- scrollUntilVisible:
+    element:
+      id: 'contribute-mount-pole'
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: 'contribute-mount-pole'
     retryTapIfNoChange: true
