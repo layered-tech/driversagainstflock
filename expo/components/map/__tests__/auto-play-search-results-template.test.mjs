@@ -51,6 +51,18 @@ test('Android Auto presents submitted place results with the host map', () => {
     );
 });
 
+test('Android Auto waits for a stable query before requesting autocomplete', () => {
+    assert.match(autoPlaySource, /const SEARCH_DEBOUNCE_MS = 2000;/);
+    assert.match(
+        autoPlaySource,
+        /function schedulePlaceAutocomplete[\s\S]*?abortSearchRequest\(\)[\s\S]*?setTimeout\([\s\S]*?SEARCH_DEBOUNCE_MS/,
+    );
+    assert.match(
+        autoPlaySource,
+        /onSearchTextSubmitted:[\s\S]*?runPlaceTextSearch\(/,
+    );
+});
+
 test('Android Auto supplies submitted result markers and frames them on its map', () => {
     assert.match(autoPlayMapStateSource, /submittedSearchResults: \[\]/);
     assert.match(

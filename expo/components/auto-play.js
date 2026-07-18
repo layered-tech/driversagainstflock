@@ -72,7 +72,9 @@ import {
 } from './map/use-device-location';
 
 const LOCATION_TIMEOUT_MS = 10000;
-const SEARCH_DEBOUNCE_MS = 450;
+// Android Auto may deliver bursts of text-change callbacks. Wait for a stable
+// query so autocomplete does not flood the API and native search template.
+const SEARCH_DEBOUNCE_MS = 2000;
 const NAVIGATION_LOCATION_INTERVAL_MS = 4000;
 const NAVIGATION_LOCATION_DISTANCE_METERS = 12;
 const NAVIGATION_GUIDANCE_MIN_INTERVAL_MS = 1000;
