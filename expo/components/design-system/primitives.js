@@ -1,6 +1,12 @@
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Pressable,
+    Text,
+    TextInput,
+    View,
+} from 'react-native';
 import { Icon } from './icon';
-import { dafSemanticColors } from './tokens';
+import { dafColors, dafSemanticColors } from './tokens';
 
 const TONE_COLORS = {
     alert: {
@@ -219,5 +225,81 @@ export function DafSectionLabel({ children, className = '' }) {
         >
             {children}
         </Text>
+    );
+}
+
+export function DafSegmentedControl({
+    className = '',
+    onChange,
+    options,
+    testID,
+    testIDPrefix,
+    value,
+}) {
+    return (
+        <View
+            className={`dark:border-daf-border-dark h-[42px] flex-row rounded-dafPill border border-daf-border bg-daf-surface-alt p-1 dark:bg-daf-surface-inverse ${className}`}
+            testID={testID}
+        >
+            {options.map((option) => {
+                const selected = option.value === value;
+
+                return (
+                    <Pressable
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                        className={`min-h-[34px] flex-1 items-center justify-center rounded-dafPill px-2 ${
+                            selected
+                                ? 'dark:bg-daf-surface-dark bg-white'
+                                : 'bg-transparent'
+                        }`}
+                        key={option.value}
+                        onPress={() => onChange(option.value)}
+                        testID={
+                            testIDPrefix
+                                ? `${testIDPrefix}-${option.value}`
+                                : undefined
+                        }
+                    >
+                        <Text
+                            className={`text-[13px] font-semibold ${
+                                selected
+                                    ? 'text-daf-text-primary dark:text-white'
+                                    : 'text-daf-text-secondary dark:text-neutral-300'
+                            }`}
+                            numberOfLines={1}
+                        >
+                            {option.label}
+                        </Text>
+                    </Pressable>
+                );
+            })}
+        </View>
+    );
+}
+
+export function DafTextInput({
+    className = '',
+    multiline = false,
+    onChangeText,
+    placeholder,
+    testID,
+    value,
+    ...rest
+}) {
+    const sizeClassName = multiline ? 'min-h-[84px] pt-3' : 'h-hitComfy';
+
+    return (
+        <TextInput
+            className={`${sizeClassName} dark:border-daf-border-dark dark:bg-daf-surface-dark rounded-dafSm border border-daf-border bg-white px-[14px] text-[15px] text-daf-text-primary dark:text-white ${className}`}
+            multiline={multiline}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor={dafColors.ink[400]}
+            testID={testID}
+            textAlignVertical={multiline ? 'top' : undefined}
+            value={value}
+            {...rest}
+        />
     );
 }

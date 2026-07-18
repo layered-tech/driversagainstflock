@@ -1,0 +1,154 @@
+appId: com.anonymous.drivefree.dev
+name: Contribute Wizard Mocked
+tags:
+  - contribute
+  - map
+---
+- setLocation:
+    latitude: 30.26715
+    longitude: -97.74035
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    commands:
+      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 30000
+- openLink: 'driversagainstflock://e2e-mocks?auth=1'
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 10000
+
+# Screen 10 → 11: open the start sheet from the pencil control
+- extendedWaitUntil:
+    visible:
+      id: 'map-contribute-button'
+    timeout: 30000
+- tapOn:
+    id: 'map-contribute-button'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-start-sheet'
+    timeout: 10000
+- assertVisible: 'Start a changeset'
+- assertVisible: '@daf_mapper'
+- tapOn:
+    id: 'contribute-start-editing-button'
+    retryTapIfNoChange: true
+
+# Screen 12: place two cameras, remove one, re-add it
+- extendedWaitUntil:
+    visible: 'Place the cameras'
+    timeout: 10000
+- assertVisible:
+    id: 'map-control-rail'
+- extendedWaitUntil:
+    visible: 'Map layer: Standard Satellite. Open map layer options'
+    timeout: 10000
+- tapOn:
+    id: 'contribute-add-camera-button'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: '1 camera placed'
+    timeout: 10000
+- tapOn:
+    id: 'contribute-add-camera-button'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: '2 cameras placed'
+    timeout: 10000
+- tapOn:
+    id: 'contribute-pin-remove-1'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: '1 camera placed'
+    timeout: 10000
+- tapOn:
+    id: 'contribute-add-camera-button'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: '2 cameras placed'
+    timeout: 10000
+- tapOn:
+    id: 'contribute-next-details-button'
+    retryTapIfNoChange: true
+
+# Screen 13: one form per camera
+- extendedWaitUntil:
+    visible: 'Camera 1 of 2'
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: 'contribute-direction-dial'
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 60
+- assertVisible:
+    id: 'contribute-direction-dial-marker'
+- assertVisible:
+    id: 'contribute-direction-dial-controls'
+- scrollUntilVisible:
+    element:
+      id: 'contribute-mount-pole'
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: 'contribute-mount-pole'
+    retryTapIfNoChange: true
+- tapOn:
+    id: 'contribute-next-changeset-button'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: 'Camera 2 of 2'
+    timeout: 10000
+- tapOn:
+    id: 'contribute-next-changeset-button'
+    retryTapIfNoChange: true
+
+# Screen 14: changeset details
+- extendedWaitUntil:
+    visible: 'Changeset details'
+    timeout: 10000
+- tapOn:
+    id: 'contribute-comment-input'
+- inputText: 'Added 2 Flock Safety ALPR cameras for the e2e flow.'
+- hideKeyboard
+- assertVisible: '2 nodes will be added to OpenStreetMap.'
+- tapOn:
+    id: 'contribute-next-review-button'
+    retryTapIfNoChange: true
+
+# Screen 15: review & publish
+- extendedWaitUntil:
+    visible: 'Review & publish'
+    timeout: 10000
+- assertVisible: 'DriversAgainstFlock.org'
+- assertVisible: '.*Map only what you can verify.*'
+- tapOn:
+    id: 'contribute-publish-button'
+    retryTapIfNoChange: true
+
+# Screen 16: published
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-published-screen'
+    timeout: 30000
+- assertVisible: 'Changeset published'
+- assertVisible: 'changeset/171,224,908'
+- assertVisible: 'node/12100881'
+- assertVisible: 'node/12100882'
+- tapOn:
+    id: 'contribute-see-on-map-button'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 10000

@@ -80,6 +80,8 @@ export function MapScreenProviders({
 }
 
 export function useMapCanvasContextValue({
+    contributePins,
+    contributePlacementIsActive,
     directionsDebugFeatureCollection,
     directionsRouteFeatureCollection,
     electronicHorizonDebugFeatureCollection,
@@ -106,6 +108,8 @@ export function useMapCanvasContextValue({
     return useMemo(
         () => ({
             cameraRef: locationController.cameraRef,
+            contributePins,
+            contributePlacementIsActive,
             handleCameraChanged: locationController.handleCameraChanged,
             handleMapLoaded: locationController.handleMapLoaded,
             handleMapPress,
@@ -140,6 +144,8 @@ export function useMapCanvasContextValue({
             submittedSearchResults: searchController.submittedSearchResults,
         }),
         [
+            contributePins,
+            contributePlacementIsActive,
             directionsDebugFeatureCollection,
             directionsRouteFeatureCollection,
             electronicHorizonDebugFeatureCollection,

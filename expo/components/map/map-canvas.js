@@ -13,6 +13,7 @@ import {
     View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { ContributeDraftPinMarkers } from '../contribute/contribute-draft-pin-markers';
 import {
     getMockMarkerPointsSnapshot,
     mapApiMocksAreEnabled,
@@ -1406,6 +1407,7 @@ export const MapCanvas = memo(function MapCanvas() {
                     </Pressable>
                 </Mapbox.MarkerView>
             ) : null}
+            <ContributeDraftPinMarkers />
         </NativeWindMapView>
     );
 });

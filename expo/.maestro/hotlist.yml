@@ -32,6 +32,8 @@ tags:
 - extendedWaitUntil:
     visible: 'Hotlist'
     timeout: 10000
+- assertVisible:
+    id: 'drawer-auth-login-button'
 - tapOn: 'Hotlist'
 - extendedWaitUntil:
     visible:

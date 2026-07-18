@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ContributeProvider } from '../components/contribute/contribute-state';
 import { Icon } from '../components/design-system/icon';
 import { SharedMapStateProvider } from '../components/map/shared-map-state';
 import { AppDrawerContent } from '../components/root/app-drawer-content';
@@ -64,71 +65,101 @@ function RootLayout() {
                         <E2EMapApiMockHandler />
                         <SystemBars />
                         <SharedMapStateProvider>
-                            <View style={{ flex: 1 }}>
-                                <Drawer
-                                    drawerContent={(props) => (
-                                        <AppDrawerContent
-                                            {...props}
-                                            onOpenDebugDrawer={
-                                                handleOpenDebugDrawer
-                                            }
+                            <ContributeProvider>
+                                <View style={{ flex: 1 }}>
+                                    <Drawer
+                                        drawerContent={(props) => (
+                                            <AppDrawerContent
+                                                {...props}
+                                                onOpenDebugDrawer={
+                                                    handleOpenDebugDrawer
+                                                }
+                                            />
+                                        )}
+                                        screenOptions={{
+                                            drawerActiveTintColor: isDarkMode
+                                                ? '#F5F7F9'
+                                                : '#11151B',
+                                            drawerInactiveTintColor: isDarkMode
+                                                ? '#F5F7F9'
+                                                : '#11151B',
+                                            drawerItemStyle: {
+                                                borderRadius: 8,
+                                            },
+                                            drawerStyle: {
+                                                backgroundColor:
+                                                    systemBarBackground,
+                                            },
+                                            headerShown: false,
+                                            sceneStyle: {
+                                                backgroundColor:
+                                                    systemBarBackground,
+                                            },
+                                        }}
+                                    >
+                                        <Drawer.Screen
+                                            name="index"
+                                            options={{
+                                                drawerLabel: 'Map',
+                                                drawerIcon: ({
+                                                    color,
+                                                    size,
+                                                }) => (
+                                                    <Icon
+                                                        color={color}
+                                                        name="navigation"
+                                                        size={size}
+                                                    />
+                                                ),
+                                                title: 'Map',
+                                            }}
                                         />
-                                    )}
-                                    screenOptions={{
-                                        drawerActiveTintColor: isDarkMode
-                                            ? '#93c5fd'
-                                            : '#171717',
-                                        drawerInactiveTintColor: isDarkMode
-                                            ? '#d4d4d4'
-                                            : '#525252',
-                                        drawerItemStyle: {
-                                            borderRadius: 8,
-                                        },
-                                        drawerStyle: {
-                                            backgroundColor:
-                                                systemBarBackground,
-                                        },
-                                        headerShown: false,
-                                        sceneStyle: {
-                                            backgroundColor:
-                                                systemBarBackground,
-                                        },
-                                    }}
-                                >
-                                    <Drawer.Screen
-                                        name="index"
-                                        options={{
-                                            drawerLabel: 'Map',
-                                            drawerIcon: ({ color, size }) => (
-                                                <Icon
-                                                    color={color}
-                                                    name="navigation"
-                                                    size={size}
-                                                />
-                                            ),
-                                            title: 'Map',
-                                        }}
+                                        <Drawer.Screen
+                                            name="hotlist"
+                                            options={{
+                                                drawerLabel: 'Hotlist',
+                                                drawerIcon: ({
+                                                    color,
+                                                    size,
+                                                }) => (
+                                                    <Icon
+                                                        color={color}
+                                                        name="clock"
+                                                        size={size}
+                                                    />
+                                                ),
+                                                title: 'Hotlist',
+                                            }}
+                                        />
+                                        <Drawer.Screen
+                                            name="contribute"
+                                            options={{
+                                                drawerItemStyle: {
+                                                    display: 'none',
+                                                },
+                                                popToTopOnBlur: true,
+                                                swipeEnabled: false,
+                                                title: 'Contribute',
+                                            }}
+                                        />
+                                        <Drawer.Screen
+                                            name="edits"
+                                            options={{
+                                                drawerItemStyle: {
+                                                    display: 'none',
+                                                },
+                                                popToTopOnBlur: true,
+                                                swipeEnabled: false,
+                                                title: 'Your edits',
+                                            }}
+                                        />
+                                    </Drawer>
+                                    <DebugDrawer
+                                        onClose={handleCloseDebugDrawer}
+                                        visible={debugDrawerIsVisible}
                                     />
-                                    <Drawer.Screen
-                                        name="hotlist"
-                                        options={{
-                                            drawerLabel: 'Hotlist',
-                                            drawerIcon: ({ color, size }) => (
-                                                <Icon
-                                                    color={color}
-                                                    name="clock"
-                                                    size={size}
-                                                />
-                                            ),
-                                            title: 'Hotlist',
-                                        }}
-                                    />
-                                </Drawer>
-                                <DebugDrawer
-                                    onClose={handleCloseDebugDrawer}
-                                    visible={debugDrawerIsVisible}
-                                />
-                            </View>
+                                </View>
+                            </ContributeProvider>
                         </SharedMapStateProvider>
                     </AuthProvider>
                 </BottomSheetModalProvider>

@@ -1,13 +1,22 @@
 import { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useIsFocused } from '@react-navigation/native';
+import { useNavigation } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, useWindowDimensions, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from '../lib/safe-area-insets';
+import { ContributeCrosshair } from './contribute/contribute-crosshair';
+import { ContributePlacementOverlay } from './contribute/contribute-placement-overlay';
+import { ContributePlacementSheet } from './contribute/contribute-placement-sheet';
+import { ContributeStartSheet } from './contribute/contribute-start-sheet';
+import { useContribute } from './contribute/contribute-state';
 import { Icon } from './design-system/icon';
 import { logMapDrivingStarted, logMapDrivingStopped } from './map/analytics';
 import { useMapCameraPadding } from './map/camera-focus-padding';
-import { SHOW_MAP_DEBUG_CONTROLS } from './map/config';
+import {
+    MAPBOX_STANDARD_SATELLITE_STYLE_URL,
+    SHOW_MAP_DEBUG_CONTROLS,
+} from './map/config';
 import {
     DIRECTIONS_ROUTE_SHEET_SNAP_POINTS,
     PLACE_RESULT_CAMERA_ANIMATION_DURATION_MS,
@@ -81,6 +90,9 @@ import { makeWazePoliceAlertFeatureCollection } from './map/waze-alerts-api';
 const ROUTE_CHOICE_CAMERA_FIT_RETRY_DELAY_MS =
     PLACE_RESULT_CAMERA_ANIMATION_DURATION_MS + 150;
 
+// Marker and POI taps are suppressed while contribute placement owns the map.
+function noopMapInteractionHandler() {}
+
 export default function LocationMapScreen({
     initialSearchMode,
     searchOverlayVisible,
@@ -99,8 +111,11 @@ export default function LocationMapScreen({
         useState(undefined);
     const { height: windowHeight, width: windowWidth } = useWindowDimensions();
     const bottomSheetAnimatedPosition = useSharedValue(windowHeight);
+    const navigation = useNavigation();
     const safeAreaInsets = useSafeAreaInsets();
     const screenIsFocused = useIsFocused();
+    const { contributePlacementIsActive, pins: contributePins } =
+        useContribute();
     const {
         debugOverlayVisibility,
         drivingModeIsActive,
@@ -286,12 +301,14 @@ export default function LocationMapScreen({
         searchController.selectedSearchResult,
     );
     const mapChromeIsVisible =
+        !contributePlacementIsActive &&
         !markerDetailsModeIsActive &&
         !placeDetailsModeIsActive &&
         !directionsFormIsActive &&
         !routeComparisonIsActive;
     const resolvedMapSearchOverlayIsVisible =
         mapSearchOverlayIsVisible &&
+        !contributePlacementIsActive &&
         !markerDetailsModeIsActive &&
         !placeDetailsModeIsActive &&
         !routeComparisonIsActive;
@@ -384,6 +401,24 @@ export default function LocationMapScreen({
         locationController.isMapReady,
         routeComparisonIsActive,
     ]);
+    useEffect(() => {
+        if (!contributePlacementIsActive) {
+            return undefined;
+        }
+
+        navigation.setOptions({ swipeEnabled: false });
+
+        return () => {
+            navigation.setOptions({ swipeEnabled: true });
+        };
+    }, [contributePlacementIsActive, navigation]);
+    useEffect(() => {
+        if (!contributePlacementIsActive || !mapPreferencesAreLoaded) {
+            return;
+        }
+
+        setMapStyleURL(MAPBOX_STANDARD_SATELLITE_STYLE_URL);
+    }, [contributePlacementIsActive, mapPreferencesAreLoaded, setMapStyleURL]);
     const handleMarkerDetailsClosePress = useCallback(() => {
         markerDetailsSheetRef.current?.dismiss();
         setSelectedMarker(null);
@@ -478,12 +513,18 @@ export default function LocationMapScreen({
         setDrivingModeIsActive(false);
     }, [setDrivingModeIsActive]);
     const canvasValue = useMapCanvasContextValue({
+        contributePins,
+        contributePlacementIsActive,
         directionsDebugFeatureCollection,
         directionsRouteFeatureCollection,
         electronicHorizonDebugFeatureCollection,
         e2eMapApiMocksEnabled: e2eMapApiMocksAreRequested,
-        handleMapPress,
-        handleMarkerSourcePress,
+        handleMapPress: contributePlacementIsActive
+            ? noopMapInteractionHandler
+            : handleMapPress,
+        handleMarkerSourcePress: contributePlacementIsActive
+            ? noopMapInteractionHandler
+            : handleMarkerSourcePress,
         initialCameraSettings: locationController.remountCameraSettings,
         isDrivingMode,
         locationController,
@@ -624,6 +665,9 @@ export default function LocationMapScreen({
                 {screenIsFocused ? (
                     <>
                         <MapCanvas />
+                        {contributePlacementIsActive ? (
+                            <ContributeCrosshair />
+                        ) : null}
                         {isDrivingMode ? (
                             <DrivingGuidanceOverlay
                                 onLocationAnchorLayout={
@@ -647,6 +691,16 @@ export default function LocationMapScreen({
                                 edges={['top', 'right', 'left']}
                                 pointerEvents="box-none"
                             >
+                                {contributePlacementIsActive ? (
+                                    <ContributePlacementOverlay
+                                        locationController={locationController}
+                                        mapControls={
+                                            <MapControlsOverlay
+                                                showContributeEntryButton={false}
+                                            />
+                                        }
+                                    />
+                                ) : null}
                                 {resolvedMapSearchOverlayIsVisible ? (
                                     <MapSearchOverlay
                                         mapControls={
@@ -660,7 +714,7 @@ export default function LocationMapScreen({
                                     <Pressable
                                         accessibilityLabel="Back from route choices"
                                         accessibilityRole="button"
-                                        className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90 h-11 w-11 items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82]"
+                                        className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90 h-[55px] w-[55px] items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82]"
                                         onPress={
                                             searchController.handleDirectionsModeDismiss
                                         }
@@ -683,7 +737,7 @@ export default function LocationMapScreen({
                                         <Pressable
                                             accessibilityLabel="Close marker details"
                                             accessibilityRole="button"
-                                            className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90 h-11 w-11 items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82]"
+                                            className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90 h-[55px] w-[55px] items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82]"
                                             onPress={
                                                 handleMarkerDetailsClosePress
                                             }
@@ -704,7 +758,7 @@ export default function LocationMapScreen({
                                         <Pressable
                                             accessibilityLabel="Close place details"
                                             accessibilityRole="button"
-                                            className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90 h-11 w-11 items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82]"
+                                            className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90 h-[55px] w-[55px] items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82]"
                                             onPress={
                                                 searchController.handleClearSelectedSearchResult
                                             }
@@ -731,6 +785,28 @@ export default function LocationMapScreen({
                 {!isDrivingMode ? <DirectionsRouteSheet /> : null}
                 <MapLayerSheet />
                 <LocationPermissionSheet />
+                <ContributeStartSheet
+                    bottomSheetBackgroundStyle={
+                        presentation.bottomSheetBackgroundStyle
+                    }
+                    bottomSheetHandleIndicatorStyle={
+                        presentation.bottomSheetHandleIndicatorStyle
+                    }
+                    insets={safeAreaInsets}
+                    mapPreferencesAreLoaded={mapPreferencesAreLoaded}
+                    renderBackdrop={renderBackdrop}
+                />
+                <ContributePlacementSheet
+                    bottomSheetBackgroundStyle={
+                        presentation.bottomSheetBackgroundStyle
+                    }
+                    bottomSheetHandleIndicatorStyle={
+                        presentation.bottomSheetHandleIndicatorStyle
+                    }
+                    insets={safeAreaInsets}
+                    locationController={locationController}
+                    mapPreferencesAreLoaded={mapPreferencesAreLoaded}
+                />
             </View>
         </MapScreenProviders>
     );

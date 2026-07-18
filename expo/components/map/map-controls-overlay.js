@@ -1,4 +1,5 @@
 import { ActivityIndicator, View } from 'react-native';
+import { ContributeEntryButton } from '../contribute/contribute-entry-button';
 import { Icon } from '../design-system/icon';
 import { MAP_CONTROL_BUTTON_CLASS_NAME, ZOOM_STEP } from './constants';
 import { MapControlButton } from './map-control-button';
@@ -8,6 +9,7 @@ import { MarkerLoadingIndicator } from './marker-loading-indicator';
 
 export function MapControlsOverlay({
     showFreeDriveButton = true,
+    showContributeEntryButton = true
 }) {
     const {
         defaultMapControlClassName,
@@ -167,6 +169,8 @@ export function MapControlsOverlay({
                     </View>
                 )}
             </MapControlButton>
+
+            {showContributeEntryButton ? <ContributeEntryButton /> : null}
 
             {renderMarkerLoadingIndicator ? (
                 <MarkerLoadingIndicator

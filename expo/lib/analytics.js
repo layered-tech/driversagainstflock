@@ -1,7 +1,6 @@
 import {
     getAnalytics,
     logEvent as firebaseLogEvent,
-    logScreenView as firebaseLogScreenView,
     setAnalyticsCollectionEnabled as firebaseSetAnalyticsCollectionEnabled,
     setUserId as firebaseSetUserId,
     setUserProperties as firebaseSetUserProperties,
@@ -117,7 +116,7 @@ export async function logAnalyticsScreenView(pathname) {
             return;
         }
 
-        await firebaseLogScreenView(analytics, {
+        await firebaseLogEvent(analytics, 'screen_view', {
             screen_class: screenName,
             screen_name: screenName,
         });

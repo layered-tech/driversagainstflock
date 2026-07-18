@@ -434,11 +434,202 @@
 
     </div>
 
+    <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:64px 0 6px; padding-bottom:10px; border-bottom:1px solid var(--border);">Managing your edits · iOS</div>
+    <p style="font-size:15px; color:var(--text-secondary); margin:14px 0 26px; max-width:70ch;">Every camera you've published, grouped by changeset. Past changesets are immutable — they're history, never rewritten. "Edit" publishes a new version of the same node in a new changeset; "Remove" publishes a delete changeset. Nothing is silently erased.</p>
+    <div style="display:flex; flex-wrap:wrap; gap:44px 40px;">
+
+      <!-- 18 YOUR EDITS -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div>
+          <div style="font-size:13px; font-weight:600;">18 · Your edits</div>
+          <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px;">From 11's account card · tap → 19 · menu → 20</div>
+        </div>
+        <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
+          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);" data-screen-label="18 Your edits">
+            <div style="padding:54px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
+              <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
+              <span style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading);">Your edits</span>
+              <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-secondary); background:var(--surface-card-alt); border:1px solid var(--border); padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">6 live</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; padding:9px 16px; background:var(--surface-card-alt); border-bottom:1px solid var(--border);">
+              <span style="font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-brand);">@daf_mapper</span>
+              <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); margin-left:auto;">6 cameras · 3 changesets</span>
+            </div>
+            <div style="flex:1; overflow:auto; padding:14px 16px;">
+              <p style="font-size:var(--fs-caption); color:var(--text-tertiary); margin:0 0 16px;">Tap a camera to edit it, or open its ⋯ menu for actions.</p>
+
+              <sc-for list="{{ changesets }}" as="cs" hint-placeholder-count="3">
+                <section style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden; margin-bottom:16px;">
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; background:var(--surface-card-alt);">
+                    <span style="display:flex; align-items:center; gap:8px; min-width:0; flex:1 1 auto;">
+                      <span style="{{ cs.dotStyle }}"></span>
+                      <span style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-secondary); font-weight:var(--fw-bold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ cs.title }}</span>
+                    </span>
+                    <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); white-space:nowrap; flex:0 0 auto;">{{ cs.id }}</span>
+                  </div>
+                  <sc-for list="{{ cs.nodes }}" as="n" hint-placeholder-count="1">
+                    <div style="border-top:1px solid var(--border);">
+                      <div role="listitem" style="display:flex; align-items:center; gap:12px; padding:13px 14px;">
+                        <span style="width:9px; height:9px; border-radius:50%; background:var(--marker-alpr); box-shadow:0 0 0 4px rgba(255,77,79,0.14); flex:0 0 auto;"></span>
+                        <div style="flex:1; min-width:0;">
+                          <div style="font-size:15px; font-weight:600; line-height:1.3; color:var(--text-primary);">{{ n.typeLabel }}</div>
+                          <div style="font-size:13px; color:var(--text-secondary); line-height:1.35;">{{ n.street }}</div>
+                          <div style="font-size:var(--fs-caption); font-family:var(--font-mono); color:var(--text-tertiary); line-height:1.4; margin-top:2px;">{{ n.osm }}</div>
+                          <sc-if value="{{ n.updatedBy }}" hint-placeholder-val="{{ false }}">
+                            <span style="display:inline-flex; align-items:center; gap:5px; margin-top:6px; padding:2px 8px; border-radius:var(--radius-pill); background:rgba(255,176,46,0.14); color:var(--amber-600); font-size:11px; font-weight:600;">Updated by {{ n.updatedBy }}</span>
+                          </sc-if>
+                        </div>
+                        <button aria-label="Camera actions" onClick="{{ n.onToggle }}" style="{{ n.kebabStyle }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg></button>
+                      </div>
+                      <sc-if value="{{ n.open }}" hint-placeholder-val="{{ false }}">
+                        <div role="menu" style="border-top:1px solid var(--border); background:var(--surface-card-alt); padding:8px; display:flex; gap:8px;">
+                          <button role="menuitem" onClick="{{ n.onEdit }}" style="flex:1 1 0; display:flex; align-items:center; justify-content:center; gap:8px; height:46px; padding:0 12px; border:none; border-radius:var(--radius-sm); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:pointer; -webkit-tap-highlight-color:transparent;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; flex:0 0 auto;"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg>Edit</button>
+                          <button role="menuitem" onClick="{{ n.onRemove }}" style="flex:1 1 0; display:flex; align-items:center; justify-content:center; gap:8px; height:46px; padding:0 12px; border:none; border-radius:var(--radius-sm); background:rgba(255,77,79,0.14); color:var(--alert-500); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:pointer; -webkit-tap-highlight-color:transparent;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; flex:0 0 auto;"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" x2="10" y1="11" y2="17"></line><line x1="14" x2="14" y1="11" y2="17"></line></svg>Delete</button>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </section>
+              </sc-for>
+
+              <div style="display:flex; align-items:center; gap:7px; padding:4px 2px 8px; color:var(--text-tertiary);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; flex:0 0 auto;"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                <span style="font-size:var(--fs-caption);">Past changesets can't be rewritten — edits and removals publish as new ones.</span>
+              </div>
+            </div>
+          </div>
+        </x-import>
+      </div>
+
+      <!-- 19 EDIT CAMERA -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div>
+          <div style="font-size:13px; font-weight:600;">19 · Edit a camera</div>
+          <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px;">A new edit on the same node · publishes v4 in a new changeset</div>
+        </div>
+        <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
+          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);" data-screen-label="19 Edit a camera">
+            <div style="padding:54px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
+              <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
+              <span style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading);">Edit camera</span>
+              <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-secondary); background:var(--surface-card-alt); border:1px solid var(--border); padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">v3 → v4</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; padding:9px 16px; background:var(--surface-card-alt); border-bottom:1px solid var(--border);">
+              <span style="font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-brand);">node/11640217</span>
+              <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); margin-left:auto;">added by you · 21 Jun 2026</span>
+            </div>
+            <div style="flex:1; overflow:auto; padding:16px; display:flex; flex-direction:column; gap:18px;">
+              <div style="display:flex; align-items:flex-start; gap:9px; padding:11px 12px; background:rgba(255,176,46,0.12); border-radius:var(--radius-sm);">
+                <span style="color:var(--amber-600); flex:0 0 auto; margin-top:1px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg></span>
+                <span style="font-size:var(--fs-caption); color:var(--text-secondary); line-height:1.5;"><b style="color:var(--text-primary);">@osm_sf</b> updated this camera on 2 Jul. Review the tags below — saving overwrites theirs.</span>
+              </div>
+              <div>
+                <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Type</div>
+                <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="light" options="{{ nodeTypeOpts }}" value="{{ nodeType }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,42px"></x-import>
+              </div>
+              <div>
+                <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Manufacturer</div>
+                <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="light" options="{{ mfrOpts }}" value="{{ mfr }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,42px"></x-import>
+              </div>
+              <div>
+                <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Operator</div>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Input" tone="light" value="City of San Francisco" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
+              </div>
+              <div>
+                <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Directions faced</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <span style="display:inline-flex; align-items:center; gap:4px; height:32px; padding:0 4px 0 12px; border-radius:var(--radius-pill); font-family:var(--font-mono); font-size:13px; font-weight:600; background:var(--brand-soft); color:var(--text-brand);">310° · NW<button aria-label="Remove direction" style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border:none; background:transparent; color:inherit; cursor:pointer; padding:0; -webkit-tap-highlight-color:transparent;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></button></span>
+                  <button aria-label="Add direction" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 14px; border-radius:var(--radius-pill); font-family:var(--font-ui); font-size:13px; font-weight:600; background:transparent; color:var(--text-secondary); border:1px dashed var(--border-strong); cursor:pointer; -webkit-tap-highlight-color:transparent;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Add direction</button>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Mounted on</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" selected="{{ true }}" hint-size="auto,34px">Pole</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Gantry</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Building</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Traffic light</x-import>
+                </div>
+              </div>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Switch" checked="{{ true }}" label="Camera is currently active" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
+              <button style="display:flex; align-items:center; gap:12px; width:100%; padding:12px 14px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); cursor:pointer; text-align:left; -webkit-tap-highlight-color:transparent;">
+                <span style="width:34px; height:34px; border-radius:var(--radius-sm); background:rgba(255,77,79,0.14); color:var(--alert-500); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" x2="10" y1="11" y2="17"></line><line x1="14" x2="14" y1="11" y2="17"></line></svg></span>
+                <span style="flex:1; min-width:0;"><span style="display:block; font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--alert-500);">Remove from map</span><span style="display:block; font-family:var(--font-ui); font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:1px;">Publishes a delete changeset</span></span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; flex:0 0 auto;"><path d="m9 18 6-6-6-6"></path></svg>
+              </button>
+            </div>
+            <div style="padding:12px 16px 28px; border-top:1px solid var(--border); background:var(--surface-card);">
+              <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Save changes</x-import>
+              <p style="font-size:var(--fs-caption); color:var(--text-tertiary); text-align:center; margin:9px 0 0;">Publishes v4 of this node as a new changeset — your original stays in history.</p>
+            </div>
+          </div>
+        </x-import>
+      </div>
+
+      <!-- 20 REMOVE CONFIRMATION -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div>
+          <div style="font-size:13px; font-weight:600;">20 · Remove from map</div>
+          <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px;">Reason + confirm · delete is public too</div>
+        </div>
+        <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
+          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); overflow:hidden; font-family:var(--font-ui);" data-screen-label="20 Remove from map">
+            <div style="position:absolute; inset:0; display:flex; flex-direction:column;">
+              <div style="padding:54px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
+                <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
+                <span style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading);">Edit camera</span>
+                <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-secondary); background:var(--surface-card-alt); border:1px solid var(--border); padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">v3</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; padding:9px 16px; background:var(--surface-card-alt); border-bottom:1px solid var(--border);">
+                <span style="font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-brand);">node/11640217</span>
+                <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); margin-left:auto;">added by you · 21 Jun 2026</span>
+              </div>
+              <div style="flex:1; overflow:hidden; padding:16px; display:flex; flex-direction:column; gap:18px;">
+                <div>
+                  <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Type</div>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="light" options="{{ nodeTypeOpts }}" value="{{ nodeType }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,42px"></x-import>
+                </div>
+                <div>
+                  <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Manufacturer</div>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="light" options="{{ mfrOpts }}" value="{{ mfr }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,42px"></x-import>
+                </div>
+                <div>
+                  <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Operator</div>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Input" tone="light" value="City of San Francisco" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
+                </div>
+              </div>
+            </div>
+            <div style="position:absolute; inset:0; background:rgba(11,14,18,0.28);"></div>
+            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+              <x-import component-from-global-scope="DesignSystem_aa8750.BottomSheet" title="Remove this camera?" subtitle="node/11640217 · Valencia St &amp; 24th St" hint-size="100%,430px">
+                <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Why remove it?</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" selected="{{ true }}" hint-size="auto,34px">Gone from pole</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Never existed</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Duplicate</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Other</x-import>
+                </div>
+                <div style="display:flex; align-items:flex-start; gap:9px; padding:11px 12px; background:var(--surface-card-alt); border-radius:var(--radius-sm); margin-bottom:16px;">
+                  <span style="color:var(--amber-600); flex:0 0 auto; margin-top:1px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg></span>
+                  <span style="font-size:var(--fs-caption); color:var(--text-secondary); line-height:1.5;">Removal is public — it publishes a delete changeset credited to <b style="color:var(--text-primary);">@daf_mapper</b>. Other mappers can see and discuss it.</span>
+                </div>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="danger" size="lg" full-width="{{ true }}" leading-icon="{{ trashIcon }}" hint-size="100%,52px">Remove from map</x-import>
+                <div style="height:10px;"></div>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="ghost" size="md" full-width="{{ true }}" hint-size="100%,46px">Cancel</x-import>
+              </x-import>
+            </div>
+          </div>
+        </x-import>
+      </div>
+
+    </div>
+
   </div>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1500,&quot;height&quot;:1100},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
 class Component extends DCLogic {
+  state = { openMenu: 'node/12100882' };
   renderVals() {
     const R = React.createElement;
     const svg = (w, kids, opts) => R('svg', { width: w, height: w, viewBox: '0 0 24 24', fill: (opts && opts.fill) || 'none', stroke: (opts && opts.fill) ? 'none' : 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, kids);
@@ -481,7 +672,46 @@ class Component extends DCLogic {
 
     const theme = this.props.theme ?? 'light';
 
+    // Screen 18 · Your edits — changesets, each with camera nodes and a per-row actions menu
+    const openId = this.state.openMenu;
+    const kebabBase = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, padding: 0, border: 'none', borderRadius: 'var(--radius-pill)', cursor: 'pointer', flex: '0 0 auto', WebkitTapHighlightColor: 'transparent' };
+    const toggleMenu = (id) => () => this.setState((s) => ({ openMenu: s.openMenu === id ? null : id }));
+    const rawChangesets = [
+      { title: 'Just now · 2 cameras', id: 'changeset/171,224,908', fresh: true, nodes: [
+        { osm: 'node/12100881', ver: 'v1', street: 'Market St & 5th St' },
+        { osm: 'node/12100882', ver: 'v1', street: 'Market St & 5th St' },
+      ] },
+      { title: '21 Jun · 1 camera', id: 'changeset/170,981,554', nodes: [
+        { osm: 'node/11640217', ver: 'v3', street: 'Valencia St & 24th St', updatedBy: '@osm_sf' },
+      ] },
+      { title: '30 May · 3 cameras', id: 'changeset/169,704,312', nodes: [
+        { osm: 'node/11402881', ver: 'v1', street: 'Folsom St & 7th St' },
+        { osm: 'node/11402880', ver: 'v1', street: 'Harrison St & 3rd St' },
+        { osm: 'node/11402879', ver: 'v1', street: 'Bryant St & 6th St' },
+      ] },
+    ];
+    const changesets = rawChangesets.map((cs) => ({
+      title: cs.title,
+      id: cs.id,
+      dotStyle: { width: 6, height: 6, borderRadius: '50%', background: cs.fresh ? 'var(--text-brand)' : 'var(--border-strong)', flex: '0 0 auto' },
+      nodes: cs.nodes.map((n) => {
+        const open = openId === n.osm;
+        return {
+          typeLabel: 'ALPR reader · Flock Safety',
+          street: n.street,
+          osm: n.osm + ' · ' + n.ver,
+          updatedBy: n.updatedBy || '',
+          open,
+          onToggle: toggleMenu(n.osm),
+          onEdit: () => {},
+          onRemove: () => {},
+          kebabStyle: { ...kebabBase, background: open ? 'var(--brand-soft)' : 'transparent', color: open ? 'var(--text-brand)' : 'var(--text-tertiary)' },
+        };
+      }),
+    }));
+
     return {
+      changesets,
       theme,
       isDark: theme === 'dark',
       searchClear,

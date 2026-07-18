@@ -1,0 +1,191 @@
+appId: com.anonymous.drivefree.dev
+name: OSM Node Location Editor Mocked
+tags:
+  - contribute
+  - map
+  - node-location
+---
+- setLocation:
+    latitude: 30.26715
+    longitude: -97.74035
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    commands:
+      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 30000
+- openLink: 'driversagainstflock://e2e-mocks?auth=1'
+- extendedWaitUntil:
+    visible:
+      id: 'map-contribute-button'
+    timeout: 10000
+- tapOn:
+    id: 'map-contribute-button'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-start-sheet'
+    timeout: 10000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          id: 'contribute-start-editing-button'
+          retryTapIfNoChange: true
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          id: 'contribute-start-sheet'
+          point: '50%,93%'
+- extendedWaitUntil:
+    visible: 'Place the cameras'
+    timeout: 10000
+- tapOn:
+    id: 'contribute-add-camera-button'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-placement-sheet'
+    timeout: 10000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          id: 'contribute-next-details-button'
+          retryTapIfNoChange: true
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - openLink: 'driversagainstflock://contribute/camera/0'
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-camera-details-screen'
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: 'contribute-direction-dial'
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 90
+    centerElement: true
+- assertVisible:
+    id: 'contribute-direction-dial-satellite-preview'
+- assertVisible:
+    id: 'contribute-direction-dial-cone'
+- assertVisible:
+    id: 'contribute-direction-dial-heading-handle'
+- assertVisible:
+    id: 'contribute-direction-dial-heading-ring'
+- assertVisible:
+    id: 'contribute-direction-dial-pan-target'
+- assertVisible:
+    id: 'contribute-direction-dial-marker'
+- assertVisible:
+    id: 'contribute-direction-dial-zoom-in-button'
+- assertVisible:
+    id: 'contribute-direction-dial-zoom-out-button'
+- assertVisible:
+    id: 'contribute-direction-dial-recenter-button'
+- assertNotVisible:
+    id: 'contribute-node-location-editor'
+- copyTextFrom:
+    id: 'contribute-direction-dial-readout'
+- evalScript: ${output.initialDirectionDegrees = maestro.copiedText}
+- copyTextFrom:
+    id: 'contribute-direction-dial-coordinates'
+- evalScript: ${output.initialNodeCoordinates = maestro.copiedText}
+- swipe:
+    from:
+      id: 'contribute-direction-dial-heading-handle'
+    direction: DOWN
+    duration: 900
+- waitForAnimationToEnd
+- retry:
+    maxRetries: 3
+    commands:
+      - copyTextFrom:
+          id: 'contribute-direction-dial-readout'
+      - assertTrue: ${maestro.copiedText != output.initialDirectionDegrees}
+- copyTextFrom:
+    id: 'contribute-direction-dial-readout'
+- evalScript: ${output.ringDirectionDegrees = maestro.copiedText}
+- copyTextFrom:
+    id: 'contribute-direction-dial-coordinates'
+- assertTrue: ${maestro.copiedText == output.initialNodeCoordinates}
+- swipe:
+    from:
+      id: 'contribute-direction-dial-pan-target'
+    direction: LEFT
+    duration: 900
+- waitForAnimationToEnd
+- copyTextFrom:
+    id: 'contribute-direction-dial-readout'
+- assertTrue: ${maestro.copiedText == output.ringDirectionDegrees}
+- copyTextFrom:
+    id: 'contribute-direction-dial-coordinates'
+- assertTrue: ${maestro.copiedText == output.initialNodeCoordinates}
+- tapOn:
+    id: 'contribute-direction-dial-recenter-button'
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-direction-dial-recenter-button'
+      enabled: true
+    timeout: 10000
+- copyTextFrom:
+    id: 'contribute-direction-dial-coordinates'
+- assertTrue: ${maestro.copiedText == output.initialNodeCoordinates}
+- swipe:
+    from:
+      id: 'contribute-direction-dial-marker'
+    direction: LEFT
+    duration: 1200
+- waitForAnimationToEnd
+- retry:
+    maxRetries: 3
+    commands:
+      - copyTextFrom:
+          id: 'contribute-direction-dial-coordinates'
+      - assertTrue: ${maestro.copiedText != output.initialNodeCoordinates}
+- evalScript: ${output.movedNodeCoordinates = maestro.copiedText}
+- tapOn:
+    id: 'contribute-direction-dial-zoom-in-button'
+- tapOn:
+    id: 'contribute-direction-dial-zoom-out-button'
+- copyTextFrom:
+    id: 'contribute-direction-dial-coordinates'
+- assertTrue: ${maestro.copiedText == output.movedNodeCoordinates}
+- swipe:
+    start: '2%,80%'
+    end: '2%,25%'
+    duration: 800
+- waitForAnimationToEnd
+- assertVisible:
+    id: 'contribute-add-direction-button'
+- tapOn:
+    id: 'contribute-add-direction-button'
+    retryTapIfNoChange: true
+- swipe:
+    start: '2%,25%'
+    end: '2%,80%'
+    duration: 800
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-direction-dial-direction-cone-1'
+    timeout: 10000
+- assertVisible:
+    id: 'contribute-direction-dial-direction-cone-0'
+- assertVisible:
+    id: 'contribute-direction-dial-cone'
