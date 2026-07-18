@@ -181,7 +181,7 @@ export function getAutoPlaySearchResultsMapIsActive({
 
     return Boolean(
         submittedSearchResults?.length ||
-            String(submittedSearchQuery ?? '').trim(),
+        String(submittedSearchQuery ?? '').trim(),
     );
 }
 
@@ -195,6 +195,7 @@ export function getAutoPlayMapContentVisibility({
     );
 
     return {
+        compassIsVisible: !transientMapContextIsActive,
         drivingStatusIsVisible: !transientMapContextIsActive,
         surveillanceMarkersVisible: Boolean(
             surveillanceMarkersVisible && !searchResultsMapIsActive,
