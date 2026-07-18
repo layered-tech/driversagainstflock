@@ -79,6 +79,10 @@ test('route preview waits for the map and applies a selected top-down camera sto
     );
     assert.match(
         mapSurfaceSource,
+        /hideCompassDuringNavigation:\s*Boolean\([\s\S]*?!mapContentVisibility\.compassIsVisible/,
+    );
+    assert.match(
+        mapSurfaceSource,
         /mapBrowsingContextIsActive[\s\S]*?routePreviewIsActive \|\| searchResultsMapIsActive/,
     );
     assert.match(

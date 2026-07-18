@@ -1660,7 +1660,7 @@ export function AutoPlayMapSurfaceContent({
         directionsWaypointMarkers,
         hideCompassDuringNavigation: Boolean(
             (hideCompassDuringNavigation && activeDirectionsRoute) ||
-            searchResultsMapIsActive,
+            !mapContentVisibility.compassIsVisible,
         ),
         initialCameraSettings,
         isDrivingMode,

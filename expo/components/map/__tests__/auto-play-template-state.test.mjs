@@ -257,16 +257,19 @@ describe('Auto Play template state', () => {
         });
 
         assert.deepEqual(normalVisibility, {
+            compassIsVisible: true,
             drivingStatusIsVisible: true,
             surveillanceMarkersVisible: true,
             userLocationPuckVisible: true,
         });
         assert.deepEqual(searchVisibility, {
+            compassIsVisible: false,
             drivingStatusIsVisible: false,
             surveillanceMarkersVisible: false,
             userLocationPuckVisible: true,
         });
         assert.deepEqual(routePreviewVisibility, {
+            compassIsVisible: false,
             drivingStatusIsVisible: false,
             surveillanceMarkersVisible: true,
             userLocationPuckVisible: true,
