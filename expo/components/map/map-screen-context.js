@@ -707,6 +707,7 @@ export function useAutoPlayMapScreenContextValues({
     mapLightPreset,
     mapPreferences,
     markerFeatureCollection,
+    navigationPuckRefreshKey,
     policeAlertFeatureCollection,
     policeAlertsVisible,
     preferredFramesPerSecond,
@@ -747,6 +748,7 @@ export function useAutoPlayMapScreenContextValues({
             markerFeatureCollection,
             markerShapeSourceRef: controller.markerShapeSourceRef,
             nativeCameraFollowProps: controller.nativeCameraFollowProps,
+            navigationPuckRefreshKey,
             navigationPuckVariant: 'auto-play',
             policeAlertFeatureCollection,
             policeAlertsVisible:
@@ -783,6 +785,7 @@ export function useAutoPlayMapScreenContextValues({
             mapPreferences.cameraConesVisible,
             mapPreferences.policeAlertsVisible,
             markerFeatureCollection,
+            navigationPuckRefreshKey,
             policeAlertFeatureCollection,
             policeAlertsVisible,
             preferredFramesPerSecond,
