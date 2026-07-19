@@ -72,6 +72,10 @@ test('Android Auto supplies submitted result markers and frames them on its map'
     assert.match(autoPlayMapSurfaceSource, /getAutoPlaySearchResultsFitKey/);
     assert.match(
         autoPlayMapSurfaceSource,
+        /fitCameraToBounds\(bounds,\s*\{\s*adaptsPaddingToViewport: true/,
+    );
+    assert.match(
+        autoPlayMapSurfaceSource,
         /hideCompassDuringNavigation:[\s\S]*?searchResultsMapIsActive/,
     );
     assert.match(

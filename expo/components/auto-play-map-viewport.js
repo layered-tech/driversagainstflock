@@ -1,4 +1,6 @@
 const AUTO_PLAY_ORNAMENT_INSET_MAX_VIEWPORT_FRACTION = 0.35;
+const AUTO_PLAY_BOUNDS_FIT_MIN_VISIBLE_HEIGHT = 120;
+const AUTO_PLAY_BOUNDS_FIT_MIN_VISIBLE_WIDTH = 240;
 
 function getPositiveDimension(value) {
     const numericValue = Number(value);
@@ -30,6 +32,59 @@ function getClampedOrnamentInset(value, viewportExtent) {
         value,
         viewportExtent * AUTO_PLAY_ORNAMENT_INSET_MAX_VIEWPORT_FRACTION,
     );
+}
+
+function getBoundsFitPaddingScale({
+    endPadding,
+    minimumVisibleExtent,
+    startPadding,
+    visibleExtent,
+}) {
+    const requestedPadding = startPadding + endPadding;
+
+    if (requestedPadding <= 0) {
+        return 1;
+    }
+
+    const resolvedVisibleExtent = getPositiveDimension(visibleExtent);
+    const paddingBudget = Math.max(
+        0,
+        resolvedVisibleExtent -
+            Math.min(resolvedVisibleExtent, minimumVisibleExtent),
+    );
+
+    return Math.min(1, paddingBudget / requestedPadding);
+}
+
+/**
+ * Shrinks only the optional search/route fit margins when host chrome leaves a
+ * constrained map slot. Raw host insets remain unchanged so fitted content is
+ * still centered inside the genuinely visible map.
+ */
+export function getAutoPlayBoundsFitPadding({ padding, viewportMetrics }) {
+    const paddingBottom = getSafeAreaInsetValue(padding?.paddingBottom);
+    const paddingLeft = getSafeAreaInsetValue(padding?.paddingLeft);
+    const paddingRight = getSafeAreaInsetValue(padding?.paddingRight);
+    const paddingTop = getSafeAreaInsetValue(padding?.paddingTop);
+    const horizontalScale = getBoundsFitPaddingScale({
+        endPadding: paddingRight,
+        minimumVisibleExtent: AUTO_PLAY_BOUNDS_FIT_MIN_VISIBLE_WIDTH,
+        startPadding: paddingLeft,
+        visibleExtent: viewportMetrics?.visibleWidth,
+    });
+    const verticalScale = getBoundsFitPaddingScale({
+        endPadding: paddingBottom,
+        minimumVisibleExtent: AUTO_PLAY_BOUNDS_FIT_MIN_VISIBLE_HEIGHT,
+        startPadding: paddingTop,
+        visibleExtent: viewportMetrics?.visibleHeight,
+    });
+
+    return {
+        paddingBottom: paddingBottom * verticalScale,
+        paddingLeft: paddingLeft * horizontalScale,
+        paddingRight: paddingRight * horizontalScale,
+        paddingTop: paddingTop * verticalScale,
+    };
 }
 
 /**
