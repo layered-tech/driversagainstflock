@@ -35,7 +35,7 @@ test('Android Auto presents submitted place results with the host map', () => {
     assert.match(androidPlatformSource, /showsSearchResultsOnMap:\s*true/);
     assert.match(
         autoPlaySource,
-        /function presentAndroidAutoSearchResults[\s\S]*?new ListTemplate\(/,
+        /function presentAutoPlaySearchResults[\s\S]*?new ListTemplate\(/,
     );
     assert.match(
         autoPlaySource,
@@ -43,7 +43,7 @@ test('Android Auto presents submitted place results with the host map', () => {
     );
     assert.match(
         autoPlaySource,
-        /showsSearchResultsOnMap === true[\s\S]*?presentAndroidAutoSearchResults/,
+        /const showsSearchResultsOnMap[\s\S]*?showsSearchResultsOnMap === true[\s\S]*?presentAutoPlaySearchResults/,
     );
     assert.match(
         autoPlaySource,
@@ -74,7 +74,7 @@ test('Android Auto waits for a stable query before requesting autocomplete', () 
 test('Android Auto publishes submitted results before opening its map-backed list', () => {
     assert.match(
         autoPlaySource,
-        /const searchTemplateWasUpdated = await updateSearchTemplateResults\([\s\S]*?searchTemplateWasUpdated &&[\s\S]*?showsSearchResultsOnMap === true[\s\S]*?presentAndroidAutoSearchResults\(/,
+        /const searchTemplateWasUpdated = await updateSearchTemplateResults\([\s\S]*?const showsSearchResultsOnMap[\s\S]*?searchTemplateWasUpdated &&[\s\S]*?showsSearchResultsOnMap \|\| presentsVoiceSearchResultsInList[\s\S]*?presentAutoPlaySearchResults\(/,
     );
     assert.match(
         autoPlaySource,

@@ -749,7 +749,8 @@ function setAutoPlaySubmittedSearchResults({ query, results }) {
     });
 }
 
-function presentAndroidAutoSearchResults({
+function presentAutoPlaySearchResults({
+    includesMap = false,
     query,
     requestIsCurrent = () => true,
     results,
@@ -771,9 +772,13 @@ function presentAndroidAutoSearchResults({
     try {
         resultsTemplate = new ListTemplate({
             headerActions: getBackHeaderAction(dismissResults),
-            mapConfig: {
-                mapButtons: getRootMapButtons(),
-            },
+            ...(includesMap
+                ? {
+                      mapConfig: {
+                          mapButtons: getRootMapButtons(),
+                      },
+                  }
+                : {}),
             onPopped: dismissResults,
             sections: {
                 items: makeSearchRows(results, query, (result) => {
@@ -978,11 +983,18 @@ async function runPlaceTextSearch(
             return;
         }
 
+        const showsSearchResultsOnMap =
+            autoPlayPlatform?.showsSearchResultsOnMap === true;
+        const presentsVoiceSearchResultsInList =
+            autoAdvanceSingleResult &&
+            autoPlayPlatform?.presentsVoiceSearchResultsInList === true;
+
         if (
             searchTemplateWasUpdated &&
-            autoPlayPlatform?.showsSearchResultsOnMap === true
+            (showsSearchResultsOnMap || presentsVoiceSearchResultsInList)
         ) {
-            const resultTemplatePresentation = presentAndroidAutoSearchResults({
+            const resultTemplatePresentation = presentAutoPlaySearchResults({
+                includesMap: showsSearchResultsOnMap,
                 query: textQuery,
                 requestIsCurrent,
                 results,
@@ -2673,6 +2685,28 @@ function startAutoPlayNavigation(
 }
 
 const handleRootHeaderSearchPress = () => {
+    if (
+        autoPlayPlatform?.startSearchVoiceInput?.({
+            onFallback: () => {
+                openSearchTemplate();
+            },
+            onNoMatch: () => {
+                showAutoPlayError(
+                    'Voice search',
+                    'No destination was heard. Tap Search to try again.',
+                );
+            },
+            onUnavailable: () => {
+                showAutoPlayError(
+                    'Voice search unavailable',
+                    'Voice search could not start. Check Microphone and Speech Recognition access on your iPhone, then tap Search again.',
+                );
+            },
+        }) === true
+    ) {
+        return;
+    }
+
     openSearchTemplate();
 };
 const handleRootHeaderDrivingModePress = () => {
@@ -2742,9 +2776,7 @@ function getRootMapHeaderActions() {
 function showAutoPlayError(title, message) {
     const { InformationTemplate } = loadAutoPlayModule();
     const searchAction = {
-        onPress: () => {
-            openSearchTemplate();
-        },
+        onPress: handleRootHeaderSearchPress,
         title: 'Search',
         type: 'text',
     };
@@ -2879,7 +2911,7 @@ async function handleVoiceNavigation(
     }
 
     if (!destinationLocation && !searchQuery) {
-        openSearchTemplate();
+        handleRootHeaderSearchPress();
         return;
     }
 
@@ -3161,6 +3193,7 @@ async function handleAutoPlayConnect() {
 function handleAutoPlayDisconnect() {
     autoPlayConnectionGeneration += 1;
     voiceNavigationRequestGeneration += 1;
+    autoPlayPlatform?.cancelSearchVoiceInput?.();
     autoPlaySessionRenderState = null;
     deactivateAndroidAutoLifecycleAsync().catch(() => {});
     rootMapTemplate = null;

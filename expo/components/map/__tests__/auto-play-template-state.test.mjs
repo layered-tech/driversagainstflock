@@ -141,22 +141,22 @@ describe('Auto Play template state', () => {
         );
     });
 
-    test('preserves the CarPlay driving and navigation header actions', () => {
+    test('hides the idle CarPlay car action but preserves navigation exit', () => {
         assert.deepEqual(
             getAutoPlayHeaderButtonVisibility({
                 hasActiveNavigation: false,
-                usesHeaderDrivingModeButton: true,
+                usesHeaderDrivingModeButton: false,
                 usesHeaderExitNavigationButton: true,
             }),
             {
                 navigationExitButtonIsVisible: false,
-                trailingNavigationButtonIsVisible: true,
+                trailingNavigationButtonIsVisible: false,
             },
         );
         assert.deepEqual(
             getAutoPlayHeaderButtonVisibility({
                 hasActiveNavigation: true,
-                usesHeaderDrivingModeButton: true,
+                usesHeaderDrivingModeButton: false,
                 usesHeaderExitNavigationButton: true,
             }),
             {

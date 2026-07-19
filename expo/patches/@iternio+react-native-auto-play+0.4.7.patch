@@ -715,20 +715,236 @@ index 2f334a6..4d240b7 100644
                              )
                          }"
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridAutoPlay.swift b/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridAutoPlay.swift
-index 85e26c5..5790bee 100644
+index 85e26c5..19e26a6 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridAutoPlay.swift
 +++ b/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridAutoPlay.swift
-@@ -117,7 +117,7 @@ class HybridAutoPlay: HybridAutoPlaySpec {
+@@ -1,6 +1,7 @@
+ import AVFoundation
+ import CarPlay
+ import NitroModules
++import Speech
+ 
+ struct StateListener {
+     let id: UUID
+@@ -17,16 +18,28 @@ struct SafeAreaListener {
+     let callback: (SafeAreaInsets) -> Void
+ }
+ 
++struct VoiceInputListener {
++    let id: UUID
++    let callback: (Location?, String?, String) -> Void
++}
++
+ class HybridAutoPlay: HybridAutoPlaySpec {
+     private static var listeners = [EventName: [StateListener]]()
+     private static var renderStateListeners = [String: [RenderStateListener]]()
+     private static var safeAreaInsetsListeners = [String: [SafeAreaListener]]()
++    private static let voiceInputLock = NSLock()
++    private static var voiceInputListeners: [VoiceInputListener] = []
+     private static var voiceInputManager: VoiceInputManager?
+ 
+     override init() {
+         HybridAutoPlay.listeners.removeAll()
+         HybridAutoPlay.renderStateListeners.removeAll()
+         HybridAutoPlay.safeAreaInsetsListeners.removeAll()
++        let activeVoiceInputManager = HybridAutoPlay.swapVoiceInputManager(nil)
++        HybridAutoPlay.voiceInputLock.lock()
++        HybridAutoPlay.voiceInputListeners.removeAll()
++        HybridAutoPlay.voiceInputLock.unlock()
++        activeVoiceInputManager?.stop(cancelledByUser: true)
+         super.init()
+     }
+ 
+@@ -117,44 +130,89 @@ class HybridAutoPlay: HybridAutoPlaySpec {
      }
  
      func addListenerVoiceInput(
 -        callback: @escaping (Location?, String?) -> Void
 +        callback: @escaping (Location?, String?, String) -> Void
      ) throws -> () -> Void {
-         // iOS does not use the OS-triggered voice input path — use startVoiceInput() instead.
-         return {}
+-        // iOS does not use the OS-triggered voice input path — use startVoiceInput() instead.
+-        return {}
++        let listener = VoiceInputListener(id: UUID(), callback: callback)
++        HybridAutoPlay.voiceInputLock.lock()
++        HybridAutoPlay.voiceInputListeners.append(listener)
++        HybridAutoPlay.voiceInputLock.unlock()
++
++        return {
++            HybridAutoPlay.voiceInputLock.lock()
++            HybridAutoPlay.voiceInputListeners.removeAll {
++                $0.id == listener.id
++            }
++            HybridAutoPlay.voiceInputLock.unlock()
++        }
+     }
+ 
+     func hasVoiceInputPermission() throws -> Bool {
+         return AVAudioSession.sharedInstance().recordPermission == .granted
++            && SFSpeechRecognizer.authorizationStatus() == .authorized
+     }
+ 
+     func requestVoiceInputPermission() throws -> Promise<Bool> {
+         return Promise.async {
+-            return await withCheckedContinuation { cont in
+-                AVAudioSession.sharedInstance().requestRecordPermission { granted in
++            let microphoneIsGranted = await withCheckedContinuation { cont in
++                AVAudioSession.sharedInstance().requestRecordPermission {
++                    granted in
+                     cont.resume(returning: granted)
+                 }
+             }
++
++            guard microphoneIsGranted else {
++                return false
++            }
++
++            let speechRecognitionIsGranted = await withCheckedContinuation {
++                cont in
++                SFSpeechRecognizer.requestAuthorization { status in
++                    cont.resume(returning: status == .authorized)
++                }
++            }
++
++            return speechRecognitionIsGranted
+         }
+     }
+ 
+     func startVoiceInput(silenceThresholdMs: Double?, maxDurationMs: Double?, listeningText: String?) throws -> Promise<
+         ArrayBuffer
+     > {
++        let manager = VoiceInputManager()
++        let previousManager = HybridAutoPlay.swapVoiceInputManager(manager)
++        previousManager?.stop(cancelledByUser: true)
++
+         return Promise.async {
+-            let interfaceController = try? await RootModule.withInterfaceController { $0 }
++            defer {
++                HybridAutoPlay.clearVoiceInputManager(ifCurrent: manager)
++            }
+ 
+-            let manager = VoiceInputManager()
+-            HybridAutoPlay.voiceInputManager = manager
++            guard HybridAutoPlay.voiceInputManagerIsCurrent(manager) else {
++                throw VoiceInputError.noActiveSession
++            }
+ 
+-            defer {
+-                HybridAutoPlay.voiceInputManager = nil
++            guard
++                let interfaceController = try await RootModule
++                    .withInterfaceController(perform: { $0 })
++            else {
++                throw VoiceInputError.interfaceControllerUnavailable
++            }
++
++            guard HybridAutoPlay.voiceInputManagerIsCurrent(manager) else {
++                throw VoiceInputError.noActiveSession
+             }
+ 
+             let data = try await manager.start(
+                 interfaceController: interfaceController,
+                 silenceThresholdMs: silenceThresholdMs ?? 1_500,
+                 maxDurationMs: maxDurationMs ?? 10_000,
+-                listeningText: listeningText ?? "Listening..."
++                listeningText: listeningText ?? "Listening...",
++                onOutcome: { outcome in
++                    HybridAutoPlay.emitVoiceInput(
++                        outcome: outcome,
++                        manager: manager
++                    )
++                }
+             )
+ 
+             return try ArrayBuffer.copy(data: data)
+@@ -162,10 +220,7 @@ class HybridAutoPlay: HybridAutoPlaySpec {
+     }
+ 
+     func stopVoiceInput() throws {
+-        Task { @MainActor in
+-            let interfaceController = try? await RootModule.withInterfaceController { $0 }
+-            HybridAutoPlay.voiceInputManager?.stop(interfaceController: interfaceController)
+-        }
++        HybridAutoPlay.swapVoiceInputManager(nil)?.stop(cancelledByUser: true)
+     }
+ 
+     // MARK: set/push/pop templates
+@@ -352,6 +407,74 @@ class HybridAutoPlay: HybridAutoPlaySpec {
+         }
+     }
+ 
++    static func emitVoiceInput(
++        outcome: VoiceInputOutcome,
++        manager: VoiceInputManager
++    ) {
++        HybridAutoPlay.voiceInputLock.lock()
++        guard HybridAutoPlay.voiceInputManager === manager else {
++            HybridAutoPlay.voiceInputLock.unlock()
++            return
++        }
++
++        let listeners = HybridAutoPlay.voiceInputListeners
++        HybridAutoPlay.voiceInputLock.unlock()
++
++        let query: String?
++        let requestType: String
++
++        switch outcome {
++        case .listening:
++            query = nil
++            requestType = "searchListening"
++        case .transcription(let transcript):
++            query = transcript
++            requestType = "search"
++        case .noMatch:
++            query = nil
++            requestType = "searchNoMatch"
++        case .failed:
++            query = nil
++            requestType = "searchError"
++        case .cancelled:
++            query = nil
++            requestType = "searchCancelled"
++        }
++
++        listeners.forEach { listener in
++            listener.callback(nil, query, requestType)
++        }
++    }
++
++    private static func swapVoiceInputManager(
++        _ manager: VoiceInputManager?
++    ) -> VoiceInputManager? {
++        voiceInputLock.lock()
++        let previousManager = voiceInputManager
++        voiceInputManager = manager
++        voiceInputLock.unlock()
++        return previousManager
++    }
++
++    private static func clearVoiceInputManager(
++        ifCurrent manager: VoiceInputManager
++    ) {
++        voiceInputLock.lock()
++        if voiceInputManager === manager {
++            voiceInputManager = nil
++        }
++        voiceInputLock.unlock()
++    }
++
++    private static func voiceInputManagerIsCurrent(
++        _ manager: VoiceInputManager
++    ) -> Bool {
++        voiceInputLock.lock()
++        let isCurrent = voiceInputManager === manager
++        voiceInputLock.unlock()
++        return isCurrent
++    }
++
+     static func emitSafeAreaInsets(
+         moduleName: String,
+         safeAreaInsets: UIEdgeInsets
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift
-index 8930590..5cc74a8 100644
+index 8930590..dce2b56 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift
 +++ b/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift
 @@ -35,6 +35,7 @@ class MapTemplate: AutoPlayHeaderProviding,
@@ -795,6 +1011,34 @@ index 8930590..5cc74a8 100644
          self.onTripSelected?(tripId, routeId)
  
          if let travelEstimates = trip.routeChoices.first(where: {
+@@ -733,7 +744,7 @@ class MapTemplate: AutoPlayHeaderProviding,
+                     Parser.parseTravelEstimates(
+                         travelEstimates: nitroManeuver.travelEstimates
+                     ),
+-                    for: navigationSession.upcomingManeuvers[maneuverIndex]
++                    for: sessionManeuvers[maneuverIndex]
+                 )
+ 
+                 if index != maneuverIndex {
+@@ -805,6 +816,18 @@ class MapTemplate: AutoPlayHeaderProviding,
+             }
+ 
+             navigationSession.upcomingManeuvers = upcomingManeuvers
++
++            // Estimate updates only attach after a maneuver becomes active.
++            if let currentManeuver = navigationSession.upcomingManeuvers.first,
++                let currentNitroManeuver = maneuvers.first
++            {
++                navigationSession.updateEstimates(
++                    Parser.parseTravelEstimates(
++                        travelEstimates: currentNitroManeuver.travelEstimates
++                    ),
++                    for: currentManeuver
++                )
++            }
+         }
+     }
+ 
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/templates/Parser.swift b/node_modules/@iternio/react-native-auto-play/ios/templates/Parser.swift
 index d15e414..e27a27d 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/templates/Parser.swift
@@ -927,6 +1171,822 @@ index 701338c..0ec0e3d 100644
          // Create a new ListTemplate with the search results
          let listConfig = ListTemplateConfig(
              id: "\(config.id)-results",
+diff --git a/node_modules/@iternio/react-native-auto-play/ios/templates/VoiceInputTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/templates/VoiceInputTemplate.swift
+new file mode 100644
+index 0000000..4f0642e
+--- /dev/null
++++ b/node_modules/@iternio/react-native-auto-play/ios/templates/VoiceInputTemplate.swift
+@@ -0,0 +1,44 @@
++import CarPlay
++
++class VoiceInputTemplate: AutoPlayTemplate {
++    let template: CPVoiceControlTemplate
++    private let templateId: String
++    private let onDidDisappearCallback: () -> Void
++
++    override func getTemplate() -> CPTemplate {
++        return template
++    }
++
++    init(
++        voiceControlStates: [CPVoiceControlState],
++        id: String,
++        onDidDisappear: @escaping () -> Void
++    ) {
++        let voiceControlTemplate = CPVoiceControlTemplate(
++            voiceControlStates: voiceControlStates
++        )
++        initTemplate(template: voiceControlTemplate, id: id)
++
++        template = voiceControlTemplate
++        templateId = id
++        onDidDisappearCallback = onDidDisappear
++
++        super.init()
++
++        try? RootModule.withTemplateStore { templateStore in
++            templateStore.addTemplate(template: self, templateId: id)
++        }
++    }
++
++    override func onDidDisappear(animated: Bool) {
++        onDidDisappearCallback()
++
++        removeFromStore()
++    }
++
++    func removeFromStore() {
++        try? RootModule.withTemplateStore { templateStore in
++            templateStore.removeTemplate(templateId: self.templateId)
++        }
++    }
++}
+diff --git a/node_modules/@iternio/react-native-auto-play/ios/utils/VoiceInputManager.swift b/node_modules/@iternio/react-native-auto-play/ios/utils/VoiceInputManager.swift
+index 2793085..6b1081a 100644
+--- a/node_modules/@iternio/react-native-auto-play/ios/utils/VoiceInputManager.swift
++++ b/node_modules/@iternio/react-native-auto-play/ios/utils/VoiceInputManager.swift
+@@ -1,15 +1,28 @@
+ import AVFoundation
+ import CarPlay
++import Speech
+ 
+-/// Captures audio from the car microphone and buffers raw 16 kHz / 16-bit / mono PCM.
+-/// Recording stops automatically when silence is detected or the max duration is reached.
++/// Captures 16 kHz / 16-bit / mono PCM and transcribes the same microphone
++/// buffers for a CarPlay destination search.
+ class VoiceInputManager {
+     private var audioEngine: AVAudioEngine?
+-    private var voiceControlTemplate: CPVoiceControlTemplate?
++    private var audioSessionIsActive = false
++    private var captureTimeoutWorkItem: DispatchWorkItem?
++    private var cancelledByUser = false
+     private var continuation: CheckedContinuation<[Int16], Error>?
+-    private var samples: [Int16] = []
++    private var interfaceController: AutoPlayInterfaceController?
+     private var isStopping = false
++    private var onOutcome: ((VoiceInputOutcome) -> Void)?
++    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
++    private var recognitionTask: SFSpeechRecognitionTask?
++    private var recognitionTimeoutWorkItem: DispatchWorkItem?
++    private var samples: [Int16] = []
++    private var hasDetectedSpeech = false
++    private var previousAudioSessionCategory: AVAudioSession.Category?
++    private var previousAudioSessionMode: AVAudioSession.Mode?
++    private var previousAudioSessionOptions: AVAudioSession.CategoryOptions?
+     private let stopLock = NSLock()
++    private var voiceInputTemplate: VoiceInputTemplate?
+ 
+     // Timing
+     private var recordingStart: Date?
+@@ -19,6 +32,7 @@ class VoiceInputManager {
+     private static let tapBufferSize: AVAudioFrameCount = 4_096
+     private static let silenceAmplitudeThreshold = 500
+     private static let warmupMs: Double = 500
++    private static let recognitionFinalizationTimeout: TimeInterval = 2
+ 
+     private static let targetFormat = AVAudioFormat(
+         commonFormat: .pcmFormatInt16,
+@@ -33,16 +47,28 @@ class VoiceInputManager {
+         interfaceController: AutoPlayInterfaceController?,
+         silenceThresholdMs: Double,
+         maxDurationMs: Double,
+-        listeningText: String
++        listeningText: String,
++        onOutcome: @escaping (VoiceInputOutcome) -> Void
+     ) async throws -> Data {
+         let samples = try await withCheckedThrowingContinuation {
+             (cont: CheckedContinuation<[Int16], Error>) in
+-            self.continuation = cont
++            stopLock.lock()
++            guard !isStopping else {
++                stopLock.unlock()
++                cont.resume(throwing: VoiceInputError.noActiveSession)
++                return
++            }
++
++            continuation = cont
++            self.interfaceController = interfaceController
++            cancelledByUser = false
++            self.onOutcome = onOutcome
+             self.samples = []
+-            self.isStopping = false
++            hasDetectedSpeech = false
++            stopLock.unlock()
+ 
+             do {
+-                try self.startCapture(
++                try startCapture(
+                     interfaceController: interfaceController,
+                     silenceThresholdMs: silenceThresholdMs,
+                     maxDurationMs: maxDurationMs,
+@@ -50,30 +76,58 @@ class VoiceInputManager {
+                 )
+             }
+             catch {
+-                self.stopCapture(interfaceController: interfaceController)
+-                self.continuation = nil
+-                cont.resume(throwing: error)
++                fail(error: error)
+             }
+         }
+ 
+         return samplesAsData(samples)
+     }
+ 
+-    func stop(interfaceController: AutoPlayInterfaceController? = nil) {
++    func stop(
++        interfaceController suppliedInterfaceController:
++            AutoPlayInterfaceController? = nil,
++        cancelledByUser: Bool = false
++    ) {
+         stopLock.lock()
+         guard !isStopping else {
+             stopLock.unlock()
+             return
+         }
++
+         isStopping = true
+-        let capturedContinuation = continuation
+-        let capturedSamples = samples
+-        continuation = nil
+-        samples = []
++        self.cancelledByUser = cancelledByUser
++        guard continuation != nil else {
++            stopLock.unlock()
++            return
++        }
++
++        let activeInterfaceController = suppliedInterfaceController
++            ?? interfaceController
++        let activeRecognitionRequest = recognitionRequest
++        let activeRecognitionTask = recognitionTask
+         stopLock.unlock()
+ 
+-        stopCapture(interfaceController: interfaceController)
+-        capturedContinuation?.resume(returning: capturedSamples)
++        stopAudioCapture()
++
++        if cancelledByUser {
++            activeRecognitionTask?.cancel()
++            finishRecognition(
++                transcript: nil,
++                interfaceController: activeInterfaceController
++            )
++            return
++        }
++
++        guard let activeRecognitionRequest else {
++            finishRecognition(
++                transcript: nil,
++                interfaceController: activeInterfaceController
++            )
++            return
++        }
++
++        activeRecognitionRequest.endAudio()
++        scheduleRecognitionTimeout()
+     }
+ 
+     // MARK: - Private
+@@ -88,33 +142,59 @@ class VoiceInputManager {
+             throw VoiceInputError.microphonePermissionDenied
+         }
+ 
+-        // Activate the session first so inputNode reports the correct hardware format
+         let session = AVAudioSession.sharedInstance()
+-        try session.setCategory(.playAndRecord, mode: .measurement, options: [])
+-        try session.setActive(true)
++        stopLock.lock()
+ 
+-        if let interfaceController {
+-            presentVoiceTemplate(interfaceController: interfaceController, listeningText: listeningText)
++        guard !isStopping, continuation != nil else {
++            stopLock.unlock()
++            throw VoiceInputError.noActiveSession
++        }
++
++        do {
++            previousAudioSessionCategory = session.category
++            previousAudioSessionMode = session.mode
++            previousAudioSessionOptions = session.categoryOptions
++            try session.setCategory(
++                .playAndRecord,
++                mode: .measurement,
++                options: []
++            )
++            try session.setActive(true)
++            audioSessionIsActive = true
++            stopLock.unlock()
++        }
++        catch {
++            stopLock.unlock()
++            throw error
+         }
+ 
+         let engine = AVAudioEngine()
+         let inputNode = engine.inputNode
+         let nativeFormat = inputNode.outputFormat(forBus: 0)
+-
+         let targetFormat = VoiceInputManager.targetFormat
++
+         guard let converter = AVAudioConverter(from: nativeFormat, to: targetFormat) else {
+             throw VoiceInputError.converterUnavailable
+         }
+ 
+-        recordingStart = Date()
+-        silenceStart = nil
++        try configureSpeechRecognition()
+ 
+         inputNode.installTap(
+             onBus: 0,
+             bufferSize: VoiceInputManager.tapBufferSize,
+             format: nativeFormat
+         ) { [weak self] buffer, _ in
+-            guard let self, !self.isStopping else { return }
++            guard let self else { return }
++
++            self.stopLock.lock()
++            guard !self.isStopping else {
++                self.stopLock.unlock()
++                return
++            }
++
++            self.recognitionRequest?.append(buffer)
++            let recordingStart = self.recordingStart
++            self.stopLock.unlock()
+ 
+             let outputFrameCapacity = AVAudioFrameCount(
+                 Double(buffer.frameLength)
+@@ -131,103 +211,505 @@ class VoiceInputManager {
+ 
+             var conversionError: NSError?
+             let status = converter.convert(to: outputBuffer, error: &conversionError) {
+-                _,
+-                outStatus in
++                _, outStatus in
+                 outStatus.pointee = .haveData
+                 return buffer
+             }
+ 
+-            guard status != .error, let int16Data = outputBuffer.int16ChannelData else { return }
++            guard
++                status != .error,
++                let int16Data = outputBuffer.int16ChannelData
++            else { return }
+ 
+             let frameCount = Int(outputBuffer.frameLength)
+-            let newSamples = Array(UnsafeBufferPointer(start: int16Data[0], count: frameCount))
+-            self.samples.append(contentsOf: newSamples)
+-
++            let newSamples = Array(
++                UnsafeBufferPointer(start: int16Data[0], count: frameCount)
++            )
+             let now = Date()
++            let peak = newSamples.reduce(0) { max($0, abs(Int($1))) }
++            var shouldAutoStop = false
+ 
+-            // Max duration check
+-            if let start = self.recordingStart,
+-                now.timeIntervalSince(start) * 1000 >= maxDurationMs
+-            {
+-                self.triggerAutoStop(interfaceController: interfaceController)
++            self.stopLock.lock()
++            guard !self.isStopping else {
++                self.stopLock.unlock()
+                 return
+             }
+ 
+-            // Silence detection — skip during warm-up so the pipeline has time
+-            // to stabilise before we start measuring amplitude
+-            if let start = self.recordingStart,
+-                now.timeIntervalSince(start) * 1000 >= VoiceInputManager.warmupMs
++            self.samples.append(contentsOf: newSamples)
++
++            if let recordingStart,
++                now.timeIntervalSince(recordingStart) * 1000 >= maxDurationMs
++            {
++                shouldAutoStop = true
++            }
++            else if let recordingStart,
++                now.timeIntervalSince(recordingStart) * 1000
++                    >= VoiceInputManager.warmupMs
+             {
+-                let peak = newSamples.reduce(0) { max($0, abs(Int($1))) }
+-                if peak < VoiceInputManager.silenceAmplitudeThreshold {
+-                    if self.silenceStart == nil { self.silenceStart = now }
++                if peak >= VoiceInputManager.silenceAmplitudeThreshold {
++                    self.hasDetectedSpeech = true
++                    self.silenceStart = nil
++                }
++                else if self.hasDetectedSpeech {
++                    if self.silenceStart == nil {
++                        self.silenceStart = now
++                    }
++
+                     if let silenceBegin = self.silenceStart,
+-                        now.timeIntervalSince(silenceBegin) * 1000 >= silenceThresholdMs
++                        now.timeIntervalSince(silenceBegin) * 1000
++                            >= silenceThresholdMs
+                     {
+-                        self.triggerAutoStop(interfaceController: interfaceController)
++                        shouldAutoStop = true
+                     }
+                 }
+-                else {
+-                    self.silenceStart = nil
+-                }
+             }
++
++            self.stopLock.unlock()
++
++            if shouldAutoStop {
++                self.triggerAutoStop(interfaceController: interfaceController)
++            }
++        }
++
++        do {
++            try engine.start()
++        }
++        catch {
++            inputNode.removeTap(onBus: 0)
++            throw error
++        }
++
++        stopLock.lock()
++        guard !isStopping, continuation != nil else {
++            stopLock.unlock()
++            inputNode.removeTap(onBus: 0)
++            engine.stop()
++            throw VoiceInputError.noActiveSession
+         }
+ 
+-        try engine.start()
+         audioEngine = engine
++        stopLock.unlock()
++
++        scheduleCaptureTimeout(
++            maxDurationMs: maxDurationMs,
++            interfaceController: interfaceController
++        )
++
++        if let interfaceController {
++            Task { @MainActor [weak self] in
++                await self?.presentVoiceTemplate(
++                    interfaceController: interfaceController,
++                    listeningText: listeningText
++                )
++            }
++        }
++    }
++
++    private func configureSpeechRecognition() throws {
++        guard SFSpeechRecognizer.authorizationStatus() == .authorized,
++            let speechRecognizer = SFSpeechRecognizer(locale: Locale.current),
++            speechRecognizer.isAvailable
++        else {
++            throw VoiceInputError.speechRecognitionUnavailable
++        }
++
++        let request = SFSpeechAudioBufferRecognitionRequest()
++        request.shouldReportPartialResults = false
++
++        stopLock.lock()
++        guard !isStopping, continuation != nil else {
++            stopLock.unlock()
++            throw VoiceInputError.noActiveSession
++        }
++
++        recognitionRequest = request
++        stopLock.unlock()
++
++        let task = speechRecognizer.recognitionTask(with: request) {
++            [weak self] result, error in
++            guard let self else { return }
++
++            if let result, result.isFinal {
++                let transcript = result.bestTranscription.formattedString
++                    .trimmingCharacters(in: .whitespacesAndNewlines)
++                self.finishRecognition(
++                    transcript: transcript.isEmpty ? nil : transcript
++                )
++                return
++            }
++
++            if let error {
++                self.fail(error: error)
++            }
++        }
++
++        stopLock.lock()
++        guard
++            !isStopping,
++            continuation != nil,
++            recognitionRequest === request
++        else {
++            stopLock.unlock()
++            task.cancel()
++            throw VoiceInputError.noActiveSession
++        }
++
++        recognitionTask = task
++        recordingStart = Date()
++        silenceStart = nil
++        stopLock.unlock()
+     }
+ 
+-    private func triggerAutoStop(interfaceController: AutoPlayInterfaceController?) {
++    private func triggerAutoStop(
++        interfaceController: AutoPlayInterfaceController?
++    ) {
+         DispatchQueue.global(qos: .userInitiated).async {
+             self.stop(interfaceController: interfaceController)
+         }
+     }
+ 
+-    private func stopCapture(interfaceController: AutoPlayInterfaceController?) {
+-        audioEngine?.inputNode.removeTap(onBus: 0)
+-        audioEngine?.stop()
++    private func scheduleRecognitionTimeout() {
++        let workItem = DispatchWorkItem { [weak self] in
++            self?.finishRecognition(transcript: nil)
++        }
++
++        stopLock.lock()
++        guard continuation != nil else {
++            stopLock.unlock()
++            return
++        }
++
++        recognitionTimeoutWorkItem?.cancel()
++        recognitionTimeoutWorkItem = workItem
++        stopLock.unlock()
++
++        DispatchQueue.global(qos: .userInitiated).asyncAfter(
++            deadline: .now() + VoiceInputManager.recognitionFinalizationTimeout,
++            execute: workItem
++        )
++    }
++
++    private func scheduleCaptureTimeout(
++        maxDurationMs: Double,
++        interfaceController: AutoPlayInterfaceController?
++    ) {
++        let workItem = DispatchWorkItem { [weak self] in
++            self?.stop(interfaceController: interfaceController)
++        }
++
++        stopLock.lock()
++        guard continuation != nil, !isStopping else {
++            stopLock.unlock()
++            return
++        }
++
++        captureTimeoutWorkItem?.cancel()
++        captureTimeoutWorkItem = workItem
++        stopLock.unlock()
++
++        DispatchQueue.global(qos: .userInitiated).asyncAfter(
++            deadline: .now() + max(maxDurationMs, 0) / 1_000,
++            execute: workItem
++        )
++    }
++
++    private func finishRecognition(
++        transcript: String?,
++        interfaceController suppliedInterfaceController:
++            AutoPlayInterfaceController? = nil
++    ) {
++        stopLock.lock()
++        guard continuation != nil else {
++            stopLock.unlock()
++            return
++        }
++
++        isStopping = true
++        let capturedContinuation = continuation
++        let capturedInterfaceController = suppliedInterfaceController
++            ?? interfaceController
++        let capturedWasCancelled = cancelledByUser
++        let capturedOnOutcome = onOutcome
++        let capturedRecognitionTask = recognitionTask
++        let capturedSamples = samples
++        let capturedVoiceInputTemplate = voiceInputTemplate
++        let timeoutWorkItem = recognitionTimeoutWorkItem
++
++        continuation = nil
++        interfaceController = nil
++        onOutcome = nil
++        recognitionRequest = nil
++        recognitionTask = nil
++        recognitionTimeoutWorkItem = nil
++        samples = []
++        voiceInputTemplate = nil
++        stopLock.unlock()
++
++        timeoutWorkItem?.cancel()
++        capturedRecognitionTask?.cancel()
++        stopAudioCapture()
++
++        let finish = {
++            if capturedWasCancelled {
++                capturedOnOutcome?(.cancelled)
++            }
++            else if let transcript {
++                capturedOnOutcome?(.transcription(transcript))
++            }
++            else {
++                capturedOnOutcome?(.noMatch)
++            }
++            capturedContinuation?.resume(returning: capturedSamples)
++        }
++
++        guard
++            let capturedInterfaceController,
++            let capturedVoiceInputTemplate
++        else {
++            finish()
++            return
++        }
++
++        Task { @MainActor in
++            if capturedInterfaceController.interfaceController
++                .presentedTemplate?.id == capturedVoiceInputTemplate.template.id
++            {
++                _ = try? await capturedInterfaceController.dismissTemplate(
++                    animated: true
++                )
++            }
++
++            finish()
++        }
++    }
++
++    private func fail(error: Error) {
++        stopLock.lock()
++        guard continuation != nil else {
++            stopLock.unlock()
++            return
++        }
++
++        let capturedContinuation = continuation
++        let capturedInterfaceController = interfaceController
++        let capturedWasCancelled = cancelledByUser
++        let capturedOnOutcome = onOutcome
++        let capturedRecognitionTask = recognitionTask
++        let capturedRecognitionTimeoutWorkItem = recognitionTimeoutWorkItem
++        let capturedSamples = samples
++        let capturedVoiceInputTemplate = voiceInputTemplate
++
++        continuation = nil
++        interfaceController = nil
++        isStopping = true
++        onOutcome = nil
++        recognitionRequest = nil
++        recognitionTask = nil
++        recognitionTimeoutWorkItem = nil
++        samples = []
++        voiceInputTemplate = nil
++        stopLock.unlock()
++
++        capturedRecognitionTimeoutWorkItem?.cancel()
++        capturedRecognitionTask?.cancel()
++        stopAudioCapture()
++
++        let finish = {
++            if capturedWasCancelled {
++                capturedOnOutcome?(.cancelled)
++                capturedContinuation?.resume(returning: capturedSamples)
++            }
++            else {
++                capturedOnOutcome?(.failed)
++                capturedContinuation?.resume(throwing: error)
++            }
++        }
++
++        guard
++            let capturedInterfaceController,
++            let capturedVoiceInputTemplate
++        else {
++            finish()
++            return
++        }
++
++        Task { @MainActor in
++            if capturedInterfaceController.interfaceController
++                .presentedTemplate?.id == capturedVoiceInputTemplate.template.id
++            {
++                _ = try? await capturedInterfaceController.dismissTemplate(
++                    animated: true
++                )
++            }
++
++            finish()
++        }
++    }
++
++    private func stopAudioCapture() {
++        stopLock.lock()
++        let capturedAudioEngine = audioEngine
++        let capturedCaptureTimeoutWorkItem = captureTimeoutWorkItem
++        let shouldDeactivateAudioSession = audioSessionIsActive
++        let capturedPreviousCategory = previousAudioSessionCategory
++        let capturedPreviousMode = previousAudioSessionMode
++        let capturedPreviousOptions = previousAudioSessionOptions
++
+         audioEngine = nil
++        captureTimeoutWorkItem = nil
++        audioSessionIsActive = false
++        previousAudioSessionCategory = nil
++        previousAudioSessionMode = nil
++        previousAudioSessionOptions = nil
+         recordingStart = nil
+         silenceStart = nil
+-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+-        if let interfaceController {
+-            dismissVoiceTemplate(interfaceController: interfaceController)
++        hasDetectedSpeech = false
++        stopLock.unlock()
++
++        capturedCaptureTimeoutWorkItem?.cancel()
++        capturedAudioEngine?.inputNode.removeTap(onBus: 0)
++        capturedAudioEngine?.stop()
++
++        let session = AVAudioSession.sharedInstance()
++
++        if shouldDeactivateAudioSession {
++            try? session.setActive(
++                false,
++                options: .notifyOthersOnDeactivation
++            )
++        }
++
++        if let capturedPreviousCategory,
++            let capturedPreviousMode,
++            let capturedPreviousOptions
++        {
++            try? session.setCategory(
++                capturedPreviousCategory,
++                mode: capturedPreviousMode,
++                options: capturedPreviousOptions
++            )
+         }
+     }
+ 
+-    private func presentVoiceTemplate(interfaceController: AutoPlayInterfaceController, listeningText: String) {
++    @MainActor
++    private func presentVoiceTemplate(
++        interfaceController: AutoPlayInterfaceController,
++        listeningText: String
++    ) async {
+         let listeningState = CPVoiceControlState(
+             identifier: "listening",
+             titleVariants: [listeningText],
+             image: nil,
+             repeats: true
+         )
+-        let template = CPVoiceControlTemplate(voiceControlStates: [listeningState])
+-        initTemplate(template: template, id: "voice-input")
+-        voiceControlTemplate = template
++        let template = VoiceInputTemplate(
++            voiceControlStates: [listeningState],
++            id: "voice-input-\(UUID().uuidString)"
++        ) { [weak self] in
++            self?.stop(
++                interfaceController: interfaceController,
++                cancelledByUser: true
++            )
++        }
+ 
+-        Task { @MainActor in
+-            try? await interfaceController.presentTemplate(template, animated: true)
+-            template.activateVoiceControlState(withIdentifier: "listening")
++        guard registerVoiceInputTemplate(template) else {
++            template.removeFromStore()
++            return
++        }
++
++        let wasPresented: Bool
++
++        do {
++            wasPresented = try await interfaceController.presentTemplate(
++                template.template,
++                animated: true
++            )
++        }
++        catch {
++            template.removeFromStore()
++            fail(error: error)
++            return
++        }
++
++        guard wasPresented else {
++            template.removeFromStore()
++            fail(error: VoiceInputError.templatePresentationFailed)
++            return
+         }
++
++        guard voiceInputTemplateIsActive(template) else {
++            if interfaceController.interfaceController.presentedTemplate?.id
++                == template.template.id
++            {
++                _ = try? await interfaceController.dismissTemplate(
++                    animated: true
++                )
++            }
++
++            template.removeFromStore()
++            return
++        }
++
++        template.template.activateVoiceControlState(
++            withIdentifier: "listening"
++        )
++        reportListening()
+     }
+ 
+-    private func dismissVoiceTemplate(interfaceController: AutoPlayInterfaceController) {
+-        Task { @MainActor in
+-            try? await interfaceController.dismissTemplate(animated: true)
++    private func registerVoiceInputTemplate(
++        _ template: VoiceInputTemplate
++    ) -> Bool {
++        stopLock.lock()
++        defer { stopLock.unlock() }
++
++        guard continuation != nil, !isStopping else {
++            return false
+         }
+-        voiceControlTemplate = nil
++
++        voiceInputTemplate = template
++        return true
++    }
++
++    private func voiceInputTemplateIsActive(
++        _ template: VoiceInputTemplate
++    ) -> Bool {
++        stopLock.lock()
++        defer { stopLock.unlock() }
++        return voiceInputTemplate === template && !isStopping
++    }
++
++    private func reportListening() {
++        stopLock.lock()
++        guard continuation != nil, !isStopping else {
++            stopLock.unlock()
++            return
++        }
++
++        let capturedOnOutcome = onOutcome
++        stopLock.unlock()
++        capturedOnOutcome?(.listening)
+     }
+ 
+     private func samplesAsData(_ samples: [Int16]) -> Data {
+-        samples.withUnsafeBufferPointer { ptr in
+-            Data(buffer: ptr)
++        samples.withUnsafeBufferPointer { pointer in
++            Data(buffer: pointer)
+         }
+     }
+ }
+ 
+ enum VoiceInputError: Error {
+     case microphonePermissionDenied
++    case speechRecognitionUnavailable
+     case converterUnavailable
++    case interfaceControllerUnavailable
+     case noActiveSession
++    case templatePresentationFailed
++}
++
++enum VoiceInputOutcome {
++    case listening
++    case transcription(String)
++    case noMatch
++    case cancelled
++    case failed
+ }
 diff --git a/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js b/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js
 index abdbba8..2d39b0f 100644
 --- a/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js
