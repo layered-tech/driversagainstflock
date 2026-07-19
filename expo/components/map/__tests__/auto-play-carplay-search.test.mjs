@@ -37,7 +37,7 @@ test('CarPlay waits for keyboard Search instead of issuing autocomplete requests
     );
     assert.match(
         autoPlaySource,
-        /onSearchTextSubmitted:[\s\S]*?runPlaceTextSearch/,
+        /const runSubmittedSearch[\s\S]*?runPlaceTextSearch[\s\S]*?onSearchTextSubmitted:[\s\S]*?runSubmittedSearch\(searchText\)/,
     );
 });
 

@@ -676,34 +676,56 @@ export const MapCanvas = memo(function MapCanvas() {
     }
 
     const navigationPuckLifecycle = navigationPuckLifecycleRef.current;
+    const requestNavigationPuck = useCallback(
+        () =>
+            navigationPuckLifecycle.request({
+                layerAbove: userLocationPuckAboveLayer,
+                mapViewRef,
+                requested: navigationPuckRequestsNative3D,
+                scale: navigationPuckSize,
+                slot: mapLayerSlots.userLocationPuck,
+            }),
+        [
+            mapLayerSlots.userLocationPuck,
+            mapViewRef,
+            navigationPuckLifecycle,
+            navigationPuckRequestsNative3D,
+            navigationPuckSize,
+            userLocationPuckAboveLayer,
+        ],
+    );
+    const refreshNavigationPuckAfterMapAttachment = useCallback(() => {
+        setNavigationPuckMapLoadEpoch((epoch) => epoch + 1);
+    }, []);
     const handleMapFinishedLoading = useCallback(
         (event) => {
             handleMapLoaded(event);
 
-            setNavigationPuckMapLoadEpoch((epoch) => epoch + 1);
+            refreshNavigationPuckAfterMapAttachment();
         },
-        [handleMapLoaded],
+        [handleMapLoaded, refreshNavigationPuckAfterMapAttachment],
     );
 
     useEffect(() => {
-        void navigationPuckLifecycle.request({
-            layerAbove: userLocationPuckAboveLayer,
-            mapViewRef,
-            requested: navigationPuckRequestsNative3D,
-            scale: navigationPuckSize,
-            slot: mapLayerSlots.userLocationPuck,
-        });
+        void requestNavigationPuck();
     }, [
-        mapLayerSlots.userLocationPuck,
         mapStyleURL,
         navigationPuckCameraOwnershipKey,
-        navigationPuckLifecycle,
         navigationPuckMapLoadEpoch,
         navigationPuckRefreshKey,
-        navigationPuckRequestsNative3D,
-        navigationPuckSize,
-        userLocationPuckAboveLayer,
+        requestNavigationPuck,
     ]);
+
+    // A failed initial apply renders RNMapbox's 2D fallback. Let React commit
+    // its removal before applying the 3D puck because the fallback's native
+    // cleanup otherwise replaces the new puck with an empty LocationPuck2D.
+    useEffect(() => {
+        if (navigationPuck3DStatus !== 'preparing') {
+            return;
+        }
+
+        void requestNavigationPuck();
+    }, [navigationPuck3DStatus, requestNavigationPuck]);
 
     useEffect(() => {
         return () => navigationPuckLifecycle.invalidate();
@@ -749,6 +771,7 @@ export const MapCanvas = memo(function MapCanvas() {
             compassPosition={mapCompassPosition}
             onCameraChanged={handleCameraChanged}
             onDidFinishLoadingMap={handleMapFinishedLoading}
+            onDidFinishLoadingStyle={refreshNavigationPuckAfterMapAttachment}
             onPress={handleMapPress}
             preferredFramesPerSecond={preferredFramesPerSecond}
             styleURL={mapStyleURL}

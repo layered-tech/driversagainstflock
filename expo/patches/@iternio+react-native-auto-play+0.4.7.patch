@@ -1,3 +1,19 @@
+diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/AndroidManifest.xml b/node_modules/@iternio/react-native-auto-play/android/src/main/AndroidManifest.xml
+index ecc4dae..6214102 100644
+--- a/node_modules/@iternio/react-native-auto-play/android/src/main/AndroidManifest.xml
++++ b/node_modules/@iternio/react-native-auto-play/android/src/main/AndroidManifest.xml
+@@ -32,6 +32,11 @@
+                 <category android:name="android.intent.category.DEFAULT" />
+                 <data android:scheme="geo" />
+             </intent-filter>
++            <intent-filter>
++                <action android:name="android.intent.action.VIEW" />
++                <category android:name="android.intent.category.DEFAULT" />
++                <data android:scheme="geo" />
++            </intent-filter>
+         </service>
+ 
+         <meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" tools:ignore="MetadataTagInsideApplicationTag" />
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoScreen.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoScreen.kt
 index a12064c..5f6725b 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoScreen.kt
@@ -42,23 +58,944 @@ index a12064c..5f6725b 100644
          }
      }
  
+diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoSession.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoSession.kt
+index de448c8..47e85b1 100644
+--- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoSession.kt
++++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoSession.kt
+@@ -12,11 +12,11 @@ import androidx.car.app.model.MessageTemplate
+ import androidx.car.app.model.Template
+ import androidx.lifecycle.DefaultLifecycleObserver
+ import androidx.lifecycle.LifecycleOwner
+-import com.facebook.react.bridge.LifecycleEventListener
+-import com.margelo.nitro.NitroModules
+ import com.margelo.nitro.swe.iternio.reactnativeautoplay.template.AndroidAutoTemplate
+ import com.margelo.nitro.swe.iternio.reactnativeautoplay.template.MapTemplate
+ import com.margelo.nitro.swe.iternio.reactnativeautoplay.utils.AppInfo
++import java.net.URLDecoder
++import java.util.Locale
+ import java.util.UUID
+ import java.util.concurrent.ConcurrentHashMap
+ import java.util.concurrent.CopyOnWriteArrayList
+@@ -85,10 +85,10 @@ class AndroidAutoSession(sessionInfo: SessionInfo) :
+         }
+ 
+         lifecycle.addObserver(sessionLifecycleObserver)
+-        NitroModules.applicationContext?.addLifecycleEventListener(reactLifecycleObserver)
+ 
+         if (clusterId == null) {
+             HybridAutoPlay.emit(EventName.DIDCONNECT)
++            handleNavigationIntent(intent)
+         } else {
+             HybridCluster.emit(ClusterEventName.DIDCONNECTWITHWINDOW, clusterId)
+         }
+@@ -130,60 +130,417 @@ class AndroidAutoSession(sessionInfo: SessionInfo) :
+     }
+ 
+     override fun onNewIntent(intent: Intent) {
+-        val action = intent.action ?: return
+-
+-        if (action == CarContext.ACTION_NAVIGATE) {
+-            intent.data?.schemeSpecificPart?.let { schemeSpecificPart ->
+-                try {
+-                    // Parse the geo URI format: lat,lon?q=query&mode=x&intent=y
+-                    val queryIndex = schemeSpecificPart.indexOf("?q=")
+-
+-                    val location = if (queryIndex > 0) {
+-                        val coordinatesPart = schemeSpecificPart.substring(0, queryIndex)
+-                        parseCoordinates(coordinatesPart)
+-                    } else {
+-                        null
+-                    }
+-
+-                    val query = if (queryIndex >= 0) {
+-                        val queryPart = schemeSpecificPart.substring(queryIndex + 3) // Skip "?q="
+-                        val additionalParamsIndex = queryPart.indexOf('&')
+-
+-                        if (additionalParamsIndex >= 0) {
+-                            val rawQuery = queryPart.substring(0, additionalParamsIndex)
+-                            java.net.URLDecoder.decode(rawQuery, "UTF-8")
+-                        } else {
+-                            java.net.URLDecoder.decode(queryPart, "UTF-8")
+-                        }
+-                    } else {
+-                        java.net.URLDecoder.decode(schemeSpecificPart, "UTF-8")
+-                    }
+-
+-                    HybridAutoPlay.emitVoiceInput(location, query)
+-                } catch (e: Exception) {
+-                    Log.e(TAG, "Failed to parse navigation intent: ${e.message}")
++        super.onNewIntent(intent)
++        handleNavigationIntent(intent)
++    }
++
++    private enum class NavigationSchemeClass(val logValue: String) {
++        MISSING("missing"),
++        GEO("geo"),
++        OTHER("other")
++    }
++
++    private enum class NavigationCoordinateState(val logValue: String) {
++        MISSING("missing"),
++        ZERO("zero"),
++        VALID("valid"),
++        INVALID("invalid")
++    }
++
++    private enum class NavigationIntentClass(val logValue: String) {
++        MISSING("missing"),
++        NAVIGATION("navigation"),
++        DIRECTIONS("directions"),
++        ADD_A_STOP("add_a_stop"),
++        UNSUPPORTED("unsupported"),
++        DUPLICATE("duplicate"),
++        MALFORMED("malformed")
++    }
++
++    private enum class NavigationRequestType(val bridgeValue: String) {
++        NAVIGATION("navigation"),
++        DIRECTIONS("directions"),
++        SEARCH("search"),
++        QUERY("query")
++    }
++
++    private enum class NavigationRejectionReason(val logValue: String) {
++        MISSING_DATA("missing_data"),
++        UNSUPPORTED_SCHEME("unsupported_scheme"),
++        NON_OPAQUE_GEO_URI("non_opaque_geo_uri"),
++        FRAGMENT_NOT_SUPPORTED("fragment_not_supported"),
++        MISSING_SCHEME_SPECIFIC_PART("missing_scheme_specific_part"),
++        MALFORMED_ENCODING("malformed_encoding"),
++        DUPLICATE_QUERY("duplicate_query"),
++        DUPLICATE_INTENT("duplicate_intent"),
++        MALFORMED_COORDINATES("malformed_coordinates"),
++        UNSUPPORTED_ADD_STOP("unsupported_add_stop"),
++        UNSUPPORTED_INTENT("unsupported_intent"),
++        MISSING_DESTINATION("missing_destination")
++    }
++
++    private data class ParsedNavigationCoordinates(
++        val state: NavigationCoordinateState,
++        val location: Location? = null
++    )
++
++    private data class ParsedNavigationParameters(
++        val query: String?,
++        val queryPresent: Boolean,
++        val intentPresent: Boolean,
++        val intentClass: NavigationIntentClass,
++        val rejectionReason: NavigationRejectionReason? = null
++    )
++
++    private fun handleNavigationIntent(intent: Intent) {
++        val isSearchRequest = intent.action == Intent.ACTION_VIEW
++
++        if (!isSearchRequest && intent.action != CarContext.ACTION_NAVIGATE) {
++            return
++        }
++
++        val data = intent.data
++        if (data == null) {
++            logNavigationIntentRejection(
++                NavigationRejectionReason.MISSING_DATA,
++                NavigationSchemeClass.MISSING,
++                NavigationCoordinateState.MISSING,
++                queryPresent = false,
++                intentClass = NavigationIntentClass.MISSING
++            )
++            return
++        }
++
++        val schemeClass = when {
++            data.scheme == null -> NavigationSchemeClass.MISSING
++            data.scheme.equals("geo", ignoreCase = true) -> NavigationSchemeClass.GEO
++            else -> NavigationSchemeClass.OTHER
++        }
++        val encodedSchemeSpecificPart = data.encodedSchemeSpecificPart
++        val coordinates = if (encodedSchemeSpecificPart.isNullOrBlank()) {
++            ParsedNavigationCoordinates(NavigationCoordinateState.MISSING)
++        } else {
++            parseNavigationCoordinates(encodedSchemeSpecificPart.substringBefore('?'))
++        }
++        val parameters = if (encodedSchemeSpecificPart.isNullOrBlank()) {
++            ParsedNavigationParameters(
++                query = null,
++                queryPresent = false,
++                intentPresent = false,
++                intentClass = NavigationIntentClass.MISSING
++            )
++        } else {
++            parseNavigationParameters(encodedSchemeSpecificPart.substringAfter('?', ""))
++        }
++
++        if (schemeClass != NavigationSchemeClass.GEO) {
++            logNavigationIntentRejection(
++                NavigationRejectionReason.UNSUPPORTED_SCHEME,
++                schemeClass,
++                coordinates.state,
++                parameters.queryPresent,
++                parameters.intentClass
++            )
++            return
++        }
++
++        if (!data.isOpaque) {
++            logNavigationIntentRejection(
++                NavigationRejectionReason.NON_OPAQUE_GEO_URI,
++                schemeClass,
++                coordinates.state,
++                parameters.queryPresent,
++                parameters.intentClass
++            )
++            return
++        }
++
++        if (data.fragment != null) {
++            logNavigationIntentRejection(
++                NavigationRejectionReason.FRAGMENT_NOT_SUPPORTED,
++                schemeClass,
++                coordinates.state,
++                parameters.queryPresent,
++                parameters.intentClass
++            )
++            return
++        }
++
++        if (encodedSchemeSpecificPart.isNullOrBlank()) {
++            logNavigationIntentRejection(
++                NavigationRejectionReason.MISSING_SCHEME_SPECIFIC_PART,
++                schemeClass,
++                NavigationCoordinateState.MISSING,
++                queryPresent = false,
++                intentClass = NavigationIntentClass.MISSING
++            )
++            return
++        }
++
++        parameters.rejectionReason?.let { rejectionReason ->
++            logNavigationIntentRejection(
++                rejectionReason,
++                schemeClass,
++                coordinates.state,
++                parameters.queryPresent,
++                parameters.intentClass
++            )
++            return
++        }
++
++        when (parameters.intentClass) {
++            NavigationIntentClass.ADD_A_STOP -> {
++                logNavigationIntentRejection(
++                    NavigationRejectionReason.UNSUPPORTED_ADD_STOP,
++                    schemeClass,
++                    coordinates.state,
++                    parameters.queryPresent,
++                    parameters.intentClass
++                )
++                return
++            }
++
++            NavigationIntentClass.UNSUPPORTED -> {
++                logNavigationIntentRejection(
++                    NavigationRejectionReason.UNSUPPORTED_INTENT,
++                    schemeClass,
++                    coordinates.state,
++                    parameters.queryPresent,
++                    parameters.intentClass
++                )
++                return
++            }
++
++            else -> Unit
++        }
++
++        if (coordinates.state == NavigationCoordinateState.INVALID) {
++            logNavigationIntentRejection(
++                NavigationRejectionReason.MALFORMED_COORDINATES,
++                schemeClass,
++                coordinates.state,
++                parameters.queryPresent,
++                parameters.intentClass
++            )
++            return
++        }
++
++        val requestType = when {
++            isSearchRequest -> NavigationRequestType.SEARCH
++            parameters.intentClass == NavigationIntentClass.DIRECTIONS ->
++                NavigationRequestType.DIRECTIONS
++            coordinates.state == NavigationCoordinateState.ZERO &&
++                parameters.query != null &&
++                !parameters.intentPresent -> NavigationRequestType.QUERY
++            else -> NavigationRequestType.NAVIGATION
++        }
++
++        if (coordinates.state == NavigationCoordinateState.VALID) {
++            logNavigationIntentAccepted(
++                requestType,
++                coordinates.state,
++                parameters.queryPresent,
++                parameters.intentClass
++            )
++            HybridAutoPlay.emitVoiceInput(
++                coordinates.location,
++                parameters.query,
++                requestType.bridgeValue
++            )
++            return
++        }
++
++        if (
++            coordinates.state == NavigationCoordinateState.ZERO &&
++            parameters.query != null &&
++            (
++                parameters.intentClass == NavigationIntentClass.NAVIGATION ||
++                    parameters.intentClass == NavigationIntentClass.DIRECTIONS
++                )
++        ) {
++            logNavigationIntentAccepted(
++                requestType,
++                coordinates.state,
++                parameters.queryPresent,
++                parameters.intentClass
++            )
++            HybridAutoPlay.emitVoiceInput(
++                null,
++                parameters.query,
++                requestType.bridgeValue
++            )
++            return
++        }
++
++        logNavigationIntentRejection(
++            NavigationRejectionReason.MISSING_DESTINATION,
++            schemeClass,
++            coordinates.state,
++            parameters.queryPresent,
++            parameters.intentClass
++        )
++    }
++
++    private fun logNavigationIntentAccepted(
++        requestType: NavigationRequestType,
++        coordinateState: NavigationCoordinateState,
++        queryPresent: Boolean,
++        intentClass: NavigationIntentClass
++    ) {
++        Log.i(
++            TAG,
++            "Accepted voice intent " +
++                "requestType=${requestType.bridgeValue} " +
++                "coordinateState=${coordinateState.logValue} " +
++                "queryPresent=$queryPresent " +
++                "intentClass=${intentClass.logValue}"
++        )
++    }
++
++    private fun parseNavigationParameters(encodedQuery: String): ParsedNavigationParameters {
++        val queryValues = mutableListOf<String>()
++        val intentValues = mutableListOf<String>()
++        val queryPresent = hasEncodedNavigationParameter(encodedQuery, "q")
++        val intentPresent = hasEncodedNavigationParameter(encodedQuery, "intent")
++
++        try {
++            encodedQuery.split('&').forEach { encodedParameter ->
++                if (encodedParameter.isEmpty()) {
++                    return@forEach
+                 }
++
++                val encodedKey = encodedParameter.substringBefore('=')
++                val decodedKey = URLDecoder.decode(encodedKey, Charsets.UTF_8.name())
++
++                if (decodedKey != "q" && decodedKey != "intent") {
++                    return@forEach
++                }
++
++                val decodedValue = URLDecoder.decode(
++                    encodedParameter.substringAfter('=', ""),
++                    Charsets.UTF_8.name()
++                )
++
++                if (decodedKey == "q") {
++                    queryValues.add(decodedValue)
++                } else {
++                    intentValues.add(decodedValue)
++                }
++            }
++        } catch (_: IllegalArgumentException) {
++            return ParsedNavigationParameters(
++                query = null,
++                queryPresent = queryPresent,
++                intentPresent = intentPresent,
++                intentClass = NavigationIntentClass.MALFORMED,
++                rejectionReason = NavigationRejectionReason.MALFORMED_ENCODING
++            )
++        }
++
++        val intentClass = when {
++            intentValues.size > 1 -> NavigationIntentClass.DUPLICATE
++            intentValues.isEmpty() -> NavigationIntentClass.NAVIGATION
++            else -> when (intentValues.single().trim().lowercase(Locale.ROOT)) {
++                "navigation" -> NavigationIntentClass.NAVIGATION
++                "directions" -> NavigationIntentClass.DIRECTIONS
++                "add_a_stop" -> NavigationIntentClass.ADD_A_STOP
++                else -> NavigationIntentClass.UNSUPPORTED
+             }
+         }
++
++        if (queryValues.size > 1) {
++            return ParsedNavigationParameters(
++                query = null,
++                queryPresent = true,
++                intentPresent = intentPresent,
++                intentClass = intentClass,
++                rejectionReason = NavigationRejectionReason.DUPLICATE_QUERY
++            )
++        }
++
++        if (intentValues.size > 1) {
++            return ParsedNavigationParameters(
++                query = queryValues.singleOrNull()?.trim()?.takeIf { it.isNotEmpty() },
++                queryPresent = queryPresent,
++                intentPresent = intentPresent,
++                intentClass = intentClass,
++                rejectionReason = NavigationRejectionReason.DUPLICATE_INTENT
++            )
++        }
++
++        return ParsedNavigationParameters(
++            query = queryValues.singleOrNull()?.trim()?.takeIf { it.isNotEmpty() },
++            queryPresent = queryPresent,
++            intentPresent = intentPresent,
++            intentClass = intentClass
++        )
+     }
+ 
+-    /**
+-     * Parses coordinates from a string in format "lat,lon".
+-     * Returns null for invalid formats or 0,0 coordinates (which indicate "use geocoding").
+-     */
+-    private fun parseCoordinates(coordinatesPart: String): Location? {
++    private fun hasEncodedNavigationParameter(
++        encodedQuery: String,
++        parameterName: String
++    ): Boolean {
++        return encodedQuery.split('&').any { encodedParameter ->
++            try {
++                URLDecoder.decode(
++                    encodedParameter.substringBefore('='),
++                    Charsets.UTF_8.name()
++                ) == parameterName
++            } catch (_: IllegalArgumentException) {
++                false
++            }
++        }
++    }
++
++    private fun parseNavigationCoordinates(coordinatesPart: String): ParsedNavigationCoordinates {
++        if (coordinatesPart.isEmpty()) {
++            return ParsedNavigationCoordinates(NavigationCoordinateState.INVALID)
++        }
++
+         val parts = coordinatesPart.split(",")
+-        if (parts.size != 2) return null
++        if (parts.size != 2) {
++            return ParsedNavigationCoordinates(NavigationCoordinateState.INVALID)
++        }
++
++        val lat = parts[0].toDoubleOrNull()
++            ?: return ParsedNavigationCoordinates(NavigationCoordinateState.INVALID)
++        val lon = parts[1].toDoubleOrNull()
++            ?: return ParsedNavigationCoordinates(NavigationCoordinateState.INVALID)
++
++        if (!lat.isFinite() || !lon.isFinite()) {
++            return ParsedNavigationCoordinates(NavigationCoordinateState.INVALID)
++        }
+ 
+-        val lat = parts[0].toDoubleOrNull() ?: return null
+-        val lon = parts[1].toDoubleOrNull() ?: return null
++        if (lat !in -90.0..90.0 || lon !in -180.0..180.0) {
++            return ParsedNavigationCoordinates(NavigationCoordinateState.INVALID)
++        }
+ 
+-        // Treat 0,0 as "no coordinates" - it means use geocoding for the query
+         if (lat == 0.0 && lon == 0.0) {
+-            return null
++            return ParsedNavigationCoordinates(NavigationCoordinateState.ZERO)
+         }
+ 
+-        return Location(lat, lon)
++        return ParsedNavigationCoordinates(
++            NavigationCoordinateState.VALID,
++            Location(lat, lon)
++        )
++    }
++
++    private fun logNavigationIntentRejection(
++        reason: NavigationRejectionReason,
++        schemeClass: NavigationSchemeClass,
++        coordinateState: NavigationCoordinateState,
++        queryPresent: Boolean,
++        intentClass: NavigationIntentClass
++    ) {
++        Log.w(
++            TAG,
++            "Rejected navigation intent " +
++                "reason=${reason.logValue} " +
++                "scheme=${schemeClass.logValue} " +
++                "coordinateState=${coordinateState.logValue} " +
++                "queryPresent=$queryPresent " +
++                "intentClass=${intentClass.logValue}"
++        )
+     }
+ 
+     private val sessionLifecycleObserver = object : DefaultLifecycleObserver {
+@@ -216,20 +573,11 @@ class AndroidAutoSession(sessionInfo: SessionInfo) :
+                 return
+             }
+ 
++            HybridAutoPlay.clearPendingVoiceInput()
+             HybridAutoPlay.emit(EventName.DIDDISCONNECT)
+         }
+     }
+ 
+-    private val reactLifecycleObserver = object : LifecycleEventListener {
+-        override fun onHostResume() {}
+-
+-        override fun onHostPause() {}
+-
+-        override fun onHostDestroy() {
+-            carContext.finishCarApp()
+-        }
+-    }
+-
+     data class ScreenContext(
+         val carContext: CarContext, val session: AndroidAutoSession, var state: VisibilityState
+     )
+diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridAutoPlay.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridAutoPlay.kt
+index dd85e78..35a90b7 100644
+--- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridAutoPlay.kt
++++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridAutoPlay.kt
+@@ -243,11 +243,19 @@ class HybridAutoPlay : HybridAutoPlaySpec() {
+     }
+ 
+ 
+-    override fun addListenerVoiceInput(callback: (Location?, String?) -> Unit): () -> Unit {
+-        voiceInputListeners.add(callback)
++    override fun addListenerVoiceInput(callback: (Location?, String?, String) -> Unit): () -> Unit {
++        synchronized(voiceInputLock) {
++            voiceInputListeners.add(callback)
++            pendingVoiceInput?.let {
++                pendingVoiceInput = null
++                callback(it.first, it.second, it.third)
++            }
++        }
+ 
+         return {
+-            voiceInputListeners.remove(callback)
++            synchronized(voiceInputLock) {
++                voiceInputListeners.remove(callback)
++            }
+         }
+     }
+ 
+@@ -337,7 +345,12 @@ class HybridAutoPlay : HybridAutoPlaySpec() {
+         private val renderStateListeners =
+             ConcurrentHashMap<String, CopyOnWriteArrayList<(VisibilityState) -> Unit>>()
+ 
+-        private val voiceInputListeners = CopyOnWriteArrayList<(Location?, String?) -> Unit>()
++        private val voiceInputListeners = CopyOnWriteArrayList<(Location?, String?, String) -> Unit>()
++
++        private val voiceInputLock = Any()
++
++        @Volatile
++        private var pendingVoiceInput: Triple<Location?, String?, String>? = null
+ 
+         @Volatile
+         private var voiceInputManager: VoiceInputManager? = null
+@@ -361,9 +374,28 @@ class HybridAutoPlay : HybridAutoPlaySpec() {
+             }
+         }
+ 
+-        fun emitVoiceInput(location: Location?, query: String?) {
+-            voiceInputListeners.forEach {
+-                it(location, query)
++        fun emitVoiceInput(
++            location: Location?,
++            query: String?,
++            requestType: String
++        ) {
++            val listeners = synchronized(voiceInputLock) {
++                if (voiceInputListeners.isEmpty()) {
++                    pendingVoiceInput = Triple(location, query, requestType)
++                    return
++                }
++
++                voiceInputListeners.toList()
++            }
++
++            listeners.forEach {
++                it(location, query, requestType)
++            }
++        }
++
++        fun clearPendingVoiceInput() {
++            synchronized(voiceInputLock) {
++                pendingVoiceInput = null
+             }
+         }
+ 
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridSearchTemplate.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridSearchTemplate.kt
-index f1a45c0..b814571 100644
+index f1a45c0..cbbc2b5 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridSearchTemplate.kt
 +++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridSearchTemplate.kt
-@@ -16,7 +16,9 @@ class HybridSearchTemplate : HybridSearchTemplateSpec() {
+@@ -16,7 +16,11 @@ class HybridSearchTemplate : HybridSearchTemplateSpec() {
  
      override fun updateSearchResults(templateId: String, results: NitroSection): Promise<Unit> {
          return Promise.async {
 -            val template = AndroidAutoTemplate.getTemplate<SearchTemplate>(templateId)
 +            val template = AndroidAutoTemplate.getTemplate(templateId) as? SearchTemplate
-+                ?: return@async
++                ?: throw IllegalArgumentException(
++                    "updateSearchResults failed, template $templateId not found or not a SearchTemplate"
++                )
 +
              template.updateSearchResults(results)
          }
      }
+diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/VirtualRenderer.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/VirtualRenderer.kt
+index 6c507fd..848a626 100644
+--- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/VirtualRenderer.kt
++++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/VirtualRenderer.kt
+@@ -13,6 +13,7 @@ import android.view.LayoutInflater
+ import android.view.View
+ import android.view.ViewGroup
+ import android.view.ViewTreeObserver
++import android.view.WindowManager
+ import android.widget.FrameLayout
+ import android.widget.TextView
+ import androidx.annotation.MainThread
+@@ -20,15 +21,13 @@ import androidx.car.app.AppManager
+ import androidx.car.app.CarContext
+ import androidx.car.app.SurfaceCallback
+ import androidx.car.app.SurfaceContainer
+-import com.facebook.react.bridge.Arguments
++import com.facebook.react.ReactApplication
++import com.facebook.react.ReactInstanceEventListener
+ import com.facebook.react.bridge.ReactContext
+ import com.facebook.react.fabric.FabricUIManager
+-import com.facebook.react.runtime.ReactSurfaceImpl
+-import com.facebook.react.runtime.ReactSurfaceView
+-import com.facebook.react.uimanager.DisplayMetricsHolder
++import com.facebook.react.interfaces.fabric.ReactSurface
+ import com.facebook.react.uimanager.UIManagerHelper
+ import com.facebook.react.uimanager.common.UIManagerType
+-import com.margelo.nitro.NitroModules
+ import com.margelo.nitro.swe.iternio.reactnativeautoplay.template.AndroidAutoTemplate
+ import com.margelo.nitro.swe.iternio.reactnativeautoplay.utils.AppInfo
+ import com.margelo.nitro.swe.iternio.reactnativeautoplay.utils.Debouncer
+@@ -41,10 +40,20 @@ class VirtualRenderer(
+     private val isCluster: Boolean = false
+ ) {
+     private var virtualDisplay: VirtualDisplay? = null
+-
+-    private lateinit var reactSurfaceImpl: ReactSurfaceImpl
+-    private var reactSurfaceView: ReactSurfaceView? = null
+-    private var reactSurfaceId: Int? = null
++    private var presentation: FabricMapPresentation? = null
++    private var reactSurface: ReactSurface? = null
++    private var isStopped = false
++    private val reactHost = (context.applicationContext as? ReactApplication)?.reactHost
++    private val reactInstanceEventListener = object : ReactInstanceEventListener {
++        override fun onReactContextInitialized(context: ReactContext) {
++            if (!isStopped) {
++                keepRendererActive(context)
++            }
++        }
++    }
++    private val reactInstanceBeforeDestroyListener: () -> Unit = {
++        stop()
++    }
+ 
+     private var height: Int = 0
+     private var width: Int = 0
+@@ -63,6 +72,9 @@ class VirtualRenderer(
+ 
+     init {
+         virtualRenderer[moduleName] = this
++        reactHost?.addReactInstanceEventListener(reactInstanceEventListener)
++        reactHost?.addBeforeDestroyListener(reactInstanceBeforeDestroyListener)
++        reactHost?.currentReactContext?.let(::keepRendererActive)
+ 
+         context.getCarService(AppManager::class.java).setSurfaceCallback(object : SurfaceCallback {
+             val areaDebouncer = Debouncer(200)
+@@ -74,12 +86,12 @@ class VirtualRenderer(
+             var visibleArea = Rect(0, 0, 0, 0)
+ 
+             override fun onSurfaceAvailable(surfaceContainer: SurfaceContainer) {
+-                if (!isSurfaceReady(surfaceContainer)) {
++                if (isStopped || !isSurfaceReady(surfaceContainer)) {
+                     return
+                 }
+ 
+                 val manager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+-                virtualDisplay?.release()
++                releaseDisplay()
+                 virtualDisplay = manager.createVirtualDisplay(
+                     moduleName,
+                     surfaceContainer.width,
+@@ -89,7 +101,11 @@ class VirtualRenderer(
+                     DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION,
+                 )
+ 
+-                val display = virtualDisplay?.display ?: return
++                val display = virtualDisplay?.display
++                if (display == null) {
++                    releaseDisplay()
++                    return
++                }
+                 height = surfaceContainer.height
+                 width = surfaceContainer.width
+ 
+@@ -97,8 +113,7 @@ class VirtualRenderer(
+             }
+ 
+             override fun onSurfaceDestroyed(surfaceContainer: SurfaceContainer) {
+-                virtualDisplay?.release()
+-                virtualDisplay = null
++                releaseDisplay()
+             }
+ 
+             override fun onScroll(distanceX: Float, distanceY: Float) {
+@@ -237,11 +252,11 @@ class VirtualRenderer(
+     }
+ 
+     private fun initRenderer(display: Display) {
+-        val reactContext = NitroModules.applicationContext ?: return
++        if (isStopped) {
++            return
++        }
+ 
+-        val fabricUiManager = UIManagerHelper.getUIManager(
+-            reactContext, UIManagerType.FABRIC
+-        ) as? FabricUIManager? ?: return
++        val reactHost = reactHost ?: return
+ 
+         val initialProperties = Bundle().apply {
+             putString("id", moduleName)
+@@ -257,94 +272,112 @@ class VirtualRenderer(
+          * since react-native renders everything with the density/scaleFactor from the main display
+          * we have to adjust scaling on AA to take this into account
+          */
+-        DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(reactContext)
+-        val mainScreenDensity = DisplayMetricsHolder.getScreenDisplayMetrics().density
++        val mainScreenDensity = context.applicationContext.resources.displayMetrics.density
+         val reactNativeScale = virtualScreenDensity / mainScreenDensity * BuildConfig.SCALE_FACTOR
+ 
+-        FabricMapPresentation(
+-            reactContext,
+-            display,
+-            fabricUiManager,
+-            height,
+-            width,
+-            initialProperties,
+-            reactNativeScale
+-        ).show()
++        val appTheme = context.applicationContext.applicationInfo.theme
++        val themedContext = ContextThemeWrapper(context.applicationContext, appTheme)
++        val surface = reactSurface ?: reactHost.createSurface(
++            themedContext,
++            moduleName,
++            initialProperties
++        ).also {
++            reactSurface = it
++            it.start()
++        }
++
++        try {
++            presentation = FabricMapPresentation(
++                display,
++                surface,
++                themedContext,
++                height,
++                width,
++                reactNativeScale
++            ).also {
++                it.show()
++            }
++        } catch (_: WindowManager.InvalidDisplayException) {
++            releaseDisplay()
++        }
++    }
++
++    private fun keepRendererActive(reactContext: ReactContext) {
++        val fabricUiManager = UIManagerHelper.getUIManager(
++            reactContext, UIManagerType.FABRIC
++        ) as? FabricUIManager? ?: return
++
++        // remove ui-managers lifecycle listener to not stop rendering when app is not in foreground/phone screen is off
++        reactContext.removeLifecycleEventListener(fabricUiManager)
++        // trigger ui-managers onHostResume to make sure the surface is rendered properly even when AA only is starting without the phone app
++        fabricUiManager.onHostResume()
++    }
++
++    private fun releaseDisplay() {
++        try {
++            releasePresentation()
++        } finally {
++            virtualDisplay?.release()
++            virtualDisplay = null
++        }
++    }
++
++    private fun releasePresentation() {
++        val currentPresentation = presentation
++        presentation = null
++
++        try {
++            reactSurface?.view?.let {
++                (it.parent as? ViewGroup)?.removeView(it)
++            }
++        } finally {
++            currentPresentation?.dismiss()
++        }
+     }
+ 
+     inner class FabricMapPresentation(
+-        private val context: ReactContext,
+         display: Display,
+-        private val fabricUiManager: FabricUIManager,
++        private val surface: ReactSurface,
++        private val themedContext: ContextThemeWrapper,
+         private val height: Int,
+         private val width: Int,
+-        private val initialProperties: Bundle,
+         private val reactNativeScale: Float
+-    ) : Presentation(context, display) {
++    ) : Presentation(themedContext, display) {
+         override fun onCreate(savedInstanceState: Bundle?) {
+             super.onCreate(savedInstanceState)
+ 
+-            // Wrap applicationContext with the app theme so AppCompat widgets (e.g. ReactTextView)
+-            // can resolve their required text-appearance attrs on OEM themes that don't define them
+-            // (notably Polestar/Volvo Android Automotive: Theme.DeviceDefault.Light.DarkActionBar).
+-            val appTheme = context.applicationContext.applicationInfo.theme
+-            val themedContext = ContextThemeWrapper(context.applicationContext, appTheme)
+-
+-            if (!this@VirtualRenderer::reactSurfaceImpl.isInitialized) {
+-                reactSurfaceImpl = ReactSurfaceImpl(themedContext, moduleName, initialProperties)
+-            }
+-
+-            var splashScreenView: View? = null
+-
+-            reactSurfaceView?.let {
+-                (it.parent as ViewGroup).removeView(it)
+-            } ?: run {
+-                splashScreenView =
+-                    if (isCluster) getClusterSplashScreen(themedContext, height, width) else null
++            val surfaceView = surface.view ?: return
++            (surfaceView.parent as? ViewGroup)?.removeView(surfaceView)
+ 
+-                val surfaceView = ReactSurfaceView(themedContext, reactSurfaceImpl).apply {
+-                    layoutParams = FrameLayout.LayoutParams(
+-                        (width / reactNativeScale).toInt(), (height / reactNativeScale).toInt()
+-                    )
+-                    scaleX = reactNativeScale
+-                    scaleY = reactNativeScale
+-                    pivotX = 0f
+-                    pivotY = 0f
+-                    setBackgroundColor(Color.DKGRAY)
+-
+-                    splashScreenView?.let {
+-                        removeClusterSplashScreen({ viewTreeObserver }, it)
+-                    }
++            val splashScreenView =
++                if (isCluster && !splashWillDisappear) {
++                    getClusterSplashScreen(themedContext, height, width)
++                } else {
++                    null
+                 }
+ 
+-                reactSurfaceId = fabricUiManager.startSurface(
+-                    surfaceView,
+-                    moduleName,
+-                    Arguments.fromBundle(initialProperties),
+-                    View.MeasureSpec.makeMeasureSpec(
+-                        (width / reactNativeScale).toInt(), View.MeasureSpec.EXACTLY
+-                    ),
+-                    View.MeasureSpec.makeMeasureSpec(
+-                        (height / reactNativeScale).toInt(), View.MeasureSpec.EXACTLY
+-                    )
++            surfaceView.apply {
++                layoutParams = FrameLayout.LayoutParams(
++                    (width / reactNativeScale).toInt(), (height / reactNativeScale).toInt()
+                 )
+-
+-                // remove ui-managers lifecycle listener to not stop rendering when app is not in foreground/phone screen is off
+-                context.removeLifecycleEventListener(fabricUiManager)
+-                // trigger ui-managers onHostResume to make sure the surface is rendered properly even when AA only is starting without the phone app
+-                fabricUiManager.onHostResume()
+-
+-                reactSurfaceView = surfaceView
++                scaleX = reactNativeScale
++                scaleY = reactNativeScale
++                pivotX = 0f
++                pivotY = 0f
++                setBackgroundColor(Color.DKGRAY)
++
++                splashScreenView?.let {
++                    removeClusterSplashScreen({ viewTreeObserver }, it)
++                }
+             }
+ 
+-
+             val rootContainer = FrameLayout(themedContext).apply {
+                 layoutParams = FrameLayout.LayoutParams(
+                     FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT
+                 )
+                 clipChildren = false
+ 
+-                addView(reactSurfaceView)
++                addView(surfaceView)
+             }
+ 
+             splashScreenView?.let {
+@@ -403,25 +436,19 @@ class VirtualRenderer(
+ 
+     @MainThread
+     private fun stop() {
+-        virtualDisplay?.release()
+-        virtualDisplay = null
+-
+-        val uiManager = NitroModules.applicationContext?.let {
+-            UIManagerHelper.getUIManager(
+-                it, UIManagerType.FABRIC
+-            ) as? FabricUIManager?
++        if (isStopped) {
++            return
+         }
++        isStopped = true
+ 
+-        try {
+-            reactSurfaceId?.let {
+-                uiManager?.stopSurface(it)
+-            }
+-        } catch (_: AssertionError) {
+-            // Fabric already invalidated
+-        } finally {
+-            reactSurfaceId = null
+-            virtualRenderer.remove(moduleName)
++        reactHost?.removeReactInstanceEventListener(reactInstanceEventListener)
++        reactHost?.removeBeforeDestroyListener(reactInstanceBeforeDestroyListener)
++        reactSurface?.let {
++            it.stop()
+         }
++        releaseDisplay()
++        reactSurface = null
++        virtualRenderer.remove(moduleName)
+     }
+ 
+     companion object {
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/Parser.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/Parser.kt
-index e8641d0..2d004b1 100644
+index e8641d0..e0f5b30 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/Parser.kt
 +++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/Parser.kt
 @@ -8,6 +8,7 @@ import android.graphics.PorterDuffColorFilter
@@ -99,7 +1036,7 @@ index e8641d0..2d004b1 100644
      }
  
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/TripPreviewTemplate.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/TripPreviewTemplate.kt
-index 2f334a6..0b289be 100644
+index 2f334a6..4d240b7 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/TripPreviewTemplate.kt
 +++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/TripPreviewTemplate.kt
 @@ -74,6 +74,7 @@ class TripPreviewTemplate(
@@ -110,8 +1047,21 @@ index 2f334a6..0b289be 100644
                                  selectedRoute.steps.last().travelEstimates.timeRemaining
                              )
                          }"
+diff --git a/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridAutoPlay.swift b/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridAutoPlay.swift
+index 85e26c5..5790bee 100644
+--- a/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridAutoPlay.swift
++++ b/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridAutoPlay.swift
+@@ -117,7 +117,7 @@ class HybridAutoPlay: HybridAutoPlaySpec {
+     }
+ 
+     func addListenerVoiceInput(
+-        callback: @escaping (Location?, String?) -> Void
++        callback: @escaping (Location?, String?, String) -> Void
+     ) throws -> () -> Void {
+         // iOS does not use the OS-triggered voice input path — use startVoiceInput() instead.
+         return {}
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift
-index 8930590..f46f29c 100644
+index 8930590..5cc74a8 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift
 +++ b/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift
 @@ -35,6 +35,7 @@ class MapTemplate: AutoPlayHeaderProviding,
@@ -143,6 +1093,14 @@ index 8930590..f46f29c 100644
      func onPanButtonPress() {
          if isPanningInterfaceVisible {
              template.dismissPanningInterface(animated: true)
+@@ -322,6 +330,7 @@ class MapTemplate: AutoPlayHeaderProviding,
+         config.onStopNavigation()
+     }
+ 
++    @objc(mapTemplateShouldProvideNavigationMetadata:)
+     func mapTemplateShouldProvideNavigationMetadata(
+         _ mapTemplate: CPMapTemplate
+     ) -> Bool {
 @@ -541,6 +550,7 @@ class MapTemplate: AutoPlayHeaderProviding,
  
      func hideTripSelector() {
@@ -206,96 +1164,6 @@ index d15e414..e27a27d 100644
              id: routeChoice.id,
              // we don't want to keep the origin travel estimate
              travelEstimates: routeChoice.steps[1...].map { step in
-diff --git a/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js b/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js
-index abdbba8..2d39b0f 100644
---- a/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js
-+++ b/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js
-@@ -9,6 +9,7 @@ const HybridCarPlayDashboard = Platform.OS === 'ios'
-     : null;
- class Dashboard {
-     component = null;
-+    componentRegistered = false;
-     isConnected = false;
-     id = 'CarPlayDashboard';
-     constructor() {
-@@ -27,15 +28,20 @@ class Dashboard {
-             return;
-         }
-         const { component, isConnected } = this;
--        if (!isConnected || component == null) {
-+        if (component == null) {
-             return;
-         }
--        AppRegistry.registerComponent(this.id, () => (props) => React.createElement(SafeAreaInsetsProvider, {
--            moduleName: this.id,
--            // biome-ignore lint/correctness/noChildrenProp: there is no other way in a ts file
--            children: React.createElement(component, props),
--        }));
--        HybridCarPlayDashboard.initRootView();
-+        if (!this.componentRegistered) {
-+            AppRegistry.registerComponent(this.id, () => (props) => React.createElement(SafeAreaInsetsProvider, {
-+                moduleName: this.id,
-+                // biome-ignore lint/correctness/noChildrenProp: there is no other way in a ts file
-+                children: React.createElement(component, props),
-+            }));
-+            this.componentRegistered = true;
-+        }
-+        if (isConnected) {
-+            HybridCarPlayDashboard.initRootView();
-+        }
-     }
-     setComponent(component) {
-         if (Platform.OS !== 'ios') {
-diff --git a/node_modules/@iternio/react-native-auto-play/src/scenes/CarPlayDashboardScene.ts b/node_modules/@iternio/react-native-auto-play/src/scenes/CarPlayDashboardScene.ts
-index ec0b626..5c53fbf 100644
---- a/node_modules/@iternio/react-native-auto-play/src/scenes/CarPlayDashboardScene.ts
-+++ b/node_modules/@iternio/react-native-auto-play/src/scenes/CarPlayDashboardScene.ts
-@@ -25,6 +25,7 @@ export type CarPlayDashboardEvent = EventName | VisibilityState;
- 
- class Dashboard {
-   private component: React.ComponentType<RootComponentInitialProps> | null = null;
-+  private componentRegistered = false;
-   public isConnected = false;
-   public readonly id = 'CarPlayDashboard';
- 
-@@ -47,20 +48,26 @@ class Dashboard {
-     }
- 
-     const { component, isConnected } = this;
--    if (!isConnected || component == null) {
-+    if (component == null) {
-       return;
-     }
- 
--    AppRegistry.registerComponent(
--      this.id,
--      () => (props) =>
--        React.createElement(SafeAreaInsetsProvider, {
--          moduleName: this.id,
--          // biome-ignore lint/correctness/noChildrenProp: there is no other way in a ts file
--          children: React.createElement(component, props),
--        })
--    );
--    HybridCarPlayDashboard.initRootView();
-+    if (!this.componentRegistered) {
-+      AppRegistry.registerComponent(
-+        this.id,
-+        () => (props) =>
-+          React.createElement(SafeAreaInsetsProvider, {
-+            moduleName: this.id,
-+            // biome-ignore lint/correctness/noChildrenProp: there is no other way in a ts file
-+            children: React.createElement(component, props),
-+          })
-+      );
-+      this.componentRegistered = true;
-+    }
-+
-+    if (isConnected) {
-+      HybridCarPlayDashboard.initRootView();
-+    }
-   }
- 
-   public setComponent(component: React.ComponentType<RootComponentInitialProps>) {
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/templates/SearchTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/templates/SearchTemplate.swift
 index 701338c..0ec0e3d 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/templates/SearchTemplate.swift
@@ -392,3 +1260,794 @@ index 701338c..0ec0e3d 100644
          // Create a new ListTemplate with the search results
          let listConfig = ListTemplateConfig(
              id: "\(config.id)-results",
+diff --git a/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js b/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js
+index abdbba8..2d39b0f 100644
+--- a/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js
++++ b/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js
+@@ -9,6 +9,7 @@ const HybridCarPlayDashboard = Platform.OS === 'ios'
+     : null;
+ class Dashboard {
+     component = null;
++    componentRegistered = false;
+     isConnected = false;
+     id = 'CarPlayDashboard';
+     constructor() {
+@@ -27,15 +28,20 @@ class Dashboard {
+             return;
+         }
+         const { component, isConnected } = this;
+-        if (!isConnected || component == null) {
++        if (component == null) {
+             return;
+         }
+-        AppRegistry.registerComponent(this.id, () => (props) => React.createElement(SafeAreaInsetsProvider, {
+-            moduleName: this.id,
+-            // biome-ignore lint/correctness/noChildrenProp: there is no other way in a ts file
+-            children: React.createElement(component, props),
+-        }));
+-        HybridCarPlayDashboard.initRootView();
++        if (!this.componentRegistered) {
++            AppRegistry.registerComponent(this.id, () => (props) => React.createElement(SafeAreaInsetsProvider, {
++                moduleName: this.id,
++                // biome-ignore lint/correctness/noChildrenProp: there is no other way in a ts file
++                children: React.createElement(component, props),
++            }));
++            this.componentRegistered = true;
++        }
++        if (isConnected) {
++            HybridCarPlayDashboard.initRootView();
++        }
+     }
+     setComponent(component) {
+         if (Platform.OS !== 'ios') {
+diff --git a/node_modules/@iternio/react-native-auto-play/lib/specs/AutoPlay.nitro.d.ts b/node_modules/@iternio/react-native-auto-play/lib/specs/AutoPlay.nitro.d.ts
+index a55c66d..761f5d5 100644
+--- a/node_modules/@iternio/react-native-auto-play/lib/specs/AutoPlay.nitro.d.ts
++++ b/node_modules/@iternio/react-native-auto-play/lib/specs/AutoPlay.nitro.d.ts
+@@ -30,7 +30,7 @@ export interface AutoPlay extends HybridObject<{
+      * @returns callback to remove the listener
+      * @namespace Android
+      */
+-    addListenerVoiceInput(callback: (coordinates: Location | undefined, query: string | undefined) => void): CleanupCallback;
++    addListenerVoiceInput(callback: (coordinates: Location | undefined, query: string | undefined, requestType: string) => void): CleanupCallback;
+     /**
+      * Returns true if microphone permission has already been granted.
+      */
+diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/ReactNativeAutoPlayOnLoad.cpp b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/ReactNativeAutoPlayOnLoad.cpp
+index a673aeb..61eba13 100644
+--- a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/ReactNativeAutoPlayOnLoad.cpp
++++ b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/ReactNativeAutoPlayOnLoad.cpp
+@@ -23,7 +23,7 @@
+ #include "JFunc_void_std__optional_Telemetry_.hpp"
+ #include "JHybridAutoPlaySpec.hpp"
+ #include "JFunc_void_VisibilityState.hpp"
+-#include "JFunc_void_std__optional_Location__std__optional_std__string_.hpp"
++#include "JFunc_void_std__optional_Location__std__optional_std__string__std__string.hpp"
+ #include "JFunc_void_SafeAreaInsets.hpp"
+ #include "JHybridClusterSpec.hpp"
+ #include "JFunc_void_std__string.hpp"
+@@ -158,7 +158,7 @@ void registerAllNatives() {
+   margelo::nitro::swe::iternio::reactnativeautoplay::JFunc_void_std__optional_Telemetry__cxx::registerNatives();
+   margelo::nitro::swe::iternio::reactnativeautoplay::JHybridAutoPlaySpec::CxxPart::registerNatives();
+   margelo::nitro::swe::iternio::reactnativeautoplay::JFunc_void_VisibilityState_cxx::registerNatives();
+-  margelo::nitro::swe::iternio::reactnativeautoplay::JFunc_void_std__optional_Location__std__optional_std__string__cxx::registerNatives();
++  margelo::nitro::swe::iternio::reactnativeautoplay::JFunc_void_std__optional_Location__std__optional_std__string__std__string_cxx::registerNatives();
+   margelo::nitro::swe::iternio::reactnativeautoplay::JFunc_void_SafeAreaInsets_cxx::registerNatives();
+   margelo::nitro::swe::iternio::reactnativeautoplay::JHybridClusterSpec::CxxPart::registerNatives();
+   margelo::nitro::swe::iternio::reactnativeautoplay::JFunc_void_std__string_cxx::registerNatives();
+diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JFunc_void_std__optional_Location__std__optional_std__string_.hpp b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JFunc_void_std__optional_Location__std__optional_std__string_.hpp
+deleted file mode 100644
+index fe2a301..0000000
+--- a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JFunc_void_std__optional_Location__std__optional_std__string_.hpp
++++ /dev/null
+@@ -1,79 +0,0 @@
+-///
+-/// JFunc_void_std__optional_Location__std__optional_std__string_.hpp
+-/// This file was generated by nitrogen. DO NOT MODIFY THIS FILE.
+-/// https://github.com/mrousavy/nitro
+-/// Copyright © Marc Rousavy @ Margelo
+-///
+-
+-#pragma once
+-
+-#include <fbjni/fbjni.h>
+-#include <functional>
+-
+-#include "Location.hpp"
+-#include <optional>
+-#include <string>
+-#include <functional>
+-#include <NitroModules/JNICallable.hpp>
+-#include "JLocation.hpp"
+-
+-namespace margelo::nitro::swe::iternio::reactnativeautoplay {
+-
+-  using namespace facebook;
+-
+-  /**
+-   * Represents the Java/Kotlin callback `(coordinates: Location?, query: String?) -> Unit`.
+-   * This can be passed around between C++ and Java/Kotlin.
+-   */
+-  struct JFunc_void_std__optional_Location__std__optional_std__string_: public jni::JavaClass<JFunc_void_std__optional_Location__std__optional_std__string_> {
+-  public:
+-    static constexpr auto kJavaDescriptor = "Lcom/margelo/nitro/swe/iternio/reactnativeautoplay/Func_void_std__optional_Location__std__optional_std__string_;";
+-
+-  public:
+-    /**
+-     * Invokes the function this `JFunc_void_std__optional_Location__std__optional_std__string_` instance holds through JNI.
+-     */
+-    void invoke(const std::optional<Location>& coordinates, const std::optional<std::string>& query) const {
+-      static const auto method = javaClassStatic()->getMethod<void(jni::alias_ref<JLocation> /* coordinates */, jni::alias_ref<jni::JString> /* query */)>("invoke");
+-      method(self(), coordinates.has_value() ? JLocation::fromCpp(coordinates.value()) : nullptr, query.has_value() ? jni::make_jstring(query.value()) : nullptr);
+-    }
+-  };
+-
+-  /**
+-   * An implementation of Func_void_std__optional_Location__std__optional_std__string_ that is backed by a C++ implementation (using `std::function<...>`)
+-   */
+-  class JFunc_void_std__optional_Location__std__optional_std__string__cxx final: public jni::HybridClass<JFunc_void_std__optional_Location__std__optional_std__string__cxx, JFunc_void_std__optional_Location__std__optional_std__string_> {
+-  public:
+-    static jni::local_ref<JFunc_void_std__optional_Location__std__optional_std__string_::javaobject> fromCpp(const std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */)>& func) {
+-      return JFunc_void_std__optional_Location__std__optional_std__string__cxx::newObjectCxxArgs(func);
+-    }
+-
+-  public:
+-    /**
+-     * Invokes the C++ `std::function<...>` this `JFunc_void_std__optional_Location__std__optional_std__string__cxx` instance holds.
+-     */
+-    void invoke_cxx(jni::alias_ref<JLocation> coordinates, jni::alias_ref<jni::JString> query) {
+-      _func(coordinates != nullptr ? std::make_optional(coordinates->toCpp()) : std::nullopt, query != nullptr ? std::make_optional(query->toStdString()) : std::nullopt);
+-    }
+-
+-  public:
+-    [[nodiscard]]
+-    inline const std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */)>& getFunction() const {
+-      return _func;
+-    }
+-
+-  public:
+-    static constexpr auto kJavaDescriptor = "Lcom/margelo/nitro/swe/iternio/reactnativeautoplay/Func_void_std__optional_Location__std__optional_std__string__cxx;";
+-    static void registerNatives() {
+-      registerHybrid({makeNativeMethod("invoke_cxx", JFunc_void_std__optional_Location__std__optional_std__string__cxx::invoke_cxx)});
+-    }
+-
+-  private:
+-    explicit JFunc_void_std__optional_Location__std__optional_std__string__cxx(const std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */)>& func): _func(func) { }
+-
+-  private:
+-    friend HybridBase;
+-    std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */)> _func;
+-  };
+-
+-} // namespace margelo::nitro::swe::iternio::reactnativeautoplay
+diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JFunc_void_std__optional_Location__std__optional_std__string__std__string.hpp b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JFunc_void_std__optional_Location__std__optional_std__string__std__string.hpp
+new file mode 100644
+index 0000000..57546e0
+--- /dev/null
++++ b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JFunc_void_std__optional_Location__std__optional_std__string__std__string.hpp
+@@ -0,0 +1,79 @@
++///
++/// JFunc_void_std__optional_Location__std__optional_std__string__std__string.hpp
++/// This file was generated by nitrogen. DO NOT MODIFY THIS FILE.
++/// https://github.com/mrousavy/nitro
++/// Copyright © Marc Rousavy @ Margelo
++///
++
++#pragma once
++
++#include <fbjni/fbjni.h>
++#include <functional>
++
++#include "Location.hpp"
++#include <optional>
++#include <string>
++#include <functional>
++#include <NitroModules/JNICallable.hpp>
++#include "JLocation.hpp"
++
++namespace margelo::nitro::swe::iternio::reactnativeautoplay {
++
++  using namespace facebook;
++
++  /**
++   * Represents the Java/Kotlin callback `(coordinates: Location?, query: String?, requestType: String) -> Unit`.
++   * This can be passed around between C++ and Java/Kotlin.
++   */
++  struct JFunc_void_std__optional_Location__std__optional_std__string__std__string: public jni::JavaClass<JFunc_void_std__optional_Location__std__optional_std__string__std__string> {
++  public:
++    static constexpr auto kJavaDescriptor = "Lcom/margelo/nitro/swe/iternio/reactnativeautoplay/Func_void_std__optional_Location__std__optional_std__string__std__string;";
++
++  public:
++    /**
++     * Invokes the function this `JFunc_void_std__optional_Location__std__optional_std__string__std__string` instance holds through JNI.
++     */
++    void invoke(const std::optional<Location>& coordinates, const std::optional<std::string>& query, const std::string& requestType) const {
++      static const auto method = javaClassStatic()->getMethod<void(jni::alias_ref<JLocation> /* coordinates */, jni::alias_ref<jni::JString> /* query */, jni::alias_ref<jni::JString> /* requestType */)>("invoke");
++      method(self(), coordinates.has_value() ? JLocation::fromCpp(coordinates.value()) : nullptr, query.has_value() ? jni::make_jstring(query.value()) : nullptr, jni::make_jstring(requestType));
++    }
++  };
++
++  /**
++   * An implementation of Func_void_std__optional_Location__std__optional_std__string__std__string that is backed by a C++ implementation (using `std::function<...>`)
++   */
++  class JFunc_void_std__optional_Location__std__optional_std__string__std__string_cxx final: public jni::HybridClass<JFunc_void_std__optional_Location__std__optional_std__string__std__string_cxx, JFunc_void_std__optional_Location__std__optional_std__string__std__string> {
++  public:
++    static jni::local_ref<JFunc_void_std__optional_Location__std__optional_std__string__std__string::javaobject> fromCpp(const std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */, const std::string& /* requestType */)>& func) {
++      return JFunc_void_std__optional_Location__std__optional_std__string__std__string_cxx::newObjectCxxArgs(func);
++    }
++
++  public:
++    /**
++     * Invokes the C++ `std::function<...>` this `JFunc_void_std__optional_Location__std__optional_std__string__std__string_cxx` instance holds.
++     */
++    void invoke_cxx(jni::alias_ref<JLocation> coordinates, jni::alias_ref<jni::JString> query, jni::alias_ref<jni::JString> requestType) {
++      _func(coordinates != nullptr ? std::make_optional(coordinates->toCpp()) : std::nullopt, query != nullptr ? std::make_optional(query->toStdString()) : std::nullopt, requestType->toStdString());
++    }
++
++  public:
++    [[nodiscard]]
++    inline const std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */, const std::string& /* requestType */)>& getFunction() const {
++      return _func;
++    }
++
++  public:
++    static constexpr auto kJavaDescriptor = "Lcom/margelo/nitro/swe/iternio/reactnativeautoplay/Func_void_std__optional_Location__std__optional_std__string__std__string_cxx;";
++    static void registerNatives() {
++      registerHybrid({makeNativeMethod("invoke_cxx", JFunc_void_std__optional_Location__std__optional_std__string__std__string_cxx::invoke_cxx)});
++    }
++
++  private:
++    explicit JFunc_void_std__optional_Location__std__optional_std__string__std__string_cxx(const std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */, const std::string& /* requestType */)>& func): _func(func) { }
++
++  private:
++    friend HybridBase;
++    std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */, const std::string& /* requestType */)> _func;
++  };
++
++} // namespace margelo::nitro::swe::iternio::reactnativeautoplay
+diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JHybridAutoPlaySpec.cpp b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JHybridAutoPlaySpec.cpp
+index d7d8d29..c12488f 100644
+--- a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JHybridAutoPlaySpec.cpp
++++ b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JHybridAutoPlaySpec.cpp
+@@ -48,7 +48,7 @@ namespace margelo::nitro::swe::iternio::reactnativeautoplay { enum class NitroBu
+ #include "JVisibilityState.hpp"
+ #include "Location.hpp"
+ #include <optional>
+-#include "JFunc_void_std__optional_Location__std__optional_std__string_.hpp"
++#include "JFunc_void_std__optional_Location__std__optional_std__string__std__string.hpp"
+ #include "JLocation.hpp"
+ #include "SafeAreaInsets.hpp"
+ #include "JFunc_void_SafeAreaInsets.hpp"
+@@ -132,9 +132,9 @@ namespace margelo::nitro::swe::iternio::reactnativeautoplay {
+       }
+     }();
+   }
+-  std::function<void()> JHybridAutoPlaySpec::addListenerVoiceInput(const std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */)>& callback) {
+-    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_void::javaobject>(jni::alias_ref<JFunc_void_std__optional_Location__std__optional_std__string_::javaobject> /* callback */)>("addListenerVoiceInput_cxx");
+-    auto __result = method(_javaPart, JFunc_void_std__optional_Location__std__optional_std__string__cxx::fromCpp(callback));
++  std::function<void()> JHybridAutoPlaySpec::addListenerVoiceInput(const std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */, const std::string& /* requestType */)>& callback) {
++    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_void::javaobject>(jni::alias_ref<JFunc_void_std__optional_Location__std__optional_std__string__std__string::javaobject> /* callback */)>("addListenerVoiceInput_cxx");
++    auto __result = method(_javaPart, JFunc_void_std__optional_Location__std__optional_std__string__std__string_cxx::fromCpp(callback));
+     return [&]() -> std::function<void()> {
+       if (__result->isInstanceOf(JFunc_void_cxx::javaClassStatic())) [[likely]] {
+         auto downcast = jni::static_ref_cast<JFunc_void_cxx::javaobject>(__result);
+diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JHybridAutoPlaySpec.hpp b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JHybridAutoPlaySpec.hpp
+index b32b153..39580ac 100644
+--- a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JHybridAutoPlaySpec.hpp
++++ b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JHybridAutoPlaySpec.hpp
+@@ -56,7 +56,7 @@ namespace margelo::nitro::swe::iternio::reactnativeautoplay {
+     // Methods
+     std::function<void()> addListener(EventName eventType, const std::function<void()>& callback) override;
+     std::function<void()> addListenerRenderState(const std::string& moduleName, const std::function<void(VisibilityState /* payload */)>& callback) override;
+-    std::function<void()> addListenerVoiceInput(const std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */)>& callback) override;
++    std::function<void()> addListenerVoiceInput(const std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */, const std::string& /* requestType */)>& callback) override;
+     bool hasVoiceInputPermission() override;
+     std::shared_ptr<Promise<bool>> requestVoiceInputPermission() override;
+     std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>> startVoiceInput(std::optional<double> silenceThresholdMs, std::optional<double> maxDurationMs, const std::optional<std::string>& listeningText) override;
+diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/kotlin/com/margelo/nitro/swe/iternio/reactnativeautoplay/Func_void_std__optional_Location__std__optional_std__string_.kt b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/kotlin/com/margelo/nitro/swe/iternio/reactnativeautoplay/Func_void_std__optional_Location__std__optional_std__string_.kt
+deleted file mode 100644
+index f86e036..0000000
+--- a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/kotlin/com/margelo/nitro/swe/iternio/reactnativeautoplay/Func_void_std__optional_Location__std__optional_std__string_.kt
++++ /dev/null
+@@ -1,80 +0,0 @@
+-///
+-/// Func_void_std__optional_Location__std__optional_std__string_.kt
+-/// This file was generated by nitrogen. DO NOT MODIFY THIS FILE.
+-/// https://github.com/mrousavy/nitro
+-/// Copyright © Marc Rousavy @ Margelo
+-///
+-
+-package com.margelo.nitro.swe.iternio.reactnativeautoplay
+-
+-import androidx.annotation.Keep
+-import com.facebook.jni.HybridData
+-import com.facebook.proguard.annotations.DoNotStrip
+-import dalvik.annotation.optimization.FastNative
+-
+-
+-/**
+- * Represents the JavaScript callback `(coordinates: optional, query: optional) => void`.
+- * This can be either implemented in C++ (in which case it might be a callback coming from JS),
+- * or in Kotlin/Java (in which case it is a native callback).
+- */
+-@DoNotStrip
+-@Keep
+-@Suppress("ClassName", "RedundantUnitReturnType")
+-fun interface Func_void_std__optional_Location__std__optional_std__string_: (Location?, String?) -> Unit {
+-  /**
+-   * Call the given JS callback.
+-   * @throws Throwable if the JS function itself throws an error, or if the JS function/runtime has already been deleted.
+-   */
+-  @DoNotStrip
+-  @Keep
+-  override fun invoke(coordinates: Location?, query: String?): Unit
+-}
+-
+-/**
+- * Represents the JavaScript callback `(coordinates: optional, query: optional) => void`.
+- * This is implemented in C++, via a `std::function<...>`.
+- * The callback might be coming from JS.
+- */
+-@DoNotStrip
+-@Keep
+-@Suppress(
+-  "KotlinJniMissingFunction", "unused",
+-  "RedundantSuppression", "RedundantUnitReturnType", "FunctionName",
+-  "ConvertSecondaryConstructorToPrimary", "ClassName", "LocalVariableName",
+-)
+-class Func_void_std__optional_Location__std__optional_std__string__cxx: Func_void_std__optional_Location__std__optional_std__string_ {
+-  @DoNotStrip
+-  @Keep
+-  private val mHybridData: HybridData
+-
+-  @DoNotStrip
+-  @Keep
+-  private constructor(hybridData: HybridData) {
+-    mHybridData = hybridData
+-  }
+-
+-  @DoNotStrip
+-  @Keep
+-  override fun invoke(coordinates: Location?, query: String?): Unit
+-    = invoke_cxx(coordinates,query)
+-
+-  @FastNative
+-  private external fun invoke_cxx(coordinates: Location?, query: String?): Unit
+-}
+-
+-/**
+- * Represents the JavaScript callback `(coordinates: optional, query: optional) => void`.
+- * This is implemented in Java/Kotlin, via a `(Location?, String?) -> Unit`.
+- * The callback is always coming from native.
+- */
+-@DoNotStrip
+-@Keep
+-@Suppress("ClassName", "RedundantUnitReturnType", "unused")
+-class Func_void_std__optional_Location__std__optional_std__string__java(private val function: (Location?, String?) -> Unit): Func_void_std__optional_Location__std__optional_std__string_ {
+-  @DoNotStrip
+-  @Keep
+-  override fun invoke(coordinates: Location?, query: String?): Unit {
+-    return this.function(coordinates, query)
+-  }
+-}
+diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/kotlin/com/margelo/nitro/swe/iternio/reactnativeautoplay/Func_void_std__optional_Location__std__optional_std__string__std__string.kt b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/kotlin/com/margelo/nitro/swe/iternio/reactnativeautoplay/Func_void_std__optional_Location__std__optional_std__string__std__string.kt
+new file mode 100644
+index 0000000..7068dd2
+--- /dev/null
++++ b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/kotlin/com/margelo/nitro/swe/iternio/reactnativeautoplay/Func_void_std__optional_Location__std__optional_std__string__std__string.kt
+@@ -0,0 +1,80 @@
++///
++/// Func_void_std__optional_Location__std__optional_std__string__std__string.kt
++/// This file was generated by nitrogen. DO NOT MODIFY THIS FILE.
++/// https://github.com/mrousavy/nitro
++/// Copyright © Marc Rousavy @ Margelo
++///
++
++package com.margelo.nitro.swe.iternio.reactnativeautoplay
++
++import androidx.annotation.Keep
++import com.facebook.jni.HybridData
++import com.facebook.proguard.annotations.DoNotStrip
++import dalvik.annotation.optimization.FastNative
++
++
++/**
++ * Represents the JavaScript callback `(coordinates: optional, query: optional, requestType: string) => void`.
++ * This can be either implemented in C++ (in which case it might be a callback coming from JS),
++ * or in Kotlin/Java (in which case it is a native callback).
++ */
++@DoNotStrip
++@Keep
++@Suppress("ClassName", "RedundantUnitReturnType")
++fun interface Func_void_std__optional_Location__std__optional_std__string__std__string: (Location?, String?, String) -> Unit {
++  /**
++   * Call the given JS callback.
++   * @throws Throwable if the JS function itself throws an error, or if the JS function/runtime has already been deleted.
++   */
++  @DoNotStrip
++  @Keep
++  override fun invoke(coordinates: Location?, query: String?, requestType: String): Unit
++}
++
++/**
++ * Represents the JavaScript callback `(coordinates: optional, query: optional, requestType: string) => void`.
++ * This is implemented in C++, via a `std::function<...>`.
++ * The callback might be coming from JS.
++ */
++@DoNotStrip
++@Keep
++@Suppress(
++  "KotlinJniMissingFunction", "unused",
++  "RedundantSuppression", "RedundantUnitReturnType", "FunctionName",
++  "ConvertSecondaryConstructorToPrimary", "ClassName", "LocalVariableName",
++)
++class Func_void_std__optional_Location__std__optional_std__string__std__string_cxx: Func_void_std__optional_Location__std__optional_std__string__std__string {
++  @DoNotStrip
++  @Keep
++  private val mHybridData: HybridData
++
++  @DoNotStrip
++  @Keep
++  private constructor(hybridData: HybridData) {
++    mHybridData = hybridData
++  }
++
++  @DoNotStrip
++  @Keep
++  override fun invoke(coordinates: Location?, query: String?, requestType: String): Unit
++    = invoke_cxx(coordinates,query,requestType)
++
++  @FastNative
++  private external fun invoke_cxx(coordinates: Location?, query: String?, requestType: String): Unit
++}
++
++/**
++ * Represents the JavaScript callback `(coordinates: optional, query: optional, requestType: string) => void`.
++ * This is implemented in Java/Kotlin, via a `(Location?, String?, String) -> Unit`.
++ * The callback is always coming from native.
++ */
++@DoNotStrip
++@Keep
++@Suppress("ClassName", "RedundantUnitReturnType", "unused")
++class Func_void_std__optional_Location__std__optional_std__string__std__string_java(private val function: (Location?, String?, String) -> Unit): Func_void_std__optional_Location__std__optional_std__string__std__string {
++  @DoNotStrip
++  @Keep
++  override fun invoke(coordinates: Location?, query: String?, requestType: String): Unit {
++    return this.function(coordinates, query, requestType)
++  }
++}
+diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/kotlin/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridAutoPlaySpec.kt b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/kotlin/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridAutoPlaySpec.kt
+index 8ab1345..9e55767 100644
+--- a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/kotlin/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridAutoPlaySpec.kt
++++ b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/kotlin/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridAutoPlaySpec.kt
+@@ -48,11 +48,11 @@ abstract class HybridAutoPlaySpec: HybridObject() {
+     return Func_void_java(__result)
+   }
+   
+-  abstract fun addListenerVoiceInput(callback: (coordinates: Location?, query: String?) -> Unit): () -> Unit
++  abstract fun addListenerVoiceInput(callback: (coordinates: Location?, query: String?, requestType: String) -> Unit): () -> Unit
+   
+   @DoNotStrip
+   @Keep
+-  private fun addListenerVoiceInput_cxx(callback: Func_void_std__optional_Location__std__optional_std__string_): Func_void {
++  private fun addListenerVoiceInput_cxx(callback: Func_void_std__optional_Location__std__optional_std__string__std__string): Func_void {
+     val __result = addListenerVoiceInput(callback)
+     return Func_void_java(__result)
+   }
+diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/ReactNativeAutoPlay-Swift-Cxx-Bridge.cpp b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/ReactNativeAutoPlay-Swift-Cxx-Bridge.cpp
+index c5baaf5..4a86b7c 100644
+--- a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/ReactNativeAutoPlay-Swift-Cxx-Bridge.cpp
++++ b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/ReactNativeAutoPlay-Swift-Cxx-Bridge.cpp
+@@ -38,11 +38,11 @@ namespace margelo::nitro::swe::iternio::reactnativeautoplay::bridge::swift {
+     };
+   }
+   
+-  // pragma MARK: std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */)>
+-  Func_void_std__optional_Location__std__optional_std__string_ create_Func_void_std__optional_Location__std__optional_std__string_(void* NON_NULL swiftClosureWrapper) noexcept {
+-    auto swiftClosure = ReactNativeAutoPlay::Func_void_std__optional_Location__std__optional_std__string_::fromUnsafe(swiftClosureWrapper);
+-    return [swiftClosure = std::move(swiftClosure)](const std::optional<Location>& coordinates, const std::optional<std::string>& query) mutable -> void {
+-      swiftClosure.call(coordinates, query);
++  // pragma MARK: std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */, const std::string& /* requestType */)>
++  Func_void_std__optional_Location__std__optional_std__string__std__string create_Func_void_std__optional_Location__std__optional_std__string__std__string(void* NON_NULL swiftClosureWrapper) noexcept {
++    auto swiftClosure = ReactNativeAutoPlay::Func_void_std__optional_Location__std__optional_std__string__std__string::fromUnsafe(swiftClosureWrapper);
++    return [swiftClosure = std::move(swiftClosure)](const std::optional<Location>& coordinates, const std::optional<std::string>& query, const std::string& requestType) mutable -> void {
++      swiftClosure.call(coordinates, query, requestType);
+     };
+   }
+   
+diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/ReactNativeAutoPlay-Swift-Cxx-Bridge.hpp b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/ReactNativeAutoPlay-Swift-Cxx-Bridge.hpp
+index f05e838..fbba1f5 100644
+--- a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/ReactNativeAutoPlay-Swift-Cxx-Bridge.hpp
++++ b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/ReactNativeAutoPlay-Swift-Cxx-Bridge.hpp
+@@ -302,26 +302,26 @@ namespace margelo::nitro::swe::iternio::reactnativeautoplay::bridge::swift {
+     return optional.value();
+   }
+   
+-  // pragma MARK: std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */)>
++  // pragma MARK: std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */, const std::string& /* requestType */)>
+   /**
+-   * Specialized version of `std::function<void(const std::optional<Location>&, const std::optional<std::string>&)>`.
++   * Specialized version of `std::function<void(const std::optional<Location>&, const std::optional<std::string>&, const std::string&)>`.
+    */
+-  using Func_void_std__optional_Location__std__optional_std__string_ = std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */)>;
++  using Func_void_std__optional_Location__std__optional_std__string__std__string = std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */, const std::string& /* requestType */)>;
+   /**
+-   * Wrapper class for a `std::function<void(const std::optional<Location>& / * coordinates * /, const std::optional<std::string>& / * query * /)>`, this can be used from Swift.
++   * Wrapper class for a `std::function<void(const std::optional<Location>& / * coordinates * /, const std::optional<std::string>& / * query * /, const std::string& / * requestType * /)>`, this can be used from Swift.
+    */
+-  class Func_void_std__optional_Location__std__optional_std__string__Wrapper final {
++  class Func_void_std__optional_Location__std__optional_std__string__std__string_Wrapper final {
+   public:
+-    explicit Func_void_std__optional_Location__std__optional_std__string__Wrapper(std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */)>&& func): _function(std::make_unique<std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */)>>(std::move(func))) {}
+-    inline void call(std::optional<Location> coordinates, std::optional<std::string> query) const noexcept {
+-      _function->operator()(coordinates, query);
++    explicit Func_void_std__optional_Location__std__optional_std__string__std__string_Wrapper(std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */, const std::string& /* requestType */)>&& func): _function(std::make_unique<std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */, const std::string& /* requestType */)>>(std::move(func))) {}
++    inline void call(std::optional<Location> coordinates, std::optional<std::string> query, std::string requestType) const noexcept {
++      _function->operator()(coordinates, query, requestType);
+     }
+   private:
+-    std::unique_ptr<std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */)>> _function;
++    std::unique_ptr<std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */, const std::string& /* requestType */)>> _function;
+   } SWIFT_NONCOPYABLE;
+-  Func_void_std__optional_Location__std__optional_std__string_ create_Func_void_std__optional_Location__std__optional_std__string_(void* NON_NULL swiftClosureWrapper) noexcept;
+-  inline Func_void_std__optional_Location__std__optional_std__string__Wrapper wrap_Func_void_std__optional_Location__std__optional_std__string_(Func_void_std__optional_Location__std__optional_std__string_ value) noexcept {
+-    return Func_void_std__optional_Location__std__optional_std__string__Wrapper(std::move(value));
++  Func_void_std__optional_Location__std__optional_std__string__std__string create_Func_void_std__optional_Location__std__optional_std__string__std__string(void* NON_NULL swiftClosureWrapper) noexcept;
++  inline Func_void_std__optional_Location__std__optional_std__string__std__string_Wrapper wrap_Func_void_std__optional_Location__std__optional_std__string__std__string(Func_void_std__optional_Location__std__optional_std__string__std__string value) noexcept {
++    return Func_void_std__optional_Location__std__optional_std__string__std__string_Wrapper(std::move(value));
+   }
+   
+   // pragma MARK: std::shared_ptr<Promise<bool>>
+diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/c++/HybridAutoPlaySpecSwift.hpp b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/c++/HybridAutoPlaySpecSwift.hpp
+index 9842be3..8f25401 100644
+--- a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/c++/HybridAutoPlaySpecSwift.hpp
++++ b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/c++/HybridAutoPlaySpecSwift.hpp
+@@ -126,7 +126,7 @@ namespace margelo::nitro::swe::iternio::reactnativeautoplay {
+       auto __value = std::move(__result.value());
+       return __value;
+     }
+-    inline std::function<void()> addListenerVoiceInput(const std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */)>& callback) override {
++    inline std::function<void()> addListenerVoiceInput(const std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */, const std::string& /* requestType */)>& callback) override {
+       auto __result = _swiftPart.addListenerVoiceInput(callback);
+       if (__result.hasError()) [[unlikely]] {
+         std::rethrow_exception(__result.error());
+diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/Func_void_std__optional_Location__std__optional_std__string_.swift b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/Func_void_std__optional_Location__std__optional_std__string_.swift
+deleted file mode 100644
+index d7990e5..0000000
+--- a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/Func_void_std__optional_Location__std__optional_std__string_.swift
++++ /dev/null
+@@ -1,53 +0,0 @@
+-///
+-/// Func_void_std__optional_Location__std__optional_std__string_.swift
+-/// This file was generated by nitrogen. DO NOT MODIFY THIS FILE.
+-/// https://github.com/mrousavy/nitro
+-/// Copyright © Marc Rousavy @ Margelo
+-///
+-
+-import NitroModules
+-
+-/**
+- * Wraps a Swift `(_ coordinates: Location?, _ query: String?) -> Void` as a class.
+- * This class can be used from C++, e.g. to wrap the Swift closure as a `std::function`.
+- */
+-public final class Func_void_std__optional_Location__std__optional_std__string_ {
+-  public typealias bridge = margelo.nitro.swe.iternio.reactnativeautoplay.bridge.swift
+-
+-  private let closure: (_ coordinates: Location?, _ query: String?) -> Void
+-
+-  public init(_ closure: @escaping (_ coordinates: Location?, _ query: String?) -> Void) {
+-    self.closure = closure
+-  }
+-
+-  @inline(__always)
+-  public func call(coordinates: bridge.std__optional_Location_, query: bridge.std__optional_std__string_) -> Void {
+-    self.closure(coordinates.value, { () -> String? in
+-      if bridge.has_value_std__optional_std__string_(query) {
+-        let __unwrapped = bridge.get_std__optional_std__string_(query)
+-        return String(__unwrapped)
+-      } else {
+-        return nil
+-      }
+-    }())
+-  }
+-
+-  /**
+-   * Casts this instance to a retained unsafe raw pointer.
+-   * This acquires one additional strong reference on the object!
+-   */
+-  @inline(__always)
+-  public func toUnsafe() -> UnsafeMutableRawPointer {
+-    return Unmanaged.passRetained(self).toOpaque()
+-  }
+-
+-  /**
+-   * Casts an unsafe pointer to a `Func_void_std__optional_Location__std__optional_std__string_`.
+-   * The pointer has to be a retained opaque `Unmanaged<Func_void_std__optional_Location__std__optional_std__string_>`.
+-   * This removes one strong reference from the object!
+-   */
+-  @inline(__always)
+-  public static func fromUnsafe(_ pointer: UnsafeMutableRawPointer) -> Func_void_std__optional_Location__std__optional_std__string_ {
+-    return Unmanaged<Func_void_std__optional_Location__std__optional_std__string_>.fromOpaque(pointer).takeRetainedValue()
+-  }
+-}
+diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/Func_void_std__optional_Location__std__optional_std__string__std__string.swift b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/Func_void_std__optional_Location__std__optional_std__string__std__string.swift
+new file mode 100644
+index 0000000..114c44a
+--- /dev/null
++++ b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/Func_void_std__optional_Location__std__optional_std__string__std__string.swift
+@@ -0,0 +1,53 @@
++///
++/// Func_void_std__optional_Location__std__optional_std__string__std__string.swift
++/// This file was generated by nitrogen. DO NOT MODIFY THIS FILE.
++/// https://github.com/mrousavy/nitro
++/// Copyright © Marc Rousavy @ Margelo
++///
++
++import NitroModules
++
++/**
++ * Wraps a Swift `(_ coordinates: Location?, _ query: String?, _ requestType: String) -> Void` as a class.
++ * This class can be used from C++, e.g. to wrap the Swift closure as a `std::function`.
++ */
++public final class Func_void_std__optional_Location__std__optional_std__string__std__string {
++  public typealias bridge = margelo.nitro.swe.iternio.reactnativeautoplay.bridge.swift
++
++  private let closure: (_ coordinates: Location?, _ query: String?, _ requestType: String) -> Void
++
++  public init(_ closure: @escaping (_ coordinates: Location?, _ query: String?, _ requestType: String) -> Void) {
++    self.closure = closure
++  }
++
++  @inline(__always)
++  public func call(coordinates: bridge.std__optional_Location_, query: bridge.std__optional_std__string_, requestType: std.string) -> Void {
++    self.closure(coordinates.value, { () -> String? in
++      if bridge.has_value_std__optional_std__string_(query) {
++        let __unwrapped = bridge.get_std__optional_std__string_(query)
++        return String(__unwrapped)
++      } else {
++        return nil
++      }
++    }(), String(requestType))
++  }
++
++  /**
++   * Casts this instance to a retained unsafe raw pointer.
++   * This acquires one additional strong reference on the object!
++   */
++  @inline(__always)
++  public func toUnsafe() -> UnsafeMutableRawPointer {
++    return Unmanaged.passRetained(self).toOpaque()
++  }
++
++  /**
++   * Casts an unsafe pointer to a `Func_void_std__optional_Location__std__optional_std__string__std__string`.
++   * The pointer has to be a retained opaque `Unmanaged<Func_void_std__optional_Location__std__optional_std__string__std__string>`.
++   * This removes one strong reference from the object!
++   */
++  @inline(__always)
++  public static func fromUnsafe(_ pointer: UnsafeMutableRawPointer) -> Func_void_std__optional_Location__std__optional_std__string__std__string {
++    return Unmanaged<Func_void_std__optional_Location__std__optional_std__string__std__string>.fromOpaque(pointer).takeRetainedValue()
++  }
++}
+diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/HybridAutoPlaySpec.swift b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/HybridAutoPlaySpec.swift
+index f4982de..6411947 100644
+--- a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/HybridAutoPlaySpec.swift
++++ b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/HybridAutoPlaySpec.swift
+@@ -15,7 +15,7 @@ public protocol HybridAutoPlaySpec_protocol: HybridObject {
+   // Methods
+   func addListener(eventType: EventName, callback: @escaping () -> Void) throws -> () -> Void
+   func addListenerRenderState(moduleName: String, callback: @escaping (_ payload: VisibilityState) -> Void) throws -> () -> Void
+-  func addListenerVoiceInput(callback: @escaping (_ coordinates: Location?, _ query: String?) -> Void) throws -> () -> Void
++  func addListenerVoiceInput(callback: @escaping (_ coordinates: Location?, _ query: String?, _ requestType: String) -> Void) throws -> () -> Void
+   func hasVoiceInputPermission() throws -> Bool
+   func requestVoiceInputPermission() throws -> Promise<Bool>
+   func startVoiceInput(silenceThresholdMs: Double?, maxDurationMs: Double?, listeningText: String?) throws -> Promise<ArrayBuffer>
+diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/HybridAutoPlaySpec_cxx.swift b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/HybridAutoPlaySpec_cxx.swift
+index fc1c5f1..d46a3d9 100644
+--- a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/HybridAutoPlaySpec_cxx.swift
++++ b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/HybridAutoPlaySpec_cxx.swift
+@@ -165,11 +165,11 @@ open class HybridAutoPlaySpec_cxx {
+   }
+   
+   @inline(__always)
+-  public final func addListenerVoiceInput(callback: bridge.Func_void_std__optional_Location__std__optional_std__string_) -> bridge.Result_std__function_void____ {
++  public final func addListenerVoiceInput(callback: bridge.Func_void_std__optional_Location__std__optional_std__string__std__string) -> bridge.Result_std__function_void____ {
+     do {
+-      let __result = try self.__implementation.addListenerVoiceInput(callback: { () -> (Location?, String?) -> Void in
+-        let __wrappedFunction = bridge.wrap_Func_void_std__optional_Location__std__optional_std__string_(callback)
+-        return { (__coordinates: Location?, __query: String?) -> Void in
++      let __result = try self.__implementation.addListenerVoiceInput(callback: { () -> (Location?, String?, String) -> Void in
++        let __wrappedFunction = bridge.wrap_Func_void_std__optional_Location__std__optional_std__string__std__string(callback)
++        return { (__coordinates: Location?, __query: String?, __requestType: String) -> Void in
+           __wrappedFunction.call({ () -> bridge.std__optional_Location_ in
+             if let __unwrappedValue = __coordinates {
+               return bridge.create_std__optional_Location_(__unwrappedValue)
+@@ -182,7 +182,7 @@ open class HybridAutoPlaySpec_cxx {
+             } else {
+               return .init()
+             }
+-          }())
++          }(), std.string(__requestType))
+         }
+       }())
+       let __resultCpp = { () -> bridge.Func_void in
+diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/shared/c++/HybridAutoPlaySpec.hpp b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/shared/c++/HybridAutoPlaySpec.hpp
+index f76989c..25a68a2 100644
+--- a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/shared/c++/HybridAutoPlaySpec.hpp
++++ b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/shared/c++/HybridAutoPlaySpec.hpp
+@@ -69,7 +69,7 @@ namespace margelo::nitro::swe::iternio::reactnativeautoplay {
+       // Methods
+       virtual std::function<void()> addListener(EventName eventType, const std::function<void()>& callback) = 0;
+       virtual std::function<void()> addListenerRenderState(const std::string& moduleName, const std::function<void(VisibilityState /* payload */)>& callback) = 0;
+-      virtual std::function<void()> addListenerVoiceInput(const std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */)>& callback) = 0;
++      virtual std::function<void()> addListenerVoiceInput(const std::function<void(const std::optional<Location>& /* coordinates */, const std::optional<std::string>& /* query */, const std::string& /* requestType */)>& callback) = 0;
+       virtual bool hasVoiceInputPermission() = 0;
+       virtual std::shared_ptr<Promise<bool>> requestVoiceInputPermission() = 0;
+       virtual std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>> startVoiceInput(std::optional<double> silenceThresholdMs, std::optional<double> maxDurationMs, const std::optional<std::string>& listeningText) = 0;
+diff --git a/node_modules/@iternio/react-native-auto-play/src/scenes/CarPlayDashboardScene.ts b/node_modules/@iternio/react-native-auto-play/src/scenes/CarPlayDashboardScene.ts
+index ec0b626..5c53fbf 100644
+--- a/node_modules/@iternio/react-native-auto-play/src/scenes/CarPlayDashboardScene.ts
++++ b/node_modules/@iternio/react-native-auto-play/src/scenes/CarPlayDashboardScene.ts
+@@ -25,6 +25,7 @@ export type CarPlayDashboardEvent = EventName | VisibilityState;
+ 
+ class Dashboard {
+   private component: React.ComponentType<RootComponentInitialProps> | null = null;
++  private componentRegistered = false;
+   public isConnected = false;
+   public readonly id = 'CarPlayDashboard';
+ 
+@@ -47,20 +48,26 @@ class Dashboard {
+     }
+ 
+     const { component, isConnected } = this;
+-    if (!isConnected || component == null) {
++    if (component == null) {
+       return;
+     }
+ 
+-    AppRegistry.registerComponent(
+-      this.id,
+-      () => (props) =>
+-        React.createElement(SafeAreaInsetsProvider, {
+-          moduleName: this.id,
+-          // biome-ignore lint/correctness/noChildrenProp: there is no other way in a ts file
+-          children: React.createElement(component, props),
+-        })
+-    );
+-    HybridCarPlayDashboard.initRootView();
++    if (!this.componentRegistered) {
++      AppRegistry.registerComponent(
++        this.id,
++        () => (props) =>
++          React.createElement(SafeAreaInsetsProvider, {
++            moduleName: this.id,
++            // biome-ignore lint/correctness/noChildrenProp: there is no other way in a ts file
++            children: React.createElement(component, props),
++          })
++      );
++      this.componentRegistered = true;
++    }
++
++    if (isConnected) {
++      HybridCarPlayDashboard.initRootView();
++    }
+   }
+ 
+   public setComponent(component: React.ComponentType<RootComponentInitialProps>) {
+diff --git a/node_modules/@iternio/react-native-auto-play/src/specs/AutoPlay.nitro.ts b/node_modules/@iternio/react-native-auto-play/src/specs/AutoPlay.nitro.ts
+index 4f9cec9..858b2ec 100644
+--- a/node_modules/@iternio/react-native-auto-play/src/specs/AutoPlay.nitro.ts
++++ b/node_modules/@iternio/react-native-auto-play/src/specs/AutoPlay.nitro.ts
+@@ -41,7 +41,11 @@ export interface AutoPlay extends HybridObject<{ android: 'kotlin'; ios: 'swift'
+    * @namespace Android
+    */
+   addListenerVoiceInput(
+-    callback: (coordinates: Location | undefined, query: string | undefined) => void
++    callback: (
++      coordinates: Location | undefined,
++      query: string | undefined,
++      requestType: string
++    ) => void
+   ): CleanupCallback;
+ 
+   /**

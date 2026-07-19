@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
     autoPlaySearchRequestIsCurrent,
+    createAutoPlaySearchCallbackState,
     getAutoPlayHeaderButtonVisibility,
     getAutoPlayMapContentVisibility,
     getAutoPlayNavigationPuckRefreshKey,
@@ -42,6 +43,88 @@ describe('Auto Play template state', () => {
             autoPlaySearchRequestIsCurrent(currentRequest, currentRequest),
             false,
         );
+    });
+
+    test('keeps late voice text changes from replacing a submitted query', () => {
+        const callbackState = createAutoPlaySearchCallbackState();
+
+        assert.deepEqual(callbackState.handleSearchTextChanged('coffee'), {
+            ignored: false,
+            searchText: 'coffee',
+        });
+        const submission =
+            callbackState.handleSearchTextSubmitted('coffee near me');
+
+        assert.deepEqual(submission, {
+            searchText: 'coffee near me',
+            submissionToken: 1,
+        });
+        assert.deepEqual(callbackState.handleSearchTextChanged(''), {
+            ignored: true,
+            searchText: '',
+        });
+        assert.deepEqual(callbackState.handleSearchTextChanged('coffee'), {
+            ignored: true,
+            searchText: 'coffee',
+        });
+        callbackState.handleSearchTextSubmissionCompleted(
+            submission.submissionToken,
+        );
+        assert.deepEqual(callbackState.handleSearchTextChanged('coffee'), {
+            ignored: false,
+            searchText: 'coffee',
+        });
+    });
+
+    test('keeps the newest submitted query guarded when an older search finishes', () => {
+        const callbackState = createAutoPlaySearchCallbackState();
+
+        const olderSubmission =
+            callbackState.handleSearchTextSubmitted('coffee');
+        const newerSubmission = callbackState.handleSearchTextSubmitted('gas');
+        callbackState.handleSearchTextSubmissionCompleted(
+            olderSubmission.submissionToken,
+        );
+
+        assert.deepEqual(callbackState.handleSearchTextChanged(''), {
+            ignored: true,
+            searchText: '',
+        });
+
+        callbackState.handleSearchTextSubmissionCompleted(
+            newerSubmission.submissionToken,
+        );
+
+        assert.deepEqual(callbackState.handleSearchTextChanged(''), {
+            ignored: false,
+            searchText: '',
+        });
+    });
+
+    test('keeps an identical newer submission guarded when the older one finishes', () => {
+        const callbackState = createAutoPlaySearchCallbackState();
+        const olderSubmission =
+            callbackState.handleSearchTextSubmitted('coffee');
+        const newerSubmission =
+            callbackState.handleSearchTextSubmitted('coffee');
+
+        callbackState.handleSearchTextSubmissionCompleted(
+            olderSubmission.submissionToken,
+        );
+
+        assert.deepEqual(callbackState.handleSearchTextChanged(''), {
+            ignored: true,
+            searchText: '',
+        });
+
+        callbackState.handleSearchTextSubmissionCompleted(
+            newerSubmission.submissionToken,
+        );
+
+        assert.deepEqual(callbackState.handleSearchTextChanged(''), {
+            ignored: false,
+            searchText: '',
+        });
     });
 
     test('keeps Android Auto pan in map chrome instead of a driving header action', () => {

@@ -2,8 +2,8 @@ const ANDROID_AUTO_MAP_LAYER_SLOTS = Object.freeze({
     cameraCone: 'top',
     cameraNode: 'top',
     routePath: 'middle',
-    userLocationPuck: 'middle',
-    userLocationPuckAboveLayer: 'directions-route-line',
+    userLocationPuck: 'top',
+    userLocationPuckAboveLayer: undefined,
 });
 
 const CARPLAY_MAP_LAYER_SLOTS = Object.freeze({

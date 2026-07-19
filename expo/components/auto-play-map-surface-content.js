@@ -10,7 +10,10 @@ import {
     addAutoDriveSimulationLocationListener,
     useAutoDriveSimulationIsActive,
 } from './auto-play-drive-simulation';
-import { AutoPlayMapStatusOverlay } from './auto-play-map-status-overlay';
+import {
+    AutoPlayMapStatusOverlay,
+    AutoPlayTopRightStatusOverlay,
+} from './auto-play-map-status-overlay';
 import {
     getAutoPlayBoundsFitPadding,
     getAutoPlayViewportMetrics,
@@ -1946,9 +1949,22 @@ export function AutoPlayMapSurfaceContent({
                         }
                         onLocationAnchorLayout={handleLocationAnchorLayout}
                         presentation={presentation}
-                        upcomingAlerts={upcomingAlerts}
                         userLocation={mapPreferences.userLocation}
                         viewportMetrics={viewportMetrics}
+                    />
+                ) : null}
+                {isRootMapSurface ? (
+                    <AutoPlayTopRightStatusOverlay
+                        mapControlLayoutInsets={
+                            presentation.mapControlLayoutInsets
+                        }
+                        routeLoading={autoPlayState.routeLoading}
+                        singleResultCountdown={
+                            autoPlayState.singleResultCountdown
+                        }
+                        upcomingAlerts={
+                            searchResultsMapIsActive ? [] : upcomingAlerts
+                        }
                     />
                 ) : null}
                 <AutoPlayDebugOverlays

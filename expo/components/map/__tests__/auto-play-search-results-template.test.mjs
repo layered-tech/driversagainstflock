@@ -59,7 +59,78 @@ test('Android Auto waits for a stable query before requesting autocomplete', () 
     );
     assert.match(
         autoPlaySource,
-        /onSearchTextSubmitted:[\s\S]*?runPlaceTextSearch\(/,
+        /const runSubmittedSearch[\s\S]*?handleSearchTextSubmitted[\s\S]*?runPlaceTextSearch\([\s\S]*?\.finally\([\s\S]*?handleSearchTextSubmissionCompleted/,
+    );
+    assert.match(
+        autoPlaySource,
+        /onSearchTextSubmitted:[\s\S]*?runSubmittedSearch\(searchText\)/,
+    );
+    assert.match(
+        autoPlaySource,
+        /onSearchTextChanged:[\s\S]*?handleSearchTextChanged[\s\S]*?searchTextChange\.ignored[\s\S]*?return;/,
+    );
+});
+
+test('Android Auto publishes submitted results before opening its map-backed list', () => {
+    assert.match(
+        autoPlaySource,
+        /const searchTemplateWasUpdated = await updateSearchTemplateResults\([\s\S]*?searchTemplateWasUpdated &&[\s\S]*?showsSearchResultsOnMap === true[\s\S]*?presentAndroidAutoSearchResults\(/,
+    );
+    assert.match(
+        autoPlaySource,
+        /function updateSearchTemplateSection[\s\S]*?return updatePromise\.then\([\s\S]*?\(\) => true,[\s\S]*?\(\) => false/,
+    );
+});
+
+test('voice searches visibly count down before advancing a sole result', () => {
+    assert.equal(
+        autoPlaySource.match(/autoAdvanceSingleResult:\s*true/g)?.length,
+        1,
+    );
+    assert.match(
+        autoPlaySource,
+        /resolvedRequestType === 'search'[\s\S]*?autoAdvanceSingleResult:\s*true/,
+    );
+    assert.match(
+        autoPlaySource,
+        /results\.length === 1[\s\S]*?await resultTemplatePresentation\.pushPromise[\s\S]*?scheduleAutoPlaySingleResultAutoAdvance/,
+    );
+    assert.match(
+        autoPlaySource,
+        /function scheduleAutoPlaySingleResultAutoAdvance[\s\S]*?handleSearchResultSelected\(result,[\s\S]*?template:\s*resultTemplate/,
+    );
+    assert.match(
+        autoPlaySource,
+        /function cancelAutoPlaySearchWork[\s\S]*?clearAutoPlaySingleResultCountdown\(\)/,
+    );
+    assert.match(
+        autoPlaySource,
+        /async function handleSearchResultSelected[\s\S]*?clearAutoPlaySingleResultCountdown\(\)[\s\S]*?startRouteLoadRequest/,
+    );
+    assert.match(
+        autoPlaySource,
+        /onSearchTextSubmitted: \(searchText\) => \{\s*return runSubmittedSearch\(searchText\);\s*\}/,
+    );
+    assert.match(
+        autoPlaySource,
+        /runSubmittedSearch\(initialSearchText, \{\s*shouldAutoAdvanceSingleResult: autoAdvanceSingleResult/,
+    );
+    assert.match(
+        autoPlaySource,
+        /function schedulePlaceAutocomplete[\s\S]*?clearAutoPlaySingleResultCountdown\(\)[\s\S]*?abortSearchRequest\(\)/,
+    );
+
+    const countdownStart = autoPlaySource.indexOf(
+        'function scheduleAutoPlaySingleResultAutoAdvance(',
+    );
+    const countdownEnd = autoPlaySource.indexOf(
+        'function cancelAutoPlaySearchWork(',
+        countdownStart,
+    );
+
+    assert.doesNotMatch(
+        autoPlaySource.slice(countdownStart, countdownEnd),
+        /startNavigationImmediately/,
     );
 });
 
@@ -139,6 +210,6 @@ test('CarPlay publishes visible search results to the shared map context', () =>
     );
     assert.match(
         autoPlaySource,
-        /template\.push\(\)\.catch\(\(error\) => \{[\s\S]*?dismissSearch\(\)/,
+        /template\s*\.push\(\)[\s\S]*?\.catch\(\(error\) => \{[\s\S]*?dismissSearch\(\)/,
     );
 });

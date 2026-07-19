@@ -3,7 +3,7 @@ import { describe, test } from 'node:test';
 import { getMapLayerSlots } from '../map-layer-slots.js';
 
 describe('Mapbox Standard layer slots', () => {
-    test('orders Android Auto cameras above a middle-slot route and puck', () => {
+    test('keeps the Android Auto puck above routes without a transient layer anchor', () => {
         assert.deepEqual(
             getMapLayerSlots({
                 navigationPuckVariant: 'auto-play',
@@ -13,8 +13,8 @@ describe('Mapbox Standard layer slots', () => {
                 cameraCone: 'top',
                 cameraNode: 'top',
                 routePath: 'middle',
-                userLocationPuck: 'middle',
-                userLocationPuckAboveLayer: 'directions-route-line',
+                userLocationPuck: 'top',
+                userLocationPuckAboveLayer: undefined,
             },
         );
     });

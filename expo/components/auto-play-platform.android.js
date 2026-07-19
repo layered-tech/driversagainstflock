@@ -3,7 +3,13 @@ import { AndroidAutoMapSurface } from './android-auto-map-surface';
 // Android Auto extension of the platform-agnostic auto-play core.
 export const autoPlayPlatform = {
     MapSurface: AndroidAutoMapSurface,
-    keepsSearchTemplateUnderRoutePreview: true,
+    logAction(action, payload = {}) {
+        if (typeof __DEV__ === 'undefined' || !__DEV__) {
+            return;
+        }
+
+        console.log(`[Android Auto] ${action}`, payload);
+    },
     showsSearchResultsOnMap: true,
     maneuverCardAppearance: 'dark',
     maneuverCardIconColor: '#ffffff',

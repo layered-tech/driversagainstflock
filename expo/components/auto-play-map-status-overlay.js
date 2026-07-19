@@ -1,7 +1,7 @@
-import { Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import {
     getAutoPlaySpeedLimitOverlayLayout,
-    getAutoPlayUpcomingAlertOverlayLayout,
+    getAutoPlayTopRightStatusOverlayLayout,
 } from './auto-play-map-status-layout';
 import { Icon } from './design-system/icon';
 import { dafSemanticColors } from './design-system/tokens';
@@ -16,6 +16,73 @@ import {
 } from './map/speed-limit';
 import { AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE } from './map/speed-limit-layout';
 import { UpcomingAlertPassTimer } from './map/upcoming-alert-pass-timer';
+
+function AutoPlayRouteLoadingCard({ routeLoading }) {
+    const destinationLabel = String(routeLoading.destinationLabel ?? '').trim();
+    const loadingText = destinationLabel
+        ? `Finding route to ${destinationLabel}`
+        : 'Finding route';
+
+    return (
+        <View
+            accessibilityLabel={loadingText}
+            accessibilityRole="progressbar"
+            className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95 max-w-[360px] flex-row items-center gap-3 rounded-dafPill border border-daf-border-glass bg-white/95 px-5 py-3 shadow-[0px_4px_18px_rgba(11,14,18,0.22)]"
+            testID="auto-play-route-loading-card"
+        >
+            <ActivityIndicator color={dafSemanticColors.brand} size="small" />
+            <Text
+                className="min-w-0 flex-shrink text-[15px] font-semibold leading-[19px] text-daf-text-primary dark:text-white"
+                numberOfLines={2}
+            >
+                {loadingText}
+            </Text>
+        </View>
+    );
+}
+
+function AutoPlaySingleResultCountdownCard({ countdown }) {
+    const destinationLabel = String(countdown.destinationLabel ?? '').trim();
+    const remainingSeconds = Math.max(
+        1,
+        Math.round(Number(countdown.remainingSeconds) || 1),
+    );
+    const accessibilityLabel = destinationLabel
+        ? `Opening route options for ${destinationLabel} in ${remainingSeconds} seconds.`
+        : `Opening route options in ${remainingSeconds} seconds.`;
+
+    return (
+        <View
+            accessibilityLabel={accessibilityLabel}
+            accessibilityLiveRegion="polite"
+            accessibilityRole="timer"
+            className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95 max-w-[360px] flex-row items-center gap-3 rounded-dafMd border border-daf-border-glass bg-white/95 px-4 py-3 shadow-[0px_4px_18px_rgba(11,14,18,0.22)]"
+            testID="auto-play-single-result-countdown-card"
+        >
+            <View className="bg-daf-azure/15 dark:bg-daf-azure/20 h-10 w-10 items-center justify-center rounded-full">
+                <Text className="font-dafMono text-[19px] font-extrabold leading-[22px] text-daf-azure dark:text-blue-300">
+                    {remainingSeconds}
+                </Text>
+            </View>
+            <View className="min-w-0 flex-shrink gap-0.5">
+                <Text
+                    className="text-[14px] font-semibold leading-[18px] text-daf-text-primary dark:text-white"
+                    numberOfLines={1}
+                >
+                    Route options in {remainingSeconds}s
+                </Text>
+                {destinationLabel ? (
+                    <Text
+                        className="text-[12px] leading-[16px] text-daf-text-tertiary dark:text-neutral-400"
+                        numberOfLines={1}
+                    >
+                        {destinationLabel}
+                    </Text>
+                ) : null}
+            </View>
+        </View>
+    );
+}
 
 function AutoPlayUpcomingAlert({ alert }) {
     if (alert?.type !== 'alpr' && alert?.type !== 'police') {
@@ -82,6 +149,46 @@ function AutoPlayUpcomingAlert({ alert }) {
     );
 }
 
+export function AutoPlayTopRightStatusOverlay({
+    mapControlLayoutInsets,
+    routeLoading,
+    singleResultCountdown,
+    upcomingAlerts,
+}) {
+    const upcomingAlert = Array.isArray(upcomingAlerts)
+        ? upcomingAlerts[0]
+        : null;
+
+    if (!upcomingAlert && !routeLoading && !singleResultCountdown) {
+        return null;
+    }
+
+    const layout = getAutoPlayTopRightStatusOverlayLayout({
+        mapControlLayoutInsets,
+    });
+
+    return (
+        <View
+            className="absolute items-end gap-[12px]"
+            pointerEvents="none"
+            style={layout.positionStyle}
+            testID="auto-play-top-right-status-overlay"
+        >
+            {upcomingAlert ? (
+                <AutoPlayUpcomingAlert alert={upcomingAlert} />
+            ) : null}
+            {singleResultCountdown ? (
+                <AutoPlaySingleResultCountdownCard
+                    countdown={singleResultCountdown}
+                />
+            ) : null}
+            {routeLoading ? (
+                <AutoPlayRouteLoadingCard routeLoading={routeLoading} />
+            ) : null}
+        </View>
+    );
+}
+
 export function AutoPlayMapStatusOverlay({
     activeDirectionsRoute,
     drivingStatusIsVisible = true,
@@ -90,7 +197,6 @@ export function AutoPlayMapStatusOverlay({
     mapPreferencesAreLoaded,
     onLocationAnchorLayout,
     presentation,
-    upcomingAlerts,
     userLocation,
     viewportMetrics,
 }) {
@@ -105,17 +211,10 @@ export function AutoPlayMapStatusOverlay({
     );
     const markerLoadingIsVisible =
         mapPreferencesAreLoaded && markerLoader.renderMarkerLoadingIndicator;
-    const upcomingAlert = Array.isArray(upcomingAlerts)
-        ? upcomingAlerts[0]
-        : null;
     const speedLimitOverlayLayout = getAutoPlaySpeedLimitOverlayLayout({
         mapControlLayoutInsets: presentation.mapControlLayoutInsets,
         size: AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE,
     });
-    const upcomingAlertOverlayLayout = getAutoPlayUpcomingAlertOverlayLayout({
-        mapControlLayoutInsets: presentation.mapControlLayoutInsets,
-    });
-
     return (
         <>
             {drivingStatusIsVisible ? (
@@ -131,16 +230,6 @@ export function AutoPlayMapStatusOverlay({
                         puckSize={AUTO_PLAY_NAVIGATION_PUCK_SIZE}
                         userLocation={userLocation}
                     />
-                </View>
-            ) : null}
-
-            {upcomingAlert ? (
-                <View
-                    className="absolute items-end"
-                    pointerEvents="none"
-                    style={upcomingAlertOverlayLayout.positionStyle}
-                >
-                    <AutoPlayUpcomingAlert alert={upcomingAlert} />
                 </View>
             ) : null}
 
