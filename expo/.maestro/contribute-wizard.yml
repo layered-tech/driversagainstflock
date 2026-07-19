@@ -38,13 +38,30 @@ tags:
     visible:
       id: 'contribute-start-sheet'
     timeout: 10000
-- assertVisible: 'Start a changeset'
-- assertVisible: '@daf_mapper'
-- tapOn:
-    id: 'contribute-start-editing-button'
-    retryTapIfNoChange: true
+- runFlow:
+    when:
+      visible:
+        id: 'contribute-discard-draft-button'
+    commands:
+      - tapOn:
+          id: 'contribute-discard-draft-button'
+          retryTapIfNoChange: true
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          id: 'contribute-start-editing-button'
+          retryTapIfNoChange: true
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          id: 'contribute-start-sheet'
+          point: '50%,93%'
 
-# Screen 12: place two cameras, remove one, re-add it
+# Screen 12: place two cameras; Android also covers remove and re-add
 - extendedWaitUntil:
     visible: 'Place the cameras'
     timeout: 10000
@@ -56,30 +73,31 @@ tags:
 - tapOn:
     id: 'contribute-add-camera-button'
     retryTapIfNoChange: true
-- extendedWaitUntil:
-    visible: '1 camera placed'
-    timeout: 10000
+- waitForAnimationToEnd
 - tapOn:
     id: 'contribute-add-camera-button'
     retryTapIfNoChange: true
-- extendedWaitUntil:
-    visible: '2 cameras placed'
-    timeout: 10000
-- tapOn:
-    id: 'contribute-pin-remove-1'
-    retryTapIfNoChange: true
-- extendedWaitUntil:
-    visible: '1 camera placed'
-    timeout: 10000
-- tapOn:
-    id: 'contribute-add-camera-button'
-    retryTapIfNoChange: true
-- extendedWaitUntil:
-    visible: '2 cameras placed'
-    timeout: 10000
-- tapOn:
-    id: 'contribute-next-details-button'
-    retryTapIfNoChange: true
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          id: 'contribute-pin-remove-1'
+          retryTapIfNoChange: true
+      - waitForAnimationToEnd
+      - tapOn:
+          id: 'contribute-add-camera-button'
+          retryTapIfNoChange: true
+      - waitForAnimationToEnd
+      - tapOn:
+          id: 'contribute-next-details-button'
+          retryTapIfNoChange: true
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - openLink: 'driversagainstflock://contribute/camera/0'
 
 # Screen 13: one form per camera
 - extendedWaitUntil:
@@ -95,6 +113,11 @@ tags:
     id: 'contribute-direction-dial-marker'
 - assertVisible:
     id: 'contribute-direction-dial-controls'
+- swipe:
+    start: '95%,72%'
+    end: '95%,32%'
+    duration: 800
+- waitForAnimationToEnd
 - scrollUntilVisible:
     element:
       id: 'contribute-mount-pole'

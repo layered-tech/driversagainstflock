@@ -587,7 +587,7 @@ export default function EditCameraScreen() {
                                     testID="edit-camera-direction-dial"
                                     value={selectedBearing}
                                 />
-                                <View className="mt-2.5 flex-row flex-wrap items-center gap-2">
+                                <View className="mt-3.5 flex-row flex-wrap items-center gap-2">
                                     {directions.map(
                                         (degrees, directionIndex) => {
                                             const selected =
@@ -598,7 +598,7 @@ export default function EditCameraScreen() {
                                                 <View
                                                     className={`h-8 flex-row items-center rounded-dafPill border pl-3 pr-1 ${
                                                         selected
-                                                            ? 'border-daf-brand/35 bg-daf-brand/12 dark:bg-daf-brand/15'
+                                                            ? 'bg-daf-brand/12 dark:bg-daf-brand/15 border-transparent'
                                                             : 'dark:border-daf-border-dark dark:bg-daf-surface-dark border-daf-border bg-white'
                                                     }`}
                                                     key={`direction-${directionIndex}`}
@@ -621,8 +621,9 @@ export default function EditCameraScreen() {
                                                             className={`font-dafMono text-[13px] font-semibold ${
                                                                 selected
                                                                     ? 'text-daf-text-brand dark:text-daf-brand'
-                                                                    : 'text-daf-text-primary dark:text-white'
+                                                                    : 'text-daf-text-secondary dark:text-neutral-300'
                                                             }`}
+                                                            testID={`edit-camera-direction-chip-${directionIndex}-value`}
                                                         >
                                                             {formatBearingChip(
                                                                 degrees,
@@ -675,6 +676,12 @@ export default function EditCameraScreen() {
                                         </Text>
                                     </Pressable>
                                 </View>
+                                <Text className="mt-2.5 text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400">
+                                    Drag the ring until the cone covers what the
+                                    camera sees — poles often hold several
+                                    directions. Slide the imagery to fine-tune
+                                    where the pole sits.
+                                </Text>
                             </View>
                             <View>
                                 <DafSectionLabel className="mb-2">

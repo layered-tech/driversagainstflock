@@ -1,9 +1,10 @@
 appId: com.anonymous.drivefree.dev
-name: OSM Node Location Editor Mocked
+name: OSM Node Direction Compass Mocked
 tags:
   - contribute
   - map
   - node-location
+  - direction-compass
 ---
 - setLocation:
     latitude: 30.26715
@@ -80,32 +81,61 @@ tags:
     timeout: 10000
     visibilityPercentage: 90
     centerElement: true
+
+# Visual contract: inset satellite cutout, full compass bezel, fixed marker,
+# fixed red indicator, active cone/readout, external controls, and GPS text.
+- assertVisible:
+    id: 'contribute-direction-dial'
+    traits: square
+- assertVisible:
+    id: 'contribute-direction-dial-satellite-cutout'
 - assertVisible:
     id: 'contribute-direction-dial-satellite-preview'
 - assertVisible:
-    id: 'contribute-direction-dial-cone'
+    id: 'contribute-direction-dial-heading-ring'
+    traits: square
 - assertVisible:
     id: 'contribute-direction-dial-heading-handle'
 - assertVisible:
-    id: 'contribute-direction-dial-heading-ring'
+    id: 'contribute-direction-dial-active-direction-indicator'
+- assertVisible:
+    id: 'contribute-direction-dial-heading-label-0'
+- assertVisible:
+    id: 'contribute-direction-dial-heading-label-90'
+- assertVisible:
+    id: 'contribute-direction-dial-heading-label-180'
+- assertVisible:
+    id: 'contribute-direction-dial-heading-label-270'
+- assertVisible:
+    id: 'contribute-direction-dial-direction-cone-0'
+- assertVisible:
+    id: 'contribute-direction-dial-cone'
+- assertVisible:
+    id: 'contribute-direction-dial-marker'
 - assertVisible:
     id: 'contribute-direction-dial-pan-target'
 - assertVisible:
-    id: 'contribute-direction-dial-marker'
+    id: 'contribute-direction-dial-readout'
+- assertVisible:
+    id: 'contribute-direction-dial-controls'
 - assertVisible:
     id: 'contribute-direction-dial-zoom-in-button'
 - assertVisible:
     id: 'contribute-direction-dial-zoom-out-button'
 - assertVisible:
-    id: 'contribute-direction-dial-recenter-button'
+    id: 'contribute-direction-dial-coordinates'
 - assertNotVisible:
-    id: 'contribute-node-location-editor'
+    id: 'contribute-direction-dial-recenter-button'
+- takeScreenshot: node-direction-compass-initial
+
 - copyTextFrom:
     id: 'contribute-direction-dial-readout'
-- evalScript: ${output.initialDirectionDegrees = maestro.copiedText}
+- evalScript: ${output.initialDirection = maestro.copiedText}
 - copyTextFrom:
     id: 'contribute-direction-dial-coordinates'
-- evalScript: ${output.initialNodeCoordinates = maestro.copiedText}
+- evalScript: ${output.initialCoordinates = maestro.copiedText}
+
+# The outer ring owns heading. It must not move the map center.
 - swipe:
     from:
       id: 'contribute-direction-dial-heading-handle'
@@ -117,75 +147,188 @@ tags:
     commands:
       - copyTextFrom:
           id: 'contribute-direction-dial-readout'
-      - assertTrue: ${maestro.copiedText != output.initialDirectionDegrees}
-- copyTextFrom:
-    id: 'contribute-direction-dial-readout'
-- evalScript: ${output.ringDirectionDegrees = maestro.copiedText}
+      - assertTrue: ${maestro.copiedText != output.initialDirection}
+- evalScript: ${output.directionAfterRing = maestro.copiedText}
 - copyTextFrom:
     id: 'contribute-direction-dial-coordinates'
-- assertTrue: ${maestro.copiedText == output.initialNodeCoordinates}
+- assertTrue: ${maestro.copiedText == output.initialCoordinates}
+
+# The inner satellite map owns one-finger pan. The fixed marker stays centered,
+# coordinates change, and heading remains untouched.
 - swipe:
     from:
       id: 'contribute-direction-dial-pan-target'
     direction: LEFT
     duration: 900
 - waitForAnimationToEnd
-- copyTextFrom:
-    id: 'contribute-direction-dial-readout'
-- assertTrue: ${maestro.copiedText == output.ringDirectionDegrees}
-- copyTextFrom:
-    id: 'contribute-direction-dial-coordinates'
-- assertTrue: ${maestro.copiedText == output.initialNodeCoordinates}
-- tapOn:
-    id: 'contribute-direction-dial-recenter-button'
-- extendedWaitUntil:
-    visible:
-      id: 'contribute-direction-dial-recenter-button'
-      enabled: true
-    timeout: 10000
-- copyTextFrom:
-    id: 'contribute-direction-dial-coordinates'
-- assertTrue: ${maestro.copiedText == output.initialNodeCoordinates}
-- swipe:
-    from:
-      id: 'contribute-direction-dial-marker'
-    direction: LEFT
-    duration: 1200
-- waitForAnimationToEnd
 - retry:
     maxRetries: 3
     commands:
       - copyTextFrom:
           id: 'contribute-direction-dial-coordinates'
-      - assertTrue: ${maestro.copiedText != output.initialNodeCoordinates}
-- evalScript: ${output.movedNodeCoordinates = maestro.copiedText}
-- tapOn:
-    id: 'contribute-direction-dial-zoom-in-button'
-- tapOn:
-    id: 'contribute-direction-dial-zoom-out-button'
+      - assertTrue: ${maestro.copiedText != output.initialCoordinates}
+- evalScript: ${output.coordinatesAfterPan = maestro.copiedText}
 - copyTextFrom:
-    id: 'contribute-direction-dial-coordinates'
-- assertTrue: ${maestro.copiedText == output.movedNodeCoordinates}
+    id: 'contribute-direction-dial-readout'
+- assertTrue: ${maestro.copiedText == output.directionAfterRing}
+- assertVisible:
+    id: 'contribute-direction-dial-marker'
+- takeScreenshot: node-direction-compass-panned
+
+# Zoom buttons affect only the imagery. Their accessibility value exposes the
+# current native zoom so Maestro can verify both controls actually changed it.
 - swipe:
-    start: '2%,80%'
-    end: '2%,25%'
+    start: '95%,72%'
+    end: '95%,32%'
     duration: 800
 - waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: 'contribute-direction-dial-zoom-in-button'
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 100
+    centerElement: true
 - assertVisible:
-    id: 'contribute-add-direction-button'
+    id: 'contribute-direction-dial-zoom-out-button'
+- takeScreenshot: node-direction-compass-controls
+- copyTextFrom:
+    id: 'contribute-direction-dial-zoom-in-button'
+- evalScript: ${output.initialZoom = maestro.copiedText}
+- tapOn:
+    id: 'contribute-direction-dial-zoom-in-button'
+- waitForAnimationToEnd
+- retry:
+    maxRetries: 3
+    commands:
+      - copyTextFrom:
+          id: 'contribute-direction-dial-zoom-in-button'
+      - assertTrue: ${maestro.copiedText != output.initialZoom}
+- evalScript: ${output.zoomAfterIn = maestro.copiedText}
+- tapOn:
+    id: 'contribute-direction-dial-zoom-out-button'
+- waitForAnimationToEnd
+- retry:
+    maxRetries: 3
+    commands:
+      - copyTextFrom:
+          id: 'contribute-direction-dial-zoom-in-button'
+      - assertTrue: ${maestro.copiedText != output.zoomAfterIn}
+- copyTextFrom:
+    id: 'contribute-direction-dial-readout'
+- assertTrue: ${maestro.copiedText == output.directionAfterRing}
+- copyTextFrom:
+    id: 'contribute-direction-dial-coordinates'
+- assertTrue: ${maestro.copiedText == output.coordinatesAfterPan}
+
+# Ring interaction created direction 0. Add direction creates/selects its
+# opposite while preserving direction 0.
+- scrollUntilVisible:
+    element:
+      id: 'contribute-add-direction-button'
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 100
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-direction-chip-0-value'
+    timeout: 10000
+- copyTextFrom:
+    id: 'contribute-direction-chip-0-value'
+- evalScript: ${output.direction0BeforeAdd = maestro.copiedText}
 - tapOn:
     id: 'contribute-add-direction-button'
     retryTapIfNoChange: true
-- swipe:
-    start: '2%,25%'
-    end: '2%,80%'
-    duration: 800
-- waitForAnimationToEnd
 - extendedWaitUntil:
     visible:
-      id: 'contribute-direction-dial-direction-cone-1'
+      id: 'contribute-direction-chip-1-value'
     timeout: 10000
+- copyTextFrom:
+    id: 'contribute-direction-chip-0-value'
+- assertTrue: ${maestro.copiedText == output.direction0BeforeAdd}
+- copyTextFrom:
+    id: 'contribute-direction-chip-1-value'
+- evalScript: ${output.direction1BeforeRing = maestro.copiedText}
+- assertTrue: ${parseInt(output.direction1BeforeRing) == ((parseInt(output.direction0BeforeAdd) + 180) % 360)}
+
+- scrollUntilVisible:
+    element:
+      id: 'contribute-direction-dial-heading-handle'
+    direction: UP
+    timeout: 10000
+    visibilityPercentage: 100
+    centerElement: true
 - assertVisible:
     id: 'contribute-direction-dial-direction-cone-0'
 - assertVisible:
+    id: 'contribute-direction-dial-direction-cone-1'
+- assertVisible:
     id: 'contribute-direction-dial-cone'
+- copyTextFrom:
+    id: 'contribute-direction-dial-readout'
+- assertTrue: ${maestro.copiedText == output.direction1BeforeRing}
+- takeScreenshot: node-direction-compass-multiple
+
+# Direction 1 is active. Ring drag changes it while direction 0 remains fixed.
+- swipe:
+    from:
+      id: 'contribute-direction-dial-heading-handle'
+    direction: UP
+    duration: 900
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: 'contribute-direction-chip-1-value'
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 100
+- copyTextFrom:
+    id: 'contribute-direction-chip-0-value'
+- assertTrue: ${maestro.copiedText == output.direction0BeforeAdd}
+- copyTextFrom:
+    id: 'contribute-direction-chip-1-value'
+- assertTrue: ${maestro.copiedText != output.direction1BeforeRing}
+- evalScript: ${output.direction1AfterRing = maestro.copiedText}
+
+# Selecting direction 0 re-aims the map to it. A second ring drag changes only
+# direction 0 and leaves direction 1 at its fixed cardinal heading.
+- tapOn:
+    id: 'contribute-direction-chip-0'
+    retryTapIfNoChange: true
+- waitForAnimationToEnd
+- copyTextFrom:
+    id: 'contribute-direction-chip-0-value'
+- evalScript: ${output.direction0BeforeSecondRing = maestro.copiedText}
+- scrollUntilVisible:
+    element:
+      id: 'contribute-direction-dial-heading-handle'
+    direction: UP
+    timeout: 10000
+    visibilityPercentage: 100
+    centerElement: true
+- retry:
+    maxRetries: 3
+    commands:
+      - copyTextFrom:
+          id: 'contribute-direction-dial-readout'
+      - assertTrue: ${maestro.copiedText == output.direction0BeforeSecondRing}
+- swipe:
+    from:
+      id: 'contribute-direction-dial-heading-handle'
+    direction: DOWN
+    duration: 900
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: 'contribute-direction-chip-1-value'
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 100
+- copyTextFrom:
+    id: 'contribute-direction-chip-0-value'
+- assertTrue: ${maestro.copiedText != output.direction0BeforeSecondRing}
+- copyTextFrom:
+    id: 'contribute-direction-chip-1-value'
+- assertTrue: ${maestro.copiedText == output.direction1AfterRing}
+# Maestro 1.40 has no multi-pointer gesture command. Native two-finger rotation
+# is therefore covered by focused source/state tests and a simulator check.
