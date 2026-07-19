@@ -64,7 +64,7 @@ describe('Auto Play search-template lifecycle', () => {
     test('gates late result callbacks and waits before removing voice search', () => {
         assert.match(
             autoPlaySource,
-            /function presentAndroidAutoSearchResults[\s\S]*?const dismissResults = \(\) => \{\s*if \(!requestIsCurrent\(\)\) \{\s*return;\s*\}[\s\S]*?cancelAutoPlaySearchWork\(\)/,
+            /function presentAutoPlaySearchResults[\s\S]*?const dismissResults = \(\) => \{\s*if \(!requestIsCurrent\(\)\) \{\s*return;\s*\}[\s\S]*?cancelAutoPlaySearchWork\(\)/,
         );
         assert.match(
             autoPlaySource,
