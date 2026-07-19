@@ -212,6 +212,12 @@ export const iconPaths = {
         ['path', { d: 'M5 12h14' }],
         ['path', { d: 'm12 5 7 7-7 7' }],
     ],
+    'arrow-up-down': [
+        ['path', { d: 'm21 16-4 4-4-4' }],
+        ['path', { d: 'M17 20V4' }],
+        ['path', { d: 'm3 8 4-4 4 4' }],
+        ['path', { d: 'M7 4v16' }],
+    ],
     'external-link': [
         ['path', { d: 'M15 3h6v6' }],
         ['path', { d: 'M10 14 21 3' }],

@@ -8,6 +8,8 @@ import DafSegmentedControl from '@/Components/Daf/DafSegmentedControl.vue';
 import DafSwitch from '@/Components/Daf/DafSwitch.vue';
 import DafBottomSheet from '@/Components/Daf/Map/DafBottomSheet.vue';
 import DafMarkerLoadingProgress from '@/Components/Daf/Map/DafMarkerLoadingProgress.vue';
+import DafMobileAppBanner from '@/Components/Daf/Map/DafMobileAppBanner.vue';
+import DafMobileMapHeader from '@/Components/Daf/Map/DafMobileMapHeader.vue';
 import DafNodeStatusBadge from '@/Components/Daf/Map/DafNodeStatusBadge.vue';
 import DafRouteCard from '@/Components/Daf/Map/DafRouteCard.vue';
 import DafSearchBar from '@/Components/Daf/Map/DafSearchBar.vue';
@@ -65,6 +67,8 @@ const MAPBOX_STANDARD_SATELLITE_STYLE =
     'mapbox://styles/mapbox/standard-satellite';
 const MAP_LAYER_EMISSIVE_STRENGTH = 1;
 const MARKER_SPLASH_SETTLE_DELAY_MS = 800;
+const MOBILE_BREAKPOINT_PX = 768;
+const MOBILE_APP_BANNER_STORAGE_KEY = 'daf-map-app-banner-dismissed';
 const LOCALITY_BOUNDARY_FIT_BUFFER_RATIO = 0.2;
 const ALLOW_ALPR_NEAR_START_DESTINATION_LABEL =
     'Allow ALPR near Start & Destination';
@@ -201,6 +205,10 @@ const mapStatus = ref('Loading map');
 const mapMessage = ref('');
 const activeMode = ref('map');
 const mapOptionsOpen = ref(false);
+const mobileMenuIsOpen = ref(false);
+const mobileAppBannerIsVisible = ref(true);
+const mobileMapLayoutIsActive = ref(false);
+const mobileRouteSheetIsOpen = ref(true);
 const mapStyle = ref('standard');
 const mapTimeOfDay = ref('auto');
 const markerLoadMode = ref(null);
@@ -248,6 +256,7 @@ let moveEndIsBound = false;
 let directionWaypointNextId = 1;
 let markerSplashFrameId = null;
 let markerSplashTimeoutId = null;
+let mobileMapMediaQuery = null;
 let systemThemeMediaQuery = null;
 
 const mapHeaderLinks = [
@@ -287,22 +296,28 @@ const routeSelectionCardIsVisible = computed(
             Boolean(directionsError.value)),
 );
 
+const routeSelectionPanelIsVisible = computed(
+    () =>
+        routeSelectionCardIsVisible.value &&
+        (!mobileMapLayoutIsActive.value || mobileRouteSheetIsOpen.value),
+);
+
 const routePanelClasses = computed(() => [
-    'pointer-events-auto relative w-[calc(100%_-_22px)] transition-transform duration-200 ease-out motion-reduce:transition-none sm:absolute sm:bottom-5 sm:left-5 sm:w-[26rem]',
+    'pointer-events-auto relative w-full md:absolute md:bottom-5 md:left-5 md:w-[26rem] md:transition-transform md:duration-200 md:ease-out md:motion-reduce:transition-none',
     routePanelIsCollapsed.value
-        ? '-translate-x-[calc(100%_-_1.375rem)] sm:-translate-x-[calc(100%_+_1.25rem_-_1.375rem)]'
-        : 'translate-x-0',
+        ? 'md:-translate-x-[calc(100%_+_1.25rem_-_1.375rem)]'
+        : 'md:translate-x-0',
 ]);
 
 const markerPanelClasses = computed(() => [
-    'relative w-full transition-transform duration-200 ease-out motion-reduce:transition-none',
+    'relative w-full md:transition-transform md:duration-200 md:ease-out md:motion-reduce:transition-none',
     markerPanelIsCollapsed.value
-        ? 'translate-x-[calc(100%_-_1.375rem)] sm:translate-x-[calc(100%_+_1.25rem_-_1.375rem)]'
-        : 'translate-x-0',
+        ? 'md:translate-x-[calc(100%_+_1.25rem_-_1.375rem)]'
+        : 'md:translate-x-0',
 ]);
 
 const detailPanelStackClasses =
-    'pointer-events-auto relative ml-[22px] flex w-[calc(100%_-_22px)] flex-col items-end gap-2 self-end sm:absolute sm:bottom-5 sm:right-5 sm:ml-0 sm:w-[25rem]';
+    'pointer-events-auto relative flex w-full flex-col items-end gap-2 self-end md:absolute md:bottom-5 md:right-5 md:w-[25rem]';
 
 const routePanelToggleLabel = computed(() =>
     routePanelIsCollapsed.value ? 'Show route options' : 'Hide route options',
@@ -332,6 +347,36 @@ const fastestRouteNodeCount = computed(
     () => directionsRoute.value?.fastestRouteNodeCount ?? 0,
 );
 
+const routeChoiceSubtitle = computed(() => {
+    const privateRoute = directionsRoute.value?.routes?.[ROUTE_KEYS.private];
+    const fastestRoute = directionsRoute.value?.routes?.[ROUTE_KEYS.fastest];
+
+    if (!privateRoute || !fastestRoute) {
+        return directionsNotice.value;
+    }
+
+    const details = [];
+
+    if (fastestRouteNodeCount.value > 0) {
+        details.push(
+            `Private skips ${fastestRouteNodeCount.value} ${fastestRouteNodeCount.value === 1 ? 'camera' : 'cameras'}`,
+        );
+    }
+
+    const privateDuration = numericValue(privateRoute.duration);
+    const fastestDuration = numericValue(fastestRoute.duration);
+    const durationDifference =
+        privateDuration === null || fastestDuration === null
+            ? null
+            : privateDuration - fastestDuration;
+
+    if (Number.isFinite(durationDifference) && durationDifference > 30) {
+        details.push(`${formatDuration(durationDifference)} slower`);
+    }
+
+    return details.join(' · ') || directionsNotice.value;
+});
+
 const visibleMarkerCount = computed(() => markerFeatures.value.features.length);
 
 const visibleMarkerCountLabel = computed(() =>
@@ -352,7 +397,7 @@ const avoidBufferImperialLabel = computed(
 const searchPlaceholder = computed(() =>
     activeMode.value === 'directions'
         ? 'Search destination for private route'
-        : 'Search a place or address',
+        : 'Search places, addresses, ZIP…',
 );
 
 const directionWaypointRows = computed(() => {
@@ -409,6 +454,15 @@ const searchPanelIsVisible = computed(
         searchIsLoading.value ||
         searchError.value ||
         searchResults.value.length > 0,
+);
+
+const mobileAppBannerShouldShow = computed(
+    () =>
+        activeMode.value === 'map' &&
+        mobileAppBannerIsVisible.value &&
+        !mobileMenuIsOpen.value &&
+        !selectedDetailItemIsVisible.value &&
+        !searchPanelIsVisible.value,
 );
 
 const mapSplashIsVisible = computed(() => !initialMarkersLoaded.value);
@@ -700,8 +754,11 @@ const floatingMapMessage = computed(
 onMounted(() => {
     setMarkerPoints(toRaw(props.points));
     window.addEventListener('keydown', handleMapOptionsKeydown);
+    bindMobileMapLayoutListener();
     bindSystemThemeListener();
     applyUiThemeForMapTimeOfDay();
+    mobileAppBannerIsVisible.value =
+        window.localStorage.getItem(MOBILE_APP_BANNER_STORAGE_KEY) !== 'true';
 
     if (initialZipCode || initialSelectedMarker) {
         centeredOnCurrentPosition.value = true;
@@ -718,6 +775,7 @@ watch(activeMode, handleActiveModeChanged);
 
 onBeforeUnmount(() => {
     window.removeEventListener('keydown', handleMapOptionsKeydown);
+    unbindMobileMapLayoutListener();
     unbindSystemThemeListener();
 
     if (searchDebounceTimer) {
@@ -1433,6 +1491,7 @@ function handleActiveModeChanged() {
     searchResults.value = [];
     searchError.value = '';
     searchIsLoading.value = false;
+    mobileMenuIsOpen.value = false;
     syncDestinationSource();
     updateRouteLayerStyles();
 }
@@ -1453,6 +1512,17 @@ function addDirectionStop() {
     activeDirectionWaypointId.value = id;
     searchResults.value = [];
     clearLoadedDirectionsRoute();
+}
+
+async function reverseDirectionWaypoints() {
+    directionWaypoints.value = directionWaypoints.value.slice().reverse();
+    activeDirectionWaypointId.value = null;
+    searchResults.value = [];
+    searchError.value = '';
+    clearLoadedDirectionsRoute();
+    syncDestinationSource();
+
+    await maybeLoadDirectionsRoute();
 }
 
 async function removeDirectionWaypoint(id) {
@@ -1677,6 +1747,7 @@ async function getDirections() {
     const waypointCoordinates = coordinates.slice(1, -1);
 
     routePanelIsCollapsed.value = false;
+    mobileRouteSheetIsOpen.value = true;
     directionsIsLoading.value = true;
     directionsError.value = '';
 
@@ -1736,6 +1807,11 @@ function toggleMarkerPanel() {
     markerPanelIsCollapsed.value = !markerPanelIsCollapsed.value;
 }
 
+function dismissMobileAppBanner() {
+    mobileAppBannerIsVisible.value = false;
+    window.localStorage.setItem(MOBILE_APP_BANNER_STORAGE_KEY, 'true');
+}
+
 function clearSelectedMarker() {
     clearPendingSelectedMarker();
     selectedMarker.value = null;
@@ -1761,10 +1837,23 @@ function selectRoute(routeKey) {
     fitMapToSelectedRoute();
 }
 
+function viewSelectedRoute() {
+    fitMapToSelectedRoute();
+
+    if (mobileMapLayoutIsActive.value) {
+        mobileRouteSheetIsOpen.value = false;
+    }
+}
+
+function showMobileRouteSheet() {
+    mobileRouteSheetIsOpen.value = true;
+}
+
 function clearDirections() {
     directionsRoute.value = null;
     directionsError.value = '';
     directionsNotice.value = '';
+    mobileRouteSheetIsOpen.value = true;
     selectedRouteKey.value = ROUTE_KEYS.private;
     resetDirectionWaypoints();
     setDestinationCoordinate(null);
@@ -1832,6 +1921,56 @@ function bindSystemThemeListener() {
     } catch {
         systemThemeMediaQuery = null;
     }
+}
+
+function bindMobileMapLayoutListener() {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    mobileMapMediaQuery = window.matchMedia(
+        `(max-width: ${MOBILE_BREAKPOINT_PX - 1}px)`,
+    );
+    handleMobileMapLayoutChanged(mobileMapMediaQuery);
+
+    if (typeof mobileMapMediaQuery.addEventListener === 'function') {
+        mobileMapMediaQuery.addEventListener(
+            'change',
+            handleMobileMapLayoutChanged,
+        );
+    } else {
+        mobileMapMediaQuery.addListener(handleMobileMapLayoutChanged);
+    }
+}
+
+function unbindMobileMapLayoutListener() {
+    if (!mobileMapMediaQuery) {
+        return;
+    }
+
+    if (typeof mobileMapMediaQuery.removeEventListener === 'function') {
+        mobileMapMediaQuery.removeEventListener(
+            'change',
+            handleMobileMapLayoutChanged,
+        );
+    } else {
+        mobileMapMediaQuery.removeListener(handleMobileMapLayoutChanged);
+    }
+    mobileMapMediaQuery = null;
+}
+
+function handleMobileMapLayoutChanged(event) {
+    mobileMapLayoutIsActive.value = event.matches;
+
+    if (event.matches) {
+        routePanelIsCollapsed.value = false;
+        markerPanelIsCollapsed.value = false;
+        mobileRouteSheetIsOpen.value = true;
+
+        return;
+    }
+
+    mobileMenuIsOpen.value = false;
 }
 
 function unbindSystemThemeListener() {
@@ -2590,7 +2729,7 @@ function fitMapToSelectedRoute() {
 function routeFitPadding() {
     const width = mapContainer.value?.clientWidth ?? window.innerWidth;
 
-    if (width < 640) {
+    if (width < MOBILE_BREAKPOINT_PX) {
         return {
             bottom: 340,
             left: 48,
@@ -3576,6 +3715,26 @@ function formatDuration(seconds) {
         : `${hours} hr`;
 }
 
+function formatArrival(seconds) {
+    if (seconds === null || seconds === undefined || seconds === '') {
+        return '';
+    }
+
+    const duration = numericValue(seconds);
+
+    if (duration === null) {
+        return '';
+    }
+
+    const arrival = new Date(Date.now() + duration * 1000);
+    const arrivalTime = new Intl.DateTimeFormat(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+    }).format(arrival);
+
+    return `ETA ${arrivalTime}`;
+}
+
 function normalizeHeading(value) {
     const heading = numericValue(value);
 
@@ -3721,9 +3880,10 @@ function radiansToDegrees(radians) {
     <DafSiteHead />
 
     <div
-        class="flex h-screen min-h-screen flex-col overflow-hidden bg-daf-surface-page text-daf-text-primary"
+        class="flex h-[100dvh] min-h-[100svh] flex-col overflow-hidden bg-daf-surface-page text-daf-text-primary md:h-screen md:min-h-screen"
     >
         <DafSiteHeader
+            class="hidden md:block"
             variant="app"
             :links="mapHeaderLinks"
             :cta-href="''"
@@ -3742,10 +3902,8 @@ function radiansToDegrees(radians) {
 
             <section
                 :class="[
-                    'absolute left-1/2 z-30 flex max-w-[calc(100vw_-_1rem)] -translate-x-1/2 items-center justify-center gap-2 sm:gap-2.5',
-                    activeMode === 'directions'
-                        ? 'top-4'
-                        : 'top-[76px] sm:top-4',
+                    'absolute left-1/2 top-[76px] z-30 hidden max-w-[calc(100vw_-_1rem)] -translate-x-1/2 items-center justify-center gap-2.5 xl:top-4',
+                    activeMode === 'directions' ? 'xl:flex' : 'md:flex',
                 ]"
             >
                 <DafSegmentedControl
@@ -3761,26 +3919,68 @@ function radiansToDegrees(radians) {
             </section>
 
             <section
-                :class="[
-                    'absolute left-4 right-16 z-20 sm:right-auto sm:w-[380px] sm:max-w-[calc(100%_-_32px)]',
-                    activeMode === 'directions'
-                        ? 'top-[76px] sm:top-4'
-                        : 'top-4',
-                ]"
+                class="absolute inset-x-3 top-3 z-30 md:left-4 md:right-auto md:top-4 md:w-[380px] md:max-w-[calc(100%_-_32px)]"
             >
-                <DafSearchBar
-                    v-if="activeMode === 'map'"
-                    v-model="searchQuery"
-                    :placeholder="searchPlaceholder"
-                    :show-menu="false"
-                    :show-directions="false"
-                    :voice-active="voiceIsListening"
-                    show-voice
-                    @clear="clearSearch"
-                    @search="queueSearch"
-                    @submit="submitSearch"
-                    @voice="startVoiceSearch"
-                />
+                <template v-if="activeMode === 'map'">
+                    <div class="md:hidden">
+                        <DafMobileAppBanner
+                            v-if="mobileAppBannerShouldShow"
+                            class="-mx-3 -mt-3 mb-2.5 w-[calc(100%+1.5rem)]"
+                            @dismiss="dismissMobileAppBanner"
+                        />
+                        <DafMobileMapHeader
+                            v-model:open="mobileMenuIsOpen"
+                            :links="mapHeaderLinks"
+                        >
+                            <DafSearchBar
+                                v-model="searchQuery"
+                                class="min-w-0 flex-1"
+                                :placeholder="searchPlaceholder"
+                                :show-menu="false"
+                                :show-directions="false"
+                                @clear="clearSearch"
+                                @search="queueSearch"
+                                @submit="submitSearch"
+                            />
+                        </DafMobileMapHeader>
+
+                        <div
+                            v-if="
+                                !mobileMenuIsOpen &&
+                                !selectedDetailItemIsVisible
+                            "
+                            class="mt-2.5 flex items-center gap-2"
+                        >
+                            <DafSegmentedControl
+                                v-model="activeMode"
+                                :options="segmentOptions"
+                                tone="glass"
+                            />
+                            <span class="min-w-0 flex-1" />
+                            <DafNodeStatusBadge
+                                v-if="nodeTotalsCardIsVisible"
+                                :count-label="visibleMarkerCountLabel"
+                                label="in view"
+                                :loading="markersAreLoading"
+                                show-label-on-mobile
+                            />
+                        </div>
+                    </div>
+
+                    <DafSearchBar
+                        v-model="searchQuery"
+                        class="hidden md:flex"
+                        :placeholder="searchPlaceholder"
+                        :show-menu="false"
+                        :show-directions="false"
+                        :voice-active="voiceIsListening"
+                        show-voice
+                        @clear="clearSearch"
+                        @search="queueSearch"
+                        @submit="submitSearch"
+                        @voice="startVoiceSearch"
+                    />
+                </template>
 
                 <div
                     v-else
@@ -3895,22 +4095,33 @@ function radiansToDegrees(radians) {
                         </div>
                     </div>
 
-                    <button
-                        class="daf-pressable mt-2.5 flex items-center gap-2 rounded-dafMd px-1 py-2 text-daf-body font-medium text-daf-text-secondary hover:bg-daf-surface-alt hover:text-daf-text-primary"
-                        type="button"
-                        @click="addDirectionStop"
-                    >
-                        <span
-                            class="flex size-[22px] items-center justify-center rounded-full bg-daf-surface-alt text-daf-text-secondary"
+                    <div class="mt-2 flex items-center gap-2">
+                        <button
+                            class="daf-pressable flex items-center gap-2 rounded-dafMd px-1 py-2 text-daf-body font-medium text-daf-text-secondary hover:bg-daf-surface-alt hover:text-daf-text-primary"
+                            type="button"
+                            @click="addDirectionStop"
                         >
-                            <DafIcon name="plus" size="15" />
-                        </span>
-                        Add stop
-                    </button>
+                            <span
+                                class="flex size-[22px] items-center justify-center rounded-full bg-daf-surface-alt text-daf-text-secondary"
+                            >
+                                <DafIcon name="plus" size="15" />
+                            </span>
+                            Add stop
+                        </button>
+                        <span class="min-w-0 flex-1" />
+                        <button
+                            class="daf-pressable flex size-11 shrink-0 items-center justify-center rounded-dafMd text-daf-text-secondary hover:bg-daf-surface-alt hover:text-daf-text-primary"
+                            type="button"
+                            aria-label="Reverse start and destination"
+                            @click="reverseDirectionWaypoints"
+                        >
+                            <DafIcon name="arrow-up-down" size="18" />
+                        </button>
+                    </div>
                 </div>
 
                 <div
-                    v-if="searchPanelIsVisible"
+                    v-if="searchPanelIsVisible && !mobileMenuIsOpen"
                     class="mt-1.5 overflow-hidden rounded-dafMd border border-daf-border-glass bg-daf-surface-card shadow-dafFloat"
                 >
                     <div
@@ -4008,7 +4219,9 @@ function radiansToDegrees(radians) {
                 </div>
             </section>
 
-            <section class="absolute right-4 top-4 z-20 flex flex-col gap-2">
+            <section
+                class="absolute right-4 top-4 z-20 hidden flex-col gap-2 md:flex"
+            >
                 <DafIconButton
                     :active="mapOptionsOpen"
                     icon="layers"
@@ -4024,6 +4237,36 @@ function radiansToDegrees(radians) {
                 />
             </section>
 
+            <section
+                v-if="activeMode === 'map' && !selectedDetailItemIsVisible"
+                class="absolute bottom-3 right-3 z-20 md:hidden"
+            >
+                <DafIconButton
+                    icon="crosshair"
+                    label="Use current location"
+                    variant="brand"
+                    @click="locateUser"
+                />
+            </section>
+
+            <section
+                v-if="
+                    routeSelectionCardIsVisible &&
+                    mobileMapLayoutIsActive &&
+                    !mobileRouteSheetIsOpen
+                "
+                class="absolute bottom-3 left-3 z-20 md:hidden"
+            >
+                <DafButton
+                    leading-icon="navigation"
+                    size="sm"
+                    variant="glass"
+                    @click="showMobileRouteSheet"
+                >
+                    Route options
+                </DafButton>
+            </section>
+
             <Transition
                 enter-active-class="duration-150 ease-out"
                 enter-from-class="opacity-0"
@@ -4034,7 +4277,7 @@ function radiansToDegrees(radians) {
             >
                 <div
                     v-if="mapOptionsOpen"
-                    class="fixed inset-0 z-50 flex items-start justify-center bg-black/30 px-4 py-20 backdrop-blur-sm sm:items-center sm:py-6"
+                    class="fixed inset-0 z-50 flex items-start justify-center bg-black/30 px-4 py-20 backdrop-blur-sm md:items-center md:py-6"
                     @click.self="closeMapOptions"
                 >
                     <section
@@ -4213,27 +4456,26 @@ function radiansToDegrees(radians) {
 
             <section
                 v-if="
-                    routeSelectionCardIsVisible || selectedDetailItemIsVisible
+                    routeSelectionPanelIsVisible || selectedDetailItemIsVisible
                 "
-                class="pointer-events-auto absolute inset-x-0 bottom-0 z-20 flex max-h-[calc(100%_-_1rem)] flex-col gap-2 overflow-y-auto sm:pointer-events-none sm:inset-0 sm:block sm:max-h-none sm:overflow-visible"
+                class="pointer-events-auto absolute inset-x-0 bottom-0 z-20 flex max-h-[calc(100%_-_1rem)] flex-col gap-2 overflow-y-auto md:pointer-events-none md:inset-0 md:block md:max-h-none md:overflow-visible"
             >
                 <div
-                    v-if="routeSelectionCardIsVisible"
+                    v-if="routeSelectionPanelIsVisible"
                     :class="routePanelClasses"
                 >
                     <DafBottomSheet
                         id="route-selection-card"
                         class="relative z-20"
                         :aria-hidden="routePanelIsCollapsed ? 'true' : 'false'"
-                        eyebrow="Directions"
                         :glass="true"
                         :inert="routePanelIsCollapsed ? '' : null"
-                        :show-handle="false"
-                        title="Choose route"
+                        :subtitle="routeChoiceSubtitle"
+                        title="Choose your route"
                     >
                         <div class="flex flex-col gap-3">
                             <p
-                                v-if="directionsNotice"
+                                v-if="directionsNotice && !routeChoiceSubtitle"
                                 class="text-daf-body-sm text-daf-text-secondary"
                             >
                                 {{ directionsNotice }}
@@ -4253,7 +4495,12 @@ function radiansToDegrees(radians) {
 
                             <DafRouteCard
                                 v-if="directionsRoute?.routes?.ideal"
-                                :cameras="fastestRouteNodeCount"
+                                :arrival="
+                                    formatArrival(
+                                        directionsRoute.routes.ideal.duration,
+                                    )
+                                "
+                                :cameras="0"
                                 :distance="
                                     formatDistance(
                                         directionsRoute.routes.ideal.distance,
@@ -4267,11 +4514,17 @@ function radiansToDegrees(radians) {
                                 :selected="
                                     selectedRouteKey === ROUTE_KEYS.private
                                 "
+                                recommended
                                 type="private"
                                 @click="selectRoute(ROUTE_KEYS.private)"
                             />
                             <DafRouteCard
                                 v-if="directionsRoute?.routes?.direct"
+                                :arrival="
+                                    formatArrival(
+                                        directionsRoute.routes.direct.duration,
+                                    )
+                                "
                                 :cameras="fastestRouteNodeCount"
                                 :distance="
                                     formatDistance(
@@ -4401,7 +4654,7 @@ function radiansToDegrees(radians) {
                             </div>
 
                             <div
-                                class="flex items-center justify-between gap-3"
+                                class="hidden items-center justify-between gap-3 md:flex"
                             >
                                 <DafBadge icon="camera" tone="alert">
                                     {{ fastestRouteNodeCount }} cameras on
@@ -4414,10 +4667,18 @@ function radiansToDegrees(radians) {
                                     Clear
                                 </DafButton>
                             </div>
+                            <DafButton
+                                class="md:hidden"
+                                full-width
+                                size="lg"
+                                @click="viewSelectedRoute"
+                            >
+                                View route
+                            </DafButton>
                         </div>
                     </DafBottomSheet>
                     <button
-                        class="absolute right-[-22px] top-1/2 z-10 flex h-14 w-[22px] -translate-y-1/2 items-center justify-center rounded-r-dafMd border border-l-0 border-daf-border-glass bg-daf-surface-raised p-0 text-daf-text-tertiary shadow-dafFloat transition-colors duration-150 hover:text-daf-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-daf-focus sm:h-[60px]"
+                        class="absolute right-[-22px] top-1/2 z-10 hidden h-[60px] w-[22px] -translate-y-1/2 items-center justify-center rounded-r-dafMd border border-l-0 border-daf-border-glass bg-daf-surface-raised p-0 text-daf-text-tertiary shadow-dafFloat transition-colors duration-150 hover:text-daf-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-daf-focus md:flex"
                         type="button"
                         aria-controls="route-selection-card"
                         :aria-expanded="!routePanelIsCollapsed"
@@ -4446,7 +4707,7 @@ function radiansToDegrees(radians) {
                     >
                         <section
                             id="marker-details-card"
-                            class="relative z-20 rounded-daf2xl border border-daf-border-glass bg-daf-surface-raised p-6 text-daf-text-primary shadow-dafSheet"
+                            class="relative z-20 max-h-[66vh] overflow-y-auto rounded-t-dafSheet border-t border-daf-border bg-daf-surface-sheet px-4 pb-5 pt-2 text-daf-text-primary shadow-dafSheet md:max-h-none md:overflow-visible md:rounded-daf2xl md:border md:border-daf-border-glass md:bg-daf-surface-raised md:p-6"
                             :aria-hidden="
                                 markerPanelIsCollapsed ? 'true' : 'false'
                             "
@@ -4454,6 +4715,10 @@ function radiansToDegrees(radians) {
                             role="dialog"
                             aria-modal="false"
                         >
+                            <div
+                                class="mx-auto mb-3 h-1 w-[var(--sheet-grab)] rounded-dafPill bg-daf-border-strong md:hidden"
+                                aria-hidden="true"
+                            />
                             <button
                                 class="daf-pressable absolute right-3.5 top-3.5 flex size-[30px] items-center justify-center rounded-dafMd text-daf-text-tertiary hover:bg-daf-surface-alt hover:text-daf-text-primary"
                                 type="button"
@@ -4861,7 +5126,7 @@ function radiansToDegrees(radians) {
                             </template>
                         </section>
                         <button
-                            class="absolute left-[-22px] top-1/2 z-10 flex h-14 w-[22px] -translate-y-1/2 items-center justify-center rounded-l-dafMd border border-r-0 border-daf-border-glass bg-daf-surface-raised p-0 text-daf-text-tertiary shadow-dafFloat transition-colors duration-150 hover:text-daf-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-daf-focus sm:h-[60px]"
+                            class="absolute left-[-22px] top-1/2 z-10 hidden h-[60px] w-[22px] -translate-y-1/2 items-center justify-center rounded-l-dafMd border border-r-0 border-daf-border-glass bg-daf-surface-raised p-0 text-daf-text-tertiary shadow-dafFloat transition-colors duration-150 hover:text-daf-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-daf-focus md:flex"
                             type="button"
                             aria-controls="marker-details-card"
                             :aria-expanded="!markerPanelIsCollapsed"

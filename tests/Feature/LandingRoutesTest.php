@@ -736,7 +736,7 @@ test('map page uses the V3 full screen map surface', function () {
         ->toContain('routeFitPadding')
         ->toContain('Choose destination')
         ->toContain('Add stop')
-        ->toContain("activeMode === 'directions'")
+        ->toContain("activeMode.value === 'directions'")
         ->toContain('ADDRESS_PLACE_TYPES')
         ->toContain('PLACE_ICON_TYPES')
         ->toContain('getPlaceDistance')
@@ -744,9 +744,9 @@ test('map page uses the V3 full screen map surface', function () {
         ->toContain('bg-daf-surface-card')
         ->toContain("setConfigProperty('basemap', 'lightPreset'")
         ->toContain('cooperativeGestures: false')
-        ->toContain('h-screen min-h-screen')
+        ->toContain('h-[100dvh] min-h-[100svh]')
         ->toContain('bottom-4 left-1/2 z-20 w-[calc(100%_-_1.5rem)] max-w-sm -translate-x-1/2')
-        ->toContain('sm:right-5 sm:ml-0 sm:w-[25rem]')
+        ->toContain('md:right-5 md:w-[25rem]')
         ->toContain('nodeTotalsCardIsVisible')
         ->toContain('visibleMarkerCountLabel')
         ->toContain('DafNodeStatusBadge')
@@ -824,6 +824,162 @@ test('map page uses the V3 full screen map surface', function () {
         ->not->toContain(':show-theme-toggle');
 });
 
+test('map page implements the mobile browser design contract', function () {
+    $mapPage = file_get_contents(resource_path('js/Pages/Map.vue'));
+    $mobileHeader = file_get_contents(
+        resource_path('js/Components/Daf/Map/DafMobileMapHeader.vue'),
+    );
+    $mobileAppBanner = file_get_contents(
+        resource_path('js/Components/Daf/Map/DafMobileAppBanner.vue'),
+    );
+    $bottomSheet = file_get_contents(
+        resource_path('js/Components/Daf/Map/DafBottomSheet.vue'),
+    );
+    $routeCard = file_get_contents(
+        resource_path('js/Components/Daf/Map/DafRouteCard.vue'),
+    );
+    $searchBar = file_get_contents(
+        resource_path('js/Components/Daf/Map/DafSearchBar.vue'),
+    );
+
+    $mobileHeaderUsage = Str::between(
+        $mapPage,
+        '<DafMobileMapHeader',
+        '</DafMobileMapHeader>',
+    );
+    $responsivePanelClasses = Str::between(
+        $mapPage,
+        'const routePanelClasses',
+        'const routePanelToggleLabel',
+    );
+    $routeSheet = Str::between(
+        $mapPage,
+        'id="route-selection-card"',
+        '</DafBottomSheet>',
+    );
+    $markerDetails = Str::between(
+        $mapPage,
+        'id="marker-details-card"',
+        '</section>',
+    );
+    $reverseWaypoints = Str::between(
+        $mapPage,
+        'async function reverseDirectionWaypoints() {',
+        'async function removeDirectionWaypoint',
+    );
+    $viewRoute = Str::between(
+        $mapPage,
+        'function viewSelectedRoute() {',
+        'function showMobileRouteSheet() {',
+    );
+
+    expect($mapPage)
+        ->toContain('import DafMobileMapHeader from')
+        ->toContain('<DafMobileMapHeader')
+        ->toContain('import DafMobileAppBanner from')
+        ->toContain('<DafMobileAppBanner')
+        ->toContain('<DafSiteHeader')
+        ->toContain('class="hidden md:block"')
+        ->toContain('h-[100dvh] min-h-[100svh]')
+        ->toContain('MOBILE_BREAKPOINT_PX = 768')
+        ->toContain('Search places, addresses, ZIP…')
+        ->toContain('!mobileMenuIsOpen')
+        ->toContain('!selectedDetailItemIsVisible')
+        ->toContain('<DafSegmentedControl')
+        ->toContain('<DafNodeStatusBadge')
+        ->toContain('label="in view"')
+        ->toContain('show-label-on-mobile')
+        ->toContain('reverseDirectionWaypoints')
+        ->toContain('aria-label="Reverse start and destination"')
+        ->toContain('mobileRouteSheetIsOpen')
+        ->toContain('showMobileRouteSheet')
+        ->toContain('Route options')
+        ->toContain('class="absolute right-4 top-4 z-20 hidden flex-col gap-2 md:flex"')
+        ->toContain('label="Map options"')
+        ->toContain('label="Zoom in"')
+        ->toContain('label="Zoom out"')
+        ->toContain('class="absolute bottom-3 right-3 z-20 md:hidden"')
+        ->toContain('label="Use current location"')
+        ->toContain('md:pointer-events-none')
+        ->toContain('md:inset-0')
+        ->not->toContain('sm:pointer-events-none');
+
+    expect($mobileHeaderUsage)
+        ->toContain('v-model:open="mobileMenuIsOpen"')
+        ->toContain(':links="mapHeaderLinks"')
+        ->toContain('<DafSearchBar');
+
+    expect($reverseWaypoints)
+        ->toContain('syncDestinationSource();')
+        ->toContain('await maybeLoadDirectionsRoute();')
+        ->and($viewRoute)
+        ->toContain('fitMapToSelectedRoute();')
+        ->toContain('mobileRouteSheetIsOpen.value = false;');
+
+    expect($responsivePanelClasses)
+        ->toContain('w-full')
+        ->toContain('md:absolute')
+        ->toContain('md:w-[26rem]')
+        ->toContain('md:w-[25rem]')
+        ->not->toContain('sm:');
+
+    expect($routeSheet)
+        ->toContain(':subtitle="routeChoiceSubtitle"')
+        ->toContain('title="Choose your route"')
+        ->not->toContain(':show-handle="false"')
+        ->toContain(':arrival=')
+        ->toContain('formatArrival(')
+        ->toContain('recommended')
+        ->toContain('View route')
+        ->toContain('@click="viewSelectedRoute"')
+        ->toContain('md:hidden');
+
+    expect($bottomSheet)
+        ->toContain('v-if="showHandle"')
+        ->toContain('default: true')
+        ->toContain('md:hidden')
+        ->toContain('w-[var(--sheet-grab)]')
+        ->toContain('md:rounded-dafSheet')
+        ->toContain('md:border')
+        ->toContain('md:p-4');
+
+    expect($routeCard)
+        ->toContain(':aria-pressed="selected"')
+        ->toContain('recommended')
+        ->toContain('arrival')
+        ->toContain('Pick')
+        ->toContain('No cameras')
+        ->toContain('p-3');
+
+    expect($searchBar)->toContain(
+        'min-h-12 items-center gap-1 rounded-dafPill px-1.5 md:min-h-[52px]',
+    );
+
+    expect($markerDetails)
+        ->toContain('md:hidden')
+        ->toContain('w-[var(--sheet-grab)]');
+
+    expect($mobileHeader)
+        ->toContain(":aria-label=\"open ? 'Close menu' : 'Open menu'\"")
+        ->toContain(':aria-expanded="open"')
+        ->toContain('aria-controls="daf-mobile-map-menu"')
+        ->toContain('aria-label="Close menu"')
+        ->toContain('id="daf-mobile-map-menu"')
+        ->toContain('<nav aria-label="Main navigation">')
+        ->toContain('href="/#apps"')
+        ->toContain('Get the app')
+        ->toContain('or add daf.app to your Home Screen');
+
+    expect($mobileAppBanner)
+        ->toContain('DAF — private navigation')
+        ->toContain('Free on the App Store')
+        ->toContain('https://apps.apple.com/us/app/drivers-against-flock/id6741054638')
+        ->toContain('external')
+        ->toContain('Open')
+        ->toContain('aria-label="Dismiss app banner"')
+        ->toContain("emit('dismiss')");
+});
+
 test('map nodes in view badge is grouped with the mode toggle', function () {
     $mapPage = file_get_contents(resource_path('js/Pages/Map.vue'));
 
@@ -863,6 +1019,7 @@ test('map node status badge handles loading and live pulses', function () {
         ->toContain('@keyframes node-status-dot-pulse')
         ->toContain('animation: node-status-dot-pulse')
         ->toContain('Loading ${props.label}')
+        ->toContain('showLabelOnMobile')
         ->toContain('prefers-reduced-motion: reduce')
         ->not->toContain('loadingLabel')
         ->not->toContain('loadingDescription');
@@ -893,8 +1050,9 @@ test('map route choices and marker details can be visible together', function ()
 
     expect($mapPage)
         ->toContain('routeSelectionCardIsVisible')
+        ->toContain('routeSelectionPanelIsVisible')
         ->toContain('selectedDetailItemIsVisible')
-        ->toContain('v-if="routeSelectionCardIsVisible"')
+        ->toContain('v-if="routeSelectionPanelIsVisible"')
         ->toContain('v-if="selectedDetailItemIsVisible"')
         ->not->toContain('v-else-if="selectedMarker"');
 });
@@ -973,14 +1131,17 @@ test('map route and marker cards collapse behind edge handles', function () {
         ->toContain('aria-controls="route-selection-card"')
         ->toContain('aria-controls="marker-details-card"')
         ->toContain('class="relative z-20"')
-        ->toContain('class="absolute right-[-22px] top-1/2 z-10')
-        ->toContain('class="absolute left-[-22px] top-1/2 z-10')
+        ->toContain('class="absolute right-[-22px] top-1/2 z-10 hidden')
+        ->toContain('class="absolute left-[-22px] top-1/2 z-10 hidden')
         ->toContain('toggleRoutePanel')
         ->toContain('toggleMarkerPanel')
         ->toContain('routePanelIsCollapsed ? \'rotate-180\' : \'\'')
         ->toContain('markerPanelIsCollapsed ? \'rotate-180\' : \'\'')
         ->not->toContain('class="daf-pressable absolute right-[-22px]')
         ->not->toContain('class="daf-pressable absolute left-[-22px]');
+
+    expect(substr_count($mapPage, 'focus-visible:outline-daf-focus md:flex"'))
+        ->toBeGreaterThanOrEqual(2);
 });
 
 test('dashboard redirects to the map route', function () {

@@ -30,9 +30,7 @@
                 </span>
             </template>
         </span>
-        <span
-            class="hidden text-daf-body-sm leading-tight text-daf-text-secondary sm:inline"
-        >
+        <span :class="labelClasses">
             {{ label }}
         </span>
     </div>
@@ -54,7 +52,16 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    showLabelOnMobile: {
+        type: Boolean,
+        default: false,
+    },
 });
+
+const labelClasses = computed(() => [
+    'text-daf-body-sm leading-tight text-daf-text-secondary',
+    props.showLabelOnMobile ? 'inline' : 'hidden sm:inline',
+]);
 
 const accessibleLabel = computed(() =>
     props.loading

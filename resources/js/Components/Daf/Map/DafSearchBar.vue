@@ -93,7 +93,7 @@ const props = defineProps({
 const emit = defineEmits(['clear', 'menu', 'search', 'submit', 'voice']);
 
 const classes = computed(() => [
-    'flex min-h-[52px] items-center gap-1 rounded-dafPill px-1.5',
+    'flex min-h-12 items-center gap-1 rounded-dafPill px-1.5 md:min-h-[52px]',
     props.tone === 'glass'
         ? 'daf-glass'
         : 'border border-daf-border bg-daf-surface-card shadow-dafCard',
