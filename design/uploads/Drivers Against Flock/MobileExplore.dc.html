@@ -9,14 +9,14 @@
 <x-dc>
 <!-- page name="Mobile · Explore & search" description="iOS map browsing: map home, search, place details, ALPR marker sheet." -->
 <helmet>
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css">
-  <script src="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js"></script>
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/motion.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/styles.css">
+  <script src="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/_ds_bundle.js"></script>
   <style>
     *{ box-sizing:border-box; }
     .daf-slb, .daf-slb *{ box-sizing:content-box; }
@@ -41,7 +41,6 @@
       <a href="MobileContribute.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Contribute</a>
       <a href="MobileSettings.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Settings</a>
       <a href="MobileAndroid.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Android</a>
-      <a href="MobileAndroidAuto.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Android Auto</a>
     </div>
 
     <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">iOS · Explore &amp; search</div>
@@ -54,19 +53,19 @@
           <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
             <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
             <!-- markers -->
-            <div style="position:absolute; left:50%; top:57%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="user" heading="30" hint-size="64px,64px"></x-import></div>
-            <div style="position:absolute; left:34%; top:33%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="camera" heading="130" hint-size="40px,40px"></x-import></div>
-            <div style="position:absolute; left:68%; top:31%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="camera" heading="220" hint-size="40px,40px"></x-import></div>
-            <div style="position:absolute; left:56%; top:44%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="alpr" hint-size="40px,40px"></x-import></div>
-            <div style="position:absolute; left:22%; top:24%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="cluster" count="9" hint-size="40px,40px"></x-import></div>
-            <div style="position:absolute; left:44%; top:39%; transform:translate(-50%,-100%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="place" icon-name="coffee" label="Ritual" hint-size="46px,72px"></x-import></div>
+            <div style="position:absolute; left:50%; top:57%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="user" heading="30" hint-size="64px,64px"></x-import></div>
+            <div style="position:absolute; left:34%; top:33%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="camera" heading="130" hint-size="40px,40px"></x-import></div>
+            <div style="position:absolute; left:68%; top:31%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="camera" heading="220" hint-size="40px,40px"></x-import></div>
+            <div style="position:absolute; left:56%; top:44%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="alpr" hint-size="40px,40px"></x-import></div>
+            <div style="position:absolute; left:22%; top:24%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="cluster" count="9" hint-size="40px,40px"></x-import></div>
+            <div style="position:absolute; left:44%; top:39%; transform:translate(-50%,-100%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="place" icon-name="coffee" label="Ritual" hint-size="46px,72px"></x-import></div>
 
             <!-- top: search + chips -->
             <div style="position:absolute; top:60px; left:12px; right:12px; z-index:10; display:flex; flex-direction:column; gap:10px;">
-              <x-import component-from-global-scope="DesignSystem_c71fad.SearchBar" placeholder="Where to?" read-only="{{ true }}" leading="{{ searchLeading }}" trailing="{{ searchTrailing }}" style="width:100%;" hint-size="100%,52px"></x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.SearchBar" placeholder="Where to?" read-only="{{ true }}" leading="{{ searchLeading }}" trailing="{{ searchTrailing }}" style="width:100%;" hint-size="100%,52px"></x-import>
               <div style="display: flex; flex-wrap: wrap; gap: 14px 8px; padding-right: 30px">
                 <sc-for list="{{ chips }}" as="c" hint-placeholder-count="6">
-                  <div><x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="glass" style="height: 30px; font-size: 13px; padding: 0 12px;" hint-size="auto,30px">{{ c }}</x-import></div>
+                  <div><x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="glass" style="height: 30px; font-size: 13px; padding: 0 12px;" hint-size="auto,30px">{{ c }}</x-import></div>
                 </sc-for>
               </div>
             </div>
@@ -89,7 +88,7 @@
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" keyboard="{{ true }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
             <div style="padding:54px 12px 12px; display:flex; gap:10px; align-items:center; background:var(--surface-card); border-bottom:1px solid var(--border);">
-              <div style="flex:1; min-width:0;"><x-import component-from-global-scope="DesignSystem_c71fad.SearchBar" placeholder="Where to?" value="Ferr" trailing="{{ searchClear }}" hint-size="100%,44px"></x-import></div>
+              <div style="flex:1; min-width:0;"><x-import component-from-global-scope="DesignSystem_aa8750.SearchBar" placeholder="Where to?" value="Ferr" trailing="{{ searchClear }}" hint-size="100%,44px"></x-import></div>
               <span style="color:var(--text-brand); font-weight:600; font-size:15px; flex:0 0 auto;">Cancel</span>
             </div>
             <div style="flex:1; overflow:auto;">
@@ -124,10 +123,10 @@
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
             <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
-            <div style="position:absolute; left:50%; top:30%; transform:translate(-50%,-100%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="destination" icon-name="flag" selected="{{ true }}" hint-size="46px,72px"></x-import></div>
-            <div style="position:absolute; right:12px; top:60px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Close" variant="glass" size="md" hint-size="44px,44px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import></div>
+            <div style="position:absolute; left:50%; top:30%; transform:translate(-50%,-100%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="destination" icon-name="flag" selected="{{ true }}" hint-size="46px,72px"></x-import></div>
+            <div style="position:absolute; right:12px; top:60px; z-index:10;"><x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Close" variant="glass" size="md" hint-size="44px,44px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import></div>
             <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
-              <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" title="Ferry Building Marketplace" subtitle="Marketplace · Food hall" hint-size="100%,360px">
+              <x-import component-from-global-scope="DesignSystem_aa8750.BottomSheet" title="Ferry Building Marketplace" subtitle="Marketplace · Food hall" hint-size="100%,360px">
                 <div style="display:flex; align-items:center; gap:8px; font-size:var(--fs-body-sm); margin-bottom:14px; flex-wrap:wrap;">
                   <span style="display:inline-flex; align-items:center; gap:4px; color:var(--amber-600); font-weight:var(--fw-semibold);"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style="display:block;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>4.6</span>
                   <span style="color:var(--text-tertiary);">(2,310)</span>
@@ -142,9 +141,9 @@
                   <div style="display:flex; gap:11px; align-items:center;"><span style="color:var(--text-tertiary); flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></span><span style="font-size:var(--fs-body-sm); color:var(--text-secondary);">(415) 983-8030</span></div>
                 </div>
                 <div style="display:grid; grid-template-columns:1fr auto auto; gap:8px;">
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="md" full-width="{{ true }}" hint-size="100%,46px">Directions</x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Save" variant="solid" size="md" hint-size="46px,46px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Website" variant="solid" size="md" hint-size="46px,46px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"></path></svg></x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="md" full-width="{{ true }}" hint-size="100%,46px">Directions</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Save" variant="solid" size="md" hint-size="46px,46px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Website" variant="solid" size="md" hint-size="46px,46px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"></path></svg></x-import>
                 </div>
               </x-import>
             </div>
@@ -158,13 +157,13 @@
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
             <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
-            <div style="position:absolute; left:50%; top:30%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="camera" heading="160" selected="{{ true }}" hint-size="60px,60px"></x-import></div>
-            <div style="position:absolute; right:12px; top:60px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Close" variant="glass" size="md" hint-size="44px,44px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import></div>
+            <div style="position:absolute; left:50%; top:30%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="camera" heading="160" selected="{{ true }}" hint-size="60px,60px"></x-import></div>
+            <div style="position:absolute; right:12px; top:60px; z-index:10;"><x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Close" variant="glass" size="md" hint-size="44px,44px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import></div>
             <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
-              <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" title="ALPR camera" subtitle="37.7841, -122.4194" hint-size="100%,420px">
+              <x-import component-from-global-scope="DesignSystem_aa8750.BottomSheet" title="ALPR camera" subtitle="37.7841, -122.4194" hint-size="100%,420px">
                 <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="alert" hint-size="auto,24px">ALPR</x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="neutral" hint-size="auto,24px">Flock Safety</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="alert" hint-size="auto,24px">ALPR</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="neutral" hint-size="auto,24px">Flock Safety</x-import>
                 </div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px 16px; margin-bottom:16px;">
                   <div><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">Manufacturer</div><div style="font-size:var(--fs-body-sm); font-weight:var(--fw-medium);">Flock Safety</div></div>
@@ -178,10 +177,10 @@
                 </div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin:0 0 8px;">Edit this node</div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="secondary" size="md" full-width="{{ true }}" leading-icon="{{ pencilIcon }}" hint-size="100%,46px">Edit node</x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="secondary" size="md" full-width="{{ true }}" leading-icon="{{ trashIcon }}" style="color:var(--alert-500);" hint-size="100%,46px">Delete</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="secondary" size="md" full-width="{{ true }}" leading-icon="{{ pencilIcon }}" hint-size="100%,46px">Edit node</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="secondary" size="md" full-width="{{ true }}" leading-icon="{{ trashIcon }}" style="color:var(--alert-500);" hint-size="100%,46px">Delete</x-import>
                 </div>
-                <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="ghost" size="md" full-width="{{ true }}" hint-size="100%,46px">Open in OpenStreetMap  ↗</x-import>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="ghost" size="md" full-width="{{ true }}" hint-size="100%,46px">Open in OpenStreetMap  ↗</x-import>
               </x-import>
             </div>
           </div>

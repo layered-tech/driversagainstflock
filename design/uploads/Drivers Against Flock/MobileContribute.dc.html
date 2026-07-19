@@ -9,14 +9,14 @@
 <x-dc>
 <!-- page name="Mobile · Contribute (OSM)" description="Step-by-step OpenStreetMap changeset flow — from the base map to a published changeset — plus the community hotlist." -->
 <helmet>
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css">
-  <script src="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js"></script>
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/motion.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/styles.css">
+  <script src="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/_ds_bundle.js"></script>
   <style>
     *{ box-sizing:border-box; }
     .daf-slb, .daf-slb *{ box-sizing:content-box; }
@@ -41,7 +41,6 @@
       <span style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; font-weight:600; color:var(--text-brand); background:var(--brand-soft); border:1px solid transparent; padding:6px 13px; border-radius:var(--radius-pill);">Contribute</span>
       <a href="MobileSettings.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Settings</a>
       <a href="MobileAndroid.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Android</a>
-      <a href="MobileAndroidAuto.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Android Auto</a>
     </div>
 
     <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 6px; padding-bottom:10px; border-bottom:1px solid var(--border);">OpenStreetMap editing · iOS</div>
@@ -57,13 +56,13 @@
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
             <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
-            <div style="position:absolute; left:50%; top:57%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="user" heading="30" hint-size="64px,64px"></x-import></div>
-            <div style="position:absolute; left:56%; top:44%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="alpr" hint-size="40px,40px"></x-import></div>
-            <div style="position:absolute; left:22%; top:24%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="cluster" count="9" hint-size="40px,40px"></x-import></div>
+            <div style="position:absolute; left:50%; top:57%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="user" heading="30" hint-size="64px,64px"></x-import></div>
+            <div style="position:absolute; left:56%; top:44%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="alpr" hint-size="40px,40px"></x-import></div>
+            <div style="position:absolute; left:22%; top:24%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="cluster" count="9" hint-size="40px,40px"></x-import></div>
 
             <!-- top: search -->
             <div style="position:absolute; top:60px; left:12px; right:12px; z-index:10;">
-              <x-import component-from-global-scope="DesignSystem_c71fad.SearchBar" placeholder="Where to?" read-only="{{ true }}" leading="{{ searchLeading }}" trailing="{{ searchTrailing }}" style="width:100%;" hint-size="100%,52px"></x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.SearchBar" placeholder="Where to?" read-only="{{ true }}" leading="{{ searchLeading }}" trailing="{{ searchTrailing }}" style="width:100%;" hint-size="100%,52px"></x-import>
             </div>
 
             <!-- right-edge map controls, edit pencil highlighted -->
@@ -95,11 +94,11 @@
             <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
             <div style="position:absolute; inset:0; background:rgba(11,14,18,0.28);"></div>
             <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
-              <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" title="Start a changeset" subtitle="Add camera data to OpenStreetMap" hint-size="100%,520px">
+              <x-import component-from-global-scope="DesignSystem_aa8750.BottomSheet" title="Start a changeset" subtitle="Add camera data to OpenStreetMap" hint-size="100%,520px">
                 <div style="display:flex; align-items:center; gap:12px; padding:11px 12px; background:var(--surface-card-alt); border-radius:var(--radius-md); margin-bottom:14px;">
                   <span style="width:40px; height:40px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
                   <div style="flex:1; min-width:0;"><div style="font-size:var(--fs-body-sm); font-weight:var(--fw-semibold);">@daf_mapper</div><div style="font-size:var(--fs-caption); color:var(--text-tertiary);">OpenStreetMap account · signed in</div></div>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="brand" hint-size="auto,24px">OSM</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="brand" hint-size="auto,24px">OSM</x-import>
                 </div>
                 <p style="font-size:var(--fs-body-sm); line-height:1.5; color:var(--text-secondary); margin:0 0 16px;">Your edits are public and credited to you. Place new camera nodes or fix existing ones, then publish them together in one changeset.</p>
                 <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:18px;">
@@ -108,7 +107,7 @@
                   <div style="display:flex; align-items:center; gap:11px;"><span style="width:24px; height:24px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-mono); font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;">3</span><span style="font-size:var(--fs-body-sm); color:var(--text-primary);">Describe the changeset</span></div>
                   <div style="display:flex; align-items:center; gap:11px;"><span style="width:24px; height:24px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-mono); font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;">4</span><span style="font-size:var(--fs-body-sm); color:var(--text-primary);">Review &amp; publish</span></div>
                 </div>
-                <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="lg" full-width="{{ true }}" leading-icon="{{ pencilIcon }}" hint-size="100%,52px">Start editing</x-import>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" full-width="{{ true }}" leading-icon="{{ pencilIcon }}" hint-size="100%,52px">Start editing</x-import>
               </x-import>
             </div>
           </div>
@@ -124,8 +123,8 @@
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
             <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
-            <div style="position:absolute; left:34%; top:32%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="camera" heading="130" hint-size="40px,40px"></x-import></div>
-            <div style="position:absolute; left:64%; top:40%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="camera" heading="250" hint-size="40px,40px"></x-import></div>
+            <div style="position:absolute; left:34%; top:32%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="camera" heading="130" hint-size="40px,40px"></x-import></div>
+            <div style="position:absolute; left:64%; top:40%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="camera" heading="250" hint-size="40px,40px"></x-import></div>
 
             <!-- center crosshair -->
             <div style="position:absolute; left:50%; top:47%; transform:translate(-50%,-50%); z-index:6; pointer-events:none; display:flex; flex-direction:column; align-items:center; gap:8px;">
@@ -134,30 +133,30 @@
 
             <!-- edit top bar -->
             <div style="position:absolute; top:56px; left:12px; right:12px; z-index:10; display:flex; align-items:center; gap:8px; padding:7px 8px 7px 6px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-radius:var(--radius-md); box-shadow:var(--shadow-float);">
-              <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
               <span style="flex:1; min-width:0; font-size:var(--fs-body); font-weight:var(--fw-semibold); color:var(--text-primary);">Place the cameras</span>
               <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-secondary); background:var(--surface-card-alt); border:1px solid var(--border); padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">Step 1 of 4</span>
             </div>
-            <div style="position:absolute; top:168px; left:0; right:0; z-index:10; display:flex; justify-content:center;"><x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="glass" style="height:32px; font-size:13px; padding:0 14px;" hint-size="auto,32px">Move the map, then tap + to drop</x-import></div>
+            <div style="position:absolute; top:168px; left:0; right:0; z-index:10; display:flex; justify-content:center;"><x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="glass" style="height:32px; font-size:13px; padding:0 14px;" hint-size="auto,32px">Move the map, then tap + to drop</x-import></div>
 
             <!-- add control — matches the map control buttons, tucked tight under the top bar -->
             <div style="position:absolute; right:12px; top:126px; z-index:10;"><button aria-label="Add camera here" style="width:48px; height:48px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--brand); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button></div>
 
             <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
-              <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" title="2 cameras placed" subtitle="Tap a point to edit or remove" hint-size="100%,340px">
+              <x-import component-from-global-scope="DesignSystem_aa8750.BottomSheet" title="2 cameras placed" subtitle="Tap a point to edit or remove" hint-size="100%,340px">
                 <div style="display:flex; flex-direction:column; margin-bottom:14px;">
                   <div style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border);">
                     <span style="width:34px; height:34px; border-radius:var(--radius-sm); background:rgba(255,77,79,0.14); color:var(--alert-500); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg></span>
                     <div style="flex:1; min-width:0;"><div style="font-size:var(--fs-body-sm); font-weight:var(--fw-semibold);">New ALPR camera</div><div style="font-size:var(--fs-caption); font-family:var(--font-mono); color:var(--text-tertiary);">37.7841, -122.4194</div></div>
-                    <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Remove" variant="plain" size="sm" hint-size="36px,36px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import>
+                    <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Remove" variant="plain" size="sm" hint-size="36px,36px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import>
                   </div>
                   <div style="display:flex; align-items:center; gap:12px; padding:10px 0;">
                     <span style="width:34px; height:34px; border-radius:var(--radius-sm); background:rgba(255,77,79,0.14); color:var(--alert-500); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg></span>
                     <div style="flex:1; min-width:0;"><div style="font-size:var(--fs-body-sm); font-weight:var(--fw-semibold);">New ALPR camera</div><div style="font-size:var(--fs-caption); font-family:var(--font-mono); color:var(--text-tertiary);">37.7836, -122.4170</div></div>
-                    <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Remove" variant="plain" size="sm" hint-size="36px,36px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import>
+                    <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Remove" variant="plain" size="sm" hint-size="36px,36px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import>
                   </div>
                 </div>
-                <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Next: describe cameras</x-import>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Next: describe cameras</x-import>
               </x-import>
             </div>
           </div>
@@ -173,7 +172,7 @@
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
             <div style="padding:54px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
-              <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
               <span style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading);">Camera details</span>
               <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-secondary); background:var(--surface-card-alt); border:1px solid var(--border); padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">Step 2 of 4</span>
             </div>
@@ -184,15 +183,15 @@
             <div style="flex:1; overflow:auto; padding:16px; display:flex; flex-direction:column; gap:18px;">
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Type</div>
-                <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" tone="light" options="{{ nodeTypeOpts }}" value="{{ nodeType }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,42px"></x-import>
+                <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="light" options="{{ nodeTypeOpts }}" value="{{ nodeType }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,42px"></x-import>
               </div>
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Manufacturer</div>
-                <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" tone="light" options="{{ mfrOpts }}" value="{{ mfr }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,42px"></x-import>
+                <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="light" options="{{ mfrOpts }}" value="{{ mfr }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,42px"></x-import>
               </div>
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Operator</div>
-                <x-import component-from-global-scope="DesignSystem_c71fad.Input" tone="light" value="City of San Francisco" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Input" tone="light" value="City of San Francisco" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
               </div>
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Directions faced</div>
@@ -202,16 +201,16 @@
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Mounted on</div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" selected="{{ true }}" hint-size="auto,34px">Pole</x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" hint-size="auto,34px">Gantry</x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" hint-size="auto,34px">Building</x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" hint-size="auto,34px">Traffic light</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" selected="{{ true }}" hint-size="auto,34px">Pole</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Gantry</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Building</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Traffic light</x-import>
                 </div>
               </div>
-              <x-import component-from-global-scope="DesignSystem_c71fad.Switch" checked="{{ true }}" label="Camera is currently active" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Switch" checked="{{ true }}" label="Camera is currently active" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
             </div>
             <div style="padding:12px 16px 28px; border-top:1px solid var(--border); background:var(--surface-card);">
-              <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Next: changeset details</x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Next: changeset details</x-import>
             </div>
           </div>
         </x-import>
@@ -226,7 +225,7 @@
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
             <div style="padding:54px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
-              <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
               <span style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading);">Changeset details</span>
               <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-secondary); background:var(--surface-card-alt); border:1px solid var(--border); padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">Step 3 of 4</span>
             </div>
@@ -239,14 +238,14 @@
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Source</div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" selected="{{ true }}" hint-size="auto,34px">Survey</x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" hint-size="auto,34px">Local knowledge</x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" hint-size="auto,34px">Aerial imagery</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" selected="{{ true }}" hint-size="auto,34px">Survey</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Local knowledge</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Aerial imagery</x-import>
                 </div>
               </div>
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Hashtags</div>
-                <x-import component-from-global-scope="DesignSystem_c71fad.Input" tone="light" value="#flock #alpr #surveillance" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Input" tone="light" value="#flock #alpr #surveillance" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
               </div>
               <div style="display:flex; align-items:center; gap:11px; padding:12px; background:var(--brand-soft); border-radius:var(--radius-md);">
                 <span style="color:var(--text-brand); flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg></span>
@@ -254,7 +253,7 @@
               </div>
             </div>
             <div style="padding:12px 16px 28px; border-top:1px solid var(--border); background:var(--surface-card);">
-              <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Next: review &amp; publish</x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Next: review &amp; publish</x-import>
             </div>
           </div>
         </x-import>
@@ -269,7 +268,7 @@
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
             <div style="padding:54px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
-              <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
               <span style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading);">Review &amp; publish</span>
               <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-secondary); background:var(--surface-card-alt); border:1px solid var(--border); padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">Step 4 of 4</span>
             </div>
@@ -299,9 +298,9 @@
               </div>
             </div>
             <div style="padding:12px 16px 28px; border-top:1px solid var(--border); background:var(--surface-card);">
-              <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="lg" full-width="{{ true }}" leading-icon="{{ uploadIcon }}" hint-size="100%,52px">Publish to OpenStreetMap</x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" full-width="{{ true }}" leading-icon="{{ uploadIcon }}" hint-size="100%,52px">Publish to OpenStreetMap</x-import>
               <div style="height:10px;"></div>
-              <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="ghost" size="md" full-width="{{ true }}" hint-size="100%,46px">Save as draft</x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="ghost" size="md" full-width="{{ true }}" hint-size="100%,46px">Save as draft</x-import>
             </div>
           </div>
         </x-import>
@@ -335,9 +334,9 @@
               <p style="font-size:var(--fs-caption); color:var(--text-tertiary); margin:14px 0 0;">They'll appear in Explore and on the Hotlist within minutes.</p>
             </div>
             <div style="padding:12px 16px 28px; border-top:1px solid var(--border); background:var(--surface-card);">
-              <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">See them on the map</x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">See them on the map</x-import>
               <div style="height:10px;"></div>
-              <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="ghost" size="md" full-width="{{ true }}" hint-size="100%,46px">Add more cameras</x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="ghost" size="md" full-width="{{ true }}" hint-size="100%,46px">Add more cameras</x-import>
             </div>
           </div>
         </x-import>
@@ -369,7 +368,7 @@
                   <span style="font-size:var(--fs-caption); font-weight:var(--fw-semibold); color:var(--text-secondary); white-space:nowrap;">just now</span>
                 </span>
               </div>
-              <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" tone="light" options="{{ hotWinOptions }}" value="{{ hotWin }}" onChange="{{ setHotWin }}" style="width:100%;" hint-size="100%,40px"></x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="light" options="{{ hotWinOptions }}" value="{{ hotWin }}" onChange="{{ setHotWin }}" style="width:100%;" hint-size="100%,40px"></x-import>
             </div>
 
             <!-- scroll body -->
@@ -389,7 +388,7 @@
               <!-- filter chips -->
               <div style="display:flex; gap:8px; padding:10px 16px 8px; overflow-x:auto; -webkit-overflow-scrolling:touch;">
                 <sc-for list="{{ hotChips }}" as="c" hint-placeholder-count="3">
-                  <div style="flex:0 0 auto;"><x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" selected="{{ c.sel }}" style="height:34px; font-size:13px;" hint-size="auto,34px">{{ c.label }}</x-import></div>
+                  <div style="flex:0 0 auto;"><x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" selected="{{ c.sel }}" style="height:34px; font-size:13px;" hint-size="auto,34px">{{ c.label }}</x-import></div>
                 </sc-for>
               </div>
 
@@ -435,7 +434,7 @@
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);" data-screen-label="18 Your edits">
             <div style="padding:54px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
-              <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
               <span style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading);">Your edits</span>
               <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-secondary); background:var(--surface-card-alt); border:1px solid var(--border); padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">6 live</span>
             </div>
@@ -498,7 +497,7 @@
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);" data-screen-label="19 Edit a camera">
             <div style="padding:54px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
-              <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
               <span style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading);">Edit camera</span>
               <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-secondary); background:var(--surface-card-alt); border:1px solid var(--border); padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">v3 → v4</span>
             </div>
@@ -513,15 +512,15 @@
               </div>
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Type</div>
-                <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" tone="light" options="{{ nodeTypeOpts }}" value="{{ nodeType }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,42px"></x-import>
+                <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="light" options="{{ nodeTypeOpts }}" value="{{ nodeType }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,42px"></x-import>
               </div>
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Manufacturer</div>
-                <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" tone="light" options="{{ mfrOpts }}" value="{{ mfr }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,42px"></x-import>
+                <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="light" options="{{ mfrOpts }}" value="{{ mfr }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,42px"></x-import>
               </div>
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Operator</div>
-                <x-import component-from-global-scope="DesignSystem_c71fad.Input" tone="light" value="City of San Francisco" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Input" tone="light" value="City of San Francisco" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
               </div>
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Directions faced</div>
@@ -531,13 +530,13 @@
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Mounted on</div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" selected="{{ true }}" hint-size="auto,34px">Pole</x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" hint-size="auto,34px">Gantry</x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" hint-size="auto,34px">Building</x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" hint-size="auto,34px">Traffic light</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" selected="{{ true }}" hint-size="auto,34px">Pole</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Gantry</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Building</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Traffic light</x-import>
                 </div>
               </div>
-              <x-import component-from-global-scope="DesignSystem_c71fad.Switch" checked="{{ true }}" label="Camera is currently active" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Switch" checked="{{ true }}" label="Camera is currently active" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
               <button style="display:flex; align-items:center; gap:12px; width:100%; padding:12px 14px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); cursor:pointer; text-align:left; -webkit-tap-highlight-color:transparent;">
                 <span style="width:34px; height:34px; border-radius:var(--radius-sm); background:rgba(255,77,79,0.14); color:var(--alert-500); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" x2="10" y1="11" y2="17"></line><line x1="14" x2="14" y1="11" y2="17"></line></svg></span>
                 <span style="flex:1; min-width:0;"><span style="display:block; font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--alert-500);">Remove from map</span><span style="display:block; font-family:var(--font-ui); font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:1px;">Publishes a delete changeset</span></span>
@@ -545,7 +544,7 @@
               </button>
             </div>
             <div style="padding:12px 16px 28px; border-top:1px solid var(--border); background:var(--surface-card);">
-              <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Save changes</x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Save changes</x-import>
               <p style="font-size:var(--fs-caption); color:var(--text-tertiary); text-align:center; margin:9px 0 0;">Publishes v4 of this node as a new changeset — your original stays in history.</p>
             </div>
           </div>
@@ -562,7 +561,7 @@
           <div style="position:relative; width:100%; height:100%; background:var(--surface-page); overflow:hidden; font-family:var(--font-ui);" data-screen-label="20 Remove from map">
             <div style="position:absolute; inset:0; display:flex; flex-direction:column;">
               <div style="padding:54px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
-                <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
+                <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Back" variant="plain" size="md" hint-size="40px,40px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></x-import>
                 <span style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading);">Edit camera</span>
                 <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-secondary); background:var(--surface-card-alt); border:1px solid var(--border); padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">v3</span>
               </div>
@@ -573,35 +572,35 @@
               <div style="flex:1; overflow:hidden; padding:16px; display:flex; flex-direction:column; gap:18px;">
                 <div>
                   <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Type</div>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" tone="light" options="{{ nodeTypeOpts }}" value="{{ nodeType }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,42px"></x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="light" options="{{ nodeTypeOpts }}" value="{{ nodeType }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,42px"></x-import>
                 </div>
                 <div>
                   <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Manufacturer</div>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" tone="light" options="{{ mfrOpts }}" value="{{ mfr }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,42px"></x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="light" options="{{ mfrOpts }}" value="{{ mfr }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,42px"></x-import>
                 </div>
                 <div>
                   <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Operator</div>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Input" tone="light" value="City of San Francisco" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Input" tone="light" value="City of San Francisco" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
                 </div>
               </div>
             </div>
             <div style="position:absolute; inset:0; background:rgba(11,14,18,0.28);"></div>
             <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
-              <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" title="Remove this camera?" subtitle="node/11640217 · Valencia St &amp; 24th St" hint-size="100%,430px">
+              <x-import component-from-global-scope="DesignSystem_aa8750.BottomSheet" title="Remove this camera?" subtitle="node/11640217 · Valencia St &amp; 24th St" hint-size="100%,430px">
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Why remove it?</div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" selected="{{ true }}" hint-size="auto,34px">Gone from pole</x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" hint-size="auto,34px">Never existed</x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" hint-size="auto,34px">Duplicate</x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" hint-size="auto,34px">Other</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" selected="{{ true }}" hint-size="auto,34px">Gone from pole</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Never existed</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Duplicate</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" hint-size="auto,34px">Other</x-import>
                 </div>
                 <div style="display:flex; align-items:flex-start; gap:9px; padding:11px 12px; background:var(--surface-card-alt); border-radius:var(--radius-sm); margin-bottom:16px;">
                   <span style="color:var(--amber-600); flex:0 0 auto; margin-top:1px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg></span>
                   <span style="font-size:var(--fs-caption); color:var(--text-secondary); line-height:1.5;">Removal is public — it publishes a delete changeset credited to <b style="color:var(--text-primary);">@daf_mapper</b>. Other mappers can see and discuss it.</span>
                 </div>
-                <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="danger" size="lg" full-width="{{ true }}" leading-icon="{{ trashIcon }}" hint-size="100%,52px">Remove from map</x-import>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="danger" size="lg" full-width="{{ true }}" leading-icon="{{ trashIcon }}" hint-size="100%,52px">Remove from map</x-import>
                 <div style="height:10px;"></div>
-                <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="ghost" size="md" full-width="{{ true }}" hint-size="100%,46px">Cancel</x-import>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="ghost" size="md" full-width="{{ true }}" hint-size="100%,46px">Cancel</x-import>
               </x-import>
             </div>
           </div>

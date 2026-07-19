@@ -9,14 +9,14 @@
 <x-dc>
 <!-- page name="Mobile · Onboarding & settings" description="No-location fallback and the map settings sheet (incl. police reports toggle)." -->
 <helmet>
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css">
-  <script src="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js"></script>
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/motion.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/styles.css">
+  <script src="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/_ds_bundle.js"></script>
   <style>
     *{ box-sizing:border-box; }
     .daf-slb, .daf-slb *{ box-sizing:content-box; }
@@ -41,7 +41,6 @@
       <a href="MobileContribute.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Contribute</a>
       <span style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; font-weight:600; color:var(--text-brand); background:var(--brand-soft); border:1px solid transparent; padding:6px 13px; border-radius:var(--radius-pill);">Settings</span>
       <a href="MobileAndroid.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Android</a>
-      <a href="MobileAndroidAuto.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Android Auto</a>
     </div>
 
     <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">iOS · Onboarding &amp; settings</div>
@@ -55,13 +54,13 @@
             <div style="display:inline-flex; align-self:flex-start; align-items:center; justify-content:center; width:58px; height:58px; border-radius:var(--radius-lg); background:var(--brand-soft); color:var(--text-brand); margin-bottom:22px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg></div>
             <h2 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h1); letter-spacing:var(--ls-heading); margin:0 0 12px; line-height:1.15;">Works with or without your location</h2>
             <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); margin:0 0 28px;">Turn on location for live routing and nearby cameras. Or skip it — you can still search, browse the map, and look up any ZIP. No account, no tracking, either way.</p>
-            <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Allow location access</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Allow location access</x-import>
             <div style="height:10px;"></div>
-            <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="secondary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Continue without location</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="secondary" size="lg" full-width="{{ true }}" hint-size="100%,52px">Continue without location</x-import>
             <div style="display:flex; align-items:center; gap:12px; margin:26px 0 18px; color:var(--text-tertiary); font-size:var(--fs-caption);"><span style="flex:1; height:1px; background:var(--border);"></span>or look up an area<span style="flex:1; height:1px; background:var(--border);"></span></div>
             <div style="display:flex; gap:8px;">
-              <div style="flex:1;"><x-import component-from-global-scope="DesignSystem_c71fad.Input" tone="light" size="md" placeholder="Search a place or ZIP" hint-size="100%,46px"></x-import></div>
-              <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="secondary" size="md" hint-size="auto,46px">Go</x-import>
+              <div style="flex:1;"><x-import component-from-global-scope="DesignSystem_aa8750.Input" tone="light" size="md" placeholder="Search a place or ZIP" hint-size="100%,46px"></x-import></div>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="secondary" size="md" hint-size="auto,46px">Go</x-import>
             </div>
             <div style="flex:1;"></div>
             <p style="font-size:var(--fs-caption); color:var(--text-tertiary); text-align:center; margin:0;">We never sell or share your location.</p>
@@ -77,14 +76,14 @@
             <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
             <div style="position:absolute; inset:0; background:rgba(11,14,18,0.28);"></div>
             <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
-              <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" title="Map settings" subtitle="Customize what you see" hint-size="100%,600px">
+              <x-import component-from-global-scope="DesignSystem_aa8750.BottomSheet" title="Map settings" subtitle="Customize what you see" hint-size="100%,600px">
                 <div style="display:flex; flex-direction:column; gap:2px; margin-bottom:8px;">
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Switch" checked="{{ true }}" label="Show surveillance markers" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Switch" checked="{{ true }}" label="Cluster nearby markers" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Switch" checked="{{ true }}" label="Camera direction cones" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Switch" checked="{{ false }}" label="Prefer private routes" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Switch" checked="{{ false }}" label="Traffic overlays" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Switch" checked="{{ true }}" label="Police reports (Waze)" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Switch" checked="{{ true }}" label="Show surveillance markers" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Switch" checked="{{ true }}" label="Cluster nearby markers" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Switch" checked="{{ true }}" label="Camera direction cones" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Switch" checked="{{ false }}" label="Prefer private routes" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Switch" checked="{{ false }}" label="Traffic overlays" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Switch" checked="{{ true }}" label="Police reports (Waze)" onChange="{{ noop }}" hint-size="100%,44px"></x-import>
                 </div>
 
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin:14px 0 8px;">Map layer</div>
@@ -104,9 +103,9 @@
                 <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); padding:16px; margin-bottom:14px;">
                   <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;">
                     <div style="font-size:15px; font-weight:var(--fw-semibold); color:var(--text-primary);">Map's time of day</div>
-                    <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="brand" hint-size="auto,24px">Auto-safe</x-import>
+                    <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="brand" hint-size="auto,24px">Auto-safe</x-import>
                   </div>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" tone="light" options="{{ todOpts }}" value="{{ tod }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,40px"></x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="light" options="{{ todOpts }}" value="{{ tod }}" onChange="{{ noop }}" style="width:100%;" hint-size="100%,40px"></x-import>
                 </div>
 
                 <div style="display:flex; align-items:center; gap:12px; border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); padding:14px 16px; margin-bottom:18px;">
@@ -119,7 +118,7 @@
                 </div>
 
                 <div>
-                  <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="ghost" size="md" full-width="{{ true }}" hint-size="100%,46px">Reset</x-import>
+                  <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="ghost" size="md" full-width="{{ true }}" hint-size="100%,46px">Reset</x-import>
                 </div>
               </x-import>
             </div>

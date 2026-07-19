@@ -9,14 +9,14 @@
 <x-dc>
 <!-- page name="Web — Help / Support" description="Ways to support Drivers Against Flock — leads with financial support through Buy Me a Coffee: a featured donation card with a single Buy-us-a-coffee CTA, plus a breakdown of what funding covers. Matches the marketing site." -->
 <helmet>
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css">
-  <script src="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js"></script>
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/motion.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/styles.css">
+  <script src="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/_ds_bundle.js"></script>
   <style>
     *{ box-sizing:border-box; }
     html{ scroll-behavior:smooth; }
@@ -38,7 +38,7 @@
 <div data-theme="{{ theme }}" data-screen-label="Web — Help / Support" style="font-family:var(--font-ui); color:var(--text-primary); background:var(--surface-page); min-height:100vh; -webkit-font-smoothing:antialiased;">
 
   <!-- ===================== HEADER ===================== -->
-  <x-import component-from-global-scope="DesignSystem_c71fad.SiteHeader" logo-src="assets/logo-mark.png" variant="marketing" logo-href="WebLanding.dc.html" links="{{ navLinks }}" cta="{{ headerCta }}" hint-size="100%,68px"></x-import>
+  <x-import component-from-global-scope="DesignSystem_aa8750.SiteHeader" logo-src="assets/logo-mark.png" variant="marketing" logo-href="WebLanding.dc.html" links="{{ navLinks }}" cta="{{ headerCta }}" hint-size="100%,68px"></x-import>
 
   <!-- ===================== TITLE ===================== -->
   <section style="border-bottom:1px solid var(--border);">
@@ -51,9 +51,9 @@
       <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-display-lg); line-height:var(--lh-display-lg); letter-spacing:var(--ls-display); margin:0 0 18px; text-wrap:balance;">Help keep the creepy boxes on the map</h1>
       <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); max-width:62ch; margin:0 0 20px;">Drivers Against Flock is community-run, ad-free, and stubbornly free to use. The bills are real, though — here's how you can keep the map running.</p>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="ghost" hint-size="auto,24px">Community-run</x-import>
-        <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="ghost" hint-size="auto,24px">No ads, ever</x-import>
-        <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="ghost" hint-size="auto,24px">Open data</x-import>
+        <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="ghost" hint-size="auto,24px">Community-run</x-import>
+        <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="ghost" hint-size="auto,24px">No ads, ever</x-import>
+        <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="ghost" hint-size="auto,24px">Open data</x-import>
       </div>
     </div>
   </section>
@@ -70,7 +70,7 @@
           <!-- copy side -->
           <div style="padding:36px; min-width:0;">
             <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px;">
-              <span style="display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:var(--radius-md); background:var(--brand-soft); color:var(--text-brand); flex:0 0 auto;"><x-import component-from-global-scope="DesignSystem_c71fad.Icon" name="coffee" size="22" hint-size="22px,22px"></x-import></span>
+              <span style="display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:var(--radius-md); background:var(--brand-soft); color:var(--text-brand); flex:0 0 auto;"><x-import component-from-global-scope="DesignSystem_aa8750.Icon" name="coffee" size="22" hint-size="22px,22px"></x-import></span>
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); font-weight:var(--fw-bold); line-height:1.2;">01 · Financial support</div>
                 <div style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h2); letter-spacing:var(--ls-heading); line-height:1.1; margin-top:3px;">Buy us a coffee</div>
@@ -81,7 +81,7 @@
             <div class="help-cover">
               <sc-for list="{{ covers }}" as="c" hint-placeholder-count="3">
                 <div>
-                  <span style="display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:var(--radius-sm); background:var(--surface-card-alt); color:var(--text-brand); margin-bottom:12px;"><x-import component-from-global-scope="DesignSystem_c71fad.Icon" name="{{ c.icon }}" size="19" hint-size="19px,19px"></x-import></span>
+                  <span style="display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:var(--radius-sm); background:var(--surface-card-alt); color:var(--text-brand); margin-bottom:12px;"><x-import component-from-global-scope="DesignSystem_aa8750.Icon" name="{{ c.icon }}" size="19" hint-size="19px,19px"></x-import></span>
                   <div style="font-size:var(--fs-body-sm); font-weight:var(--fw-bold); color:var(--text-primary); margin-bottom:4px; line-height:1.3;">{{ c.title }}</div>
                   <div style="font-size:var(--fs-caption); line-height:1.5; color:var(--text-tertiary);">{{ c.body }}</div>
                 </div>
@@ -91,7 +91,7 @@
 
           <!-- action panel -->
           <div style="background:var(--surface-card-alt); border-left:1px solid var(--border); padding:32px; display:flex; flex-direction:column; justify-content:center; gap:18px;">
-            <span style="align-self:flex-start; display:inline-flex; align-items:center; justify-content:center; width:52px; height:52px; border-radius:var(--radius-md); background:var(--brand-soft); color:var(--text-brand);"><x-import component-from-global-scope="DesignSystem_c71fad.Icon" name="coffee" size="26" hint-size="26px,26px"></x-import></span>
+            <span style="align-self:flex-start; display:inline-flex; align-items:center; justify-content:center; width:52px; height:52px; border-radius:var(--radius-md); background:var(--brand-soft); color:var(--text-brand);"><x-import component-from-global-scope="DesignSystem_aa8750.Icon" name="coffee" size="26" hint-size="26px,26px"></x-import></span>
 
             <div>
               <div style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h3); letter-spacing:var(--ls-heading); line-height:1.15; margin-bottom:8px;">Any amount helps</div>

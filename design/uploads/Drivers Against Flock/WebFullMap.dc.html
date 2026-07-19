@@ -9,14 +9,14 @@
 <x-dc>
 <!-- page name="Web — Full map" description="Full-screen map app: header nav, Map/Directions switch, search, top-right controls, route-choice modal." -->
 <helmet>
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css">
-  <script src="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js"></script>
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/motion.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/styles.css">
+  <script src="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/_ds_bundle.js"></script>
   <style>
     *{ box-sizing:border-box; }
     .daf-ctl{ -webkit-tap-highlight-color:transparent; }
@@ -51,7 +51,7 @@
 <div data-theme="{{ theme }}" data-route="{{ routeMode }}" data-route-collapsed="{{ routeCollapsed }}" data-marker-collapsed="{{ markerCollapsed }}" data-screen-label="Web — Full map" style="position:fixed; inset:0; display:flex; flex-direction:column; overflow:hidden; font-family:var(--font-ui); color:var(--text-primary); background:var(--surface-page);">
 
   <!-- ===== HEADER (opaque) ===== -->
-  <x-import component-from-global-scope="DesignSystem_c71fad.SiteHeader" logo-src="assets/logo-mark.png" variant="app" logo-href="WebLanding.dc.html" links="{{ navLinks }}" hint-size="100%,64px"></x-import>
+  <x-import component-from-global-scope="DesignSystem_aa8750.SiteHeader" logo-src="assets/logo-mark.png" variant="app" logo-href="WebLanding.dc.html" links="{{ navLinks }}" hint-size="100%,64px"></x-import>
 
   <!-- ===== MAP REGION ===== -->
   <div style="position:relative; flex:1 1 auto; min-height:0;">
@@ -71,45 +71,45 @@
 
     <!-- surveillance markers -->
     <div class="daf-ctl" onClick="{{ c1Pick }}" style="position:absolute; left:39%; top:33%; transform:translate(-50%,-50%); cursor:pointer; z-index:4;">
-      <x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="camera" heading="120" selected="{{ c1Sel }}" hint-size="44px,44px"></x-import>
+      <x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="camera" heading="120" selected="{{ c1Sel }}" hint-size="44px,44px"></x-import>
     </div>
     <div class="daf-ctl" onClick="{{ c2Pick }}" style="position:absolute; left:62%; top:29%; transform:translate(-50%,-50%); cursor:pointer; z-index:4;">
-      <x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="camera" heading="225" selected="{{ c2Sel }}" hint-size="44px,44px"></x-import>
+      <x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="camera" heading="225" selected="{{ c2Sel }}" hint-size="44px,44px"></x-import>
     </div>
     <div class="daf-ctl" onClick="{{ c3Pick }}" style="position:absolute; left:30%; top:67%; transform:translate(-50%,-50%); cursor:pointer; z-index:4;">
-      <x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="camera" heading="15" selected="{{ c3Sel }}" hint-size="44px,44px"></x-import>
+      <x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="camera" heading="15" selected="{{ c3Sel }}" hint-size="44px,44px"></x-import>
     </div>
     <div class="daf-ctl" onClick="{{ a1Pick }}" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); cursor:pointer; z-index:4;">
-      <x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="alpr" selected="{{ a1Sel }}" hint-size="44px,44px"></x-import>
+      <x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="alpr" selected="{{ a1Sel }}" hint-size="44px,44px"></x-import>
     </div>
     <div class="daf-ctl" onClick="{{ a2Pick }}" style="position:absolute; left:57%; top:57%; transform:translate(-50%,-50%); cursor:pointer; z-index:4;">
-      <x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="alpr" selected="{{ a2Sel }}" hint-size="44px,44px"></x-import>
+      <x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="alpr" selected="{{ a2Sel }}" hint-size="44px,44px"></x-import>
     </div>
 
     <!-- user location -->
     <div style="position:absolute; left:55%; top:63%; transform:translate(-50%,-50%); z-index:3;">
-      <x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="user" heading="34" hint-size="64px,64px"></x-import>
+      <x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="user" heading="34" hint-size="64px,64px"></x-import>
     </div>
 
     <!-- clusters + places (map browse) -->
     <sc-if value="{{ showClusters }}" hint-placeholder-val="{{ true }}">
-      <div style="position:absolute; left:13%; top:19%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="cluster" count="14" hint-size="40px,40px"></x-import></div>
-      <div style="position:absolute; left:86%; top:24%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="cluster" count="8" hint-size="40px,40px"></x-import></div>
-      <div style="position:absolute; left:82%; top:81%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="cluster" count="5" hint-size="40px,40px"></x-import></div>
-      <div style="position:absolute; left:45%; top:43%; transform:translate(-50%,-100%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="place" icon-name="coffee" label="Ritual Coffee" hint-size="46px,72px"></x-import></div>
-      <div style="position:absolute; left:69%; top:74%; transform:translate(-50%,-100%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="place" icon-name="fuel" label="Shell" hint-size="46px,72px"></x-import></div>
+      <div style="position:absolute; left:13%; top:19%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="cluster" count="14" hint-size="40px,40px"></x-import></div>
+      <div style="position:absolute; left:86%; top:24%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="cluster" count="8" hint-size="40px,40px"></x-import></div>
+      <div style="position:absolute; left:82%; top:81%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="cluster" count="5" hint-size="40px,40px"></x-import></div>
+      <div style="position:absolute; left:45%; top:43%; transform:translate(-50%,-100%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="place" icon-name="coffee" label="Ritual Coffee" hint-size="46px,72px"></x-import></div>
+      <div style="position:absolute; left:69%; top:74%; transform:translate(-50%,-100%); z-index:4;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="place" icon-name="fuel" label="Shell" hint-size="46px,72px"></x-import></div>
     </sc-if>
 
     <!-- destination + monitored nodes (directions) -->
     <sc-if value="{{ showDirections }}" hint-placeholder-val="{{ true }}">
-      <div style="position:absolute; left:41%; top:21%; transform:translate(-50%,-100%); z-index:6;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="destination" icon-name="flag" label="Ferry Building" selected="{{ true }}" hint-size="46px,72px"></x-import></div>
-      <div style="position:absolute; left:51%; top:42.5%; transform:translate(-50%,-50%); z-index:5;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="monitored" hint-size="16px,16px"></x-import></div>
-      <div style="position:absolute; left:47%; top:34%; transform:translate(-50%,-50%); z-index:5;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="monitored" hint-size="16px,16px"></x-import></div>
+      <div style="position:absolute; left:41%; top:21%; transform:translate(-50%,-100%); z-index:6;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="destination" icon-name="flag" label="Ferry Building" selected="{{ true }}" hint-size="46px,72px"></x-import></div>
+      <div style="position:absolute; left:51%; top:42.5%; transform:translate(-50%,-50%); z-index:5;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="monitored" hint-size="16px,16px"></x-import></div>
+      <div style="position:absolute; left:47%; top:34%; transform:translate(-50%,-50%); z-index:5;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="monitored" hint-size="16px,16px"></x-import></div>
     </sc-if>
 
     <!-- ===== TOP-MIDDLE: Map / Directions switch + nodes-in-view counter ===== -->
     <div style="position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:30; display:flex; align-items:center; gap:10px;">
-      <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" tone="glass" options="{{ segOptions }}" value="{{ mode }}" onChange="{{ setMode }}" hint-size="240px,44px"></x-import>
+      <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="glass" options="{{ segOptions }}" value="{{ mode }}" onChange="{{ setMode }}" hint-size="240px,44px"></x-import>
 
       <!-- nodes-in-view counter, grouped to the right of the toggle -->
       <div style="display:inline-flex; align-items:center; gap:11px; height:44px; padding:0 18px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-radius:var(--radius-pill); box-shadow:var(--shadow-float); color:var(--text-primary); white-space:nowrap;">
@@ -127,7 +127,7 @@
 
       <!-- MAP MODE: single search field -->
       <sc-if value="{{ showSearch }}" hint-placeholder-val="{{ true }}">
-        <x-import component-from-global-scope="DesignSystem_c71fad.Combobox" tone="glass" size="lg" placeholder="Search places, addresses, ZIP…" options="{{ placeOptions }}" onSelect="{{ onPlace }}" hint-size="100%,52px"></x-import>
+        <x-import component-from-global-scope="DesignSystem_aa8750.Combobox" tone="glass" size="lg" placeholder="Search places, addresses, ZIP…" options="{{ placeOptions }}" onSelect="{{ onPlace }}" hint-size="100%,52px"></x-import>
       </sc-if>
 
       <!-- DIRECTIONS MODE: start / stops / destination -->
@@ -138,7 +138,6 @@
             <span style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:var(--radius-md); background:var(--brand-soft); color:var(--text-brand);"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg></span>
             <span style="font-family:var(--font-display); font-size:var(--fs-body-lg); font-weight:var(--fw-bold); letter-spacing:var(--ls-heading);">Directions</span>
             <span style="flex:1;"></span>
-            <button class="daf-ctl" aria-label="Reverse start and destination" onClick="{{ reverseWps }}" style="width:30px; height:30px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; color:var(--text-tertiary); cursor:pointer; border-radius:var(--radius-md);" style-hover="color:var(--text-primary);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m21 16-4 4-4-4"></path><path d="M17 20V4"></path><path d="m3 8 4-4 4 4"></path><path d="M7 4v16"></path></svg></button>
             <button class="daf-ctl" aria-label="Close directions" onClick="{{ exitDirections }}" style="width:30px; height:30px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; color:var(--text-tertiary); cursor:pointer; border-radius:var(--radius-md);"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></button>
           </div>
 
@@ -195,7 +194,7 @@
 
     <!-- ===== TOP-RIGHT: settings + zoom + locate ===== -->
     <div style="position:absolute; top:16px; right:16px; z-index:25; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
-      <div class="daf-ctl" onClick="{{ openOptions }}"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Map options" variant="glass" size="md" hint-size="44px,44px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"></path><path d="m6.08 9.5-3.49 1.59a1 1 0 0 0 0 1.81l8.59 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.49-1.59"></path><path d="m6.08 14.5-3.49 1.59a1 1 0 0 0 0 1.81l8.59 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.49-1.59"></path></svg></x-import></div>
+      <div class="daf-ctl" onClick="{{ openOptions }}"><x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Map options" variant="glass" size="md" hint-size="44px,44px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"></path><path d="m6.08 9.5-3.49 1.59a1 1 0 0 0 0 1.81l8.59 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.49-1.59"></path><path d="m6.08 14.5-3.49 1.59a1 1 0 0 0 0 1.81l8.59 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.49-1.59"></path></svg></x-import></div>
 
       <div style="display:flex; flex-direction:column; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-radius:var(--radius-pill); box-shadow:var(--shadow-float); overflow:hidden;">
         <button class="daf-ctl" aria-label="Zoom in" style="width:46px; height:46px; border:none; background:transparent; color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
@@ -203,7 +202,7 @@
         <button class="daf-ctl" aria-label="Zoom out" style="width:46px; height:46px; border:none; background:transparent; color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center;"><span style="width:14px; height:2px; border-radius:2px; background:currentColor;"></span></button>
       </div>
 
-      <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Track my location" variant="brand" size="md" hint-size="46px,46px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="2" x2="5" y1="12" y2="12"></line><line x1="19" x2="22" y1="12" y2="12"></line><line x1="12" x2="12" y1="2" y2="5"></line><line x1="12" x2="12" y1="19" y2="22"></line><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="1"></circle></svg></x-import>
+      <x-import component-from-global-scope="DesignSystem_aa8750.IconButton" label="Track my location" variant="brand" size="md" hint-size="46px,46px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="2" x2="5" y1="12" y2="12"></line><line x1="19" x2="22" y1="12" y2="12"></line><line x1="12" x2="12" y1="2" y2="5"></line><line x1="12" x2="12" y1="19" y2="22"></line><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="1"></circle></svg></x-import>
     </div>
 
     <!-- ===== BOTTOM-LEFT: route-choice panel (always shown) ===== -->
@@ -218,8 +217,8 @@
         <p style="margin:8px 0 0; font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); text-wrap:pretty;">Two ways to the Ferry Building. The private route skips <b style="color:var(--text-primary);">4 cameras</b> for 3 extra minutes.</p>
 
         <div style="margin-top:18px; display:grid; gap:8px;">
-          <x-import component-from-global-scope="DesignSystem_c71fad.RouteCard" kind="private" eta="27 min" arrival="arrive 6:15" distance="13.1 mi" cameras="{{ c0 }}" recommended="{{ true }}" selected="{{ privateSelected }}" onClick="{{ pickPrivate }}" hint-size="100%,76px"></x-import>
-          <x-import component-from-global-scope="DesignSystem_c71fad.RouteCard" kind="fast" eta="24 min" arrival="arrive 6:12" distance="12.4 mi" cameras="{{ c4 }}" selected="{{ fastSelected }}" onClick="{{ pickFast }}" hint-size="100%,76px"></x-import>
+          <x-import component-from-global-scope="DesignSystem_aa8750.RouteCard" kind="private" eta="27 min" arrival="arrive 6:15" distance="13.1 mi" cameras="{{ c0 }}" recommended="{{ true }}" selected="{{ privateSelected }}" onClick="{{ pickPrivate }}" hint-size="100%,76px"></x-import>
+          <x-import component-from-global-scope="DesignSystem_aa8750.RouteCard" kind="fast" eta="24 min" arrival="arrive 6:12" distance="12.4 mi" cameras="{{ c4 }}" selected="{{ fastSelected }}" onClick="{{ pickFast }}" hint-size="100%,76px"></x-import>
         </div>
 
         <!-- avoid-cameras buffer, tucked behind a Settings disclosure -->
@@ -235,16 +234,16 @@
             <div style="margin-top:14px; display:grid; gap:14px;">
               <div style="display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--surface-card-alt); border-radius:var(--radius-md);">
                 <span style="flex:1; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary);">Allow ALPR near start &amp; destination</span>
-                <x-import component-from-global-scope="DesignSystem_c71fad.Switch" checked="{{ allowNearEnds }}" onChange="{{ setAllowNearEnds }}" hint-size="48px,28px"></x-import>
+                <x-import component-from-global-scope="DesignSystem_aa8750.Switch" checked="{{ allowNearEnds }}" onChange="{{ setAllowNearEnds }}" hint-size="48px,28px"></x-import>
               </div>
-              <x-import component-from-global-scope="DesignSystem_c71fad.Slider" label="Avoid cameras by" show-value="{{ true }}" min="{{ bufMin }}" max="{{ bufMax }}" step="{{ bufStep }}" value="{{ bufferFt }}" onChange="{{ setBuffer }}" format-value="{{ fmtBuffer }}" hint-size="100%,52px"></x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Slider" label="Avoid cameras by" show-value="{{ true }}" min="{{ bufMin }}" max="{{ bufMax }}" step="{{ bufStep }}" value="{{ bufferFt }}" onChange="{{ setBuffer }}" format-value="{{ fmtBuffer }}" hint-size="100%,52px"></x-import>
             </div>
           </sc-if>
         </div>
 
         <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:var(--space-6);">
-          <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="ghost" size="md" hint-size="auto,44px">Cancel</x-import>
-          <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="md" hint-size="auto,44px">View Route</x-import>
+          <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="ghost" size="md" hint-size="auto,44px">Cancel</x-import>
+          <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="md" hint-size="auto,44px">View Route</x-import>
         </div>
       </div>
     </div>
@@ -264,8 +263,8 @@
           <div style="font-size:var(--fs-body-sm); font-family:var(--font-mono); color:var(--text-tertiary); margin-bottom:14px;">37.7841, -122.4194</div>
 
           <div style="display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap;">
-            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="alert" hint-size="auto,24px">ALPR</x-import>
-            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="neutral" hint-size="auto,24px">Flock Safety</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="alert" hint-size="auto,24px">ALPR</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="neutral" hint-size="auto,24px">Flock Safety</x-import>
           </div>
 
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px 16px; margin-bottom:16px;">
@@ -281,7 +280,7 @@
           </div>
 
           <div style="display:grid; gap:8px;">
-            <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="secondary" size="md" full-width="{{ true }}" hint-size="100%,46px">Open on OpenStreetMap  ↗</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="secondary" size="md" full-width="{{ true }}" hint-size="100%,46px">Open on OpenStreetMap  ↗</x-import>
           </div>
         </sc-if>
 
@@ -303,8 +302,8 @@
           <div style="font-size:var(--fs-body-sm); font-family:var(--font-mono); color:var(--text-tertiary); margin-bottom:14px;">1026 Valencia St, San Francisco</div>
 
           <div style="display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap;">
-            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="brand" hint-size="auto,24px">Coffee shop</x-import>
-            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="info" hint-size="auto,24px">Open now</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="brand" hint-size="auto,24px">Coffee shop</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="info" hint-size="auto,24px">Open now</x-import>
           </div>
 
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px 16px; margin-bottom:16px;">
@@ -320,8 +319,8 @@
           </div>
 
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-            <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="md" full-width="{{ true }}" hint-size="100%,46px">Directions</x-import>
-            <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="secondary" size="md" full-width="{{ true }}" hint-size="100%,46px">Save</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="md" full-width="{{ true }}" hint-size="100%,46px">Directions</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="secondary" size="md" full-width="{{ true }}" hint-size="100%,46px">Save</x-import>
           </div>
         </sc-if>
 
@@ -337,8 +336,8 @@
           <div style="font-size:var(--fs-body-sm); font-family:var(--font-mono); color:var(--text-tertiary); margin-bottom:14px;">37.7765, -122.4242</div>
 
           <div style="display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap;">
-            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="neutral" hint-size="auto,24px">Residential</x-import>
-            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="ghost" hint-size="auto,24px">Address</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="neutral" hint-size="auto,24px">Residential</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="ghost" hint-size="auto,24px">Address</x-import>
           </div>
 
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px 16px; margin-bottom:16px;">
@@ -354,8 +353,8 @@
           </div>
 
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-            <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="md" full-width="{{ true }}" hint-size="100%,46px">Directions</x-import>
-            <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="secondary" size="md" full-width="{{ true }}" hint-size="100%,46px">Save</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="md" full-width="{{ true }}" hint-size="100%,46px">Directions</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="secondary" size="md" full-width="{{ true }}" hint-size="100%,46px">Save</x-import>
           </div>
         </sc-if>
       </div>
@@ -363,7 +362,7 @@
 
     <!-- ===== MAP OPTIONS MODAL ===== -->
     <sc-if value="{{ optionsOpen }}" hint-placeholder-val="{{ false }}">
-      <x-import component-from-global-scope="DesignSystem_c71fad.Dialog" open="{{ true }}" onClose="{{ closeOptions }}" icon="layers" tone="brand" size="sm" title="Map options" hint-size="380px,400px">
+      <x-import component-from-global-scope="DesignSystem_aa8750.Dialog" open="{{ true }}" onClose="{{ closeOptions }}" icon="layers" tone="brand" size="sm" title="Map options" hint-size="380px,400px">
         <div style="display:flex; flex-direction:column; gap:22px;">
           <div>
             <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:10px;">Map type</div>
@@ -389,7 +388,7 @@
           </div>
           <div>
             <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:10px;">Appearance</div>
-            <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" tone="light" options="{{ themeModeOptions }}" value="{{ themeMode }}" onChange="{{ setThemeMode }}" hint-size="100%,44px"></x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.SegmentedControl" tone="light" options="{{ themeModeOptions }}" value="{{ themeMode }}" onChange="{{ setThemeMode }}" hint-size="100%,44px"></x-import>
           </div>
         </div>
       </x-import>
@@ -469,7 +468,6 @@ class Component extends DCLogic {
     });
   }
   dragEnd() { this.setState({ dragIndex: null }); }
-  reverseWps() { this.setState(s => ({ waypoints: s.waypoints.slice().reverse() })); }
   setMapType(t) { this.setState({ mapType: t }); }
   setThemeMode(m) { this.setState({ themeMode: m }); }
   openOptions() { this.setState({ optionsOpen: true }); }
@@ -542,7 +540,6 @@ class Component extends DCLogic {
       showClusters: mode === 'map',
       waypoints,
       addStop: () => this.addStop(),
-      reverseWps: () => this.reverseWps(),
       segOptions: [{ value: 'map', label: 'Map' }, { value: 'directions', label: 'Directions' }],
       setMode: (m) => this.setMode(m),
       ...markerVals,

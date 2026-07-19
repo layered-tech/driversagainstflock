@@ -9,14 +9,14 @@
 <x-dc>
 <!-- page name="Web — Landing" description="Privacy-first marketing landing: map preview, the John Doe story, how-it-works, Android Auto, app download." -->
 <helmet>
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css">
-  <script src="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js"></script>
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/motion.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/styles.css">
+  <script src="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/_ds_bundle.js"></script>
   <style>
     *{ box-sizing:border-box; }
     html{ scroll-behavior:smooth; }
@@ -73,7 +73,7 @@
 <div data-theme="{{ theme }}" data-screen-label="Web — Landing" style="font-family:var(--font-ui); color:var(--text-primary); background:var(--surface-page); min-height:100vh; -webkit-font-smoothing:antialiased;">
 
   <!-- ===================== HEADER ===================== -->
-  <x-import component-from-global-scope="DesignSystem_c71fad.SiteHeader" logo-src="assets/logo-mark.png" variant="marketing" logo-href="#top" links="{{ navLinks }}" cta="{{ headerCta }}" hint-size="100%,68px"></x-import>
+  <x-import component-from-global-scope="DesignSystem_aa8750.SiteHeader" logo-src="assets/logo-mark.png" variant="marketing" logo-href="#top" links="{{ navLinks }}" cta="{{ headerCta }}" hint-size="100%,68px"></x-import>
 
   <!-- ===================== HERO ===================== -->
   <section id="top" style="border-bottom:1px solid var(--border);">
@@ -85,13 +85,13 @@
           <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-display-lg); line-height:var(--lh-display-lg); letter-spacing:var(--ls-display); margin:0 0 20px; text-wrap:balance;">See what's watching the road. Then drive around it.</h1>
           <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); max-width:46ch; margin:0 0 28px;">Drivers Against Flock maps the license-plate readers and roadside cameras along your route — then offers a quieter way through. The fastest way, or the one with fewer little boxes on poles.</p>
           <div style="display:flex; gap:10px; max-width:440px; margin-bottom:16px;">
-            <div style="flex:1;"><x-import component-from-global-scope="DesignSystem_c71fad.Input" tone="light" size="lg" placeholder="Enter your ZIP code" hint-size="100%,52px"></x-import></div>
-            <a href="WebFullMap.dc.html" style="text-decoration:none;"><x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="lg" hint-size="auto,52px">Check my area</x-import></a>
+            <div style="flex:1;"><x-import component-from-global-scope="DesignSystem_aa8750.Input" tone="light" size="lg" placeholder="Enter your ZIP code" hint-size="100%,52px"></x-import></div>
+            <a href="WebFullMap.dc.html" style="text-decoration:none;"><x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" hint-size="auto,52px">Check my area</x-import></a>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="ghost" hint-size="auto,24px">Free, always</x-import>
-            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="ghost" hint-size="auto,24px">No login</x-import>
-            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="ghost" hint-size="auto,24px">No tracking, ever</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="ghost" hint-size="auto,24px">Free, always</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="ghost" hint-size="auto,24px">No login</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="ghost" hint-size="auto,24px">No tracking, ever</x-import>
           </div>
         </div>
         <div id="preview">{{ heroMapCard }}</div>
@@ -105,8 +105,8 @@
         <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-display-xl); line-height:var(--lh-display-xl); letter-spacing:var(--ls-display); margin:0 0 22px; text-wrap:balance;">These devices are everywhere. Now you can see them.</h1>
         <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); max-width:60ch; margin:0 auto 30px;">Drivers Against Flock maps the license-plate readers and roadside cameras along your route — then offers a quieter way through. The fastest way, or the one with fewer little boxes on poles.</p>
         <div style="display:flex; gap:10px; max-width:480px; margin:0 auto 36px;">
-          <div style="flex:1;"><x-import component-from-global-scope="DesignSystem_c71fad.Input" tone="light" size="lg" placeholder="Enter your ZIP code" hint-size="100%,52px"></x-import></div>
-          <a href="WebFullMap.dc.html" style="text-decoration:none;"><x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="lg" hint-size="auto,52px">Check my area</x-import></a>
+          <div style="flex:1;"><x-import component-from-global-scope="DesignSystem_aa8750.Input" tone="light" size="lg" placeholder="Enter your ZIP code" hint-size="100%,52px"></x-import></div>
+          <a href="WebFullMap.dc.html" style="text-decoration:none;"><x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" hint-size="auto,52px">Check my area</x-import></a>
         </div>
       </div>
       <div id="preview" style="max-width:var(--width-content); margin:0 auto; padding:0 24px 80px;">{{ heroMapCard }}</div>
@@ -239,8 +239,8 @@
             <span>— no Google Play account needed. Verify the SHA-256 checksum before installing.</span>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="brand" hint-size="auto,24px">Android Auto — available now</x-import>
-            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="neutral" hint-size="auto,24px">CarPlay — in testing</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="brand" hint-size="auto,24px">Android Auto — available now</x-import>
+            <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="neutral" hint-size="auto,24px">CarPlay — in testing</x-import>
           </div>
         </div>
         <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-2xl); padding:32px;">
@@ -283,8 +283,8 @@
             <div style="flex:1;"></div>
 
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
-              <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="brand" hint-size="auto,26px">Private route</x-import>
-              <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="neutral" hint-size="auto,26px">0 cameras ahead</x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="brand" hint-size="auto,26px">Private route</x-import>
+              <x-import component-from-global-scope="DesignSystem_aa8750.Badge" tone="neutral" hint-size="auto,26px">0 cameras ahead</x-import>
             </div>
             <div style="display:flex; align-items:baseline; gap:12px; padding-top:16px; border-top:1px solid var(--border);">
               <span style="font-family:var(--font-mono); font-weight:800; font-size:30px; color:var(--text-brand); line-height:1;">12 min</span>
@@ -299,8 +299,8 @@
               <path d="M50 92 C 50 74, 54 60, 48 46 S 40 26, 56 10" fill="none" stroke="var(--route-private-casing)" stroke-width="13" vector-effect="non-scaling-stroke" stroke-linecap="round"></path>
               <path d="M50 92 C 50 74, 54 60, 48 46 S 40 26, 56 10" fill="none" stroke="var(--route-private)" stroke-width="8" vector-effect="non-scaling-stroke" stroke-linecap="round"></path>
             </svg>
-            <div style="position:absolute; left:50%; bottom:14%; transform:translate(-50%,50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="user" heading="0" hint-size="64px,64px"></x-import></div>
-            <div style="position:absolute; left:12px; bottom:12px; z-index:6;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" limit="35" current="{{ n32 }}" size="{{ n62 }}" hint-size="62px,86px"></x-import></div>
+            <div style="position:absolute; left:50%; bottom:14%; transform:translate(-50%,50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_aa8750.MapMarker" variant="user" heading="0" hint-size="64px,64px"></x-import></div>
+            <div style="position:absolute; left:12px; bottom:12px; z-index:6;"><x-import component-from-global-scope="DesignSystem_aa8750.SpeedLimitBadge" limit="35" current="{{ n32 }}" size="{{ n62 }}" hint-size="62px,86px"></x-import></div>
             <div style="position:absolute; right:12px; bottom:12px; z-index:6; display:flex; flex-direction:column; gap:10px;">
               <span style="display:inline-flex; align-items:center; justify-content:center; width:50px; height:50px; border-radius:var(--radius-sm); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); box-shadow:var(--shadow-float); color:var(--text-primary);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="2" x2="5" y1="12" y2="12"></line><line x1="19" x2="22" y1="12" y2="12"></line><line x1="12" x2="12" y1="2" y2="5"></line><line x1="12" x2="12" y1="19" y2="22"></line><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="1"></circle></svg></span>
             </div>

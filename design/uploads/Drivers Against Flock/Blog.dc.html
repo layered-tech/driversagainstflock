@@ -9,14 +9,14 @@
 <x-dc>
 <!-- page name="Web — Blog" description="First-party DAF blog index: masthead, category filter, featured post, card grid, and newsletter band — matching the marketing site." -->
 <helmet>
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css">
-  <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css">
-  <script src="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js"></script>
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/motion.css">
+  <link rel="stylesheet" href="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/styles.css">
+  <script src="_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/_ds_bundle.js"></script>
   <style>
     *{ box-sizing:border-box; }
     html{ scroll-behavior:smooth; }
@@ -49,7 +49,7 @@
 <div data-theme="{{ theme }}" data-screen-label="Web — Blog" style="font-family:var(--font-ui); color:var(--text-primary); background:var(--surface-page); min-height:100vh; -webkit-font-smoothing:antialiased;">
 
   <!-- ===================== HEADER ===================== -->
-  <x-import component-from-global-scope="DesignSystem_c71fad.SiteHeader" logo-src="assets/logo-mark.png" variant="marketing" logo-href="WebLanding.dc.html" links="{{ navLinks }}" cta="{{ headerCta }}" hint-size="100%,68px"></x-import>
+  <x-import component-from-global-scope="DesignSystem_aa8750.SiteHeader" logo-src="assets/logo-mark.png" variant="marketing" logo-href="WebLanding.dc.html" links="{{ navLinks }}" cta="{{ headerCta }}" hint-size="100%,68px"></x-import>
 
   <!-- ===================== MASTHEAD ===================== -->
   <section style="border-bottom:1px solid var(--border);">
@@ -64,7 +64,7 @@
   <section style="border-bottom:1px solid var(--border); position:sticky; top:0; z-index:5; background:color-mix(in oklab, var(--surface-page) 88%, transparent); backdrop-filter:blur(10px);">
     <div style="max-width:var(--width-content); margin:0 auto; padding:14px 24px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
       <sc-for list="{{ categories }}" as="c" hint-placeholder-count="5">
-        <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" selected="{{ c.selected }}" onClick="{{ c.onClick }}" hint-size="auto,38px">{{ c.label }}</x-import>
+        <x-import component-from-global-scope="DesignSystem_aa8750.Chip" tone="light" selected="{{ c.selected }}" onClick="{{ c.onClick }}" hint-size="auto,38px">{{ c.label }}</x-import>
       </sc-for>
       <div style="margin-left:auto; font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); letter-spacing:var(--ls-mono);">{{ countLabel }}</div>
     </div>
@@ -135,7 +135,7 @@
       <div>
         <form style="display:flex; gap:10px; flex-wrap:wrap;" onsubmit="{{ onSubscribe }}">
           <input class="nl-input" type="email" placeholder="you@example.com" aria-label="Email address">
-          <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="lg" hint-size="auto,52px">Subscribe</x-import>
+          <x-import component-from-global-scope="DesignSystem_aa8750.Button" variant="primary" size="lg" hint-size="auto,52px">Subscribe</x-import>
         </form>
         <div style="margin-top:14px; font-family:var(--font-mono); font-size:var(--fs-caption); letter-spacing:var(--ls-mono); color:color-mix(in oklab, var(--text-inverse) 55%, transparent);">{{ subscriberLine }}</div>
       </div>
