@@ -20,6 +20,58 @@ export function autoPlaySearchRequestIsCurrent(currentRequest, request) {
     return currentRequest === request && request?.signal?.aborted !== true;
 }
 
+function normalizeAutoPlaySearchText(searchText) {
+    return String(searchText ?? '').trim();
+}
+
+export function createAutoPlaySearchCallbackState() {
+    let activeSubmissionToken = null;
+    let nextSubmissionToken = 0;
+    let submittedSearchText = '';
+
+    return {
+        handleSearchTextChanged(searchText) {
+            const normalizedSearchText =
+                normalizeAutoPlaySearchText(searchText);
+            const normalizedComparison = normalizedSearchText.toLowerCase();
+            const submittedComparison = submittedSearchText.toLowerCase();
+            const isLateSubmittedChange = Boolean(
+                submittedSearchText &&
+                (!normalizedSearchText ||
+                    submittedComparison.startsWith(normalizedComparison)),
+            );
+
+            if (!isLateSubmittedChange) {
+                activeSubmissionToken = null;
+                submittedSearchText = '';
+            }
+
+            return {
+                ignored: isLateSubmittedChange,
+                searchText: normalizedSearchText,
+            };
+        },
+        handleSearchTextSubmitted(searchText) {
+            nextSubmissionToken += 1;
+            activeSubmissionToken = nextSubmissionToken;
+            submittedSearchText = normalizeAutoPlaySearchText(searchText);
+
+            return {
+                searchText: submittedSearchText,
+                submissionToken: activeSubmissionToken,
+            };
+        },
+        handleSearchTextSubmissionCompleted(submissionToken) {
+            if (activeSubmissionToken !== submissionToken) {
+                return;
+            }
+
+            activeSubmissionToken = null;
+            submittedSearchText = '';
+        },
+    };
+}
+
 export function getAutoPlayHeaderButtonVisibility({
     hasActiveNavigation,
     usesHeaderDrivingModeButton = true,

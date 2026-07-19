@@ -35,6 +35,32 @@ function requestPuck(lifecycle, mapViewRef, requested = true) {
 }
 
 describe('navigation puck lifecycle', () => {
+    test('prepares before applying so the fallback can unmount first', async () => {
+        let applyCount = 0;
+        const statuses = [];
+        const lifecycle = makeLifecycle({
+            apply: async () => {
+                applyCount += 1;
+
+                return true;
+            },
+            statuses,
+        });
+        const mapViewRef = { current: { id: 'map' } };
+
+        await requestPuck(lifecycle, mapViewRef);
+
+        assert.equal(applyCount, 0);
+        assert.equal(lifecycle.getStatus(), 'preparing');
+        assert.deepEqual(statuses, ['preparing']);
+
+        await requestPuck(lifecycle, mapViewRef);
+
+        assert.equal(applyCount, 1);
+        assert.equal(lifecycle.getStatus(), 'active');
+        assert.deepEqual(statuses, ['preparing', 'active']);
+    });
+
     test('does not apply while the map ref is unresolved', async () => {
         let applyCount = 0;
         const lifecycle = makeLifecycle({
@@ -45,6 +71,7 @@ describe('navigation puck lifecycle', () => {
             },
         });
 
+        await requestPuck(lifecycle, { current: null });
         await requestPuck(lifecycle, { current: null });
 
         assert.equal(applyCount, 0);
@@ -64,6 +91,7 @@ describe('navigation puck lifecycle', () => {
             },
         });
 
+        await requestPuck(lifecycle, mapViewRef);
         const request = requestPuck(lifecycle, mapViewRef);
         mapViewRef.current = secondMap;
 
@@ -99,6 +127,7 @@ describe('navigation puck lifecycle', () => {
             },
         });
 
+        await requestPuck(lifecycle, mapViewRef);
         const firstRequest = requestPuck(lifecycle, mapViewRef);
         await Promise.resolve();
 
@@ -132,6 +161,7 @@ describe('navigation puck lifecycle', () => {
 
         await requestPuck(lifecycle, mapViewRef);
         await requestPuck(lifecycle, mapViewRef);
+        await requestPuck(lifecycle, mapViewRef);
 
         assert.deepEqual(operations, ['apply', 'apply']);
         assert.equal(lifecycle.getStatus(), 'active');
@@ -154,10 +184,12 @@ describe('navigation puck lifecycle', () => {
         });
 
         await requestPuck(lifecycle, mapViewRef);
+        await requestPuck(lifecycle, mapViewRef);
         const clearRequest = requestPuck(lifecycle, mapViewRef, false);
         const restoreRequest = requestPuck(lifecycle, mapViewRef);
 
         await Promise.all([clearRequest, restoreRequest]);
+        await requestPuck(lifecycle, mapViewRef);
 
         assert.deepEqual(operations, ['apply', 'apply']);
         assert.equal(lifecycle.getStatus(), 'active');
@@ -175,6 +207,7 @@ describe('navigation puck lifecycle', () => {
             },
         });
 
+        await requestPuck(lifecycle, mapViewRef);
         await requestPuck(lifecycle, mapViewRef);
         await requestPuck(lifecycle, mapViewRef, false);
 
@@ -195,9 +228,11 @@ describe('navigation puck lifecycle', () => {
         });
 
         await requestPuck(lifecycle, mapViewRef);
+        await requestPuck(lifecycle, mapViewRef);
         assert.equal(lifecycle.getStatus(), 'failed');
 
         mapIsReady = true;
+        await requestPuck(lifecycle, mapViewRef);
         await requestPuck(lifecycle, mapViewRef);
 
         assert.equal(applyCount, 2);
@@ -217,6 +252,7 @@ describe('navigation puck lifecycle', () => {
         });
 
         await requestPuck(lifecycle, mapViewRef);
+        await requestPuck(lifecycle, mapViewRef);
         await requestPuck(lifecycle, mapViewRef, false);
 
         assert.equal(clearCount, 1);
@@ -231,6 +267,17 @@ describe('navigation puck lifecycle', () => {
         assert.match(
             mapCanvasSource,
             /navigationPuckLifecycle\.request\([\s\S]*?navigationPuckMapLoadEpoch/,
+        );
+        assert.match(
+            mapCanvasSource,
+            /onDidFinishLoadingStyle=\{[\s\S]*?refreshNavigationPuckAfterMapAttachment/,
+        );
+    });
+
+    test('applies from a post-commit preparing effect', () => {
+        assert.match(
+            mapCanvasSource,
+            /navigationPuck3DStatus !== 'preparing'[\s\S]*?requestNavigationPuck\(\)/,
         );
     });
 });

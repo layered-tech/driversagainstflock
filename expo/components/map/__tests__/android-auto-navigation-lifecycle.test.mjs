@@ -44,6 +44,18 @@ describe('Android Auto Mapbox Navigation lifecycle', () => {
             androidNavigationModuleSource,
             /private fun deactivateAndroidAutoLifecycle\(\): Boolean \{[\s\S]*lifecycleOwner\.disconnect\(\)[\s\S]*androidAutoLifecycleOwner = null/,
         );
+        assert.match(
+            androidNavigationModuleSource,
+            /private val mainHandler = Handler\(Looper\.getMainLooper\(\)\)/,
+        );
+        assert.match(
+            androidNavigationModuleSource,
+            /OnDestroy \{\s+destroyOnMainThread\(\)\s+\}/,
+        );
+        assert.match(
+            androidNavigationModuleSource,
+            /private fun destroyOnMainThread\(\) \{\s+if \(Looper\.myLooper\(\) != Looper\.getMainLooper\(\)\) \{\s+mainHandler\.postAtFrontOfQueue \{ destroyOnMainThread\(\) \}\s+return\s+\}[\s\S]*deactivateAndroidAutoLifecycle\(\)/,
+        );
         assert.doesNotMatch(
             androidNavigationModuleSource,
             /lifecycleOwner\.disconnect\(\)\s+MapboxNavigationApp\.detach\(lifecycleOwner\)/,
@@ -52,6 +64,17 @@ describe('Android Auto Mapbox Navigation lifecycle', () => {
             autoPlaySource,
             /async function handleAutoPlayConnect\(\)[\s\S]*await activateAndroidAutoLifecycleAsync\(\)/,
         );
+        const mapTemplateRegistrationIndex =
+            handleAutoPlayConnectSource.indexOf(
+                'const mapTemplate = new MapTemplate(',
+            );
+        const lifecycleActivationIndex = handleAutoPlayConnectSource.indexOf(
+            'await activateAndroidAutoLifecycleAsync()',
+        );
+
+        assert.ok(mapTemplateRegistrationIndex >= 0);
+        assert.ok(lifecycleActivationIndex >= 0);
+        assert.ok(mapTemplateRegistrationIndex < lifecycleActivationIndex);
         assert.match(
             autoPlaySource,
             /function handleAutoPlayDisconnect\(\)[\s\S]*deactivateAndroidAutoLifecycleAsync\(\)/,
@@ -64,7 +87,7 @@ describe('Android Auto Mapbox Navigation lifecycle', () => {
             handleAutoPlayConnectSource.match(
                 /rootMapTemplate !== mapTemplate/g,
             )?.length,
-            2,
+            3,
         );
         assert.match(
             autoPlaySource,
@@ -73,6 +96,10 @@ describe('Android Auto Mapbox Navigation lifecycle', () => {
         assert.match(
             androidAutoPlayPlatformSource,
             /addListenerRenderState\(\s*'AutoPlayRoot',\s*onSessionRenderState/,
+        );
+        assert.match(
+            autoPlaySource,
+            /let didConnectListenerIsRegistering = true;[\s\S]*addListener\('didConnect',[\s\S]*if \(didConnectListenerIsRegistering\)[\s\S]*didConnectListenerIsRegistering = false;[\s\S]*HybridAutoPlay\.isConnected\(\)/,
         );
         assert.match(
             androidNavigationModuleSource,

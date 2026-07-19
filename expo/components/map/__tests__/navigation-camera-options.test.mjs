@@ -282,6 +282,43 @@ test('Android navigation puck is placed above the selected route layer', () => {
     );
 });
 
+test('Android navigation puck retains RNMapbox location-component ownership', () => {
+    const applyPuckSource = androidNavigationModuleSource.slice(
+        androidNavigationModuleSource.indexOf(
+            'AsyncFunction("applyNavigationPuck3D")',
+        ),
+        androidNavigationModuleSource.indexOf(
+            'AsyncFunction("clearNavigationPuck3D")',
+        ),
+    );
+    const clearPuckSource = androidNavigationModuleSource.slice(
+        androidNavigationModuleSource.indexOf(
+            'AsyncFunction("clearNavigationPuck3D")',
+        ),
+        androidNavigationModuleSource.indexOf(
+            'AsyncFunction("getLastElectronicHorizon")',
+        ),
+    );
+
+    assert.match(
+        applyPuckSource,
+        /locationComponentManager\.showNativeUserLocation\(true\)/,
+    );
+    assert.match(
+        clearPuckSource,
+        /locationComponentManager\.showNativeUserLocation\(false\)/,
+    );
+    assert.ok(
+        applyPuckSource.indexOf('showNativeUserLocation(true)') <
+            applyPuckSource.indexOf('location.locationPuck = LocationPuck3D'),
+    );
+    assert.doesNotMatch(
+        clearPuckSource,
+        /location\.enabled\s*=\s*false|LocationPuck2D/,
+    );
+    assert.match(clearPuckSource, /return@AsyncFunction hadNavigationPuck3D/);
+});
+
 test('iOS navigation puck is placed above the selected route layer', () => {
     assert.match(
         iosNavigationModuleSource,

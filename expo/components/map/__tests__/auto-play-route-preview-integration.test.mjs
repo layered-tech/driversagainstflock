@@ -22,18 +22,14 @@ test('CarPlay exit glyph leaves button chrome to the host', () => {
     );
 });
 
-test('Android Auto keeps populated search results beneath route preview', () => {
-    assert.match(
+test('Android Auto reveals route choices immediately after result selection', () => {
+    assert.doesNotMatch(
         androidPlatformSource,
-        /keepsSearchTemplateUnderRoutePreview:\s*true/,
+        /keepsSearchTemplateUnderRoutePreview/,
     );
     assert.match(
         autoPlaySource,
-        /keepsSearchTemplateUnderRoutePreview\s*!==\s*true/,
-    );
-    assert.match(
-        autoPlaySource,
-        /updateSearchTemplateResults\([\s\S]*?searchContext\.results[\s\S]*?await showRoutePreview/,
+        /setAutoPlayRoutePreviewState\(previewRoute\)[\s\S]*?clearAutoPlaySubmittedSearchResults\(\)[\s\S]*?await HybridAutoPlay\.popToRootTemplate\(false\)[\s\S]*?mapTemplate\.showTripSelector/,
     );
     assert.match(
         autoPlaySource,
@@ -100,9 +96,20 @@ test('route preview waits for the map and applies a selected top-down camera sto
     );
 });
 
-test('CarPlay clears search-map context before presenting route choices', () => {
+test('route previews clear search-map context before presenting route choices', () => {
     assert.match(
         autoPlaySource,
-        /keepsSearchTemplateUnderRoutePreview\s*!==\s*true[\s\S]*?clearAutoPlaySubmittedSearchResults\(\)[\s\S]*?popToRootTemplate/,
+        /clearAutoPlaySubmittedSearchResults\(\)[\s\S]*?await HybridAutoPlay\.popToRootTemplate\(false\)[\s\S]*?showTripSelector/,
+    );
+});
+
+test('a newer voice request clears a superseded route preview', () => {
+    assert.match(
+        autoPlaySource,
+        /function handleVoiceNavigationWhenReady[\s\S]*?cancelAutoPlaySearchWork\(\)[\s\S]*?routePreviewRequestSequence \+= 1[\s\S]*?routePreviewIsVisible \|\|[\s\S]*?!routePreviewState\.isNavigating && routePreviewState\.directionsRoute[\s\S]*?hideAutoPlayRoutePreview\(\);[\s\S]*?clearAutoPlayRoutePreviewState\(\)/,
+    );
+    assert.match(
+        autoPlaySource,
+        /const previewRequestId = \+\+routePreviewRequestSequence[\s\S]*?await HybridAutoPlay\.popToRootTemplate\(false\)[\s\S]*?previewRequestId !== routePreviewRequestSequence[\s\S]*?mapTemplate\.showTripSelector/,
     );
 });

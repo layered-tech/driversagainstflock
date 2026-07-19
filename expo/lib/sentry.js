@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
+import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { usePathname } from 'expo-router';
-import * as Sentry from '@sentry/react-native';
+import { useEffect, useRef } from 'react';
 import { getApiBaseURL } from './auth/urls';
 
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN?.trim() ?? '';
@@ -12,6 +12,7 @@ const APP_VERSION =
     Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? 'unknown';
 const NATIVE_BUILD_VERSION = Constants.nativeBuildVersion ?? 'unknown';
 const API_BASE_URL = getApiBaseURL();
+const ANDROID_AUTO_METRO_LOG_PREFIX = '[Android Auto]';
 
 export const SENTRY_IS_ENABLED =
     Boolean(SENTRY_DSN) &&
@@ -62,6 +63,27 @@ function beforeSend(event) {
     return event;
 }
 
+function beforeBreadcrumb(breadcrumb) {
+    if (breadcrumb?.category !== 'console') {
+        return breadcrumb;
+    }
+
+    const consoleArguments = breadcrumb.data?.arguments;
+    const firstArgument = Array.isArray(consoleArguments)
+        ? String(consoleArguments[0] ?? '')
+        : '';
+    const message = String(breadcrumb.message ?? '');
+
+    if (
+        firstArgument.startsWith(ANDROID_AUTO_METRO_LOG_PREFIX) ||
+        message.startsWith(ANDROID_AUTO_METRO_LOG_PREFIX)
+    ) {
+        return null;
+    }
+
+    return breadcrumb;
+}
+
 function initializeSentry() {
     if (!SENTRY_IS_ENABLED) {
         return;
@@ -71,6 +93,7 @@ function initializeSentry() {
         process.env.EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE,
     );
     const options = {
+        beforeBreadcrumb,
         beforeSend,
         debug: __DEV__ && process.env.EXPO_PUBLIC_SENTRY_DEBUG === '1',
         dsn: SENTRY_DSN,

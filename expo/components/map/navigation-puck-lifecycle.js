@@ -43,8 +43,10 @@ export function createNavigationPuckLifecycle({
         generation = operationGeneration;
 
         if (requested) {
-            if (status !== 'active') {
+            if (status !== 'preparing' && status !== 'active') {
                 setStatus('preparing');
+
+                return operationQueue;
             }
 
             return enqueue(async () => {
@@ -58,12 +60,12 @@ export function createNavigationPuckLifecycle({
                     nativePuckMayBeConfigured = Boolean(mapView);
                     wasApplied = Boolean(
                         mapView &&
-                            (await applyNavigationPuck(
-                                mapView,
-                                scale,
-                                slot,
-                                layerAbove,
-                            )),
+                        (await applyNavigationPuck(
+                            mapView,
+                            scale,
+                            slot,
+                            layerAbove,
+                        )),
                     );
                 } catch {
                     wasApplied = false;

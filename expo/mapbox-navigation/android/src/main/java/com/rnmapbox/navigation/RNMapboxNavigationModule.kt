@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import android.view.View
@@ -19,7 +21,6 @@ import com.mapbox.common.location.Location
 import com.mapbox.geojson.Point
 import com.mapbox.maps.EdgeInsets
 import com.mapbox.maps.MapboxExperimental
-import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.LocationPuck3D
 import com.mapbox.maps.plugin.ModelScaleMode
 import com.mapbox.maps.plugin.PuckBearing
@@ -67,6 +68,7 @@ import expo.modules.kotlin.types.toJSValueExperimental
   MapboxExperimental::class
 )
 class RNMapboxNavigationModule : Module() {
+  private val mainHandler = Handler(Looper.getMainLooper())
   private var activityLifecycleOwner: LifecycleOwner? = null
   private var androidAutoLifecycleOwner: AndroidAutoSessionLifecycleOwner? = null
   private var lastEnhancedLocation: Bundle? = null
@@ -204,6 +206,7 @@ class RNMapboxNavigationModule : Module() {
         MAXIMUM_NAVIGATION_PUCK_SCALE
       )
 
+      rnMapView.locationComponentManager.showNativeUserLocation(true)
       location.locationPuck = LocationPuck3D(
         modelUri = NAVIGATION_PUCK_MODEL_URI,
         modelScale = listOf(resolvedScale, resolvedScale, resolvedScale),
@@ -228,18 +231,12 @@ class RNMapboxNavigationModule : Module() {
       val location = rnMapView.mapView.location
       val hadNavigationPuck3D = location.locationPuck is LocationPuck3D
 
+      rnMapView.locationComponentManager.showNativeUserLocation(false)
       location.layerAbove = null
       location.layerBelow = null
       location.slot = null
 
-      if (!hadNavigationPuck3D) {
-        return@AsyncFunction false
-      }
-
-      location.enabled = false
-      location.locationPuck = LocationPuck2D()
-
-      return@AsyncFunction true
+      return@AsyncFunction hadNavigationPuck3D
     }.runOnQueue(Queues.MAIN)
 
     AsyncFunction("getLastElectronicHorizon") {
@@ -282,20 +279,29 @@ class RNMapboxNavigationModule : Module() {
     }.runOnQueue(Queues.MAIN)
 
     OnDestroy {
-      pendingTripSessionForegroundService = null
-      lastElectronicHorizon = null
-      deactivateAndroidAutoLifecycle()
-      detachActivityLifecycleOwner()
-      detachNavigationCameraSurfaces()
-      mapboxNavigation?.let { navigation ->
-        navigation.stopTripSession()
-        unbindNavigation(navigation)
-      }
+      destroyOnMainThread()
+    }
+  }
 
-      if (observerRegistered) {
-        MapboxNavigationApp.unregisterObserver(navigationObserver)
-        observerRegistered = false
-      }
+  private fun destroyOnMainThread() {
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      mainHandler.postAtFrontOfQueue { destroyOnMainThread() }
+      return
+    }
+
+    pendingTripSessionForegroundService = null
+    lastElectronicHorizon = null
+    deactivateAndroidAutoLifecycle()
+    detachActivityLifecycleOwner()
+    detachNavigationCameraSurfaces()
+    mapboxNavigation?.let { navigation ->
+      navigation.stopTripSession()
+      unbindNavigation(navigation)
+    }
+
+    if (observerRegistered) {
+      MapboxNavigationApp.unregisterObserver(navigationObserver)
+      observerRegistered = false
     }
   }
 
