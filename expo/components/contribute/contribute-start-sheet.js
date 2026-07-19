@@ -1,12 +1,7 @@
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useIsFocused } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-    ActivityIndicator,
-    Text,
-    useWindowDimensions,
-    View,
-} from 'react-native';
+import { Text, useWindowDimensions, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
 import { Icon } from '../design-system/icon';
 import { DafBadge, DafButton } from '../design-system/primitives';
@@ -15,6 +10,7 @@ import {
     NativeWindBottomSheetModal,
     NativeWindBottomSheetView,
 } from '../map/native-components';
+import { ContributeAuthProgress } from './contribute-auth-progress';
 import { useContribute } from './contribute-state';
 
 const CONTRIBUTE_STEPS = [
@@ -127,6 +123,7 @@ export function ContributeStartSheet({
     const sheetRef = useRef(null);
     const [signInError, setSignInError] = useState('');
     const startSheetIsOpen = contributeStatus === 'start-sheet';
+    const authProgressIsVisible = isLoading || isSigningIn;
 
     useEffect(() => {
         if (startSheetIsOpen && isFocused && mapPreferencesAreLoaded) {
@@ -137,9 +134,22 @@ export function ContributeStartSheet({
     }, [isFocused, mapPreferencesAreLoaded, startSheetIsOpen]);
 
     const handleSheetDismiss = useCallback(() => {
+        if (isSigningIn) {
+            return;
+        }
+
         setSignInError('');
         closeStartSheet();
-    }, [closeStartSheet]);
+    }, [closeStartSheet, isSigningIn]);
+
+    const renderStartSheetBackdrop = useCallback(
+        (props) =>
+            renderBackdrop({
+                ...props,
+                pressBehavior: isSigningIn ? 'none' : 'close',
+            }),
+        [isSigningIn, renderBackdrop],
+    );
 
     const handleGrantAccessPress = useCallback(async () => {
         setSignInError('');
@@ -165,11 +175,11 @@ export function ContributeStartSheet({
     return (
         <NativeWindBottomSheetModal
             ref={sheetRef}
-            backdropComponent={renderBackdrop}
+            backdropComponent={renderStartSheetBackdrop}
             backgroundStyle={bottomSheetBackgroundStyle}
             enableDynamicSizing
             enableOverDrag={false}
-            enablePanDownToClose
+            enablePanDownToClose={!isSigningIn}
             handleIndicatorStyle={bottomSheetHandleIndicatorStyle}
             index={0}
             maxDynamicContentSize={windowHeight * 0.85}
@@ -188,23 +198,25 @@ export function ContributeStartSheet({
                     }}
                     showsVerticalScrollIndicator={false}
                 >
-                    <View className="gap-1">
-                        <Text className="font-dafDisplay text-[21px] font-bold leading-7 text-daf-text-primary dark:text-white">
-                            Start a changeset
-                        </Text>
-                        <Text className="text-sm text-daf-text-secondary dark:text-neutral-300">
-                            Add camera data to OpenStreetMap
-                        </Text>
-                    </View>
-
-                    {isLoading ? (
-                        <View className="items-center py-8">
-                            <ActivityIndicator
-                                color={dafSemanticColors.brand}
-                            />
-                        </View>
+                    {authProgressIsVisible ? (
+                        <ContributeAuthProgress
+                            hasUser={Boolean(user)}
+                            hasWriteScope={hasWriteScope}
+                            isAuthenticated={isAuthenticated}
+                            isLoading={isLoading}
+                            isSigningIn={isSigningIn}
+                        />
                     ) : (
                         <>
+                            <View className="gap-1">
+                                <Text className="font-dafDisplay text-[21px] font-bold leading-7 text-daf-text-primary dark:text-white">
+                                    Start a changeset
+                                </Text>
+                                <Text className="text-sm text-daf-text-secondary dark:text-neutral-300">
+                                    Add camera data to OpenStreetMap
+                                </Text>
+                            </View>
+
                             {isAuthenticated ? (
                                 <ContributeAccountCard
                                     isAuthenticated
