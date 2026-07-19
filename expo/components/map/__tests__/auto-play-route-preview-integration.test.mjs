@@ -47,6 +47,7 @@ test('Android Auto keeps populated search results beneath route preview', () => 
 
 test('route preview waits for the map and applies a selected top-down camera stop', () => {
     assert.match(mapSurfaceSource, /getBoundsFitCameraStop\(/);
+    assert.match(mapSurfaceSource, /getAutoPlayBoundsFitPadding\(/);
     assert.match(
         mapSurfaceSource,
         /!displayedDirectionsRoute \|\| !controller\.isMapReady/,
@@ -64,6 +65,10 @@ test('route preview waits for the map and applies a selected top-down camera sto
     assert.match(
         mapSurfaceSource,
         /cameraRef\.current\.setCamera\(cameraStop\)/,
+    );
+    assert.match(
+        mapSurfaceSource,
+        /fitCameraToBounds\(bounds,\s*\{\s*adaptsPaddingToViewport: routePreviewIsActive/,
     );
     assert.match(
         mapSurfaceSource,

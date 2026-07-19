@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { getAutoPlayViewportMetrics } from '../../auto-play-map-viewport.js';
+import {
+    getAutoPlayBoundsFitPadding,
+    getAutoPlayViewportMetrics,
+} from '../../auto-play-map-viewport.js';
 import { getFollowCameraPadding } from '../follow-camera-padding.js';
 
 const CAMERA_ANCHOR_PIXEL_TOLERANCE = 0.5;
@@ -87,6 +90,108 @@ describe('Auto Play map viewport geometry', () => {
 
         assert.equal(viewportMetrics.safeAreaInsets.bottom, 640);
         assert.equal(viewportMetrics.safeAreaInsets.left, 195);
+    });
+
+    test('preserves a usable bounds-fit area in narrow host map slots', () => {
+        const requestedPadding = {
+            paddingBottom: 112,
+            paddingLeft: 96,
+            paddingRight: 96,
+            paddingTop: 88,
+        };
+        const layouts = [
+            {
+                expectedPadding: {
+                    paddingBottom: 0,
+                    paddingLeft: 0,
+                    paddingRight: 0,
+                    paddingTop: 0,
+                },
+                expectedVisibleHeight: 120,
+                expectedVisibleWidth: 192,
+                safeAreaInsets: {
+                    bottom: 200,
+                    left: 808,
+                    right: 0,
+                    top: 280,
+                },
+            },
+            {
+                expectedPadding: {
+                    paddingBottom: 44.8,
+                    paddingLeft: 72,
+                    paddingRight: 72,
+                    paddingTop: 35.2,
+                },
+                expectedVisibleHeight: 200,
+                expectedVisibleWidth: 384,
+                safeAreaInsets: {
+                    bottom: 160,
+                    left: 616,
+                    right: 0,
+                    top: 240,
+                },
+            },
+            {
+                expectedPadding: requestedPadding,
+                expectedVisibleHeight: 320,
+                expectedVisibleWidth: 432,
+                safeAreaInsets: {
+                    bottom: 80,
+                    left: 568,
+                    right: 0,
+                    top: 200,
+                },
+            },
+        ];
+
+        layouts.forEach(
+            ({
+                expectedPadding,
+                expectedVisibleHeight,
+                expectedVisibleWidth,
+                safeAreaInsets,
+            }) => {
+                const viewportMetrics = getAutoPlayViewportMetrics({
+                    safeAreaInsets,
+                    windowInfo: { height: 600, width: 1000 },
+                });
+                const fitPadding = getAutoPlayBoundsFitPadding({
+                    padding: requestedPadding,
+                    viewportMetrics,
+                });
+
+                assert.equal(
+                    viewportMetrics.visibleWidth,
+                    expectedVisibleWidth,
+                );
+                assert.equal(
+                    viewportMetrics.visibleHeight,
+                    expectedVisibleHeight,
+                );
+                assert.deepEqual(viewportMetrics.cameraPadding, {
+                    paddingBottom: safeAreaInsets.bottom,
+                    paddingLeft: safeAreaInsets.left,
+                    paddingRight: safeAreaInsets.right,
+                    paddingTop: safeAreaInsets.top,
+                });
+                Object.entries(expectedPadding).forEach(([key, value]) => {
+                    assertApproximatelyEqual(fitPadding[key], value);
+                });
+                assert.ok(
+                    viewportMetrics.visibleWidth -
+                        fitPadding.paddingLeft -
+                        fitPadding.paddingRight >=
+                        Math.min(viewportMetrics.visibleWidth, 240),
+                );
+                assert.ok(
+                    viewportMetrics.visibleHeight -
+                        fitPadding.paddingTop -
+                        fitPadding.paddingBottom >=
+                        Math.min(viewportMetrics.visibleHeight, 120),
+                );
+            },
+        );
     });
 
     test('anchors each host layout inside its live visible rectangle', () => {

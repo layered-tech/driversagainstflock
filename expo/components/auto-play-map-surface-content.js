@@ -11,7 +11,10 @@ import {
     useAutoDriveSimulationIsActive,
 } from './auto-play-drive-simulation';
 import { AutoPlayMapStatusOverlay } from './auto-play-map-status-overlay';
-import { getAutoPlayViewportMetrics } from './auto-play-map-viewport';
+import {
+    getAutoPlayBoundsFitPadding,
+    getAutoPlayViewportMetrics,
+} from './auto-play-map-viewport';
 import { useAutoPlayState } from './auto-play-state';
 import {
     getAutoPlayMapContentVisibility,
@@ -1281,13 +1284,21 @@ function useAutoPlayMapController({
         (
             bounds,
             {
+                adaptsPaddingToViewport = false,
                 duration = AUTO_PLAY_ROUTE_PREVIEW_CAMERA_FIT_DURATION_MS,
                 padding = [88, 96, 112, 96],
             } = {},
         ) => {
             const viewport = viewportMetricsRef.current;
+            const requestedPadding = getCameraPadding(padding);
+            const boundsFitPadding = adaptsPaddingToViewport
+                ? getAutoPlayBoundsFitPadding({
+                      padding: requestedPadding,
+                      viewportMetrics: viewport,
+                  })
+                : requestedPadding;
             const resolvedPadding = mergeCameraPadding(
-                padding,
+                boundsFitPadding,
                 getViewportCameraPadding(),
             );
             const cameraStop = getBoundsFitCameraStop({
@@ -1786,7 +1797,11 @@ export function AutoPlayMapSurfaceContent({
                 return true;
             }
 
-            if (controller.fitCameraToBounds(bounds)) {
+            if (
+                controller.fitCameraToBounds(bounds, {
+                    adaptsPaddingToViewport: true,
+                })
+            ) {
                 fittedSearchResultsKeyRef.current = searchResultsFitKey;
 
                 return true;
@@ -1868,7 +1883,11 @@ export function AutoPlayMapSurfaceContent({
                 return true;
             }
 
-            if (controller.fitCameraToBounds(bounds)) {
+            if (
+                controller.fitCameraToBounds(bounds, {
+                    adaptsPaddingToViewport: routePreviewIsActive,
+                })
+            ) {
                 fittedDirectionsRouteKeyRef.current = routeFitKey;
 
                 return true;
