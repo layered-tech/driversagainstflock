@@ -64,7 +64,6 @@ tags:
     commands:
       - tapOn:
           id: 'contribute-next-details-button'
-          retryTapIfNoChange: true
 - runFlow:
     when:
       platform: iOS
@@ -126,7 +125,7 @@ tags:
     id: 'contribute-direction-dial-coordinates'
 - assertNotVisible:
     id: 'contribute-direction-dial-recenter-button'
-- takeScreenshot: node-direction-compass-initial
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/node-direction-compass-initial'}
 
 - copyTextFrom:
     id: 'contribute-direction-dial-readout'
@@ -173,7 +172,7 @@ tags:
 - assertTrue: ${maestro.copiedText == output.directionAfterRing}
 - assertVisible:
     id: 'contribute-direction-dial-marker'
-- takeScreenshot: node-direction-compass-panned
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/node-direction-compass-panned'}
 
 # Zoom buttons affect only the imagery. Their accessibility value exposes the
 # current native zoom so Maestro can verify both controls actually changed it.
@@ -191,7 +190,7 @@ tags:
     centerElement: true
 - assertVisible:
     id: 'contribute-direction-dial-zoom-out-button'
-- takeScreenshot: node-direction-compass-controls
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/node-direction-compass-controls'}
 - copyTextFrom:
     id: 'contribute-direction-dial-zoom-in-button'
 - evalScript: ${output.initialZoom = maestro.copiedText}
@@ -267,7 +266,7 @@ tags:
 - copyTextFrom:
     id: 'contribute-direction-dial-readout'
 - assertTrue: ${maestro.copiedText == output.direction1BeforeRing}
-- takeScreenshot: node-direction-compass-multiple
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/node-direction-compass-multiple'}
 
 # Direction 1 is active. Ring drag changes it while direction 0 remains fixed.
 - swipe:

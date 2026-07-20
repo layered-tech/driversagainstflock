@@ -20,7 +20,7 @@ tags:
     visible:
       id: 'map-search-input-map'
     timeout: 30000
-- openLink: 'driversagainstflock://e2e-mocks'
+- openLink: 'driversagainstflock://e2e-mocks?auth=0'
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'

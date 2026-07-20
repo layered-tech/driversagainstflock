@@ -43,7 +43,7 @@ tags:
 
 # Dragging the sheet up must not dismiss it — the sheet stays open.
 - swipe:
-    start: '50%,55%'
+    start: '50%,68%'
     end: '50%,10%'
     duration: 500
 - assertVisible:
@@ -51,7 +51,7 @@ tags:
 
 # Dragging the sheet down must still close it.
 - swipe:
-    start: '50%,55%'
+    start: '50%,68%'
     end: '50%,95%'
     duration: 500
 - extendedWaitUntil:

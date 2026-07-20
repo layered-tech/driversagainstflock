@@ -75,4 +75,4 @@ tags:
 - assertVisible:
     id: 'driving-speed-limit-sign-current-speed-value'
     text: '41'
-- takeScreenshot: /tmp/daf-speed-limit-badge-35-over-41
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-speed-limit-badge-35-over-41'}

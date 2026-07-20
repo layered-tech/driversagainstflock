@@ -20,6 +20,7 @@ describe('external build storage wrappers', () => {
         for (const script of [
             'eas-local-build.sh',
             'expo-export-external.sh',
+            'maestro-test.sh',
             'xcodebuild-external.sh',
         ]) {
             const result = runScript(script, [], {

@@ -6,6 +6,7 @@ import {
     e2eMapApiMocksCanBeEnabled,
     setMapApiMocksEnabled,
 } from '../map/api-mocks';
+import { getE2EMockFlagsFromURL } from './e2e-map-api-mock-url';
 
 const E2E_MOCK_AUTH_SESSION = {
     accessToken: 'e2e-mock-token',
@@ -18,38 +19,8 @@ const E2E_MOCK_AUTH_SESSION = {
     },
 };
 
-function getDeepLinkPath(url) {
-    return [url.hostname, url.pathname]
-        .filter(Boolean)
-        .join('')
-        .replace(/^\/+/, '');
-}
-
-function getE2EMockFlagsFromURL(value) {
-    try {
-        const url = new URL(value);
-        const mocksAreEnabled =
-            url.searchParams.get('e2eMapApiMocks') === '1' ||
-            (url.protocol === 'driversagainstflock:' &&
-                getDeepLinkPath(url) === 'e2e-mocks');
-
-        return {
-            authMockIsEnabled:
-                mocksAreEnabled &&
-                (url.searchParams.get('auth') === '1' ||
-                    url.searchParams.get('e2eAuthMock') === '1'),
-            mocksAreEnabled,
-        };
-    } catch {
-        return {
-            authMockIsEnabled: false,
-            mocksAreEnabled: false,
-        };
-    }
-}
-
 function applyE2EMocksFromURL(value) {
-    const { authMockIsEnabled, mocksAreEnabled } =
+    const { authMockIsDisabled, authMockIsEnabled, mocksAreEnabled } =
         getE2EMockFlagsFromURL(value);
 
     if (!mocksAreEnabled) {
@@ -61,6 +32,8 @@ function applyE2EMocksFromURL(value) {
 
     if (authMockIsEnabled) {
         injectE2EMockSession(E2E_MOCK_AUTH_SESSION);
+    } else if (authMockIsDisabled) {
+        injectE2EMockSession(null);
     }
 }
 
