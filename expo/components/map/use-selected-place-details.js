@@ -12,6 +12,7 @@ import {
     getPlaceTypeLabel,
     getPlaceWeekdayDescriptions,
 } from './place-formatters';
+import { getPrimaryLocationTypeToOffer } from './primary-locations';
 import {
     createSavedLocationFromPlace,
     savedLocationsMatch,
@@ -23,6 +24,9 @@ function getSearchResultKey(result) {
 
 export function useSelectedPlaceDetails({
     favoriteLocations,
+    primaryLocations,
+    primaryLocationTypeBeingSet,
+    savedLocationsAreLoaded,
     selectedPlaceDetails,
     selectedSearchResult,
     submittedSearchResults,
@@ -89,6 +93,23 @@ export function useSelectedPlaceDetails({
             ),
         [favoriteLocations, selectedSavedLocation],
     );
+    const selectedPlacePrimaryLocationType = useMemo(
+        () =>
+            savedLocationsAreLoaded && selectedSavedLocation
+                ? getPrimaryLocationTypeToOffer({
+                      place: selectedPlaceDetails,
+                      preferredType: primaryLocationTypeBeingSet,
+                      primaryLocations,
+                  })
+                : null,
+        [
+            primaryLocations,
+            primaryLocationTypeBeingSet,
+            savedLocationsAreLoaded,
+            selectedPlaceDetails,
+            selectedSavedLocation,
+        ],
+    );
     const selectedSearchResultKey = getSearchResultKey(selectedSearchResult);
     const selectedPlaceCanReturnToSearchResults = useMemo(
         () =>
@@ -114,6 +135,7 @@ export function useSelectedPlaceDetails({
         selectedPlaceName,
         selectedPlaceOpenNowLabel,
         selectedPlacePhoneNumber,
+        selectedPlacePrimaryLocationType,
         selectedPlaceRatingLabel,
         selectedPlaceRatingStars,
         selectedPlaceTypeLabel,

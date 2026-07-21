@@ -1,5 +1,11 @@
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { Pressable, Text, useWindowDimensions, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Pressable,
+    Text,
+    useWindowDimensions,
+    View,
+} from 'react-native';
 import { Icon } from '../design-system/icon';
 import { DafButton, DafIconButton } from '../design-system/primitives';
 import { dafSemanticColors } from '../design-system/tokens';
@@ -8,6 +14,10 @@ import {
     NativeWindBottomSheetModal,
     NativeWindBottomSheetView,
 } from './native-components';
+import {
+    getPrimaryLocationLabel,
+    PRIMARY_LOCATION_HOME,
+} from './primary-locations';
 
 export function SelectedPlaceSheet() {
     const { height: windowHeight } = useWindowDimensions();
@@ -17,12 +27,16 @@ export function SelectedPlaceSheet() {
         bottomSheetAnimatedPosition,
         handleOpenSelectedPlaceWebsite,
         handleGetDirectionsToSelectedPlace,
+        handleSetSelectedPlaceAsPrimaryLocation,
         handleSelectedPlaceBackToSearchResults,
         handleToggleSelectedPlaceFavorite,
         insets,
         mapPreferencesAreLoaded,
         placeSheetRef,
         placeSheetTrackingHandlers,
+        primaryLocationSaveError,
+        primaryLocationSaveIsLoading,
+        primaryLocationTypeBeingSet,
         searchPrimaryIconColor,
         selectedPlaceAddress,
         selectedPlaceCanReturnToSearchResults,
@@ -34,11 +48,15 @@ export function SelectedPlaceSheet() {
         selectedPlaceName,
         selectedPlaceOpenNowLabel,
         selectedPlacePhoneNumber,
+        selectedPlacePrimaryLocationType,
         selectedPlaceRatingLabel,
         selectedSearchResult,
     } = usePlaceSheetContext();
     const selectedPlaceSheetKey =
         selectedSearchResult?.placeId || selectedSearchResult?.id || 'empty';
+    const selectedPlacePrimaryLocationLabel = getPrimaryLocationLabel(
+        selectedPlacePrimaryLocationType,
+    );
 
     if (!mapPreferencesAreLoaded) {
         return null;
@@ -195,6 +213,79 @@ export function SelectedPlaceSheet() {
                                 </View>
                             ) : null}
                         </View>
+
+                        {selectedPlacePrimaryLocationType ? (
+                            <Pressable
+                                accessibilityHint={`Saves this destination on this device as ${selectedPlacePrimaryLocationLabel}.`}
+                                accessibilityLabel={`Set as ${selectedPlacePrimaryLocationLabel}`}
+                                accessibilityRole="button"
+                                accessibilityState={{
+                                    busy: primaryLocationSaveIsLoading,
+                                    disabled: primaryLocationSaveIsLoading,
+                                }}
+                                className={`dark:border-daf-border-dark dark:bg-daf-surface-dark flex-row items-center gap-3 rounded-dafMd border border-daf-border bg-white p-3 active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse ${
+                                    primaryLocationSaveIsLoading
+                                        ? 'opacity-60'
+                                        : ''
+                                }`}
+                                disabled={primaryLocationSaveIsLoading}
+                                onPress={
+                                    handleSetSelectedPlaceAsPrimaryLocation
+                                }
+                                testID={`selected-place-set-${selectedPlacePrimaryLocationType}-button`}
+                            >
+                                <View className="bg-daf-brand/12 dark:bg-daf-brand/20 h-[34px] w-[34px] items-center justify-center rounded-dafSm">
+                                    <Icon
+                                        color="#167C47"
+                                        name={
+                                            selectedPlacePrimaryLocationType ===
+                                            PRIMARY_LOCATION_HOME
+                                                ? 'home'
+                                                : 'briefcase'
+                                        }
+                                        size={18}
+                                    />
+                                </View>
+                                <View className="min-w-0 flex-1">
+                                    <Text className="text-[14.5px] font-semibold text-daf-text-primary dark:text-white">
+                                        Set as{' '}
+                                        {selectedPlacePrimaryLocationLabel}
+                                    </Text>
+                                    <Text className="mt-0.5 text-[12.5px] font-medium text-daf-text-tertiary dark:text-neutral-400">
+                                        {primaryLocationTypeBeingSet ===
+                                        selectedPlacePrimaryLocationType
+                                            ? 'Save for one-tap directions'
+                                            : selectedPlacePrimaryLocationType ===
+                                                PRIMARY_LOCATION_HOME
+                                              ? 'Suggested for residential addresses'
+                                              : 'Suggested for businesses'}
+                                    </Text>
+                                </View>
+                                {primaryLocationSaveIsLoading ? (
+                                    <ActivityIndicator
+                                        color={searchPrimaryIconColor}
+                                        size="small"
+                                    />
+                                ) : (
+                                    <Icon
+                                        color="#828D9B"
+                                        name="chevron-right"
+                                        size={18}
+                                    />
+                                )}
+                            </Pressable>
+                        ) : null}
+
+                        {primaryLocationSaveError ? (
+                            <Text
+                                accessibilityLiveRegion="polite"
+                                className="rounded-dafMd bg-red-50 px-3 py-3 text-sm font-medium leading-5 text-red-700 dark:bg-red-950/30 dark:text-red-200"
+                                selectable
+                                testID="selected-place-primary-location-error"
+                            >
+                                {primaryLocationSaveError}
+                            </Text>
+                        ) : null}
 
                         <View className="flex-row gap-2">
                             <DafButton

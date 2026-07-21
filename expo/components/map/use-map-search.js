@@ -30,6 +30,10 @@ import {
     getPlaceTypeLabel,
 } from './place-formatters';
 import {
+    createPrimaryLocationDirectionsWaypoint,
+    getPrimaryLocationLabel,
+} from './primary-locations';
+import {
     createSavedLocationFromPlace,
     createSearchResultFromSavedLocation,
 } from './saved-locations';
@@ -115,6 +119,12 @@ export function useMapSearch({
     const [selectedPlaceDetails, setSelectedPlaceDetails] = useState(null);
     const [selectedPlaceError, setSelectedPlaceError] = useState('');
     const [selectedPlaceIsLoading, setSelectedPlaceIsLoading] = useState(false);
+    const [primaryLocationSaveError, setPrimaryLocationSaveError] =
+        useState('');
+    const [primaryLocationSaveIsLoading, setPrimaryLocationSaveIsLoading] =
+        useState(false);
+    const [primaryLocationTypeBeingSet, setPrimaryLocationTypeBeingSet] =
+        useState(null);
     const trimmedSearchValue = searchValue.trim();
     const {
         searchError,
@@ -192,8 +202,13 @@ export function useMapSearch({
     const {
         applyFavoriteLocations,
         favoriteLocations,
+        primaryLocations,
         recentLocations,
         recordRecentLocation,
+        savedLocationsAreLoaded,
+        searchFavoriteLocations,
+        searchRecentLocations,
+        setPrimaryLocation,
         toggleSavedLocationFavorite,
     } = useMapSearchSavedLocations({ isMountedRef });
     const { clearSelectedPlaceRequest, requestSelectedPlaceDetails } =
@@ -241,12 +256,16 @@ export function useMapSearch({
         selectedPlaceName,
         selectedPlaceOpenNowLabel,
         selectedPlacePhoneNumber,
+        selectedPlacePrimaryLocationType,
         selectedPlaceRatingLabel,
         selectedPlaceRatingStars,
         selectedPlaceWeekdayDescriptions,
         selectedSavedLocation,
     } = useSelectedPlaceDetails({
         favoriteLocations,
+        primaryLocations,
+        primaryLocationTypeBeingSet,
+        savedLocationsAreLoaded,
         selectedPlaceDetails,
         selectedSearchResult,
         submittedSearchResults,
@@ -268,6 +287,7 @@ export function useMapSearch({
             resetSubmittedSearch();
             dismissPlaceSheet();
             submittedSearchResultsSheetRef.current?.dismiss();
+            setPrimaryLocationSaveError('');
             setSearchValue(value);
             setSelectedSearchResult(null);
             setSelectedPlaceDetails(null);
@@ -466,6 +486,7 @@ export function useMapSearch({
     const handleDrawerPress = useCallback(() => {
         abortVoiceSearch();
         searchInputRef.current?.blur();
+        setPrimaryLocationTypeBeingSet(null);
         setSearchIsFocused(false);
         setDirectionsSearchIsFocused(false);
         setSearchPageIsVisible(false);
@@ -496,6 +517,8 @@ export function useMapSearch({
         abortVoiceSearch();
         searchInputRef.current?.blur();
         Keyboard.dismiss();
+        setPrimaryLocationSaveError('');
+        setPrimaryLocationTypeBeingSet(null);
         setSearchIsFocused(false);
         setSearchPageIsVisible(false);
         setSearchResults([]);
@@ -523,7 +546,7 @@ export function useMapSearch({
                 return false;
             }
 
-            if (submitZipSearchQuery(query)) {
+            if (!primaryLocationTypeBeingSet && submitZipSearchQuery(query)) {
                 return true;
             }
 
@@ -536,6 +559,7 @@ export function useMapSearch({
         },
         [
             abortVoiceSearch,
+            primaryLocationTypeBeingSet,
             setLocalityBoundary,
             submitSubmittedSearchQuery,
             submitZipSearchQuery,
@@ -559,6 +583,7 @@ export function useMapSearch({
     const handleDirectionsModePress = useCallback(() => {
         abortVoiceSearch();
         clearDirectionsPlaceRequest();
+        setPrimaryLocationTypeBeingSet(null);
 
         const shouldUseCurrentLocation =
             directionsCurrentLocationWaypoint &&
@@ -941,6 +966,7 @@ export function useMapSearch({
             abortVoiceSearch();
             logMapPlaceSelected({ result, source: selectionSource });
 
+            setPrimaryLocationSaveError('');
             setSearchValue(result.label || result.primaryText);
             setSearchResults([]);
             setSearchError('');
@@ -977,6 +1003,8 @@ export function useMapSearch({
         abortVoiceSearch();
         clearSelectedPlaceRequest();
         resetSubmittedSearch();
+        setPrimaryLocationSaveError('');
+        setPrimaryLocationTypeBeingSet(null);
         setSearchValue('');
         setSearchResults([]);
         setSearchError('');
@@ -1209,6 +1237,34 @@ export function useMapSearch({
         ],
     );
 
+    const queueDirectionsToWaypoint = useCallback(
+        (destinationWaypoint, source = 'selected_place') => {
+            if (!destinationWaypoint) {
+                return false;
+            }
+
+            const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            const request = {
+                destinationWaypoint,
+                id: requestId,
+                source,
+            };
+
+            setPendingDirectionsRequest?.(request);
+
+            setPrimaryLocationTypeBeingSet(null);
+            setSearchIsFocused(false);
+            setSearchPageIsVisible(false);
+            dismissPlaceSheet();
+            submittedSearchResultsSheetRef.current?.dismiss();
+            searchInputRef.current?.blur();
+            Keyboard.dismiss();
+
+            return true;
+        },
+        [dismissPlaceSheet, setPendingDirectionsRequest],
+    );
+
     const handleGetDirectionsToSelectedPlace = useCallback(() => {
         const destinationWaypoint = createPlaceDirectionsWaypoint({
             address: selectedPlaceAddress,
@@ -1217,29 +1273,136 @@ export function useMapSearch({
             result: selectedSearchResult,
         });
 
-        if (!destinationWaypoint) {
+        if (!queueDirectionsToWaypoint(destinationWaypoint)) {
             setSelectedPlaceError('Place location could not be loaded.');
-            return;
         }
-
-        const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        const request = {
-            destinationWaypoint,
-            id: requestId,
-        };
-
-        setPendingDirectionsRequest?.(request);
-
-        setSearchIsFocused(false);
-        dismissPlaceSheet();
-        searchInputRef.current?.blur();
-        Keyboard.dismiss();
     }, [
+        queueDirectionsToWaypoint,
         selectedPlaceAddress,
         selectedPlaceDetails,
         selectedPlaceName,
         selectedSearchResult,
-        setPendingDirectionsRequest,
+    ]);
+
+    const handlePrimaryLocationSetupDismiss = useCallback(() => {
+        resetSubmittedSearch();
+        setPrimaryLocationSaveError('');
+        setPrimaryLocationTypeBeingSet(null);
+        setSearchValue('');
+        setSearchResults([]);
+        setSearchError('');
+        setSearchIsLoading(false);
+        setSearchIsFocused(true);
+        setSearchPageIsVisible(true);
+
+        requestAnimationFrame(() => {
+            searchInputRef.current?.focus();
+        });
+    }, [
+        resetSubmittedSearch,
+        setSearchError,
+        setSearchIsLoading,
+        setSearchResults,
+    ]);
+
+    const handlePrimaryLocationPress = useCallback(
+        (type) => {
+            const location = primaryLocations[type];
+
+            if (!location) {
+                abortVoiceSearch();
+                clearLocalitySearchRequest();
+                clearSelectedPlaceRequest();
+                resetSubmittedSearch();
+                dismissPlaceSheet();
+                submittedSearchResultsSheetRef.current?.dismiss();
+                setPrimaryLocationSaveError('');
+                setPrimaryLocationTypeBeingSet(type);
+                setSearchValue('');
+                setSearchResults([]);
+                setSearchError('');
+                setSearchIsLoading(false);
+                setLocalityBoundary?.(null);
+                setLocalitySearchError('');
+                setLocalitySearchIsLoading(false);
+                setSelectedSearchResult(null);
+                setSelectedPlaceDetails(null);
+                setSelectedPlaceError('');
+                setSelectedPlaceIsLoading(false);
+                setSearchIsFocused(true);
+                setSearchPageIsVisible(true);
+
+                requestAnimationFrame(() => {
+                    searchInputRef.current?.focus();
+                });
+                return;
+            }
+
+            const destinationWaypoint = createPrimaryLocationDirectionsWaypoint(
+                type,
+                location,
+            );
+
+            if (!queueDirectionsToWaypoint(destinationWaypoint, type)) {
+                setPrimaryLocationSaveError(
+                    `${getPrimaryLocationLabel(type)} has no usable location.`,
+                );
+            }
+        },
+        [
+            abortVoiceSearch,
+            clearLocalitySearchRequest,
+            clearSelectedPlaceRequest,
+            dismissPlaceSheet,
+            primaryLocations,
+            queueDirectionsToWaypoint,
+            resetSubmittedSearch,
+            setLocalityBoundary,
+            setSearchError,
+            setSearchIsLoading,
+            setSearchResults,
+        ],
+    );
+
+    const handleSetSelectedPlaceAsPrimaryLocation = useCallback(async () => {
+        if (
+            !selectedPlacePrimaryLocationType ||
+            !selectedSavedLocation ||
+            primaryLocationSaveIsLoading
+        ) {
+            return;
+        }
+
+        setPrimaryLocationSaveError('');
+        setPrimaryLocationSaveIsLoading(true);
+
+        try {
+            await setPrimaryLocation(
+                selectedPlacePrimaryLocationType,
+                selectedSavedLocation,
+            );
+
+            if (isMountedRef.current) {
+                setPrimaryLocationTypeBeingSet(null);
+            }
+        } catch (error) {
+            if (isMountedRef.current) {
+                setPrimaryLocationSaveError(
+                    error?.message ||
+                        `${getPrimaryLocationLabel(selectedPlacePrimaryLocationType)} could not be saved.`,
+                );
+            }
+        } finally {
+            if (isMountedRef.current) {
+                setPrimaryLocationSaveIsLoading(false);
+            }
+        }
+    }, [
+        isMountedRef,
+        primaryLocationSaveIsLoading,
+        selectedPlacePrimaryLocationType,
+        selectedSavedLocation,
+        setPrimaryLocation,
     ]);
 
     const handleDirectionsModeDismiss = useCallback(() => {
@@ -1345,7 +1508,7 @@ export function useMapSearch({
         if (startWaypoint) {
             requestDirectionsRoute({
                 destinationWaypoint,
-                source: 'selected_place',
+                source: pendingDirectionsRequest.source || 'selected_place',
                 startWaypoint,
             });
             return;
@@ -1485,6 +1648,8 @@ export function useMapSearch({
         handleMapPress,
         handleOpenSelectedPlaceWebsite,
         handlePlaceSheetDismiss,
+        handlePrimaryLocationPress,
+        handlePrimaryLocationSetupDismiss,
         handleSavedLocationPress,
         handleSearchBlur,
         handleSearchChange,
@@ -1497,6 +1662,7 @@ export function useMapSearch({
         handleSelectedPlaceMarkerPress,
         handleSubmittedSearchResultPress,
         handleSubmittedSearchResultsSheetDismiss,
+        handleSetSelectedPlaceAsPrimaryLocation,
         handleToggleSelectedPlaceFavorite,
         handleVoiceSearchPress,
         handleZipSearchSubmit: submitZipSearchQuery,
@@ -1504,7 +1670,14 @@ export function useMapSearch({
         localitySearchError,
         localitySearchIsLoading,
         placeSheetRef,
+        primaryLocations,
+        primaryLocationSaveError,
+        primaryLocationSaveIsLoading,
+        primaryLocationTypeBeingSet,
         recentLocations,
+        savedLocationsAreLoaded,
+        searchFavoriteLocations,
+        searchRecentLocations,
         searchMode,
         searchError,
         searchInputRef,
@@ -1527,6 +1700,7 @@ export function useMapSearch({
         selectedPlaceName,
         selectedPlaceOpenNowLabel,
         selectedPlacePhoneNumber,
+        selectedPlacePrimaryLocationType,
         selectedPlaceRatingLabel,
         selectedPlaceRatingStars,
         selectedPlaceWeekdayDescriptions,

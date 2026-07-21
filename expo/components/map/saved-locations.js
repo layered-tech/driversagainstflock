@@ -1,9 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+    createEmptyPrimaryLocations,
+    parseStoredPrimaryLocations,
+    updatePrimaryLocations,
+} from './primary-locations';
 
 const RECENT_LOCATIONS_STORAGE_KEY =
     'driversagainstflock.mapSearch.recentLocations.v1';
 const FAVORITE_LOCATIONS_STORAGE_KEY =
     'driversagainstflock.mapSearch.favoriteLocations.v1';
+const PRIMARY_LOCATIONS_STORAGE_KEY =
+    'driversagainstflock.mapSearch.primaryLocations.v1';
 const RECENT_LOCATIONS_LIMIT = 5;
 
 function getSafeString(value) {
@@ -108,6 +115,20 @@ export function normalizeSavedLocation(location) {
     return savedLocation;
 }
 
+function normalizePrimaryLocation(location) {
+    const savedLocation = normalizeSavedLocation(location);
+
+    if (
+        !savedLocation ||
+        !Number.isFinite(savedLocation.latitude) ||
+        !Number.isFinite(savedLocation.longitude)
+    ) {
+        return null;
+    }
+
+    return savedLocation;
+}
+
 export function formatSavedLocationDescription(location) {
     const savedLocation = normalizeSavedLocation(location);
 
@@ -189,14 +210,53 @@ async function setLocations(key, locations) {
 }
 
 export async function loadSearchSavedLocations() {
-    const [recentLocations, favoriteLocations] = await Promise.all([
-        loadLocations(RECENT_LOCATIONS_STORAGE_KEY),
-        loadLocations(FAVORITE_LOCATIONS_STORAGE_KEY),
-    ]);
+    const [recentLocations, favoriteLocations, storedPrimaryLocations] =
+        await Promise.all([
+            loadLocations(RECENT_LOCATIONS_STORAGE_KEY),
+            loadLocations(FAVORITE_LOCATIONS_STORAGE_KEY),
+            AsyncStorage.getItem(PRIMARY_LOCATIONS_STORAGE_KEY),
+        ]);
 
     return {
         favoriteLocations,
+        primaryLocations: parseStoredPrimaryLocations(
+            storedPrimaryLocations,
+            normalizePrimaryLocation,
+        ),
         recentLocations,
+    };
+}
+
+export async function savePrimaryLocation(type, location) {
+    const storedValue = await AsyncStorage.getItem(
+        PRIMARY_LOCATIONS_STORAGE_KEY,
+    );
+    const primaryLocations = parseStoredPrimaryLocations(
+        storedValue,
+        normalizePrimaryLocation,
+    );
+    const normalizedLocation =
+        location === null ? null : normalizePrimaryLocation(location);
+
+    if (location !== null && !normalizedLocation) {
+        throw new Error('This place has no usable location.');
+    }
+
+    const updatedLocations = updatePrimaryLocations(
+        primaryLocations,
+        type,
+        normalizedLocation,
+        (primaryLocation) => primaryLocation,
+    );
+
+    await AsyncStorage.setItem(
+        PRIMARY_LOCATIONS_STORAGE_KEY,
+        JSON.stringify(updatedLocations),
+    );
+
+    return {
+        ...createEmptyPrimaryLocations(),
+        ...updatedLocations,
     };
 }
 

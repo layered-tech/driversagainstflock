@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createEmptyPrimaryLocations } from './primary-locations';
 import {
     addRecentLocation,
     loadSearchSavedLocations,
     savedLocationsMatch,
+    savePrimaryLocation,
     toggleFavoriteLocation,
 } from './saved-locations';
 
 export function useMapSearchSavedLocations({ isMountedRef }) {
     const [favoriteLocations, setFavoriteLocations] = useState([]);
+    const [primaryLocations, setPrimaryLocations] = useState(
+        createEmptyPrimaryLocations,
+    );
     const [recentLocations, setRecentLocations] = useState([]);
+    const [savedLocationsAreLoaded, setSavedLocationsAreLoaded] =
+        useState(false);
 
     useEffect(() => {
         let isActive = true;
@@ -20,9 +27,15 @@ export function useMapSearchSavedLocations({ isMountedRef }) {
                 }
 
                 setFavoriteLocations(savedLocations.favoriteLocations);
+                setPrimaryLocations(savedLocations.primaryLocations);
                 setRecentLocations(savedLocations.recentLocations);
             })
-            .catch(() => {});
+            .catch(() => {})
+            .finally(() => {
+                if (isActive && isMountedRef.current) {
+                    setSavedLocationsAreLoaded(true);
+                }
+            });
 
         return () => {
             isActive = false;
@@ -61,9 +74,22 @@ export function useMapSearchSavedLocations({ isMountedRef }) {
                 (recentLocation) =>
                     !favoriteLocations.some((favoriteLocation) =>
                         savedLocationsMatch(favoriteLocation, recentLocation),
+                    ) &&
+                    !Object.values(primaryLocations).some((primaryLocation) =>
+                        savedLocationsMatch(primaryLocation, recentLocation),
                     ),
             ),
-        [favoriteLocations, recentLocations],
+        [favoriteLocations, primaryLocations, recentLocations],
+    );
+    const visibleFavoriteLocations = useMemo(
+        () =>
+            favoriteLocations.filter(
+                (favoriteLocation) =>
+                    !Object.values(primaryLocations).some((primaryLocation) =>
+                        savedLocationsMatch(primaryLocation, favoriteLocation),
+                    ),
+            ),
+        [favoriteLocations, primaryLocations],
     );
 
     const toggleSavedLocationFavorite = useCallback(
@@ -81,11 +107,29 @@ export function useMapSearchSavedLocations({ isMountedRef }) {
         [applyFavoriteLocations],
     );
 
+    const setPrimaryLocation = useCallback(
+        async (type, location) => {
+            const updatedLocations = await savePrimaryLocation(type, location);
+
+            if (isMountedRef.current) {
+                setPrimaryLocations(updatedLocations);
+            }
+
+            return updatedLocations;
+        },
+        [isMountedRef],
+    );
+
     return {
         applyFavoriteLocations,
         favoriteLocations,
-        recentLocations: visibleRecentLocations,
+        primaryLocations,
+        recentLocations,
         recordRecentLocation,
+        savedLocationsAreLoaded,
+        searchFavoriteLocations: visibleFavoriteLocations,
+        searchRecentLocations: visibleRecentLocations,
+        setPrimaryLocation,
         toggleSavedLocationFavorite,
     };
 }
