@@ -7,7 +7,7 @@
 </head>
 <body>
 <x-dc>
-<!-- page name="Mobile · Android Auto" description="Head-unit navigation with one-tap ALPR reporting: action-strip report, two-button alerts, drive-by verify, phone hand-off." -->
+<!-- page name="Mobile · Android Auto" description="Head-unit navigation: Home & Work header shortcuts with route choice, one-tap ALPR reporting, two-button alerts, drive-by verify, phone hand-off." -->
 <helmet>
   <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css">
   <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css">
@@ -44,7 +44,7 @@
     </div>
 
     <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 6px; padding-bottom:10px; border-bottom:1px solid var(--border);">Android Auto · one-tap reporting</div>
-    <p style="font-size:15px; color:var(--text-secondary); margin:14px 0 16px; max-width:78ch;">The head unit is a template world. We control the map surface — routes, markers, cones, and any card we draw on it — plus an action strip, two-button alerts with timeouts, and toasts. No keyboard, no free-form touch targets, no lists worth reading at 45 mph. So reporting is one tap while moving, and a voice path — "Hey Google, report a camera" — mirrors the button for zero-touch.</p>
+    <p style="font-size:15px; color:var(--text-secondary); margin:14px 0 16px; max-width:78ch;">The head unit is a template world. We control the map surface — routes, markers, cones, and any card we draw on it — plus an action strip, two-button alerts with timeouts, and toasts. No keyboard, no free-form touch targets, no lists worth reading at 45 mph. So reporting is one tap while moving, and a voice path — "Hey Google, report a camera" — mirrors the button for zero-touch. Home and Work, once set on the phone, get the same treatment: header buttons that load a route choice in one tap.</p>
     <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 44px;">
       <span style="font-family:var(--font-mono); font-size:11.5px; letter-spacing:0.03em; font-weight:600; color:var(--text-brand); background:var(--brand-soft); padding:6px 11px; border-radius:var(--radius-pill);">1 · Tap Report camera</span>
       <span style="color:var(--text-tertiary); font-size:13px;">→</span>
@@ -56,6 +56,88 @@
     </div>
 
     <div style="display:flex; flex-wrap:wrap; gap:44px 40px;">
+
+      <!-- AA0a BROWSE — HOME & WORK HEADER -->
+      <div style="display:flex; flex-direction:column; gap:14px;" data-screen-label="AA0a">
+        <div>
+          <div style="font-size:13px; font-weight:600;">AA0a · Browse — Home &amp; Work in the header</div>
+          <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px;">MapTemplate · a header button per favorite, shown only once it's set on the phone · one tap → AA0b</div>
+        </div>
+        <div style="width:720px; max-width:100%; background:#04060a; border-radius:22px; padding:10px; box-shadow:var(--shadow-card);">
+          <div style="position:relative; display:flex; height:410px; border-radius:14px; overflow:hidden; background:#000;">
+            <dc-import name="AutoRail" time="10:48" style="flex:0 0 auto; width:64px; position:relative;" hint-size="64px,410px"></dc-import>
+            <div style="position:relative; flex:1; min-width:0; overflow:hidden; background:var(--map-land);">
+              <dc-import name="AutoMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
+              <div style="position:absolute; left:49%; top:62%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="user" heading="0" hint-size="64px,64px"></x-import></div>
+              <div style="position:absolute; left:52.5%; top:27%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="camera" heading="240" hint-size="40px,40px"></x-import></div>
+              <div style="position:absolute; left:20%; top:52%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="cluster" count="7" hint-size="40px,40px"></x-import></div>
+              <div style="position:absolute; left:75%; top:33%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="alpr" hint-size="40px,40px"></x-import></div>
+              <!-- OS: header action strip — search + Home/Work shortcuts -->
+              <div style="position:absolute; left:12px; top:12px; z-index:12; display:flex; gap:10px; align-items:center;">
+                <button aria-label="Search" style="width:46px; height:46px; border-radius:50%; border:1px solid rgba(255,255,255,0.08); background:rgba(30,32,36,0.97); color:#e8eaed; box-shadow:0 3px 14px rgba(0,0,0,0.45); cursor:pointer; display:flex; align-items:center; justify-content:center; flex:0 0 auto; -webkit-tap-highlight-color:transparent;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg></button>
+                <button aria-label="Route home" style="height:46px; padding:0 16px 0 14px; border-radius:23px; border:1px solid rgba(255,255,255,0.08); background:rgba(30,32,36,0.97); color:#fff; display:inline-flex; align-items:center; gap:9px; font-family:'Google Sans',Roboto,'Segoe UI',Arial,sans-serif; font-size:15px; font-weight:600; white-space:nowrap; box-shadow:0 3px 14px rgba(0,0,0,0.45); cursor:pointer; -webkit-tap-highlight-color:transparent;"><span style="display:inline-flex; color:#34d17e;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></span>Home<span style="font-size:13px; color:#9aa0a6;">12 min</span></button>
+                <button aria-label="Route to work" style="height:46px; padding:0 16px 0 14px; border-radius:23px; border:1px solid rgba(255,255,255,0.08); background:rgba(30,32,36,0.97); color:#fff; display:inline-flex; align-items:center; gap:9px; font-family:'Google Sans',Roboto,'Segoe UI',Arial,sans-serif; font-size:15px; font-weight:600; white-space:nowrap; box-shadow:0 3px 14px rgba(0,0,0,0.45); cursor:pointer; -webkit-tap-highlight-color:transparent;"><span style="display:inline-flex; color:#34d17e;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path><rect width="20" height="14" x="2" y="6" rx="2"></rect></svg></span>Work<span style="font-size:13px; color:#9aa0a6;">18 min</span></button>
+              </div>
+              <!-- OS: action strip -->
+              <div style="position:absolute; right:12px; bottom:12px; z-index:12; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
+                <button aria-label="Report a camera" style="height:52px; padding:0 18px 0 15px; border-radius:26px; border:1px solid rgba(255,109,110,0.5); background:rgba(30,32,36,0.97); color:#fff; display:inline-flex; align-items:center; gap:9px; font-family:'Google Sans',Roboto,'Segoe UI',Arial,sans-serif; font-size:15px; font-weight:600; white-space:nowrap; box-shadow:0 3px 14px rgba(0,0,0,0.45); cursor:pointer; -webkit-tap-highlight-color:transparent;"><span style="display:inline-flex; color:#ff6d6e;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg></span>Report camera</button>
+                <button aria-label="Zoom in" style="width:46px; height:46px; border-radius:50%; border:1px solid rgba(255,255,255,0.08); background:rgba(30,32,36,0.95); color:#e8eaed; box-shadow:0 3px 12px rgba(0,0,0,0.4); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+                <button aria-label="Zoom out" style="width:46px; height:46px; border-radius:50%; border:1px solid rgba(255,255,255,0.08); background:rgba(30,32,36,0.95); color:#e8eaed; box-shadow:0 3px 12px rgba(0,0,0,0.4); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><span style="width:14px; height:2px; border-radius:2px; background:currentColor;"></span></button>
+                <button aria-label="Recenter" style="width:46px; height:46px; border-radius:50%; border:1px solid rgba(255,255,255,0.08); background:rgba(30,32,36,0.95); color:#e8eaed; box-shadow:0 3px 12px rgba(0,0,0,0.4); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="2" x2="5" y1="12" y2="12"></line><line x1="19" x2="22" y1="12" y2="12"></line><line x1="12" x2="12" y1="2" y2="5"></line><line x1="12" x2="12" y1="19" y2="22"></line><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="1"></circle></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AA0b ROUTE CHOICE TO HOME -->
+      <div style="display:flex; flex-direction:column; gap:14px;" data-screen-label="AA0b">
+        <div>
+          <div style="font-size:13px; font-weight:600;">AA0b · One tap — route choice to Home</div>
+          <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px;">RoutePreviewNavigationTemplate · private preselected per settings · Start begins guidance (AA1)</div>
+        </div>
+        <div style="width:720px; max-width:100%; background:#04060a; border-radius:22px; padding:10px; box-shadow:var(--shadow-card);">
+          <div style="position:relative; display:flex; height:410px; border-radius:14px; overflow:hidden; background:#000;">
+            <dc-import name="AutoRail" time="10:48" style="flex:0 0 auto; width:64px; position:relative;" hint-size="64px,410px"></dc-import>
+            <div style="position:relative; flex:1; min-width:0; overflow:hidden; background:var(--map-land);">
+              <dc-import name="AutoMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible; z-index:2; pointer-events:none;">
+                <path d="M49 82 C 55 68, 62 52, 59 38 S 52 22, 50 17" fill="none" stroke="var(--route-fast-casing, #1f6fd9)" stroke-width="11" vector-effect="non-scaling-stroke" stroke-linecap="round" opacity="0.85"></path>
+                <path d="M49 82 C 55 68, 62 52, 59 38 S 52 22, 50 17" fill="none" stroke="var(--route-fast, #2E8BFF)" stroke-width="6" vector-effect="non-scaling-stroke" stroke-linecap="round" opacity="0.85"></path>
+                <path d="M49 82 C 45 66, 39 50, 42 36 S 48 22, 50 17" fill="none" stroke="var(--route-private-casing)" stroke-width="13" vector-effect="non-scaling-stroke" stroke-linecap="round"></path>
+                <path d="M49 82 C 45 66, 39 50, 42 36 S 48 22, 50 17" fill="none" stroke="var(--route-private)" stroke-width="8" vector-effect="non-scaling-stroke" stroke-linecap="round"></path>
+              </svg>
+              <div style="position:absolute; left:49%; top:82%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="user" heading="0" hint-size="64px,64px"></x-import></div>
+              <div style="position:absolute; left:50%; top:17%; transform:translate(-50%,-100%); z-index:5;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="destination" icon-name="home" selected="{{ true }}" hint-size="46px,72px"></x-import></div>
+              <div style="position:absolute; left:58%; top:52%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="alpr" hint-size="40px,40px"></x-import></div>
+              <div style="position:absolute; left:59.5%; top:33%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="alpr" hint-size="40px,40px"></x-import></div>
+              <!-- OS: route list -->
+              <div style="position:absolute; left:12px; top:12px; z-index:13; width:266px; background:rgba(30,32,36,0.97); border-radius:16px; box-shadow:0 6px 20px rgba(0,0,0,0.5); padding:8px; font-family:'Google Sans',Roboto,'Segoe UI',Arial,sans-serif;">
+                <div style="padding:6px 8px 10px; color:#fff; font-size:15px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Home · Cypress Ave</div>
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <div style="display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:11px; background:rgba(52,209,126,0.14); border:1px solid rgba(52,209,126,0.45);">
+                    <span style="display:inline-flex; color:#34d17e; flex:0 0 auto;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg></span>
+                    <div style="min-width:0;"><div style="color:#fff; font-size:14.5px; font-weight:600; white-space:nowrap;">Private</div><div style="color:#9aa0a6; font-size:12.5px; white-space:nowrap;">0 cameras · +2 min</div></div>
+                    <span style="margin-left:auto; color:#fff; font-size:15px; font-weight:600; white-space:nowrap;">14 min</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:11px; border:1px solid transparent;">
+                    <span style="display:inline-flex; color:#8ab4f8; flex:0 0 auto;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></span>
+                    <div style="min-width:0;"><div style="color:#e8eaed; font-size:14.5px; font-weight:600; white-space:nowrap;">Fastest</div><div style="color:#9aa0a6; font-size:12.5px; white-space:nowrap;">3 cameras on route</div></div>
+                    <span style="margin-left:auto; color:#e8eaed; font-size:15px; font-weight:600; white-space:nowrap;">12 min</span>
+                  </div>
+                </div>
+                <div style="padding:10px 2px 2px;"><button style="width:100%; height:44px; border-radius:22px; border:none; background:#8ab4f8; color:#17191c; font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; -webkit-tap-highlight-color:transparent;">Start</button></div>
+              </div>
+              <!-- OS: map controls -->
+              <div style="position:absolute; right:12px; bottom:12px; z-index:12; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
+                <button aria-label="Zoom in" style="width:46px; height:46px; border-radius:50%; border:1px solid rgba(255,255,255,0.08); background:rgba(30,32,36,0.95); color:#e8eaed; box-shadow:0 3px 12px rgba(0,0,0,0.4); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+                <button aria-label="Zoom out" style="width:46px; height:46px; border-radius:50%; border:1px solid rgba(255,255,255,0.08); background:rgba(30,32,36,0.95); color:#e8eaed; box-shadow:0 3px 12px rgba(0,0,0,0.4); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><span style="width:14px; height:2px; border-radius:2px; background:currentColor;"></span></button>
+                <button aria-label="Recenter" style="width:46px; height:46px; border-radius:50%; border:1px solid rgba(255,255,255,0.08); background:rgba(30,32,36,0.95); color:#e8eaed; box-shadow:0 3px 12px rgba(0,0,0,0.4); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="2" x2="5" y1="12" y2="12"></line><line x1="19" x2="22" y1="12" y2="12"></line><line x1="12" x2="12" y1="2" y2="5"></line><line x1="12" x2="12" y1="19" y2="22"></line><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="1"></circle></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- AA1 DRIVING BASELINE -->
       <div style="display:flex; flex-direction:column; gap:14px;" data-screen-label="AA1">
@@ -372,7 +454,7 @@
 
     </div>
 
-    <p style="font-family:var(--font-mono); font-size:12px; color:var(--text-tertiary); margin:28px 0 0; max-width:110ch;">Car App Library mapping — AA1: NavigationTemplate + ActionStrip · AA2: CarToast + strip-button Undo state · AA3–AA4: Alert (≤2 actions, auto-dismiss) · AA5: MessageTemplate (parked only) · voice: "report a camera" App Action. Pending sightings render amber (monitored) until reviewed in <a href="MobileContribute.dc.html">Contribute</a>.</p>
+    <p style="font-family:var(--font-mono); font-size:12px; color:var(--text-tertiary); margin:28px 0 0; max-width:110ch;">Car App Library mapping — AA0: MapTemplate header actions (Home/Work render only when set) + RoutePreviewNavigationTemplate · AA1: NavigationTemplate + ActionStrip · AA2: CarToast + strip-button Undo state · AA3–AA4: Alert (≤2 actions, auto-dismiss) · AA5: MessageTemplate (parked only) · voice: "report a camera" App Action. Pending sightings render amber (monitored) until reviewed in <a href="MobileContribute.dc.html">Contribute</a>.</p>
   </div>
 </div>
 </x-dc>

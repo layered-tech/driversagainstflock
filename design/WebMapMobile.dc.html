@@ -250,7 +250,7 @@
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; flex:0 0 auto;"><line x1="4" x2="4" y1="21" y2="14"></line><line x1="4" x2="4" y1="10" y2="3"></line><line x1="12" x2="12" y1="21" y2="12"></line><line x1="12" x2="12" y1="8" y2="3"></line><line x1="20" x2="20" y1="21" y2="16"></line><line x1="20" x2="20" y1="12" y2="3"></line><line x1="2" x2="6" y1="14" y2="14"></line><line x1="10" x2="14" y1="8" y2="8"></line><line x1="18" x2="22" y1="16" y2="16"></line></svg>
                   <span>Advanced settings</span>
                   <span style="flex:1;"></span>
-                  <span style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary);">250 ft</span>
+                  <span style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary);">{{ bufferLabel }}</span>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; color:var(--text-tertiary);"><path d="m6 9 6 6 6-6"></path></svg>
                 </div>
                 <div style="margin-top:12px;">
@@ -331,6 +331,67 @@
         </x-import>
       </div>
 
+      <!-- ============ W5 · ADVANCED SETTINGS ============ -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div>
+          <div style="font-size:13px; font-weight:600;">W5 · Advanced settings</div>
+          <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px;">The disclosure expands inside the route sheet</div>
+        </div>
+        <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
+          <div data-screen-label="W5 Advanced settings" style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
+
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; z-index:2;">
+              <path d="M55 63 C 53 52, 51 42, 47 34 S 43 25, 41 21" fill="none" stroke="var(--route-fast-casing)" stroke-width="11" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"></path>
+              <path d="M55 63 C 53 52, 51 42, 47 34 S 43 25, 41 21" fill="none" stroke="var(--route-fast)" stroke-width="7" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"></path>
+              <path d="M55 63 C 67 58, 74 47, 66 37 S 49 24, 41 21" fill="none" stroke="var(--route-private-casing)" stroke-width="11" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"></path>
+              <path d="M55 63 C 67 58, 74 47, 66 37 S 49 24, 41 21" fill="none" stroke="var(--route-private)" stroke-width="7" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+
+            <div style="position:absolute; left:41%; top:21%; transform:translate(-50%,-100%); z-index:6;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="destination" icon-name="flag" label="Ferry Building" selected="{{ true }}" hint-size="46px,72px"></x-import></div>
+            <div style="position:absolute; left:55%; top:63%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="user" heading="34" hint-size="64px,64px"></x-import></div>
+
+            <!-- route-choice sheet with Advanced settings expanded -->
+            <div style="position:absolute; left:0; right:0; bottom:82px; z-index:30;">
+              <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" title="Choose your route" subtitle="Private skips 4 cameras · 3 minutes slower" hint-size="100%,480px">
+                <div data-route-cards="" style="display:grid; gap:8px;">
+                  <x-import component-from-global-scope="DesignSystem_c71fad.RouteCard" kind="private" eta="27 min" arrival="ETA 6:15" distance="13 mi" cameras="{{ c0 }}" recommended="{{ true }}" selected="{{ true }}" hint-size="100%,64px"></x-import>
+                  <x-import component-from-global-scope="DesignSystem_c71fad.RouteCard" kind="fast" eta="24 min" arrival="ETA 6:12" distance="12.4 mi" cameras="{{ c4 }}" hint-size="100%,64px"></x-import>
+                </div>
+                <div style="display:flex; align-items:center; gap:9px; margin-top:12px; padding:12px 2px 0; border-top:1px solid var(--border-glass); color:var(--text-secondary); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold);">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; flex:0 0 auto;"><line x1="4" x2="4" y1="21" y2="14"></line><line x1="4" x2="4" y1="10" y2="3"></line><line x1="12" x2="12" y1="21" y2="12"></line><line x1="12" x2="12" y1="8" y2="3"></line><line x1="20" x2="20" y1="21" y2="16"></line><line x1="20" x2="20" y1="12" y2="3"></line><line x1="2" x2="6" y1="14" y2="14"></line><line x1="10" x2="14" y1="8" y2="8"></line><line x1="18" x2="22" y1="16" y2="16"></line></svg>
+                  <span>Advanced settings</span>
+                  <span style="flex:1;"></span>
+                  <span style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary);">{{ bufferLabel }}</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; color:var(--text-tertiary); transform:rotate(180deg);"><path d="m6 9 6 6 6-6"></path></svg>
+                </div>
+                <div style="margin-top:12px; display:grid; gap:12px;">
+                  <div style="display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--surface-card-alt); border-radius:var(--radius-md);">
+                    <span style="flex:1; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary);">Allow ALPR near start &amp; destination</span>
+                    <x-import component-from-global-scope="DesignSystem_c71fad.Switch" checked="{{ allowNearEnds }}" onChange="{{ setAllowNearEnds }}" hint-size="48px,28px"></x-import>
+                  </div>
+                  <x-import component-from-global-scope="DesignSystem_c71fad.Slider" label="Avoid cameras by" show-value="{{ true }}" min="{{ bufMin }}" max="{{ bufMax }}" step="{{ bufStep }}" value="{{ bufferFt }}" onChange="{{ setBuffer }}" format-value="{{ fmtBuffer }}" hint-size="100%,52px"></x-import>
+                </div>
+                <div style="margin-top:12px;">
+                  <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="lg" full-width="{{ true }}" hint-size="100%,48px">View route</x-import>
+                </div>
+              </x-import>
+            </div>
+
+            <div style="position:absolute; left:0; right:0; bottom:0; z-index:40; display:flex; align-items:center; gap:16px; padding:10px 16px 30px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-top:1px solid var(--border-glass);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; color:var(--text-secondary); flex:0 0 auto;"><path d="m15 18-6-6 6-6"></path></svg>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; color:var(--text-tertiary); opacity:0.45; flex:0 0 auto;"><path d="m9 18 6-6-6-6"></path></svg>
+              <div style="flex:1; min-width:0; height:42px; display:flex; align-items:center; justify-content:center; gap:7px; background:var(--surface-raised); border:1px solid var(--border-glass); border-radius:var(--radius-pill); box-shadow:var(--shadow-card);">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; color:var(--text-tertiary);"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+                <span style="font-size:15px; font-weight:var(--fw-semibold);">daf.app</span>
+              </div>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; color:var(--text-secondary); flex:0 0 auto;"><path d="M12 3v13"></path><path d="m8 7 4-4 4 4"></path><path d="M6 10H5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1h-1"></path></svg>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; color:var(--text-secondary); flex:0 0 auto;"><rect x="7" y="7" width="13" height="13" rx="2"></rect><path d="M4 16V6a2 2 0 0 1 2-2h10"></path></svg>
+            </div>
+          </div>
+        </x-import>
+      </div>
+
     </div>
 
     <p style="font-family:var(--font-mono); font-size:12px; color:var(--text-tertiary); margin:24px 0 0;">One responsive app — below 768px the side panels become sheets and the header folds. No separate m-dot site.</p>
@@ -342,6 +403,8 @@ class Component extends DCLogic {
   state = {
     waypoints: [{ id: 'wp-a', value: 'Your location' }, { id: 'wp-b', value: 'Ferry Building' }],
     dragIndex: null,
+    bufferFt: 250,
+    allowNearEnds: false,
   };
   nextId = 1;
   addStop() {
@@ -403,6 +466,13 @@ class Component extends DCLogic {
       waypoints,
       addStop: () => this.addStop(),
       reverseWps: () => this.reverseWps(),
+      bufferFt: this.state.bufferFt,
+      bufMin: 0, bufMax: 1000, bufStep: 50,
+      setBuffer: (v) => this.setState({ bufferFt: v }),
+      fmtBuffer: (v) => `${v.toLocaleString()} ft`,
+      bufferLabel: `${this.state.bufferFt.toLocaleString()} ft`,
+      allowNearEnds: this.state.allowNearEnds,
+      setAllowNearEnds: (v) => this.setState({ allowNearEnds: v }),
       segOptions: [{ value: 'map', label: 'Map' }, { value: 'directions', label: 'Directions' }],
       modeMap: 'map',
       w: 390, h: 844, c0: 0, c4: 4,

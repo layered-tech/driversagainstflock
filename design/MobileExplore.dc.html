@@ -7,7 +7,7 @@
 </head>
 <body>
 <x-dc>
-<!-- page name="Mobile · Explore & search" description="iOS map browsing: map home, search, place details, ALPR marker sheet." -->
+<!-- page name="Mobile · Explore & search" description="iOS map browsing: map home, search with Home/Work slots, the set-Home/Work flow, place details with type-aware save offers, ALPR marker sheet." -->
 <helmet>
   <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css">
   <link rel="stylesheet" href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css">
@@ -33,7 +33,7 @@
       <img src="assets/logo-mark.png" alt="DAF" style="width:36px; height:36px; object-fit:contain;">
       <span style="font-family:var(--font-display); font-weight:700; font-size:24px; letter-spacing:var(--ls-heading);">Drivers Against Flock — Mobile · Explore</span>
     </div>
-    <p style="font-size:15px; color:var(--text-secondary); margin:0 0 18px; max-width:70ch;">Browsing the map: home, search, place details, and the ALPR marker sheet. Part of the mobile gallery, split by intent so each page stays light.</p>
+    <p style="font-size:15px; color:var(--text-secondary); margin:0 0 18px; max-width:70ch;">Browsing the map: home, search, setting Home &amp; Work, place details, and the ALPR marker sheet. Part of the mobile gallery, split by intent so each page stays light.</p>
     <div style="display:flex; flex-wrap:wrap; gap:8px; margin:0 0 40px;">
       <a href="MobileApp.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">All screens</a>
       <span style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; font-weight:600; color:var(--text-brand); background:var(--brand-soft); border:1px solid transparent; padding:6px 13px; border-radius:var(--radius-pill);">Explore</span>
@@ -85,33 +85,73 @@
 
       <!-- 02 SEARCH -->
       <div style="display:flex; flex-direction:column; gap:14px;">
-        <div style="font-size:13px; font-weight:600;">02 · Search</div>
+        <div style="font-size:13px; font-weight:600;">02 · Search — empty, Home &amp; Work pinned</div>
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" keyboard="{{ true }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
             <div style="padding:54px 12px 12px; display:flex; gap:10px; align-items:center; background:var(--surface-card); border-bottom:1px solid var(--border);">
-              <div style="flex:1; min-width:0;"><x-import component-from-global-scope="DesignSystem_c71fad.SearchBar" placeholder="Where to?" value="Ferr" trailing="{{ searchClear }}" hint-size="100%,44px"></x-import></div>
+              <div style="flex:1; min-width:0;"><x-import component-from-global-scope="DesignSystem_c71fad.SearchBar" placeholder="Where to?" hint-size="100%,44px"></x-import></div>
               <span style="color:var(--text-brand); font-weight:600; font-size:15px; flex:0 0 auto;">Cancel</span>
             </div>
             <div style="flex:1; overflow:auto;">
-              <div style="padding:14px 16px 6px; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-tertiary);">Top result</div>
-              <div style="display:flex; align-items:center; gap:13px; padding:10px 16px;">
-                <span style="width:38px; height:38px; border-radius:var(--radius-sm); background:var(--violet-500); color:#fff; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg></span>
-                <div style="flex:1; min-width:0;"><div style="font-size:15px; font-weight:600;">Ferry Building Marketplace</div><div style="font-size:13px; color:var(--text-tertiary);">1 Ferry Building · 0.6 mi</div></div>
-                <span style="color:var(--text-tertiary);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m9 18 6-6-6-6"></path></svg></span>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:14px 16px 8px;">
+                <div style="display:flex; flex-direction:column; gap:10px; padding:12px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md);">
+                  <span style="width:34px; height:34px; border-radius:var(--radius-sm); background:var(--brand-soft); color:var(--text-brand); display:inline-flex; align-items:center; justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></span>
+                  <div style="min-width:0;"><div style="font-size:15px; font-weight:600;">Home</div><div style="font-size:12.5px; color:var(--text-tertiary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">12 min · Cypress Ave</div></div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:10px; padding:12px; border:1px dashed var(--border-strong); border-radius:var(--radius-md);">
+                  <span style="width:34px; height:34px; border-radius:var(--radius-sm); background:var(--surface-card-alt); color:var(--text-tertiary); display:inline-flex; align-items:center; justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path><rect width="20" height="14" x="2" y="6" rx="2"></rect></svg></span>
+                  <div style="min-width:0;"><div style="font-size:15px; font-weight:600; color:var(--text-brand);">Set Work</div><div style="font-size:12.5px; color:var(--text-tertiary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">One tap from anywhere</div></div>
+                </div>
               </div>
               <div style="padding:14px 16px 6px; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-tertiary);">Favorites</div>
               <div style="display:flex; align-items:center; gap:13px; padding:10px 16px;">
-                <span style="width:38px; height:38px; border-radius:var(--radius-sm); background:var(--brand-soft); color:var(--text-brand); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></span>
-                <div style="flex:1; min-width:0;"><div style="font-size:15px; font-weight:600;">Home</div><div style="font-size:13px; color:var(--text-tertiary);">Cypress Ave</div></div>
-              </div>
-              <div style="display:flex; align-items:center; gap:13px; padding:10px 16px;">
-                <span style="width:38px; height:38px; border-radius:var(--radius-sm); background:var(--brand-soft); color:var(--text-brand); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path><rect width="20" height="14" x="2" y="6" rx="2"></rect></svg></span>
-                <div style="flex:1; min-width:0;"><div style="font-size:15px; font-weight:600;">Work</div><div style="font-size:13px; color:var(--text-tertiary);">Grand Ave</div></div>
+                <span style="width:38px; height:38px; border-radius:var(--radius-sm); background:var(--brand-soft); color:var(--text-brand); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></span>
+                <div style="flex:1; min-width:0;"><div style="font-size:15px; font-weight:600;">Berkeley Bowl</div><div style="font-size:13px; color:var(--text-tertiary);">2020 Oregon St</div></div>
               </div>
               <div style="padding:14px 16px 6px; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-tertiary);">Recent</div>
               <div style="display:flex; align-items:center; gap:13px; padding:10px 16px;">
                 <span style="width:38px; height:38px; border-radius:var(--radius-sm); background:var(--surface-card-alt); color:var(--text-secondary); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>
+                <div style="flex:1; min-width:0;"><div style="font-size:15px; font-weight:600;">Ferry Building Marketplace</div><div style="font-size:13px; color:var(--text-tertiary);">Yesterday</div></div>
+              </div>
+            </div>
+          </div>
+        </x-import>
+      </div>
+
+      <!-- 02B SET WORK FLOW -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">02b · Set Work — tapping the empty card</div>
+        <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" keyboard="{{ true }}" dark="{{ isDark }}" hint-size="390px,844px">
+          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
+            <div style="padding:66px 12px 12px; background:var(--surface-card); border-bottom:1px solid var(--border);">
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                <span style="color:var(--text-brand); display:inline-flex; flex:0 0 auto;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m15 18-6-6 6-6"></path></svg></span>
+                <span style="font-family:var(--font-display); font-size:17px; font-weight:600; flex:1; min-width:0;">Set Work</span>
+                <span style="color:var(--text-brand); font-weight:600; font-size:15px; flex:0 0 auto;">Cancel</span>
+              </div>
+              <x-import component-from-global-scope="DesignSystem_c71fad.SearchBar" placeholder="Search or enter address" hint-size="100%,44px"></x-import>
+            </div>
+            <div style="flex:1; overflow:auto;">
+              <div style="display:flex; align-items:center; gap:13px; padding:14px 16px 10px;">
+                <span style="width:38px; height:38px; border-radius:var(--radius-sm); background:var(--brand-soft); color:var(--text-brand); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg></span>
+                <div style="flex:1; min-width:0;"><div style="font-size:15px; font-weight:600;">Use current location</div><div style="font-size:13px; color:var(--text-tertiary);">Embarcadero &amp; Market St</div></div>
+              </div>
+              <div style="display:flex; align-items:center; gap:13px; padding:10px 16px;">
+                <span style="width:38px; height:38px; border-radius:var(--radius-sm); background:var(--surface-card-alt); color:var(--text-secondary); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"></path><path d="M15 5.764v15"></path><path d="M9 3.236v15"></path></svg></span>
+                <div style="flex:1; min-width:0;"><div style="font-size:15px; font-weight:600;">Choose on the map</div><div style="font-size:13px; color:var(--text-tertiary);">Drop a pin anywhere</div></div>
+              </div>
+              <div style="padding:14px 16px 6px; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-tertiary);">Recent</div>
+              <div style="display:flex; align-items:center; gap:13px; padding:10px 16px;">
+                <span style="width:38px; height:38px; border-radius:var(--radius-sm); background:var(--surface-card-alt); color:var(--text-secondary); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>
+                <div style="flex:1; min-width:0;"><div style="font-size:15px; font-weight:600;">Ferry Building Marketplace</div><div style="font-size:13px; color:var(--text-tertiary);">Yesterday</div></div>
+              </div>
+              <div style="display:flex; align-items:center; gap:13px; padding:10px 16px;">
+                <span style="width:38px; height:38px; border-radius:var(--radius-sm); background:var(--surface-card-alt); color:var(--text-secondary); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>
                 <div style="flex:1; min-width:0;"><div style="font-size:15px; font-weight:600;">Berkeley Bowl</div><div style="font-size:13px; color:var(--text-tertiary);">2 days ago</div></div>
+              </div>
+              <div style="display:flex; gap:9px; padding:14px 16px 0; color:var(--text-tertiary); font-size:12.5px; line-height:1.5;">
+                <span style="flex:0 0 auto; margin-top:1px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg></span>
+                <span>Home &amp; Work are saved on this device. They never leave it.</span>
               </div>
             </div>
           </div>
@@ -120,7 +160,7 @@
 
       <!-- 03 PLACE DETAILS -->
       <div style="display:flex; flex-direction:column; gap:14px;">
-        <div style="font-size:13px; font-weight:600;">03 · Place details</div>
+        <div style="font-size:13px; font-weight:600;">03 · Place details — business offers Work</div>
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
             <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
@@ -141,10 +181,44 @@
                   <div style="display:flex; gap:11px; align-items:flex-start;"><span style="color:var(--text-tertiary); flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg></span><span style="font-size:var(--fs-body-sm); color:var(--text-secondary);">1 Ferry Building, San Francisco, CA 94111</span></div>
                   <div style="display:flex; gap:11px; align-items:center;"><span style="color:var(--text-tertiary); flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></span><span style="font-size:var(--fs-body-sm); color:var(--text-secondary);">(415) 983-8030</span></div>
                 </div>
+                <button style="display:flex; align-items:center; gap:11px; width:100%; text-align:left; padding:10px 12px; margin-bottom:16px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); cursor:pointer; font-family:var(--font-ui); color:var(--text-primary); -webkit-tap-highlight-color:transparent;">
+                  <span style="width:34px; height:34px; border-radius:var(--radius-sm); background:var(--brand-soft); color:var(--text-brand); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path><rect width="20" height="14" x="2" y="6" rx="2"></rect></svg></span>
+                  <span style="flex:1; min-width:0;"><span style="display:block; font-size:14.5px; font-weight:600;">Set as Work</span><span style="display:block; font-size:12.5px; color:var(--text-tertiary);">Suggested for businesses</span></span>
+                  <span style="color:var(--text-tertiary); flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m9 18 6-6-6-6"></path></svg></span>
+                </button>
                 <div style="display:grid; grid-template-columns:1fr auto auto; gap:8px;">
                   <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="md" full-width="{{ true }}" hint-size="100%,46px">Directions</x-import>
                   <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Save" variant="solid" size="md" hint-size="46px,46px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></x-import>
                   <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Website" variant="solid" size="md" hint-size="46px,46px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"></path></svg></x-import>
+                </div>
+              </x-import>
+            </div>
+          </div>
+        </x-import>
+      </div>
+
+      <!-- 03B PLACE DETAILS — RESIDENTIAL -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">03b · Place details — residential offers Home</div>
+        <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
+            <div style="position:absolute; left:50%; top:32%; transform:translate(-50%,-100%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="destination" icon-name="home" selected="{{ true }}" hint-size="46px,72px"></x-import></div>
+            <div style="position:absolute; right:12px; top:60px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Close" variant="glass" size="md" hint-size="44px,44px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import></div>
+            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+              <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" title="2140 Cypress Ave" subtitle="Residential · Rockridge" hint-size="100%,320px">
+                <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
+                  <div style="display:flex; gap:11px; align-items:flex-start;"><span style="color:var(--text-tertiary); flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg></span><span style="font-size:var(--fs-body-sm); color:var(--text-secondary);">2140 Cypress Ave, Oakland, CA 94618</span></div>
+                  <div style="display:flex; gap:11px; align-items:center;"><span style="color:var(--text-tertiary); flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span><span style="font-size:var(--fs-body-sm); color:var(--text-secondary);">14 min drive · 5.2 mi</span></div>
+                </div>
+                <button style="display:flex; align-items:center; gap:11px; width:100%; text-align:left; padding:10px 12px; margin-bottom:16px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); cursor:pointer; font-family:var(--font-ui); color:var(--text-primary); -webkit-tap-highlight-color:transparent;">
+                  <span style="width:34px; height:34px; border-radius:var(--radius-sm); background:var(--brand-soft); color:var(--text-brand); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></span>
+                  <span style="flex:1; min-width:0;"><span style="display:block; font-size:14.5px; font-weight:600;">Set as Home</span><span style="display:block; font-size:12.5px; color:var(--text-tertiary);">Suggested for residential addresses</span></span>
+                  <span style="color:var(--text-tertiary); flex:0 0 auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m9 18 6-6-6-6"></path></svg></span>
+                </button>
+                <div style="display:grid; grid-template-columns:1fr auto; gap:8px;">
+                  <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="md" full-width="{{ true }}" hint-size="100%,46px">Directions</x-import>
+                  <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="Save" variant="solid" size="md" hint-size="46px,46px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></x-import>
                 </div>
               </x-import>
             </div>
