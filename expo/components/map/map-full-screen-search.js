@@ -1,5 +1,6 @@
 import {
     ActivityIndicator,
+    Alert,
     Pressable,
     ScrollView,
     Text,
@@ -17,6 +18,8 @@ import { DirectionsCurrentLocationOption } from './directions-current-location-o
 import { GoogleResultsFooter } from './google-results-footer';
 import { useMapSearchContext } from './map-screen-context';
 import { PlaceSearchResultRow } from './place-search-result-row';
+import { PrimaryLocationCards } from './primary-location-cards';
+import { getPrimaryLocationLabel } from './primary-locations';
 import { SavedLocationSection } from './saved-location-section';
 import { SubmittedSearchResultRow } from './submitted-search-result-row';
 
@@ -67,6 +70,9 @@ export function MapFullScreenSearch() {
         handleDirectionsSearchResultPress,
         handleDirectionsStartChange,
         handleDirectionsStopChange,
+        handlePrimaryLocationPress,
+        handlePrimaryLocationUnset,
+        handlePrimaryLocationSetupDismiss,
         handleSavedLocationPress,
         handleSearchChange,
         handleSearchDismiss,
@@ -76,7 +82,13 @@ export function MapFullScreenSearch() {
         localitySearchError,
         localitySearchIsLoading,
         mapPreferencesAreLoaded,
+        primaryLocations,
+        primaryLocationSaveError,
+        primaryLocationTypeBeingSet,
         recentLocations,
+        savedLocationsAreLoaded,
+        searchFavoriteLocations,
+        searchRecentLocations,
         searchError,
         searchIconColor,
         searchIsFocused,
@@ -97,9 +109,28 @@ export function MapFullScreenSearch() {
         voiceSearchIsListening,
     } = useMapSearchContext();
     const searchModeIsDirections = searchMode === DIRECTIONS_MODE_DIRECTIONS;
+    const primaryLocationSetupIsActive = Boolean(
+        !searchModeIsDirections && primaryLocationTypeBeingSet,
+    );
     const visible = searchModeIsDirections
         ? directionsSearchPageIsVisible
         : searchPageIsVisible;
+    const handlePrimaryLocationLongPress = (type) => {
+        const label = getPrimaryLocationLabel(type);
+
+        Alert.alert(
+            `Unset ${label}?`,
+            `This removes your saved ${label.toLowerCase()} location. You can set a new ${label.toLowerCase()} location whenever you are ready.`,
+            [
+                { style: 'cancel', text: 'Cancel' },
+                {
+                    onPress: () => handlePrimaryLocationUnset(type),
+                    style: 'destructive',
+                    text: `Unset ${label}`,
+                },
+            ],
+        );
+    };
 
     if (!mapPreferencesAreLoaded || !visible) {
         return null;
@@ -108,7 +139,9 @@ export function MapFullScreenSearch() {
     const savedSections = [
         {
             icon: 'heart',
-            items: favoriteLocations,
+            items: searchModeIsDirections
+                ? favoriteLocations
+                : searchFavoriteLocations,
             key: 'favorites',
             label: 'Favorites',
             onPress: searchModeIsDirections
@@ -117,7 +150,9 @@ export function MapFullScreenSearch() {
         },
         {
             icon: 'clock',
-            items: recentLocations,
+            items: searchModeIsDirections
+                ? recentLocations
+                : searchRecentLocations,
             key: 'recent',
             label: 'Recent',
             onPress: searchModeIsDirections
@@ -149,10 +184,14 @@ export function MapFullScreenSearch() {
     const inputValue = searchModeIsDirections ? directionsValue : searchValue;
     const inputPlaceholder = searchModeIsDirections
         ? directionsPlaceholder
-        : 'Where to?';
+        : primaryLocationSetupIsActive
+          ? 'Search or enter address'
+          : 'Where to?';
     const inputAccessibilityLabel = searchModeIsDirections
         ? `Search ${directionsPlaceholder.toLowerCase()}`
-        : 'Search locations';
+        : primaryLocationSetupIsActive
+          ? `Search for ${getPrimaryLocationLabel(primaryLocationTypeBeingSet)}`
+          : 'Search locations';
     const cancelHandler = searchModeIsDirections
         ? handleDirectionsSearchDismiss
         : handleSearchDismiss;
@@ -195,6 +234,12 @@ export function MapFullScreenSearch() {
     const autocompleteResults = searchModeIsDirections
         ? directionsSearchResults
         : searchResults;
+    const primaryLocationCardsAreVisible =
+        !searchModeIsDirections &&
+        !primaryLocationSetupIsActive &&
+        savedLocationsAreLoaded &&
+        !searchQuery &&
+        !submittedResultsAreVisible;
 
     return (
         <View
@@ -208,6 +253,43 @@ export function MapFullScreenSearch() {
                     paddingTop: insets.top + 12,
                 }}
             >
+                {primaryLocationSetupIsActive ? (
+                    <View className="flex-row items-center gap-2">
+                        <Pressable
+                            accessibilityLabel="Back to saved locations"
+                            accessibilityRole="button"
+                            className="h-11 w-11 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
+                            onPress={handlePrimaryLocationSetupDismiss}
+                            testID={`map-primary-location-setup-back-${searchSource}`}
+                        >
+                            <Icon
+                                color={searchPrimaryIconColor}
+                                name="chevron-left"
+                                size={22}
+                            />
+                        </Pressable>
+                        <Text
+                            className="font-dafDisplay min-w-0 flex-1 text-[17px] font-semibold text-daf-text-primary dark:text-white"
+                            numberOfLines={1}
+                        >
+                            Set{' '}
+                            {getPrimaryLocationLabel(
+                                primaryLocationTypeBeingSet,
+                            )}
+                        </Text>
+                        <Pressable
+                            accessibilityLabel="Cancel setting saved location"
+                            accessibilityRole="button"
+                            className="min-h-11 justify-center px-1"
+                            onPress={handleSearchDismiss}
+                        >
+                            <Text className="text-[15px] font-semibold text-daf-text-brand dark:text-daf-brand">
+                                Cancel
+                            </Text>
+                        </Pressable>
+                    </View>
+                ) : null}
+
                 <View className="flex-row items-center gap-2">
                     <View className="dark:border-daf-border-dark min-w-0 flex-1 flex-row items-center gap-2 rounded-dafPill border border-daf-border bg-daf-surface-alt px-3 dark:bg-daf-surface-inverse">
                         <Icon color={searchIconColor} name="search" size={18} />
@@ -247,17 +329,19 @@ export function MapFullScreenSearch() {
                             </Pressable>
                         ) : null}
                     </View>
-                    <Pressable
-                        accessibilityLabel="Cancel search"
-                        accessibilityRole="button"
-                        className="min-h-11 justify-center px-1"
-                        onPress={cancelHandler}
-                        testID={`map-full-screen-search-cancel-${searchSource}`}
-                    >
-                        <Text className="text-[15px] font-semibold text-daf-text-brand dark:text-daf-brand">
-                            Cancel
-                        </Text>
-                    </Pressable>
+                    {!primaryLocationSetupIsActive ? (
+                        <Pressable
+                            accessibilityLabel="Cancel search"
+                            accessibilityRole="button"
+                            className="min-h-11 justify-center px-1"
+                            onPress={cancelHandler}
+                            testID={`map-full-screen-search-cancel-${searchSource}`}
+                        >
+                            <Text className="text-[15px] font-semibold text-daf-text-brand dark:text-daf-brand">
+                                Cancel
+                            </Text>
+                        </Pressable>
+                    ) : null}
                 </View>
             </View>
 
@@ -278,9 +362,17 @@ export function MapFullScreenSearch() {
                     </View>
                 ) : null}
 
-                {voiceSearchError || localitySearchError ? (
-                    <Text className="rounded-dafMd bg-red-50 px-3 py-3 text-sm font-medium leading-5 text-red-700 dark:bg-red-950/30 dark:text-red-200">
-                        {voiceSearchError || localitySearchError}
+                {voiceSearchError ||
+                localitySearchError ||
+                primaryLocationSaveError ? (
+                    <Text
+                        accessibilityLiveRegion="polite"
+                        className="rounded-dafMd bg-red-50 px-3 py-3 text-sm font-medium leading-5 text-red-700 dark:bg-red-950/30 dark:text-red-200"
+                        selectable
+                    >
+                        {voiceSearchError ||
+                            localitySearchError ||
+                            primaryLocationSaveError}
                     </Text>
                 ) : null}
 
@@ -294,6 +386,15 @@ export function MapFullScreenSearch() {
                             Looking up ZIP boundary
                         </Text>
                     </View>
+                ) : null}
+
+                {primaryLocationCardsAreVisible ? (
+                    <PrimaryLocationCards
+                        onLocationLongPress={handlePrimaryLocationLongPress}
+                        onLocationPress={handlePrimaryLocationPress}
+                        primaryLocations={primaryLocations}
+                        searchSource={searchSource}
+                    />
                 ) : null}
 
                 {currentLocationIsVisible ? (

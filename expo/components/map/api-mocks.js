@@ -15,6 +15,7 @@ let runtimeMapApiMocksEnabled = false;
 
 const MOCK_PLACES = {
     'mock-walmart-supercenter': {
+        businessStatus: 'OPERATIONAL',
         displayName: { text: 'Walmart Supercenter' },
         formattedAddress: '1030 Norwood Park Blvd, Austin, TX 78753',
         id: 'mock-walmart-supercenter',
@@ -25,9 +26,11 @@ const MOCK_PLACES = {
         primaryType: 'department_store',
         primaryTypeDisplayName: { text: 'Department store' },
         rating: 3.8,
+        types: ['department_store', 'store', 'establishment'],
         userRatingCount: 2900,
     },
     'mock-walmart-neighborhood-market': {
+        businessStatus: 'OPERATIONAL',
         displayName: { text: 'Walmart Neighborhood Market' },
         formattedAddress: '2525 W Anderson Ln, Austin, TX 78757',
         id: 'mock-walmart-neighborhood-market',
@@ -38,6 +41,7 @@ const MOCK_PLACES = {
         primaryType: 'grocery_store',
         primaryTypeDisplayName: { text: 'Grocery store' },
         rating: 4.1,
+        types: ['grocery_store', 'store', 'establishment'],
         userRatingCount: 1600,
     },
     'mock-barton-springs-pool': {
@@ -65,6 +69,18 @@ const MOCK_PLACES = {
         primaryTypeDisplayName: { text: 'Public library' },
         rating: 4.8,
         userRatingCount: 1700,
+    },
+    'mock-cypress-residence': {
+        displayName: { text: '2140 Cypress Ave' },
+        formattedAddress: '2140 Cypress Ave, Austin, TX 78704',
+        id: 'mock-cypress-residence',
+        location: {
+            latitude: 30.2478,
+            longitude: -97.7682,
+        },
+        primaryType: 'street_address',
+        primaryTypeDisplayName: { text: 'Residential' },
+        types: ['street_address', 'premise'],
     },
 };
 
@@ -96,6 +112,13 @@ const MOCK_SEARCH_RESULTS = [
         placeId: 'mock-austin-central-library',
         primaryText: 'Austin Central Library',
         secondaryText: '710 W Cesar Chavez St, Austin, TX 78701',
+    },
+    {
+        id: 'mock-cypress-residence',
+        label: '2140 Cypress Ave, Austin, TX 78704',
+        placeId: 'mock-cypress-residence',
+        primaryText: '2140 Cypress Ave',
+        secondaryText: 'Austin, TX 78704',
     },
 ];
 

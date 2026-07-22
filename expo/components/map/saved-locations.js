@@ -1,10 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+    createEmptyPrimaryLocations,
+    parseStoredPrimaryLocations,
+    updatePrimaryLocations,
+} from './primary-locations';
 
 const RECENT_LOCATIONS_STORAGE_KEY =
     'driversagainstflock.mapSearch.recentLocations.v1';
 const FAVORITE_LOCATIONS_STORAGE_KEY =
     'driversagainstflock.mapSearch.favoriteLocations.v1';
+const PRIMARY_LOCATIONS_STORAGE_KEY =
+    'driversagainstflock.mapSearch.primaryLocations.v1';
 const RECENT_LOCATIONS_LIMIT = 5;
+
+const primaryLocationsListeners = new Set();
 
 function getSafeString(value) {
     return typeof value === 'string' ? value.trim() : '';
@@ -108,6 +117,28 @@ export function normalizeSavedLocation(location) {
     return savedLocation;
 }
 
+function normalizePrimaryLocation(location) {
+    const savedLocation = normalizeSavedLocation(location);
+
+    if (
+        !savedLocation ||
+        !Number.isFinite(savedLocation.latitude) ||
+        !Number.isFinite(savedLocation.longitude)
+    ) {
+        return null;
+    }
+
+    return savedLocation;
+}
+
+function notifyPrimaryLocationsListeners(primaryLocations) {
+    primaryLocationsListeners.forEach((listener) => {
+        try {
+            listener(primaryLocations);
+        } catch {}
+    });
+}
+
 export function formatSavedLocationDescription(location) {
     const savedLocation = normalizeSavedLocation(location);
 
@@ -189,15 +220,68 @@ async function setLocations(key, locations) {
 }
 
 export async function loadSearchSavedLocations() {
-    const [recentLocations, favoriteLocations] = await Promise.all([
-        loadLocations(RECENT_LOCATIONS_STORAGE_KEY),
-        loadLocations(FAVORITE_LOCATIONS_STORAGE_KEY),
-    ]);
+    const [recentLocations, favoriteLocations, primaryLocations] =
+        await Promise.all([
+            loadLocations(RECENT_LOCATIONS_STORAGE_KEY),
+            loadLocations(FAVORITE_LOCATIONS_STORAGE_KEY),
+            loadPrimaryLocations(),
+        ]);
 
     return {
         favoriteLocations,
+        primaryLocations,
         recentLocations,
     };
+}
+
+export function addPrimaryLocationsListener(listener) {
+    primaryLocationsListeners.add(listener);
+
+    return () => {
+        primaryLocationsListeners.delete(listener);
+    };
+}
+
+export async function loadPrimaryLocations() {
+    const storedPrimaryLocations = await AsyncStorage.getItem(
+        PRIMARY_LOCATIONS_STORAGE_KEY,
+    );
+
+    return parseStoredPrimaryLocations(
+        storedPrimaryLocations,
+        normalizePrimaryLocation,
+    );
+}
+
+export async function savePrimaryLocation(type, location) {
+    const primaryLocations = await loadPrimaryLocations();
+    const normalizedLocation =
+        location === null ? null : normalizePrimaryLocation(location);
+
+    if (location !== null && !normalizedLocation) {
+        throw new Error('This place has no usable location.');
+    }
+
+    const updatedLocations = updatePrimaryLocations(
+        primaryLocations,
+        type,
+        normalizedLocation,
+        (primaryLocation) => primaryLocation,
+    );
+
+    await AsyncStorage.setItem(
+        PRIMARY_LOCATIONS_STORAGE_KEY,
+        JSON.stringify(updatedLocations),
+    );
+
+    const savedPrimaryLocations = {
+        ...createEmptyPrimaryLocations(),
+        ...updatedLocations,
+    };
+
+    notifyPrimaryLocationsListeners(savedPrimaryLocations);
+
+    return savedPrimaryLocations;
 }
 
 export async function addRecentLocation(location) {

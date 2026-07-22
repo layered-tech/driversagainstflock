@@ -6,6 +6,8 @@ import {
     getAutoPlayHeaderButtonVisibility,
     getAutoPlayMapContentVisibility,
     getAutoPlayNavigationPuckRefreshKey,
+    getAutoPlayPrimaryLocationHeaderActionTypes,
+    getAutoPlayPrimaryLocationTypes,
     getAutoPlayRouteChoiceText,
     getAutoPlayRoutePreviewFitKey,
     getAutoPlaySearchLoadingCopy,
@@ -163,6 +165,76 @@ describe('Auto Play template state', () => {
                 navigationExitButtonIsVisible: true,
                 trailingNavigationButtonIsVisible: true,
             },
+        );
+    });
+
+    test('shows only configured Home and Work shortcuts while idle', () => {
+        assert.deepEqual(
+            getAutoPlayPrimaryLocationTypes({
+                hasActiveNavigation: false,
+                primaryLocations: {
+                    home: { id: 'home' },
+                    work: { id: 'work' },
+                },
+            }),
+            ['home', 'work'],
+        );
+        assert.deepEqual(
+            getAutoPlayPrimaryLocationTypes({
+                hasActiveNavigation: false,
+                primaryLocations: { home: { id: 'home' }, work: null },
+            }),
+            ['home'],
+        );
+        assert.deepEqual(
+            getAutoPlayPrimaryLocationTypes({
+                hasActiveNavigation: false,
+                primaryLocations: { home: null, work: { id: 'work' } },
+            }),
+            ['work'],
+        );
+        assert.deepEqual(
+            getAutoPlayPrimaryLocationTypes({
+                hasActiveNavigation: false,
+                primaryLocations: { home: null, work: null },
+            }),
+            [],
+        );
+        assert.deepEqual(
+            getAutoPlayPrimaryLocationTypes({
+                hasActiveNavigation: true,
+                primaryLocations: {
+                    home: { id: 'home' },
+                    work: { id: 'work' },
+                },
+            }),
+            [],
+        );
+    });
+
+    test('uses Android Auto icon order and CarPlay display order', () => {
+        assert.deepEqual(
+            getAutoPlayPrimaryLocationHeaderActionTypes({
+                hasActiveNavigation: false,
+                primaryLocations: {
+                    home: { id: 'home' },
+                    work: { id: 'work' },
+                },
+            }),
+            {
+                android: ['home', 'work'],
+                ios: ['work', 'home'],
+            },
+        );
+        assert.deepEqual(
+            getAutoPlayPrimaryLocationHeaderActionTypes({
+                hasActiveNavigation: true,
+                primaryLocations: {
+                    home: { id: 'home' },
+                    work: { id: 'work' },
+                },
+            }),
+            { android: [], ios: [] },
         );
     });
 
