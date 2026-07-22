@@ -1305,6 +1305,38 @@ export function useMapSearch({
         setSearchResults,
     ]);
 
+    const handlePrimaryLocationUnset = useCallback(
+        async (type) => {
+            if (!primaryLocations[type] || primaryLocationSaveIsLoading) {
+                return;
+            }
+
+            setPrimaryLocationSaveError('');
+            setPrimaryLocationSaveIsLoading(true);
+
+            try {
+                await setPrimaryLocation(type, null);
+            } catch (error) {
+                if (isMountedRef.current) {
+                    setPrimaryLocationSaveError(
+                        error?.message ||
+                            `${getPrimaryLocationLabel(type)} could not be unset.`,
+                    );
+                }
+            } finally {
+                if (isMountedRef.current) {
+                    setPrimaryLocationSaveIsLoading(false);
+                }
+            }
+        },
+        [
+            isMountedRef,
+            primaryLocationSaveIsLoading,
+            primaryLocations,
+            setPrimaryLocation,
+        ],
+    );
+
     const handlePrimaryLocationPress = useCallback(
         (type) => {
             const location = primaryLocations[type];
@@ -1649,6 +1681,7 @@ export function useMapSearch({
         handleOpenSelectedPlaceWebsite,
         handlePlaceSheetDismiss,
         handlePrimaryLocationPress,
+        handlePrimaryLocationUnset,
         handlePrimaryLocationSetupDismiss,
         handleSavedLocationPress,
         handleSearchBlur,

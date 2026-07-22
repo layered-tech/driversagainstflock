@@ -1,5 +1,6 @@
 import {
     ActivityIndicator,
+    Alert,
     Pressable,
     ScrollView,
     Text,
@@ -70,6 +71,7 @@ export function MapFullScreenSearch() {
         handleDirectionsStartChange,
         handleDirectionsStopChange,
         handlePrimaryLocationPress,
+        handlePrimaryLocationUnset,
         handlePrimaryLocationSetupDismiss,
         handleSavedLocationPress,
         handleSearchChange,
@@ -113,6 +115,22 @@ export function MapFullScreenSearch() {
     const visible = searchModeIsDirections
         ? directionsSearchPageIsVisible
         : searchPageIsVisible;
+    const handlePrimaryLocationLongPress = (type) => {
+        const label = getPrimaryLocationLabel(type);
+
+        Alert.alert(
+            `Unset ${label}?`,
+            `This removes your saved ${label.toLowerCase()} location. You can set a new ${label.toLowerCase()} location whenever you are ready.`,
+            [
+                { style: 'cancel', text: 'Cancel' },
+                {
+                    onPress: () => handlePrimaryLocationUnset(type),
+                    style: 'destructive',
+                    text: `Unset ${label}`,
+                },
+            ],
+        );
+    };
 
     if (!mapPreferencesAreLoaded || !visible) {
         return null;
@@ -372,6 +390,7 @@ export function MapFullScreenSearch() {
 
                 {primaryLocationCardsAreVisible ? (
                     <PrimaryLocationCards
+                        onLocationLongPress={handlePrimaryLocationLongPress}
                         onLocationPress={handlePrimaryLocationPress}
                         primaryLocations={primaryLocations}
                         searchSource={searchSource}

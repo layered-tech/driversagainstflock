@@ -13,6 +13,8 @@ const PRIMARY_LOCATIONS_STORAGE_KEY =
     'driversagainstflock.mapSearch.primaryLocations.v1';
 const RECENT_LOCATIONS_LIMIT = 5;
 
+const primaryLocationsListeners = new Set();
+
 function getSafeString(value) {
     return typeof value === 'string' ? value.trim() : '';
 }
@@ -129,6 +131,14 @@ function normalizePrimaryLocation(location) {
     return savedLocation;
 }
 
+function notifyPrimaryLocationsListeners(primaryLocations) {
+    primaryLocationsListeners.forEach((listener) => {
+        try {
+            listener(primaryLocations);
+        } catch {}
+    });
+}
+
 export function formatSavedLocationDescription(location) {
     const savedLocation = normalizeSavedLocation(location);
 
@@ -210,31 +220,41 @@ async function setLocations(key, locations) {
 }
 
 export async function loadSearchSavedLocations() {
-    const [recentLocations, favoriteLocations, storedPrimaryLocations] =
+    const [recentLocations, favoriteLocations, primaryLocations] =
         await Promise.all([
             loadLocations(RECENT_LOCATIONS_STORAGE_KEY),
             loadLocations(FAVORITE_LOCATIONS_STORAGE_KEY),
-            AsyncStorage.getItem(PRIMARY_LOCATIONS_STORAGE_KEY),
+            loadPrimaryLocations(),
         ]);
 
     return {
         favoriteLocations,
-        primaryLocations: parseStoredPrimaryLocations(
-            storedPrimaryLocations,
-            normalizePrimaryLocation,
-        ),
+        primaryLocations,
         recentLocations,
     };
 }
 
-export async function savePrimaryLocation(type, location) {
-    const storedValue = await AsyncStorage.getItem(
+export function addPrimaryLocationsListener(listener) {
+    primaryLocationsListeners.add(listener);
+
+    return () => {
+        primaryLocationsListeners.delete(listener);
+    };
+}
+
+export async function loadPrimaryLocations() {
+    const storedPrimaryLocations = await AsyncStorage.getItem(
         PRIMARY_LOCATIONS_STORAGE_KEY,
     );
-    const primaryLocations = parseStoredPrimaryLocations(
-        storedValue,
+
+    return parseStoredPrimaryLocations(
+        storedPrimaryLocations,
         normalizePrimaryLocation,
     );
+}
+
+export async function savePrimaryLocation(type, location) {
+    const primaryLocations = await loadPrimaryLocations();
     const normalizedLocation =
         location === null ? null : normalizePrimaryLocation(location);
 
@@ -254,10 +274,14 @@ export async function savePrimaryLocation(type, location) {
         JSON.stringify(updatedLocations),
     );
 
-    return {
+    const savedPrimaryLocations = {
         ...createEmptyPrimaryLocations(),
         ...updatedLocations,
     };
+
+    notifyPrimaryLocationsListeners(savedPrimaryLocations);
+
+    return savedPrimaryLocations;
 }
 
 export async function addRecentLocation(location) {

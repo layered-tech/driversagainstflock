@@ -18,6 +18,7 @@ const PRIMARY_LOCATION_CARDS = [
 ];
 
 export function PrimaryLocationCards({
+    onLocationLongPress,
     onLocationPress,
     primaryLocations,
     searchSource,
@@ -36,7 +37,7 @@ export function PrimaryLocationCards({
                         key={type}
                         accessibilityHint={
                             location
-                                ? 'Loads directions to this saved destination.'
+                                ? `Loads directions to this saved destination. Long press to unset ${label}.`
                                 : `Search for a place to save as ${label}.`
                         }
                         accessibilityLabel={
@@ -48,6 +49,11 @@ export function PrimaryLocationCards({
                                 ? 'dark:border-daf-border-dark dark:bg-daf-surface-dark border-daf-border bg-white'
                                 : 'dark:border-daf-border-dark border-dashed border-daf-border-strong bg-transparent'
                         }`}
+                        onLongPress={
+                            location
+                                ? () => onLocationLongPress(type)
+                                : undefined
+                        }
                         onPress={() => onLocationPress(type)}
                         testID={`map-search-primary-location-${type}-${searchSource}`}
                     >

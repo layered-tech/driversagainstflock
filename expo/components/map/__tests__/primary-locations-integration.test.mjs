@@ -6,12 +6,20 @@ const fullScreenSearchSource = readFileSync(
     new URL('../map-full-screen-search.js', import.meta.url),
     'utf8',
 );
+const primaryLocationCardsSource = readFileSync(
+    new URL('../primary-location-cards.js', import.meta.url),
+    'utf8',
+);
 const savedLocationsSource = readFileSync(
     new URL('../saved-locations.js', import.meta.url),
     'utf8',
 );
 const savedLocationsHookSource = readFileSync(
     new URL('../use-map-search-saved-locations.js', import.meta.url),
+    'utf8',
+);
+const autoPlaySource = readFileSync(
+    new URL('../../auto-play.js', import.meta.url),
     'utf8',
 );
 const selectedPlaceSheetSource = readFileSync(
@@ -82,6 +90,60 @@ describe('Home and Work map search integration', () => {
         assert.match(
             useMapSearchSource,
             /requestDirectionsRoute\(\{[\s\S]*?destinationWaypoint[\s\S]*?startWaypoint/,
+        );
+    });
+
+    test('confirms before unsetting a saved Home or Work location', () => {
+        assert.match(
+            primaryLocationCardsSource,
+            /onLongPress=\{\s*location\s*\?\s*\(\)\s*=>\s*onLocationLongPress\(type\)\s*:\s*undefined\s*\}/,
+        );
+        assert.match(
+            fullScreenSearchSource,
+            /Alert\.alert\(\s*`Unset \$\{label\}\?`,[\s\S]*?onPress:\s*\(\)\s*=>\s*handlePrimaryLocationUnset\(type\),[\s\S]*?style:\s*'destructive',[\s\S]*?text:\s*`Unset \$\{label\}`/,
+        );
+        assert.match(
+            useMapSearchSource,
+            /const handlePrimaryLocationUnset\s*=\s*useCallback\([\s\S]*?primaryLocations\[type\][\s\S]*?await setPrimaryLocation\(type, null\)/,
+        );
+    });
+
+    test('adds configured Home and Work locations to idle car headers', () => {
+        assert.match(
+            savedLocationsSource,
+            /export async function loadPrimaryLocations\(\)/,
+        );
+        assert.match(
+            savedLocationsSource,
+            /export function addPrimaryLocationsListener\(listener\)/,
+        );
+        assert.match(
+            autoPlaySource,
+            /addPrimaryLocationsListener\(\s*handlePrimaryLocationsChanged,?\s*\)[\s\S]*?refreshAutoPlayPrimaryLocations\(\)/,
+        );
+        assert.match(
+            autoPlaySource,
+            /function handleRootHeaderPrimaryLocationPress\(type\)[\s\S]*?createPrimaryLocationDirectionsWaypoint\([\s\S]*?handleSearchResultSelected\(\{[\s\S]*?place:\s*destinationWaypoint\.place/,
+        );
+        assert.match(
+            autoPlaySource,
+            /getAutoPlayPrimaryLocationHeaderActionTypes\(\{[\s\S]*?hasActiveNavigation,[\s\S]*?primaryLocations:\s*autoPlayPrimaryLocations/,
+        );
+        assert.match(
+            autoPlaySource,
+            /androidPrimaryLocationButtons[\s\S]*?iconOnly:\s*true/,
+        );
+        assert.match(
+            autoPlaySource,
+            /carPlayPrimaryLocationButtons\s*=\s*primaryLocationHeaderActionTypes\.ios/,
+        );
+        assert.match(
+            autoPlaySource,
+            /function startAutoPlayNavigation[\s\S]*?catch \(error\) \{[\s\S]*?activeNavigationRoute = null;[\s\S]*?activeNavigationDestination = null;[\s\S]*?updateRootTemplateHeaderActions\(\);/,
+        );
+        assert.match(
+            autoPlaySource,
+            /rootMapTemplateIsReady = true;\s*updateRootTemplateHeaderActions\(\);/,
         );
     });
 

@@ -34,6 +34,7 @@ import {
     autoPlaySearchRequestIsCurrent,
     createAutoPlaySearchCallbackState,
     getAutoPlayHeaderButtonVisibility,
+    getAutoPlayPrimaryLocationHeaderActionTypes,
     getAutoPlayRouteChoiceText,
     getAutoPlaySearchLoadingCopy,
     getAutoPlayTripEstimateValues,
@@ -66,6 +67,15 @@ import {
     getSelectedDirectionsRouteOption,
     selectDirectionsRoute,
 } from './map/directions';
+import {
+    createEmptyPrimaryLocations,
+    createPrimaryLocationDirectionsWaypoint,
+    getPrimaryLocationLabel,
+} from './map/primary-locations';
+import {
+    addPrimaryLocationsListener,
+    loadPrimaryLocations,
+} from './map/saved-locations';
 import { formatSearchResultDistance } from './map/search-formatters';
 import {
     addSharedRoutingStateListener,
@@ -91,9 +101,11 @@ const AUTO_PLAY_ICON_GLYPH_MAP = {
     'arrow-right': 0xf061,
     'arrow-up': 0xf062,
     arrows: 0xf047,
+    briefcase: 0xf0b1,
     car: 0xf1b9,
     crosshairs: 0xf05b,
     'flag-checkered': 0xf11e,
+    house: 0xf015,
     'level-up-alt': 0xf3bf,
     location: 0xf3c5,
     minus: 0xf068,
@@ -223,6 +235,9 @@ let pendingNavigationGuidanceTimer = null;
 // and held until the Android Auto session is destroyed, per the Play Store
 // navigation quality requirements.
 let autoDriveIsEnabled = false;
+let autoPlayPrimaryLocations = createEmptyPrimaryLocations();
+let primaryLocationsLoadSequence = 0;
+let primaryLocationsUnsubscribe = null;
 
 // Android Auto's host process throttles template refreshes (~5/30s outside
 // navigation). Each setMapButtons / setHeaderActions call posts a separate
@@ -286,6 +301,33 @@ function loadAutoPlayModule() {
     }
 
     return autoPlayModule;
+}
+
+function applyAutoPlayPrimaryLocations(primaryLocations) {
+    autoPlayPrimaryLocations = {
+        ...createEmptyPrimaryLocations(),
+        ...primaryLocations,
+    };
+    updateRootTemplateHeaderActions();
+}
+
+function refreshAutoPlayPrimaryLocations() {
+    const loadSequence = ++primaryLocationsLoadSequence;
+
+    loadPrimaryLocations()
+        .then((primaryLocations) => {
+            if (loadSequence !== primaryLocationsLoadSequence) {
+                return;
+            }
+
+            applyAutoPlayPrimaryLocations(primaryLocations);
+        })
+        .catch(() => {});
+}
+
+function handlePrimaryLocationsChanged(primaryLocations) {
+    primaryLocationsLoadSequence += 1;
+    applyAutoPlayPrimaryLocations(primaryLocations);
 }
 
 function makeAutoText(value) {
@@ -2677,11 +2719,38 @@ function startAutoPlayNavigation(
             });
         }
     } catch (error) {
+        activeNavigationRoute = null;
+        activeNavigationDestination = null;
+        updateRootTemplateHeaderActions();
         showAutoPlayError(
             'Navigation unavailable',
             error?.message || 'Navigation could not be started.',
         );
     }
+}
+
+function handleRootHeaderPrimaryLocationPress(type) {
+    if (activeNavigationRoute || !rootMapTemplate || !rootMapTemplateIsReady) {
+        return;
+    }
+
+    const destinationWaypoint = createPrimaryLocationDirectionsWaypoint(
+        type,
+        autoPlayPrimaryLocations[type],
+    );
+
+    if (!destinationWaypoint) {
+        return;
+    }
+
+    logAutoPlayPlatformAction('primary-location-selected', {
+        destinationLabel: destinationWaypoint.label,
+        type,
+    });
+    handleSearchResultSelected({
+        ...destinationWaypoint.result,
+        place: destinationWaypoint.place,
+    });
 }
 
 const handleRootHeaderSearchPress = () => {
@@ -2718,21 +2787,52 @@ const handleRootHeaderExitNavigationPress = () => {
 const ROOT_HEADER_SEARCH_IMAGE = makeGlyphImage('search', {
     backgroundColor: 'transparent',
 });
+const ROOT_HEADER_PRIMARY_LOCATION_IMAGES = {
+    home: makeGlyphImage('house', { backgroundColor: 'transparent' }),
+    work: makeGlyphImage('briefcase', { backgroundColor: 'transparent' }),
+};
+
+function makeRootHeaderPrimaryLocationButton(type, { iconOnly = false } = {}) {
+    const onPress = () => {
+        handleRootHeaderPrimaryLocationPress(type);
+    };
+
+    if (iconOnly) {
+        return {
+            image: ROOT_HEADER_PRIMARY_LOCATION_IMAGES[type],
+            onPress,
+            type: 'image',
+        };
+    }
+
+    return {
+        onPress,
+        title: getPrimaryLocationLabel(type),
+        type: 'text',
+    };
+}
 
 let cachedRootMapHeaderActions = null;
 let cachedRootMapHeaderActionsKey = '';
 
 function getRootMapHeaderActions() {
+    const hasActiveNavigation = Boolean(activeNavigationRoute);
     const drivingModeKey = getAutoPlayDrivingModeIsActive() ? '1' : '0';
     const { navigationExitButtonIsVisible, trailingNavigationButtonIsVisible } =
         getAutoPlayHeaderButtonVisibility({
-            hasActiveNavigation: Boolean(activeNavigationRoute),
+            hasActiveNavigation,
             usesHeaderDrivingModeButton:
                 autoPlayPlatform?.usesHeaderDrivingModeButton !== false,
             usesHeaderExitNavigationButton:
                 autoPlayPlatform?.usesHeaderExitNavigationButton === true,
         });
-    const rootMapHeaderActionsKey = `${drivingModeKey}:${navigationExitButtonIsVisible ? 'navigating' : 'ready'}:${trailingNavigationButtonIsVisible ? 'trailing' : 'search-only'}`;
+    const primaryLocationHeaderActionTypes =
+        getAutoPlayPrimaryLocationHeaderActionTypes({
+            hasActiveNavigation,
+            primaryLocations: autoPlayPrimaryLocations,
+        });
+    const primaryLocationTypes = primaryLocationHeaderActionTypes.android;
+    const rootMapHeaderActionsKey = `${drivingModeKey}:${navigationExitButtonIsVisible ? 'navigating' : 'ready'}:${trailingNavigationButtonIsVisible ? 'trailing' : 'search-only'}:${primaryLocationTypes.join(':')}`;
 
     if (
         cachedRootMapHeaderActions &&
@@ -2757,16 +2857,26 @@ function getRootMapHeaderActions() {
               type: 'image',
           }
         : null;
+    const androidPrimaryLocationButtons =
+        primaryLocationHeaderActionTypes.android.map((type) =>
+            makeRootHeaderPrimaryLocationButton(type, { iconOnly: true }),
+        );
+    const carPlayPrimaryLocationButtons =
+        primaryLocationHeaderActionTypes.ios.map((type) =>
+            makeRootHeaderPrimaryLocationButton(type),
+        );
 
     cachedRootMapHeaderActions = {
-        android: trailingNavigationButton
-            ? [searchButton, trailingNavigationButton]
-            : [searchButton],
+        android: [
+            searchButton,
+            ...androidPrimaryLocationButtons,
+            ...(trailingNavigationButton ? [trailingNavigationButton] : []),
+        ],
         ios: {
             leadingNavigationBarButtons: [searchButton],
             trailingNavigationBarButtons: trailingNavigationButton
                 ? [trailingNavigationButton]
-                : [],
+                : carPlayPrimaryLocationButtons,
         },
     };
     cachedRootMapHeaderActionsKey = rootMapHeaderActionsKey;
@@ -3171,6 +3281,7 @@ async function handleAutoPlayConnect() {
             }
 
             rootMapTemplateIsReady = true;
+            updateRootTemplateHeaderActions();
             syncAutoPlayNavigationFromSharedRoutingState();
             replayPendingVoiceNavigation();
         })
@@ -3236,6 +3347,11 @@ export default function registerAutoPlay() {
     }
 
     setAutoPlayMapButtonAppearanceListener(updateRootMapButtonAppearance);
+    primaryLocationsUnsubscribe?.();
+    primaryLocationsUnsubscribe = addPrimaryLocationsListener(
+        handlePrimaryLocationsChanged,
+    );
+    refreshAutoPlayPrimaryLocations();
     sharedRoutingStateUnsubscribe?.();
     sharedRoutingStateUnsubscribe = addSharedRoutingStateListener(
         syncAutoPlayNavigationFromSharedRoutingState,
