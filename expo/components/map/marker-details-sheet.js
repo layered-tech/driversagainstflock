@@ -15,14 +15,13 @@ import {
     DafSectionLabel,
 } from '../design-system/primitives';
 import { dafColors, dafSemanticColors } from '../design-system/tokens';
-import { getMarkerCoordinate, getStoredNumber } from './geo';
+import { formatMarkerDirectionLabel } from './direction-values';
+import { getMarkerCoordinate } from './geo';
 import { useMarkerDetailsContext } from './map-screen-context';
 import {
     NativeWindBottomSheetModal,
     NativeWindBottomSheetView,
 } from './native-components';
-
-const CARDINAL_DIRECTIONS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
 function formatCoordinate(coordinate) {
     if (!Array.isArray(coordinate)) {
@@ -111,35 +110,6 @@ function getEditableNodeId(osmId) {
     return match ? match[1] : '';
 }
 
-function getDirectionDegrees(marker, osmNodes) {
-    const markerProperties = marker?.properties ?? {};
-    const directValue =
-        markerProperties.direction ??
-        markerProperties.heading ??
-        getFirstOsmFieldValue(osmNodes, [
-            'camera:direction',
-            'camera:angle',
-            'direction',
-            'bearing',
-        ]);
-    const degrees = getStoredNumber(directValue);
-
-    return degrees === null ? null : ((degrees % 360) + 360) % 360;
-}
-
-function getDirectionLabel(marker, osmNodes) {
-    const degrees = getDirectionDegrees(marker, osmNodes);
-
-    if (degrees === null) {
-        return '';
-    }
-
-    const cardinalIndex = Math.round(degrees / 45) % CARDINAL_DIRECTIONS.length;
-    const roundedDegrees = Math.round(degrees);
-
-    return `${roundedDegrees} deg - facing ${CARDINAL_DIRECTIONS[cardinalIndex]}`;
-}
-
 function getUpdatedDate(marker) {
     const rawDate =
         marker?.properties?.updated_at ??
@@ -154,7 +124,13 @@ function getUpdatedDate(marker) {
     return date.toISOString().slice(0, 10);
 }
 
-function AlprMarkerField({ label, mono = false, testID, value }) {
+function AlprMarkerField({
+    label,
+    mono = false,
+    numberOfLines = 2,
+    testID,
+    value,
+}) {
     return (
         <View className="min-w-0 gap-[3px]">
             <Text className="text-[11px] font-bold uppercase tracking-[0.06em] text-daf-text-tertiary dark:text-neutral-400">
@@ -162,7 +138,7 @@ function AlprMarkerField({ label, mono = false, testID, value }) {
             </Text>
             <Text
                 className={`${mono ? 'font-dafMono' : ''} text-[13px] font-medium leading-5 text-daf-text-primary dark:text-white`}
-                numberOfLines={2}
+                numberOfLines={numberOfLines}
                 selectable
                 testID={testID}
             >
@@ -194,7 +170,7 @@ export function MarkerDetailsSheet() {
     const osmNodes = getOsmNodes(selectedMarker);
     const manufacturer = getManufacturer(osmNodes) || 'Unknown';
     const directionLabel =
-        getDirectionLabel(selectedMarker, osmNodes) || 'Not reported';
+        formatMarkerDirectionLabel(selectedMarker) || 'Not reported';
     const osmId = getOsmId(selectedMarker, osmNodes) || 'Unavailable';
     const editableNodeId = getEditableNodeId(osmId);
     const updatedDate = getUpdatedDate(selectedMarker) || 'Unknown';
@@ -293,6 +269,7 @@ export function MarkerDetailsSheet() {
                             <View className="min-w-[128px] flex-1">
                                 <AlprMarkerField
                                     label="Direction"
+                                    numberOfLines={0}
                                     testID="marker-details-direction-value"
                                     value={directionLabel}
                                 />

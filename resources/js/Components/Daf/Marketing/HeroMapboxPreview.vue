@@ -51,6 +51,11 @@
 <script setup>
 import DafMarkerLoadingProgress from '@/Components/Daf/Map/DafMarkerLoadingProgress.vue';
 import { getActiveDafTheme } from '@/design-system/theme';
+import {
+    findMarkerDirectionValue,
+    MAX_MARKER_CONE_DIRECTIONS,
+    parseDirectionValues,
+} from '@/direction-values';
 import mapboxgl from 'mapbox-gl';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
@@ -60,6 +65,10 @@ const sourceId = 'marketing-hero-markers';
 const cameraConeImageId = 'marketing-hero-camera-cone';
 const MAP_LAYER_EMISSIVE_STRENGTH = 1;
 const MARKER_SPLASH_SETTLE_DELAY_MS = 800;
+const MARKER_CONE_DIRECTION_PROPERTIES = Array.from(
+    { length: MAX_MARKER_CONE_DIRECTIONS },
+    (_, index) => `hero_heading_${index}`,
+);
 const formatter = new Intl.NumberFormat('en-US');
 const clusterVisualScale = 0.8;
 const continentalUnitedStatesBounds = [
@@ -220,28 +229,32 @@ function addMarkerSource() {
         clusterRadius: 28,
     });
 
-    map.addLayer({
-        id: `${sourceId}-camera-cones`,
-        type: 'symbol',
-        source: sourceId,
-        filter: [
-            'all',
-            ['!', ['has', 'point_count']],
-            ['==', ['get', 'hero_has_heading'], true],
-        ],
-        layout: {
-            'icon-allow-overlap': true,
-            'icon-ignore-placement': true,
-            'icon-image': cameraConeImageId,
-            'icon-rotate': ['get', 'hero_heading'],
-            'icon-rotation-alignment': 'viewport',
-            'icon-size': 1,
+    MARKER_CONE_DIRECTION_PROPERTIES.forEach(
+        (directionProperty, directionIndex) => {
+            map.addLayer({
+                id: markerConeLayerId(directionIndex),
+                type: 'symbol',
+                source: sourceId,
+                filter: [
+                    'all',
+                    ['!', ['has', 'point_count']],
+                    ['has', directionProperty],
+                ],
+                layout: {
+                    'icon-allow-overlap': true,
+                    'icon-ignore-placement': true,
+                    'icon-image': cameraConeImageId,
+                    'icon-rotate': ['get', directionProperty],
+                    'icon-rotation-alignment': 'viewport',
+                    'icon-size': 1,
+                },
+                paint: {
+                    'icon-emissive-strength': MAP_LAYER_EMISSIVE_STRENGTH,
+                    'icon-opacity': 0.96,
+                },
+            });
         },
-        paint: {
-            'icon-emissive-strength': MAP_LAYER_EMISSIVE_STRENGTH,
-            'icon-opacity': 0.96,
-        },
-    });
+    );
 
     map.addLayer({
         id: `${sourceId}-cluster-glow`,
@@ -477,16 +490,21 @@ function pointsToFeatures(points = []) {
             }
 
             const properties = point.properties ?? {};
-            const heading = normalizeHeading(
-                properties.heading ?? properties.bearing,
+            const directions = parseDirectionValues(
+                findMarkerDirectionValue(point),
+            ).slice(0, MAX_MARKER_CONE_DIRECTIONS);
+            const directionProperties = Object.fromEntries(
+                directions.map((direction, directionIndex) => [
+                    MARKER_CONE_DIRECTION_PROPERTIES[directionIndex],
+                    direction,
+                ]),
             );
 
             return {
                 type: 'Feature',
                 properties: {
                     ...properties,
-                    hero_has_heading: heading !== null,
-                    hero_heading: heading ?? 0,
+                    ...directionProperties,
                 },
                 geometry: {
                     type: 'Point',
@@ -562,11 +580,13 @@ function setLayerPaintProperty(layerId, property, value) {
 function syncMarkerLayerPaint() {
     const colors = getMapColors();
 
-    setLayerPaintProperty(
-        `${sourceId}-camera-cones`,
-        'icon-emissive-strength',
-        MAP_LAYER_EMISSIVE_STRENGTH,
-    );
+    MARKER_CONE_DIRECTION_PROPERTIES.forEach((_, directionIndex) => {
+        setLayerPaintProperty(
+            markerConeLayerId(directionIndex),
+            'icon-emissive-strength',
+            MAP_LAYER_EMISSIVE_STRENGTH,
+        );
+    });
     setLayerPaintProperty(
         `${sourceId}-cluster-glow`,
         'circle-color',
@@ -701,14 +721,8 @@ function createConeImage(colors) {
     return context.getImageData(0, 0, canvas.width, canvas.height);
 }
 
-function normalizeHeading(value) {
-    const heading = Number(value);
-
-    if (!Number.isFinite(heading)) {
-        return null;
-    }
-
-    return ((heading % 360) + 360) % 360;
+function markerConeLayerId(directionIndex) {
+    return `${sourceId}-camera-cones-${directionIndex}`;
 }
 
 function scaleClusterVisual(value) {

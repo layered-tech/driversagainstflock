@@ -113,7 +113,8 @@ it('caches marker requests for viewport bounds', function () {
     $firstResult = $controller($request);
     $secondResult = $controller($request);
 
-    expect($firstResult)->toEqual($secondResult);
+    expect($firstResult)->toEqual($secondResult)
+        ->and(Cache::has('markers:v2:-88.20000,43.00000,-88.10000,43.10000'))->toBeTrue();
 });
 
 it('caches marker requests for the same viewport bounds', function () {

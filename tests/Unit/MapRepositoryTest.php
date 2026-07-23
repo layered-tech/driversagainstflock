@@ -28,9 +28,29 @@ test('it surfaces OSM node tags without deriving ALPR rendering decisions', func
         ->and($transformed['properties']['osm_nodes'][0]['tags']['brand:wikidata'])->toBe('Q108485435')
         ->and($transformed['properties']['osm_nodes'][0]['tags']['manufacturer:wikidata'])->toBe('Q108485435')
         ->and($transformed['location'])->toBe([-88.2, 43.1])
+        ->and($transformed['properties']['direction'])->toBe('180')
         ->and($transformed['properties']['heading'])->toBe(180)
         ->and(array_key_exists('has_alpr_brand', $transformed['properties']))->toBeFalse()
         ->and(array_key_exists('shows_alpr_symbol', $transformed['properties']))->toBeFalse();
+});
+
+test('it preserves semicolon-delimited OSM node directions', function () {
+    $node = new OsmNode([
+        'osm_id' => 9001,
+        'latitude' => 43.1,
+        'longitude' => -88.2,
+        'direction' => '90;270',
+        'tags' => [
+            'direction' => '90;270',
+        ],
+    ]);
+    $node->id = 2;
+
+    $transformed = (new MapRepository)->transformOsmNode($node);
+
+    expect($transformed['properties']['direction'])->toBe('90;270')
+        ->and($transformed['properties']['bearing'])->toBeNull()
+        ->and($transformed['properties']['heading'])->toBeNull();
 });
 
 test('it transforms markers without style records', function () {

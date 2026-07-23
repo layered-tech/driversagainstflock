@@ -13,6 +13,12 @@ import DafRouteCard from '@/Components/Daf/Map/DafRouteCard.vue';
 import DafSearchBar from '@/Components/Daf/Map/DafSearchBar.vue';
 import DafSiteHead from '@/Components/Daf/DafSiteHead.vue';
 import { applyDafTheme, applySystemDafTheme } from '@/design-system/theme';
+import {
+    findMarkerDirectionValue,
+    formatDirectionLabels,
+    MAX_MARKER_CONE_DIRECTIONS,
+    parseDirectionValues,
+} from '@/direction-values';
 import axios from 'axios';
 import mapboxgl from 'mapbox-gl';
 import {
@@ -608,13 +614,6 @@ const selectedPlaceNearbyNodeCountLabel = computed(() => {
     return `${count.toLocaleString()} ALPR ${count === 1 ? 'camera' : 'cameras'}`;
 });
 
-const selectedMarkerNormalizedHeading = computed(() =>
-    normalizeHeading(
-        selectedMarker.value?.properties?.heading ??
-            selectedMarker.value?.properties?.bearing,
-    ),
-);
-
 const selectedMarkerCoordinateLabel = computed(() =>
     formatMarkerCoordinates(selectedMarker.value?.coordinates),
 );
@@ -637,13 +636,11 @@ const selectedMarkerManufacturer = computed(
 );
 
 const selectedMarkerDirection = computed(() => {
-    if (selectedMarkerNormalizedHeading.value === null) {
-        return 'Unknown';
-    }
+    const directionLabels = formatDirectionLabels(
+        findMarkerDirectionValue(selectedMarker.value),
+    );
 
-    const heading = Math.round(selectedMarkerNormalizedHeading.value);
-
-    return `${heading} deg - facing ${cardinalDirection(heading)}`;
+    return directionLabels || 'Unknown';
 });
 
 const selectedMarkerOsmId = computed(
@@ -2389,14 +2386,12 @@ function syncVisibleMarkerCones() {
 
         seenMarkerIds.add(markerId);
 
-        const cone = markerConeFeature({
+        const cones = makeMarkerConeFeatures({
             geometry: renderedMarker.geometry,
             properties: decodeMarkerProperties(renderedMarker.properties ?? {}),
         });
 
-        if (cone) {
-            features.push(cone);
-        }
+        features.push(...cones);
     }
 
     markerConeFeatures.value = {
@@ -2864,7 +2859,12 @@ function normalizeMarkerFeature(point) {
     }
 
     const properties = point?.properties ?? {};
-    const heading = normalizeHeading(properties.heading ?? properties.bearing);
+    const heading =
+        parseDirectionValues(
+            findMarkerDirectionValue({
+                properties,
+            }),
+        )[0] ?? null;
 
     return {
         geometry: {
@@ -2880,40 +2880,41 @@ function normalizeMarkerFeature(point) {
     };
 }
 
-function markerConeFeature(feature) {
-    const heading = normalizeHeading(feature.properties?.heading);
-
-    if (heading === null) {
-        return null;
-    }
-
+function makeMarkerConeFeatures(feature) {
     const origin = feature.geometry.coordinates;
-    const left = destinationCoordinate(
-        origin,
-        heading - MARKER_CONE_SPREAD_DEGREES,
-        MARKER_CONE_DISTANCE_METERS,
-    );
-    const center = destinationCoordinate(
-        origin,
-        heading,
-        MARKER_CONE_DISTANCE_METERS * 1.15,
-    );
-    const right = destinationCoordinate(
-        origin,
-        heading + MARKER_CONE_SPREAD_DEGREES,
-        MARKER_CONE_DISTANCE_METERS,
-    );
+    const directions = parseDirectionValues(
+        findMarkerDirectionValue(feature),
+    ).slice(0, MAX_MARKER_CONE_DIRECTIONS);
 
-    return {
-        geometry: {
-            coordinates: [[origin, left, center, right, origin]],
-            type: 'Polygon',
-        },
-        properties: {
-            markerId: feature.properties?.id,
-        },
-        type: 'Feature',
-    };
+    return directions.map((direction, directionIndex) => {
+        const left = destinationCoordinate(
+            origin,
+            direction - MARKER_CONE_SPREAD_DEGREES,
+            MARKER_CONE_DISTANCE_METERS,
+        );
+        const center = destinationCoordinate(
+            origin,
+            direction,
+            MARKER_CONE_DISTANCE_METERS * 1.15,
+        );
+        const right = destinationCoordinate(
+            origin,
+            direction + MARKER_CONE_SPREAD_DEGREES,
+            MARKER_CONE_DISTANCE_METERS,
+        );
+
+        return {
+            geometry: {
+                coordinates: [[origin, left, center, right, origin]],
+                type: 'Polygon',
+            },
+            properties: {
+                directionIndex,
+                markerId: feature.properties?.id,
+            },
+            type: 'Feature',
+        };
+    });
 }
 
 function destinationCoordinate(origin, bearingDegrees, distanceMeters) {
@@ -3267,19 +3268,6 @@ function formatMarkerDate(value) {
     return date.toISOString().slice(0, 10);
 }
 
-function cardinalDirection(heading) {
-    const normalizedHeading = normalizeHeading(heading);
-
-    if (normalizedHeading === null) {
-        return 'Unknown';
-    }
-
-    const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-    const index = Math.round(normalizedHeading / 45) % directions.length;
-
-    return directions[index];
-}
-
 function arrayProperty(value) {
     const decodedValue = decodeMapboxProperty(value);
 
@@ -3574,16 +3562,6 @@ function formatDuration(seconds) {
     return remainingMinutes > 0
         ? `${hours} hr ${remainingMinutes} min`
         : `${hours} hr`;
-}
-
-function normalizeHeading(value) {
-    const heading = numericValue(value);
-
-    if (heading === null) {
-        return null;
-    }
-
-    return ((heading % 360) + 360) % 360;
 }
 
 function normalizeLongitude(value) {

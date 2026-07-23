@@ -116,13 +116,12 @@ class MapRepository
     public function transformOsmNode(OsmNode $node): array
     {
         $tags = $node->tags ?? [];
-        $heading = Bearing::normalize(
-            $node->direction
-                ?? $node->camera_direction
-                ?? $tags['direction']
-                ?? $tags['camera:direction']
-                ?? null
-        );
+        $direction = $node->direction
+            ?? $node->camera_direction
+            ?? $tags['direction']
+            ?? $tags['camera:direction']
+            ?? null;
+        $heading = Bearing::normalize($direction);
 
         return [
             'location' => [
@@ -133,6 +132,7 @@ class MapRepository
                 'id' => 'osm-node-'.$node->id,
                 'osm_id' => $node->osm_id,
                 'bearing' => $heading,
+                'direction' => $direction,
                 'icon' => 'falcon-sr',
                 'type' => 'OpenStreetMap ALPR',
                 'heading' => $heading,

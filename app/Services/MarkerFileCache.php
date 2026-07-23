@@ -9,9 +9,11 @@ use Throwable;
 
 class MarkerFileCache
 {
+    public const PAYLOAD_VERSION = 'v2';
+
     private const DIRECTORY = 'app/markers';
 
-    private const FILENAME = 'markers.json';
+    private const FILENAME = 'markers-'.self::PAYLOAD_VERSION.'.json';
 
     public function __construct(
         private readonly MapRepository $markerRepository,
