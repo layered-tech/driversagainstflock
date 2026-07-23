@@ -44,6 +44,7 @@ return [
     ],
 
     'openstreetmap' => [
+        'api_url' => env('OPENSTREETMAP_API_URL', 'https://api06.dev.openstreetmap.org/api/0.6'),
         'client_id' => env('OPENSTREETMAP_CLIENT_ID'),
         'redirect' => env('OPENSTREETMAP_REDIRECT_URI', '/auth/openstreetmap/callback'),
     ],

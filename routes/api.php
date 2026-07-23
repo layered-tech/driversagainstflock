@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\V1\DirectionsController as V1DirectionsController;
 use App\Http\Controllers\Api\V1\ElectronicHorizonAlprController;
 use App\Http\Controllers\Api\V1\PoliceAlertsController;
+use App\Http\Controllers\Api\V1\PublishedOsmNodeSyncController;
 use App\Http\Controllers\Api\V1\SpeedLimitController;
 use App\Http\Controllers\HotlistController;
 use App\Models\Confirmation;
@@ -59,6 +60,9 @@ Route::group(['middleware' => ['throttle:police-alerts']], function (Router $rou
 Route::group(['middleware' => ['throttle:electronic-horizon']], function (Router $route) {
     $route->post('v1/electronic-horizon/alpr', ElectronicHorizonAlprController::class);
 });
+
+Route::post('v1/osm/published-nodes', PublishedOsmNodeSyncController::class)
+    ->middleware('throttle:osm-node-sync');
 
 Route::group(['middleware' => 'auth:sanctum'], function (Router $router) {
     $router->get('user', UserController::class);

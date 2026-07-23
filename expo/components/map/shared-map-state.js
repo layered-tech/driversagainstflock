@@ -101,6 +101,7 @@ export function SharedMapStateProvider({ children }) {
             renderMarkerLoadingIndicator:
                 markerLoader.renderMarkerLoadingIndicator,
             scheduleMarkerLoad: markerLoader.scheduleMarkerLoad,
+            upsertMarkerPoints: markerLoader.upsertMarkerPoints,
             setDirectionsRoute,
             setDrivingModeIsActive,
             setDebugOverlayIsVisible: mapPreferences.setDebugOverlayIsVisible,
@@ -155,6 +156,7 @@ export function SharedMapStateProvider({ children }) {
             markerLoader.markerPoints,
             markerLoader.renderMarkerLoadingIndicator,
             markerLoader.scheduleMarkerLoad,
+            markerLoader.upsertMarkerPoints,
             pendingDirectionsRequest,
             pendingSearchResultRestore,
             policeAlertsLoader.policeAlerts,

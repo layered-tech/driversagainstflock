@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { fetchWithTimeout } from '../auth/http';
+import { fetchWithTimeout, readJSONResponse } from '../auth/http';
+import { buildApiURL } from '../auth/urls';
 import { addSentryBreadcrumb } from '../sentry';
 import {
     closeMockChangeset,
@@ -30,6 +31,7 @@ import {
 
 const OSM_CREATED_BY = `DriversAgainstFlock.org (${Platform.OS}:${Constants.expoConfig?.version ?? 'unknown'})`;
 const OSM_UPLOAD_TIMEOUT_MS = 30000;
+const BACKEND_SYNC_TIMEOUT_MS = 15000;
 const OSM_XML_CONTENT_TYPE = 'text/xml; charset=utf-8';
 const AUTH_TIMEOUT_ERROR_MESSAGE =
     'The server did not respond. Please try again.';
@@ -133,6 +135,40 @@ export async function uploadCreatedNodes({
     );
 
     return parseDiffResult(await response.text());
+}
+
+export async function syncPublishedNodesToBackend({
+    changesetId,
+    nodes,
+    signal,
+}) {
+    if (
+        osmApiMocksAreEnabled() ||
+        !Array.isArray(nodes) ||
+        nodes.length === 0
+    ) {
+        return { points: [] };
+    }
+
+    const response = await fetchWithTimeout(
+        buildApiURL('v1/osm/published-nodes'),
+        {
+            body: JSON.stringify({
+                changeset_id: changesetId,
+                nodes,
+            }),
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+            },
+            method: 'POST',
+            signal,
+            timeoutMs: BACKEND_SYNC_TIMEOUT_MS,
+        },
+    );
+    const data = await readJSONResponse(response);
+
+    return data?.result ?? { points: [] };
 }
 
 async function uploadModifiedNode({ accessToken, changesetId, node, signal }) {

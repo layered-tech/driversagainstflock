@@ -163,8 +163,12 @@ it('imports a full snapshot into canonical OSM nodes', function () {
         && ! str_contains($request->data()['data'] ?? '', '[adiff:'));
 });
 
-it('updates existing nodes without duplicates', function () {
+it('overrides a local node by osm id without creating a duplicate', function () {
     $existingNode = createOverpassNode(TEST_NODE_TWO);
+    $existingNode->forceFill([
+        'osm_version' => 99,
+        'sync_import_id' => null,
+    ])->save();
     $existingNodeId = $existingNode->id;
 
     Http::fake([
@@ -205,7 +209,8 @@ it('updates existing nodes without duplicates', function () {
         ->and($node->osm_version)->toBe(13)
         ->and($node->osm_changeset_id)->toBe(987654322)
         ->and($node->osm_user)->toBe('mapper-two')
-        ->and($node->osm_uid)->toBe(7654321);
+        ->and($node->osm_uid)->toBe(7654321)
+        ->and($node->sync_import_id)->toBeString();
 });
 
 it('queues full snapshot nodes in processable chunks', function () {

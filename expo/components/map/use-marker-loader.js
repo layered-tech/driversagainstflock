@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { buildApiURL } from './config';
 import { addSentryBreadcrumb } from '../../lib/sentry';
 import { getMockMarkerPoints, mapApiMocksAreEnabled } from './api-mocks';
+import { buildApiURL } from './config';
 import {
     MARKER_LOAD_DEBOUNCE_MS,
     MARKER_LOADING_MIN_VISIBLE_MS,
@@ -13,6 +13,7 @@ import {
     markerRequestBoundsAreLoadable,
     markerRequestBoundsContainCameraBounds,
 } from './geo';
+import { upsertMarkerPointList } from './marker-point-merge';
 
 const MARKER_REQUEST_BOUND_KEYS = ['sw_lng', 'sw_lat', 'ne_lng', 'ne_lat'];
 
@@ -105,6 +106,27 @@ export function useMarkerLoader() {
         abortActiveMarkerRequest();
         pendingMarkerLoadRequestBoundsRef.current = null;
     }, [abortActiveMarkerRequest]);
+
+    const upsertMarkerPoints = useCallback(
+        (incomingMarkerPoints) => {
+            if (
+                !Array.isArray(incomingMarkerPoints) ||
+                incomingMarkerPoints.length === 0
+            ) {
+                return;
+            }
+
+            abortMarkerRequest();
+            setMarkersAreLoading(false);
+            setMarkerPoints((currentMarkerPoints) =>
+                upsertMarkerPointList(
+                    currentMarkerPoints,
+                    incomingMarkerPoints,
+                ),
+            );
+        },
+        [abortMarkerRequest],
+    );
 
     const activeMarkerRequestContainsBounds = useCallback(
         (bounds, boundsKey) => {
@@ -411,5 +433,6 @@ export function useMarkerLoader() {
         markerPoints,
         renderMarkerLoadingIndicator,
         scheduleMarkerLoad,
+        upsertMarkerPoints,
     };
 }
