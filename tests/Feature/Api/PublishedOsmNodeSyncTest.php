@@ -41,7 +41,7 @@ beforeEach(function () {
     Http::preventStrayRequests();
 
     config([
-        'services.openstreetmap.api_url' => 'https://openstreetmap.test/api/0.6',
+        'services.openstreetmap.api_url' => 'https://api06.dev.openstreetmap.org/api/0.6',
     ]);
 });
 
@@ -59,7 +59,7 @@ it('stores current canonical published nodes and returns map points idempotently
     unset($secondNode['tags']['direction']);
 
     Http::fake([
-        'https://openstreetmap.test/api/0.6/nodes.json*' => Http::response([
+        'https://api06.dev.openstreetmap.org/api/0.6/nodes.json*' => Http::response([
             'version' => '0.6',
             'elements' => [
                 publishedOsmNode(),
@@ -132,7 +132,7 @@ it('stores current canonical published nodes and returns map points idempotently
         sort($nodeReferences);
 
         return $request->method() === 'GET'
-            && str_starts_with($request->url(), 'https://openstreetmap.test/api/0.6/nodes.json?')
+            && str_starts_with($request->url(), 'https://api06.dev.openstreetmap.org/api/0.6/nodes.json?')
             && $nodeReferences === [
                 (string) PUBLISHED_OSM_NODE_ONE,
                 (string) PUBLISHED_OSM_NODE_TWO,
@@ -200,7 +200,7 @@ it('validates published node references before contacting OpenStreetMap', functi
 
 it('rejects nodes whose canonical metadata does not match the publication', function (array $node, array $requestedNode) {
     Http::fake([
-        'https://openstreetmap.test/api/0.6/nodes.json*' => Http::response([
+        'https://api06.dev.openstreetmap.org/api/0.6/nodes.json*' => Http::response([
             'elements' => [$node],
         ]),
     ]);
@@ -228,7 +228,7 @@ it('rejects nodes whose canonical metadata does not match the publication', func
 
 it('rejects published nodes that are not ALPR nodes', function () {
     Http::fake([
-        'https://openstreetmap.test/api/0.6/nodes.json*' => Http::response([
+        'https://api06.dev.openstreetmap.org/api/0.6/nodes.json*' => Http::response([
             'elements' => [publishedOsmNode([
                 'tags' => [
                     'surveillance:type' => 'camera',
@@ -247,7 +247,7 @@ it('rejects published nodes that are not ALPR nodes', function () {
 
 it('returns a bad gateway response when OpenStreetMap cannot load the published nodes', function () {
     Http::fake([
-        'https://openstreetmap.test/api/0.6/nodes.json*' => Http::response([
+        'https://api06.dev.openstreetmap.org/api/0.6/nodes.json*' => Http::response([
             'message' => 'Service unavailable',
         ], 503),
     ]);
