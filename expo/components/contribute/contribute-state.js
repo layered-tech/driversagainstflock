@@ -10,8 +10,17 @@ import {
 } from 'react';
 import { AppState } from 'react-native';
 import { useAuth } from '../../lib/auth';
-import { publishNodes } from '../../lib/osm/client';
+import {
+    publishNodes,
+    syncPublishedNodesToBackend,
+} from '../../lib/osm/client';
 import { updatePinLocationInList } from '../../lib/osm/node-location';
+import {
+    buildPublishedNodeSyncPayload,
+    getUploadedNodeIndex,
+} from '../../lib/osm/published-node-sync';
+import { addSentryBreadcrumb } from '../../lib/sentry';
+import { useSharedMapState } from '../map/shared-map-state';
 import {
     clearStoredDraft,
     readCoachMarkDismissed,
@@ -64,6 +73,7 @@ function contributeDraftShouldPersist(contributeStatus, pins) {
 
 export function ContributeProvider({ children }) {
     const { ensureWriteAccess, openStreetMapAccessToken } = useAuth();
+    const { upsertMarkerPoints } = useSharedMapState();
     const [changeset, setChangeset] = useState(createDefaultChangeset);
     const [coachMarkIsDismissed, setCoachMarkIsDismissed] = useState(false);
     const [contributeStatus, setContributeStatus] = useState('idle');
@@ -320,21 +330,52 @@ export function ContributeProvider({ children }) {
                 session.token ??
                 session.accessToken ??
                 openStreetMapAccessToken;
+            const uploadedNodes = currentPins.map((pin) => ({
+                lat: pin.latitude,
+                lon: pin.longitude,
+                tags: buildNodeTags(pin.details),
+            }));
             const result = await publishNodes({
                 accessToken,
                 changesetTags: buildChangesetTags(currentChangeset),
-                nodes: currentPins.map((pin) => ({
-                    lat: pin.latitude,
-                    lon: pin.longitude,
-                    tags: buildNodeTags(pin.details),
-                })),
+                nodes: uploadedNodes,
             });
+
+            const syncPayload = buildPublishedNodeSyncPayload({
+                changesetId: result.changesetId,
+                diffNodes: result.nodes,
+                sourceNodes: uploadedNodes,
+            });
+
+            if (syncPayload.nodes.length > 0) {
+                try {
+                    const syncResult = await syncPublishedNodesToBackend({
+                        changesetId: syncPayload.changeset_id,
+                        nodes: syncPayload.nodes,
+                    });
+
+                    upsertMarkerPoints(syncResult.points);
+                } catch (error) {
+                    addSentryBreadcrumb({
+                        category: 'osm.publish',
+                        data: {
+                            changesetId: result.changesetId,
+                            errorMessage: error?.message,
+                            nodeCount: syncPayload.nodes.length,
+                        },
+                        level: 'warning',
+                        message: 'Published nodes backend sync failed',
+                    });
+                }
+            }
 
             setPublishResult({
                 changesetId: result.changesetId,
                 nodes: (result.nodes ?? []).map((node, nodeIndex) => ({
                     nodeId: node.newId,
-                    pinId: currentPins[nodeIndex]?.id ?? null,
+                    pinId:
+                        currentPins[getUploadedNodeIndex(node, nodeIndex)]
+                            ?.id ?? null,
                 })),
                 publishedAt: new Date().toISOString(),
             });
@@ -352,7 +393,7 @@ export function ContributeProvider({ children }) {
         } finally {
             publishIsInFlightRef.current = false;
         }
-    }, [ensureWriteAccess, openStreetMapAccessToken]);
+    }, [ensureWriteAccess, openStreetMapAccessToken, upsertMarkerPoints]);
 
     const resetForMoreCameras = useCallback(() => {
         setContributeStatus('placing');

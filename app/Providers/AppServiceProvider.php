@@ -88,6 +88,10 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(45)->by($request->ip());
         });
 
+        RateLimiter::for('osm-node-sync', function (Request $request) {
+            return Limit::perMinute(10)->by($request->ip());
+        });
+
         RateLimiter::for('searches', function (Request $request) {
             if ($user = $request->user('sanctum') ?? $request->user()) {
                 return Limit::perMinute(100)->by($user->id);
