@@ -121,7 +121,8 @@ class MarkersController extends Controller implements HasMiddleware
         float $neLat,
     ): string {
         return sprintf(
-            'markers:%s,%s,%s,%s',
+            'markers:%s:%s,%s,%s,%s',
+            MarkerFileCache::PAYLOAD_VERSION,
             $this->normalizeCoordinateForCache($swLng),
             $this->normalizeCoordinateForCache($swLat),
             $this->normalizeCoordinateForCache($neLng),

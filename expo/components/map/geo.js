@@ -17,6 +17,17 @@ import {
     MIN_ZOOM_LEVEL,
     MINIMUM_DRIVING_COURSE_SPEED_MPS,
 } from './constants';
+import {
+    getMarkerDirectionValues,
+    normalizeDirectionDegrees,
+} from './direction-values';
+
+export {
+    getMarkerDirectionValue,
+    getMarkerDirectionValues,
+    normalizeDirectionDegrees,
+    parseDirectionValues,
+} from './direction-values';
 
 const FLOCK_ALPR_WIKIDATA_ID = 'Q108485435';
 const FLOCK_ALPR_WIKIDATA_TAG_NAMES = [
@@ -79,44 +90,6 @@ export function normalizeLongitude(longitude) {
     }
 
     return normalized;
-}
-
-export function normalizeDirectionDegrees(value) {
-    const numericValue =
-        typeof value === 'number' ? value : Number.parseFloat(String(value));
-
-    if (Number.isFinite(numericValue)) {
-        return ((numericValue % 360) + 360) % 360;
-    }
-
-    const cardinalValue = String(value)
-        .trim()
-        .toUpperCase()
-        .replace(/\s+/g, '');
-    const cardinalDirections = {
-        N: 0,
-        NNE: 22.5,
-        NE: 45,
-        ENE: 67.5,
-        E: 90,
-        ESE: 112.5,
-        SE: 135,
-        SSE: 157.5,
-        S: 180,
-        SSW: 202.5,
-        SW: 225,
-        WSW: 247.5,
-        W: 270,
-        WNW: 292.5,
-        NW: 315,
-        NNW: 337.5,
-        NORTH: 0,
-        EAST: 90,
-        SOUTH: 180,
-        WEST: 270,
-    };
-
-    return cardinalDirections[cardinalValue] ?? null;
 }
 
 function degreesToRadians(value) {
@@ -519,64 +492,6 @@ export function getMarkerCoordinate(marker) {
     return [longitude, latitude];
 }
 
-function splitHyphenDelimitedDirection(value) {
-    const directions = [];
-    let currentValue = '';
-
-    for (let index = 0; index < value.length; index += 1) {
-        const character = value[index];
-        const nextCharacter = value[index + 1];
-        const isLeadingNegativeNumber =
-            character === '-' &&
-            currentValue.trim() === '' &&
-            /[0-9.]/.test(nextCharacter ?? '');
-
-        if (character === '-' && !isLeadingNegativeNumber) {
-            if (currentValue.trim()) {
-                directions.push(currentValue.trim());
-            }
-            currentValue = '';
-            continue;
-        }
-
-        currentValue += character;
-    }
-
-    if (currentValue.trim()) {
-        directions.push(currentValue.trim());
-    }
-
-    return directions;
-}
-
-export function parseDirectionValues(directionValue) {
-    if (
-        directionValue === null ||
-        directionValue === undefined ||
-        directionValue === ''
-    ) {
-        return [];
-    }
-
-    if (Array.isArray(directionValue)) {
-        return directionValue.flatMap(parseDirectionValues);
-    }
-
-    return String(directionValue)
-        .split(/[;,]+/)
-        .flatMap((value) => splitHyphenDelimitedDirection(value.trim()))
-        .map(normalizeDirectionDegrees)
-        .filter((value) => value !== null);
-}
-
-export function getMarkerDirectionValue(marker) {
-    return (
-        marker?.properties?.direction ??
-        marker?.properties?.bearing ??
-        marker?.properties?.heading
-    );
-}
-
 export function nodeShowsAlprSymbol(node) {
     return FLOCK_ALPR_WIKIDATA_TAG_NAMES.some(
         (tagName) => node?.tags?.[tagName] === FLOCK_ALPR_WIKIDATA_ID,
@@ -609,7 +524,7 @@ export function makeMarkerFeatureCollection(markers) {
                     markerShowsAlprSymbol(marker),
             };
 
-            parseDirectionValues(getMarkerDirectionValue(marker))
+            getMarkerDirectionValues(marker)
                 .slice(0, MAX_MARKER_CONE_DIRECTIONS)
                 .forEach((direction, directionIndex) => {
                     properties[

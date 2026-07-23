@@ -12,6 +12,13 @@ function markerFileCacheTestPath(): string
     return storage_path('framework/testing/markers-cache-test.json');
 }
 
+it('uses the versioned marker payload filename', function () {
+    $markerRepository = mock(MapRepository::class);
+    $markerFileCache = new MarkerFileCache($markerRepository);
+
+    expect($markerFileCache->path())->toBe(storage_path('app/markers/markers-v2.json'));
+});
+
 afterEach(function () {
     File::delete(markerFileCacheTestPath());
     File::delete(markerFileCacheTestPath().'.tmp');
