@@ -64,6 +64,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->ip());
         });
 
+        RateLimiter::for('road-corridors', function (Request $request) {
+            if ($user = $request->user('sanctum') ?? $request->user()) {
+                return Limit::perMinute(120)->by($user->id);
+            }
+
+            return Limit::perMinute(60)->by($request->ip());
+        });
+
         RateLimiter::for('police-alerts', function (Request $request) {
             if ($user = $request->user('sanctum') ?? $request->user()) {
                 return Limit::perMinute(60)->by($user->id);

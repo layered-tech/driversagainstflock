@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\DirectionsController as V1DirectionsController;
 use App\Http\Controllers\Api\V1\ElectronicHorizonAlprController;
 use App\Http\Controllers\Api\V1\PoliceAlertsController;
 use App\Http\Controllers\Api\V1\PublishedOsmNodeSyncController;
+use App\Http\Controllers\Api\V1\RoadCorridorController;
 use App\Http\Controllers\Api\V1\SpeedLimitController;
 use App\Http\Controllers\HotlistController;
 use App\Models\Confirmation;
@@ -51,6 +52,10 @@ Route::group(['middleware' => ['throttle:hotlist']], function (Router $route) {
 
 Route::group(['middleware' => ['throttle:speed-limits']], function (Router $route) {
     $route->get('v1/speed-limit', SpeedLimitController::class);
+});
+
+Route::group(['middleware' => ['throttle:road-corridors']], function (Router $route) {
+    $route->get('v1/road-corridor', RoadCorridorController::class);
 });
 
 Route::group(['middleware' => ['throttle:police-alerts']], function (Router $route) {

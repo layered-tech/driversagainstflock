@@ -9,23 +9,23 @@ export function shouldUseAutoPlayNavigationPuckImages(navigationPuckVariant) {
     return navigationPuckVariant === 'auto-play';
 }
 
-export function getNavigationPuckCameraOwnershipKey(followUserLocation) {
+export function getLocationPuckCameraOwnershipKey(followUserLocation) {
     return followUserLocation === true
-        ? 'rnmapbox-follow-camera'
+        ? 'follow-camera'
         : 'external-or-idle-camera';
 }
 
-export function shouldSuppressNavigationPuckFallback({
-    navigationPuck3DStatus,
-    navigationPuckRequestsNative3D,
+export function shouldSuppressLocationPuck2DFallback({
+    locationPuck3DStatus,
+    locationPuckRequests3D,
 }) {
-    if (navigationPuckRequestsNative3D) {
-        return navigationPuck3DStatus !== 'failed';
+    if (locationPuckRequests3D) {
+        return locationPuck3DStatus !== 'failed';
     }
 
     return (
-        navigationPuck3DStatus === 'preparing' ||
-        navigationPuck3DStatus === 'active' ||
-        navigationPuck3DStatus === 'clearing'
+        locationPuck3DStatus === 'preparing' ||
+        locationPuck3DStatus === 'active' ||
+        locationPuck3DStatus === 'clearing'
     );
 }

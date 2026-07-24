@@ -7,6 +7,7 @@ import {
     normalizeDirectionsRouteResponse,
 } from './directions';
 import { getCoordinateDistanceMeters, getStoredNumber } from './geo';
+import { getE2ERoadCorridorWays } from './road-matching-e2e-fixture';
 import { getMockSpeedLimitSnapshot } from './speed-limit-mock';
 
 const E2E_MAP_API_MOCKS_ENV = process.env.EXPO_PUBLIC_E2E_MAP_API_MOCKS === '1';
@@ -229,6 +230,12 @@ export function setMapApiMocksEnabled(enabled) {
     if (appCanUseE2EMapApiMocks()) {
         runtimeMapApiMocksEnabled = Boolean(enabled);
     }
+}
+
+export async function getMockRoadCorridor({ signal }) {
+    throwIfAborted(signal);
+
+    return getE2ERoadCorridorWays();
 }
 
 export async function searchMockPlaces({ input, origin, signal }) {

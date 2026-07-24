@@ -1,232 +1,66 @@
-import {
-    isSupported as mapboxNavigationLocationIsSupported,
-    useEnhancedLocation,
-} from '@rnmapbox/navigation';
 import * as Location from 'expo-location';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     getLocationCompassHeading,
     getLocationCourseHeading,
     getLocationUpdate,
     getSmoothedCourseHeading,
 } from './geo';
-import { getLocationWatchOptions } from './location-watch-options';
+import {
+    getCurrentPositionForActiveLocationSource,
+    getLocationWatchOptions,
+    isRoadMatchedLocationUpdate,
+} from './location-watch-options';
+import {
+    addRoadMatchedLocationListener,
+    getLastRoadMatchedLocationAsync,
+    retainRoadMatchingSessionAsync,
+    roadMatchingLocationIsSupported,
+} from './road-matching-session';
 
-let lastLoggedEnhancedSpeedLimitKey = '';
-let foregroundEnhancedLocationWatchCount = 0;
-let foregroundEnhancedLocationWatchIsActive = false;
-const foregroundEnhancedLocationWatchListeners = new Set();
+export { roadMatchingLocationIsSupported } from './road-matching-session';
 
-function getForegroundEnhancedLocationWatchIsActive() {
-    return foregroundEnhancedLocationWatchIsActive;
+let persistentRoadMatchingWatchCount = 0;
+let persistentRoadMatchingWatchIsActive = false;
+const persistentRoadMatchingWatchListeners = new Set();
+
+function getPersistentRoadMatchingWatchIsActive() {
+    return persistentRoadMatchingWatchIsActive;
 }
 
-function emitForegroundEnhancedLocationWatchActivity() {
-    foregroundEnhancedLocationWatchListeners.forEach((listener) =>
-        listener(foregroundEnhancedLocationWatchIsActive),
+function emitPersistentRoadMatchingWatchActivity() {
+    persistentRoadMatchingWatchListeners.forEach((listener) =>
+        listener(persistentRoadMatchingWatchIsActive),
     );
 }
 
-function updateForegroundEnhancedLocationWatchActivity(delta) {
-    foregroundEnhancedLocationWatchCount = Math.max(
+function updatePersistentRoadMatchingWatchActivity(delta) {
+    persistentRoadMatchingWatchCount = Math.max(
         0,
-        foregroundEnhancedLocationWatchCount + delta,
+        persistentRoadMatchingWatchCount + delta,
     );
 
-    const nextIsActive = foregroundEnhancedLocationWatchCount > 0;
+    const nextIsActive = persistentRoadMatchingWatchCount > 0;
 
-    if (foregroundEnhancedLocationWatchIsActive === nextIsActive) {
+    if (persistentRoadMatchingWatchIsActive === nextIsActive) {
         return;
     }
 
-    foregroundEnhancedLocationWatchIsActive = nextIsActive;
-    emitForegroundEnhancedLocationWatchActivity();
+    persistentRoadMatchingWatchIsActive = nextIsActive;
+    emitPersistentRoadMatchingWatchActivity();
 }
 
-function getFiniteLocationNumber(value) {
-    const numberValue = Number(value);
-
-    return Number.isFinite(numberValue) ? numberValue : null;
-}
-
-function logEnhancedSpeedLimit(speedLimit) {
-    if (!__DEV__) {
-        return;
-    }
-
-    const key = [
-        speedLimit.speed ?? '',
-        speedLimit.unit ?? '',
-        speedLimit.sign ?? '',
-        speedLimit.speedLimitMph ?? '',
-    ].join(':');
-
-    if (key === lastLoggedEnhancedSpeedLimitKey) {
-        return;
-    }
-
-    lastLoggedEnhancedSpeedLimitKey = key;
-    console.info('[MapboxNavigation] Speed limit parsed', speedLimit);
-}
-
-function getEnhancedSpeedLimit(location) {
-    const speedLimit = location?.speedLimit;
-    const speedLimitMph = getFiniteLocationNumber(speedLimit?.speedLimitMph);
-
-    if (speedLimitMph === null) {
-        return null;
-    }
-
-    const speed = getFiniteLocationNumber(speedLimit?.speed);
-
-    const parsedSpeedLimit = {
-        maxspeed:
-            speed !== null && speedLimit?.unit
-                ? `${speed} ${speedLimit.unit}`
-                : '',
-        sign: typeof speedLimit?.sign === 'string' ? speedLimit.sign : '',
-        speed,
-        speedLimitMph,
-        unit: typeof speedLimit?.unit === 'string' ? speedLimit.unit : 'mph',
-    };
-
-    logEnhancedSpeedLimit(parsedSpeedLimit);
-
-    return parsedSpeedLimit;
-}
-
-function getRoadComponent(component) {
-    const text =
-        typeof component?.text === 'string' ? component.text.trim() : '';
-    const language =
-        typeof component?.language === 'string' ? component.language : '';
-    const imageBaseUrl =
-        typeof component?.imageBaseUrl === 'string'
-            ? component.imageBaseUrl
-            : '';
-
-    if (!text && !language && !imageBaseUrl) {
-        return null;
-    }
-
-    return {
-        ...(imageBaseUrl ? { imageBaseUrl } : {}),
-        ...(language ? { language } : {}),
-        ...(text ? { text } : {}),
-    };
-}
-
-function getEnhancedRoadContext(location) {
-    const roadContext = location?.roadContext;
-    const components = Array.isArray(roadContext?.components)
-        ? roadContext.components.map(getRoadComponent).filter(Boolean)
-        : [];
-    const primaryText =
-        typeof roadContext?.primaryText === 'string'
-            ? roadContext.primaryText.trim()
-            : (components.find((component) => component.text)?.text ?? '');
-    const edgeMatchProbability = getFiniteLocationNumber(
-        roadContext?.edgeMatchProbability ?? location?.roadEdgeMatchProbability,
-    );
-    const zLevel = getFiniteLocationNumber(
-        roadContext?.zLevel ?? location?.zLevel,
-    );
-    const edgeId =
-        typeof roadContext?.edgeId === 'string'
-            ? roadContext.edgeId
-            : typeof location?.roadEdgeId === 'string'
-              ? location.roadEdgeId
-              : '';
-
-    if (
-        !primaryText &&
-        !components.length &&
-        !edgeId &&
-        edgeMatchProbability === null &&
-        zLevel === null
-    ) {
-        return null;
-    }
-
-    return {
-        components,
-        edgeId,
-        edgeMatchProbability,
-        inTunnel: roadContext?.inTunnel === true || location?.inTunnel === true,
-        isDegradedMapMatching:
-            roadContext?.isDegradedMapMatching === true ||
-            location?.isDegradedMapMatching === true,
-        isOffRoad:
-            roadContext?.isOffRoad === true || location?.isOffRoad === true,
-        primaryText,
-        zLevel,
-    };
-}
-
-export function getEnhancedLocationUpdate(location) {
-    const latitude = getFiniteLocationNumber(location?.latitude);
-    const longitude = getFiniteLocationNumber(location?.longitude);
-
-    if (
-        latitude === null ||
-        longitude === null ||
-        latitude < -90 ||
-        latitude > 90
-    ) {
-        return null;
-    }
-
-    const heading = getFiniteLocationNumber(
-        location?.bearing ?? location?.course,
-    );
-    const speed = getFiniteLocationNumber(location?.speed);
-    const accuracy = getFiniteLocationNumber(
-        location?.accuracy ?? location?.horizontalAccuracy,
-    );
-    const altitude = getFiniteLocationNumber(location?.altitude);
-    const timestamp =
-        getFiniteLocationNumber(location?.timestamp) ?? Date.now();
-
-    return {
-        coords: {
-            accuracy: accuracy ?? undefined,
-            altitude: altitude ?? undefined,
-            course: heading ?? undefined,
-            heading: heading ?? undefined,
-            latitude,
-            longitude,
-            speed: speed ?? undefined,
-        },
-        mapboxNavigation: {
-            isDegradedMapMatching: location?.isDegradedMapMatching === true,
-            inTunnel: location?.inTunnel === true,
-            isOffRoad: location?.isOffRoad === true,
-            isTeleport: location?.isTeleport === true,
-            offRoadProbability: getFiniteLocationNumber(
-                location?.offRoadProbability,
-            ),
-            roadContext: getEnhancedRoadContext(location),
-            speedLimit: getEnhancedSpeedLimit(location),
-        },
-        timestamp,
-    };
-}
-
-export function mapboxNavigationEnhancedLocationIsSupported() {
-    return mapboxNavigationLocationIsSupported();
-}
-
-export function useForegroundEnhancedLocationWatchIsActive() {
+export function usePersistentRoadMatchingWatchIsActive() {
     const [isActive, setIsActive] = useState(
-        getForegroundEnhancedLocationWatchIsActive,
+        getPersistentRoadMatchingWatchIsActive,
     );
 
     useEffect(() => {
-        foregroundEnhancedLocationWatchListeners.add(setIsActive);
-        setIsActive(getForegroundEnhancedLocationWatchIsActive());
+        persistentRoadMatchingWatchListeners.add(setIsActive);
+        setIsActive(getPersistentRoadMatchingWatchIsActive());
 
         return () => {
-            foregroundEnhancedLocationWatchListeners.delete(setIsActive);
+            persistentRoadMatchingWatchListeners.delete(setIsActive);
         };
     }, []);
 
@@ -236,6 +70,7 @@ export function useForegroundEnhancedLocationWatchIsActive() {
 export function useCurrentLocation({
     currentCourseHeadingRef,
     isMountedRef,
+    roadMatchedLocationWatchEnabledRef,
     setUserLocation,
 }) {
     const [isLocating, setIsLocating] = useState(false);
@@ -246,11 +81,22 @@ export function useCurrentLocation({
         setLocationError('');
 
         try {
-            const position = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.High,
+            const position = await getCurrentPositionForActiveLocationSource({
+                getCurrentPositionAsync: () =>
+                    Location.getCurrentPositionAsync({
+                        accuracy: Location.Accuracy.High,
+                    }),
+                getLastRoadMatchedLocation: getLastRoadMatchedLocationAsync,
+                isMountedRef,
+                roadMatchedLocationWatchEnabledRef,
             });
 
             if (!isMountedRef.current) {
+                return null;
+            }
+
+            if (!position) {
+                setLocationError('Your current location is not available yet.');
                 return null;
             }
 
@@ -278,7 +124,9 @@ export function useCurrentLocation({
                 recordedAt: Date.now(),
             };
 
-            setUserLocation(currentLocation);
+            if (!isRoadMatchedLocationUpdate(position)) {
+                setUserLocation(currentLocation);
+            }
 
             return currentLocation;
         } catch {
@@ -292,7 +140,12 @@ export function useCurrentLocation({
                 setIsLocating(false);
             }
         }
-    }, [currentCourseHeadingRef, isMountedRef, setUserLocation]);
+    }, [
+        currentCourseHeadingRef,
+        isMountedRef,
+        roadMatchedLocationWatchEnabledRef,
+        setUserLocation,
+    ]);
 
     return {
         findCurrentLocation,
@@ -363,40 +216,77 @@ export function useLocationWatch({
     return null;
 }
 
-export function useEnhancedLocationWatch({
+export function useRoadMatchedLocationWatch({
     enabled = true,
-    foregroundService = false,
     handleUserLocationUpdate,
     isMountedRef,
+    persistent = false,
 }) {
-    const enhancedLocation = useEnhancedLocation({
-        enabled,
-        foregroundService,
-    });
+    const handleUserLocationUpdateRef = useRef(handleUserLocationUpdate);
+    const handleUserLocationUpdateIsAvailable =
+        typeof handleUserLocationUpdate === 'function';
+
+    handleUserLocationUpdateRef.current = handleUserLocationUpdate;
 
     useEffect(() => {
-        if (!enabled || !foregroundService) {
+        if (!enabled || !persistent) {
             return undefined;
         }
 
-        updateForegroundEnhancedLocationWatchActivity(1);
+        updatePersistentRoadMatchingWatchActivity(1);
 
         return () => {
-            updateForegroundEnhancedLocationWatchActivity(-1);
+            updatePersistentRoadMatchingWatchActivity(-1);
         };
-    }, [enabled, foregroundService]);
+    }, [enabled, persistent]);
 
     useEffect(() => {
-        if (!enabled || !handleUserLocationUpdate || !isMountedRef.current) {
-            return;
+        if (
+            !enabled ||
+            !handleUserLocationUpdateIsAvailable ||
+            !isMountedRef.current ||
+            !roadMatchingLocationIsSupported()
+        ) {
+            return undefined;
         }
 
-        const location = getEnhancedLocationUpdate(enhancedLocation);
+        let isActive = true;
+        let sessionHandle = null;
+        const handleLocation = (location) => {
+            if (isActive && isMountedRef.current) {
+                handleUserLocationUpdateRef.current?.(location);
+            }
+        };
+        const locationSubscription =
+            addRoadMatchedLocationListener(handleLocation);
 
-        if (location) {
-            handleUserLocationUpdate(location);
-        }
-    }, [enabled, enhancedLocation, handleUserLocationUpdate, isMountedRef]);
+        getLastRoadMatchedLocationAsync()
+            .then((location) => {
+                if (location) {
+                    handleLocation(location);
+                }
+            })
+            .catch(() => {});
+
+        retainRoadMatchingSessionAsync({ persistent }).then((handle) => {
+            if (isActive) {
+                sessionHandle = handle;
+            } else {
+                handle.remove();
+            }
+        });
+
+        return () => {
+            isActive = false;
+            locationSubscription.remove();
+            sessionHandle?.remove();
+        };
+    }, [
+        enabled,
+        handleUserLocationUpdateIsAvailable,
+        isMountedRef,
+        persistent,
+    ]);
 
     return null;
 }

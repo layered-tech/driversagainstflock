@@ -1,0 +1,269 @@
+appId: com.anonymous.drivefree.dev
+name: In-house Road Matching Free Drive
+tags:
+  - map
+  - road-matching
+  - speed-limit
+---
+- setLocation:
+    latitude: 30.26698404060037
+    longitude: -97.74414009212921
+- launchApp:
+    clearState: true
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    commands:
+      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 30000
+- openLink: 'driversagainstflock://e2e-mocks'
+- extendedWaitUntil:
+    visible:
+      id: 'start-free-drive-button'
+    timeout: 10000
+- tapOn:
+    id: 'start-free-drive-button'
+    retryTapIfNoChange: true
+- setLocation:
+    latitude: 30.26698404060037
+    longitude: -97.74414009212921
+- extendedWaitUntil:
+    visible:
+      id: 'e2e-road-matching-edge-id'
+      text: 'e2e-main-35:0:forward'
+    timeout: 30000
+- runFlow:
+    when:
+      visible:
+        id: 'driving-recenter-button'
+    commands:
+      - tapOn:
+          id: 'driving-recenter-button'
+- extendedWaitUntil:
+    visible:
+      id: 'e2e-native-puck-proof'
+      text: 'true'
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: 'e2e-native-3d-puck-proof'
+      text: 'true'
+    timeout: 30000
+- assertVisible:
+    id: 'e2e-native-puck-kind'
+    text: '3d'
+- assertVisible:
+    id: 'e2e-native-puck-model-uri'
+    text: 'asset://navigation_puck.glb'
+- assertVisible:
+    id: 'e2e-native-puck-model-scale'
+    text: '75,75,75'
+- assertVisible:
+    id: 'e2e-native-puck-model-rotation'
+    text: '0,0,0'
+- assertVisible:
+    id: 'e2e-native-puck-scale-mode'
+    text: 'viewport'
+- assertVisible:
+    id: 'e2e-native-puck-emissive-strength'
+    text: '1'
+- assertVisible:
+    id: 'e2e-native-puck-cast-shadows'
+    text: 'false'
+- assertVisible:
+    id: 'e2e-native-puck-receive-shadows'
+    text: 'false'
+- assertVisible:
+    id: 'e2e-native-puck-location-enabled'
+    text: 'true'
+- assertVisible:
+    id: 'e2e-native-puck-bearing'
+    text: 'heading'
+- assertVisible:
+    id: 'e2e-native-puck-bearing-enabled'
+    text: 'true'
+- assertVisible:
+    id: 'e2e-native-puck-model-layer'
+    text: 'true'
+- assertVisible:
+    id: 'e2e-native-puck-model-source'
+    text: 'true'
+- assertVisible:
+    id: 'e2e-native-puck-indicator-layer'
+    text: 'false'
+- assertVisible:
+    id: 'e2e-native-puck-rendered-at-snapped'
+    text: 'true'
+- assertVisible:
+    id: 'e2e-native-puck-model-byte-length'
+    text: '21636'
+- assertVisible:
+    id: 'e2e-native-puck-model-sha256'
+    text: 'ab6a662ad8d0696f4a763ce364a1f73c0d4c5a56361baa4ab57644e85381fccc'
+- assertVisible:
+    id: 'e2e-road-matching-state'
+    text: 'matched'
+- assertVisible:
+    id: 'e2e-road-matching-source'
+    text: 'expo-background-location-task'
+- assertVisible:
+    id: 'e2e-road-matching-provider'
+    text: 'in-house-road-matcher'
+- assertVisible:
+    id: 'e2e-road-matching-raw-coordinate'
+    text: '-97.7441401,30.2669840'
+- assertVisible:
+    id: 'e2e-road-matching-coordinate'
+    text: '-97.7441401,30.2672000'
+- assertVisible:
+    id: 'e2e-road-matching-speed-limit'
+    text: '35'
+- assertVisible:
+    id: 'e2e-road-look-ahead-edge-ids'
+    text: 'e2e-main-35:0:forward,e2e-main-35:1:forward,e2e-main-45:0:forward'
+- assertVisible:
+    id: 'e2e-native-puck-provider-coordinate'
+    text: '-97.7441401,30.2672000'
+- assertVisible:
+    id: 'e2e-native-puck-provider-at-snapped'
+    text: 'true'
+- assertVisible:
+    id: 'e2e-native-puck-provider-at-raw'
+    text: 'false'
+- assertVisible:
+    id: 'e2e-native-puck-proof-source'
+    text: 'native-3d-puck'
+- assertVisible:
+    id: 'e2e-native-puck-indicator-coordinate'
+    text: '-97.7441401,30.2672000'
+- assertVisible:
+    id: 'e2e-native-puck-indicator-at-snapped'
+    text: 'true'
+- assertVisible:
+    id: 'e2e-native-puck-indicator-at-raw'
+    text: 'false'
+- assertVisible:
+    id: 'driving-speed-limit-value'
+    text: '35'
+- pressKey: Home
+- travel:
+    points:
+      - '30.26698404060037, -97.74414009212921'
+      - '30.26698404060037, -97.7389396314831'
+    # Maestro 1.40.3 underestimates path distance, so use a lower simulation
+    # speed to keep the app backgrounded long enough for a task delivery.
+    speed: 1
+- extendedWaitUntil:
+    visible:
+      id: '__e2e-background-settle-delay__'
+    timeout: 10000
+    optional: true
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: 'e2e-road-matching-edge-id'
+      text: 'e2e-main-45:0:forward'
+    timeout: 30000
+- assertVisible:
+    id: 'e2e-road-matching-source'
+    text: 'expo-background-location-task'
+- assertVisible:
+    id: 'e2e-road-matching-background-delivery'
+    text: 'background'
+- assertVisible:
+    id: 'e2e-road-matching-background-raw-coordinate'
+    text: '-97.7389396,30.2669840'
+- assertVisible:
+    id: 'e2e-road-matching-background-edge-id'
+    text: 'e2e-main-45:0:forward'
+- assertVisible:
+    id: 'e2e-road-matching-background-coordinate'
+    text: '-97.7389396,30.2672000'
+- assertVisible:
+    id: 'e2e-road-matching-background-speed-limit'
+    text: '45'
+- runFlow:
+    when:
+      visible:
+        id: 'driving-recenter-button'
+    commands:
+      - tapOn:
+          id: 'driving-recenter-button'
+- extendedWaitUntil:
+    visible:
+      id: 'e2e-native-puck-proof'
+      text: 'true'
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: 'e2e-native-3d-puck-proof'
+      text: 'true'
+    timeout: 30000
+- assertVisible:
+    id: 'e2e-native-puck-kind'
+    text: '3d'
+- assertVisible:
+    id: 'e2e-native-puck-model-uri'
+    text: 'asset://navigation_puck.glb'
+- assertVisible:
+    id: 'e2e-native-puck-model-scale'
+    text: '75,75,75'
+- assertVisible:
+    id: 'e2e-native-puck-model-layer'
+    text: 'true'
+- assertVisible:
+    id: 'e2e-native-puck-model-source'
+    text: 'true'
+- assertVisible:
+    id: 'e2e-native-puck-indicator-layer'
+    text: 'false'
+- assertVisible:
+    id: 'e2e-native-puck-rendered-at-snapped'
+    text: 'true'
+- assertVisible:
+    id: 'e2e-native-puck-model-sha256'
+    text: 'ab6a662ad8d0696f4a763ce364a1f73c0d4c5a56361baa4ab57644e85381fccc'
+- assertVisible:
+    id: 'e2e-road-matching-coordinate'
+    text: '-97.7389396,30.2672000'
+- assertVisible:
+    id: 'e2e-road-matching-raw-coordinate'
+    text: '-97.7389396,30.2669840'
+- assertVisible:
+    id: 'e2e-native-puck-provider-coordinate'
+    text: '-97.7389396,30.2672000'
+- assertVisible:
+    id: 'e2e-native-puck-provider-at-snapped'
+    text: 'true'
+- assertVisible:
+    id: 'e2e-native-puck-provider-at-raw'
+    text: 'false'
+- assertVisible:
+    id: 'e2e-native-puck-proof-source'
+    text: 'native-3d-puck'
+- assertVisible:
+    id: 'e2e-native-puck-indicator-coordinate'
+    text: '-97.7389396,30.2672000'
+- assertVisible:
+    id: 'e2e-native-puck-indicator-at-snapped'
+    text: 'true'
+- assertVisible:
+    id: 'e2e-native-puck-indicator-at-raw'
+    text: 'false'
+- assertVisible:
+    id: 'e2e-road-matching-speed-limit'
+    text: '45'
+- assertVisible:
+    id: 'driving-speed-limit-value'
+    text: '45'
+- assertVisible:
+    id: 'e2e-road-look-ahead-edge-ids'
+    text: 'e2e-main-45:0:forward'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-in-house-road-matching-free-drive'}

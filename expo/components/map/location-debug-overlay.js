@@ -62,11 +62,11 @@ function formatMovingValue(value) {
 }
 
 function formatLocationProvider(value) {
-    if (value === 'mapbox-navigation-bridge') {
-        return 'Mapbox nav bridge';
+    if (value === 'in-house-road-matcher') {
+        return 'In-house road matcher';
     }
 
-    if (value === 'expo-location') {
+    if (value === 'expo-location' || value === 'expo-location-unmatched') {
         return 'Expo Location';
     }
 

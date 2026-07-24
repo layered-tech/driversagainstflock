@@ -10,6 +10,8 @@ class OpenStreetMapSpeedLimitLookup
 {
     private const METERS_PER_DEGREE_LATITUDE = 111320.0;
 
+    public function __construct(private readonly MaxspeedParser $maxspeedParser) {}
+
     /**
      * @return array<string, mixed>|null
      */
@@ -55,7 +57,7 @@ class OpenStreetMapSpeedLimitLookup
             }
 
             $maxspeed = $element['tags']['maxspeed'] ?? null;
-            $speedLimitMph = $this->parseMaxspeedToMph($maxspeed);
+            $speedLimitMph = $this->maxspeedParser->toMph($maxspeed);
 
             if ($speedLimitMph === null) {
                 continue;
@@ -99,36 +101,6 @@ class OpenStreetMapSpeedLimitLookup
             $latitude,
             $longitude,
         );
-    }
-
-    private function parseMaxspeedToMph(mixed $maxspeed): ?int
-    {
-        if (! is_string($maxspeed) && ! is_numeric($maxspeed)) {
-            return null;
-        }
-
-        $value = strtolower(trim((string) $maxspeed));
-
-        if ($value === '' || preg_match('/^(none|signals|variable|walk)$/', $value)) {
-            return null;
-        }
-
-        $value = preg_split('/[;|]/', $value)[0] ?? $value;
-        $value = trim($value);
-
-        if (preg_match('/^(\d+(?:\.\d+)?)\s*mph$/', $value, $matches)) {
-            return max(1, (int) round((float) $matches[1]));
-        }
-
-        if (preg_match('/^(\d+(?:\.\d+)?)\s*(?:km\/h|kph|kmh)$/', $value, $matches)) {
-            return max(1, (int) round((float) $matches[1] / 1.609344));
-        }
-
-        if (preg_match('/^\d+(?:\.\d+)?$/', $value)) {
-            return max(1, (int) round((float) $value / 1.609344));
-        }
-
-        return null;
     }
 
     private function distanceToGeometryMeters(float $latitude, float $longitude, mixed $geometry): ?float

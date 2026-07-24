@@ -1,10 +1,3 @@
-import {
-    activateAndroidAutoLifecycleAsync,
-    addEnhancedLocationListener,
-    deactivateAndroidAutoLifecycleAsync,
-    getLastEnhancedLocationAsync,
-    updateAndroidAutoLifecycleStateAsync,
-} from '@rnmapbox/navigation';
 import * as Location from 'expo-location';
 import {
     startAutoDriveSimulation,
@@ -73,6 +66,12 @@ import {
     getPrimaryLocationLabel,
 } from './map/primary-locations';
 import {
+    addRoadMatchedLocationListener,
+    getLastRoadMatchedLocationAsync,
+    retainRoadMatchingSessionAsync,
+    roadMatchingLocationIsSupported,
+} from './map/road-matching-session';
+import {
     addPrimaryLocationsListener,
     loadPrimaryLocations,
 } from './map/saved-locations';
@@ -83,10 +82,6 @@ import {
     getSharedRoutingState,
     setSharedRoutingState,
 } from './map/shared-routing-state';
-import {
-    getEnhancedLocationUpdate,
-    mapboxNavigationEnhancedLocationIsSupported,
-} from './map/use-device-location';
 
 const LOCATION_TIMEOUT_MS = 10000;
 // Android Auto may deliver bursts of text-change callbacks. Wait for a stable
@@ -208,7 +203,6 @@ const ROOT_MAP_CONTROL_BUTTON_IMAGE = {
 let autoPlayModule;
 let autoPlayRegistered = false;
 let autoPlayConnectionGeneration = 0;
-let autoPlaySessionRenderState = null;
 let rootMapTemplate = null;
 let rootMapTemplateIsReady = false;
 let pendingVoiceNavigation = null;
@@ -2251,29 +2245,33 @@ async function startExpoNavigationLocationUpdates(generation) {
     };
 }
 
-async function startEnhancedNavigationLocationUpdates(generation) {
-    const subscription = addEnhancedLocationListener((enhancedLocation) => {
+async function startRoadMatchedNavigationLocationUpdates(generation) {
+    const locationSubscription = addRoadMatchedLocationListener((location) => {
         if (generation !== navigationLocationUpdateGeneration) {
             return;
         }
 
-        const location = getLocationFromPosition(
-            getEnhancedLocationUpdate(enhancedLocation),
-        );
+        const navigationLocation = getLocationFromPosition(location);
 
-        if (location) {
-            scheduleNavigationGuidance(location);
+        if (navigationLocation) {
+            scheduleNavigationGuidance(navigationLocation);
         }
     });
+    const sessionHandle = await retainRoadMatchingSessionAsync({
+        persistent: true,
+    });
+    const subscription = {
+        remove() {
+            locationSubscription.remove();
+            sessionHandle.remove();
+        },
+    };
 
-    const lastEnhancedLocation = await getLastEnhancedLocationAsync().catch(
-        () => null,
-    );
+    const lastRoadMatchedLocation =
+        await getLastRoadMatchedLocationAsync().catch(() => null);
 
     return {
-        lastKnownLocation: getLocationFromPosition(
-            getEnhancedLocationUpdate(lastEnhancedLocation),
-        ),
+        lastKnownLocation: getLocationFromPosition(lastRoadMatchedLocation),
         subscription,
     };
 }
@@ -2300,8 +2298,8 @@ async function startNavigationLocationUpdates(route) {
         return;
     }
 
-    const startedLocationUpdates = mapboxNavigationEnhancedLocationIsSupported()
-        ? await startEnhancedNavigationLocationUpdates(generation)
+    const startedLocationUpdates = roadMatchingLocationIsSupported()
+        ? await startRoadMatchedNavigationLocationUpdates(generation)
         : await startExpoNavigationLocationUpdates(generation);
 
     if (generation !== navigationLocationUpdateGeneration) {
@@ -3255,14 +3253,6 @@ async function handleAutoPlayConnect() {
     // finishes evaluating. MapTemplate registers AutoPlayRoot with AppRegistry,
     // so it must be constructed before the first await or the restarted surface
     // can run before its component has been registered.
-    await activateAndroidAutoLifecycleAsync().catch(() => false);
-
-    if (autoPlaySessionRenderState) {
-        await updateAndroidAutoLifecycleStateAsync(
-            autoPlaySessionRenderState,
-        ).catch(() => false);
-    }
-
     if (
         connectionGeneration !== autoPlayConnectionGeneration ||
         rootMapTemplate !== mapTemplate
@@ -3305,8 +3295,6 @@ function handleAutoPlayDisconnect() {
     autoPlayConnectionGeneration += 1;
     voiceNavigationRequestGeneration += 1;
     autoPlayPlatform?.cancelSearchVoiceInput?.();
-    autoPlaySessionRenderState = null;
-    deactivateAndroidAutoLifecycleAsync().catch(() => {});
     rootMapTemplate = null;
     rootMapTemplateIsReady = false;
     pendingVoiceNavigation = null;
@@ -3322,10 +3310,7 @@ function handleAutoPlayDisconnect() {
     setAutoPlayState(DEFAULT_AUTO_PLAY_STATE);
 }
 
-function handleAutoPlaySessionRenderState(state) {
-    autoPlaySessionRenderState = state;
-    updateAndroidAutoLifecycleStateAsync(state).catch(() => {});
-}
+function handleAutoPlaySessionRenderState() {}
 
 export default function registerAutoPlay() {
     if (!autoPlayPlatform || autoPlayRegistered) {

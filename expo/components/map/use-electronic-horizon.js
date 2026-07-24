@@ -1,16 +1,15 @@
-import {
-    addElectronicHorizonListener,
-    getLastElectronicHorizonAsync,
-    isSupported as mapboxNavigationIsSupported,
-} from '@rnmapbox/navigation';
 import { useEffect, useState } from 'react';
 import { normalizeElectronicHorizon } from './electronic-horizon';
+import {
+    addRoadLookAheadListener,
+    getLastRoadLookAheadAsync,
+} from './road-matching-session';
 
 export function useElectronicHorizon({ enabled = true } = {}) {
     const [electronicHorizon, setElectronicHorizon] = useState(null);
 
     useEffect(() => {
-        if (!enabled || !mapboxNavigationIsSupported()) {
+        if (!enabled) {
             setElectronicHorizon(null);
 
             return undefined;
@@ -26,11 +25,9 @@ export function useElectronicHorizon({ enabled = true } = {}) {
                 setElectronicHorizon(normalizedElectronicHorizon);
             }
         };
-        const subscription = addElectronicHorizonListener(
-            updateElectronicHorizon,
-        );
+        const subscription = addRoadLookAheadListener(updateElectronicHorizon);
 
-        getLastElectronicHorizonAsync()
+        getLastRoadLookAheadAsync()
             .then(updateElectronicHorizon)
             .catch(() => {});
 

@@ -1,5 +1,10 @@
-import { useNavigationCamera } from '@rnmapbox/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useRef,
+    useState,
+} from 'react';
 import { AppState, useWindowDimensions } from 'react-native';
 import {
     addAutoDriveSimulationLocationListener,
@@ -43,17 +48,20 @@ import {
     normalizeDirectionDegrees,
     normalizeLongitude,
 } from './geo';
-import { getFallbackCameraFollowProps } from './location-bound-camera-follow';
-import { shouldUseDeviceLocationWatch } from './location-watch-options';
+import {
+    shouldAcceptLocationUpdate,
+    shouldUseDeviceLocationWatch,
+    shouldUseRoadMatchedLocationWatch,
+} from './location-watch-options';
 import { getPlaceCoordinate } from './place-formatters';
 import { useDeferredCameraDebugState } from './use-deferred-camera-debug-state';
 import {
-    mapboxNavigationEnhancedLocationIsSupported,
+    roadMatchingLocationIsSupported,
     useCurrentLocation,
-    useEnhancedLocationWatch,
-    useForegroundEnhancedLocationWatchIsActive,
     useHeadingWatch,
     useLocationWatch,
+    usePersistentRoadMatchingWatchIsActive,
+    useRoadMatchedLocationWatch,
 } from './use-device-location';
 import { useDrivingModeExitCameraRetry } from './use-driving-mode-exit-camera-retry';
 import { useLocationPermissionFlow } from './use-location-permission-flow';
@@ -100,6 +108,7 @@ export function useMapLocationController({
     const previousDrivingModeRef = useRef(isDrivingMode);
     const previousMarkersAreVisibleRef = useRef(markersAreVisible);
     const publishedMapBearingRef = useRef(0);
+    const roadMatchedLocationWatchEnabledRef = useRef(false);
     const userLocationRef = useRef(null);
     const { currentCameraDebugState, setPendingCameraDebugState } =
         useDeferredCameraDebugState(cameraDebugStateUpdatesEnabled);
@@ -129,6 +138,7 @@ export function useMapLocationController({
         useCurrentLocation({
             currentCourseHeadingRef,
             isMountedRef,
+            roadMatchedLocationWatchEnabledRef,
             setUserLocation,
         });
     const phoneLocationUpdatesAreEnabled = screenIsFocused && appStateIsActive;
@@ -641,6 +651,16 @@ export function useMapLocationController({
 
     const handleUserLocationUpdate = useCallback(
         (location) => {
+            if (
+                !shouldAcceptLocationUpdate({
+                    location,
+                    roadMatchedLocationWatchEnabled:
+                        roadMatchedLocationWatchEnabledRef.current,
+                })
+            ) {
+                return;
+            }
+
             const nextLocation = getLocationUpdate(location);
 
             if (!nextLocation || !isMountedRef.current) {
@@ -706,28 +726,36 @@ export function useMapLocationController({
             setUserLocation,
         ],
     );
-    const foregroundEnhancedLocationWatchIsActive =
-        useForegroundEnhancedLocationWatchIsActive();
+    const persistentRoadMatchingWatchIsActive =
+        usePersistentRoadMatchingWatchIsActive();
     // While the Android Auto auto-drive simulation is running, real device fixes
     // would fight the simulated route positions through the shared map
     // preferences sync, so the simulation becomes the only location source.
     const autoDriveSimulationIsActive = useAutoDriveSimulationIsActive();
-    const enhancedNavigationLocationWatchEnabled =
-        phoneLocationUpdatesAreEnabled &&
-        locationAccessGranted &&
-        !autoDriveSimulationIsActive &&
-        mapboxNavigationEnhancedLocationIsSupported() &&
-        (isDrivingMode || foregroundEnhancedLocationWatchIsActive);
+    const roadMatchedLocationWatchEnabled = shouldUseRoadMatchedLocationWatch({
+        autoDriveSimulationIsActive,
+        isDrivingMode,
+        locationAccessGranted,
+        persistentRoadMatchingWatchIsActive,
+        phoneLocationUpdatesAreEnabled,
+        roadMatchingIsSupported: roadMatchingLocationIsSupported(),
+    });
 
-    useEnhancedLocationWatch({
-        enabled: enhancedNavigationLocationWatchEnabled,
+    useLayoutEffect(() => {
+        roadMatchedLocationWatchEnabledRef.current =
+            roadMatchedLocationWatchEnabled;
+    }, [roadMatchedLocationWatchEnabled]);
+
+    useRoadMatchedLocationWatch({
+        enabled: roadMatchedLocationWatchEnabled,
         handleUserLocationUpdate,
         isMountedRef,
+        persistent: isDrivingMode,
     });
     useLocationWatch({
         enabled: shouldUseDeviceLocationWatch({
             autoDriveSimulationIsActive,
-            enhancedNavigationLocationWatchEnabled,
+            roadMatchedLocationWatchEnabled,
             phoneLocationUpdatesAreEnabled,
         }),
         handleUserLocationUpdate,
@@ -759,26 +787,7 @@ export function useMapLocationController({
         locationAccessGranted,
     });
 
-    const navigationCameraMode = followLocationMode.nativeCameraFollowProps
-        ?.enabled
-        ? 'following'
-        : 'idle';
-    const navigationCamera = useNavigationCamera({
-        attachKey: isMapReady ? 'ready' : 'pending',
-        cameraOptions: followLocationMode.nativeCameraFollowProps,
-        enabled:
-            enhancedNavigationLocationWatchEnabled &&
-            isDrivingMode &&
-            isMapReady &&
-            phoneLocationUpdatesAreEnabled,
-        mapViewRef,
-        mode: navigationCameraMode,
-        surfaceId: 'android-driving-mode',
-    });
-    const nativeCameraFollowProps = getFallbackCameraFollowProps(
-        followLocationMode.nativeCameraFollowProps,
-        navigationCamera.state,
-    );
+    const nativeCameraFollowProps = followLocationMode.nativeCameraFollowProps;
 
     const handleZoomPress = useCallback(
         (zoomDelta) => {

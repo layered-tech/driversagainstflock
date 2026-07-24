@@ -1,9 +1,0 @@
-{
-  "platforms": ["android", "apple"],
-  "android": {
-    "modules": ["com.rnmapbox.navigation.RNMapboxNavigationModule"]
-  },
-  "apple": {
-    "modules": ["RNMapboxNavigationModule"]
-  }
-}
