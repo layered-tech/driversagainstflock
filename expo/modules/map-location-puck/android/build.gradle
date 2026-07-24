@@ -3,7 +3,7 @@ apply plugin: 'com.android.library'
 group = 'expo.modules.maplocationpuck'
 version = '1.0.0'
 
-def mapboxMapsVersion = rootProject.findProperty('expoRNMapboxMapsVersion') ?: '11.20.2'
+def mapboxMapsVersion = rootProject.findProperty('expoRNMapboxMapsVersion') ?: '11.24.1'
 
 def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
 apply from: expoModulesCorePlugin

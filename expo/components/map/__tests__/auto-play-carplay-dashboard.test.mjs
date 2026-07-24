@@ -10,6 +10,32 @@ const dashboardSurfaceSource = readFileSync(
     new URL('../../carplay-dashboard-surface.ios.js', import.meta.url),
     'utf8',
 );
+const autoPlayMapSurfaceSource = readFileSync(
+    new URL('../../auto-play-map-surface.js', import.meta.url),
+    'utf8',
+);
+const autoPlayMapSurfaceContentSource = readFileSync(
+    new URL('../../auto-play-map-surface-content.js', import.meta.url),
+    'utf8',
+);
+const appConfigSource = readFileSync(
+    new URL('../../../app.config.js', import.meta.url),
+    'utf8',
+);
+const mapLocationPuckAndroidBuildSource = readFileSync(
+    new URL(
+        '../../../modules/map-location-puck/android/build.gradle',
+        import.meta.url,
+    ),
+    'utf8',
+);
+const mapLocationPuckPodspecSource = readFileSync(
+    new URL(
+        '../../../modules/map-location-puck/ios/DAFMapLocationPuck.podspec',
+        import.meta.url,
+    ),
+    'utf8',
+);
 const mapTemplateSource = readFileSync(
     new URL(
         '../../../node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift',
@@ -61,16 +87,52 @@ test('CarPlay Dashboard mounts its map only while its pane is visible', () => {
     );
     assert.match(
         dashboardSurfaceSource,
-        /isVisible \? \([\s\S]*?<CarPlayMapSurface \{\.\.\.props\} colorScheme=\{colorScheme\}/,
+        /isVisible \? \([\s\S]*?<CarPlayMapSurface[\s\S]*?\{\.\.\.props\}[\s\S]*?colorScheme=\{colorScheme\}/,
     );
 });
 
-test('CarPlay Dashboard shows shared routing status and an explicit map shortcut', () => {
-    assert.match(dashboardSurfaceSource, /useAutoPlayState\(\)/);
-    assert.match(dashboardSurfaceSource, /carplay-dashboard-status-card/);
-    assert.match(dashboardSurfaceSource, /routeLoading/);
-    assert.match(dashboardSurfaceSource, /isNavigating/);
-    assert.match(dashboardSurfaceSource, /directionsRoute/);
+test('CarPlay Dashboard shows shared driving status instead of a navigation card', () => {
+    assert.match(
+        dashboardSurfaceSource,
+        /<CarPlayMapSurface[\s\S]*?showDrivingStatus/,
+    );
+    assert.doesNotMatch(
+        dashboardSurfaceSource,
+        /carplay-dashboard-status-card/,
+    );
+    assert.doesNotMatch(dashboardSurfaceSource, /Ready to navigate/);
+    assert.match(
+        autoPlayMapSurfaceSource,
+        /showDrivingStatus=\{props\?\.showDrivingStatus\}/,
+    );
+    assert.match(
+        autoPlayMapSurfaceContentSource,
+        /const rendersDrivingStatus = isRootMapSurface \|\| showDrivingStatus/,
+    );
+    assert.match(
+        autoPlayMapSurfaceContentSource,
+        /locationUpdatesEnabled: isRootMapSurface/,
+    );
+    assert.match(
+        autoPlayMapSurfaceContentSource,
+        /routePreviewIsActive: rendersDrivingStatus && routePreviewIsActive/,
+    );
+    assert.match(
+        autoPlayMapSurfaceContentSource,
+        /rendersDrivingStatus && !searchResultsMapIsActive[\s\S]*?<AutoPlayMapStatusOverlay/,
+    );
+    assert.match(
+        autoPlayMapSurfaceContentSource,
+        /freeDriveIsActive=\{[\s\S]*?controller\.roadMatchedLocationWatchEnabled \|\|[\s\S]*?showDrivingStatus/,
+    );
+    assert.match(
+        autoPlayMapSurfaceContentSource,
+        /rendersDrivingStatus \? \([\s\S]*?<AutoPlayTopRightStatusOverlay/,
+    );
+    assert.match(
+        autoPlayMapSurfaceContentSource,
+        /enabled:[\s\S]*?rendersDrivingStatus[\s\S]*?useUpcomingElectronicHorizonAlerts/,
+    );
     assert.match(iosPlatformSource, /titleVariants: \['Open map'\]/);
     assert.match(
         iosPlatformSource,
@@ -88,6 +150,15 @@ test('CarPlay sizes the map to its Dashboard pane instead of the full display', 
         dashboardScenePatch,
         /-                "height": window\.screen\.bounds\.size\.height\.rounded\(\),[\s\S]*?\+                "height": window\.bounds\.size\.height\.rounded\(\),[\s\S]*?\+                "width": window\.bounds\.size\.width\.rounded\(\)/,
     );
+});
+
+test('CarPlay Dashboard uses the Mapbox release with its active-scene renderer fix', () => {
+    assert.match(appConfigSource, /RNMapboxMapsVersion: '11\.24\.1'/);
+    assert.match(
+        mapLocationPuckPodspecSource,
+        /dependency 'MapboxMaps', '= 11\.24\.1'/,
+    );
+    assert.match(mapLocationPuckAndroidBuildSource, /'11\.24\.1'/);
 });
 
 test('CarPlay refreshes the active maneuver estimate after publishing maneuvers', () => {

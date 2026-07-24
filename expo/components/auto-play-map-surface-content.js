@@ -1448,6 +1448,7 @@ export function AutoPlayMapSurfaceContent({
     colorScheme,
     id,
     platformConfig,
+    showDrivingStatus = false,
     windowInfo,
 }) {
     const {
@@ -1460,6 +1461,7 @@ export function AutoPlayMapSurfaceContent({
     };
     const autoPlayState = useAutoPlayState();
     const isRootMapSurface = !id || id === AUTO_PLAY_ROOT_MODULE_ID;
+    const rendersDrivingStatus = isRootMapSurface || showDrivingStatus;
     const fittedDirectionsRouteKeyRef = useRef('');
     const fittedSearchResultsKeyRef = useRef('');
     const mapBrowsingContextWasActiveRef = useRef(false);
@@ -1492,8 +1494,9 @@ export function AutoPlayMapSurfaceContent({
         isRootMapSurface && (routePreviewIsActive || searchResultsMapIsActive),
     );
     const mapContentVisibility = getAutoPlayMapContentVisibility({
-        routePreviewIsActive: isRootMapSurface && routePreviewIsActive,
-        searchResultsMapIsActive: isRootMapSurface && searchResultsMapIsActive,
+        routePreviewIsActive: rendersDrivingStatus && routePreviewIsActive,
+        searchResultsMapIsActive:
+            rendersDrivingStatus && searchResultsMapIsActive,
         surveillanceMarkersVisible: mapPreferences.surveillanceMarkersVisible,
     });
     const navigationPuckRefreshKey = getAutoPlayNavigationPuckRefreshKey({
@@ -1590,7 +1593,8 @@ export function AutoPlayMapSurfaceContent({
         [markerLoader.markerPoints],
     );
     const electronicHorizon = useElectronicHorizon({
-        enabled: isRootMapSurface && isDrivingMode && !searchResultsMapIsActive,
+        enabled:
+            rendersDrivingStatus && isDrivingMode && !searchResultsMapIsActive,
     });
     const policeAlertsLoader = useWazePoliceAlerts({
         policeAlertsAreEnabled:
@@ -1607,7 +1611,8 @@ export function AutoPlayMapSurfaceContent({
     const { upcomingAlerts } = useUpcomingElectronicHorizonAlerts({
         directionsRoute: activeDirectionsRoute,
         electronicHorizon,
-        enabled: isRootMapSurface && isDrivingMode && !searchResultsMapIsActive,
+        enabled:
+            rendersDrivingStatus && isDrivingMode && !searchResultsMapIsActive,
         policeAlerts: policeAlertsLoader.policeAlerts,
         userLocation: mapPreferences.userLocation,
     });
@@ -1939,14 +1944,15 @@ export function AutoPlayMapSurfaceContent({
                 }}
             >
                 <MapCanvas />
-                {isRootMapSurface && !searchResultsMapIsActive ? (
+                {rendersDrivingStatus && !searchResultsMapIsActive ? (
                     <AutoPlayMapStatusOverlay
                         activeDirectionsRoute={activeDirectionsRoute}
                         drivingStatusIsVisible={
                             mapContentVisibility.drivingStatusIsVisible
                         }
                         freeDriveIsActive={
-                            controller.roadMatchedLocationWatchEnabled
+                            controller.roadMatchedLocationWatchEnabled ||
+                            showDrivingStatus
                         }
                         markerLoader={markerLoader}
                         mapPreferencesAreLoaded={
@@ -1958,7 +1964,7 @@ export function AutoPlayMapSurfaceContent({
                         viewportMetrics={viewportMetrics}
                     />
                 ) : null}
-                {isRootMapSurface ? (
+                {rendersDrivingStatus ? (
                     <AutoPlayTopRightStatusOverlay
                         mapControlLayoutInsets={
                             presentation.mapControlLayoutInsets

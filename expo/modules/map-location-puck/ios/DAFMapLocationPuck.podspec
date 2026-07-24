@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   s.static_framework = true
 
   s.dependency 'ExpoModulesCore'
-  s.dependency 'MapboxMaps', '= 11.20.2'
+  s.dependency 'MapboxMaps', '= 11.24.1'
 
   s.source_files = '**/*.swift'
   s.resources = 'navigation_puck.glb'

@@ -193,7 +193,7 @@ module.exports = {
         [
             '@rnmapbox/maps',
             {
-                RNMapboxMapsVersion: '11.20.2',
+                RNMapboxMapsVersion: '11.24.1',
             },
         ],
         [

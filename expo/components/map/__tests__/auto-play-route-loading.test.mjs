@@ -100,10 +100,10 @@ describe('Auto Play route-loading state', () => {
 });
 
 describe('Auto Play route-loading overlay', () => {
-    test('renders above the root map even while search results own the map', () => {
+    test('renders on shared driving maps even while search results own the map', () => {
         assert.match(
             mapSurfaceSource,
-            /isRootMapSurface && !searchResultsMapIsActive[\s\S]*?<AutoPlayMapStatusOverlay[\s\S]*?\) : null\}[\s\S]*?isRootMapSurface \? \([\s\S]*?<AutoPlayTopRightStatusOverlay[\s\S]*?routeLoading=\{autoPlayState\.routeLoading\}/,
+            /rendersDrivingStatus && !searchResultsMapIsActive[\s\S]*?<AutoPlayMapStatusOverlay[\s\S]*?\) : null\}[\s\S]*?rendersDrivingStatus \? \([\s\S]*?<AutoPlayTopRightStatusOverlay[\s\S]*?routeLoading=\{autoPlayState\.routeLoading\}/,
         );
         assert.match(
             mapStatusOverlaySource,

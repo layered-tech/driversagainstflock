@@ -167,7 +167,7 @@ test('Android Auto supplies submitted result markers and frames them on its map'
     );
     assert.match(
         autoPlayMapSurfaceSource,
-        /isRootMapSurface && !searchResultsMapIsActive[\s\S]*?<AutoPlayMapStatusOverlay/,
+        /rendersDrivingStatus && !searchResultsMapIsActive[\s\S]*?<AutoPlayMapStatusOverlay/,
     );
     assert.match(
         mapScreenContextSource,
