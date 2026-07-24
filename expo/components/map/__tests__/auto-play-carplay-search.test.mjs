@@ -52,10 +52,23 @@ const autoPlayPatch = readFileSync(
     'utf8',
 );
 
-test('CarPlay starts native voice input before falling back to keyboard Search', () => {
+test('CarPlay keeps keyboard Search and voice input as separate header actions', () => {
     assert.match(
         autoPlaySource,
-        /handleRootHeaderSearchPress[\s\S]*?startSearchVoiceInput[\s\S]*?onFallback:[\s\S]*?openSearchTemplate\(\)/,
+        /const handleRootHeaderSearchPress = \(\) => \{\s*openSearchTemplate\(\);\s*\};/,
+    );
+    assert.match(
+        autoPlaySource,
+        /const handleRootHeaderVoiceSearchPress = \(\) => \{[\s\S]*?startSearchVoiceInput[\s\S]*?onFallback:[\s\S]*?openSearchTemplate\(\)/,
+    );
+    assert.match(
+        autoPlaySource,
+        /ROOT_HEADER_VOICE_SEARCH_IMAGE = makeGlyphImage\('microphone'/,
+    );
+    assert.match(autoPlaySource, /microphone:\s*0xf130,/);
+    assert.match(
+        autoPlaySource,
+        /leadingNavigationBarButtons:\s*\[searchButton, voiceSearchButton\]/,
     );
     assert.match(voiceSearchControllerSource, /hasVoiceInputPermission/);
     assert.match(voiceSearchControllerSource, /requestVoiceInputPermission/);
@@ -149,7 +162,7 @@ test('CarPlay keeps cancellation and no-match states driving safe', () => {
     );
     assert.match(
         autoPlaySource,
-        /onNoMatch:[\s\S]*?No destination was heard\. Tap Search to try again\./,
+        /onNoMatch:[\s\S]*?No destination was heard\. Tap the microphone to try again, or Search to use the keyboard\./,
     );
 });
 
