@@ -35,12 +35,96 @@ export function getLocationWatchOptions({
 
 export function shouldUseDeviceLocationWatch({
     autoDriveSimulationIsActive,
-    enhancedNavigationLocationWatchEnabled,
     phoneLocationUpdatesAreEnabled,
+    roadMatchedLocationWatchEnabled,
 }) {
     return (
         phoneLocationUpdatesAreEnabled &&
-        !enhancedNavigationLocationWatchEnabled &&
+        !roadMatchedLocationWatchEnabled &&
         !autoDriveSimulationIsActive
+    );
+}
+
+export function shouldAcceptLocationUpdate({
+    location,
+    roadMatchedLocationWatchEnabled,
+}) {
+    return (
+        roadMatchedLocationWatchEnabled ===
+        isRoadMatchedLocationUpdate(location)
+    );
+}
+
+export function isRoadMatchedLocationUpdate(location) {
+    return (
+        location?.roadMatch !== null && typeof location?.roadMatch === 'object'
+    );
+}
+
+export async function getCurrentPositionForActiveLocationSource({
+    getCurrentPositionAsync,
+    getLastRoadMatchedLocation,
+    isMountedRef,
+    roadMatchedLocationWatchEnabledRef,
+}) {
+    async function getRoadMatchedLocationIfOwned() {
+        if (!roadMatchedLocationWatchEnabledRef?.current) {
+            return undefined;
+        }
+
+        const roadMatchedLocation = await getLastRoadMatchedLocation().catch(
+            () => null,
+        );
+
+        if (!isMountedRef.current) {
+            return null;
+        }
+
+        if (!roadMatchedLocationWatchEnabledRef.current) {
+            return undefined;
+        }
+
+        return isRoadMatchedLocationUpdate(roadMatchedLocation)
+            ? roadMatchedLocation
+            : null;
+    }
+
+    const currentRoadMatchedLocation = await getRoadMatchedLocationIfOwned();
+
+    if (currentRoadMatchedLocation !== undefined) {
+        return currentRoadMatchedLocation;
+    }
+
+    const rawPosition = await getCurrentPositionAsync();
+
+    if (!isMountedRef.current) {
+        return null;
+    }
+
+    const roadMatchedLocationAfterRawFix =
+        await getRoadMatchedLocationIfOwned();
+
+    if (roadMatchedLocationAfterRawFix !== undefined) {
+        return roadMatchedLocationAfterRawFix;
+    }
+
+    return rawPosition;
+}
+
+export function shouldUseRoadMatchedLocationWatch({
+    autoDriveSimulationIsActive,
+    isDrivingMode,
+    locationAccessGranted,
+    persistentRoadMatchingWatchIsActive,
+    phoneLocationUpdatesAreEnabled,
+    roadMatchingIsSupported,
+}) {
+    return (
+        locationAccessGranted &&
+        !autoDriveSimulationIsActive &&
+        roadMatchingIsSupported &&
+        (isDrivingMode ||
+            (phoneLocationUpdatesAreEnabled &&
+                persistentRoadMatchingWatchIsActive))
     );
 }

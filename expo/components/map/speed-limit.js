@@ -2,10 +2,7 @@ import { useRef } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { mapApiMocksAreEnabled } from './api-mocks';
 import { getSpeedLimitBadgeLayout } from './speed-limit-layout';
-import {
-    getMockCurrentSpeedMps,
-    getMockSpeedLimitSnapshot,
-} from './speed-limit-mock';
+import { getMockCurrentSpeedMps } from './speed-limit-mock';
 
 const METERS_PER_SECOND_TO_MILES_PER_HOUR = 2.2369362920544;
 const SPEED_LIMIT_RETENTION_MS = 3000;
@@ -28,9 +25,7 @@ function getWholeMphFromMetersPerSecond(speedMps) {
 
 export function useRouteSpeedLimit({ routeIsActive, userLocation }) {
     const cachedSpeedLimitRef = useRef(null);
-    const speedLimit = mapApiMocksAreEnabled()
-        ? getMockSpeedLimitSnapshot()
-        : userLocation?.mapboxNavigation?.speedLimit;
+    const speedLimit = userLocation?.roadMatch?.speedLimit;
     const retainedSpeedLimit = getRetainedRouteSpeedLimit({
         cachedSpeedLimit: cachedSpeedLimitRef.current,
         routeIsActive,

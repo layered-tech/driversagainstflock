@@ -71,7 +71,7 @@ describe('current road pill layout', () => {
     test('replaces retained roads and clears explicit off-road matches', () => {
         assert.equal(
             getRetainedCurrentRoadText('Main Street', {
-                mapboxNavigation: {
+                roadMatch: {
                     roadContext: { primaryText: 'Oak Avenue' },
                 },
             }),
@@ -79,7 +79,7 @@ describe('current road pill layout', () => {
         );
         assert.equal(
             getRetainedCurrentRoadText('Oak Avenue', {
-                mapboxNavigation: { isOffRoad: true },
+                roadMatch: { isOffRoad: true },
             }),
             '',
         );

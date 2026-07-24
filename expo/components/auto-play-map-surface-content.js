@@ -1,6 +1,12 @@
-import { useNavigationCamera } from '@rnmapbox/navigation';
 import * as Location from 'expo-location';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import { Dimensions, View } from 'react-native';
 import {
     autoPlayCameraDebugStateUpdatesAreEnabled,
@@ -78,7 +84,7 @@ import {
     makeMarkerFeatureCollection,
     normalizeDirectionDegrees,
 } from './map/geo';
-import { getFallbackCameraFollowProps } from './map/location-bound-camera-follow';
+import { shouldAcceptLocationUpdate } from './map/location-watch-options';
 import { MapCanvas } from './map/map-canvas';
 import {
     MapScreenProviders,
@@ -87,11 +93,11 @@ import {
 import { getSubmittedSearchResultsBounds } from './map/submitted-search-results-bounds';
 import { useDeferredCameraDebugState } from './map/use-deferred-camera-debug-state';
 import {
-    mapboxNavigationEnhancedLocationIsSupported,
+    roadMatchingLocationIsSupported,
     useCurrentLocation,
-    useEnhancedLocationWatch,
     useHeadingWatch,
     useLocationWatch,
+    useRoadMatchedLocationWatch,
 } from './map/use-device-location';
 import { useElectronicHorizon } from './map/use-electronic-horizon';
 import { useMapboxStandardLightPreset } from './map/use-map-light-preset';
@@ -542,6 +548,7 @@ function useAutoPlayMapController({
     const pendingCameraStopRef = useRef(null);
     const previousDrivingModeRef = useRef(isDrivingMode);
     const previousMarkersAreVisibleRef = useRef(markersAreVisible);
+    const roadMatchedLocationWatchEnabledRef = useRef(false);
     const userLocationRef = useRef(null);
     const viewportMetricsRef = useRef(viewportMetrics);
     const { currentCameraDebugState, setPendingCameraDebugState } =
@@ -555,6 +562,7 @@ function useAutoPlayMapController({
         useCurrentLocation({
             currentCourseHeadingRef,
             isMountedRef,
+            roadMatchedLocationWatchEnabledRef,
             setUserLocation,
         });
 
@@ -955,6 +963,16 @@ function useAutoPlayMapController({
 
     const handleUserLocationUpdate = useCallback(
         (location) => {
+            if (
+                !shouldAcceptLocationUpdate({
+                    location,
+                    roadMatchedLocationWatchEnabled:
+                        roadMatchedLocationWatchEnabledRef.current,
+                })
+            ) {
+                return;
+            }
+
             const nextLocation = getLocationUpdate(location);
 
             if (!nextLocation || !isMountedRef.current) {
@@ -1034,22 +1052,27 @@ function useAutoPlayMapController({
     // would fight the simulated route positions, so the simulation becomes the
     // only location source for the car screen.
     const autoDriveSimulationIsActive = useAutoDriveSimulationIsActive();
-    const enhancedNavigationLocationWatchEnabled =
+    const roadMatchedLocationWatchEnabled =
         locationUpdatesEnabled &&
         locationAccessGranted &&
         !autoDriveSimulationIsActive &&
-        mapboxNavigationEnhancedLocationIsSupported();
+        roadMatchingLocationIsSupported();
 
-    useEnhancedLocationWatch({
-        enabled: enhancedNavigationLocationWatchEnabled,
-        foregroundService: true,
+    useLayoutEffect(() => {
+        roadMatchedLocationWatchEnabledRef.current =
+            roadMatchedLocationWatchEnabled;
+    }, [roadMatchedLocationWatchEnabled]);
+
+    useRoadMatchedLocationWatch({
+        enabled: roadMatchedLocationWatchEnabled,
         handleUserLocationUpdate,
         isMountedRef,
+        persistent: true,
     });
     useLocationWatch({
         enabled:
             locationUpdatesEnabled &&
-            !enhancedNavigationLocationWatchEnabled &&
+            !roadMatchedLocationWatchEnabled &&
             !autoDriveSimulationIsActive,
         handleUserLocationUpdate,
         isDrivingMode,
@@ -1080,25 +1103,7 @@ function useAutoPlayMapController({
         locationAccessGranted,
     });
 
-    const navigationCameraMode = followLocationMode.nativeCameraFollowProps
-        ?.enabled
-        ? 'following'
-        : 'idle';
-    const navigationCamera = useNavigationCamera({
-        attachKey: isMapReady ? 'ready' : 'pending',
-        cameraOptions: followLocationMode.nativeCameraFollowProps,
-        enabled:
-            enhancedNavigationLocationWatchEnabled &&
-            isDrivingMode &&
-            isMapReady,
-        mapViewRef,
-        mode: navigationCameraMode,
-        surfaceId: 'android-auto',
-    });
-    const nativeCameraFollowProps = getFallbackCameraFollowProps(
-        followLocationMode.nativeCameraFollowProps,
-        navigationCamera.state,
-    );
+    const nativeCameraFollowProps = followLocationMode.nativeCameraFollowProps;
 
     const handleZoomPress = useCallback(
         (zoomDelta, center) => {
@@ -1433,7 +1438,7 @@ function useAutoPlayMapController({
         locationTrackingMode,
         markerShapeSourceRef,
         mapViewRef,
-        enhancedNavigationLocationWatchEnabled,
+        roadMatchedLocationWatchEnabled,
         nativeCameraFollowProps,
     };
 }
@@ -1941,7 +1946,7 @@ export function AutoPlayMapSurfaceContent({
                             mapContentVisibility.drivingStatusIsVisible
                         }
                         freeDriveIsActive={
-                            controller.enhancedNavigationLocationWatchEnabled
+                            controller.roadMatchedLocationWatchEnabled
                         }
                         markerLoader={markerLoader}
                         mapPreferencesAreLoaded={

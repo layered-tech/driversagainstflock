@@ -62,6 +62,7 @@ import {
 import { MapSearchOverlay } from './map/map-search-overlay';
 import { MarkerDetailsSheet } from './map/marker-details-sheet';
 import { NativeWindSafeAreaView } from './map/native-components';
+import { RoadMatchingE2EProbe } from './map/road-matching-e2e-probe';
 import { SelectedPlaceSheet } from './map/selected-place-sheet';
 import {
     useSharedMapLocationState,
@@ -665,6 +666,13 @@ export default function LocationMapScreen({
                 {screenIsFocused ? (
                     <>
                         <MapCanvas />
+                        {e2eMapApiMocksAreRequested ? (
+                            <RoadMatchingE2EProbe
+                                mapViewRef={locationController.mapViewRef}
+                                roadLookAhead={electronicHorizon}
+                                userLocation={userLocation}
+                            />
+                        ) : null}
                         {contributePlacementIsActive ? (
                             <ContributeCrosshair />
                         ) : null}
@@ -696,7 +704,9 @@ export default function LocationMapScreen({
                                         locationController={locationController}
                                         mapControls={
                                             <MapControlsOverlay
-                                                showContributeEntryButton={false}
+                                                showContributeEntryButton={
+                                                    false
+                                                }
                                             />
                                         }
                                     />

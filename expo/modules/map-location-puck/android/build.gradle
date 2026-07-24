@@ -1,0 +1,21 @@
+apply plugin: 'com.android.library'
+
+group = 'expo.modules.maplocationpuck'
+version = '1.0.0'
+
+def mapboxMapsVersion = rootProject.findProperty('expoRNMapboxMapsVersion') ?: '11.20.2'
+
+def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
+apply from: expoModulesCorePlugin
+applyKotlinExpoModulesCorePlugin()
+useCoreDependencies()
+useDefaultAndroidSdkVersions()
+
+android {
+    namespace "expo.modules.maplocationpuck"
+}
+
+dependencies {
+    implementation project(':rnmapbox_maps')
+    compileOnly "com.mapbox.maps:android-ndk27:${mapboxMapsVersion}"
+}

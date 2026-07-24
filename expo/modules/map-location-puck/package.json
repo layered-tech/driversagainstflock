@@ -1,0 +1,7 @@
+{
+    "name": "daf-map-location-puck",
+    "version": "1.0.0",
+    "description": "Mapbox Maps 3D location puck for Drivers Against Flock",
+    "license": "MIT",
+    "private": true
+}

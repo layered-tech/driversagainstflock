@@ -2,6 +2,7 @@ import { addSentryBreadcrumb } from '../../lib/sentry';
 import {
     getMockDirections,
     getMockPlaceDetails,
+    getMockRoadCorridor,
     getMockSpeedLimit,
     mapApiMocksAreEnabled,
     searchMockPlaces,
@@ -140,6 +141,113 @@ async function readSpeedLimitResponse(response) {
         speedLimitMph,
         unit: result.unit || 'mph',
     };
+}
+
+function getRoadNodeId(coordinate) {
+    return `${Number(coordinate[0]).toFixed(7)},${Number(coordinate[1]).toFixed(7)}`;
+}
+
+const ROAD_CLASS_PRIORITIES = Object.freeze({
+    living_street: 1,
+    motorway: 8,
+    motorway_link: 7,
+    primary: 6,
+    primary_link: 5,
+    residential: 2,
+    road: 1,
+    secondary: 5,
+    secondary_link: 4,
+    service: 0,
+    tertiary: 4,
+    tertiary_link: 3,
+    trunk: 7,
+    trunk_link: 6,
+    unclassified: 2,
+});
+
+function normalizeRoadCorridorWay(way) {
+    const coordinates = Array.isArray(way?.coordinates)
+        ? way.coordinates
+              .map((coordinate) => {
+                  const longitude = getStoredNumber(coordinate?.[0]);
+                  const latitude = getStoredNumber(coordinate?.[1]);
+
+                  return longitude !== null &&
+                      latitude !== null &&
+                      longitude >= -180 &&
+                      longitude <= 180 &&
+                      latitude >= -90 &&
+                      latitude <= 90
+                      ? [normalizeLongitude(longitude), latitude]
+                      : null;
+              })
+              .filter(Boolean)
+        : [];
+
+    if (coordinates.length < 2 || way?.id === null || way?.id === undefined) {
+        return null;
+    }
+
+    const providedNodeIds = Array.isArray(way.node_ids)
+        ? way.node_ids
+        : Array.isArray(way.nodeIds)
+          ? way.nodeIds
+          : [];
+    const nodeIds = coordinates.map((coordinate, index) =>
+        String(providedNodeIds[index] ?? getRoadNodeId(coordinate)),
+    );
+    const speedLimitMph = getStoredNumber(way.speed_limit_mph);
+    const speedLimitForwardMph = getStoredNumber(way.speed_limit_forward_mph);
+    const speedLimitBackwardMph = getStoredNumber(way.speed_limit_backward_mph);
+    const roadClass = typeof way.road_class === 'string' ? way.road_class : '';
+    const makeSpeedLimit = (value) =>
+        value !== null
+            ? {
+                  speed: value,
+                  speedLimitMph: value,
+                  unit: 'mph',
+              }
+            : null;
+
+    return {
+        coordinates,
+        direction:
+            way.direction === 'reverse' ? 'backward' : way.direction || 'both',
+        id: String(way.id),
+        layer: getStoredNumber(way.layer) ?? 0,
+        name:
+            typeof way.name === 'string'
+                ? way.name
+                : typeof way.ref === 'string'
+                  ? way.ref
+                  : '',
+        nodeIds,
+        osmWayId: way.osm_way_id ?? null,
+        priority: ROAD_CLASS_PRIORITIES[roadClass] ?? 0,
+        roadClass,
+        speedLimit: makeSpeedLimit(speedLimitMph),
+        speedLimits: {
+            backward: makeSpeedLimit(speedLimitBackwardMph),
+            forward: makeSpeedLimit(speedLimitForwardMph),
+        },
+        tunnel: way.tunnel === true,
+    };
+}
+
+async function readRoadCorridorResponse(response) {
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data?.ok === false) {
+        throw new Error(
+            data?.error ||
+                data?.message ||
+                'Road corridor could not be loaded.',
+        );
+    }
+
+    return Array.isArray(data?.result?.ways)
+        ? data.result.ways.map(normalizeRoadCorridorWay).filter(Boolean)
+        : [];
 }
 
 function throwIfAborted(signal) {
@@ -748,6 +856,62 @@ export async function getSpeedLimit({ location, signal }) {
         addApiErrorBreadcrumb({
             error,
             operation: 'Speed limit',
+        });
+        throw error;
+    }
+}
+
+export async function getRoadCorridor({
+    location,
+    radiusMeters = 1200,
+    signal,
+}) {
+    if (mapApiMocksAreEnabled()) {
+        return getMockRoadCorridor({ signal });
+    }
+
+    const latitude = getStoredNumber(location?.latitude);
+    const longitude = getStoredNumber(location?.longitude);
+
+    if (
+        latitude === null ||
+        longitude === null ||
+        latitude < -90 ||
+        latitude > 90
+    ) {
+        return [];
+    }
+
+    try {
+        const response = await fetch(
+            buildApiURL('v1/road-corridor', {
+                latitude,
+                longitude: normalizeLongitude(longitude),
+                radius_meters: radiusMeters,
+            }),
+            {
+                headers: {
+                    Accept: 'application/json',
+                },
+                signal,
+            },
+        );
+        const ways = await readRoadCorridorResponse(response);
+
+        addSentryBreadcrumb({
+            category: 'map.road_matching',
+            data: {
+                radiusMeters,
+                wayCount: ways.length,
+            },
+            message: 'Road corridor loaded',
+        });
+
+        return ways;
+    } catch (error) {
+        addApiErrorBreadcrumb({
+            error,
+            operation: 'Road corridor',
         });
         throw error;
     }
