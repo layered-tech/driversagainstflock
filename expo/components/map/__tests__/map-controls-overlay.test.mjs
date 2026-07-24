@@ -31,4 +31,11 @@ describe('MapControlsOverlay', () => {
             /if \(!freeDriveIsActive \|\| !searchController\.searchPageIsVisible\) \{[\s\S]*?logMapDrivingStopped\(\{ route: null \}\);[\s\S]*?setDrivingModeIsActive\(false\);/,
         );
     });
+
+    test('visually centers the free-drive icon with a subtle optical offset', () => {
+        assert.match(
+            mapControlsOverlaySource,
+            /<View className="-translate-x-px translate-y-px">[\s\S]*?<Icon[\s\S]*?name=\{freeDriveIsActive \? 'x' : 'navigation'\}/,
+        );
+    });
 });

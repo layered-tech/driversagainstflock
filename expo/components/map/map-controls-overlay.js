@@ -9,7 +9,7 @@ import { MarkerLoadingIndicator } from './marker-loading-indicator';
 
 export function MapControlsOverlay({
     showFreeDriveButton = true,
-    showContributeEntryButton = true
+    showContributeEntryButton = true,
 }) {
     const {
         defaultMapControlClassName,
@@ -100,15 +100,17 @@ export function MapControlsOverlay({
                             : 'start-free-drive-button'
                     }
                 >
-                    <Icon
-                        color={
-                            freeDriveIsActive
-                                ? '#FF4D4F'
-                                : defaultMapControlIconColor
-                        }
-                        name={freeDriveIsActive ? 'x' : 'navigation'}
-                        size={21}
-                    />
+                    <View className="-translate-x-px translate-y-px">
+                        <Icon
+                            color={
+                                freeDriveIsActive
+                                    ? '#FF4D4F'
+                                    : defaultMapControlIconColor
+                            }
+                            name={freeDriveIsActive ? 'x' : 'navigation'}
+                            size={21}
+                        />
+                    </View>
                 </MapControlButton>
             ) : null}
 

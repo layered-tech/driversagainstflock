@@ -1,4 +1,5 @@
 import { createCarPlayVoiceSearchController } from './auto-play-carplay-voice-search';
+import { CarPlayDashboardSurface } from './carplay-dashboard-surface';
 import { CarPlayMapSurface } from './carplay-map-surface';
 
 let voiceSearchController;
@@ -9,8 +10,8 @@ function applyDashboardButtons(CarPlayDashboard, makeGlyphImage) {
             image: makeGlyphImage('location'),
             launchHeadUnitScene: true,
             onPress: () => {},
-            subtitleVariants: ['Open the live map'],
-            titleVariants: ['Drivers Against Flock'],
+            subtitleVariants: ['Find a destination'],
+            titleVariants: ['Open map'],
         },
     ]);
 }
@@ -53,9 +54,10 @@ export const autoPlayPlatform = {
             });
         voiceSearchController = registeredVoiceSearchController;
 
-        // The CarPlay dashboard tile renders the same map surface. CarPlay keeps
-        // the scene hidden until at least one shortcut button is configured.
-        CarPlayDashboard.setComponent(CarPlayMapSurface);
+        // Dashboard runs in a secondary CarPlay scene, so it owns a surface
+        // that waits for that scene before mounting Mapbox and shows routing
+        // status alongside it. A shortcut is still required for visibility.
+        CarPlayDashboard.setComponent(CarPlayDashboardSurface);
         applyDashboardButtons(CarPlayDashboard, makeGlyphImage);
         CarPlayDashboard.addListener('didConnect', () => {
             applyDashboardButtons(CarPlayDashboard, makeGlyphImage);
