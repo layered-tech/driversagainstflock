@@ -104,6 +104,7 @@ const AUTO_PLAY_ICON_GLYPH_MAP = {
     'level-up-alt': 0xf3bf,
     location: 0xf3c5,
     minus: 0xf068,
+    microphone: 0xf130,
     plus: 0xf067,
     search: 0xf002,
     xmark: 0xf00d,
@@ -2752,6 +2753,9 @@ function handleRootHeaderPrimaryLocationPress(type) {
 }
 
 const handleRootHeaderSearchPress = () => {
+    openSearchTemplate();
+};
+const handleRootHeaderVoiceSearchPress = () => {
     if (
         autoPlayPlatform?.startSearchVoiceInput?.({
             onFallback: () => {
@@ -2760,13 +2764,13 @@ const handleRootHeaderSearchPress = () => {
             onNoMatch: () => {
                 showAutoPlayError(
                     'Voice search',
-                    'No destination was heard. Tap Search to try again.',
+                    'No destination was heard. Tap the microphone to try again, or Search to use the keyboard.',
                 );
             },
             onUnavailable: () => {
                 showAutoPlayError(
                     'Voice search unavailable',
-                    'Voice search could not start. Check Microphone and Speech Recognition access on your iPhone, then tap Search again.',
+                    'Voice search could not start. Check Microphone and Speech Recognition access on your iPhone, then tap the microphone to try again or Search to use the keyboard.',
                 );
             },
         }) === true
@@ -2783,6 +2787,9 @@ const handleRootHeaderExitNavigationPress = () => {
     stopAutoPlayNavigation();
 };
 const ROOT_HEADER_SEARCH_IMAGE = makeGlyphImage('search', {
+    backgroundColor: 'transparent',
+});
+const ROOT_HEADER_VOICE_SEARCH_IMAGE = makeGlyphImage('microphone', {
     backgroundColor: 'transparent',
 });
 const ROOT_HEADER_PRIMARY_LOCATION_IMAGES = {
@@ -2844,6 +2851,11 @@ function getRootMapHeaderActions() {
         onPress: handleRootHeaderSearchPress,
         type: 'image',
     };
+    const voiceSearchButton = {
+        image: ROOT_HEADER_VOICE_SEARCH_IMAGE,
+        onPress: handleRootHeaderVoiceSearchPress,
+        type: 'image',
+    };
     const trailingNavigationButton = trailingNavigationButtonIsVisible
         ? {
               image: navigationExitButtonIsVisible
@@ -2871,7 +2883,7 @@ function getRootMapHeaderActions() {
             ...(trailingNavigationButton ? [trailingNavigationButton] : []),
         ],
         ios: {
-            leadingNavigationBarButtons: [searchButton],
+            leadingNavigationBarButtons: [searchButton, voiceSearchButton],
             trailingNavigationBarButtons: trailingNavigationButton
                 ? [trailingNavigationButton]
                 : carPlayPrimaryLocationButtons,
