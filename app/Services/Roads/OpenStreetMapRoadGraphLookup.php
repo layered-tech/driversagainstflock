@@ -161,7 +161,11 @@ class OpenStreetMapRoadGraphLookup
      */
     private function cacheCell(float $latitude, float $longitude, int $radiusMeters): array
     {
-        $gridMeters = max(25, (int) config('road-corridor.cache_grid_meters'));
+        $gridMeters = max(
+            $radiusMeters,
+            25,
+            (int) config('road-corridor.cache_grid_meters'),
+        );
         $latitudeStep = $gridMeters / self::METERS_PER_LATITUDE_DEGREE;
         $latitudeCell = (int) floor(($latitude + 90) / $latitudeStep);
         $cellLatitude = min(90, -90 + (($latitudeCell + 0.5) * $latitudeStep));
@@ -175,7 +179,7 @@ class OpenStreetMapRoadGraphLookup
         );
         $cellCoverageMeters = (int) ceil(($gridMeters / sqrt(2)) * 1.02);
         $cacheKey = sprintf(
-            'road-corridor:v6:%d:%d:%d:%d',
+            'road-corridor:v7:%d:%d:%d:%d',
             $gridMeters,
             $latitudeCell,
             $longitudeCell,

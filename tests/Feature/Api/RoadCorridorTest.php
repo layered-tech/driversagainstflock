@@ -402,6 +402,36 @@ it('serves a persisted corridor to nearby requests', function () {
     Http::assertSentCount(1);
 });
 
+it('shares a default corridor cache entry across its request radius', function () {
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::response([
+            'elements' => compactOverpassElements([
+                [
+                    'type' => 'way',
+                    'id' => 2800,
+                    'nodes' => [2801, 2802],
+                    'tags' => ['highway' => 'primary'],
+                    'geometry' => [
+                        ['lat' => 43.1048, 'lon' => -88.3142],
+                        ['lat' => 43.1052, 'lon' => -88.3020],
+                    ],
+                ],
+            ]),
+        ]),
+    ]);
+
+    $this->getJson('/api/v1/road-corridor?latitude=43.105&longitude=-88.314&radius_meters=3200')
+        ->assertOk()
+        ->assertJsonPath('result.ways.0.osm_way_id', 2800);
+
+    $this->getJson('/api/v1/road-corridor?latitude=43.105&longitude=-88.302&radius_meters=3200')
+        ->assertOk()
+        ->assertJsonPath('result.ways.0.osm_way_id', 2800);
+
+    expect(DB::table('road_corridor_caches')->count())->toBe(1);
+    Http::assertSentCount(1);
+});
+
 it('serves an empty persisted corridor to nearby requests in the same cache cell', function () {
     Http::fake([
         'https://overpass.test/api/interpreter' => Http::response([
@@ -419,7 +449,7 @@ it('serves an empty persisted corridor to nearby requests in the same cache cell
     Http::assertSent(function (Request $request): bool {
         $query = $request->data()['data'] ?? '';
 
-        return str_contains($query, 'way(around:2361,')
+        return str_contains($query, 'way(around:3443,')
             && ! str_contains($query, '45.523000,-122.676000');
     });
 });
