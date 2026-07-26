@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from '../lib/safe-area-insets';
 import {
     EMPTY_CAMERA_PADDING,
@@ -14,7 +14,6 @@ import {
     getFollowCameraPadding,
 } from './map/follow-camera-padding';
 import { getFollowZoomUpdate } from './map/follow-zoom-update';
-import { getImperativeFollowCameraStop } from './map/imperative-follow-camera';
 
 const LOCATION_FOLLOW_CAMERA_PITCH = 55;
 const METERS_PER_SECOND_PER_MPH = 0.44704;
@@ -92,7 +91,6 @@ export function useFollowLocationMode({
     const insets = useSafeAreaInsets();
     const recenterReasonRef = useRef(null);
     const recenterIsNeededRef = useRef(false);
-    const followCameraLocationUpdateTimestampRef = useRef(null);
     const nativeFollowZoomLevelRef = useRef(LOCATION_ZOOM_LEVEL);
     const lastFollowSpeedZoomUpdateAtRef = useRef(null);
     const userZoomOverrideIsActiveRef = useRef(false);
@@ -174,8 +172,6 @@ export function useFollowLocationMode({
                 return nativeFollowZoomLevelRef.current;
             }
 
-            followCameraLocationUpdateTimestampRef.current = now;
-
             if (followSpeedZoomEnabled) {
                 lastFollowSpeedZoomUpdateAtRef.current = now;
             }
@@ -192,46 +188,15 @@ export function useFollowLocationMode({
             setNativeFollowZoomLevel,
         ],
     );
-    const updateImperativeFollowCamera = useCallback(
-        (location, zoomLevel = nativeFollowZoomLevelRef.current) => {
-            if (Platform.OS !== 'android') {
-                return;
-            }
-
-            const cameraStop = getImperativeFollowCameraStop({
-                location,
-                padding: followCameraPadding,
-                pitch: LOCATION_FOLLOW_CAMERA_PITCH,
-                zoomLevel,
-            });
-
-            if (cameraStop) {
-                cameraRef.current?.setCamera(cameraStop);
-            }
-        },
-        [cameraRef, followCameraPadding],
-    );
     const setUserZoomOverride = useCallback(
         (nextZoomLevel) => {
-            const recordedAt = Number(userLocationRef.current?.recordedAt);
-
             userZoomOverrideIsActiveRef.current = true;
-            followCameraLocationUpdateTimestampRef.current = Number.isFinite(
-                recordedAt,
-            )
-                ? recordedAt
-                : null;
             lastFollowSpeedZoomUpdateAtRef.current = null;
             setUserZoomOverrideIsActive(true);
             setNativeFollowZoomLevel(clampZoomLevel(nextZoomLevel));
             currentZoomRef.current = clampZoomLevel(nextZoomLevel);
         },
-        [
-            clampZoomLevel,
-            currentZoomRef,
-            setNativeFollowZoomLevel,
-            userLocationRef,
-        ],
+        [clampZoomLevel, currentZoomRef, setNativeFollowZoomLevel],
     );
     const clearUserZoomOverride = useCallback(() => {
         userZoomOverrideIsActiveRef.current = false;
@@ -243,8 +208,6 @@ export function useFollowLocationMode({
                 isDrivingMode &&
                 locationTrackingMode === LOCATION_TRACKING_FOLLOW &&
                 !recenterIsNeeded,
-            locationUpdateTimestamp:
-                followCameraLocationUpdateTimestampRef.current ?? undefined,
             padding: followCameraPadding,
             pitch: LOCATION_FOLLOW_CAMERA_PITCH,
             zoomLevel: nativeFollowZoomLevel,
@@ -268,10 +231,9 @@ export function useFollowLocationMode({
             setRecenterNeeded(false);
             setTrackingMode(LOCATION_TRACKING_FOLLOW);
             clearUserZoomOverride();
-            const nextZoomLevel = syncNativeFollowZoomLevel(location, {
+            syncNativeFollowZoomLevel(location, {
                 force: true,
             });
-            updateImperativeFollowCamera(location, nextZoomLevel);
         },
         [
             clearUserZoomOverride,
@@ -279,12 +241,10 @@ export function useFollowLocationMode({
             setRecenterNeeded,
             setTrackingMode,
             syncNativeFollowZoomLevel,
-            updateImperativeFollowCamera,
         ],
     );
 
     const stop = useCallback(() => {
-        followCameraLocationUpdateTimestampRef.current = null;
         lastFollowSpeedZoomUpdateAtRef.current = null;
         setRecenterNeeded(false);
         setTrackingMode(LOCATION_TRACKING_NONE);
@@ -305,7 +265,6 @@ export function useFollowLocationMode({
             return false;
         }
 
-        followCameraLocationUpdateTimestampRef.current = null;
         lastFollowSpeedZoomUpdateAtRef.current = null;
         setRecenterNeeded(true);
         return true;
@@ -336,10 +295,9 @@ export function useFollowLocationMode({
             markerLoadsEnabledRef.current = true;
             setRecenterNeeded(false);
             clearUserZoomOverride();
-            const nextZoomLevel = syncNativeFollowZoomLevel(location, {
+            syncNativeFollowZoomLevel(location, {
                 force: true,
             });
-            updateImperativeFollowCamera(location, nextZoomLevel);
             return true;
         },
         [
@@ -347,7 +305,6 @@ export function useFollowLocationMode({
             markerLoadsEnabledRef,
             setRecenterNeeded,
             syncNativeFollowZoomLevel,
-            updateImperativeFollowCamera,
             userLocationRef,
         ],
     );
@@ -367,21 +324,15 @@ export function useFollowLocationMode({
                 return true;
             }
 
-            const nextZoomLevel = followSpeedZoomEnabled
-                ? syncNativeFollowZoomLevel(location, {
-                      respectSpeedZoomInterval: true,
-                  })
-                : nativeFollowZoomLevelRef.current;
-
-            updateImperativeFollowCamera(location, nextZoomLevel);
+            if (followSpeedZoomEnabled) {
+                syncNativeFollowZoomLevel(location, {
+                    respectSpeedZoomInterval: true,
+                });
+            }
 
             return true;
         },
-        [
-            followSpeedZoomEnabled,
-            syncNativeFollowZoomLevel,
-            updateImperativeFollowCamera,
-        ],
+        [followSpeedZoomEnabled, syncNativeFollowZoomLevel],
     );
 
     const handleZoomLevelChange = useCallback(
@@ -412,7 +363,6 @@ export function useFollowLocationMode({
             !isDrivingMode ||
             locationTrackingMode !== LOCATION_TRACKING_FOLLOW
         ) {
-            followCameraLocationUpdateTimestampRef.current = null;
             lastFollowSpeedZoomUpdateAtRef.current = null;
             setRecenterNeeded(false);
         }

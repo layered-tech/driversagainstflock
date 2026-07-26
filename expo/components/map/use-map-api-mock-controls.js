@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
     getMockMarkerPointsSnapshot,
     setMapApiMocksEnabled,
@@ -12,6 +12,7 @@ function getSearchParamValue(value) {
 
 export function useMapApiMockControls({ locationController }) {
     const searchParams = useLocalSearchParams();
+    const initialMockCameraMoveHasRunRef = useRef(false);
     const e2eMapApiMocksParam = getSearchParamValue(
         searchParams.e2eMapApiMocks,
     );
@@ -31,6 +32,11 @@ export function useMapApiMockControls({ locationController }) {
 
     useEffect(() => {
         if (!e2eMapApiMocksAreRequested) {
+            initialMockCameraMoveHasRunRef.current = false;
+            return;
+        }
+
+        if (initialMockCameraMoveHasRunRef.current) {
             return;
         }
 
@@ -39,6 +45,7 @@ export function useMapApiMockControls({ locationController }) {
             .find(Boolean);
 
         if (markerCoordinate) {
+            initialMockCameraMoveHasRunRef.current = true;
             locationController.moveCameraToCoordinate(markerCoordinate);
         }
     }, [e2eMapApiMocksAreRequested, locationController.moveCameraToCoordinate]);

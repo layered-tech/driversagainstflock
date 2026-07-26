@@ -45,6 +45,36 @@ export function shouldUseDeviceLocationWatch({
     );
 }
 
+export function shouldRefreshLocationData({
+    appState,
+    persistentRoadMatchingWatchIsActive,
+}) {
+    return (
+        appState === 'active' || persistentRoadMatchingWatchIsActive === true
+    );
+}
+
+export function getRoadMatchingLocationSourcePolicy({
+    activeRetainerCount,
+    appState,
+    persistentRetainerCount,
+}) {
+    const sessionIsRetained = activeRetainerCount > 0;
+
+    return {
+        backgroundTaskIsNeeded:
+            sessionIsRetained && persistentRetainerCount > 0,
+        foregroundWatchIsNeeded: sessionIsRetained && appState === 'active',
+    };
+}
+
+export function shouldPublishBackgroundRoadMatchingLocation({
+    appState,
+    foregroundLocationSourceIsActive,
+}) {
+    return appState !== 'active' || foregroundLocationSourceIsActive !== true;
+}
+
 export function shouldAcceptLocationUpdate({
     location,
     roadMatchedLocationWatchEnabled,
@@ -52,6 +82,29 @@ export function shouldAcceptLocationUpdate({
     return (
         roadMatchedLocationWatchEnabled ===
         isRoadMatchedLocationUpdate(location)
+    );
+}
+
+export function getLocationUpdateRecordedAt(location) {
+    const value = location?.recordedAt ?? location?.timestamp;
+
+    if (value === null || value === undefined || value === '') {
+        return null;
+    }
+
+    const numericValue = Number(value);
+
+    return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+export function locationUpdateIsStale({ currentLocation, nextLocation }) {
+    const currentRecordedAt = getLocationUpdateRecordedAt(currentLocation);
+    const nextRecordedAt = getLocationUpdateRecordedAt(nextLocation);
+
+    return (
+        currentRecordedAt !== null &&
+        nextRecordedAt !== null &&
+        nextRecordedAt < currentRecordedAt
     );
 }
 

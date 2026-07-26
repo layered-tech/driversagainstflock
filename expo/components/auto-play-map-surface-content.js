@@ -53,11 +53,7 @@ import {
     MAPBOX_STANDARD_LIGHT_PRESET_NIGHT,
     SHOW_MAP_DEBUG_CONTROLS,
 } from './map/config';
-import {
-    DEFAULT_ZOOM_LEVEL,
-    MINIMUM_DRIVING_COURSE_SPEED_MPS,
-    ZOOM_STEP,
-} from './map/constants';
+import { DEFAULT_ZOOM_LEVEL, ZOOM_STEP } from './map/constants';
 import {
     DEBUG_OVERLAY_DIRECTIONS_GEOMETRY,
     DEBUG_OVERLAY_ELECTRONIC_HORIZON,
@@ -70,12 +66,12 @@ import {
     makeDirectionsDebugFeatureCollection,
     makeDirectionsRouteFeatureCollection,
 } from './map/directions';
+import { getLocationWithDrivingMotionState } from './map/driving-location-state';
+import { getDrivingMotionState } from './map/driving-motion-state';
 import { makeElectronicHorizonDebugFeatureCollection } from './map/electronic-horizon-debug';
 import {
     clampZoomLevel,
     getBoundsFromCameraState,
-    getCoordinateBearingDegrees,
-    getCoordinateDistanceMeters,
     getLocationCourseHeading,
     getLocationUpdate,
     getSmoothedCourseHeading,
@@ -84,12 +80,16 @@ import {
     makeMarkerFeatureCollection,
     normalizeDirectionDegrees,
 } from './map/geo';
-import { shouldAcceptLocationUpdate } from './map/location-watch-options';
+import {
+    locationUpdateIsStale,
+    shouldAcceptLocationUpdate,
+} from './map/location-watch-options';
 import { MapCanvas } from './map/map-canvas';
 import {
     MapScreenProviders,
     useAutoPlayMapScreenContextValues,
 } from './map/map-screen-context';
+import { getNavigationPuckSize } from './map/navigation-puck-layout';
 import { getSubmittedSearchResultsBounds } from './map/submitted-search-results-bounds';
 import { useDeferredCameraDebugState } from './map/use-deferred-camera-debug-state';
 import {
@@ -112,8 +112,6 @@ const CAMERA_DEBUG_CENTER_PRECISION = 6;
 const CAMERA_DEBUG_ORIENTATION_PRECISION = 2;
 const CAMERA_DEBUG_ZOOM_PRECISION = 2;
 const ZOOM_LEVEL_STATE_UPDATE_EPSILON = 0.01;
-const MINIMUM_DERIVED_COURSE_DISTANCE_METERS = 2;
-const MAXIMUM_DERIVED_COURSE_INTERVAL_MS = 5000;
 const AUTO_PLAY_CAMERA_INTERACTION_ANIMATION_MODE = 'easeTo';
 const AUTO_PLAY_PAN_ANIMATION_DURATION_MS =
     LOCATION_CAMERA_USER_INTERACTION_ANIMATION_DURATION_MS;
@@ -380,94 +378,6 @@ function getCameraDebugStateKey(cameraState) {
         cameraState?.heading,
         cameraState?.pitch,
     ].join(',');
-}
-
-function getLocationCoordinatePair(location) {
-    const longitude = getStoredNumber(location?.longitude);
-    const latitude = getStoredNumber(location?.latitude);
-
-    if (longitude === null || latitude === null) {
-        return null;
-    }
-
-    return [longitude, latitude];
-}
-
-function getDerivedMotion(previousLocation, nextLocation) {
-    const previousCoordinate = getLocationCoordinatePair(previousLocation);
-    const nextCoordinate = getLocationCoordinatePair(nextLocation);
-    const previousRecordedAt = getStoredNumber(previousLocation?.recordedAt);
-    const nextRecordedAt = getStoredNumber(nextLocation?.recordedAt);
-
-    if (!previousCoordinate || !nextCoordinate) {
-        return {
-            courseHeading: null,
-            speed: null,
-        };
-    }
-
-    const distanceMeters = getCoordinateDistanceMeters(
-        previousCoordinate,
-        nextCoordinate,
-    );
-
-    if (
-        distanceMeters === null ||
-        distanceMeters < MINIMUM_DERIVED_COURSE_DISTANCE_METERS
-    ) {
-        return {
-            courseHeading: null,
-            speed: null,
-        };
-    }
-
-    const elapsedMs =
-        nextRecordedAt !== null && previousRecordedAt !== null
-            ? nextRecordedAt - previousRecordedAt
-            : null;
-    const speed =
-        elapsedMs !== null &&
-        elapsedMs > 0 &&
-        elapsedMs <= MAXIMUM_DERIVED_COURSE_INTERVAL_MS
-            ? distanceMeters / (elapsedMs / 1000)
-            : null;
-
-    return {
-        courseHeading: getCoordinateBearingDegrees(
-            previousCoordinate,
-            nextCoordinate,
-        ),
-        speed,
-    };
-}
-
-function getDrivingMotionState({
-    fallbackCourseHeading,
-    locationCourseHeading,
-    nextLocation,
-    previousLocation,
-}) {
-    const derivedMotion = getDerivedMotion(previousLocation, nextLocation);
-    const measuredSpeed = getStoredNumber(nextLocation?.speed);
-    const speed = measuredSpeed ?? derivedMotion.speed;
-    const measuredCourseHeading =
-        locationCourseHeading ?? derivedMotion.courseHeading;
-    const courseHeading =
-        measuredCourseHeading ??
-        (speed !== null && speed >= MINIMUM_DRIVING_COURSE_SPEED_MPS
-            ? fallbackCourseHeading
-            : null);
-    const isMoving =
-        courseHeading !== null &&
-        (speed !== null
-            ? speed >= MINIMUM_DRIVING_COURSE_SPEED_MPS
-            : measuredCourseHeading !== null);
-
-    return {
-        courseHeading: isMoving ? courseHeading : null,
-        isMoving,
-        speed,
-    };
 }
 
 function createDirectionsWaypointMarker(role, waypoint) {
@@ -980,6 +890,16 @@ function useAutoPlayMapController({
             }
 
             const previousLocation = userLocationRef.current;
+
+            if (
+                locationUpdateIsStale({
+                    currentLocation: previousLocation,
+                    nextLocation,
+                })
+            ) {
+                return;
+            }
+
             const nextHeading = getLocationCourseHeading(location);
             const motionState = getDrivingMotionState({
                 fallbackCourseHeading: currentCourseHeadingRef.current,
@@ -995,24 +915,16 @@ function useAutoPlayMapController({
                           currentCourseHeadingRef.current,
                           motionState.courseHeading,
                       );
+            } else {
+                currentCourseHeadingRef.current = null;
             }
 
-            const nextLocationWithHeading = {
-                ...nextLocation,
-                ...(motionState.speed !== null
-                    ? { speed: motionState.speed }
-                    : {}),
-                isMoving: motionState.isMoving,
-                ...(currentCourseHeadingRef.current !== null
-                    ? {
-                          courseHeading: currentCourseHeadingRef.current,
-                          heading: currentCourseHeadingRef.current,
-                      }
-                    : {}),
-                ...(currentCompassHeadingRef.current !== null
-                    ? { compassHeading: currentCompassHeadingRef.current }
-                    : {}),
-            };
+            const nextLocationWithHeading = getLocationWithDrivingMotionState({
+                compassHeading: currentCompassHeadingRef.current,
+                courseHeading: currentCourseHeadingRef.current,
+                motionState,
+                nextLocation,
+            });
 
             userLocationRef.current = nextLocationWithHeading;
             setUserLocation(nextLocationWithHeading);
@@ -1541,6 +1453,15 @@ export function AutoPlayMapSurfaceContent({
             windowInfo?.width,
         ],
     );
+    const navigationPuckSize = useMemo(
+        () =>
+            getNavigationPuckSize({
+                variant: 'auto-play',
+                viewportHeight: viewportMetrics.visibleHeight,
+                viewportWidth: viewportMetrics.visibleWidth,
+            }),
+        [viewportMetrics.visibleHeight, viewportMetrics.visibleWidth],
+    );
     const debugOverlaysAreVisible =
         isRootMapSurface &&
         SHOW_MAP_DEBUG_CONTROLS &&
@@ -1691,6 +1612,7 @@ export function AutoPlayMapSurfaceContent({
         mapLightPreset,
         mapPreferences,
         markerFeatureCollection,
+        navigationPuckSize,
         navigationPuckRefreshKey,
         policeAlertFeatureCollection,
         policeAlertsVisible:
@@ -1959,6 +1881,7 @@ export function AutoPlayMapSurfaceContent({
                             mapPreferences.mapPreferencesAreLoaded
                         }
                         onLocationAnchorLayout={handleLocationAnchorLayout}
+                        navigationPuckSize={navigationPuckSize}
                         presentation={presentation}
                         userLocation={mapPreferences.userLocation}
                         viewportMetrics={viewportMetrics}

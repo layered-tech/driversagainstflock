@@ -129,7 +129,10 @@ function NavigationPuckBearingSvg({ height, width }) {
     );
 }
 
-export function NavigationPuckImages() {
+export function NavigationPuckImages({
+    autoPlayNavigationPuckSize = AUTO_PLAY_NAVIGATION_PUCK_SIZE,
+    navigationPuckSize = NAVIGATION_PUCK_SIZE,
+}) {
     return (
         <Mapbox.Images>
             {/* The iOS Mapbox SDK substitutes its built-in blue location dot
@@ -150,29 +153,29 @@ export function NavigationPuckImages() {
 
             <Mapbox.Image name={NAVIGATION_PUCK_SHADOW_IMAGE}>
                 <NavigationPuckShadowSvg
-                    height={NAVIGATION_PUCK_SIZE}
-                    width={NAVIGATION_PUCK_SIZE}
+                    height={navigationPuckSize}
+                    width={navigationPuckSize}
                 />
             </Mapbox.Image>
 
             <Mapbox.Image name={NAVIGATION_PUCK_BEARING_IMAGE}>
                 <NavigationPuckBearingSvg
-                    height={NAVIGATION_PUCK_SIZE}
-                    width={NAVIGATION_PUCK_SIZE}
+                    height={navigationPuckSize}
+                    width={navigationPuckSize}
                 />
             </Mapbox.Image>
 
             <Mapbox.Image name={ANDROID_AUTO_NAVIGATION_PUCK_SHADOW_IMAGE}>
                 <NavigationPuckShadowSvg
-                    height={AUTO_PLAY_NAVIGATION_PUCK_SIZE}
-                    width={AUTO_PLAY_NAVIGATION_PUCK_SIZE}
+                    height={autoPlayNavigationPuckSize}
+                    width={autoPlayNavigationPuckSize}
                 />
             </Mapbox.Image>
 
             <Mapbox.Image name={ANDROID_AUTO_NAVIGATION_PUCK_BEARING_IMAGE}>
                 <NavigationPuckBearingSvg
-                    height={AUTO_PLAY_NAVIGATION_PUCK_SIZE}
-                    width={AUTO_PLAY_NAVIGATION_PUCK_SIZE}
+                    height={autoPlayNavigationPuckSize}
+                    width={autoPlayNavigationPuckSize}
                 />
             </Mapbox.Image>
         </Mapbox.Images>

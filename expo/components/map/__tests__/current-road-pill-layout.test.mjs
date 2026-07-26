@@ -5,6 +5,7 @@ import { getRetainedCurrentRoadText } from '../current-road-state.js';
 import {
     AUTO_PLAY_NAVIGATION_PUCK_SIZE,
     getNavigationPuckAnchorY,
+    getNavigationPuckSize,
     NAVIGATION_PUCK_SIZE,
 } from '../navigation-puck-layout.js';
 
@@ -12,6 +13,53 @@ describe('current road pill layout', () => {
     test('scales navigation pucks for mobile and car-host surfaces', () => {
         assert.equal(NAVIGATION_PUCK_SIZE, 75);
         assert.equal(AUTO_PLAY_NAVIGATION_PUCK_SIZE, 62.5);
+        assert.equal(
+            getNavigationPuckSize({
+                viewportHeight: 852,
+                viewportWidth: 393,
+            }),
+            74.5,
+        );
+        assert.equal(
+            getNavigationPuckSize({
+                variant: 'auto-play',
+                viewportHeight: 480,
+                viewportWidth: 800,
+            }),
+            62.5,
+        );
+    });
+
+    test('clamps unusual surfaces and does not vary size with map zoom', () => {
+        assert.equal(
+            getNavigationPuckSize({
+                viewportHeight: 200,
+                viewportWidth: 200,
+                zoomLevel: 10,
+            }),
+            56,
+        );
+        assert.equal(
+            getNavigationPuckSize({
+                variant: 'auto-play',
+                viewportHeight: 2_000,
+                viewportWidth: 2_000,
+                zoomLevel: 10,
+            }),
+            80,
+        );
+        assert.equal(
+            getNavigationPuckSize({
+                viewportHeight: 600,
+                viewportWidth: 400,
+                zoomLevel: 10,
+            }),
+            getNavigationPuckSize({
+                viewportHeight: 600,
+                viewportWidth: 400,
+                zoomLevel: 19,
+            }),
+        );
     });
 
     test('uses the measured puck slot center as the camera anchor', () => {

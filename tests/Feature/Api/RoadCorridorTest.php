@@ -1,8 +1,50 @@
 <?php
 
+use Illuminate\Contracts\Cache\Lock;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Defer\DeferredCallbackCollection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+
+/**
+ * @param  list<array<string, mixed>>  $ways
+ * @return list<array<string, mixed>>
+ */
+function compactOverpassElements(array $ways): array
+{
+    $nodesById = [];
+
+    foreach ($ways as &$way) {
+        $geometry = is_array($way['geometry'] ?? null) ? $way['geometry'] : [];
+        $nodeIds = is_array($way['nodes'] ?? null) ? $way['nodes'] : [];
+
+        unset($way['geometry']);
+
+        foreach ($nodeIds as $index => $nodeId) {
+            $point = $geometry[$index] ?? null;
+
+            if (
+                ! is_array($point)
+                || ! is_numeric($nodeId)
+                || ! is_numeric($point['lat'] ?? null)
+                || ! is_numeric($point['lon'] ?? null)
+            ) {
+                continue;
+            }
+
+            $nodesById[(int) $nodeId] ??= [
+                'type' => 'node',
+                'id' => (int) $nodeId,
+                'lat' => (float) $point['lat'],
+                'lon' => (float) $point['lon'],
+            ];
+        }
+    }
+    unset($way);
+
+    return [...$ways, ...array_values($nodesById)];
+}
 
 beforeEach(function () {
     $this->withoutMiddleware();
@@ -12,19 +54,24 @@ beforeEach(function () {
 
     config([
         'road-corridor.overpass_url' => 'https://overpass.test/api/interpreter',
-        'road-corridor.radius_meters' => 500,
-        'road-corridor.maximum_radius_meters' => 2000,
-        'road-corridor.cache_seconds' => 60,
-        'road-corridor.connect_timeout_seconds' => 1,
-        'road-corridor.timeout_seconds' => 2,
-        'road-corridor.overpass_timeout_seconds' => 1,
+        'road-corridor.radius_meters' => 3200,
+        'road-corridor.maximum_radius_meters' => 4000,
+        'road-corridor.cache_seconds' => 900,
+        'road-corridor.stale_cache_seconds' => 86400,
+        'road-corridor.cache_grid_meters' => 500,
+        'road-corridor.failure_cache_seconds' => 15,
+        'road-corridor.lock_seconds' => 25,
+        'road-corridor.lock_wait_seconds' => 20,
+        'road-corridor.connect_timeout_seconds' => 4,
+        'road-corridor.timeout_seconds' => 18,
+        'road-corridor.overpass_timeout_seconds' => 15,
     ]);
 });
 
 it('returns normalized drivable ways around the requested location', function () {
     Http::fake([
         'https://overpass.test/api/interpreter' => Http::response([
-            'elements' => [
+            'elements' => compactOverpassElements([
                 [
                     'type' => 'way',
                     'id' => 100,
@@ -95,7 +142,7 @@ it('returns normalized drivable ways around the requested location', function ()
                     ],
                     'nodes' => [4501],
                 ],
-            ],
+            ]),
         ]),
     ]);
 
@@ -155,16 +202,80 @@ it('returns normalized drivable ways around the requested location', function ()
         $query = $request->data()['data'] ?? '';
 
         return $request->url() === 'https://overpass.test/api/interpreter'
-            && str_contains($query, 'way(around:750,45.523000,-122.676000)')
+            && str_contains($query, 'way(around:1111,')
             && str_contains($query, '["highway"~"^(motorway|')
-            && str_contains($query, 'out body geom;');
+            && str_contains($query, 'out body qt;>;out skel qt;')
+            && ! str_contains($query, 'geom');
     });
+});
+
+it('reconstructs compact way geometry by OSM node id regardless of element order', function () {
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::response([
+            'elements' => [
+                ['type' => 'node', 'id' => 2002, 'lat' => 45.5232, 'lon' => -122.6758],
+                [
+                    'type' => 'way',
+                    'id' => 2100,
+                    'nodes' => [2001, 2002],
+                    'tags' => ['highway' => 'primary'],
+                ],
+                ['type' => 'node', 'id' => 2001, 'lat' => 45.5228, 'lon' => -122.6762],
+                [
+                    'type' => 'way',
+                    'id' => 2200,
+                    'nodes' => [2002, 2003],
+                    'tags' => ['highway' => 'secondary'],
+                ],
+                ['type' => 'node', 'id' => 2003, 'lat' => 45.524, 'lon' => -122.675],
+            ],
+        ]),
+    ]);
+
+    $this->getJson('/api/v1/road-corridor?latitude=45.523&longitude=-122.676')
+        ->assertOk()
+        ->assertJsonPath('result.ways.0.node_ids', [2001, 2002])
+        ->assertJsonPath('result.ways.0.coordinates', [
+            [-122.6762, 45.5228],
+            [-122.6758, 45.5232],
+        ])
+        ->assertJsonPath('result.ways.1.node_ids', [2002, 2003])
+        ->assertJsonPath('result.ways.1.coordinates.0', [-122.6758, 45.5232]);
+});
+
+it('rejects a way when any referenced OSM node is missing', function () {
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::response([
+            'elements' => [
+                [
+                    'type' => 'way',
+                    'id' => 2300,
+                    'nodes' => [2301, 2399],
+                    'tags' => ['highway' => 'primary'],
+                ],
+                [
+                    'type' => 'way',
+                    'id' => 2400,
+                    'nodes' => [2301, 2402],
+                    'tags' => ['highway' => 'secondary'],
+                ],
+                ['type' => 'node', 'id' => 2301, 'lat' => 45.5228, 'lon' => -122.6762],
+                ['type' => 'node', 'id' => 2402, 'lat' => 45.5232, 'lon' => -122.6758],
+            ],
+        ]),
+    ]);
+
+    $this->getJson('/api/v1/road-corridor?latitude=45.523&longitude=-122.676')
+        ->assertOk()
+        ->assertJsonCount(1, 'result.ways')
+        ->assertJsonPath('result.ways.0.osm_way_id', 2400)
+        ->assertJsonPath('result.ways.0.node_ids', [2301, 2402]);
 });
 
 it('applies implied road direction defaults and caches identical lookups', function () {
     Http::fake([
         'https://overpass.test/api/interpreter' => Http::response([
-            'elements' => [
+            'elements' => compactOverpassElements([
                 [
                     'type' => 'way',
                     'id' => 500,
@@ -203,7 +314,7 @@ it('applies implied road direction defaults and caches identical lookups', funct
                     ],
                     'nodes' => [7001, 7002],
                 ],
-            ],
+            ]),
         ]),
     ]);
 
@@ -220,10 +331,169 @@ it('applies implied road direction defaults and caches identical lookups', funct
     Http::assertSentCount(1);
 });
 
+it('serves a stale corridor while one deferred refresh replaces it', function () {
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::sequence()
+            ->push([
+                'elements' => compactOverpassElements([
+                    [
+                        'type' => 'way',
+                        'id' => 2500,
+                        'nodes' => [2501, 2502],
+                        'tags' => ['highway' => 'primary', 'name' => 'Cached Road'],
+                        'geometry' => [
+                            ['lat' => 45.5228, 'lon' => -122.6762],
+                            ['lat' => 45.5232, 'lon' => -122.6758],
+                        ],
+                    ],
+                ]),
+            ])
+            ->push([
+                'elements' => compactOverpassElements([
+                    [
+                        'type' => 'way',
+                        'id' => 2600,
+                        'nodes' => [2601, 2602],
+                        'tags' => ['highway' => 'primary', 'name' => 'Refreshed Road'],
+                        'geometry' => [
+                            ['lat' => 45.5228, 'lon' => -122.6762],
+                            ['lat' => 45.5232, 'lon' => -122.6758],
+                        ],
+                    ],
+                ]),
+            ]),
+    ]);
+
+    $uri = '/api/v1/road-corridor?latitude=45.523&longitude=-122.676';
+
+    $this->getJson($uri)
+        ->assertOk()
+        ->assertJsonPath('result.ways.0.osm_way_id', 2500);
+
+    $this->travel(901)->seconds();
+
+    $this->getJson($uri)
+        ->assertOk()
+        ->assertJsonPath('result.ways.0.osm_way_id', 2500);
+
+    app(DeferredCallbackCollection::class)->invoke();
+
+    $this->getJson($uri)
+        ->assertOk()
+        ->assertJsonPath('result.ways.0.osm_way_id', 2600);
+
+    Http::assertSentCount(2);
+});
+
+it('retains a stale corridor when its deferred refresh fails', function () {
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::sequence()
+            ->push([
+                'elements' => compactOverpassElements([
+                    [
+                        'type' => 'way',
+                        'id' => 2700,
+                        'nodes' => [2701, 2702],
+                        'tags' => ['highway' => 'primary'],
+                        'geometry' => [
+                            ['lat' => 45.5228, 'lon' => -122.6762],
+                            ['lat' => 45.5232, 'lon' => -122.6758],
+                        ],
+                    ],
+                ]),
+            ])
+            ->pushStatus(503),
+    ]);
+
+    $uri = '/api/v1/road-corridor?latitude=45.523&longitude=-122.676';
+
+    $this->getJson($uri)
+        ->assertOk()
+        ->assertJsonPath('result.ways.0.osm_way_id', 2700);
+
+    $this->travel(901)->seconds();
+
+    $this->getJson($uri)
+        ->assertOk()
+        ->assertJsonPath('result.ways.0.osm_way_id', 2700);
+
+    app(DeferredCallbackCollection::class)->invoke();
+
+    $this->getJson($uri)
+        ->assertOk()
+        ->assertJsonPath('result.ways.0.osm_way_id', 2700);
+
+    Http::assertSentCount(2);
+});
+
+it('reuses a buffered graph lookup across nearby coordinates in the same cache cell', function () {
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::response([
+            'elements' => [],
+        ]),
+    ]);
+
+    $this->getJson('/api/v1/road-corridor?latitude=45.523&longitude=-122.676&radius_meters=2000')
+        ->assertOk();
+
+    $this->getJson('/api/v1/road-corridor?latitude=45.5231&longitude=-122.6761&radius_meters=2000')
+        ->assertOk();
+
+    Http::assertSentCount(1);
+    Http::assertSent(function (Request $request): bool {
+        $query = $request->data()['data'] ?? '';
+
+        return str_contains($query, 'way(around:2361,')
+            && ! str_contains($query, '45.523000,-122.676000');
+    });
+});
+
+it('buffers spatial cache cells across geographic edge cases', function (float $latitude, float $longitude) {
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::response([
+            'elements' => [],
+        ]),
+    ]);
+
+    $requestedRadiusMeters = 3200;
+
+    $this->getJson('/api/v1/road-corridor?'.http_build_query([
+        'latitude' => $latitude,
+        'longitude' => $longitude,
+        'radius_meters' => $requestedRadiusMeters,
+    ]))->assertOk();
+
+    Http::assertSent(function (Request $request) use ($latitude, $longitude, $requestedRadiusMeters): bool {
+        $query = $request->data()['data'] ?? '';
+
+        if (! preg_match('/way\(around:(\d+),(-?\d+\.\d+),(-?\d+\.\d+)\)/', $query, $matches)) {
+            return false;
+        }
+
+        $queryRadiusMeters = (int) $matches[1];
+        $queryLatitude = (float) $matches[2];
+        $queryLongitude = (float) $matches[3];
+        $latitudeDelta = deg2rad($queryLatitude - $latitude);
+        $longitudeDelta = deg2rad(fmod(($queryLongitude - $longitude) + 540, 360) - 180);
+        $firstLatitude = deg2rad($latitude);
+        $secondLatitude = deg2rad($queryLatitude);
+        $haversine = sin($latitudeDelta / 2) ** 2
+            + cos($firstLatitude) * cos($secondLatitude) * sin($longitudeDelta / 2) ** 2;
+        $distanceToCellCenterMeters = 6371000 * 2 * atan2(sqrt($haversine), sqrt(1 - $haversine));
+
+        return $distanceToCellCenterMeters + $requestedRadiusMeters <= $queryRadiusMeters + 1;
+    });
+})->with([
+    'cell corner' => [45.52498, -122.67898],
+    'east of dateline' => [12.34567, 179.9999],
+    'west of dateline' => [-12.34567, -179.9999],
+    'high latitude' => [84.12345, 42.98765],
+]);
+
 it('applies car-specific access and one-way overrides', function () {
     Http::fake([
         'https://overpass.test/api/interpreter' => Http::response([
-            'elements' => [
+            'elements' => compactOverpassElements([
                 [
                     'type' => 'way',
                     'id' => 800,
@@ -269,7 +539,7 @@ it('applies car-specific access and one-way overrides', function () {
                     ],
                     'nodes' => [10001, 10002, 10001],
                 ],
-            ],
+            ]),
         ]),
     ]);
 
@@ -283,7 +553,7 @@ it('applies car-specific access and one-way overrides', function () {
 it('returns effective directional speed limits for directed graph edges', function () {
     Http::fake([
         'https://overpass.test/api/interpreter' => Http::response([
-            'elements' => [
+            'elements' => compactOverpassElements([
                 [
                     'type' => 'way',
                     'id' => 1100,
@@ -313,7 +583,7 @@ it('returns effective directional speed limits for directed graph edges', functi
                     ],
                     'nodes' => [11002, 12002],
                 ],
-            ],
+            ]),
         ]),
     ]);
 
@@ -347,8 +617,26 @@ it('validates the road corridor request before contacting overpass', function (a
     'latitude above maximum' => [['latitude' => 91, 'longitude' => -122.676], 'latitude'],
     'longitude below minimum' => [['latitude' => 45.523, 'longitude' => -181], 'longitude'],
     'radius below minimum' => [['latitude' => 45.523, 'longitude' => -122.676, 'radius_meters' => 24], 'radius_meters'],
-    'radius above maximum' => [['latitude' => 45.523, 'longitude' => -122.676, 'radius_meters' => 2001], 'radius_meters'],
+    'radius above maximum' => [['latitude' => 45.523, 'longitude' => -122.676, 'radius_meters' => 4001], 'radius_meters'],
 ]);
+
+it('uses a corridor cached by the lock leader when lock waiting expires', function () {
+    Http::fake();
+    $lock = Mockery::mock(Lock::class);
+
+    $lock->shouldReceive('block')
+        ->once()
+        ->with(20, Mockery::type(Closure::class))
+        ->andThrow(new LockTimeoutException);
+    Cache::shouldReceive('get')->twice()->andReturn(null, []);
+    Cache::shouldReceive('lock')->once()->andReturn($lock);
+
+    $this->getJson('/api/v1/road-corridor?latitude=45.523&longitude=-122.676')
+        ->assertOk()
+        ->assertJsonPath('result.ways', []);
+
+    Http::assertNothingSent();
+});
 
 it('returns a bad gateway response when overpass fails', function () {
     Http::fake([
@@ -362,7 +650,7 @@ it('returns a bad gateway response when overpass fails', function () {
             'error' => 'Road corridor could not be loaded.',
         ]);
 
-    Http::assertSentCount(2);
+    Http::assertSentCount(1);
 });
 
 it('returns a bad gateway response when overpass cannot be reached', function () {
@@ -377,7 +665,7 @@ it('returns a bad gateway response when overpass cannot be reached', function ()
             'error' => 'Road corridor could not be loaded.',
         ]);
 
-    Http::assertSentCount(2);
+    Http::assertSentCount(1);
 });
 
 it('does not amplify an overpass rate limit response with an immediate retry', function () {
@@ -395,7 +683,7 @@ it('does not amplify an overpass rate limit response with an immediate retry', f
     Http::assertSentCount(1);
 });
 
-it('rejects and does not cache a malformed successful overpass response', function () {
+it('rejects malformed responses and briefly coalesces repeated failures', function () {
     Http::fake([
         'https://overpass.test/api/interpreter' => Http::sequence()
             ->push('not json', 200, ['Content-Type' => 'text/html'])
@@ -407,6 +695,14 @@ it('rejects and does not cache a malformed successful overpass response', functi
     $this->getJson($uri)
         ->assertStatus(502)
         ->assertJsonPath('ok', false);
+
+    $this->getJson($uri)
+        ->assertStatus(502)
+        ->assertJsonPath('ok', false);
+
+    Http::assertSentCount(1);
+
+    $this->travel(16)->seconds();
 
     $this->getJson($uri)
         ->assertOk()

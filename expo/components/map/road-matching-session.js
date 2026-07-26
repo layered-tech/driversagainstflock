@@ -3,6 +3,15 @@ import * as TaskManager from 'expo-task-manager';
 import { AppState, Platform } from 'react-native';
 import { getRoadCorridor } from './api';
 import {
+    refreshBackgroundAlertsForLocationAsync,
+    settleBackgroundWorkWithinDeadlineAsync,
+} from './background-alert-refresh';
+import {
+    getLocationUpdateRecordedAt,
+    getRoadMatchingLocationSourcePolicy,
+    shouldPublishBackgroundRoadMatchingLocation,
+} from './location-watch-options';
+import {
     createDirectedRoadGraph,
     getRoadCoordinateDistanceMeters,
 } from './road-graph';
@@ -12,9 +21,11 @@ import {
     createRoadMatcherWithHistory,
 } from './road-matching-history';
 
-const ROAD_CORRIDOR_RADIUS_METERS = 1200;
-const ROAD_CORRIDOR_REFRESH_DISTANCE_METERS = 500;
+const ROAD_CORRIDOR_RADIUS_METERS = 3200;
+const ROAD_CORRIDOR_REFRESH_DISTANCE_METERS = 1200;
 const ROAD_CORRIDOR_RETRY_DELAY_MS = 30000;
+const ROAD_CORRIDOR_REQUEST_TIMEOUT_MS = 23000;
+const BACKGROUND_LOCATION_TASK_DEADLINE_MS = 24000;
 const ROAD_LOOK_AHEAD_DISTANCE_METERS = 2000;
 const ROAD_MATCHING_LOCATION_RETRY_DELAY_MS = 5000;
 
@@ -36,15 +47,17 @@ let idleLocationSourceCleanupTimeout = null;
 let locationSourceReconciliation = Promise.resolve();
 let locationSourceRetryTimeout = null;
 let locationSubscriptionPromise = null;
+let locationSubscriptionPromiseGeneration = null;
 let graphRequest = null;
 let graphRequestAbortController = null;
 let graphRequestGeneration = 0;
 let graphCenter = null;
-let lastGraphRequestFailedAt = null;
+let lastGraphRequestFailure = null;
 let lastBackgroundDelivery = null;
 let lastBackgroundDeliveryAppState = null;
 let lastRawLocation = null;
 let lastRawLocationAppState = null;
+let lastRawLocationRecordedAt = null;
 let lastRawLocationSource = null;
 let lastRoadLookAhead = null;
 let lastRoadMatchedLocation = null;
@@ -67,43 +80,31 @@ if (!TaskManager.isTaskDefined(ROAD_MATCHING_BACKGROUND_LOCATION_TASK)) {
                 return;
             }
 
-            const taskIsStarted = await Location.hasStartedLocationUpdatesAsync(
-                ROAD_MATCHING_BACKGROUND_LOCATION_TASK,
-            ).catch(() => false);
-
-            if (!taskIsStarted) {
-                return;
-            }
-
-            const locations = Array.isArray(data?.locations)
-                ? data.locations
-                : [];
-
-            setActiveLocationSource(BACKGROUND_LOCATION_SOURCE);
-
-            for (const location of locations) {
-                await publishRawLocationAsync(
-                    location,
-                    BACKGROUND_LOCATION_SOURCE,
-                );
-            }
+            await settleBackgroundWorkWithinDeadlineAsync(
+                processBackgroundLocationTaskAsync(data),
+                BACKGROUND_LOCATION_TASK_DEADLINE_MS,
+            );
         },
     );
 }
 
 AppState.addEventListener('change', (nextState) => {
-    if (nextState !== 'active') {
-        clearIdleLocationSourceCleanup();
-        return;
-    }
-
     if (activeRetainerCount > 0) {
-        locationSourceGeneration += 1;
+        clearIdleLocationSourceCleanup();
+
+        if (nextState !== 'active') {
+            stopForegroundLocationSubscription();
+        }
+
         void queueLocationSourceReconciliation();
         return;
     }
 
-    scheduleIdleLocationSourceCleanup();
+    if (nextState === 'active') {
+        scheduleIdleLocationSourceCleanup();
+    } else {
+        clearIdleLocationSourceCleanup();
+    }
 });
 
 if (AppState.currentState === 'active') {
@@ -112,6 +113,41 @@ if (AppState.currentState === 'active') {
 
 function emit(listeners, value) {
     listeners.forEach((listener) => listener(value));
+}
+
+async function runBackgroundLocationWorkAsync(rawLocation) {
+    const context = {
+        location: lastRoadMatchedLocation,
+        rawLocation,
+        roadLookAhead: lastRoadLookAhead,
+    };
+
+    await refreshBackgroundAlertsForLocationAsync(context);
+}
+
+async function processBackgroundLocationTaskAsync(data) {
+    const locations = Array.isArray(data?.locations) ? data.locations : [];
+    const latestLocation = locations.at(-1);
+
+    if (!latestLocation) {
+        return;
+    }
+
+    const taskIsStarted = await Location.hasStartedLocationUpdatesAsync(
+        ROAD_MATCHING_BACKGROUND_LOCATION_TASK,
+    ).catch(() => false);
+
+    if (!taskIsStarted) {
+        return;
+    }
+
+    const locationPublication = publishRawLocationAsync(
+        latestLocation,
+        BACKGROUND_LOCATION_SOURCE,
+    );
+    const alertRefresh = runBackgroundLocationWorkAsync(latestLocation);
+
+    await Promise.allSettled([locationPublication, alertRefresh]);
 }
 
 function setSessionState(nextState) {
@@ -142,6 +178,13 @@ function setActiveLocationSource(nextSource) {
 
     activeLocationSource = nextSource;
     emit(sessionStateListeners, getRoadMatchingSessionDiagnostics());
+}
+
+function foregroundLocationSourceIsActive() {
+    return (
+        activeLocationSubscription !== null &&
+        activeLocationSubscriptionGeneration === locationSourceGeneration
+    );
 }
 
 function getFiniteNumber(value) {
@@ -275,10 +318,29 @@ function applyRawLocation(location) {
             ? 'matched'
             : roadGraph
               ? 'off-road'
-              : 'loading-road-graph',
+              : sessionState === 'road-graph-error'
+                ? 'road-graph-error'
+                : 'loading-road-graph',
     );
     emit(locationListeners, nextLocation);
     updateRoadLookAhead(matchedLocation);
+}
+
+function updateBackgroundDeliveryDiagnostics(location, appState) {
+    const rawCoordinate = getRawLocationCoordinate(location);
+    const matchedCoordinate = getRawLocationCoordinate(lastRoadMatchedLocation);
+
+    lastBackgroundDeliveryAppState = appState;
+    lastBackgroundDelivery = {
+        appState,
+        matchedCoordinate,
+        matchedEdgeId: lastRoadMatchedLocation?.roadMatch?.edgeId ?? null,
+        rawCoordinate,
+        speedLimitMph:
+            lastRoadMatchedLocation?.roadMatch?.speedLimit?.speedLimitMph ??
+            null,
+    };
+    emit(sessionStateListeners, getRoadMatchingSessionDiagnostics());
 }
 
 async function publishRawLocationAsync(
@@ -293,7 +355,41 @@ async function publishRawLocationAsync(
         return;
     }
 
-    lastRawLocationAppState = AppState.currentState ?? 'unknown';
+    const currentAppState = AppState.currentState ?? 'unknown';
+
+    if (
+        source === BACKGROUND_LOCATION_SOURCE &&
+        !shouldPublishBackgroundRoadMatchingLocation({
+            appState: currentAppState,
+            foregroundLocationSourceIsActive:
+                foregroundLocationSourceIsActive(),
+        })
+    ) {
+        return;
+    }
+
+    const recordedAt = getLocationUpdateRecordedAt(location);
+
+    if (
+        recordedAt !== null &&
+        lastRawLocationRecordedAt !== null &&
+        recordedAt < lastRawLocationRecordedAt
+    ) {
+        return;
+    }
+
+    if (recordedAt !== null) {
+        lastRawLocationRecordedAt = Math.max(
+            lastRawLocationRecordedAt ?? recordedAt,
+            recordedAt,
+        );
+    }
+
+    if (source === BACKGROUND_LOCATION_SOURCE) {
+        setActiveLocationSource(BACKGROUND_LOCATION_SOURCE);
+    }
+
+    lastRawLocationAppState = currentAppState;
     rawLocationHistory = appendRoadMatchingObservation(
         rawLocationHistory,
         location,
@@ -307,9 +403,13 @@ async function publishRawLocationAsync(
     applyRawLocation(location);
     emit(sessionStateListeners, getRoadMatchingSessionDiagnostics());
 
+    if (updateWasDeliveredInBackground) {
+        updateBackgroundDeliveryDiagnostics(location, currentAppState);
+    }
+
     const graphBeforeRequest = roadGraph;
 
-    await ensureRoadGraph(location);
+    await ensureRoadGraph(location, source);
 
     if (
         graphBeforeRequest !== roadGraph &&
@@ -318,25 +418,10 @@ async function publishRawLocationAsync(
             expectedLocationSourceGeneration === locationSourceGeneration)
     ) {
         applyRawLocation(lastRawLocation);
-    }
 
-    if (updateWasDeliveredInBackground) {
-        const rawCoordinate = getRawLocationCoordinate(location);
-        const matchedCoordinate = getRawLocationCoordinate(
-            lastRoadMatchedLocation,
-        );
-
-        lastBackgroundDeliveryAppState = lastRawLocationAppState;
-        lastBackgroundDelivery = {
-            appState: lastRawLocationAppState,
-            matchedCoordinate,
-            matchedEdgeId: lastRoadMatchedLocation?.roadMatch?.edgeId ?? null,
-            rawCoordinate,
-            speedLimitMph:
-                lastRoadMatchedLocation?.roadMatch?.speedLimit?.speedLimitMph ??
-                null,
-        };
-        emit(sessionStateListeners, getRoadMatchingSessionDiagnostics());
+        if (updateWasDeliveredInBackground && lastRawLocation === location) {
+            updateBackgroundDeliveryDiagnostics(location, currentAppState);
+        }
     }
 }
 
@@ -356,14 +441,19 @@ function roadGraphNeedsRefresh(location) {
     );
 }
 
-async function ensureRoadGraph(location) {
-    if (!roadGraphNeedsRefresh(location) || graphRequest) {
+async function ensureRoadGraph(location, source) {
+    if (!roadGraphNeedsRefresh(location)) {
+        return null;
+    }
+
+    if (graphRequest) {
         return graphRequest;
     }
 
     if (
-        lastGraphRequestFailedAt !== null &&
-        Date.now() - lastGraphRequestFailedAt < ROAD_CORRIDOR_RETRY_DELAY_MS
+        lastGraphRequestFailure?.source === source &&
+        Date.now() - lastGraphRequestFailure.failedAt <
+            ROAD_CORRIDOR_RETRY_DELAY_MS
     ) {
         return null;
     }
@@ -376,10 +466,22 @@ async function ensureRoadGraph(location) {
 
     graphRequestAbortController?.abort();
     const requestAbortController = new AbortController();
+    const requestContext = Object.freeze({
+        originSource: source,
+        startedWithRoadGraph: roadGraph !== null,
+    });
     const requestGeneration = graphRequestGeneration;
+    let requestTimedOut = false;
+    const requestTimeoutId = setTimeout(() => {
+        requestTimedOut = true;
+        requestAbortController.abort();
+    }, ROAD_CORRIDOR_REQUEST_TIMEOUT_MS);
 
     graphRequestAbortController = requestAbortController;
-    setSessionState('loading-road-graph');
+
+    if (!requestContext.startedWithRoadGraph) {
+        setSessionState('loading-road-graph');
+    }
 
     graphRequest = getRoadCorridor({
         location: {
@@ -401,7 +503,7 @@ async function ensureRoadGraph(location) {
             }
 
             graphCenter = coordinate;
-            lastGraphRequestFailedAt = null;
+            lastGraphRequestFailure = null;
             roadGraph = nextRoadGraph;
             matcher = createRoadMatcherWithHistory(
                 nextRoadGraph,
@@ -412,14 +514,22 @@ async function ensureRoadGraph(location) {
             return nextRoadGraph;
         })
         .catch((error) => {
-            if (error?.name !== 'AbortError') {
-                lastGraphRequestFailedAt = Date.now();
-                setSessionState('road-graph-error');
+            if (error?.name !== 'AbortError' || requestTimedOut) {
+                lastGraphRequestFailure = {
+                    failedAt: Date.now(),
+                    source: requestContext.originSource,
+                };
+
+                if (!requestContext.startedWithRoadGraph) {
+                    setSessionState('road-graph-error');
+                }
             }
 
             return null;
         })
         .finally(() => {
+            clearTimeout(requestTimeoutId);
+
             if (graphRequestAbortController === requestAbortController) {
                 graphRequestAbortController = null;
                 graphRequest = null;
@@ -444,13 +554,17 @@ function getBackgroundLocationTaskOptions() {
         ...getLocationWatchOptions(),
         deferredUpdatesDistance: 0,
         deferredUpdatesInterval: 0,
-        foregroundService: {
-            killServiceOnDestroy: false,
-            notificationBody:
-                'Matching your live position to nearby roads while driving.',
-            notificationColor: '#2563EB',
-            notificationTitle: 'Drivers Against Flock navigation',
-        },
+        ...(Platform.OS === 'android'
+            ? {
+                  foregroundService: {
+                      killServiceOnDestroy: false,
+                      notificationBody:
+                          'Matching your live position to nearby roads while driving.',
+                      notificationColor: '#2563EB',
+                      notificationTitle: 'Drivers Against Flock navigation',
+                  },
+              }
+            : {}),
         pausesUpdatesAutomatically: false,
         showsBackgroundLocationIndicator: true,
     };
@@ -468,9 +582,9 @@ async function ensurePersistentLocationPermission() {
         return false;
     }
 
-    // Expo's Android location foreground service is allowed to continue after
-    // the app backgrounds when it is user-initiated while the app is active.
-    // Only iOS requires the separate always/background grant for this path.
+    // Android's user-initiated foreground location service can continue after
+    // the app backgrounds. Requiring "Allow all the time" here would prevent
+    // that service from starting for otherwise valid foreground-only users.
     if (Platform.OS !== 'ios') {
         return true;
     }
@@ -565,11 +679,15 @@ function stopForegroundLocationSubscription() {
 }
 
 async function stopBackgroundLocationTask() {
+    if (activePersistentRetainerCount > 0) {
+        return;
+    }
+
     const taskIsStarted = await Location.hasStartedLocationUpdatesAsync(
         ROAD_MATCHING_BACKGROUND_LOCATION_TASK,
     ).catch(() => false);
 
-    if (taskIsStarted) {
+    if (taskIsStarted && activePersistentRetainerCount === 0) {
         await Location.stopLocationUpdatesAsync(
             ROAD_MATCHING_BACKGROUND_LOCATION_TASK,
         ).catch(() => {});
@@ -579,11 +697,7 @@ async function stopBackgroundLocationTask() {
 async function startBackgroundLocationTask(expectedGeneration) {
     const permissionIsAvailable = await ensurePersistentLocationPermission();
 
-    if (
-        !permissionIsAvailable ||
-        expectedGeneration !== locationSourceGeneration ||
-        activePersistentRetainerCount === 0
-    ) {
+    if (!permissionIsAvailable || activePersistentRetainerCount === 0) {
         return false;
     }
 
@@ -599,17 +713,22 @@ async function startBackgroundLocationTask(expectedGeneration) {
             );
         }
 
-        if (
-            expectedGeneration !== locationSourceGeneration ||
-            activePersistentRetainerCount === 0
-        ) {
+        if (activePersistentRetainerCount === 0) {
             await Location.stopLocationUpdatesAsync(
                 ROAD_MATCHING_BACKGROUND_LOCATION_TASK,
             ).catch(() => {});
             return false;
         }
 
-        setActiveLocationSource(BACKGROUND_LOCATION_SOURCE);
+        // The foreground/background handoff must not tear down an Android
+        // foreground service that finished starting for another persistent
+        // owner generation. The current reconciliation will adopt it through
+        // hasStartedLocationUpdatesAsync instead of trying to restart it after
+        // the app has already backgrounded.
+        if (expectedGeneration !== locationSourceGeneration) {
+            return true;
+        }
+
         setSessionStateToObservingIfAwaitingLocation();
 
         return true;
@@ -633,13 +752,29 @@ async function startForegroundLocationSubscription(expectedGeneration) {
     stopForegroundLocationSubscription();
 
     if (locationSubscriptionPromise) {
-        return locationSubscriptionPromise;
+        const pendingGeneration = locationSubscriptionPromiseGeneration;
+        const pendingSubscription = await locationSubscriptionPromise;
+
+        if (pendingGeneration === expectedGeneration) {
+            return pendingSubscription;
+        }
+
+        if (expectedGeneration !== locationSourceGeneration) {
+            return null;
+        }
+
+        return startForegroundLocationSubscription(expectedGeneration);
     }
 
     setSessionStateToObservingIfAwaitingLocation();
+    locationSubscriptionPromiseGeneration = expectedGeneration;
     locationSubscriptionPromise = Location.watchPositionAsync(
         getLocationWatchOptions(),
         (location) => {
+            if (AppState.currentState !== 'active') {
+                return;
+            }
+
             void publishRawLocationAsync(
                 location,
                 FOREGROUND_LOCATION_SOURCE,
@@ -650,7 +785,7 @@ async function startForegroundLocationSubscription(expectedGeneration) {
         .then((subscription) => {
             if (
                 activeRetainerCount > 0 &&
-                activePersistentRetainerCount === 0 &&
+                AppState.currentState === 'active' &&
                 expectedGeneration === locationSourceGeneration
             ) {
                 activeLocationSubscription = subscription;
@@ -668,7 +803,10 @@ async function startForegroundLocationSubscription(expectedGeneration) {
             return null;
         })
         .finally(() => {
-            locationSubscriptionPromise = null;
+            if (locationSubscriptionPromiseGeneration === expectedGeneration) {
+                locationSubscriptionPromise = null;
+                locationSubscriptionPromiseGeneration = null;
+            }
         });
 
     return locationSubscriptionPromise;
@@ -680,6 +818,12 @@ async function reconcileLocationSource(expectedGeneration) {
     }
 
     clearLocationSourceRetry();
+
+    const locationSourcePolicy = getRoadMatchingLocationSourcePolicy({
+        activeRetainerCount,
+        appState: AppState.currentState,
+        persistentRetainerCount: activePersistentRetainerCount,
+    });
 
     if (activeRetainerCount === 0) {
         stopForegroundLocationSubscription();
@@ -693,27 +837,50 @@ async function reconcileLocationSource(expectedGeneration) {
         return;
     }
 
-    if (activePersistentRetainerCount > 0) {
+    if (!locationSourcePolicy.foregroundWatchIsNeeded) {
         stopForegroundLocationSubscription();
+
+        if (!locationSourcePolicy.backgroundTaskIsNeeded) {
+            await stopBackgroundLocationTask();
+
+            if (expectedGeneration === locationSourceGeneration) {
+                setActiveLocationSource('none');
+            }
+
+            return;
+        }
 
         const backgroundTaskStarted =
             await startBackgroundLocationTask(expectedGeneration);
 
-        if (
-            !backgroundTaskStarted &&
-            expectedGeneration === locationSourceGeneration
-        ) {
-            await startForegroundLocationSubscription(expectedGeneration);
+        if (expectedGeneration === locationSourceGeneration) {
+            setActiveLocationSource(
+                backgroundTaskStarted ? BACKGROUND_LOCATION_SOURCE : 'none',
+            );
         }
 
         return;
     }
 
-    await stopBackgroundLocationTask();
+    const backgroundTaskPromise = locationSourcePolicy.backgroundTaskIsNeeded
+        ? startBackgroundLocationTask(expectedGeneration)
+        : stopBackgroundLocationTask().then(() => false);
 
-    if (expectedGeneration === locationSourceGeneration) {
-        await startForegroundLocationSubscription(expectedGeneration);
+    await startForegroundLocationSubscription(expectedGeneration);
+    const backgroundTaskStarted = await backgroundTaskPromise;
+
+    if (expectedGeneration !== locationSourceGeneration) {
+        return;
     }
+
+    if (foregroundLocationSourceIsActive()) {
+        setActiveLocationSource(FOREGROUND_LOCATION_SOURCE);
+        return;
+    }
+
+    setActiveLocationSource(
+        backgroundTaskStarted ? BACKGROUND_LOCATION_SOURCE : 'none',
+    );
 }
 
 function abortPendingRoadGraphWork() {

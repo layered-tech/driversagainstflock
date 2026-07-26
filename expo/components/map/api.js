@@ -863,7 +863,7 @@ export async function getSpeedLimit({ location, signal }) {
 
 export async function getRoadCorridor({
     location,
-    radiusMeters = 1200,
+    radiusMeters = 3200,
     signal,
 }) {
     if (mapApiMocksAreEnabled()) {

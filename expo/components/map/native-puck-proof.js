@@ -74,10 +74,15 @@ async function queryIOSNativePuckState({
         }),
         getLocationPuck3DStateAsync(mapView),
     ]);
+    const providerCoordinate = toCoordinate({
+        latitude: puckConfiguration?.providerLatitude,
+        longitude: puckConfiguration?.providerLongitude,
+    });
 
     return {
         ...renderedState,
         ...puckConfiguration,
+        providerCoordinate,
         proofSource: 'rendered-query-3d',
     };
 }

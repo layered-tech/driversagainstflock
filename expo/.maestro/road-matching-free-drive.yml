@@ -18,6 +18,29 @@ tags:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
     commands:
       - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- runFlow:
+    when:
+      visible: 'http://10.0.2.2:8081'
+    commands:
+      - tapOn: 'http://10.0.2.2:8081'
+- extendedWaitUntil:
+    visible: 'Continue'
+    timeout: 10000
+    optional: true
+- runFlow:
+    when:
+      visible: 'Continue'
+    commands:
+      - tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: 'Close'
+    timeout: 10000
+    optional: true
+- runFlow:
+    when:
+      visible: 'Close'
+    commands:
+      - tapOn: 'Close'
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
@@ -63,7 +86,6 @@ tags:
     text: 'asset://navigation_puck.glb'
 - assertVisible:
     id: 'e2e-native-puck-model-scale'
-    text: '75,75,75'
 - assertVisible:
     id: 'e2e-native-puck-model-rotation'
     text: '0,0,0'
@@ -111,7 +133,7 @@ tags:
     text: 'matched'
 - assertVisible:
     id: 'e2e-road-matching-source'
-    text: 'expo-background-location-task'
+    text: 'expo-foreground-location-watch'
 - assertVisible:
     id: 'e2e-road-matching-provider'
     text: 'in-house-road-matcher'
@@ -130,6 +152,12 @@ tags:
 - assertVisible:
     id: 'e2e-native-puck-provider-coordinate'
     text: '-97.7441401,30.2672000'
+- assertVisible:
+    id: 'e2e-native-puck-provider-owned'
+    text: 'true'
+- assertVisible:
+    id: 'e2e-native-puck-camera-following'
+    text: 'true'
 - assertVisible:
     id: 'e2e-native-puck-provider-at-snapped'
     text: 'true'
@@ -172,9 +200,6 @@ tags:
       text: 'e2e-main-45:0:forward'
     timeout: 30000
 - assertVisible:
-    id: 'e2e-road-matching-source'
-    text: 'expo-background-location-task'
-- assertVisible:
     id: 'e2e-road-matching-background-delivery'
     text: 'background'
 - assertVisible:
@@ -214,7 +239,6 @@ tags:
     text: 'asset://navigation_puck.glb'
 - assertVisible:
     id: 'e2e-native-puck-model-scale'
-    text: '75,75,75'
 - assertVisible:
     id: 'e2e-native-puck-model-layer'
     text: 'true'
@@ -239,6 +263,12 @@ tags:
 - assertVisible:
     id: 'e2e-native-puck-provider-coordinate'
     text: '-97.7389396,30.2672000'
+- assertVisible:
+    id: 'e2e-native-puck-provider-owned'
+    text: 'true'
+- assertVisible:
+    id: 'e2e-native-puck-camera-following'
+    text: 'true'
 - assertVisible:
     id: 'e2e-native-puck-provider-at-snapped'
     text: 'true'

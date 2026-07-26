@@ -33,10 +33,8 @@ import {
     PLACE_RESULT_CAMERA_ANIMATION_DURATION_MS,
     PLACE_RESULT_ZOOM_LEVEL,
 } from './constants';
-import {
-    getDrivingMotionState,
-    getLocationWithDrivingMotionState,
-} from './driving-motion-state';
+import { getLocationWithDrivingMotionState } from './driving-location-state';
+import { getDrivingMotionState } from './driving-motion-state';
 import {
     clampZoomLevel,
     getBoundsFromCameraState,
@@ -49,6 +47,7 @@ import {
     normalizeLongitude,
 } from './geo';
 import {
+    locationUpdateIsStale,
     shouldAcceptLocationUpdate,
     shouldUseDeviceLocationWatch,
     shouldUseRoadMatchedLocationWatch,
@@ -193,42 +192,6 @@ export function useMapLocationController({
         locationTrackingModeRef.current = nextMode;
         setLocationTrackingMode(nextMode);
     }, []);
-
-    useEffect(() => {
-        const wasDrivingMode = previousDrivingModeRef.current;
-
-        previousDrivingModeRef.current = isDrivingMode;
-
-        if (!wasDrivingMode || isDrivingMode) {
-            return;
-        }
-
-        setTrackingMode(LOCATION_TRACKING_NONE);
-        markDrivingModeExitCameraRetryWindowStarted();
-
-        const cameraStop = {
-            animationDuration: LOCATION_CAMERA_ANIMATION_DURATION_MS,
-            animationMode: 'easeTo',
-            padding: EMPTY_CAMERA_PADDING,
-            pitch: 0,
-        };
-
-        if (isMapReadyRef.current && cameraRef.current) {
-            cameraRef.current.setCamera(cameraStop);
-            scheduleDrivingModeExitCameraRetry(cameraStop);
-            return;
-        }
-
-        pendingCameraStopRef.current = {
-            camera: cameraStop,
-            enableMarkerLoads: false,
-        };
-    }, [
-        isDrivingMode,
-        markDrivingModeExitCameraRetryWindowStarted,
-        scheduleDrivingModeExitCameraRetry,
-        setTrackingMode,
-    ]);
 
     useEffect(() => {
         if (
@@ -402,6 +365,52 @@ export function useMapLocationController({
         mapPreferencesAreLoaded,
         startLocationModeAfterPermissionGrant,
     });
+
+    useEffect(() => {
+        const wasDrivingMode = previousDrivingModeRef.current;
+
+        previousDrivingModeRef.current = isDrivingMode;
+
+        if (wasDrivingMode === isDrivingMode) {
+            return;
+        }
+
+        if (isDrivingMode) {
+            if (locationAccessGranted && userLocationRef.current) {
+                followLocationMode.start(userLocationRef.current);
+            }
+
+            return;
+        }
+
+        setTrackingMode(LOCATION_TRACKING_NONE);
+        markDrivingModeExitCameraRetryWindowStarted();
+
+        const cameraStop = {
+            animationDuration: LOCATION_CAMERA_ANIMATION_DURATION_MS,
+            animationMode: 'easeTo',
+            padding: EMPTY_CAMERA_PADDING,
+            pitch: 0,
+        };
+
+        if (isMapReadyRef.current && cameraRef.current) {
+            cameraRef.current.setCamera(cameraStop);
+            scheduleDrivingModeExitCameraRetry(cameraStop);
+            return;
+        }
+
+        pendingCameraStopRef.current = {
+            camera: cameraStop,
+            enableMarkerLoads: false,
+        };
+    }, [
+        followLocationMode,
+        isDrivingMode,
+        locationAccessGranted,
+        markDrivingModeExitCameraRetryWindowStarted,
+        scheduleDrivingModeExitCameraRetry,
+        setTrackingMode,
+    ]);
 
     const moveCameraToPlace = useCallback(
         (place) => {
@@ -668,6 +677,16 @@ export function useMapLocationController({
             }
 
             const previousLocation = userLocationRef.current;
+
+            if (
+                locationUpdateIsStale({
+                    currentLocation: previousLocation,
+                    nextLocation,
+                })
+            ) {
+                return;
+            }
+
             const nextHeading = getLocationCourseHeading(location);
             const motionState = getDrivingMotionState({
                 fallbackCourseHeading: currentCourseHeadingRef.current,
@@ -683,6 +702,8 @@ export function useMapLocationController({
                           currentCourseHeadingRef.current,
                           motionState.courseHeading,
                       );
+            } else {
+                currentCourseHeadingRef.current = null;
             }
 
             const nextLocationWithHeading = getLocationWithDrivingMotionState({

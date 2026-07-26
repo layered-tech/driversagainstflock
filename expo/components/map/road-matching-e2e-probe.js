@@ -332,6 +332,27 @@ export function RoadMatchingE2EProbe({
             </Text>
             <Text
                 className="text-[8px] leading-[9px] text-white"
+                testID="e2e-native-puck-provider-owned"
+            >
+                {formatProofValue(nativePuckState?.providerOwnedByApp)}
+            </Text>
+            <Text
+                className="text-[8px] leading-[9px] text-white"
+                testID="e2e-native-puck-camera-following"
+            >
+                {formatProofValue(nativePuckState?.cameraFollowingPuck)}
+            </Text>
+            <Text
+                className="text-[8px] leading-[9px] text-white"
+                testID="e2e-native-puck-camera-center"
+            >
+                {formatCoordinatePair([
+                    nativePuckState?.cameraCenterLongitude,
+                    nativePuckState?.cameraCenterLatitude,
+                ])}
+            </Text>
+            <Text
+                className="text-[8px] leading-[9px] text-white"
                 testID="e2e-native-puck-provider-at-snapped"
             >
                 {formatProofValue(nativePuckState?.providerAtSnappedCoordinate)}

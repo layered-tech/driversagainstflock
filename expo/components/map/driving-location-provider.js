@@ -1,6 +1,12 @@
 import Mapbox from '@rnmapbox/maps';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { normalizeDirectionDegrees, normalizeLongitude } from './geo';
+import {
+    clearLocationPuckLocationProviderAsync,
+    isLocationPuckLocationProviderSupported,
+    setLocationPuckLocationAsync,
+} from './location-puck-3d';
+import { createLocationPuckProviderLifecycle } from './location-puck-provider-lifecycle';
 
 function getFiniteNumber(value) {
     const numericValue = Number(value);
@@ -29,14 +35,11 @@ function getDrivingProviderLocation(location, fallbackHeading) {
         location?.courseHeading ?? location?.heading,
     );
     const compassHeading = normalizeOptionalHeading(location?.compassHeading);
-    const heading = courseHeading ?? compassHeading;
+    const heading = isMoving
+        ? (courseHeading ?? compassHeading)
+        : (compassHeading ?? courseHeading);
     const resolvedFallbackHeading = normalizeOptionalHeading(fallbackHeading);
-    const recordedAt =
-        getFiniteNumber(
-            isMoving
-                ? location?.recordedAt
-                : location?.compassHeadingRecordedAt,
-        ) ?? getFiniteNumber(location?.recordedAt);
+    const recordedAt = getFiniteNumber(location?.recordedAt);
 
     return {
         coordinate: [normalizeLongitude(longitude), latitude],
@@ -59,7 +62,6 @@ function useDrivingProviderLocation({ enabled, userLocation }) {
     }, [
         enabled,
         userLocation?.compassHeading,
-        userLocation?.compassHeadingRecordedAt,
         userLocation?.courseHeading,
         userLocation?.heading,
         userLocation?.isMoving,
@@ -81,19 +83,104 @@ function useDrivingProviderLocation({ enabled, userLocation }) {
 }
 
 export function DrivingLocationProvider({
-    enabled = isDrivingMode,
-    isDrivingMode,
+    attachmentKey,
+    enabled = false,
+    mapViewRef,
+    onNativeProviderStatusChange,
     userLocation,
 }) {
     const providerLocation = useDrivingProviderLocation({
         enabled,
         userLocation,
     });
+    const nativeProviderIsSupported = isLocationPuckLocationProviderSupported();
+    const [nativeProviderStatus, setNativeProviderStatus] =
+        useState('inactive');
+    const providerLifecycleRef = useRef(null);
+
+    if (providerLifecycleRef.current === null) {
+        providerLifecycleRef.current = createLocationPuckProviderLifecycle({
+            clearLocationPuck: clearLocationPuckLocationProviderAsync,
+            onStatusChange: setNativeProviderStatus,
+            updateLocationPuck: setLocationPuckLocationAsync,
+        });
+    }
+
+    const providerLifecycle = providerLifecycleRef.current;
+    const reportedNativeProviderStatus = nativeProviderIsSupported
+        ? nativeProviderStatus
+        : 'unsupported';
     const heading = Number.isFinite(providerLocation?.heading)
         ? providerLocation.heading
         : 0;
 
+    useEffect(() => {
+        onNativeProviderStatusChange?.(reportedNativeProviderStatus);
+    }, [onNativeProviderStatusChange, reportedNativeProviderStatus]);
+
+    useEffect(() => {
+        return () => {
+            onNativeProviderStatusChange?.('inactive');
+        };
+    }, [onNativeProviderStatusChange]);
+
+    useEffect(() => {
+        if (!nativeProviderIsSupported) {
+            return;
+        }
+
+        void providerLifecycle.request({
+            attachmentKey,
+            enabled,
+            mapViewRef,
+            providerLocation,
+        });
+    }, [
+        attachmentKey,
+        enabled,
+        mapViewRef,
+        nativeProviderIsSupported,
+        providerLifecycle,
+        providerLocation,
+    ]);
+
+    useEffect(() => {
+        if (
+            !nativeProviderIsSupported ||
+            nativeProviderStatus !== 'preparing-native'
+        ) {
+            return;
+        }
+
+        void providerLifecycle.request({
+            attachmentKey,
+            enabled,
+            mapViewRef,
+            providerLocation,
+        });
+    }, [
+        attachmentKey,
+        enabled,
+        mapViewRef,
+        nativeProviderIsSupported,
+        nativeProviderStatus,
+        providerLifecycle,
+        providerLocation,
+    ]);
+
+    useEffect(() => {
+        return () => {
+            if (nativeProviderIsSupported) {
+                void providerLifecycle.invalidate();
+            }
+        };
+    }, [nativeProviderIsSupported, providerLifecycle]);
+
     if (!enabled || !providerLocation) {
+        return null;
+    }
+
+    if (nativeProviderIsSupported && nativeProviderStatus !== 'fallback') {
         return null;
     }
 

@@ -94,6 +94,7 @@ function createSearchResultRestoreFromRoute(route) {
 
 export function DrivingGuidanceOverlay({
     children,
+    navigationPuckSize,
     onLocationAnchorLayout,
     topOverlay = null,
 }) {
@@ -380,6 +381,7 @@ export function DrivingGuidanceOverlay({
 
                 <DrivingLocationRoadStack
                     onLocationAnchorLayout={onLocationAnchorLayout}
+                    puckSize={navigationPuckSize}
                     userLocation={userLocation}
                 />
 

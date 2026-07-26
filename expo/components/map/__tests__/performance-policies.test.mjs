@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
     getCurrentPositionForActiveLocationSource,
+    getLocationUpdateRecordedAt,
     getLocationWatchOptions,
+    locationUpdateIsStale,
     shouldAcceptLocationUpdate,
+    shouldRefreshLocationData,
     shouldUseDeviceLocationWatch,
     shouldUseRoadMatchedLocationWatch,
 } from '../location-watch-options.js';
@@ -83,6 +86,42 @@ describe('shouldUseDeviceLocationWatch', () => {
     });
 });
 
+describe('background location data refresh', () => {
+    test('refreshes while active or while a persistent matcher owns driving', () => {
+        assert.equal(
+            shouldRefreshLocationData({
+                appState: 'active',
+                persistentRoadMatchingWatchIsActive: false,
+            }),
+            true,
+        );
+        assert.equal(
+            shouldRefreshLocationData({
+                appState: 'background',
+                persistentRoadMatchingWatchIsActive: true,
+            }),
+            true,
+        );
+        assert.equal(
+            shouldRefreshLocationData({
+                appState: 'inactive',
+                persistentRoadMatchingWatchIsActive: true,
+            }),
+            true,
+        );
+    });
+
+    test('does not poll in the background after persistent driving stops', () => {
+        assert.equal(
+            shouldRefreshLocationData({
+                appState: 'background',
+                persistentRoadMatchingWatchIsActive: false,
+            }),
+            false,
+        );
+    });
+});
+
 describe('shouldAcceptLocationUpdate', () => {
     test('rejects stale raw fixes while road matching owns location updates', () => {
         assert.equal(
@@ -126,6 +165,40 @@ describe('shouldAcceptLocationUpdate', () => {
             shouldAcceptLocationUpdate({
                 location: { roadMatch: { edgeId: 'road:0:forward' } },
                 roadMatchedLocationWatchEnabled: false,
+            }),
+            false,
+        );
+    });
+});
+
+describe('location update ordering', () => {
+    test('reads timestamps before and after location normalization', () => {
+        assert.equal(getLocationUpdateRecordedAt({ timestamp: 1234 }), 1234);
+        assert.equal(getLocationUpdateRecordedAt({ recordedAt: 5678 }), 5678);
+        assert.equal(getLocationUpdateRecordedAt({}), null);
+    });
+
+    test('rejects only a strictly older coordinate fix', () => {
+        const currentLocation = { recordedAt: 2000 };
+
+        assert.equal(
+            locationUpdateIsStale({
+                currentLocation,
+                nextLocation: { timestamp: 1999 },
+            }),
+            true,
+        );
+        assert.equal(
+            locationUpdateIsStale({
+                currentLocation,
+                nextLocation: { timestamp: 2000 },
+            }),
+            false,
+        );
+        assert.equal(
+            locationUpdateIsStale({
+                currentLocation,
+                nextLocation: {},
             }),
             false,
         );
@@ -372,5 +445,85 @@ describe('createMapPreferencesPersistenceScheduler', () => {
 
         writeResolvers.shift()();
         await scheduler.flush();
+    });
+
+    test('bounds a stalled write and allows the newest value to persist', async () => {
+        let storedValue = null;
+        const writes = [];
+        const scheduler = createMapPreferencesPersistenceScheduler({
+            write: (value) => {
+                writes.push(value);
+
+                if (value === 'stalled') {
+                    return new Promise(() => {});
+                }
+
+                storedValue = value;
+
+                return Promise.resolve();
+            },
+            writeTimeoutMs: 5,
+        });
+
+        scheduler.schedule('stalled', { immediate: true });
+
+        assert.equal(
+            await Promise.race([
+                scheduler.flush().then(() => 'bounded'),
+                new Promise((resolve) =>
+                    setTimeout(() => resolve('blocked'), 100),
+                ),
+            ]),
+            'bounded',
+        );
+
+        scheduler.schedule('newest-route', { immediate: true });
+        await scheduler.flush();
+
+        assert.deepEqual(writes, ['stalled', 'newest-route']);
+        assert.equal(storedValue, 'newest-route');
+    });
+
+    test('repairs the newest value after an older write completes late', async () => {
+        let completeOlderWrite;
+        let storedValue = null;
+        const writes = [];
+        const scheduler = createMapPreferencesPersistenceScheduler({
+            write: (value) => {
+                writes.push(value);
+
+                if (value === 'older-route') {
+                    return new Promise((resolve) => {
+                        completeOlderWrite = () => {
+                            storedValue = value;
+                            resolve();
+                        };
+                    });
+                }
+
+                storedValue = value;
+
+                return Promise.resolve();
+            },
+            writeTimeoutMs: 5,
+        });
+
+        scheduler.schedule('older-route', { immediate: true });
+        await scheduler.flush();
+        scheduler.schedule('newest-route', { immediate: true });
+        await scheduler.flush();
+
+        assert.equal(storedValue, 'newest-route');
+
+        completeOlderWrite();
+        await new Promise((resolve) => setImmediate(resolve));
+        await scheduler.flush();
+
+        assert.equal(storedValue, 'newest-route');
+        assert.deepEqual(writes, [
+            'older-route',
+            'newest-route',
+            'newest-route',
+        ]);
     });
 });

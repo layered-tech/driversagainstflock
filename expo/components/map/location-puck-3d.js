@@ -20,11 +20,100 @@ function getSupportedMapViewTag(mapView) {
     return Number.isInteger(mapViewTag) ? mapViewTag : null;
 }
 
+function getFiniteNumber(value) {
+    const numericValue = Number(value);
+
+    return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function getCameraPaddingValue(padding, key) {
+    return getFiniteNumber(padding?.[key]) ?? 0;
+}
+
 export function isLocationPuck3DSupported() {
     return Boolean(
         mapLocationPuckModule?.applyLocationPuck3D &&
         mapLocationPuckModule?.clearLocationPuck3D,
     );
+}
+
+export function isLocationPuckCameraFollowSupported() {
+    return Boolean(
+        mapLocationPuckModule?.setLocationPuckCameraFollow &&
+        mapLocationPuckModule?.isLocationPuckCameraFollowActive,
+    );
+}
+
+export function isLocationPuckLocationProviderSupported() {
+    return Boolean(
+        mapLocationPuckModule?.setLocationPuckLocation &&
+        mapLocationPuckModule?.clearLocationPuckLocationProvider,
+    );
+}
+
+export async function setLocationPuckLocationAsync(mapView, location) {
+    const mapViewTag = getSupportedMapViewTag(mapView);
+    const coordinate = location?.coordinate;
+    const longitude = getFiniteNumber(coordinate?.[0]);
+    const latitude = getFiniteNumber(coordinate?.[1]);
+
+    if (
+        mapViewTag === null ||
+        longitude === null ||
+        latitude === null ||
+        !isLocationPuckLocationProviderSupported()
+    ) {
+        return false;
+    }
+
+    return mapLocationPuckModule.setLocationPuckLocation(
+        mapViewTag,
+        longitude,
+        latitude,
+        getFiniteNumber(location?.heading) ?? 0,
+        getFiniteNumber(location?.recordedAt),
+    );
+}
+
+export async function clearLocationPuckLocationProviderAsync(mapView) {
+    const mapViewTag = getSupportedMapViewTag(mapView);
+
+    if (mapViewTag === null || !isLocationPuckLocationProviderSupported()) {
+        return false;
+    }
+
+    return mapLocationPuckModule.clearLocationPuckLocationProvider(mapViewTag);
+}
+
+export async function setLocationPuckCameraFollowAsync(mapView, followProps) {
+    const mapViewTag = getSupportedMapViewTag(mapView);
+
+    if (mapViewTag === null || !isLocationPuckCameraFollowSupported()) {
+        return false;
+    }
+
+    const padding = followProps?.padding;
+
+    return mapLocationPuckModule.setLocationPuckCameraFollow(
+        mapViewTag,
+        followProps?.enabled === true,
+        getFiniteNumber(followProps?.zoomLevel),
+        getFiniteNumber(followProps?.pitch),
+        getCameraPaddingValue(padding, 'paddingTop'),
+        getCameraPaddingValue(padding, 'paddingLeft'),
+        getCameraPaddingValue(padding, 'paddingBottom'),
+        getCameraPaddingValue(padding, 'paddingRight'),
+    );
+}
+
+export async function isLocationPuckCameraFollowActiveAsync(mapView) {
+    const mapViewTag = getSupportedMapViewTag(mapView);
+
+    if (mapViewTag === null || !isLocationPuckCameraFollowSupported()) {
+        return false;
+    }
+
+    return mapLocationPuckModule.isLocationPuckCameraFollowActive(mapViewTag);
 }
 
 export async function applyLocationPuck3DAsync(

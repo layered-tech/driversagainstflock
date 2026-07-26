@@ -195,6 +195,7 @@ export function AutoPlayMapStatusOverlay({
     freeDriveIsActive,
     markerLoader,
     mapPreferencesAreLoaded,
+    navigationPuckSize = AUTO_PLAY_NAVIGATION_PUCK_SIZE,
     onLocationAnchorLayout,
     presentation,
     userLocation,
@@ -227,7 +228,7 @@ export function AutoPlayMapStatusOverlay({
                     <DrivingLocationRoadStack
                         currentRoadPillTestID="android-auto-current-road-pill"
                         onLocationAnchorLayout={onLocationAnchorLayout}
-                        puckSize={AUTO_PLAY_NAVIGATION_PUCK_SIZE}
+                        puckSize={navigationPuckSize}
                         userLocation={userLocation}
                     />
                 </View>

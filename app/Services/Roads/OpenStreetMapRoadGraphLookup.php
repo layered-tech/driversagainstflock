@@ -4,14 +4,15 @@ namespace App\Services\Roads;
 
 use App\Services\Directions\DirectionsException;
 use App\Services\SpeedLimits\MaxspeedParser;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
-use Throwable;
 
 class OpenStreetMapRoadGraphLookup
 {
+    private const METERS_PER_LATITUDE_DEGREE = 111320;
+
     private const DRIVABLE_HIGHWAY_PATTERN = 'motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service|road';
 
     /** @var list<string> */
@@ -30,18 +31,152 @@ class OpenStreetMapRoadGraphLookup
      */
     public function find(float $latitude, float $longitude, int $radiusMeters): array
     {
+        $cacheCell = $this->cacheCell($latitude, $longitude, $radiusMeters);
+        $cachedWays = Cache::get($cacheCell['cache_key']);
+
+        if (is_array($cachedWays)) {
+            return $this->flexibleCorridor($cacheCell, $cachedWays);
+        }
+
+        try {
+            return Cache::lock(
+                $cacheCell['cache_key'].':lock',
+                (int) config('road-corridor.lock_seconds'),
+            )->block(
+                (int) config('road-corridor.lock_wait_seconds'),
+                function () use ($cacheCell): array {
+                    $cachedWays = Cache::get($cacheCell['cache_key']);
+
+                    if (is_array($cachedWays)) {
+                        return $this->flexibleCorridor($cacheCell, $cachedWays);
+                    }
+
+                    if (Cache::get($cacheCell['failure_key']) === true) {
+                        throw DirectionsException::upstream('Road corridor could not be loaded.');
+                    }
+
+                    return $this->flexibleCorridor($cacheCell);
+                },
+            );
+        } catch (LockTimeoutException) {
+            $cachedWays = Cache::get($cacheCell['cache_key']);
+
+            if (is_array($cachedWays)) {
+                return $cachedWays;
+            }
+
+            throw DirectionsException::upstream('Road corridor could not be loaded.');
+        }
+    }
+
+    /**
+     * @param  array{
+     *     cache_key: string,
+     *     failure_key: string,
+     *     latitude: float,
+     *     longitude: float,
+     *     query_radius_meters: int
+     * }  $cacheCell
+     */
+    private function flexibleCorridor(array $cacheCell, ?array $staleWays = null): array
+    {
+        return Cache::flexible(
+            $cacheCell['cache_key'],
+            [
+                max(1, (int) config('road-corridor.cache_seconds')),
+                $this->staleCacheSeconds(),
+            ],
+            function () use ($cacheCell, $staleWays): array {
+                if ($staleWays !== null && Cache::get($cacheCell['failure_key']) === true) {
+                    return $staleWays;
+                }
+
+                try {
+                    $ways = $this->fetch(
+                        $cacheCell['latitude'],
+                        $cacheCell['longitude'],
+                        $cacheCell['query_radius_meters'],
+                    );
+                } catch (DirectionsException $exception) {
+                    Cache::put(
+                        $cacheCell['failure_key'],
+                        true,
+                        now()->addSeconds((int) config('road-corridor.failure_cache_seconds')),
+                    );
+
+                    if ($staleWays !== null) {
+                        return $staleWays;
+                    }
+
+                    throw $exception;
+                }
+
+                Cache::forget($cacheCell['failure_key']);
+
+                return $ways;
+            },
+            lock: ['seconds' => (int) config('road-corridor.lock_seconds')],
+        );
+    }
+
+    private function staleCacheSeconds(): int
+    {
+        return max(
+            (int) config('road-corridor.cache_seconds') + 1,
+            (int) config('road-corridor.stale_cache_seconds'),
+        );
+    }
+
+    /**
+     * @return array{
+     *     cache_key: string,
+     *     failure_key: string,
+     *     latitude: float,
+     *     longitude: float,
+     *     query_radius_meters: int
+     * }
+     */
+    private function cacheCell(float $latitude, float $longitude, int $radiusMeters): array
+    {
+        $gridMeters = max(25, (int) config('road-corridor.cache_grid_meters'));
+        $latitudeStep = $gridMeters / self::METERS_PER_LATITUDE_DEGREE;
+        $latitudeCell = (int) floor(($latitude + 90) / $latitudeStep);
+        $cellLatitude = min(90, -90 + (($latitudeCell + 0.5) * $latitudeStep));
+        $longitudeMetersPerDegree = self::METERS_PER_LATITUDE_DEGREE
+            * max(abs(cos(deg2rad($cellLatitude))), 0.01);
+        $longitudeStep = $gridMeters / $longitudeMetersPerDegree;
+        $normalizedLongitude = $this->normalizeLongitude($longitude);
+        $longitudeCell = (int) floor(($normalizedLongitude + 180) / $longitudeStep);
+        $cellLongitude = $this->normalizeLongitude(
+            -180 + (($longitudeCell + 0.5) * $longitudeStep),
+        );
+        $cellCoverageMeters = (int) ceil(($gridMeters / sqrt(2)) * 1.02);
         $cacheKey = sprintf(
-            'road-corridor:%0.5f:%0.5f:%d',
-            round($latitude, 5),
-            round($longitude, 5),
+            'road-corridor:v5:%d:%d:%d:%d',
+            $gridMeters,
+            $latitudeCell,
+            $longitudeCell,
             $radiusMeters,
         );
 
-        return Cache::remember(
-            $cacheKey,
-            now()->addSeconds((int) config('road-corridor.cache_seconds')),
-            fn () => $this->fetch($latitude, $longitude, $radiusMeters),
-        );
+        return [
+            'cache_key' => $cacheKey,
+            'failure_key' => $cacheKey.':failed',
+            'latitude' => $cellLatitude,
+            'longitude' => $cellLongitude,
+            'query_radius_meters' => $radiusMeters + $cellCoverageMeters,
+        ];
+    }
+
+    private function normalizeLongitude(float $longitude): float
+    {
+        $normalizedLongitude = fmod($longitude + 180, 360);
+
+        if ($normalizedLongitude < 0) {
+            $normalizedLongitude += 360;
+        }
+
+        return $normalizedLongitude - 180;
     }
 
     /**
@@ -55,7 +190,6 @@ class OpenStreetMapRoadGraphLookup
                 ->withUserAgent('DriversAgainstFlock/1.0 (+https://driversagainstflock.com)')
                 ->connectTimeout((int) config('road-corridor.connect_timeout_seconds'))
                 ->timeout((int) config('road-corridor.timeout_seconds'))
-                ->retry(2, 150, $this->shouldRetry(...), throw: false)
                 ->post((string) config('road-corridor.overpass_url'), [
                     'data' => $this->buildQuery($latitude, $longitude, $radiusMeters),
                 ]);
@@ -78,11 +212,12 @@ class OpenStreetMapRoadGraphLookup
         }
 
         $elements = $payload['elements'];
+        $nodeCoordinates = $this->normalizeNodeCoordinates($elements);
 
         $ways = [];
 
         foreach ($elements as $element) {
-            $way = $this->normalizeWay($element);
+            $way = $this->normalizeWay($element, $nodeCoordinates);
 
             if ($way === null) {
                 continue;
@@ -97,7 +232,7 @@ class OpenStreetMapRoadGraphLookup
     private function buildQuery(float $latitude, float $longitude, int $radiusMeters): string
     {
         return sprintf(
-            '[out:json][timeout:%d];way(around:%d,%F,%F)["highway"~"^(%s)$"];out body geom;',
+            '[out:json][timeout:%d];way(around:%d,%F,%F)["highway"~"^(%s)$"];out body qt;>;out skel qt;',
             (int) config('road-corridor.overpass_timeout_seconds'),
             $radiusMeters,
             $latitude,
@@ -109,7 +244,7 @@ class OpenStreetMapRoadGraphLookup
     /**
      * @return array<string, mixed>|null
      */
-    private function normalizeWay(mixed $element): ?array
+    private function normalizeWay(mixed $element, array $nodeCoordinates): ?array
     {
         if (! is_array($element) || ($element['type'] ?? null) !== 'way' || ! is_numeric($element['id'] ?? null)) {
             return null;
@@ -133,10 +268,7 @@ class OpenStreetMapRoadGraphLookup
             return null;
         }
 
-        $geometry = $this->normalizeGeometry(
-            $element['geometry'] ?? null,
-            $element['nodes'] ?? null,
-        );
+        $geometry = $this->normalizeGeometry($element['nodes'] ?? null, $nodeCoordinates);
 
         if ($geometry === null) {
             return null;
@@ -179,12 +311,6 @@ class OpenStreetMapRoadGraphLookup
             'maxspeed_backward' => $maxspeedBackward,
             'speed_limit_backward_mph' => $this->maxspeedParser->toMph($maxspeedBackward),
         ];
-    }
-
-    private function shouldRetry(Throwable $exception): bool
-    {
-        return $exception instanceof ConnectionException
-            || ($exception instanceof RequestException && $exception->response->serverError());
     }
 
     /**
@@ -247,46 +373,25 @@ class OpenStreetMapRoadGraphLookup
     /**
      * @return array{coordinates: list<array{0: float, 1: float}>, node_ids: list<int>}|null
      */
-    private function normalizeGeometry(mixed $geometry, mixed $nodes): ?array
+    private function normalizeGeometry(mixed $nodes, array $nodeCoordinates): ?array
     {
-        if (
-            ! is_array($geometry)
-            || ! is_array($nodes)
-            || count($geometry) !== count($nodes)
-            || count($geometry) < 2
-        ) {
+        if (! is_array($nodes) || count($nodes) < 2) {
             return null;
         }
 
         $coordinates = [];
         $nodeIds = [];
 
-        foreach ($geometry as $index => $point) {
-            if (
-                ! is_array($point)
-                || ! is_numeric($point['lat'] ?? null)
-                || ! is_numeric($point['lon'] ?? null)
-            ) {
-                return null;
-            }
-
-            $nodeId = filter_var($nodes[$index] ?? null, FILTER_VALIDATE_INT, [
+        foreach ($nodes as $node) {
+            $nodeId = filter_var($node, FILTER_VALIDATE_INT, [
                 'options' => ['min_range' => 1],
             ]);
-            $latitude = (float) $point['lat'];
-            $longitude = (float) $point['lon'];
 
-            if (
-                $nodeId === false
-                || $latitude < -90
-                || $latitude > 90
-                || $longitude < -180
-                || $longitude > 180
-            ) {
+            if ($nodeId === false || ! array_key_exists($nodeId, $nodeCoordinates)) {
                 return null;
             }
 
-            $coordinate = [$longitude, $latitude];
+            $coordinate = $nodeCoordinates[$nodeId];
 
             if ($coordinates !== [] && $coordinates[array_key_last($coordinates)] === $coordinate) {
                 if ($nodeIds[array_key_last($nodeIds)] === $nodeId) {
@@ -308,6 +413,62 @@ class OpenStreetMapRoadGraphLookup
             'coordinates' => $coordinates,
             'node_ids' => $nodeIds,
         ];
+    }
+
+    /**
+     * @param  list<mixed>  $elements
+     * @return array<int, array{0: float, 1: float}>
+     */
+    private function normalizeNodeCoordinates(array $elements): array
+    {
+        $invalidNodeIds = [];
+        $nodeCoordinates = [];
+
+        foreach ($elements as $element) {
+            if (
+                ! is_array($element)
+                || ($element['type'] ?? null) !== 'node'
+                || ! is_numeric($element['lat'] ?? null)
+                || ! is_numeric($element['lon'] ?? null)
+            ) {
+                continue;
+            }
+
+            $nodeId = filter_var($element['id'] ?? null, FILTER_VALIDATE_INT, [
+                'options' => ['min_range' => 1],
+            ]);
+            $latitude = (float) $element['lat'];
+            $longitude = (float) $element['lon'];
+
+            if (
+                $nodeId === false
+                || ! is_finite($latitude)
+                || ! is_finite($longitude)
+                || $latitude < -90
+                || $latitude > 90
+                || $longitude < -180
+                || $longitude > 180
+                || isset($invalidNodeIds[$nodeId])
+            ) {
+                continue;
+            }
+
+            $coordinate = [$longitude, $latitude];
+
+            if (
+                array_key_exists($nodeId, $nodeCoordinates)
+                && $nodeCoordinates[$nodeId] !== $coordinate
+            ) {
+                unset($nodeCoordinates[$nodeId]);
+                $invalidNodeIds[$nodeId] = true;
+
+                continue;
+            }
+
+            $nodeCoordinates[$nodeId] = $coordinate;
+        }
+
+        return $nodeCoordinates;
     }
 
     private function isTruthyOsmValue(mixed $value): bool

@@ -11,13 +11,23 @@ const autoPlayMapSurfaceSource = readSource(
     '../../auto-play-map-surface-content.js',
 );
 const autoPlaySource = readSource('../../auto-play.js');
+const backgroundAlertRefreshSource = readSource(
+    '../background-alert-refresh.js',
+);
 const drivingLocationProviderSource = readSource(
     '../driving-location-provider.js',
 );
+const durableAlertStoreSource = readSource('../durable-alert-store.js');
 const easJson = JSON.parse(readSource('../../../eas.json'));
+const electronicHorizonAlprStoreSource = readSource(
+    '../electronic-horizon-alpr-store.js',
+);
 const indexSource = readSource('../../../index.js');
 const locationDebugOverlaySource = readSource('../location-debug-overlay.js');
 const locationPuck3DSource = readSource('../location-puck-3d.js');
+const locationPuckProviderLifecycleSource = readSource(
+    '../location-puck-provider-lifecycle.js',
+);
 const mapCanvasSource = readSource('../map-canvas.js');
 const mapScreenSource = readSource('../../map-screen.js');
 const mapLocationControllerSource = readSource(
@@ -41,6 +51,11 @@ const mapLocationPuckPodspecSource = readSource(
 );
 const packageJson = JSON.parse(readSource('../../../package.json'));
 const roadMatchingSessionSource = readSource('../road-matching-session.js');
+const upcomingAlertsSource = readSource(
+    '../use-upcoming-electronic-horizon-alerts.js',
+);
+const wazePoliceAlertsSource = readSource('../use-waze-police-alerts.js');
+const wazePoliceAlertStoreSource = readSource('../waze-police-alert-store.js');
 
 describe('in-house road-matched location integration', () => {
     test('does not package or invoke the removed Mapbox Navigation SDK', () => {
@@ -79,10 +94,30 @@ describe('in-house road-matched location integration', () => {
         );
     });
 
-    test('feeds matched coordinates through the custom provider and Maps 3D puck', () => {
+    test('feeds matched coordinates through one native provider and Maps 3D puck', () => {
         assert.match(
             drivingLocationProviderSource,
-            /<Mapbox\.CustomLocationProvider[\s\S]*?coordinate=\{providerLocation\.coordinate\}[\s\S]*?heading=\{heading\}/,
+            /isLocationPuckLocationProviderSupported\(\)[\s\S]*?providerLifecycle\.request\(/,
+        );
+        assert.match(
+            drivingLocationProviderSource,
+            /onStatusChange: setNativeProviderStatus[\s\S]*?nativeProviderStatus !== 'fallback'[\s\S]*?<Mapbox\.CustomLocationProvider/,
+        );
+        assert.match(
+            locationPuckProviderLifecycleSource,
+            /mapViewChanged[\s\S]*?clearMapView\(previousMapView\)[\s\S]*?updateLocationPuck\(request\.mapView, request\.location\)/,
+        );
+        assert.match(
+            locationPuckProviderLifecycleSource,
+            /setStatus\('recovering'\)[\s\S]*?clearMapView\(request\.mapView\)[\s\S]*?setStatus\('fallback'\)/,
+        );
+        assert.match(
+            drivingLocationProviderSource,
+            /const heading = isMoving[\s\S]*?courseHeading \?\? compassHeading[\s\S]*?compassHeading \?\? courseHeading/,
+        );
+        assert.match(
+            drivingLocationProviderSource,
+            /const recordedAt = getFiniteNumber\(location\?\.recordedAt\)/,
         );
         assert.match(mapCanvasSource, /<MapLocationProvider/);
         assert.match(mapCanvasSource, /<Mapbox\.LocationPuck/);
@@ -99,12 +134,22 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(
             mapCanvasSource,
-            /centerCoordinate=\{androidFollowCameraStop\?\.centerCoordinate\}/,
+            /createLocationPuckCameraFollowLifecycle/,
+        );
+        assert.match(mapCanvasSource, /requestLocationPuckCameraFollow/);
+        assert.match(
+            mapCanvasSource,
+            /locationPuckNativeProviderIsReady[\s\S]*?locationPuckRequests3D/,
         );
         assert.match(
             mapCanvasSource,
-            /padding=\{androidFollowCameraStop\?\.padding\}/,
+            /onNativeProviderStatusChange=\{[\s\S]*?setLocationPuckProviderStatus/,
         );
+        assert.match(
+            mapCanvasSource,
+            /locationPuckNativeCameraMayOwnViewport = \[[\s\S]*?'activating'[\s\S]*?'clearing'[\s\S]*?nativeLocationPuckCameraControllerIsEligible[\s\S]*?!locationPuckProviderUsesFallback \|\|[\s\S]*?locationPuckNativeCameraMayOwnViewport/,
+        );
+        assert.doesNotMatch(mapCanvasSource, /androidFollowCameraStop/);
         assert.match(
             mapScreenSource,
             /<RoadMatchingE2EProbe[\s\S]*?mapViewRef=\{locationController\.mapViewRef\}/,
@@ -147,7 +192,17 @@ describe('in-house road-matched location integration', () => {
             'MapLocationPuckModule',
         ]);
         assert.match(locationPuck3DSource, /MapLocationPuck/);
+        assert.match(locationPuck3DSource, /setLocationPuckLocationAsync/);
+        assert.match(
+            locationPuck3DSource,
+            /clearLocationPuckLocationProviderAsync/,
+        );
+        assert.match(locationPuck3DSource, /setLocationPuckCameraFollowAsync/);
         assert.match(mapLocationPuckAndroidSource, /LocationPuck3D\(/);
+        assert.match(
+            mapLocationPuckAndroidSource,
+            /modelScaleMode = ModelScaleMode\.VIEWPORT/,
+        );
         assert.match(
             mapLocationPuckAndroidSource,
             /asset:\/\/navigation_puck\.glb/,
@@ -166,16 +221,89 @@ describe('in-house road-matched location integration', () => {
             /addOnIndicatorPositionChangedListener/,
         );
         assert.match(mapLocationPuckAndroidSource, /isLocatedAt\(/);
+        assert.doesNotMatch(
+            mapLocationPuckAndroidSource,
+            /showNativeUserLocation/,
+        );
         assert.match(
             mapLocationPuckAndroidSource,
-            /val hadLocationPuck3D[\s\S]*?if \(hadLocationPuck3D\) \{[\s\S]*?showNativeUserLocation\(false\)/,
+            /class SharedLocationPuckProvider : LocationProvider/,
+        );
+        assert.match(
+            mapLocationPuckAndroidSource,
+            /setLocationPuckLocation[\s\S]*?ensureLocationProviderForUpdate\(mapView\)[\s\S]*?provider\.update/,
+        );
+        assert.match(
+            mapLocationPuckAndroidSource,
+            /consumer\.onLocationUpdated\(point,[\s\S]*?consumer\.onBearingUpdated\(bearing,/,
+        );
+        assert.match(
+            mapLocationPuckAndroidSource,
+            /clearLocationPuckLocationProvider[\s\S]*?state\.previousProvider/,
         );
         assert.match(
             mapLocationPuckAndroidSource,
             /mapbox-location-model-layer/,
         );
+        assert.match(
+            mapLocationPuckAndroidSource,
+            /setLocationPuckCameraFollow[\s\S]*?makeFollowPuckViewportState/,
+        );
+        assert.match(
+            mapLocationPuckAndroidSource,
+            /setLocationPuckCameraFollow[\s\S]*?reassertLiveLocationProvider\(mapView\)[\s\S]*?return@Coroutine false/,
+        );
+        assert.match(
+            mapLocationPuckAndroidSource,
+            /isLocationPuckCameraFollowActive[\s\S]*?liveLocationProviderIsOwned/,
+        );
+        assert.match(
+            mapLocationPuckAndroidSource,
+            /FollowPuckViewportStateBearing\.SyncWithLocationPuck/,
+        );
+        assert.match(
+            mapLocationPuckAndroidSource,
+            /withTimeoutOrNull[\s\S]*?suspendCancellableCoroutine[\s\S]*?viewport\.transitionTo\([\s\S]*?viewport\.makeImmediateViewportTransition\(\)[\s\S]*?CompletionListener[\s\S]*?continuation\.isActive/,
+        );
+        assert.match(
+            mapLocationPuckAndroidSource,
+            /viewportOwnsCameraFollowState[\s\S]*?is ViewportStatus\.State[\s\S]*?is ViewportStatus\.Transition/,
+        );
         assert.match(mapLocationPuckIOSSource, /Puck3DConfiguration\(/);
+        assert.match(
+            mapLocationPuckIOSSource,
+            /modelScaleMode: \.constant\(\.viewport\)/,
+        );
         assert.match(mapLocationPuckIOSSource, /import MapboxMaps/);
+        assert.match(
+            mapLocationPuckIOSSource,
+            /class OwnedLocationProviderState[\s\S]*?LocationDataModel\(/,
+        );
+        assert.match(
+            mapLocationPuckIOSSource,
+            /setLocationPuckLocation[\s\S]*?providerState\.update\([\s\S]*?location: location,[\s\S]*?heading: headingValue,[\s\S]*?recordedAt: normalizedRecordedAt/,
+        );
+        assert.match(
+            mapLocationPuckIOSSource,
+            /clearLocationPuckLocationProvider[\s\S]*?previousDataModel/,
+        );
+        assert.match(
+            mapLocationPuckIOSSource,
+            /setLocationPuckCameraFollow[\s\S]*?makeFollowPuckViewportState/,
+        );
+        assert.match(
+            mapLocationPuckIOSSource,
+            /setLocationPuckCameraFollow[\s\S]*?reassertLiveLocationProvider\(on: mapView\)/,
+        );
+        assert.match(mapLocationPuckIOSSource, /options\.bearing = \.heading/);
+        assert.match(
+            mapLocationPuckIOSSource,
+            /transitionImmediately[\s\S]*?withCheckedContinuation[\s\S]*?makeImmediateViewportTransition\(\)[\s\S]*?DispatchQueue\.main\.asyncAfter/,
+        );
+        assert.match(
+            mapLocationPuckIOSSource,
+            /viewportOwnsCameraFollowState[\s\S]*?case \.state[\s\S]*?case \.transition/,
+        );
         assert.match(mapLocationPuckPodspecSource, /dependency 'MapboxMaps'/);
         assert.match(
             roadMatchingE2EProbeSource,
@@ -184,6 +312,54 @@ describe('in-house road-matched location integration', () => {
         assert.doesNotMatch(
             roadMatchingE2EProbeSource,
             /NATIVE_PUCK_PROOF_TIMEOUT_MS/,
+        );
+    });
+
+    test('keeps native puck ownership monotonic through replacement and cleanup', () => {
+        assert.match(
+            mapLocationPuckIOSSource,
+            /private\(set\) var previousDataModel: LocationDataModel/,
+        );
+        assert.match(
+            mapLocationPuckIOSSource,
+            /func reassertOwnership\(on locationManager: LocationManager\)[\s\S]*?previousDataModel = locationManager\.dataModel[\s\S]*?locationManager\.dataModel = dataModel/,
+        );
+        assert.match(
+            mapLocationPuckIOSSource,
+            /private\(set\) var latestRecordedAt: Double\?[\s\S]*?recordedAt < latestRecordedAt[\s\S]*?return[\s\S]*?latestRecordedAt = recordedAt \?\? latestRecordedAt/,
+        );
+        assert.match(
+            mapLocationPuckIOSSource,
+            /providerState\.reassertOwnership\(on: locationManager\)[\s\S]*?providerState\.update\(/,
+        );
+        assert.match(
+            mapLocationPuckIOSSource,
+            /locationManager\.dataModel === providerState\.dataModel[\s\S]*?locationManager\.dataModel = providerState\.previousDataModel/,
+        );
+
+        const clearLocationPuck3DStart = mapLocationPuckAndroidSource.indexOf(
+            'AsyncFunction("clearLocationPuck3D")',
+        );
+        const clearLocationPuck3DEnd = mapLocationPuckAndroidSource.indexOf(
+            'AsyncFunction("setLocationPuckCameraFollow")',
+            clearLocationPuck3DStart,
+        );
+
+        assert.notEqual(clearLocationPuck3DStart, -1);
+        assert.notEqual(clearLocationPuck3DEnd, -1);
+
+        const clearLocationPuck3DSource = mapLocationPuckAndroidSource.slice(
+            clearLocationPuck3DStart,
+            clearLocationPuck3DEnd,
+        );
+
+        assert.match(
+            clearLocationPuck3DSource,
+            /if \(hadLocationPuck3D\)[\s\S]*?location\.locationPuck = LocationPuck2D\(opacity = 0f\)/,
+        );
+        assert.doesNotMatch(
+            clearLocationPuck3DSource,
+            /location\.enabled = false|setLocationProvider|viewport\.idle|cameraFollowStates\.remove/,
         );
     });
 
@@ -207,6 +383,32 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(roadMatchingSessionSource, /createRoadMatcher/);
         assert.match(roadMatchingSessionSource, /createRoadMatcherWithHistory/);
+        const corridorRadiusMeters = Number(
+            roadMatchingSessionSource.match(
+                /ROAD_CORRIDOR_RADIUS_METERS = (\d+)/,
+            )?.[1],
+        );
+        const corridorRefreshDistanceMeters = Number(
+            roadMatchingSessionSource.match(
+                /ROAD_CORRIDOR_REFRESH_DISTANCE_METERS = (\d+)/,
+            )?.[1],
+        );
+        const lookAheadDistanceMeters = Number(
+            roadMatchingSessionSource.match(
+                /ROAD_LOOK_AHEAD_DISTANCE_METERS = (\d+)/,
+            )?.[1],
+        );
+
+        assert.equal(corridorRadiusMeters, 3200);
+        assert.equal(corridorRefreshDistanceMeters, 1200);
+        assert.ok(
+            corridorRadiusMeters >=
+                corridorRefreshDistanceMeters + lookAheadDistanceMeters,
+        );
+        assert.match(
+            roadMatchingSessionSource,
+            /getRoadCorridor\(\{[\s\S]*?radiusMeters: ROAD_CORRIDOR_RADIUS_METERS[\s\S]*?createDirectedRoadGraph\(ways\)[\s\S]*?createRoadMatcherWithHistory/,
+        );
         assert.match(
             roadMatchingSessionSource,
             /rawLocationHistory\.slice\(0, -1\)/,
@@ -269,6 +471,10 @@ describe('in-house road-matched location integration', () => {
             appConfigSource,
             /isAndroidBackgroundLocationEnabled: false/,
         );
+        assert.doesNotMatch(
+            appConfigSource,
+            /android\.permission\.ACCESS_BACKGROUND_LOCATION/,
+        );
         assert.match(appConfigSource, /isIosBackgroundLocationEnabled: true/);
         assert.match(
             appConfigSource,
@@ -276,8 +482,18 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(
             roadMatchingSessionSource,
-            /Platform\.OS !== 'ios'[\s\S]*?return true/,
+            /Location\.getBackgroundPermissionsAsync\(\)/,
         );
+        assert.match(
+            roadMatchingSessionSource,
+            /Location\.requestBackgroundPermissionsAsync\(\)/,
+        );
+        assert.match(
+            roadMatchingSessionSource,
+            /if \(Platform\.OS !== 'ios'\) \{\s*return true;\s*\}/,
+        );
+        assert.match(roadMatchingSessionSource, /Platform\.OS === 'android'/);
+        assert.match(roadMatchingSessionSource, /foregroundService:/);
         assert.match(
             roadMatchingSessionSource,
             /async function stopBackgroundLocationTask\(\)[\s\S]*?hasStartedLocationUpdatesAsync/,
@@ -290,11 +506,135 @@ describe('in-house road-matched location integration', () => {
             roadMatchingSessionSource,
             /RNMapboxNavigation|retiredNavigationModule|startTripSession/,
         );
-        assert.equal(
-            easJson.build[
-                'e2e-test'
-            ].env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN.startsWith('pk.'),
-            true,
+        assert.equal(easJson.build['e2e-test'].environment, 'development');
+        assert.equal(easJson.build['e2e-test'].android.buildType, 'apk');
+    });
+
+    test('refreshes alert sources from the newest background delivery without a mounted view', () => {
+        for (const alertSource of [
+            upcomingAlertsSource,
+            wazePoliceAlertsSource,
+        ]) {
+            assert.match(
+                alertSource,
+                /usePersistentRoadMatchingWatchIsActive\(\)/,
+            );
+            assert.match(alertSource, /shouldRefreshLocationData\(/);
+        }
+
+        assert.match(
+            roadMatchingSessionSource,
+            /latestLocation = locations\.at\(-1\)[\s\S]*?locationPublication = publishRawLocationAsync\([\s\S]*?latestLocation[\s\S]*?alertRefresh = runBackgroundLocationWorkAsync\(latestLocation\)[\s\S]*?Promise\.allSettled\(\[locationPublication, alertRefresh\]\)/,
+        );
+        assert.doesNotMatch(
+            roadMatchingSessionSource,
+            /for \(const location of locations\)/,
+        );
+        assert.match(
+            roadMatchingSessionSource,
+            /BACKGROUND_LOCATION_TASK_DEADLINE_MS = 24000[\s\S]*?settleBackgroundWorkWithinDeadlineAsync\([\s\S]*?processBackgroundLocationTaskAsync\(data\)[\s\S]*?BACKGROUND_LOCATION_TASK_DEADLINE_MS/,
+        );
+        assert.match(
+            roadMatchingSessionSource,
+            /async function runBackgroundLocationWorkAsync[\s\S]*?location: lastRoadMatchedLocation[\s\S]*?roadLookAhead: lastRoadLookAhead[\s\S]*?await refreshBackgroundAlertsForLocationAsync\(context\)/,
+        );
+        assert.match(
+            roadMatchingSessionSource,
+            /ROAD_CORRIDOR_REQUEST_TIMEOUT_MS = 23000[\s\S]*?BACKGROUND_LOCATION_TASK_DEADLINE_MS = 24000[\s\S]*?requestTimeoutId = setTimeout\([\s\S]*?requestAbortController\.abort\(\)[\s\S]*?ROAD_CORRIDOR_REQUEST_TIMEOUT_MS[\s\S]*?clearTimeout\(requestTimeoutId\)/,
+        );
+        assert.doesNotMatch(
+            roadMatchingSessionSource,
+            /BACKGROUND_ROAD_CORRIDOR_REQUEST_TIMEOUT_MS/,
+        );
+        assert.match(
+            roadMatchingSessionSource,
+            /lastGraphRequestFailure\?\.source === source[\s\S]*?requestContext = Object\.freeze\(\{[\s\S]*?originSource: source[\s\S]*?startedWithRoadGraph: roadGraph !== null[\s\S]*?error\?\.name !== 'AbortError' \|\| requestTimedOut[\s\S]*?source: requestContext\.originSource[\s\S]*?if \(!requestContext\.startedWithRoadGraph\) \{[\s\S]*?setSessionState\('road-graph-error'\)/,
+        );
+        assert.doesNotMatch(
+            roadMatchingSessionSource,
+            /async function publishRawLocationAsync[\s\S]*?runBackgroundLocationWorkAsync\(location\)[\s\S]*?function roadGraphNeedsRefresh/,
+        );
+        assert.doesNotMatch(
+            [
+                roadMatchingSessionSource,
+                upcomingAlertsSource,
+                wazePoliceAlertsSource,
+            ].join('\n'),
+            /addRoadMatchingBackgroundLocationWorkListener/,
+        );
+
+        assert.match(
+            upcomingAlertsSource,
+            /alertPathStateRef\.current = \{ coordinates, pathStateKey \}/,
+        );
+        assert.match(
+            upcomingAlertsSource,
+            /return refreshElectronicHorizonAlprNodesIfStale\(\{/,
+        );
+        assert.match(
+            upcomingAlertsSource,
+            /coordinatePathStateKey[\s\S]*?refreshAlprNodesIfStale/,
+        );
+        assert.match(
+            wazePoliceAlertsSource,
+            /centerRef\.current = currentCenter/,
+        );
+        assert.match(
+            wazePoliceAlertsSource,
+            /return refreshWazePoliceAlertsIfStale\(center\)/,
+        );
+        assert.match(
+            backgroundAlertRefreshSource,
+            /await getSharedRoutingStateForBackgroundAsync\(\)[\s\S]*?drivingModeIsActive[\s\S]*?getSelectedDirectionsRouteOption[\s\S]*?getDirectionsRouteCoordinatesAhead/,
+        );
+        assert.match(
+            backgroundAlertRefreshSource,
+            /pathSource === 'route'[\s\S]*?activeRouteCoordinates[\s\S]*?: electronicHorizonCoordinates/,
+        );
+        assert.match(
+            backgroundAlertRefreshSource,
+            /context\?\.location\?\.coords[\s\S]*?context\?\.rawLocation\?\.coords/,
+        );
+        assert.match(
+            backgroundAlertRefreshSource,
+            /getElectronicHorizonPrimaryCoordinates\([\s\S]*?context\?\.roadLookAhead[\s\S]*?\)/,
+        );
+        assert.match(
+            backgroundAlertRefreshSource,
+            /getSharedMapPreferencesState\(\)[\s\S]*?mapPreferencesAreLoaded[\s\S]*?storedPoliceAlertsAreEnabledPromise[\s\S]*?AsyncStorage\.getItem/,
+        );
+        assert.match(
+            backgroundAlertRefreshSource,
+            /refreshElectronicHorizonAlprNodesIfStale[\s\S]*?refreshWazePoliceAlertsIfStale[\s\S]*?Promise\.allSettled\(work\)/,
+        );
+
+        for (const alertStoreSource of [
+            electronicHorizonAlprStoreSource,
+            wazePoliceAlertStoreSource,
+        ]) {
+            assert.match(alertStoreSource, /AsyncStorage/);
+            assert.match(alertStoreSource, /createDurableAlertStore\(\{/);
+            assert.match(alertStoreSource, /Snapshot\.v1/);
+        }
+
+        assert.match(
+            upcomingAlertsSource,
+            /hydrateElectronicHorizonAlprNodes\(\)/,
+        );
+        assert.match(wazePoliceAlertsSource, /hydrateWazePoliceAlerts\(\)/);
+        assert.match(durableAlertStoreSource, /new AbortController\(\)/);
+        assert.match(durableAlertStoreSource, /clearTimeout\(timeoutId\)/);
+        assert.match(
+            durableAlertStoreSource,
+            /fetchItems\(input, abortController\.signal\)/,
+        );
+        assert.match(
+            durableAlertStoreSource,
+            /latestRequestedInput[\s\S]*?pendingInput/,
+        );
+        assert.match(
+            durableAlertStoreSource,
+            /storage\.getItem\(storageKey\)[\s\S]*?storage\.setItem/,
         );
     });
 });

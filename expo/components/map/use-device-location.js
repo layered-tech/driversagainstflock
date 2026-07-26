@@ -8,6 +8,7 @@ import {
 } from './geo';
 import {
     getCurrentPositionForActiveLocationSource,
+    getLocationUpdateRecordedAt,
     getLocationWatchOptions,
     isRoadMatchedLocationUpdate,
 } from './location-watch-options';
@@ -251,11 +252,31 @@ export function useRoadMatchedLocationWatch({
         }
 
         let isActive = true;
+        let latestDeliveredRecordedAt = null;
         let sessionHandle = null;
         const handleLocation = (location) => {
-            if (isActive && isMountedRef.current) {
-                handleUserLocationUpdateRef.current?.(location);
+            if (!isActive || !isMountedRef.current) {
+                return;
             }
+
+            const recordedAt = getLocationUpdateRecordedAt(location);
+
+            if (
+                recordedAt !== null &&
+                latestDeliveredRecordedAt !== null &&
+                recordedAt < latestDeliveredRecordedAt
+            ) {
+                return;
+            }
+
+            if (recordedAt !== null) {
+                latestDeliveredRecordedAt = Math.max(
+                    latestDeliveredRecordedAt ?? recordedAt,
+                    recordedAt,
+                );
+            }
+
+            handleUserLocationUpdateRef.current?.(location);
         };
         const locationSubscription =
             addRoadMatchedLocationListener(handleLocation);

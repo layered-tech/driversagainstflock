@@ -1,4 +1,14 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BACKGROUND_ALERT_STORAGE_TIMEOUT_MS } from './background-alert-budget';
 import { getSelectedDirectionsRouteOption } from './directions';
+import { createMapPreferencesPersistenceScheduler } from './map-preferences-persistence';
+import {
+    createBackgroundRoutingStateResolver,
+    serializePersistedSharedRoutingState,
+} from './shared-routing-state-persistence';
+
+export const SHARED_ROUTING_STATE_STORAGE_KEY =
+    'driversagainstflock.sharedRoutingState.v1';
 
 const DEFAULT_SHARED_ROUTING_STATE = {
     directionsRoute: null,
@@ -6,7 +16,23 @@ const DEFAULT_SHARED_ROUTING_STATE = {
 };
 
 let sharedRoutingState = DEFAULT_SHARED_ROUTING_STATE;
+let liveRoutingStateHasBeenSet = false;
 const sharedRoutingStateListeners = new Set();
+const sharedRoutingStatePersistenceScheduler =
+    createMapPreferencesPersistenceScheduler({
+        write: (serializedState) =>
+            AsyncStorage.setItem(
+                SHARED_ROUTING_STATE_STORAGE_KEY,
+                serializedState,
+            ),
+    });
+const resolveBackgroundRoutingState = createBackgroundRoutingStateResolver({
+    getLiveState: () => sharedRoutingState,
+    hasLiveState: () => liveRoutingStateHasBeenSet,
+    readPersistedState: () =>
+        AsyncStorage.getItem(SHARED_ROUTING_STATE_STORAGE_KEY),
+    readTimeoutMs: BACKGROUND_ALERT_STORAGE_TIMEOUT_MS,
+});
 
 function getCoordinateSyncKey(coordinate) {
     if (!Array.isArray(coordinate) || coordinate.length < 2) {
@@ -76,11 +102,29 @@ export function getSharedRoutingState() {
     return sharedRoutingState;
 }
 
+export async function getSharedRoutingStateForBackgroundAsync() {
+    return (
+        (await resolveBackgroundRoutingState()) ?? DEFAULT_SHARED_ROUTING_STATE
+    );
+}
+
 export function setSharedRoutingState(nextState) {
     const normalizedState = normalizeRoutingState({
         ...sharedRoutingState,
         ...nextState,
     });
+    const serializedState = serializePersistedSharedRoutingState(
+        normalizedState,
+        Date.now(),
+    );
+
+    liveRoutingStateHasBeenSet = true;
+
+    if (serializedState) {
+        sharedRoutingStatePersistenceScheduler.schedule(serializedState, {
+            immediate: true,
+        });
+    }
 
     if (routingStatesAreEqual(sharedRoutingState, normalizedState)) {
         return;
