@@ -75,20 +75,18 @@ test('landing apk link points to the download route', function () {
         ->not->toContain("const apkUrl = '/assets/com.anonymous.drivefree.apk';");
 });
 
-test('landing Google Play CTA explains Android test enrollment', function () {
+test('landing Google Play CTA links directly to the public live version', function () {
     $landingPage = file_get_contents(resource_path('js/Pages/Landing.vue'));
 
     expect($landingPage)
-        ->toContain("const androidTestGroupUrl =\n    'https://groups.google.com/g/drivers-against-flock-android-test';")
-        ->toContain('showingAndroidInstallInstructions')
-        ->toContain('openAndroidInstallInstructions')
-        ->toContain('aria-haspopup="dialog"')
-        ->toContain('<Modal')
-        ->toContain(':show="showingAndroidInstallInstructions"')
-        ->toContain('Join the Google Group')
-        ->toContain(':href="androidTestGroupUrl"')
-        ->toContain('Open Google Play')
-        ->toContain(':href="androidUrl"');
+        ->toContain("const androidUrl =\n    'https://play.google.com/store/apps/details?id=com.anonymous.drivefree';")
+        ->toContain(':href="androidUrl"')
+        ->toContain('target="_blank"')
+        ->not->toContain('androidTestGroupUrl')
+        ->not->toContain('showingAndroidInstallInstructions')
+        ->not->toContain('openAndroidInstallInstructions')
+        ->not->toContain('aria-haspopup="dialog"')
+        ->not->toContain('<Modal');
 });
 
 test('android apk route downloads the APK from S3', function () {
