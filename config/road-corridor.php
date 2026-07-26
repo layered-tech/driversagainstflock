@@ -7,8 +7,6 @@ return [
     ),
     'radius_meters' => (int) env('ROAD_CORRIDOR_RADIUS_METERS', 3200),
     'maximum_radius_meters' => (int) env('ROAD_CORRIDOR_MAXIMUM_RADIUS_METERS', 4000),
-    'cache_seconds' => (int) env('ROAD_CORRIDOR_CACHE_SECONDS', 900),
-    'stale_cache_seconds' => (int) env('ROAD_CORRIDOR_STALE_CACHE_SECONDS', 86400),
     'cache_grid_meters' => (int) env('ROAD_CORRIDOR_CACHE_GRID_METERS', 500),
     'failure_cache_seconds' => (int) env('ROAD_CORRIDOR_FAILURE_CACHE_SECONDS', 15),
     'lock_seconds' => (int) env('ROAD_CORRIDOR_LOCK_SECONDS', 25),
