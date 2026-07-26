@@ -57,13 +57,16 @@ export function shouldRefreshLocationData({
 export function getRoadMatchingLocationSourcePolicy({
     activeRetainerCount,
     appState,
+    automotiveLocationOwnerIsActive = false,
     persistentRetainerCount,
 }) {
     const sessionIsRetained = activeRetainerCount > 0;
 
     return {
         backgroundTaskIsNeeded:
-            sessionIsRetained && persistentRetainerCount > 0,
+            sessionIsRetained &&
+            persistentRetainerCount > 0 &&
+            !automotiveLocationOwnerIsActive,
         foregroundWatchIsNeeded: sessionIsRetained && appState === 'active',
     };
 }

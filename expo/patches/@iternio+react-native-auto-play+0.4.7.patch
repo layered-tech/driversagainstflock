@@ -1,3 +1,14 @@
+diff --git a/node_modules/@iternio/react-native-auto-play/ReactNativeAutoPlay.podspec b/node_modules/@iternio/react-native-auto-play/ReactNativeAutoPlay.podspec
+index 082e4e9..9f9a2d3 100644
+--- a/node_modules/@iternio/react-native-auto-play/ReactNativeAutoPlay.podspec
++++ b/node_modules/@iternio/react-native-auto-play/ReactNativeAutoPlay.podspec
+@@ -35,5 +35,6 @@ Pod::Spec.new do |s|
+ 
+   s.dependency 'React-jsi'
+   s.dependency 'React-callinvoker'
++  s.dependency 'React-RCTLinking'
+   install_modules_dependencies(s)
+ end
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/AndroidManifest.xml b/node_modules/@iternio/react-native-auto-play/android/src/main/AndroidManifest.xml
 index ecc4dae..6214102 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/AndroidManifest.xml
@@ -58,6 +69,65 @@ index a12064c..5f6725b 100644
          }
      }
  
+diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt
+index b7f8664..4778f3e 100644
+--- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt
++++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt
+@@ -23,8 +23,6 @@ import androidx.core.app.NotificationCompat
+ import androidx.core.app.NotificationManagerCompat
+ import androidx.lifecycle.DefaultLifecycleObserver
+ import androidx.lifecycle.LifecycleOwner
+-import com.facebook.react.bridge.LifecycleEventListener
+-import com.margelo.nitro.NitroModules
+ import com.margelo.nitro.swe.iternio.reactnativeautoplay.utils.AppInfo
+ 
+ class AndroidAutoService : CarAppService() {
+@@ -32,7 +30,6 @@ class AndroidAutoService : CarAppService() {
+ 
+     private var isServiceBound = false
+     private var isSessionStarted = false
+-    private var isReactAppStarted = false
+ 
+     @SuppressLint("PrivateResource")
+     override fun createHostValidator(): HostValidator {
+@@ -48,8 +45,6 @@ class AndroidAutoService : CarAppService() {
+         super.onCreate()
+         instance = this
+ 
+-        NitroModules.applicationContext?.addLifecycleEventListener(reactLifecycleObserver)
+-
+         notificationManager = getSystemService(NotificationManager::class.java)
+         val appLabel = AppInfo.getApplicationLabel(this)
+ 
+@@ -79,26 +74,12 @@ class AndroidAutoService : CarAppService() {
+         instance = null
+ 
+         stopForeground(STOP_FOREGROUND_REMOVE)
+-
+-        NitroModules.applicationContext?.removeLifecycleEventListener(reactLifecycleObserver)
+-    }
+-
+-    private val reactLifecycleObserver = object : LifecycleEventListener {
+-        override fun onHostResume() {
+-            isReactAppStarted = true
+-        }
+-
+-        override fun onHostPause() {
+-            isReactAppStarted = false
+-        }
+-
+-        override fun onHostDestroy() {
+-            stopSelf()
+-        }
+     }
+ 
+     private val sessionLifecycleObserver = object : DefaultLifecycleObserver {
+         override fun onCreate(owner: LifecycleOwner) {
++            this@AndroidAutoService.startForeground()
++
+             val serviceIntent = Intent(applicationContext, HeadlessTaskService::class.java)
+             bindService(serviceIntent, connection, BIND_AUTO_CREATE)
+         }
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoSession.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoSession.kt
 index de448c8..47e85b1 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoSession.kt
@@ -661,6 +731,26 @@ index f1a45c0..cbbc2b5 100644
              template.updateSearchResults(results)
          }
      }
+diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt
+index 55d563b..997e1de 100644
+--- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt
++++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt
+@@ -1,6 +1,5 @@
+ package com.margelo.nitro.swe.iternio.reactnativeautoplay.template
+ 
+-import android.app.Service
+ import android.graphics.Color
+ import androidx.car.app.AppManager
+ import androidx.car.app.CarContext
+@@ -302,8 +301,6 @@ class MapTemplate(
+             navigationInfo = null
+ 
+             AndroidAutoScreen.invalidateSurfaceScreens()
+-
+-            AndroidAutoService.instance?.stopForeground(Service.STOP_FOREGROUND_REMOVE)
+         }
+ 
+         fun updateManeuvers(maneuvers: NitroManeuver) {
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/Parser.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/Parser.kt
 index e8641d0..e0f5b30 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/Parser.kt
@@ -944,6 +1034,7 @@ index 85e26c5..19e26a6 100644
          moduleName: String,
          safeAreaInsets: UIEdgeInsets
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/scenes/DashboardSceneDelegate.swift b/node_modules/@iternio/react-native-auto-play/ios/scenes/DashboardSceneDelegate.swift
+index 0263eaf..c9c22e1 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/scenes/DashboardSceneDelegate.swift
 +++ b/node_modules/@iternio/react-native-auto-play/ios/scenes/DashboardSceneDelegate.swift
 @@ -46,9 +46,8 @@ class DashboardSceneDelegate: AutoPlayScene,

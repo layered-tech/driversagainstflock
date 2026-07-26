@@ -1,38 +1,41 @@
-const { createRequire } = require("module");
+const { createRequire } = require('module');
 
 function requireConfigPlugins() {
     try {
-        return require("expo/config-plugins");
+        return require('expo/config-plugins');
     } catch {
         return createRequire(`${process.cwd()}/package.json`)(
-            "expo/config-plugins",
+            'expo/config-plugins',
         );
     }
 }
 
 const { createRunOncePlugin, withPodfile } = requireConfigPlugins();
 
-const PLUGIN_NAME = "with-dynamic-frameworks-compat";
-const PLUGIN_VERSION = "1.0.0";
+const PLUGIN_NAME = 'with-dynamic-frameworks-compat';
+const PLUGIN_VERSION = '1.0.0';
 
-const FIREBASE_TAG = "dynamic-frameworks-firebase-static";
-const POSTINSTALL_TAG = "dynamic-frameworks-clang-compat";
+const FIREBASE_TAG = 'dynamic-frameworks-firebase-static';
+const POSTINSTALL_TAG = 'dynamic-frameworks-clang-compat';
 
 // MapboxMaps is a pure-Swift SPM package shared (via SPM) by @rnmapbox/maps and the Navigation SDK.
 // Under static linking it is archived into every consuming pod, producing thousands of duplicate
 // symbols at link time, so the app uses `useFrameworks: "dynamic"` (see app.config.js). Dynamic
-// frameworks then require two compatibility shims for React Native Firebase, which this plugin injects
-// into the Expo-generated Podfile so they survive `expo prebuild`:
+// frameworks then require compatibility shims that this plugin injects into the Expo-generated
+// Podfile so they survive `expo prebuild`:
 //
 //   1. $RNFirebaseAsStaticFramework — Firebase/GoogleAppMeasurement ship as precompiled *static*
 //      xcframeworks and cannot be built as dynamic frameworks, so RNFB is kept static within the
 //      dynamic setup.
-//   2. A post_install pass that (a) allows non-modular React headers inside framework modules and
+//   2. A post_install pass that (a) allows non-modular React headers inside framework modules,
 //      (b) disables the Clang module system for the RNFB Objective-C pods. RN 0.83 ships a prebuilt
 //      React that is not a real Clang module, so RNFBApp's framework module otherwise absorbs React
 //      types (RCTBridgeModule) and RNFBAnalytics fails with "must be imported from module
 //      'RNFBApp.RNFBAppModule' before it is required". RNFB uses textual #import (not @import), so
-//      disabling modules for those pods makes the includes textual and sidesteps the check.
+//      disabling modules for those pods makes the includes textual and sidesteps the check, and
+//      (c) restores the five split React Native frameworks that @rnmapbox/maps removes from its
+//      podspec. Those symbols are present in prebuilt React-Core, but source-built React Native
+//      exposes them as separate dynamic frameworks that rnmapbox-maps must link directly.
 //
 // Both are gated on use_frameworks! being active, so the plugin is a no-op if the app ever returns to
 // static linking.
@@ -50,6 +53,34 @@ const POSTINSTALL_BLOCK = `  if podfile_properties['ios.useFrameworks'] || ENV['
         end
       end
     end
+
+    uses_dynamic_frameworks = podfile_properties['ios.useFrameworks'] == 'dynamic' || ENV['USE_FRAMEWORKS'] == 'dynamic'
+    if uses_dynamic_frameworks && podfile_properties['ios.buildReactNativeFromSource'] == 'true'
+      rnmapbox_target = installer.pods_project.targets.find { |target| target.name == 'rnmapbox-maps' }
+      raise '[with-dynamic-frameworks-compat] Missing rnmapbox-maps Pods target' unless rnmapbox_target
+
+      {
+        'React-Fabric' => 'React_Fabric.framework',
+        'React-graphics' => 'React_graphics.framework',
+        'React-utils' => 'React_utils.framework',
+        'React-debug' => 'React_debug.framework',
+        'glog' => 'glog.framework',
+      }.each do |target_name, product_name|
+        dependency_target = installer.pods_project.targets.find { |target| target.name == target_name }
+        unless dependency_target&.product_reference&.path == product_name
+          raise "[with-dynamic-frameworks-compat] Missing #{target_name} product #{product_name}"
+        end
+
+        unless rnmapbox_target.dependencies.any? { |dependency| dependency.target == dependency_target }
+          rnmapbox_target.add_dependency(dependency_target)
+        end
+
+        linked_products = rnmapbox_target.frameworks_build_phase.files_references
+        unless linked_products.include?(dependency_target.product_reference)
+          rnmapbox_target.frameworks_build_phase.add_file_reference(dependency_target.product_reference, true)
+        end
+      end
+    end
   end`;
 
 /**
@@ -61,15 +92,15 @@ function insertGeneratedBlock(source, tag, block, anchor) {
     const footer = `# @generated end ${tag}`;
     const pattern = new RegExp(
         `\\n?# @generated begin ${tag}[\\s\\S]*?# @generated end ${tag}\\n?`,
-        "m",
+        'm',
     );
-    const sanitizedSource = source.replace(pattern, "\n");
+    const sanitizedSource = source.replace(pattern, '\n');
     const match = sanitizedSource.match(anchor);
 
     if (!match || match.index == null) {
         throw new Error(
             `[with-dynamic-frameworks-compat] Unable to find the anchor for "${tag}" in the Podfile. ` +
-                "The Podfile template may have changed; update plugins/withDynamicFrameworksCompat.js.",
+                'The Podfile template may have changed; update plugins/withDynamicFrameworksCompat.js.',
         );
     }
 

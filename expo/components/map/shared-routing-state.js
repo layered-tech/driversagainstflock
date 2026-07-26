@@ -4,6 +4,7 @@ import { getSelectedDirectionsRouteOption } from './directions';
 import { createMapPreferencesPersistenceScheduler } from './map-preferences-persistence';
 import {
     createBackgroundRoutingStateResolver,
+    parsePersistedSharedRoutingState,
     serializePersistedSharedRoutingState,
 } from './shared-routing-state-persistence';
 
@@ -17,6 +18,9 @@ const DEFAULT_SHARED_ROUTING_STATE = {
 
 let sharedRoutingState = DEFAULT_SHARED_ROUTING_STATE;
 let liveRoutingStateHasBeenSet = false;
+let sharedRoutingStateHydrationPromise = null;
+let sharedRoutingStateStorageReadHasCompleted = false;
+let sharedRoutingStateStorageReadPromise = null;
 const sharedRoutingStateListeners = new Set();
 const sharedRoutingStatePersistenceScheduler =
     createMapPreferencesPersistenceScheduler({
@@ -102,6 +106,80 @@ export function getSharedRoutingState() {
     return sharedRoutingState;
 }
 
+export function sharedRoutingStateCanPublish() {
+    return (
+        liveRoutingStateHasBeenSet || sharedRoutingStateStorageReadHasCompleted
+    );
+}
+
+function readPersistedSharedRoutingStateAsync() {
+    if (sharedRoutingStateStorageReadPromise) {
+        return sharedRoutingStateStorageReadPromise;
+    }
+
+    const storageRead = Promise.resolve()
+        .then(() => AsyncStorage.getItem(SHARED_ROUTING_STATE_STORAGE_KEY))
+        .then((serializedState) => {
+            sharedRoutingStateStorageReadHasCompleted = true;
+
+            if (!liveRoutingStateHasBeenSet) {
+                const persistedState =
+                    parsePersistedSharedRoutingState(serializedState);
+
+                if (persistedState) {
+                    sharedRoutingState = normalizeRoutingState(persistedState);
+                }
+            }
+
+            sharedRoutingStateListeners.forEach((listener) =>
+                listener(sharedRoutingState),
+            );
+
+            return sharedRoutingState;
+        })
+        .catch(() => sharedRoutingState)
+        .finally(() => {
+            if (sharedRoutingStateStorageReadPromise === storageRead) {
+                sharedRoutingStateStorageReadPromise = null;
+            }
+        });
+
+    sharedRoutingStateStorageReadPromise = storageRead;
+
+    return storageRead;
+}
+
+export function hydrateSharedRoutingStateAsync() {
+    if (sharedRoutingStateCanPublish()) {
+        return Promise.resolve(sharedRoutingState);
+    }
+
+    if (sharedRoutingStateHydrationPromise) {
+        return sharedRoutingStateHydrationPromise;
+    }
+
+    let hydrationTimeoutId = null;
+    const hydrationTimeout = new Promise((resolve) => {
+        hydrationTimeoutId = setTimeout(
+            () => resolve(sharedRoutingState),
+            BACKGROUND_ALERT_STORAGE_TIMEOUT_MS,
+        );
+    });
+
+    sharedRoutingStateHydrationPromise = Promise.race([
+        readPersistedSharedRoutingStateAsync(),
+        hydrationTimeout,
+    ]).finally(() => {
+        if (hydrationTimeoutId !== null) {
+            clearTimeout(hydrationTimeoutId);
+        }
+
+        sharedRoutingStateHydrationPromise = null;
+    });
+
+    return sharedRoutingStateHydrationPromise;
+}
+
 export async function getSharedRoutingStateForBackgroundAsync() {
     return (
         (await resolveBackgroundRoutingState()) ?? DEFAULT_SHARED_ROUTING_STATE
@@ -138,6 +216,7 @@ export function setSharedRoutingState(nextState) {
 
 export function addSharedRoutingStateListener(listener) {
     sharedRoutingStateListeners.add(listener);
+    listener(sharedRoutingState);
 
     return () => {
         sharedRoutingStateListeners.delete(listener);

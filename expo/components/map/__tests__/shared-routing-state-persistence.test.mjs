@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { describe, test } from 'node:test';
 import {
     createBackgroundRoutingStateResolver,
@@ -16,6 +17,17 @@ const sharedRoutingStateSource = readFileSync(
     new URL('../shared-routing-state.js', import.meta.url),
     'utf8',
 );
+const sharedMapStateSource = readFileSync(
+    new URL('../shared-map-state.js', import.meta.url),
+    'utf8',
+);
+const autoPlaySource = readFileSync(
+    new URL('../../auto-play.js', import.meta.url),
+    'utf8',
+);
+const require = createRequire(import.meta.url);
+const { transformSync } = require('@babel/core');
+const transformModulesCommonJs = require('@babel/plugin-transform-modules-commonjs');
 
 const activeRoutingState = {
     directionsRoute: {
@@ -24,6 +36,62 @@ const activeRoutingState = {
     },
     drivingModeIsActive: true,
 };
+
+function createDeferred() {
+    let resolve;
+    const promise = new Promise((resolvePromise) => {
+        resolve = resolvePromise;
+    });
+
+    return { promise, resolve };
+}
+
+function createSharedRoutingStateHarness({
+    hydrationTimeoutMs = 5,
+    readPersistedState,
+}) {
+    const writes = [];
+    const module = { exports: {} };
+    const transformedSource = transformSync(sharedRoutingStateSource, {
+        babelrc: false,
+        configFile: false,
+        plugins: [transformModulesCommonJs],
+        sourceType: 'module',
+    }).code;
+    const mockedModules = {
+        '@react-native-async-storage/async-storage': {
+            getItem: readPersistedState,
+            setItem: async (key, value) => {
+                writes.push({ key, value });
+            },
+        },
+        './background-alert-budget': {
+            BACKGROUND_ALERT_STORAGE_TIMEOUT_MS: hydrationTimeoutMs,
+        },
+        './directions': {
+            getSelectedDirectionsRouteOption: (route) =>
+                route?.routeOptions?.[0] ?? null,
+        },
+        './map-preferences-persistence': {
+            createMapPreferencesPersistenceScheduler: ({ write }) => ({
+                schedule: (value) => write(value),
+            }),
+        },
+        './shared-routing-state-persistence': {
+            createBackgroundRoutingStateResolver,
+            parsePersistedSharedRoutingState,
+            serializePersistedSharedRoutingState,
+        },
+    };
+
+    new Function('require', 'module', 'exports', transformedSource)(
+        (specifier) => mockedModules[specifier],
+        module,
+        module.exports,
+    );
+
+    return { sharedRoutingState: module.exports, writes };
+}
 
 describe('persisted shared routing state', () => {
     test('round trips a fresh active route', () => {
@@ -263,7 +331,101 @@ describe('shared routing state persistence integration', () => {
         );
     });
 
-    test('keeps normal reads memory-only and uses async persistence only for background work', () => {
+    test('hydrates a cold route before foreground consumers publish', async () => {
+        const serializedState = serializePersistedSharedRoutingState(
+            activeRoutingState,
+            Date.now(),
+        );
+        const harness = createSharedRoutingStateHarness({
+            readPersistedState: async () => serializedState,
+        });
+        const observedStates = [];
+
+        harness.sharedRoutingState.addSharedRoutingStateListener((state) => {
+            observedStates.push(state);
+        });
+
+        assert.deepEqual(
+            await harness.sharedRoutingState.hydrateSharedRoutingStateAsync(),
+            activeRoutingState,
+        );
+        assert.deepEqual(
+            harness.sharedRoutingState.getSharedRoutingState(),
+            activeRoutingState,
+        );
+        assert.equal(observedStates.length, 2);
+        assert.deepEqual(observedStates.at(-1), activeRoutingState);
+        assert.equal(
+            harness.sharedRoutingState.sharedRoutingStateCanPublish(),
+            true,
+        );
+        assert.equal(harness.writes.length, 0);
+    });
+
+    test('lets a newer live update win a delayed cold hydration', async () => {
+        const persistedRead = createDeferred();
+        const newerLiveState = {
+            directionsRoute: null,
+            drivingModeIsActive: false,
+        };
+        const harness = createSharedRoutingStateHarness({
+            readPersistedState: () => persistedRead.promise,
+        });
+        const hydration =
+            harness.sharedRoutingState.hydrateSharedRoutingStateAsync();
+
+        harness.sharedRoutingState.setSharedRoutingState(newerLiveState);
+        persistedRead.resolve(
+            serializePersistedSharedRoutingState(
+                activeRoutingState,
+                Date.now(),
+            ),
+        );
+
+        assert.deepEqual(await hydration, newerLiveState);
+        assert.deepEqual(
+            harness.sharedRoutingState.getSharedRoutingState(),
+            newerLiveState,
+        );
+        assert.equal(harness.writes.length, 1);
+    });
+
+    test('bounds a stalled hydration without authorizing a default write', async () => {
+        const harness = createSharedRoutingStateHarness({
+            readPersistedState: () => new Promise(() => {}),
+        });
+
+        assert.deepEqual(
+            await harness.sharedRoutingState.hydrateSharedRoutingStateAsync(),
+            {
+                directionsRoute: null,
+                drivingModeIsActive: false,
+            },
+        );
+        assert.equal(
+            harness.sharedRoutingState.sharedRoutingStateCanPublish(),
+            false,
+        );
+        assert.equal(harness.writes.length, 0);
+    });
+
+    test('does not authorize a default write after a rejected hydration', async () => {
+        const harness = createSharedRoutingStateHarness({
+            readPersistedState: async () => {
+                throw new Error('Storage is temporarily unavailable.');
+            },
+        });
+
+        await harness.sharedRoutingState.hydrateSharedRoutingStateAsync();
+
+        assert.equal(
+            harness.sharedRoutingState.sharedRoutingStateCanPublish(),
+            false,
+        );
+        assert.equal(harness.writes.length, 0);
+    });
+
+    test('gates phone publication and car synchronization on hydration', () => {
         assert.match(
             sharedRoutingStateSource,
             /export function getSharedRoutingState\(\) \{\s*return sharedRoutingState;\s*\}/,
@@ -279,6 +441,22 @@ describe('shared routing state persistence integration', () => {
         assert.match(
             backgroundAlertRefreshSource,
             /await getSharedRoutingStateForBackgroundAsync\(\)/,
+        );
+        assert.match(
+            sharedMapStateSource,
+            /hydrateSharedRoutingStateAsync\(\)[\s\S]*?setRoutingStateIsHydrated\(true\)/,
+        );
+        assert.match(
+            sharedMapStateSource,
+            /!routingStatePublicationIsSafe &&[\s\S]*?routingStatesAreEqual[\s\S]*?return;[\s\S]*?setSharedRoutingState/,
+        );
+        assert.match(
+            autoPlaySource,
+            /routingStateHydration = hydrateSharedRoutingStateAsync\(\)[\s\S]*?await routingStateHydration[\s\S]*?syncAutoPlayNavigationFromSharedRoutingState\(\)/,
+        );
+        assert.match(
+            autoPlaySource,
+            /function syncAutoPlayNavigationFromSharedRoutingState[\s\S]*?getAutoPlaySharedNavigationAction\(\{[\s\S]*?rootMapTemplateIsReady/,
         );
     });
 });

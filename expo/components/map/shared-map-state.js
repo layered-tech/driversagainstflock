@@ -1,9 +1,19 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import {
+    createContext,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import {
     addSharedRoutingStateListener,
     getDirectionsRouteSyncKey,
     getSharedRoutingState,
+    hydrateSharedRoutingStateAsync,
+    routingStatesAreEqual,
     setSharedRoutingState,
+    sharedRoutingStateCanPublish,
 } from './shared-routing-state';
 import { useElectronicHorizon } from './use-electronic-horizon';
 import { useMapPreferencesState } from './use-map-preferences-state';
@@ -28,6 +38,10 @@ export function SharedMapStateProvider({ children }) {
     const [drivingModeIsActive, setDrivingModeIsActive] = useState(
         initialRoutingState.drivingModeIsActive,
     );
+    const [routingStateIsHydrated, setRoutingStateIsHydrated] = useState(false);
+    const [routingStatePublicationIsSafe, setRoutingStatePublicationIsSafe] =
+        useState(sharedRoutingStateCanPublish);
+    const hydrationFallbackRoutingStateRef = useRef(initialRoutingState);
     const [pendingDirectionsRequest, setPendingDirectionsRequest] =
         useState(null);
     const [pendingSearchResultRestore, setPendingSearchResultRestore] =
@@ -44,29 +58,70 @@ export function SharedMapStateProvider({ children }) {
         userLocation: mapPreferences.userLocation,
     });
 
-    useEffect(
-        () =>
-            addSharedRoutingStateListener((routingState) => {
-                const nextRouteSyncKey = getDirectionsRouteSyncKey(
-                    routingState.directionsRoute,
-                );
+    useEffect(() => {
+        let isMounted = true;
+        const applyRoutingState = (routingState) => {
+            if (!isMounted) {
+                return;
+            }
 
-                setDirectionsRoute((currentRoute) =>
-                    getDirectionsRouteSyncKey(currentRoute) === nextRouteSyncKey
-                        ? currentRoute
-                        : routingState.directionsRoute,
-                );
-                setDrivingModeIsActive(routingState.drivingModeIsActive);
-            }),
-        [],
-    );
+            const nextRouteSyncKey = getDirectionsRouteSyncKey(
+                routingState.directionsRoute,
+            );
+
+            setDirectionsRoute((currentRoute) =>
+                getDirectionsRouteSyncKey(currentRoute) === nextRouteSyncKey
+                    ? currentRoute
+                    : routingState.directionsRoute,
+            );
+            setDrivingModeIsActive(routingState.drivingModeIsActive);
+            setRoutingStatePublicationIsSafe(sharedRoutingStateCanPublish());
+        };
+        const unsubscribe = addSharedRoutingStateListener(applyRoutingState);
+
+        hydrateSharedRoutingStateAsync().then((routingState) => {
+            if (!isMounted) {
+                return;
+            }
+
+            hydrationFallbackRoutingStateRef.current = routingState;
+            applyRoutingState(routingState);
+            setRoutingStateIsHydrated(true);
+        });
+
+        return () => {
+            isMounted = false;
+            unsubscribe();
+        };
+    }, []);
 
     useEffect(() => {
-        setSharedRoutingState({
+        if (!routingStateIsHydrated) {
+            return;
+        }
+
+        const nextRoutingState = {
             directionsRoute,
             drivingModeIsActive,
-        });
-    }, [directionsRoute, drivingModeIsActive]);
+        };
+
+        if (
+            !routingStatePublicationIsSafe &&
+            routingStatesAreEqual(
+                nextRoutingState,
+                hydrationFallbackRoutingStateRef.current,
+            )
+        ) {
+            return;
+        }
+
+        setSharedRoutingState(nextRoutingState);
+    }, [
+        directionsRoute,
+        drivingModeIsActive,
+        routingStateIsHydrated,
+        routingStatePublicationIsSafe,
+    ]);
 
     const value = useMemo(
         () => ({
@@ -170,6 +225,10 @@ export function SharedMapStateProvider({ children }) {
         }),
         [mapPreferences.setUserLocation, mapPreferences.userLocation],
     );
+
+    if (!routingStateIsHydrated) {
+        return null;
+    }
 
     return (
         <SharedMapStateContext.Provider value={value}>

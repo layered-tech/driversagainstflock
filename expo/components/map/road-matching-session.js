@@ -1,6 +1,10 @@
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { AppState, Platform } from 'react-native';
+import {
+    addAutoPlaySessionStateListener,
+    autoPlaySessionOwnsForegroundLocation,
+} from '../auto-play-session-state';
 import { getRoadCorridor } from './api';
 import {
     refreshBackgroundAlertsForLocationAsync,
@@ -89,10 +93,12 @@ if (!TaskManager.isTaskDefined(ROAD_MATCHING_BACKGROUND_LOCATION_TASK)) {
 }
 
 AppState.addEventListener('change', (nextState) => {
+    const operationalAppState = getOperationalAppState(nextState);
+
     if (activeRetainerCount > 0) {
         clearIdleLocationSourceCleanup();
 
-        if (nextState !== 'active') {
+        if (operationalAppState !== 'active') {
             stopForegroundLocationSubscription();
         }
 
@@ -100,19 +106,50 @@ AppState.addEventListener('change', (nextState) => {
         return;
     }
 
-    if (nextState === 'active') {
+    if (operationalAppState === 'active') {
         scheduleIdleLocationSourceCleanup();
     } else {
         clearIdleLocationSourceCleanup();
     }
 });
 
-if (AppState.currentState === 'active') {
+addAutoPlaySessionStateListener(() => {
+    const operationalAppState = getOperationalAppState();
+
+    if (activeRetainerCount > 0) {
+        clearIdleLocationSourceCleanup();
+
+        if (operationalAppState !== 'active') {
+            stopForegroundLocationSubscription();
+        }
+
+        void queueLocationSourceReconciliation();
+        return;
+    }
+
+    if (operationalAppState === 'active') {
+        scheduleIdleLocationSourceCleanup();
+    } else {
+        clearIdleLocationSourceCleanup();
+    }
+});
+
+if (getOperationalAppState() === 'active') {
     scheduleIdleLocationSourceCleanup();
 }
 
 function emit(listeners, value) {
     listeners.forEach((listener) => listener(value));
+}
+
+function automotiveLocationOwnerIsActive() {
+    return autoPlaySessionOwnsForegroundLocation(Platform.OS);
+}
+
+function getOperationalAppState(appState = AppState.currentState) {
+    return appState === 'active' || automotiveLocationOwnerIsActive()
+        ? 'active'
+        : (appState ?? 'unknown');
 }
 
 async function runBackgroundLocationWorkAsync(rawLocation) {
@@ -356,11 +393,12 @@ async function publishRawLocationAsync(
     }
 
     const currentAppState = AppState.currentState ?? 'unknown';
+    const operationalAppState = getOperationalAppState(currentAppState);
 
     if (
         source === BACKGROUND_LOCATION_SOURCE &&
         !shouldPublishBackgroundRoadMatchingLocation({
-            appState: currentAppState,
+            appState: operationalAppState,
             foregroundLocationSourceIsActive:
                 foregroundLocationSourceIsActive(),
         })
@@ -640,7 +678,10 @@ function scheduleIdleLocationSourceCleanup() {
     idleLocationSourceCleanupTimeout = setTimeout(() => {
         idleLocationSourceCleanupTimeout = null;
 
-        if (activeRetainerCount === 0 && AppState.currentState === 'active') {
+        if (
+            activeRetainerCount === 0 &&
+            getOperationalAppState() === 'active'
+        ) {
             locationSourceGeneration += 1;
             void queueLocationSourceReconciliation();
         }
@@ -678,8 +719,8 @@ function stopForegroundLocationSubscription() {
     activeLocationSubscriptionGeneration = null;
 }
 
-async function stopBackgroundLocationTask() {
-    if (activePersistentRetainerCount > 0) {
+async function stopBackgroundLocationTask({ force = false } = {}) {
+    if (activePersistentRetainerCount > 0 && !force) {
         return;
     }
 
@@ -687,7 +728,7 @@ async function stopBackgroundLocationTask() {
         ROAD_MATCHING_BACKGROUND_LOCATION_TASK,
     ).catch(() => false);
 
-    if (taskIsStarted && activePersistentRetainerCount === 0) {
+    if (taskIsStarted && (activePersistentRetainerCount === 0 || force)) {
         await Location.stopLocationUpdatesAsync(
             ROAD_MATCHING_BACKGROUND_LOCATION_TASK,
         ).catch(() => {});
@@ -771,7 +812,7 @@ async function startForegroundLocationSubscription(expectedGeneration) {
     locationSubscriptionPromise = Location.watchPositionAsync(
         getLocationWatchOptions(),
         (location) => {
-            if (AppState.currentState !== 'active') {
+            if (getOperationalAppState() !== 'active') {
                 return;
             }
 
@@ -785,7 +826,7 @@ async function startForegroundLocationSubscription(expectedGeneration) {
         .then((subscription) => {
             if (
                 activeRetainerCount > 0 &&
-                AppState.currentState === 'active' &&
+                getOperationalAppState() === 'active' &&
                 expectedGeneration === locationSourceGeneration
             ) {
                 activeLocationSubscription = subscription;
@@ -821,7 +862,8 @@ async function reconcileLocationSource(expectedGeneration) {
 
     const locationSourcePolicy = getRoadMatchingLocationSourcePolicy({
         activeRetainerCount,
-        appState: AppState.currentState,
+        appState: getOperationalAppState(),
+        automotiveLocationOwnerIsActive: automotiveLocationOwnerIsActive(),
         persistentRetainerCount: activePersistentRetainerCount,
     });
 
@@ -841,7 +883,7 @@ async function reconcileLocationSource(expectedGeneration) {
         stopForegroundLocationSubscription();
 
         if (!locationSourcePolicy.backgroundTaskIsNeeded) {
-            await stopBackgroundLocationTask();
+            await stopBackgroundLocationTask({ force: true });
 
             if (expectedGeneration === locationSourceGeneration) {
                 setActiveLocationSource('none');
@@ -864,7 +906,7 @@ async function reconcileLocationSource(expectedGeneration) {
 
     const backgroundTaskPromise = locationSourcePolicy.backgroundTaskIsNeeded
         ? startBackgroundLocationTask(expectedGeneration)
-        : stopBackgroundLocationTask().then(() => false);
+        : stopBackgroundLocationTask({ force: true }).then(() => false);
 
     await startForegroundLocationSubscription(expectedGeneration);
     const backgroundTaskStarted = await backgroundTaskPromise;

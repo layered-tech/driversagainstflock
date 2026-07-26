@@ -1,0 +1,13 @@
+diff --git a/node_modules/react-native/React/CoreModules/RCTTiming.mm b/node_modules/react-native/React/CoreModules/RCTTiming.mm
+index 14ee784..f91d0de 100644
+--- a/node_modules/react-native/React/CoreModules/RCTTiming.mm
++++ b/node_modules/react-native/React/CoreModules/RCTTiming.mm
+@@ -325,7 +325,7 @@ static const NSTimeInterval kIdleCallbackFrameDeadline = 0.001;
+                                              selector:@selector(timerDidFire)
+                                              userInfo:nil
+                                               repeats:NO];
+-      [[NSRunLoop currentRunLoop] addTimer:_sleepTimer forMode:NSDefaultRunLoopMode];
++      [[NSRunLoop currentRunLoop] addTimer:_sleepTimer forMode:NSRunLoopCommonModes];
+     } else {
+       _sleepTimer.fireDate = [_sleepTimer.fireDate earlierDate:sleepTarget];
+     }

@@ -496,7 +496,11 @@ describe('in-house road-matched location integration', () => {
         assert.match(roadMatchingSessionSource, /foregroundService:/);
         assert.match(
             roadMatchingSessionSource,
-            /async function stopBackgroundLocationTask\(\)[\s\S]*?hasStartedLocationUpdatesAsync/,
+            /async function stopBackgroundLocationTask\(\{ force = false \} = \{\}\)[\s\S]*?hasStartedLocationUpdatesAsync/,
+        );
+        assert.match(
+            roadMatchingSessionSource,
+            /stopBackgroundLocationTask\(\{ force: true \}\)/,
         );
         assert.match(
             roadMatchingSessionSource,

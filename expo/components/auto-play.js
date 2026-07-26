@@ -11,6 +11,11 @@ import {
 } from './auto-play-map-surface';
 import { createAutoPlaySearchTemplateLifecycle } from './auto-play-search-template-lifecycle';
 import {
+    setAutoPlaySessionConnected,
+    setAutoPlaySessionRenderState,
+} from './auto-play-session-state';
+import { getAutoPlaySharedNavigationAction } from './auto-play-shared-navigation';
+import {
     AUTO_PLAY_SINGLE_RESULT_COUNTDOWN_SECONDS,
     createAutoPlaySingleResultCountdown,
 } from './auto-play-single-result-countdown';
@@ -80,6 +85,7 @@ import {
     addSharedRoutingStateListener,
     getDirectionsRouteSyncKey,
     getSharedRoutingState,
+    hydrateSharedRoutingStateAsync,
     setSharedRoutingState,
 } from './map/shared-routing-state';
 
@@ -2528,24 +2534,21 @@ function syncAutoPlayNavigationFromSharedRoutingState(
         return;
     }
 
-    const nextRoute =
-        routingState.drivingModeIsActive && routingState.directionsRoute
-            ? routingState.directionsRoute
-            : null;
+    const navigationAction = getAutoPlaySharedNavigationAction({
+        activeNavigationRoute,
+        getRouteSyncKey: getDirectionsRouteSyncKey,
+        rootMapTemplateIsReady,
+        routingState,
+    });
 
-    if (nextRoute) {
-        if (
-            getDirectionsRouteSyncKey(nextRoute) ===
-            getDirectionsRouteSyncKey(activeNavigationRoute)
-        ) {
-            return;
-        }
-
-        startAutoPlayNavigation(nextRoute, { publishSharedState: false });
+    if (navigationAction.action === 'start') {
+        startAutoPlayNavigation(navigationAction.route, {
+            publishSharedState: false,
+        });
         return;
     }
 
-    if (activeNavigationRoute) {
+    if (navigationAction.action === 'stop') {
         stopAutoPlayNavigation({ publishSharedState: false });
     }
 }
@@ -3218,7 +3221,10 @@ function replayPendingVoiceNavigation() {
 
 async function handleAutoPlayConnect() {
     const connectionGeneration = ++autoPlayConnectionGeneration;
+    const routingStateHydration = hydrateSharedRoutingStateAsync();
     const { MapTemplate } = loadAutoPlayModule();
+
+    setAutoPlaySessionConnected(true);
 
     rootMapTemplateIsReady = false;
     setAutoPlayState({
@@ -3274,7 +3280,9 @@ async function handleAutoPlayConnect() {
 
     mapTemplate
         .setRootTemplate()
-        .then(() => {
+        .then(async () => {
+            await routingStateHydration;
+
             if (
                 connectionGeneration !== autoPlayConnectionGeneration ||
                 rootMapTemplate !== mapTemplate
@@ -3305,6 +3313,7 @@ async function handleAutoPlayConnect() {
 
 function handleAutoPlayDisconnect() {
     autoPlayConnectionGeneration += 1;
+    setAutoPlaySessionConnected(false);
     voiceNavigationRequestGeneration += 1;
     autoPlayPlatform?.cancelSearchVoiceInput?.();
     rootMapTemplate = null;
@@ -3322,7 +3331,9 @@ function handleAutoPlayDisconnect() {
     setAutoPlayState(DEFAULT_AUTO_PLAY_STATE);
 }
 
-function handleAutoPlaySessionRenderState() {}
+function handleAutoPlaySessionRenderState(renderState) {
+    setAutoPlaySessionRenderState(renderState);
+}
 
 export default function registerAutoPlay() {
     if (!autoPlayPlatform || autoPlayRegistered) {

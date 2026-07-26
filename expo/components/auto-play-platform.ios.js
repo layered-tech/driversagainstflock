@@ -42,6 +42,7 @@ export const autoPlayPlatform = {
     registerPlatformListeners({
         autoPlayModule,
         makeGlyphImage,
+        onSessionRenderState,
         onVoiceNavigation,
     }) {
         const { CarPlayDashboard, HybridAutoPlay } = autoPlayModule;
@@ -62,6 +63,10 @@ export const autoPlayPlatform = {
         CarPlayDashboard.addListener('didConnect', () => {
             applyDashboardButtons(CarPlayDashboard, makeGlyphImage);
         });
+        HybridAutoPlay.addListenerRenderState(
+            'AutoPlayRoot',
+            onSessionRenderState,
+        );
         HybridAutoPlay.addListenerVoiceInput(
             (coordinates, query, requestType) => {
                 registeredVoiceSearchController.handleNativeEvent(

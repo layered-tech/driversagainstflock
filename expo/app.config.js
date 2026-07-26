@@ -129,6 +129,7 @@ module.exports = {
             'expo-build-properties',
             {
                 ios: {
+                    buildReactNativeFromSource: true,
                     // Keep React Native Firebase compatible with dynamic frameworks. Its static xcframeworks
                     // remain static within this setup through the Podfile compatibility shims below.
                     useFrameworks: 'dynamic',

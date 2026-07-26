@@ -99,6 +99,7 @@ function createRoadMatchingSessionHarness({
 } = {}) {
     const backgroundTaskStart = createDeferred();
     const appStateListeners = new Set();
+    const autoPlaySessionStateListeners = new Set();
     const foregroundLocationCallbacks = [];
     const roadCorridorRequests = [];
     const calls = {
@@ -110,6 +111,7 @@ function createRoadMatchingSessionHarness({
     };
     let backgroundTaskIsStarted = false;
     let backgroundLocationTask = null;
+    let autoPlaySessionIsConnected = false;
     const AppState = {
         currentState: 'active',
         addEventListener(event, listener) {
@@ -174,6 +176,19 @@ function createRoadMatchingSessionHarness({
         sourceType: 'module',
     }).code;
     const mockedModules = {
+        '../auto-play-session-state': {
+            addAutoPlaySessionStateListener(listener) {
+                autoPlaySessionStateListeners.add(listener);
+                listener({ isConnected: autoPlaySessionIsConnected });
+
+                return () => {
+                    autoPlaySessionStateListeners.delete(listener);
+                };
+            },
+            autoPlaySessionOwnsForegroundLocation(platform) {
+                return platform === 'android' && autoPlaySessionIsConnected;
+            },
+        },
         './api': {
             async getRoadCorridor(options) {
                 roadCorridorRequests.push(options);
@@ -246,6 +261,12 @@ function createRoadMatchingSessionHarness({
             AppState.currentState = nextState;
             appStateListeners.forEach((listener) => listener(nextState));
         },
+        transitionAutoPlayConnection(isConnected) {
+            autoPlaySessionIsConnected = isConnected;
+            autoPlaySessionStateListeners.forEach((listener) =>
+                listener({ isConnected }),
+            );
+        },
     };
 }
 
@@ -303,6 +324,21 @@ describe('road matching location source policy', () => {
         );
     });
 
+    test('uses the car foreground owner instead of arming a second background service', () => {
+        assert.deepEqual(
+            getRoadMatchingLocationSourcePolicy({
+                activeRetainerCount: 1,
+                appState: 'active',
+                automotiveLocationOwnerIsActive: true,
+                persistentRetainerCount: 1,
+            }),
+            {
+                backgroundTaskIsNeeded: false,
+                foregroundWatchIsNeeded: true,
+            },
+        );
+    });
+
     test('rejects active background batches only after foreground takes ownership', () => {
         assert.equal(
             shouldPublishBackgroundRoadMatchingLocation({
@@ -341,12 +377,14 @@ describe('road matching location source integration', () => {
     });
 
     test('reconciles retained sources without invalidating persistent work on app state transitions', () => {
+        const appStateListenerStart = roadMatchingSessionSource.indexOf(
+            "AppState.addEventListener('change'",
+        );
         const appStateListener = roadMatchingSessionSource.slice(
+            appStateListenerStart,
             roadMatchingSessionSource.indexOf(
-                "AppState.addEventListener('change'",
-            ),
-            roadMatchingSessionSource.indexOf(
-                "if (AppState.currentState === 'active')",
+                'addAutoPlaySessionStateListener',
+                appStateListenerStart,
             ),
         );
 
@@ -357,7 +395,7 @@ describe('road matching location source integration', () => {
         assert.doesNotMatch(appStateListener, /locationSourceGeneration \+= 1/);
         assert.match(
             appStateListener,
-            /nextState !== 'active'[\s\S]*?stopForegroundLocationSubscription\(\)/,
+            /operationalAppState !== 'active'[\s\S]*?stopForegroundLocationSubscription\(\)/,
         );
     });
 
@@ -404,6 +442,64 @@ describe('road matching location source integration', () => {
         await waitFor(() => harness.calls.backgroundStops === 1);
     });
 
+    test('keeps foreground fixes flowing for a connected car while the phone is backgrounded', async () => {
+        const harness = createRoadMatchingSessionHarness();
+
+        harness.transitionAppState('background');
+        harness.transitionAutoPlayConnection(true);
+        const sessionHandle =
+            await harness.roadMatchingSession.retainRoadMatchingSessionAsync({
+                persistent: true,
+            });
+
+        await waitFor(() => harness.foregroundLocationCallbacks.length === 1);
+        harness.foregroundLocationCallbacks[0](makeLocation(41, -87, 100));
+        await waitFor(
+            () =>
+                harness.roadMatchingSession.getRoadMatchingSessionDiagnostics()
+                    .lastRawCoordinate !== null,
+        );
+
+        assert.equal(harness.calls.backgroundStarts, 0);
+        assert.deepEqual(
+            harness.roadMatchingSession.getRoadMatchingSessionDiagnostics()
+                .lastRawCoordinate,
+            [-87, 41],
+        );
+
+        sessionHandle.remove();
+    });
+
+    test('hands an armed background task over to a newly connected car owner', async () => {
+        const harness = createRoadMatchingSessionHarness();
+        const sessionHandle =
+            await harness.roadMatchingSession.retainRoadMatchingSessionAsync({
+                persistent: true,
+            });
+
+        await waitFor(() => harness.calls.backgroundStarts === 1);
+        harness.backgroundTaskStart.resolve();
+        await waitFor(() => harness.backgroundTaskIsStarted);
+
+        harness.transitionAppState('background');
+        harness.transitionAutoPlayConnection(true);
+
+        await waitFor(
+            () =>
+                harness.calls.backgroundStops === 1 &&
+                harness.foregroundLocationCallbacks.length === 2,
+        );
+
+        assert.equal(harness.backgroundTaskIsStarted, false);
+        assert.equal(
+            harness.roadMatchingSession.getRoadMatchingSessionDiagnostics()
+                .source,
+            'expo-foreground-location-watch',
+        );
+
+        sessionHandle.remove();
+    });
+
     test('runs foreground and persistent background sources together while active', () => {
         assert.match(
             roadMatchingSessionSource,
@@ -411,7 +507,7 @@ describe('road matching location source integration', () => {
         );
         assert.match(
             roadMatchingSessionSource,
-            /activeRetainerCount > 0 &&[\s\S]*?AppState\.currentState === 'active' &&[\s\S]*?activeLocationSubscription = subscription/,
+            /activeRetainerCount > 0 &&[\s\S]*?getOperationalAppState\(\) === 'active' &&[\s\S]*?activeLocationSubscription = subscription/,
         );
     });
 
