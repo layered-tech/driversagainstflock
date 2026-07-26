@@ -7,7 +7,9 @@ use App\Services\SpeedLimits\MaxspeedParser;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use JsonException;
 
 class OpenStreetMapRoadGraphLookup
 {
@@ -32,10 +34,10 @@ class OpenStreetMapRoadGraphLookup
     public function find(float $latitude, float $longitude, int $radiusMeters): array
     {
         $cacheCell = $this->cacheCell($latitude, $longitude, $radiusMeters);
-        $cachedWays = Cache::get($cacheCell['cache_key']);
+        $storedWays = $this->storedWays($cacheCell['cache_key']);
 
-        if (is_array($cachedWays)) {
-            return $this->flexibleCorridor($cacheCell, $cachedWays);
+        if ($storedWays !== null) {
+            return $storedWays;
         }
 
         try {
@@ -45,24 +47,24 @@ class OpenStreetMapRoadGraphLookup
             )->block(
                 (int) config('road-corridor.lock_wait_seconds'),
                 function () use ($cacheCell): array {
-                    $cachedWays = Cache::get($cacheCell['cache_key']);
+                    $storedWays = $this->storedWays($cacheCell['cache_key']);
 
-                    if (is_array($cachedWays)) {
-                        return $this->flexibleCorridor($cacheCell, $cachedWays);
+                    if ($storedWays !== null) {
+                        return $storedWays;
                     }
 
                     if (Cache::get($cacheCell['failure_key']) === true) {
                         throw DirectionsException::upstream('Road corridor could not be loaded.');
                     }
 
-                    return $this->flexibleCorridor($cacheCell);
+                    return $this->fetchAndStore($cacheCell);
                 },
             );
         } catch (LockTimeoutException) {
-            $cachedWays = Cache::get($cacheCell['cache_key']);
+            $storedWays = $this->storedWays($cacheCell['cache_key']);
 
-            if (is_array($cachedWays)) {
-                return $cachedWays;
+            if ($storedWays !== null) {
+                return $storedWays;
             }
 
             throw DirectionsException::upstream('Road corridor could not be loaded.');
@@ -78,52 +80,73 @@ class OpenStreetMapRoadGraphLookup
      *     query_radius_meters: int
      * }  $cacheCell
      */
-    private function flexibleCorridor(array $cacheCell, ?array $staleWays = null): array
+    private function fetchAndStore(array $cacheCell): array
     {
-        return Cache::flexible(
-            $cacheCell['cache_key'],
-            [
-                max(1, (int) config('road-corridor.cache_seconds')),
-                $this->staleCacheSeconds(),
-            ],
-            function () use ($cacheCell, $staleWays): array {
-                if ($staleWays !== null && Cache::get($cacheCell['failure_key']) === true) {
-                    return $staleWays;
-                }
+        try {
+            $ways = $this->fetch(
+                $cacheCell['latitude'],
+                $cacheCell['longitude'],
+                $cacheCell['query_radius_meters'],
+            );
+        } catch (DirectionsException $exception) {
+            Cache::put(
+                $cacheCell['failure_key'],
+                true,
+                now()->addSeconds((int) config('road-corridor.failure_cache_seconds')),
+            );
 
-                try {
-                    $ways = $this->fetch(
-                        $cacheCell['latitude'],
-                        $cacheCell['longitude'],
-                        $cacheCell['query_radius_meters'],
-                    );
-                } catch (DirectionsException $exception) {
-                    Cache::put(
-                        $cacheCell['failure_key'],
-                        true,
-                        now()->addSeconds((int) config('road-corridor.failure_cache_seconds')),
-                    );
+            throw $exception;
+        }
 
-                    if ($staleWays !== null) {
-                        return $staleWays;
-                    }
+        $this->storeWays($cacheCell['cache_key'], $ways);
+        Cache::forget($cacheCell['failure_key']);
 
-                    throw $exception;
-                }
-
-                Cache::forget($cacheCell['failure_key']);
-
-                return $ways;
-            },
-            lock: ['seconds' => (int) config('road-corridor.lock_seconds')],
-        );
+        return $ways;
     }
 
-    private function staleCacheSeconds(): int
+    /**
+     * @return list<array<string, mixed>>|null
+     */
+    private function storedWays(string $cacheKey): ?array
     {
-        return max(
-            (int) config('road-corridor.cache_seconds') + 1,
-            (int) config('road-corridor.stale_cache_seconds'),
+        $ways = DB::table('road_corridor_caches')
+            ->where('cache_key', $cacheKey)
+            ->value('ways');
+
+        if (is_array($ways)) {
+            return $ways;
+        }
+
+        if (! is_string($ways)) {
+            return null;
+        }
+
+        try {
+            $ways = json_decode($ways, true, flags: JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return null;
+        }
+
+        return is_array($ways) ? $ways : null;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $ways
+     */
+    private function storeWays(string $cacheKey, array $ways): void
+    {
+        $now = now();
+
+        DB::table('road_corridor_caches')->upsert(
+            [[
+                'cache_key' => $cacheKey,
+                'ways' => json_encode($ways, JSON_THROW_ON_ERROR),
+                'fetched_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]],
+            ['cache_key'],
+            ['ways', 'fetched_at', 'updated_at'],
         );
     }
 
@@ -152,7 +175,7 @@ class OpenStreetMapRoadGraphLookup
         );
         $cellCoverageMeters = (int) ceil(($gridMeters / sqrt(2)) * 1.02);
         $cacheKey = sprintf(
-            'road-corridor:v5:%d:%d:%d:%d',
+            'road-corridor:v6:%d:%d:%d:%d',
             $gridMeters,
             $latitudeCell,
             $longitudeCell,
