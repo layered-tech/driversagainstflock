@@ -105,15 +105,22 @@ describe('current road pill layout', () => {
             firstZoomScale.zoomLevel,
         );
         assert.equal(
+            AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES.length,
+            NAVIGATION_PUCK_3D_ZOOM_SCALES.length,
+        );
+        assert.deepEqual(
             AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES,
-            NAVIGATION_PUCK_3D_ZOOM_SCALES,
+            NAVIGATION_PUCK_3D_ZOOM_SCALES.map(({ mapScale, zoomLevel }) => ({
+                mapScale: mapScale * 0.6,
+                zoomLevel,
+            })),
         );
         assert.equal(
             getNavigationPuck3DMapScale({
                 variant: 'auto-play',
                 zoomLevel: midpointZoomLevel,
             }),
-            midpointMapScale,
+            midpointMapScale * 0.6,
         );
     });
 
