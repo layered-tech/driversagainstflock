@@ -454,7 +454,7 @@ public final class MapLocationPuckModule: Module {
       throw MapLocationPuckException("Bundled navigation_puck.glb could not be found.")
     }
 
-    let resolvedScale = min(max(scale, 16), 128)
+    let resolvedScale = scale
     let model = Model(
       id: "drivers-against-flock-location-puck",
       uri: modelURL,

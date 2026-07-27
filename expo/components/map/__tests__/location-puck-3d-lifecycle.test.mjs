@@ -21,7 +21,7 @@ function requestPuck(lifecycle, mapViewRef, requested = true) {
         layerAbove: undefined,
         mapViewRef,
         requested,
-        scale: 75,
+        scale: 7.5,
         slot: undefined,
     });
 }
@@ -139,6 +139,21 @@ describe('3D location puck lifecycle', () => {
         assert.match(
             mapCanvasSource,
             /locationPuck3DStatus !== 'preparing'[\s\S]*?requestLocationPuck\(\)/,
+        );
+    });
+
+    test('passes the map-relative scale to the native puck', () => {
+        assert.match(
+            mapCanvasSource,
+            /getNavigationPuck3DMapScale\([\s\S]*?variant: resolvedNavigationPuckVariant[\s\S]*?zoomLevel: navigationPuckCameraZoomLevel/,
+        );
+        assert.match(
+            mapCanvasSource,
+            /locationPuckLifecycle\.request\([\s\S]*?scale: navigationPuck3DMapScale/,
+        );
+        assert.match(
+            mapCanvasSource,
+            /onCameraChanged=\{handleMapCameraChanged\}/,
         );
     });
 });

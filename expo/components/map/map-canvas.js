@@ -30,6 +30,7 @@ import {
     ALPR_SYMBOL_VISIBLE_PROPERTY_NAME,
     ANDROID_AUTO_NAVIGATION_PUCK_BEARING_IMAGE,
     ANDROID_AUTO_NAVIGATION_PUCK_SHADOW_IMAGE,
+    DEFAULT_ZOOM_LEVEL,
     INDIVIDUAL_MARKER_FILTER,
     MARKER_CLUSTER_CIRCLE_RADIUS_EXPRESSION,
     MARKER_CLUSTER_FILTER,
@@ -98,10 +99,29 @@ import {
 import { NativeWindMapView } from './native-components';
 import {
     AUTO_PLAY_NAVIGATION_PUCK_SIZE,
+    getNavigationPuck3DMapScale,
     NAVIGATION_PUCK_SIZE,
 } from './navigation-puck-layout';
 
 const MAP_PREFERRED_FRAMES_PER_SECOND = 30;
+const NAVIGATION_PUCK_3D_SCALE_UPDATE_EPSILON = 0.05;
+
+function getNavigationPuckCameraZoomLevel({
+    initialCameraSettings,
+    nativeCameraFollowProps,
+}) {
+    const nativeFollowZoomLevel = Number(nativeCameraFollowProps?.zoomLevel);
+
+    if (Number.isFinite(nativeFollowZoomLevel)) {
+        return nativeFollowZoomLevel;
+    }
+
+    const initialZoomLevel = Number(initialCameraSettings?.zoomLevel);
+
+    return Number.isFinite(initialZoomLevel)
+        ? initialZoomLevel
+        : DEFAULT_ZOOM_LEVEL;
+}
 
 function MapLocationProvider({
     attachmentKey,
@@ -621,6 +641,52 @@ export const MapCanvas = memo(function MapCanvas() {
     const navigationPuckSize = Number.isFinite(requestedNavigationPuckSize)
         ? requestedNavigationPuckSize
         : fallbackNavigationPuckSize;
+    const navigationPuckCameraZoomLevel = getNavigationPuckCameraZoomLevel({
+        initialCameraSettings,
+        nativeCameraFollowProps,
+    });
+    const [navigationPuck3DMapScale, setNavigationPuck3DMapScale] = useState(
+        () =>
+            getNavigationPuck3DMapScale({
+                variant: resolvedNavigationPuckVariant,
+                zoomLevel: navigationPuckCameraZoomLevel,
+            }),
+    );
+    const navigationPuck3DMapScaleRef = useRef(navigationPuck3DMapScale);
+    const updateNavigationPuck3DMapScale = useCallback(
+        (zoomLevel) => {
+            if (!Number.isFinite(zoomLevel)) {
+                return;
+            }
+
+            const nextMapScale = getNavigationPuck3DMapScale({
+                variant: resolvedNavigationPuckVariant,
+                zoomLevel,
+            });
+
+            if (
+                Math.abs(navigationPuck3DMapScaleRef.current - nextMapScale) <
+                NAVIGATION_PUCK_3D_SCALE_UPDATE_EPSILON
+            ) {
+                return;
+            }
+
+            navigationPuck3DMapScaleRef.current = nextMapScale;
+            setNavigationPuck3DMapScale(nextMapScale);
+        },
+        [resolvedNavigationPuckVariant],
+    );
+    const handleMapCameraChanged = useCallback(
+        (state) => {
+            handleCameraChanged(state);
+            updateNavigationPuck3DMapScale(state?.properties?.zoom);
+        },
+        [handleCameraChanged, updateNavigationPuck3DMapScale],
+    );
+
+    useEffect(() => {
+        updateNavigationPuck3DMapScale(navigationPuckCameraZoomLevel);
+    }, [navigationPuckCameraZoomLevel, updateNavigationPuck3DMapScale]);
     const [locationPuck3DStatus, setLocationPuck3DStatus] =
         useState('inactive');
     const [locationPuckCameraFollowStatus, setLocationPuckCameraFollowStatus] =
@@ -703,7 +769,7 @@ export const MapCanvas = memo(function MapCanvas() {
                 layerAbove: userLocationPuckAboveLayer,
                 mapViewRef,
                 requested: locationPuckRequests3D,
-                scale: navigationPuckSize,
+                scale: navigationPuck3DMapScale,
                 slot: mapLayerSlots.userLocationPuck,
             }),
         [
@@ -711,7 +777,7 @@ export const MapCanvas = memo(function MapCanvas() {
             locationPuckRequests3D,
             mapLayerSlots.userLocationPuck,
             mapViewRef,
-            navigationPuckSize,
+            navigationPuck3DMapScale,
             userLocationPuckAboveLayer,
         ],
     );
@@ -857,7 +923,7 @@ export const MapCanvas = memo(function MapCanvas() {
             logoPosition={mapboxLogoPosition}
             compassEnabled={isDrivingMode && !hideCompassDuringNavigation}
             compassPosition={mapCompassPosition}
-            onCameraChanged={handleCameraChanged}
+            onCameraChanged={handleMapCameraChanged}
             onDidFinishLoadingMap={handleMapFinishedLoading}
             onDidFinishLoadingStyle={refreshLocationPuckAfterMapAttachment}
             onPress={handleMapPress}

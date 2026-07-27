@@ -25,7 +25,7 @@ function makeRendered3DPuckState(overrides = {}) {
         modelLayerExists: true,
         modelReceiveShadows: false,
         modelRotation: [0, 0, 0],
-        modelScale: [75, 75, 75],
+        modelScale: [4, 4, 4],
         modelScaleMode: 'map',
         modelSourceExists: true,
         modelUri: 'asset://navigation_puck.glb',
@@ -131,11 +131,16 @@ describe('native puck snapping proof', () => {
 
         assert.equal(nativePuckStateProvesRendered3D(validState), true);
         assert.equal(nativePuckStateProves3DSnapping(validState), true);
+        assert.equal(
+            nativePuckStateProvesRendered3D(
+                makeRendered3DPuckState({ modelScale: [513, 513, 513] }),
+            ),
+            true,
+        );
 
         for (const invalidState of [
             { puckKind: '2d' },
             { modelUri: 'asset://wrong.glb' },
-            { modelScale: [1, 1, 1] },
             { modelRotation: [0, 0, 180] },
             { modelScaleMode: 'viewport' },
             { modelCastShadows: true },

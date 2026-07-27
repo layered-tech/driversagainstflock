@@ -46,8 +46,6 @@ private const val LOCATION_PUCK_MODEL_URI = "asset://navigation_puck.glb"
 private const val LOCATION_PUCK_MODEL_LAYER = "mapbox-location-model-layer"
 private const val LOCATION_PUCK_MODEL_SOURCE = "mapbox-location-model-source"
 private const val LOCATION_PUCK_INDICATOR_LAYER = "mapbox-location-indicator-layer"
-private const val MINIMUM_LOCATION_PUCK_SCALE = 16f
-private const val MAXIMUM_LOCATION_PUCK_SCALE = 128f
 private val MAPBOX_STYLE_SLOTS = setOf("bottom", "middle", "top")
 private val APP_STYLE_LAYER_IDS = setOf("directions-route-line")
 
@@ -300,10 +298,7 @@ class MapLocationPuckModule : Module() {
         AsyncFunction("applyLocationPuck3D") { viewTag: Int, scale: Double, slot: String?, layerAbove: String? ->
             val mapView = requireMapView(viewTag)
             val location = mapView.mapView.location
-            val resolvedScale = scale.toFloat().coerceIn(
-                MINIMUM_LOCATION_PUCK_SCALE,
-                MAXIMUM_LOCATION_PUCK_SCALE,
-            )
+            val resolvedScale = scale.toFloat()
 
             checkNotNull(readLocationPuckModel()) {
                 "Bundled $LOCATION_PUCK_MODEL_ASSET could not be found."

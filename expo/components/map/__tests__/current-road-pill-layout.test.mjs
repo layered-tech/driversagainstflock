@@ -3,9 +3,12 @@ import { describe, test } from 'node:test';
 import { shouldShowCurrentRoadPill } from '../current-road-pill-layout.js';
 import { getRetainedCurrentRoadText } from '../current-road-state.js';
 import {
+    AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES,
     AUTO_PLAY_NAVIGATION_PUCK_SIZE,
+    getNavigationPuck3DMapScale,
     getNavigationPuckAnchorY,
     getNavigationPuckSize,
+    NAVIGATION_PUCK_3D_ZOOM_SCALES,
     NAVIGATION_PUCK_SIZE,
 } from '../navigation-puck-layout.js';
 
@@ -59,6 +62,53 @@ describe('current road pill layout', () => {
                 viewportWidth: 400,
                 zoomLevel: 19,
             }),
+        );
+    });
+
+    test('interpolates native 3D puck scales by map zoom', () => {
+        const firstZoomScale = NAVIGATION_PUCK_3D_ZOOM_SCALES[0];
+        const secondZoomScale = NAVIGATION_PUCK_3D_ZOOM_SCALES[1];
+        const lastZoomScale = NAVIGATION_PUCK_3D_ZOOM_SCALES.at(-1);
+        const midpointZoomLevel =
+            (firstZoomScale.zoomLevel + secondZoomScale.zoomLevel) / 2;
+        const midpointMapScale =
+            (firstZoomScale.mapScale + secondZoomScale.mapScale) / 2;
+
+        assert.ok(NAVIGATION_PUCK_3D_ZOOM_SCALES.length >= 2);
+        assert.equal(
+            getNavigationPuck3DMapScale({
+                zoomLevel: firstZoomScale.zoomLevel - 1,
+            }),
+            firstZoomScale.mapScale,
+        );
+        assert.equal(
+            getNavigationPuck3DMapScale({ zoomLevel: midpointZoomLevel }),
+            midpointMapScale,
+        );
+        assert.equal(
+            getNavigationPuck3DMapScale({
+                zoomLevel: lastZoomScale.zoomLevel + 1,
+            }),
+            lastZoomScale.mapScale,
+        );
+        assert.equal(
+            getNavigationPuck3DMapScale(),
+            getNavigationPuck3DMapScale({ zoomLevel: 17 }),
+        );
+        assert.equal(
+            getNavigationPuck3DMapScale({ zoomLevel: null }),
+            getNavigationPuck3DMapScale({ zoomLevel: 17 }),
+        );
+        assert.equal(
+            AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES,
+            NAVIGATION_PUCK_3D_ZOOM_SCALES,
+        );
+        assert.equal(
+            getNavigationPuck3DMapScale({
+                variant: 'auto-play',
+                zoomLevel: midpointZoomLevel,
+            }),
+            midpointMapScale,
         );
     });
 

@@ -2,8 +2,6 @@ const NATIVE_PUCK_COORDINATE_TOLERANCE_DEGREES = 0.000001;
 const LOCATION_PUCK_MODEL_ASSET_BYTE_LENGTH = 21_636;
 const LOCATION_PUCK_MODEL_ASSET_SHA256 =
     'ab6a662ad8d0696f4a763ce364a1f73c0d4c5a56361baa4ab57644e85381fccc';
-const LOCATION_PUCK_MINIMUM_SCALE = 44;
-const LOCATION_PUCK_MAXIMUM_SCALE = 88;
 
 export function nativePuckCoordinatesMatch(firstCoordinate, secondCoordinate) {
     return (
@@ -45,8 +43,6 @@ export function nativePuckStateProvesRendered3D(puckState) {
         modelUri.endsWith('navigation_puck.glb') &&
         Array.isArray(modelScale) &&
         modelScale.length === 3 &&
-        resolvedScale >= LOCATION_PUCK_MINIMUM_SCALE &&
-        resolvedScale <= LOCATION_PUCK_MAXIMUM_SCALE &&
         modelScale.every((value) => Number(value) === resolvedScale) &&
         Array.isArray(modelRotation) &&
         modelRotation.length === 3 &&
