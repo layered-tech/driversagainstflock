@@ -10,6 +10,7 @@ it('logs each API request with its request and response details', function () {
         return response()->json([
             'result' => 'created',
             'token' => 'response-token',
+            'error' => 'Route could not be found - Unable to find a route between points 1 (-122.8416368 45.3482846) and 2 (-122.8348791 45.3742299).',
         ], 201, [
             'X-Response-Id' => 'response-123',
             'Set-Cookie' => 'session=response-session',
@@ -23,6 +24,8 @@ it('logs each API request with its request and response details', function () {
         ],
     ], [
         'Authorization' => 'Bearer request-token',
+        'CF-Connecting-IP' => '50.53.92.156',
+        'X-Forwarded-For' => '50.53.92.156',
         'X-Request-Id' => 'request-123',
     ])->assertCreated();
 
@@ -35,6 +38,8 @@ it('logs each API request with its request and response details', function () {
         ->and($apiLog->status)->toBe(201)
         ->and($apiLog->elapsed_ms)->toBeGreaterThanOrEqual(0)
         ->and($apiLog->request_headers['authorization'])->toBe(['[REDACTED]'])
+        ->and($apiLog->request_headers['cf-connecting-ip'])->toBe(['[REDACTED]'])
+        ->and($apiLog->request_headers['x-forwarded-for'])->toBe(['[REDACTED]'])
         ->and($apiLog->request_headers['x-request-id'])->toBe(['request-123'])
         ->and($apiLog->request_payload['filter'])->toBe('recent')
         ->and($apiLog->request_payload['name'])->toBe('API logging test')
@@ -42,6 +47,7 @@ it('logs each API request with its request and response details', function () {
         ->and($apiLog->response_headers['x-response-id'])->toBe(['response-123'])
         ->and($apiLog->response_headers['set-cookie'])->toBe(['[REDACTED]'])
         ->and($apiLog->response_payload['result'])->toBe('created')
+        ->and($apiLog->response_payload['error'])->toBe('Route could not be found - Unable to find a route between points 1 ([REDACTED]) and 2 ([REDACTED]).')
         ->and($apiLog->response_payload['token'])->toBe('[REDACTED]');
 });
 

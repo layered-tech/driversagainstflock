@@ -12,13 +12,19 @@ class LogApiRequest
 {
     private const SENSITIVE_HEADER_FRAGMENTS = [
         'authorization',
+        'client-ip',
+        'connecting-ip',
         'cookie',
+        'forwarded',
+        'real-ip',
         'secret',
         'token',
         'api-key',
         'api_key',
         'apikey',
     ];
+
+    private const COORDINATE_PAIR_PATTERN = '/(?<![\d.-])-?(?:\d{1,3}\.\d+)[,\s]+-?(?:\d{1,3}\.\d+)(?![\d.-])/';
 
     private const SENSITIVE_PAYLOAD_FIELD_FRAGMENTS = [
         'authorization',
@@ -106,6 +112,12 @@ class LogApiRequest
 
             if (is_array($value)) {
                 $payload[$key] = $this->redactPayload($value);
+
+                continue;
+            }
+
+            if (is_string($value)) {
+                $payload[$key] = $this->redactCoordinatePairs($value);
             }
         }
 
@@ -120,6 +132,11 @@ class LogApiRequest
             ...self::SENSITIVE_PAYLOAD_FIELD_FRAGMENTS,
             ...self::PRIVATE_PAYLOAD_FIELD_FRAGMENTS,
         ]) || Str::endsWith($normalizedKey, self::PRIVATE_PAYLOAD_FIELD_SUFFIXES);
+    }
+
+    private function redactCoordinatePairs(string $value): string
+    {
+        return preg_replace(self::COORDINATE_PAIR_PATTERN, '[REDACTED]', $value) ?? $value;
     }
 
     private function responsePayload(Response $response): mixed
