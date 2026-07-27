@@ -119,6 +119,7 @@ module.exports = {
     },
     plugins: [
         './plugins/withCocoaPodsHttp1',
+        './plugins/withUniqueCocoaPodsUuids',
         './plugins/withGradleJvmMemory',
         './plugins/withCanonicalReactNativeWorkletsPath',
         // Injects the React Native Firebase compatibility shims required by `useFrameworks: "dynamic"`
