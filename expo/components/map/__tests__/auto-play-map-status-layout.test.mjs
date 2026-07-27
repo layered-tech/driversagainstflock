@@ -158,12 +158,15 @@ describe('Auto Play current-road pill layout', () => {
         );
     });
 
-    test('shares the larger road text while truncating only on Android Auto', () => {
+    test('uses smaller road text on automotive surfaces', () => {
         assert.match(
             androidAutoMapSurfaceSource,
             /currentRoadPill:\s*\{[\s\S]*?reserveSpeedLimitSpace:\s*true,[\s\S]*?textStyle:\s*\{[\s\S]*?fontSize:\s*14,[\s\S]*?lineHeight:\s*20/,
         );
-        assert.doesNotMatch(carPlayMapSurfaceSource, /currentRoadPill:/);
+        assert.match(
+            carPlayMapSurfaceSource,
+            /currentRoadPill:\s*\{[\s\S]*?textStyle:\s*\{[\s\S]*?fontSize:\s*14,[\s\S]*?lineHeight:\s*20/,
+        );
         assert.match(
             mapStatusOverlaySource,
             /currentRoadPill\?\.reserveSpeedLimitSpace[\s\S]*?getAutoPlayCurrentRoadPillLayout/,

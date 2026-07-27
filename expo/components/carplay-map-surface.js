@@ -3,6 +3,12 @@ import { createAutoPlayMapSurface } from './auto-play-map-surface';
 // CarPlay reports accurate safe-area insets for its navigation bar and
 // maneuver panels, so the surface can use them unscaled.
 const CARPLAY_SURFACE_PLATFORM_CONFIG = {
+    currentRoadPill: {
+        textStyle: {
+            fontSize: 14,
+            lineHeight: 20,
+        },
+    },
     hideCompassDuringNavigation: true,
     ornamentSafeAreaLeftScale: 1,
 };
