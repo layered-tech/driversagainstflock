@@ -1,4 +1,4 @@
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import {
     getAutoPlayCurrentRoadPillLayout,
     getAutoPlaySpeedLimitOverlayLayout,
@@ -11,6 +11,7 @@ import { DrivingLocationRoadStack } from './map/driving-location-road-stack';
 import { MarkerLoadingIndicator } from './map/marker-loading-indicator';
 import { AUTO_PLAY_NAVIGATION_PUCK_SIZE } from './map/navigation-puck-layout';
 import {
+    getCurrentSpeedMph,
     getRouteCurrentSpeedMps,
     SpeedLimitSign,
     useRouteSpeedLimit,
@@ -212,6 +213,18 @@ export function AutoPlayMapStatusOverlay({
         drivingStatusIsVisible &&
         Number.isFinite(Number(speedLimit?.speedLimitMph)),
     );
+    const currentSpeedMps = getRouteCurrentSpeedMps(userLocation);
+    const currentSpeedMph = getCurrentSpeedMph(currentSpeedMps);
+    const currentSpeedIsVisible = Boolean(
+        drivingStatusIsVisible && Number.isFinite(Number(currentSpeedMps)),
+    );
+    const currentSpeedWithoutLimitIsVisible = Boolean(
+        Platform.OS === 'android' &&
+        drivingStatusIsVisible &&
+        currentSpeedMph > 0,
+    );
+    const speedStatusIsVisible =
+        speedLimitIsVisible || currentSpeedWithoutLimitIsVisible;
     const markerLoadingIsVisible =
         mapPreferencesAreLoaded && markerLoader.renderMarkerLoadingIndicator;
     const speedLimitOverlayLayout = getAutoPlaySpeedLimitOverlayLayout({
@@ -252,7 +265,7 @@ export function AutoPlayMapStatusOverlay({
                 </View>
             ) : null}
 
-            {markerLoadingIsVisible || speedLimitIsVisible ? (
+            {markerLoadingIsVisible || speedStatusIsVisible ? (
                 <View
                     className="absolute items-end gap-[12px]"
                     pointerEvents="none"
@@ -273,15 +286,16 @@ export function AutoPlayMapStatusOverlay({
                         />
                     ) : null}
 
-                    {speedLimitIsVisible ? (
+                    {speedStatusIsVisible ? (
                         <View
                             style={speedLimitOverlayLayout.alignmentFrameStyle}
                         >
                             <SpeedLimitSign
-                                currentSpeedMps={getRouteCurrentSpeedMps(
-                                    userLocation,
-                                )}
-                                currentSpeedVisible
+                                currentSpeedMps={currentSpeedMps}
+                                currentSpeedVisible={currentSpeedIsVisible}
+                                currentSpeedWithoutLimitVisible={
+                                    currentSpeedWithoutLimitIsVisible
+                                }
                                 isDarkMode={presentation.isDarkMapLayer}
                                 size={AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE}
                                 speedLimit={speedLimit}

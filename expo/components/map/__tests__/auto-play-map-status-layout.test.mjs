@@ -23,6 +23,10 @@ const mapStatusOverlaySource = readFileSync(
     new URL('../../auto-play-map-status-overlay.js', import.meta.url),
     'utf8',
 );
+const speedLimitSource = readFileSync(
+    new URL('../speed-limit.js', import.meta.url),
+    'utf8',
+);
 const mapSurfaceContentSource = readFileSync(
     new URL('../../auto-play-map-surface-content.js', import.meta.url),
     'utf8',
@@ -74,6 +78,25 @@ describe('Auto Play speed-limit layout', () => {
             bottom: 37,
             right: 29,
         });
+    });
+
+    test('keeps the current-speed dial in the full badge frame without a limit', () => {
+        assert.match(
+            mapStatusOverlaySource,
+            /getCurrentSpeedMph,[\s\S]*?const currentSpeedMps = getRouteCurrentSpeedMps\(userLocation\);[\s\S]*?const currentSpeedWithoutLimitIsVisible = Boolean\([\s\S]*?Platform\.OS === 'android'[\s\S]*?currentSpeedMph > 0,[\s\S]*?\);[\s\S]*?const speedStatusIsVisible =[\s\S]*?speedLimitIsVisible \|\| currentSpeedWithoutLimitIsVisible;/,
+        );
+        assert.match(
+            mapStatusOverlaySource,
+            /markerLoadingIsVisible \|\| speedStatusIsVisible[\s\S]*?speedStatusIsVisible \?[\s\S]*?style=\{speedLimitOverlayLayout\.alignmentFrameStyle\}[\s\S]*?<SpeedLimitSign[\s\S]*?currentSpeedMps=\{currentSpeedMps\}[\s\S]*?currentSpeedWithoutLimitVisible=\{[\s\S]*?currentSpeedWithoutLimitIsVisible[\s\S]*?\}[\s\S]*?speedLimit=\{speedLimit\}/,
+        );
+        assert.match(
+            speedLimitSource,
+            /currentSpeedWithoutLimitVisible = false,[\s\S]*?const currentSpeedDialIsVisible =[\s\S]*?speedLimitIsVisible \|\| currentSpeedWithoutLimitVisible[\s\S]*?if \(!speedLimitIsVisible && !currentSpeedDialIsVisible\) \{[\s\S]*?return null;/,
+        );
+        assert.match(
+            speedLimitSource,
+            /<View[\s\S]*?height: layout\.containerHeight,[\s\S]*?width: layout\.containerWidth,[\s\S]*?\{speedLimitIsVisible \? \([\s\S]*?\{currentSpeedDialIsVisible \? \(/,
+        );
     });
 });
 
