@@ -32,6 +32,7 @@ import {
     autoPlaySearchRequestIsCurrent,
     createAutoPlaySearchCallbackState,
     getAutoPlayHeaderButtonVisibility,
+    getAutoPlayMapButtonAppearanceKey,
     getAutoPlayPrimaryLocationHeaderActionTypes,
     getAutoPlayRouteChoiceText,
     getAutoPlaySearchLoadingCopy,
@@ -217,6 +218,9 @@ let pendingVoiceSearchTemplatePush = null;
 let voiceNavigationRequestGeneration = 0;
 let rootMapButtonAppearance = ROOT_MAP_BUTTON_APPEARANCE_DEFAULTS;
 let rootMapButtonAppearanceKey = '';
+let rootMapPanningInterfaceIsVisible = false;
+let rootMapButtonsRefreshIsDeferred = false;
+let rootMapHeaderActionsRefreshIsDeferred = false;
 let navigationLocationSubscription = null;
 let navigationLocationUpdateGeneration = 0;
 let searchAbortController = null;
@@ -232,6 +236,8 @@ let lastNavigationGuidanceLocation = null;
 let lastNavigationGuidanceUpdatedAt = 0;
 let pendingNavigationGuidanceLocation = null;
 let pendingNavigationGuidanceTimer = null;
+let navigationGuidanceIsDeferredDuringPanning = false;
+let deferredNavigationGuidanceLocation = null;
 // Latched when the car host invokes NavigationManagerCallback.onAutoDriveEnabled
 // and held until the Android Auto session is destroyed, per the Play Store
 // navigation quality requirements.
@@ -257,6 +263,12 @@ function flushTemplateUpdates() {
     templateUpdateNeedsHeaderActions = false;
 
     if (!rootMapTemplate || !rootMapTemplateIsReady) {
+        return;
+    }
+
+    if (rootMapPanningInterfaceIsVisible) {
+        rootMapButtonsRefreshIsDeferred ||= needsMapButtons;
+        rootMapHeaderActionsRefreshIsDeferred ||= needsHeaderActions;
         return;
     }
 
@@ -2095,9 +2107,16 @@ function updateNavigationGuidance(userLocation) {
         return;
     }
 
-    lastNavigationGuidanceUpdatedAt = Date.now();
     lastNavigationGuidanceLocation =
         userLocation ?? lastNavigationGuidanceLocation;
+
+    if (rootMapPanningInterfaceIsVisible) {
+        navigationGuidanceIsDeferredDuringPanning = true;
+        deferredNavigationGuidanceLocation = lastNavigationGuidanceLocation;
+        return;
+    }
+
+    lastNavigationGuidanceUpdatedAt = Date.now();
 
     const routeOption = getSelectedDirectionsRouteOption(activeNavigationRoute);
     const routeProgress = getDirectionsRouteProgress(
@@ -2180,6 +2199,8 @@ function clearScheduledNavigationGuidance() {
     }
 
     pendingNavigationGuidanceLocation = null;
+    navigationGuidanceIsDeferredDuringPanning = false;
+    deferredNavigationGuidanceLocation = null;
 }
 
 function scheduleNavigationGuidance(userLocation) {
@@ -2336,6 +2357,12 @@ function updateRootTemplateHeaderActions() {
     if (!rootMapTemplate || !rootMapTemplateIsReady) {
         return;
     }
+
+    if (rootMapPanningInterfaceIsVisible) {
+        rootMapHeaderActionsRefreshIsDeferred = true;
+        return;
+    }
+
     scheduleTemplateUpdate({ headerActions: true });
 }
 
@@ -2343,14 +2370,13 @@ function updateRootMapButtons() {
     if (!rootMapTemplate || !rootMapTemplateIsReady) {
         return;
     }
-    scheduleTemplateUpdate({ mapButtons: true });
-}
 
-function getRootMapButtonAppearanceKey(appearance) {
-    return [
-        appearance.isDarkMapLayer ? 'dark' : 'light',
-        appearance.trackingState,
-    ].join(':');
+    if (rootMapPanningInterfaceIsVisible) {
+        rootMapButtonsRefreshIsDeferred = true;
+        return;
+    }
+
+    scheduleTemplateUpdate({ mapButtons: true });
 }
 
 function updateRootMapButtonAppearance(appearance) {
@@ -2358,16 +2384,17 @@ function updateRootMapButtonAppearance(appearance) {
         ...ROOT_MAP_BUTTON_APPEARANCE_DEFAULTS,
         ...appearance,
     };
-    const nextAppearanceKey = getRootMapButtonAppearanceKey(nextAppearance);
-
-    if (nextAppearanceKey === rootMapButtonAppearanceKey) {
-        return;
-    }
+    const nextAppearanceKey = getAutoPlayMapButtonAppearanceKey(nextAppearance);
 
     const darkMapLayerChanged =
         nextAppearance.isDarkMapLayer !==
         rootMapButtonAppearance.isDarkMapLayer;
     rootMapButtonAppearance = nextAppearance;
+
+    if (nextAppearanceKey === rootMapButtonAppearanceKey) {
+        return;
+    }
+
     rootMapButtonAppearanceKey = nextAppearanceKey;
 
     if (!rootMapTemplate || !rootMapTemplateIsReady) {
@@ -2381,6 +2408,38 @@ function updateRootMapButtonAppearance(appearance) {
         // light preset flip mid-navigation needs a guidance refresh to repaint.
         updateNavigationGuidance(lastNavigationGuidanceLocation);
     }
+}
+
+function handleRootMapPanningInterfaceChanged(isPanningInterfaceVisible) {
+    rootMapPanningInterfaceIsVisible = Boolean(isPanningInterfaceVisible);
+
+    if (rootMapPanningInterfaceIsVisible) {
+        return;
+    }
+
+    const mapButtonsRefreshIsDeferred = rootMapButtonsRefreshIsDeferred;
+    const headerActionsRefreshIsDeferred =
+        rootMapHeaderActionsRefreshIsDeferred;
+    const guidanceWasDeferred = navigationGuidanceIsDeferredDuringPanning;
+    const guidanceLocation = deferredNavigationGuidanceLocation;
+    rootMapButtonsRefreshIsDeferred = false;
+    rootMapHeaderActionsRefreshIsDeferred = false;
+
+    navigationGuidanceIsDeferredDuringPanning = false;
+    deferredNavigationGuidanceLocation = null;
+
+    if (guidanceWasDeferred) {
+        updateNavigationGuidance(guidanceLocation);
+    }
+
+    if (!mapButtonsRefreshIsDeferred && !headerActionsRefreshIsDeferred) {
+        return;
+    }
+
+    scheduleTemplateUpdate({
+        headerActions: headerActionsRefreshIsDeferred,
+        mapButtons: mapButtonsRefreshIsDeferred,
+    });
 }
 
 function getAutoPlayDrivingModeIsActive() {
@@ -2491,10 +2550,10 @@ let cachedRootMapButtons = null;
 let cachedRootMapButtonsKey = '';
 
 function getRootMapButtons() {
-    // The only thing that can change between calls is the appearance (dark/light
-    // map layer + tracking state). Memoize by that key so identical button arrays
-    // are reused — important because every fresh array forces the native side to
-    // re-parse glyphs and rebuild the ActionStrip.
+    // The visual appearance is the map light mode plus inactive/highlighted
+    // tracking. Memoize by that key so identical button arrays are reused —
+    // important because every fresh array forces the native side to re-parse
+    // glyphs and rebuild the ActionStrip.
     if (
         cachedRootMapButtons &&
         cachedRootMapButtonsKey === rootMapButtonAppearanceKey
@@ -3227,6 +3286,11 @@ async function handleAutoPlayConnect() {
     setAutoPlaySessionConnected(true);
 
     rootMapTemplateIsReady = false;
+    rootMapPanningInterfaceIsVisible = false;
+    rootMapButtonsRefreshIsDeferred = false;
+    rootMapHeaderActionsRefreshIsDeferred = false;
+    navigationGuidanceIsDeferredDuringPanning = false;
+    deferredNavigationGuidanceLocation = null;
     setAutoPlayState({
         ...DEFAULT_AUTO_PLAY_STATE,
         statusLabel: 'Connected',
@@ -3244,7 +3308,12 @@ async function handleAutoPlayConnect() {
             // this callback is supplied. Touchscreen hosts hide the native
             // pan button, but still need that listener before forwarding
             // drag gestures to the map surface.
-            onPanningInterfaceChanged: () => {},
+            onPanningInterfaceChanged: (isPanningInterfaceVisible) => {
+                handleRootMapPanningInterfaceChanged(isPanningInterfaceVisible);
+                getAutoPlayMapControlHandlers().handlePanningInterfaceChanged(
+                    isPanningInterfaceVisible,
+                );
+            },
             onPan: (translation) => {
                 getAutoPlayMapControlHandlers().handlePan(translation);
             },
@@ -3318,6 +3387,11 @@ function handleAutoPlayDisconnect() {
     autoPlayPlatform?.cancelSearchVoiceInput?.();
     rootMapTemplate = null;
     rootMapTemplateIsReady = false;
+    rootMapPanningInterfaceIsVisible = false;
+    rootMapButtonsRefreshIsDeferred = false;
+    rootMapHeaderActionsRefreshIsDeferred = false;
+    navigationGuidanceIsDeferredDuringPanning = false;
+    deferredNavigationGuidanceLocation = null;
     pendingVoiceNavigation = null;
     pendingVoiceSearchTemplatePush = null;
     activeNavigationRoute = null;

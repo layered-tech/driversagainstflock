@@ -5,6 +5,7 @@ import {
     createAutoPlaySearchCallbackState,
     getAutoPlayDrivingStatusVisibility,
     getAutoPlayHeaderButtonVisibility,
+    getAutoPlayMapButtonAppearanceKey,
     getAutoPlayMapContentVisibility,
     getAutoPlayNavigationPuckRefreshKey,
     getAutoPlayPrimaryLocationHeaderActionTypes,
@@ -53,6 +54,35 @@ describe('Auto Play template state', () => {
                 rendersDrivingStatus: false,
                 secondaryDrivingStatusIsVisible: false,
             },
+        );
+    });
+
+    test('keeps the Android Auto action strip stable while recenter appears', () => {
+        const activeKey = getAutoPlayMapButtonAppearanceKey({
+            isDarkMapLayer: false,
+            trackingState: 'active',
+        });
+
+        assert.equal(
+            getAutoPlayMapButtonAppearanceKey({
+                isDarkMapLayer: false,
+                trackingState: 'recenter',
+            }),
+            activeKey,
+        );
+        assert.notEqual(
+            getAutoPlayMapButtonAppearanceKey({
+                isDarkMapLayer: false,
+                trackingState: 'inactive',
+            }),
+            activeKey,
+        );
+        assert.notEqual(
+            getAutoPlayMapButtonAppearanceKey({
+                isDarkMapLayer: true,
+                trackingState: 'active',
+            }),
+            activeKey,
         );
     });
 

@@ -22,7 +22,7 @@ function getFollowRequestKey(followProps, attachmentKey) {
     ].join(':');
 }
 
-function waitForNativeCameraCommit() {
+export function waitForNativeCameraCommit() {
     return new Promise((resolve) => {
         if (typeof requestAnimationFrame !== 'function') {
             setTimeout(resolve, 0);
@@ -33,6 +33,110 @@ function waitForNativeCameraCommit() {
             requestAnimationFrame(resolve);
         });
     });
+}
+
+export function createLocationPuckCameraFallbackReleaseGate({
+    waitForCameraCommit = waitForNativeCameraCommit,
+} = {}) {
+    let invalidated = false;
+    let pendingRelease = null;
+
+    function resolvePendingRelease(wasReleased = true) {
+        const release = pendingRelease;
+
+        if (!release) {
+            return;
+        }
+
+        pendingRelease = null;
+        release.resolve(wasReleased);
+    }
+
+    return {
+        handleCameraCommit({ fallbackCameraIsFollowing }) {
+            const release = pendingRelease;
+
+            if (invalidated || !release) {
+                return;
+            }
+
+            release.fallbackCameraIsFollowing = Boolean(
+                fallbackCameraIsFollowing,
+            );
+
+            if (release.fallbackCameraIsFollowing) {
+                release.commitGeneration += 1;
+                release.waitingForCameraCommit = false;
+                return;
+            }
+
+            if (release.waitingForCameraCommit) {
+                return;
+            }
+
+            release.waitingForCameraCommit = true;
+            const commitGeneration = ++release.commitGeneration;
+
+            Promise.resolve()
+                .then(() => waitForCameraCommit())
+                .catch(() => false)
+                .then(() => {
+                    if (
+                        invalidated ||
+                        pendingRelease !== release ||
+                        release.commitGeneration !== commitGeneration ||
+                        release.fallbackCameraIsFollowing
+                    ) {
+                        return;
+                    }
+
+                    resolvePendingRelease();
+                });
+        },
+        invalidate() {
+            invalidated = true;
+
+            if (!pendingRelease) {
+                return;
+            }
+
+            const release = pendingRelease;
+
+            pendingRelease = null;
+            release.resolve(false);
+        },
+        cancel() {
+            resolvePendingRelease(false);
+        },
+        release({ fallbackCameraIsFollowing }) {
+            if (invalidated) {
+                return Promise.resolve(false);
+            }
+
+            if (pendingRelease) {
+                return pendingRelease.promise;
+            }
+
+            if (!fallbackCameraIsFollowing) {
+                return Promise.resolve(true);
+            }
+
+            let resolveRelease;
+            const promise = new Promise((resolve) => {
+                resolveRelease = resolve;
+            });
+
+            pendingRelease = {
+                commitGeneration: 0,
+                fallbackCameraIsFollowing: true,
+                promise,
+                resolve: resolveRelease,
+                waitingForCameraCommit: false,
+            };
+
+            return promise;
+        },
+    };
 }
 
 export function getLocationPuckCameraFollowFallbackProps({
@@ -77,9 +181,11 @@ export function createLocationPuckCameraFollowLifecycle({
     let generation = 0;
     let invalidated = false;
     let lastRequestKey = null;
+    let lastRequestedFollowIsEnabled = false;
     let lastRequestedMapViewCapture = null;
     let lastRequestedMapView = null;
     let operationQueue = Promise.resolve(false);
+    let releasePromise = null;
     let status = 'inactive';
 
     function setStatus(nextStatus) {
@@ -148,6 +254,7 @@ export function createLocationPuckCameraFollowLifecycle({
     function request({
         attachmentKey,
         cameraIsPrepared = false,
+        force = false,
         followProps,
         mapViewRef,
     }) {
@@ -157,6 +264,7 @@ export function createLocationPuckCameraFollowLifecycle({
         const requestedMapView = mapView?.current ?? null;
 
         if (
+            !force &&
             lastRequestKey === requestKey &&
             lastRequestedMapView === requestedMapView
         ) {
@@ -186,6 +294,7 @@ export function createLocationPuckCameraFollowLifecycle({
 
         generation = operationGeneration;
         lastRequestKey = requestKey;
+        lastRequestedFollowIsEnabled = enabled;
         lastRequestedMapViewCapture = mapView;
         lastRequestedMapView = requestedMapView;
 
@@ -290,6 +399,48 @@ export function createLocationPuckCameraFollowLifecycle({
 
                 return disableCameraFollow(mapViewToDisable);
             });
+        },
+        release({ attachmentKey, mapViewRef }) {
+            if (invalidated) {
+                return releasePromise ?? operationQueue;
+            }
+
+            const releaseRequestKey = getFollowRequestKey(
+                { enabled: false },
+                attachmentKey,
+            );
+            const requestedMapView =
+                captureMapView(mapViewRef)?.current ?? null;
+
+            if (
+                releasePromise &&
+                lastRequestKey === releaseRequestKey &&
+                lastRequestedMapView === requestedMapView
+            ) {
+                return releasePromise;
+            }
+
+            if (
+                status === 'inactive' &&
+                configuredMapView === null &&
+                !lastRequestedFollowIsEnabled
+            ) {
+                return operationQueue;
+            }
+
+            const nextReleasePromise = request({
+                attachmentKey,
+                followProps: { enabled: false },
+                force: true,
+                mapViewRef,
+            }).finally(() => {
+                if (releasePromise === nextReleasePromise) {
+                    releasePromise = null;
+                }
+            });
+            releasePromise = nextReleasePromise;
+
+            return releasePromise;
         },
         request,
     };

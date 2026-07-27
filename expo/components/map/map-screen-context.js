@@ -751,6 +751,8 @@ export function useAutoPlayMapScreenContextValues({
             mapViewRef: controller.mapViewRef,
             markerFeatureCollection,
             markerShapeSourceRef: controller.markerShapeSourceRef,
+            locationPuckCameraFollowReleaseRef:
+                controller.locationPuckCameraFollowReleaseRef,
             nativeCameraFollowProps: controller.nativeCameraFollowProps,
             navigationPuckSize,
             navigationPuckRefreshKey,
@@ -774,6 +776,7 @@ export function useAutoPlayMapScreenContextValues({
             controller.locationAccessGranted,
             controller.mapViewRef,
             controller.markerShapeSourceRef,
+            controller.locationPuckCameraFollowReleaseRef,
             controller.nativeCameraFollowProps,
             directionsDebugFeatureCollection,
             directionsRouteFeatureCollection,

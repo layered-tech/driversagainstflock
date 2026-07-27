@@ -1,5 +1,13 @@
 import Mapbox from '@rnmapbox/maps';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    memo,
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import {
     ActivityIndicator,
     Platform,
@@ -67,6 +75,7 @@ import {
 } from './location-puck-3d';
 import { createLocationPuck3DLifecycle } from './location-puck-3d-lifecycle';
 import {
+    createLocationPuckCameraFallbackReleaseGate,
     createLocationPuckCameraFollowLifecycle,
     getLocationPuckCameraControllerKey,
     getLocationPuckCameraFollowFallbackProps,
@@ -535,6 +544,7 @@ export const MapCanvas = memo(function MapCanvas() {
         mapViewRef,
         markerFeatureCollection,
         markerShapeSourceRef,
+        locationPuckCameraFollowReleaseRef,
         nativeCameraFollowProps,
         navigationPuckSize: requestedNavigationPuckSize,
         navigationPuckRefreshKey = 'default',
@@ -746,7 +756,23 @@ export const MapCanvas = memo(function MapCanvas() {
                   locationBoundCameraFollowProps.enabled,
               )
             : 'camera-ownership-is-stable';
+    const mapboxCameraFollowFallbackProps =
+        getLocationPuckCameraFollowFallbackProps({
+            followProps: locationBoundCameraFollowProps,
+            followUserMode: drivingCameraFollowMode,
+            nativeFollowIsSupported:
+                nativeLocationPuckCameraControllerIsEligible,
+            nativeFollowStatus: locationPuckCameraFollowStatus,
+            platform: Platform.OS,
+        });
+    const mapboxFallbackCameraIsFollowing =
+        mapboxCameraFollowFallbackProps.followUserLocation === true;
+    const mapboxCameraControllerKey = getLocationPuckCameraControllerKey({
+        nativeFollowIsSupported: nativeLocationPuckCameraControllerIsEligible,
+        nativeFollowStatus: locationPuckCameraFollowStatus,
+    });
     const locationPuckLifecycleRef = useRef(null);
+    const locationPuckCameraFallbackReleaseGateRef = useRef(null);
     const locationPuckCameraFollowLifecycleRef = useRef(null);
 
     if (locationPuckLifecycleRef.current === null) {
@@ -766,9 +792,16 @@ export const MapCanvas = memo(function MapCanvas() {
             });
     }
 
+    if (locationPuckCameraFallbackReleaseGateRef.current === null) {
+        locationPuckCameraFallbackReleaseGateRef.current =
+            createLocationPuckCameraFallbackReleaseGate();
+    }
+
     const locationPuckLifecycle = locationPuckLifecycleRef.current;
     const locationPuckCameraFollowLifecycle =
         locationPuckCameraFollowLifecycleRef.current;
+    const locationPuckCameraFallbackReleaseGate =
+        locationPuckCameraFallbackReleaseGateRef.current;
     const requestLocationPuck = useCallback(
         () =>
             locationPuckLifecycle.request({
@@ -812,6 +845,77 @@ export const MapCanvas = memo(function MapCanvas() {
             nativeLocationPuckCameraFollowProps,
         ],
     );
+    const releaseLocationPuckCameraFollow = useCallback(
+        async ({ resumeFollow = false } = {}) => {
+            if (resumeFollow) {
+                locationPuckCameraFallbackReleaseGate.cancel();
+
+                if (!nativeLocationPuckCameraControllerIsEligible) {
+                    return false;
+                }
+
+                await locationPuckCameraFollowLifecycle.request({
+                    attachmentKey: locationPuckMapLoadEpoch,
+                    followProps: {
+                        ...nativeLocationPuckCameraFollowProps,
+                        enabled: true,
+                    },
+                    force: true,
+                    mapViewRef,
+                });
+
+                return false;
+            }
+
+            const [, fallbackCameraWasReleased] = await Promise.all([
+                locationPuckCameraFollowLifecycle.release({
+                    attachmentKey: locationPuckMapLoadEpoch,
+                    mapViewRef,
+                }),
+                locationPuckCameraFallbackReleaseGate.release({
+                    fallbackCameraIsFollowing: mapboxFallbackCameraIsFollowing,
+                }),
+            ]);
+
+            return fallbackCameraWasReleased;
+        },
+        [
+            locationPuckCameraFallbackReleaseGate,
+            locationPuckCameraFollowLifecycle,
+            locationPuckMapLoadEpoch,
+            mapViewRef,
+            mapboxFallbackCameraIsFollowing,
+            nativeLocationPuckCameraControllerIsEligible,
+            nativeLocationPuckCameraFollowProps,
+        ],
+    );
+
+    useLayoutEffect(() => {
+        locationPuckCameraFallbackReleaseGate.handleCameraCommit({
+            fallbackCameraIsFollowing: mapboxFallbackCameraIsFollowing,
+        });
+    }, [
+        locationPuckCameraFallbackReleaseGate,
+        mapboxFallbackCameraIsFollowing,
+    ]);
+
+    useLayoutEffect(() => {
+        if (!locationPuckCameraFollowReleaseRef) {
+            return undefined;
+        }
+
+        locationPuckCameraFollowReleaseRef.current =
+            releaseLocationPuckCameraFollow;
+
+        return () => {
+            if (
+                locationPuckCameraFollowReleaseRef.current ===
+                releaseLocationPuckCameraFollow
+            ) {
+                locationPuckCameraFollowReleaseRef.current = async () => false;
+            }
+        };
+    }, [locationPuckCameraFollowReleaseRef, releaseLocationPuckCameraFollow]);
 
     useEffect(() => {
         void requestLocationPuck();
@@ -877,6 +981,11 @@ export const MapCanvas = memo(function MapCanvas() {
             void locationPuckCameraFollowLifecycle.invalidate();
         };
     }, [locationPuckCameraFollowLifecycle]);
+    useEffect(() => {
+        return () => {
+            locationPuckCameraFallbackReleaseGate.invalidate();
+        };
+    }, [locationPuckCameraFallbackReleaseGate]);
     // iOS Fabric never applies image props back to undefined (rnmapbox
     // FabricOptionalProp limitation), so switching between the navigation
     // arrow and the default dot requires remounting the puck there. Android
@@ -885,19 +994,6 @@ export const MapCanvas = memo(function MapCanvas() {
         Platform.OS === 'ios'
             ? `location-puck-${navigationPuckIsVisible ? 'navigation' : 'default'}`
             : 'location-puck';
-    const mapboxCameraFollowFallbackProps =
-        getLocationPuckCameraFollowFallbackProps({
-            followProps: locationBoundCameraFollowProps,
-            followUserMode: drivingCameraFollowMode,
-            nativeFollowIsSupported:
-                nativeLocationPuckCameraControllerIsEligible,
-            nativeFollowStatus: locationPuckCameraFollowStatus,
-            platform: Platform.OS,
-        });
-    const mapboxCameraControllerKey = getLocationPuckCameraControllerKey({
-        nativeFollowIsSupported: nativeLocationPuckCameraControllerIsEligible,
-        nativeFollowStatus: locationPuckCameraFollowStatus,
-    });
     const mapboxBrandingIsVisible = !isDrivingMode;
 
     if (!mapPreferencesAreLoaded) {

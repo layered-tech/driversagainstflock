@@ -114,8 +114,6 @@ const CAMERA_DEBUG_ORIENTATION_PRECISION = 2;
 const CAMERA_DEBUG_ZOOM_PRECISION = 2;
 const ZOOM_LEVEL_STATE_UPDATE_EPSILON = 0.01;
 const AUTO_PLAY_CAMERA_INTERACTION_ANIMATION_MODE = 'easeTo';
-const AUTO_PLAY_PAN_ANIMATION_DURATION_MS =
-    LOCATION_CAMERA_USER_INTERACTION_ANIMATION_DURATION_MS;
 const AUTO_PLAY_ZOOM_ANIMATION_DURATION_MS =
     LOCATION_CAMERA_USER_INTERACTION_ANIMATION_DURATION_MS;
 const AUTO_PLAY_ZOOM_BUTTON_ANIMATION_DURATION_MS =
@@ -134,6 +132,7 @@ const DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG = {
 const EMPTY_AUTOPLAY_MAP_CONTROL_HANDLERS = {
     handleLocationTrackingPress: () => {},
     handlePan: () => {},
+    handlePanningInterfaceChanged: () => {},
     handleZoomGesture: () => {},
     handleZoomInPress: () => {},
     handleZoomOutPress: () => {},
@@ -458,6 +457,8 @@ function useAutoPlayMapController({
     const markerLoadsEnabledRef = useRef(false);
     const markerShapeSourceRef = useRef(null);
     const mapViewRef = useRef(null);
+    const locationPuckCameraFollowReleaseRef = useRef(async () => false);
+    const manualMapGestureGenerationRef = useRef(0);
     const pendingCameraStopRef = useRef(null);
     const previousDrivingModeRef = useRef(isDrivingMode);
     const previousMarkersAreVisibleRef = useRef(markersAreVisible);
@@ -1193,6 +1194,12 @@ function useAutoPlayMapController({
             return;
         }
 
+        manualMapGestureGenerationRef.current += 1;
+        void Promise.resolve(
+            locationPuckCameraFollowReleaseRef.current?.({
+                resumeFollow: true,
+            }),
+        ).catch(() => {});
         followLocationMode.recenter(currentLocation);
     }, [
         findCurrentLocation,
@@ -1256,8 +1263,35 @@ function useAutoPlayMapController({
         ],
     );
 
+    const pauseFollowForManualMapGesture = useCallback(async () => {
+        if (!isDrivingMode) {
+            setTrackingMode(LOCATION_TRACKING_NONE);
+            return true;
+        }
+
+        followLocationMode.pauseUntilRecenter();
+
+        try {
+            return (
+                (await locationPuckCameraFollowReleaseRef.current?.()) !== false
+            );
+        } catch {
+            // A failed native handoff must not leave the host gesture blocked.
+            return true;
+        }
+    }, [followLocationMode, isDrivingMode, setTrackingMode]);
+
+    const handlePanningInterfaceChanged = useCallback(
+        (isPanningInterfaceVisible) => {
+            if (isPanningInterfaceVisible) {
+                void pauseFollowForManualMapGesture();
+            }
+        },
+        [pauseFollowForManualMapGesture],
+    );
+
     const handlePan = useCallback(
-        (translation) => {
+        async (translation) => {
             const x = Number(translation?.x);
             const y = Number(translation?.y);
 
@@ -1266,30 +1300,30 @@ function useAutoPlayMapController({
             }
 
             markerLoadsEnabledRef.current = true;
+            const manualMapGestureGeneration =
+                manualMapGestureGenerationRef.current;
+            const wasFollowReleased = await pauseFollowForManualMapGesture();
 
-            if (isDrivingMode) {
-                followLocationMode.pauseUntilRecenter();
-            } else {
-                setTrackingMode(LOCATION_TRACKING_NONE);
+            if (
+                !wasFollowReleased ||
+                manualMapGestureGeneration !==
+                    manualMapGestureGenerationRef.current
+            ) {
+                return;
             }
 
+            // Android Auto supplies scroll deltas at its own cadence. RNMapbox
+            // requires these moves to be immediate rather than animated.
             cameraRef.current?.moveBy({
                 x: x * mapGestureCoordinateScale,
                 y: y * mapGestureCoordinateScale,
-                animationDuration: AUTO_PLAY_PAN_ANIMATION_DURATION_MS,
-                animationMode: AUTO_PLAY_CAMERA_INTERACTION_ANIMATION_MODE,
             });
         },
-        [
-            followLocationMode,
-            isDrivingMode,
-            mapGestureCoordinateScale,
-            setTrackingMode,
-        ],
+        [mapGestureCoordinateScale, pauseFollowForManualMapGesture],
     );
 
     const handleZoomGesture = useCallback(
-        (center, scale) => {
+        async (center, scale) => {
             const scaleFactor = Number(scale);
 
             if (!Number.isFinite(scaleFactor) || scaleFactor <= 0) {
@@ -1297,11 +1331,16 @@ function useAutoPlayMapController({
             }
 
             markerLoadsEnabledRef.current = true;
+            const manualMapGestureGeneration =
+                manualMapGestureGenerationRef.current;
+            const wasFollowReleased = await pauseFollowForManualMapGesture();
 
-            if (isDrivingMode) {
-                followLocationMode.pauseUntilRecenter();
-            } else {
-                setTrackingMode(LOCATION_TRACKING_NONE);
+            if (
+                !wasFollowReleased ||
+                manualMapGestureGeneration !==
+                    manualMapGestureGenerationRef.current
+            ) {
+                return;
             }
 
             const zoomCenter = getResolvedViewportPoint(
@@ -1317,12 +1356,7 @@ function useAutoPlayMapController({
                 animationMode: AUTO_PLAY_CAMERA_INTERACTION_ANIMATION_MODE,
             });
         },
-        [
-            followLocationMode,
-            isDrivingMode,
-            mapGestureCoordinateScale,
-            setTrackingMode,
-        ],
+        [mapGestureCoordinateScale, pauseFollowForManualMapGesture],
     );
 
     const isFollowing = locationTrackingMode === LOCATION_TRACKING_FOLLOW;
@@ -1343,6 +1377,7 @@ function useAutoPlayMapController({
         handleMapLoaded,
         handleMarkerSourcePress,
         handlePan,
+        handlePanningInterfaceChanged,
         handleZoomGesture,
         handleZoomPress,
         isFollowing,
@@ -1353,6 +1388,7 @@ function useAutoPlayMapController({
         locationTrackingMode,
         markerShapeSourceRef,
         mapViewRef,
+        locationPuckCameraFollowReleaseRef,
         roadMatchedLocationWatchEnabled,
         nativeCameraFollowProps,
     };
@@ -1665,6 +1701,8 @@ export function AutoPlayMapSurfaceContent({
                 ? controller.handleDrivingRecenterPress
                 : controller.handleLocationTrackingPress,
             handlePan: controller.handlePan,
+            handlePanningInterfaceChanged:
+                controller.handlePanningInterfaceChanged,
             handleZoomGesture: controller.handleZoomGesture,
             handleZoomInPress: (center) =>
                 controller.handleZoomPress(ZOOM_STEP, center),
@@ -1675,6 +1713,7 @@ export function AutoPlayMapSurfaceContent({
         controller.handleDrivingRecenterPress,
         controller.handleLocationTrackingPress,
         controller.handlePan,
+        controller.handlePanningInterfaceChanged,
         controller.handleZoomGesture,
         controller.handleZoomPress,
         isRootMapSurface,

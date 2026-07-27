@@ -19,10 +19,11 @@ test('registers the Android Auto pan-mode callback with map gestures', () => {
     });
 
     callbacks.onDidChangePanningInterface(true);
+    callbacks.onDidChangePanningInterface(false);
     callbacks.onDidPan({ x: 12, y: -8 });
     callbacks.onDidUpdateZoomGestureWithCenter({ x: 20, y: 30 }, 1.5);
 
-    assert.deepEqual(panModeEvents, [true]);
+    assert.deepEqual(panModeEvents, [true, false]);
     assert.deepEqual(panEvents, [{ x: 12, y: -8 }]);
     assert.deepEqual(zoomEvents, [{ center: { x: 20, y: 30 }, scale: 1.5 }]);
 });

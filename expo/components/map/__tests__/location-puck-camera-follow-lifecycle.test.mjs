@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
+    createLocationPuckCameraFallbackReleaseGate,
     createLocationPuckCameraFollowLifecycle,
     getLocationPuckCameraControllerKey,
     getLocationPuckCameraFollowFallbackProps,
@@ -32,6 +33,88 @@ function requestFollow(lifecycle, mapViewRef, overrides = {}) {
 }
 
 describe('location puck camera follow fallback', () => {
+    test('waits for a fallback Camera commit before releasing manual pan', async () => {
+        let completeCameraCommit;
+        let waitCount = 0;
+        const releaseGate = createLocationPuckCameraFallbackReleaseGate({
+            waitForCameraCommit: async () => {
+                waitCount += 1;
+
+                await new Promise((resolve) => {
+                    completeCameraCommit = resolve;
+                });
+            },
+        });
+        const firstRelease = releaseGate.release({
+            fallbackCameraIsFollowing: true,
+        });
+        const secondRelease = releaseGate.release({
+            fallbackCameraIsFollowing: true,
+        });
+        let releaseSettled = false;
+
+        void firstRelease.then(() => {
+            releaseSettled = true;
+        });
+
+        releaseGate.handleCameraCommit({ fallbackCameraIsFollowing: true });
+        await new Promise((resolve) => setImmediate(resolve));
+
+        assert.equal(waitCount, 0);
+        assert.equal(releaseSettled, false);
+        assert.equal(firstRelease, secondRelease);
+
+        releaseGate.handleCameraCommit({ fallbackCameraIsFollowing: false });
+        await new Promise((resolve) => setImmediate(resolve));
+
+        assert.equal(waitCount, 1);
+        assert.equal(releaseSettled, false);
+
+        const postCommitRelease = releaseGate.release({
+            fallbackCameraIsFollowing: false,
+        });
+
+        assert.equal(postCommitRelease, firstRelease);
+
+        completeCameraCommit();
+        await Promise.all([firstRelease, secondRelease, postCommitRelease]);
+
+        assert.equal(releaseSettled, true);
+    });
+
+    test('cancels a pending manual pan when recenter takes back fallback follow', async () => {
+        let completeCameraCommit;
+        const releaseGate = createLocationPuckCameraFallbackReleaseGate({
+            waitForCameraCommit: async () => {
+                await new Promise((resolve) => {
+                    completeCameraCommit = resolve;
+                });
+            },
+        });
+        const release = releaseGate.release({
+            fallbackCameraIsFollowing: true,
+        });
+
+        releaseGate.handleCameraCommit({ fallbackCameraIsFollowing: false });
+        await new Promise((resolve) => setImmediate(resolve));
+
+        releaseGate.cancel();
+
+        assert.equal(await release, false);
+
+        completeCameraCommit();
+        await new Promise((resolve) => setImmediate(resolve));
+
+        const nextRelease = releaseGate.release({
+            fallbackCameraIsFollowing: true,
+        });
+        releaseGate.handleCameraCommit({ fallbackCameraIsFollowing: false });
+        await new Promise((resolve) => setImmediate(resolve));
+
+        completeCameraCommit();
+        assert.equal(await nextRelease, true);
+    });
+
     test('enables Mapbox fallback when a supported native handoff fails', () => {
         const pendingNativeProps = getLocationPuckCameraFollowFallbackProps({
             followProps: defaultFollowProps,
@@ -483,6 +566,200 @@ describe('location puck camera follow lifecycle', () => {
 
         finishEnable();
         await Promise.all([enabling, disabling]);
+
+        assert.deepEqual(calls, [true, false]);
+        assert.equal(lifecycle.getStatus(), 'inactive');
+    });
+
+    test('coalesces manual release until native follow is idled', async () => {
+        let finishDisable;
+        const calls = [];
+        const lifecycle = createLocationPuckCameraFollowLifecycle({
+            configureCameraFollow: async (_mapView, followProps) => {
+                calls.push(followProps.enabled);
+
+                if (!followProps.enabled) {
+                    await new Promise((resolve) => {
+                        finishDisable = resolve;
+                    });
+                }
+
+                return true;
+            },
+        });
+        const mapViewRef = { current: { id: 'map' } };
+
+        await requestFollow(lifecycle, mapViewRef);
+
+        const firstRelease = lifecycle.release({
+            attachmentKey: 1,
+            mapViewRef,
+        });
+        const secondRelease = lifecycle.release({
+            attachmentKey: 1,
+            mapViewRef,
+        });
+        let releaseSettled = false;
+
+        void firstRelease.then(() => {
+            releaseSettled = true;
+        });
+
+        await new Promise((resolve) => setImmediate(resolve));
+
+        assert.equal(firstRelease, secondRelease);
+        assert.deepEqual(calls, [true, false]);
+        assert.equal(releaseSettled, false);
+
+        finishDisable();
+        await Promise.all([firstRelease, secondRelease]);
+
+        assert.equal(releaseSettled, true);
+        assert.equal(lifecycle.getStatus(), 'inactive');
+    });
+
+    test('queues forced native resume after recenter cancels a manual release', async () => {
+        let finishDisable;
+        const calls = [];
+        const lifecycle = createLocationPuckCameraFollowLifecycle({
+            configureCameraFollow: async (_mapView, followProps) => {
+                calls.push(followProps.enabled);
+
+                if (!followProps.enabled) {
+                    await new Promise((resolve) => {
+                        finishDisable = resolve;
+                    });
+                }
+
+                return true;
+            },
+        });
+        const mapViewRef = { current: { id: 'map' } };
+
+        await requestFollow(lifecycle, mapViewRef);
+
+        const releasing = lifecycle.release({
+            attachmentKey: 1,
+            mapViewRef,
+        });
+
+        await new Promise((resolve) => setImmediate(resolve));
+
+        const resuming = lifecycle.request({
+            attachmentKey: 1,
+            followProps: defaultFollowProps,
+            force: true,
+            mapViewRef,
+        });
+
+        finishDisable();
+        await Promise.all([releasing, resuming]);
+
+        assert.deepEqual(calls, [true, false, true]);
+        assert.equal(lifecycle.getStatus(), 'active');
+    });
+
+    test('prevents a pending recenter resume from reclaiming a new manual pan', async () => {
+        let finishDisable;
+        let disableCallCount = 0;
+        const calls = [];
+        const lifecycle = createLocationPuckCameraFollowLifecycle({
+            configureCameraFollow: async (_mapView, followProps) => {
+                calls.push(followProps.enabled);
+
+                if (!followProps.enabled && disableCallCount++ === 0) {
+                    await new Promise((resolve) => {
+                        finishDisable = resolve;
+                    });
+                }
+
+                return true;
+            },
+        });
+        const mapViewRef = { current: { id: 'map' } };
+
+        await requestFollow(lifecycle, mapViewRef);
+
+        const firstRelease = lifecycle.release({
+            attachmentKey: 1,
+            mapViewRef,
+        });
+
+        await new Promise((resolve) => setImmediate(resolve));
+
+        const resuming = lifecycle.request({
+            attachmentKey: 1,
+            followProps: defaultFollowProps,
+            force: true,
+            mapViewRef,
+        });
+        const secondRelease = lifecycle.release({
+            attachmentKey: 1,
+            mapViewRef,
+        });
+
+        finishDisable();
+        await Promise.all([firstRelease, resuming, secondRelease]);
+
+        assert.deepEqual(calls, [true, false, false]);
+        assert.equal(lifecycle.getStatus(), 'inactive');
+    });
+
+    test('supersedes an unstarted recenter resume with manual release', async () => {
+        const calls = [];
+        const lifecycle = createLocationPuckCameraFollowLifecycle({
+            configureCameraFollow: async (_mapView, followProps) => {
+                calls.push(followProps.enabled);
+                return true;
+            },
+        });
+        const mapViewRef = { current: { id: 'map' } };
+
+        const resuming = lifecycle.request({
+            attachmentKey: 1,
+            followProps: defaultFollowProps,
+            force: true,
+            mapViewRef,
+        });
+        const releasing = lifecycle.release({
+            attachmentKey: 1,
+            mapViewRef,
+        });
+
+        await Promise.all([resuming, releasing]);
+
+        assert.deepEqual(calls, [false]);
+        assert.equal(lifecycle.getStatus(), 'inactive');
+    });
+
+    test('releases an in-flight native follow before a manual gesture', async () => {
+        let finishEnable;
+        const calls = [];
+        const lifecycle = createLocationPuckCameraFollowLifecycle({
+            configureCameraFollow: async (_mapView, followProps) => {
+                calls.push(followProps.enabled);
+
+                if (followProps.enabled) {
+                    await new Promise((resolve) => {
+                        finishEnable = resolve;
+                    });
+                }
+
+                return true;
+            },
+        });
+        const mapViewRef = { current: { id: 'map' } };
+        const enabling = requestFollow(lifecycle, mapViewRef);
+
+        await new Promise((resolve) => setImmediate(resolve));
+
+        const releasing = lifecycle.release({
+            attachmentKey: 1,
+            mapViewRef,
+        });
+
+        finishEnable();
+        await Promise.all([enabling, releasing]);
 
         assert.deepEqual(calls, [true, false]);
         assert.equal(lifecycle.getStatus(), 'inactive');
