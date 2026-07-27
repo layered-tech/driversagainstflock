@@ -125,6 +125,7 @@ const AUTO_PLAY_ROUTE_PREVIEW_CAMERA_FIT_RETRY_DELAY_MS =
 const AUTO_PLAY_ROOT_MODULE_ID = 'AutoPlayRoot';
 const DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG = {
     applyWindowScaleToMapGestures: false,
+    currentRoadPill: null,
     ornamentSafeAreaLeftScale: 1,
 };
 
@@ -1365,6 +1366,7 @@ export function AutoPlayMapSurfaceContent({
 }) {
     const {
         applyWindowScaleToMapGestures,
+        currentRoadPill,
         hideCompassDuringNavigation,
         ornamentSafeAreaLeftScale,
     } = {
@@ -1869,6 +1871,7 @@ export function AutoPlayMapSurfaceContent({
                 {rendersDrivingStatus && !searchResultsMapIsActive ? (
                     <AutoPlayMapStatusOverlay
                         activeDirectionsRoute={activeDirectionsRoute}
+                        currentRoadPill={currentRoadPill}
                         drivingStatusIsVisible={
                             mapContentVisibility.drivingStatusIsVisible
                         }

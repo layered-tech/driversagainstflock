@@ -1,5 +1,6 @@
 import { ActivityIndicator, Text, View } from 'react-native';
 import {
+    getAutoPlayCurrentRoadPillLayout,
     getAutoPlaySpeedLimitOverlayLayout,
     getAutoPlayTopRightStatusOverlayLayout,
 } from './auto-play-map-status-layout';
@@ -191,6 +192,7 @@ export function AutoPlayTopRightStatusOverlay({
 
 export function AutoPlayMapStatusOverlay({
     activeDirectionsRoute,
+    currentRoadPill,
     drivingStatusIsVisible = true,
     freeDriveIsActive,
     markerLoader,
@@ -216,6 +218,13 @@ export function AutoPlayMapStatusOverlay({
         mapControlLayoutInsets: presentation.mapControlLayoutInsets,
         size: AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE,
     });
+    const currentRoadPillLayout = currentRoadPill?.reserveSpeedLimitSpace
+        ? getAutoPlayCurrentRoadPillLayout({
+              mapControlLayoutInsets: presentation.mapControlLayoutInsets,
+              size: AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE,
+              viewportMetrics,
+          })
+        : null;
     return (
         <>
             {drivingStatusIsVisible ? (
@@ -227,6 +236,15 @@ export function AutoPlayMapStatusOverlay({
                     <View className="flex-1" pointerEvents="none" />
                     <DrivingLocationRoadStack
                         currentRoadPillTestID="android-auto-current-road-pill"
+                        currentRoadPillStyle={
+                            currentRoadPillLayout?.maximumWidth === undefined
+                                ? undefined
+                                : {
+                                      maxWidth:
+                                          currentRoadPillLayout.maximumWidth,
+                                  }
+                        }
+                        currentRoadPillTextStyle={currentRoadPill?.textStyle}
                         onLocationAnchorLayout={onLocationAnchorLayout}
                         puckSize={navigationPuckSize}
                         userLocation={userLocation}
