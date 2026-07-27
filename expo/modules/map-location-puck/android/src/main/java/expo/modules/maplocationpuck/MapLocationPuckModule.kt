@@ -319,7 +319,7 @@ class MapLocationPuckModule : Module() {
                 modelRotation = listOf(0f, 0f, 0f),
                 modelCastShadows = false,
                 modelReceiveShadows = false,
-                modelScaleMode = ModelScaleMode.VIEWPORT,
+                modelScaleMode = ModelScaleMode.MAP,
                 modelEmissiveStrength = 1f,
             )
             location.puckBearing = PuckBearing.HEADING

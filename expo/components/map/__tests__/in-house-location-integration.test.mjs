@@ -201,7 +201,7 @@ describe('in-house road-matched location integration', () => {
         assert.match(mapLocationPuckAndroidSource, /LocationPuck3D\(/);
         assert.match(
             mapLocationPuckAndroidSource,
-            /modelScaleMode = ModelScaleMode\.VIEWPORT/,
+            /modelScaleMode = ModelScaleMode\.MAP/,
         );
         assert.match(
             mapLocationPuckAndroidSource,
@@ -272,7 +272,7 @@ describe('in-house road-matched location integration', () => {
         assert.match(mapLocationPuckIOSSource, /Puck3DConfiguration\(/);
         assert.match(
             mapLocationPuckIOSSource,
-            /modelScaleMode: \.constant\(\.viewport\)/,
+            /modelScaleMode: \.constant\(\.map\)/,
         );
         assert.match(mapLocationPuckIOSSource, /import MapboxMaps/);
         assert.match(

@@ -11,13 +11,12 @@ const ANDROID_AUTO_SURFACE_PLATFORM_CONFIG = {
     applyWindowScaleToMapGestures: true,
     currentRoadPill: {
         reserveSpeedLimitSpace: true,
-        textStyle: {
-            fontSize: 14,
-            lineHeight: 20,
-        },
     },
     hideCompassDuringNavigation: true,
     ornamentSafeAreaLeftScale: 0.65,
+    // Android's secondary map surface is the instrument cluster. Reuse the
+    // driving stack there so its camera anchor and status match the main map.
+    showDrivingStatusOnSecondarySurfaces: true,
 };
 
 export const AndroidAutoMapSurface = createAutoPlayMapSurface(

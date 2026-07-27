@@ -10,7 +10,7 @@ import {
 } from '../navigation-puck-layout.js';
 
 describe('current road pill layout', () => {
-    test('scales navigation pucks for mobile and car-host surfaces', () => {
+    test('scales 2D fallback pucks for mobile and car-host surfaces', () => {
         assert.equal(NAVIGATION_PUCK_SIZE, 75);
         assert.equal(AUTO_PLAY_NAVIGATION_PUCK_SIZE, 62.5);
         assert.equal(
@@ -30,7 +30,7 @@ describe('current road pill layout', () => {
         );
     });
 
-    test('clamps unusual surfaces and does not vary size with map zoom', () => {
+    test('clamps 2D fallback sizes independently of map zoom', () => {
         assert.equal(
             getNavigationPuckSize({
                 viewportHeight: 200,

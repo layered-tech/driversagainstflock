@@ -107,7 +107,7 @@ test('CarPlay Dashboard shows shared driving status instead of a navigation card
     );
     assert.match(
         autoPlayMapSurfaceContentSource,
-        /const rendersDrivingStatus = isRootMapSurface \|\| showDrivingStatus/,
+        /getAutoPlayDrivingStatusVisibility\(\{[\s\S]*?isRootMapSurface,[\s\S]*?showDrivingStatus,[\s\S]*?showDrivingStatusOnSecondarySurfaces/,
     );
     assert.match(
         autoPlayMapSurfaceContentSource,
@@ -123,7 +123,7 @@ test('CarPlay Dashboard shows shared driving status instead of a navigation card
     );
     assert.match(
         autoPlayMapSurfaceContentSource,
-        /freeDriveIsActive=\{[\s\S]*?controller\.roadMatchedLocationWatchEnabled \|\|[\s\S]*?showDrivingStatus/,
+        /freeDriveIsActive=\{[\s\S]*?controller\.roadMatchedLocationWatchEnabled \|\|[\s\S]*?secondaryDrivingStatusIsVisible/,
     );
     assert.match(
         autoPlayMapSurfaceContentSource,

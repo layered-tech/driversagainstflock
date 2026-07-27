@@ -23,6 +23,10 @@ const mapStatusOverlaySource = readFileSync(
     new URL('../../auto-play-map-status-overlay.js', import.meta.url),
     'utf8',
 );
+const mapSurfaceContentSource = readFileSync(
+    new URL('../../auto-play-map-surface-content.js', import.meta.url),
+    'utf8',
+);
 const currentRoadContextSource = readFileSync(
     new URL('../current-road-context.js', import.meta.url),
     'utf8',
@@ -154,10 +158,10 @@ describe('Auto Play current-road pill layout', () => {
         );
     });
 
-    test('applies the larger, truncated road pill only to Android Auto', () => {
+    test('shares the larger road text while truncating only on Android Auto', () => {
         assert.match(
             androidAutoMapSurfaceSource,
-            /currentRoadPill:\s*\{[\s\S]*?reserveSpeedLimitSpace:\s*true,[\s\S]*?textStyle:\s*\{[\s\S]*?fontSize:\s*16,[\s\S]*?lineHeight:\s*22/,
+            /currentRoadPill:\s*\{[\s\S]*?reserveSpeedLimitSpace:\s*true,[\s\S]*?textStyle:\s*\{[\s\S]*?fontSize:\s*14,[\s\S]*?lineHeight:\s*20/,
         );
         assert.doesNotMatch(carPlayMapSurfaceSource, /currentRoadPill:/);
         assert.match(
@@ -174,7 +178,26 @@ describe('Auto Play current-road pill layout', () => {
         );
         assert.match(
             currentRoadContextSource,
-            /ellipsizeMode="tail"[\s\S]*?style=\{textStyle\}/,
+            /text-\[16px\][\s\S]*?leading-\[22px\][\s\S]*?ellipsizeMode="tail"[\s\S]*?style=\{textStyle\}/,
+        );
+    });
+
+    test('reuses the shared driving stack on the Android Auto cluster', () => {
+        assert.match(
+            androidAutoMapSurfaceSource,
+            /showDrivingStatusOnSecondarySurfaces:\s*true/,
+        );
+        assert.match(
+            mapSurfaceContentSource,
+            /getAutoPlayDrivingStatusVisibility\(\{[\s\S]*?showDrivingStatusOnSecondarySurfaces/,
+        );
+        assert.match(
+            mapSurfaceContentSource,
+            /freeDriveIsActive=\{[\s\S]*?secondaryDrivingStatusIsVisible/,
+        );
+        assert.match(
+            mapStatusOverlaySource,
+            /useRouteSpeedLimit\([\s\S]*?<DrivingLocationRoadStack[\s\S]*?onLocationAnchorLayout/,
         );
     });
 });

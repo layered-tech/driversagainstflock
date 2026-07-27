@@ -3,6 +3,7 @@ import { describe, test } from 'node:test';
 import {
     autoPlaySearchRequestIsCurrent,
     createAutoPlaySearchCallbackState,
+    getAutoPlayDrivingStatusVisibility,
     getAutoPlayHeaderButtonVisibility,
     getAutoPlayMapContentVisibility,
     getAutoPlayNavigationPuckRefreshKey,
@@ -19,6 +20,42 @@ import {
 } from '../../auto-play-template-state.js';
 
 describe('Auto Play template state', () => {
+    test('shows driving status on root and opted-in secondary map surfaces', () => {
+        assert.deepEqual(
+            getAutoPlayDrivingStatusVisibility({
+                isRootMapSurface: true,
+                showDrivingStatus: false,
+                showDrivingStatusOnSecondarySurfaces: false,
+            }),
+            {
+                rendersDrivingStatus: true,
+                secondaryDrivingStatusIsVisible: false,
+            },
+        );
+        assert.deepEqual(
+            getAutoPlayDrivingStatusVisibility({
+                isRootMapSurface: false,
+                showDrivingStatus: false,
+                showDrivingStatusOnSecondarySurfaces: true,
+            }),
+            {
+                rendersDrivingStatus: true,
+                secondaryDrivingStatusIsVisible: true,
+            },
+        );
+        assert.deepEqual(
+            getAutoPlayDrivingStatusVisibility({
+                isRootMapSurface: false,
+                showDrivingStatus: false,
+                showDrivingStatusOnSecondarySurfaces: false,
+            }),
+            {
+                rendersDrivingStatus: false,
+                secondaryDrivingStatusIsVisible: false,
+            },
+        );
+    });
+
     test('shows a destination-specific loading row while search is pending', () => {
         assert.deepEqual(getAutoPlaySearchLoadingCopy('  coffee  '), {
             detailedText: 'Looking for places matching "coffee".',

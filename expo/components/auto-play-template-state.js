@@ -282,6 +282,24 @@ export function getAutoPlayMapContentVisibility({
     };
 }
 
+export function getAutoPlayDrivingStatusVisibility({
+    isRootMapSurface,
+    showDrivingStatus,
+    showDrivingStatusOnSecondarySurfaces,
+}) {
+    const secondaryDrivingStatusIsVisible = Boolean(
+        !isRootMapSurface &&
+        (showDrivingStatus || showDrivingStatusOnSecondarySurfaces),
+    );
+
+    return {
+        rendersDrivingStatus: Boolean(
+            isRootMapSurface || secondaryDrivingStatusIsVisible,
+        ),
+        secondaryDrivingStatusIsVisible,
+    };
+}
+
 export function getAutoPlayNavigationPuckRefreshKey({
     isNavigating,
     isRootMapSurface,

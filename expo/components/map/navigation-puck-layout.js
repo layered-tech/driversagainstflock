@@ -18,8 +18,9 @@ function getPositiveDimension(value) {
 }
 
 /**
- * Keeps the navigation puck proportional to its visible map surface. Mapbox's
- * viewport scale mode then preserves this resolved screen size while zooming.
+ * Keeps the 2D fallback puck and its related overlays proportional to the
+ * visible map surface. The native 3D puck uses map scale mode so its rendered
+ * size changes with camera zoom.
  */
 export function getNavigationPuckSize({
     variant = 'default',

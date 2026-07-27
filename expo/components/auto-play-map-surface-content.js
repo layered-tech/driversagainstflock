@@ -26,6 +26,7 @@ import {
 } from './auto-play-map-viewport';
 import { useAutoPlayState } from './auto-play-state';
 import {
+    getAutoPlayDrivingStatusVisibility,
     getAutoPlayMapContentVisibility,
     getAutoPlayNavigationPuckRefreshKey,
     getAutoPlayRoutePreviewFitKey,
@@ -127,6 +128,7 @@ const DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG = {
     applyWindowScaleToMapGestures: false,
     currentRoadPill: null,
     ornamentSafeAreaLeftScale: 1,
+    showDrivingStatusOnSecondarySurfaces: false,
 };
 
 const EMPTY_AUTOPLAY_MAP_CONTROL_HANDLERS = {
@@ -1369,13 +1371,19 @@ export function AutoPlayMapSurfaceContent({
         currentRoadPill,
         hideCompassDuringNavigation,
         ornamentSafeAreaLeftScale,
+        showDrivingStatusOnSecondarySurfaces,
     } = {
         ...DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG,
         ...platformConfig,
     };
     const autoPlayState = useAutoPlayState();
     const isRootMapSurface = !id || id === AUTO_PLAY_ROOT_MODULE_ID;
-    const rendersDrivingStatus = isRootMapSurface || showDrivingStatus;
+    const { rendersDrivingStatus, secondaryDrivingStatusIsVisible } =
+        getAutoPlayDrivingStatusVisibility({
+            isRootMapSurface,
+            showDrivingStatus,
+            showDrivingStatusOnSecondarySurfaces,
+        });
     const fittedDirectionsRouteKeyRef = useRef('');
     const fittedSearchResultsKeyRef = useRef('');
     const mapBrowsingContextWasActiveRef = useRef(false);
@@ -1877,7 +1885,7 @@ export function AutoPlayMapSurfaceContent({
                         }
                         freeDriveIsActive={
                             controller.roadMatchedLocationWatchEnabled ||
-                            showDrivingStatus
+                            secondaryDrivingStatusIsVisible
                         }
                         markerLoader={markerLoader}
                         mapPreferencesAreLoaded={

@@ -53,7 +53,7 @@ export function nativePuckStateProvesRendered3D(puckState) {
         modelRotation.every((value) => Number(value) === 0) &&
         puckState?.modelCastShadows === false &&
         puckState?.modelReceiveShadows === false &&
-        puckState?.modelScaleMode === 'viewport' &&
+        puckState?.modelScaleMode === 'map' &&
         Number(puckState?.modelEmissiveStrength) === 1 &&
         puckState?.locationEnabled === true &&
         puckState?.puckBearingEnabled === true &&

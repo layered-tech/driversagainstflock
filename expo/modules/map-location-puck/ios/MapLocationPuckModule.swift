@@ -466,7 +466,7 @@ public final class MapLocationPuckModule: Module {
       modelRotation: .constant([0, 0, 0]),
       modelCastShadows: .constant(false),
       modelReceiveShadows: .constant(false),
-      modelScaleMode: .constant(.viewport),
+      modelScaleMode: .constant(.map),
       modelEmissiveStrength: .constant(1)
     )
     configuration.slot = Self.mapboxStyleSlot(slot)
