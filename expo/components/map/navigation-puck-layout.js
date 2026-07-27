@@ -29,6 +29,17 @@ export const NAVIGATION_PUCK_3D_ZOOM_SCALES = [
 export const AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES =
     NAVIGATION_PUCK_3D_ZOOM_SCALES;
 
+export function getNavigationPuck3DMinimumZoomLevel({
+    variant = 'default',
+} = {}) {
+    const zoomScales =
+        variant === 'auto-play'
+            ? AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES
+            : NAVIGATION_PUCK_3D_ZOOM_SCALES;
+
+    return zoomScales[0].zoomLevel;
+}
+
 function getPositiveDimension(value) {
     const numericValue = Number(value);
 

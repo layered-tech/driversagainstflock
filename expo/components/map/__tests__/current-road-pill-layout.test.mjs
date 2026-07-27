@@ -6,6 +6,7 @@ import {
     AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES,
     AUTO_PLAY_NAVIGATION_PUCK_SIZE,
     getNavigationPuck3DMapScale,
+    getNavigationPuck3DMinimumZoomLevel,
     getNavigationPuckAnchorY,
     getNavigationPuckSize,
     NAVIGATION_PUCK_3D_ZOOM_SCALES,
@@ -98,6 +99,10 @@ describe('current road pill layout', () => {
         assert.equal(
             getNavigationPuck3DMapScale({ zoomLevel: null }),
             getNavigationPuck3DMapScale({ zoomLevel: 17 }),
+        );
+        assert.equal(
+            getNavigationPuck3DMinimumZoomLevel(),
+            firstZoomScale.zoomLevel,
         );
         assert.equal(
             AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES,

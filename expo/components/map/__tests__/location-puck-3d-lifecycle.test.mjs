@@ -155,5 +155,9 @@ describe('3D location puck lifecycle', () => {
             mapCanvasSource,
             /onCameraChanged=\{handleMapCameraChanged\}/,
         );
+        assert.match(
+            mapCanvasSource,
+            /zoomLevel < navigationPuck3DMinimumZoomLevel/,
+        );
     });
 });

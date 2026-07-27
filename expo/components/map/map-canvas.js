@@ -30,7 +30,6 @@ import {
     ALPR_SYMBOL_VISIBLE_PROPERTY_NAME,
     ANDROID_AUTO_NAVIGATION_PUCK_BEARING_IMAGE,
     ANDROID_AUTO_NAVIGATION_PUCK_SHADOW_IMAGE,
-    DEFAULT_ZOOM_LEVEL,
     INDIVIDUAL_MARKER_FILTER,
     MARKER_CLUSTER_CIRCLE_RADIUS_EXPRESSION,
     MARKER_CLUSTER_FILTER,
@@ -100,6 +99,7 @@ import { NativeWindMapView } from './native-components';
 import {
     AUTO_PLAY_NAVIGATION_PUCK_SIZE,
     getNavigationPuck3DMapScale,
+    getNavigationPuck3DMinimumZoomLevel,
     NAVIGATION_PUCK_SIZE,
 } from './navigation-puck-layout';
 
@@ -107,20 +107,19 @@ const MAP_PREFERRED_FRAMES_PER_SECOND = 30;
 const NAVIGATION_PUCK_3D_SCALE_UPDATE_EPSILON = 0.05;
 
 function getNavigationPuckCameraZoomLevel({
-    initialCameraSettings,
+    minimumZoomLevel,
     nativeCameraFollowProps,
 }) {
     const nativeFollowZoomLevel = Number(nativeCameraFollowProps?.zoomLevel);
 
-    if (Number.isFinite(nativeFollowZoomLevel)) {
+    if (
+        Number.isFinite(nativeFollowZoomLevel) &&
+        nativeFollowZoomLevel >= minimumZoomLevel
+    ) {
         return nativeFollowZoomLevel;
     }
 
-    const initialZoomLevel = Number(initialCameraSettings?.zoomLevel);
-
-    return Number.isFinite(initialZoomLevel)
-        ? initialZoomLevel
-        : DEFAULT_ZOOM_LEVEL;
+    return null;
 }
 
 function MapLocationProvider({
@@ -641,8 +640,12 @@ export const MapCanvas = memo(function MapCanvas() {
     const navigationPuckSize = Number.isFinite(requestedNavigationPuckSize)
         ? requestedNavigationPuckSize
         : fallbackNavigationPuckSize;
+    const navigationPuck3DMinimumZoomLevel =
+        getNavigationPuck3DMinimumZoomLevel({
+            variant: resolvedNavigationPuckVariant,
+        });
     const navigationPuckCameraZoomLevel = getNavigationPuckCameraZoomLevel({
-        initialCameraSettings,
+        minimumZoomLevel: navigationPuck3DMinimumZoomLevel,
         nativeCameraFollowProps,
     });
     const [navigationPuck3DMapScale, setNavigationPuck3DMapScale] = useState(
@@ -655,7 +658,10 @@ export const MapCanvas = memo(function MapCanvas() {
     const navigationPuck3DMapScaleRef = useRef(navigationPuck3DMapScale);
     const updateNavigationPuck3DMapScale = useCallback(
         (zoomLevel) => {
-            if (!Number.isFinite(zoomLevel)) {
+            if (
+                !Number.isFinite(zoomLevel) ||
+                zoomLevel < navigationPuck3DMinimumZoomLevel
+            ) {
                 return;
             }
 
@@ -674,7 +680,7 @@ export const MapCanvas = memo(function MapCanvas() {
             navigationPuck3DMapScaleRef.current = nextMapScale;
             setNavigationPuck3DMapScale(nextMapScale);
         },
-        [resolvedNavigationPuckVariant],
+        [navigationPuck3DMinimumZoomLevel, resolvedNavigationPuckVariant],
     );
     const handleMapCameraChanged = useCallback(
         (state) => {
