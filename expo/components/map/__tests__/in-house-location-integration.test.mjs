@@ -28,6 +28,9 @@ const locationPuck3DSource = readSource('../location-puck-3d.js');
 const locationPuckProviderLifecycleSource = readSource(
     '../location-puck-provider-lifecycle.js',
 );
+const locationPuckPresentationSource = readSource(
+    '../location-puck-presentation.js',
+);
 const mapCanvasSource = readSource('../map-canvas.js');
 const mapScreenSource = readSource('../../map-screen.js');
 const mapLocationControllerSource = readSource(
@@ -98,6 +101,14 @@ describe('in-house road-matched location integration', () => {
         assert.match(
             drivingLocationProviderSource,
             /isLocationPuckLocationProviderSupported\(\)[\s\S]*?providerLifecycle\.request\(/,
+        );
+        assert.match(
+            drivingLocationProviderSource,
+            /getLocationPuckPresentationLocation\(userLocation\)[\s\S]*?userLocation: presentationLocation/,
+        );
+        assert.match(
+            locationPuckPresentationSource,
+            /roadMatch\?\.isOffRoad !== false[\s\S]*?LOCATION_PUCK_PREDICTION_MAXIMUM_DISTANCE_METERS/,
         );
         assert.match(
             drivingLocationProviderSource,

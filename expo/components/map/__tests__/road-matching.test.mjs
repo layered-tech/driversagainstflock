@@ -348,6 +348,53 @@ describe('stateful road matcher', () => {
             .forEach((result) => assertApproximately(result.bearing, 270, 1));
     });
 
+    test('holds the last corridor match when a stationary GPS fix drifts off road', () => {
+        const graph = createDirectedRoadGraph([
+            {
+                coordinates: [
+                    fixtureCoordinate(0, 0),
+                    fixtureCoordinate(200, 0),
+                ],
+                id: 'stationary-corridor',
+                nodeIds: [
+                    'stationary-corridor-west',
+                    'stationary-corridor-east',
+                ],
+                oneWay: true,
+                speedLimit: { speed: 35, unit: 'mph' },
+            },
+        ]);
+        const matcher = createRoadMatcher(graph);
+
+        const movingMatch = matcher.update(
+            makeFixtureObservation({
+                speed: 8,
+                timestamp: 1000,
+                x: 100,
+                y: 0,
+            }),
+        );
+        const stoppedMatch = matcher.update(
+            makeFixtureObservation({
+                speed: 0,
+                timestamp: 2000,
+                x: 100,
+                y: 120,
+            }),
+        );
+
+        assert.equal(
+            stoppedMatch.roadMatch.edgeId,
+            movingMatch.roadMatch.edgeId,
+        );
+        assert.equal(stoppedMatch.roadMatch.isOffRoad, false);
+        assert.equal(stoppedMatch.roadMatch.isStationaryHold, true);
+        assert.equal(stoppedMatch.latitude, movingMatch.latitude);
+        assert.equal(stoppedMatch.longitude, movingMatch.longitude);
+        assert.equal(stoppedMatch.speed, 0);
+        assert.equal(stoppedMatch.timestamp, 2000);
+    });
+
     test('uses retained hypotheses and hysteresis instead of oscillating between parallel roads', () => {
         const matcher = createRoadMatcher(createRoadMatchingFixtureGraph());
         const results = [

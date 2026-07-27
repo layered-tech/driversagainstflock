@@ -6,6 +6,7 @@ import {
     isLocationPuckLocationProviderSupported,
     setLocationPuckLocationAsync,
 } from './location-puck-3d';
+import { getLocationPuckPresentationLocation } from './location-puck-presentation';
 import { createLocationPuckProviderLifecycle } from './location-puck-provider-lifecycle';
 
 function getFiniteNumber(value) {
@@ -89,9 +90,22 @@ export function DrivingLocationProvider({
     onNativeProviderStatusChange,
     userLocation,
 }) {
+    const presentationLocation = useMemo(
+        () => getLocationPuckPresentationLocation(userLocation),
+        [
+            userLocation?.courseHeading,
+            userLocation?.heading,
+            userLocation?.isMoving,
+            userLocation?.latitude,
+            userLocation?.longitude,
+            userLocation?.recordedAt,
+            userLocation?.roadMatch?.isOffRoad,
+            userLocation?.speed,
+        ],
+    );
     const providerLocation = useDrivingProviderLocation({
         enabled,
-        userLocation,
+        userLocation: presentationLocation,
     });
     const nativeProviderIsSupported = isLocationPuckLocationProviderSupported();
     const [nativeProviderStatus, setNativeProviderStatus] =

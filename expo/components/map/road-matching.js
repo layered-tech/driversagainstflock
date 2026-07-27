@@ -393,6 +393,34 @@ function makeOffRoadResult(observation, isTeleport = false) {
     };
 }
 
+function makeStationaryHeldMatch(lastMatchedResult, observation) {
+    return {
+        ...lastMatchedResult,
+        accuracy: observation.accuracy,
+        altitude: observation.altitude,
+        roadMatch: {
+            ...lastMatchedResult.roadMatch,
+            isStationaryHold: true,
+        },
+        speed: observation.speed,
+        timestamp: observation.timestamp,
+    };
+}
+
+function shouldHoldLastMatchWhileStationary({
+    lastMatchedResult,
+    observation,
+    options,
+    resetsPath,
+}) {
+    return (
+        lastMatchedResult?.roadMatch?.isOffRoad === false &&
+        !resetsPath &&
+        (observation.speed === undefined ||
+            observation.speed < options.minimumHeadingSpeedMps)
+    );
+}
+
 function makeMatchedResult({
     isTeleport,
     observation,
@@ -494,6 +522,17 @@ export function createRoadMatcher(graph, configuredOptions = {}) {
             !candidates.length ||
             candidates[0].distanceMeters > offRoadDistanceThreshold
         ) {
+            if (
+                shouldHoldLastMatchWhileStationary({
+                    lastMatchedResult,
+                    observation,
+                    options,
+                    resetsPath,
+                })
+            ) {
+                return makeStationaryHeldMatch(lastMatchedResult, observation);
+            }
+
             const result = makeOffRoadResult(observation, resetsPath);
 
             if (resetsPath) {
