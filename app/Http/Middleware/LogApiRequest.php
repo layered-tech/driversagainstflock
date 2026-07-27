@@ -30,6 +30,32 @@ class LogApiRequest
         'apikey',
     ];
 
+    private const PRIVATE_PAYLOAD_FIELD_FRAGMENTS = [
+        'address',
+        'bbox',
+        'bound',
+        'coordinate',
+        'destination',
+        'end',
+        'input',
+        'location',
+        'origin',
+        'position',
+        'query',
+        'route',
+        'search',
+        'start',
+        'waypoint',
+    ];
+
+    private const PRIVATE_PAYLOAD_FIELD_SUFFIXES = [
+        'lat',
+        'latitude',
+        'lng',
+        'longitude',
+        'lon',
+    ];
+
     /**
      * Handle an incoming request.
      *
@@ -72,7 +98,7 @@ class LogApiRequest
     private function redactPayload(array $payload): array
     {
         foreach ($payload as $key => $value) {
-            if (Str::contains(Str::lower((string) $key), self::SENSITIVE_PAYLOAD_FIELD_FRAGMENTS)) {
+            if ($this->isPrivatePayloadField((string) $key)) {
                 $payload[$key] = '[REDACTED]';
 
                 continue;
@@ -84,6 +110,16 @@ class LogApiRequest
         }
 
         return $payload;
+    }
+
+    private function isPrivatePayloadField(string $key): bool
+    {
+        $normalizedKey = Str::lower($key);
+
+        return Str::contains($normalizedKey, [
+            ...self::SENSITIVE_PAYLOAD_FIELD_FRAGMENTS,
+            ...self::PRIVATE_PAYLOAD_FIELD_FRAGMENTS,
+        ]) || Str::endsWith($normalizedKey, self::PRIVATE_PAYLOAD_FIELD_SUFFIXES);
     }
 
     private function responsePayload(Response $response): mixed
