@@ -1,5 +1,5 @@
 function getRoadContext(userLocation) {
-    return userLocation?.mapboxNavigation?.roadContext ?? null;
+    return userLocation?.roadMatch?.roadContext ?? null;
 }
 
 export function getCurrentRoadText(userLocation) {
@@ -23,12 +23,12 @@ export function getCurrentRoadText(userLocation) {
 }
 
 export function shouldClearRetainedCurrentRoadText(userLocation) {
-    const mapboxNavigation = userLocation?.mapboxNavigation;
+    const roadMatch = userLocation?.roadMatch;
 
     return Boolean(
         !userLocation ||
-        mapboxNavigation?.isOffRoad === true ||
-        mapboxNavigation?.roadContext?.isOffRoad === true,
+        roadMatch?.isOffRoad === true ||
+        roadMatch?.roadContext?.isOffRoad === true,
     );
 }
 

@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
-    getNavigationPuckCameraOwnershipKey,
+    getLocationPuckCameraOwnershipKey,
     shouldShowNavigationPuck,
-    shouldSuppressNavigationPuckFallback,
+    shouldSuppressLocationPuck2DFallback,
     shouldUseAutoPlayNavigationPuckImages,
 } from '../location-puck-state.js';
 
@@ -40,44 +40,51 @@ describe('location puck state', () => {
         assert.equal(shouldUseAutoPlayNavigationPuckImages('default'), false);
     });
 
-    test('suppresses the fallback while a native 3D puck is requested', () => {
+    test('keeps the standard two-dimensional puck outside navigation', () => {
         assert.equal(
-            shouldSuppressNavigationPuckFallback({
-                navigationPuck3DStatus: 'inactive',
-                navigationPuckRequestsNative3D: true,
-            }),
-            true,
-        );
-        assert.equal(
-            shouldSuppressNavigationPuckFallback({
-                navigationPuck3DStatus: 'failed',
-                navigationPuckRequestsNative3D: true,
-            }),
-            false,
-        );
-        assert.equal(
-            shouldSuppressNavigationPuckFallback({
-                navigationPuck3DStatus: 'clearing',
-                navigationPuckRequestsNative3D: false,
-            }),
-            true,
-        );
-        assert.equal(
-            shouldSuppressNavigationPuckFallback({
-                navigationPuck3DStatus: 'inactive',
-                navigationPuckRequestsNative3D: false,
+            shouldShowNavigationPuck({
+                isDrivingMode: false,
+                navigationPuckVariant: 'default',
             }),
             false,
         );
     });
 
-    test('changes the native puck key with camera ownership', () => {
+    test('suppresses the 2D fallback during native 3D transitions', () => {
+        for (const locationPuck3DStatus of [
+            'preparing',
+            'active',
+            'clearing',
+        ]) {
+            assert.equal(
+                shouldSuppressLocationPuck2DFallback({
+                    locationPuck3DStatus,
+                    locationPuckRequests3D: false,
+                }),
+                true,
+            );
+        }
+
         assert.equal(
-            getNavigationPuckCameraOwnershipKey(true),
-            'rnmapbox-follow-camera',
+            shouldSuppressLocationPuck2DFallback({
+                locationPuck3DStatus: 'failed',
+                locationPuckRequests3D: true,
+            }),
+            false,
         );
         assert.equal(
-            getNavigationPuckCameraOwnershipKey(false),
+            shouldSuppressLocationPuck2DFallback({
+                locationPuck3DStatus: 'inactive',
+                locationPuckRequests3D: false,
+            }),
+            false,
+        );
+    });
+
+    test('tracks follow-camera ownership changes', () => {
+        assert.equal(getLocationPuckCameraOwnershipKey(true), 'follow-camera');
+        assert.equal(
+            getLocationPuckCameraOwnershipKey(false),
             'external-or-idle-camera',
         );
     });

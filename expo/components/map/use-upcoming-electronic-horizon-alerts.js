@@ -6,145 +6,49 @@ import {
     getElectronicHorizonPrimaryCoordinates,
     getUpcomingElectronicHorizonAlerts,
 } from './electronic-horizon';
-import { getElectronicHorizonAlprNodes } from './electronic-horizon-alerts-api';
-import { getCoordinateDistanceMeters, getStoredNumber } from './geo';
+import {
+    addElectronicHorizonAlprNodesListener,
+    EMPTY_ELECTRONIC_HORIZON_ALPR_NODES,
+    getElectronicHorizonAlprCoordinatePathStateKey,
+    getElectronicHorizonAlprDirectionsRoutePathKey,
+    getElectronicHorizonAlprPathStateKey,
+    getSharedElectronicHorizonAlprNodes,
+    hydrateElectronicHorizonAlprNodes,
+    refreshElectronicHorizonAlprNodesIfStale,
+} from './electronic-horizon-alpr-store';
+import { shouldRefreshLocationData } from './location-watch-options';
+import { usePersistentRoadMatchingWatchIsActive } from './use-device-location';
 
-const ELECTRONIC_HORIZON_ALPR_REFRESH_DISTANCE_METERS = 300;
-const ELECTRONIC_HORIZON_ALPR_REFRESH_INTERVAL_MS = 30 * 1000;
-const ELECTRONIC_HORIZON_ALPR_PATH_CHANGE_REFRESH_INTERVAL_MS = 10 * 1000;
 const ELECTRONIC_HORIZON_ALPR_STALE_CHECK_INTERVAL_MS = 15 * 1000;
-const EMPTY_ALPR_NODES = Object.freeze([]);
 
-const sharedElectronicHorizonAlprState = {
-    fetchedAt: 0,
-    fetchStartCoordinate: null,
-    inFlightPromise: null,
-    nodes: EMPTY_ALPR_NODES,
-    primaryPathKey: null,
-};
-const electronicHorizonAlprListeners = new Set();
-
-function notifyElectronicHorizonAlprListeners() {
-    electronicHorizonAlprListeners.forEach((listener) =>
-        listener(sharedElectronicHorizonAlprState.nodes),
-    );
-}
-
-function electronicHorizonAlprNodesAreFresh(coordinates, primaryPathKey) {
-    const startCoordinate = coordinates?.[0];
-
-    if (
-        !sharedElectronicHorizonAlprState.fetchedAt ||
-        !sharedElectronicHorizonAlprState.fetchStartCoordinate ||
-        !startCoordinate
-    ) {
-        return false;
-    }
-
-    const ageMs = Date.now() - sharedElectronicHorizonAlprState.fetchedAt;
-
-    if (ageMs >= ELECTRONIC_HORIZON_ALPR_REFRESH_INTERVAL_MS) {
-        return false;
-    }
-
-    if (
-        sharedElectronicHorizonAlprState.primaryPathKey !== primaryPathKey &&
-        (hasActiveRoutePath(sharedElectronicHorizonAlprState.primaryPathKey) ||
-            hasActiveRoutePath(primaryPathKey) ||
-            ageMs >= ELECTRONIC_HORIZON_ALPR_PATH_CHANGE_REFRESH_INTERVAL_MS)
-    ) {
-        return false;
-    }
-
-    const distanceMeters = getCoordinateDistanceMeters(
-        sharedElectronicHorizonAlprState.fetchStartCoordinate,
-        startCoordinate,
-    );
-
-    return (
-        distanceMeters !== null &&
-        distanceMeters < ELECTRONIC_HORIZON_ALPR_REFRESH_DISTANCE_METERS
-    );
-}
-
-function hasActiveRoutePath(pathStateKey) {
-    return (
-        typeof pathStateKey === 'string' && pathStateKey.startsWith('route:')
-    );
-}
-
-function refreshSharedElectronicHorizonAlprNodes(coordinates, primaryPathKey) {
-    if (sharedElectronicHorizonAlprState.inFlightPromise) {
-        return sharedElectronicHorizonAlprState.inFlightPromise;
-    }
-
-    sharedElectronicHorizonAlprState.inFlightPromise = (async () => {
-        try {
-            const nodes = await getElectronicHorizonAlprNodes({ coordinates });
-
-            sharedElectronicHorizonAlprState.nodes = nodes.length
-                ? nodes
-                : EMPTY_ALPR_NODES;
-            sharedElectronicHorizonAlprState.fetchStartCoordinate =
-                coordinates[0] ?? null;
-            sharedElectronicHorizonAlprState.fetchedAt = Date.now();
-            sharedElectronicHorizonAlprState.primaryPathKey = primaryPathKey;
-            notifyElectronicHorizonAlprListeners();
-        } catch {
-            // Existing, still-relevant nodes remain available until the next
-            // horizon refresh succeeds.
-        } finally {
-            sharedElectronicHorizonAlprState.inFlightPromise = null;
-        }
-    })();
-
-    return sharedElectronicHorizonAlprState.inFlightPromise;
-}
-
-function getPathStateKey({
+function getElectronicHorizonAlertPathState({
     electronicHorizon,
-    pathSource,
-    routePathKey,
-    coordinates,
+    routeOption,
+    userLocation,
 }) {
-    if (pathSource === 'route') {
-        return `route:${routePathKey}`;
-    }
+    const activeRouteCoordinates = getDirectionsRouteCoordinatesAhead(
+        routeOption?.coordinates,
+        userLocation,
+    );
+    const electronicHorizonCoordinates =
+        getElectronicHorizonPrimaryCoordinates(electronicHorizon);
+    const pathSource =
+        activeRouteCoordinates.length >= 2 ? 'route' : 'electronic-horizon';
+    const coordinates =
+        pathSource === 'route'
+            ? activeRouteCoordinates
+            : electronicHorizonCoordinates;
 
-    const primaryEdgeIds = electronicHorizon?.primaryPath?.segments
-        ?.map((segment) => segment?.edgeId)
-        .filter((edgeId) => edgeId !== null && edgeId !== undefined)
-        .slice(0, 12);
-
-    if (primaryEdgeIds?.length) {
-        return `edges:${primaryEdgeIds.join('|')}`;
-    }
-
-    return `electronic-horizon:${getCoordinatePathStateKey(coordinates)}`;
-}
-
-function getDirectionsRoutePathKey(routeOption) {
-    const routeCoordinates = routeOption?.coordinates;
-
-    return [
-        routeOption?.routeKey ?? '',
-        routeCoordinates?.length ?? '',
-        getCoordinatePathStateKey(routeCoordinates),
-    ].join('|');
-}
-
-function getCoordinatePathStateKey(coordinates) {
-    const startCoordinate = coordinates?.[0];
-    const endCoordinate = coordinates?.[coordinates.length - 1];
-    const middleCoordinate = coordinates?.[Math.floor(coordinates.length / 2)];
-
-    return [startCoordinate, middleCoordinate, endCoordinate]
-        .flatMap((coordinate) =>
-            Array.isArray(coordinate)
-                ? coordinate.map((value) => getStoredNumber(value)?.toFixed(3))
-                : ['', ''],
-        )
-        .join('|');
+    return {
+        coordinates,
+        pathStateKey: getElectronicHorizonAlprPathStateKey({
+            coordinates,
+            electronicHorizon,
+            pathSource,
+            routePathKey:
+                getElectronicHorizonAlprDirectionsRoutePathKey(routeOption),
+        }),
+    };
 }
 
 export function useUpcomingElectronicHorizonAlerts({
@@ -156,67 +60,69 @@ export function useUpcomingElectronicHorizonAlerts({
 } = {}) {
     const selectedDirectionsRouteOption =
         getSelectedDirectionsRouteOption(directionsRoute);
-    const activeRouteCoordinates = getDirectionsRouteCoordinatesAhead(
-        selectedDirectionsRouteOption?.coordinates,
-        userLocation,
-    );
-    const electronicHorizonCoordinates =
-        getElectronicHorizonPrimaryCoordinates(electronicHorizon);
-    const pathSource =
-        activeRouteCoordinates.length >= 2 ? 'route' : 'electronic-horizon';
-    const coordinates =
-        pathSource === 'route'
-            ? activeRouteCoordinates
-            : electronicHorizonCoordinates;
-    const pathStateKey = getPathStateKey({
-        coordinates,
+    const { coordinates, pathStateKey } = getElectronicHorizonAlertPathState({
         electronicHorizon,
-        pathSource,
-        routePathKey: getDirectionsRoutePathKey(selectedDirectionsRouteOption),
+        routeOption: selectedDirectionsRouteOption,
+        userLocation,
     });
-    const coordinatesRef = useRef(coordinates);
+    const coordinatePathStateKey =
+        getElectronicHorizonAlprCoordinatePathStateKey(coordinates);
+    const alertPathStateRef = useRef({ coordinates, pathStateKey });
+    const persistentRoadMatchingWatchIsActive =
+        usePersistentRoadMatchingWatchIsActive();
     const [alprNodes, setAlprNodes] = useState(
-        enabled ? sharedElectronicHorizonAlprState.nodes : EMPTY_ALPR_NODES,
+        enabled
+            ? getSharedElectronicHorizonAlprNodes()
+            : EMPTY_ELECTRONIC_HORIZON_ALPR_NODES,
     );
+
+    alertPathStateRef.current = { coordinates, pathStateKey };
 
     const refreshAlprNodesIfStale = useCallback(() => {
-        if (AppState.currentState !== 'active') {
-            return;
-        }
-
-        const currentCoordinates = coordinatesRef.current;
-
         if (
-            !enabled ||
-            currentCoordinates.length < 2 ||
-            electronicHorizonAlprNodesAreFresh(currentCoordinates, pathStateKey)
+            !shouldRefreshLocationData({
+                appState: AppState.currentState,
+                persistentRoadMatchingWatchIsActive,
+            })
         ) {
             return;
         }
 
-        refreshSharedElectronicHorizonAlprNodes(
-            currentCoordinates,
-            pathStateKey,
-        );
-    }, [enabled, pathStateKey]);
+        const currentPathState = alertPathStateRef.current;
+
+        if (!enabled || currentPathState.coordinates.length < 2) {
+            return;
+        }
+
+        return refreshElectronicHorizonAlprNodesIfStale({
+            coordinates: currentPathState.coordinates,
+            primaryPathKey: currentPathState.pathStateKey,
+        });
+    }, [enabled, persistentRoadMatchingWatchIsActive]);
 
     useEffect(() => {
-        coordinatesRef.current = coordinates;
-
         if (enabled) {
             refreshAlprNodesIfStale();
         }
-    }, [enabled, pathStateKey, refreshAlprNodesIfStale]);
+    }, [
+        coordinatePathStateKey,
+        enabled,
+        pathStateKey,
+        refreshAlprNodesIfStale,
+    ]);
 
     useEffect(() => {
         if (!enabled) {
-            setAlprNodes(EMPTY_ALPR_NODES);
+            setAlprNodes(EMPTY_ELECTRONIC_HORIZON_ALPR_NODES);
 
             return undefined;
         }
 
-        setAlprNodes(sharedElectronicHorizonAlprState.nodes);
-        electronicHorizonAlprListeners.add(setAlprNodes);
+        setAlprNodes(getSharedElectronicHorizonAlprNodes());
+        const alprNodesSubscription =
+            addElectronicHorizonAlprNodesListener(setAlprNodes);
+
+        void hydrateElectronicHorizonAlprNodes();
 
         const intervalId = setInterval(
             refreshAlprNodesIfStale,
@@ -234,7 +140,7 @@ export function useUpcomingElectronicHorizonAlerts({
         refreshAlprNodesIfStale();
 
         return () => {
-            electronicHorizonAlprListeners.delete(setAlprNodes);
+            alprNodesSubscription.remove();
             clearInterval(intervalId);
             appStateSubscription.remove();
         };

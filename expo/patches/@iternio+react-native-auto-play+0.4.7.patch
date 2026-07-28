@@ -1,3 +1,14 @@
+diff --git a/node_modules/@iternio/react-native-auto-play/ReactNativeAutoPlay.podspec b/node_modules/@iternio/react-native-auto-play/ReactNativeAutoPlay.podspec
+index 082e4e9..9f9a2d3 100644
+--- a/node_modules/@iternio/react-native-auto-play/ReactNativeAutoPlay.podspec
++++ b/node_modules/@iternio/react-native-auto-play/ReactNativeAutoPlay.podspec
+@@ -35,5 +35,6 @@ Pod::Spec.new do |s|
+ 
+   s.dependency 'React-jsi'
+   s.dependency 'React-callinvoker'
++  s.dependency 'React-RCTLinking'
+   install_modules_dependencies(s)
+ end
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/AndroidManifest.xml b/node_modules/@iternio/react-native-auto-play/android/src/main/AndroidManifest.xml
 index ecc4dae..6214102 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/AndroidManifest.xml
@@ -58,6 +69,118 @@ index a12064c..5f6725b 100644
          }
      }
  
+diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt
+index b7f8664..26fd0b9 100644
+--- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt
++++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt
+@@ -13,6 +13,7 @@ import android.content.pm.PackageManager
+ import android.graphics.Bitmap
+ import android.os.Build
+ import android.os.IBinder
++import android.os.PowerManager
+ import android.util.Log
+ import androidx.car.app.CarAppService
+ import androidx.car.app.Session
+@@ -23,8 +24,6 @@ import androidx.core.app.NotificationCompat
+ import androidx.core.app.NotificationManagerCompat
+ import androidx.lifecycle.DefaultLifecycleObserver
+ import androidx.lifecycle.LifecycleOwner
+-import com.facebook.react.bridge.LifecycleEventListener
+-import com.margelo.nitro.NitroModules
+ import com.margelo.nitro.swe.iternio.reactnativeautoplay.utils.AppInfo
+ 
+ class AndroidAutoService : CarAppService() {
+@@ -32,7 +31,7 @@ class AndroidAutoService : CarAppService() {
+ 
+     private var isServiceBound = false
+     private var isSessionStarted = false
+-    private var isReactAppStarted = false
++    private var sessionWakeLock: PowerManager.WakeLock? = null
+ 
+     @SuppressLint("PrivateResource")
+     override fun createHostValidator(): HostValidator {
+@@ -48,8 +47,6 @@ class AndroidAutoService : CarAppService() {
+         super.onCreate()
+         instance = this
+ 
+-        NitroModules.applicationContext?.addLifecycleEventListener(reactLifecycleObserver)
+-
+         notificationManager = getSystemService(NotificationManager::class.java)
+         val appLabel = AppInfo.getApplicationLabel(this)
+ 
+@@ -78,27 +75,15 @@ class AndroidAutoService : CarAppService() {
+         super.onDestroy()
+         instance = null
+ 
++        releaseSessionWakeLock()
+         stopForeground(STOP_FOREGROUND_REMOVE)
+-
+-        NitroModules.applicationContext?.removeLifecycleEventListener(reactLifecycleObserver)
+-    }
+-
+-    private val reactLifecycleObserver = object : LifecycleEventListener {
+-        override fun onHostResume() {
+-            isReactAppStarted = true
+-        }
+-
+-        override fun onHostPause() {
+-            isReactAppStarted = false
+-        }
+-
+-        override fun onHostDestroy() {
+-            stopSelf()
+-        }
+     }
+ 
+     private val sessionLifecycleObserver = object : DefaultLifecycleObserver {
+         override fun onCreate(owner: LifecycleOwner) {
++            this@AndroidAutoService.startForeground()
++            acquireSessionWakeLock()
++
+             val serviceIntent = Intent(applicationContext, HeadlessTaskService::class.java)
+             bindService(serviceIntent, connection, BIND_AUTO_CREATE)
+         }
+@@ -117,6 +102,7 @@ class AndroidAutoService : CarAppService() {
+                 isServiceBound = false
+             }
+ 
++            releaseSessionWakeLock()
+             this@AndroidAutoService.stopForeground(STOP_FOREGROUND_REMOVE)
+         }
+     }
+@@ -177,6 +163,32 @@ class AndroidAutoService : CarAppService() {
+         }
+     }
+ 
++    // Keep the process and virtual car display rendering active without
++    // forcing the phone screen to remain on during the drive.
++    private fun acquireSessionWakeLock() {
++        if (sessionWakeLock?.isHeld == true) {
++            return
++        }
++
++        try {
++            sessionWakeLock = getSystemService(PowerManager::class.java).newWakeLock(
++                PowerManager.PARTIAL_WAKE_LOCK,
++                "AutoPlay:AndroidAutoSession"
++            ).apply { acquire() }
++        } catch (e: Exception) {
++            Log.e(TAG, "failed to acquire session wake lock", e)
++        }
++    }
++
++    private fun releaseSessionWakeLock() {
++        sessionWakeLock?.let { wakeLock ->
++            if (wakeLock.isHeld) {
++                wakeLock.release()
++            }
++        }
++        sessionWakeLock = null
++    }
++
+     fun notify(title: String?, text: String?, icon: Bitmap?) {
+         val notification = createNotification(title, text, icon)
+         notificationManager.notify(NOTIFICATION_ID, notification)
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoSession.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoSession.kt
 index de448c8..47e85b1 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoSession.kt
@@ -644,6 +767,53 @@ index dd85e78..35a90b7 100644
              }
          }
  
+diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridMapTemplate.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridMapTemplate.kt
+index 205c812..b7159cd 100644
+--- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridMapTemplate.kt
++++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridMapTemplate.kt
+@@ -132,27 +132,37 @@ class HybridMapTemplate : HybridMapTemplateSpec() {
+         templateId: String, visibleTravelEstimate: VisibleTravelEstimate
+     ) {
+         val template = AndroidAutoTemplate.getTemplate<MapTemplate>(templateId)
+-        template.updateVisibleTravelEstimate(visibleTravelEstimate)
++        UiThreadUtil.runOnUiThread {
++            template.updateVisibleTravelEstimate(visibleTravelEstimate)
++        }
+     }
+ 
+     override fun updateTravelEstimates(templateId: String, steps: Array<TripPoint>) {
+-        MapTemplate.updateTravelEstimates(steps)
++        UiThreadUtil.runOnUiThread {
++            MapTemplate.updateTravelEstimates(steps)
++        }
+     }
+ 
+     override fun updateManeuvers(
+         templateId: String, maneuvers: NitroManeuver
+     ) {
+-        MapTemplate.updateManeuvers(maneuvers)
++        UiThreadUtil.runOnUiThread {
++            MapTemplate.updateManeuvers(maneuvers)
++        }
+     }
+ 
+     override fun startNavigation(
+         templateId: String, trip: TripConfig
+     ) {
+-        MapTemplate.startNavigation(trip)
++        UiThreadUtil.runOnUiThread {
++            MapTemplate.startNavigation(trip)
++        }
+     }
+ 
+     override fun stopNavigation(templateId: String) {
+-        MapTemplate.stopNavigation()
++        UiThreadUtil.runOnUiThread {
++            MapTemplate.stopNavigation()
++        }
+     }
+ 
+     override fun setManeuverState(templateId: String, state: ManeuverState) {
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridSearchTemplate.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridSearchTemplate.kt
 index f1a45c0..cbbc2b5 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridSearchTemplate.kt
@@ -661,6 +831,26 @@ index f1a45c0..cbbc2b5 100644
              template.updateSearchResults(results)
          }
      }
+diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt
+index 55d563b..997e1de 100644
+--- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt
++++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt
+@@ -1,6 +1,5 @@
+ package com.margelo.nitro.swe.iternio.reactnativeautoplay.template
+ 
+-import android.app.Service
+ import android.graphics.Color
+ import androidx.car.app.AppManager
+ import androidx.car.app.CarContext
+@@ -302,8 +301,6 @@ class MapTemplate(
+             navigationInfo = null
+ 
+             AndroidAutoScreen.invalidateSurfaceScreens()
+-
+-            AndroidAutoService.instance?.stopForeground(Service.STOP_FOREGROUND_REMOVE)
+         }
+ 
+         fun updateManeuvers(maneuvers: NitroManeuver) {
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/Parser.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/Parser.kt
 index e8641d0..e0f5b30 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/Parser.kt
@@ -943,6 +1133,108 @@ index 85e26c5..19e26a6 100644
      static func emitSafeAreaInsets(
          moduleName: String,
          safeAreaInsets: UIEdgeInsets
+diff --git a/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridMapTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridMapTemplate.swift
+index 275e99d..ed9707f 100644
+--- a/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridMapTemplate.swift
++++ b/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridMapTemplate.swift
+@@ -6,9 +6,29 @@
+ //
+ 
+ import CarPlay
++import Foundation
+ import NitroModules
+ 
+ class HybridMapTemplate: HybridMapTemplateSpec {
++    private func withMapTemplateOnMainThread(
++        templateId: String,
++        perform action: @escaping (MapTemplate) throws -> Void
++    ) throws {
++        let operation = {
++            try RootModule.withAutoPlayTemplate(
++                templateId: templateId,
++                perform: action
++            )
++        }
++
++        if Thread.isMainThread {
++            try operation()
++            return
++        }
++
++        try DispatchQueue.main.sync(execute: operation)
++    }
++
+     func createMapTemplate(config: MapTemplateConfig) throws {
+         let template = MapTemplate(config: config)
+ 
+@@ -111,7 +131,7 @@ class HybridMapTemplate: HybridMapTemplateSpec {
+         templateId: String,
+         visibleTravelEstimate: VisibleTravelEstimate
+     ) throws {
+-        try RootModule.withAutoPlayTemplate(templateId: templateId) {
++        try withMapTemplateOnMainThread(templateId: templateId) {
+             (template: MapTemplate) in
+             template.updateVisibleTravelEstimate(
+                 visibleTravelEstimate: visibleTravelEstimate
+@@ -120,14 +140,14 @@ class HybridMapTemplate: HybridMapTemplateSpec {
+     }
+ 
+     func updateTravelEstimates(templateId: String, steps: [TripPoint]) throws {
+-        try RootModule.withAutoPlayTemplate(templateId: templateId) {
++        try withMapTemplateOnMainThread(templateId: templateId) {
+             (template: MapTemplate) in
+             template.updateTravelEstimates(steps: steps)
+         }
+     }
+ 
+     func updateManeuvers(templateId: String, maneuvers: NitroManeuver) throws {
+-        try RootModule.withAutoPlayTemplate(templateId: templateId) {
++        try withMapTemplateOnMainThread(templateId: templateId) {
+             (template: MapTemplate) in
+             switch maneuvers {
+             case .first(let routingManeuvers):
+@@ -148,7 +168,7 @@ class HybridMapTemplate: HybridMapTemplateSpec {
+     }
+ 
+     func startNavigation(templateId: String, trip: TripConfig) throws {
+-        try RootModule.withAutoPlayTemplate(templateId: templateId) {
++        try withMapTemplateOnMainThread(templateId: templateId) {
+             (template: MapTemplate) in
+             let trip = Parser.parseTrip(tripConfig: trip)
+             template.startNavigation(trip: trip)
+@@ -156,14 +176,14 @@ class HybridMapTemplate: HybridMapTemplateSpec {
+     }
+ 
+     func stopNavigation(templateId: String) throws {
+-        try RootModule.withAutoPlayTemplate(templateId: templateId) {
++        try withMapTemplateOnMainThread(templateId: templateId) {
+             (template: MapTemplate) in
+             template.stopNavigation()
+         }
+     }
+ 
+     func setManeuverState(templateId: String, state: ManeuverState) throws {
+-        try RootModule.withAutoPlayTemplate(templateId: templateId) {
++        try withMapTemplateOnMainThread(templateId: templateId) {
+             (template: MapTemplate) in
+             template.setManeuverState(state: state)
+         }
+diff --git a/node_modules/@iternio/react-native-auto-play/ios/scenes/DashboardSceneDelegate.swift b/node_modules/@iternio/react-native-auto-play/ios/scenes/DashboardSceneDelegate.swift
+index 0263eaf..c9c22e1 100644
+--- a/node_modules/@iternio/react-native-auto-play/ios/scenes/DashboardSceneDelegate.swift
++++ b/node_modules/@iternio/react-native-auto-play/ios/scenes/DashboardSceneDelegate.swift
+@@ -46,9 +46,8 @@ class DashboardSceneDelegate: AutoPlayScene,
+             "colorScheme": traitCollection
+                 .userInterfaceStyle == .dark ? "dark" : "light",
+             "window": [
+-                // TODO: height & with reported from main screen it seems...
+-                "height": window.screen.bounds.size.height.rounded(),
+-                "width": window.screen.bounds.size.width.rounded(),
++                "height": window.bounds.size.height.rounded(),
++                "width": window.bounds.size.width.rounded(),
+                 "scale": traitCollection.displayScale,
+             ],
+         ]
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift
 index 8930590..dce2b56 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift
@@ -1222,10 +1514,10 @@ index 0000000..4f0642e
 +    }
 +}
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/utils/VoiceInputManager.swift b/node_modules/@iternio/react-native-auto-play/ios/utils/VoiceInputManager.swift
-index 2793085..6b1081a 100644
+index 2793085..f16ac79 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/utils/VoiceInputManager.swift
 +++ b/node_modules/@iternio/react-native-auto-play/ios/utils/VoiceInputManager.swift
-@@ -1,15 +1,28 @@
+@@ -1,24 +1,34 @@
  import AVFoundation
  import CarPlay
 +import Speech
@@ -1244,29 +1536,33 @@ index 2793085..6b1081a 100644
 -    private var samples: [Int16] = []
 +    private var interfaceController: AutoPlayInterfaceController?
      private var isStopping = false
++    private var latestPartialTranscript: String?
 +    private var onOutcome: ((VoiceInputOutcome) -> Void)?
 +    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
 +    private var recognitionTask: SFSpeechRecognitionTask?
++    private var recognitionActivityGeneration: UInt = 0
++    private var recognitionInactivityWorkItem: DispatchWorkItem?
 +    private var recognitionTimeoutWorkItem: DispatchWorkItem?
 +    private var samples: [Int16] = []
-+    private var hasDetectedSpeech = false
 +    private var previousAudioSessionCategory: AVAudioSession.Category?
 +    private var previousAudioSessionMode: AVAudioSession.Mode?
 +    private var previousAudioSessionOptions: AVAudioSession.CategoryOptions?
      private let stopLock = NSLock()
+-
+-    // Timing
+-    private var recordingStart: Date?
+-    private var silenceStart: Date?
 +    private var voiceInputTemplate: VoiceInputTemplate?
  
-     // Timing
-     private var recordingStart: Date?
-@@ -19,6 +32,7 @@ class VoiceInputManager {
+     private static let sampleRate: Double = 16_000
      private static let tapBufferSize: AVAudioFrameCount = 4_096
-     private static let silenceAmplitudeThreshold = 500
-     private static let warmupMs: Double = 500
-+    private static let recognitionFinalizationTimeout: TimeInterval = 2
+-    private static let silenceAmplitudeThreshold = 500
+-    private static let warmupMs: Double = 500
++    private static let recognitionFinalizationTimeout: TimeInterval = 7
  
      private static let targetFormat = AVAudioFormat(
          commonFormat: .pcmFormatInt16,
-@@ -33,16 +47,28 @@ class VoiceInputManager {
+@@ -33,16 +43,28 @@ class VoiceInputManager {
          interfaceController: AutoPlayInterfaceController?,
          silenceThresholdMs: Double,
          maxDurationMs: Double,
@@ -1290,7 +1586,7 @@ index 2793085..6b1081a 100644
 +            self.onOutcome = onOutcome
              self.samples = []
 -            self.isStopping = false
-+            hasDetectedSpeech = false
++            latestPartialTranscript = nil
 +            stopLock.unlock()
  
              do {
@@ -1299,7 +1595,7 @@ index 2793085..6b1081a 100644
                      interfaceController: interfaceController,
                      silenceThresholdMs: silenceThresholdMs,
                      maxDurationMs: maxDurationMs,
-@@ -50,30 +76,58 @@ class VoiceInputManager {
+@@ -50,30 +72,98 @@ class VoiceInputManager {
                  )
              }
              catch {
@@ -1319,11 +1615,52 @@ index 2793085..6b1081a 100644
 +            AutoPlayInterfaceController? = nil,
 +        cancelledByUser: Bool = false
 +    ) {
++        stop(
++            interfaceController: suppliedInterfaceController,
++            cancelledByUser: cancelledByUser,
++            expectedRecognitionActivityGeneration: nil
++        )
++    }
++
++    private func stop(
++        interfaceController suppliedInterfaceController:
++            AutoPlayInterfaceController?,
++        cancelledByUser: Bool,
++        expectedRecognitionActivityGeneration: UInt?
++    ) {
          stopLock.lock()
-         guard !isStopping else {
+-        guard !isStopping else {
++        if let expectedRecognitionActivityGeneration,
++            expectedRecognitionActivityGeneration
++                != recognitionActivityGeneration
++        {
              stopLock.unlock()
              return
          }
++
++        if isStopping {
++            let shouldCancelPendingRecognition =
++                cancelledByUser && continuation != nil
++
++            if shouldCancelPendingRecognition {
++                self.cancelledByUser = true
++            }
++
++            let activeInterfaceController = suppliedInterfaceController
++                ?? interfaceController
++            let activeRecognitionTask = recognitionTask
++            stopLock.unlock()
++
++            if shouldCancelPendingRecognition {
++                activeRecognitionTask?.cancel()
++                finishRecognition(
++                    transcript: nil,
++                    interfaceController: activeInterfaceController
++                )
++            }
++
++            return
++        }
 +
          isStopping = true
 -        let capturedContinuation = continuation
@@ -1368,7 +1705,7 @@ index 2793085..6b1081a 100644
      }
  
      // MARK: - Private
-@@ -88,33 +142,59 @@ class VoiceInputManager {
+@@ -88,33 +178,61 @@ class VoiceInputManager {
              throw VoiceInputError.microphonePermissionDenied
          }
  
@@ -1415,7 +1752,10 @@ index 2793085..6b1081a 100644
  
 -        recordingStart = Date()
 -        silenceStart = nil
-+        try configureSpeechRecognition()
++        try configureSpeechRecognition(
++            silenceThresholdMs: silenceThresholdMs,
++            interfaceController: interfaceController
++        )
  
          inputNode.installTap(
              onBus: 0,
@@ -1432,12 +1772,11 @@ index 2793085..6b1081a 100644
 +            }
 +
 +            self.recognitionRequest?.append(buffer)
-+            let recordingStart = self.recordingStart
 +            self.stopLock.unlock()
  
              let outputFrameCapacity = AVAudioFrameCount(
                  Double(buffer.frameLength)
-@@ -131,103 +211,505 @@ class VoiceInputManager {
+@@ -131,103 +249,558 @@ class VoiceInputManager {
  
              var conversionError: NSError?
              let status = converter.convert(to: outputBuffer, error: &conversionError) {
@@ -1456,74 +1795,21 @@ index 2793085..6b1081a 100644
  
              let frameCount = Int(outputBuffer.frameLength)
 -            let newSamples = Array(UnsafeBufferPointer(start: int16Data[0], count: frameCount))
--            self.samples.append(contentsOf: newSamples)
--
 +            let newSamples = Array(
 +                UnsafeBufferPointer(start: int16Data[0], count: frameCount)
 +            )
-             let now = Date()
-+            let peak = newSamples.reduce(0) { max($0, abs(Int($1))) }
-+            var shouldAutoStop = false
- 
--            // Max duration check
--            if let start = self.recordingStart,
--                now.timeIntervalSince(start) * 1000 >= maxDurationMs
--            {
--                self.triggerAutoStop(interfaceController: interfaceController)
++
 +            self.stopLock.lock()
 +            guard !self.isStopping else {
 +                self.stopLock.unlock()
-                 return
-             }
- 
--            // Silence detection — skip during warm-up so the pipeline has time
--            // to stabilise before we start measuring amplitude
--            if let start = self.recordingStart,
--                now.timeIntervalSince(start) * 1000 >= VoiceInputManager.warmupMs
-+            self.samples.append(contentsOf: newSamples)
-+
-+            if let recordingStart,
-+                now.timeIntervalSince(recordingStart) * 1000 >= maxDurationMs
-+            {
-+                shouldAutoStop = true
++                return
 +            }
-+            else if let recordingStart,
-+                now.timeIntervalSince(recordingStart) * 1000
-+                    >= VoiceInputManager.warmupMs
-             {
--                let peak = newSamples.reduce(0) { max($0, abs(Int($1))) }
--                if peak < VoiceInputManager.silenceAmplitudeThreshold {
--                    if self.silenceStart == nil { self.silenceStart = now }
-+                if peak >= VoiceInputManager.silenceAmplitudeThreshold {
-+                    self.hasDetectedSpeech = true
-+                    self.silenceStart = nil
-+                }
-+                else if self.hasDetectedSpeech {
-+                    if self.silenceStart == nil {
-+                        self.silenceStart = now
-+                    }
 +
-                     if let silenceBegin = self.silenceStart,
--                        now.timeIntervalSince(silenceBegin) * 1000 >= silenceThresholdMs
-+                        now.timeIntervalSince(silenceBegin) * 1000
-+                            >= silenceThresholdMs
-                     {
--                        self.triggerAutoStop(interfaceController: interfaceController)
-+                        shouldAutoStop = true
-                     }
-                 }
--                else {
--                    self.silenceStart = nil
--                }
-             }
-+
+             self.samples.append(contentsOf: newSamples)
 +            self.stopLock.unlock()
-+
-+            if shouldAutoStop {
-+                self.triggerAutoStop(interfaceController: interfaceController)
-+            }
 +        }
-+
+ 
+-            let now = Date()
 +        do {
 +            try engine.start()
 +        }
@@ -1531,17 +1817,21 @@ index 2793085..6b1081a 100644
 +            inputNode.removeTap(onBus: 0)
 +            throw error
 +        }
-+
+ 
+-            // Max duration check
+-            if let start = self.recordingStart,
+-                now.timeIntervalSince(start) * 1000 >= maxDurationMs
+-            {
+-                self.triggerAutoStop(interfaceController: interfaceController)
 +        stopLock.lock()
 +        guard !isStopping, continuation != nil else {
 +            stopLock.unlock()
 +            inputNode.removeTap(onBus: 0)
 +            engine.stop()
 +            throw VoiceInputError.noActiveSession
-         }
- 
--        try engine.start()
-         audioEngine = engine
++        }
++
++        audioEngine = engine
 +        stopLock.unlock()
 +
 +        scheduleCaptureTimeout(
@@ -1559,7 +1849,10 @@ index 2793085..6b1081a 100644
 +        }
 +    }
 +
-+    private func configureSpeechRecognition() throws {
++    private func configureSpeechRecognition(
++        silenceThresholdMs: Double,
++        interfaceController: AutoPlayInterfaceController?
++    ) throws {
 +        guard SFSpeechRecognizer.authorizationStatus() == .authorized,
 +            let speechRecognizer = SFSpeechRecognizer(locale: Locale.current),
 +            speechRecognizer.isAvailable
@@ -1568,7 +1861,8 @@ index 2793085..6b1081a 100644
 +        }
 +
 +        let request = SFSpeechAudioBufferRecognitionRequest()
-+        request.shouldReportPartialResults = false
++        request.shouldReportPartialResults = true
++        request.taskHint = .search
 +
 +        stopLock.lock()
 +        guard !isStopping, continuation != nil else {
@@ -1589,14 +1883,78 @@ index 2793085..6b1081a 100644
 +                self.finishRecognition(
 +                    transcript: transcript.isEmpty ? nil : transcript
 +                )
-+                return
+                 return
+             }
+ 
+-            // Silence detection — skip during warm-up so the pipeline has time
+-            // to stabilise before we start measuring amplitude
+-            if let start = self.recordingStart,
+-                now.timeIntervalSince(start) * 1000 >= VoiceInputManager.warmupMs
+-            {
+-                let peak = newSamples.reduce(0) { max($0, abs(Int($1))) }
+-                if peak < VoiceInputManager.silenceAmplitudeThreshold {
+-                    if self.silenceStart == nil { self.silenceStart = now }
+-                    if let silenceBegin = self.silenceStart,
+-                        now.timeIntervalSince(silenceBegin) * 1000 >= silenceThresholdMs
+-                    {
+-                        self.triggerAutoStop(interfaceController: interfaceController)
+-                    }
++            if let result {
++                let partialTranscript = result.bestTranscription
++                    .formattedString
++                let trimmedPartialTranscript = partialTranscript
++                    .trimmingCharacters(in: .whitespacesAndNewlines)
++                self.stopLock.lock()
++                let previousPartialTranscript =
++                    (self.latestPartialTranscript ?? "")
++                    .trimmingCharacters(in: .whitespacesAndNewlines)
++                self.latestPartialTranscript = partialTranscript
++                let shouldScheduleInactivityTimeout =
++                    self.continuation != nil
++                    && !self.isStopping
++                    && !trimmedPartialTranscript.isEmpty
++                    && trimmedPartialTranscript != previousPartialTranscript
++                let activityGeneration: UInt?
++                if shouldScheduleInactivityTimeout {
++                    self.recognitionActivityGeneration &+= 1
++                    activityGeneration = self.recognitionActivityGeneration
+                 }
+                 else {
+-                    self.silenceStart = nil
++                    activityGeneration = nil
++                }
++                self.stopLock.unlock()
++
++                if let activityGeneration {
++                    self.scheduleRecognitionInactivityTimeout(
++                        silenceThresholdMs: silenceThresholdMs,
++                        interfaceController: interfaceController,
++                        activityGeneration: activityGeneration
++                    )
++                }
 +            }
 +
 +            if let error {
-+                self.fail(error: error)
-+            }
-+        }
++                self.stopLock.lock()
++                let partialTranscript = (self.latestPartialTranscript ?? "")
++                    .trimmingCharacters(in: .whitespacesAndNewlines)
++                let shouldSalvagePartialTranscript =
++                    self.isStopping
++                    && self.continuation != nil
++                    && !partialTranscript.isEmpty
++                self.stopLock.unlock()
 +
++                if shouldSalvagePartialTranscript {
++                    self.finishRecognition(transcript: partialTranscript)
++                }
++                else {
++                    self.fail(error: error)
+                 }
+             }
+         }
+ 
+-        try engine.start()
+-        audioEngine = engine
 +        stopLock.lock()
 +        guard
 +            !isStopping,
@@ -1609,18 +1967,42 @@ index 2793085..6b1081a 100644
 +        }
 +
 +        recognitionTask = task
-+        recordingStart = Date()
-+        silenceStart = nil
 +        stopLock.unlock()
      }
  
 -    private func triggerAutoStop(interfaceController: AutoPlayInterfaceController?) {
-+    private func triggerAutoStop(
-+        interfaceController: AutoPlayInterfaceController?
+-        DispatchQueue.global(qos: .userInitiated).async {
+-            self.stop(interfaceController: interfaceController)
++    private func scheduleRecognitionInactivityTimeout(
++        silenceThresholdMs: Double,
++        interfaceController: AutoPlayInterfaceController?,
++        activityGeneration: UInt
 +    ) {
-         DispatchQueue.global(qos: .userInitiated).async {
-             self.stop(interfaceController: interfaceController)
++        let workItem = DispatchWorkItem { [weak self] in
++            self?.stop(
++                interfaceController: interfaceController,
++                cancelledByUser: false,
++                expectedRecognitionActivityGeneration: activityGeneration
++            )
++        }
++
++        stopLock.lock()
++        guard continuation != nil,
++            !isStopping,
++            activityGeneration == recognitionActivityGeneration
++        else {
++            stopLock.unlock()
++            return
          }
++
++        recognitionInactivityWorkItem?.cancel()
++        recognitionInactivityWorkItem = workItem
++        stopLock.unlock()
++
++        DispatchQueue.global(qos: .userInitiated).asyncAfter(
++            deadline: .now() + max(silenceThresholdMs, 0) / 1_000,
++            execute: workItem
++        )
      }
  
 -    private func stopCapture(interfaceController: AutoPlayInterfaceController?) {
@@ -1628,7 +2010,18 @@ index 2793085..6b1081a 100644
 -        audioEngine?.stop()
 +    private func scheduleRecognitionTimeout() {
 +        let workItem = DispatchWorkItem { [weak self] in
-+            self?.finishRecognition(transcript: nil)
++            guard let self else { return }
++
++            // Salvage the last partial transcript when the recognizer never
++            // delivers a final result inside the finalization window.
++            self.stopLock.lock()
++            let partialTranscript = (self.latestPartialTranscript ?? "")
++                .trimmingCharacters(in: .whitespacesAndNewlines)
++            self.stopLock.unlock()
++
++            self.finishRecognition(
++                transcript: partialTranscript.isEmpty ? nil : partialTranscript
++            )
 +        }
 +
 +        stopLock.lock()
@@ -1695,6 +2088,7 @@ index 2793085..6b1081a 100644
 +
 +        continuation = nil
 +        interfaceController = nil
++        latestPartialTranscript = nil
 +        onOutcome = nil
 +        recognitionRequest = nil
 +        recognitionTask = nil
@@ -1760,6 +2154,7 @@ index 2793085..6b1081a 100644
 +        continuation = nil
 +        interfaceController = nil
 +        isStopping = true
++        latestPartialTranscript = nil
 +        onOutcome = nil
 +        recognitionRequest = nil
 +        recognitionTask = nil
@@ -1808,26 +2203,29 @@ index 2793085..6b1081a 100644
 +        stopLock.lock()
 +        let capturedAudioEngine = audioEngine
 +        let capturedCaptureTimeoutWorkItem = captureTimeoutWorkItem
++        let capturedRecognitionInactivityWorkItem =
++            recognitionInactivityWorkItem
 +        let shouldDeactivateAudioSession = audioSessionIsActive
 +        let capturedPreviousCategory = previousAudioSessionCategory
 +        let capturedPreviousMode = previousAudioSessionMode
 +        let capturedPreviousOptions = previousAudioSessionOptions
 +
          audioEngine = nil
+-        recordingStart = nil
+-        silenceStart = nil
+-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+-        if let interfaceController {
+-            dismissVoiceTemplate(interfaceController: interfaceController)
 +        captureTimeoutWorkItem = nil
++        recognitionInactivityWorkItem = nil
 +        audioSessionIsActive = false
 +        previousAudioSessionCategory = nil
 +        previousAudioSessionMode = nil
 +        previousAudioSessionOptions = nil
-         recordingStart = nil
-         silenceStart = nil
--        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
--        if let interfaceController {
--            dismissVoiceTemplate(interfaceController: interfaceController)
-+        hasDetectedSpeech = false
 +        stopLock.unlock()
 +
 +        capturedCaptureTimeoutWorkItem?.cancel()
++        capturedRecognitionInactivityWorkItem?.cancel()
 +        capturedAudioEngine?.inputNode.removeTap(onBus: 0)
 +        capturedAudioEngine?.stop()
 +
@@ -1883,7 +2281,7 @@ index 2793085..6b1081a 100644
 +        guard registerVoiceInputTemplate(template) else {
 +            template.removeFromStore()
 +            return
-+        }
+         }
 +
 +        let wasPresented: Bool
 +
@@ -1903,7 +2301,7 @@ index 2793085..6b1081a 100644
 +            template.removeFromStore()
 +            fail(error: VoiceInputError.templatePresentationFailed)
 +            return
-         }
++        }
 +
 +        guard voiceInputTemplateIsActive(template) else {
 +            if interfaceController.interfaceController.presentedTemplate?.id
@@ -1935,8 +2333,7 @@ index 2793085..6b1081a 100644
 +
 +        guard continuation != nil, !isStopping else {
 +            return false
-         }
--        voiceControlTemplate = nil
++        }
 +
 +        voiceInputTemplate = template
 +        return true
@@ -1955,7 +2352,8 @@ index 2793085..6b1081a 100644
 +        guard continuation != nil, !isStopping else {
 +            stopLock.unlock()
 +            return
-+        }
+         }
+-        voiceControlTemplate = nil
 +
 +        let capturedOnOutcome = onOutcome
 +        stopLock.unlock()

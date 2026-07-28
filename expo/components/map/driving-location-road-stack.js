@@ -12,6 +12,8 @@ import {
 
 export function DrivingLocationRoadStack({
     currentRoadPillTestID,
+    currentRoadPillStyle,
+    currentRoadPillTextStyle,
     onLocationAnchorLayout,
     puckSize = NAVIGATION_PUCK_SIZE,
     userLocation,
@@ -60,7 +62,9 @@ export function DrivingLocationRoadStack({
                 <CurrentRoadPill
                     className="max-w-full"
                     roadText={currentRoadText}
+                    style={currentRoadPillStyle}
                     testID={currentRoadPillTestID}
+                    textStyle={currentRoadPillTextStyle}
                     userLocation={userLocation}
                 />
             ) : null}

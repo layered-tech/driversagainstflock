@@ -1,10 +1,3 @@
-import {
-    activateAndroidAutoLifecycleAsync,
-    addEnhancedLocationListener,
-    deactivateAndroidAutoLifecycleAsync,
-    getLastEnhancedLocationAsync,
-    updateAndroidAutoLifecycleStateAsync,
-} from '@rnmapbox/navigation';
 import * as Location from 'expo-location';
 import {
     startAutoDriveSimulation,
@@ -17,6 +10,11 @@ import {
     setAutoPlayMapColorScheme,
 } from './auto-play-map-surface';
 import { createAutoPlaySearchTemplateLifecycle } from './auto-play-search-template-lifecycle';
+import {
+    setAutoPlaySessionConnected,
+    setAutoPlaySessionRenderState,
+} from './auto-play-session-state';
+import { getAutoPlaySharedNavigationAction } from './auto-play-shared-navigation';
 import {
     AUTO_PLAY_SINGLE_RESULT_COUNTDOWN_SECONDS,
     createAutoPlaySingleResultCountdown,
@@ -34,6 +32,7 @@ import {
     autoPlaySearchRequestIsCurrent,
     createAutoPlaySearchCallbackState,
     getAutoPlayHeaderButtonVisibility,
+    getAutoPlayMapButtonAppearanceKey,
     getAutoPlayPrimaryLocationHeaderActionTypes,
     getAutoPlayRouteChoiceText,
     getAutoPlaySearchLoadingCopy,
@@ -73,6 +72,12 @@ import {
     getPrimaryLocationLabel,
 } from './map/primary-locations';
 import {
+    addRoadMatchedLocationListener,
+    getLastRoadMatchedLocationAsync,
+    retainRoadMatchingSessionAsync,
+    roadMatchingLocationIsSupported,
+} from './map/road-matching-session';
+import {
     addPrimaryLocationsListener,
     loadPrimaryLocations,
 } from './map/saved-locations';
@@ -81,12 +86,9 @@ import {
     addSharedRoutingStateListener,
     getDirectionsRouteSyncKey,
     getSharedRoutingState,
+    hydrateSharedRoutingStateAsync,
     setSharedRoutingState,
 } from './map/shared-routing-state';
-import {
-    getEnhancedLocationUpdate,
-    mapboxNavigationEnhancedLocationIsSupported,
-} from './map/use-device-location';
 
 const LOCATION_TIMEOUT_MS = 10000;
 // Android Auto may deliver bursts of text-change callbacks. Wait for a stable
@@ -109,6 +111,7 @@ const AUTO_PLAY_ICON_GLYPH_MAP = {
     'level-up-alt': 0xf3bf,
     location: 0xf3c5,
     minus: 0xf068,
+    microphone: 0xf130,
     plus: 0xf067,
     search: 0xf002,
     xmark: 0xf00d,
@@ -208,7 +211,6 @@ const ROOT_MAP_CONTROL_BUTTON_IMAGE = {
 let autoPlayModule;
 let autoPlayRegistered = false;
 let autoPlayConnectionGeneration = 0;
-let autoPlaySessionRenderState = null;
 let rootMapTemplate = null;
 let rootMapTemplateIsReady = false;
 let pendingVoiceNavigation = null;
@@ -216,6 +218,9 @@ let pendingVoiceSearchTemplatePush = null;
 let voiceNavigationRequestGeneration = 0;
 let rootMapButtonAppearance = ROOT_MAP_BUTTON_APPEARANCE_DEFAULTS;
 let rootMapButtonAppearanceKey = '';
+let rootMapPanningInterfaceIsVisible = false;
+let rootMapButtonsRefreshIsDeferred = false;
+let rootMapHeaderActionsRefreshIsDeferred = false;
 let navigationLocationSubscription = null;
 let navigationLocationUpdateGeneration = 0;
 let searchAbortController = null;
@@ -231,6 +236,8 @@ let lastNavigationGuidanceLocation = null;
 let lastNavigationGuidanceUpdatedAt = 0;
 let pendingNavigationGuidanceLocation = null;
 let pendingNavigationGuidanceTimer = null;
+let navigationGuidanceIsDeferredDuringPanning = false;
+let deferredNavigationGuidanceLocation = null;
 // Latched when the car host invokes NavigationManagerCallback.onAutoDriveEnabled
 // and held until the Android Auto session is destroyed, per the Play Store
 // navigation quality requirements.
@@ -256,6 +263,12 @@ function flushTemplateUpdates() {
     templateUpdateNeedsHeaderActions = false;
 
     if (!rootMapTemplate || !rootMapTemplateIsReady) {
+        return;
+    }
+
+    if (rootMapPanningInterfaceIsVisible) {
+        rootMapButtonsRefreshIsDeferred ||= needsMapButtons;
+        rootMapHeaderActionsRefreshIsDeferred ||= needsHeaderActions;
         return;
     }
 
@@ -1255,10 +1268,13 @@ function openSearchTemplate(
             }
 
             dismissSearch();
-            setAutoPlayState({
-                errorText: error?.message || 'Search could not be opened.',
-                statusLabel: 'Search error',
+            logAutoPlayPlatformAction('search-template-push-failed', {
+                message: error?.message || 'Unknown error',
             });
+            showAutoPlayError(
+                'Search unavailable',
+                error?.message || 'Search could not be opened.',
+            );
         });
 
     return {
@@ -2094,9 +2110,16 @@ function updateNavigationGuidance(userLocation) {
         return;
     }
 
-    lastNavigationGuidanceUpdatedAt = Date.now();
     lastNavigationGuidanceLocation =
         userLocation ?? lastNavigationGuidanceLocation;
+
+    if (rootMapPanningInterfaceIsVisible) {
+        navigationGuidanceIsDeferredDuringPanning = true;
+        deferredNavigationGuidanceLocation = lastNavigationGuidanceLocation;
+        return;
+    }
+
+    lastNavigationGuidanceUpdatedAt = Date.now();
 
     const routeOption = getSelectedDirectionsRouteOption(activeNavigationRoute);
     const routeProgress = getDirectionsRouteProgress(
@@ -2179,6 +2202,8 @@ function clearScheduledNavigationGuidance() {
     }
 
     pendingNavigationGuidanceLocation = null;
+    navigationGuidanceIsDeferredDuringPanning = false;
+    deferredNavigationGuidanceLocation = null;
 }
 
 function scheduleNavigationGuidance(userLocation) {
@@ -2251,29 +2276,33 @@ async function startExpoNavigationLocationUpdates(generation) {
     };
 }
 
-async function startEnhancedNavigationLocationUpdates(generation) {
-    const subscription = addEnhancedLocationListener((enhancedLocation) => {
+async function startRoadMatchedNavigationLocationUpdates(generation) {
+    const locationSubscription = addRoadMatchedLocationListener((location) => {
         if (generation !== navigationLocationUpdateGeneration) {
             return;
         }
 
-        const location = getLocationFromPosition(
-            getEnhancedLocationUpdate(enhancedLocation),
-        );
+        const navigationLocation = getLocationFromPosition(location);
 
-        if (location) {
-            scheduleNavigationGuidance(location);
+        if (navigationLocation) {
+            scheduleNavigationGuidance(navigationLocation);
         }
     });
+    const sessionHandle = await retainRoadMatchingSessionAsync({
+        persistent: true,
+    });
+    const subscription = {
+        remove() {
+            locationSubscription.remove();
+            sessionHandle.remove();
+        },
+    };
 
-    const lastEnhancedLocation = await getLastEnhancedLocationAsync().catch(
-        () => null,
-    );
+    const lastRoadMatchedLocation =
+        await getLastRoadMatchedLocationAsync().catch(() => null);
 
     return {
-        lastKnownLocation: getLocationFromPosition(
-            getEnhancedLocationUpdate(lastEnhancedLocation),
-        ),
+        lastKnownLocation: getLocationFromPosition(lastRoadMatchedLocation),
         subscription,
     };
 }
@@ -2300,8 +2329,8 @@ async function startNavigationLocationUpdates(route) {
         return;
     }
 
-    const startedLocationUpdates = mapboxNavigationEnhancedLocationIsSupported()
-        ? await startEnhancedNavigationLocationUpdates(generation)
+    const startedLocationUpdates = roadMatchingLocationIsSupported()
+        ? await startRoadMatchedNavigationLocationUpdates(generation)
         : await startExpoNavigationLocationUpdates(generation);
 
     if (generation !== navigationLocationUpdateGeneration) {
@@ -2331,6 +2360,12 @@ function updateRootTemplateHeaderActions() {
     if (!rootMapTemplate || !rootMapTemplateIsReady) {
         return;
     }
+
+    if (rootMapPanningInterfaceIsVisible) {
+        rootMapHeaderActionsRefreshIsDeferred = true;
+        return;
+    }
+
     scheduleTemplateUpdate({ headerActions: true });
 }
 
@@ -2338,14 +2373,13 @@ function updateRootMapButtons() {
     if (!rootMapTemplate || !rootMapTemplateIsReady) {
         return;
     }
-    scheduleTemplateUpdate({ mapButtons: true });
-}
 
-function getRootMapButtonAppearanceKey(appearance) {
-    return [
-        appearance.isDarkMapLayer ? 'dark' : 'light',
-        appearance.trackingState,
-    ].join(':');
+    if (rootMapPanningInterfaceIsVisible) {
+        rootMapButtonsRefreshIsDeferred = true;
+        return;
+    }
+
+    scheduleTemplateUpdate({ mapButtons: true });
 }
 
 function updateRootMapButtonAppearance(appearance) {
@@ -2353,16 +2387,17 @@ function updateRootMapButtonAppearance(appearance) {
         ...ROOT_MAP_BUTTON_APPEARANCE_DEFAULTS,
         ...appearance,
     };
-    const nextAppearanceKey = getRootMapButtonAppearanceKey(nextAppearance);
-
-    if (nextAppearanceKey === rootMapButtonAppearanceKey) {
-        return;
-    }
+    const nextAppearanceKey = getAutoPlayMapButtonAppearanceKey(nextAppearance);
 
     const darkMapLayerChanged =
         nextAppearance.isDarkMapLayer !==
         rootMapButtonAppearance.isDarkMapLayer;
     rootMapButtonAppearance = nextAppearance;
+
+    if (nextAppearanceKey === rootMapButtonAppearanceKey) {
+        return;
+    }
+
     rootMapButtonAppearanceKey = nextAppearanceKey;
 
     if (!rootMapTemplate || !rootMapTemplateIsReady) {
@@ -2376,6 +2411,38 @@ function updateRootMapButtonAppearance(appearance) {
         // light preset flip mid-navigation needs a guidance refresh to repaint.
         updateNavigationGuidance(lastNavigationGuidanceLocation);
     }
+}
+
+function handleRootMapPanningInterfaceChanged(isPanningInterfaceVisible) {
+    rootMapPanningInterfaceIsVisible = Boolean(isPanningInterfaceVisible);
+
+    if (rootMapPanningInterfaceIsVisible) {
+        return;
+    }
+
+    const mapButtonsRefreshIsDeferred = rootMapButtonsRefreshIsDeferred;
+    const headerActionsRefreshIsDeferred =
+        rootMapHeaderActionsRefreshIsDeferred;
+    const guidanceWasDeferred = navigationGuidanceIsDeferredDuringPanning;
+    const guidanceLocation = deferredNavigationGuidanceLocation;
+    rootMapButtonsRefreshIsDeferred = false;
+    rootMapHeaderActionsRefreshIsDeferred = false;
+
+    navigationGuidanceIsDeferredDuringPanning = false;
+    deferredNavigationGuidanceLocation = null;
+
+    if (guidanceWasDeferred) {
+        updateNavigationGuidance(guidanceLocation);
+    }
+
+    if (!mapButtonsRefreshIsDeferred && !headerActionsRefreshIsDeferred) {
+        return;
+    }
+
+    scheduleTemplateUpdate({
+        headerActions: headerActionsRefreshIsDeferred,
+        mapButtons: mapButtonsRefreshIsDeferred,
+    });
 }
 
 function getAutoPlayDrivingModeIsActive() {
@@ -2486,10 +2553,10 @@ let cachedRootMapButtons = null;
 let cachedRootMapButtonsKey = '';
 
 function getRootMapButtons() {
-    // The only thing that can change between calls is the appearance (dark/light
-    // map layer + tracking state). Memoize by that key so identical button arrays
-    // are reused — important because every fresh array forces the native side to
-    // re-parse glyphs and rebuild the ActionStrip.
+    // The visual appearance is the map light mode plus inactive/highlighted
+    // tracking. Memoize by that key so identical button arrays are reused —
+    // important because every fresh array forces the native side to re-parse
+    // glyphs and rebuild the ActionStrip.
     if (
         cachedRootMapButtons &&
         cachedRootMapButtonsKey === rootMapButtonAppearanceKey
@@ -2522,6 +2589,8 @@ function getRootMapButtons() {
     return cachedRootMapButtons;
 }
 
+let lastDeferredSharedNavigationStartKey = null;
+
 function syncAutoPlayNavigationFromSharedRoutingState(
     routingState = getSharedRoutingState(),
 ) {
@@ -2529,24 +2598,45 @@ function syncAutoPlayNavigationFromSharedRoutingState(
         return;
     }
 
-    const nextRoute =
-        routingState.drivingModeIsActive && routingState.directionsRoute
-            ? routingState.directionsRoute
-            : null;
+    const navigationAction = getAutoPlaySharedNavigationAction({
+        activeNavigationRoute,
+        getRouteSyncKey: getDirectionsRouteSyncKey,
+        rootMapTemplateIsReady,
+        routingState,
+    });
 
-    if (nextRoute) {
-        if (
-            getDirectionsRouteSyncKey(nextRoute) ===
-            getDirectionsRouteSyncKey(activeNavigationRoute)
-        ) {
-            return;
+    if (
+        !rootMapTemplateIsReady &&
+        routingState?.drivingModeIsActive &&
+        routingState?.directionsRoute
+    ) {
+        // The shared state wants navigation but the root template has not
+        // finished settling, so the start is silently deferred. Record each
+        // distinct deferred route once instead of on every publish.
+        const deferredStartKey = getDirectionsRouteSyncKey(
+            routingState.directionsRoute,
+        );
+
+        if (deferredStartKey !== lastDeferredSharedNavigationStartKey) {
+            lastDeferredSharedNavigationStartKey = deferredStartKey;
+            logAutoPlayPlatformAction('shared-navigation-start-deferred', {
+                routeKey: deferredStartKey,
+            });
         }
 
-        startAutoPlayNavigation(nextRoute, { publishSharedState: false });
         return;
     }
 
-    if (activeNavigationRoute) {
+    lastDeferredSharedNavigationStartKey = null;
+
+    if (navigationAction.action === 'start') {
+        startAutoPlayNavigation(navigationAction.route, {
+            publishSharedState: false,
+        });
+        return;
+    }
+
+    if (navigationAction.action === 'stop') {
         stopAutoPlayNavigation({ publishSharedState: false });
     }
 }
@@ -2754,21 +2844,30 @@ function handleRootHeaderPrimaryLocationPress(type) {
 }
 
 const handleRootHeaderSearchPress = () => {
+    openSearchTemplate();
+};
+const handleRootHeaderVoiceSearchPress = () => {
     if (
         autoPlayPlatform?.startSearchVoiceInput?.({
+            onCancelled: () => {
+                showAutoPlayError(
+                    'Voice search cancelled',
+                    'Voice search ended without a destination. Tap the microphone to try again, or Search to use the keyboard.',
+                );
+            },
             onFallback: () => {
                 openSearchTemplate();
             },
             onNoMatch: () => {
                 showAutoPlayError(
                     'Voice search',
-                    'No destination was heard. Tap Search to try again.',
+                    'No destination was heard. Tap the microphone to try again, or Search to use the keyboard.',
                 );
             },
             onUnavailable: () => {
                 showAutoPlayError(
                     'Voice search unavailable',
-                    'Voice search could not start. Check Microphone and Speech Recognition access on your iPhone, then tap Search again.',
+                    'Voice search could not start. Check Microphone and Speech Recognition access on your iPhone, then tap the microphone to try again or Search to use the keyboard.',
                 );
             },
         }) === true
@@ -2785,6 +2884,9 @@ const handleRootHeaderExitNavigationPress = () => {
     stopAutoPlayNavigation();
 };
 const ROOT_HEADER_SEARCH_IMAGE = makeGlyphImage('search', {
+    backgroundColor: 'transparent',
+});
+const ROOT_HEADER_VOICE_SEARCH_IMAGE = makeGlyphImage('microphone', {
     backgroundColor: 'transparent',
 });
 const ROOT_HEADER_PRIMARY_LOCATION_IMAGES = {
@@ -2846,6 +2948,11 @@ function getRootMapHeaderActions() {
         onPress: handleRootHeaderSearchPress,
         type: 'image',
     };
+    const voiceSearchButton = {
+        image: ROOT_HEADER_VOICE_SEARCH_IMAGE,
+        onPress: handleRootHeaderVoiceSearchPress,
+        type: 'image',
+    };
     const trailingNavigationButton = trailingNavigationButtonIsVisible
         ? {
               image: navigationExitButtonIsVisible
@@ -2873,7 +2980,7 @@ function getRootMapHeaderActions() {
             ...(trailingNavigationButton ? [trailingNavigationButton] : []),
         ],
         ios: {
-            leadingNavigationBarButtons: [searchButton],
+            leadingNavigationBarButtons: [searchButton, voiceSearchButton],
             trailingNavigationBarButtons: trailingNavigationButton
                 ? [trailingNavigationButton]
                 : carPlayPrimaryLocationButtons,
@@ -3172,20 +3279,34 @@ function handleVoiceNavigationWhenReady(
         return;
     }
 
+    const connectionGeneration = autoPlayConnectionGeneration;
+    const mapTemplate = rootMapTemplate;
+
     handleVoiceNavigation(
         coordinates,
         query,
         requestType,
-        autoPlayConnectionGeneration,
-        rootMapTemplate,
+        connectionGeneration,
+        mapTemplate,
         requestGeneration,
     ).catch((error) => {
-        if (typeof __DEV__ !== 'undefined' && __DEV__) {
-            console.warn('Android Auto voice request failed.', {
-                message: error?.message || 'Unknown error',
+        logAutoPlayPlatformAction('voice-request-failed', {
+            message: error?.message || 'Unknown error',
+            requestGeneration,
+            requestType: requestType ?? null,
+        });
+
+        if (
+            autoPlayVoiceRequestIsCurrent(
+                connectionGeneration,
+                mapTemplate,
                 requestGeneration,
-                requestType,
-            });
+            )
+        ) {
+            showAutoPlayError(
+                'Voice search unavailable',
+                error?.message || 'Voice search failed.',
+            );
         }
     });
 }
@@ -3206,11 +3327,23 @@ function replayPendingVoiceNavigation() {
     );
 }
 
+const ROOT_TEMPLATE_SETUP_TIMEOUT_MS = 10000;
+const ROOT_TEMPLATE_SETUP_RETRY_DELAYS_MS = [1000, 2000, 4000];
+
 async function handleAutoPlayConnect() {
     const connectionGeneration = ++autoPlayConnectionGeneration;
+    const routingStateHydration = hydrateSharedRoutingStateAsync();
     const { MapTemplate } = loadAutoPlayModule();
 
+    setAutoPlaySessionConnected(true);
+
     rootMapTemplateIsReady = false;
+    lastDeferredSharedNavigationStartKey = null;
+    rootMapPanningInterfaceIsVisible = false;
+    rootMapButtonsRefreshIsDeferred = false;
+    rootMapHeaderActionsRefreshIsDeferred = false;
+    navigationGuidanceIsDeferredDuringPanning = false;
+    deferredNavigationGuidanceLocation = null;
     setAutoPlayState({
         ...DEFAULT_AUTO_PLAY_STATE,
         statusLabel: 'Connected',
@@ -3228,7 +3361,12 @@ async function handleAutoPlayConnect() {
             // this callback is supplied. Touchscreen hosts hide the native
             // pan button, but still need that listener before forwarding
             // drag gestures to the map surface.
-            onPanningInterfaceChanged: () => {},
+            onPanningInterfaceChanged: (isPanningInterfaceVisible) => {
+                handleRootMapPanningInterfaceChanged(isPanningInterfaceVisible);
+                getAutoPlayMapControlHandlers().handlePanningInterfaceChanged(
+                    isPanningInterfaceVisible,
+                );
+            },
             onPan: (translation) => {
                 getAutoPlayMapControlHandlers().handlePan(translation);
             },
@@ -3255,14 +3393,6 @@ async function handleAutoPlayConnect() {
     // finishes evaluating. MapTemplate registers AutoPlayRoot with AppRegistry,
     // so it must be constructed before the first await or the restarted surface
     // can run before its component has been registered.
-    await activateAndroidAutoLifecycleAsync().catch(() => false);
-
-    if (autoPlaySessionRenderState) {
-        await updateAndroidAutoLifecycleStateAsync(
-            autoPlaySessionRenderState,
-        ).catch(() => false);
-    }
-
     if (
         connectionGeneration !== autoPlayConnectionGeneration ||
         rootMapTemplate !== mapTemplate
@@ -3270,45 +3400,85 @@ async function handleAutoPlayConnect() {
         return;
     }
 
-    mapTemplate
-        .setRootTemplate()
-        .then(() => {
-            if (
-                connectionGeneration !== autoPlayConnectionGeneration ||
-                rootMapTemplate !== mapTemplate
-            ) {
-                return;
-            }
+    // If setRootTemplate rejects or never settles, rootMapTemplateIsReady
+    // stays false and every phone-initiated start is dropped for the rest of
+    // the session, so treat a stalled push as a failure and retry with
+    // backoff. Each attempt is token-gated so a timed-out attempt settling
+    // late cannot race a newer one.
+    let currentRootTemplateSetupAttempt = 0;
+    const rootTemplateSetupIsCurrent = (attemptNumber) =>
+        connectionGeneration === autoPlayConnectionGeneration &&
+        rootMapTemplate === mapTemplate &&
+        attemptNumber === currentRootTemplateSetupAttempt;
+    const setupRootTemplate = (attemptNumber) => {
+        currentRootTemplateSetupAttempt = attemptNumber;
 
-            rootMapTemplateIsReady = true;
-            updateRootTemplateHeaderActions();
-            syncAutoPlayNavigationFromSharedRoutingState();
-            replayPendingVoiceNavigation();
-        })
-        .catch((error) => {
-            if (
-                connectionGeneration !== autoPlayConnectionGeneration ||
-                rootMapTemplate !== mapTemplate
-            ) {
-                return;
-            }
+        withTimeout(
+            Promise.resolve().then(() => mapTemplate.setRootTemplate()),
+            ROOT_TEMPLATE_SETUP_TIMEOUT_MS,
+            'The car screen root template did not respond in time.',
+        )
+            .then(async () => {
+                await routingStateHydration;
 
-            setAutoPlayState({
-                errorText:
+                if (!rootTemplateSetupIsCurrent(attemptNumber)) {
+                    return;
+                }
+
+                rootMapTemplateIsReady = true;
+                updateRootTemplateHeaderActions();
+                syncAutoPlayNavigationFromSharedRoutingState();
+                replayPendingVoiceNavigation();
+            })
+            .catch((error) => {
+                if (!rootTemplateSetupIsCurrent(attemptNumber)) {
+                    return;
+                }
+
+                logAutoPlayPlatformAction('root-template-setup-failed', {
+                    attempt: attemptNumber,
+                    message: error?.message || 'Unknown error',
+                });
+
+                if (
+                    attemptNumber <= ROOT_TEMPLATE_SETUP_RETRY_DELAYS_MS.length
+                ) {
+                    setTimeout(
+                        () => {
+                            if (!rootTemplateSetupIsCurrent(attemptNumber)) {
+                                return;
+                            }
+
+                            setupRootTemplate(attemptNumber + 1);
+                        },
+                        ROOT_TEMPLATE_SETUP_RETRY_DELAYS_MS[attemptNumber - 1],
+                    );
+                    return;
+                }
+
+                showAutoPlayError(
+                    'Car screen unavailable',
                     error?.message || 'The car screen could not be started.',
-                statusLabel: 'Connection error',
+                );
             });
-        });
+    };
+
+    setupRootTemplate(1);
 }
 
 function handleAutoPlayDisconnect() {
     autoPlayConnectionGeneration += 1;
+    setAutoPlaySessionConnected(false);
     voiceNavigationRequestGeneration += 1;
     autoPlayPlatform?.cancelSearchVoiceInput?.();
-    autoPlaySessionRenderState = null;
-    deactivateAndroidAutoLifecycleAsync().catch(() => {});
     rootMapTemplate = null;
     rootMapTemplateIsReady = false;
+    lastDeferredSharedNavigationStartKey = null;
+    rootMapPanningInterfaceIsVisible = false;
+    rootMapButtonsRefreshIsDeferred = false;
+    rootMapHeaderActionsRefreshIsDeferred = false;
+    navigationGuidanceIsDeferredDuringPanning = false;
+    deferredNavigationGuidanceLocation = null;
     pendingVoiceNavigation = null;
     pendingVoiceSearchTemplatePush = null;
     activeNavigationRoute = null;
@@ -3322,9 +3492,8 @@ function handleAutoPlayDisconnect() {
     setAutoPlayState(DEFAULT_AUTO_PLAY_STATE);
 }
 
-function handleAutoPlaySessionRenderState(state) {
-    autoPlaySessionRenderState = state;
-    updateAndroidAutoLifecycleStateAsync(state).catch(() => {});
+function handleAutoPlaySessionRenderState(renderState) {
+    setAutoPlaySessionRenderState(renderState);
 }
 
 export default function registerAutoPlay() {

@@ -209,16 +209,15 @@ export function getLocationUpdate(location) {
     const accuracy = getStoredNumber(location?.coords?.accuracy);
     const recordedAt = getStoredNumber(location?.timestamp) ?? Date.now();
     const speed = getStoredNumber(location?.coords?.speed);
-    const mapboxNavigation =
-        location?.mapboxNavigation &&
-        typeof location.mapboxNavigation === 'object'
-            ? location.mapboxNavigation
+    const roadMatch =
+        location?.roadMatch && typeof location.roadMatch === 'object'
+            ? location.roadMatch
             : null;
     const locationProvider =
         typeof location?.locationProvider === 'string'
             ? location.locationProvider
-            : mapboxNavigation
-              ? 'mapbox-navigation-bridge'
+            : roadMatch
+              ? 'in-house-road-matcher'
               : 'expo-location';
 
     return {
@@ -226,7 +225,7 @@ export function getLocationUpdate(location) {
         latitude,
         locationProvider,
         longitude: normalizeLongitude(longitude),
-        ...(mapboxNavigation ? { mapboxNavigation } : {}),
+        ...(roadMatch ? { roadMatch } : {}),
         recordedAt,
         speed: speed !== null && speed >= 0 ? speed : undefined,
     };

@@ -1,6 +1,10 @@
 const ANDROID_AUTO_MAP_LAYER_SLOTS = Object.freeze({
     cameraCone: 'top',
     cameraNode: 'top',
+    mapProjection: undefined,
+    routeLineElevationReference: undefined,
+    routeLineOcclusionOpacity: undefined,
+    routeLineZOffset: undefined,
     routePath: 'middle',
     userLocationPuck: 'top',
     userLocationPuckAboveLayer: undefined,
@@ -9,14 +13,22 @@ const ANDROID_AUTO_MAP_LAYER_SLOTS = Object.freeze({
 const CARPLAY_MAP_LAYER_SLOTS = Object.freeze({
     cameraCone: undefined,
     cameraNode: undefined,
+    mapProjection: 'mercator',
+    routeLineElevationReference: 'ground',
+    routeLineOcclusionOpacity: 0,
+    routeLineZOffset: 0.1,
     routePath: 'top',
     userLocationPuck: undefined,
-    userLocationPuckAboveLayer: undefined,
+    userLocationPuckAboveLayer: 'directions-route-line',
 });
 
 const DEFAULT_MAP_LAYER_SLOTS = Object.freeze({
     cameraCone: undefined,
     cameraNode: undefined,
+    mapProjection: undefined,
+    routeLineElevationReference: undefined,
+    routeLineOcclusionOpacity: undefined,
+    routeLineZOffset: undefined,
     routePath: 'top',
     userLocationPuck: undefined,
     userLocationPuckAboveLayer: undefined,

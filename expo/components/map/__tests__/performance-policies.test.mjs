@@ -1,8 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
+    getCurrentPositionForActiveLocationSource,
+    getLocationUpdateRecordedAt,
     getLocationWatchOptions,
+    locationUpdateIsStale,
+    shouldAcceptLocationUpdate,
+    shouldRefreshLocationData,
     shouldUseDeviceLocationWatch,
+    shouldUseRoadMatchedLocationWatch,
 } from '../location-watch-options.js';
 import { createMapPreferencesPersistenceScheduler } from '../map-preferences-persistence.js';
 
@@ -49,22 +55,22 @@ describe('getLocationWatchOptions', () => {
 });
 
 describe('shouldUseDeviceLocationWatch', () => {
-    test('uses the device watcher when Mapbox map events are unavailable', () => {
+    test('uses the device watcher when road-matched updates are unavailable', () => {
         assert.equal(
             shouldUseDeviceLocationWatch({
                 autoDriveSimulationIsActive: false,
-                enhancedNavigationLocationWatchEnabled: false,
+                roadMatchedLocationWatchEnabled: false,
                 phoneLocationUpdatesAreEnabled: true,
             }),
             true,
         );
     });
 
-    test('defers to enhanced navigation and simulation location sources', () => {
+    test('defers to road-matched and simulation location sources', () => {
         assert.equal(
             shouldUseDeviceLocationWatch({
                 autoDriveSimulationIsActive: false,
-                enhancedNavigationLocationWatchEnabled: true,
+                roadMatchedLocationWatchEnabled: true,
                 phoneLocationUpdatesAreEnabled: true,
             }),
             false,
@@ -72,8 +78,277 @@ describe('shouldUseDeviceLocationWatch', () => {
         assert.equal(
             shouldUseDeviceLocationWatch({
                 autoDriveSimulationIsActive: true,
-                enhancedNavigationLocationWatchEnabled: false,
+                roadMatchedLocationWatchEnabled: false,
                 phoneLocationUpdatesAreEnabled: true,
+            }),
+            false,
+        );
+    });
+});
+
+describe('background location data refresh', () => {
+    test('refreshes while active or while a persistent matcher owns driving', () => {
+        assert.equal(
+            shouldRefreshLocationData({
+                appState: 'active',
+                persistentRoadMatchingWatchIsActive: false,
+            }),
+            true,
+        );
+        assert.equal(
+            shouldRefreshLocationData({
+                appState: 'background',
+                persistentRoadMatchingWatchIsActive: true,
+            }),
+            true,
+        );
+        assert.equal(
+            shouldRefreshLocationData({
+                appState: 'inactive',
+                persistentRoadMatchingWatchIsActive: true,
+            }),
+            true,
+        );
+    });
+
+    test('does not poll in the background after persistent driving stops', () => {
+        assert.equal(
+            shouldRefreshLocationData({
+                appState: 'background',
+                persistentRoadMatchingWatchIsActive: false,
+            }),
+            false,
+        );
+    });
+});
+
+describe('shouldAcceptLocationUpdate', () => {
+    test('rejects stale raw fixes while road matching owns location updates', () => {
+        assert.equal(
+            shouldAcceptLocationUpdate({
+                location: { coords: { latitude: 30, longitude: -97 } },
+                roadMatchedLocationWatchEnabled: true,
+            }),
+            false,
+        );
+    });
+
+    test('accepts matched and unmatched output from the road-matching session', () => {
+        assert.equal(
+            shouldAcceptLocationUpdate({
+                location: { roadMatch: { edgeId: 'road:0:forward' } },
+                roadMatchedLocationWatchEnabled: true,
+            }),
+            true,
+        );
+        assert.equal(
+            shouldAcceptLocationUpdate({
+                location: { roadMatch: { isOffRoad: true } },
+                roadMatchedLocationWatchEnabled: true,
+            }),
+            true,
+        );
+    });
+
+    test('accepts raw fixes when the device watcher owns location updates', () => {
+        assert.equal(
+            shouldAcceptLocationUpdate({
+                location: { coords: { latitude: 30, longitude: -97 } },
+                roadMatchedLocationWatchEnabled: false,
+            }),
+            true,
+        );
+    });
+
+    test('rejects a stale matcher fix after ownership returns to the device', () => {
+        assert.equal(
+            shouldAcceptLocationUpdate({
+                location: { roadMatch: { edgeId: 'road:0:forward' } },
+                roadMatchedLocationWatchEnabled: false,
+            }),
+            false,
+        );
+    });
+});
+
+describe('location update ordering', () => {
+    test('reads timestamps before and after location normalization', () => {
+        assert.equal(getLocationUpdateRecordedAt({ timestamp: 1234 }), 1234);
+        assert.equal(getLocationUpdateRecordedAt({ recordedAt: 5678 }), 5678);
+        assert.equal(getLocationUpdateRecordedAt({}), null);
+    });
+
+    test('rejects only a strictly older coordinate fix', () => {
+        const currentLocation = { recordedAt: 2000 };
+
+        assert.equal(
+            locationUpdateIsStale({
+                currentLocation,
+                nextLocation: { timestamp: 1999 },
+            }),
+            true,
+        );
+        assert.equal(
+            locationUpdateIsStale({
+                currentLocation,
+                nextLocation: { timestamp: 2000 },
+            }),
+            false,
+        );
+        assert.equal(
+            locationUpdateIsStale({
+                currentLocation,
+                nextLocation: {},
+            }),
+            false,
+        );
+    });
+});
+
+describe('getCurrentPositionForActiveLocationSource', () => {
+    const rawPosition = {
+        coords: { latitude: 30.266984, longitude: -97.74414 },
+    };
+    const roadMatchedPosition = {
+        coords: { latitude: 30.2672, longitude: -97.74414 },
+        roadMatch: { edgeId: 'road:0:forward' },
+        timestamp: 1234,
+    };
+
+    test('uses the current matched fix without requesting a raw position', async () => {
+        let rawPositionRequestCount = 0;
+        const result = await getCurrentPositionForActiveLocationSource({
+            getCurrentPositionAsync: async () => {
+                rawPositionRequestCount += 1;
+                return rawPosition;
+            },
+            getLastRoadMatchedLocation: async () => roadMatchedPosition,
+            isMountedRef: { current: true },
+            roadMatchedLocationWatchEnabledRef: { current: true },
+        });
+
+        assert.equal(result, roadMatchedPosition);
+        assert.equal(rawPositionRequestCount, 0);
+    });
+
+    test('discards an in-flight raw fix after ownership transfers', async () => {
+        let resolveRawPosition;
+        let markRawPositionRequested;
+        const rawPositionRequested = new Promise((resolve) => {
+            markRawPositionRequested = resolve;
+        });
+        const rawPositionPromise = new Promise((resolve) => {
+            resolveRawPosition = resolve;
+        });
+        const ownerRef = { current: false };
+        const pendingPosition = getCurrentPositionForActiveLocationSource({
+            getCurrentPositionAsync: () => {
+                markRawPositionRequested();
+                return rawPositionPromise;
+            },
+            getLastRoadMatchedLocation: async () => roadMatchedPosition,
+            isMountedRef: { current: true },
+            roadMatchedLocationWatchEnabledRef: ownerRef,
+        });
+
+        await rawPositionRequested;
+        ownerRef.current = true;
+        resolveRawPosition(rawPosition);
+
+        assert.equal(await pendingPosition, roadMatchedPosition);
+    });
+
+    test('waits for matcher output instead of falling back to raw GPS', async () => {
+        let rawPositionRequestCount = 0;
+        const result = await getCurrentPositionForActiveLocationSource({
+            getCurrentPositionAsync: async () => {
+                rawPositionRequestCount += 1;
+                return rawPosition;
+            },
+            getLastRoadMatchedLocation: async () => null,
+            isMountedRef: { current: true },
+            roadMatchedLocationWatchEnabledRef: { current: true },
+        });
+
+        assert.equal(result, null);
+        assert.equal(rawPositionRequestCount, 0);
+    });
+
+    test('returns raw GPS while the device watcher owns location', async () => {
+        let roadMatchedLocationRequestCount = 0;
+        const result = await getCurrentPositionForActiveLocationSource({
+            getCurrentPositionAsync: async () => rawPosition,
+            getLastRoadMatchedLocation: async () => {
+                roadMatchedLocationRequestCount += 1;
+                return roadMatchedPosition;
+            },
+            isMountedRef: { current: true },
+            roadMatchedLocationWatchEnabledRef: { current: false },
+        });
+
+        assert.equal(result, rawPosition);
+        assert.equal(roadMatchedLocationRequestCount, 0);
+    });
+});
+
+describe('shouldUseRoadMatchedLocationWatch', () => {
+    const supportedLocationOptions = {
+        autoDriveSimulationIsActive: false,
+        locationAccessGranted: true,
+        roadMatchingIsSupported: true,
+    };
+
+    test('keeps the persistent driving session alive in the background', () => {
+        assert.equal(
+            shouldUseRoadMatchedLocationWatch({
+                ...supportedLocationOptions,
+                isDrivingMode: true,
+                persistentRoadMatchingWatchIsActive: true,
+                phoneLocationUpdatesAreEnabled: false,
+            }),
+            true,
+        );
+    });
+
+    test('observes another persistent session only while the phone is active', () => {
+        assert.equal(
+            shouldUseRoadMatchedLocationWatch({
+                ...supportedLocationOptions,
+                isDrivingMode: false,
+                persistentRoadMatchingWatchIsActive: true,
+                phoneLocationUpdatesAreEnabled: true,
+            }),
+            true,
+        );
+        assert.equal(
+            shouldUseRoadMatchedLocationWatch({
+                ...supportedLocationOptions,
+                isDrivingMode: false,
+                persistentRoadMatchingWatchIsActive: true,
+                phoneLocationUpdatesAreEnabled: false,
+            }),
+            false,
+        );
+    });
+
+    test('does not start matching without permission or native support', () => {
+        assert.equal(
+            shouldUseRoadMatchedLocationWatch({
+                ...supportedLocationOptions,
+                isDrivingMode: true,
+                locationAccessGranted: false,
+                persistentRoadMatchingWatchIsActive: false,
+                phoneLocationUpdatesAreEnabled: true,
+            }),
+            false,
+        );
+        assert.equal(
+            shouldUseRoadMatchedLocationWatch({
+                ...supportedLocationOptions,
+                isDrivingMode: true,
+                persistentRoadMatchingWatchIsActive: false,
+                phoneLocationUpdatesAreEnabled: true,
+                roadMatchingIsSupported: false,
             }),
             false,
         );
@@ -170,5 +445,85 @@ describe('createMapPreferencesPersistenceScheduler', () => {
 
         writeResolvers.shift()();
         await scheduler.flush();
+    });
+
+    test('bounds a stalled write and allows the newest value to persist', async () => {
+        let storedValue = null;
+        const writes = [];
+        const scheduler = createMapPreferencesPersistenceScheduler({
+            write: (value) => {
+                writes.push(value);
+
+                if (value === 'stalled') {
+                    return new Promise(() => {});
+                }
+
+                storedValue = value;
+
+                return Promise.resolve();
+            },
+            writeTimeoutMs: 5,
+        });
+
+        scheduler.schedule('stalled', { immediate: true });
+
+        assert.equal(
+            await Promise.race([
+                scheduler.flush().then(() => 'bounded'),
+                new Promise((resolve) =>
+                    setTimeout(() => resolve('blocked'), 100),
+                ),
+            ]),
+            'bounded',
+        );
+
+        scheduler.schedule('newest-route', { immediate: true });
+        await scheduler.flush();
+
+        assert.deepEqual(writes, ['stalled', 'newest-route']);
+        assert.equal(storedValue, 'newest-route');
+    });
+
+    test('repairs the newest value after an older write completes late', async () => {
+        let completeOlderWrite;
+        let storedValue = null;
+        const writes = [];
+        const scheduler = createMapPreferencesPersistenceScheduler({
+            write: (value) => {
+                writes.push(value);
+
+                if (value === 'older-route') {
+                    return new Promise((resolve) => {
+                        completeOlderWrite = () => {
+                            storedValue = value;
+                            resolve();
+                        };
+                    });
+                }
+
+                storedValue = value;
+
+                return Promise.resolve();
+            },
+            writeTimeoutMs: 5,
+        });
+
+        scheduler.schedule('older-route', { immediate: true });
+        await scheduler.flush();
+        scheduler.schedule('newest-route', { immediate: true });
+        await scheduler.flush();
+
+        assert.equal(storedValue, 'newest-route');
+
+        completeOlderWrite();
+        await new Promise((resolve) => setImmediate(resolve));
+        await scheduler.flush();
+
+        assert.equal(storedValue, 'newest-route');
+        assert.deepEqual(writes, [
+            'older-route',
+            'newest-route',
+            'newest-route',
+        ]);
     });
 });

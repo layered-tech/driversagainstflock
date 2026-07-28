@@ -91,7 +91,6 @@ export function useFollowLocationMode({
     const insets = useSafeAreaInsets();
     const recenterReasonRef = useRef(null);
     const recenterIsNeededRef = useRef(false);
-    const followCameraLocationUpdateTimestampRef = useRef(null);
     const nativeFollowZoomLevelRef = useRef(LOCATION_ZOOM_LEVEL);
     const lastFollowSpeedZoomUpdateAtRef = useRef(null);
     const userZoomOverrideIsActiveRef = useRef(false);
@@ -173,8 +172,6 @@ export function useFollowLocationMode({
                 return nativeFollowZoomLevelRef.current;
             }
 
-            followCameraLocationUpdateTimestampRef.current = now;
-
             if (followSpeedZoomEnabled) {
                 lastFollowSpeedZoomUpdateAtRef.current = now;
             }
@@ -193,25 +190,13 @@ export function useFollowLocationMode({
     );
     const setUserZoomOverride = useCallback(
         (nextZoomLevel) => {
-            const recordedAt = Number(userLocationRef.current?.recordedAt);
-
             userZoomOverrideIsActiveRef.current = true;
-            followCameraLocationUpdateTimestampRef.current = Number.isFinite(
-                recordedAt,
-            )
-                ? recordedAt
-                : null;
             lastFollowSpeedZoomUpdateAtRef.current = null;
             setUserZoomOverrideIsActive(true);
             setNativeFollowZoomLevel(clampZoomLevel(nextZoomLevel));
             currentZoomRef.current = clampZoomLevel(nextZoomLevel);
         },
-        [
-            clampZoomLevel,
-            currentZoomRef,
-            setNativeFollowZoomLevel,
-            userLocationRef,
-        ],
+        [clampZoomLevel, currentZoomRef, setNativeFollowZoomLevel],
     );
     const clearUserZoomOverride = useCallback(() => {
         userZoomOverrideIsActiveRef.current = false;
@@ -223,8 +208,6 @@ export function useFollowLocationMode({
                 isDrivingMode &&
                 locationTrackingMode === LOCATION_TRACKING_FOLLOW &&
                 !recenterIsNeeded,
-            locationUpdateTimestamp:
-                followCameraLocationUpdateTimestampRef.current ?? undefined,
             padding: followCameraPadding,
             pitch: LOCATION_FOLLOW_CAMERA_PITCH,
             zoomLevel: nativeFollowZoomLevel,
@@ -262,7 +245,6 @@ export function useFollowLocationMode({
     );
 
     const stop = useCallback(() => {
-        followCameraLocationUpdateTimestampRef.current = null;
         lastFollowSpeedZoomUpdateAtRef.current = null;
         setRecenterNeeded(false);
         setTrackingMode(LOCATION_TRACKING_NONE);
@@ -283,7 +265,6 @@ export function useFollowLocationMode({
             return false;
         }
 
-        followCameraLocationUpdateTimestampRef.current = null;
         lastFollowSpeedZoomUpdateAtRef.current = null;
         setRecenterNeeded(true);
         return true;
@@ -382,7 +363,6 @@ export function useFollowLocationMode({
             !isDrivingMode ||
             locationTrackingMode !== LOCATION_TRACKING_FOLLOW
         ) {
-            followCameraLocationUpdateTimestampRef.current = null;
             lastFollowSpeedZoomUpdateAtRef.current = null;
             setRecenterNeeded(false);
         }

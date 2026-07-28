@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import { usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { getApiBaseURL } from './auth/urls';
+import { installNetworkErrorMonitor } from './network-error-monitor';
 
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN?.trim() ?? '';
 const SENTRY_ENABLED_ENV = process.env.EXPO_PUBLIC_SENTRY_ENABLED;
@@ -13,6 +14,7 @@ const APP_VERSION =
 const NATIVE_BUILD_VERSION = Constants.nativeBuildVersion ?? 'unknown';
 const API_BASE_URL = getApiBaseURL();
 const ANDROID_AUTO_METRO_LOG_PREFIX = '[Android Auto]';
+const CARPLAY_METRO_LOG_PREFIX = '[CarPlay]';
 
 export const SENTRY_IS_ENABLED =
     Boolean(SENTRY_DSN) &&
@@ -76,12 +78,44 @@ function beforeBreadcrumb(breadcrumb) {
 
     if (
         firstArgument.startsWith(ANDROID_AUTO_METRO_LOG_PREFIX) ||
-        message.startsWith(ANDROID_AUTO_METRO_LOG_PREFIX)
+        message.startsWith(ANDROID_AUTO_METRO_LOG_PREFIX) ||
+        firstArgument.startsWith(CARPLAY_METRO_LOG_PREFIX) ||
+        message.startsWith(CARPLAY_METRO_LOG_PREFIX)
     ) {
         return null;
     }
 
     return breadcrumb;
+}
+
+function isSentryIngestRequest(url) {
+    try {
+        return new URL(url).host === new URL(SENTRY_DSN).host;
+    } catch {
+        return false;
+    }
+}
+
+function captureSentryNetworkError({ method, status, url }) {
+    if (isSentryIngestRequest(url)) {
+        return;
+    }
+
+    const error = new Error(`HTTP ${status} ${method} ${url}`);
+
+    error.name = 'NetworkRequestError';
+
+    Sentry.withScope((scope) => {
+        scope.setTag('http.method', method);
+        scope.setTag('http.status_code', String(status));
+        scope.setTag('network.error', 'http-response');
+        scope.setContext('network_request', {
+            method,
+            status,
+            url,
+        });
+        Sentry.captureException(error);
+    });
 }
 
 function initializeSentry() {
@@ -109,6 +143,7 @@ function initializeSentry() {
 
     Sentry.init(options);
     setInitialSentryScope();
+    installNetworkErrorMonitor({ onHttpError: captureSentryNetworkError });
 }
 
 initializeSentry();

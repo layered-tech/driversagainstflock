@@ -48,7 +48,9 @@ export function useStableCurrentRoadText(userLocation) {
 export function CurrentRoadPill({
     className = '',
     roadText: roadTextOverride,
+    style,
     testID = 'current-road-pill',
+    textStyle,
     userLocation,
 }) {
     const roadText =
@@ -64,11 +66,14 @@ export function CurrentRoadPill({
         <View
             className={`max-w-full rounded-full border border-black/10 bg-white/95 px-3 py-1.5 shadow-sm dark:border-white/15 dark:bg-neutral-900/95 ${className}`}
             pointerEvents="none"
+            style={style}
             testID={testID}
         >
             <Text
-                className="max-w-full text-center text-xs font-semibold text-neutral-900 dark:text-neutral-100"
+                className="max-w-full text-center text-[16px] font-semibold leading-[22px] text-neutral-900 dark:text-neutral-100"
+                ellipsizeMode="tail"
                 numberOfLines={1}
+                style={textStyle}
             >
                 {roadText}
             </Text>

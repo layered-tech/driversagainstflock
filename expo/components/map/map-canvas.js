@@ -1,10 +1,13 @@
 import Mapbox from '@rnmapbox/maps';
 import {
-    applyNavigationPuck3DAsync,
-    clearNavigationPuck3DAsync,
-    isNavigationPuck3DSupported,
-} from '@rnmapbox/navigation';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+    memo,
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import {
     ActivityIndicator,
     Platform,
@@ -62,16 +65,25 @@ import {
 import { DrivingLocationProvider } from './driving-location-provider';
 import { getMarkerCoordinate } from './geo';
 import {
-    createLocationBoundCameraFollowState,
-    getFollowCameraSettings,
-    getLocationUpdateKey,
-    getMapboxCameraFollowPadding,
-    reconcileLocationBoundCameraFollowState,
-} from './location-bound-camera-follow';
+    applyLocationPuck3DAsync,
+    clearLocationPuck3DAsync,
+    isLocationPuck3DSupported,
+    isLocationPuckCameraFollowActiveAsync,
+    isLocationPuckCameraFollowSupported,
+    isLocationPuckLocationProviderSupported,
+    setLocationPuckCameraFollowAsync,
+} from './location-puck-3d';
+import { createLocationPuck3DLifecycle } from './location-puck-3d-lifecycle';
 import {
-    getNavigationPuckCameraOwnershipKey,
+    createLocationPuckCameraFallbackReleaseGate,
+    createLocationPuckCameraFollowLifecycle,
+    getLocationPuckCameraControllerKey,
+    getLocationPuckCameraFollowFallbackProps,
+} from './location-puck-camera-follow-lifecycle';
+import {
+    getLocationPuckCameraOwnershipKey,
     shouldShowNavigationPuck,
-    shouldSuppressNavigationPuckFallback,
+    shouldSuppressLocationPuck2DFallback,
     shouldUseAutoPlayNavigationPuckImages,
 } from './location-puck-state';
 import {
@@ -95,50 +107,48 @@ import {
 import { NativeWindMapView } from './native-components';
 import {
     AUTO_PLAY_NAVIGATION_PUCK_SIZE,
+    getNavigationPuck3DMapScale,
+    getNavigationPuck3DMinimumZoomLevel,
     NAVIGATION_PUCK_SIZE,
 } from './navigation-puck-layout';
-import { createNavigationPuckLifecycle } from './navigation-puck-lifecycle';
 
 const MAP_PREFERRED_FRAMES_PER_SECOND = 30;
+const NAVIGATION_PUCK_3D_SCALE_UPDATE_EPSILON = 0.05;
 
-function MapLocationProvider({ isDrivingMode, usesSharedLocationProvider }) {
+function getNavigationPuckCameraZoomLevel({
+    minimumZoomLevel,
+    nativeCameraFollowProps,
+}) {
+    const nativeFollowZoomLevel = Number(nativeCameraFollowProps?.zoomLevel);
+
+    if (
+        Number.isFinite(nativeFollowZoomLevel) &&
+        nativeFollowZoomLevel >= minimumZoomLevel
+    ) {
+        return nativeFollowZoomLevel;
+    }
+
+    return null;
+}
+
+function MapLocationProvider({
+    attachmentKey,
+    isDrivingMode,
+    mapViewRef,
+    onNativeProviderStatusChange,
+    usesSharedLocationProvider,
+}) {
     const { userLocation } = useMapLocationContext();
 
     return (
         <DrivingLocationProvider
+            attachmentKey={attachmentKey}
             enabled={isDrivingMode || usesSharedLocationProvider}
-            isDrivingMode={isDrivingMode}
+            mapViewRef={mapViewRef}
+            onNativeProviderStatusChange={onNativeProviderStatusChange}
             userLocation={userLocation}
         />
     );
-}
-
-function useLocationBoundCameraFollowProps(followProps, userLocation) {
-    const desiredSettings = getFollowCameraSettings(followProps);
-    const isFollowing = followProps?.enabled === true;
-    const locationKey = getLocationUpdateKey(userLocation);
-    const stateRef = useRef(null);
-
-    // Keep the puck and its follow settings in the same native render commit.
-    if (stateRef.current === null) {
-        stateRef.current = createLocationBoundCameraFollowState({
-            isFollowing,
-            locationKey,
-            settings: desiredSettings,
-        });
-    } else {
-        stateRef.current = reconcileLocationBoundCameraFollowState({
-            desiredSettings,
-            isFollowing,
-            locationKey,
-            state: stateRef.current,
-        });
-    }
-
-    return {
-        ...followProps,
-        ...stateRef.current.appliedSettings,
-    };
 }
 
 function buildConeIconImageExpression() {
@@ -534,7 +544,9 @@ export const MapCanvas = memo(function MapCanvas() {
         mapViewRef,
         markerFeatureCollection,
         markerShapeSourceRef,
+        locationPuckCameraFollowReleaseRef,
         nativeCameraFollowProps,
+        navigationPuckSize: requestedNavigationPuckSize,
         navigationPuckRefreshKey = 'default',
         navigationPuckVariant,
         policeAlertFeatureCollection,
@@ -544,7 +556,6 @@ export const MapCanvas = memo(function MapCanvas() {
         userLocationPuckVisible = true,
         usesSharedLocationProvider = false,
     } = useMapCanvasContext();
-    const { userLocation } = useMapLocationContext();
     const {
         directionsWaypointMarkers,
         handleSelectedPlaceMarkerPress,
@@ -605,10 +616,9 @@ export const MapCanvas = memo(function MapCanvas() {
         [mapRoutePalette],
     );
     const drivingCameraFollowMode = Mapbox.UserTrackingMode.FollowWithHeading;
-    const locationBoundCameraFollowProps = useLocationBoundCameraFollowProps(
-        nativeCameraFollowProps,
-        userLocation,
-    );
+    const locationBoundCameraFollowProps = nativeCameraFollowProps;
+    const nativeLocationPuckCameraFollowIsSupported =
+        isLocationPuckCameraFollowSupported();
     const puckBearing = isDrivingMode
         ? 'heading'
         : !isFollowing
@@ -628,108 +638,354 @@ export const MapCanvas = memo(function MapCanvas() {
     });
     const usesAutoPlayNavigationPuckImages =
         shouldUseAutoPlayNavigationPuckImages(resolvedNavigationPuckVariant);
-    const mapboxCameraFollowPadding = getMapboxCameraFollowPadding(
-        locationBoundCameraFollowProps,
-        Platform.OS,
-    );
     const navigationPuckBearingImage = usesAutoPlayNavigationPuckImages
         ? ANDROID_AUTO_NAVIGATION_PUCK_BEARING_IMAGE
         : NAVIGATION_PUCK_BEARING_IMAGE;
     const navigationPuckShadowImage = usesAutoPlayNavigationPuckImages
         ? ANDROID_AUTO_NAVIGATION_PUCK_SHADOW_IMAGE
         : NAVIGATION_PUCK_SHADOW_IMAGE;
-    const navigationPuckSize = usesAutoPlayNavigationPuckImages
+    const fallbackNavigationPuckSize = usesAutoPlayNavigationPuckImages
         ? AUTO_PLAY_NAVIGATION_PUCK_SIZE
         : NAVIGATION_PUCK_SIZE;
-    const navigationPuckRequestsNative3D = Boolean(
+    const navigationPuckSize = Number.isFinite(requestedNavigationPuckSize)
+        ? requestedNavigationPuckSize
+        : fallbackNavigationPuckSize;
+    const navigationPuck3DMinimumZoomLevel =
+        getNavigationPuck3DMinimumZoomLevel({
+            variant: resolvedNavigationPuckVariant,
+        });
+    const navigationPuckCameraZoomLevel = getNavigationPuckCameraZoomLevel({
+        minimumZoomLevel: navigationPuck3DMinimumZoomLevel,
+        nativeCameraFollowProps,
+    });
+    const [navigationPuck3DMapScale, setNavigationPuck3DMapScale] = useState(
+        () =>
+            getNavigationPuck3DMapScale({
+                variant: resolvedNavigationPuckVariant,
+                zoomLevel: navigationPuckCameraZoomLevel,
+            }),
+    );
+    const navigationPuck3DMapScaleRef = useRef(navigationPuck3DMapScale);
+    const updateNavigationPuck3DMapScale = useCallback(
+        (zoomLevel) => {
+            if (
+                !Number.isFinite(zoomLevel) ||
+                zoomLevel < navigationPuck3DMinimumZoomLevel
+            ) {
+                return;
+            }
+
+            const nextMapScale = getNavigationPuck3DMapScale({
+                variant: resolvedNavigationPuckVariant,
+                zoomLevel,
+            });
+
+            if (
+                Math.abs(navigationPuck3DMapScaleRef.current - nextMapScale) <
+                NAVIGATION_PUCK_3D_SCALE_UPDATE_EPSILON
+            ) {
+                return;
+            }
+
+            navigationPuck3DMapScaleRef.current = nextMapScale;
+            setNavigationPuck3DMapScale(nextMapScale);
+        },
+        [navigationPuck3DMinimumZoomLevel, resolvedNavigationPuckVariant],
+    );
+    const handleMapCameraChanged = useCallback(
+        (state) => {
+            handleCameraChanged(state);
+            updateNavigationPuck3DMapScale(state?.properties?.zoom);
+        },
+        [handleCameraChanged, updateNavigationPuck3DMapScale],
+    );
+
+    useEffect(() => {
+        updateNavigationPuck3DMapScale(navigationPuckCameraZoomLevel);
+    }, [navigationPuckCameraZoomLevel, updateNavigationPuck3DMapScale]);
+    const [locationPuck3DStatus, setLocationPuck3DStatus] =
+        useState('inactive');
+    const [locationPuckCameraFollowStatus, setLocationPuckCameraFollowStatus] =
+        useState('inactive');
+    const [locationPuckProviderStatus, setLocationPuckProviderStatus] =
+        useState(() =>
+            isLocationPuckLocationProviderSupported()
+                ? 'inactive'
+                : 'unsupported',
+        );
+    const [locationPuckMapLoadEpoch, setLocationPuckMapLoadEpoch] = useState(0);
+    const locationPuckNativeProviderIsReady =
+        locationPuckProviderStatus === 'native';
+    const locationPuckProviderUsesFallback =
+        locationPuckProviderStatus === 'fallback' ||
+        locationPuckProviderStatus === 'unsupported';
+    const locationPuckNativeCameraMayOwnViewport = [
+        'activating',
+        'active',
+        'clearing',
+        'preparing-native',
+    ].includes(locationPuckCameraFollowStatus);
+    const nativeLocationPuckCameraControllerIsEligible =
+        nativeLocationPuckCameraFollowIsSupported &&
+        (!locationPuckProviderUsesFallback ||
+            locationPuckNativeCameraMayOwnViewport);
+    const nativeLocationPuckCameraFollowProps = useMemo(
+        () => ({
+            ...locationBoundCameraFollowProps,
+            enabled:
+                locationPuckNativeProviderIsReady &&
+                locationBoundCameraFollowProps.enabled,
+        }),
+        [locationBoundCameraFollowProps, locationPuckNativeProviderIsReady],
+    );
+    const locationPuckRequests3D = Boolean(
         locationAccessGranted &&
         userLocationPuckVisible &&
         navigationPuckIsVisible &&
-        isNavigationPuck3DSupported(),
+        locationPuckNativeProviderIsReady &&
+        isLocationPuck3DSupported(),
     );
-    const [navigationPuck3DStatus, setNavigationPuck3DStatus] =
-        useState('inactive');
-    const [navigationPuckMapLoadEpoch, setNavigationPuckMapLoadEpoch] =
-        useState(0);
-    const navigationPuckFallbackIsSuppressed =
-        shouldSuppressNavigationPuckFallback({
-            navigationPuck3DStatus,
-            navigationPuckRequestsNative3D,
+    const locationPuck2DFallbackIsSuppressed =
+        shouldSuppressLocationPuck2DFallback({
+            locationPuck3DStatus,
+            locationPuckRequests3D,
         });
-    // RNMapbox Android reconfigures its location component whenever follow
-    // ownership changes. Reapply the native puck after that commit so the
-    // empty React location puck cannot replace it during the initial zoom.
-    const navigationPuckCameraOwnershipKey =
+    const locationPuckCameraOwnershipKey =
         Platform.OS === 'android'
-            ? getNavigationPuckCameraOwnershipKey(
+            ? getLocationPuckCameraOwnershipKey(
                   locationBoundCameraFollowProps.enabled,
               )
             : 'camera-ownership-is-stable';
-    const navigationPuckLifecycleRef = useRef(null);
+    const mapboxCameraFollowFallbackProps =
+        getLocationPuckCameraFollowFallbackProps({
+            followProps: locationBoundCameraFollowProps,
+            followUserMode: drivingCameraFollowMode,
+            nativeFollowIsSupported:
+                nativeLocationPuckCameraControllerIsEligible,
+            nativeFollowStatus: locationPuckCameraFollowStatus,
+            platform: Platform.OS,
+        });
+    const mapboxFallbackCameraIsFollowing =
+        mapboxCameraFollowFallbackProps.followUserLocation === true;
+    const mapboxCameraControllerKey = getLocationPuckCameraControllerKey({
+        nativeFollowIsSupported: nativeLocationPuckCameraControllerIsEligible,
+        nativeFollowStatus: locationPuckCameraFollowStatus,
+    });
+    const locationPuckLifecycleRef = useRef(null);
+    const locationPuckCameraFallbackReleaseGateRef = useRef(null);
+    const locationPuckCameraFollowLifecycleRef = useRef(null);
 
-    if (navigationPuckLifecycleRef.current === null) {
-        navigationPuckLifecycleRef.current = createNavigationPuckLifecycle({
-            applyNavigationPuck: applyNavigationPuck3DAsync,
-            clearNavigationPuck: clearNavigationPuck3DAsync,
-            onStatusChange: setNavigationPuck3DStatus,
+    if (locationPuckLifecycleRef.current === null) {
+        locationPuckLifecycleRef.current = createLocationPuck3DLifecycle({
+            applyLocationPuck: applyLocationPuck3DAsync,
+            clearLocationPuck: clearLocationPuck3DAsync,
+            onStatusChange: setLocationPuck3DStatus,
         });
     }
 
-    const navigationPuckLifecycle = navigationPuckLifecycleRef.current;
-    const requestNavigationPuck = useCallback(
+    if (locationPuckCameraFollowLifecycleRef.current === null) {
+        locationPuckCameraFollowLifecycleRef.current =
+            createLocationPuckCameraFollowLifecycle({
+                configureCameraFollow: setLocationPuckCameraFollowAsync,
+                onStatusChange: setLocationPuckCameraFollowStatus,
+                verifyCameraFollow: isLocationPuckCameraFollowActiveAsync,
+            });
+    }
+
+    if (locationPuckCameraFallbackReleaseGateRef.current === null) {
+        locationPuckCameraFallbackReleaseGateRef.current =
+            createLocationPuckCameraFallbackReleaseGate();
+    }
+
+    const locationPuckLifecycle = locationPuckLifecycleRef.current;
+    const locationPuckCameraFollowLifecycle =
+        locationPuckCameraFollowLifecycleRef.current;
+    const locationPuckCameraFallbackReleaseGate =
+        locationPuckCameraFallbackReleaseGateRef.current;
+    const requestLocationPuck = useCallback(
         () =>
-            navigationPuckLifecycle.request({
+            locationPuckLifecycle.request({
                 layerAbove: userLocationPuckAboveLayer,
                 mapViewRef,
-                requested: navigationPuckRequestsNative3D,
-                scale: navigationPuckSize,
+                requested: locationPuckRequests3D,
+                scale: navigationPuck3DMapScale,
                 slot: mapLayerSlots.userLocationPuck,
             }),
         [
+            locationPuckLifecycle,
+            locationPuckRequests3D,
             mapLayerSlots.userLocationPuck,
             mapViewRef,
-            navigationPuckLifecycle,
-            navigationPuckRequestsNative3D,
-            navigationPuckSize,
+            navigationPuck3DMapScale,
             userLocationPuckAboveLayer,
         ],
     );
-    const refreshNavigationPuckAfterMapAttachment = useCallback(() => {
-        setNavigationPuckMapLoadEpoch((epoch) => epoch + 1);
+    const refreshLocationPuckAfterMapAttachment = useCallback(() => {
+        setLocationPuckMapLoadEpoch((epoch) => epoch + 1);
     }, []);
     const handleMapFinishedLoading = useCallback(
         (event) => {
             handleMapLoaded(event);
-
-            refreshNavigationPuckAfterMapAttachment();
+            refreshLocationPuckAfterMapAttachment();
         },
-        [handleMapLoaded, refreshNavigationPuckAfterMapAttachment],
+        [handleMapLoaded, refreshLocationPuckAfterMapAttachment],
+    );
+    const requestLocationPuckCameraFollow = useCallback(
+        ({ cameraIsPrepared = false } = {}) =>
+            locationPuckCameraFollowLifecycle.request({
+                attachmentKey: locationPuckMapLoadEpoch,
+                cameraIsPrepared,
+                followProps: nativeLocationPuckCameraFollowProps,
+                mapViewRef,
+            }),
+        [
+            locationPuckCameraFollowLifecycle,
+            locationPuckMapLoadEpoch,
+            mapViewRef,
+            nativeLocationPuckCameraFollowProps,
+        ],
+    );
+    const releaseLocationPuckCameraFollow = useCallback(
+        async ({ resumeFollow = false } = {}) => {
+            if (resumeFollow) {
+                locationPuckCameraFallbackReleaseGate.cancel();
+
+                if (!nativeLocationPuckCameraControllerIsEligible) {
+                    return false;
+                }
+
+                await locationPuckCameraFollowLifecycle.request({
+                    attachmentKey: locationPuckMapLoadEpoch,
+                    followProps: {
+                        ...nativeLocationPuckCameraFollowProps,
+                        enabled: true,
+                    },
+                    force: true,
+                    mapViewRef,
+                });
+
+                return false;
+            }
+
+            const [, fallbackCameraWasReleased] = await Promise.all([
+                locationPuckCameraFollowLifecycle.release({
+                    attachmentKey: locationPuckMapLoadEpoch,
+                    mapViewRef,
+                }),
+                locationPuckCameraFallbackReleaseGate.release({
+                    fallbackCameraIsFollowing: mapboxFallbackCameraIsFollowing,
+                }),
+            ]);
+
+            return fallbackCameraWasReleased;
+        },
+        [
+            locationPuckCameraFallbackReleaseGate,
+            locationPuckCameraFollowLifecycle,
+            locationPuckMapLoadEpoch,
+            mapViewRef,
+            mapboxFallbackCameraIsFollowing,
+            nativeLocationPuckCameraControllerIsEligible,
+            nativeLocationPuckCameraFollowProps,
+        ],
     );
 
-    useEffect(() => {
-        void requestNavigationPuck();
+    useLayoutEffect(() => {
+        locationPuckCameraFallbackReleaseGate.handleCameraCommit({
+            fallbackCameraIsFollowing: mapboxFallbackCameraIsFollowing,
+        });
     }, [
-        mapStyleURL,
-        navigationPuckCameraOwnershipKey,
-        navigationPuckMapLoadEpoch,
-        navigationPuckRefreshKey,
-        requestNavigationPuck,
+        locationPuckCameraFallbackReleaseGate,
+        mapboxFallbackCameraIsFollowing,
     ]);
 
-    // A failed initial apply renders RNMapbox's 2D fallback. Let React commit
-    // its removal before applying the 3D puck because the fallback's native
-    // cleanup otherwise replaces the new puck with an empty LocationPuck2D.
+    useLayoutEffect(() => {
+        if (!locationPuckCameraFollowReleaseRef) {
+            return undefined;
+        }
+
+        locationPuckCameraFollowReleaseRef.current =
+            releaseLocationPuckCameraFollow;
+
+        return () => {
+            if (
+                locationPuckCameraFollowReleaseRef.current ===
+                releaseLocationPuckCameraFollow
+            ) {
+                locationPuckCameraFollowReleaseRef.current = async () => false;
+            }
+        };
+    }, [locationPuckCameraFollowReleaseRef, releaseLocationPuckCameraFollow]);
+
     useEffect(() => {
-        if (navigationPuck3DStatus !== 'preparing') {
+        void requestLocationPuck();
+    }, [
+        locationPuckCameraOwnershipKey,
+        locationPuckMapLoadEpoch,
+        mapStyleURL,
+        navigationPuckRefreshKey,
+        requestLocationPuck,
+    ]);
+
+    useEffect(() => {
+        if (
+            !nativeLocationPuckCameraFollowIsSupported ||
+            locationPuckMapLoadEpoch === 0
+        ) {
             return;
         }
 
-        void requestNavigationPuck();
-    }, [navigationPuck3DStatus, requestNavigationPuck]);
+        void requestLocationPuckCameraFollow();
+    }, [
+        locationPuckMapLoadEpoch,
+        nativeLocationPuckCameraFollowIsSupported,
+        requestLocationPuckCameraFollow,
+    ]);
+
+    // A failed native handoff enables RNMapbox's declarative follow fallback.
+    // Remount that Camera in an explicitly idle state, then let this post-commit
+    // pass install the native viewport so only one controller ever owns it.
+    useEffect(() => {
+        if (
+            !nativeLocationPuckCameraFollowIsSupported ||
+            !locationPuckNativeProviderIsReady ||
+            locationPuckCameraFollowStatus !== 'preparing-native'
+        ) {
+            return;
+        }
+
+        void requestLocationPuckCameraFollow({ cameraIsPrepared: true });
+    }, [
+        locationPuckCameraFollowStatus,
+        locationPuckNativeProviderIsReady,
+        nativeLocationPuckCameraFollowIsSupported,
+        requestLocationPuckCameraFollow,
+    ]);
+
+    // Let React unmount the 2D puck before native code installs the 3D puck.
+    // Otherwise RNMapbox's cleanup replaces the freshly installed 3D model.
+    useEffect(() => {
+        if (locationPuck3DStatus !== 'preparing') {
+            return;
+        }
+
+        void requestLocationPuck();
+    }, [locationPuck3DStatus, requestLocationPuck]);
 
     useEffect(() => {
-        return () => navigationPuckLifecycle.invalidate();
-    }, [navigationPuckLifecycle]);
+        return () => locationPuckLifecycle.invalidate();
+    }, [locationPuckLifecycle]);
+
+    useEffect(() => {
+        return () => {
+            void locationPuckCameraFollowLifecycle.invalidate();
+        };
+    }, [locationPuckCameraFollowLifecycle]);
+    useEffect(() => {
+        return () => {
+            locationPuckCameraFallbackReleaseGate.invalidate();
+        };
+    }, [locationPuckCameraFallbackReleaseGate]);
     // iOS Fabric never applies image props back to undefined (rnmapbox
     // FabricOptionalProp limitation), so switching between the navigation
     // arrow and the default dot requires remounting the puck there. Android
@@ -769,11 +1025,12 @@ export const MapCanvas = memo(function MapCanvas() {
             logoPosition={mapboxLogoPosition}
             compassEnabled={isDrivingMode && !hideCompassDuringNavigation}
             compassPosition={mapCompassPosition}
-            onCameraChanged={handleCameraChanged}
+            onCameraChanged={handleMapCameraChanged}
             onDidFinishLoadingMap={handleMapFinishedLoading}
-            onDidFinishLoadingStyle={refreshNavigationPuckAfterMapAttachment}
+            onDidFinishLoadingStyle={refreshLocationPuckAfterMapAttachment}
             onPress={handleMapPress}
             preferredFramesPerSecond={preferredFramesPerSecond}
+            projection={mapLayerSlots.mapProjection}
             styleURL={mapStyleURL}
         >
             <Mapbox.StyleImport
@@ -785,20 +1042,18 @@ export const MapCanvas = memo(function MapCanvas() {
             {locationAccessGranted &&
             (isDrivingMode || usesSharedLocationProvider) ? (
                 <MapLocationProvider
+                    attachmentKey={locationPuckMapLoadEpoch}
                     isDrivingMode={isDrivingMode}
+                    mapViewRef={mapViewRef}
+                    onNativeProviderStatusChange={setLocationPuckProviderStatus}
                     usesSharedLocationProvider={usesSharedLocationProvider}
                 />
             ) : null}
             <Mapbox.Camera
+                {...mapboxCameraFollowFallbackProps}
+                key={mapboxCameraControllerKey}
                 ref={cameraRef}
                 defaultSettings={initialCameraSettings}
-                followPadding={mapboxCameraFollowPadding}
-                followPitch={locationBoundCameraFollowProps.pitch}
-                followUserLocation={
-                    locationBoundCameraFollowProps.enabled ?? false
-                }
-                followUserMode={drivingCameraFollowMode}
-                followZoomLevel={locationBoundCameraFollowProps.zoomLevel}
                 maxZoomLevel={MAX_ZOOM_LEVEL}
                 minZoomLevel={MIN_ZOOM_LEVEL}
             />
@@ -1058,6 +1313,8 @@ export const MapCanvas = memo(function MapCanvas() {
                         style={{
                             lineCap: 'round',
                             lineColor: mapRoutePalette.alternateCasing,
+                            lineElevationReference:
+                                mapLayerSlots.routeLineElevationReference,
                             lineEmissiveStrength: isDuskNightMapLightPreset
                                 ? 1
                                 : 0,
@@ -1065,6 +1322,8 @@ export const MapCanvas = memo(function MapCanvas() {
                             lineOpacity: isDuskNightMapLightPreset
                                 ? 0.88
                                 : 0.72,
+                            lineOcclusionOpacity:
+                                mapLayerSlots.routeLineOcclusionOpacity,
                             lineWidth: [
                                 'interpolate',
                                 ['linear'],
@@ -1076,6 +1335,7 @@ export const MapCanvas = memo(function MapCanvas() {
                                 18,
                                 12,
                             ],
+                            lineZOffset: mapLayerSlots.routeLineZOffset,
                         }}
                     />
                     <Mapbox.LineLayer
@@ -1085,11 +1345,15 @@ export const MapCanvas = memo(function MapCanvas() {
                         style={{
                             lineCap: 'round',
                             lineColor: mapRoutePalette.alternateLine,
+                            lineElevationReference:
+                                mapLayerSlots.routeLineElevationReference,
                             lineEmissiveStrength: isDuskNightMapLightPreset
                                 ? 1
                                 : 0,
                             lineJoin: 'round',
                             lineOpacity: isDuskNightMapLightPreset ? 0.8 : 0.68,
+                            lineOcclusionOpacity:
+                                mapLayerSlots.routeLineOcclusionOpacity,
                             lineWidth: [
                                 'interpolate',
                                 ['linear'],
@@ -1101,6 +1365,7 @@ export const MapCanvas = memo(function MapCanvas() {
                                 18,
                                 7,
                             ],
+                            lineZOffset: mapLayerSlots.routeLineZOffset,
                         }}
                     />
                     <Mapbox.LineLayer
@@ -1110,6 +1375,8 @@ export const MapCanvas = memo(function MapCanvas() {
                         style={{
                             lineCap: 'round',
                             lineColor: mapRoutePalette.selectedCasing,
+                            lineElevationReference:
+                                mapLayerSlots.routeLineElevationReference,
                             lineEmissiveStrength: isDuskNightMapLightPreset
                                 ? 1
                                 : 0,
@@ -1117,6 +1384,8 @@ export const MapCanvas = memo(function MapCanvas() {
                             lineOpacity: isDuskNightMapLightPreset
                                 ? 0.96
                                 : 0.92,
+                            lineOcclusionOpacity:
+                                mapLayerSlots.routeLineOcclusionOpacity,
                             lineWidth: [
                                 'interpolate',
                                 ['linear'],
@@ -1128,6 +1397,7 @@ export const MapCanvas = memo(function MapCanvas() {
                                 18,
                                 15,
                             ],
+                            lineZOffset: mapLayerSlots.routeLineZOffset,
                         }}
                     />
                     <Mapbox.LineLayer
@@ -1137,11 +1407,15 @@ export const MapCanvas = memo(function MapCanvas() {
                         style={{
                             lineCap: 'round',
                             lineColor: selectedDirectionsRouteColorExpression,
+                            lineElevationReference:
+                                mapLayerSlots.routeLineElevationReference,
                             lineEmissiveStrength: isDuskNightMapLightPreset
                                 ? 1
                                 : 0,
                             lineJoin: 'round',
                             lineOpacity: isDuskNightMapLightPreset ? 1 : 0.94,
+                            lineOcclusionOpacity:
+                                mapLayerSlots.routeLineOcclusionOpacity,
                             lineWidth: [
                                 'interpolate',
                                 ['linear'],
@@ -1153,6 +1427,7 @@ export const MapCanvas = memo(function MapCanvas() {
                                 18,
                                 10,
                             ],
+                            lineZOffset: mapLayerSlots.routeLineZOffset,
                         }}
                     />
                 </Mapbox.ShapeSource>
@@ -1280,9 +1555,20 @@ export const MapCanvas = memo(function MapCanvas() {
             ))}
             {locationAccessGranted && userLocationPuckVisible ? (
                 <>
-                    {!navigationPuckFallbackIsSuppressed ? (
+                    {!locationPuck2DFallbackIsSuppressed ? (
                         <>
-                            <NavigationPuckImages />
+                            <NavigationPuckImages
+                                autoPlayNavigationPuckSize={
+                                    usesAutoPlayNavigationPuckImages
+                                        ? navigationPuckSize
+                                        : undefined
+                                }
+                                navigationPuckSize={
+                                    usesAutoPlayNavigationPuckImages
+                                        ? undefined
+                                        : navigationPuckSize
+                                }
+                            />
                             <Mapbox.LocationPuck
                                 key={locationPuckKey}
                                 bearingImage={

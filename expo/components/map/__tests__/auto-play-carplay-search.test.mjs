@@ -52,10 +52,23 @@ const autoPlayPatch = readFileSync(
     'utf8',
 );
 
-test('CarPlay starts native voice input before falling back to keyboard Search', () => {
+test('CarPlay keeps keyboard Search and voice input as separate header actions', () => {
     assert.match(
         autoPlaySource,
-        /handleRootHeaderSearchPress[\s\S]*?startSearchVoiceInput[\s\S]*?onFallback:[\s\S]*?openSearchTemplate\(\)/,
+        /const handleRootHeaderSearchPress = \(\) => \{\s*openSearchTemplate\(\);\s*\};/,
+    );
+    assert.match(
+        autoPlaySource,
+        /const handleRootHeaderVoiceSearchPress = \(\) => \{[\s\S]*?startSearchVoiceInput[\s\S]*?onFallback:[\s\S]*?openSearchTemplate\(\)/,
+    );
+    assert.match(
+        autoPlaySource,
+        /ROOT_HEADER_VOICE_SEARCH_IMAGE = makeGlyphImage\('microphone'/,
+    );
+    assert.match(autoPlaySource, /microphone:\s*0xf130,/);
+    assert.match(
+        autoPlaySource,
+        /leadingNavigationBarButtons:\s*\[searchButton, voiceSearchButton\]/,
     );
     assert.match(voiceSearchControllerSource, /hasVoiceInputPermission/);
     assert.match(voiceSearchControllerSource, /requestVoiceInputPermission/);
@@ -141,7 +154,7 @@ test('CarPlay keeps cancellation and no-match states driving safe', () => {
     );
     assert.match(
         voiceSearchControllerSource,
-        /requestType === 'searchCancelled'[\s\S]*?clearPendingSearch/,
+        /requestType === 'searchCancelled'[\s\S]*?appInitiatedCancel[\s\S]*?finishSearch\(activeSearch\.generation, 'onCancelled'\)/,
     );
     assert.match(
         voiceSearchControllerSource,
@@ -149,8 +162,50 @@ test('CarPlay keeps cancellation and no-match states driving safe', () => {
     );
     assert.match(
         autoPlaySource,
-        /onNoMatch:[\s\S]*?No destination was heard\. Tap Search to try again\./,
+        /onCancelled:[\s\S]*?Voice search cancelled[\s\S]*?Tap the microphone to try again, or Search to use the keyboard\./,
     );
+    assert.match(
+        autoPlaySource,
+        /onNoMatch:[\s\S]*?No destination was heard\. Tap the microphone to try again, or Search to use the keyboard\./,
+    );
+});
+
+test('CarPlay voice recognition uses system transcript activity and slow finalization', () => {
+    for (const source of [voiceInputManagerSource, autoPlayPatch]) {
+        assert.match(
+            source,
+            /recognitionFinalizationTimeout:\s*TimeInterval\s*=\s*7/,
+        );
+        assert.match(source, /request\.shouldReportPartialResults = true/);
+        assert.match(source, /request\.taskHint = \.search/);
+        assert.match(
+            source,
+            /latestPartialTranscript[\s\S]*?partialTranscript[\s\S]*?finishRecognition\([\s\S]*?transcript: partialTranscript\.isEmpty \? nil : partialTranscript/,
+        );
+        assert.match(
+            source,
+            /previousPartialTranscript[\s\S]*?trimmedPartialTranscript != previousPartialTranscript[\s\S]*?scheduleRecognitionInactivityTimeout/,
+        );
+        assert.match(
+            source,
+            /scheduleRecognitionInactivityTimeout[\s\S]*?max\(silenceThresholdMs, 0\) \/ 1_000/,
+        );
+        assert.match(
+            source,
+            /recognitionActivityGeneration &\+= 1[\s\S]*?activityGeneration = self\.recognitionActivityGeneration[\s\S]*?scheduleRecognitionInactivityTimeout/,
+        );
+        assert.match(
+            source,
+            /expectedRecognitionActivityGeneration[\s\S]*?!= recognitionActivityGeneration[\s\S]*?return/,
+        );
+    }
+
+    assert.doesNotMatch(
+        voiceInputManagerSource,
+        /silenceAmplitudeThreshold|noiseFloor|newSamples\.reduce\(0\)/,
+    );
+    assert.match(autoPlayPatch, /^-.*silenceAmplitudeThreshold/m);
+    assert.doesNotMatch(autoPlayPatch, /^\+.*silenceAmplitudeThreshold/m);
 });
 
 const flushAsyncWork = () =>
@@ -358,6 +413,103 @@ test('CarPlay exposes a fallback if native voice stop never acknowledges', async
     assert.equal(unavailableCalls, 1);
 });
 
+test('CarPlay surfaces externally cancelled voice searches', async () => {
+    let cancelledCalls = 0;
+    let unavailableCalls = 0;
+    const controller = createCarPlayVoiceSearchController({
+        clearTimeoutFn: () => {},
+        getHybridAutoPlay: () => ({
+            hasVoiceInputPermission: () => true,
+            startVoiceInput: () => new Promise(() => {}),
+            stopVoiceInput: () => {},
+        }),
+        onVoiceNavigation: () => {},
+        setTimeoutFn: () => 1,
+    });
+
+    controller.start({
+        onCancelled: () => {
+            cancelledCalls += 1;
+        },
+        onFallback: () => {},
+        onUnavailable: () => {
+            unavailableCalls += 1;
+        },
+    });
+    await flushAsyncWork();
+
+    controller.handleNativeEvent(undefined, undefined, 'searchCancelled');
+
+    assert.equal(cancelledCalls, 1);
+    assert.equal(unavailableCalls, 0);
+});
+
+test('CarPlay keeps app-initiated voice cancellations silent', async () => {
+    let cancelledCalls = 0;
+    const controller = createCarPlayVoiceSearchController({
+        clearTimeoutFn: () => {},
+        getHybridAutoPlay: () => ({
+            hasVoiceInputPermission: () => true,
+            startVoiceInput: () => new Promise(() => {}),
+            stopVoiceInput: () => {},
+        }),
+        onVoiceNavigation: () => {},
+        setTimeoutFn: () => 1,
+    });
+
+    controller.start({
+        onCancelled: () => {
+            cancelledCalls += 1;
+        },
+        onFallback: () => {},
+        onUnavailable: () => {},
+    });
+    await flushAsyncWork();
+
+    controller.cancel();
+    controller.handleNativeEvent(undefined, undefined, 'searchCancelled');
+
+    assert.equal(cancelledCalls, 0);
+});
+
+test('CarPlay listening acknowledgement leaves the post-stop fallback timer armed', async () => {
+    const clearedTimeouts = [];
+    const timeouts = [];
+    let unavailableCalls = 0;
+    const controller = createCarPlayVoiceSearchController({
+        clearTimeoutFn: (timeoutId) => {
+            clearedTimeouts.push(timeoutId);
+        },
+        getHybridAutoPlay: () => ({
+            hasVoiceInputPermission: () => true,
+            startVoiceInput: () => new Promise(() => {}),
+            stopVoiceInput: () => {},
+        }),
+        onVoiceNavigation: () => {},
+        setTimeoutFn: (callback) => {
+            timeouts.push(callback);
+            return timeouts.length;
+        },
+    });
+
+    controller.start({
+        onFallback: () => {},
+        onUnavailable: () => {
+            unavailableCalls += 1;
+        },
+    });
+    await flushAsyncWork();
+
+    timeouts[0]();
+    controller.handleNativeEvent(undefined, undefined, 'searchListening');
+
+    assert.equal(clearedTimeouts.includes(2), false);
+
+    timeouts[1]();
+
+    assert.equal(unavailableCalls, 1);
+});
+
 test('CarPlay voice sessions cannot be revived after cancellation', () => {
     assert.match(
         hybridAutoPlaySource,
@@ -377,7 +529,18 @@ test('CarPlay voice sessions cannot be revived after cancellation', () => {
     );
     assert.match(
         voiceInputManagerSource,
-        /recognitionRequest\?\.append\(buffer\)[\s\S]*?stopLock\.unlock\(\)[\s\S]*?guard !self\.isStopping[\s\S]*?hasDetectedSpeech = true/,
+        /if isStopping \{[\s\S]*?cancelledByUser && continuation != nil[\s\S]*?self\.cancelledByUser = true[\s\S]*?activeRecognitionTask\?\.cancel\(\)[\s\S]*?finishRecognition\(/,
+    );
+    assert.match(
+        voiceInputManagerSource,
+        /guard !self\.isStopping[\s\S]*?recognitionRequest\?\.append\(buffer\)[\s\S]*?guard !self\.isStopping[\s\S]*?samples\.append/,
+    );
+});
+
+test('CarPlay salvages a partial transcript when finalization errors', () => {
+    assert.match(
+        voiceInputManagerSource,
+        /if let error \{[\s\S]*?partialTranscript[\s\S]*?self\.isStopping[\s\S]*?self\.continuation != nil[\s\S]*?self\.finishRecognition\(transcript: partialTranscript\)[\s\S]*?self\.fail\(error: error\)/,
     );
 });
 

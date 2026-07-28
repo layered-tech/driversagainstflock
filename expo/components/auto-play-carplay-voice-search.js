@@ -13,6 +13,7 @@ export function createCarPlayVoiceSearchController({
     startupTimeoutMs = DEFAULT_STARTUP_TIMEOUT_MS,
     stopTimeoutMs = DEFAULT_STOP_TIMEOUT_MS,
 }) {
+    let appInitiatedCancel = false;
     let generation = 0;
     let pendingSearch = null;
 
@@ -30,6 +31,10 @@ export function createCarPlayVoiceSearchController({
 
         if (activeSearch.startupTimeout !== null) {
             clearTimeoutFn(activeSearch.startupTimeout);
+        }
+
+        if (activeSearch.stopFallbackTimeout !== null) {
+            clearTimeoutFn(activeSearch.stopFallbackTimeout);
         }
 
         return activeSearch;
@@ -56,12 +61,14 @@ export function createCarPlayVoiceSearchController({
     };
 
     const cancel = () => {
+        appInitiatedCancel = true;
         generation += 1;
         clearPendingSearch();
         stopNativeVoiceInput(getHybridAutoPlay());
     };
 
     const start = ({
+        onCancelled,
         onFallback,
         onNoMatch = onFallback,
         onUnavailable = onFallback,
@@ -80,12 +87,15 @@ export function createCarPlayVoiceSearchController({
 
         const searchGeneration = generation + 1;
         generation = searchGeneration;
+        appInitiatedCancel = false;
         pendingSearch = {
             generation: searchGeneration,
+            onCancelled,
             onFallback,
             onNoMatch,
             onUnavailable,
             startupTimeout: null,
+            stopFallbackTimeout: null,
             unavailableAfterStop: false,
         };
 
@@ -120,7 +130,7 @@ export function createCarPlayVoiceSearchController({
                     activeSearch.startupTimeout = null;
                     activeSearch.unavailableAfterStop = true;
                     stopNativeVoiceInput(HybridAutoPlay);
-                    activeSearch.startupTimeout = setTimeoutFn(() => {
+                    activeSearch.stopFallbackTimeout = setTimeoutFn(() => {
                         finishSearch(searchGeneration, 'onUnavailable');
                     }, stopTimeoutMs);
                 }, startupTimeoutMs);
@@ -168,8 +178,12 @@ export function createCarPlayVoiceSearchController({
         if (requestType === 'searchCancelled') {
             if (activeSearch.unavailableAfterStop) {
                 finishSearch(activeSearch.generation, 'onUnavailable');
-            } else {
+            } else if (appInitiatedCancel) {
                 clearPendingSearch(activeSearch.generation);
+            } else {
+                // The CPVoiceControlTemplate disappeared without any app-side
+                // stop: user cancel, Siri, or a system modal took it down.
+                finishSearch(activeSearch.generation, 'onCancelled');
             }
             return;
         }

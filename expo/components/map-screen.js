@@ -62,6 +62,8 @@ import {
 import { MapSearchOverlay } from './map/map-search-overlay';
 import { MarkerDetailsSheet } from './map/marker-details-sheet';
 import { NativeWindSafeAreaView } from './map/native-components';
+import { getNavigationPuckSize } from './map/navigation-puck-layout';
+import { RoadMatchingE2EProbe } from './map/road-matching-e2e-probe';
 import { SelectedPlaceSheet } from './map/selected-place-sheet';
 import {
     useSharedMapLocationState,
@@ -110,6 +112,14 @@ export default function LocationMapScreen({
     const [drivingLocationAnchorY, setDrivingLocationAnchorY] =
         useState(undefined);
     const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+    const navigationPuckSize = useMemo(
+        () =>
+            getNavigationPuckSize({
+                viewportHeight: windowHeight,
+                viewportWidth: windowWidth,
+            }),
+        [windowHeight, windowWidth],
+    );
     const bottomSheetAnimatedPosition = useSharedValue(windowHeight);
     const navigation = useNavigation();
     const safeAreaInsets = useSafeAreaInsets();
@@ -537,6 +547,7 @@ export default function LocationMapScreen({
         cameraConesVisible,
         localityBoundary,
         markerFeatureCollection,
+        navigationPuckSize,
         policeAlertFeatureCollection,
         policeAlertsVisible,
         presentation,
@@ -665,11 +676,19 @@ export default function LocationMapScreen({
                 {screenIsFocused ? (
                     <>
                         <MapCanvas />
+                        {e2eMapApiMocksAreRequested ? (
+                            <RoadMatchingE2EProbe
+                                mapViewRef={locationController.mapViewRef}
+                                roadLookAhead={electronicHorizon}
+                                userLocation={userLocation}
+                            />
+                        ) : null}
                         {contributePlacementIsActive ? (
                             <ContributeCrosshair />
                         ) : null}
                         {isDrivingMode ? (
                             <DrivingGuidanceOverlay
+                                navigationPuckSize={navigationPuckSize}
                                 onLocationAnchorLayout={
                                     setDrivingLocationAnchorY
                                 }
@@ -696,7 +715,9 @@ export default function LocationMapScreen({
                                         locationController={locationController}
                                         mapControls={
                                             <MapControlsOverlay
-                                                showContributeEntryButton={false}
+                                                showContributeEntryButton={
+                                                    false
+                                                }
                                             />
                                         }
                                     />

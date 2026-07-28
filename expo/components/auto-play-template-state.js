@@ -282,6 +282,36 @@ export function getAutoPlayMapContentVisibility({
     };
 }
 
+export function getAutoPlayDrivingStatusVisibility({
+    isRootMapSurface,
+    showDrivingStatus,
+    showDrivingStatusOnSecondarySurfaces,
+}) {
+    const secondaryDrivingStatusIsVisible = Boolean(
+        !isRootMapSurface &&
+        (showDrivingStatus || showDrivingStatusOnSecondarySurfaces),
+    );
+
+    return {
+        rendersDrivingStatus: Boolean(
+            isRootMapSurface || secondaryDrivingStatusIsVisible,
+        ),
+        secondaryDrivingStatusIsVisible,
+    };
+}
+
+export function getAutoPlayMapButtonAppearanceKey({
+    isDarkMapLayer = false,
+    trackingState,
+}) {
+    const trackingIsHighlighted =
+        trackingState === 'active' || trackingState === 'recenter';
+
+    return `${isDarkMapLayer ? 'dark' : 'light'}:${
+        trackingIsHighlighted ? 'highlighted' : 'inactive'
+    }`;
+}
+
 export function getAutoPlayNavigationPuckRefreshKey({
     isNavigating,
     isRootMapSurface,

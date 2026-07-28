@@ -1,122 +1,54 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import { POLICE_ALERTS_STALE_CHECK_INTERVAL_MS } from './constants';
+import { getStoredNumber } from './geo';
+import { shouldRefreshLocationData } from './location-watch-options';
+import { usePersistentRoadMatchingWatchIsActive } from './use-device-location';
 import {
-    POLICE_ALERTS_REFETCH_DISTANCE_METERS,
-    POLICE_ALERTS_REFRESH_INTERVAL_MS,
-    POLICE_ALERTS_STALE_CHECK_INTERVAL_MS,
-} from './constants';
-import { getCoordinateDistanceMeters, getStoredNumber } from './geo';
-import { getWazePoliceAlerts } from './waze-alerts-api';
-
-const EMPTY_POLICE_ALERTS = Object.freeze([]);
-
-// Module-level store so the phone map and the Android Auto surface share one
-// polling cadence and alert list instead of each fetching the metered Waze
-// alerts API on its own.
-const sharedPoliceAlertsState = {
-    alerts: EMPTY_POLICE_ALERTS,
-    fetchCenter: null,
-    fetchedAt: 0,
-    inFlightPromise: null,
-};
-const policeAlertsListeners = new Set();
-
-function notifyPoliceAlertsListeners() {
-    policeAlertsListeners.forEach((listener) =>
-        listener(sharedPoliceAlertsState.alerts),
-    );
-}
-
-function getPoliceAlertsCenter(location) {
-    const latitude = getStoredNumber(location?.latitude);
-    const longitude = getStoredNumber(location?.longitude);
-
-    if (
-        latitude === null ||
-        longitude === null ||
-        latitude < -90 ||
-        latitude > 90
-    ) {
-        return null;
-    }
-
-    return { latitude, longitude };
-}
-
-function sharedPoliceAlertsAreFresh(center) {
-    const { fetchCenter, fetchedAt } = sharedPoliceAlertsState;
-
-    if (!fetchedAt || !fetchCenter) {
-        return false;
-    }
-
-    if (Date.now() - fetchedAt >= POLICE_ALERTS_REFRESH_INTERVAL_MS) {
-        return false;
-    }
-
-    const distanceMeters = getCoordinateDistanceMeters(
-        [fetchCenter.longitude, fetchCenter.latitude],
-        [center.longitude, center.latitude],
-    );
-
-    return distanceMeters < POLICE_ALERTS_REFETCH_DISTANCE_METERS;
-}
-
-function refreshSharedPoliceAlerts(center) {
-    if (sharedPoliceAlertsState.inFlightPromise) {
-        return sharedPoliceAlertsState.inFlightPromise;
-    }
-
-    sharedPoliceAlertsState.inFlightPromise = (async () => {
-        try {
-            const policeAlerts = await getWazePoliceAlerts({
-                location: center,
-            });
-
-            sharedPoliceAlertsState.alerts = policeAlerts.length
-                ? policeAlerts
-                : EMPTY_POLICE_ALERTS;
-            sharedPoliceAlertsState.fetchCenter = center;
-            sharedPoliceAlertsState.fetchedAt = Date.now();
-            notifyPoliceAlertsListeners();
-        } catch {
-            // Police alerts are a passive overlay; failures already leave an API
-            // breadcrumb and the previous alerts stay on the map until a retry.
-        } finally {
-            sharedPoliceAlertsState.inFlightPromise = null;
-        }
-    })();
-
-    return sharedPoliceAlertsState.inFlightPromise;
-}
+    addWazePoliceAlertsListener,
+    EMPTY_WAZE_POLICE_ALERTS,
+    getSharedWazePoliceAlerts,
+    getWazePoliceAlertsCenter,
+    hydrateWazePoliceAlerts,
+    refreshWazePoliceAlertsIfStale,
+} from './waze-police-alert-store';
 
 export function useWazePoliceAlerts({ policeAlertsAreEnabled, userLocation }) {
+    const persistentRoadMatchingWatchIsActive =
+        usePersistentRoadMatchingWatchIsActive();
     const [policeAlerts, setPoliceAlerts] = useState(
         policeAlertsAreEnabled
-            ? sharedPoliceAlertsState.alerts
-            : EMPTY_POLICE_ALERTS,
+            ? getSharedWazePoliceAlerts()
+            : EMPTY_WAZE_POLICE_ALERTS,
     );
-    const centerRef = useRef(getPoliceAlertsCenter(userLocation));
+    const currentCenter = getWazePoliceAlertsCenter(userLocation);
+    const centerRef = useRef(currentCenter);
     const latitude = getStoredNumber(userLocation?.latitude);
     const longitude = getStoredNumber(userLocation?.longitude);
 
+    centerRef.current = currentCenter;
+
     const refreshPoliceAlertsIfStale = useCallback(() => {
-        if (AppState.currentState !== 'active') {
+        if (
+            !policeAlertsAreEnabled ||
+            !shouldRefreshLocationData({
+                appState: AppState.currentState,
+                persistentRoadMatchingWatchIsActive,
+            })
+        ) {
             return;
         }
 
         const center = centerRef.current;
 
-        if (!center || sharedPoliceAlertsAreFresh(center)) {
+        if (!center) {
             return;
         }
 
-        refreshSharedPoliceAlerts(center);
-    }, []);
+        return refreshWazePoliceAlertsIfStale(center);
+    }, [persistentRoadMatchingWatchIsActive, policeAlertsAreEnabled]);
 
     useEffect(() => {
-        centerRef.current = getPoliceAlertsCenter({ latitude, longitude });
-
         if (policeAlertsAreEnabled) {
             refreshPoliceAlertsIfStale();
         }
@@ -129,13 +61,16 @@ export function useWazePoliceAlerts({ policeAlertsAreEnabled, userLocation }) {
 
     useEffect(() => {
         if (!policeAlertsAreEnabled) {
-            setPoliceAlerts(EMPTY_POLICE_ALERTS);
+            setPoliceAlerts(EMPTY_WAZE_POLICE_ALERTS);
 
             return undefined;
         }
 
-        setPoliceAlerts(sharedPoliceAlertsState.alerts);
-        policeAlertsListeners.add(setPoliceAlerts);
+        setPoliceAlerts(getSharedWazePoliceAlerts());
+        const policeAlertsSubscription =
+            addWazePoliceAlertsListener(setPoliceAlerts);
+
+        void hydrateWazePoliceAlerts();
 
         const intervalId = setInterval(
             refreshPoliceAlertsIfStale,
@@ -153,7 +88,7 @@ export function useWazePoliceAlerts({ policeAlertsAreEnabled, userLocation }) {
         refreshPoliceAlertsIfStale();
 
         return () => {
-            policeAlertsListeners.delete(setPoliceAlerts);
+            policeAlertsSubscription.remove();
             clearInterval(intervalId);
             appStateSubscription.remove();
         };

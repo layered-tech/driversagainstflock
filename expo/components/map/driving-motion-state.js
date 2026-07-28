@@ -95,23 +95,3 @@ export function getDrivingMotionState({
         speed,
     };
 }
-
-export function getLocationWithDrivingMotionState({
-    compassHeading,
-    courseHeading,
-    motionState,
-    nextLocation,
-}) {
-    return {
-        ...nextLocation,
-        ...(motionState.speed !== null ? { speed: motionState.speed } : {}),
-        isMoving: motionState.isMoving,
-        ...(courseHeading !== null
-            ? {
-                  courseHeading,
-                  heading: courseHeading,
-              }
-            : {}),
-        ...(compassHeading !== null ? { compassHeading } : {}),
-    };
-}

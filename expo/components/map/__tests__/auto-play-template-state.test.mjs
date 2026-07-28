@@ -3,7 +3,9 @@ import { describe, test } from 'node:test';
 import {
     autoPlaySearchRequestIsCurrent,
     createAutoPlaySearchCallbackState,
+    getAutoPlayDrivingStatusVisibility,
     getAutoPlayHeaderButtonVisibility,
+    getAutoPlayMapButtonAppearanceKey,
     getAutoPlayMapContentVisibility,
     getAutoPlayNavigationPuckRefreshKey,
     getAutoPlayPrimaryLocationHeaderActionTypes,
@@ -19,6 +21,71 @@ import {
 } from '../../auto-play-template-state.js';
 
 describe('Auto Play template state', () => {
+    test('shows driving status on root and opted-in secondary map surfaces', () => {
+        assert.deepEqual(
+            getAutoPlayDrivingStatusVisibility({
+                isRootMapSurface: true,
+                showDrivingStatus: false,
+                showDrivingStatusOnSecondarySurfaces: false,
+            }),
+            {
+                rendersDrivingStatus: true,
+                secondaryDrivingStatusIsVisible: false,
+            },
+        );
+        assert.deepEqual(
+            getAutoPlayDrivingStatusVisibility({
+                isRootMapSurface: false,
+                showDrivingStatus: false,
+                showDrivingStatusOnSecondarySurfaces: true,
+            }),
+            {
+                rendersDrivingStatus: true,
+                secondaryDrivingStatusIsVisible: true,
+            },
+        );
+        assert.deepEqual(
+            getAutoPlayDrivingStatusVisibility({
+                isRootMapSurface: false,
+                showDrivingStatus: false,
+                showDrivingStatusOnSecondarySurfaces: false,
+            }),
+            {
+                rendersDrivingStatus: false,
+                secondaryDrivingStatusIsVisible: false,
+            },
+        );
+    });
+
+    test('keeps the Android Auto action strip stable while recenter appears', () => {
+        const activeKey = getAutoPlayMapButtonAppearanceKey({
+            isDarkMapLayer: false,
+            trackingState: 'active',
+        });
+
+        assert.equal(
+            getAutoPlayMapButtonAppearanceKey({
+                isDarkMapLayer: false,
+                trackingState: 'recenter',
+            }),
+            activeKey,
+        );
+        assert.notEqual(
+            getAutoPlayMapButtonAppearanceKey({
+                isDarkMapLayer: false,
+                trackingState: 'inactive',
+            }),
+            activeKey,
+        );
+        assert.notEqual(
+            getAutoPlayMapButtonAppearanceKey({
+                isDarkMapLayer: true,
+                trackingState: 'active',
+            }),
+            activeKey,
+        );
+    });
+
     test('shows a destination-specific loading row while search is pending', () => {
         assert.deepEqual(getAutoPlaySearchLoadingCopy('  coffee  '), {
             detailedText: 'Looking for places matching "coffee".',

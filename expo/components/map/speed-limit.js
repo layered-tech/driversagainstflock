@@ -2,10 +2,7 @@ import { useRef } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { mapApiMocksAreEnabled } from './api-mocks';
 import { getSpeedLimitBadgeLayout } from './speed-limit-layout';
-import {
-    getMockCurrentSpeedMps,
-    getMockSpeedLimitSnapshot,
-} from './speed-limit-mock';
+import { getMockCurrentSpeedMps } from './speed-limit-mock';
 
 const METERS_PER_SECOND_TO_MILES_PER_HOUR = 2.2369362920544;
 const SPEED_LIMIT_RETENTION_MS = 3000;
@@ -13,7 +10,7 @@ const SPEED_LIMIT_INK_COLOR = '#11151B';
 const CURRENT_SPEED_OK_COLOR = '#5A6573';
 const CURRENT_SPEED_RING_COLOR = '#828D9B';
 
-function getWholeMphFromMetersPerSecond(speedMps) {
+export function getCurrentSpeedMph(speedMps) {
     const numericSpeed = Number(speedMps);
 
     if (!Number.isFinite(numericSpeed)) {
@@ -28,9 +25,7 @@ function getWholeMphFromMetersPerSecond(speedMps) {
 
 export function useRouteSpeedLimit({ routeIsActive, userLocation }) {
     const cachedSpeedLimitRef = useRef(null);
-    const speedLimit = mapApiMocksAreEnabled()
-        ? getMockSpeedLimitSnapshot()
-        : userLocation?.mapboxNavigation?.speedLimit;
+    const speedLimit = userLocation?.roadMatch?.speedLimit;
     const retainedSpeedLimit = getRetainedRouteSpeedLimit({
         cachedSpeedLimit: cachedSpeedLimitRef.current,
         routeIsActive,
@@ -96,6 +91,7 @@ export function SpeedLimitSign({
     currentSpeedMps,
     currentSpeedPlacement = 'bottom-right',
     currentSpeedVisible = false,
+    currentSpeedWithoutLimitVisible = false,
     isDarkMode = false,
     size = 'md',
     speedLimit,
@@ -103,18 +99,24 @@ export function SpeedLimitSign({
     valueTestID = 'driving-speed-limit-value',
 }) {
     const speedLimitMph = Number(speedLimit?.speedLimitMph);
-    const currentSpeedMph = getWholeMphFromMetersPerSecond(currentSpeedMps);
+    const currentSpeedMph = getCurrentSpeedMph(currentSpeedMps);
     const currentSpeedIsVisible =
         currentSpeedVisible && currentSpeedMph !== null;
+    const speedLimitIsVisible = Number.isFinite(speedLimitMph);
+    const currentSpeedDialIsVisible =
+        currentSpeedIsVisible &&
+        (speedLimitIsVisible || currentSpeedWithoutLimitVisible);
     const currentSpeedOverLimit =
-        currentSpeedIsVisible && currentSpeedMph > Math.round(speedLimitMph);
+        currentSpeedDialIsVisible &&
+        speedLimitIsVisible &&
+        currentSpeedMph > Math.round(speedLimitMph);
     const currentSpeedIsOnRight = currentSpeedPlacement === 'bottom-right';
     const layout = getSpeedLimitBadgeLayout(size, { platform: Platform.OS });
     const markerShadowClassName = isDarkMode
         ? 'shadow-[0px_4px_14px_rgba(0,0,0,0.60)]'
         : 'shadow-[0px_3px_10px_rgba(11,14,18,0.30)]';
 
-    if (!Number.isFinite(speedLimitMph)) {
+    if (!speedLimitIsVisible && !currentSpeedDialIsVisible) {
         return null;
     }
 
@@ -126,51 +128,53 @@ export function SpeedLimitSign({
                 width: layout.containerWidth,
             }}
         >
-            <View
-                accessibilityLabel={`Speed limit ${Math.round(speedLimitMph)} miles per hour`}
-                className={`absolute left-0 top-0 items-center justify-center overflow-hidden bg-white ${markerShadowClassName}`}
-                style={{
-                    borderColor: SPEED_LIMIT_INK_COLOR,
-                    borderRadius: layout.signBorderRadius,
-                    borderWidth: layout.signBorderWidth,
-                    gap: layout.signContentGap,
-                    height: layout.signOuterHeight,
-                    width: layout.signOuterWidth,
-                }}
-                testID={testID}
-            >
-                <Text
-                    allowFontScaling={false}
-                    className="font-dafUi text-center font-extrabold uppercase"
-                    numberOfLines={2}
+            {speedLimitIsVisible ? (
+                <View
+                    accessibilityLabel={`Speed limit ${Math.round(speedLimitMph)} miles per hour`}
+                    className={`absolute left-0 top-0 items-center justify-center overflow-hidden bg-white ${markerShadowClassName}`}
                     style={{
-                        color: SPEED_LIMIT_INK_COLOR,
-                        fontSize: layout.labelFontSize,
-                        includeFontPadding: false,
-                        letterSpacing: layout.labelLetterSpacing,
-                        lineHeight: layout.labelLineHeight,
+                        borderColor: SPEED_LIMIT_INK_COLOR,
+                        borderRadius: layout.signBorderRadius,
+                        borderWidth: layout.signBorderWidth,
+                        gap: layout.signContentGap,
+                        height: layout.signOuterHeight,
+                        width: layout.signOuterWidth,
                     }}
+                    testID={testID}
                 >
-                    Speed{'\n'}Limit
-                </Text>
-                <Text
-                    allowFontScaling={false}
-                    className="font-dafMono text-center font-extrabold"
-                    numberOfLines={1}
-                    style={{
-                        color: SPEED_LIMIT_INK_COLOR,
-                        fontSize: layout.valueFontSize,
-                        fontVariant: ['tabular-nums'],
-                        includeFontPadding: false,
-                        lineHeight: layout.valueLineHeight,
-                    }}
-                    testID={valueTestID}
-                >
-                    {Math.round(speedLimitMph)}
-                </Text>
-            </View>
+                    <Text
+                        allowFontScaling={false}
+                        className="font-dafUi text-center font-extrabold uppercase"
+                        numberOfLines={2}
+                        style={{
+                            color: SPEED_LIMIT_INK_COLOR,
+                            fontSize: layout.labelFontSize,
+                            includeFontPadding: false,
+                            letterSpacing: layout.labelLetterSpacing,
+                            lineHeight: layout.labelLineHeight,
+                        }}
+                    >
+                        Speed{'\n'}Limit
+                    </Text>
+                    <Text
+                        allowFontScaling={false}
+                        className="font-dafMono text-center font-extrabold"
+                        numberOfLines={1}
+                        style={{
+                            color: SPEED_LIMIT_INK_COLOR,
+                            fontSize: layout.valueFontSize,
+                            fontVariant: ['tabular-nums'],
+                            includeFontPadding: false,
+                            lineHeight: layout.valueLineHeight,
+                        }}
+                        testID={valueTestID}
+                    >
+                        {Math.round(speedLimitMph)}
+                    </Text>
+                </View>
+            ) : null}
 
-            {currentSpeedIsVisible ? (
+            {currentSpeedDialIsVisible ? (
                 <View
                     accessibilityLabel={`Current speed ${currentSpeedMph} miles per hour`}
                     className={`absolute bottom-0 items-center justify-center bg-white ${markerShadowClassName}`}
