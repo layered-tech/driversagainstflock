@@ -41,6 +41,7 @@ private const val CAMERA_FOLLOW_TRANSITION_TIMEOUT_MS = 1_000L
 private const val LOCATION_PUCK_DEFAULT_ANIMATION_DURATION_MS = 1_000L
 private const val LOCATION_PUCK_MINIMUM_ANIMATION_DURATION_MS = 250L
 private const val LOCATION_PUCK_MAXIMUM_ANIMATION_DURATION_MS = 1_200L
+private const val LOCATION_PUCK_STALE_SNAP_THRESHOLD_MS = 3_000.0
 private const val LOCATION_PUCK_MODEL_ASSET = "navigation_puck.glb"
 private const val LOCATION_PUCK_MODEL_URI = "asset://navigation_puck.glb"
 private const val LOCATION_PUCK_MODEL_LAYER = "mapbox-location-model-layer"
@@ -89,6 +90,8 @@ private class SharedLocationPuckProvider : LocationProvider {
             lastPoint == null -> 0L
             recordedAt == null || previousRecordedAt == null ->
                 LOCATION_PUCK_DEFAULT_ANIMATION_DURATION_MS
+            // Snap after a stale backlog (e.g. frozen renderer recovery) instead of gliding to catch up.
+            recordedAt - previousRecordedAt > LOCATION_PUCK_STALE_SNAP_THRESHOLD_MS -> 0L
             else -> (recordedAt - previousRecordedAt)
                 .toLong()
                 .coerceIn(

@@ -324,13 +324,30 @@ describe('road matching location source policy', () => {
         );
     });
 
-    test('uses the car foreground owner instead of arming a second background service', () => {
+    test('keeps the persistent foreground service armed for a connected Android car owner', () => {
         assert.deepEqual(
             getRoadMatchingLocationSourcePolicy({
                 activeRetainerCount: 1,
                 appState: 'active',
                 automotiveLocationOwnerIsActive: true,
                 persistentRetainerCount: 1,
+                platformOS: 'android',
+            }),
+            {
+                backgroundTaskIsNeeded: true,
+                foregroundWatchIsNeeded: true,
+            },
+        );
+    });
+
+    test('uses the visible CarPlay scene instead of arming a second background service on iOS', () => {
+        assert.deepEqual(
+            getRoadMatchingLocationSourcePolicy({
+                activeRetainerCount: 1,
+                appState: 'active',
+                automotiveLocationOwnerIsActive: true,
+                persistentRetainerCount: 1,
+                platformOS: 'ios',
             }),
             {
                 backgroundTaskIsNeeded: false,
@@ -357,6 +374,17 @@ describe('road matching location source policy', () => {
         assert.equal(
             shouldPublishBackgroundRoadMatchingLocation({
                 appState: 'background',
+                foregroundLocationSourceIsActive: true,
+            }),
+            true,
+        );
+    });
+
+    test('accepts background batches for a car owner even while foreground is active', () => {
+        assert.equal(
+            shouldPublishBackgroundRoadMatchingLocation({
+                appState: 'active',
+                automotiveLocationOwnerIsActive: true,
                 foregroundLocationSourceIsActive: true,
             }),
             true,
@@ -447,6 +475,7 @@ describe('road matching location source integration', () => {
 
         harness.transitionAppState('background');
         harness.transitionAutoPlayConnection(true);
+        harness.backgroundTaskStart.resolve();
         const sessionHandle =
             await harness.roadMatchingSession.retainRoadMatchingSessionAsync({
                 persistent: true,
@@ -460,7 +489,11 @@ describe('road matching location source integration', () => {
                     .lastRawCoordinate !== null,
         );
 
-        assert.equal(harness.calls.backgroundStarts, 0);
+        // The while-in-use permission means only the location foreground
+        // service keeps GPS alive once the phone locks, so the connected car
+        // owner arms it alongside the foreground watch instead of skipping it.
+        await waitFor(() => harness.backgroundTaskIsStarted);
+        assert.equal(harness.calls.backgroundStarts, 1);
         assert.deepEqual(
             harness.roadMatchingSession.getRoadMatchingSessionDiagnostics()
                 .lastRawCoordinate,
@@ -470,7 +503,7 @@ describe('road matching location source integration', () => {
         sessionHandle.remove();
     });
 
-    test('hands an armed background task over to a newly connected car owner', async () => {
+    test('keeps an armed background task running for a newly connected car owner', async () => {
         const harness = createRoadMatchingSessionHarness();
         const sessionHandle =
             await harness.roadMatchingSession.retainRoadMatchingSessionAsync({
@@ -484,17 +517,112 @@ describe('road matching location source integration', () => {
         harness.transitionAppState('background');
         harness.transitionAutoPlayConnection(true);
 
-        await waitFor(
-            () =>
-                harness.calls.backgroundStops === 1 &&
-                harness.foregroundLocationCallbacks.length === 2,
-        );
+        await waitFor(() => harness.foregroundLocationCallbacks.length === 2);
 
-        assert.equal(harness.backgroundTaskIsStarted, false);
+        assert.equal(harness.calls.backgroundStops, 0);
+        assert.equal(harness.calls.backgroundStarts, 1);
+        assert.equal(harness.backgroundTaskIsStarted, true);
         assert.equal(
             harness.roadMatchingSession.getRoadMatchingSessionDiagnostics()
                 .source,
             'expo-foreground-location-watch',
+        );
+
+        sessionHandle.remove();
+    });
+
+    test('publishes background-task fixes while the car owns foreground location', async () => {
+        const harness = createRoadMatchingSessionHarness();
+        const sessionHandle =
+            await harness.roadMatchingSession.retainRoadMatchingSessionAsync({
+                persistent: true,
+            });
+
+        harness.backgroundTaskStart.resolve();
+        await waitFor(
+            () =>
+                harness.backgroundTaskIsStarted &&
+                harness.foregroundLocationCallbacks.length === 1,
+        );
+        harness.transitionAutoPlayConnection(true);
+
+        await harness.backgroundLocationTask.callback({
+            data: {
+                locations: [makeLocation(41, -87, 100)],
+            },
+            error: null,
+        });
+
+        const diagnostics =
+            harness.roadMatchingSession.getRoadMatchingSessionDiagnostics();
+
+        assert.deepEqual(diagnostics.lastRawCoordinate, [-87, 41]);
+        assert.equal(
+            diagnostics.lastUpdateSource,
+            'expo-background-location-task',
+        );
+
+        sessionHandle.remove();
+    });
+
+    test('drops fixes that are not strictly newer while both car sources deliver', async () => {
+        const harness = createRoadMatchingSessionHarness();
+        const sessionHandle =
+            await harness.roadMatchingSession.retainRoadMatchingSessionAsync({
+                persistent: true,
+            });
+
+        harness.backgroundTaskStart.resolve();
+        await waitFor(
+            () =>
+                harness.backgroundTaskIsStarted &&
+                harness.foregroundLocationCallbacks.length === 1,
+        );
+        harness.transitionAutoPlayConnection(true);
+
+        harness.foregroundLocationCallbacks[0](makeLocation(41, -87, 100));
+        await waitFor(
+            () =>
+                harness.roadMatchingSession.getRoadMatchingSessionDiagnostics()
+                    .lastRawCoordinate !== null,
+        );
+
+        // The same fused-provider fix arriving through the background task is
+        // a duplicate, not fresher data, and must not publish twice.
+        await harness.backgroundLocationTask.callback({
+            data: {
+                locations: [makeLocation(40.9, -87.1, 100)],
+            },
+            error: null,
+        });
+
+        assert.deepEqual(
+            harness.roadMatchingSession.getRoadMatchingSessionDiagnostics()
+                .lastRawCoordinate,
+            [-87, 41],
+        );
+        assert.equal(
+            harness.roadMatchingSession.getRoadMatchingSessionDiagnostics()
+                .lastUpdateSource,
+            'expo-foreground-location-watch',
+        );
+
+        await harness.backgroundLocationTask.callback({
+            data: {
+                locations: [makeLocation(41.1, -86.9, 200)],
+            },
+            error: null,
+        });
+
+        assert.deepEqual(
+            harness.roadMatchingSession.getRoadMatchingSessionDiagnostics()
+                .lastRawCoordinate,
+            [-86.9, 41.1],
+        );
+        assert.equal(
+            harness.roadMatchingSession.getRoadMatchingSessionDiagnostics()
+                .lastUpdateSource,
+            'expo-background-location-task',
         );
 
         sessionHandle.remove();

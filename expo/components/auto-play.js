@@ -1268,10 +1268,13 @@ function openSearchTemplate(
             }
 
             dismissSearch();
-            setAutoPlayState({
-                errorText: error?.message || 'Search could not be opened.',
-                statusLabel: 'Search error',
+            logAutoPlayPlatformAction('search-template-push-failed', {
+                message: error?.message || 'Unknown error',
             });
+            showAutoPlayError(
+                'Search unavailable',
+                error?.message || 'Search could not be opened.',
+            );
         });
 
     return {
@@ -2586,6 +2589,8 @@ function getRootMapButtons() {
     return cachedRootMapButtons;
 }
 
+let lastDeferredSharedNavigationStartKey = null;
+
 function syncAutoPlayNavigationFromSharedRoutingState(
     routingState = getSharedRoutingState(),
 ) {
@@ -2599,6 +2604,30 @@ function syncAutoPlayNavigationFromSharedRoutingState(
         rootMapTemplateIsReady,
         routingState,
     });
+
+    if (
+        !rootMapTemplateIsReady &&
+        routingState?.drivingModeIsActive &&
+        routingState?.directionsRoute
+    ) {
+        // The shared state wants navigation but the root template has not
+        // finished settling, so the start is silently deferred. Record each
+        // distinct deferred route once instead of on every publish.
+        const deferredStartKey = getDirectionsRouteSyncKey(
+            routingState.directionsRoute,
+        );
+
+        if (deferredStartKey !== lastDeferredSharedNavigationStartKey) {
+            lastDeferredSharedNavigationStartKey = deferredStartKey;
+            logAutoPlayPlatformAction('shared-navigation-start-deferred', {
+                routeKey: deferredStartKey,
+            });
+        }
+
+        return;
+    }
+
+    lastDeferredSharedNavigationStartKey = null;
 
     if (navigationAction.action === 'start') {
         startAutoPlayNavigation(navigationAction.route, {
@@ -2820,6 +2849,12 @@ const handleRootHeaderSearchPress = () => {
 const handleRootHeaderVoiceSearchPress = () => {
     if (
         autoPlayPlatform?.startSearchVoiceInput?.({
+            onCancelled: () => {
+                showAutoPlayError(
+                    'Voice search cancelled',
+                    'Voice search ended without a destination. Tap the microphone to try again, or Search to use the keyboard.',
+                );
+            },
             onFallback: () => {
                 openSearchTemplate();
             },
@@ -3244,20 +3279,34 @@ function handleVoiceNavigationWhenReady(
         return;
     }
 
+    const connectionGeneration = autoPlayConnectionGeneration;
+    const mapTemplate = rootMapTemplate;
+
     handleVoiceNavigation(
         coordinates,
         query,
         requestType,
-        autoPlayConnectionGeneration,
-        rootMapTemplate,
+        connectionGeneration,
+        mapTemplate,
         requestGeneration,
     ).catch((error) => {
-        if (typeof __DEV__ !== 'undefined' && __DEV__) {
-            console.warn('Android Auto voice request failed.', {
-                message: error?.message || 'Unknown error',
+        logAutoPlayPlatformAction('voice-request-failed', {
+            message: error?.message || 'Unknown error',
+            requestGeneration,
+            requestType: requestType ?? null,
+        });
+
+        if (
+            autoPlayVoiceRequestIsCurrent(
+                connectionGeneration,
+                mapTemplate,
                 requestGeneration,
-                requestType,
-            });
+            )
+        ) {
+            showAutoPlayError(
+                'Voice search unavailable',
+                error?.message || 'Voice search failed.',
+            );
         }
     });
 }
@@ -3278,6 +3327,9 @@ function replayPendingVoiceNavigation() {
     );
 }
 
+const ROOT_TEMPLATE_SETUP_TIMEOUT_MS = 10000;
+const ROOT_TEMPLATE_SETUP_RETRY_DELAYS_MS = [1000, 2000, 4000];
+
 async function handleAutoPlayConnect() {
     const connectionGeneration = ++autoPlayConnectionGeneration;
     const routingStateHydration = hydrateSharedRoutingStateAsync();
@@ -3286,6 +3338,7 @@ async function handleAutoPlayConnect() {
     setAutoPlaySessionConnected(true);
 
     rootMapTemplateIsReady = false;
+    lastDeferredSharedNavigationStartKey = null;
     rootMapPanningInterfaceIsVisible = false;
     rootMapButtonsRefreshIsDeferred = false;
     rootMapHeaderActionsRefreshIsDeferred = false;
@@ -3347,37 +3400,70 @@ async function handleAutoPlayConnect() {
         return;
     }
 
-    mapTemplate
-        .setRootTemplate()
-        .then(async () => {
-            await routingStateHydration;
+    // If setRootTemplate rejects or never settles, rootMapTemplateIsReady
+    // stays false and every phone-initiated start is dropped for the rest of
+    // the session, so treat a stalled push as a failure and retry with
+    // backoff. Each attempt is token-gated so a timed-out attempt settling
+    // late cannot race a newer one.
+    let currentRootTemplateSetupAttempt = 0;
+    const rootTemplateSetupIsCurrent = (attemptNumber) =>
+        connectionGeneration === autoPlayConnectionGeneration &&
+        rootMapTemplate === mapTemplate &&
+        attemptNumber === currentRootTemplateSetupAttempt;
+    const setupRootTemplate = (attemptNumber) => {
+        currentRootTemplateSetupAttempt = attemptNumber;
 
-            if (
-                connectionGeneration !== autoPlayConnectionGeneration ||
-                rootMapTemplate !== mapTemplate
-            ) {
-                return;
-            }
+        withTimeout(
+            Promise.resolve().then(() => mapTemplate.setRootTemplate()),
+            ROOT_TEMPLATE_SETUP_TIMEOUT_MS,
+            'The car screen root template did not respond in time.',
+        )
+            .then(async () => {
+                await routingStateHydration;
 
-            rootMapTemplateIsReady = true;
-            updateRootTemplateHeaderActions();
-            syncAutoPlayNavigationFromSharedRoutingState();
-            replayPendingVoiceNavigation();
-        })
-        .catch((error) => {
-            if (
-                connectionGeneration !== autoPlayConnectionGeneration ||
-                rootMapTemplate !== mapTemplate
-            ) {
-                return;
-            }
+                if (!rootTemplateSetupIsCurrent(attemptNumber)) {
+                    return;
+                }
 
-            setAutoPlayState({
-                errorText:
+                rootMapTemplateIsReady = true;
+                updateRootTemplateHeaderActions();
+                syncAutoPlayNavigationFromSharedRoutingState();
+                replayPendingVoiceNavigation();
+            })
+            .catch((error) => {
+                if (!rootTemplateSetupIsCurrent(attemptNumber)) {
+                    return;
+                }
+
+                logAutoPlayPlatformAction('root-template-setup-failed', {
+                    attempt: attemptNumber,
+                    message: error?.message || 'Unknown error',
+                });
+
+                if (
+                    attemptNumber <= ROOT_TEMPLATE_SETUP_RETRY_DELAYS_MS.length
+                ) {
+                    setTimeout(
+                        () => {
+                            if (!rootTemplateSetupIsCurrent(attemptNumber)) {
+                                return;
+                            }
+
+                            setupRootTemplate(attemptNumber + 1);
+                        },
+                        ROOT_TEMPLATE_SETUP_RETRY_DELAYS_MS[attemptNumber - 1],
+                    );
+                    return;
+                }
+
+                showAutoPlayError(
+                    'Car screen unavailable',
                     error?.message || 'The car screen could not be started.',
-                statusLabel: 'Connection error',
+                );
             });
-        });
+    };
+
+    setupRootTemplate(1);
 }
 
 function handleAutoPlayDisconnect() {
@@ -3387,6 +3473,7 @@ function handleAutoPlayDisconnect() {
     autoPlayPlatform?.cancelSearchVoiceInput?.();
     rootMapTemplate = null;
     rootMapTemplateIsReady = false;
+    lastDeferredSharedNavigationStartKey = null;
     rootMapPanningInterfaceIsVisible = false;
     rootMapButtonsRefreshIsDeferred = false;
     rootMapHeaderActionsRefreshIsDeferred = false;

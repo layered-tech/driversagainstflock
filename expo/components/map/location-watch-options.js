@@ -59,23 +59,35 @@ export function getRoadMatchingLocationSourcePolicy({
     appState,
     automotiveLocationOwnerIsActive = false,
     persistentRetainerCount,
+    platformOS,
 }) {
     const sessionIsRetained = activeRetainerCount > 0;
+    // Android holds only while-in-use location permission, so a connected car
+    // session must keep the location foreground service running or the OS
+    // stops GPS delivery once the phone locks. iOS CarPlay keeps the app
+    // foreground while its scene is visible, so ownership replaces the task.
+    const automotiveOwnerReplacesBackgroundTask =
+        automotiveLocationOwnerIsActive && platformOS !== 'android';
 
     return {
         backgroundTaskIsNeeded:
             sessionIsRetained &&
             persistentRetainerCount > 0 &&
-            !automotiveLocationOwnerIsActive,
+            !automotiveOwnerReplacesBackgroundTask,
         foregroundWatchIsNeeded: sessionIsRetained && appState === 'active',
     };
 }
 
 export function shouldPublishBackgroundRoadMatchingLocation({
     appState,
+    automotiveLocationOwnerIsActive = false,
     foregroundLocationSourceIsActive,
 }) {
-    return appState !== 'active' || foregroundLocationSourceIsActive !== true;
+    return (
+        automotiveLocationOwnerIsActive === true ||
+        appState !== 'active' ||
+        foregroundLocationSourceIsActive !== true
+    );
 }
 
 export function shouldAcceptLocationUpdate({

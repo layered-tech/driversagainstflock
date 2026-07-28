@@ -394,11 +394,13 @@ async function publishRawLocationAsync(
 
     const currentAppState = AppState.currentState ?? 'unknown';
     const operationalAppState = getOperationalAppState(currentAppState);
+    const automotiveOwnerIsActive = automotiveLocationOwnerIsActive();
 
     if (
         source === BACKGROUND_LOCATION_SOURCE &&
         !shouldPublishBackgroundRoadMatchingLocation({
             appState: operationalAppState,
+            automotiveLocationOwnerIsActive: automotiveOwnerIsActive,
             foregroundLocationSourceIsActive:
                 foregroundLocationSourceIsActive(),
         })
@@ -408,10 +410,14 @@ async function publishRawLocationAsync(
 
     const recordedAt = getLocationUpdateRecordedAt(location);
 
+    // Both sources run together for a connected car and draw from the same
+    // fused provider, so a fix that is not strictly newer is a duplicate.
     if (
         recordedAt !== null &&
         lastRawLocationRecordedAt !== null &&
-        recordedAt < lastRawLocationRecordedAt
+        (automotiveOwnerIsActive
+            ? recordedAt <= lastRawLocationRecordedAt
+            : recordedAt < lastRawLocationRecordedAt)
     ) {
         return;
     }
@@ -773,7 +779,14 @@ async function startBackgroundLocationTask(expectedGeneration) {
         setSessionStateToObservingIfAwaitingLocation();
 
         return true;
-    } catch {
+    } catch (error) {
+        // Android refuses to start a location foreground service while the
+        // app is backgrounded (ForegroundServiceStartNotAllowedException);
+        // the scheduled retry keeps trying until the start is allowed again.
+        console.warn(
+            'Road matching background location task failed to start.',
+            error,
+        );
         setSessionState('location-error');
         scheduleLocationSourceRetry();
         return false;
@@ -865,6 +878,7 @@ async function reconcileLocationSource(expectedGeneration) {
         appState: getOperationalAppState(),
         automotiveLocationOwnerIsActive: automotiveLocationOwnerIsActive(),
         persistentRetainerCount: activePersistentRetainerCount,
+        platformOS: Platform.OS,
     });
 
     if (activeRetainerCount === 0) {

@@ -87,6 +87,10 @@ module.exports = {
         infoPlist: {
             ITSAppUsesNonExemptEncryption: false,
             MGLMapboxMetricsEnabledSettingShownInApp: true,
+            // CarPlay voice capture and navigation voice prompts must keep
+            // running while the phone is locked. 'fetch' and 'location' are
+            // appended by the expo-task-manager and expo-location plugins.
+            UIBackgroundModes: ['audio'],
         },
         bundleIdentifier: applicationId,
         googleServicesFile: iosGoogleServicesFile,

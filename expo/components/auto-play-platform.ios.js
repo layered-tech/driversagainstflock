@@ -19,6 +19,13 @@ function applyDashboardButtons(CarPlayDashboard, makeGlyphImage) {
 // CarPlay extension of the platform-agnostic auto-play core.
 export const autoPlayPlatform = {
     MapSurface: CarPlayMapSurface,
+    logAction(action, payload = {}) {
+        if (typeof __DEV__ === 'undefined' || !__DEV__) {
+            return;
+        }
+
+        console.log(`[CarPlay] ${action}`, payload);
+    },
     presentsVoiceSearchResultsInList: true,
     publishesSearchTemplateResultsToMap: true,
     supportsSearchAutocomplete: false,

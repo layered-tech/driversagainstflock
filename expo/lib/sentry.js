@@ -14,6 +14,7 @@ const APP_VERSION =
 const NATIVE_BUILD_VERSION = Constants.nativeBuildVersion ?? 'unknown';
 const API_BASE_URL = getApiBaseURL();
 const ANDROID_AUTO_METRO_LOG_PREFIX = '[Android Auto]';
+const CARPLAY_METRO_LOG_PREFIX = '[CarPlay]';
 
 export const SENTRY_IS_ENABLED =
     Boolean(SENTRY_DSN) &&
@@ -77,7 +78,9 @@ function beforeBreadcrumb(breadcrumb) {
 
     if (
         firstArgument.startsWith(ANDROID_AUTO_METRO_LOG_PREFIX) ||
-        message.startsWith(ANDROID_AUTO_METRO_LOG_PREFIX)
+        message.startsWith(ANDROID_AUTO_METRO_LOG_PREFIX) ||
+        firstArgument.startsWith(CARPLAY_METRO_LOG_PREFIX) ||
+        message.startsWith(CARPLAY_METRO_LOG_PREFIX)
     ) {
         return null;
     }

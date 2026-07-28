@@ -93,6 +93,29 @@ test('phone Activity teardown cannot stop an active Android Auto session', () =>
     assert.doesNotMatch(androidAutoServiceSource, /stopSelf\(\)/);
 });
 
+test('Android Auto holds a CPU-only wake lock for the root car session', () => {
+    assert.match(
+        sessionLifecycleObserver[0],
+        /override fun onCreate[\s\S]*?acquireSessionWakeLock\(\)/,
+    );
+    assert.match(
+        sessionLifecycleObserver[0],
+        /override fun onDestroy[\s\S]*?releaseSessionWakeLock\(\)/,
+    );
+    assert.match(
+        androidAutoServiceSource,
+        /newWakeLock\([\s\S]*?PowerManager\.PARTIAL_WAKE_LOCK/,
+    );
+    assert.doesNotMatch(
+        androidAutoServiceSource,
+        /SCREEN_(?:BRIGHT|DIM)_WAKE_LOCK|FULL_WAKE_LOCK|ON_AFTER_RELEASE/,
+    );
+    assert.match(
+        androidAutoServiceSource,
+        /override fun onDestroy\(\)[\s\S]*?releaseSessionWakeLock\(\)/,
+    );
+});
+
 test('the tracked AutoPlay patch preserves car-session foreground ownership', () => {
     assert.notEqual(androidAutoServicePatchStart, -1);
     assert.notEqual(mapTemplatePatchStart, -1);
@@ -109,5 +132,13 @@ test('the tracked AutoPlay patch preserves car-session foreground ownership', ()
     assert.match(
         mapTemplatePatch,
         /-\s*AndroidAutoService\.instance\?\.stopForeground\(Service\.STOP_FOREGROUND_REMOVE\)/,
+    );
+    assert.match(
+        androidAutoServicePatch,
+        /\+.*PowerManager\.PARTIAL_WAKE_LOCK/,
+    );
+    assert.doesNotMatch(
+        androidAutoServicePatch,
+        /\+.*SCREEN_(?:BRIGHT|DIM)_WAKE_LOCK|\+.*FULL_WAKE_LOCK/,
     );
 });

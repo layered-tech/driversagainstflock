@@ -278,6 +278,10 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(
             mapLocationPuckAndroidSource,
+            /LOCATION_PUCK_STALE_SNAP_THRESHOLD_MS = 3_000\.0[\s\S]*?recordedAt - previousRecordedAt > LOCATION_PUCK_STALE_SNAP_THRESHOLD_MS -> 0L/,
+        );
+        assert.match(
+            mapLocationPuckAndroidSource,
             /viewportOwnsCameraFollowState[\s\S]*?is ViewportStatus\.State[\s\S]*?is ViewportStatus\.Transition/,
         );
         assert.match(mapLocationPuckIOSSource, /Puck3DConfiguration\(/);

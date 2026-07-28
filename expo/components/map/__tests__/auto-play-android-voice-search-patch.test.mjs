@@ -10,6 +10,10 @@ const androidPlatformSource = readFileSync(
     new URL('../../auto-play-platform.android.js', import.meta.url),
     'utf8',
 );
+const iosPlatformSource = readFileSync(
+    new URL('../../auto-play-platform.ios.js', import.meta.url),
+    'utf8',
+);
 const sentrySource = readFileSync(
     new URL('../../../lib/sentry.js', import.meta.url),
     'utf8',
@@ -360,6 +364,45 @@ test('Android Auto logs incoming actions and decisions to Metro in development',
         /function beforeBreadcrumb[\s\S]*?category !== 'console'[\s\S]*?startsWith\(ANDROID_AUTO_METRO_LOG_PREFIX\)[\s\S]*?return null/,
     );
     assert.match(sentrySource, /beforeBreadcrumb,\s*beforeSend,/);
+});
+
+test('CarPlay logs deferred navigation diagnostics without sending query breadcrumbs', () => {
+    assert.match(
+        iosPlatformSource,
+        /logAction\(action, payload = \{\}\)[\s\S]*?typeof __DEV__ === 'undefined' \|\| !__DEV__[\s\S]*?console\.log\(`\[CarPlay\] \$\{action\}`, payload\)/,
+    );
+    assert.match(
+        sentrySource,
+        /CARPLAY_METRO_LOG_PREFIX = '\[CarPlay\]'[\s\S]*?firstArgument\.startsWith\(CARPLAY_METRO_LOG_PREFIX\)[\s\S]*?message\.startsWith\(CARPLAY_METRO_LOG_PREFIX\)/,
+    );
+});
+
+test('car root setup retries stalls before replaying deferred work', () => {
+    assert.match(
+        autoPlaySource,
+        /ROOT_TEMPLATE_SETUP_TIMEOUT_MS = 10000[\s\S]*?ROOT_TEMPLATE_SETUP_RETRY_DELAYS_MS = \[1000, 2000, 4000\]/,
+    );
+    assert.match(
+        autoPlaySource,
+        /Promise\.resolve\(\)\.then\(\(\) => mapTemplate\.setRootTemplate\(\)\)[\s\S]*?root-template-setup-failed[\s\S]*?setupRootTemplate\(attemptNumber \+ 1\)/,
+    );
+    assert.match(
+        autoPlaySource,
+        /rootMapTemplateIsReady = true;[\s\S]*?syncAutoPlayNavigationFromSharedRoutingState\(\);[\s\S]*?replayPendingVoiceNavigation\(\)/,
+    );
+    assert.match(
+        autoPlaySource,
+        /Car screen unavailable[\s\S]*?The car screen could not be started\./,
+    );
+    assert.match(autoPlaySource, /shared-navigation-start-deferred/);
+    assert.match(
+        autoPlaySource,
+        /function handleAutoPlayConnect[\s\S]*?lastDeferredSharedNavigationStartKey = null/,
+    );
+    assert.match(
+        autoPlaySource,
+        /function handleAutoPlayDisconnect[\s\S]*?lastDeferredSharedNavigationStartKey = null/,
+    );
 });
 
 test('the dependency patch contains only source changes', () => {
