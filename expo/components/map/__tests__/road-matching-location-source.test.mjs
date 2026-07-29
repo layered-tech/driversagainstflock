@@ -95,11 +95,17 @@ function createRoadMatchingSessionHarness({
     createRoadMatcherWithHistory = () => null,
     getRoadCoordinateDistanceMeters = () => 0,
     getRoadCorridor = async () => [],
+    predictRoadLookAhead = () => null,
+    routingState = {
+        directionsRoute: null,
+        drivingModeIsActive: false,
+    },
     settleBackgroundWorkWithinDeadlineAsync = async (work) => work,
 } = {}) {
     const backgroundTaskStart = createDeferred();
     const appStateListeners = new Set();
     const autoPlaySessionStateListeners = new Set();
+    const sharedRoutingStateListeners = new Set();
     const foregroundLocationCallbacks = [];
     const roadCorridorRequests = [];
     const calls = {
@@ -108,10 +114,12 @@ function createRoadMatchingSessionHarness({
         backgroundStops: 0,
         foregroundRemovals: 0,
         hasStartedChecks: 0,
+        performanceSignposts: [],
     };
     let backgroundTaskIsStarted = false;
     let backgroundLocationTask = null;
     let autoPlaySessionIsConnected = false;
+    let currentRoutingState = routingState;
     const AppState = {
         currentState: 'active',
         addEventListener(event, listener) {
@@ -205,12 +213,41 @@ function createRoadMatchingSessionHarness({
             getRoadMatchingLocationSourcePolicy,
             shouldPublishBackgroundRoadMatchingLocation,
         },
+        './map-performance-signposts': {
+            beginMapPerformanceSignpost(operation, metadata) {
+                const identifier = calls.performanceSignposts.length + 1;
+
+                calls.performanceSignposts.push({
+                    identifier,
+                    kind: 'begin',
+                    metadata,
+                    operation,
+                });
+
+                return identifier;
+            },
+            endMapPerformanceSignpost(operation, identifier, metadata) {
+                calls.performanceSignposts.push({
+                    identifier,
+                    kind: 'end',
+                    metadata,
+                    operation,
+                });
+            },
+            recordMapPerformanceSignpost(operation, metadata) {
+                calls.performanceSignposts.push({
+                    kind: 'event',
+                    metadata,
+                    operation,
+                });
+            },
+        },
         './road-graph': {
             createDirectedRoadGraph,
             getRoadCoordinateDistanceMeters,
         },
         './road-look-ahead': {
-            predictRoadLookAhead: () => null,
+            predictRoadLookAhead,
         },
         './road-matching-history': {
             appendRoadMatchingObservation: (history, location) => [
@@ -218,6 +255,24 @@ function createRoadMatchingSessionHarness({
                 location,
             ],
             createRoadMatcherWithHistory,
+            getRoadMatchingReplayObservations: (observations) =>
+                observations.filter(Boolean).slice(-4),
+        },
+        './shared-routing-state': {
+            addSharedRoutingStateListener(listener) {
+                sharedRoutingStateListeners.add(listener);
+                listener(currentRoutingState);
+
+                return () => {
+                    sharedRoutingStateListeners.delete(listener);
+                };
+            },
+            getSharedRoutingState() {
+                return currentRoutingState;
+            },
+        },
+        '../android-auto-performance-trace': {
+            recordAndroidAutoPerformanceTrace() {},
         },
         'expo-location': Location,
         'expo-task-manager': taskManager,
@@ -257,6 +312,12 @@ function createRoadMatchingSessionHarness({
         },
         roadCorridorRequests,
         roadMatchingSession: module.exports,
+        setRoutingState(nextRoutingState) {
+            currentRoutingState = nextRoutingState;
+            sharedRoutingStateListeners.forEach((listener) =>
+                listener(nextRoutingState),
+            );
+        },
         transitionAppState(nextState) {
             AppState.currentState = nextState;
             appStateListeners.forEach((listener) => listener(nextState));
@@ -661,6 +722,76 @@ describe('road matching location source integration', () => {
         );
     });
 
+    test('does not calculate an electronic horizon while following a route', async () => {
+        let lookAheadPredictionCount = 0;
+        const harness = createRoadMatchingSessionHarness({
+            createDirectedRoadGraph: createUsableRoadGraph,
+            createRoadMatcherWithHistory: createUpdatingRoadMatcher,
+            getRoadCorridor: async () => [{ id: 'way-1' }],
+            predictRoadLookAhead() {
+                lookAheadPredictionCount += 1;
+
+                return { primaryPath: { segments: [] } };
+            },
+            routingState: {
+                directionsRoute: { id: 'active-route' },
+                drivingModeIsActive: true,
+            },
+        });
+        const sessionHandle =
+            await harness.roadMatchingSession.retainRoadMatchingSessionAsync();
+
+        await waitFor(() => harness.foregroundLocationCallbacks.length === 1);
+        harness.foregroundLocationCallbacks[0](makeLocation(41, -87, 100));
+        await waitFor(
+            () =>
+                harness.roadMatchingSession.getRoadMatchingSessionDiagnostics()
+                    .state === 'matched',
+        );
+
+        assert.equal(lookAheadPredictionCount, 0);
+
+        sessionHandle.remove();
+    });
+
+    test('resumes electronic horizon calculation after route guidance stops', async () => {
+        let lookAheadPredictionCount = 0;
+        const harness = createRoadMatchingSessionHarness({
+            createDirectedRoadGraph: createUsableRoadGraph,
+            createRoadMatcherWithHistory: createUpdatingRoadMatcher,
+            getRoadCorridor: async () => [{ id: 'way-1' }],
+            predictRoadLookAhead() {
+                lookAheadPredictionCount += 1;
+
+                return { primaryPath: { segments: [] } };
+            },
+            routingState: {
+                directionsRoute: { id: 'active-route' },
+                drivingModeIsActive: true,
+            },
+        });
+        const sessionHandle =
+            await harness.roadMatchingSession.retainRoadMatchingSessionAsync();
+
+        await waitFor(() => harness.foregroundLocationCallbacks.length === 1);
+        harness.foregroundLocationCallbacks[0](makeLocation(41, -87, 100));
+        await waitFor(
+            () =>
+                harness.roadMatchingSession.getRoadMatchingSessionDiagnostics()
+                    .state === 'matched',
+        );
+        harness.setRoutingState({
+            directionsRoute: null,
+            drivingModeIsActive: false,
+        });
+        harness.foregroundLocationCallbacks[0](
+            makeLocation(41.001, -87.001, 200),
+        );
+        await waitFor(() => lookAheadPredictionCount === 1);
+
+        sessionHandle.remove();
+    });
+
     test('rejects a late fix from a removed watcher before mutating matcher state', async () => {
         let matcherUpdateCount = 0;
         const harness = createRoadMatchingSessionHarness({
@@ -713,6 +844,55 @@ describe('road matching location source integration', () => {
         assert.equal(matcherUpdateCount, updateCountBeforeLateFix);
 
         sessionHandle.remove();
+    });
+
+    test('closes an in-flight graph request signpost when the session aborts it', async () => {
+        const corridorRequest = createDeferred();
+        const harness = createRoadMatchingSessionHarness({
+            getRoadCorridor: () => corridorRequest.promise,
+        });
+        const sessionHandle =
+            await harness.roadMatchingSession.retainRoadMatchingSessionAsync();
+
+        await waitFor(() => harness.foregroundLocationCallbacks.length === 1);
+        harness.foregroundLocationCallbacks[0](makeLocation(41, -87, 100));
+        await waitFor(() => harness.roadCorridorRequests.length === 1);
+
+        const requestBegin = harness.calls.performanceSignposts.find(
+            (signpost) =>
+                signpost.kind === 'begin' &&
+                signpost.operation === 'road.graph.request',
+        );
+
+        assert.ok(requestBegin);
+
+        sessionHandle.remove();
+
+        const abortedRequestEnds = harness.calls.performanceSignposts.filter(
+            (signpost) =>
+                signpost.kind === 'end' &&
+                signpost.operation === 'road.graph.request' &&
+                signpost.identifier === requestBegin.identifier,
+        );
+
+        assert.equal(abortedRequestEnds.length, 1);
+        assert.equal(abortedRequestEnds[0].metadata.aborted, true);
+
+        const abortError = new Error('Request aborted.');
+
+        abortError.name = 'AbortError';
+        corridorRequest.reject(abortError);
+        await new Promise((resolve) => setImmediate(resolve));
+
+        assert.equal(
+            harness.calls.performanceSignposts.filter(
+                (signpost) =>
+                    signpost.kind === 'end' &&
+                    signpost.operation === 'road.graph.request' &&
+                    signpost.identifier === requestBegin.identifier,
+            ).length,
+            1,
+        );
     });
 
     test('shares background corridor work with foreground after the task deadline returns', async () => {

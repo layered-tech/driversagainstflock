@@ -175,11 +175,12 @@ export async function refreshBackgroundAlertsForLocationAsync(context) {
                   policeAlertsCenter,
               )
             : [];
-    const electronicHorizonCoordinates = getElectronicHorizonPrimaryCoordinates(
-        context?.roadLookAhead,
-    );
     const pathSource =
         activeRouteCoordinates.length >= 2 ? 'route' : 'electronic-horizon';
+    const electronicHorizonCoordinates =
+        pathSource === 'electronic-horizon'
+            ? getElectronicHorizonPrimaryCoordinates(context?.roadLookAhead)
+            : [];
     const alprCoordinates =
         pathSource === 'route'
             ? activeRouteCoordinates
@@ -189,7 +190,10 @@ export async function refreshBackgroundAlertsForLocationAsync(context) {
         coordinates: alprCoordinates,
         primaryPathKey: getElectronicHorizonAlprPathStateKey({
             coordinates: alprCoordinates,
-            electronicHorizon: context?.roadLookAhead,
+            electronicHorizon:
+                pathSource === 'electronic-horizon'
+                    ? context?.roadLookAhead
+                    : null,
             pathSource,
             routePathKey:
                 getElectronicHorizonAlprDirectionsRoutePathKey(routeOption),

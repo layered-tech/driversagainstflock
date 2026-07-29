@@ -29,6 +29,13 @@ function sourceBetween(source, startToken, endToken) {
     return source.slice(start, end);
 }
 
+test('CarPlay native follow does not wait for handset animation frames', () => {
+    assert.match(
+        mapCanvasSource,
+        /createLocationPuckCameraFollowLifecycle\(\{[\s\S]*?waitForCameraCommit:\s*\(\) =>[\s\S]*?waitForLocationPuckCameraFollowCommit\(\{[\s\S]*?platform: Platform\.OS/,
+    );
+});
+
 test('releases every camera owner before Android Auto applies manual gestures', () => {
     const panModeSource = sourceBetween(
         autoPlaySource,

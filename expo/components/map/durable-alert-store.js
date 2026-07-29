@@ -36,7 +36,15 @@ async function settleWithinTimeout(promise, timeoutMs) {
     return result;
 }
 
-async function settleFetchWithinTimeout(
+function makeAbortError() {
+    const error = new Error('Request aborted.');
+
+    error.name = 'AbortError';
+
+    return error;
+}
+
+async function settleSingleFlightFetch(
     fetchPromise,
     abortController,
     timeoutMs,
@@ -47,36 +55,46 @@ async function settleFetchWithinTimeout(
     );
     let timeoutId = null;
     let timeoutDidFire = false;
-    let handleAbort = null;
-    const interruptedFetch = new Promise((resolve) => {
-        handleAbort = () => {
-            resolve({
-                status: timeoutDidFire ? 'timed-out' : 'aborted',
-                value: null,
-            });
-        };
+    let abortWasRequested = abortController.signal.aborted;
+    const handleAbort = () => {
+        abortWasRequested = true;
 
-        abortController.signal.addEventListener('abort', handleAbort, {
-            once: true,
-        });
+        if (timeoutId !== null) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+        }
+    };
+
+    abortController.signal.addEventListener('abort', handleAbort, {
+        once: true,
+    });
+
+    if (abortController.signal.aborted) {
+        handleAbort();
+    } else {
         timeoutId = setTimeout(() => {
+            timeoutId = null;
             timeoutDidFire = true;
             abortController.abort();
-            handleAbort();
         }, timeoutMs);
+    }
 
-        if (abortController.signal.aborted) {
-            handleAbort();
-        }
-    });
-    const result = await Promise.race([settledFetch, interruptedFetch]);
+    // Keep the queue single-flight until the transport confirms settlement so
+    // canceled native work can never overlap the next alert request.
+    const result = await settledFetch;
 
     if (timeoutId !== null) {
         clearTimeout(timeoutId);
     }
 
-    if (handleAbort) {
-        abortController.signal.removeEventListener('abort', handleAbort);
+    abortController.signal.removeEventListener('abort', handleAbort);
+
+    if (timeoutDidFire) {
+        return { status: 'timed-out', value: null };
+    }
+
+    if (abortWasRequested) {
+        return { status: 'aborted', value: null };
     }
 
     return result;
@@ -273,10 +291,14 @@ export function createDurableAlertStore({
             activeInput = input;
 
             try {
-                const fetchResult = await settleFetchWithinTimeout(
-                    Promise.resolve().then(() =>
-                        fetchItems(input, abortController.signal),
-                    ),
+                const fetchResult = await settleSingleFlightFetch(
+                    Promise.resolve().then(() => {
+                        if (abortController.signal.aborted) {
+                            throw makeAbortError();
+                        }
+
+                        return fetchItems(input, abortController.signal);
+                    }),
                     abortController,
                     timeoutMs,
                 );

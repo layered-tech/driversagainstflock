@@ -1561,7 +1561,10 @@ export function AutoPlayMapSurfaceContent({
     );
     const electronicHorizon = useElectronicHorizon({
         enabled:
-            rendersDrivingStatus && isDrivingMode && !searchResultsMapIsActive,
+            rendersDrivingStatus &&
+            isDrivingMode &&
+            !activeDirectionsRoute &&
+            !searchResultsMapIsActive,
     });
     const policeAlertsLoader = useWazePoliceAlerts({
         policeAlertsAreEnabled:

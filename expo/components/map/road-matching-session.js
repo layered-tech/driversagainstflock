@@ -1,6 +1,7 @@
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { AppState, Platform } from 'react-native';
+import { recordAndroidAutoPerformanceTrace } from '../android-auto-performance-trace';
 import {
     addAutoPlaySessionStateListener,
     autoPlaySessionOwnsForegroundLocation,
@@ -16,6 +17,11 @@ import {
     shouldPublishBackgroundRoadMatchingLocation,
 } from './location-watch-options';
 import {
+    beginMapPerformanceSignpost,
+    endMapPerformanceSignpost,
+    recordMapPerformanceSignpost,
+} from './map-performance-signposts';
+import {
     createDirectedRoadGraph,
     getRoadCoordinateDistanceMeters,
 } from './road-graph';
@@ -23,7 +29,12 @@ import { predictRoadLookAhead } from './road-look-ahead';
 import {
     appendRoadMatchingObservation,
     createRoadMatcherWithHistory,
+    getRoadMatchingReplayObservations,
 } from './road-matching-history';
+import {
+    addSharedRoutingStateListener,
+    getSharedRoutingState,
+} from './shared-routing-state';
 
 const ROAD_CORRIDOR_RADIUS_METERS = 3200;
 const ROAD_CORRIDOR_REFRESH_DISTANCE_METERS = 1200;
@@ -32,6 +43,7 @@ const ROAD_CORRIDOR_REQUEST_TIMEOUT_MS = 23000;
 const BACKGROUND_LOCATION_TASK_DEADLINE_MS = 24000;
 const ROAD_LOOK_AHEAD_DISTANCE_METERS = 2000;
 const ROAD_MATCHING_LOCATION_RETRY_DELAY_MS = 5000;
+const SLOW_MAP_PIPELINE_OPERATION_THRESHOLD_MS = 8;
 
 export const ROAD_MATCHING_BACKGROUND_LOCATION_TASK =
     'driversagainstflock-road-matching-location';
@@ -68,6 +80,7 @@ let lastRoadMatchedLocation = null;
 let matcher = null;
 let roadGraph = null;
 let roadGraphLoadCount = 0;
+let roadLookAheadMode = 'free-drive';
 let rawLocationHistory = [];
 let sessionState = 'idle';
 
@@ -137,6 +150,12 @@ addAutoPlaySessionStateListener(() => {
 if (getOperationalAppState() === 'active') {
     scheduleIdleLocationSourceCleanup();
 }
+
+addSharedRoutingStateListener((routingState) => {
+    if (activeDirectionsRouteIsBeingFollowed(routingState)) {
+        disableRoadLookAheadForActiveRoute();
+    }
+});
 
 function emit(listeners, value) {
     listeners.forEach((listener) => listener(value));
@@ -323,7 +342,43 @@ function makeUnmatchedPosition(location) {
     };
 }
 
+function activeDirectionsRouteIsBeingFollowed(
+    routingState = getSharedRoutingState(),
+) {
+    return (
+        routingState?.drivingModeIsActive === true &&
+        Boolean(routingState?.directionsRoute)
+    );
+}
+
+function disableRoadLookAheadForActiveRoute() {
+    if (roadLookAheadMode !== 'active-route') {
+        roadLookAheadMode = 'active-route';
+        recordAndroidAutoPerformanceTrace(
+            'road.look_ahead.disabled_for_active_route',
+        );
+    }
+
+    if (lastRoadLookAhead !== null) {
+        lastRoadLookAhead = null;
+        emit(lookAheadListeners, null);
+    }
+}
+
 function updateRoadLookAhead(matchedLocation) {
+    if (activeDirectionsRouteIsBeingFollowed()) {
+        disableRoadLookAheadForActiveRoute();
+        return;
+    }
+
+    if (roadLookAheadMode !== 'free-drive') {
+        roadLookAheadMode = 'free-drive';
+        recordAndroidAutoPerformanceTrace(
+            'road.look_ahead.enabled_for_free_drive',
+        );
+    }
+
+    const predictionStartedAt = Date.now();
     const nextRoadLookAhead =
         matchedLocation?.roadMatch?.isOffRoad === false
             ? predictRoadLookAhead({
@@ -332,15 +387,39 @@ function updateRoadLookAhead(matchedLocation) {
                   maximumDistanceMeters: ROAD_LOOK_AHEAD_DISTANCE_METERS,
               })
             : null;
+    const predictionDurationMs = Date.now() - predictionStartedAt;
+
+    if (predictionDurationMs >= SLOW_MAP_PIPELINE_OPERATION_THRESHOLD_MS) {
+        recordMapPerformanceSignpost('road.look_ahead.slow', {
+            durationMs: predictionDurationMs,
+            edgeCount: roadGraph?.edges?.length ?? 0,
+            hasPrimaryPath: nextRoadLookAhead?.primaryPath ? true : false,
+        });
+    }
 
     lastRoadLookAhead = nextRoadLookAhead;
     emit(lookAheadListeners, nextRoadLookAhead);
+    recordAndroidAutoPerformanceTrace('road.look_ahead.computed', {
+        durationMs: predictionDurationMs,
+        hasPrimaryPath: nextRoadLookAhead?.primaryPath ? true : false,
+    });
 }
 
 function applyRawLocation(location) {
     lastRawLocation = location;
 
+    const matcherStartedAt = Date.now();
     const matchedLocation = matcher?.update(location) ?? null;
+    const matcherDurationMs = Date.now() - matcherStartedAt;
+
+    if (matcherDurationMs >= SLOW_MAP_PIPELINE_OPERATION_THRESHOLD_MS) {
+        recordMapPerformanceSignpost('road.matcher.slow', {
+            durationMs: matcherDurationMs,
+            edgeCount: roadGraph?.edges?.length ?? 0,
+            matched: matchedLocation?.roadMatch?.isOffRoad === false,
+        });
+    }
+
     const nextLocation = matchedLocation
         ? makeRoadMatchedPosition(matchedLocation)
         : makeUnmatchedPosition(location);
@@ -359,8 +438,17 @@ function applyRawLocation(location) {
                 ? 'road-graph-error'
                 : 'loading-road-graph',
     );
+    const locationListenerStartedAt = Date.now();
+
     emit(locationListeners, nextLocation);
+
+    const locationListenerDurationMs = Date.now() - locationListenerStartedAt;
     updateRoadLookAhead(matchedLocation);
+    recordAndroidAutoPerformanceTrace('road.location.applied', {
+        listenerDurationMs: locationListenerDurationMs,
+        matcherDurationMs,
+        matched: matchedLocation?.roadMatch?.isOffRoad === false,
+    });
 }
 
 function updateBackgroundDeliveryDiagnostics(location, appState) {
@@ -515,6 +603,7 @@ async function ensureRoadGraph(location, source) {
         startedWithRoadGraph: roadGraph !== null,
     });
     const requestGeneration = graphRequestGeneration;
+    const requestStartedAt = Date.now();
     let requestTimedOut = false;
     const requestTimeoutId = setTimeout(() => {
         requestTimedOut = true;
@@ -527,6 +616,43 @@ async function ensureRoadGraph(location, source) {
         setSessionState('loading-road-graph');
     }
 
+    recordAndroidAutoPerformanceTrace('road_graph.requested', {
+        hadExistingGraph: requestContext.startedWithRoadGraph,
+        source,
+    });
+    const requestSignpostIdentifier = beginMapPerformanceSignpost(
+        'road.graph.request',
+        {
+            hadExistingGraph: requestContext.startedWithRoadGraph,
+            source,
+        },
+    );
+    let requestSignpostDidEnd = false;
+    const endRequestSignpost = (metadata) => {
+        if (requestSignpostDidEnd) {
+            return;
+        }
+
+        requestSignpostDidEnd = true;
+        endMapPerformanceSignpost(
+            'road.graph.request',
+            requestSignpostIdentifier,
+            metadata,
+        );
+    };
+    const handleRequestAbort = () => {
+        endRequestSignpost({
+            aborted: true,
+            durationMs: Date.now() - requestStartedAt,
+        });
+    };
+
+    requestAbortController.signal.addEventListener(
+        'abort',
+        handleRequestAbort,
+        { once: true },
+    );
+
     graphRequest = getRoadCorridor({
         location: {
             latitude: coordinate[1],
@@ -536,11 +662,38 @@ async function ensureRoadGraph(location, source) {
         signal: requestAbortController.signal,
     })
         .then((ways) => {
+            endRequestSignpost({
+                durationMs: Date.now() - requestStartedAt,
+                wayCount: Array.isArray(ways) ? ways.length : 0,
+            });
+
             if (requestGeneration !== graphRequestGeneration) {
                 return null;
             }
 
-            const nextRoadGraph = createDirectedRoadGraph(ways);
+            const graphBuildStartedAt = Date.now();
+            const graphBuildSignpostIdentifier = beginMapPerformanceSignpost(
+                'road.graph.build',
+                {
+                    wayCount: Array.isArray(ways) ? ways.length : 0,
+                },
+            );
+            let nextRoadGraph;
+
+            try {
+                nextRoadGraph = createDirectedRoadGraph(ways);
+            } finally {
+                endMapPerformanceSignpost(
+                    'road.graph.build',
+                    graphBuildSignpostIdentifier,
+                    {
+                        durationMs: Date.now() - graphBuildStartedAt,
+                        edgeCount: nextRoadGraph?.edges?.length ?? 0,
+                    },
+                );
+            }
+
+            const graphBuildDurationMs = Date.now() - graphBuildStartedAt;
 
             if (!nextRoadGraph.edges.length) {
                 throw new Error('No drivable roads were returned.');
@@ -549,15 +702,60 @@ async function ensureRoadGraph(location, source) {
             graphCenter = coordinate;
             lastGraphRequestFailure = null;
             roadGraph = nextRoadGraph;
-            matcher = createRoadMatcherWithHistory(
-                nextRoadGraph,
+            const replayObservations = getRoadMatchingReplayObservations(
                 rawLocationHistory.slice(0, -1),
             );
+            const historyReplayStartedAt = Date.now();
+            const historyReplaySignpostIdentifier = beginMapPerformanceSignpost(
+                'road.matcher.history_replay',
+                {
+                    edgeCount: nextRoadGraph.edges.length,
+                    observationCount: replayObservations.length,
+                },
+            );
+
+            try {
+                matcher = createRoadMatcherWithHistory(
+                    nextRoadGraph,
+                    replayObservations,
+                );
+            } finally {
+                endMapPerformanceSignpost(
+                    'road.matcher.history_replay',
+                    historyReplaySignpostIdentifier,
+                    {
+                        durationMs: Date.now() - historyReplayStartedAt,
+                    },
+                );
+            }
+
+            const historyReplayDurationMs = Date.now() - historyReplayStartedAt;
+
+            recordAndroidAutoPerformanceTrace('road_graph.history_replayed', {
+                durationMs: historyReplayDurationMs,
+                edgeCount: nextRoadGraph.edges.length,
+            });
             roadGraphLoadCount += 1;
+            recordAndroidAutoPerformanceTrace('road_graph.loaded', {
+                edgeCount: nextRoadGraph.edges.length,
+                graphBuildDurationMs,
+                requestDurationMs: Date.now() - requestStartedAt,
+                wayCount: Array.isArray(ways) ? ways.length : 0,
+            });
 
             return nextRoadGraph;
         })
         .catch((error) => {
+            endRequestSignpost({
+                durationMs: Date.now() - requestStartedAt,
+                errorName: error?.name ?? 'Error',
+            });
+            recordAndroidAutoPerformanceTrace('road_graph.failed', {
+                errorName: error?.name ?? 'Error',
+                requestDurationMs: Date.now() - requestStartedAt,
+                timedOut: requestTimedOut,
+            });
+
             if (error?.name !== 'AbortError' || requestTimedOut) {
                 lastGraphRequestFailure = {
                     failedAt: Date.now(),
@@ -573,6 +771,10 @@ async function ensureRoadGraph(location, source) {
         })
         .finally(() => {
             clearTimeout(requestTimeoutId);
+            requestAbortController.signal.removeEventListener(
+                'abort',
+                handleRequestAbort,
+            );
 
             if (graphRequestAbortController === requestAbortController) {
                 graphRequestAbortController = null;

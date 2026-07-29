@@ -1,8 +1,15 @@
+import { fetch as expoFetch } from 'expo/fetch';
 import { addSentryBreadcrumb } from '../../lib/sentry';
+import { runAbortableOperation } from './abortable-operation';
 import { mapApiMocksAreEnabled } from './api-mocks';
-import { normalizeElectronicHorizonCoordinates } from './electronic-horizon';
 import { buildApiURL } from './config';
+import { normalizeElectronicHorizonCoordinates } from './electronic-horizon';
 import { getStoredNumber } from './geo';
+import {
+    beginMapPerformanceSignpost,
+    endMapPerformanceSignpost,
+    recordMapPerformanceSignpost,
+} from './map-performance-signposts';
 
 function normalizeElectronicHorizonAlprNode(node, index) {
     const coordinate = normalizeElectronicHorizonCoordinates([
@@ -38,17 +45,39 @@ function normalizeElectronicHorizonAlprNodes(nodes) {
 }
 
 async function readElectronicHorizonAlprResponse(response) {
-    const data = await response.json().catch(() => ({}));
+    const responseDecodingSignpost = beginMapPerformanceSignpost(
+        'alpr.response.decode',
+        { status: response.status },
+    );
 
-    if (!response.ok || data?.ok === false) {
-        throw new Error(
-            data?.error ||
-                data?.message ||
-                'Electronic Horizon ALPR nodes could not be loaded.',
+    try {
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || data?.ok === false) {
+            recordMapPerformanceSignpost('alpr.response.rejected', {
+                status: response.status,
+            });
+            throw new Error(
+                data?.error ||
+                    data?.message ||
+                    'Electronic Horizon ALPR nodes could not be loaded.',
+            );
+        }
+
+        const nodes = normalizeElectronicHorizonAlprNodes(data?.result?.nodes);
+
+        recordMapPerformanceSignpost('alpr.response.normalized', {
+            nodeCount: nodes.length,
+        });
+
+        return nodes;
+    } finally {
+        endMapPerformanceSignpost(
+            'alpr.response.decode',
+            responseDecodingSignpost,
+            { status: response.status },
         );
     }
-
-    return normalizeElectronicHorizonAlprNodes(data?.result?.nodes);
 }
 
 export async function getElectronicHorizonAlprNodes({
@@ -66,6 +95,10 @@ export async function getElectronicHorizonAlprNodes({
         return [];
     }
 
+    const requestSignpost = beginMapPerformanceSignpost('alpr.request', {
+        coordinateCount: normalizedCoordinates.length,
+    });
+
     addSentryBreadcrumb({
         category: 'map.electronic_horizon',
         data: { coordinateCount: normalizedCoordinates.length },
@@ -73,19 +106,28 @@ export async function getElectronicHorizonAlprNodes({
     });
 
     try {
-        const response = await fetch(
-            buildApiURL('v1/electronic-horizon/alpr'),
-            {
-                body: JSON.stringify({ coordinates: normalizedCoordinates }),
-                headers: {
-                    Accept: 'application/json',
-                    'Content-Type': 'application/json',
+        const nodes = await runAbortableOperation(async () => {
+            const response = await expoFetch(
+                buildApiURL('v1/electronic-horizon/alpr'),
+                {
+                    body: JSON.stringify({
+                        coordinates: normalizedCoordinates,
+                    }),
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    method: 'POST',
+                    signal,
                 },
-                method: 'POST',
-                signal,
-            },
-        );
-        const nodes = await readElectronicHorizonAlprResponse(response);
+            );
+
+            recordMapPerformanceSignpost('alpr.response.received', {
+                status: response.status,
+            });
+
+            return readElectronicHorizonAlprResponse(response);
+        }, signal);
 
         addSentryBreadcrumb({
             category: 'map.electronic_horizon',
@@ -95,7 +137,14 @@ export async function getElectronicHorizonAlprNodes({
 
         return nodes;
     } catch (error) {
-        if (error?.name !== 'AbortError') {
+        const requestWasAborted =
+            signal?.aborted === true || error?.name === 'AbortError';
+
+        recordMapPerformanceSignpost('alpr.request.failed', {
+            aborted: requestWasAborted,
+        });
+
+        if (!requestWasAborted) {
             addSentryBreadcrumb({
                 category: 'api',
                 data: {
@@ -108,5 +157,9 @@ export async function getElectronicHorizonAlprNodes({
         }
 
         throw error;
+    } finally {
+        endMapPerformanceSignpost('alpr.request', requestSignpost, {
+            coordinateCount: normalizedCoordinates.length,
+        });
     }
 }

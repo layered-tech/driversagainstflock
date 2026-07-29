@@ -24,6 +24,14 @@ const wazePoliceAlertStoreSource = readFileSync(
     new URL('../waze-police-alert-store.js', import.meta.url),
     'utf8',
 );
+const electronicHorizonAlertsApiSource = readFileSync(
+    new URL('../electronic-horizon-alerts-api.js', import.meta.url),
+    'utf8',
+);
+const wazeAlertsApiSource = readFileSync(
+    new URL('../waze-alerts-api.js', import.meta.url),
+    'utf8',
+);
 
 describe('background task deadline', () => {
     test('settles failures and races work against a cleared deadline timer', () => {
@@ -120,6 +128,21 @@ describe('background task deadline', () => {
                 /storageTimeoutMs: BACKGROUND_ALERT_STORAGE_TIMEOUT_MS/,
             );
             assert.doesNotMatch(alertStoreSource, /FETCH_TIMEOUT_MS = 12000/);
+        }
+    });
+
+    test('cancels native alert requests and stalled response decoding', () => {
+        for (const alertApiSource of [
+            electronicHorizonAlertsApiSource,
+            wazeAlertsApiSource,
+        ]) {
+            assert.match(
+                alertApiSource,
+                /import \{ fetch as expoFetch \} from 'expo\/fetch'/,
+            );
+            assert.match(alertApiSource, /await expoFetch\(/);
+            assert.match(alertApiSource, /await runAbortableOperation\(/);
+            assert.match(alertApiSource, /signal\?\.aborted === true/);
         }
     });
 });

@@ -1,6 +1,13 @@
 const EARTH_RADIUS_METERS = 6371008.8;
 const METERS_PER_SECOND_TO_MILES_PER_HOUR = 2.2369362920544;
 const KILOMETERS_PER_HOUR_TO_MILES_PER_HOUR = 0.62137119223733;
+const SPATIAL_INDEX_CELL_SIZE_DEGREES = 0.0025;
+const SPATIAL_INDEX_LATITUDE_CELL_COUNT = 180 / SPATIAL_INDEX_CELL_SIZE_DEGREES;
+const SPATIAL_INDEX_LONGITUDE_CELL_COUNT =
+    360 / SPATIAL_INDEX_CELL_SIZE_DEGREES;
+const SPATIAL_INDEX_BOUNDARY_EPSILON_DEGREES = 1e-10;
+const MAXIMUM_SPATIAL_INDEX_CELLS_PER_SEGMENT = 512;
+const MAXIMUM_SPATIAL_INDEX_CELLS_PER_QUERY = 4096;
 
 function degreesToRadians(value) {
     return (value * Math.PI) / 180;
@@ -36,6 +43,28 @@ function normalizeCoordinate(coordinate) {
     }
 
     return [longitude, latitude];
+}
+
+function normalizeLongitude(longitude) {
+    const normalizedLongitude = ((((longitude + 180) % 360) + 360) % 360) - 180;
+
+    return normalizedLongitude === -180 && longitude > 0
+        ? 180
+        : normalizedLongitude;
+}
+
+function getShortestLongitudeDeltaDegrees(fromLongitude, toLongitude) {
+    const longitudeDelta = toLongitude - fromLongitude;
+
+    if (longitudeDelta > 180) {
+        return longitudeDelta - 360;
+    }
+
+    if (longitudeDelta < -180) {
+        return longitudeDelta + 360;
+    }
+
+    return longitudeDelta;
 }
 
 export function normalizeRoadHeading(value) {
@@ -113,10 +142,17 @@ export function interpolateRoadCoordinate(start, end, fraction) {
     }
 
     const clampedFraction = Math.min(1, Math.max(0, Number(fraction) || 0));
+    const longitudeDelta = getShortestLongitudeDeltaDegrees(
+        normalizedStart[0],
+        normalizedEnd[0],
+    );
+    const interpolatedLongitude =
+        normalizedStart[0] + longitudeDelta * clampedFraction;
 
     return [
-        normalizedStart[0] +
-            (normalizedEnd[0] - normalizedStart[0]) * clampedFraction,
+        Math.abs(normalizedEnd[0] - normalizedStart[0]) > 180
+            ? normalizeLongitude(interpolatedLongitude)
+            : interpolatedLongitude,
         normalizedStart[1] +
             (normalizedEnd[1] - normalizedStart[1]) * clampedFraction,
     ];
@@ -128,7 +164,9 @@ function coordinateToLocalMeters(coordinate, origin) {
     return {
         x:
             EARTH_RADIUS_METERS *
-            degreesToRadians(coordinate[0] - origin[0]) *
+            degreesToRadians(
+                getShortestLongitudeDeltaDegrees(origin[0], coordinate[0]),
+            ) *
             Math.cos(latitudeRadians),
         y: EARTH_RADIUS_METERS * degreesToRadians(coordinate[1] - origin[1]),
     };
@@ -288,6 +326,195 @@ function addOutgoingSegment(outgoingSegmentsByNodeId, segment) {
     outgoingSegmentsByNodeId.set(segment.sourceNodeId, outgoingSegments);
 }
 
+function getSpatialIndexLatitudeCellIndex(latitude) {
+    return Math.min(
+        SPATIAL_INDEX_LATITUDE_CELL_COUNT - 1,
+        Math.max(
+            0,
+            Math.floor(
+                (Math.min(90, Math.max(-90, latitude)) + 90) /
+                    SPATIAL_INDEX_CELL_SIZE_DEGREES,
+            ),
+        ),
+    );
+}
+
+function getSpatialIndexCellKey(latitudeCellIndex, longitudeCellIndex) {
+    const wrappedLongitudeCellIndex =
+        ((longitudeCellIndex % SPATIAL_INDEX_LONGITUDE_CELL_COUNT) +
+            SPATIAL_INDEX_LONGITUDE_CELL_COUNT) %
+        SPATIAL_INDEX_LONGITUDE_CELL_COUNT;
+
+    return `${latitudeCellIndex}:${wrappedLongitudeCellIndex}`;
+}
+
+function getSpatialIndexLatitudeCellRange(minimumLatitude, maximumLatitude) {
+    return {
+        end: getSpatialIndexLatitudeCellIndex(
+            maximumLatitude + SPATIAL_INDEX_BOUNDARY_EPSILON_DEGREES,
+        ),
+        start: getSpatialIndexLatitudeCellIndex(
+            minimumLatitude - SPATIAL_INDEX_BOUNDARY_EPSILON_DEGREES,
+        ),
+    };
+}
+
+function getSpatialIndexLongitudeCellRange(minimumLongitude, maximumLongitude) {
+    return {
+        end: Math.floor(
+            (maximumLongitude + SPATIAL_INDEX_BOUNDARY_EPSILON_DEGREES + 180) /
+                SPATIAL_INDEX_CELL_SIZE_DEGREES,
+        ),
+        start: Math.floor(
+            (minimumLongitude - SPATIAL_INDEX_BOUNDARY_EPSILON_DEGREES + 180) /
+                SPATIAL_INDEX_CELL_SIZE_DEGREES,
+        ),
+    };
+}
+
+function getSpatialIndexSegmentCellBounds(segment) {
+    const start = normalizeCoordinate(segment?.start);
+    const end = normalizeCoordinate(segment?.end);
+
+    if (!start || !end) {
+        return null;
+    }
+
+    const startLongitude = normalizeLongitude(start[0]);
+    const endLongitude =
+        startLongitude +
+        getShortestLongitudeDeltaDegrees(startLongitude, end[0]);
+    const latitudeRange = getSpatialIndexLatitudeCellRange(
+        Math.min(start[1], end[1]),
+        Math.max(start[1], end[1]),
+    );
+    const longitudeRange = getSpatialIndexLongitudeCellRange(
+        Math.min(startLongitude, endLongitude),
+        Math.max(startLongitude, endLongitude),
+    );
+
+    return {
+        latitudeRange,
+        longitudeRange,
+    };
+}
+
+function createRoadSpatialIndex(edges) {
+    const edgesByCell = new Map();
+    const edgeOrderById = Object.create(null);
+    const globalEdges = [];
+
+    edges.forEach((segment, edgeOrder) => {
+        edgeOrderById[segment.id] = edgeOrder;
+
+        const bounds = getSpatialIndexSegmentCellBounds(segment);
+
+        if (!bounds) {
+            globalEdges.push(segment);
+            return;
+        }
+
+        const latitudeCellCount =
+            bounds.latitudeRange.end - bounds.latitudeRange.start + 1;
+        const longitudeCellCount =
+            bounds.longitudeRange.end - bounds.longitudeRange.start + 1;
+
+        if (
+            latitudeCellCount * longitudeCellCount >
+            MAXIMUM_SPATIAL_INDEX_CELLS_PER_SEGMENT
+        ) {
+            globalEdges.push(segment);
+            return;
+        }
+
+        for (
+            let latitudeCellIndex = bounds.latitudeRange.start;
+            latitudeCellIndex <= bounds.latitudeRange.end;
+            latitudeCellIndex += 1
+        ) {
+            for (
+                let longitudeCellIndex = bounds.longitudeRange.start;
+                longitudeCellIndex <= bounds.longitudeRange.end;
+                longitudeCellIndex += 1
+            ) {
+                const cellKey = getSpatialIndexCellKey(
+                    latitudeCellIndex,
+                    longitudeCellIndex,
+                );
+                const cellEdges = edgesByCell.get(cellKey) ?? [];
+
+                cellEdges.push(segment);
+                edgesByCell.set(cellKey, cellEdges);
+            }
+        }
+    });
+
+    const cells = Object.create(null);
+
+    for (const [cellKey, cellEdges] of edgesByCell) {
+        cells[cellKey] = Object.freeze(cellEdges);
+    }
+
+    return Object.freeze({
+        cells: Object.freeze(cells),
+        edgeOrderById: Object.freeze(edgeOrderById),
+        globalEdges: Object.freeze(globalEdges),
+    });
+}
+
+function getSpatialIndexQueryCellBounds(coordinate, maximumDistanceMeters) {
+    const normalizedCoordinate = normalizeCoordinate(coordinate);
+    const maximumDistance = Math.max(0, Number(maximumDistanceMeters) || 0);
+
+    if (!normalizedCoordinate || !Number.isFinite(maximumDistance)) {
+        return null;
+    }
+
+    const angularDistanceRadians = maximumDistance / EARTH_RADIUS_METERS;
+
+    if (angularDistanceRadians >= Math.PI) {
+        return null;
+    }
+
+    const latitudeRadians = degreesToRadians(normalizedCoordinate[1]);
+
+    if (angularDistanceRadians >= Math.PI / 2 - Math.abs(latitudeRadians)) {
+        return null;
+    }
+
+    const longitudeDistanceRadians = Math.asin(
+        Math.min(
+            1,
+            Math.sin(angularDistanceRadians) / Math.cos(latitudeRadians),
+        ),
+    );
+    const angularDistanceDegrees = radiansToDegrees(angularDistanceRadians);
+    const longitudeDistanceDegrees = radiansToDegrees(longitudeDistanceRadians);
+    const latitudeRange = getSpatialIndexLatitudeCellRange(
+        normalizedCoordinate[1] - angularDistanceDegrees,
+        normalizedCoordinate[1] + angularDistanceDegrees,
+    );
+    const longitudeRange = getSpatialIndexLongitudeCellRange(
+        normalizeLongitude(normalizedCoordinate[0]) - longitudeDistanceDegrees,
+        normalizeLongitude(normalizedCoordinate[0]) + longitudeDistanceDegrees,
+    );
+    const latitudeCellCount = latitudeRange.end - latitudeRange.start + 1;
+    const longitudeCellCount = longitudeRange.end - longitudeRange.start + 1;
+
+    if (
+        longitudeCellCount >= SPATIAL_INDEX_LONGITUDE_CELL_COUNT ||
+        latitudeCellCount * longitudeCellCount >
+            MAXIMUM_SPATIAL_INDEX_CELLS_PER_QUERY
+    ) {
+        return null;
+    }
+
+    return {
+        latitudeRange,
+        longitudeRange,
+    };
+}
+
 export function createDirectedRoadGraph(ways) {
     const edges = [];
     const edgesById = new Map();
@@ -364,7 +591,62 @@ export function createDirectedRoadGraph(ways) {
         edgesById,
         nodesById,
         outgoingEdgesByNodeId,
+        spatialIndex: createRoadSpatialIndex(edges),
     });
+}
+
+export function getRoadCandidateSegments(
+    graph,
+    coordinate,
+    maximumDistanceMeters,
+) {
+    const edges = Array.isArray(graph?.edges) ? graph.edges : [];
+    const spatialIndex = graph?.spatialIndex;
+    const queryBounds = getSpatialIndexQueryCellBounds(
+        coordinate,
+        maximumDistanceMeters,
+    );
+
+    if (!queryBounds) {
+        return normalizeCoordinate(coordinate) ? edges : [];
+    }
+
+    if (!spatialIndex?.cells) {
+        return edges;
+    }
+
+    const candidateSegments = new Set(spatialIndex.globalEdges);
+
+    for (
+        let latitudeCellIndex = queryBounds.latitudeRange.start;
+        latitudeCellIndex <= queryBounds.latitudeRange.end;
+        latitudeCellIndex += 1
+    ) {
+        for (
+            let longitudeCellIndex = queryBounds.longitudeRange.start;
+            longitudeCellIndex <= queryBounds.longitudeRange.end;
+            longitudeCellIndex += 1
+        ) {
+            const cellKey = getSpatialIndexCellKey(
+                latitudeCellIndex,
+                longitudeCellIndex,
+            );
+
+            for (const segment of spatialIndex.cells[cellKey] ?? []) {
+                candidateSegments.add(segment);
+            }
+        }
+    }
+
+    if (candidateSegments.size === edges.length) {
+        return edges;
+    }
+
+    return Array.from(candidateSegments).sort(
+        (first, second) =>
+            (spatialIndex.edgeOrderById[first.id] ?? 0) -
+            (spatialIndex.edgeOrderById[second.id] ?? 0),
+    );
 }
 
 export function getRoadCandidateProjections(
@@ -374,7 +656,7 @@ export function getRoadCandidateProjections(
 ) {
     const maximumDistance = Math.max(0, Number(maximumDistanceMeters) || 0);
 
-    return (graph?.edges ?? [])
+    return getRoadCandidateSegments(graph, coordinate, maximumDistance)
         .map((segment) => projectCoordinateOntoRoadSegment(coordinate, segment))
         .filter(
             (projection) =>

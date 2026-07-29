@@ -5,6 +5,7 @@ import {
     createLocationPuckCameraFollowLifecycle,
     getLocationPuckCameraControllerKey,
     getLocationPuckCameraFollowFallbackProps,
+    waitForLocationPuckCameraFollowCommit,
 } from '../location-puck-camera-follow-lifecycle.js';
 
 const defaultFollowProps = {
@@ -201,6 +202,97 @@ describe('location puck camera follow fallback', () => {
 });
 
 describe('location puck camera follow lifecycle', () => {
+    test('does not wait for handset frames during iOS native follow', async () => {
+        let frameWaitCallCount = 0;
+        let isFollowing = false;
+        const calls = [];
+        const neverSettlingFrameWait = () => {
+            frameWaitCallCount += 1;
+
+            return new Promise(() => {});
+        };
+        const lifecycle = createLocationPuckCameraFollowLifecycle({
+            configureCameraFollow: async (_mapView, followProps) => {
+                calls.push(followProps.enabled);
+                isFollowing = followProps.enabled;
+
+                return true;
+            },
+            verifyCameraFollow: async () => isFollowing,
+            waitForCameraCommit: () =>
+                waitForLocationPuckCameraFollowCommit({
+                    platform: 'ios',
+                    waitForFrameCommit: neverSettlingFrameWait,
+                }),
+        });
+        const mapViewRef = { current: { id: 'carplay-map' } };
+        const operations = (async () => {
+            await requestFollow(lifecycle, mapViewRef);
+            await lifecycle.release({ attachmentKey: 1, mapViewRef });
+
+            return 'settled';
+        })();
+        let timeoutId;
+        const outcome = await Promise.race([
+            operations,
+            new Promise((resolve) => {
+                timeoutId = setTimeout(() => resolve('timed-out'), 100);
+            }),
+        ]);
+
+        clearTimeout(timeoutId);
+
+        assert.equal(outcome, 'settled');
+        assert.equal(frameWaitCallCount, 0);
+        assert.deepEqual(calls, [true, false]);
+        assert.equal(lifecycle.getStatus(), 'inactive');
+    });
+
+    test('retains the frame commit wait outside iOS', async () => {
+        let completeFrameCommit;
+        let frameWaitCallCount = 0;
+        let requestSettled = false;
+        let verifyCallCount = 0;
+        const lifecycle = createLocationPuckCameraFollowLifecycle({
+            configureCameraFollow: async () => true,
+            verifyCameraFollow: async () => {
+                verifyCallCount += 1;
+
+                return true;
+            },
+            waitForCameraCommit: () =>
+                waitForLocationPuckCameraFollowCommit({
+                    platform: 'android',
+                    waitForFrameCommit: async () => {
+                        frameWaitCallCount += 1;
+
+                        await new Promise((resolve) => {
+                            completeFrameCommit = resolve;
+                        });
+                    },
+                }),
+        });
+        const request = requestFollow(lifecycle, {
+            current: { id: 'android-auto-map' },
+        });
+
+        void request.then(() => {
+            requestSettled = true;
+        });
+
+        await new Promise((resolve) => setImmediate(resolve));
+
+        assert.equal(frameWaitCallCount, 1);
+        assert.equal(requestSettled, false);
+        assert.equal(verifyCallCount, 0);
+        assert.equal(lifecycle.getStatus(), 'activating');
+
+        completeFrameCommit();
+        assert.equal(await request, true);
+        assert.equal(verifyCallCount, 1);
+        assert.equal(lifecycle.getStatus(), 'active');
+    });
+
     test('updates one native follow state without location-driven camera stops', async () => {
         const calls = [];
         const lifecycle = createLocationPuckCameraFollowLifecycle({

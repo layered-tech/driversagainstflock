@@ -9,7 +9,7 @@ import {
     faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Animated,
     Easing,
@@ -21,6 +21,10 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
+import {
+    formatAndroidAutoPerformanceTrace,
+    getAndroidAutoPerformanceTraceAsync,
+} from '../android-auto-performance-trace';
 import { SHOW_MAP_DEBUG_CONTROLS } from '../map/config';
 import {
     DEBUG_OVERLAY_ANDROID_AUTO_LOCATION,
@@ -94,6 +98,8 @@ export function DebugDrawer({ onClose, visible }) {
     const { width: windowWidth } = useWindowDimensions();
     const isDarkMode = colorScheme === 'dark';
     const [shouldRender, setShouldRender] = useState(visible);
+    const [androidAutoTraceText, setAndroidAutoTraceText] = useState('');
+    const [androidAutoTraceStatus, setAndroidAutoTraceStatus] = useState('');
     const animationProgressRef = useRef(new Animated.Value(visible ? 1 : 0));
     const drawerWidth = useMemo(
         () =>
@@ -115,6 +121,18 @@ export function DebugDrawer({ onClose, visible }) {
         inputRange: [0, 1],
         outputRange: [0, 0.36],
     });
+    const handleLoadAndroidAutoTrace = useCallback(async () => {
+        setAndroidAutoTraceStatus('Loading trace…');
+
+        const trace = await getAndroidAutoPerformanceTraceAsync();
+
+        setAndroidAutoTraceText(formatAndroidAutoPerformanceTrace(trace));
+        setAndroidAutoTraceStatus(
+            trace
+                ? 'Long-press the trace below, copy it, then paste it into this chat.'
+                : 'Connect Android Auto and drive before retrieving a trace.',
+        );
+    }, []);
 
     useEffect(() => {
         if (visible) {
@@ -206,6 +224,42 @@ export function DebugDrawer({ onClose, visible }) {
                             }}
                         />
                     ))}
+                    <View className="gap-2 rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+                        <View className="gap-1">
+                            <Text className="text-sm font-semibold text-neutral-950 dark:text-white">
+                                Android Auto performance trace
+                            </Text>
+                            <Text className="text-xs leading-4 text-neutral-600 dark:text-neutral-400">
+                                Stores timing and state only—never coordinates
+                                or route geometry.
+                            </Text>
+                        </View>
+                        <Pressable
+                            accessibilityLabel="Load Android Auto performance trace"
+                            accessibilityRole="button"
+                            className="items-center rounded-md bg-blue-600 px-3 py-2"
+                            onPress={handleLoadAndroidAutoTrace}
+                            testID="debug-drawer-load-android-auto-trace"
+                        >
+                            <Text className="text-sm font-semibold text-white">
+                                Load latest trace
+                            </Text>
+                        </Pressable>
+                        {androidAutoTraceStatus ? (
+                            <Text className="text-xs leading-4 text-neutral-600 dark:text-neutral-400">
+                                {androidAutoTraceStatus}
+                            </Text>
+                        ) : null}
+                        {androidAutoTraceText ? (
+                            <Text
+                                className="rounded bg-neutral-100 p-2 font-mono text-[10px] leading-4 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100"
+                                selectable
+                                testID="debug-drawer-android-auto-trace"
+                            >
+                                {androidAutoTraceText}
+                            </Text>
+                        ) : null}
+                    </View>
                 </ScrollView>
             </Animated.View>
         </View>

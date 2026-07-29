@@ -35,6 +35,22 @@ export function waitForNativeCameraCommit() {
     });
 }
 
+/**
+ * The iOS native module resolves after Mapbox completes and verifies its
+ * viewport transition. Waiting for a handset frame after that would block an
+ * active CarPlay scene while the phone is locked.
+ */
+export function waitForLocationPuckCameraFollowCommit({
+    platform,
+    waitForFrameCommit = waitForNativeCameraCommit,
+}) {
+    if (platform === 'ios') {
+        return Promise.resolve();
+    }
+
+    return waitForFrameCommit();
+}
+
 export function createLocationPuckCameraFallbackReleaseGate({
     waitForCameraCommit = waitForNativeCameraCommit,
 } = {}) {

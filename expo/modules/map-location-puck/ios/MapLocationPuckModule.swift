@@ -4,12 +4,17 @@ import CryptoKit
 import ExpoModulesCore
 import Foundation
 @_spi(Experimental) import MapboxMaps
+import os
 import UIKit
 
 private let locationPuckModelLayer = "puck-model-layer"
 private let locationPuckModelSource = "puck-model-source"
 private let locationPuckIndicatorLayer = "puck"
 private let cameraFollowTransitionTimeoutMilliseconds = 1_000
+private let mapPerformanceSignpostLog = OSLog(
+  subsystem: Bundle.main.bundleIdentifier ?? "com.anonymous.drivefree",
+  category: "PointsOfInterest"
+)
 
 @MainActor
 private final class CameraFollowTransitionCompletion {
@@ -98,9 +103,77 @@ public final class MapLocationPuckModule: Module {
     keyOptions: .weakMemory,
     valueOptions: .strongMemory
   )
+  private let mapPerformanceSignpostLock = NSLock()
+  private var mapPerformanceSignpostIDs: [String: OSSignpostID] = [:]
 
   public func definition() -> ModuleDefinition {
     Name("MapLocationPuck")
+
+    Function("beginMapPerformanceSignpost") {
+      (operation: String, identifier: String, detail: String) -> Bool in
+      guard !operation.isEmpty, !identifier.isEmpty else {
+        return false
+      }
+
+      let signpostID = OSSignpostID(log: mapPerformanceSignpostLog)
+
+      self.mapPerformanceSignpostLock.lock()
+      self.mapPerformanceSignpostIDs[identifier] = signpostID
+      self.mapPerformanceSignpostLock.unlock()
+
+      os_signpost(
+        .begin,
+        log: mapPerformanceSignpostLog,
+        name: "Map Pipeline",
+        signpostID: signpostID,
+        "%{public}s %{public}s",
+        operation,
+        detail
+      )
+
+      return true
+    }
+
+    Function("endMapPerformanceSignpost") {
+      (operation: String, identifier: String, detail: String) -> Bool in
+      self.mapPerformanceSignpostLock.lock()
+      let signpostID = self.mapPerformanceSignpostIDs.removeValue(forKey: identifier)
+      self.mapPerformanceSignpostLock.unlock()
+
+      guard !operation.isEmpty, let signpostID else {
+        return false
+      }
+
+      os_signpost(
+        .end,
+        log: mapPerformanceSignpostLog,
+        name: "Map Pipeline",
+        signpostID: signpostID,
+        "%{public}s %{public}s",
+        operation,
+        detail
+      )
+
+      return true
+    }
+
+    Function("recordMapPerformanceSignpost") {
+      (operation: String, detail: String) -> Bool in
+      guard !operation.isEmpty else {
+        return false
+      }
+
+      os_signpost(
+        .event,
+        log: mapPerformanceSignpostLog,
+        name: "Map Pipeline",
+        "%{public}s %{public}s",
+        operation,
+        detail
+      )
+
+      return true
+    }
 
     AsyncFunction("applyLocationPuck3D") {
       (mapViewTag: Int, scale: Double, slot: String?, layerAbove: String?) async throws -> Bool in

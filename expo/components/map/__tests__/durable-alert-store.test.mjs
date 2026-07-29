@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
+import { runAbortableOperation } from '../abortable-operation.js';
 import { createDurableAlertStore } from '../durable-alert-store.js';
 
 const EMPTY_ITEMS = Object.freeze([]);
@@ -308,7 +309,35 @@ describe('durable alert store', () => {
         assert.equal(JSON.parse(storage.value).metadata.key, 'new-path');
     });
 
-    test('advances to the newest input when an aborted fetch ignores its signal', async () => {
+    test('skips a transport superseded before its deferred start', async () => {
+        const requests = [];
+        const store = createTestStore({
+            fetchItems(input, signal) {
+                const deferred = createDeferred();
+
+                requests.push({ deferred, input, signal });
+
+                return deferred.promise;
+            },
+        });
+
+        await store.hydrate();
+
+        const obsoleteRefresh = store.refreshIfStale({ key: 'obsolete-path' });
+        const currentRefresh = store.refreshIfStale({ key: 'current-path' });
+
+        await waitFor(() => requests.length === 1);
+
+        assert.equal(requests[0].input.key, 'current-path');
+        assert.equal(requests[0].signal.aborted, false);
+
+        requests[0].deferred.resolve(['current-alert']);
+        await Promise.all([obsoleteRefresh, currentRefresh]);
+
+        assert.deepEqual(store.getItems(), ['current-alert']);
+    });
+
+    test('waits for an aborted fetch to settle before starting the newest input', async () => {
         const requests = [];
         const storage = createMemoryStorage();
         const store = createTestStore({
@@ -333,18 +362,17 @@ describe('durable alert store', () => {
         const newRefresh = store.refreshIfStale({ key: 'new-path' });
 
         await waitFor(() => requests[0].signal.aborted);
+        await new Promise((resolve) => setImmediate(resolve));
+
+        assert.equal(requests.length, 1);
+        assert.deepEqual(store.getItems(), EMPTY_ITEMS);
+
+        requests[0].deferred.resolve(['late-obsolete-alert']);
         await waitFor(() => requests.length === 2);
         assert.equal(requests[1].input.key, 'new-path');
 
         requests[1].deferred.resolve(['current-alert']);
         await Promise.all([oldRefresh, newRefresh]);
-
-        assert.deepEqual(store.getItems(), ['current-alert']);
-        assert.deepEqual(notifications, [['current-alert']]);
-        assert.equal(storage.writes.length, 1);
-
-        requests[0].deferred.resolve(['late-obsolete-alert']);
-        await new Promise((resolve) => setImmediate(resolve));
 
         assert.deepEqual(store.getItems(), ['current-alert']);
         assert.deepEqual(notifications, [['current-alert']]);
@@ -372,6 +400,11 @@ describe('durable alert store', () => {
         const latestRefresh = store.refreshIfStale({ key: 'path-a' });
 
         await waitFor(() => requests[0].signal.aborted);
+        await new Promise((resolve) => setImmediate(resolve));
+
+        assert.equal(requests.length, 1);
+
+        requests[0].deferred.resolve(['obsolete-a-alert']);
         await waitFor(() => requests.length === 2);
 
         assert.equal(requests[1].input.key, 'path-a');
@@ -452,8 +485,44 @@ describe('durable alert store', () => {
         assert.equal(storage.writes.length, 1);
     });
 
-    test('settles a timeout and retries when fetch never observes abort', async () => {
-        let fetchAttempt = 0;
+    test('recovers after native cancellation when response decoding remains pending', async () => {
+        const stalledBody = createDeferred();
+        const requests = [];
+        const store = createTestStore({
+            fetchItems(input, signal) {
+                const request = {
+                    input,
+                    transportWasCanceled: false,
+                };
+
+                requests.push(request);
+
+                return runAbortableOperation(() => {
+                    signal.addEventListener('abort', () => {
+                        request.transportWasCanceled = true;
+                    });
+
+                    return requests.length === 1
+                        ? stalledBody.promise
+                        : Promise.resolve([`${input.key}-alert`]);
+                }, signal);
+            },
+            timeoutMs: 5,
+        });
+
+        await store.refreshIfStale({ key: 'current-path' });
+
+        assert.equal(requests.length, 1);
+        assert.equal(requests[0].transportWasCanceled, true);
+
+        await store.refreshIfStale({ key: 'current-path' });
+
+        assert.equal(requests.length, 2);
+        assert.deepEqual(store.getItems(), ['current-path-alert']);
+    });
+
+    test('does not overlap a retry with a timed-out fetch that ignores abort', async () => {
+        const requests = [];
         const storage = createMemoryStorage(
             createSnapshot({
                 fetchedAt: 1,
@@ -462,14 +531,12 @@ describe('durable alert store', () => {
             }),
         );
         const store = createTestStore({
-            fetchItems(input) {
-                fetchAttempt += 1;
+            fetchItems(input, signal) {
+                const deferred = createDeferred();
 
-                if (fetchAttempt === 1) {
-                    return new Promise(() => {});
-                }
+                requests.push({ deferred, input, signal });
 
-                return Promise.resolve([`${input.key}-alert`]);
+                return deferred.promise;
             },
             storage,
             timeoutMs: 5,
@@ -481,16 +548,52 @@ describe('durable alert store', () => {
                 firstRefreshSettled = true;
             });
 
-        await waitFor(() => firstRefreshSettled);
-        await firstRefresh;
+        await waitFor(() => requests.length === 1);
+        await waitFor(() => requests[0].signal.aborted);
 
+        const retryRefresh = store.refreshIfStale({ key: 'new-path' });
+
+        await new Promise((resolve) => setImmediate(resolve));
+
+        assert.equal(firstRefreshSettled, false);
+        assert.equal(requests.length, 1);
         assert.deepEqual(store.getItems(), ['last-successful-alert']);
         assert.equal(storage.writes.length, 0);
 
-        await store.refreshIfStale({ key: 'new-path' });
+        requests[0].deferred.resolve(['late-timed-out-alert']);
+        await waitFor(() => requests.length === 2);
+
+        assert.equal(requests[1].input.key, 'new-path');
+        assert.equal(requests[1].signal.aborted, false);
+
+        requests[1].deferred.resolve(['new-path-alert']);
+        await Promise.all([firstRefresh, retryRefresh]);
 
         assert.deepEqual(store.getItems(), ['new-path-alert']);
-        assert.equal(fetchAttempt, 2);
+        assert.equal(requests.length, 2);
         assert.equal(storage.writes.length, 1);
+    });
+
+    test('fails closed instead of spawning requests behind a hung transport', async () => {
+        const requests = [];
+        const store = createTestStore({
+            fetchItems(input, signal) {
+                requests.push({ input, signal });
+
+                return new Promise(() => {});
+            },
+            timeoutMs: 5,
+        });
+
+        void store.refreshIfStale({ key: 'hung-path' });
+
+        await waitFor(() => requests.length === 1);
+        await waitFor(() => requests[0].signal.aborted);
+
+        void store.refreshIfStale({ key: 'newest-path' });
+        await new Promise((resolve) => setImmediate(resolve));
+
+        assert.equal(requests.length, 1);
+        assert.deepEqual(store.getItems(), EMPTY_ITEMS);
     });
 });

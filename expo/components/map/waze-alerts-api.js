@@ -1,4 +1,6 @@
+import { fetch as expoFetch } from 'expo/fetch';
 import { addSentryBreadcrumb } from '../../lib/sentry';
+import { runAbortableOperation } from './abortable-operation';
 import { getMockWazePoliceAlerts, mapApiMocksAreEnabled } from './api-mocks';
 import { buildApiURL } from './config';
 import { EMPTY_FEATURE_COLLECTION } from './constants';
@@ -81,19 +83,22 @@ export async function getWazePoliceAlerts({ location, signal } = {}) {
     });
 
     try {
-        const response = await fetch(
-            buildApiURL('v1/police-alerts', {
-                latitude,
-                longitude: normalizeLongitude(longitude),
-            }),
-            {
-                headers: {
-                    Accept: 'application/json',
+        const policeAlerts = await runAbortableOperation(async () => {
+            const response = await expoFetch(
+                buildApiURL('v1/police-alerts', {
+                    latitude,
+                    longitude: normalizeLongitude(longitude),
+                }),
+                {
+                    headers: {
+                        Accept: 'application/json',
+                    },
+                    signal,
                 },
-                signal,
-            },
-        );
-        const policeAlerts = await readPoliceAlertsResponse(response);
+            );
+
+            return readPoliceAlertsResponse(response);
+        }, signal);
 
         addSentryBreadcrumb({
             category: 'map.police_alerts',
@@ -105,7 +110,10 @@ export async function getWazePoliceAlerts({ location, signal } = {}) {
 
         return policeAlerts;
     } catch (error) {
-        if (error?.name !== 'AbortError') {
+        const requestWasAborted =
+            signal?.aborted === true || error?.name === 'AbortError';
+
+        if (!requestWasAborted) {
             addSentryBreadcrumb({
                 category: 'api',
                 data: {

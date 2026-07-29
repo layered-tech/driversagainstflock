@@ -17,6 +17,7 @@ import {
     refreshElectronicHorizonAlprNodesIfStale,
 } from './electronic-horizon-alpr-store';
 import { shouldRefreshLocationData } from './location-watch-options';
+import { recordMapPerformanceSignpost } from './map-performance-signposts';
 import { usePersistentRoadMatchingWatchIsActive } from './use-device-location';
 
 const ELECTRONIC_HORIZON_ALPR_STALE_CHECK_INTERVAL_MS = 15 * 1000;
@@ -30,10 +31,12 @@ function getElectronicHorizonAlertPathState({
         routeOption?.coordinates,
         userLocation,
     );
-    const electronicHorizonCoordinates =
-        getElectronicHorizonPrimaryCoordinates(electronicHorizon);
     const pathSource =
         activeRouteCoordinates.length >= 2 ? 'route' : 'electronic-horizon';
+    const electronicHorizonCoordinates =
+        pathSource === 'electronic-horizon'
+            ? getElectronicHorizonPrimaryCoordinates(electronicHorizon)
+            : [];
     const coordinates =
         pathSource === 'route'
             ? activeRouteCoordinates
@@ -41,9 +44,11 @@ function getElectronicHorizonAlertPathState({
 
     return {
         coordinates,
+        pathSource,
         pathStateKey: getElectronicHorizonAlprPathStateKey({
             coordinates,
-            electronicHorizon,
+            electronicHorizon:
+                pathSource === 'electronic-horizon' ? electronicHorizon : null,
             pathSource,
             routePathKey:
                 getElectronicHorizonAlprDirectionsRoutePathKey(routeOption),
@@ -60,11 +65,12 @@ export function useUpcomingElectronicHorizonAlerts({
 } = {}) {
     const selectedDirectionsRouteOption =
         getSelectedDirectionsRouteOption(directionsRoute);
-    const { coordinates, pathStateKey } = getElectronicHorizonAlertPathState({
-        electronicHorizon,
-        routeOption: selectedDirectionsRouteOption,
-        userLocation,
-    });
+    const { coordinates, pathSource, pathStateKey } =
+        getElectronicHorizonAlertPathState({
+            electronicHorizon,
+            routeOption: selectedDirectionsRouteOption,
+            userLocation,
+        });
     const coordinatePathStateKey =
         getElectronicHorizonAlprCoordinatePathStateKey(coordinates);
     const alertPathStateRef = useRef({ coordinates, pathStateKey });
@@ -146,16 +152,32 @@ export function useUpcomingElectronicHorizonAlerts({
         };
     }, [enabled, refreshAlprNodesIfStale]);
 
-    const upcomingAlerts = useMemo(
-        () =>
-            getUpcomingElectronicHorizonAlerts({
-                alprNodes,
-                electronicHorizon,
-                pathCoordinates: coordinates,
-                policeAlerts,
-            }),
-        [alprNodes, coordinates, electronicHorizon, policeAlerts],
-    );
+    const upcomingAlertComputation = useMemo(() => {
+        const startedAt = Date.now();
+        const upcomingAlerts = getUpcomingElectronicHorizonAlerts({
+            alprNodes,
+            electronicHorizon,
+            pathCoordinates: coordinates,
+            policeAlerts,
+        });
 
-    return { alprNodes, upcomingAlerts };
+        return {
+            durationMs: Math.max(0, Date.now() - startedAt),
+            upcomingAlerts,
+        };
+    }, [alprNodes, coordinates, electronicHorizon, policeAlerts]);
+
+    useEffect(() => {
+        recordMapPerformanceSignpost('alerts.compute.completed', {
+            alprNodeCount: alprNodes.length,
+            durationMs: upcomingAlertComputation.durationMs,
+            pathSource,
+            upcomingAlertCount: upcomingAlertComputation.upcomingAlerts.length,
+        });
+    }, [alprNodes.length, pathSource, upcomingAlertComputation]);
+
+    return {
+        alprNodes,
+        upcomingAlerts: upcomingAlertComputation.upcomingAlerts,
+    };
 }

@@ -79,6 +79,7 @@ import {
     createLocationPuckCameraFollowLifecycle,
     getLocationPuckCameraControllerKey,
     getLocationPuckCameraFollowFallbackProps,
+    waitForLocationPuckCameraFollowCommit,
 } from './location-puck-camera-follow-lifecycle';
 import {
     getLocationPuckCameraOwnershipKey,
@@ -99,6 +100,7 @@ import {
     RouteWaypointMarker,
     SubmittedSearchResultMarker,
 } from './map-marker-views';
+import { recordMapPerformanceSignpost } from './map-performance-signposts';
 import {
     useMapCanvasContext,
     useMapLocationContext,
@@ -114,6 +116,30 @@ import {
 
 const MAP_PREFERRED_FRAMES_PER_SECOND = 30;
 const NAVIGATION_PUCK_3D_SCALE_UPDATE_EPSILON = 0.05;
+
+function getFeatureCollectionFeatureCount(featureCollection) {
+    return Array.isArray(featureCollection?.features)
+        ? featureCollection.features.length
+        : 0;
+}
+
+function useMapboxShapeSourceSignpost({
+    featureCollection,
+    source,
+    surface,
+    visible,
+}) {
+    const featureCount = getFeatureCollectionFeatureCount(featureCollection);
+
+    useLayoutEffect(() => {
+        recordMapPerformanceSignpost('mapbox.shape-source.committed', {
+            featureCount,
+            source,
+            surface,
+            visible,
+        });
+    }, [featureCollection, featureCount, source, surface, visible]);
+}
 
 function getNavigationPuckCameraZoomLevel({
     minimumZoomLevel,
@@ -625,9 +651,47 @@ export const MapCanvas = memo(function MapCanvas() {
           ? 'heading'
           : 'course';
     const resolvedNavigationPuckVariant = navigationPuckVariant || 'default';
+    const mapPerformanceSurface =
+        resolvedNavigationPuckVariant === 'auto-play' ? 'auto-play' : 'phone';
     const mapLayerSlots = getMapLayerSlots({
         navigationPuckVariant: resolvedNavigationPuckVariant,
         platform: Platform.OS,
+    });
+    useMapboxShapeSourceSignpost({
+        featureCollection: directionsDebugFeatureCollection,
+        source: 'directions-debug',
+        surface: mapPerformanceSurface,
+        visible: directionsDebugGeometryIsVisible,
+    });
+    useMapboxShapeSourceSignpost({
+        featureCollection: electronicHorizonDebugFeatureCollection,
+        source: 'electronic-horizon-debug',
+        surface: mapPerformanceSurface,
+        visible: electronicHorizonDebugGeometryIsVisible,
+    });
+    useMapboxShapeSourceSignpost({
+        featureCollection: directionsRouteFeatureCollection,
+        source: 'directions-route',
+        surface: mapPerformanceSurface,
+        visible: directionsRouteIsVisible,
+    });
+    useMapboxShapeSourceSignpost({
+        featureCollection: localityBoundary?.boundary,
+        source: 'locality-boundary',
+        surface: mapPerformanceSurface,
+        visible: localityBoundaryIsVisible,
+    });
+    useMapboxShapeSourceSignpost({
+        featureCollection: markerFeatureCollection,
+        source: markerClustersEnabled ? 'markers-clustered' : 'markers',
+        surface: mapPerformanceSurface,
+        visible: surveillanceMarkersVisible,
+    });
+    useMapboxShapeSourceSignpost({
+        featureCollection: policeAlertFeatureCollection,
+        source: 'police-alerts',
+        surface: mapPerformanceSurface,
+        visible: policeAlertsAreVisible,
     });
     const userLocationPuckAboveLayer = directionsRouteIsVisible
         ? mapLayerSlots.userLocationPuckAboveLayer
@@ -789,6 +853,10 @@ export const MapCanvas = memo(function MapCanvas() {
                 configureCameraFollow: setLocationPuckCameraFollowAsync,
                 onStatusChange: setLocationPuckCameraFollowStatus,
                 verifyCameraFollow: isLocationPuckCameraFollowActiveAsync,
+                waitForCameraCommit: () =>
+                    waitForLocationPuckCameraFollowCommit({
+                        platform: Platform.OS,
+                    }),
             });
     }
 

@@ -48,7 +48,7 @@ export function SharedMapStateProvider({ children }) {
         useState(null);
     const [localityBoundary, setLocalityBoundary] = useState(null);
     const electronicHorizon = useElectronicHorizon({
-        enabled: drivingModeIsActive,
+        enabled: drivingModeIsActive && !directionsRoute,
     });
     const { upcomingAlerts } = useUpcomingElectronicHorizonAlerts({
         directionsRoute,
