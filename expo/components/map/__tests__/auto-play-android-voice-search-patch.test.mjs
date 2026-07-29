@@ -280,7 +280,7 @@ test('JS waits for the root map before consuming a replayed voice intent', () =>
     );
     assert.match(
         autoPlaySource,
-        /voiceSearchController = new AbortController\(\);[\s\S]*?searchAbortController = voiceSearchController[\s\S]*?const startLocation = await getLastKnownLocation\(\);[\s\S]*?autoPlaySearchRequestIsCurrent\([\s\S]*?voiceSearchController[\s\S]*?const results = await searchTextPlaces\(\{[\s\S]*?signal: voiceSearchController\.signal[\s\S]*?autoPlaySearchRequestIsCurrent\([\s\S]*?voiceSearchController/,
+        /voiceSearchController = new AbortController\(\);[\s\S]*?searchAbortController = voiceSearchController[\s\S]*?const startLocation = await getAutoPlaySearchLocation\(\);[\s\S]*?autoPlaySearchRequestIsCurrent\([\s\S]*?voiceSearchController[\s\S]*?const results = await searchTextPlaces\(\{[\s\S]*?signal: voiceSearchController\.signal[\s\S]*?autoPlaySearchRequestIsCurrent\([\s\S]*?voiceSearchController/,
     );
     assert.match(
         autoPlaySource,
@@ -295,7 +295,7 @@ test('JS waits for the root map before consuming a replayed voice intent', () =>
 test('JS shows search results and starts only navigation voice requests', () => {
     assert.match(
         autoPlaySource,
-        /const resolvedRequestType = resolveAutoPlayVoiceRequestType\(\{\s*hasDestinationCoordinates: Boolean\(destinationLocation\),\s*requestType,\s*\}\);[\s\S]*?if \(resolvedRequestType === 'search'\) \{\s*pendingVoiceSearchTemplatePush = \{\s*\.\.\.openSearchTemplate\(searchQuery, destinationLocation, \{\s*autoAdvanceSingleResult: true,\s*requestIsCurrent,\s*\}\),\s*requestGeneration,\s*\};\s*return;/,
+        /const resolvedRequestType = resolveAutoPlayVoiceRequestType\(\{\s*hasDestinationCoordinates: Boolean\(destinationLocation\),\s*requestType,\s*\}\);[\s\S]*?if \(resolvedRequestType === 'search'\) \{\s*const voiceSearchOptions = \{\s*autoAdvanceSingleResult: true,\s*requestIsCurrent,\s*\};[\s\S]*?presentsVoiceSearchResultsInList === true[\s\S]*?openVoiceSearchResultsTemplate\(\s*searchQuery,\s*destinationLocation,\s*voiceSearchOptions,?\s*\)[\s\S]*?: openSearchTemplate\(\s*searchQuery,\s*destinationLocation,\s*voiceSearchOptions,?\s*\)/,
     );
     assert.doesNotMatch(autoPlaySource, /inferAutoPlayVoiceQueryRequestType/);
     assert.match(

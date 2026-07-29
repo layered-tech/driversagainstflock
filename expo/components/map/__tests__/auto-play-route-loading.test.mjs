@@ -61,7 +61,7 @@ describe('Auto Play route-loading state', () => {
         assert.ok(loadingStart > searchReturn);
         assert.match(
             handlerSource,
-            /beginAutoPlayRouteLoading\([\s\S]*?getLastKnownLocation\(\)[\s\S]*?searchTextPlaces\([\s\S]*?handleSearchResultSelected\(results\[0\], \{[\s\S]*?routeLoadingRequestId/,
+            /beginAutoPlayRouteLoading\([\s\S]*?getAutoPlaySearchLocation\(\)[\s\S]*?searchTextPlaces\([\s\S]*?handleSearchResultSelected\(results\[0\], \{[\s\S]*?routeLoadingRequestId/,
         );
         assert.match(
             handlerSource,

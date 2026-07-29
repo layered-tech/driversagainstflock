@@ -1133,6 +1133,36 @@ index 85e26c5..19e26a6 100644
      static func emitSafeAreaInsets(
          moduleName: String,
          safeAreaInsets: UIEdgeInsets
+diff --git a/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridListTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridListTemplate.swift
+index 15a94e4..8d2d320 100644
+--- a/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridListTemplate.swift
++++ b/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridListTemplate.swift
+@@ -5,6 +5,7 @@
+ //
+ 
+ import NitroModules
++import UIKit
+ 
+ class HybridListTemplate: HybridListTemplateSpec {
+     func createListTemplate(config: ListTemplateConfig) throws {
+@@ -24,6 +25,17 @@ class HybridListTemplate: HybridListTemplateSpec {
+     ) throws -> Promise<Void> {
+         return Promise.async {
+             try await MainActor.run {
++                // The phone can be locked while CarPlay remains on-screen.
++                // Keep this short, synchronous template mutation alive long
++                // enough for CarPlay to render the completed search results.
++                let backgroundTask = UIApplication.shared.beginBackgroundTask(
++                    withName: "CarPlay list update"
++                )
++
++                defer {
++                    UIApplication.shared.endBackgroundTask(backgroundTask)
++                }
++
+                 try RootModule.withAutoPlayTemplate(templateId: templateId) {
+                     (template: ListTemplate) in
+                     template.updateSections(sections: sections)
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridMapTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridMapTemplate.swift
 index 275e99d..ed9707f 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridMapTemplate.swift
@@ -1514,10 +1544,10 @@ index 0000000..4f0642e
 +    }
 +}
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/utils/VoiceInputManager.swift b/node_modules/@iternio/react-native-auto-play/ios/utils/VoiceInputManager.swift
-index 2793085..f16ac79 100644
+index 2793085..4fcde31 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/utils/VoiceInputManager.swift
 +++ b/node_modules/@iternio/react-native-auto-play/ios/utils/VoiceInputManager.swift
-@@ -1,24 +1,34 @@
+@@ -1,24 +1,38 @@
  import AVFoundation
  import CarPlay
 +import Speech
@@ -1534,6 +1564,7 @@ index 2793085..f16ac79 100644
 +    private var cancelledByUser = false
      private var continuation: CheckedContinuation<[Int16], Error>?
 -    private var samples: [Int16] = []
++    private var inputStartSoundPlayer: AVAudioPlayer?
 +    private var interfaceController: AutoPlayInterfaceController?
      private var isStopping = false
 +    private var latestPartialTranscript: String?
@@ -1558,11 +1589,14 @@ index 2793085..f16ac79 100644
      private static let tapBufferSize: AVAudioFrameCount = 4_096
 -    private static let silenceAmplitudeThreshold = 500
 -    private static let warmupMs: Double = 500
++    private static let inputStartSoundSampleRate: UInt32 = 44_100
++    private static let inputStartSoundData = makeInputStartSoundData()
 +    private static let recognitionFinalizationTimeout: TimeInterval = 7
++    private static let searchingStateDurationNanoseconds: UInt64 = 350_000_000
  
      private static let targetFormat = AVAudioFormat(
          commonFormat: .pcmFormatInt16,
-@@ -33,16 +43,28 @@ class VoiceInputManager {
+@@ -33,16 +47,28 @@ class VoiceInputManager {
          interfaceController: AutoPlayInterfaceController?,
          silenceThresholdMs: Double,
          maxDurationMs: Double,
@@ -1595,7 +1629,7 @@ index 2793085..f16ac79 100644
                      interfaceController: interfaceController,
                      silenceThresholdMs: silenceThresholdMs,
                      maxDurationMs: maxDurationMs,
-@@ -50,30 +72,98 @@ class VoiceInputManager {
+@@ -50,30 +76,98 @@ class VoiceInputManager {
                  )
              }
              catch {
@@ -1634,9 +1668,9 @@ index 2793085..f16ac79 100644
 +            expectedRecognitionActivityGeneration
 +                != recognitionActivityGeneration
 +        {
-             stopLock.unlock()
-             return
-         }
++            stopLock.unlock()
++            return
++        }
 +
 +        if isStopping {
 +            let shouldCancelPendingRecognition =
@@ -1649,7 +1683,7 @@ index 2793085..f16ac79 100644
 +            let activeInterfaceController = suppliedInterfaceController
 +                ?? interfaceController
 +            let activeRecognitionTask = recognitionTask
-+            stopLock.unlock()
+             stopLock.unlock()
 +
 +            if shouldCancelPendingRecognition {
 +                activeRecognitionTask?.cancel()
@@ -1659,8 +1693,8 @@ index 2793085..f16ac79 100644
 +                )
 +            }
 +
-+            return
-+        }
+             return
+         }
 +
          isStopping = true
 -        let capturedContinuation = continuation
@@ -1705,7 +1739,7 @@ index 2793085..f16ac79 100644
      }
  
      // MARK: - Private
-@@ -88,33 +178,61 @@ class VoiceInputManager {
+@@ -88,33 +182,61 @@ class VoiceInputManager {
              throw VoiceInputError.microphonePermissionDenied
          }
  
@@ -1776,7 +1810,7 @@ index 2793085..f16ac79 100644
  
              let outputFrameCapacity = AVAudioFrameCount(
                  Double(buffer.frameLength)
-@@ -131,103 +249,558 @@ class VoiceInputManager {
+@@ -131,103 +253,656 @@ class VoiceInputManager {
  
              var conversionError: NSError?
              let status = converter.convert(to: outputBuffer, error: &conversionError) {
@@ -1918,9 +1952,8 @@ index 2793085..f16ac79 100644
 +                if shouldScheduleInactivityTimeout {
 +                    self.recognitionActivityGeneration &+= 1
 +                    activityGeneration = self.recognitionActivityGeneration
-                 }
-                 else {
--                    self.silenceStart = nil
++                }
++                else {
 +                    activityGeneration = nil
 +                }
 +                self.stopLock.unlock()
@@ -1946,8 +1979,9 @@ index 2793085..f16ac79 100644
 +
 +                if shouldSalvagePartialTranscript {
 +                    self.finishRecognition(transcript: partialTranscript)
-+                }
-+                else {
+                 }
+                 else {
+-                    self.silenceStart = nil
 +                    self.fail(error: error)
                  }
              }
@@ -1968,11 +2002,8 @@ index 2793085..f16ac79 100644
 +
 +        recognitionTask = task
 +        stopLock.unlock()
-     }
- 
--    private func triggerAutoStop(interfaceController: AutoPlayInterfaceController?) {
--        DispatchQueue.global(qos: .userInitiated).async {
--            self.stop(interfaceController: interfaceController)
++    }
++
 +    private func scheduleRecognitionInactivityTimeout(
 +        silenceThresholdMs: Double,
 +        interfaceController: AutoPlayInterfaceController?,
@@ -1993,7 +2024,7 @@ index 2793085..f16ac79 100644
 +        else {
 +            stopLock.unlock()
 +            return
-         }
++        }
 +
 +        recognitionInactivityWorkItem?.cancel()
 +        recognitionInactivityWorkItem = workItem
@@ -2005,9 +2036,9 @@ index 2793085..f16ac79 100644
 +        )
      }
  
--    private func stopCapture(interfaceController: AutoPlayInterfaceController?) {
--        audioEngine?.inputNode.removeTap(onBus: 0)
--        audioEngine?.stop()
+-    private func triggerAutoStop(interfaceController: AutoPlayInterfaceController?) {
+-        DispatchQueue.global(qos: .userInitiated).async {
+-            self.stop(interfaceController: interfaceController)
 +    private func scheduleRecognitionTimeout() {
 +        let workItem = DispatchWorkItem { [weak self] in
 +            guard let self else { return }
@@ -2022,7 +2053,7 @@ index 2793085..f16ac79 100644
 +            self.finishRecognition(
 +                transcript: partialTranscript.isEmpty ? nil : partialTranscript
 +            )
-+        }
+         }
 +
 +        stopLock.lock()
 +        guard continuation != nil else {
@@ -2038,8 +2069,11 @@ index 2793085..f16ac79 100644
 +            deadline: .now() + VoiceInputManager.recognitionFinalizationTimeout,
 +            execute: workItem
 +        )
-+    }
-+
+     }
+ 
+-    private func stopCapture(interfaceController: AutoPlayInterfaceController?) {
+-        audioEngine?.inputNode.removeTap(onBus: 0)
+-        audioEngine?.stop()
 +    private func scheduleCaptureTimeout(
 +        maxDurationMs: Double,
 +        interfaceController: AutoPlayInterfaceController?
@@ -2126,6 +2160,15 @@ index 2793085..f16ac79 100644
 +            if capturedInterfaceController.interfaceController
 +                .presentedTemplate?.id == capturedVoiceInputTemplate.template.id
 +            {
++                if transcript != nil, !capturedWasCancelled {
++                    capturedVoiceInputTemplate.template
++                        .activateVoiceControlState(withIdentifier: "searching")
++                    try? await Task.sleep(
++                        nanoseconds: VoiceInputManager
++                            .searchingStateDurationNanoseconds
++                    )
++                }
++
 +                _ = try? await capturedInterfaceController.dismissTemplate(
 +                    animated: true
 +                )
@@ -2205,6 +2248,7 @@ index 2793085..f16ac79 100644
 +        let capturedCaptureTimeoutWorkItem = captureTimeoutWorkItem
 +        let capturedRecognitionInactivityWorkItem =
 +            recognitionInactivityWorkItem
++        let capturedInputStartSoundPlayer = inputStartSoundPlayer
 +        let shouldDeactivateAudioSession = audioSessionIsActive
 +        let capturedPreviousCategory = previousAudioSessionCategory
 +        let capturedPreviousMode = previousAudioSessionMode
@@ -2217,6 +2261,7 @@ index 2793085..f16ac79 100644
 -        if let interfaceController {
 -            dismissVoiceTemplate(interfaceController: interfaceController)
 +        captureTimeoutWorkItem = nil
++        inputStartSoundPlayer = nil
 +        recognitionInactivityWorkItem = nil
 +        audioSessionIsActive = false
 +        previousAudioSessionCategory = nil
@@ -2225,6 +2270,7 @@ index 2793085..f16ac79 100644
 +        stopLock.unlock()
 +
 +        capturedCaptureTimeoutWorkItem?.cancel()
++        capturedInputStartSoundPlayer?.stop()
 +        capturedRecognitionInactivityWorkItem?.cancel()
 +        capturedAudioEngine?.inputNode.removeTap(onBus: 0)
 +        capturedAudioEngine?.stop()
@@ -2259,14 +2305,25 @@ index 2793085..f16ac79 100644
          let listeningState = CPVoiceControlState(
              identifier: "listening",
              titleVariants: [listeningText],
-             image: nil,
-             repeats: true
+-            image: nil,
+-            repeats: true
++            image: UIImage(systemName: "mic.fill")?.withTintColor(
++                .systemRed,
++                renderingMode: .alwaysOriginal
++            ),
++            repeats: false
++        )
++        let searchingState = CPVoiceControlState(
++            identifier: "searching",
++            titleVariants: ["Searching for a destination...", "Searching..."],
++            image: UIImage(systemName: "magnifyingglass"),
++            repeats: false
          )
 -        let template = CPVoiceControlTemplate(voiceControlStates: [listeningState])
 -        initTemplate(template: template, id: "voice-input")
 -        voiceControlTemplate = template
 +        let template = VoiceInputTemplate(
-+            voiceControlStates: [listeningState],
++            voiceControlStates: [listeningState, searchingState],
 +            id: "voice-input-\(UUID().uuidString)"
 +        ) { [weak self] in
 +            self?.stop(
@@ -2281,7 +2338,7 @@ index 2793085..f16ac79 100644
 +        guard registerVoiceInputTemplate(template) else {
 +            template.removeFromStore()
 +            return
-         }
++        }
 +
 +        let wasPresented: Bool
 +
@@ -2314,11 +2371,12 @@ index 2793085..f16ac79 100644
 +
 +            template.removeFromStore()
 +            return
-+        }
+         }
 +
 +        template.template.activateVoiceControlState(
 +            withIdentifier: "listening"
 +        )
++        playInputStartSound()
 +        reportListening()
      }
  
@@ -2352,12 +2410,88 @@ index 2793085..f16ac79 100644
 +        guard continuation != nil, !isStopping else {
 +            stopLock.unlock()
 +            return
-         }
--        voiceControlTemplate = nil
++        }
 +
 +        let capturedOnOutcome = onOutcome
 +        stopLock.unlock()
 +        capturedOnOutcome?(.listening)
++    }
++
++    private func playInputStartSound() {
++        guard let player = try? AVAudioPlayer(
++            data: VoiceInputManager.inputStartSoundData
++        ) else {
++            return
++        }
++
++        player.volume = 0.35
++        stopLock.lock()
++        guard continuation != nil, !isStopping else {
++            stopLock.unlock()
++            return
++        }
++
++        inputStartSoundPlayer?.stop()
++        inputStartSoundPlayer = player
++        player.prepareToPlay()
++        player.play()
++        stopLock.unlock()
++    }
++
++    private static func makeInputStartSoundData() -> Data {
++        let frameCount = Int(Double(inputStartSoundSampleRate) * 0.12)
++        var pcmData = Data(
++            capacity: frameCount * MemoryLayout<Int16>.size
++        )
++
++        for frameIndex in 0 ..< frameCount {
++            let progress = Double(frameIndex) / Double(frameCount)
++            let frequency = progress < 0.5 ? 880.0 : 1_320.0
++            let envelope = min(
++                1,
++                min(progress * 30, (1 - progress) * 30)
++            )
++            let amplitude = sin(
++                2 * Double.pi * frequency * Double(frameIndex)
++                    / Double(inputStartSoundSampleRate)
++            ) * envelope * 0.18
++            var sample = Int16(
++                (amplitude * Double(Int16.max)).rounded()
++            ).littleEndian
++
++            withUnsafeBytes(of: &sample) { bytes in
++                pcmData.append(contentsOf: bytes)
++            }
++        }
++
++        var wavData = Data()
++        wavData.append("RIFF".data(using: .ascii)!)
++        appendLittleEndian(UInt32(36 + pcmData.count), to: &wavData)
++        wavData.append("WAVEfmt ".data(using: .ascii)!)
++        appendLittleEndian(UInt32(16), to: &wavData)
++        appendLittleEndian(UInt16(1), to: &wavData)
++        appendLittleEndian(UInt16(1), to: &wavData)
++        appendLittleEndian(inputStartSoundSampleRate, to: &wavData)
++        appendLittleEndian(inputStartSoundSampleRate * 2, to: &wavData)
++        appendLittleEndian(UInt16(2), to: &wavData)
++        appendLittleEndian(UInt16(16), to: &wavData)
++        wavData.append("data".data(using: .ascii)!)
++        appendLittleEndian(UInt32(pcmData.count), to: &wavData)
++        wavData.append(pcmData)
++
++        return wavData
++    }
++
++    private static func appendLittleEndian<T: FixedWidthInteger>(
++        _ value: T,
++        to data: inout Data
++    ) {
++        var littleEndianValue = value.littleEndian
++
++        withUnsafeBytes(of: &littleEndianValue) { bytes in
++            data.append(contentsOf: bytes)
+         }
+-        voiceControlTemplate = nil
      }
  
      private func samplesAsData(_ samples: [Int16]) -> Data {

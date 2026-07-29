@@ -93,7 +93,7 @@ test('voice searches visibly count down before advancing a sole result', () => {
     );
     assert.match(
         autoPlaySource,
-        /results\.length === 1[\s\S]*?await resultTemplatePresentation\.pushPromise[\s\S]*?scheduleAutoPlaySingleResultAutoAdvance/,
+        /results\.length === 1[\s\S]*?resultTemplateIsAlreadyPresented[\s\S]*?resultTemplatePresentation\?\.pushPromise[\s\S]*?await resultTemplatePresentation\.pushPromise[\s\S]*?scheduleAutoPlaySingleResultAutoAdvance/,
     );
     assert.match(
         autoPlaySource,

@@ -44,6 +44,13 @@ const voiceInputTemplateSource = readFileSync(
     ),
     'utf8',
 );
+const hybridListTemplateSource = readFileSync(
+    new URL(
+        '../../../node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridListTemplate.swift',
+        import.meta.url,
+    ),
+    'utf8',
+);
 const autoPlayPatch = readFileSync(
     new URL(
         '../../../patches/@iternio+react-native-auto-play+0.4.7.patch',
@@ -144,6 +151,85 @@ test('CarPlay presents voice results in a list without duplicating keyboard resu
     assert.match(
         autoPlaySource,
         /presentAutoPlaySearchResults\(\{[\s\S]*?includesMap: showsSearchResultsOnMap/,
+    );
+});
+
+test('CarPlay voice searches use a visible loading list instead of an empty search field', () => {
+    assert.match(
+        autoPlaySource,
+        /function openVoiceSearchResultsTemplate\([\s\S]*?const \{ ListTemplate \} = loadAutoPlayModule\(\)[\s\S]*?getAutoPlaySearchLoadingCopy\(searchQuery\)[\s\S]*?new ListTemplate\([\s\S]*?loadingCopy\.title[\s\S]*?loadingCopy\.detailedText/,
+    );
+    assert.match(
+        autoPlaySource,
+        /openVoiceSearchResultsTemplate[\s\S]*?resultTemplateIsAlreadyPresented: true/,
+    );
+    assert.match(
+        autoPlaySource,
+        /searchTemplateWasUpdated[\s\S]*?!resultTemplateIsAlreadyPresented[\s\S]*?presentAutoPlaySearchResults/,
+    );
+    assert.match(
+        autoPlaySource,
+        /presentsVoiceSearchResultsInList === true[\s\S]*?openVoiceSearchResultsTemplate[\s\S]*?voiceSearchOptions[\s\S]*?: openSearchTemplate\(\s*searchQuery/,
+    );
+});
+
+test('CarPlay voice search does not wait indefinitely for a locked-phone location lookup', () => {
+    assert.match(
+        autoPlaySource,
+        /const AUTO_PLAY_SEARCH_LOCATION_TIMEOUT_MS = 1000;/,
+    );
+    assert.match(
+        autoPlaySource,
+        /async function getAutoPlaySearchLocation\(preferredLocation\)[\s\S]*?getLastRoadMatchedLocationAsync\(\)[\s\S]*?if \(roadMatchedLocation\)[\s\S]*?return roadMatchedLocation;[\s\S]*?withTimeout\([\s\S]*?getLastKnownLocation\(\)[\s\S]*?AUTO_PLAY_SEARCH_LOCATION_TIMEOUT_MS[\s\S]*?\.catch\(\(\) => null\)/,
+    );
+    assert.match(
+        autoPlaySource,
+        /function openVoiceSearchResultsTemplate[\s\S]*?runPlaceTextSearch\(/,
+    );
+    assert.match(
+        autoPlaySource,
+        /async function runPlaceTextSearch[\s\S]*?await getAutoPlaySearchLocation\(startLocation\)[\s\S]*?searchTextPlaces/,
+    );
+});
+
+test('CarPlay keeps the completed result-list update alive while the phone is locked', () => {
+    for (const source of [hybridListTemplateSource, autoPlayPatch]) {
+        assert.match(source, /import UIKit/);
+        assert.match(
+            source,
+            /MainActor\.run[\s\S]*?UIApplication\.shared\.beginBackgroundTask\([\s\S]*?CarPlay list update[\s\S]*?defer \{[\s\S]*?UIApplication\.shared\.endBackgroundTask\(backgroundTask\)[\s\S]*?template\.updateSections/,
+        );
+    }
+});
+
+test('CarPlay voice input shows a red mic, start cue, and search status', () => {
+    for (const source of [voiceInputManagerSource, autoPlayPatch]) {
+        assert.match(
+            source,
+            /UIImage\(systemName: "mic\.fill"\)[\s\S]*?\.systemRed/,
+        );
+        assert.match(
+            source,
+            /identifier: "searching"[\s\S]*?titleVariants: \["Searching for a destination\.\.\.", "Searching\.\.\."\]/,
+        );
+        assert.match(
+            source,
+            /voiceControlStates: \[listeningState, searchingState\]/,
+        );
+        assert.match(
+            source,
+            /activateVoiceControlState\(withIdentifier: "searching"\)[\s\S]*?Task\.sleep[\s\S]*?dismissTemplate/,
+        );
+        assert.match(
+            source,
+            /AVAudioPlayer\([\s\S]*?inputStartSoundData[\s\S]*?player\.play\(\)/,
+        );
+        assert.match(source, /makeInputStartSoundData[\s\S]*?"RIFF"/);
+    }
+
+    assert.match(
+        voiceInputManagerSource,
+        /withIdentifier: "listening"[\s\S]*?playInputStartSound\(\)[\s\S]*?reportListening\(\)/,
     );
 });
 

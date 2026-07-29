@@ -91,6 +91,7 @@ import {
 } from './map/shared-routing-state';
 
 const LOCATION_TIMEOUT_MS = 10000;
+const AUTO_PLAY_SEARCH_LOCATION_TIMEOUT_MS = 1000;
 // Android Auto may deliver bursts of text-change callbacks. Wait for a stable
 // query so autocomplete does not flood the API and native search template.
 const SEARCH_DEBOUNCE_MS = 2000;
@@ -454,6 +455,26 @@ async function getLastKnownLocation() {
     );
 
     return getLocationFromPosition(position);
+}
+
+async function getAutoPlaySearchLocation(preferredLocation) {
+    if (preferredLocation) {
+        return preferredLocation;
+    }
+
+    const roadMatchedLocation = getLocationFromPosition(
+        await getLastRoadMatchedLocationAsync().catch(() => null),
+    );
+
+    if (roadMatchedLocation) {
+        return roadMatchedLocation;
+    }
+
+    return withTimeout(
+        getLastKnownLocation(),
+        AUTO_PLAY_SEARCH_LOCATION_TIMEOUT_MS,
+        'Search location lookup timed out.',
+    ).catch(() => null);
 }
 
 async function getCurrentLocation() {
@@ -906,7 +927,7 @@ async function runPlaceAutocomplete(template, searchText, startLocation) {
     updateSearchTemplateLoadingResults(template, input);
 
     try {
-        const location = startLocation ?? (await getLastKnownLocation());
+        const location = await getAutoPlaySearchLocation(startLocation);
 
         if (
             !autoPlaySearchRequestIsCurrent(
@@ -967,6 +988,7 @@ async function runPlaceTextSearch(
         autoAdvanceSingleResult = false,
         onResultsTemplatePresented = () => {},
         requestIsCurrent = () => true,
+        resultTemplateIsAlreadyPresented = false,
     } = {},
 ) {
     const textQuery = String(searchText ?? '').trim();
@@ -986,7 +1008,7 @@ async function runPlaceTextSearch(
     updateSearchTemplateLoadingResults(template, textQuery);
 
     try {
-        const location = startLocation ?? (await getLastKnownLocation());
+        const location = await getAutoPlaySearchLocation(startLocation);
 
         if (
             !requestIsCurrent() ||
@@ -1044,11 +1066,14 @@ async function runPlaceTextSearch(
             autoAdvanceSingleResult &&
             autoPlayPlatform?.presentsVoiceSearchResultsInList === true;
 
+        let resultTemplatePresentation = null;
+
         if (
             searchTemplateWasUpdated &&
+            !resultTemplateIsAlreadyPresented &&
             (showsSearchResultsOnMap || presentsVoiceSearchResultsInList)
         ) {
-            const resultTemplatePresentation = presentAutoPlaySearchResults({
+            resultTemplatePresentation = presentAutoPlaySearchResults({
                 includesMap: showsSearchResultsOnMap,
                 query: textQuery,
                 requestIsCurrent,
@@ -1057,30 +1082,34 @@ async function runPlaceTextSearch(
                 startLocation,
             });
             onResultsTemplatePresented(resultTemplatePresentation);
+        }
+
+        if (autoAdvanceSingleResult && results.length === 1) {
+            const resultTemplate = resultTemplateIsAlreadyPresented
+                ? template
+                : resultTemplatePresentation?.template;
+            const resultTemplateWasPresented =
+                resultTemplateIsAlreadyPresented && searchTemplateWasUpdated
+                    ? true
+                    : resultTemplatePresentation?.pushPromise
+                      ? await resultTemplatePresentation.pushPromise
+                      : false;
 
             if (
-                autoAdvanceSingleResult &&
-                results.length === 1 &&
-                resultTemplatePresentation?.pushPromise
+                resultTemplate &&
+                resultTemplateWasPresented &&
+                requestIsCurrent() &&
+                autoPlaySearchRequestIsCurrent(
+                    searchAbortController,
+                    abortController,
+                )
             ) {
-                const resultTemplateWasPresented =
-                    await resultTemplatePresentation.pushPromise;
-
-                if (
-                    resultTemplateWasPresented &&
-                    requestIsCurrent() &&
-                    autoPlaySearchRequestIsCurrent(
-                        searchAbortController,
-                        abortController,
-                    )
-                ) {
-                    scheduleAutoPlaySingleResultAutoAdvance({
-                        preferredStartLocation: startLocation,
-                        requestIsCurrent,
-                        result: results[0],
-                        resultTemplate: resultTemplatePresentation.template,
-                    });
-                }
+                scheduleAutoPlaySingleResultAutoAdvance({
+                    preferredStartLocation: startLocation,
+                    requestIsCurrent,
+                    result: results[0],
+                    resultTemplate,
+                });
             }
         }
     } catch (error) {
@@ -1282,6 +1311,87 @@ function openSearchTemplate(
         template,
         waitForResultTemplatePushes:
             templateLifecycle.waitForResultTemplatePushes,
+        wasPushed: () => templateWasPushed,
+    };
+}
+
+function openVoiceSearchResultsTemplate(
+    searchQuery,
+    preferredStartLocation,
+    { autoAdvanceSingleResult = false, requestIsCurrent = () => true } = {},
+) {
+    const { ListTemplate } = loadAutoPlayModule();
+    const loadingCopy = getAutoPlaySearchLoadingCopy(searchQuery);
+    let templateWasPushed = false;
+    let template;
+    const dismissSearch = () => {
+        if (!requestIsCurrent()) {
+            return;
+        }
+
+        cancelAutoPlaySearchWork();
+        clearAutoPlaySubmittedSearchResults();
+    };
+
+    cancelAutoPlaySearchWork();
+    clearAutoPlaySubmittedSearchResults();
+    template = new ListTemplate({
+        headerActions: getBackHeaderAction(dismissSearch),
+        onPopped: dismissSearch,
+        sections: {
+            items: [
+                makeDisabledSearchRow(
+                    loadingCopy.title,
+                    loadingCopy.detailedText,
+                ),
+            ],
+            type: 'default',
+        },
+        title: makeAutoText(loadingCopy.title),
+    });
+
+    setAutoPlayState({
+        detailText: loadingCopy.detailedText,
+        errorText: '',
+        statusLabel: loadingCopy.title,
+        title: 'Destination',
+    });
+
+    const pushPromise = template
+        .push()
+        .then(() => {
+            templateWasPushed = true;
+
+            return runPlaceTextSearch(
+                template,
+                searchQuery,
+                preferredStartLocation,
+                {
+                    autoAdvanceSingleResult,
+                    requestIsCurrent,
+                    resultTemplateIsAlreadyPresented: true,
+                },
+            );
+        })
+        .catch((error) => {
+            if (!requestIsCurrent()) {
+                return;
+            }
+
+            dismissSearch();
+            logAutoPlayPlatformAction('voice-search-template-push-failed', {
+                message: error?.message || 'Unknown error',
+            });
+            showAutoPlayError(
+                'Search unavailable',
+                error?.message || 'Voice search could not be opened.',
+            );
+        });
+
+    return {
+        pushPromise,
+        template,
+        waitForResultTemplatePushes: () => Promise.resolve(),
         wasPushed: () => templateWasPushed,
     };
 }
@@ -3117,11 +3227,22 @@ async function handleVoiceNavigation(
     });
 
     if (resolvedRequestType === 'search') {
+        const voiceSearchOptions = {
+            autoAdvanceSingleResult: true,
+            requestIsCurrent,
+        };
         pendingVoiceSearchTemplatePush = {
-            ...openSearchTemplate(searchQuery, destinationLocation, {
-                autoAdvanceSingleResult: true,
-                requestIsCurrent,
-            }),
+            ...(autoPlayPlatform?.presentsVoiceSearchResultsInList === true
+                ? openVoiceSearchResultsTemplate(
+                      searchQuery,
+                      destinationLocation,
+                      voiceSearchOptions,
+                  )
+                : openSearchTemplate(
+                      searchQuery,
+                      destinationLocation,
+                      voiceSearchOptions,
+                  )),
             requestGeneration,
         };
         return;
@@ -3173,7 +3294,7 @@ async function handleVoiceNavigation(
         voiceSearchController = new AbortController();
         searchAbortController = voiceSearchController;
 
-        const startLocation = await getLastKnownLocation();
+        const startLocation = await getAutoPlaySearchLocation();
 
         if (
             !requestIsCurrent() ||
