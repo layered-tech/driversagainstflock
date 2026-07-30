@@ -24,6 +24,7 @@ import {
     ReroutingCard,
 } from './driving-guidance-cards';
 import { DrivingLocationRoadStack } from './driving-location-road-stack';
+import { useE2EDrivingAlertsFixture } from './e2e-driving-alert-fixture';
 import { NativeWindSafeAreaView } from './native-components';
 import {
     useSharedMapLocationState,
@@ -114,6 +115,7 @@ export function DrivingGuidanceOverlay({
         upcomingAlerts,
     } = useSharedMapState();
     const { userLocation } = useSharedMapLocationState();
+    const e2eDrivingAlertsFixture = useE2EDrivingAlertsFixture();
     const routeOption = getSelectedDirectionsRouteOption(directionsRoute);
     const routeProgress = useMemo(
         () => getDirectionsRouteProgress(directionsRoute, userLocation),
@@ -374,7 +376,7 @@ export function DrivingGuidanceOverlay({
                 <View className="flex-1" pointerEvents="none" />
 
                 <DrivingAlertsOverlay
-                    alerts={upcomingAlerts}
+                    alerts={e2eDrivingAlertsFixture ?? upcomingAlerts}
                     bottomInset={insets.bottom}
                     routeIsActive={routeIsActive}
                 />

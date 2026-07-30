@@ -5,6 +5,8 @@ function getDeepLinkPath(url) {
         .replace(/^\/+/, '');
 }
 
+const E2E_DRIVING_ALERT_FIXTURES = new Set(['alpr', 'combined', 'police']);
+
 export function getE2EMockFlagsFromURL(value) {
     try {
         const url = new URL(value);
@@ -15,16 +17,25 @@ export function getE2EMockFlagsFromURL(value) {
         const authMockValue =
             url.searchParams.get('auth') ?? url.searchParams.get('e2eAuthMock');
         const authMockIsEnabled = mocksAreEnabled && authMockValue === '1';
+        const requestedDrivingAlertsFixture =
+            url.searchParams.get('drivingAlerts');
+        const drivingAlertsFixture =
+            mocksAreEnabled &&
+            E2E_DRIVING_ALERT_FIXTURES.has(requestedDrivingAlertsFixture)
+                ? requestedDrivingAlertsFixture
+                : null;
 
         return {
             authMockIsDisabled: mocksAreEnabled && !authMockIsEnabled,
             authMockIsEnabled,
+            drivingAlertsFixture,
             mocksAreEnabled,
         };
     } catch {
         return {
             authMockIsDisabled: false,
             authMockIsEnabled: false,
+            drivingAlertsFixture: null,
             mocksAreEnabled: false,
         };
     }

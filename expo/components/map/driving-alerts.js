@@ -15,9 +15,120 @@ function getTrimmedString(value) {
 }
 
 function getPoliceDescription(alert) {
-    return String(alert?.subtype ?? '').toUpperCase() === 'POLICE_HIDING'
+    return String(
+        alert?.subtype ?? alert?.source?.subtype ?? '',
+    ).toUpperCase() === 'POLICE_HIDING'
         ? 'Hidden police'
         : 'Police reported';
+}
+
+function getAlertSource(alert) {
+    return alert?.source &&
+        typeof alert.source === 'object' &&
+        !Array.isArray(alert.source)
+        ? alert.source
+        : null;
+}
+
+function getAlprSourceLabel(alert) {
+    const tags = getAlertSource(alert)?.tags;
+    const label = [
+        tags?.brand,
+        tags?.manufacturer,
+        alert?.subtitle,
+        tags?.operator,
+        tags?.name,
+    ]
+        .map(getTrimmedString)
+        .find(Boolean);
+
+    return (
+        label?.replace(/^flock safety$/i, 'Flock') ??
+        'OpenStreetMap ALPR reader'
+    );
+}
+
+function getVisibleUpcomingAlertEntries(alerts, dismissedAlertIds) {
+    if (!Array.isArray(alerts)) {
+        return [];
+    }
+
+    return alerts.flatMap((alert, index) => {
+        const type = alert?.type;
+        const alertId = getAlertId(alert, index);
+
+        if (
+            (type !== 'alpr' && type !== 'police') ||
+            dismissedAlertIds?.has?.(alertId)
+        ) {
+            return [];
+        }
+
+        return [{ alert, id: alertId, index }];
+    });
+}
+
+function getUpcomingAlertDistanceForSort(alert) {
+    const distance = Number(alert?.distanceMeters);
+
+    return Number.isFinite(distance) && distance >= 0
+        ? distance
+        : Number.POSITIVE_INFINITY;
+}
+
+function getClosestUpcomingAlert(entries, type) {
+    return entries.reduce((closestEntry, entry) => {
+        if (entry.alert.type !== type) {
+            return closestEntry;
+        }
+
+        if (!closestEntry) {
+            return entry;
+        }
+
+        const candidateDistance = getUpcomingAlertDistanceForSort(entry.alert);
+        const closestDistance = getUpcomingAlertDistanceForSort(
+            closestEntry.alert,
+        );
+
+        return candidateDistance < closestDistance ||
+            (candidateDistance === closestDistance &&
+                entry.index < closestEntry.index)
+            ? entry
+            : closestEntry;
+    }, null);
+}
+
+function getWazeReportedAge(alert, now) {
+    return (
+        formatUpcomingAlertAge(getAlertSource(alert)?.publishedAt, now) ??
+        formatUpcomingAlertAge(alert?.publishedAt, now)
+    );
+}
+
+function getCompactUpcomingAlertPresentation(entry, now) {
+    const { alert, id } = entry;
+    const isPoliceAlert = alert.type === 'police';
+    const reportedAge = isPoliceAlert ? getWazeReportedAge(alert, now) : null;
+
+    return {
+        accentColor: isPoliceAlert ? '#2E8BFF' : '#FF4D4F',
+        alert,
+        approachProgress: getUpcomingAlertApproachProgress(
+            alert.distanceMeters,
+        ),
+        distance: formatUpcomingAlertDistance(alert.distanceMeters) ?? 'Ahead',
+        id,
+        icon: isPoliceAlert ? 'shield' : 'camera',
+        iconBackgroundClassName: isPoliceAlert
+            ? 'bg-daf-azure/15 dark:bg-daf-azure/20'
+            : 'bg-daf-alert/15 dark:bg-daf-alert/20',
+        subtitle: isPoliceAlert
+            ? ['Waze', reportedAge].filter(Boolean).join(' · ')
+            : [getAlprSourceLabel(alert), 'on your route'].join(' · '),
+        title: isPoliceAlert ? 'Police reported' : 'ALPR camera',
+        type: alert.type,
+    };
 }
 
 export function formatUpcomingAlertDistance(distanceMeters) {
@@ -76,19 +187,50 @@ export function getUpcomingAlertPassProgress(distanceMeters) {
     );
 }
 
-export function getVisibleUpcomingAlerts(alerts, dismissedAlertIds) {
-    if (!Array.isArray(alerts)) {
-        return [];
+export function getUpcomingAlertApproachProgress(distanceMeters) {
+    const distance = Number(distanceMeters);
+
+    if (!Number.isFinite(distance)) {
+        return 0;
     }
 
-    return alerts.filter((alert, index) => {
-        const type = alert?.type;
+    return Math.min(
+        1,
+        Math.max(0, 1 - distance / UPCOMING_ALERT_WARNING_DISTANCE_METERS),
+    );
+}
 
-        return (
-            (type === 'alpr' || type === 'police') &&
-            !dismissedAlertIds?.has(getAlertId(alert, index))
-        );
-    });
+export function getVisibleUpcomingAlerts(alerts, dismissedAlertIds) {
+    return getVisibleUpcomingAlertEntries(alerts, dismissedAlertIds).map(
+        ({ alert }) => alert,
+    );
+}
+
+export function getDrivingAlertsPresentation(
+    alerts,
+    dismissedAlertIds,
+    now = Date.now(),
+) {
+    const visibleAlertEntries = getVisibleUpcomingAlertEntries(
+        alerts,
+        dismissedAlertIds,
+    );
+    const displayedAlertEntries = [
+        getClosestUpcomingAlert(visibleAlertEntries, 'police'),
+        getClosestUpcomingAlert(visibleAlertEntries, 'alpr'),
+    ].filter(Boolean);
+
+    if (!displayedAlertEntries.length) {
+        return null;
+    }
+
+    return {
+        alerts: displayedAlertEntries.map((entry) =>
+            getCompactUpcomingAlertPresentation(entry, now),
+        ),
+        dismissalAlertIds: displayedAlertEntries.map(({ id }) => id),
+        variant: displayedAlertEntries.length === 2 ? 'combined' : 'single',
+    };
 }
 
 export function getUpcomingAlertPresentation(alert, nextAlert) {

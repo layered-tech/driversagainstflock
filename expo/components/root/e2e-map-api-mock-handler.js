@@ -6,6 +6,7 @@ import {
     e2eMapApiMocksCanBeEnabled,
     setMapApiMocksEnabled,
 } from '../map/api-mocks';
+import { setE2EDrivingAlertsFixture } from '../map/e2e-driving-alert-fixture';
 import { getE2EMockFlagsFromURL } from './e2e-map-api-mock-url';
 
 const E2E_MOCK_AUTH_SESSION = {
@@ -20,8 +21,12 @@ const E2E_MOCK_AUTH_SESSION = {
 };
 
 function applyE2EMocksFromURL(value) {
-    const { authMockIsDisabled, authMockIsEnabled, mocksAreEnabled } =
-        getE2EMockFlagsFromURL(value);
+    const {
+        authMockIsDisabled,
+        authMockIsEnabled,
+        drivingAlertsFixture,
+        mocksAreEnabled,
+    } = getE2EMockFlagsFromURL(value);
 
     if (!mocksAreEnabled) {
         return;
@@ -29,6 +34,7 @@ function applyE2EMocksFromURL(value) {
 
     setMapApiMocksEnabled(true);
     setOSMApiMocksEnabled(true);
+    setE2EDrivingAlertsFixture(drivingAlertsFixture);
 
     if (authMockIsEnabled) {
         injectE2EMockSession(E2E_MOCK_AUTH_SESSION);

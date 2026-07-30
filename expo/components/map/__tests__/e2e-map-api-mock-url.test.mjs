@@ -9,6 +9,7 @@ describe('E2E map API mock links', () => {
             {
                 authMockIsDisabled: true,
                 authMockIsEnabled: false,
+                drivingAlertsFixture: null,
                 mocksAreEnabled: true,
             },
         );
@@ -20,6 +21,7 @@ describe('E2E map API mock links', () => {
             {
                 authMockIsDisabled: false,
                 authMockIsEnabled: true,
+                drivingAlertsFixture: null,
                 mocksAreEnabled: true,
             },
         );
@@ -28,6 +30,7 @@ describe('E2E map API mock links', () => {
             {
                 authMockIsDisabled: true,
                 authMockIsEnabled: false,
+                drivingAlertsFixture: null,
                 mocksAreEnabled: true,
             },
         );
@@ -39,8 +42,24 @@ describe('E2E map API mock links', () => {
             {
                 authMockIsDisabled: false,
                 authMockIsEnabled: false,
+                drivingAlertsFixture: null,
                 mocksAreEnabled: false,
             },
+        );
+    });
+
+    test('accepts a driving-alert fixture only from an enabled mock link', () => {
+        assert.equal(
+            getE2EMockFlagsFromURL(
+                'driversagainstflock://e2e-mocks?drivingAlerts=combined',
+            ).drivingAlertsFixture,
+            'combined',
+        );
+        assert.equal(
+            getE2EMockFlagsFromURL(
+                'driversagainstflock://map?drivingAlerts=combined',
+            ).drivingAlertsFixture,
+            null,
         );
     });
 });
