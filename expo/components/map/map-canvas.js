@@ -693,9 +693,6 @@ export const MapCanvas = memo(function MapCanvas() {
         surface: mapPerformanceSurface,
         visible: policeAlertsAreVisible,
     });
-    const userLocationPuckAboveLayer = directionsRouteIsVisible
-        ? mapLayerSlots.userLocationPuckAboveLayer
-        : undefined;
     const navigationPuckIsVisible = shouldShowNavigationPuck({
         isDrivingMode,
         navigationPuckVariant: resolvedNavigationPuckVariant,
@@ -778,6 +775,10 @@ export const MapCanvas = memo(function MapCanvas() {
                 : 'unsupported',
         );
     const [locationPuckMapLoadEpoch, setLocationPuckMapLoadEpoch] = useState(0);
+    const userLocationPuckAboveLayer =
+        directionsRouteIsVisible && locationPuckMapLoadEpoch > 0
+            ? mapLayerSlots.userLocationPuckAboveLayer
+            : undefined;
     const locationPuckNativeProviderIsReady =
         locationPuckProviderStatus === 'native';
     const locationPuckProviderUsesFallback =
@@ -824,6 +825,7 @@ export const MapCanvas = memo(function MapCanvas() {
         getLocationPuckCameraFollowFallbackProps({
             followProps: locationBoundCameraFollowProps,
             followUserMode: drivingCameraFollowMode,
+            mapIsReady: locationPuckMapLoadEpoch > 0,
             nativeFollowIsSupported:
                 nativeLocationPuckCameraControllerIsEligible,
             nativeFollowStatus: locationPuckCameraFollowStatus,

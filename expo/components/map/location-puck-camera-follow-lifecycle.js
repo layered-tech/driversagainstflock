@@ -158,11 +158,15 @@ export function createLocationPuckCameraFallbackReleaseGate({
 export function getLocationPuckCameraFollowFallbackProps({
     followProps,
     followUserMode,
+    mapIsReady,
     nativeFollowIsSupported,
     nativeFollowStatus,
     platform,
 }) {
-    if (nativeFollowIsSupported && nativeFollowStatus !== 'failed') {
+    if (
+        !mapIsReady ||
+        (nativeFollowIsSupported && nativeFollowStatus !== 'failed')
+    ) {
         return { followUserLocation: false };
     }
 
