@@ -361,6 +361,7 @@ export function CompassDial({
     const mapViewRef = useRef(null);
     const currentZoomRef = useRef(COMPASS_PREVIEW_ZOOM_LEVEL);
     const defaultCameraSettingsRef = useRef(null);
+    const previewMapInitializedRef = useRef(false);
     const localHeadingCommitRef = useRef(null);
     const mapGestureRef = useRef({ active: false });
     const previewCameraFrameRef = useRef(null);
@@ -503,6 +504,12 @@ export function CompassDial({
 
         setDisplayLocation(normalizedLocation);
     }, [latitude, longitude]);
+
+    useEffect(() => {
+        if (!satellitePreviewIsAvailable) {
+            previewMapInitializedRef.current = false;
+        }
+    }, [satellitePreviewIsAvailable]);
 
     useEffect(
         () => () => {
@@ -676,9 +683,11 @@ export function CompassDial({
     }, [handleZoomPress]);
 
     const handleMapReady = useCallback(() => {
-        if (!coordinate) {
+        if (!coordinate || previewMapInitializedRef.current) {
             return;
         }
+
+        previewMapInitializedRef.current = true;
 
         const loadedMapGestureSettings = {
             ...COMPASS_MAP_GESTURE_SETTINGS,

@@ -105,6 +105,27 @@ describe('CompassDial location editing', () => {
         assert.match(compassDialSource, /onMapIdle=\{handleMapIdle\}/);
     });
 
+    test('initializes the preview camera only once per mounted map', () => {
+        const mapReadyHandler = sourceBetween(
+            compassDialSource,
+            'const handleMapReady',
+            'const handleDialLayout',
+        );
+
+        assert.match(
+            compassDialSource,
+            /const previewMapInitializedRef = useRef\(false\)/,
+        );
+        assert.match(
+            mapReadyHandler,
+            /if \(!coordinate \|\| previewMapInitializedRef\.current\)/,
+        );
+        assert.match(
+            mapReadyHandler,
+            /previewMapInitializedRef\.current = true/,
+        );
+    });
+
     test('reserves the outer annulus for heading and the inner cutout for map gestures', () => {
         const headingGesture = sourceBetween(
             compassDialSource,
