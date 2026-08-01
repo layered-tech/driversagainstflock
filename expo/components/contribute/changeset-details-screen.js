@@ -61,7 +61,7 @@ export default function ChangesetDetailsScreen() {
     );
 
     const handleNextPress = useCallback(() => {
-        router.push('/contribute/review');
+        router.navigate('/contribute/review');
     }, []);
 
     return (

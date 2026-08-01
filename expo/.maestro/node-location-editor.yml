@@ -64,6 +64,7 @@ tags:
     commands:
       - tapOn:
           id: 'contribute-next-details-button'
+      - openLink: 'driversagainstflock://contribute/camera/0'
 - runFlow:
     when:
       platform: iOS

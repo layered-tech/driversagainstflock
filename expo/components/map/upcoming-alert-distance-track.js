@@ -1,4 +1,5 @@
-import { useColorScheme, useState, View } from 'react-native';
+import { useState } from 'react';
+import { useColorScheme, View } from 'react-native';
 import { Icon } from '../design-system/icon';
 import { dafSemanticColors, getDafTheme } from '../design-system/tokens';
 

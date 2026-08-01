@@ -99,3 +99,13 @@ tags:
     id: 'driving-upcoming-alert-dismiss'
 - assertNotVisible:
     id: 'driving-upcoming-alert'
+- tapOn:
+    id: 'driving-cancel-route-button'
+    retryTapIfNoChange: true
+- tapOn:
+    id: 'place-details-close-button'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 10000

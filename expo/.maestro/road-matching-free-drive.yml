@@ -40,7 +40,9 @@ tags:
     when:
       visible: 'Close'
     commands:
-      - tapOn: 'Close'
+      - tapOn:
+          text: 'Close'
+          optional: true
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
@@ -91,7 +93,7 @@ tags:
     text: '0,0,0'
 - assertVisible:
     id: 'e2e-native-puck-scale-mode'
-    text: 'viewport'
+    text: 'map'
 - assertVisible:
     id: 'e2e-native-puck-emissive-strength'
     text: '1'

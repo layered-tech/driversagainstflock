@@ -11,6 +11,9 @@ tags:
     stopApp: true
     permissions:
       all: allow
+- tapOn:
+    text: 'Continue'
+    optional: true
 - runFlow:
     when:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
@@ -75,3 +78,10 @@ tags:
     timeout: 10000
 - assertVisible:
     id: "directions-route-start-driving-button"
+- tapOn:
+    id: "directions-route-back-button"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: "map-search-input-map"
+    timeout: 10000
