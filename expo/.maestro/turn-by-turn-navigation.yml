@@ -10,6 +10,7 @@ tags:
     longitude: -97.7431
 - launchApp:
     stopApp: true
+    clearState: true
     permissions:
       all: allow
 - tapOn:
@@ -20,6 +21,9 @@ tags:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
     commands:
       - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- tapOn:
+    text: 'Continue'
+    optional: true
 - tapOn:
     text: 'http://10.0.2.2:8081'
     optional: true
