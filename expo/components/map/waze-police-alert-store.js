@@ -144,6 +144,10 @@ export function hydrateWazePoliceAlerts() {
     return wazePoliceAlertStore.hydrate();
 }
 
+export function invalidateWazePoliceAlerts() {
+    wazePoliceAlertStore.invalidate();
+}
+
 export function sharedWazePoliceAlertsNeedRefresh(center) {
     return wazePoliceAlertStore.needsRefresh(center);
 }

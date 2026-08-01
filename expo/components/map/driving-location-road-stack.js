@@ -16,6 +16,7 @@ export function DrivingLocationRoadStack({
     currentRoadPillTextStyle,
     onLocationAnchorLayout,
     puckSize = NAVIGATION_PUCK_SIZE,
+    testID,
     userLocation,
     viewportTop = 0,
 }) {
@@ -52,6 +53,7 @@ export function DrivingLocationRoadStack({
             className="items-center gap-1 px-3 pb-5"
             onLayout={handleLayout}
             pointerEvents="none"
+            testID={testID}
         >
             <View
                 style={{ height: puckSize }}

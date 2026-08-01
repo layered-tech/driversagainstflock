@@ -375,16 +375,17 @@ export function DrivingGuidanceOverlay({
 
                 <View className="flex-1" pointerEvents="none" />
 
+                <DrivingLocationRoadStack
+                    onLocationAnchorLayout={onLocationAnchorLayout}
+                    puckSize={navigationPuckSize}
+                    testID="driving-location-road-stack"
+                    userLocation={userLocation}
+                />
+
                 <DrivingAlertsOverlay
                     alerts={e2eDrivingAlertsFixture ?? upcomingAlerts}
                     bottomInset={insets.bottom}
                     routeIsActive={routeIsActive}
-                />
-
-                <DrivingLocationRoadStack
-                    onLocationAnchorLayout={onLocationAnchorLayout}
-                    puckSize={navigationPuckSize}
-                    userLocation={userLocation}
                 />
 
                 {routeIsActive ? (

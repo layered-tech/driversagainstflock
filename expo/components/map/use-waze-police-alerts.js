@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import { useMockWazePoliceAlertsEnabled } from './api-mocks';
 import { POLICE_ALERTS_STALE_CHECK_INTERVAL_MS } from './constants';
 import { getStoredNumber } from './geo';
 import { shouldRefreshLocationData } from './location-watch-options';
@@ -10,10 +11,12 @@ import {
     getSharedWazePoliceAlerts,
     getWazePoliceAlertsCenter,
     hydrateWazePoliceAlerts,
+    invalidateWazePoliceAlerts,
     refreshWazePoliceAlertsIfStale,
 } from './waze-police-alert-store';
 
 export function useWazePoliceAlerts({ policeAlertsAreEnabled, userLocation }) {
+    const mockWazePoliceAlertsEnabled = useMockWazePoliceAlertsEnabled();
     const persistentRoadMatchingWatchIsActive =
         usePersistentRoadMatchingWatchIsActive();
     const [policeAlerts, setPoliceAlerts] = useState(
@@ -27,6 +30,10 @@ export function useWazePoliceAlerts({ policeAlertsAreEnabled, userLocation }) {
     const longitude = getStoredNumber(userLocation?.longitude);
 
     centerRef.current = currentCenter;
+
+    useEffect(() => {
+        invalidateWazePoliceAlerts();
+    }, [mockWazePoliceAlertsEnabled]);
 
     const refreshPoliceAlertsIfStale = useCallback(() => {
         if (
@@ -46,7 +53,11 @@ export function useWazePoliceAlerts({ policeAlertsAreEnabled, userLocation }) {
         }
 
         return refreshWazePoliceAlertsIfStale(center);
-    }, [persistentRoadMatchingWatchIsActive, policeAlertsAreEnabled]);
+    }, [
+        mockWazePoliceAlertsEnabled,
+        persistentRoadMatchingWatchIsActive,
+        policeAlertsAreEnabled,
+    ]);
 
     useEffect(() => {
         if (policeAlertsAreEnabled) {
@@ -55,6 +66,7 @@ export function useWazePoliceAlerts({ policeAlertsAreEnabled, userLocation }) {
     }, [
         latitude,
         longitude,
+        mockWazePoliceAlertsEnabled,
         policeAlertsAreEnabled,
         refreshPoliceAlertsIfStale,
     ]);
@@ -92,7 +104,11 @@ export function useWazePoliceAlerts({ policeAlertsAreEnabled, userLocation }) {
             clearInterval(intervalId);
             appStateSubscription.remove();
         };
-    }, [policeAlertsAreEnabled, refreshPoliceAlertsIfStale]);
+    }, [
+        mockWazePoliceAlertsEnabled,
+        policeAlertsAreEnabled,
+        refreshPoliceAlertsIfStale,
+    ]);
 
     return { policeAlerts };
 }

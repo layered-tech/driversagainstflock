@@ -702,6 +702,12 @@ export default function LocationMapScreen({
                             >
                                 <MapControlsOverlay
                                     showFreeDriveButton={freeDriveIsActive}
+                                    onDrawerPress={
+                                        searchController.handleDrawerPress
+                                    }
+                                    showDrawerButton={Boolean(
+                                        selectedDirectionsRouteOption,
+                                    )}
                                 />
                             </DrivingGuidanceOverlay>
                         ) : (

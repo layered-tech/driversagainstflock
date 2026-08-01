@@ -133,6 +133,10 @@ export function useFollowLocationMode({
         recenterIsNeededRef.current = nextRecenterIsNeeded;
         setRecenterIsNeeded(nextRecenterIsNeeded);
     }, []);
+    const getRecenterIsNeeded = useCallback(
+        () => recenterIsNeededRef.current,
+        [],
+    );
     const setRecenterNeeded = useCallback(
         (nextValue) => {
             setRecenterReason(nextValue ? RECENTER_REASON_AWAY : null);
@@ -372,6 +376,7 @@ export function useFollowLocationMode({
 
     return useMemo(
         () => ({
+            getRecenterIsNeeded,
             handleLocationUpdate,
             handleZoomLevelChange,
             isActive,
@@ -386,6 +391,7 @@ export function useFollowLocationMode({
             stop,
         }),
         [
+            getRecenterIsNeeded,
             handleLocationUpdate,
             handleZoomLevelChange,
             isActive,

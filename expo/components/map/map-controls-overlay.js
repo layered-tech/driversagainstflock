@@ -8,7 +8,9 @@ import { useMapControlsContext } from './map-screen-context';
 import { MarkerLoadingIndicator } from './marker-loading-indicator';
 
 export function MapControlsOverlay({
+    onDrawerPress,
     showFreeDriveButton = true,
+    showDrawerButton = false,
     showContributeEntryButton = true,
 }) {
     const {
@@ -69,6 +71,24 @@ export function MapControlsOverlay({
             pointerEvents="box-none"
             testID="map-control-rail"
         >
+            {showDrawerButton ? (
+                <MapControlButton
+                    accessibilityHint="Opens the navigation drawer."
+                    accessibilityLabel="Open menu"
+                    accessibilityRole="button"
+                    className={`${MAP_CONTROL_BUTTON_CLASS_NAME} ${defaultMapControlClassName}`}
+                    glassTintColor={defaultMapControlGlassTintColor}
+                    onPress={onDrawerPress}
+                    testID="driving-drawer-button"
+                >
+                    <Icon
+                        color={defaultMapControlIconColor}
+                        name="menu"
+                        size={22}
+                    />
+                </MapControlButton>
+            ) : null}
+
             <MapLayerButton />
 
             {showFreeDriveButton ? (

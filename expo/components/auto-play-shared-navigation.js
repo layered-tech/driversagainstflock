@@ -6,6 +6,7 @@ const NO_SHARED_NAVIGATION_ACTION = Object.freeze({
 export function getAutoPlaySharedNavigationAction({
     activeNavigationRoute,
     getRouteSyncKey,
+    hostNavigationIsActive = true,
     rootMapTemplateIsReady,
     routingState,
 }) {
@@ -18,14 +19,18 @@ export function getAutoPlaySharedNavigationAction({
             ? routingState.directionsRoute
             : null;
 
+    const activeHostNavigationRoute = hostNavigationIsActive
+        ? activeNavigationRoute
+        : null;
+
     if (nextRoute) {
         return getRouteSyncKey(nextRoute) ===
-            getRouteSyncKey(activeNavigationRoute)
+            getRouteSyncKey(activeHostNavigationRoute)
             ? NO_SHARED_NAVIGATION_ACTION
             : { action: 'start', route: nextRoute };
     }
 
-    return activeNavigationRoute
+    return activeHostNavigationRoute
         ? { action: 'stop', route: null }
         : NO_SHARED_NAVIGATION_ACTION;
 }

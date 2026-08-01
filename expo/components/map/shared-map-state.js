@@ -6,6 +6,8 @@ import {
     useRef,
     useState,
 } from 'react';
+import { setMockWazePoliceAlertsEnabled } from './api-mocks';
+import { DEBUG_OVERLAY_WAZE } from './debug-overlays';
 import {
     addSharedRoutingStateListener,
     getDirectionsRouteSyncKey,
@@ -27,10 +29,16 @@ const SharedMapLocationStateContext = createContext(null);
 export function SharedMapStateProvider({ children }) {
     const mapPreferences = useMapPreferencesState();
     const markerLoader = useMarkerLoader();
+    const wazeMockIsEnabled =
+        mapPreferences.debugOverlayVisibility?.[DEBUG_OVERLAY_WAZE] === true;
     const policeAlertsLoader = useWazePoliceAlerts({
-        policeAlertsAreEnabled: mapPreferences.policeAlertsVisible,
+        policeAlertsAreEnabled:
+            mapPreferences.policeAlertsVisible || wazeMockIsEnabled,
         userLocation: mapPreferences.userLocation,
     });
+    useEffect(() => {
+        setMockWazePoliceAlertsEnabled(wazeMockIsEnabled);
+    }, [wazeMockIsEnabled]);
     const initialRoutingState = getSharedRoutingState();
     const [directionsRoute, setDirectionsRoute] = useState(
         initialRoutingState.directionsRoute,
@@ -145,7 +153,8 @@ export function SharedMapStateProvider({ children }) {
             cameraConesVisible: mapPreferences.cameraConesVisible,
             preferPrivateRoutes: mapPreferences.preferPrivateRoutes,
             policeAlerts: policeAlertsLoader.policeAlerts,
-            policeAlertsVisible: mapPreferences.policeAlertsVisible,
+            policeAlertsVisible:
+                mapPreferences.policeAlertsVisible || wazeMockIsEnabled,
             upcomingAlerts,
             markerLoadError: markerLoader.markerLoadError,
             markerLoadingIndicatorIsVisible:
@@ -192,6 +201,7 @@ export function SharedMapStateProvider({ children }) {
             mapPreferences.mapTrafficEnabled,
             mapPreferences.markerClustersEnabled,
             mapPreferences.policeAlertsVisible,
+            wazeMockIsEnabled,
             mapPreferences.preferPrivateRoutes,
             mapPreferences.selectMapStyleURL,
             mapPreferences.setCameraConesVisible,

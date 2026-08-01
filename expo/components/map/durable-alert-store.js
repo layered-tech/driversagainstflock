@@ -419,6 +419,14 @@ export function createDurableAlertStore({
         getSnapshot() {
             return state;
         },
+        invalidate() {
+            state = {
+                fetchedAt: 0,
+                items: emptyItems,
+                metadata: null,
+            };
+            notifyListeners();
+        },
         hydrate,
         needsRefresh(rawInput) {
             const input = normalizeInput(rawInput);

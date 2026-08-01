@@ -3310,3 +3310,20 @@ index 4f9cec9..858b2ec 100644
    ): CleanupCallback;
  
    /**
+diff --git a/node_modules/@iternio/react-native-auto-play/ios/scenes/HeadUnitSceneDelegate.swift b/node_modules/@iternio/react-native-auto-play/ios/scenes/HeadUnitSceneDelegate.swift
+--- a/node_modules/@iternio/react-native-auto-play/ios/scenes/HeadUnitSceneDelegate.swift
++++ b/node_modules/@iternio/react-native-auto-play/ios/scenes/HeadUnitSceneDelegate.swift
+@@ -55,13 +55,8 @@ class HeadUnitSceneDelegate: AutoPlayScene, CPTemplateApplicationSceneDelegate {
+     func templateApplicationScene(
+         _ templateApplicationScene: CPTemplateApplicationScene,
+         didDisconnect interfaceController: CPInterfaceController,
+         from window: CPWindow
+     ) {
+-        if let mapTemplate = try? templateStore.getTemplate(
+-            templateId: SceneStore.rootModuleName
+-        ) as? MapTemplate {
+-            mapTemplate.stopNavigation()
+-        }
+         disconnect()
+
+         HybridAutoPlay.emit(event: .diddisconnect)

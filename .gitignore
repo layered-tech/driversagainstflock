@@ -31,3 +31,4 @@ yarn-error.log
 /.ai/mcp
 /database/schema
 OSM.md
+.env.sentry

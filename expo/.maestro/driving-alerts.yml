@@ -69,6 +69,12 @@ tags:
     text: 'Police reported'
 - assertVisible:
     id: 'driving-upcoming-alert-track'
+- assertVisible:
+    id: 'driving-location-road-stack'
+    above:
+      id: 'driving-upcoming-alert'
+      above:
+        id: 'driving-destination-card'
 - takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-driving-alert-police'}
 
 - openLink: 'driversagainstflock://e2e-mocks?drivingAlerts=alpr'
@@ -81,6 +87,12 @@ tags:
     text: 'ALPR camera'
 - assertVisible:
     text: 'Flock · on your route'
+- assertVisible:
+    id: 'driving-location-road-stack'
+    above:
+      id: 'driving-upcoming-alert'
+      above:
+        id: 'driving-destination-card'
 - takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-driving-alert-alpr'}
 
 - openLink: 'driversagainstflock://e2e-mocks?drivingAlerts=combined'
@@ -94,6 +106,12 @@ tags:
     id: 'driving-upcoming-alert-police-track'
 - assertVisible:
     id: 'driving-upcoming-alert-alpr-track'
+- assertVisible:
+    id: 'driving-location-road-stack'
+    above:
+      id: 'driving-upcoming-alert'
+      above:
+        id: 'driving-destination-card'
 - takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-driving-alert-combined'}
 - tapOn:
     id: 'driving-upcoming-alert-dismiss'

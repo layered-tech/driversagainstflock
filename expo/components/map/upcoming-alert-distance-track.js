@@ -15,6 +15,7 @@ function clampProgress(progress) {
 
 export function UpcomingAlertDistanceTrack({
     accentColor,
+    compact = false,
     progress,
     testID = 'upcoming-alert-distance-track',
 }) {
@@ -36,12 +37,12 @@ export function UpcomingAlertDistanceTrack({
                 min: 0,
                 now: progressValue,
             }}
-            className="h-[18px] flex-row items-center"
+            className={`${compact ? 'h-4' : 'h-[18px]'} flex-row items-center`}
             pointerEvents="none"
             testID={testID}
         >
             <View
-                className="relative h-[18px] flex-1"
+                className={`${compact ? 'h-4' : 'h-[18px]'} relative flex-1`}
                 onLayout={({ nativeEvent }) => {
                     const nextTrackWidth = nativeEvent.layout.width;
 
@@ -52,9 +53,11 @@ export function UpcomingAlertDistanceTrack({
                     );
                 }}
             >
-                <View className="absolute left-0 right-0 top-[7px] h-1 rounded-dafPill bg-daf-surface-alt dark:bg-[#1A2027]" />
                 <View
-                    className="absolute left-0 top-[7px] h-1 rounded-dafPill"
+                    className={`absolute left-0 right-0 ${compact ? 'top-[6px] h-[3px]' : 'top-[7px] h-1'} rounded-dafPill bg-daf-surface-alt dark:bg-[#1A2027]`}
+                />
+                <View
+                    className={`absolute left-0 ${compact ? 'top-[6px] h-[3px]' : 'top-[7px] h-1'} rounded-dafPill`}
                     style={{
                         backgroundColor: accentColor,
                         width: progressPercent,
@@ -67,7 +70,7 @@ export function UpcomingAlertDistanceTrack({
                         top: '50%',
                         transform: [
                             { translateX: -13 },
-                            { translateY: -13 },
+                            { translateY: compact ? -11 : -13 },
                             { rotate: '45deg' },
                         ],
                     }}
@@ -77,17 +80,17 @@ export function UpcomingAlertDistanceTrack({
                         color={theme.surface.card}
                         fill={dafSemanticColors.brand}
                         name="navigation"
-                        size={26}
+                        size={compact ? 22 : 26}
                         stroke={2}
                     />
                 </View>
             </View>
-            <View className="w-4 items-center">
+            <View className={`${compact ? 'w-3' : 'w-4'} items-center`}>
                 <Icon
                     accessible={false}
                     color={accentColor}
                     name="map-pin"
-                    size={15}
+                    size={compact ? 13 : 15}
                     stroke={2.2}
                 />
             </View>

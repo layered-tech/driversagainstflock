@@ -233,6 +233,7 @@ let singleResultCountdownRequestSequence = 0;
 let routePreviewIsVisible = false;
 let routePreviewRequestSequence = 0;
 let activeNavigationRoute = null;
+let autoPlayHostNavigationIsActive = false;
 let lastNavigationGuidanceLocation = null;
 let lastNavigationGuidanceUpdatedAt = 0;
 let pendingNavigationGuidanceLocation = null;
@@ -2216,7 +2217,11 @@ function makeNavigationMessage(
 }
 
 function updateNavigationGuidance(userLocation) {
-    if (!rootMapTemplate || !activeNavigationRoute) {
+    if (
+        !rootMapTemplate ||
+        !activeNavigationRoute ||
+        !autoPlayHostNavigationIsActive
+    ) {
         return;
     }
 
@@ -2711,6 +2716,7 @@ function syncAutoPlayNavigationFromSharedRoutingState(
     const navigationAction = getAutoPlaySharedNavigationAction({
         activeNavigationRoute,
         getRouteSyncKey: getDirectionsRouteSyncKey,
+        hostNavigationIsActive: autoPlayHostNavigationIsActive,
         rootMapTemplateIsReady,
         routingState,
     });
@@ -2808,6 +2814,7 @@ async function stopAutoPlayNavigation({
     cancelAutoPlaySearchWork();
     stopAutoDriveSimulation();
     await stopNavigationLocationUpdates();
+    autoPlayHostNavigationIsActive = false;
     activeNavigationRoute = null;
     activeNavigationDestination = null;
     routePreviewIsVisible = false;
@@ -2886,6 +2893,7 @@ function startAutoPlayNavigation(
             routePreviewIsVisible = false;
         }
 
+        autoPlayHostNavigationIsActive = true;
         updateNavigationGuidance(null);
 
         if (autoDriveIsEnabled) {
@@ -2919,6 +2927,7 @@ function startAutoPlayNavigation(
             });
         }
     } catch (error) {
+        autoPlayHostNavigationIsActive = false;
         activeNavigationRoute = null;
         activeNavigationDestination = null;
         updateRootTemplateHeaderActions();
@@ -3499,6 +3508,11 @@ async function handleAutoPlayConnect() {
             },
         }),
         onStopNavigation: () => {
+            if (autoPlayPlatform?.preservesPhoneNavigationOnHostStop === true) {
+                autoPlayHostNavigationIsActive = false;
+                return;
+            }
+
             stopAutoPlayNavigation({ notifyTemplate: false });
         },
         ...autoPlayPlatform.getMapTemplatePlatformConfig({
@@ -3602,14 +3616,9 @@ function handleAutoPlayDisconnect() {
     deferredNavigationGuidanceLocation = null;
     pendingVoiceNavigation = null;
     pendingVoiceSearchTemplatePush = null;
-    activeNavigationRoute = null;
-    activeNavigationDestination = null;
+    autoPlayHostNavigationIsActive = false;
     routePreviewIsVisible = false;
-    lastNavigationGuidanceLocation = null;
-    autoDriveIsEnabled = false;
-    stopAutoDriveSimulation();
     cancelAutoPlaySearchWork();
-    stopNavigationLocationUpdates();
     setAutoPlayState(DEFAULT_AUTO_PLAY_STATE);
 }
 
