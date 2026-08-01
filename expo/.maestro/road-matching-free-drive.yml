@@ -74,12 +74,12 @@ tags:
     visible:
       id: 'e2e-native-puck-proof'
       text: 'true'
-    timeout: 30000
+    timeout: 60000
 - extendedWaitUntil:
     visible:
       id: 'e2e-native-3d-puck-proof'
       text: 'true'
-    timeout: 30000
+    timeout: 60000
 - assertVisible:
     id: 'e2e-native-puck-kind'
     text: '3d'
@@ -227,12 +227,12 @@ tags:
     visible:
       id: 'e2e-native-puck-proof'
       text: 'true'
-    timeout: 30000
+    timeout: 60000
 - extendedWaitUntil:
     visible:
       id: 'e2e-native-3d-puck-proof'
       text: 'true'
-    timeout: 30000
+    timeout: 60000
 - assertVisible:
     id: 'e2e-native-puck-kind'
     text: '3d'

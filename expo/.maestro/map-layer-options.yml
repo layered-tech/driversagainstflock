@@ -28,7 +28,7 @@ tags:
 
 - tapOn:
     id: 'map-layer-button'
-    retryTapIfNoChange: true
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'map-layer-option-standard'
