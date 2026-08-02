@@ -16,42 +16,67 @@ tags:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
     commands:
       - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- runFlow:
+    when:
+      visible: 'http://10.0.2.2:8081'
+    commands:
+      - tapOn: 'http://10.0.2.2:8081'
+- extendedWaitUntil:
+    visible: 'Continue'
+    timeout: 10000
+    optional: true
+- runFlow:
+    when:
+      visible: 'Continue'
+    commands:
+      - tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: 'Close'
+    timeout: 10000
+    optional: true
+- runFlow:
+    when:
+      visible: 'Close'
+    commands:
+      - tapOn:
+          text: 'Close'
+          optional: true
 - extendedWaitUntil:
     visible:
-      id: "map-search-input-map"
+      id: 'map-search-input-map'
     timeout: 30000
-- openLink: "driversagainstflock://e2e-mocks"
+- openLink: 'driversagainstflock://e2e-mocks'
 - extendedWaitUntil:
     visible:
-      id: "map-search-input-map"
+      id: 'map-search-input-map'
     timeout: 10000
 
 - tapOn:
-    id: "map-search-input-map"
-- inputText: "Austin Central Library"
+    id: 'map-search-input-map'
+- inputText: 'Austin Central Library'
 - extendedWaitUntil:
     visible:
-      id: "map-search-result-0-map"
+      id: 'map-search-result-0-map'
     timeout: 30000
 - tapOn:
-    id: "map-search-result-0-map"
+    id: 'map-search-result-0-map'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: "selected-place-title"
+      id: 'selected-place-title'
     timeout: 30000
 - assertVisible:
-    text: "Austin Central Library"
+    text: 'Austin Central Library'
 - extendedWaitUntil:
     visible:
-      id: "place-details-close-button"
+      id: 'place-details-close-button'
     timeout: 10000
 - tapOn:
-    id: "place-details-close-button"
+    id: 'place-details-close-button'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: "map-search-directions-button-map"
+      id: 'map-search-directions-button-map'
     timeout: 10000
 - assertVisible:
-    id: "map-search-directions-button-map"
+    id: 'map-search-directions-button-map'

@@ -116,6 +116,21 @@ test('Android Auto holds a CPU-only wake lock for the root car session', () => {
     );
 });
 
+test('Android Auto avoids reposting an unchanged foreground notification', () => {
+    assert.match(
+        androidAutoServiceSource,
+        /fun notify\(title: String\?, text: String\?, icon: Bitmap\?\)[\s\S]*?notificationContentMatches\(title, text, icon\)[\s\S]*?return/,
+    );
+    assert.match(
+        androidAutoServiceSource,
+        /private fun notificationContentMatches[\s\S]*?title != lastNotificationTitle[\s\S]*?text != lastNotificationText/,
+    );
+    assert.match(
+        androidAutoServiceSource,
+        /startForeground\([\s\S]*?rememberNotificationContent\(null, null, null\)/,
+    );
+});
+
 test('the tracked AutoPlay patch preserves car-session foreground ownership', () => {
     assert.notEqual(androidAutoServicePatchStart, -1);
     assert.notEqual(mapTemplatePatchStart, -1);

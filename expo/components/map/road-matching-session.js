@@ -55,6 +55,7 @@ let activeRetainerCount = 0;
 let activePersistentRetainerCount = 0;
 let activeLocationSubscription = null;
 let activeLocationSubscriptionGeneration = null;
+let foregroundLocationRemovalPromise = null;
 let activeLocationSource = 'none';
 let backgroundPermissionRequestAttempted = false;
 let backgroundPermissionRequestIsActive = false;
@@ -112,7 +113,7 @@ AppState.addEventListener('change', (nextState) => {
         clearIdleLocationSourceCleanup();
 
         if (operationalAppState !== 'active') {
-            stopForegroundLocationSubscription();
+            void stopForegroundLocationSubscription();
         }
 
         void queueLocationSourceReconciliation();
@@ -133,7 +134,7 @@ addAutoPlaySessionStateListener(() => {
         clearIdleLocationSourceCleanup();
 
         if (operationalAppState !== 'active') {
-            stopForegroundLocationSubscription();
+            void stopForegroundLocationSubscription();
         }
 
         void queueLocationSourceReconciliation();
@@ -921,10 +922,35 @@ function scheduleLocationSourceRetry() {
     }, ROAD_MATCHING_LOCATION_RETRY_DELAY_MS);
 }
 
-function stopForegroundLocationSubscription() {
-    activeLocationSubscription?.remove();
+async function stopForegroundLocationSubscription() {
+    if (foregroundLocationRemovalPromise) {
+        await foregroundLocationRemovalPromise;
+    }
+
+    const subscription = activeLocationSubscription;
     activeLocationSubscription = null;
     activeLocationSubscriptionGeneration = null;
+
+    if (!subscription) {
+        return;
+    }
+
+    const removalPromise = (async () => {
+        try {
+            await subscription.remove();
+        } catch {
+            // Location teardown can race with host destruction.
+        }
+    })();
+    foregroundLocationRemovalPromise = removalPromise;
+
+    try {
+        await removalPromise;
+    } finally {
+        if (foregroundLocationRemovalPromise === removalPromise) {
+            foregroundLocationRemovalPromise = null;
+        }
+    }
 }
 
 async function stopBackgroundLocationTask({ force = false } = {}) {
@@ -1005,7 +1031,7 @@ async function startForegroundLocationSubscription(expectedGeneration) {
         return activeLocationSubscription;
     }
 
-    stopForegroundLocationSubscription();
+    await stopForegroundLocationSubscription();
 
     if (locationSubscriptionPromise) {
         const pendingGeneration = locationSubscriptionPromiseGeneration;
@@ -1038,7 +1064,7 @@ async function startForegroundLocationSubscription(expectedGeneration) {
             );
         },
     )
-        .then((subscription) => {
+        .then(async (subscription) => {
             if (
                 activeRetainerCount > 0 &&
                 getOperationalAppState() === 'active' &&
@@ -1048,7 +1074,11 @@ async function startForegroundLocationSubscription(expectedGeneration) {
                 activeLocationSubscriptionGeneration = expectedGeneration;
                 setActiveLocationSource(FOREGROUND_LOCATION_SOURCE);
             } else {
-                subscription.remove();
+                try {
+                    await subscription.remove();
+                } catch {
+                    // Location teardown can race with host destruction.
+                }
             }
 
             return subscription;
@@ -1084,7 +1114,7 @@ async function reconcileLocationSource(expectedGeneration) {
     });
 
     if (activeRetainerCount === 0) {
-        stopForegroundLocationSubscription();
+        await stopForegroundLocationSubscription();
         await stopBackgroundLocationTask();
 
         if (expectedGeneration === locationSourceGeneration) {
@@ -1096,7 +1126,7 @@ async function reconcileLocationSource(expectedGeneration) {
     }
 
     if (!locationSourcePolicy.foregroundWatchIsNeeded) {
-        stopForegroundLocationSubscription();
+        await stopForegroundLocationSubscription();
 
         if (!locationSourcePolicy.backgroundTaskIsNeeded) {
             await stopBackgroundLocationTask({ force: true });

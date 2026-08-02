@@ -52,6 +52,7 @@ import {
     shouldUseDeviceLocationWatch,
     shouldUseRoadMatchedLocationWatch,
 } from './location-watch-options';
+import { resolveMarkerLoadBounds } from './marker-load-bounds';
 import { getPlaceCoordinate } from './place-formatters';
 import { useDeferredCameraDebugState } from './use-deferred-camera-debug-state';
 import {
@@ -224,38 +225,6 @@ export function useMapLocationController({
         userLocation,
     ]);
 
-    const scheduleMarkerLoad = useCallback(
-        (bounds, delay) => {
-            if (
-                !bounds ||
-                !isMapReadyRef.current ||
-                !markersAreVisible ||
-                !markerLoadsEnabledRef.current
-            ) {
-                return;
-            }
-
-            scheduleSharedMarkerLoad(bounds, delay);
-        },
-        [markersAreVisible, scheduleSharedMarkerLoad],
-    );
-
-    useEffect(() => {
-        const markersWereVisible = previousMarkersAreVisibleRef.current;
-
-        previousMarkersAreVisibleRef.current = markersAreVisible;
-
-        if (
-            markersWereVisible ||
-            !markersAreVisible ||
-            !latestMapBoundsRef.current
-        ) {
-            return;
-        }
-
-        scheduleMarkerLoad(latestMapBoundsRef.current, 0);
-    }, [markersAreVisible, scheduleMarkerLoad]);
-
     const moveCameraToUser = useCallback((location, options = {}) => {
         const nextZoomLevel = clampZoomLevel(
             Math.max(currentZoomRef.current, LOCATION_ZOOM_LEVEL),
@@ -309,6 +278,54 @@ export function useMapLocationController({
         setTrackingMode,
         userLocationRef,
     });
+    const scheduleMarkerLoad = useCallback(
+        (bounds, delay, { manualPanIsStarting = false } = {}) => {
+            if (
+                !bounds ||
+                !isMapReadyRef.current ||
+                !markersAreVisible ||
+                !markerLoadsEnabledRef.current
+            ) {
+                return;
+            }
+
+            const markerLoadBounds = resolveMarkerLoadBounds({
+                cameraBounds: bounds,
+                drivingFollowIsActive:
+                    isDrivingMode &&
+                    !manualPanIsStarting &&
+                    !followLocationMode.getRecenterIsNeeded() &&
+                    locationTrackingModeRef.current ===
+                        LOCATION_TRACKING_FOLLOW,
+                userLocation: userLocationRef.current,
+            });
+
+            scheduleSharedMarkerLoad(markerLoadBounds, delay);
+        },
+        [
+            followLocationMode,
+            isDrivingMode,
+            markersAreVisible,
+            scheduleSharedMarkerLoad,
+        ],
+    );
+
+    useEffect(() => {
+        const markersWereVisible = previousMarkersAreVisibleRef.current;
+
+        previousMarkersAreVisibleRef.current = markersAreVisible;
+
+        if (
+            markersWereVisible ||
+            !markersAreVisible ||
+            !latestMapBoundsRef.current
+        ) {
+            return;
+        }
+
+        scheduleMarkerLoad(latestMapBoundsRef.current, 0);
+    }, [markersAreVisible, scheduleMarkerLoad]);
+
     const activeLocationMode = isDrivingMode
         ? followLocationMode
         : lockOnLocationMode;
@@ -593,11 +610,16 @@ export function useMapLocationController({
             }
 
             const bounds = getBoundsFromCameraState(state);
+            const manualPanIsStarting = Boolean(
+                state?.gestures?.isGestureActive && !zoomLevelChanged,
+            );
 
             if (bounds) {
                 latestMapBoundsRef.current = bounds;
                 handleCurrentMapBoundsUpdate(bounds);
-                scheduleMarkerLoad(bounds);
+                scheduleMarkerLoad(bounds, undefined, {
+                    manualPanIsStarting,
+                });
             }
 
             if (state?.gestures?.isGestureActive) {

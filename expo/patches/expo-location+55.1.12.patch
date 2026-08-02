@@ -1,0 +1,61 @@
+diff --git a/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt b/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt
+index 523d08f..6b069ee 100644
+--- a/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt
++++ b/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt
+@@ -77,6 +77,7 @@ class LocationModule : Module(), LifecycleEventListener, SensorEventListener, Ac
+   private var mAccuracy = 0
+   private var mLastUpdate: Long = 0
+   private var mGeocoderPaused = false
++  @Volatile private var mHostIsDestroyed = false
+ 
+   private val mTaskManager: TaskManagerInterface by lazy {
+     return@lazy appContext.legacyModule<TaskManagerInterface>()
+@@ -582,16 +583,30 @@ class LocationModule : Module(), LifecycleEventListener, SensorEventListener, Ac
+             accuracy = mAccuracy
+           )
+         )
+-        sendEvent(HEADING_EVENT_NAME, response.toBundle())
++        sendEventSafely(HEADING_EVENT_NAME, response.toBundle())
+       }
+     }
+   }
+ 
++  private fun sendEventSafely(eventName: String, body: Bundle) {
++    if (mHostIsDestroyed) {
++      return
++    }
++
++    try {
++      sendEvent(eventName, body)
++    } catch (_: IllegalArgumentException) {
++      // Location callbacks can race with Expo host destruction.
++    } catch (_: IllegalStateException) {
++      // Location callbacks can race with Expo host destruction.
++    }
++  }
++
+   internal fun sendLocationResponse(watchId: Int, response: LocationResponse) {
+     val responseBundle = bundleOf()
+     responseBundle.putBundle("location", response.toBundle(Bundle::class.java))
+     responseBundle.putInt("watchId", watchId)
+-    sendEvent(LOCATION_EVENT_NAME, responseBundle)
++    sendEventSafely(LOCATION_EVENT_NAME, responseBundle)
+   }
+ 
+   private fun calcMagNorth(azimuth: Float): Float {
+@@ -822,6 +837,7 @@ class LocationModule : Module(), LifecycleEventListener, SensorEventListener, Ac
+   }
+ 
+   override fun onHostResume() {
++    mHostIsDestroyed = false
+     startWatching()
+     startHeadingUpdate()
+   }
+@@ -832,6 +848,7 @@ class LocationModule : Module(), LifecycleEventListener, SensorEventListener, Ac
+   }
+ 
+   override fun onHostDestroy() {
++    mHostIsDestroyed = true
+     stopWatching()
+     stopHeadingWatch()
+   }

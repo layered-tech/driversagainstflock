@@ -120,6 +120,7 @@ describe('location puck camera follow fallback', () => {
         const pendingNativeProps = getLocationPuckCameraFollowFallbackProps({
             followProps: defaultFollowProps,
             followUserMode: 'follow-with-heading',
+            mapIsReady: true,
             nativeFollowIsSupported: true,
             nativeFollowStatus: 'inactive',
             platform: 'ios',
@@ -127,6 +128,7 @@ describe('location puck camera follow fallback', () => {
         const activeNativeProps = getLocationPuckCameraFollowFallbackProps({
             followProps: defaultFollowProps,
             followUserMode: 'follow-with-heading',
+            mapIsReady: true,
             nativeFollowIsSupported: true,
             nativeFollowStatus: 'active',
             platform: 'ios',
@@ -134,6 +136,7 @@ describe('location puck camera follow fallback', () => {
         const preparingNativeProps = getLocationPuckCameraFollowFallbackProps({
             followProps: defaultFollowProps,
             followUserMode: 'follow-with-heading',
+            mapIsReady: true,
             nativeFollowIsSupported: true,
             nativeFollowStatus: 'preparing-native',
             platform: 'ios',
@@ -141,6 +144,7 @@ describe('location puck camera follow fallback', () => {
         const failedNativeProps = getLocationPuckCameraFollowFallbackProps({
             followProps: defaultFollowProps,
             followUserMode: 'follow-with-heading',
+            mapIsReady: true,
             nativeFollowIsSupported: true,
             nativeFollowStatus: 'failed',
             platform: 'ios',
@@ -158,6 +162,19 @@ describe('location puck camera follow fallback', () => {
             followUserMode: 'follow-with-heading',
             followZoomLevel: defaultFollowProps.zoomLevel,
         });
+    });
+
+    test('keeps fallback follow disabled until the map style is ready', () => {
+        const fallbackProps = getLocationPuckCameraFollowFallbackProps({
+            followProps: defaultFollowProps,
+            followUserMode: 'follow-with-heading',
+            mapIsReady: false,
+            nativeFollowIsSupported: false,
+            nativeFollowStatus: 'unsupported',
+            platform: 'android',
+        });
+
+        assert.deepEqual(fallbackProps, { followUserLocation: false });
     });
 
     test('remounts an idle camera before replacing fallback ownership', () => {
@@ -191,6 +208,7 @@ describe('location puck camera follow fallback', () => {
                 enabled: false,
             },
             followUserMode: 'follow-with-heading',
+            mapIsReady: true,
             nativeFollowIsSupported: false,
             nativeFollowStatus: 'inactive',
             platform: 'android',

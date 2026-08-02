@@ -34,6 +34,7 @@ import {
     DEBUG_OVERLAY_ELECTRONIC_HORIZON,
     DEBUG_OVERLAY_NETWORK,
     DEBUG_OVERLAY_SAFE_AREA,
+    DEBUG_OVERLAY_WAZE,
 } from '../map/debug-overlays';
 import { useSharedMapState } from '../map/shared-map-state';
 import { DebugDrawerToggleRow } from './debug-drawer-toggle-row';
@@ -84,6 +85,12 @@ const DEBUG_DRAWER_ITEMS = [
         key: DEBUG_OVERLAY_ANDROID_AUTO_LOCATION,
         label: 'Android Auto Location',
         testID: 'debug-drawer-android-auto-location-toggle',
+    },
+    {
+        icon: faLocationDot,
+        key: DEBUG_OVERLAY_WAZE,
+        label: 'Waze',
+        testID: 'debug-drawer-waze-toggle',
     },
 ];
 

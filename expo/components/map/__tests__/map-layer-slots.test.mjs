@@ -83,6 +83,10 @@ describe('Mapbox Standard layer slots', () => {
         );
         assert.match(mapCanvasSource, /layerAbove: userLocationPuckAboveLayer/);
         assert.match(
+            mapCanvasSource,
+            /directionsRouteIsVisible && locationPuckMapLoadEpoch > 0/,
+        );
+        assert.match(
             mapLocationPuckIOSSource,
             /configuration\.layerPosition = Self\.mapboxPuckLayerPosition\(layerAbove\)/,
         );

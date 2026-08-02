@@ -1,29 +1,58 @@
 appId: com.anonymous.drivefree.dev
-name: Speed Limit Badge Design
+name: Turn-by-turn Navigation Guidance Mocked
 tags:
   - map
   - directions
-  - visual
+  - navigation
 ---
 - setLocation:
     latitude: 30.2672
     longitude: -97.7431
 - launchApp:
     stopApp: true
+    clearState: true
     permissions:
       all: allow
+- tapOn:
+    text: 'Continue'
+    optional: true
 - runFlow:
     when:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
     commands:
       - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- tapOn:
+    text: 'Continue'
+    optional: true
+- extendedWaitUntil:
+    visible: 'Close'
+    timeout: 10000
+    optional: true
+- runFlow:
+    when:
+      visible: 'Close'
+    commands:
+      - tapOn:
+          text: 'Close'
+          optional: true
+- tapOn:
+    text: 'http://10.0.2.2:8081'
+    optional: true
 - runFlow:
     when:
       visible:
-        id: 'directions-route-back-button'
+        id: 'driving-cancel-route-button'
     commands:
       - tapOn:
-          id: 'directions-route-back-button'
+          id: 'driving-cancel-route-button'
+          retryTapIfNoChange: true
+- runFlow:
+    when:
+      visible:
+        id: 'place-details-close-button'
+    commands:
+      - tapOn:
+          id: 'place-details-close-button'
           retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
@@ -37,7 +66,6 @@ tags:
 - setLocation:
     latitude: 30.2672
     longitude: -97.7431
-
 - tapOn:
     id: 'map-search-directions-button-map'
     retryTapIfNoChange: true
@@ -65,22 +93,45 @@ tags:
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: 'directions-route-start-driving-button'
+      id: 'directions-route-option-ideal'
     timeout: 60000
+- tapOn:
+    id: 'directions-route-option-ideal'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'directions-route-option-ideal-selected-badge'
+    timeout: 10000
 - tapOn:
     id: 'directions-route-start-driving-button'
     retryTapIfNoChange: true
-
 - extendedWaitUntil:
     visible:
-      id: 'driving-speed-limit-sign'
+      id: 'driving-maneuver-card'
     timeout: 30000
 - assertVisible:
-    id: 'driving-speed-limit-value'
-    text: '35'
+    id: 'driving-maneuver-instruction'
+    text: 'Turn right to avoid monitored intersections'
 - assertVisible:
-    id: 'driving-speed-limit-sign-current-speed'
+    id: 'driving-maneuver-next-step'
+    text: 'then Arrive at your destination'
 - assertVisible:
-    id: 'driving-speed-limit-sign-current-speed-value'
-    text: '41'
-- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-speed-limit-badge-35-over-41'}
+    id: 'driving-destination-card'
+- assertVisible:
+    id: 'driving-destination-title'
+    text: 'Austin Central Library'
+- tapOn:
+    id: 'driving-cancel-route-button'
+    retryTapIfNoChange: true
+- runFlow:
+    when:
+      visible:
+        id: 'place-details-close-button'
+    commands:
+      - tapOn:
+          id: 'place-details-close-button'
+          retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 10000

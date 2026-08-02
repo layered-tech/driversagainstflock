@@ -14,6 +14,12 @@ const environment = IS_E2E
         ? 'staging'
         : 'production';
 const sentryPluginConfig = {
+    experimental_android: {
+        autoUploadNativeSymbols: true,
+        enableAndroidGradlePlugin: true,
+        includeNativeSources: true,
+        uploadNativeSymbols: true,
+    },
     note: 'Use SENTRY_AUTH_TOKEN env to authenticate with Sentry.',
     url: process.env.SENTRY_URL || 'https://sentry.io/',
 };

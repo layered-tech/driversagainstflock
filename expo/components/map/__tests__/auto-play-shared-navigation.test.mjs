@@ -95,6 +95,22 @@ describe('shared phone and car navigation contract', () => {
         );
     });
 
+    test('reattaches a phone route after the car host has stopped', () => {
+        assert.deepEqual(
+            getAutoPlaySharedNavigationAction({
+                activeNavigationRoute: route,
+                getRouteSyncKey,
+                hostNavigationIsActive: false,
+                rootMapTemplateIsReady: true,
+                routingState: {
+                    directionsRoute: route,
+                    drivingModeIsActive: true,
+                },
+            }),
+            { action: 'start', route },
+        );
+    });
+
     test('publishes explicit car start and stop but preserves state on disconnect', () => {
         assert.match(
             autoPlaySource,
@@ -111,5 +127,12 @@ describe('shared phone and car navigation contract', () => {
         );
 
         assert.doesNotMatch(disconnectSource, /setSharedRoutingState/);
+        assert.doesNotMatch(disconnectSource, /activeNavigationRoute = null/);
+        assert.doesNotMatch(disconnectSource, /stopNavigationLocationUpdates/);
+        assert.doesNotMatch(disconnectSource, /stopAutoDriveSimulation/);
+        assert.match(
+            autoPlaySource,
+            /preservesPhoneNavigationOnHostStop === true[\s\S]*?autoPlayHostNavigationIsActive = false/,
+        );
     });
 });

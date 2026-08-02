@@ -5,15 +5,12 @@ import {
     DRIVING_COURSE_HEADING_SHARP_TURN_DEGREES,
     DRIVING_COURSE_HEADING_SHARP_TURN_FILTER_FACTOR,
     EMPTY_FEATURE_COLLECTION,
-    MARKER_BOUNDS_BUFFER_RATIO,
-    MARKER_BOUNDS_CONTAINMENT_EPSILON,
     MARKER_CONE_DIRECTION_PROPERTY_NAMES,
     MAX_MARKER_CONE_DIRECTIONS,
     MAX_MARKER_REQUEST_LATITUDE_SPAN_DEGREES,
     MAX_MARKER_REQUEST_LONGITUDE_SPAN_DEGREES,
     MAX_WEB_MERCATOR_LATITUDE,
     MAX_ZOOM_LEVEL,
-    MIN_BOUNDS_SPAN_DEGREES,
     MIN_ZOOM_LEVEL,
     MINIMUM_DRIVING_COURSE_SPEED_MPS,
 } from './constants';
@@ -28,6 +25,12 @@ export {
     normalizeDirectionDegrees,
     parseDirectionValues,
 } from './direction-values';
+export {
+    expandBoundsForMarkerRequest,
+    getLongitudeIntervals,
+    longitudeIntervalsContain,
+    markerRequestBoundsContainCameraBounds,
+} from './marker-load-bounds';
 
 const FLOCK_ALPR_WIKIDATA_ID = 'Q108485435';
 const FLOCK_ALPR_WIKIDATA_TAG_NAMES = [
@@ -297,61 +300,6 @@ export function getBoundsFromCameraState(state) {
     };
 }
 
-export function expandBoundsForMarkerRequest(bounds) {
-    const swLongitude = normalizeLongitude(Number(bounds.sw[0]));
-    const neLongitude = normalizeLongitude(Number(bounds.ne[0]));
-    const southLatitude = clampLatitude(
-        Math.min(Number(bounds.sw[1]), Number(bounds.ne[1])),
-    );
-    const northLatitude = clampLatitude(
-        Math.max(Number(bounds.sw[1]), Number(bounds.ne[1])),
-    );
-
-    if (
-        !Number.isFinite(swLongitude) ||
-        !Number.isFinite(neLongitude) ||
-        !Number.isFinite(southLatitude) ||
-        !Number.isFinite(northLatitude)
-    ) {
-        return null;
-    }
-
-    const latitudeSpan = Math.max(
-        MIN_BOUNDS_SPAN_DEGREES,
-        northLatitude - southLatitude,
-    );
-    const latitudeBuffer = latitudeSpan * MARKER_BOUNDS_BUFFER_RATIO;
-    const crossesAntimeridian = swLongitude > neLongitude;
-    const longitudeSpan = crossesAntimeridian
-        ? 360 - swLongitude + neLongitude
-        : neLongitude - swLongitude;
-    const longitudeBuffer =
-        Math.max(MIN_BOUNDS_SPAN_DEGREES, longitudeSpan) *
-        MARKER_BOUNDS_BUFFER_RATIO;
-    const expandedSouthLatitude = clampLatitude(southLatitude - latitudeBuffer);
-    const expandedNorthLatitude = clampLatitude(northLatitude + latitudeBuffer);
-
-    if (longitudeSpan + longitudeBuffer * 2 >= 360) {
-        return {
-            sw_lng: -180,
-            sw_lat: roundCoordinate(expandedSouthLatitude),
-            ne_lng: 180,
-            ne_lat: roundCoordinate(expandedNorthLatitude),
-        };
-    }
-
-    return {
-        sw_lng: roundCoordinate(
-            normalizeLongitude(swLongitude - longitudeBuffer),
-        ),
-        sw_lat: roundCoordinate(expandedSouthLatitude),
-        ne_lng: roundCoordinate(
-            normalizeLongitude(neLongitude + longitudeBuffer),
-        ),
-        ne_lat: roundCoordinate(expandedNorthLatitude),
-    };
-}
-
 export function getMarkerBoundsKey(bounds) {
     return [bounds.sw_lng, bounds.sw_lat, bounds.ne_lng, bounds.ne_lat].join(
         ',',
@@ -395,82 +343,6 @@ export function markerRequestBoundsAreLoadable(bounds) {
     return (
         span.latitudeSpan <= MAX_MARKER_REQUEST_LATITUDE_SPAN_DEGREES &&
         span.longitudeSpan <= MAX_MARKER_REQUEST_LONGITUDE_SPAN_DEGREES
-    );
-}
-
-export function getLongitudeIntervals(westLongitude, eastLongitude) {
-    if (westLongitude <= eastLongitude) {
-        return [[westLongitude, eastLongitude]];
-    }
-
-    return [
-        [westLongitude, 180],
-        [-180, eastLongitude],
-    ];
-}
-
-export function longitudeIntervalsContain(outerIntervals, innerIntervals) {
-    return innerIntervals.every(([innerWest, innerEast]) =>
-        outerIntervals.some(
-            ([outerWest, outerEast]) =>
-                innerWest >= outerWest - MARKER_BOUNDS_CONTAINMENT_EPSILON &&
-                innerEast <= outerEast + MARKER_BOUNDS_CONTAINMENT_EPSILON,
-        ),
-    );
-}
-
-export function markerRequestBoundsContainCameraBounds(
-    requestBounds,
-    cameraBounds,
-) {
-    if (!requestBounds || !cameraBounds) {
-        return false;
-    }
-
-    const southLatitude = Math.min(
-        Number(cameraBounds.sw?.[1]),
-        Number(cameraBounds.ne?.[1]),
-    );
-    const northLatitude = Math.max(
-        Number(cameraBounds.sw?.[1]),
-        Number(cameraBounds.ne?.[1]),
-    );
-    const requestSouthLatitude = Number(requestBounds.sw_lat);
-    const requestNorthLatitude = Number(requestBounds.ne_lat);
-
-    if (
-        !Number.isFinite(southLatitude) ||
-        !Number.isFinite(northLatitude) ||
-        !Number.isFinite(requestSouthLatitude) ||
-        !Number.isFinite(requestNorthLatitude) ||
-        southLatitude <
-            requestSouthLatitude - MARKER_BOUNDS_CONTAINMENT_EPSILON ||
-        northLatitude > requestNorthLatitude + MARKER_BOUNDS_CONTAINMENT_EPSILON
-    ) {
-        return false;
-    }
-
-    const westLongitude = normalizeLongitude(Number(cameraBounds.sw?.[0]));
-    const eastLongitude = normalizeLongitude(Number(cameraBounds.ne?.[0]));
-    const requestWestLongitude = normalizeLongitude(
-        Number(requestBounds.sw_lng),
-    );
-    const requestEastLongitude = normalizeLongitude(
-        Number(requestBounds.ne_lng),
-    );
-
-    if (
-        !Number.isFinite(westLongitude) ||
-        !Number.isFinite(eastLongitude) ||
-        !Number.isFinite(requestWestLongitude) ||
-        !Number.isFinite(requestEastLongitude)
-    ) {
-        return false;
-    }
-
-    return longitudeIntervalsContain(
-        getLongitudeIntervals(requestWestLongitude, requestEastLongitude),
-        getLongitudeIntervals(westLongitude, eastLongitude),
     );
 }
 

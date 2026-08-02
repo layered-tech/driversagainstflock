@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react';
 import { APP_ENVIRONMENT } from './config';
 import {
     DIRECTIONS_DEBUG_AVOID_POLYGONS,
@@ -13,6 +14,23 @@ import { getMockSpeedLimitSnapshot } from './speed-limit-mock';
 const E2E_MAP_API_MOCKS_ENV = process.env.EXPO_PUBLIC_E2E_MAP_API_MOCKS === '1';
 
 let runtimeMapApiMocksEnabled = false;
+let runtimeMockWazePoliceAlertsEnabled = false;
+const mockWazePoliceAlertsListeners = new Set();
+
+const MOCK_WAZE_POLICE_NODES = [
+    {
+        city: 'Wauwatosa',
+        confidence: 2,
+        id: 'mock-waze-police-hidden-node',
+        latitude: 43.10909992150568,
+        longitude: -88.24500056104138,
+        num_thumbs_up: 0,
+        published_at: null,
+        reliability: 7,
+        street: 'Mock Waze police node',
+        subtype: 'POLICE_HIDING',
+    },
+];
 
 const MOCK_PLACES = {
     'mock-walmart-supercenter': {
@@ -230,6 +248,39 @@ export function setMapApiMocksEnabled(enabled) {
     if (appCanUseE2EMapApiMocks()) {
         runtimeMapApiMocksEnabled = Boolean(enabled);
     }
+}
+
+export function setMockWazePoliceAlertsEnabled(enabled) {
+    const nextEnabled = Boolean(enabled);
+
+    if (nextEnabled === runtimeMockWazePoliceAlertsEnabled) {
+        return;
+    }
+
+    runtimeMockWazePoliceAlertsEnabled = nextEnabled;
+    mockWazePoliceAlertsListeners.forEach((listener) => listener());
+}
+
+function subscribeToMockWazePoliceAlerts(listener) {
+    mockWazePoliceAlertsListeners.add(listener);
+
+    return () => mockWazePoliceAlertsListeners.delete(listener);
+}
+
+function getMockWazePoliceAlertsEnabled() {
+    return runtimeMockWazePoliceAlertsEnabled;
+}
+
+export function useMockWazePoliceAlertsEnabled() {
+    return useSyncExternalStore(
+        subscribeToMockWazePoliceAlerts,
+        getMockWazePoliceAlertsEnabled,
+        getMockWazePoliceAlertsEnabled,
+    );
+}
+
+export function mockWazePoliceAlertsAreEnabled() {
+    return runtimeMockWazePoliceAlertsEnabled;
 }
 
 export async function getMockRoadCorridor({ signal }) {
@@ -572,6 +623,13 @@ export async function getMockWazePoliceAlerts({ center, signal } = {}) {
 
     if (latitude === null || longitude === null) {
         return [];
+    }
+
+    if (runtimeMockWazePoliceAlertsEnabled) {
+        return MOCK_WAZE_POLICE_NODES.map((node) => ({
+            ...node,
+            published_at: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
+        }));
     }
 
     return MOCK_WAZE_POLICE_ALERT_OFFSETS.map((alertOffset, index) => ({

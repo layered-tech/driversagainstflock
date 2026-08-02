@@ -25,6 +25,18 @@ describe('MapControlsOverlay', () => {
         );
     });
 
+    test('shows the drawer button first during active route navigation', () => {
+        assert.match(mapControlsOverlaySource, /showDrawerButton = false/);
+        assert.match(
+            mapControlsOverlaySource,
+            /\{showDrawerButton \? \([\s\S]*?accessibilityLabel="Open menu"[\s\S]*?testID="driving-drawer-button"[\s\S]*?\) : null\}\s*\n\s*<MapLayerButton/,
+        );
+        assert.match(
+            mapScreenSource,
+            /<MapControlsOverlay\s+showFreeDriveButton=\{freeDriveIsActive\}\s+onDrawerPress=\{\s*searchController\.handleDrawerPress\s*\}\s+showDrawerButton=\{Boolean\(\s*selectedDirectionsRouteOption,\s*\)\}/,
+        );
+    });
+
     test('exits free drive when mobile search opens', () => {
         assert.match(
             mapScreenSource,

@@ -233,6 +233,7 @@ let singleResultCountdownRequestSequence = 0;
 let routePreviewIsVisible = false;
 let routePreviewRequestSequence = 0;
 let activeNavigationRoute = null;
+let autoPlayHostNavigationIsActive = false;
 let lastNavigationGuidanceLocation = null;
 let lastNavigationGuidanceUpdatedAt = 0;
 let pendingNavigationGuidanceLocation = null;
@@ -255,6 +256,14 @@ let primaryLocationsUnsubscribe = null;
 let templateUpdateScheduled = false;
 let templateUpdateNeedsMapButtons = false;
 let templateUpdateNeedsHeaderActions = false;
+let lastAppliedMapButtonsKey = null;
+let lastAppliedHeaderActionsKey = null;
+
+function getTemplateChromeKey(value) {
+    return JSON.stringify(value, (_key, item) =>
+        typeof item === 'function' ? '[function]' : item,
+    );
+}
 
 function flushTemplateUpdates() {
     templateUpdateScheduled = false;
@@ -275,7 +284,17 @@ function flushTemplateUpdates() {
 
     if (needsMapButtons) {
         try {
-            rootMapTemplate.setMapButtons(getRootMapButtons()).catch(() => {});
+            const mapButtons = getRootMapButtons();
+            const mapButtonsKey = getTemplateChromeKey(mapButtons);
+
+            if (mapButtonsKey !== lastAppliedMapButtonsKey) {
+                lastAppliedMapButtonsKey = mapButtonsKey;
+                rootMapTemplate.setMapButtons(mapButtons).catch(() => {
+                    if (lastAppliedMapButtonsKey === mapButtonsKey) {
+                        lastAppliedMapButtonsKey = null;
+                    }
+                });
+            }
         } catch {
             // Map buttons can be restored on the next surface state update.
         }
@@ -283,9 +302,17 @@ function flushTemplateUpdates() {
 
     if (needsHeaderActions) {
         try {
-            rootMapTemplate
-                .setHeaderActions(getRootMapHeaderActions())
-                .catch(() => {});
+            const headerActions = getRootMapHeaderActions();
+            const headerActionsKey = getTemplateChromeKey(headerActions);
+
+            if (headerActionsKey !== lastAppliedHeaderActionsKey) {
+                lastAppliedHeaderActionsKey = headerActionsKey;
+                rootMapTemplate.setHeaderActions(headerActions).catch(() => {
+                    if (lastAppliedHeaderActionsKey === headerActionsKey) {
+                        lastAppliedHeaderActionsKey = null;
+                    }
+                });
+            }
         } catch {
             // Header actions are chrome; a failed refresh should not stop navigation.
         }
@@ -2216,7 +2243,11 @@ function makeNavigationMessage(
 }
 
 function updateNavigationGuidance(userLocation) {
-    if (!rootMapTemplate || !activeNavigationRoute) {
+    if (
+        !rootMapTemplate ||
+        !activeNavigationRoute ||
+        !autoPlayHostNavigationIsActive
+    ) {
         return;
     }
 
@@ -2711,6 +2742,7 @@ function syncAutoPlayNavigationFromSharedRoutingState(
     const navigationAction = getAutoPlaySharedNavigationAction({
         activeNavigationRoute,
         getRouteSyncKey: getDirectionsRouteSyncKey,
+        hostNavigationIsActive: autoPlayHostNavigationIsActive,
         rootMapTemplateIsReady,
         routingState,
     });
@@ -2808,6 +2840,7 @@ async function stopAutoPlayNavigation({
     cancelAutoPlaySearchWork();
     stopAutoDriveSimulation();
     await stopNavigationLocationUpdates();
+    autoPlayHostNavigationIsActive = false;
     activeNavigationRoute = null;
     activeNavigationDestination = null;
     routePreviewIsVisible = false;
@@ -2886,6 +2919,7 @@ function startAutoPlayNavigation(
             routePreviewIsVisible = false;
         }
 
+        autoPlayHostNavigationIsActive = true;
         updateNavigationGuidance(null);
 
         if (autoDriveIsEnabled) {
@@ -2919,6 +2953,7 @@ function startAutoPlayNavigation(
             });
         }
     } catch (error) {
+        autoPlayHostNavigationIsActive = false;
         activeNavigationRoute = null;
         activeNavigationDestination = null;
         updateRootTemplateHeaderActions();
@@ -3459,6 +3494,8 @@ async function handleAutoPlayConnect() {
     setAutoPlaySessionConnected(true);
 
     rootMapTemplateIsReady = false;
+    lastAppliedMapButtonsKey = null;
+    lastAppliedHeaderActionsKey = null;
     lastDeferredSharedNavigationStartKey = null;
     rootMapPanningInterfaceIsVisible = false;
     rootMapButtonsRefreshIsDeferred = false;
@@ -3469,11 +3506,17 @@ async function handleAutoPlayConnect() {
         ...DEFAULT_AUTO_PLAY_STATE,
         statusLabel: 'Connected',
     });
+    const initialRootMapHeaderActions = getRootMapHeaderActions();
+    const initialRootMapButtons = getRootMapButtons();
+    lastAppliedHeaderActionsKey = getTemplateChromeKey(
+        initialRootMapHeaderActions,
+    );
+    lastAppliedMapButtonsKey = getTemplateChromeKey(initialRootMapButtons);
 
     const mapTemplate = new MapTemplate({
         component: autoPlayPlatform.MapSurface,
-        headerActions: getRootMapHeaderActions(),
-        mapButtons: getRootMapButtons(),
+        headerActions: initialRootMapHeaderActions,
+        mapButtons: initialRootMapButtons,
         onAppearanceDidChange: (colorScheme) => {
             setAutoPlayMapColorScheme(colorScheme);
         },
@@ -3499,6 +3542,11 @@ async function handleAutoPlayConnect() {
             },
         }),
         onStopNavigation: () => {
+            if (autoPlayPlatform?.preservesPhoneNavigationOnHostStop === true) {
+                autoPlayHostNavigationIsActive = false;
+                return;
+            }
+
             stopAutoPlayNavigation({ notifyTemplate: false });
         },
         ...autoPlayPlatform.getMapTemplatePlatformConfig({
@@ -3594,6 +3642,8 @@ function handleAutoPlayDisconnect() {
     autoPlayPlatform?.cancelSearchVoiceInput?.();
     rootMapTemplate = null;
     rootMapTemplateIsReady = false;
+    lastAppliedMapButtonsKey = null;
+    lastAppliedHeaderActionsKey = null;
     lastDeferredSharedNavigationStartKey = null;
     rootMapPanningInterfaceIsVisible = false;
     rootMapButtonsRefreshIsDeferred = false;
@@ -3602,14 +3652,9 @@ function handleAutoPlayDisconnect() {
     deferredNavigationGuidanceLocation = null;
     pendingVoiceNavigation = null;
     pendingVoiceSearchTemplatePush = null;
-    activeNavigationRoute = null;
-    activeNavigationDestination = null;
+    autoPlayHostNavigationIsActive = false;
     routePreviewIsVisible = false;
-    lastNavigationGuidanceLocation = null;
-    autoDriveIsEnabled = false;
-    stopAutoDriveSimulation();
     cancelAutoPlaySearchWork();
-    stopNavigationLocationUpdates();
     setAutoPlayState(DEFAULT_AUTO_PLAY_STATE);
 }
 

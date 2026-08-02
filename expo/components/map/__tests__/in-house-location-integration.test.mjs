@@ -19,6 +19,9 @@ const drivingLocationProviderSource = readSource(
 );
 const durableAlertStoreSource = readSource('../durable-alert-store.js');
 const easJson = JSON.parse(readSource('../../../eas.json'));
+const expoLocationPatchSource = readSource(
+    '../../../patches/expo-location+55.1.12.patch',
+);
 const electronicHorizonAlprStoreSource = readSource(
     '../electronic-horizon-alpr-store.js',
 );
@@ -61,6 +64,26 @@ const wazePoliceAlertsSource = readSource('../use-waze-police-alerts.js');
 const wazePoliceAlertStoreSource = readSource('../waze-police-alert-store.js');
 
 describe('in-house road-matched location integration', () => {
+    test('keeps native location callbacks safe after the Expo host is destroyed', () => {
+        assert.match(expoLocationPatchSource, /sendEventSafely/);
+        assert.match(
+            expoLocationPatchSource,
+            /catch \(_: IllegalArgumentException\)/,
+        );
+        assert.match(
+            expoLocationPatchSource,
+            /catch \(_: IllegalStateException\)/,
+        );
+    });
+
+    test('uploads Android native Sentry symbols for native crash diagnosis', () => {
+        assert.match(appConfigSource, /experimental_android:\s*\{/);
+        assert.match(appConfigSource, /enableAndroidGradlePlugin:\s*true/);
+        assert.match(appConfigSource, /uploadNativeSymbols:\s*true/);
+        assert.match(appConfigSource, /autoUploadNativeSymbols:\s*true/);
+        assert.match(appConfigSource, /includeNativeSources:\s*true/);
+    });
+
     test('does not package or invoke the removed Mapbox Navigation SDK', () => {
         const dependencies = {
             ...packageJson.dependencies,

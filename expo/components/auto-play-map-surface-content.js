@@ -47,6 +47,7 @@ import {
     mergeCameraPadding,
 } from './map-location-mode-shared';
 import { useLockOnLocationMode } from './map-lock-on-location-mode';
+import { useMockWazePoliceAlertsEnabled } from './map/api-mocks';
 import { getBoundsFitCameraStop } from './map/camera-state';
 import {
     MAPBOX_STANDARD_LIGHT_PRESET_AUTO,
@@ -90,6 +91,7 @@ import {
     MapScreenProviders,
     useAutoPlayMapScreenContextValues,
 } from './map/map-screen-context';
+import { resolveMarkerLoadBounds } from './map/marker-load-bounds';
 import { getNavigationPuckSize } from './map/navigation-puck-layout';
 import { getSubmittedSearchResultsBounds } from './map/submitted-search-results-bounds';
 import { useDeferredCameraDebugState } from './map/use-deferred-camera-debug-state';
@@ -502,38 +504,6 @@ function useAutoPlayMapController({
         setLocationTrackingMode(nextMode);
     }, []);
 
-    const scheduleMarkerLoad = useCallback(
-        (bounds, delay) => {
-            if (
-                !bounds ||
-                !isMapReadyRef.current ||
-                !markersAreVisible ||
-                !markerLoadsEnabledRef.current
-            ) {
-                return;
-            }
-
-            scheduleSharedMarkerLoad(bounds, delay);
-        },
-        [markersAreVisible, scheduleSharedMarkerLoad],
-    );
-
-    useEffect(() => {
-        const markersWereVisible = previousMarkersAreVisibleRef.current;
-
-        previousMarkersAreVisibleRef.current = markersAreVisible;
-
-        if (
-            markersWereVisible ||
-            !markersAreVisible ||
-            !latestMapBoundsRef.current
-        ) {
-            return;
-        }
-
-        scheduleMarkerLoad(latestMapBoundsRef.current, 0);
-    }, [markersAreVisible, scheduleMarkerLoad]);
-
     const moveCameraToUser = useCallback(
         (location, options = {}) => {
             const nextZoomLevel = clampZoomLevel(
@@ -596,6 +566,54 @@ function useAutoPlayMapController({
         userLocationRef,
         viewportHeight: viewportMetrics.height,
     });
+    const scheduleMarkerLoad = useCallback(
+        (bounds, delay, { manualPanIsStarting = false } = {}) => {
+            if (
+                !bounds ||
+                !isMapReadyRef.current ||
+                !markersAreVisible ||
+                !markerLoadsEnabledRef.current
+            ) {
+                return;
+            }
+
+            const markerLoadBounds = resolveMarkerLoadBounds({
+                cameraBounds: bounds,
+                drivingFollowIsActive:
+                    isDrivingMode &&
+                    !manualPanIsStarting &&
+                    !followLocationMode.getRecenterIsNeeded() &&
+                    locationTrackingModeRef.current ===
+                        LOCATION_TRACKING_FOLLOW,
+                userLocation: userLocationRef.current,
+            });
+
+            scheduleSharedMarkerLoad(markerLoadBounds, delay);
+        },
+        [
+            followLocationMode,
+            isDrivingMode,
+            markersAreVisible,
+            scheduleSharedMarkerLoad,
+        ],
+    );
+
+    useEffect(() => {
+        const markersWereVisible = previousMarkersAreVisibleRef.current;
+
+        previousMarkersAreVisibleRef.current = markersAreVisible;
+
+        if (
+            markersWereVisible ||
+            !markersAreVisible ||
+            !latestMapBoundsRef.current
+        ) {
+            return;
+        }
+
+        scheduleMarkerLoad(latestMapBoundsRef.current, 0);
+    }, [markersAreVisible, scheduleMarkerLoad]);
+
     const activeLocationMode = isDrivingMode
         ? followLocationMode
         : lockOnLocationMode;
@@ -812,10 +830,15 @@ function useAutoPlayMapController({
             }
 
             const bounds = getBoundsFromCameraState(state);
+            const manualPanIsStarting = Boolean(
+                state?.gestures?.isGestureActive && !zoomLevelChanged,
+            );
 
             if (bounds) {
                 latestMapBoundsRef.current = bounds;
-                scheduleMarkerLoad(bounds);
+                scheduleMarkerLoad(bounds, undefined, {
+                    manualPanIsStarting,
+                });
             }
 
             if (state?.gestures?.isGestureActive) {
@@ -1566,9 +1589,12 @@ export function AutoPlayMapSurfaceContent({
             !activeDirectionsRoute &&
             !searchResultsMapIsActive,
     });
+    const mockWazePoliceAlertsEnabled = useMockWazePoliceAlertsEnabled();
     const policeAlertsLoader = useWazePoliceAlerts({
         policeAlertsAreEnabled:
-            mapPreferences.policeAlertsVisible && !searchResultsMapIsActive,
+            (mapPreferences.policeAlertsVisible ||
+                mockWazePoliceAlertsEnabled) &&
+            !searchResultsMapIsActive,
         userLocation: mapPreferences.userLocation,
     });
     const policeAlertFeatureCollection = useMemo(
@@ -1665,7 +1691,9 @@ export function AutoPlayMapSurfaceContent({
         navigationPuckRefreshKey,
         policeAlertFeatureCollection,
         policeAlertsVisible:
-            mapPreferences.policeAlertsVisible && !searchResultsMapIsActive,
+            (mapPreferences.policeAlertsVisible ||
+                mockWazePoliceAlertsEnabled) &&
+            !searchResultsMapIsActive,
         preferredFramesPerSecond: isRootMapSurface ? 30 : 20,
         presentation,
         submittedSearchResults,

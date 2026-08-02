@@ -16,6 +16,47 @@ tags:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
     commands:
       - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- runFlow:
+    when:
+      visible:
+        id: 'driving-cancel-route-button'
+    commands:
+      - tapOn:
+          id: 'driving-cancel-route-button'
+          retryTapIfNoChange: true
+- runFlow:
+    when:
+      visible:
+        id: 'place-details-close-button'
+    commands:
+      - tapOn:
+          id: 'place-details-close-button'
+          retryTapIfNoChange: true
+- runFlow:
+    when:
+      visible:
+        id: 'exit-free-drive-button'
+    commands:
+      - tapOn:
+          id: 'exit-free-drive-button'
+          retryTapIfNoChange: true
+- runFlow:
+    when:
+      visible:
+        id: 'map-search-drawer-button-driving'
+    commands:
+      - tapOn:
+          id: 'map-search-drawer-button-driving'
+          retryTapIfNoChange: true
+- runFlow:
+    when:
+      visible:
+        id: 'exit-free-drive-button'
+    commands:
+      - tapOn:
+          id: 'exit-free-drive-button'
+          retryTapIfNoChange: true
+- openLink: "driversagainstflock://e2e-mocks"
 - extendedWaitUntil:
     visible:
       id: "map-search-input-map"
@@ -72,6 +113,9 @@ tags:
     start: "50%,62%"
     end: "50%,95%"
     duration: 500
+- tapOn:
+    id: "directions-route-back-button"
+    retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
       id: "map-search-input-map"

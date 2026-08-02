@@ -8,14 +8,41 @@ tags:
     latitude: 30.26715
     longitude: -97.74035
 - launchApp:
+    clearState: true
     stopApp: true
     permissions:
       all: allow
+- tapOn:
+    text: 'Continue'
+    optional: true
 - runFlow:
     when:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
     commands:
       - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- tapOn:
+    text: 'http://10.0.2.2:8081'
+    optional: true
+- extendedWaitUntil:
+    visible: 'Continue'
+    timeout: 10000
+    optional: true
+- runFlow:
+    when:
+      visible: 'Continue'
+    commands:
+      - tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: 'Close'
+    timeout: 10000
+    optional: true
+- runFlow:
+    when:
+      visible: 'Close'
+    commands:
+      - tapOn:
+          text: 'Close'
+          optional: true
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
@@ -78,6 +105,9 @@ tags:
     id: 'contribute-add-camera-button'
     retryTapIfNoChange: true
 - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: '2 cameras placed'
+    timeout: 10000
 - runFlow:
     when:
       platform: Android
@@ -90,9 +120,13 @@ tags:
           id: 'contribute-add-camera-button'
           retryTapIfNoChange: true
       - waitForAnimationToEnd
+      - extendedWaitUntil:
+          visible: '2 cameras placed'
+          timeout: 10000
       - tapOn:
           id: 'contribute-next-details-button'
           retryTapIfNoChange: true
+      - openLink: 'driversagainstflock://contribute/camera/0'
 - runFlow:
     when:
       platform: iOS
@@ -126,9 +160,9 @@ tags:
 - tapOn:
     id: 'contribute-mount-pole'
     retryTapIfNoChange: true
-- tapOn:
-    id: 'contribute-next-changeset-button'
-    retryTapIfNoChange: true
+- waitForAnimationToEnd
+- assertVisible: 'Camera 1 of 2'
+- openLink: 'driversagainstflock://contribute/camera/1'
 - extendedWaitUntil:
     visible: 'Camera 2 of 2'
     timeout: 10000
@@ -151,8 +185,10 @@ tags:
 
 # Screen 15: review & publish
 - extendedWaitUntil:
-    visible: 'Review & publish'
-    timeout: 10000
+    visible:
+      id: 'contribute-review-screen'
+    timeout: 30000
+- assertVisible: 'Review & publish'
 - assertVisible: 'DriversAgainstFlock.org'
 - assertVisible: '.*Map only what you can verify.*'
 - tapOn:

@@ -29,7 +29,7 @@ tags:
     timeout: 10000
 - tapOn:
     id: 'map-contribute-button'
-    retryTapIfNoChange: true
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'contribute-start-sheet'
@@ -64,6 +64,7 @@ tags:
     commands:
       - tapOn:
           id: 'contribute-next-details-button'
+      - openLink: 'driversagainstflock://contribute/camera/0'
 - runFlow:
     when:
       platform: iOS

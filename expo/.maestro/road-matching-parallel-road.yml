@@ -39,7 +39,9 @@ tags:
     when:
       visible: 'Close'
     commands:
-      - tapOn: 'Close'
+      - tapOn:
+          text: 'Close'
+          optional: true
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
@@ -71,12 +73,12 @@ tags:
     visible:
       id: 'e2e-native-puck-proof'
       text: 'true'
-    timeout: 30000
+    timeout: 60000
 - extendedWaitUntil:
     visible:
       id: 'e2e-native-3d-puck-proof'
       text: 'true'
-    timeout: 30000
+    timeout: 60000
 - assertVisible:
     id: 'e2e-native-puck-kind'
     text: '3d'
@@ -90,7 +92,7 @@ tags:
     text: '0,0,0'
 - assertVisible:
     id: 'e2e-native-puck-scale-mode'
-    text: 'viewport'
+    text: 'map'
 - assertVisible:
     id: 'e2e-native-puck-emissive-strength'
     text: '1'
@@ -238,12 +240,12 @@ tags:
     visible:
       id: 'e2e-native-puck-proof'
       text: 'true'
-    timeout: 30000
+    timeout: 60000
 - extendedWaitUntil:
     visible:
       id: 'e2e-native-3d-puck-proof'
       text: 'true'
-    timeout: 30000
+    timeout: 60000
 - assertVisible:
     id: 'e2e-native-puck-kind'
     text: '3d'

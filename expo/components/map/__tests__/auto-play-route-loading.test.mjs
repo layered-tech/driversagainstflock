@@ -144,7 +144,11 @@ describe('Auto Play route-loading overlay', () => {
         );
         assert.match(
             mapStatusOverlaySource,
-            /function AutoPlayTopRightStatusOverlay[\s\S]*?className="absolute items-end gap-\[12px\]"[\s\S]*?<AutoPlayUpcomingAlert[\s\S]*?<AutoPlayRouteLoadingCard/,
+            /function AutoPlayTopRightStatusOverlay[\s\S]*?getDrivingAlertsPresentation\(upcomingAlerts\)[\s\S]*?pointerEvents="none"[\s\S]*?<AutoPlayCombinedUpcomingAlerts[\s\S]*?<AutoPlaySingleUpcomingAlert[\s\S]*?<AutoPlayRouteLoadingCard/,
+        );
+        assert.match(
+            mapStatusOverlaySource,
+            /function AutoPlayCombinedUpcomingAlerts[\s\S]*?auto-play-upcoming-alert-police[\s\S]*?auto-play-upcoming-alert-alpr/,
         );
         assert.match(
             mapSurfaceSource,

@@ -62,8 +62,6 @@ tags:
     visible:
       id: "selected-place-get-directions-button"
     timeout: 10000
-- assertVisible:
-    id: "place-details-close-button"
 - tapOn:
     id: "place-details-close-button"
     retryTapIfNoChange: true

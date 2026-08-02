@@ -54,6 +54,9 @@ tags:
     start: '50%,68%'
     end: '50%,95%'
     duration: 500
+- tapOn:
+    id: 'marker-details-close-button'
+    retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'

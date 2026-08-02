@@ -1,7 +1,11 @@
 import { fetch as expoFetch } from 'expo/fetch';
 import { addSentryBreadcrumb } from '../../lib/sentry';
 import { runAbortableOperation } from './abortable-operation';
-import { getMockWazePoliceAlerts, mapApiMocksAreEnabled } from './api-mocks';
+import {
+    getMockWazePoliceAlerts,
+    mapApiMocksAreEnabled,
+    mockWazePoliceAlertsAreEnabled,
+} from './api-mocks';
 import { buildApiURL } from './config';
 import { EMPTY_FEATURE_COLLECTION } from './constants';
 import { getStoredNumber, normalizeLongitude } from './geo';
@@ -68,7 +72,7 @@ export async function getWazePoliceAlerts({ location, signal } = {}) {
         return [];
     }
 
-    if (mapApiMocksAreEnabled()) {
+    if (mapApiMocksAreEnabled() || mockWazePoliceAlertsAreEnabled()) {
         const mockAlerts = await getMockWazePoliceAlerts({
             center: { latitude, longitude },
             signal,
