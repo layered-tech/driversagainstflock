@@ -20,7 +20,7 @@ const drivingLocationProviderSource = readSource(
 const durableAlertStoreSource = readSource('../durable-alert-store.js');
 const easJson = JSON.parse(readSource('../../../eas.json'));
 const expoLocationPatchSource = readSource(
-    '../../../patches/expo-location+55.1.12.patch',
+    '../../../patches/expo-location+57.0.7.patch',
 );
 const electronicHorizonAlprStoreSource = readSource(
     '../electronic-horizon-alpr-store.js',
@@ -416,7 +416,7 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(indexSource, /map\/road-matching-session/);
         assert.equal(
-            packageJson.dependencies['expo-task-manager']?.startsWith('~55.'),
+            packageJson.dependencies['expo-task-manager']?.startsWith('~57.'),
             true,
         );
         assert.match(roadMatchingSessionSource, /createRoadMatcher/);

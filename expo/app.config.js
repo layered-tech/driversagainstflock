@@ -155,6 +155,7 @@ module.exports = {
         ],
         'expo-router',
         'expo-system-ui',
+        'expo-status-bar',
         [
             'expo-font',
             {
@@ -182,7 +183,7 @@ module.exports = {
         [
             'expo-navigation-bar',
             {
-                barStyle: 'auto',
+                style: 'auto',
                 enforceContrast: false,
             },
         ],
