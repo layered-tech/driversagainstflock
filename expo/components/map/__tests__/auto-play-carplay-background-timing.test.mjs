@@ -7,7 +7,7 @@ const require = createRequire(import.meta.url);
 const appConfig = require('../../../app.config.js');
 const packageJson = require('../../../package.json');
 const reactNativePatch = readFileSync(
-    new URL('../../../patches/react-native+0.83.6.patch', import.meta.url),
+    new URL('../../../patches/react-native+0.86.2.patch', import.meta.url),
     'utf8',
 );
 const reactNativeTimingHeader = readFileSync(
@@ -42,7 +42,7 @@ test('iOS compiles the patched React Native source', () => {
             Array.isArray(plugin) && plugin[0] === 'expo-build-properties',
     );
 
-    assert.equal(packageJson.dependencies['react-native'], '0.83.6');
+    assert.equal(packageJson.dependencies['react-native'], '0.86.2');
     assert.equal(
         buildPropertiesPlugin?.[1]?.ios?.buildReactNativeFromSource,
         true,

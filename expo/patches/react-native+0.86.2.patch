@@ -2,7 +2,7 @@ diff --git a/node_modules/react-native/React/CoreModules/RCTTiming.mm b/node_mod
 index 14ee784..f91d0de 100644
 --- a/node_modules/react-native/React/CoreModules/RCTTiming.mm
 +++ b/node_modules/react-native/React/CoreModules/RCTTiming.mm
-@@ -325,7 +325,7 @@ static const NSTimeInterval kIdleCallbackFrameDeadline = 0.001;
+@@ -325,7 +325,7 @@ - (void)scheduleSleepTimer:(NSDate *)sleepTarget
                                               selector:@selector(timerDidFire)
                                               userInfo:nil
                                                repeats:NO];

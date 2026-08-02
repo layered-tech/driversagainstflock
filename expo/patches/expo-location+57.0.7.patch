@@ -1,0 +1,69 @@
+diff --git a/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt b/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt
+index 04171f2..136b7d5 100644
+--- a/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt
++++ b/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt
+@@ -88,6 +88,7 @@ class LocationModule : Module(), LifecycleEventListener, SensorEventListener, Ac
+   private var mAccuracy = 0
+   private var mLastUpdate: Long = 0
+   private var mGeocoderPaused = false
++  @Volatile private var mHostIsDestroyed = false
+ 
+   // Motion activity
+   private val mMotionActivityWatchIds = mutableSetOf<Int>()
+@@ -115,7 +116,7 @@ class LocationModule : Module(), LifecycleEventListener, SensorEventListener, Ac
+         timestamp = System.currentTimeMillis().toDouble()
+       )
+       for (id in mMotionActivityWatchIds) {
+-        sendEvent(MOTION_ACTIVITY_EVENT_NAME, mapOf("watchId" to id, "activity" to activity))
++        sendEventSafely(MOTION_ACTIVITY_EVENT_NAME, mapOf("watchId" to id, "activity" to activity))
+       }
+     }
+   }
+@@ -652,7 +653,7 @@ class LocationModule : Module(), LifecycleEventListener, SensorEventListener, Ac
+             accuracy = mAccuracy
+           )
+         )
+-        sendEvent(HEADING_EVENT_NAME, response.toBundle())
++        sendEventSafely(HEADING_EVENT_NAME, response.toBundle())
+       }
+     }
+   }
+@@ -661,7 +662,21 @@ class LocationModule : Module(), LifecycleEventListener, SensorEventListener, Ac
+     val responseBundle = bundleOf()
+     responseBundle.putBundle("location", response.toBundle(Bundle::class.java))
+     responseBundle.putInt("watchId", watchId)
+-    sendEvent(LOCATION_EVENT_NAME, responseBundle)
++    sendEventSafely(LOCATION_EVENT_NAME, responseBundle)
++  }
++
++  private fun sendEventSafely(eventName: String, body: Any?) {
++    if (mHostIsDestroyed) {
++      return
++    }
++
++    try {
++      sendEvent(eventName, body)
++    } catch (_: IllegalArgumentException) {
++      // Location callbacks can race with Expo host destruction.
++    } catch (_: IllegalStateException) {
++      // Location callbacks can race with Expo host destruction.
++    }
+   }
+ 
+   private fun calcMagNorth(azimuth: Float): Float {
+@@ -1055,6 +1070,7 @@ class LocationModule : Module(), LifecycleEventListener, SensorEventListener, Ac
+   }
+ 
+   override fun onHostResume() {
++    mHostIsDestroyed = false
+     startWatching()
+     startHeadingUpdate()
+     resumeMotionActivityWatch()
+@@ -1067,6 +1083,7 @@ class LocationModule : Module(), LifecycleEventListener, SensorEventListener, Ac
+   }
+ 
+   override fun onHostDestroy() {
++    mHostIsDestroyed = true
+     stopWatching()
+     stopHeadingWatch()
+     stopMotionActivityWatch()

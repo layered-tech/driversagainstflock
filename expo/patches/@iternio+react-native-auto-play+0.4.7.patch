@@ -26,7 +26,7 @@ index ecc4dae..6214102 100644
  
          <meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" tools:ignore="MetadataTagInsideApplicationTag" />
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoScreen.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoScreen.kt
-index a12064c..5f6725b 100644
+index a12064c..56ef8b6 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoScreen.kt
 +++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoScreen.kt
 @@ -1,5 +1,8 @@
@@ -98,15 +98,17 @@ index a12064c..5f6725b 100644
          }
      }
  
-@@ -117,4 +146,6 @@ class AndroidAutoScreen(
+@@ -117,6 +146,8 @@ class AndroidAutoScreen(
  
      companion object {
          const val TAG = "AndroidAutoScreen"
 +        private const val MIN_INVALIDATION_INTERVAL_MS = 250L
 +
+ 
          private val screens = ConcurrentHashMap<String, AndroidAutoScreen>()
+ 
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt
-index b7f8664..26fd0b9 100644
+index b7f8664..d2a2ed3 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt
 +++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt
 @@ -13,6 +13,7 @@ import android.content.pm.PackageManager
@@ -139,7 +141,7 @@ index b7f8664..26fd0b9 100644
  
      @SuppressLint("PrivateResource")
      override fun createHostValidator(): HostValidator {
-@@ -48,8 +47,6 @@ class AndroidAutoService : CarAppService() {
+@@ -48,8 +51,6 @@ class AndroidAutoService : CarAppService() {
          super.onCreate()
          instance = this
  
@@ -148,7 +150,7 @@ index b7f8664..26fd0b9 100644
          notificationManager = getSystemService(NotificationManager::class.java)
          val appLabel = AppInfo.getApplicationLabel(this)
  
-@@ -78,27 +75,15 @@ class AndroidAutoService : CarAppService() {
+@@ -78,27 +79,15 @@ class AndroidAutoService : CarAppService() {
          super.onDestroy()
          instance = null
  
@@ -180,7 +182,7 @@ index b7f8664..26fd0b9 100644
              val serviceIntent = Intent(applicationContext, HeadlessTaskService::class.java)
              bindService(serviceIntent, connection, BIND_AUTO_CREATE)
          }
-@@ -117,6 +102,7 @@ class AndroidAutoService : CarAppService() {
+@@ -117,6 +106,7 @@ class AndroidAutoService : CarAppService() {
                  isServiceBound = false
              }
  
@@ -850,7 +852,7 @@ index dd85e78..35a90b7 100644
          }
  
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridMapTemplate.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridMapTemplate.kt
-index 205c812..b7159cd 100644
+index 205c812..999a307 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridMapTemplate.kt
 +++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridMapTemplate.kt
 @@ -132,27 +132,37 @@ class HybridMapTemplate : HybridMapTemplateSpec() {
@@ -1216,10 +1218,10 @@ index 85e26c5..19e26a6 100644
          moduleName: String,
          safeAreaInsets: UIEdgeInsets
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridListTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridListTemplate.swift
-index 15a94e4..8d2d320 100644
+index adec232..6f13762 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridListTemplate.swift
 +++ b/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridListTemplate.swift
-@@ -5,6 +5,7 @@
+@@ -6,6 +6,7 @@
  //
  
  import NitroModules
@@ -1227,7 +1229,7 @@ index 15a94e4..8d2d320 100644
  
  class HybridListTemplate: HybridListTemplateSpec {
      func createListTemplate(config: ListTemplateConfig) throws {
-@@ -24,6 +25,17 @@ class HybridListTemplate: HybridListTemplateSpec {
+@@ -25,6 +26,17 @@ class HybridListTemplate: HybridListTemplateSpec {
      ) throws -> Promise<Void> {
          return Promise.async {
              try await MainActor.run {
@@ -1347,6 +1349,23 @@ index 0263eaf..c9c22e1 100644
                  "scale": traitCollection.displayScale,
              ],
          ]
+diff --git a/node_modules/@iternio/react-native-auto-play/ios/scenes/HeadUnitSceneDelegate.swift b/node_modules/@iternio/react-native-auto-play/ios/scenes/HeadUnitSceneDelegate.swift
+index a93a165..ee302b5 100644
+--- a/node_modules/@iternio/react-native-auto-play/ios/scenes/HeadUnitSceneDelegate.swift
++++ b/node_modules/@iternio/react-native-auto-play/ios/scenes/HeadUnitSceneDelegate.swift
+@@ -57,12 +57,6 @@ class HeadUnitSceneDelegate: AutoPlayScene, CPTemplateApplicationSceneDelegate {
+         didDisconnect interfaceController: CPInterfaceController,
+         from window: CPWindow
+     ) {
+-        if let mapTemplate = try? templateStore.getTemplate(
+-            templateId: SceneStore.rootModuleName
+-        ) as? MapTemplate {
+-            mapTemplate.stopNavigation()
+-        }
+-
+         disconnect()
+ 
+         HybridAutoPlay.emit(event: .diddisconnect)
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift
 index 8930590..dce2b56 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift
@@ -2677,10 +2696,9 @@ index a673aeb..61eba13 100644
    margelo::nitro::swe::iternio::reactnativeautoplay::JHybridClusterSpec::CxxPart::registerNatives();
    margelo::nitro::swe::iternio::reactnativeautoplay::JFunc_void_std__string_cxx::registerNatives();
 diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JFunc_void_std__optional_Location__std__optional_std__string_.hpp b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JFunc_void_std__optional_Location__std__optional_std__string_.hpp
-deleted file mode 100644
-index fe2a301..0000000
+index fe2a301..e69de29 100644
 --- a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JFunc_void_std__optional_Location__std__optional_std__string_.hpp
-+++ /dev/null
++++ b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/c++/JFunc_void_std__optional_Location__std__optional_std__string_.hpp
 @@ -1,79 +0,0 @@
 -///
 -/// JFunc_void_std__optional_Location__std__optional_std__string_.hpp
@@ -2886,10 +2904,9 @@ index b32b153..39580ac 100644
      std::shared_ptr<Promise<bool>> requestVoiceInputPermission() override;
      std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>> startVoiceInput(std::optional<double> silenceThresholdMs, std::optional<double> maxDurationMs, const std::optional<std::string>& listeningText) override;
 diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/kotlin/com/margelo/nitro/swe/iternio/reactnativeautoplay/Func_void_std__optional_Location__std__optional_std__string_.kt b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/kotlin/com/margelo/nitro/swe/iternio/reactnativeautoplay/Func_void_std__optional_Location__std__optional_std__string_.kt
-deleted file mode 100644
-index f86e036..0000000
+index f86e036..e69de29 100644
 --- a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/kotlin/com/margelo/nitro/swe/iternio/reactnativeautoplay/Func_void_std__optional_Location__std__optional_std__string_.kt
-+++ /dev/null
++++ b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/kotlin/com/margelo/nitro/swe/iternio/reactnativeautoplay/Func_void_std__optional_Location__std__optional_std__string_.kt
 @@ -1,80 +0,0 @@
 -///
 -/// Func_void_std__optional_Location__std__optional_std__string_.kt
@@ -3153,10 +3170,9 @@ index 9842be3..8f25401 100644
        if (__result.hasError()) [[unlikely]] {
          std::rethrow_exception(__result.error());
 diff --git a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/Func_void_std__optional_Location__std__optional_std__string_.swift b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/Func_void_std__optional_Location__std__optional_std__string_.swift
-deleted file mode 100644
-index d7990e5..0000000
+index d7990e5..e69de29 100644
 --- a/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/Func_void_std__optional_Location__std__optional_std__string_.swift
-+++ /dev/null
++++ b/node_modules/@iternio/react-native-auto-play/nitrogen/generated/ios/swift/Func_void_std__optional_Location__std__optional_std__string_.swift
 @@ -1,53 +0,0 @@
 -///
 -/// Func_void_std__optional_Location__std__optional_std__string_.swift
@@ -3392,21 +3408,3 @@ index 4f9cec9..858b2ec 100644
    ): CleanupCallback;
  
    /**
-diff --git a/node_modules/@iternio/react-native-auto-play/ios/scenes/HeadUnitSceneDelegate.swift b/node_modules/@iternio/react-native-auto-play/ios/scenes/HeadUnitSceneDelegate.swift
---- a/node_modules/@iternio/react-native-auto-play/ios/scenes/HeadUnitSceneDelegate.swift
-+++ b/node_modules/@iternio/react-native-auto-play/ios/scenes/HeadUnitSceneDelegate.swift
-@@ -55,14 +55,8 @@ class HeadUnitSceneDelegate: AutoPlayScene, CPTemplateApplicationSceneDelegate {
-     func templateApplicationScene(
-         _ templateApplicationScene: CPTemplateApplicationScene,
-         didDisconnect interfaceController: CPInterfaceController,
-         from window: CPWindow
-     ) {
--        if let mapTemplate = try? templateStore.getTemplate(
--            templateId: SceneStore.rootModuleName
--        ) as? MapTemplate {
--            mapTemplate.stopNavigation()
--        }
--
-         disconnect()
-
-         HybridAutoPlay.emit(event: .diddisconnect)
