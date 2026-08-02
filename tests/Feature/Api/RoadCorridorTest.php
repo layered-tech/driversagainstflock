@@ -207,7 +207,7 @@ it('returns normalized drivable ways around the requested location', function ()
         $query = $request->data()['data'] ?? '';
 
         return $request->url() === 'https://overpass.test/api/interpreter'
-            && str_contains($query, 'way(around:1111,')
+            && str_contains($query, 'way(around:1291,')
             && str_contains($query, '["highway"~"^(motorway|')
             && str_contains($query, 'out body qt;>;out skel qt;')
             && ! str_contains($query, 'geom');
