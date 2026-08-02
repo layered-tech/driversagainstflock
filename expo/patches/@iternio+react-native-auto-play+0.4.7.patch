@@ -29,7 +29,16 @@ diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/
 index a12064c..5f6725b 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoScreen.kt
 +++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoScreen.kt
-@@ -10,6 +10,7 @@ import androidx.lifecycle.LifecycleEventObserver
+@@ -1,5 +1,8 @@
+ package com.margelo.nitro.swe.iternio.reactnativeautoplay
+ 
++import android.os.Handler
++import android.os.Looper
++import android.os.SystemClock
+ import androidx.activity.OnBackPressedCallback
+ import androidx.car.app.CarContext
+ import androidx.car.app.Screen
+@@ -10,6 +13,7 @@ import androidx.lifecycle.LifecycleEventObserver
  import androidx.lifecycle.LifecycleOwner
  import com.facebook.react.bridge.UiThreadUtil
  import java.util.concurrent.ConcurrentHashMap
@@ -37,38 +46,65 @@ index a12064c..5f6725b 100644
  import com.margelo.nitro.swe.iternio.reactnativeautoplay.template.AndroidAutoTemplate
  import com.margelo.nitro.swe.iternio.reactnativeautoplay.template.GridTemplate
  import com.margelo.nitro.swe.iternio.reactnativeautoplay.template.InformationTemplate
-@@ -85,6 +86,12 @@ class AndroidAutoScreen(
+@@ -49,6 +53,8 @@ class AndroidAutoScreen(
+                     }
+ 
+                     Lifecycle.Event.ON_DESTROY -> {
++                        invalidationHandler.removeCallbacks(invalidationRunnable)
++                        invalidationPending.set(false)
+                         screens.remove(moduleName)
+                         HybridAutoPlay.removeListeners(moduleName)
+                         AndroidAutoTemplate.getTemplate(moduleName)?.onPopped()
+@@ -85,6 +91,31 @@ class AndroidAutoScreen(
          })
      }
  
 +    private val invalidationPending = AtomicBoolean(false)
++    private val invalidationHandler = Handler(Looper.getMainLooper())
++    private var lastInvalidationAtMs = 0L
 +    private val invalidationRunnable = Runnable {
++        lastInvalidationAtMs = SystemClock.uptimeMillis()
 +        invalidationPending.set(false)
 +        invalidate()
++    }
++
++    private fun scheduleInvalidation() {
++        if (!invalidationPending.compareAndSet(false, true)) {
++            return
++        }
++
++        // Android Auto presents templates asynchronously. Location updates can
++        // arrive while the prior presentation is still active, so coalescing one
++        // UI turn is insufficient. Preserve the latest template while limiting
++        // refreshes to four per second for this screen.
++        val elapsedSinceLastInvalidation =
++            SystemClock.uptimeMillis() - lastInvalidationAtMs
++        val delayMs = (MIN_INVALIDATION_INTERVAL_MS - elapsedSinceLastInvalidation)
++            .coerceAtLeast(0L)
++        invalidationHandler.postDelayed(invalidationRunnable, delayMs)
 +    }
 +
      fun applyConfigUpdate(invalidate: Boolean = false) {
          val config = AndroidAutoTemplate.getConfig(moduleName) ?: return
  
-@@ -105,9 +112,16 @@ class AndroidAutoScreen(
+@@ -105,9 +136,7 @@ class AndroidAutoScreen(
                  return
              }
  
 -            UiThreadUtil.runOnUiThread {
 -                invalidate()
-+            // Coalesce repeated invalidate() requests within a single UI frame so that
-+            // bursts of config updates (e.g. several setMapButtons/setHeaderActions calls
-+            // triggered in the same render pass) only ask the Android Auto host to refresh
-+            // once. Without this, each call posts its own invalidate which both wastes work
-+            // and is much more likely to hit AA's host-side template-refresh quota,
-+            // delaying user-visible click feedback.
-+            if (!invalidationPending.compareAndSet(false, true)) {
-+                return
-             }
-+            UiThreadUtil.runOnUiThread(invalidationRunnable)
+-            }
++            scheduleInvalidation()
          }
      }
  
+@@ -117,4 +146,6 @@ class AndroidAutoScreen(
+ 
+     companion object {
+         const val TAG = "AndroidAutoScreen"
++        private const val MIN_INVALIDATION_INTERVAL_MS = 250L
++
+         private val screens = ConcurrentHashMap<String, AndroidAutoScreen>()
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt
 index b7f8664..26fd0b9 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt
@@ -90,12 +126,16 @@ index b7f8664..26fd0b9 100644
  import com.margelo.nitro.swe.iternio.reactnativeautoplay.utils.AppInfo
  
  class AndroidAutoService : CarAppService() {
-@@ -32,7 +31,7 @@ class AndroidAutoService : CarAppService() {
+@@ -32,7 +31,11 @@ class AndroidAutoService : CarAppService() {
  
      private var isServiceBound = false
      private var isSessionStarted = false
 -    private var isReactAppStarted = false
 +    private var sessionWakeLock: PowerManager.WakeLock? = null
++    private var hasNotificationContent = false
++    private var lastNotificationTitle: String? = null
++    private var lastNotificationText: String? = null
++    private var lastNotificationIcon: Bitmap? = null
  
      @SuppressLint("PrivateResource")
      override fun createHostValidator(): HostValidator {
@@ -148,7 +188,13 @@ index b7f8664..26fd0b9 100644
              this@AndroidAutoService.stopForeground(STOP_FOREGROUND_REMOVE)
          }
      }
-@@ -177,6 +163,32 @@ class AndroidAutoService : CarAppService() {
+@@ -172,14 +162,74 @@ class AndroidAutoService : CarAppService() {
+             startForeground(
+                 NOTIFICATION_ID, createNotification(null, null, null)
+             )
++            rememberNotificationContent(null, null, null)
+         } catch (e: SecurityException) {
+             Log.e(TAG, "failed to start foreground service", e)
          }
      }
  
@@ -179,8 +225,44 @@ index b7f8664..26fd0b9 100644
 +    }
 +
      fun notify(title: String?, text: String?, icon: Bitmap?) {
++        if (notificationContentMatches(title, text, icon)) {
++            return
++        }
++
          val notification = createNotification(title, text, icon)
          notificationManager.notify(NOTIFICATION_ID, notification)
++        rememberNotificationContent(title, text, icon)
++    }
++
++    private fun notificationContentMatches(
++        title: String?, text: String?, icon: Bitmap?
++    ): Boolean {
++        if (!hasNotificationContent || title != lastNotificationTitle || text != lastNotificationText) {
++            return false
++        }
++
++        val previousIcon = lastNotificationIcon
++        return when {
++            icon === previousIcon -> true
++            icon == null || previousIcon == null -> false
++            else -> try {
++                icon.sameAs(previousIcon)
++            } catch (_: IllegalArgumentException) {
++                false
++            }
++        }
++    }
++
++    private fun rememberNotificationContent(
++        title: String?, text: String?, icon: Bitmap?
++    ) {
++        hasNotificationContent = true
++        lastNotificationTitle = title
++        lastNotificationText = text
++        lastNotificationIcon = icon
+     }
+ 
+     companion object {
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoSession.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoSession.kt
 index de448c8..47e85b1 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoSession.kt
