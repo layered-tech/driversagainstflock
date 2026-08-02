@@ -32,3 +32,4 @@ yarn-error.log
 /database/schema
 OSM.md
 .env.sentry
+.ai/tmp
