@@ -822,7 +822,6 @@ export default function LocationMapScreen({
                     insets={safeAreaInsets}
                     mapPreferencesAreLoaded={mapPreferencesAreLoaded}
                     renderBackdrop={renderBackdrop}
-                    screenIsFocused={screenIsFocused}
                 />
                 <ContributePlacementSheet
                     bottomSheetBackgroundStyle={

@@ -100,7 +100,6 @@ export function ContributeStartSheet({
     insets,
     mapPreferencesAreLoaded,
     renderBackdrop,
-    screenIsFocused,
 }) {
     const { height: windowHeight } = useWindowDimensions();
     const {
@@ -125,12 +124,12 @@ export function ContributeStartSheet({
     const authProgressIsVisible = isLoading || isSigningIn;
 
     useEffect(() => {
-        if (startSheetIsOpen && screenIsFocused && mapPreferencesAreLoaded) {
+        if (startSheetIsOpen && mapPreferencesAreLoaded) {
             sheetRef.current?.present();
         } else {
             sheetRef.current?.dismiss();
         }
-    }, [mapPreferencesAreLoaded, screenIsFocused, startSheetIsOpen]);
+    }, [mapPreferencesAreLoaded, startSheetIsOpen]);
 
     const handleSheetDismiss = useCallback(() => {
         if (isSigningIn) {

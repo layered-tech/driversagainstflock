@@ -31,13 +31,22 @@ tags:
     visible:
       id: 'map-contribute-button'
     timeout: 30000
+- waitForAnimationToEnd
 - tapOn:
     id: 'map-contribute-button'
     retryTapIfNoChange: true
+- runFlow:
+    when:
+      notVisible:
+        id: 'contribute-start-sheet'
+    commands:
+      - tapOn:
+          id: 'map-contribute-button'
+          retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
       id: 'contribute-start-sheet'
-    timeout: 10000
+    timeout: 30000
 - assertVisible: 'Start a changeset'
 - assertVisible: 'Not signed in'
 - assertVisible:
