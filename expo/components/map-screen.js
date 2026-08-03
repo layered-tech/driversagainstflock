@@ -725,6 +725,7 @@ export default function LocationMapScreen({
                                                 }
                                             />
                                         }
+                                        screenIsFocused={screenIsFocused}
                                     />
                                 ) : null}
                                 {resolvedMapSearchOverlayIsVisible ? (
@@ -821,6 +822,7 @@ export default function LocationMapScreen({
                     insets={safeAreaInsets}
                     mapPreferencesAreLoaded={mapPreferencesAreLoaded}
                     renderBackdrop={renderBackdrop}
+                    screenIsFocused={screenIsFocused}
                 />
                 <ContributePlacementSheet
                     bottomSheetBackgroundStyle={
@@ -832,6 +834,7 @@ export default function LocationMapScreen({
                     insets={safeAreaInsets}
                     locationController={locationController}
                     mapPreferencesAreLoaded={mapPreferencesAreLoaded}
+                    screenIsFocused={screenIsFocused}
                 />
             </View>
         </MapScreenProviders>

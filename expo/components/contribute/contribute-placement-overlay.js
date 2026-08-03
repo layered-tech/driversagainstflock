@@ -1,4 +1,3 @@
-import { useIsFocused } from 'expo-router';
 import { useCallback, useEffect } from 'react';
 import {
     Alert,
@@ -36,8 +35,8 @@ function getMapBoundsMidpoint(bounds) {
 export function ContributePlacementOverlay({
     locationController,
     mapControls,
+    screenIsFocused,
 }) {
-    const isFocused = useIsFocused();
     const isSystemDarkMode = useColorScheme() === 'dark';
     const {
         addPinAtCoordinate,
@@ -82,7 +81,7 @@ export function ContributePlacementOverlay({
     }, [discardStoredDraft, exitContribute, pins.length, saveDraft]);
 
     useEffect(() => {
-        if (!isFocused) {
+        if (!screenIsFocused) {
             return undefined;
         }
 
@@ -97,7 +96,7 @@ export function ContributePlacementOverlay({
         return () => {
             backSubscription.remove();
         };
-    }, [handleExitRequest, isFocused]);
+    }, [handleExitRequest, screenIsFocused]);
 
     const handleAddCameraPress = useCallback(async () => {
         let centerCoordinate = null;

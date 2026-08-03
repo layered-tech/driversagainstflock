@@ -17,11 +17,15 @@ tags:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
     commands:
       - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
-- runFlow:
-    when:
-      visible: 'http://10.0.2.2:8081'
-    commands:
-      - tapOn: 'http://10.0.2.2:8081'
+- waitForAnimationToEnd
+- tapOn:
+    text: 'Drivers Against Flock (Dev)'
+    index: 1
+    optional: true
+- tapOn:
+    point: '50%,26%'
+    repeat: 2
+    optional: true
 - extendedWaitUntil:
     visible: 'Continue'
     timeout: 10000
@@ -31,6 +35,9 @@ tags:
       visible: 'Continue'
     commands:
       - tapOn: 'Continue'
+- tapOn:
+    point: '50%,63%'
+    optional: true
 - extendedWaitUntil:
     visible: 'Close'
     timeout: 10000

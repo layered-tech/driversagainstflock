@@ -41,6 +41,15 @@ tags:
       - tapOn:
           text: 'Close'
           optional: true
+- tapOn:
+    id: 'driving-cancel-route-button'
+    optional: true
+- tapOn:
+    id: 'place-details-close-button'
+    optional: true
+- tapOn:
+    id: 'exit-free-drive-button'
+    optional: true
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'

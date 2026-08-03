@@ -1,8 +1,4 @@
-import {
-    router,
-    useLocalSearchParams,
-    usePreventRemove,
-} from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -25,6 +21,7 @@ import {
 } from '../../lib/osm/edit-tags';
 import { normalizeNodeLocation } from '../../lib/osm/node-location';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
+import { usePreventRemove } from '../../lib/use-prevent-remove';
 import { CompassDial } from '../contribute/compass-dial';
 import { buildChangesetTags, formatBearingChip } from '../contribute/osm-tags';
 import { Icon } from '../design-system/icon';
