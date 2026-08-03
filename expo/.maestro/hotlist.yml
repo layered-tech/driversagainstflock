@@ -52,3 +52,14 @@ tags:
 - assertVisible: '16th St & Mission St'
 - assertVisible: 'node/11820431'
 - assertVisible: 'Data from OpenStreetMap contributors'
+- tapOn:
+    id: 'hotlist-drawer-button'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: 'Map'
+    timeout: 10000
+- tapOn: 'Map'
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 10000
