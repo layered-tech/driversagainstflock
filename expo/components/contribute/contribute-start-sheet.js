@@ -1,5 +1,4 @@
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { useIsFocused } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Text, useWindowDimensions, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
@@ -101,9 +100,9 @@ export function ContributeStartSheet({
     insets,
     mapPreferencesAreLoaded,
     renderBackdrop,
+    screenIsFocused,
 }) {
     const { height: windowHeight } = useWindowDimensions();
-    const isFocused = useIsFocused();
     const {
         ensureWriteAccess,
         hasWriteScope,
@@ -126,12 +125,12 @@ export function ContributeStartSheet({
     const authProgressIsVisible = isLoading || isSigningIn;
 
     useEffect(() => {
-        if (startSheetIsOpen && isFocused && mapPreferencesAreLoaded) {
+        if (startSheetIsOpen && screenIsFocused && mapPreferencesAreLoaded) {
             sheetRef.current?.present();
         } else {
             sheetRef.current?.dismiss();
         }
-    }, [isFocused, mapPreferencesAreLoaded, startSheetIsOpen]);
+    }, [mapPreferencesAreLoaded, screenIsFocused, startSheetIsOpen]);
 
     const handleSheetDismiss = useCallback(() => {
         if (isSigningIn) {

@@ -1,5 +1,5 @@
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { router, useIsFocused } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useRef } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { Icon } from '../design-system/icon';
@@ -25,23 +25,23 @@ export function ContributePlacementSheet({
     insets,
     locationController,
     mapPreferencesAreLoaded,
+    screenIsFocused,
 }) {
     const { height: windowHeight } = useWindowDimensions();
-    const isFocused = useIsFocused();
     const { contributePlacementIsActive, pins, removePin } = useContribute();
     const sheetRef = useRef(null);
 
     useEffect(() => {
         if (
             contributePlacementIsActive &&
-            isFocused &&
+            screenIsFocused &&
             mapPreferencesAreLoaded
         ) {
             sheetRef.current?.present();
         } else {
             sheetRef.current?.dismiss();
         }
-    }, [contributePlacementIsActive, isFocused, mapPreferencesAreLoaded]);
+    }, [contributePlacementIsActive, mapPreferencesAreLoaded, screenIsFocused]);
 
     const handlePinRowPress = useCallback(
         (pin) => {

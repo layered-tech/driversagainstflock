@@ -1,8 +1,9 @@
-import { router, usePreventRemove } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback } from 'react';
 import { ScrollView, Text, useColorScheme, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
+import { usePreventRemove } from '../../lib/use-prevent-remove';
 import { Icon } from '../design-system/icon';
 import { DafButton, DafSectionLabel } from '../design-system/primitives';
 import { dafColors, getDafTheme } from '../design-system/tokens';
