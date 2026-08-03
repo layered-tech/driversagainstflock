@@ -1,6 +1,5 @@
 import { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import { useIsFocused } from '@react-navigation/native';
-import { useNavigation } from 'expo-router';
+import { useIsFocused, useNavigation } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, useWindowDimensions, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';

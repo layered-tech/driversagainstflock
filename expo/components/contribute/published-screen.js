@@ -1,5 +1,4 @@
-import { usePreventRemove } from '@react-navigation/native';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, usePreventRemove } from 'expo-router';
 import { useCallback } from 'react';
 import { ScrollView, Text, useColorScheme, View } from 'react-native';
 import { useAuth } from '../../lib/auth';

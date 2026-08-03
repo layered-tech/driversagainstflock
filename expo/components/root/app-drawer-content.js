@@ -2,7 +2,7 @@ import {
     DrawerContentScrollView,
     DrawerItem,
     DrawerItemList,
-} from '@react-navigation/drawer';
+} from 'expo-router/drawer';
 import Constants from 'expo-constants';
 import { Alert, Text, useColorScheme, View } from 'react-native';
 import { useAuth } from '../../lib/auth';

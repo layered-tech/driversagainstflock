@@ -1,4 +1,4 @@
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from 'expo-router';
 import { useCallback, useEffect } from 'react';
 import {
     Alert,

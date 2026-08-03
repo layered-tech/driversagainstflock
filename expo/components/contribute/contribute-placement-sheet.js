@@ -1,6 +1,5 @@
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { useIsFocused } from '@react-navigation/native';
-import { router } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
 import { useCallback, useEffect, useRef } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { Icon } from '../design-system/icon';

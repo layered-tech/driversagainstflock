@@ -1,4 +1,4 @@
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from 'expo-router';
 import Mapbox from '@rnmapbox/maps';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, useColorScheme, View } from 'react-native';
