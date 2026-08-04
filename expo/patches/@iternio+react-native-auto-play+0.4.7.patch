@@ -916,7 +916,7 @@ index f1a45c0..cbbc2b5 100644
          }
      }
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt
-index 55d563b..997e1de 100644
+index 55d563b..123a887 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt
 +++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt
 @@ -1,6 +1,5 @@
@@ -926,7 +926,28 @@ index 55d563b..997e1de 100644
  import android.graphics.Color
  import androidx.car.app.AppManager
  import androidx.car.app.CarContext
-@@ -302,8 +301,6 @@ class MapTemplate(
+@@ -18,6 +17,7 @@ import androidx.car.app.navigation.model.NavigationTemplate
+ import androidx.car.app.navigation.model.RoutingInfo
+ import androidx.car.app.navigation.model.TravelEstimate
+ import androidx.car.app.navigation.model.Trip
++import androidx.lifecycle.Lifecycle
+ import com.facebook.react.bridge.UiThreadUtil
+ import com.margelo.nitro.swe.iternio.reactnativeautoplay.AlertActionStyle
+ import com.margelo.nitro.swe.iternio.reactnativeautoplay.AlertDismissalReason
+@@ -58,5 +58,11 @@ class MapTemplate(
+                 override fun onStopNavigation() {
+                     navigationEnded()
+-                    config.onStopNavigation()
++                    val screen = AndroidAutoScreen.getScreen(templateId)
++                    if (screen?.lifecycle?.currentState?.isAtLeast(
++                            Lifecycle.State.RESUMED,
++                        ) == true
++                    ) {
++                        config.onStopNavigation()
++                    }
+                 }
+             }
+@@ -302,8 +308,6 @@ class MapTemplate(
              navigationInfo = null
  
              AndroidAutoScreen.invalidateSurfaceScreens()
