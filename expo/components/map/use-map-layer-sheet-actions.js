@@ -14,13 +14,51 @@ export function useMapLayerSheetActions({
     setPoliceAlertsVisible,
 }) {
     const layerSheetRef = useRef(null);
+    const layerSheetIsDismissingRef = useRef(false);
+    const layerSheetPresentationIsPendingRef = useRef(false);
     const [layerSheetResetCount, setLayerSheetResetCount] = useState(0);
+    const presentMapLayerSheet = useCallback(() => {
+        if (layerSheetRef.current) {
+            layerSheetRef.current.present();
+
+            return;
+        }
+
+        requestAnimationFrame(() => {
+            layerSheetRef.current?.present();
+        });
+    }, []);
     const handleMapLayerPress = useCallback(() => {
-        layerSheetRef.current?.present();
+        if (layerSheetIsDismissingRef.current) {
+            layerSheetPresentationIsPendingRef.current = true;
+
+            return;
+        }
+
+        presentMapLayerSheet();
+    }, [presentMapLayerSheet]);
+    const handleMapLayerSheetAnimate = useCallback((_fromIndex, toIndex) => {
+        if (toIndex < 0) {
+            layerSheetIsDismissingRef.current = true;
+        }
+    }, []);
+    const handleMapLayerSheetChange = useCallback((index) => {
+        if (index >= 0) {
+            layerSheetIsDismissingRef.current = false;
+            layerSheetPresentationIsPendingRef.current = false;
+        }
     }, []);
     const handleMapLayerSheetDismiss = useCallback(() => {
+        layerSheetIsDismissingRef.current = false;
         setLayerSheetResetCount((resetCount) => resetCount + 1);
-    }, []);
+
+        if (!layerSheetPresentationIsPendingRef.current) {
+            return;
+        }
+
+        layerSheetPresentationIsPendingRef.current = false;
+        requestAnimationFrame(presentMapLayerSheet);
+    }, [presentMapLayerSheet]);
     const handleMapLightPresetPreferenceChange = useCallback(
         (preset) => {
             setMapLightPresetPreference(preset);
@@ -45,6 +83,7 @@ export function useMapLayerSheetActions({
     const handleMapLayerSelect = useCallback(
         (styleURL) => {
             setMapStyleURL(styleURL);
+            layerSheetIsDismissingRef.current = true;
             layerSheetRef.current?.dismiss();
             logMapLayerSelected({
                 layerKey:
@@ -59,6 +98,8 @@ export function useMapLayerSheetActions({
     return {
         handleMapLayerPress,
         handleMapLayerSelect,
+        handleMapLayerSheetAnimate,
+        handleMapLayerSheetChange,
         handleMapLayerSheetDismiss,
         handleMapLightPresetPreferenceChange,
         handleMapTrafficEnabledChange,

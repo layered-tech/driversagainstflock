@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
     Pressable,
     Switch,
@@ -76,6 +76,8 @@ export function MapLayerButton() {
 
 export function MapLayerSheet() {
     const { height: windowHeight } = useWindowDimensions();
+    const [mapSettingsSheetIsPresented, setMapSettingsSheetIsPresented] =
+        useState(false);
     const mapSettingsSheetSnapPoints = useMemo(
         () => [Math.round(windowHeight * 0.68)],
         [windowHeight],
@@ -86,6 +88,8 @@ export function MapLayerSheet() {
         cameraConesVisible,
         currentMapBounds,
         handleMapLayerSelect,
+        handleMapLayerSheetAnimate,
+        handleMapLayerSheetChange,
         handleMapLayerSheetDismiss,
         insets,
         layerSheetResetCount,
@@ -108,6 +112,21 @@ export function MapLayerSheet() {
         setSurveillanceMarkersVisible,
         surveillanceMarkersVisible,
     } = useMapLayerContext();
+
+    const handleMapSettingsSheetChange = useCallback(
+        (index) => {
+            handleMapLayerSheetChange(index);
+
+            if (index >= 0) {
+                setMapSettingsSheetIsPresented(true);
+            }
+        },
+        [handleMapLayerSheetChange],
+    );
+    const handleMapSettingsSheetDismiss = useCallback(() => {
+        setMapSettingsSheetIsPresented(false);
+        handleMapLayerSheetDismiss();
+    }, [handleMapLayerSheetDismiss]);
 
     if (!mapPreferencesAreLoaded) {
         return null;
@@ -147,7 +166,9 @@ export function MapLayerSheet() {
             backdropComponent={renderBackdrop}
             backgroundStyle={bottomSheetBackgroundStyle}
             handleIndicatorStyle={bottomSheetHandleIndicatorStyle}
-            onDismiss={handleMapLayerSheetDismiss}
+            onAnimate={handleMapLayerSheetAnimate}
+            onChange={handleMapSettingsSheetChange}
+            onDismiss={handleMapSettingsSheetDismiss}
         >
             <NativeWindBottomSheetScrollView
                 className="dark:bg-daf-surface-dark bg-white"
@@ -157,6 +178,11 @@ export function MapLayerSheet() {
                     paddingHorizontal: 24,
                 }}
                 showsVerticalScrollIndicator={false}
+                testID={
+                    mapSettingsSheetIsPresented
+                        ? 'map-settings-sheet'
+                        : undefined
+                }
             >
                 <View className="gap-1">
                     <Text className="font-dafDisplay text-[21px] font-bold text-daf-text-primary dark:text-white">
@@ -189,6 +215,7 @@ export function MapLayerSheet() {
                     <SettingSwitchRow
                         label="Prefer private routes"
                         onValueChange={setPreferPrivateRoutes}
+                        testID="map-prefer-private-routes-toggle"
                         value={preferPrivateRoutes}
                     />
                     <SettingSwitchRow

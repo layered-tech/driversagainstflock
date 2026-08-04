@@ -452,6 +452,8 @@ export default function LocationMapScreen({
     const {
         handleMapLayerPress,
         handleMapLayerSelect,
+        handleMapLayerSheetAnimate,
+        handleMapLayerSheetChange,
         handleMapLayerSheetDismiss,
         handleMapLightPresetPreferenceChange,
         handleMapTrafficEnabledChange,
@@ -592,6 +594,8 @@ export default function LocationMapScreen({
     const layerValue = useMapLayerContextValue({
         handleMapLayerPress,
         handleMapLayerSelect,
+        handleMapLayerSheetAnimate,
+        handleMapLayerSheetChange,
         handleMapLayerSheetDismiss,
         handleMapLightPresetPreferenceChange,
         handleMapTrafficEnabledChange,

@@ -388,6 +388,8 @@ export function useDirectionsRouteContextValue({
 export function useMapLayerContextValue({
     handleMapLayerPress,
     handleMapLayerSelect,
+    handleMapLayerSheetAnimate,
+    handleMapLayerSheetChange,
     handleMapLayerSheetDismiss,
     handleMapLightPresetPreferenceChange,
     handleMapTrafficEnabledChange,
@@ -418,6 +420,8 @@ export function useMapLayerContextValue({
                 presentation.bottomSheetHandleIndicatorStyle,
             currentMapBounds: locationController.currentMapBounds,
             handleMapLayerPress,
+            handleMapLayerSheetAnimate,
+            handleMapLayerSheetChange,
             handleMapLayerSheetDismiss,
             handleMapLayerSelect,
             insets: presentation.insets,
@@ -450,6 +454,8 @@ export function useMapLayerContextValue({
         [
             handleMapLayerPress,
             handleMapLayerSelect,
+            handleMapLayerSheetAnimate,
+            handleMapLayerSheetChange,
             handleMapLayerSheetDismiss,
             handleMapLightPresetPreferenceChange,
             handleMapTrafficEnabledChange,
