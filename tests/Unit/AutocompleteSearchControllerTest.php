@@ -3,11 +3,14 @@
 use App\Http\Controllers\Api\AutocompleteSearchController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 uses(TestCase::class);
 
-it('uses a new random google autocomplete session token for each request', function () {
+it('forwards the client session token across autocomplete requests', function () {
+    $sessionToken = '123e4567-e89b-42d3-a456-426614174000';
+
     Http::fake([
         'https://places.googleapis.com/*' => Http::response([
             'suggestions' => [],
@@ -18,19 +21,30 @@ it('uses a new random google autocomplete session token for each request', funct
 
     $controller(Request::create('/api/search/autocomplete', 'POST', [
         'input' => 'coffee',
+        'sessionToken' => $sessionToken,
     ]));
     $controller(Request::create('/api/search/autocomplete', 'POST', [
         'input' => 'coffee shop',
+        'sessionToken' => $sessionToken,
     ]));
 
     $tokens = collect(Http::recorded())->map(
         fn (array $record): mixed => $record[0]->data()['sessionToken'] ?? null,
     );
 
-    expect($tokens)->toHaveCount(2);
-    expect($tokens[0])->toMatch('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i');
-    expect($tokens[1])->toMatch('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i');
-    expect($tokens[1])->not->toBe($tokens[0]);
-    expect($tokens->all())->not->toContain('coffee');
-    expect($tokens->all())->not->toContain('127.0.0.1');
+    expect($tokens->all())->toBe([$sessionToken, $sessionToken]);
+});
+
+it('requires the client to provide the autocomplete session token', function () {
+    Http::fake();
+
+    $controller = new AutocompleteSearchController;
+
+    expect(fn () => $controller(Request::create(
+        '/api/search/autocomplete',
+        'POST',
+        ['input' => 'coffee'],
+    )))->toThrow(ValidationException::class);
+
+    Http::assertNothingSent();
 });

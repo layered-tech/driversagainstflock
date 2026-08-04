@@ -855,6 +855,7 @@ export function useMapSearch({
 
             getPlaceDetails({
                 placeId: result.placeId,
+                sessionToken: result.sessionToken,
                 signal: abortController.signal,
             })
                 .then((place) => {

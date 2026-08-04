@@ -295,6 +295,13 @@ function normalizePlaceSearchSuggestions(suggestions) {
         .filter(Boolean);
 }
 
+function attachPlaceSearchSessionToken(results, sessionToken) {
+    return results.map((result) => ({
+        ...result,
+        sessionToken,
+    }));
+}
+
 function getTextSearchPlaceId(place, fallbackId) {
     if (typeof place?.id === 'string' && place.id.trim()) {
         return place.id.trim();
@@ -459,6 +466,7 @@ export async function searchPlaces({
     location,
     locationBias,
     origin,
+    sessionToken,
     signal,
 }) {
     const resolvedLocationBias =
@@ -467,9 +475,21 @@ export async function searchPlaces({
             : locationBias;
     const resolvedOrigin =
         origin === undefined ? getPlaceSearchOrigin(location) : origin;
+    const safeSessionToken =
+        typeof sessionToken === 'string' ? sessionToken.trim() : '';
+
+    if (!safeSessionToken) {
+        throw new Error('Place search session could not be started.');
+    }
 
     if (mapApiMocksAreEnabled()) {
-        return searchMockPlaces({ input, origin: resolvedOrigin, signal });
+        const results = await searchMockPlaces({
+            input,
+            origin: resolvedOrigin,
+            signal,
+        });
+
+        return attachPlaceSearchSessionToken(results, safeSessionToken);
     }
 
     const headers = {
@@ -478,6 +498,7 @@ export async function searchPlaces({
     };
     const body = {
         input,
+        sessionToken: safeSessionToken,
     };
 
     if (resolvedLocationBias) {
@@ -527,7 +548,7 @@ export async function searchPlaces({
         message: 'Place autocomplete loaded',
     });
 
-    return suggestions;
+    return attachPlaceSearchSessionToken(suggestions, safeSessionToken);
 }
 
 export async function searchTextPlaces({
@@ -612,8 +633,10 @@ export async function searchTextPlaces({
     return results;
 }
 
-export async function getPlaceDetails({ placeId, signal }) {
+export async function getPlaceDetails({ placeId, sessionToken, signal }) {
     const safePlaceId = typeof placeId === 'string' ? placeId.trim() : '';
+    const safeSessionToken =
+        typeof sessionToken === 'string' ? sessionToken.trim() : '';
 
     if (!safePlaceId) {
         throw new Error('Place location could not be loaded.');
@@ -654,7 +677,9 @@ export async function getPlaceDetails({ placeId, signal }) {
 
     try {
         const response = await fetch(
-            buildApiURL(`place/${encodeURIComponent(safePlaceId)}`),
+            buildApiURL(`place/${encodeURIComponent(safePlaceId)}`, {
+                sessionToken: safeSessionToken || undefined,
+            }),
             {
                 headers: {
                     Accept: 'application/json',

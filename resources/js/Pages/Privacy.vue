@@ -309,7 +309,7 @@ const privacySections = [
             {
                 type: 'list',
                 items: [
-                    'Google Places API (Google Maps Platform) — for autocomplete, text search, and place details. Search input, optional location bias or origin, and place identifiers may be sent with these requests.',
+                    'Google Places API (Google Maps Platform) — for autocomplete, text search, and place details. Search input, optional location bias or origin, and place identifiers may be sent with these requests. Autocomplete and its matching place-details request use a random client-generated session token for billing; DAF does not derive that token from your IP address or account ID.',
                     'Mapbox — for map rendering, map styles, map tiles, and optional traffic layers.',
                     'HEIGIT OpenRouteService — for directions and route calculation. Route origins, destinations, and route options may be sent with these requests.',
                     'OpenStreetMap Nominatim — for locality and ZIP-code geocoding and boundary lookups.',
