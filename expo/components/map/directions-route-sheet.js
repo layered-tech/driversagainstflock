@@ -58,6 +58,23 @@ export function DirectionsRouteSheet() {
         };
     }, [directionsRoute, directionsRouteSheetRef, mapPreferencesAreLoaded]);
 
+    useEffect(() => {
+        if (!mapPreferencesAreLoaded || !directionsRoute) {
+            return undefined;
+        }
+
+        const presentRouteSheet = () => {
+            directionsRouteSheetRef.current?.present();
+        };
+        const frame = requestAnimationFrame(presentRouteSheet);
+        const retry = setTimeout(presentRouteSheet, 300);
+
+        return () => {
+            cancelAnimationFrame(frame);
+            clearTimeout(retry);
+        };
+    }, [directionsRoute, directionsRouteSheetRef, mapPreferencesAreLoaded]);
+
     if (!mapPreferencesAreLoaded) {
         return null;
     }
