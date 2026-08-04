@@ -250,7 +250,9 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                 ) : null}
 
                 <DrawerItem
-                    accessibilityLabel={isAuthenticated ? 'Logout' : 'Login'}
+                    accessibilityLabel={
+                        isAuthenticated ? 'Logout' : 'Login with OpenStreetMap'
+                    }
                     icon={({ color, size }) => (
                         <Icon
                             color={color}
@@ -267,7 +269,7 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                             ? 'Loading...'
                             : isAuthenticated
                               ? 'Logout'
-                              : 'Login'
+                              : 'Login with OpenStreetMap'
                     }
                     onPress={handleAuthPress}
                     style={{ borderRadius: 8, marginHorizontal: 0 }}

@@ -13,9 +13,6 @@ export const autoPlayPlatform = {
     showsSearchResultsOnMap: true,
     maneuverCardAppearance: 'dark',
     maneuverCardIconColor: '#ffffff',
-    // Android Auto can send onStopNavigation while the DHU session closes.
-    // The phone-owned route must survive that host-only teardown.
-    preservesPhoneNavigationOnHostStop: true,
     // Android Auto owns the pan affordance in the map action strip. Keeping the
     // old driving-mode toggle in the header made it look like the required pan
     // action had been replaced even though the host may hide PAN on touch units.

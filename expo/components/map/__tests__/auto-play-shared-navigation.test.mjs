@@ -7,6 +7,13 @@ const autoPlaySource = readFileSync(
     new URL('../../auto-play.js', import.meta.url),
     'utf8',
 );
+const androidAutoMapTemplateSource = readFileSync(
+    new URL(
+        '../../../node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt',
+        import.meta.url,
+    ),
+    'utf8',
+);
 const route = {
     destination: { id: 'destination-1' },
     requestedAt: 1000,
@@ -202,7 +209,23 @@ describe('shared phone and car navigation contract', () => {
         });
     });
 
-    test('publishes explicit car start and stop but preserves state on disconnect', () => {
+    test('stops stale Auto Play state after the phone ends navigation', () => {
+        assert.deepEqual(
+            getAutoPlaySharedNavigationAction({
+                activeNavigationRoute: route,
+                getRouteSyncKey,
+                hostNavigationIsActive: false,
+                rootMapTemplateIsReady: true,
+                routingState: {
+                    directionsRoute: null,
+                    drivingModeIsActive: false,
+                },
+            }),
+            { action: 'stop', route: null },
+        );
+    });
+
+    test('publishes explicit car starts and host stops but preserves state on disconnect', () => {
         assert.match(
             autoPlaySource,
             /function startAutoPlayNavigation[\s\S]*?setSharedRoutingState\(\{\s*directionsRoute: route,\s*drivingModeIsActive: true/,
@@ -221,9 +244,28 @@ describe('shared phone and car navigation contract', () => {
         assert.doesNotMatch(disconnectSource, /activeNavigationRoute = null/);
         assert.doesNotMatch(disconnectSource, /stopNavigationLocationUpdates/);
         assert.doesNotMatch(disconnectSource, /stopAutoDriveSimulation/);
+
+        const hostStopSource = autoPlaySource.slice(
+            autoPlaySource.indexOf('onStopNavigation: () => {'),
+            autoPlaySource.indexOf(
+                '...autoPlayPlatform.getMapTemplatePlatformConfig',
+            ),
+        );
+
         assert.match(
-            autoPlaySource,
-            /preservesPhoneNavigationOnHostStop === true[\s\S]*?autoPlayHostNavigationIsActive = false/,
+            hostStopSource,
+            /stopAutoPlayNavigation\(\{ notifyTemplate: false \}\);/,
+        );
+        assert.doesNotMatch(
+            hostStopSource,
+            /preservesPhoneNavigationOnHostStop/,
+        );
+    });
+
+    test('forwards only a visible Android Auto cancellation to JavaScript', () => {
+        assert.match(
+            androidAutoMapTemplateSource,
+            /override fun onStopNavigation\(\) \{[\s\S]*?screen\?\.lifecycle\?\.currentState\?\.isAtLeast\([\s\S]*?Lifecycle\.State\.RESUMED,[\s\S]*?\) == true[\s\S]*?config\.onStopNavigation\(\)/,
         );
     });
 });

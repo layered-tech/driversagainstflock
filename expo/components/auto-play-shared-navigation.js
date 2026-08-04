@@ -30,7 +30,7 @@ export function getAutoPlaySharedNavigationAction({
             : { action: 'start', route: nextRoute };
     }
 
-    return activeHostNavigationRoute
+    return activeNavigationRoute
         ? { action: 'stop', route: null }
         : NO_SHARED_NAVIGATION_ACTION;
 }

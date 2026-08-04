@@ -3555,11 +3555,6 @@ async function handleAutoPlayConnect() {
             },
         }),
         onStopNavigation: () => {
-            if (autoPlayPlatform?.preservesPhoneNavigationOnHostStop === true) {
-                autoPlayHostNavigationIsActive = false;
-                return;
-            }
-
             stopAutoPlayNavigation({ notifyTemplate: false });
         },
         ...autoPlayPlatform.getMapTemplatePlatformConfig({
