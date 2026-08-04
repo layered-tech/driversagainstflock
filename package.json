@@ -23,8 +23,8 @@
         "ios": "cd expo && npx expo run:ios",
         "ios:no-bundler": "cd expo && npx expo run:ios --no-bundler --device",
         "start:metro": "cd expo && npx expo start --dev-client",
-        "expo:export:external": "cd expo && ./scripts/expo-export-external.sh",
-        "e2e": "cd expo && ./scripts/maestro-test.sh .maestro"
+        "e2e": "cd expo && ./scripts/maestro-test.sh .maestro",
+        "node:test": "cd expo && npm test"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
