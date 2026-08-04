@@ -1,4 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+    getPrivateCacheItem,
+    setPrivateCacheItem,
+} from '../../lib/private-cache-storage';
 import { BACKGROUND_ALERT_STORAGE_TIMEOUT_MS } from './background-alert-budget';
 import { getSelectedDirectionsRouteOption } from './directions';
 import { createMapPreferencesPersistenceScheduler } from './map-preferences-persistence';
@@ -25,7 +28,7 @@ const sharedRoutingStateListeners = new Set();
 const sharedRoutingStatePersistenceScheduler =
     createMapPreferencesPersistenceScheduler({
         write: (serializedState) =>
-            AsyncStorage.setItem(
+            setPrivateCacheItem(
                 SHARED_ROUTING_STATE_STORAGE_KEY,
                 serializedState,
             ),
@@ -34,7 +37,7 @@ const resolveBackgroundRoutingState = createBackgroundRoutingStateResolver({
     getLiveState: () => sharedRoutingState,
     hasLiveState: () => liveRoutingStateHasBeenSet,
     readPersistedState: () =>
-        AsyncStorage.getItem(SHARED_ROUTING_STATE_STORAGE_KEY),
+        getPrivateCacheItem(SHARED_ROUTING_STATE_STORAGE_KEY),
     readTimeoutMs: BACKGROUND_ALERT_STORAGE_TIMEOUT_MS,
 });
 
@@ -118,7 +121,7 @@ function readPersistedSharedRoutingStateAsync() {
     }
 
     const storageRead = Promise.resolve()
-        .then(() => AsyncStorage.getItem(SHARED_ROUTING_STATE_STORAGE_KEY))
+        .then(() => getPrivateCacheItem(SHARED_ROUTING_STATE_STORAGE_KEY))
         .then((serializedState) => {
             sharedRoutingStateStorageReadHasCompleted = true;
 

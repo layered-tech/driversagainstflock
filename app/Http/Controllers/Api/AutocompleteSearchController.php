@@ -27,7 +27,7 @@ class AutocompleteSearchController extends Controller
             ])->post(
                 'https://places.googleapis.com/v1/places:autocomplete',
                 array_merge($request->only('input', 'locationBias', 'origin'), [
-                    'sessionToken' => Str::limit(base64_encode($request->user()->id ?? $request->getClientIp()), 36, ''),
+                    'sessionToken' => (string) Str::uuid(),
                 ])
             )->json()
         );

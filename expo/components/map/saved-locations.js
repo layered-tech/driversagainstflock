@@ -1,4 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+    getPrivateCacheItem,
+    setPrivateCacheItem,
+} from '../../lib/private-cache-storage';
 import {
     createEmptyPrimaryLocations,
     parseStoredPrimaryLocations,
@@ -210,13 +213,13 @@ export function createSearchResultFromSavedLocation(location) {
 }
 
 async function loadLocations(key) {
-    const storedValue = await AsyncStorage.getItem(key);
+    const storedValue = await getPrivateCacheItem(key);
 
     return parseStoredLocations(storedValue);
 }
 
 async function setLocations(key, locations) {
-    await AsyncStorage.setItem(key, JSON.stringify(locations));
+    await setPrivateCacheItem(key, JSON.stringify(locations));
 }
 
 export async function loadSearchSavedLocations() {
@@ -243,7 +246,7 @@ export function addPrimaryLocationsListener(listener) {
 }
 
 export async function loadPrimaryLocations() {
-    const storedPrimaryLocations = await AsyncStorage.getItem(
+    const storedPrimaryLocations = await getPrivateCacheItem(
         PRIMARY_LOCATIONS_STORAGE_KEY,
     );
 
@@ -269,7 +272,7 @@ export async function savePrimaryLocation(type, location) {
         (primaryLocation) => primaryLocation,
     );
 
-    await AsyncStorage.setItem(
+    await setPrivateCacheItem(
         PRIMARY_LOCATIONS_STORAGE_KEY,
         JSON.stringify(updatedLocations),
     );

@@ -59,9 +59,9 @@ function createSharedRoutingStateHarness({
         sourceType: 'module',
     }).code;
     const mockedModules = {
-        '@react-native-async-storage/async-storage': {
-            getItem: readPersistedState,
-            setItem: async (key, value) => {
+        '../../lib/private-cache-storage': {
+            getPrivateCacheItem: readPersistedState,
+            setPrivateCacheItem: async (key, value) => {
                 writes.push({ key, value });
             },
         },
@@ -323,7 +323,7 @@ describe('shared routing state persistence integration', () => {
     test('queues immediate ordered writes and marks memory live before equality return', () => {
         assert.match(
             sharedRoutingStateSource,
-            /createMapPreferencesPersistenceScheduler\([\s\S]*?AsyncStorage\.setItem\([\s\S]*?SHARED_ROUTING_STATE_STORAGE_KEY/,
+            /createMapPreferencesPersistenceScheduler\([\s\S]*?setPrivateCacheItem\([\s\S]*?SHARED_ROUTING_STATE_STORAGE_KEY/,
         );
         assert.match(
             sharedRoutingStateSource,
