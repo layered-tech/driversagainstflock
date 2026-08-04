@@ -119,19 +119,26 @@ export function ContributeStartSheet({
         storedDraftSummary,
     } = useContribute();
     const sheetRef = useRef(null);
+    const startSheetIsPresentedRef = useRef(false);
     const [signInError, setSignInError] = useState('');
     const startSheetIsOpen = contributeStatus === 'start-sheet';
     const authProgressIsVisible = isLoading || isSigningIn;
 
     useEffect(() => {
         if (startSheetIsOpen && mapPreferencesAreLoaded) {
-            sheetRef.current?.present();
-        } else {
+            if (!startSheetIsPresentedRef.current) {
+                startSheetIsPresentedRef.current = true;
+                sheetRef.current?.present();
+            }
+        } else if (startSheetIsPresentedRef.current) {
+            startSheetIsPresentedRef.current = false;
             sheetRef.current?.dismiss();
         }
     }, [mapPreferencesAreLoaded, startSheetIsOpen]);
 
     const handleSheetDismiss = useCallback(() => {
+        startSheetIsPresentedRef.current = false;
+
         if (isSigningIn) {
             return;
         }

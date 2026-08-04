@@ -30,6 +30,7 @@ export function ContributePlacementSheet({
     const { height: windowHeight } = useWindowDimensions();
     const { contributePlacementIsActive, pins, removePin } = useContribute();
     const sheetRef = useRef(null);
+    const placementSheetIsPresentedRef = useRef(false);
 
     useEffect(() => {
         if (
@@ -37,8 +38,12 @@ export function ContributePlacementSheet({
             screenIsFocused &&
             mapPreferencesAreLoaded
         ) {
-            sheetRef.current?.present();
-        } else {
+            if (!placementSheetIsPresentedRef.current) {
+                placementSheetIsPresentedRef.current = true;
+                sheetRef.current?.present();
+            }
+        } else if (placementSheetIsPresentedRef.current) {
+            placementSheetIsPresentedRef.current = false;
             sheetRef.current?.dismiss();
         }
     }, [contributePlacementIsActive, mapPreferencesAreLoaded, screenIsFocused]);

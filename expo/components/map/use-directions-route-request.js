@@ -12,7 +12,6 @@ import {
 
 export function useDirectionsRouteRequest({
     directionsDebugGeometryIsEnabled = false,
-    directionsRouteSheetRef,
     isMountedRef,
     setDirectionsRoute,
     setDirectionsRouteError,
@@ -91,7 +90,6 @@ export function useDirectionsRouteRequest({
                     };
 
                     setDirectionsRoute(nextRoute);
-                    directionsRouteSheetRef.current?.present();
                     logMapDirectionsRouteLoaded({ route: nextRoute });
                 })
                 .catch((error) => {
@@ -127,7 +125,6 @@ export function useDirectionsRouteRequest({
         [
             clearDirectionsRouteRequest,
             directionsDebugGeometryIsEnabled,
-            directionsRouteSheetRef,
             isMountedRef,
             setDirectionsRoute,
             setDirectionsRouteError,

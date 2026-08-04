@@ -272,7 +272,6 @@ export function useMapSearch({
     const { clearDirectionsRouteRequest, requestDirectionsRoute } =
         useDirectionsRouteRequest({
             directionsDebugGeometryIsEnabled,
-            directionsRouteSheetRef,
             isMountedRef,
             setDirectionsRoute,
             setDirectionsRouteError,

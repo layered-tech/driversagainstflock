@@ -1,4 +1,5 @@
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { useEffect } from 'react';
 import { Text, View } from 'react-native';
 import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
@@ -30,6 +31,23 @@ export function DirectionsRouteSheet() {
         insets,
         mapPreferencesAreLoaded,
     } = useDirectionsRouteContext();
+
+    useEffect(() => {
+        if (!mapPreferencesAreLoaded || !directionsRoute) {
+            return undefined;
+        }
+
+        const presentRouteSheet = () => {
+            directionsRouteSheetRef.current?.present();
+        };
+        const frame = requestAnimationFrame(presentRouteSheet);
+        const retry = setTimeout(presentRouteSheet, 300);
+
+        return () => {
+            cancelAnimationFrame(frame);
+            clearTimeout(retry);
+        };
+    }, [directionsRoute, directionsRouteSheetRef, mapPreferencesAreLoaded]);
 
     if (!mapPreferencesAreLoaded) {
         return null;
