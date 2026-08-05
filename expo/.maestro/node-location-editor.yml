@@ -54,6 +54,14 @@ tags:
       id: 'contribute-start-sheet'
     timeout: 10000
 - extendedWaitUntil:
+    visible:
+      id: 'contribute-placement-sheet'
+    timeout: 10000
+- extendedWaitUntil:
+    notVisible:
+      id: 'contribute-start-sheet'
+    timeout: 10000
+- extendedWaitUntil:
     visible: 'Place the cameras'
     timeout: 10000
 - tapOn:
