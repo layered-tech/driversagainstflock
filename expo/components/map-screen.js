@@ -63,6 +63,7 @@ import { MarkerDetailsSheet } from './map/marker-details-sheet';
 import { NativeWindSafeAreaView } from './map/native-components';
 import { getNavigationPuckSize } from './map/navigation-puck-layout';
 import { RoadMatchingE2EProbe } from './map/road-matching-e2e-probe';
+import { SearchResultsSheet } from './map/search-results-sheet';
 import { SelectedPlaceSheet } from './map/selected-place-sheet';
 import {
     useSharedMapLocationState,
@@ -811,6 +812,7 @@ export default function LocationMapScreen({
                         {mapChromeIsVisible ? <MapDebugControls /> : null}
                     </>
                 ) : null}
+                <SearchResultsSheet />
                 <MarkerDetailsSheet />
                 <SelectedPlaceSheet />
                 {!isDrivingMode ? <DirectionsRouteSheet /> : null}

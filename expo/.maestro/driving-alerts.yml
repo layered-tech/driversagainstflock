@@ -49,16 +49,24 @@ tags:
       id: 'map-directions-submit-button-map'
       enabled: true
     timeout: 30000
+- assertNotVisible:
+    id: 'directions-route-sheet-presented'
 - tapOn:
     id: 'map-directions-submit-button-map'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: 'directions-route-start-driving-button'
+      id: 'directions-route-sheet-presented'
     timeout: 60000
+- assertVisible:
+    id: 'directions-route-start-driving-button'
 - tapOn:
     id: 'directions-route-start-driving-button'
     retryTapIfNoChange: true
+- extendedWaitUntil:
+    notVisible:
+      id: 'directions-route-sheet-presented'
+    timeout: 10000
 
 - extendedWaitUntil:
     visible:

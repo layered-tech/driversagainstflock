@@ -33,13 +33,17 @@ tags:
     visible:
       id: 'map-marker-0-map'
     timeout: 60000
+- assertNotVisible:
+    id: 'marker-details-sheet-presented'
 - tapOn:
     id: 'map-marker-0-map'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: 'marker-details-title'
+      id: 'marker-details-sheet-presented'
     timeout: 30000
+- assertVisible:
+    id: 'marker-details-title'
 - assertVisible:
     text: 'ALPR'
 - assertVisible:
@@ -61,6 +65,10 @@ tags:
 - tapOn:
     id: 'marker-details-close-button'
     retryTapIfNoChange: true
+- extendedWaitUntil:
+    notVisible:
+      id: 'marker-details-sheet-presented'
+    timeout: 10000
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'

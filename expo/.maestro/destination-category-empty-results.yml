@@ -18,22 +18,26 @@ tags:
       - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
 - extendedWaitUntil:
     visible:
-      id: "map-search-input-map"
+      id: 'map-search-input-map'
     timeout: 30000
-- openLink: "driversagainstflock://e2e-mocks"
+- openLink: 'driversagainstflock://e2e-mocks'
 - extendedWaitUntil:
     visible:
-      id: "map-search-directions-button-map"
+      id: 'map-search-directions-button-map'
     timeout: 10000
 
+- assertNotVisible:
+    id: 'search-results-sheet-presented'
 - tapOn:
-    id: "map-destination-category-gas-map"
+    id: 'map-destination-category-gas-map'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: "submitted-search-result-count"
+      id: 'search-results-sheet-presented'
     timeout: 30000
+- assertVisible:
+    id: 'submitted-search-result-count'
 - assertVisible:
     text: '0 places for "gas stations"'
 - assertVisible:
-    text: "No places found nearby"
+    text: 'No places found nearby'

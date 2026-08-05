@@ -27,6 +27,8 @@ tags:
     visible:
       id: 'map-contribute-button'
     timeout: 10000
+- assertNotVisible:
+    id: 'contribute-start-sheet'
 - tapOn:
     id: 'map-contribute-button'
     retryTapIfNoChange: false
@@ -49,15 +51,19 @@ tags:
           id: 'contribute-start-sheet'
           point: '50%,93%'
 - extendedWaitUntil:
+    visible:
+      id: 'contribute-placement-sheet'
+    timeout: 10000
+- extendedWaitUntil:
+    notVisible:
+      id: 'contribute-start-sheet'
+    timeout: 10000
+- extendedWaitUntil:
     visible: 'Place the cameras'
     timeout: 10000
 - tapOn:
     id: 'contribute-add-camera-button'
     retryTapIfNoChange: true
-- extendedWaitUntil:
-    visible:
-      id: 'contribute-placement-sheet'
-    timeout: 10000
 - runFlow:
     when:
       platform: Android
@@ -70,6 +76,10 @@ tags:
       platform: iOS
     commands:
       - openLink: 'driversagainstflock://contribute/camera/0'
+- extendedWaitUntil:
+    notVisible:
+      id: 'contribute-placement-sheet'
+    timeout: 10000
 - extendedWaitUntil:
     visible:
       id: 'contribute-camera-details-screen'

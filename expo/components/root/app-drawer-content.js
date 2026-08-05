@@ -1,9 +1,10 @@
+import Constants from 'expo-constants';
 import {
     DrawerContentScrollView,
     DrawerItem,
     DrawerItemList,
+    useDrawerStatus,
 } from 'expo-router/drawer';
-import Constants from 'expo-constants';
 import { Alert, Text, useColorScheme, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
 import { APP_ENVIRONMENT } from '../../lib/auth/constants';
@@ -46,6 +47,7 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
         user,
     } = useAuth();
     const colorScheme = useColorScheme();
+    const drawerIsOpen = useDrawerStatus() === 'open';
     const insets = useSafeAreaInsets();
     const isDarkMode = colorScheme === 'dark';
     const drawerTintColor = isDarkMode ? '#F5F7F9' : '#11151B';
@@ -130,7 +132,10 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
     };
 
     return (
-        <View className="dark:bg-daf-surface-dark flex-1 bg-white">
+        <View
+            className="dark:bg-daf-surface-dark flex-1 bg-white"
+            testID={drawerIsOpen ? 'app-drawer-open' : undefined}
+        >
             <DrawerContentScrollView {...props}>
                 <DrawerItemList {...props} />
             </DrawerContentScrollView>

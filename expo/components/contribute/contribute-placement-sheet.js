@@ -9,6 +9,7 @@ import {
     NativeWindBottomSheetModal,
     NativeWindBottomSheetView,
 } from '../map/native-components';
+import { useBottomSheetPresentedState } from '../map/use-bottom-sheet-presented-state';
 import { useContribute } from './contribute-state';
 
 function formatPlacedPinCount(pinCount) {
@@ -31,6 +32,11 @@ export function ContributePlacementSheet({
     const { contributePlacementIsActive, pins, removePin } = useContribute();
     const sheetRef = useRef(null);
     const placementSheetIsPresentedRef = useRef(false);
+    const {
+        bottomSheetIsPresented,
+        handleBottomSheetChange,
+        handleBottomSheetDismiss,
+    } = useBottomSheetPresentedState();
 
     useEffect(() => {
         if (
@@ -76,10 +82,16 @@ export function ContributePlacementSheet({
             handleIndicatorStyle={bottomSheetHandleIndicatorStyle}
             index={0}
             maxDynamicContentSize={windowHeight * 0.55}
+            onChange={handleBottomSheetChange}
+            onDismiss={handleBottomSheetDismiss}
         >
             <NativeWindBottomSheetView
                 className="dark:bg-daf-surface-dark bg-white"
-                testID="contribute-placement-sheet"
+                testID={
+                    bottomSheetIsPresented
+                        ? 'contribute-placement-sheet'
+                        : undefined
+                }
             >
                 <BottomSheetScrollView
                     contentContainerStyle={{

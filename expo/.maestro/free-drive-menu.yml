@@ -16,6 +16,22 @@ tags:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
     commands:
       - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- runFlow:
+    when:
+      visible:
+        id: 'directions-route-back-button'
+    commands:
+      - tapOn:
+          id: 'directions-route-back-button'
+          retryTapIfNoChange: false
+- runFlow:
+    when:
+      visible:
+        id: 'place-details-close-button'
+    commands:
+      - tapOn:
+          id: 'place-details-close-button'
+          retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
@@ -36,14 +52,22 @@ tags:
     visible:
       id: 'map-search-input-driving'
     timeout: 10000
+- assertNotVisible:
+    id: 'app-drawer-open'
 - tapOn:
     id: 'map-search-drawer-button-driving'
-    retryTapIfNoChange: true
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
-      id: 'drawer-auth-login-button'
+      id: 'app-drawer-open'
     timeout: 10000
+- assertVisible:
+    id: 'drawer-auth-login-button'
 - pressKey: BACK
+- extendedWaitUntil:
+    notVisible:
+      id: 'app-drawer-open'
+    timeout: 10000
 - tapOn:
     id: 'exit-free-drive-button'
     retryTapIfNoChange: true

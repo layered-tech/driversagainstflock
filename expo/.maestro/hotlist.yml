@@ -26,15 +26,23 @@ tags:
       id: 'map-search-drawer-button-map'
     timeout: 10000
 
+- assertNotVisible:
+    id: 'app-drawer-open'
 - tapOn:
     id: 'map-search-drawer-button-map'
-    retryTapIfNoChange: true
+    retryTapIfNoChange: false
 - extendedWaitUntil:
-    visible: 'Hotlist'
+    visible:
+      id: 'app-drawer-open'
     timeout: 10000
+- assertVisible: 'Hotlist'
 - assertVisible:
     id: 'drawer-auth-login-button'
 - tapOn: 'Hotlist'
+- extendedWaitUntil:
+    notVisible:
+      id: 'app-drawer-open'
+    timeout: 10000
 - extendedWaitUntil:
     visible:
       id: 'hotlist-screen'
@@ -54,11 +62,17 @@ tags:
 - assertVisible: 'Data from OpenStreetMap contributors'
 - tapOn:
     id: 'hotlist-drawer-button'
-    retryTapIfNoChange: true
+    retryTapIfNoChange: false
 - extendedWaitUntil:
-    visible: 'Map'
+    visible:
+      id: 'app-drawer-open'
     timeout: 10000
+- assertVisible: 'Map'
 - tapOn: 'Map'
+- extendedWaitUntil:
+    notVisible:
+      id: 'app-drawer-open'
+    timeout: 10000
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'

@@ -33,30 +33,35 @@ tags:
     visible:
       id: 'map-marker-0-map'
     timeout: 60000
+- assertNotVisible:
+    id: 'marker-details-sheet-presented'
 - tapOn:
     id: 'map-marker-0-map'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: 'marker-details-title'
+      id: 'marker-details-sheet-presented'
     timeout: 30000
-
-# Dragging the sheet up must not dismiss it — the sheet stays open.
-- swipe:
-    start: '50%,68%'
-    end: '50%,10%'
-    duration: 500
 - assertVisible:
     id: 'marker-details-title'
 
+# Dragging the sheet up must not dismiss it — the sheet stays open.
+- swipe:
+    start: '50%,72%'
+    end: '50%,20%'
+    duration: 700
+- assertVisible:
+    id: 'marker-details-sheet-presented'
+
 # Dragging the sheet down must still close it.
 - swipe:
-    start: '50%,68%'
-    end: '50%,95%'
-    duration: 500
-- tapOn:
-    id: 'marker-details-close-button'
-    retryTapIfNoChange: true
+    start: '50%,72%'
+    end: '50%,98%'
+    duration: 900
+- extendedWaitUntil:
+    notVisible:
+      id: 'marker-details-sheet-presented'
+    timeout: 10000
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'

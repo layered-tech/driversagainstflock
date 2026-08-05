@@ -16,12 +16,59 @@ tags:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
     commands:
       - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
-- tapOn:
-    text: 'Continue'
+- extendedWaitUntil:
+    visible: 'Continue'
+    timeout: 10000
     optional: true
-- tapOn:
-    point: '50%,63%'
+- runFlow:
+    when:
+      visible: 'Continue'
+    commands:
+      - tapOn:
+          text: 'Continue'
+          retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible: 'Close'
+    timeout: 10000
     optional: true
+- runFlow:
+    when:
+      visible: 'Close'
+    commands:
+      - tapOn:
+          text: 'Close'
+          retryTapIfNoChange: false
+- runFlow:
+    when:
+      visible: 'Reload'
+    commands:
+      - tapOn:
+          text: 'Reload'
+          retryTapIfNoChange: false
+- runFlow:
+    when:
+      visible:
+        id: 'directions-route-back-button'
+    commands:
+      - tapOn:
+          id: 'directions-route-back-button'
+          retryTapIfNoChange: false
+- runFlow:
+    when:
+      visible:
+        id: 'marker-details-close-button'
+    commands:
+      - tapOn:
+          id: 'marker-details-close-button'
+          retryTapIfNoChange: false
+- runFlow:
+    when:
+      visible:
+        id: 'contribute-back-button'
+    commands:
+      - tapOn:
+          id: 'contribute-back-button'
+          retryTapIfNoChange: false
 - runFlow:
     when:
       visible:
@@ -101,30 +148,35 @@ tags:
       id: 'map-directions-submit-button-map'
       enabled: true
     timeout: 30000
+- assertNotVisible:
+    id: 'directions-route-sheet-presented'
 - tapOn:
     id: 'map-directions-submit-button-map'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: 'directions-route-start-driving-button'
+      id: 'directions-route-sheet-presented'
     timeout: 60000
-
-# Dragging the card up must not dismiss it — it stays open.
-- swipe:
-    start: '50%,62%'
-    end: '50%,10%'
-    duration: 500
 - assertVisible:
     id: 'directions-route-start-driving-button'
 
+# Dragging the card up must not dismiss it — it stays open.
+- swipe:
+    start: '50%,64%'
+    end: '50%,20%'
+    duration: 700
+- assertVisible:
+    id: 'directions-route-sheet-presented'
+
 # Dragging the card down must close it (same as the back arrow).
 - swipe:
-    start: '50%,62%'
-    end: '50%,95%'
-    duration: 500
-- tapOn:
-    id: 'directions-route-back-button'
-    retryTapIfNoChange: true
+    start: '50%,64%'
+    end: '50%,98%'
+    duration: 900
+- extendedWaitUntil:
+    notVisible:
+      id: 'directions-route-sheet-presented'
+    timeout: 10000
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'

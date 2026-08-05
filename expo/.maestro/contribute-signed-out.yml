@@ -32,17 +32,11 @@ tags:
       id: 'map-contribute-button'
     timeout: 30000
 - waitForAnimationToEnd
+- assertNotVisible:
+    id: 'contribute-start-sheet'
 - tapOn:
     id: 'map-contribute-button'
-    retryTapIfNoChange: true
-- runFlow:
-    when:
-      notVisible:
-        id: 'contribute-start-sheet'
-    commands:
-      - tapOn:
-          id: 'map-contribute-button'
-          retryTapIfNoChange: true
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'contribute-start-sheet'

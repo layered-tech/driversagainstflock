@@ -181,6 +181,7 @@ export function useMapSearch({
         placeSheetIsOpenRef,
         placeSheetRef,
         presentPlaceSheet,
+        presentSubmittedSearchResultsSheet,
         submittedSearchResultsSheetRef,
     } = useMapSearchSheetPresentation({
         selectedPlaceDetails,
@@ -551,12 +552,15 @@ export function useMapSearch({
             abortVoiceSearch();
             setLocalityBoundary?.(null);
             setLocalitySearchError('');
-            setSearchPageIsVisible(true);
             submitSubmittedSearchQuery(query);
+            setSearchIsFocused(false);
+            setSearchPageIsVisible(false);
+            presentSubmittedSearchResultsSheet();
             return true;
         },
         [
             abortVoiceSearch,
+            presentSubmittedSearchResultsSheet,
             primaryLocationTypeBeingSet,
             setLocalityBoundary,
             submitSubmittedSearchQuery,
@@ -1160,9 +1164,10 @@ export function useMapSearch({
         placeSheetIsOpenRef.current = false;
         dismissPlaceSheet();
         setSearchMode(DIRECTIONS_MODE_SEARCH);
-        setSearchIsFocused(true);
-        setSearchPageIsVisible(true);
-    }, [submittedSearchResults.length]);
+        setSearchIsFocused(false);
+        setSearchPageIsVisible(false);
+        presentSubmittedSearchResultsSheet();
+    }, [presentSubmittedSearchResultsSheet, submittedSearchResults.length]);
 
     const handleSubmittedSearchResultPress = useCallback(
         (result) => {

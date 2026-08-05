@@ -16,6 +16,7 @@ import {
     NativeWindBottomSheetView,
 } from './native-components';
 import { RouteOptionCard } from './route-option-card';
+import { useBottomSheetPresentedState } from './use-bottom-sheet-presented-state';
 
 export function DirectionsRouteSheet() {
     const {
@@ -31,6 +32,14 @@ export function DirectionsRouteSheet() {
         insets,
         mapPreferencesAreLoaded,
     } = useDirectionsRouteContext();
+    const {
+        bottomSheetIsPresented,
+        handleBottomSheetChange,
+        handleBottomSheetDismiss,
+    } = useBottomSheetPresentedState({
+        onChange: directionsRouteSheetTrackingHandlers.onChange,
+        onDismiss: directionsRouteSheetTrackingHandlers.onDismiss,
+    });
 
     useEffect(() => {
         if (!mapPreferencesAreLoaded || !directionsRoute) {
@@ -103,10 +112,17 @@ export function DirectionsRouteSheet() {
             handleIndicatorStyle={bottomSheetHandleIndicatorStyle}
             animatedPosition={bottomSheetAnimatedPosition}
             onAnimate={directionsRouteSheetTrackingHandlers.onAnimate}
-            onChange={directionsRouteSheetTrackingHandlers.onChange}
-            onDismiss={directionsRouteSheetTrackingHandlers.onDismiss}
+            onChange={handleBottomSheetChange}
+            onDismiss={handleBottomSheetDismiss}
         >
-            <NativeWindBottomSheetView className="dark:bg-daf-surface-dark bg-white">
+            <NativeWindBottomSheetView
+                className="dark:bg-daf-surface-dark bg-white"
+                testID={
+                    bottomSheetIsPresented
+                        ? 'directions-route-sheet-presented'
+                        : undefined
+                }
+            >
                 {directionsRoute ? (
                     <BottomSheetScrollView
                         showsVerticalScrollIndicator={false}

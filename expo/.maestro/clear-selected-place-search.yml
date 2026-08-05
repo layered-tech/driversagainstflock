@@ -67,13 +67,17 @@ tags:
     visible:
       id: 'map-search-result-0-map'
     timeout: 30000
+- assertNotVisible:
+    id: 'selected-place-sheet-presented'
 - tapOn:
     id: 'map-search-result-0-map'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: 'selected-place-title'
+      id: 'selected-place-sheet-presented'
     timeout: 30000
+- assertVisible:
+    id: 'selected-place-title'
 - assertVisible:
     text: 'Austin Central Library'
 - extendedWaitUntil:
@@ -83,6 +87,10 @@ tags:
 - tapOn:
     id: 'place-details-close-button'
     retryTapIfNoChange: true
+- extendedWaitUntil:
+    notVisible:
+      id: 'selected-place-sheet-presented'
+    timeout: 10000
 - extendedWaitUntil:
     visible:
       id: 'map-search-directions-button-map'

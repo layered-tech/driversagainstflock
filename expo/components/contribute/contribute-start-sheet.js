@@ -9,6 +9,7 @@ import {
     NativeWindBottomSheetModal,
     NativeWindBottomSheetView,
 } from '../map/native-components';
+import { useBottomSheetPresentedState } from '../map/use-bottom-sheet-presented-state';
 import { ContributeAuthProgress } from './contribute-auth-progress';
 import { useContribute } from './contribute-state';
 
@@ -146,6 +147,11 @@ export function ContributeStartSheet({
         setSignInError('');
         closeStartSheet();
     }, [closeStartSheet, isSigningIn]);
+    const {
+        bottomSheetIsPresented,
+        handleBottomSheetChange,
+        handleBottomSheetDismiss,
+    } = useBottomSheetPresentedState({ onDismiss: handleSheetDismiss });
 
     const renderStartSheetBackdrop = useCallback(
         (props) =>
@@ -188,11 +194,16 @@ export function ContributeStartSheet({
             handleIndicatorStyle={bottomSheetHandleIndicatorStyle}
             index={0}
             maxDynamicContentSize={windowHeight * 0.85}
-            onDismiss={handleSheetDismiss}
+            onChange={handleBottomSheetChange}
+            onDismiss={handleBottomSheetDismiss}
         >
             <NativeWindBottomSheetView
                 className="dark:bg-daf-surface-dark bg-white"
-                testID="contribute-start-sheet"
+                testID={
+                    bottomSheetIsPresented
+                        ? 'contribute-start-sheet'
+                        : undefined
+                }
             >
                 <BottomSheetScrollView
                     contentContainerStyle={{
