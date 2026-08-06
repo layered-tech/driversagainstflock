@@ -106,6 +106,85 @@ describe('directed road graph', () => {
 });
 
 describe('stateful road matcher', () => {
+    test('prefers the active route over a closer parallel road until the raw fix moves off route', () => {
+        const graph = createDirectedRoadGraph([
+            {
+                coordinates: [
+                    fixtureCoordinate(0, 0),
+                    fixtureCoordinate(200, 0),
+                ],
+                id: 'active-route-road',
+                nodeIds: ['route-west', 'route-east'],
+                oneWay: true,
+            },
+            {
+                coordinates: [
+                    fixtureCoordinate(0, 29),
+                    fixtureCoordinate(200, 29),
+                ],
+                id: 'parallel-road',
+                nodeIds: ['parallel-west', 'parallel-east'],
+                oneWay: true,
+            },
+        ]);
+        const matcher = createRoadMatcher(graph);
+        const preferredRouteCoordinates = [
+            fixtureCoordinate(0, 0),
+            fixtureCoordinate(200, 0),
+        ];
+        const routeMatchedResult = matcher.update(
+            makeFixtureObservation({ x: 50, y: 29 }),
+            { preferredRouteCoordinates },
+        );
+        const offRouteResult = matcher.update(
+            makeFixtureObservation({ timestamp: 3000, x: 75, y: 31 }),
+            { preferredRouteCoordinates },
+        );
+
+        assert.equal(
+            routeMatchedResult.roadMatch.edgeId,
+            'active-route-road:0:forward',
+        );
+        assert.ok(
+            routeMatchedResult.roadMatch.distanceFromActiveRouteMeters < 30,
+        );
+        assert.equal(
+            offRouteResult.roadMatch.edgeId,
+            'parallel-road:0:forward',
+        );
+        assert.ok(offRouteResult.roadMatch.distanceFromActiveRouteMeters > 30);
+    });
+
+    test('uses active route direction when the GPS heading is unavailable', () => {
+        const graph = createDirectedRoadGraph([
+            {
+                coordinates: [
+                    fixtureCoordinate(0, 0),
+                    fixtureCoordinate(200, 0),
+                ],
+                id: 'two-way-route',
+                nodeIds: ['route-west', 'route-east'],
+            },
+        ]);
+        const matcher = createRoadMatcher(graph);
+        const result = matcher.update(
+            makeFixtureObservation({
+                bearing: -1,
+                speed: 0,
+                x: 50,
+                y: 2,
+            }),
+            {
+                preferredRouteCoordinates: [
+                    fixtureCoordinate(200, 0),
+                    fixtureCoordinate(0, 0),
+                ],
+            },
+        );
+
+        assert.equal(result.roadMatch.edgeId, 'two-way-route:0:backward');
+    });
+
     test('ignores unavailable headings and headings without usable speed', () => {
         const graph = createDirectedRoadGraph([
             {

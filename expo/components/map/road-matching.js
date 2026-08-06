@@ -1,9 +1,12 @@
+import { ACTIVE_ROUTE_DEVIATION_THRESHOLD_METERS } from './active-route-deviation.js';
 import {
     getRoadCandidateProjections,
+    getRoadCoordinateBearingDegrees,
     getRoadCoordinateDistanceMeters,
     getRoadHeadingDeltaDegrees,
     getRoadTransitionDistanceMeters,
     normalizeRoadHeading,
+    projectCoordinateOntoRoadSegment,
 } from './road-graph.js';
 
 const DEFAULT_OPTIONS = Object.freeze({
@@ -22,6 +25,11 @@ const DEFAULT_OPTIONS = Object.freeze({
     minimumSigmaMeters: 3,
     minimumUTurnHeadingChangeDegrees: 120,
     offRoadDistanceMeters: 35,
+    preferredRouteCandidateToleranceMeters: 5,
+    preferredRouteHeadingToleranceDegrees: 60,
+    preferredRouteMaximumDistanceMeters:
+        ACTIVE_ROUTE_DEVIATION_THRESHOLD_METERS,
+    preferredRouteSearchPaddingMeters: 15,
     teleportDistanceMeters: 250,
     teleportTimeGapMs: 20000,
     uTurnPenalty: 2,
@@ -254,6 +262,106 @@ function getOffRoadDistanceThreshold(observation, options) {
     );
 }
 
+function createPreferredRouteSegments(coordinates) {
+    const routeSegments = [];
+
+    for (
+        let index = 0;
+        index < (Array.isArray(coordinates) ? coordinates.length - 1 : 0);
+        index += 1
+    ) {
+        const start = coordinates[index];
+        const end = coordinates[index + 1];
+        const bearing = getRoadCoordinateBearingDegrees(start, end);
+
+        if (bearing === null) {
+            continue;
+        }
+
+        routeSegments.push({ bearing, end, start });
+    }
+
+    return routeSegments;
+}
+
+function getClosestPreferredRouteProjection(coordinate, routeSegments) {
+    let closestProjection = null;
+
+    routeSegments.forEach((segment, routeSegmentIndex) => {
+        const projection = projectCoordinateOntoRoadSegment(
+            coordinate,
+            segment,
+        );
+
+        if (
+            projection &&
+            (!closestProjection ||
+                projection.distanceMeters < closestProjection.distanceMeters)
+        ) {
+            closestProjection = {
+                ...projection,
+                routeBearing: segment.bearing,
+                routeSegmentIndex,
+            };
+        }
+    });
+
+    return closestProjection;
+}
+
+function getPreferredRouteCandidates(
+    candidates,
+    preferredRouteProjection,
+    routeSegments,
+    options,
+) {
+    const preferredRouteSegmentIndex =
+        preferredRouteProjection.routeSegmentIndex;
+    const localRouteSegments = routeSegments.slice(
+        Math.max(0, preferredRouteSegmentIndex - 1),
+        preferredRouteSegmentIndex + 2,
+    );
+    const candidatesWithRouteProjections = candidates
+        .map((candidate) => ({
+            candidate,
+            routeProjection: getClosestPreferredRouteProjection(
+                candidate.coordinate,
+                localRouteSegments,
+            ),
+        }))
+        .filter(({ routeProjection }) => routeProjection !== null);
+    const directionAlignedCandidates = candidatesWithRouteProjections.filter(
+        ({ candidate, routeProjection }) => {
+            const headingDelta = getRoadHeadingDeltaDegrees(
+                candidate.segment.bearing,
+                routeProjection.routeBearing,
+            );
+
+            return (
+                headingDelta !== null &&
+                headingDelta <= options.preferredRouteHeadingToleranceDegrees
+            );
+        },
+    );
+    const eligibleCandidates = directionAlignedCandidates.length
+        ? directionAlignedCandidates
+        : candidatesWithRouteProjections;
+    const minimumDistanceFromRoute = Math.min(
+        ...eligibleCandidates.map(
+            ({ routeProjection }) => routeProjection.distanceMeters,
+        ),
+    );
+
+    return eligibleCandidates
+        .filter(
+            ({ routeProjection }) =>
+                routeProjection.distanceMeters <=
+                minimumDistanceFromRoute +
+                    options.preferredRouteCandidateToleranceMeters,
+        )
+        .map(({ candidate }) => candidate);
+}
+
 function getCandidateStates({
     candidates,
     graph,
@@ -370,7 +478,11 @@ function getStateConfidence(states, selectedState) {
     return totalWeight > 0 ? weights[selectedIndex] / totalWeight : 0;
 }
 
-function makeOffRoadResult(observation, isTeleport = false) {
+function makeOffRoadResult(
+    observation,
+    isTeleport = false,
+    distanceFromActiveRouteMeters = null,
+) {
     return {
         accuracy: observation.accuracy,
         altitude: observation.altitude,
@@ -380,6 +492,7 @@ function makeOffRoadResult(observation, isTeleport = false) {
         longitude: observation.coordinate[0],
         roadMatch: {
             confidence: 0,
+            distanceFromActiveRouteMeters,
             edgeId: null,
             edgeMatchProbability: 0,
             isOffRoad: true,
@@ -393,13 +506,18 @@ function makeOffRoadResult(observation, isTeleport = false) {
     };
 }
 
-function makeStationaryHeldMatch(lastMatchedResult, observation) {
+function makeStationaryHeldMatch(
+    lastMatchedResult,
+    observation,
+    distanceFromActiveRouteMeters,
+) {
     return {
         ...lastMatchedResult,
         accuracy: observation.accuracy,
         altitude: observation.altitude,
         roadMatch: {
             ...lastMatchedResult.roadMatch,
+            distanceFromActiveRouteMeters,
             isStationaryHold: true,
         },
         speed: observation.speed,
@@ -422,6 +540,7 @@ function shouldHoldLastMatchWhileStationary({
 }
 
 function makeMatchedResult({
+    distanceFromActiveRouteMeters,
     isTeleport,
     observation,
     selectedState,
@@ -447,6 +566,7 @@ function makeMatchedResult({
         roadMatch: {
             coordinate: candidate.coordinate,
             confidence: edgeMatchProbability,
+            distanceFromActiveRouteMeters,
             distanceFromObservationMeters: candidate.distanceMeters,
             edgeId: segment.id,
             edgeMatchProbability,
@@ -476,21 +596,48 @@ export function createRoadMatcher(graph, configuredOptions = {}) {
         ...configuredOptions,
     });
     let lastMatchedResult = null;
+    let preferredRouteCoordinates = null;
+    let preferredRouteIsApplied = false;
+    let preferredRouteSegments = [];
     let previousObservation = null;
     let previousStates = [];
 
     function reset() {
         lastMatchedResult = null;
+        preferredRouteCoordinates = null;
+        preferredRouteIsApplied = false;
+        preferredRouteSegments = [];
         previousObservation = null;
         previousStates = [];
     }
 
-    function update(value) {
+    function update(value, { preferredRouteCoordinates: route = null } = {}) {
         const observation = normalizeObservation(value);
 
         if (!observation) {
             return null;
         }
+
+        const preferredRouteChanged = route !== preferredRouteCoordinates;
+
+        if (preferredRouteChanged) {
+            preferredRouteCoordinates = route;
+            preferredRouteSegments = createPreferredRouteSegments(route);
+        }
+
+        const preferredRouteProjection = getClosestPreferredRouteProjection(
+            observation.coordinate,
+            preferredRouteSegments,
+        );
+        const nextPreferredRouteIsApplied = Boolean(
+            preferredRouteProjection &&
+            preferredRouteProjection.distanceMeters <=
+                options.preferredRouteMaximumDistanceMeters,
+        );
+        const preferredRouteApplicationChanged =
+            nextPreferredRouteIsApplied !== preferredRouteIsApplied;
+
+        preferredRouteIsApplied = nextPreferredRouteIsApplied;
 
         const distanceFromPreviousObservation = previousObservation
             ? getRoadCoordinateDistanceMeters(
@@ -501,26 +648,51 @@ export function createRoadMatcher(graph, configuredOptions = {}) {
         const timeFromPreviousObservation = previousObservation
             ? observation.timestamp - previousObservation.timestamp
             : 0;
-        const resetsPath = Boolean(
+        const isTeleport = Boolean(
             previousObservation &&
             ((distanceFromPreviousObservation ?? 0) >=
                 options.teleportDistanceMeters ||
                 timeFromPreviousObservation >= options.teleportTimeGapMs ||
                 timeFromPreviousObservation < 0),
         );
+        const resetsPath = Boolean(
+            isTeleport ||
+            preferredRouteChanged ||
+            preferredRouteApplicationChanged,
+        );
+        const preferredRouteSearchRadius = preferredRouteIsApplied
+            ? preferredRouteProjection.distanceMeters +
+              options.preferredRouteSearchPaddingMeters
+            : 0;
+        const distanceFromActiveRouteMeters =
+            preferredRouteProjection?.distanceMeters ?? null;
         const candidates = getRoadCandidateProjections(
             graph,
             observation.coordinate,
-            getSearchRadius(observation, options),
-        ).slice(0, options.maximumCandidates);
-        const offRoadDistanceThreshold = getOffRoadDistanceThreshold(
-            observation,
-            options,
+            Math.min(
+                options.maximumSearchRadiusMeters,
+                Math.max(
+                    getSearchRadius(observation, options),
+                    preferredRouteSearchRadius,
+                ),
+            ),
+        );
+        const matchedCandidates = preferredRouteIsApplied
+            ? getPreferredRouteCandidates(
+                  candidates,
+                  preferredRouteProjection,
+                  preferredRouteSegments,
+                  options,
+              ).slice(0, options.maximumCandidates)
+            : candidates.slice(0, options.maximumCandidates);
+        const offRoadDistanceThreshold = Math.max(
+            getOffRoadDistanceThreshold(observation, options),
+            preferredRouteSearchRadius,
         );
 
         if (
-            !candidates.length ||
-            candidates[0].distanceMeters > offRoadDistanceThreshold
+            !matchedCandidates.length ||
+            matchedCandidates[0].distanceMeters > offRoadDistanceThreshold
         ) {
             if (
                 shouldHoldLastMatchWhileStationary({
@@ -530,10 +702,18 @@ export function createRoadMatcher(graph, configuredOptions = {}) {
                     resetsPath,
                 })
             ) {
-                return makeStationaryHeldMatch(lastMatchedResult, observation);
+                return makeStationaryHeldMatch(
+                    lastMatchedResult,
+                    observation,
+                    distanceFromActiveRouteMeters,
+                );
             }
 
-            const result = makeOffRoadResult(observation, resetsPath);
+            const result = makeOffRoadResult(
+                observation,
+                isTeleport,
+                distanceFromActiveRouteMeters,
+            );
 
             if (resetsPath) {
                 previousStates = [];
@@ -544,7 +724,7 @@ export function createRoadMatcher(graph, configuredOptions = {}) {
         }
 
         const states = getCandidateStates({
-            candidates,
+            candidates: matchedCandidates,
             graph,
             observation,
             options,
@@ -554,7 +734,11 @@ export function createRoadMatcher(graph, configuredOptions = {}) {
         });
 
         if (!states.length) {
-            return makeOffRoadResult(observation);
+            return makeOffRoadResult(
+                observation,
+                false,
+                distanceFromActiveRouteMeters,
+            );
         }
 
         const selectedState = selectMatchedState(
@@ -564,7 +748,8 @@ export function createRoadMatcher(graph, configuredOptions = {}) {
             options,
         );
         const result = makeMatchedResult({
-            isTeleport: Boolean(resetsPath && lastMatchedResult),
+            distanceFromActiveRouteMeters,
+            isTeleport: Boolean(isTeleport && lastMatchedResult),
             observation,
             offRoadDistanceThreshold,
             selectedState,
