@@ -18,6 +18,7 @@ const runScript = (script, args = [], environment = {}) =>
 describe('external build storage wrappers', () => {
     test('reject internal build roots', () => {
         for (const script of [
+            'android-auto-e2e.sh',
             'eas-local-build.sh',
             'maestro-test.sh',
             'xcodebuild-external.sh',

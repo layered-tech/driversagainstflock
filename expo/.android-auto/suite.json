@@ -1,0 +1,283 @@
+{
+    "name": "Android Auto end-to-end",
+    "appId": "com.anonymous.drivefree.dev",
+    "serviceComponent": "com.anonymous.drivefree.dev/com.margelo.nitro.swe.iternio.reactnativeautoplay.AndroidAutoService",
+    "display": {
+        "width": 1280,
+        "height": 720
+    },
+    "metro": {
+        "host": "10.0.2.2",
+        "port": 8091
+    },
+    "location": {
+        "latitude": 30.2672,
+        "longitude": -97.7431
+    },
+    "tests": [
+        {
+            "name": "connects and renders the Mapbox map",
+            "steps": [
+                {
+                    "type": "dhu",
+                    "command": "tap 400 300"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 2500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "connected-map"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "connected-map",
+                    "contains": ["Congress Avenue", "SPEED LIMIT"]
+                },
+                {
+                    "type": "assertService",
+                    "running": true
+                },
+                {
+                    "type": "assertWakeLock",
+                    "held": true
+                }
+            ]
+        },
+        {
+            "name": "switches between day and night presentation",
+            "steps": [
+                {
+                    "type": "dhu",
+                    "command": "day"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 1500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "day-mode"
+                },
+                {
+                    "type": "dhu",
+                    "command": "night",
+                    "waitForMetro": "[Android Auto] appearance-dark"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 2500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "night-mode"
+                },
+                {
+                    "type": "assertImagesDiffer",
+                    "first": "day-mode",
+                    "second": "night-mode"
+                },
+                {
+                    "type": "dhu",
+                    "command": "day",
+                    "waitForMetro": "[Android Auto] appearance-light"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 1500
+                }
+            ]
+        },
+        {
+            "name": "shows native Android Auto search results",
+            "steps": [
+                {
+                    "type": "deepLink",
+                    "requestType": "search",
+                    "query": "Walmart"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 5000
+                },
+                {
+                    "type": "screenshot",
+                    "name": "search-results"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "search-results",
+                    "contains": [
+                        "Search results",
+                        "Walmart Supercenter",
+                        "Walmart Neighborhood",
+                        "2525 W Anderson Ln"
+                    ]
+                },
+                {
+                    "type": "dhu",
+                    "command": "keycode back"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 1500
+                }
+            ]
+        },
+        {
+            "name": "offers two route choices and starts private guidance",
+            "steps": [
+                {
+                    "type": "deepLink",
+                    "requestType": "directions",
+                    "query": "Austin Central Library"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 7000
+                },
+                {
+                    "type": "screenshot",
+                    "name": "route-choices"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "route-choices",
+                    "contains": [
+                        "Austin Central Library",
+                        "Private route",
+                        "3 monitored nodes",
+                        "Start"
+                    ]
+                },
+                {
+                    "type": "dhu",
+                    "command": "tap 250 390"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 5000
+                },
+                {
+                    "type": "screenshot",
+                    "name": "navigation-started"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "navigation-started",
+                    "contains": ["Turn right to avoid monitored intersections"]
+                }
+            ]
+        },
+        {
+            "name": "advances navigation through AUTO_DRIVE",
+            "steps": [
+                {
+                    "type": "screenshot",
+                    "name": "auto-drive-before"
+                },
+                {
+                    "type": "autoDrive",
+                    "waitForMetro": "[Android Auto] auto-drive-progressed",
+                    "timeout": 15000
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 9000
+                },
+                {
+                    "type": "screenshot",
+                    "name": "auto-drive-after"
+                },
+                {
+                    "type": "assertImagesDiffer",
+                    "first": "auto-drive-before",
+                    "second": "auto-drive-after"
+                },
+                {
+                    "type": "assertWakeLock",
+                    "held": true
+                }
+            ]
+        },
+        {
+            "name": "keeps guidance alive while the phone sleeps",
+            "steps": [
+                {
+                    "type": "phoneSleep"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 6000
+                },
+                {
+                    "type": "assertWakeLock",
+                    "held": true
+                },
+                {
+                    "type": "screenshot",
+                    "name": "phone-asleep"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "phone-asleep",
+                    "contains": ["Turn right to avoid monitored intersections"]
+                },
+                {
+                    "type": "phoneWake"
+                }
+            ]
+        },
+        {
+            "name": "handles the Android Auto host stop action",
+            "steps": [
+                {
+                    "type": "dhu",
+                    "command": "tap 145 665",
+                    "waitForMetro": "[Android Auto] host-navigation-stopped"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 4000
+                },
+                {
+                    "type": "screenshot",
+                    "name": "host-stopped-navigation"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "host-stopped-navigation",
+                    "contains": ["For you"],
+                    "notContains": [
+                        "Turn right to avoid monitored intersections"
+                    ]
+                },
+                {
+                    "type": "assertService",
+                    "running": true
+                },
+                {
+                    "type": "assertWakeLock",
+                    "held": true
+                }
+            ]
+        },
+        {
+            "name": "releases the session wake lock on disconnect",
+            "steps": [
+                {
+                    "type": "disconnect"
+                },
+                {
+                    "type": "assertWakeLock",
+                    "held": false
+                },
+                {
+                    "type": "assertService",
+                    "running": false
+                }
+            ]
+        }
+    ]
+}

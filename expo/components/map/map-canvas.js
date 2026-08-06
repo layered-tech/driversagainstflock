@@ -897,8 +897,20 @@ export const MapCanvas = memo(function MapCanvas() {
         (event) => {
             handleMapLoaded(event);
             refreshLocationPuckAfterMapAttachment();
+
+            if (
+                typeof __DEV__ !== 'undefined' &&
+                __DEV__ &&
+                resolvedNavigationPuckVariant === 'auto-play'
+            ) {
+                console.log('[Android Auto] map-loaded');
+            }
         },
-        [handleMapLoaded, refreshLocationPuckAfterMapAttachment],
+        [
+            handleMapLoaded,
+            refreshLocationPuckAfterMapAttachment,
+            resolvedNavigationPuckVariant,
+        ],
     );
     const requestLocationPuckCameraFollow = useCallback(
         ({ cameraIsPrepared = false } = {}) =>

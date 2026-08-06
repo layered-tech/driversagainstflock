@@ -48,6 +48,7 @@ import {
     searchPlaces,
     searchTextPlaces,
 } from './map/api';
+import { e2eMapApiMocksCanBeEnabled } from './map/api-mocks';
 import { PLACE_SEARCH_MIN_QUERY_LENGTH } from './map/constants';
 import {
     createCurrentLocationDirectionsWaypoint,
@@ -2798,16 +2799,22 @@ function syncAutoPlayNavigationFromSharedRoutingState(
 
 function startAutoDriveNavigationSimulation(route) {
     const routeOption = getSelectedDirectionsRouteOption(route);
+    let simulatedLocationCount = 0;
     const simulationStarted = startAutoDriveSimulation({
         coordinates: routeOption?.coordinates,
         onArrive: () => {
             handleAutoDriveArrival(route);
         },
         onLocation: (position) => {
+            simulatedLocationCount += 1;
             const location = getLocationFromPosition(position);
 
             if (location) {
                 scheduleNavigationGuidance(location);
+            }
+
+            if (simulatedLocationCount === 2) {
+                logAutoPlayPlatformAction('auto-drive-progressed');
             }
         },
     });
@@ -2834,6 +2841,9 @@ async function handleAutoDriveArrival(route) {
 }
 
 function handleAutoDriveEnabled() {
+    logAutoPlayPlatformAction('auto-drive-enabled', {
+        hasActiveNavigation: Boolean(activeNavigationRoute),
+    });
     autoDriveIsEnabled = true;
     setAutoPlayDrivingModeIsActive(true);
     setAutoPlayState({
@@ -3480,6 +3490,21 @@ function handleVoiceNavigationWhenReady(
     });
 }
 
+export function dispatchAutoPlayE2ECommand({ query, requestType } = {}) {
+    const normalizedQuery = String(query ?? '').trim();
+
+    if (
+        !e2eMapApiMocksCanBeEnabled() ||
+        !['directions', 'navigation', 'search'].includes(requestType) ||
+        !normalizedQuery
+    ) {
+        return false;
+    }
+
+    handleVoiceNavigationWhenReady(null, normalizedQuery, requestType);
+    return true;
+}
+
 function replayPendingVoiceNavigation() {
     const pendingNavigation = pendingVoiceNavigation;
     pendingVoiceNavigation = null;
@@ -3531,6 +3556,9 @@ async function handleAutoPlayConnect() {
         headerActions: initialRootMapHeaderActions,
         mapButtons: initialRootMapButtons,
         onAppearanceDidChange: (colorScheme) => {
+            logAutoPlayPlatformAction(
+                colorScheme === 'dark' ? 'appearance-dark' : 'appearance-light',
+            );
             setAutoPlayMapColorScheme(colorScheme);
         },
         ...getAutoPlayMapGestureCallbacks({
@@ -3555,6 +3583,7 @@ async function handleAutoPlayConnect() {
             },
         }),
         onStopNavigation: () => {
+            logAutoPlayPlatformAction('host-navigation-stopped');
             stopAutoPlayNavigation({ notifyTemplate: false });
         },
         ...autoPlayPlatform.getMapTemplatePlatformConfig({

@@ -2,12 +2,16 @@ import * as Linking from 'expo-linking';
 import { useEffect } from 'react';
 import { injectE2EMockSession } from '../../lib/auth';
 import { setOSMApiMocksEnabled } from '../../lib/osm/api-mocks';
+import { dispatchAutoPlayE2ECommand } from '../auto-play';
 import {
     e2eMapApiMocksCanBeEnabled,
     setMapApiMocksEnabled,
 } from '../map/api-mocks';
 import { setE2EDrivingAlertsFixture } from '../map/e2e-driving-alert-fixture';
-import { getE2EMockFlagsFromURL } from './e2e-map-api-mock-url';
+import {
+    getE2EAutoPlayCommandFromURL,
+    getE2EMockFlagsFromURL,
+} from './e2e-map-api-mock-url';
 
 const E2E_MOCK_AUTH_SESSION = {
     accessToken: 'e2e-mock-token',
@@ -40,6 +44,12 @@ function applyE2EMocksFromURL(value) {
         injectE2EMockSession(E2E_MOCK_AUTH_SESSION);
     } else if (authMockIsDisabled) {
         injectE2EMockSession(null);
+    }
+
+    const autoPlayCommand = getE2EAutoPlayCommandFromURL(value);
+
+    if (autoPlayCommand) {
+        dispatchAutoPlayE2ECommand(autoPlayCommand);
     }
 }
 

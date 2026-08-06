@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { getE2EMockFlagsFromURL } from '../../root/e2e-map-api-mock-url.js';
+import {
+    getE2EAutoPlayCommandFromURL,
+    getE2EMockFlagsFromURL,
+} from '../../root/e2e-map-api-mock-url.js';
 
 describe('E2E map API mock links', () => {
     test('defaults mocked flows to a signed-out session', () => {
@@ -61,5 +64,33 @@ describe('E2E map API mock links', () => {
             ).drivingAlertsFixture,
             null,
         );
+    });
+});
+
+describe('Android Auto E2E commands', () => {
+    test('parses deterministic search, directions, and navigation requests', () => {
+        for (const requestType of ['search', 'directions', 'navigation']) {
+            assert.deepEqual(
+                getE2EAutoPlayCommandFromURL(
+                    `driversagainstflock://e2e-mocks?autoPlayRequestType=${requestType}&query=%20Austin%20Central%20Library%20`,
+                ),
+                {
+                    query: 'Austin Central Library',
+                    requestType,
+                },
+            );
+        }
+    });
+
+    test('rejects unrelated, incomplete, and unsupported requests', () => {
+        for (const value of [
+            'driversagainstflock://map?autoPlayRequestType=navigation&query=Austin',
+            'driversagainstflock://e2e-mocks?query=Austin',
+            'driversagainstflock://e2e-mocks?autoPlayRequestType=navigation&query=%20',
+            'driversagainstflock://e2e-mocks?autoPlayRequestType=add-a-stop&query=Austin',
+            'not a URL',
+        ]) {
+            assert.equal(getE2EAutoPlayCommandFromURL(value), null);
+        }
     });
 });

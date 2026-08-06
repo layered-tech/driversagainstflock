@@ -31,6 +31,7 @@
     "start:metro": "expo start --dev-client",
     "xcodebuild:external": "./scripts/xcodebuild-external.sh",
     "e2e": "./scripts/maestro-test.sh .maestro",
+    "e2e:android-auto": "./scripts/android-auto-e2e.sh",
     "e2e-reset": "./scripts/reset-android-location.sh",
     "test": "npm run test:unit",
     "test:unit": "node --test lib/osm/__tests__/*.test.mjs components/map/__tests__/*.test.mjs scripts/__tests__/*.test.mjs"
