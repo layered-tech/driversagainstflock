@@ -26,6 +26,15 @@ const route = {
 const getRouteSyncKey = (candidateRoute) =>
     candidateRoute?.selectedRouteKey ?? '';
 
+function createDeferred() {
+    let resolve;
+    const promise = new Promise((resolvePromise) => {
+        resolve = resolvePromise;
+    });
+
+    return { promise, resolve };
+}
+
 describe('shared phone and car navigation contract', () => {
     test('defers a cold persisted route until the car root is ready', () => {
         const routingState = {
@@ -109,6 +118,88 @@ describe('shared phone and car navigation contract', () => {
             }),
             { action: 'start', route },
         );
+    });
+
+    test('reattaches an active phone route after a full host reconnect', () => {
+        const routingState = {
+            directionsRoute: route,
+            drivingModeIsActive: true,
+        };
+        let activeNavigationRoute = route;
+        let hostNavigationIsActive = true;
+        let rootMapTemplateIsReady = true;
+        const synchronize = () =>
+            getAutoPlaySharedNavigationAction({
+                activeNavigationRoute,
+                getRouteSyncKey,
+                hostNavigationIsActive,
+                rootMapTemplateIsReady,
+                routingState,
+            });
+
+        assert.equal(synchronize().action, 'none');
+
+        rootMapTemplateIsReady = false;
+        hostNavigationIsActive = false;
+
+        assert.equal(synchronize().action, 'none');
+        assert.equal(activeNavigationRoute, route);
+        assert.equal(routingState.directionsRoute, route);
+
+        rootMapTemplateIsReady = true;
+
+        const reconnectAction = synchronize();
+
+        assert.deepEqual(reconnectAction, { action: 'start', route });
+
+        activeNavigationRoute = reconnectAction.route;
+        hostNavigationIsActive = true;
+
+        assert.equal(synchronize().action, 'none');
+    });
+
+    test('starts only the latest shared route after hydration settles', async () => {
+        const hydration = createDeferred();
+        const hydratedRoute = {
+            ...route,
+            requestedAt: 2000,
+            routeOptions: [
+                {
+                    ...route.routeOptions[0],
+                    routeKey: 'route-2',
+                },
+            ],
+            selectedRouteKey: 'route-2',
+        };
+        let routingState = {
+            directionsRoute: route,
+            drivingModeIsActive: true,
+        };
+        let rootMapTemplateIsReady = false;
+        const synchronizeAfterHydration = async () => {
+            await hydration.promise;
+            rootMapTemplateIsReady = true;
+
+            return getAutoPlaySharedNavigationAction({
+                activeNavigationRoute: null,
+                getRouteSyncKey,
+                hostNavigationIsActive: false,
+                rootMapTemplateIsReady,
+                routingState,
+            });
+        };
+        const pendingSynchronization = synchronizeAfterHydration();
+
+        routingState = {
+            directionsRoute: hydratedRoute,
+            drivingModeIsActive: true,
+        };
+        hydration.resolve();
+
+        assert.deepEqual(await pendingSynchronization, {
+            action: 'start',
+            route: hydratedRoute,
+        });
     });
 
     test('publishes explicit car start and stop but preserves state on disconnect', () => {

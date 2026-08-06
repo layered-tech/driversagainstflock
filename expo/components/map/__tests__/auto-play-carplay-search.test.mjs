@@ -558,6 +558,58 @@ test('CarPlay keeps app-initiated voice cancellations silent', async () => {
     assert.equal(cancelledCalls, 0);
 });
 
+test('CarPlay disconnect cannot let pending voice work finish into a reconnected session', async () => {
+    const startupTimeouts = [];
+    const voiceInputResolvers = [];
+    const voiceNavigationQueries = [];
+    let unavailableCalls = 0;
+    const controller = createCarPlayVoiceSearchController({
+        clearTimeoutFn: () => {},
+        getHybridAutoPlay: () => ({
+            hasVoiceInputPermission: () => true,
+            startVoiceInput: () =>
+                new Promise((resolve) => {
+                    voiceInputResolvers.push(resolve);
+                }),
+            stopVoiceInput: () => {},
+        }),
+        onVoiceNavigation: (_coordinates, query) => {
+            voiceNavigationQueries.push(query);
+        },
+        setTimeoutFn: (callback) => {
+            startupTimeouts.push(callback);
+            return startupTimeouts.length;
+        },
+    });
+    const callbacks = {
+        onFallback: () => {},
+        onUnavailable: () => {
+            unavailableCalls += 1;
+        },
+    };
+
+    controller.start(callbacks);
+    await flushAsyncWork();
+
+    controller.cancel();
+    controller.start(callbacks);
+    await flushAsyncWork();
+
+    startupTimeouts[0]();
+    voiceInputResolvers[0](new Uint8Array());
+    await flushAsyncWork();
+
+    assert.equal(unavailableCalls, 0);
+    assert.deepEqual(voiceNavigationQueries, []);
+
+    controller.handleNativeEvent(undefined, '  Madison  ', 'search');
+    voiceInputResolvers[1](new Uint8Array());
+    await flushAsyncWork();
+
+    assert.deepEqual(voiceNavigationQueries, ['Madison']);
+    assert.equal(unavailableCalls, 0);
+});
+
 test('CarPlay listening acknowledgement leaves the post-stop fallback timer armed', async () => {
     const clearedTimeouts = [];
     const timeouts = [];

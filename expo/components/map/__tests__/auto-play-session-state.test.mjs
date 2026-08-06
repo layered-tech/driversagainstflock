@@ -51,4 +51,26 @@ describe('automotive session state', () => {
             renderState: 'didDisappear',
         });
     });
+
+    test('restores platform-specific location ownership after reconnect', () => {
+        setAutoPlaySessionConnected(true);
+        setAutoPlaySessionRenderState('didAppear');
+
+        assert.equal(autoPlaySessionOwnsForegroundLocation('android'), true);
+        assert.equal(autoPlaySessionOwnsForegroundLocation('ios'), true);
+
+        setAutoPlaySessionConnected(false);
+
+        assert.equal(autoPlaySessionOwnsForegroundLocation('android'), false);
+        assert.equal(autoPlaySessionOwnsForegroundLocation('ios'), false);
+
+        setAutoPlaySessionConnected(true);
+
+        assert.equal(autoPlaySessionOwnsForegroundLocation('android'), true);
+        assert.equal(autoPlaySessionOwnsForegroundLocation('ios'), false);
+
+        setAutoPlaySessionRenderState('willAppear');
+
+        assert.equal(autoPlaySessionOwnsForegroundLocation('ios'), true);
+    });
 });

@@ -107,6 +107,63 @@ function addGeneratedSwiftBlock(source, tag, block, anchor) {
     return `${sanitizedSource.slice(0, insertAt)}\n${header}\n${block.trimEnd()}\n${footer}\n${sanitizedSource.slice(insertAt)}`;
 }
 
+function isPlainObject(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function mergeSceneConfigurationEntries(existingEntries, requiredEntries) {
+    const mergedEntries = Array.isArray(existingEntries)
+        ? existingEntries.map((entry) =>
+              isPlainObject(entry) ? { ...entry } : entry,
+          )
+        : [];
+
+    requiredEntries.forEach((requiredEntry) => {
+        const configurationName = requiredEntry.UISceneConfigurationName;
+        const existingIndex = mergedEntries.findIndex(
+            (entry) =>
+                isPlainObject(entry) &&
+                entry.UISceneConfigurationName === configurationName,
+        );
+
+        if (existingIndex === -1) {
+            mergedEntries.push({ ...requiredEntry });
+            return;
+        }
+
+        mergedEntries[existingIndex] = {
+            ...mergedEntries[existingIndex],
+            ...requiredEntry,
+        };
+    });
+
+    return mergedEntries;
+}
+
+function mergeCarPlaySceneManifest(existingManifest) {
+    const manifest = isPlainObject(existingManifest) ? existingManifest : {};
+    const existingConfigurations = isPlainObject(manifest.UISceneConfigurations)
+        ? manifest.UISceneConfigurations
+        : {};
+    const requiredConfigurations = SCENE_MANIFEST.UISceneConfigurations;
+    const mergedConfigurations = { ...existingConfigurations };
+
+    Object.entries(requiredConfigurations).forEach(([role, entries]) => {
+        mergedConfigurations[role] = mergeSceneConfigurationEntries(
+            existingConfigurations[role],
+            entries,
+        );
+    });
+
+    return {
+        ...manifest,
+        CPSupportsDashboardNavigationScene: true,
+        CPSupportsInstrumentClusterNavigationScene: true,
+        UIApplicationSupportsMultipleScenes: true,
+        UISceneConfigurations: mergedConfigurations,
+    };
+}
+
 function ensureBundleIdentifierUrlScheme(infoPlist, bundleIdentifier) {
     if (!bundleIdentifier) {
         return infoPlist;
@@ -136,6 +193,27 @@ function ensureBundleIdentifierUrlScheme(infoPlist, bundleIdentifier) {
     };
 }
 
+function applyCarPlayInfoPlist(infoPlist, bundleIdentifier) {
+    return ensureBundleIdentifierUrlScheme(
+        {
+            ...infoPlist,
+            UIApplicationSceneManifest: mergeCarPlaySceneManifest(
+                infoPlist.UIApplicationSceneManifest,
+            ),
+        },
+        bundleIdentifier,
+    );
+}
+
+function addAutoPlayRootViewToAppDelegate(source) {
+    return addGeneratedSwiftBlock(
+        source,
+        APP_DELEGATE_TAG,
+        GET_ROOT_VIEW_FOR_AUTOPLAY,
+        "class AppDelegate: ExpoAppDelegate {",
+    );
+}
+
 function withCarPlayAutoPlay(config) {
     let nextConfig = withEntitlementsPlist(config, (entitlementsConfig) => {
         entitlementsConfig.modResults["com.apple.developer.carplay-maps"] =
@@ -145,8 +223,7 @@ function withCarPlayAutoPlay(config) {
     });
 
     nextConfig = withInfoPlist(nextConfig, (infoPlistConfig) => {
-        infoPlistConfig.modResults.UIApplicationSceneManifest = SCENE_MANIFEST;
-        infoPlistConfig.modResults = ensureBundleIdentifierUrlScheme(
+        infoPlistConfig.modResults = applyCarPlayInfoPlist(
             infoPlistConfig.modResults,
             infoPlistConfig.ios?.bundleIdentifier,
         );
@@ -161,19 +238,24 @@ function withCarPlayAutoPlay(config) {
             );
         }
 
-        appDelegateConfig.modResults.contents = addGeneratedSwiftBlock(
+        appDelegateConfig.modResults.contents = addAutoPlayRootViewToAppDelegate(
             appDelegateConfig.modResults.contents,
-            APP_DELEGATE_TAG,
-            GET_ROOT_VIEW_FOR_AUTOPLAY,
-            "class AppDelegate: ExpoAppDelegate {",
         );
 
         return appDelegateConfig;
     });
 }
 
-module.exports = createRunOncePlugin(
+const plugin = createRunOncePlugin(
     withCarPlayAutoPlay,
     PLUGIN_NAME,
     PLUGIN_VERSION,
 );
+
+plugin.__testables = {
+    addAutoPlayRootViewToAppDelegate,
+    applyCarPlayInfoPlist,
+    mergeCarPlaySceneManifest,
+};
+
+module.exports = plugin;
