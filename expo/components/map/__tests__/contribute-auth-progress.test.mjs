@@ -138,6 +138,16 @@ describe('Contribute OpenStreetMap auth progress', () => {
         );
         assert.match(
             contributeStartSheetSource,
+            /testID="contribute-start-sheet-title"/,
+        );
+        assert.match(
+            contributeStartSheetSource,
+            /testID="contribute-account-card-signed-out"/,
+        );
+        assert.match(contributeStartSheetSource, /accessible=\{false\}/);
+        assert.match(contributePlacementSheetSource, /accessible=\{false\}/);
+        assert.match(
+            contributeStartSheetSource,
             /testID="contribute-start-editing-button"/,
         );
         assert.match(

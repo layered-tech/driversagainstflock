@@ -41,7 +41,9 @@ tags:
     visible:
       id: 'contribute-start-sheet'
     timeout: 30000
-- assertVisible: 'Start a changeset'
-- assertVisible: 'Not signed in'
+- assertVisible:
+    id: 'contribute-start-sheet-title'
+- assertVisible:
+    id: 'contribute-account-card-signed-out'
 - assertVisible:
     id: 'contribute-sign-in-button'

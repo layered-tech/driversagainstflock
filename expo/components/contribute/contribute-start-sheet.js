@@ -56,9 +56,12 @@ function formatDraftSavedRelativeTime(value) {
     return `${Math.floor(diffDays / 7)}w ago`;
 }
 
-function ContributeAccountCard({ isAuthenticated, subtitle, title }) {
+function ContributeAccountCard({ isAuthenticated, subtitle, testID, title }) {
     return (
-        <View className="flex-row items-center gap-3 rounded-dafMd bg-daf-surface-alt px-3 py-[11px] dark:bg-daf-surface-inverse">
+        <View
+            className="flex-row items-center gap-3 rounded-dafMd bg-daf-surface-alt px-3 py-[11px] dark:bg-daf-surface-inverse"
+            testID={testID}
+        >
             <View
                 className={`h-10 w-10 items-center justify-center rounded-dafPill ${
                     isAuthenticated
@@ -186,6 +189,7 @@ export function ContributeStartSheet({
     return (
         <NativeWindBottomSheetModal
             ref={sheetRef}
+            accessible={false}
             backdropComponent={renderStartSheetBackdrop}
             backgroundStyle={bottomSheetBackgroundStyle}
             enableDynamicSizing
@@ -225,7 +229,10 @@ export function ContributeStartSheet({
                     ) : (
                         <>
                             <View className="gap-1">
-                                <Text className="font-dafDisplay text-[21px] font-bold leading-7 text-daf-text-primary dark:text-white">
+                                <Text
+                                    className="font-dafDisplay text-[21px] font-bold leading-7 text-daf-text-primary dark:text-white"
+                                    testID="contribute-start-sheet-title"
+                                >
                                     Start a changeset
                                 </Text>
                                 <Text className="text-sm text-daf-text-secondary dark:text-neutral-300">
@@ -246,11 +253,13 @@ export function ContributeStartSheet({
                                             ? `@${user.name}`
                                             : 'OpenStreetMap account'
                                     }
+                                    testID="contribute-account-card-signed-in"
                                 />
                             ) : (
                                 <ContributeAccountCard
                                     isAuthenticated={false}
                                     subtitle="You need an OpenStreetMap account to publish edits"
+                                    testID="contribute-account-card-signed-out"
                                     title="Not signed in"
                                 />
                             )}

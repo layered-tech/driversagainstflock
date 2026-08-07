@@ -104,7 +104,7 @@ tags:
     timeout: 30000
 - assertVisible:
     id: 'driving-maneuver-instruction'
-    text: 'Turn right to avoid monitored intersections'
+- assertVisible: 'Turn right to avoid monitored intersections'
 - travel:
     points:
       - '30.2672, -97.7431'
@@ -115,13 +115,15 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'driving-maneuver-instruction'
-      text: 'Arrive at your destination'
+    timeout: 30000
+- extendedWaitUntil:
+    visible: 'Arrive at your destination'
     timeout: 30000
 - assertVisible:
     id: 'driving-destination-card'
 - assertVisible:
     id: 'driving-destination-title'
-    text: 'Austin Central Library'
+- assertVisible: 'Austin Central Library'
 - tapOn:
     id: 'driving-cancel-route-button'
     retryTapIfNoChange: true

@@ -48,8 +48,8 @@ tags:
       platform: iOS
     commands:
       - tapOn:
-          id: 'contribute-start-sheet'
-          point: '50%,93%'
+          id: 'contribute-start-editing-button'
+          retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'contribute-placement-sheet'
@@ -342,9 +342,36 @@ tags:
 - assertTrue: ${maestro.copiedText == output.direction1AfterRing}
 # Maestro 1.40 has no multi-pointer gesture command. Native two-finger rotation
 # is therefore covered by focused source/state tests and a simulator check.
-- pressKey: BACK
-- pressKey: BACK
-- tapOn: 'DISCARD'
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - pressKey: BACK
+      - pressKey: BACK
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          id: 'contribute-back-button'
+          retryTapIfNoChange: false
+      - extendedWaitUntil:
+          visible:
+            id: 'contribute-add-camera-button'
+          timeout: 10000
+      - tapOn:
+          id: 'contribute-back-button'
+          retryTapIfNoChange: false
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn: 'DISCARD'
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: 'Discard'
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'

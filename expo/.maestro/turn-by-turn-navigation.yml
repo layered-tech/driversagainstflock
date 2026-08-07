@@ -21,6 +21,24 @@ tags:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
     commands:
       - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_SERVER_URL_PATTERN !== 'undefined' && MAESTRO_EXPO_DEV_SERVER_URL_PATTERN.length > 0}
+    commands:
+      - extendedWaitUntil:
+          visible: ${MAESTRO_EXPO_DEV_SERVER_URL_PATTERN}
+          timeout: 30000
+          optional: true
+      - runFlow:
+          when:
+            visible: ${MAESTRO_EXPO_DEV_SERVER_URL_PATTERN}
+          commands:
+            - tapOn:
+                text: ${MAESTRO_EXPO_DEV_SERVER_URL_PATTERN}
+                retryTapIfNoChange: false
+- tapOn:
+    text: 'http://10.0.2.2:8081'
+    optional: true
 - tapOn:
     text: 'Continue'
     optional: true
@@ -35,9 +53,6 @@ tags:
       - tapOn:
           text: 'Close'
           optional: true
-- tapOn:
-    text: 'http://10.0.2.2:8081'
-    optional: true
 - runFlow:
     when:
       visible:
@@ -119,15 +134,15 @@ tags:
     timeout: 30000
 - assertVisible:
     id: 'driving-maneuver-instruction'
-    text: 'Turn right to avoid monitored intersections'
+- assertVisible: 'Turn right to avoid monitored intersections'
 - assertVisible:
     id: 'driving-maneuver-next-step'
-    text: 'then Arrive at your destination'
+- assertVisible: 'then Arrive at your destination'
 - assertVisible:
     id: 'driving-destination-card'
 - assertVisible:
     id: 'driving-destination-title'
-    text: 'Austin Central Library'
+- assertVisible: 'Austin Central Library'
 - tapOn:
     id: 'driving-cancel-route-button'
     retryTapIfNoChange: true

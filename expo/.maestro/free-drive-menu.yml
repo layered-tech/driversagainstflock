@@ -16,6 +16,9 @@ tags:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
     commands:
       - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- tapOn:
+    text: 'Close drawer'
+    optional: true
 - runFlow:
     when:
       visible:
@@ -32,6 +35,9 @@ tags:
       - tapOn:
           id: 'place-details-close-button'
           retryTapIfNoChange: false
+- tapOn:
+    id: 'exit-free-drive-button'
+    optional: true
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
@@ -63,7 +69,16 @@ tags:
     timeout: 10000
 - assertVisible:
     id: 'drawer-auth-login-button'
-- pressKey: BACK
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - pressKey: BACK
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: 'Close drawer'
 - extendedWaitUntil:
     notVisible:
       id: 'app-drawer-open'

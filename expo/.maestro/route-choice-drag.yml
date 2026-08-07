@@ -45,6 +45,13 @@ tags:
       - tapOn:
           text: 'Reload'
           retryTapIfNoChange: false
+# The teardown guards below only check the current frame, so wait for the app
+# to finish booting into either the map or the driving shell first. A previous
+# flow can leave free drive running, and that state survives a relaunch.
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-(map|driving)'
+    timeout: 60000
 - runFlow:
     when:
       visible:

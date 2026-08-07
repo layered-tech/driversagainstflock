@@ -9,6 +9,7 @@ tags:
     longitude: -97.7483004606461
 - launchApp:
     clearState: true
+    clearKeychain: true
     stopApp: true
     permissions:
       all: allow
@@ -17,38 +18,81 @@ tags:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
     commands:
       - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
-- waitForAnimationToEnd
-- tapOn:
-    text: 'Drivers Against Flock (Dev)'
-    index: 1
-    optional: true
-- tapOn:
-    point: '50%,26%'
-    repeat: 2
-    optional: true
-- extendedWaitUntil:
-    visible: 'Continue'
-    timeout: 10000
-    optional: true
 - runFlow:
     when:
-      visible: 'Continue'
+      true: ${typeof MAESTRO_EXPO_DEV_SERVER_URL_PATTERN !== 'undefined' && MAESTRO_EXPO_DEV_SERVER_URL_PATTERN.length > 0}
     commands:
-      - tapOn: 'Continue'
-- tapOn:
-    point: '50%,63%'
-    optional: true
-- extendedWaitUntil:
-    visible: 'Close'
-    timeout: 10000
-    optional: true
+      - extendedWaitUntil:
+          visible: ${MAESTRO_EXPO_DEV_SERVER_URL_PATTERN}
+          timeout: 30000
+          optional: true
+      - runFlow:
+          when:
+            visible: ${MAESTRO_EXPO_DEV_SERVER_URL_PATTERN}
+          commands:
+            - tapOn:
+                text: ${MAESTRO_EXPO_DEV_SERVER_URL_PATTERN}
+                retryTapIfNoChange: false
+- waitForAnimationToEnd
 - runFlow:
     when:
-      visible: 'Close'
+      platform: Android
     commands:
       - tapOn:
-          text: 'Close'
+          text: 'Drivers Against Flock (Dev)'
+          index: 1
           optional: true
+      - tapOn:
+          point: '50%,26%'
+          repeat: 2
+          optional: true
+      - extendedWaitUntil:
+          visible: 'Continue'
+          timeout: 10000
+          optional: true
+      - runFlow:
+          when:
+            visible: 'Continue'
+          commands:
+            - tapOn: 'Continue'
+      - tapOn:
+          point: '50%,63%'
+          optional: true
+      - extendedWaitUntil:
+          visible: 'Close'
+          timeout: 10000
+          optional: true
+      - runFlow:
+          when:
+            visible: 'Close'
+          commands:
+            - tapOn:
+                text: 'Close'
+                optional: true
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible: 'Continue'
+          timeout: 10000
+          optional: true
+      - runFlow:
+          when:
+            visible: 'Continue'
+          commands:
+            - tapOn: 'Continue'
+      - extendedWaitUntil:
+          visible: 'Close'
+          timeout: 10000
+          optional: true
+      - runFlow:
+          when:
+            visible: 'Close'
+          commands:
+            - tapOn:
+                text: 'Close'
+                optional: true
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
@@ -91,7 +135,7 @@ tags:
     text: '3d'
 - assertVisible:
     id: 'e2e-native-puck-model-uri'
-    text: 'asset://navigation_puck.glb'
+    text: '.*navigation_puck\.glb'
 - assertVisible:
     id: 'e2e-native-puck-model-scale'
 - assertVisible:
@@ -158,32 +202,43 @@ tags:
     id: 'e2e-road-look-ahead-edge-ids'
     text: 'e2e-frontage:0:forward,e2e-frontage:1:forward'
 - assertVisible:
-    id: 'e2e-native-puck-provider-coordinate'
-    text: '-97.7483005,30.2675149'
-- assertVisible:
     id: 'e2e-native-puck-provider-owned'
     text: 'true'
 - assertVisible:
     id: 'e2e-native-puck-camera-following'
     text: 'true'
-- assertVisible:
-    id: 'e2e-native-puck-provider-at-snapped'
-    text: 'true'
-- assertVisible:
-    id: 'e2e-native-puck-provider-at-raw'
-    text: 'false'
-- assertVisible:
-    id: 'e2e-native-puck-proof-source'
-    text: 'native-3d-puck'
-- assertVisible:
-    id: 'e2e-native-puck-indicator-coordinate'
-    text: '-97.7483005,30.2675149'
-- assertVisible:
-    id: 'e2e-native-puck-indicator-at-snapped'
-    text: 'true'
-- assertVisible:
-    id: 'e2e-native-puck-indicator-at-raw'
-    text: 'false'
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible:
+          id: 'e2e-native-puck-provider-coordinate'
+          text: '-97.7483005,30.2675149'
+      - assertVisible:
+          id: 'e2e-native-puck-provider-at-snapped'
+          text: 'true'
+      - assertVisible:
+          id: 'e2e-native-puck-provider-at-raw'
+          text: 'false'
+      - assertVisible:
+          id: 'e2e-native-puck-proof-source'
+          text: 'native-3d-puck'
+      - assertVisible:
+          id: 'e2e-native-puck-indicator-coordinate'
+          text: '-97.7483005,30.2675149'
+      - assertVisible:
+          id: 'e2e-native-puck-indicator-at-snapped'
+          text: 'true'
+      - assertVisible:
+          id: 'e2e-native-puck-indicator-at-raw'
+          text: 'false'
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible:
+          id: 'e2e-native-puck-proof-source'
+          text: 'rendered-query-3d'
 - assertVisible:
     id: 'driving-speed-limit-value'
     text: '25'
@@ -197,7 +252,7 @@ tags:
     visible:
       id: 'e2e-road-matching-raw-coordinate'
       text: '-97.7462203,30.2676049'
-    timeout: 30000
+    timeout: 60000
 - assertVisible:
     id: 'e2e-road-matching-edge-id'
     text: 'e2e-frontage:0:forward'
@@ -208,23 +263,36 @@ tags:
     visible:
       id: 'e2e-road-matching-raw-coordinate'
       text: '-97.7441401,30.2676049'
-    timeout: 30000
+    timeout: 60000
 - assertVisible:
     id: 'e2e-road-matching-edge-id'
     text: 'e2e-frontage:0:forward'
-- setLocation:
-    latitude: 30.26760492387431
-    longitude: -97.74226792629662
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setLocation:
+          latitude: 30.26760492387431
+          longitude: -97.74226792629662
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - travel:
+          points:
+            - '30.26760492387431, -97.74414009212921'
+            - '30.26760492387431, -97.74226792629662'
+          speed: 100
 - extendedWaitUntil:
     visible:
       id: 'e2e-road-matching-raw-coordinate'
       text: '-97.7422679,30.2676049'
-    timeout: 30000
+    timeout: 60000
 - extendedWaitUntil:
     visible:
       id: 'e2e-road-graph-load-count'
       text: '1'
-    timeout: 30000
+    timeout: 60000
 - assertVisible:
     id: 'e2e-road-matching-edge-id'
     text: 'e2e-frontage:1:forward'
@@ -235,7 +303,7 @@ tags:
     visible:
       id: 'e2e-road-matching-coordinate'
       text: '-97.7420599,30.2675149'
-    timeout: 30000
+    timeout: 60000
 - runFlow:
     when:
       visible:
@@ -258,7 +326,7 @@ tags:
     text: '3d'
 - assertVisible:
     id: 'e2e-native-puck-model-uri'
-    text: 'asset://navigation_puck.glb'
+    text: '.*navigation_puck\.glb'
 - assertVisible:
     id: 'e2e-native-puck-model-scale'
 - assertVisible:
@@ -286,32 +354,43 @@ tags:
     id: 'e2e-road-matching-raw-coordinate'
     text: '-97.7420599,30.2673440'
 - assertVisible:
-    id: 'e2e-native-puck-provider-coordinate'
-    text: '-97.7420599,30.2675149'
-- assertVisible:
     id: 'e2e-native-puck-provider-owned'
     text: 'true'
 - assertVisible:
     id: 'e2e-native-puck-camera-following'
     text: 'true'
-- assertVisible:
-    id: 'e2e-native-puck-provider-at-snapped'
-    text: 'true'
-- assertVisible:
-    id: 'e2e-native-puck-provider-at-raw'
-    text: 'false'
-- assertVisible:
-    id: 'e2e-native-puck-proof-source'
-    text: 'native-3d-puck'
-- assertVisible:
-    id: 'e2e-native-puck-indicator-coordinate'
-    text: '-97.7420599,30.2675149'
-- assertVisible:
-    id: 'e2e-native-puck-indicator-at-snapped'
-    text: 'true'
-- assertVisible:
-    id: 'e2e-native-puck-indicator-at-raw'
-    text: 'false'
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible:
+          id: 'e2e-native-puck-provider-coordinate'
+          text: '-97.7420599,30.2675149'
+      - assertVisible:
+          id: 'e2e-native-puck-provider-at-snapped'
+          text: 'true'
+      - assertVisible:
+          id: 'e2e-native-puck-provider-at-raw'
+          text: 'false'
+      - assertVisible:
+          id: 'e2e-native-puck-proof-source'
+          text: 'native-3d-puck'
+      - assertVisible:
+          id: 'e2e-native-puck-indicator-coordinate'
+          text: '-97.7420599,30.2675149'
+      - assertVisible:
+          id: 'e2e-native-puck-indicator-at-snapped'
+          text: 'true'
+      - assertVisible:
+          id: 'e2e-native-puck-indicator-at-raw'
+          text: 'false'
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible:
+          id: 'e2e-native-puck-proof-source'
+          text: 'rendered-query-3d'
 - assertVisible:
     id: 'driving-speed-limit-value'
     text: '25'

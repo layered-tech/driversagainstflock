@@ -35,6 +35,17 @@ if [[ -z "${MAESTRO_EXPO_DEV_CLIENT_URL:-}" && "${MAESTRO_PLATFORM:-}" != "ios" 
   fi
 fi
 
+if [[ "${MAESTRO_PLATFORM:-}" == "ios" && -n "${MAESTRO_EXPO_DEV_CLIENT_URL:-}" ]]; then
+  if ! maestro_expo_dev_server_url_pattern="$(
+    node -e 'const server = new URL(process.env.MAESTRO_EXPO_DEV_CLIENT_URL).searchParams.get("url"); if (!server) process.exit(1); process.stdout.write(server.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));'
+  )"; then
+    echo "Unable to derive the iOS Expo dev-server URL from MAESTRO_EXPO_DEV_CLIENT_URL." >&2
+    exit 1
+  fi
+
+  export MAESTRO_EXPO_DEV_SERVER_URL_PATTERN="$maestro_expo_dev_server_url_pattern"
+fi
+
 cleanup() {
   if [[ "${MAESTRO_PLATFORM:-}" == "ios" ]]; then
     return

@@ -75,6 +75,7 @@ export function ContributePlacementSheet({
     return (
         <NativeWindBottomSheetModal
             ref={sheetRef}
+            accessible={false}
             backgroundStyle={bottomSheetBackgroundStyle}
             enableDynamicSizing
             enableOverDrag={false}
