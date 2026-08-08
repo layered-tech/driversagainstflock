@@ -16,7 +16,6 @@ class DatabasePoiSource implements RouteAwarePoiSource
         $startedAt = microtime(true);
 
         Log::info('Database POI lookup started.', [
-            'bounds' => $bounds,
             'profile_count' => count($profiles),
         ]);
 

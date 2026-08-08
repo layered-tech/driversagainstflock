@@ -13,9 +13,7 @@ class OverpassPoiSource implements PoiSource
     public function find(array $bounds, array $profiles): array
     {
         if ($profiles === []) {
-            Log::info('Overpass POI lookup skipped because no profiles were requested.', [
-                'bounds' => $bounds,
-            ]);
+            Log::info('Overpass POI lookup skipped because no profiles were requested.');
 
             return [];
         }
@@ -24,7 +22,6 @@ class OverpassPoiSource implements PoiSource
         $query = $this->buildQuery($bounds, $profiles);
 
         Log::info('Overpass POI lookup request started.', [
-            'bounds' => $bounds,
             'profile_count' => count($profiles),
             'query_length' => strlen($query),
             'timeout_seconds' => 180,

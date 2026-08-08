@@ -6,9 +6,12 @@ use App\Models\OsmNode;
 use App\Services\Overpass\OverpassChunkStore;
 use Illuminate\Bus\PendingBatch;
 use Illuminate\Console\Command;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use MatanYadaev\EloquentSpatial\Objects\Point;
 
@@ -404,6 +407,7 @@ it('falls back to a full snapshot when an overpass diff request times out', func
 
 it('does not advance the sync cursor when a full overpass request times out', function () {
     Cache::forever(FetchOverpassDataCommand::LAST_SUCCESSFUL_SYNC_CACHE_KEY, '2026-06-10T12:00:00Z');
+    Exceptions::fake();
 
     Http::fake([
         'https://overpass.test/api/interpreter' => Http::failedConnection('cURL error 28: Operation timed out after 180001 milliseconds with 0 bytes received'),
@@ -413,11 +417,17 @@ it('does not advance the sync cursor when a full overpass request times out', fu
         ->assertExitCode(Command::FAILURE);
 
     expect(Cache::get(FetchOverpassDataCommand::LAST_SUCCESSFUL_SYNC_CACHE_KEY))->toBe('2026-06-10T12:00:00Z');
+
+    Exceptions::assertReported(fn (ConnectionException $exception): bool => str_contains(
+        $exception->getMessage(),
+        'Operation timed out',
+    ));
 });
 
 it('does not advance the sync cursor when overpass returns invalid xml', function () {
     Cache::forever(FetchOverpassDataCommand::LAST_SUCCESSFUL_SYNC_CACHE_KEY, '2026-06-10T12:00:00Z');
     $this->travelTo('2026-06-10 12:30:00');
+    Exceptions::fake();
 
     Http::fake([
         'https://overpass.test/api/interpreter' => Http::response('not xml', 200),
@@ -427,11 +437,14 @@ it('does not advance the sync cursor when overpass returns invalid xml', functio
         ->assertExitCode(Command::FAILURE);
 
     expect(Cache::get(FetchOverpassDataCommand::LAST_SUCCESSFUL_SYNC_CACHE_KEY))->toBe('2026-06-10T12:00:00Z');
+
+    Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getMessage() === 'Overpass returned invalid XML.');
 });
 
 it('does not advance the sync cursor when overpass returns an error', function () {
     Cache::forever(FetchOverpassDataCommand::LAST_SUCCESSFUL_SYNC_CACHE_KEY, '2026-06-10T12:00:00Z');
     $this->travelTo('2026-06-10 12:30:00');
+    Exceptions::fake();
 
     Http::fake([
         'https://overpass.test/api/interpreter' => Http::response('upstream error', 429),
@@ -441,4 +454,6 @@ it('does not advance the sync cursor when overpass returns an error', function (
         ->assertExitCode(Command::FAILURE);
 
     expect(Cache::get(FetchOverpassDataCommand::LAST_SUCCESSFUL_SYNC_CACHE_KEY))->toBe('2026-06-10T12:00:00Z');
+
+    Exceptions::assertReported(fn (RequestException $exception): bool => $exception->response->status() === 429);
 });

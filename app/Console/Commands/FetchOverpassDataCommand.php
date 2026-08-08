@@ -149,6 +149,7 @@ class FetchOverpassDataCommand extends Command
             if (! $response->successful()) {
                 $this->error('Failed to fetch data from Overpass API');
                 $this->error($this->responseBody($response, $responsePath));
+                report($response->toException());
 
                 return self::FAILURE;
             }
@@ -168,6 +169,7 @@ class FetchOverpassDataCommand extends Command
             } catch (RuntimeException $exception) {
                 $this->error($exception->getMessage());
                 $this->cleanupChunkImport($chunkImportId ?? null);
+                report($exception);
 
                 return self::FAILURE;
             }
@@ -313,6 +315,7 @@ OVERPASS;
 
         $this->error('Failed to fetch data from Overpass API before a response was received.');
         $this->error($exception->getMessage());
+        report($exception);
 
         return self::FAILURE;
     }

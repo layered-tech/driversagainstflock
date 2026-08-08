@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Support\NightwatchPrivacyRedactor;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
@@ -9,6 +10,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Nightwatch\Facades\Nightwatch;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 use SocialiteProviders\OpenStreetMap\Provider as OpenStreetMapProvider;
 
@@ -28,8 +30,12 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Bootstrap any application services.
      */
-    public function boot(): void
+    public function boot(NightwatchPrivacyRedactor $nightwatchPrivacyRedactor): void
     {
+        Nightwatch::redactRequests($nightwatchPrivacyRedactor->redactRequest(...));
+        Nightwatch::redactOutgoingRequests($nightwatchPrivacyRedactor->redactOutgoingRequest(...));
+        Nightwatch::redactExceptions($nightwatchPrivacyRedactor->redactException(...));
+
         Vite::prefetch(concurrency: 3);
 
         Event::listen(function (SocialiteWasCalled $event) {

@@ -23,8 +23,6 @@ class DirectionsController extends Controller
         ]);
 
         Log::info('Directions request started.', [
-            'start' => $payload['start'],
-            'end' => $payload['end'],
             'waypoint_count' => count($payload['waypoints'] ?? []),
             'profile_count' => count($payload['profile'] ?? []),
             'avoid_buffer_meters' => $payload['avoid_buffer'] ?? null,

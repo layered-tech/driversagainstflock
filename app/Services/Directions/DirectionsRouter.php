@@ -99,7 +99,6 @@ class DirectionsRouter
                 'attempt' => $attempt + 1,
                 'max_attempts' => $maxAttempts + 1,
                 'search_distance_meters' => $searchDistance,
-                'bounds' => $bounds,
             ]);
 
             $poiLookupStartedAt = microtime(true);

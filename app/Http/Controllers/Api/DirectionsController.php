@@ -32,10 +32,7 @@ class DirectionsController extends Controller
         $endLongitude = Arr::get($resultPosition, 0);
         $endLatitude = Arr::get($resultPosition, 1);
 
-        Log::info('Legacy directions request started.', [
-            'start' => ['longitude' => $startLongitude, 'latitude' => $startLatitude],
-            'end' => ['longitude' => $endLongitude, 'latitude' => $endLatitude],
-        ]);
+        Log::info('Legacy directions request started.');
 
         // OpenRouteService API configuration
         $baseRequestBody = [
