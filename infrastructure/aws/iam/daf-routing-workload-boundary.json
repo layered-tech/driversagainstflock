@@ -1,0 +1,82 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "SystemsManagerManagedInstance",
+            "Effect": "Allow",
+            "Action": [
+                "ec2messages:AcknowledgeMessage",
+                "ec2messages:DeleteMessage",
+                "ec2messages:FailMessage",
+                "ec2messages:GetEndpoint",
+                "ec2messages:GetMessages",
+                "ec2messages:SendReply",
+                "ssm:DescribeAssociation",
+                "ssm:DescribeDocument",
+                "ssm:GetDeployablePatchSnapshotForInstance",
+                "ssm:GetDocument",
+                "ssm:GetManifest",
+                "ssm:ListAssociations",
+                "ssm:ListInstanceAssociations",
+                "ssm:PutComplianceItems",
+                "ssm:PutConfigurePackageResult",
+                "ssm:PutInventory",
+                "ssm:UpdateAssociationStatus",
+                "ssm:UpdateInstanceAssociationStatus",
+                "ssm:UpdateInstanceInformation",
+                "ssmmessages:CreateControlChannel",
+                "ssmmessages:CreateDataChannel",
+                "ssmmessages:OpenControlChannel",
+                "ssmmessages:OpenDataChannel"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "ReadRoutingParameters",
+            "Effect": "Allow",
+            "Action": [
+                "ssm:GetParameter",
+                "ssm:GetParameters"
+            ],
+            "Resource": "arn:aws:ssm:us-east-1:326364278889:parameter/daf-routing/*"
+        },
+        {
+            "Sid": "ListGraphArtifacts",
+            "Effect": "Allow",
+            "Action": "s3:ListBucket",
+            "Resource": "arn:aws:s3:::daf-routing-graphs-326364278889-us-east-1"
+        },
+        {
+            "Sid": "ManageGraphArtifacts",
+            "Effect": "Allow",
+            "Action": [
+                "s3:AbortMultipartUpload",
+                "s3:GetObject",
+                "s3:ListMultipartUploadParts",
+                "s3:PutObject"
+            ],
+            "Resource": "arn:aws:s3:::daf-routing-graphs-326364278889-us-east-1/*"
+        },
+        {
+            "Sid": "WriteRoutingLogs",
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogStream",
+                "logs:DescribeLogStreams",
+                "logs:PutLogEvents"
+            ],
+            "Resource": "arn:aws:logs:us-east-1:326364278889:log-group:/daf-routing/*"
+        },
+        {
+            "Sid": "WriteRoutingMetrics",
+            "Effect": "Allow",
+            "Action": "cloudwatch:PutMetricData",
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "cloudwatch:namespace": "DAF/Routing"
+                }
+            }
+        }
+    ]
+}
