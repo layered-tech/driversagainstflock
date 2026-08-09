@@ -26,7 +26,7 @@ class FetchOverpassDataCommand extends Command
 
     public const ACTIVE_BATCH_CACHE_KEY = 'overpass:active_batch';
 
-    private const DEFAULT_CHUNK_SIZE = 500;
+    private const DEFAULT_CHUNK_SIZE = 2000;
 
     private const CONNECT_TIMEOUT_SECONDS = 15;
 
