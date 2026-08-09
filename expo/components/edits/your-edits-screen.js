@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
 import { dafSemanticColors, getDafTheme } from '../design-system/tokens';
+import { toggleNearestDrawer } from '../map/navigation';
 
 function YourEditsNodeRow({
     isMenuOpen,
@@ -265,6 +266,7 @@ function YourEditsFooterNote() {
 export default function YourEditsScreen() {
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
+    const navigation = useNavigation();
     const { isAuthenticated, openStreetMapAccessToken, user } = useAuth();
     const [errorMessage, setErrorMessage] = useState('');
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -378,9 +380,9 @@ export default function YourEditsScreen() {
         }, [isAuthenticated, loadYourEdits, reloadToken]),
     );
 
-    const handleBackPress = useCallback(() => {
-        router.back();
-    }, []);
+    const handleDrawerPress = useCallback(() => {
+        toggleNearestDrawer(navigation);
+    }, [navigation]);
 
     const handleRefresh = useCallback(() => {
         setIsRefreshing(true);
@@ -424,16 +426,16 @@ export default function YourEditsScreen() {
                 style={{ paddingTop: headerPaddingTop }}
             >
                 <Pressable
-                    accessibilityLabel="Back"
+                    accessibilityLabel="Open menu"
                     accessibilityRole="button"
                     className="h-[50px] w-[50px] items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
                     hitSlop={6}
-                    onPress={handleBackPress}
-                    testID="your-edits-back-button"
+                    onPress={handleDrawerPress}
+                    testID="your-edits-drawer-button"
                 >
                     <Icon
                         color={isDarkMode ? '#F4F7FA' : '#0B0E12'}
-                        name="chevron-left"
+                        name="menu"
                         size={20}
                     />
                 </Pressable>

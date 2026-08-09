@@ -2,13 +2,11 @@ import Constants from 'expo-constants';
 import {
     DrawerContentScrollView,
     DrawerItem,
-    DrawerItemList,
     useDrawerStatus,
 } from 'expo-router/drawer';
 import { Alert, Text, useColorScheme, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
 import { APP_ENVIRONMENT } from '../../lib/auth/constants';
-import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import {
     emitSentryTestError,
     triggerSentryNativeCrash,
@@ -16,6 +14,11 @@ import {
 import { Icon } from '../design-system/icon';
 import { SHOW_MAP_DEBUG_CONTROLS } from '../map/config';
 import { useSharedMapState } from '../map/shared-map-state';
+import {
+    getDrawerActiveRouteName,
+    HELP_AND_LEGAL_DRAWER_ITEMS,
+    PRIMARY_DRAWER_ITEMS,
+} from './app-drawer-items';
 
 const ENVIRONMENT_BADGE_COLORS = {
     development: {
@@ -35,6 +38,46 @@ const ENVIRONMENT_BADGE_COLORS = {
 const appVersion =
     Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? 'unknown';
 
+function DrawerNavigationItem({
+    activeRouteName,
+    icon,
+    isDarkMode,
+    label,
+    onPress,
+    routeName,
+    testID,
+}) {
+    const isFocused = activeRouteName === routeName;
+
+    return (
+        <DrawerItem
+            accessibilityLabel={label}
+            activeBackgroundColor={
+                isDarkMode ? 'rgba(31, 191, 107, 0.18)' : '#E6F9EF'
+            }
+            activeTintColor={isDarkMode ? '#56CF8E' : '#0F7D45'}
+            focused={isFocused}
+            icon={({ color, size }) => (
+                <Icon color={color} name={icon} size={size} />
+            )}
+            inactiveBackgroundColor="transparent"
+            inactiveTintColor={isDarkMode ? '#F5F7F9' : '#11151B'}
+            label={label}
+            labelStyle={{
+                fontSize: 15,
+                fontWeight: isFocused ? '700' : '600',
+            }}
+            onPress={onPress}
+            style={{
+                borderRadius: 10,
+                marginHorizontal: 0,
+                marginVertical: 0,
+            }}
+            testID={testID}
+        />
+    );
+}
+
 export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
     const { debugOverlayIsVisible, mapPreferencesAreLoaded } =
         useSharedMapState();
@@ -48,7 +91,6 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
     } = useAuth();
     const colorScheme = useColorScheme();
     const drawerIsOpen = useDrawerStatus() === 'open';
-    const insets = useSafeAreaInsets();
     const isDarkMode = colorScheme === 'dark';
     const drawerTintColor = isDarkMode ? '#F5F7F9' : '#11151B';
     const authButtonBackgroundColor = isDarkMode
@@ -63,6 +105,13 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
         mapPreferencesAreLoaded &&
         debugOverlayIsVisible;
     const userDisplayName = user?.name ?? user?.email;
+    const activeRouteName = getDrawerActiveRouteName(props.state);
+    const drawerAuthLabel =
+        isLoading || isSigningIn
+            ? 'Loading...'
+            : isAuthenticated
+              ? 'Logout'
+              : 'Login with OpenStreetMap';
 
     const handleAuthPress = async () => {
         if (isLoading || isSigningIn) {
@@ -75,8 +124,6 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
             } else {
                 await signInWithOpenStreetMap();
             }
-
-            props.navigation.closeDrawer();
         } catch (error) {
             Alert.alert(
                 isAuthenticated ? 'Logout failed' : 'Login failed',
@@ -130,160 +177,225 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
         props.navigation.navigate('edits', { screen: 'index' });
         props.navigation.closeDrawer();
     };
+    const handleDrawerRoutePress = (routeName) => {
+        props.navigation.navigate(routeName);
+        props.navigation.closeDrawer();
+    };
 
     return (
         <View
             className="dark:bg-daf-surface-dark flex-1 bg-white"
             testID={drawerIsOpen ? 'app-drawer-open' : undefined}
         >
-            <DrawerContentScrollView {...props}>
-                <DrawerItemList {...props} />
+            <DrawerContentScrollView
+                {...props}
+                contentContainerStyle={{ paddingBottom: 8 }}
+            >
+                <View className="px-0 pt-2.5">
+                    {PRIMARY_DRAWER_ITEMS.map((item) => (
+                        <DrawerNavigationItem
+                            activeRouteName={activeRouteName}
+                            isDarkMode={isDarkMode}
+                            key={item.routeName}
+                            onPress={() =>
+                                handleDrawerRoutePress(item.routeName)
+                            }
+                            {...item}
+                        />
+                    ))}
+                </View>
+
+                <View className="dark:bg-daf-border-dark mx-5 my-2.5 h-px bg-daf-border" />
+                <Text className="px-5 pb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-daf-text-tertiary dark:text-neutral-400">
+                    Help &amp; legal
+                </Text>
+                <View>
+                    {HELP_AND_LEGAL_DRAWER_ITEMS.map((item) => (
+                        <DrawerNavigationItem
+                            activeRouteName={activeRouteName}
+                            isDarkMode={isDarkMode}
+                            key={item.routeName}
+                            onPress={() =>
+                                handleDrawerRoutePress(item.routeName)
+                            }
+                            testID={`drawer-${item.routeName}-button`}
+                            {...item}
+                        />
+                    ))}
+                </View>
+
+                {isAuthenticated ? (
+                    <View className="mt-3">
+                        <View className="dark:bg-daf-border-dark mx-5 mb-2.5 h-px bg-daf-border" />
+                        <Text className="px-5 pb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-daf-text-tertiary dark:text-neutral-400">
+                            Your account
+                        </Text>
+                        {userDisplayName ? (
+                            <Text
+                                className="px-5 pb-2 text-sm font-semibold text-daf-text-primary dark:text-white"
+                                testID="drawer-auth-footer-user-name"
+                            >
+                                {userDisplayName}
+                            </Text>
+                        ) : null}
+                        <DrawerNavigationItem
+                            activeRouteName={activeRouteName}
+                            icon="pencil"
+                            isDarkMode={isDarkMode}
+                            label="Your Edits"
+                            onPress={handleYourEditsPress}
+                            routeName="edits"
+                            testID="drawer-your-edits-button"
+                        />
+                        <DrawerNavigationItem
+                            activeRouteName={activeRouteName}
+                            icon="log-out"
+                            isDarkMode={isDarkMode}
+                            label="Logout"
+                            onPress={handleAuthPress}
+                            routeName="logout"
+                            testID="drawer-auth-logout-button"
+                        />
+                    </View>
+                ) : null}
+
+                {showDebugDrawerAction || showSentryDebugActions ? (
+                    <View className="mt-3">
+                        <View className="dark:bg-daf-border-dark mx-5 mb-2.5 h-px bg-daf-border" />
+                        <Text className="px-5 pb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-daf-text-tertiary dark:text-neutral-400">
+                            Developer
+                        </Text>
+                        {showDebugDrawerAction ? (
+                            <DrawerItem
+                                accessibilityLabel="Open debug settings"
+                                icon={({ color, size }) => (
+                                    <Icon
+                                        color={color}
+                                        name="sliders-horizontal"
+                                        size={size}
+                                    />
+                                )}
+                                inactiveTintColor={drawerTintColor}
+                                label="Debug"
+                                labelStyle={{ fontSize: 15, fontWeight: '600' }}
+                                onPress={handleDebugPress}
+                                style={{
+                                    borderRadius: 10,
+                                    marginHorizontal: 0,
+                                    marginVertical: 0,
+                                }}
+                                testID="drawer-debug-button"
+                            />
+                        ) : null}
+
+                        {showSentryDebugActions ? (
+                            <>
+                                <DrawerItem
+                                    accessibilityLabel="Emit Sentry test error"
+                                    icon={({ color, size }) => (
+                                        <Icon
+                                            color={color}
+                                            name="bug"
+                                            size={size}
+                                        />
+                                    )}
+                                    inactiveTintColor={drawerTintColor}
+                                    label="Emit Sentry Error"
+                                    labelStyle={{
+                                        fontSize: 15,
+                                        fontWeight: '600',
+                                    }}
+                                    onPress={handleEmitSentryError}
+                                    style={{
+                                        borderRadius: 10,
+                                        marginHorizontal: 0,
+                                        marginVertical: 0,
+                                    }}
+                                    testID="drawer-debug-sentry-error-button"
+                                />
+                                <DrawerItem
+                                    accessibilityLabel="Trigger Sentry native crash"
+                                    icon={({ color, size }) => (
+                                        <Icon
+                                            color={color}
+                                            name="triangle-alert"
+                                            size={size}
+                                        />
+                                    )}
+                                    inactiveBackgroundColor="rgba(239, 68, 68, 0.12)"
+                                    inactiveTintColor={
+                                        isDarkMode ? '#fca5a5' : '#b91c1c'
+                                    }
+                                    label="Trigger Native Crash"
+                                    labelStyle={{
+                                        fontSize: 15,
+                                        fontWeight: '600',
+                                    }}
+                                    onPress={handleNativeCrashPress}
+                                    style={{
+                                        borderRadius: 10,
+                                        marginHorizontal: 0,
+                                        marginVertical: 0,
+                                    }}
+                                    testID="drawer-debug-native-crash-button"
+                                />
+                            </>
+                        ) : null}
+                    </View>
+                ) : null}
+
+                {!isAuthenticated ? (
+                    <View className="mt-3">
+                        <View className="dark:bg-daf-border-dark mx-5 mb-2.5 h-px bg-daf-border" />
+                        <DrawerItem
+                            accessibilityLabel="Login with OpenStreetMap"
+                            activeBackgroundColor={authButtonBackgroundColor}
+                            activeTintColor={drawerTintColor}
+                            icon={({ color, size }) => (
+                                <Icon color={color} name="user" size={size} />
+                            )}
+                            inactiveBackgroundColor={authButtonBackgroundColor}
+                            inactiveTintColor={drawerTintColor}
+                            label={drawerAuthLabel}
+                            labelStyle={{ fontSize: 15, fontWeight: '600' }}
+                            onPress={handleAuthPress}
+                            style={{
+                                borderRadius: 10,
+                                marginHorizontal: 0,
+                                marginVertical: 0,
+                            }}
+                            testID="drawer-auth-login-button"
+                        />
+                    </View>
+                ) : null}
             </DrawerContentScrollView>
 
             <View
-                className="px-4 pt-4"
+                className="items-center px-[22px] pt-3"
                 style={{
-                    paddingBottom: Math.max(insets.bottom, 16),
+                    paddingBottom: 16,
                 }}
             >
-                <View className="items-center justify-center gap-2 pb-4">
-                    {isAuthenticated && userDisplayName ? (
-                        <Text
-                            className="text-base font-semibold text-daf-text-primary dark:text-white"
-                            testID="drawer-auth-footer-user-name"
-                        >
-                            {userDisplayName}
-                        </Text>
-                    ) : null}
-
-                    {showEnvironmentLabel ? (
-                        <View
-                            className="rounded-full px-3 py-1"
-                            style={{
-                                backgroundColor: environmentBadge.background,
-                            }}
-                            testID="drawer-auth-footer-environment"
-                        >
-                            <Text
-                                className="text-xs font-bold uppercase"
-                                style={{ color: environmentBadge.text }}
-                            >
-                                {APP_ENVIRONMENT.toUpperCase()}
-                            </Text>
-                        </View>
-                    ) : null}
-
-                    <Text
-                        className="text-xs font-bold text-daf-text-secondary dark:text-neutral-300"
-                        testID="drawer-auth-footer-app-version"
+                {showEnvironmentLabel ? (
+                    <View
+                        className="mb-2 rounded-dafPill px-2.5 py-1"
+                        style={{ backgroundColor: environmentBadge.background }}
+                        testID="drawer-auth-footer-environment"
                     >
-                        App Version: {appVersion}
-                    </Text>
-                </View>
-
-                {showDebugDrawerAction ? (
-                    <View className="mb-3">
-                        <DrawerItem
-                            accessibilityLabel="Open debug settings"
-                            icon={({ color, size }) => (
-                                <Icon
-                                    color={color}
-                                    name="sliders-horizontal"
-                                    size={size}
-                                />
-                            )}
-                            inactiveTintColor={drawerTintColor}
-                            label="Debug"
-                            onPress={handleDebugPress}
-                            style={{ borderRadius: 8, marginHorizontal: 0 }}
-                            testID="drawer-debug-button"
-                        />
+                        <Text
+                            className="text-[11px] font-bold uppercase"
+                            style={{ color: environmentBadge.text }}
+                        >
+                            {APP_ENVIRONMENT.toUpperCase()}
+                        </Text>
                     </View>
                 ) : null}
-
-                {showSentryDebugActions ? (
-                    <View className="mb-3">
-                        <DrawerItem
-                            accessibilityLabel="Emit Sentry test error"
-                            icon={({ color, size }) => (
-                                <Icon color={color} name="bug" size={size} />
-                            )}
-                            inactiveTintColor={drawerTintColor}
-                            label="Emit Sentry Error"
-                            onPress={handleEmitSentryError}
-                            style={{ borderRadius: 8, marginHorizontal: 0 }}
-                            testID="drawer-debug-sentry-error-button"
-                        />
-                        <DrawerItem
-                            accessibilityLabel="Trigger Sentry native crash"
-                            icon={({ color, size }) => (
-                                <Icon
-                                    color={color}
-                                    name="triangle-alert"
-                                    size={size}
-                                />
-                            )}
-                            inactiveBackgroundColor="rgba(239, 68, 68, 0.12)"
-                            inactiveTintColor={
-                                isDarkMode ? '#fca5a5' : '#b91c1c'
-                            }
-                            label="Trigger Native Crash"
-                            onPress={handleNativeCrashPress}
-                            style={{ borderRadius: 8, marginHorizontal: 0 }}
-                            testID="drawer-debug-native-crash-button"
-                        />
-                    </View>
-                ) : null}
-
-                {isAuthenticated ? (
-                    <View className="mb-3">
-                        <DrawerItem
-                            accessibilityLabel="Your edits"
-                            icon={({ color, size }) => (
-                                <Icon color={color} name="pencil" size={size} />
-                            )}
-                            activeBackgroundColor={authButtonBackgroundColor}
-                            activeTintColor={drawerTintColor}
-                            inactiveBackgroundColor={authButtonBackgroundColor}
-                            inactiveTintColor={drawerTintColor}
-                            label="Your edits"
-                            onPress={handleYourEditsPress}
-                            style={{ borderRadius: 8, marginHorizontal: 0 }}
-                            testID="drawer-your-edits-button"
-                        />
-                    </View>
-                ) : null}
-
-                <DrawerItem
-                    accessibilityLabel={
-                        isAuthenticated ? 'Logout' : 'Login with OpenStreetMap'
-                    }
-                    icon={({ color, size }) => (
-                        <Icon
-                            color={color}
-                            name={isAuthenticated ? 'log-out' : 'user'}
-                            size={size}
-                        />
-                    )}
-                    activeBackgroundColor={authButtonBackgroundColor}
-                    activeTintColor={drawerTintColor}
-                    inactiveBackgroundColor={authButtonBackgroundColor}
-                    inactiveTintColor={drawerTintColor}
-                    label={
-                        isLoading || isSigningIn
-                            ? 'Loading...'
-                            : isAuthenticated
-                              ? 'Logout'
-                              : 'Login with OpenStreetMap'
-                    }
-                    onPress={handleAuthPress}
-                    style={{ borderRadius: 8, marginHorizontal: 0 }}
-                    testID={
-                        isAuthenticated
-                            ? 'drawer-auth-logout-button'
-                            : 'drawer-auth-login-button'
-                    }
-                />
+                <Text
+                    className="font-dafMono text-center text-[11px] text-daf-text-tertiary dark:text-neutral-400"
+                    testID="drawer-auth-footer-app-version"
+                >
+                    {appVersion}
+                </Text>
             </View>
         </View>
     );

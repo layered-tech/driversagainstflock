@@ -36,7 +36,7 @@
     "e2e:ios": "MAESTRO_PLATFORM=ios ./scripts/maestro-test.sh .maestro",
     "e2e-reset": "./scripts/reset-android-location.sh",
     "test": "npm run test:unit",
-    "test:unit": "node --test lib/osm/__tests__/*.test.mjs components/map/__tests__/*.test.mjs scripts/__tests__/*.test.mjs"
+    "test:unit": "node --test lib/osm/__tests__/*.test.mjs components/information/__tests__/*.test.mjs components/map/__tests__/*.test.mjs scripts/__tests__/*.test.mjs"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.2.0",

@@ -6,7 +6,10 @@ import { Drawer } from 'expo-router/drawer';
 import { useCallback, useEffect, useState } from 'react';
 import { useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import {
+    initialWindowMetrics,
+    SafeAreaProvider,
+} from 'react-native-safe-area-context';
 import { ContributeProvider } from '../components/contribute/contribute-state';
 import { Icon } from '../components/design-system/icon';
 import { SharedMapStateProvider } from '../components/map/shared-map-state';
@@ -58,7 +61,7 @@ function RootLayout() {
 
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
-            <SafeAreaProvider>
+            <SafeAreaProvider initialMetrics={initialWindowMetrics}>
                 <BottomSheetModalProvider>
                     <AuthProvider>
                         <AuthCallbackHandler />
@@ -84,11 +87,12 @@ function RootLayout() {
                                                 ? '#F5F7F9'
                                                 : '#11151B',
                                             drawerItemStyle: {
-                                                borderRadius: 8,
+                                                borderRadius: 10,
                                             },
                                             drawerStyle: {
                                                 backgroundColor:
                                                     systemBarBackground,
+                                                width: 308,
                                             },
                                             headerShown: false,
                                             sceneStyle: {
@@ -129,6 +133,91 @@ function RootLayout() {
                                                     />
                                                 ),
                                                 title: 'Hotlist',
+                                            }}
+                                        />
+                                        <Drawer.Screen
+                                            name="faqs"
+                                            options={{
+                                                drawerLabel: 'FAQ',
+                                                drawerIcon: ({
+                                                    color,
+                                                    size,
+                                                }) => (
+                                                    <Icon
+                                                        color={color}
+                                                        name="info"
+                                                        size={size}
+                                                    />
+                                                ),
+                                                title: 'FAQ',
+                                            }}
+                                        />
+                                        <Drawer.Screen
+                                            name="contribute-to-daf"
+                                            options={{
+                                                drawerLabel: 'Support Us',
+                                                drawerIcon: ({
+                                                    color,
+                                                    size,
+                                                }) => (
+                                                    <Icon
+                                                        color={color}
+                                                        name="coffee"
+                                                        size={size}
+                                                    />
+                                                ),
+                                                title: 'Support Us',
+                                            }}
+                                        />
+                                        <Drawer.Screen
+                                            name="privacy-policy"
+                                            options={{
+                                                drawerLabel: 'Privacy Policy',
+                                                drawerIcon: ({
+                                                    color,
+                                                    size,
+                                                }) => (
+                                                    <Icon
+                                                        color={color}
+                                                        name="shield-check"
+                                                        size={size}
+                                                    />
+                                                ),
+                                                title: 'Privacy Policy',
+                                            }}
+                                        />
+                                        <Drawer.Screen
+                                            name="terms-of-use"
+                                            options={{
+                                                drawerLabel: 'Terms of Use',
+                                                drawerIcon: ({
+                                                    color,
+                                                    size,
+                                                }) => (
+                                                    <Icon
+                                                        color={color}
+                                                        name="flag"
+                                                        size={size}
+                                                    />
+                                                ),
+                                                title: 'Terms of Use',
+                                            }}
+                                        />
+                                        <Drawer.Screen
+                                            name="about-and-legal"
+                                            options={{
+                                                drawerLabel: 'About & Legal',
+                                                drawerIcon: ({
+                                                    color,
+                                                    size,
+                                                }) => (
+                                                    <Icon
+                                                        color={color}
+                                                        name="info"
+                                                        size={size}
+                                                    />
+                                                ),
+                                                title: 'About & Legal',
                                             }}
                                         />
                                         <Drawer.Screen
