@@ -9,14 +9,14 @@ tags:
     latitude: 30.2672
     longitude: -97.7431
 - launchApp:
+    clearState: true
     stopApp: true
     permissions:
       all: allow
 - runFlow:
     when:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
-    commands:
-      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+    file: subflows/open-expo-dev-client-after-clear.yml
 - waitForAnimationToEnd
 - runFlow:
     when:
@@ -108,12 +108,12 @@ tags:
     visible:
       id: 'driving-speed-limit-sign'
     timeout: 30000
-- assertVisible:
+- copyTextFrom:
     id: 'driving-speed-limit-value'
-    text: '35'
+- assertTrue: ${maestro.copiedText == '35'}
 - assertVisible:
     id: 'driving-speed-limit-sign-current-speed'
-- assertVisible:
+- copyTextFrom:
     id: 'driving-speed-limit-sign-current-speed-value'
-    text: '41'
+- assertTrue: ${maestro.copiedText == '41'}
 - takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-speed-limit-badge-35-over-41'}

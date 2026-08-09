@@ -14,24 +14,8 @@ tags:
       all: allow
 - runFlow:
     when:
-      platform: Android
-    commands:
-      - extendedWaitUntil:
-          visible: 'New development server'
-          timeout: 15000
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - extendedWaitUntil:
-          visible: 'Enter URL manually'
-          timeout: 15000
-- waitForAnimationToEnd
-- runFlow:
-    when:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
-    commands:
-      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+    file: subflows/open-expo-dev-client-after-clear.yml
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'

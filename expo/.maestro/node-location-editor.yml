@@ -13,11 +13,6 @@ tags:
     stopApp: true
     permissions:
       all: allow
-- runFlow:
-    when:
-      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
-    commands:
-      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'

@@ -1387,6 +1387,41 @@ index a93a165..ee302b5 100644
          disconnect()
  
          HybridAutoPlay.emit(event: .diddisconnect)
+diff --git a/node_modules/@iternio/react-native-auto-play/ios/scenes/WindowApplicationSceneDelegate.swift b/node_modules/@iternio/react-native-auto-play/ios/scenes/WindowApplicationSceneDelegate.swift
+--- a/node_modules/@iternio/react-native-auto-play/ios/scenes/WindowApplicationSceneDelegate.swift
++++ b/node_modules/@iternio/react-native-auto-play/ios/scenes/WindowApplicationSceneDelegate.swift
+@@ -34,4 +34,6 @@ class WindowApplicationSceneDelegate: UIResponder, UIWindowSceneDelegate {
+         if let url = connectionOptions.urlContexts.first?.url {
+             // Linking API -> on app start
+-            NitroLinkingManager.shared().launchURL = url
++            if !openExpoDevelopmentClient(url) {
++                NitroLinkingManager.shared().launchURL = url
++            }
+         }
+@@ -51,7 +53,22 @@ class WindowApplicationSceneDelegate: UIResponder, UIWindowSceneDelegate {
+     ) {
+         // Linking API -> app already running
+         guard let urlContext = URLContexts.first else { return }
++
++        if openExpoDevelopmentClient(urlContext.url) {
++            return
++        }
++
+         NitroLinkingManager.shared().openURL(urlContext)
+     }
+-
++
++    private func openExpoDevelopmentClient(_ url: URL) -> Bool {
++        guard url.host == "expo-development-client" else { return false }
++
++        return UIApplication.shared.delegate?.application?(
++            UIApplication.shared,
++            open: url,
++            options: [:]
++        ) ?? false
++    }
++
+     func scene(
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift
 index 8930590..dce2b56 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift

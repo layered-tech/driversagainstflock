@@ -11,11 +11,6 @@ tags:
     stopApp: true
     permissions:
       all: allow
-- runFlow:
-    when:
-      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
-    commands:
-      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
 - tapOn:
     text: 'Close drawer'
     optional: true

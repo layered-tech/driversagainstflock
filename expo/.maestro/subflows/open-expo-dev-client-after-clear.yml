@@ -1,0 +1,12 @@
+appId: com.anonymous.drivefree.dev
+---
+- extendedWaitUntil:
+    visible: '(Development Build|Enter URL manually|New development server)'
+    timeout: 15000
+- openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: '(Development Build|Enter URL manually|New development server)'
+    commands:
+      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}

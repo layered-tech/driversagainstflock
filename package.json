@@ -24,7 +24,9 @@
         "ios:no-bundler": "cd expo && npx expo run:ios --no-bundler --device",
         "start:metro": "cd expo && npx expo start --dev-client",
         "e2e": "cd expo && ./scripts/maestro-test.sh .maestro",
+        "e2e:android": "cd expo && MAESTRO_PLATFORM=android ./scripts/maestro-test.sh .maestro",
         "e2e:android-auto": "cd expo && ./scripts/android-auto-e2e.sh",
+        "e2e:ios": "cd expo && MAESTRO_PLATFORM=ios ./scripts/maestro-test.sh .maestro",
         "node:test": "cd expo && npm test"
     },
     "devDependencies": {

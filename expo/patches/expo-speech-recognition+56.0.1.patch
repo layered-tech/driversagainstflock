@@ -1,0 +1,28 @@
+diff --git a/node_modules/expo-speech-recognition/ios/ExpoSpeechRecognitionModule.swift b/node_modules/expo-speech-recognition/ios/ExpoSpeechRecognitionModule.swift
+index daec776..f86a3f2 100644
+--- a/node_modules/expo-speech-recognition/ios/ExpoSpeechRecognitionModule.swift
++++ b/node_modules/expo-speech-recognition/ios/ExpoSpeechRecognitionModule.swift
+@@ -108,11 +108,18 @@ public class ExpoSpeechRecognitionModule: Module {
+       guard let permissionsManager = appContext?.permissions else {
+         return
+       }
+-      permissionsManager.register([
+-        EXSpeechRecognitionPermissionRequester(),
+-        MicrophoneRequester(),
+-        SpeechRecognizerRequester(),
+-      ])
++      let registerPermissionRequesters = {
++        permissionsManager.register([
++          EXSpeechRecognitionPermissionRequester(),
++          MicrophoneRequester(),
++          SpeechRecognizerRequester(),
++        ])
++      }
++      if Thread.isMainThread {
++        registerPermissionRequesters()
++      } else {
++        DispatchQueue.main.sync(execute: registerPermissionRequesters)
++      }
+     }
+ 
+     AsyncFunction("requestPermissionsAsync") { (promise: Promise) in
