@@ -2,6 +2,7 @@
 
 namespace App\Services\Directions;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -46,13 +47,13 @@ class OpenRouteServiceClient
             'has_exclusion_zone' => $hasExclusionZone,
             'avoid_polygon_count' => count($exclusionZone['coordinates'] ?? []),
             'continue_straight' => $continueStraight,
-            'timeout_seconds' => 30,
+            'timeout_seconds' => 45,
         ]);
 
         try {
             $response = Http::accept('application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8')
                 ->withHeaders($headers)
-                ->timeout(30)
+                ->timeout(45)
                 ->retry(3, 200, throw: false)
                 ->post(self::DIRECTIONS_ENDPOINT, $body);
         } catch (Throwable $exception) {
@@ -61,6 +62,10 @@ class OpenRouteServiceClient
                 'elapsed_ms' => $this->elapsedMilliseconds($startedAt),
                 'exception' => $exception,
             ]);
+
+            if ($exception instanceof ConnectionException) {
+                throw DirectionsException::upstream('OpenRouteService could not be reached.');
+            }
 
             throw $exception;
         }

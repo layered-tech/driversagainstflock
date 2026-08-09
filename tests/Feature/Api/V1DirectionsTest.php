@@ -399,6 +399,19 @@ it('maps ors route errors to client-safe failures', function () {
         ->assertJsonPath('error', 'Route could not be found.');
 });
 
+it('maps ors connection failures to client-safe upstream failures', function () {
+    Http::fake([
+        'https://api.heigit.org/*' => Http::failedConnection('Connection timed out.'),
+    ]);
+
+    $this->postJson('/api/v1/directions', directionsRequestPayload([
+        'profile' => [],
+    ]))
+        ->assertStatus(502)
+        ->assertJsonPath('ok', false)
+        ->assertJsonPath('error', 'OpenRouteService could not be reached.');
+});
+
 it('logs when directions returns an upstream failure', function () {
     Log::spy();
 
