@@ -16,31 +16,6 @@ tags:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
     commands:
       - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
-- runFlow:
-    when:
-      visible: 'http://10.0.2.2:8081'
-    commands:
-      - tapOn: 'http://10.0.2.2:8081'
-- extendedWaitUntil:
-    visible: 'Continue'
-    timeout: 10000
-    optional: true
-- runFlow:
-    when:
-      visible: 'Continue'
-    commands:
-      - tapOn: 'Continue'
-- extendedWaitUntil:
-    visible: 'Close'
-    timeout: 10000
-    optional: true
-- runFlow:
-    when:
-      visible: 'Close'
-    commands:
-      - tapOn:
-          text: 'Close'
-          optional: true
 - tapOn:
     id: 'driving-cancel-route-button'
     optional: true

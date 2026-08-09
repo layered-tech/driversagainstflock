@@ -1350,6 +1350,7 @@ export const MapCanvas = memo(function MapCanvas() {
             {directionsRouteIsVisible ? (
                 <Mapbox.ShapeSource
                     id="directions-route-source"
+                    key={`directions-route-source-${locationPuckMapLoadEpoch}`}
                     shape={directionsRouteFeatureCollection}
                 >
                     <Mapbox.LineLayer
@@ -1514,13 +1515,20 @@ export const MapCanvas = memo(function MapCanvas() {
                 </Mapbox.ShapeSource>
             ) : null}
             {surveillanceMarkersVisible && cameraConesVisible ? (
-                <MarkerConeImages />
+                <MarkerConeImages
+                    key={`marker-cone-images-${locationPuckMapLoadEpoch}`}
+                />
             ) : null}
-            {surveillanceMarkersVisible ? <AlprMarkerImages /> : null}
+            {surveillanceMarkersVisible ? (
+                <AlprMarkerImages
+                    key={`alpr-marker-images-${locationPuckMapLoadEpoch}`}
+                />
+            ) : null}
             {policeAlertsAreVisible ? <PoliceAlertImages /> : null}
             {surveillanceMarkersVisible && markerClustersEnabled ? (
                 <Mapbox.ShapeSource
                     id={markerClusteredSourceID}
+                    key={`${markerClusteredSourceID}-${locationPuckMapLoadEpoch}`}
                     ref={markerShapeSourceRef}
                     cluster
                     clusterMaxZoomLevel={MARKER_CLUSTER_MAX_ZOOM_LEVEL}
@@ -1558,6 +1566,7 @@ export const MapCanvas = memo(function MapCanvas() {
             {surveillanceMarkersVisible && !markerClustersEnabled ? (
                 <Mapbox.ShapeSource
                     id={markerUnclusteredSourceID}
+                    key={`${markerUnclusteredSourceID}-${locationPuckMapLoadEpoch}`}
                     hitbox={{ height: 48, width: 48 }}
                     onPress={handleMarkerSourcePress}
                     shape={markerFeatureCollection}

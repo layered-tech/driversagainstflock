@@ -162,6 +162,49 @@ describe('persisted shared routing state', () => {
     });
 });
 
+describe('shared route geometry synchronization', () => {
+    test('publishes internal geometry changes with stable endpoints', () => {
+        const { sharedRoutingState } = createSharedRoutingStateHarness({
+            readPersistedState: async () => null,
+        });
+        const firstRoute = {
+            destination: { id: 'destination-1' },
+            requestedAt: 1_000,
+            routeOptions: [
+                {
+                    coordinates: [
+                        [-97.75, 30.26],
+                        [-97.74, 30.27],
+                        [-97.73, 30.28],
+                    ],
+                    distance: 1_000,
+                    duration: 100,
+                    routeKey: 'direct',
+                },
+            ],
+            selectedRouteKey: 'direct',
+        };
+        const correctedRoute = {
+            ...firstRoute,
+            routeOptions: [
+                {
+                    ...firstRoute.routeOptions[0],
+                    coordinates: [
+                        firstRoute.routeOptions[0].coordinates[0],
+                        [-97.745, 30.275],
+                        firstRoute.routeOptions[0].coordinates[2],
+                    ],
+                },
+            ],
+        };
+
+        assert.notEqual(
+            sharedRoutingState.getDirectionsRouteSyncKey(firstRoute),
+            sharedRoutingState.getDirectionsRouteSyncKey(correctedRoute),
+        );
+    });
+});
+
 describe('background routing state resolution', () => {
     test('uses live state without reading persistence', async () => {
         let readCount = 0;

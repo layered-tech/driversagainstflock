@@ -33,6 +33,7 @@ const sharedRoutingStatePersistenceScheduler =
                 serializedState,
             ),
     });
+const routeCoordinatesSyncKeyCache = new WeakMap();
 const resolveBackgroundRoutingState = createBackgroundRoutingStateResolver({
     getLiveState: () => sharedRoutingState,
     hasLiveState: () => liveRoutingStateHasBeenSet,
@@ -56,15 +57,40 @@ function getCoordinateSyncKey(coordinate) {
         .join(',');
 }
 
+function getRouteCoordinatesSyncKey(coordinates) {
+    if (!Array.isArray(coordinates)) {
+        return '';
+    }
+
+    const cachedKey = routeCoordinatesSyncKeyCache.get(coordinates);
+
+    if (cachedKey) {
+        return cachedKey;
+    }
+
+    let hash = 2166136261;
+
+    coordinates.forEach((coordinate) => {
+        const coordinateKey = `${getCoordinateSyncKey(coordinate)};`;
+
+        for (let index = 0; index < coordinateKey.length; index += 1) {
+            hash = Math.imul(hash ^ coordinateKey.charCodeAt(index), 16777619);
+        }
+    });
+
+    const key = `${coordinates.length}:${(hash >>> 0).toString(36)}`;
+
+    routeCoordinatesSyncKeyCache.set(coordinates, key);
+
+    return key;
+}
+
 export function getDirectionsRouteSyncKey(route) {
     if (!route) {
         return '';
     }
 
     const routeOption = getSelectedDirectionsRouteOption(route);
-    const firstCoordinate = routeOption?.coordinates?.[0];
-    const lastCoordinate =
-        routeOption?.coordinates?.[routeOption.coordinates.length - 1];
 
     return [
         route.requestedAt ?? '',
@@ -82,8 +108,7 @@ export function getDirectionsRouteSyncKey(route) {
         routeOption?.distance ?? '',
         routeOption?.duration ?? '',
         routeOption?.coordinates?.length ?? '',
-        getCoordinateSyncKey(firstCoordinate),
-        getCoordinateSyncKey(lastCoordinate),
+        getRouteCoordinatesSyncKey(routeOption?.coordinates),
     ].join('|');
 }
 

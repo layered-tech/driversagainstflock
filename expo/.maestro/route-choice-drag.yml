@@ -16,28 +16,6 @@ tags:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
     commands:
       - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
-- extendedWaitUntil:
-    visible: 'Continue'
-    timeout: 10000
-    optional: true
-- runFlow:
-    when:
-      visible: 'Continue'
-    commands:
-      - tapOn:
-          text: 'Continue'
-          retryTapIfNoChange: false
-- extendedWaitUntil:
-    visible: 'Close'
-    timeout: 10000
-    optional: true
-- runFlow:
-    when:
-      visible: 'Close'
-    commands:
-      - tapOn:
-          text: 'Close'
-          retryTapIfNoChange: false
 - runFlow:
     when:
       visible: 'Reload'

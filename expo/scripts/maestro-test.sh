@@ -31,19 +31,8 @@ if [[ -z "${MAESTRO_EXPO_DEV_CLIENT_URL:-}" && "${MAESTRO_PLATFORM:-}" != "ios" 
   fi
 
   if [[ "$android_device_is_available" == true ]]; then
-    export MAESTRO_EXPO_DEV_CLIENT_URL='exp+driversagainstflock://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081'
+    export MAESTRO_EXPO_DEV_CLIENT_URL='exp+driversagainstflock://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081%3FdisableOnboarding%3D1'
   fi
-fi
-
-if [[ "${MAESTRO_PLATFORM:-}" == "ios" && -n "${MAESTRO_EXPO_DEV_CLIENT_URL:-}" ]]; then
-  if ! maestro_expo_dev_server_url_pattern="$(
-    node -e 'const server = new URL(process.env.MAESTRO_EXPO_DEV_CLIENT_URL).searchParams.get("url"); if (!server) process.exit(1); process.stdout.write(server.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));'
-  )"; then
-    echo "Unable to derive the iOS Expo dev-server URL from MAESTRO_EXPO_DEV_CLIENT_URL." >&2
-    exit 1
-  fi
-
-  export MAESTRO_EXPO_DEV_SERVER_URL_PATTERN="$maestro_expo_dev_server_url_pattern"
 fi
 
 cleanup() {
