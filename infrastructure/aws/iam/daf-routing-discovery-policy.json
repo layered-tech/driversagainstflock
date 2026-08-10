@@ -5,6 +5,7 @@
             "Sid": "ReadRoutingDiscovery",
             "Effect": "Allow",
             "Action": [
+                "ce:ListCostAllocationTags",
                 "ec2:Describe*",
                 "ec2:GetEbsDefaultKmsKeyId",
                 "ec2:GetEbsEncryptionByDefault",
