@@ -1,4 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+    getPrivateCacheItem,
+    setPrivateCacheItem,
+} from '../../lib/private-cache-storage';
 import { BACKGROUND_ALERT_STORAGE_TIMEOUT_MS } from './background-alert-budget';
 import { getSelectedDirectionsRouteOption } from './directions';
 import { createMapPreferencesPersistenceScheduler } from './map-preferences-persistence';
@@ -25,16 +28,17 @@ const sharedRoutingStateListeners = new Set();
 const sharedRoutingStatePersistenceScheduler =
     createMapPreferencesPersistenceScheduler({
         write: (serializedState) =>
-            AsyncStorage.setItem(
+            setPrivateCacheItem(
                 SHARED_ROUTING_STATE_STORAGE_KEY,
                 serializedState,
             ),
     });
+const routeCoordinatesSyncKeyCache = new WeakMap();
 const resolveBackgroundRoutingState = createBackgroundRoutingStateResolver({
     getLiveState: () => sharedRoutingState,
     hasLiveState: () => liveRoutingStateHasBeenSet,
     readPersistedState: () =>
-        AsyncStorage.getItem(SHARED_ROUTING_STATE_STORAGE_KEY),
+        getPrivateCacheItem(SHARED_ROUTING_STATE_STORAGE_KEY),
     readTimeoutMs: BACKGROUND_ALERT_STORAGE_TIMEOUT_MS,
 });
 
@@ -53,15 +57,40 @@ function getCoordinateSyncKey(coordinate) {
         .join(',');
 }
 
+function getRouteCoordinatesSyncKey(coordinates) {
+    if (!Array.isArray(coordinates)) {
+        return '';
+    }
+
+    const cachedKey = routeCoordinatesSyncKeyCache.get(coordinates);
+
+    if (cachedKey) {
+        return cachedKey;
+    }
+
+    let hash = 2166136261;
+
+    coordinates.forEach((coordinate) => {
+        const coordinateKey = `${getCoordinateSyncKey(coordinate)};`;
+
+        for (let index = 0; index < coordinateKey.length; index += 1) {
+            hash = Math.imul(hash ^ coordinateKey.charCodeAt(index), 16777619);
+        }
+    });
+
+    const key = `${coordinates.length}:${(hash >>> 0).toString(36)}`;
+
+    routeCoordinatesSyncKeyCache.set(coordinates, key);
+
+    return key;
+}
+
 export function getDirectionsRouteSyncKey(route) {
     if (!route) {
         return '';
     }
 
     const routeOption = getSelectedDirectionsRouteOption(route);
-    const firstCoordinate = routeOption?.coordinates?.[0];
-    const lastCoordinate =
-        routeOption?.coordinates?.[routeOption.coordinates.length - 1];
 
     return [
         route.requestedAt ?? '',
@@ -79,8 +108,7 @@ export function getDirectionsRouteSyncKey(route) {
         routeOption?.distance ?? '',
         routeOption?.duration ?? '',
         routeOption?.coordinates?.length ?? '',
-        getCoordinateSyncKey(firstCoordinate),
-        getCoordinateSyncKey(lastCoordinate),
+        getRouteCoordinatesSyncKey(routeOption?.coordinates),
     ].join('|');
 }
 
@@ -118,7 +146,7 @@ function readPersistedSharedRoutingStateAsync() {
     }
 
     const storageRead = Promise.resolve()
-        .then(() => AsyncStorage.getItem(SHARED_ROUTING_STATE_STORAGE_KEY))
+        .then(() => getPrivateCacheItem(SHARED_ROUTING_STATE_STORAGE_KEY))
         .then((serializedState) => {
             sharedRoutingStateStorageReadHasCompleted = true;
 

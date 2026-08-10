@@ -18,10 +18,6 @@ import {
 import Svg, { Circle, Path } from 'react-native-svg';
 import { ContributeDraftPinMarkers } from '../contribute/contribute-draft-pin-markers';
 import {
-    getMockMarkerPointsSnapshot,
-    mapApiMocksAreEnabled,
-} from './api-mocks';
-import {
     MAPBOX_ACCESS_TOKEN,
     MAPBOX_STANDARD_LIGHT_PRESET_DUSK,
     MAPBOX_STANDARD_LIGHT_PRESET_NIGHT,
@@ -63,7 +59,6 @@ import {
     DIRECTIONS_DEBUG_SEARCH_ZONE,
 } from './directions';
 import { DrivingLocationProvider } from './driving-location-provider';
-import { getMarkerCoordinate } from './geo';
 import {
     applyLocationPuck3DAsync,
     clearLocationPuck3DAsync,
@@ -95,7 +90,6 @@ import {
 } from './map-assets';
 import { getMapLayerSlots } from './map-layer-slots';
 import {
-    E2EMarkerTapTarget,
     getCoordinateKey,
     RouteWaypointMarker,
     SubmittedSearchResultMarker,
@@ -516,29 +510,6 @@ function renderMarkerPointLayers({
     ];
 }
 
-function makeE2EMarkerTapTargetFeature(marker, index) {
-    const coordinate = getMarkerCoordinate(marker);
-
-    if (!coordinate) {
-        return null;
-    }
-
-    const markerId = marker?.properties?.id ?? marker?.id ?? `marker-${index}`;
-
-    return {
-        type: 'Feature',
-        id: markerId,
-        geometry: {
-            type: 'Point',
-            coordinates: coordinate,
-        },
-        properties: {
-            ...(marker?.properties ?? {}),
-            markerId: String(markerId),
-        },
-    };
-}
-
 export const MapCanvas = memo(function MapCanvas() {
     const {
         handleCameraChanged,
@@ -614,13 +585,6 @@ export const MapCanvas = memo(function MapCanvas() {
             getCoordinateKey(selectedPlaceCoordinate),
         ),
     );
-    const e2eMarkerTapTargetsAreEnabled =
-        e2eMapApiMocksEnabled || mapApiMocksAreEnabled();
-    const e2eMarkerTapTargetFeatures = e2eMarkerTapTargetsAreEnabled
-        ? getMockMarkerPointsSnapshot()
-              .map(makeE2EMarkerTapTargetFeature)
-              .filter(Boolean)
-        : [];
     const styleImportConfig = useMemo(
         () => ({
             ...MAPBOX_STANDARD_DRIVING_BASEMAP_CONFIG,
@@ -897,8 +861,20 @@ export const MapCanvas = memo(function MapCanvas() {
         (event) => {
             handleMapLoaded(event);
             refreshLocationPuckAfterMapAttachment();
+
+            if (
+                typeof __DEV__ !== 'undefined' &&
+                __DEV__ &&
+                resolvedNavigationPuckVariant === 'auto-play'
+            ) {
+                console.log('[Android Auto] map-loaded');
+            }
         },
-        [handleMapLoaded, refreshLocationPuckAfterMapAttachment],
+        [
+            handleMapLoaded,
+            refreshLocationPuckAfterMapAttachment,
+            resolvedNavigationPuckVariant,
+        ],
     );
     const requestLocationPuckCameraFollow = useCallback(
         ({ cameraIsPrepared = false } = {}) =>
@@ -1374,6 +1350,7 @@ export const MapCanvas = memo(function MapCanvas() {
             {directionsRouteIsVisible ? (
                 <Mapbox.ShapeSource
                     id="directions-route-source"
+                    key={`directions-route-source-${locationPuckMapLoadEpoch}`}
                     shape={directionsRouteFeatureCollection}
                 >
                     <Mapbox.LineLayer
@@ -1538,13 +1515,20 @@ export const MapCanvas = memo(function MapCanvas() {
                 </Mapbox.ShapeSource>
             ) : null}
             {surveillanceMarkersVisible && cameraConesVisible ? (
-                <MarkerConeImages />
+                <MarkerConeImages
+                    key={`marker-cone-images-${locationPuckMapLoadEpoch}`}
+                />
             ) : null}
-            {surveillanceMarkersVisible ? <AlprMarkerImages /> : null}
+            {surveillanceMarkersVisible ? (
+                <AlprMarkerImages
+                    key={`alpr-marker-images-${locationPuckMapLoadEpoch}`}
+                />
+            ) : null}
             {policeAlertsAreVisible ? <PoliceAlertImages /> : null}
             {surveillanceMarkersVisible && markerClustersEnabled ? (
                 <Mapbox.ShapeSource
                     id={markerClusteredSourceID}
+                    key={`${markerClusteredSourceID}-${locationPuckMapLoadEpoch}`}
                     ref={markerShapeSourceRef}
                     cluster
                     clusterMaxZoomLevel={MARKER_CLUSTER_MAX_ZOOM_LEVEL}
@@ -1582,6 +1566,7 @@ export const MapCanvas = memo(function MapCanvas() {
             {surveillanceMarkersVisible && !markerClustersEnabled ? (
                 <Mapbox.ShapeSource
                     id={markerUnclusteredSourceID}
+                    key={`${markerUnclusteredSourceID}-${locationPuckMapLoadEpoch}`}
                     hitbox={{ height: 48, width: 48 }}
                     onPress={handleMarkerSourcePress}
                     shape={markerFeatureCollection}
@@ -1664,16 +1649,6 @@ export const MapCanvas = memo(function MapCanvas() {
                     ) : null}
                 </>
             ) : null}
-            {surveillanceMarkersVisible
-                ? e2eMarkerTapTargetFeatures.map((feature, index) => (
-                      <E2EMarkerTapTarget
-                          key={`e2e-marker-${feature.id ?? index}`}
-                          feature={feature}
-                          index={index}
-                          onPress={handleMarkerSourcePress}
-                      />
-                  ))
-                : null}
             {(submittedSearchResults ?? []).map((result, index) => (
                 <SubmittedSearchResultMarker
                     key={`submitted-search-result-${result.id}-${index}`}

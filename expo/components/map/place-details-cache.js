@@ -1,4 +1,8 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+    getPrivateCacheItem,
+    removePrivateCacheItem,
+    setPrivateCacheItem,
+} from '../../lib/private-cache-storage';
 import { normalizePlaceDetails } from './place-formatters';
 
 export const PLACE_DETAILS_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -51,11 +55,11 @@ export async function getCachedPlaceDetails(placeId) {
         return null;
     }
 
-    const storedValue = await AsyncStorage.getItem(cacheKey);
+    const storedValue = await getPrivateCacheItem(cacheKey);
     const place = readCacheItem(storedValue, Date.now());
 
     if (!place && storedValue) {
-        AsyncStorage.removeItem(cacheKey).catch(() => {});
+        removePrivateCacheItem(cacheKey).catch(() => {});
     }
 
     return place;
@@ -71,7 +75,7 @@ export async function setCachedPlaceDetails(placeId, place) {
 
     const cachedAt = Date.now();
 
-    await AsyncStorage.setItem(
+    await setPrivateCacheItem(
         cacheKey,
         JSON.stringify({
             cachedAt,

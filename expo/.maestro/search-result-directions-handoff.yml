@@ -11,89 +11,140 @@ tags:
     stopApp: true
     permissions:
       all: allow
-- runFlow:
-    when:
-      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
-    commands:
-      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
 - extendedWaitUntil:
     visible:
-      id: "map-search-input-map"
+      id: 'map-search-input-map'
     timeout: 30000
-- openLink: "driversagainstflock://e2e-mocks"
+- openLink: 'driversagainstflock://e2e-mocks'
 - extendedWaitUntil:
     visible:
-      id: "map-search-input-map"
+      id: 'map-search-input-map'
     timeout: 10000
 - setLocation:
     latitude: 30.2672
     longitude: -97.7431
 
 - tapOn:
-    id: "map-search-input-map"
-- inputText: "Barton Springs Pool"
+    id: 'map-search-input-map'
+- inputText: 'Barton Springs Pool'
 - extendedWaitUntil:
     visible:
-      id: "map-search-result-0-map"
+      id: 'map-search-result-0-map'
     timeout: 30000
+- assertNotVisible:
+    id: 'selected-place-sheet-presented'
 - tapOn:
-    id: "map-search-result-0-map"
+    id: 'map-search-result-0-map'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: "selected-place-get-directions-button"
-      enabled: true
+      id: 'selected-place-sheet-presented'
     timeout: 30000
+- assertVisible:
+    id: 'selected-place-get-directions-button'
+    enabled: true
+- assertNotVisible:
+    id: 'directions-route-sheet-presented'
 - tapOn:
-    id: "selected-place-get-directions-button"
+    id: 'selected-place-get-directions-button'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: "directions-route-start-driving-button"
+      id: 'directions-route-sheet-presented'
     timeout: 60000
-- assertVisible:
-    id: "directions-route-option-direct"
-- assertVisible:
-    id: "directions-route-option-ideal"
-- tapOn:
-    id: "directions-route-back-button"
-    retryTapIfNoChange: true
 - extendedWaitUntil:
-    visible:
-      id: "selected-place-get-directions-button"
+    notVisible:
+      id: 'selected-place-sheet-presented'
     timeout: 10000
+- assertVisible:
+    id: 'directions-route-start-driving-button'
+- assertVisible:
+    id: 'directions-route-option-direct'
+- assertVisible:
+    id: 'directions-route-option-ideal'
 - tapOn:
-    id: "place-details-close-button"
+    id: 'directions-route-back-button'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: "map-search-input-map"
+      id: 'selected-place-sheet-presented'
+    timeout: 10000
+- extendedWaitUntil:
+    notVisible:
+      id: 'directions-route-sheet-presented'
+    timeout: 10000
+- assertVisible:
+    id: 'selected-place-get-directions-button'
+- tapOn:
+    id: 'place-details-close-button'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    notVisible:
+      id: 'selected-place-sheet-presented'
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
     timeout: 10000
 
 - tapOn:
-    id: "map-search-input-map"
+    id: 'map-search-input-map'
 - eraseText
-- inputText: "Austin Central Library"
+- inputText: 'Austin Central Library'
 - extendedWaitUntil:
     visible:
-      id: "map-search-result-0-map"
+      id: 'map-search-result-0-map'
     timeout: 30000
+- assertNotVisible:
+    id: 'selected-place-sheet-presented'
 - tapOn:
-    id: "map-search-result-0-map"
+    id: 'map-search-result-0-map'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: "selected-place-get-directions-button"
-      enabled: true
+      id: 'selected-place-sheet-presented'
     timeout: 30000
+- assertVisible:
+    id: 'selected-place-get-directions-button'
+    enabled: true
+- assertNotVisible:
+    id: 'directions-route-sheet-presented'
 - tapOn:
-    id: "selected-place-get-directions-button"
+    id: 'selected-place-get-directions-button'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: "directions-route-start-driving-button"
+      id: 'directions-route-sheet-presented'
     timeout: 60000
+- extendedWaitUntil:
+    notVisible:
+      id: 'selected-place-sheet-presented'
+    timeout: 10000
 - assertVisible:
-    id: "directions-route-option-direct"
+    id: 'directions-route-start-driving-button'
 - assertVisible:
-    id: "directions-route-option-ideal"
+    id: 'directions-route-option-direct'
+- assertVisible:
+    id: 'directions-route-option-ideal'
+- tapOn:
+    id: 'directions-route-back-button'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'selected-place-sheet-presented'
+    timeout: 10000
+- extendedWaitUntil:
+    notVisible:
+      id: 'directions-route-sheet-presented'
+    timeout: 10000
+- tapOn:
+    id: 'place-details-close-button'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    notVisible:
+      id: 'selected-place-sheet-presented'
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 10000

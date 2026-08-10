@@ -916,7 +916,7 @@ index f1a45c0..cbbc2b5 100644
          }
      }
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt
-index 55d563b..997e1de 100644
+index 55d563b..123a887 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt
 +++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt
 @@ -1,6 +1,5 @@
@@ -926,7 +926,28 @@ index 55d563b..997e1de 100644
  import android.graphics.Color
  import androidx.car.app.AppManager
  import androidx.car.app.CarContext
-@@ -302,8 +301,6 @@ class MapTemplate(
+@@ -18,6 +17,7 @@ import androidx.car.app.navigation.model.NavigationTemplate
+ import androidx.car.app.navigation.model.RoutingInfo
+ import androidx.car.app.navigation.model.TravelEstimate
+ import androidx.car.app.navigation.model.Trip
++import androidx.lifecycle.Lifecycle
+ import com.facebook.react.bridge.UiThreadUtil
+ import com.margelo.nitro.swe.iternio.reactnativeautoplay.AlertActionStyle
+ import com.margelo.nitro.swe.iternio.reactnativeautoplay.AlertDismissalReason
+@@ -58,5 +58,11 @@ class MapTemplate(
+                 override fun onStopNavigation() {
+                     navigationEnded()
+-                    config.onStopNavigation()
++                    val screen = AndroidAutoScreen.getScreen(templateId)
++                    if (screen?.lifecycle?.currentState?.isAtLeast(
++                            Lifecycle.State.RESUMED,
++                        ) == true
++                    ) {
++                        config.onStopNavigation()
++                    }
+                 }
+             }
+@@ -302,8 +308,6 @@ class MapTemplate(
              navigationInfo = null
  
              AndroidAutoScreen.invalidateSurfaceScreens()
@@ -1366,6 +1387,41 @@ index a93a165..ee302b5 100644
          disconnect()
  
          HybridAutoPlay.emit(event: .diddisconnect)
+diff --git a/node_modules/@iternio/react-native-auto-play/ios/scenes/WindowApplicationSceneDelegate.swift b/node_modules/@iternio/react-native-auto-play/ios/scenes/WindowApplicationSceneDelegate.swift
+--- a/node_modules/@iternio/react-native-auto-play/ios/scenes/WindowApplicationSceneDelegate.swift
++++ b/node_modules/@iternio/react-native-auto-play/ios/scenes/WindowApplicationSceneDelegate.swift
+@@ -34,4 +34,6 @@ class WindowApplicationSceneDelegate: UIResponder, UIWindowSceneDelegate {
+         if let url = connectionOptions.urlContexts.first?.url {
+             // Linking API -> on app start
+-            NitroLinkingManager.shared().launchURL = url
++            if !openExpoDevelopmentClient(url) {
++                NitroLinkingManager.shared().launchURL = url
++            }
+         }
+@@ -51,7 +53,22 @@ class WindowApplicationSceneDelegate: UIResponder, UIWindowSceneDelegate {
+     ) {
+         // Linking API -> app already running
+         guard let urlContext = URLContexts.first else { return }
++
++        if openExpoDevelopmentClient(urlContext.url) {
++            return
++        }
++
+         NitroLinkingManager.shared().openURL(urlContext)
+     }
+-
++
++    private func openExpoDevelopmentClient(_ url: URL) -> Bool {
++        guard url.host == "expo-development-client" else { return false }
++
++        return UIApplication.shared.delegate?.application?(
++            UIApplication.shared,
++            open: url,
++            options: [:]
++        ) ?? false
++    }
++
+     func scene(
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift
 index 8930590..dce2b56 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift

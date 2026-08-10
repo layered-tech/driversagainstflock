@@ -8,14 +8,14 @@ tags:
     latitude: 30.26715
     longitude: -97.74035
 - launchApp:
+    clearState: true
     stopApp: true
     permissions:
       all: allow
 - runFlow:
     when:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
-    commands:
-      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+    file: subflows/open-expo-dev-client-after-clear.yml
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
@@ -33,13 +33,17 @@ tags:
     visible:
       id: 'map-marker-0-map'
     timeout: 60000
+- assertNotVisible:
+    id: 'marker-details-sheet-presented'
 - tapOn:
     id: 'map-marker-0-map'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: 'marker-details-title'
+      id: 'marker-details-sheet-presented'
     timeout: 30000
+- assertVisible:
+    id: 'marker-details-title'
 - extendedWaitUntil:
     visible:
       id: 'marker-details-osm-id-value'

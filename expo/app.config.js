@@ -227,6 +227,8 @@ module.exports = {
         [
             'expo-dev-client',
             {
+                showMenuAtLaunch: false,
+                skipOnboarding: true,
                 toolsButton: false,
             },
         ],

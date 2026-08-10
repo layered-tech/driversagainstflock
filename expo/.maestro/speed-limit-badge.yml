@@ -9,14 +9,23 @@ tags:
     latitude: 30.2672
     longitude: -97.7431
 - launchApp:
+    clearState: true
     stopApp: true
     permissions:
       all: allow
 - runFlow:
     when:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    file: subflows/open-expo-dev-client-after-clear.yml
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible:
+        id: 'place-details-close-button'
     commands:
-      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+      - tapOn:
+          id: 'place-details-close-button'
+          retryTapIfNoChange: true
 - runFlow:
     when:
       visible:
@@ -24,6 +33,22 @@ tags:
     commands:
       - tapOn:
           id: 'directions-route-back-button'
+          retryTapIfNoChange: true
+- runFlow:
+    when:
+      visible:
+        id: 'driving-cancel-route-button'
+    commands:
+      - tapOn:
+          id: 'driving-cancel-route-button'
+          retryTapIfNoChange: true
+- runFlow:
+    when:
+      visible:
+        id: 'exit-free-drive-button'
+    commands:
+      - tapOn:
+          id: 'exit-free-drive-button'
           retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
@@ -60,27 +85,35 @@ tags:
       id: 'map-directions-submit-button-map'
       enabled: true
     timeout: 30000
+- assertNotVisible:
+    id: 'directions-route-sheet-presented'
 - tapOn:
     id: 'map-directions-submit-button-map'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: 'directions-route-start-driving-button'
+      id: 'directions-route-sheet-presented'
     timeout: 60000
+- assertVisible:
+    id: 'directions-route-start-driving-button'
 - tapOn:
     id: 'directions-route-start-driving-button'
     retryTapIfNoChange: true
+- extendedWaitUntil:
+    notVisible:
+      id: 'directions-route-sheet-presented'
+    timeout: 10000
 
 - extendedWaitUntil:
     visible:
       id: 'driving-speed-limit-sign'
     timeout: 30000
-- assertVisible:
+- copyTextFrom:
     id: 'driving-speed-limit-value'
-    text: '35'
+- assertTrue: ${maestro.copiedText == '35'}
 - assertVisible:
     id: 'driving-speed-limit-sign-current-speed'
-- assertVisible:
+- copyTextFrom:
     id: 'driving-speed-limit-sign-current-speed-value'
-    text: '41'
+- assertTrue: ${maestro.copiedText == '41'}
 - takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-speed-limit-badge-35-over-41'}

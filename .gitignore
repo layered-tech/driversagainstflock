@@ -33,3 +33,11 @@ yarn-error.log
 OSM.md
 .env.sentry
 .ai/tmp
+
+# Terraform runtime artifacts
+**/.terraform/*
+*.tfplan
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log

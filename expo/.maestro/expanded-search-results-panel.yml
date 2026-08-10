@@ -11,11 +11,6 @@ tags:
     stopApp: true
     permissions:
       all: allow
-- runFlow:
-    when:
-      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
-    commands:
-      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
@@ -29,6 +24,10 @@ tags:
     latitude: 30.2672
     longitude: -97.7431
 
+- assertNotVisible:
+    id: 'search-results-sheet-presented'
+- assertNotVisible:
+    id: 'selected-place-sheet-presented'
 - tapOn:
     id: 'map-search-input-map'
     retryTapIfNoChange: false
@@ -36,8 +35,10 @@ tags:
 - pressKey: Enter
 - extendedWaitUntil:
     visible:
-      id: 'submitted-search-result-0'
+      id: 'search-results-sheet-presented'
     timeout: 30000
+- assertVisible:
+    id: 'submitted-search-result-0'
 - assertVisible:
     id: 'submitted-search-result-count'
 - assertVisible:
@@ -47,8 +48,14 @@ tags:
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: 'selected-place-title'
+      id: 'selected-place-sheet-presented'
     timeout: 30000
+- extendedWaitUntil:
+    notVisible:
+      id: 'search-results-sheet-presented'
+    timeout: 10000
+- assertVisible:
+    id: 'selected-place-title'
 - assertVisible:
     text: 'Walmart Supercenter'
 - extendedWaitUntil:
@@ -60,15 +67,27 @@ tags:
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: 'submitted-search-result-1'
+      id: 'search-results-sheet-presented'
     timeout: 30000
+- extendedWaitUntil:
+    notVisible:
+      id: 'selected-place-sheet-presented'
+    timeout: 10000
+- assertVisible:
+    id: 'submitted-search-result-1'
 - tapOn:
     id: 'submitted-search-result-1'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: 'selected-place-title'
+      id: 'selected-place-sheet-presented'
     timeout: 30000
+- extendedWaitUntil:
+    notVisible:
+      id: 'search-results-sheet-presented'
+    timeout: 10000
+- assertVisible:
+    id: 'selected-place-title'
 - assertVisible:
     text: 'Walmart Neighborhood Market'
 - assertVisible:

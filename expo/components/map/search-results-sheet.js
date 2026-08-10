@@ -6,6 +6,7 @@ import {
     NativeWindBottomSheetModal,
 } from './native-components';
 import { SubmittedSearchResultRow } from './submitted-search-result-row';
+import { useBottomSheetPresentedState } from './use-bottom-sheet-presented-state';
 
 export function SearchResultsSheet() {
     const {
@@ -24,6 +25,14 @@ export function SearchResultsSheet() {
         submittedSearchResultsSheetSnapPoints,
         submittedSearchResultsSheetTrackingHandlers,
     } = useSearchResultsContext();
+    const {
+        bottomSheetIsPresented,
+        handleBottomSheetChange,
+        handleBottomSheetDismiss,
+    } = useBottomSheetPresentedState({
+        onChange: submittedSearchResultsSheetTrackingHandlers.onChange,
+        onDismiss: submittedSearchResultsSheetTrackingHandlers.onDismiss,
+    });
 
     if (!mapPreferencesAreLoaded) {
         return null;
@@ -118,8 +127,8 @@ export function SearchResultsSheet() {
             handleIndicatorStyle={bottomSheetHandleIndicatorStyle}
             animatedPosition={bottomSheetAnimatedPosition}
             onAnimate={submittedSearchResultsSheetTrackingHandlers.onAnimate}
-            onChange={submittedSearchResultsSheetTrackingHandlers.onChange}
-            onDismiss={submittedSearchResultsSheetTrackingHandlers.onDismiss}
+            onChange={handleBottomSheetChange}
+            onDismiss={handleBottomSheetDismiss}
         >
             <NativeWindBottomSheetFlatList
                 className="flex-1"
@@ -134,6 +143,11 @@ export function SearchResultsSheet() {
                 nestedScrollEnabled
                 renderItem={renderItem}
                 showsVerticalScrollIndicator
+                testID={
+                    bottomSheetIsPresented
+                        ? 'search-results-sheet-presented'
+                        : undefined
+                }
             />
         </NativeWindBottomSheetModal>
     );

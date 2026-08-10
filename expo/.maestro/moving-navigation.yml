@@ -12,17 +12,6 @@ tags:
     stopApp: true
     permissions:
       all: allow
-- tapOn:
-    text: 'Continue'
-    optional: true
-- runFlow:
-    when:
-      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
-    commands:
-      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
-- tapOn:
-    text: 'http://10.0.2.2:8081'
-    optional: true
 - runFlow:
     when:
       visible:
@@ -73,13 +62,17 @@ tags:
       id: 'map-directions-submit-button-map'
       enabled: true
     timeout: 30000
+- assertNotVisible:
+    id: 'directions-route-sheet-presented'
 - tapOn:
     id: 'map-directions-submit-button-map'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: 'directions-route-option-ideal'
+      id: 'directions-route-sheet-presented'
     timeout: 60000
+- assertVisible:
+    id: 'directions-route-option-ideal'
 - tapOn:
     id: 'directions-route-option-ideal'
     retryTapIfNoChange: true
@@ -91,12 +84,16 @@ tags:
     id: 'directions-route-start-driving-button'
     retryTapIfNoChange: true
 - extendedWaitUntil:
+    notVisible:
+      id: 'directions-route-sheet-presented'
+    timeout: 10000
+- extendedWaitUntil:
     visible:
       id: 'driving-maneuver-card'
     timeout: 30000
 - assertVisible:
     id: 'driving-maneuver-instruction'
-    text: 'Turn right to avoid monitored intersections'
+- assertVisible: 'Turn right to avoid monitored intersections'
 - travel:
     points:
       - '30.2672, -97.7431'
@@ -107,13 +104,15 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'driving-maneuver-instruction'
-      text: 'Arrive at your destination'
+    timeout: 30000
+- extendedWaitUntil:
+    visible: 'Arrive at your destination'
     timeout: 30000
 - assertVisible:
     id: 'driving-destination-card'
 - assertVisible:
     id: 'driving-destination-title'
-    text: 'Austin Central Library'
+- assertVisible: 'Austin Central Library'
 - tapOn:
     id: 'driving-cancel-route-button'
     retryTapIfNoChange: true

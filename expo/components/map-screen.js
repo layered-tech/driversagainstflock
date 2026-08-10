@@ -11,6 +11,7 @@ import { ContributeStartSheet } from './contribute/contribute-start-sheet';
 import { useContribute } from './contribute/contribute-state';
 import { Icon } from './design-system/icon';
 import { logMapDrivingStarted, logMapDrivingStopped } from './map/analytics';
+import { getMockMarkerPointsSnapshot } from './map/api-mocks';
 import { useMapCameraPadding } from './map/camera-focus-padding';
 import {
     MAPBOX_STANDARD_SATELLITE_STYLE_URL,
@@ -44,6 +45,7 @@ import { MapControlsOverlay } from './map/map-controls-overlay';
 import { MapDebugControls } from './map/map-debug-controls';
 import { MapFullScreenSearch } from './map/map-full-screen-search';
 import { MapLayerSheet } from './map/map-layer-controls';
+import { E2EMarkerTapOverlay } from './map/map-marker-views';
 import {
     MapScreenProviders,
     useDirectionsRouteContextValue,
@@ -63,6 +65,7 @@ import { MarkerDetailsSheet } from './map/marker-details-sheet';
 import { NativeWindSafeAreaView } from './map/native-components';
 import { getNavigationPuckSize } from './map/navigation-puck-layout';
 import { RoadMatchingE2EProbe } from './map/road-matching-e2e-probe';
+import { SearchResultsSheet } from './map/search-results-sheet';
 import { SelectedPlaceSheet } from './map/selected-place-sheet';
 import {
     useSharedMapLocationState,
@@ -233,6 +236,10 @@ export default function LocationMapScreen({
     const { e2eMapApiMocksAreRequested } = useMapApiMockControls({
         locationController,
     });
+    const e2eMarkerTapTargets = useMemo(
+        () => (e2eMapApiMocksAreRequested ? getMockMarkerPointsSnapshot() : []),
+        [e2eMapApiMocksAreRequested],
+    );
     const searchController = useMapSearch({
         directionsDebugGeometryIsEnabled:
             debugOverlayVisibility?.[DEBUG_OVERLAY_DIRECTIONS_GEOMETRY] ===
@@ -452,6 +459,8 @@ export default function LocationMapScreen({
     const {
         handleMapLayerPress,
         handleMapLayerSelect,
+        handleMapLayerSheetAnimate,
+        handleMapLayerSheetChange,
         handleMapLayerSheetDismiss,
         handleMapLightPresetPreferenceChange,
         handleMapTrafficEnabledChange,
@@ -592,6 +601,8 @@ export default function LocationMapScreen({
     const layerValue = useMapLayerContextValue({
         handleMapLayerPress,
         handleMapLayerSelect,
+        handleMapLayerSheetAnimate,
+        handleMapLayerSheetChange,
         handleMapLayerSheetDismiss,
         handleMapLightPresetPreferenceChange,
         handleMapTrafficEnabledChange,
@@ -801,12 +812,21 @@ export default function LocationMapScreen({
                                         </Pressable>
                                     </View>
                                 ) : null}
+                                {e2eMarkerTapTargets.map((marker, index) => (
+                                    <E2EMarkerTapOverlay
+                                        key={`e2e-marker-${marker?.id ?? index}`}
+                                        index={index}
+                                        marker={marker}
+                                        onPress={handleMarkerSourcePress}
+                                    />
+                                ))}
                             </NativeWindSafeAreaView>
                         )}
                         <MapFullScreenSearch />
                         {mapChromeIsVisible ? <MapDebugControls /> : null}
                     </>
                 ) : null}
+                <SearchResultsSheet />
                 <MarkerDetailsSheet />
                 <SelectedPlaceSheet />
                 {!isDrivingMode ? <DirectionsRouteSheet /> : null}

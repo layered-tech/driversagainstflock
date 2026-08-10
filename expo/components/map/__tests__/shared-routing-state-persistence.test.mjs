@@ -59,9 +59,9 @@ function createSharedRoutingStateHarness({
         sourceType: 'module',
     }).code;
     const mockedModules = {
-        '@react-native-async-storage/async-storage': {
-            getItem: readPersistedState,
-            setItem: async (key, value) => {
+        '../../lib/private-cache-storage': {
+            getPrivateCacheItem: readPersistedState,
+            setPrivateCacheItem: async (key, value) => {
                 writes.push({ key, value });
             },
         },
@@ -158,6 +158,49 @@ describe('persisted shared routing state', () => {
                 10_000,
             ),
             null,
+        );
+    });
+});
+
+describe('shared route geometry synchronization', () => {
+    test('publishes internal geometry changes with stable endpoints', () => {
+        const { sharedRoutingState } = createSharedRoutingStateHarness({
+            readPersistedState: async () => null,
+        });
+        const firstRoute = {
+            destination: { id: 'destination-1' },
+            requestedAt: 1_000,
+            routeOptions: [
+                {
+                    coordinates: [
+                        [-97.75, 30.26],
+                        [-97.74, 30.27],
+                        [-97.73, 30.28],
+                    ],
+                    distance: 1_000,
+                    duration: 100,
+                    routeKey: 'direct',
+                },
+            ],
+            selectedRouteKey: 'direct',
+        };
+        const correctedRoute = {
+            ...firstRoute,
+            routeOptions: [
+                {
+                    ...firstRoute.routeOptions[0],
+                    coordinates: [
+                        firstRoute.routeOptions[0].coordinates[0],
+                        [-97.745, 30.275],
+                        firstRoute.routeOptions[0].coordinates[2],
+                    ],
+                },
+            ],
+        };
+
+        assert.notEqual(
+            sharedRoutingState.getDirectionsRouteSyncKey(firstRoute),
+            sharedRoutingState.getDirectionsRouteSyncKey(correctedRoute),
         );
     });
 });
@@ -323,7 +366,7 @@ describe('shared routing state persistence integration', () => {
     test('queues immediate ordered writes and marks memory live before equality return', () => {
         assert.match(
             sharedRoutingStateSource,
-            /createMapPreferencesPersistenceScheduler\([\s\S]*?AsyncStorage\.setItem\([\s\S]*?SHARED_ROUTING_STATE_STORAGE_KEY/,
+            /createMapPreferencesPersistenceScheduler\([\s\S]*?setPrivateCacheItem\([\s\S]*?SHARED_ROUTING_STATE_STORAGE_KEY/,
         );
         assert.match(
             sharedRoutingStateSource,

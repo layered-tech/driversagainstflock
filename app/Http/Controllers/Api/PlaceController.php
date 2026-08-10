@@ -37,12 +37,19 @@ class PlaceController extends Controller
 
     public function __invoke(Request $request, string $placeId): JsonResponse
     {
+        $sessionToken = $request->validate([
+            'sessionToken' => ['nullable', 'uuid'],
+        ])['sessionToken'] ?? null;
+
         return response()->json(
             Http::withHeaders([
                 'X-Goog-Api-Key' => env('GOOGLE_PLACES_KEY'),
                 'X-Goog-FieldMask' => implode(',', self::FIELD_MASK),
             ])->get(
-                'https://places.googleapis.com/v1/places/'.$placeId
+                'https://places.googleapis.com/v1/places/'.$placeId,
+                array_filter([
+                    'sessionToken' => $sessionToken,
+                ])
             )->json()
         );
     }

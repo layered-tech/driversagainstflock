@@ -129,6 +129,10 @@ describe('CarPlay Auto Play config plugin', () => {
             /@generated begin react-native-auto-play-root-view/,
         );
         assert.match(firstResult, /getRootViewForAutoplay/);
+        assert.match(
+            firstResult,
+            /bundleConfiguration: RCTBundleConfiguration\.default\(\)/,
+        );
         assert.match(firstResult, /didFinishLaunchingWithOptions/);
         assert.equal(
             firstResult.match(

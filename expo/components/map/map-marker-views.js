@@ -1,7 +1,11 @@
 import Mapbox from '@rnmapbox/maps';
 import { Pressable, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { getStoredNumber, normalizeLongitude } from './geo';
+import {
+    getMarkerCoordinate,
+    getStoredNumber,
+    normalizeLongitude,
+} from './geo';
 
 const DIRECTIONS_WAYPOINT_MARKER_STYLES = {
     start: {
@@ -143,33 +147,38 @@ export function SubmittedSearchResultMarker({ index, onPress, result }) {
     );
 }
 
-export function E2EMarkerTapTarget({ feature, index, onPress }) {
-    const coordinate = feature?.geometry?.coordinates;
+export function E2EMarkerTapOverlay({ index, marker, onPress }) {
+    const coordinate = getMarkerCoordinate(marker);
 
     if (!Array.isArray(coordinate)) {
         return null;
     }
 
-    const markerId = feature?.properties?.markerId ?? feature?.id ?? index;
+    const markerId = marker?.properties?.id ?? marker?.id ?? `marker-${index}`;
+    const feature = {
+        type: 'Feature',
+        id: markerId,
+        geometry: {
+            type: 'Point',
+            coordinates: coordinate,
+        },
+        properties: {
+            ...(marker?.properties ?? {}),
+            markerId: String(markerId),
+        },
+    };
+    const handlePress = () => onPress({ features: [feature] });
 
     return (
-        <Mapbox.MarkerView
-            allowOverlap
-            allowOverlapWithPuck
-            anchor={{ x: 0.5, y: 0.5 }}
-            coordinate={coordinate}
-        >
-            <Pressable
-                accessible
-                accessibilityHint="Opens the mocked marker details panel."
-                accessibilityLabel={`Open ALPR marker ${markerId}`}
-                accessibilityRole="button"
-                className="h-12 w-12"
-                collapsable={false}
-                hitSlop={8}
-                onPress={() => onPress({ features: [feature] })}
-                testID={`map-marker-${index}-map`}
-            />
-        </Mapbox.MarkerView>
+        <Pressable
+            accessible
+            accessibilityHint="Opens the mocked marker details panel."
+            accessibilityLabel={`Open ALPR marker ${markerId}`}
+            accessibilityRole="button"
+            className="absolute bottom-24 left-3 z-50 h-12 w-12"
+            collapsable={false}
+            onPress={handlePress}
+            testID={`map-marker-${index}-map`}
+        />
     );
 }

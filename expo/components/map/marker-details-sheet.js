@@ -22,6 +22,7 @@ import {
     NativeWindBottomSheetModal,
     NativeWindBottomSheetView,
 } from './native-components';
+import { useBottomSheetPresentedState } from './use-bottom-sheet-presented-state';
 
 function formatCoordinate(coordinate) {
     if (!Array.isArray(coordinate)) {
@@ -160,6 +161,14 @@ export function MarkerDetailsSheet() {
         markerDetailsSheetTrackingHandlers,
         selectedMarker,
     } = useMarkerDetailsContext();
+    const {
+        bottomSheetIsPresented,
+        handleBottomSheetChange,
+        handleBottomSheetDismiss,
+    } = useBottomSheetPresentedState({
+        onChange: markerDetailsSheetTrackingHandlers.onChange,
+        onDismiss: markerDetailsSheetTrackingHandlers.onDismiss,
+    });
 
     if (!mapPreferencesAreLoaded) {
         return null;
@@ -215,10 +224,17 @@ export function MarkerDetailsSheet() {
             handleIndicatorStyle={bottomSheetHandleIndicatorStyle}
             animatedPosition={bottomSheetAnimatedPosition}
             onAnimate={markerDetailsSheetTrackingHandlers.onAnimate}
-            onChange={markerDetailsSheetTrackingHandlers.onChange}
-            onDismiss={markerDetailsSheetTrackingHandlers.onDismiss}
+            onChange={handleBottomSheetChange}
+            onDismiss={handleBottomSheetDismiss}
         >
-            <NativeWindBottomSheetView className="dark:bg-daf-surface-dark bg-white">
+            <NativeWindBottomSheetView
+                className="dark:bg-daf-surface-dark bg-white"
+                testID={
+                    bottomSheetIsPresented
+                        ? 'marker-details-sheet-presented'
+                        : undefined
+                }
+            >
                 {selectedMarker ? (
                     <BottomSheetScrollView
                         contentContainerStyle={{

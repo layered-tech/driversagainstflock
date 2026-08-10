@@ -7,6 +7,10 @@ const contributeStartSheetSource = readFileSync(
     new URL('../../contribute/contribute-start-sheet.js', import.meta.url),
     'utf8',
 );
+const contributePlacementSheetSource = readFileSync(
+    new URL('../../contribute/contribute-placement-sheet.js', import.meta.url),
+    'utf8',
+);
 const authCallbackHandlerSource = readFileSync(
     new URL('../../root/auth-callback-handler.js', import.meta.url),
     'utf8',
@@ -134,6 +138,16 @@ describe('Contribute OpenStreetMap auth progress', () => {
         );
         assert.match(
             contributeStartSheetSource,
+            /testID="contribute-start-sheet-title"/,
+        );
+        assert.match(
+            contributeStartSheetSource,
+            /testID="contribute-account-card-signed-out"/,
+        );
+        assert.match(contributeStartSheetSource, /accessible=\{false\}/);
+        assert.match(contributePlacementSheetSource, /accessible=\{false\}/);
+        assert.match(
+            contributeStartSheetSource,
             /testID="contribute-start-editing-button"/,
         );
         assert.match(
@@ -143,6 +157,29 @@ describe('Contribute OpenStreetMap auth progress', () => {
         assert.match(
             contributeStartSheetSource,
             /\{signInError \? \([\s\S]*?\{signInError\}/,
+        );
+    });
+
+    test('does not dismiss contribution sheets before first presentation', () => {
+        assert.match(
+            contributeStartSheetSource,
+            /const startSheetIsPresentedRef = useRef\(false\);/,
+        );
+        assert.match(
+            contributeStartSheetSource,
+            /if \(!startSheetIsPresentedRef\.current\) \{\s+startSheetIsPresentedRef\.current = true;\s+sheetRef\.current\?\.present\(\);\s+\}[\s\S]*?else if \(startSheetIsPresentedRef\.current\) \{\s+startSheetIsPresentedRef\.current = false;\s+sheetRef\.current\?\.dismiss\(\);/,
+        );
+        assert.match(
+            contributeStartSheetSource,
+            /const handleSheetDismiss = useCallback\(\(\) => \{\s+startSheetIsPresentedRef\.current = false;/,
+        );
+        assert.match(
+            contributePlacementSheetSource,
+            /const placementSheetIsPresentedRef = useRef\(false\);/,
+        );
+        assert.match(
+            contributePlacementSheetSource,
+            /if \(!placementSheetIsPresentedRef\.current\) \{\s+placementSheetIsPresentedRef\.current = true;\s+sheetRef\.current\?\.present\(\);\s+\}[\s\S]*?else if \(placementSheetIsPresentedRef\.current\) \{\s+placementSheetIsPresentedRef\.current = false;\s+sheetRef\.current\?\.dismiss\(\);/,
         );
     });
 

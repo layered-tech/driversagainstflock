@@ -6,6 +6,11 @@ function getDeepLinkPath(url) {
 }
 
 const E2E_DRIVING_ALERT_FIXTURES = new Set(['alpr', 'combined', 'police']);
+const E2E_AUTO_PLAY_REQUEST_TYPES = new Set([
+    'directions',
+    'navigation',
+    'search',
+]);
 
 export function getE2EMockFlagsFromURL(value) {
     try {
@@ -38,5 +43,27 @@ export function getE2EMockFlagsFromURL(value) {
             drivingAlertsFixture: null,
             mocksAreEnabled: false,
         };
+    }
+}
+
+export function getE2EAutoPlayCommandFromURL(value) {
+    const { mocksAreEnabled } = getE2EMockFlagsFromURL(value);
+
+    if (!mocksAreEnabled) {
+        return null;
+    }
+
+    try {
+        const url = new URL(value);
+        const requestType = url.searchParams.get('autoPlayRequestType');
+        const query = String(url.searchParams.get('query') ?? '').trim();
+
+        if (!E2E_AUTO_PLAY_REQUEST_TYPES.has(requestType) || !query) {
+            return null;
+        }
+
+        return { query, requestType };
+    } catch {
+        return null;
     }
 }

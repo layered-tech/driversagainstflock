@@ -206,7 +206,7 @@ defineProps({
     },
 });
 
-const lastUpdated = 'June 2026';
+const lastUpdated = 'August 2026';
 
 const headerLinks = [
     { label: 'John Doe', href: '/#johndoe' },
@@ -280,7 +280,7 @@ const privacySections = [
             },
             {
                 type: 'paragraph',
-                text: 'DAF does not store your location history. When location is needed for a feature, it may be sent to the service required to complete that request — for example, search information may go to Google Maps, and origin, destination, or route information may go to OpenRouteService.',
+                text: 'DAF does not store your location history. When location is needed for a feature, it may be sent to the service required to complete that request — for example, search information may go to Google Places, map requests may go to Mapbox, locality lookups may go to OpenStreetMap services, police-alert lookups may go to OpenWebNinja, and origin, destination, or route information may go to OpenRouteService.',
             },
             {
                 type: 'paragraph',
@@ -304,19 +304,25 @@ const privacySections = [
         blocks: [
             {
                 type: 'paragraph',
-                text: 'DAF uses third-party services to provide certain app features:',
+                text: 'DAF uses the following third-party services to provide app features, depending on the feature you use and the app configuration:',
             },
             {
                 type: 'list',
                 items: [
-                    'Google Maps — for place searching',
-                    'OpenRouteService — for directions and route calculation',
-                    'OpenStreetMap.org — for optional account sign-in through OAuth',
+                    'Google Places API (Google Maps Platform) — for autocomplete, text search, and place details. Search input, optional location bias or origin, and place identifiers may be sent with these requests. Autocomplete and its matching place-details request use a random client-generated session token for billing; DAF does not derive that token from your IP address or account ID.',
+                    'Mapbox — for map rendering, map styles, map tiles, and optional traffic layers.',
+                    'HEIGIT OpenRouteService — for directions and route calculation. Route origins, destinations, and route options may be sent with these requests.',
+                    'OpenStreetMap Nominatim — for locality and ZIP-code geocoding and boundary lookups.',
+                    'OpenStreetMap Overpass API — for nearby road, place, and speed-limit data used by map features.',
+                    'OpenStreetMap.org API and OAuth — for optional account sign-in, authorized map edits, and OpenStreetMap data access.',
+                    'OpenWebNinja Waze API — for nearby police-alert and traffic-incident data when that feature is enabled.',
+                    'Firebase Analytics — for mobile-app usage analytics when enabled. The current app may send search terms, place identifiers, event metadata, and a signed-in account identifier.',
+                    'Sentry — for crash, error, and network monitoring when configured and enabled. Diagnostic event data and request URLs may be included.',
                 ],
             },
             {
                 type: 'paragraph',
-                text: 'When you use a feature that depends on these services, the information needed to complete your request may be sent to the relevant service. Your use of these services may also be subject to their own privacy policies and terms.',
+                text: 'When you use a feature that depends on one of these services, the information needed to complete your request may be sent to the relevant service. Those providers may process information under their own privacy policies and terms.',
             },
         ],
     },
@@ -349,6 +355,7 @@ const privacySections = [
                     'Providing directions and supporting navigation',
                     'Showing route options',
                     'Authenticating users who choose to sign in with OpenStreetMap',
+                    'Understanding app usage through Firebase Analytics when enabled',
                     'Maintaining app security and reliability',
                 ],
             },
@@ -360,7 +367,7 @@ const privacySections = [
         blocks: [
             {
                 type: 'paragraph',
-                text: 'DAF may share information with third-party services only as needed to provide the feature you requested — place search through Google Maps, directions and routing through OpenRouteService, and optional account sign-in through OpenStreetMap OAuth.',
+                text: 'DAF shares information with the third-party services listed above only as needed for the feature you request or for configured analytics, crash, and network monitoring. For example, place searches may use Google Places, maps may use Mapbox, directions may use HEIGIT OpenRouteService, locality and road lookups may use OpenStreetMap services, police-alert lookups may use OpenWebNinja, analytics may use Firebase, and diagnostics may use Sentry.',
             },
             {
                 type: 'paragraph',
@@ -374,7 +381,11 @@ const privacySections = [
         blocks: [
             {
                 type: 'paragraph',
-                text: 'DAF does not store your location history. If you sign in with OpenStreetMap, we may retain your display name, email address, and OpenStreetMap user ID for as long as needed to support your account or app features.',
+                text: 'DAF does not store your location history. The mobile app may retain recent destinations, favorites, Home and Work locations, place details, and the current route on your device to support app features. Native mobile cache entries are stored through the operating system secure-storage facility; recent places are limited, place details expire after seven days, and the active route snapshot expires after twelve hours. Favorites and Home or Work locations remain until you remove them or clear app data.',
+            },
+            {
+                type: 'paragraph',
+                text: 'Backend requests and diagnostic events may also be processed by DAF and the configured providers above for operating, securing, and troubleshooting the service. If you sign in with OpenStreetMap, we may retain your display name, email address, and OpenStreetMap user ID for as long as needed to support your account or app features.',
             },
             {
                 type: 'paragraph',

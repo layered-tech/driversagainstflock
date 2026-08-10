@@ -18,6 +18,7 @@ import {
     getPrimaryLocationLabel,
     PRIMARY_LOCATION_HOME,
 } from './primary-locations';
+import { useBottomSheetPresentedState } from './use-bottom-sheet-presented-state';
 
 export function SelectedPlaceSheet() {
     const { height: windowHeight } = useWindowDimensions();
@@ -52,6 +53,14 @@ export function SelectedPlaceSheet() {
         selectedPlaceRatingLabel,
         selectedSearchResult,
     } = usePlaceSheetContext();
+    const {
+        bottomSheetIsPresented,
+        handleBottomSheetChange,
+        handleBottomSheetDismiss,
+    } = useBottomSheetPresentedState({
+        onChange: placeSheetTrackingHandlers.onChange,
+        onDismiss: placeSheetTrackingHandlers.onDismiss,
+    });
     const selectedPlaceSheetKey =
         selectedSearchResult?.placeId || selectedSearchResult?.id || 'empty';
     const selectedPlacePrimaryLocationLabel = getPrimaryLocationLabel(
@@ -82,10 +91,17 @@ export function SelectedPlaceSheet() {
             handleIndicatorStyle={bottomSheetHandleIndicatorStyle}
             animatedPosition={bottomSheetAnimatedPosition}
             onAnimate={placeSheetTrackingHandlers.onAnimate}
-            onChange={placeSheetTrackingHandlers.onChange}
-            onDismiss={placeSheetTrackingHandlers.onDismiss}
+            onChange={handleBottomSheetChange}
+            onDismiss={handleBottomSheetDismiss}
         >
-            <NativeWindBottomSheetView className="dark:bg-daf-surface-dark bg-white">
+            <NativeWindBottomSheetView
+                className="dark:bg-daf-surface-dark bg-white"
+                testID={
+                    bottomSheetIsPresented
+                        ? 'selected-place-sheet-presented'
+                        : undefined
+                }
+            >
                 {selectedSearchResult ? (
                     <BottomSheetScrollView
                         showsVerticalScrollIndicator={false}

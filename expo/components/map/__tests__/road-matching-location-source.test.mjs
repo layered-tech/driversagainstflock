@@ -208,6 +208,11 @@ function createRoadMatchingSessionHarness({
             refreshBackgroundAlertsForLocationAsync: async () => {},
             settleBackgroundWorkWithinDeadlineAsync,
         },
+        './directions': {
+            getSelectedDirectionsRouteOption(route) {
+                return route?.selectedRouteOption ?? route ?? null;
+            },
+        },
         './location-watch-options': {
             getLocationUpdateRecordedAt,
             getRoadMatchingLocationSourcePolicy,
@@ -750,6 +755,59 @@ describe('road matching location source integration', () => {
         );
 
         assert.equal(lookAheadPredictionCount, 0);
+
+        sessionHandle.remove();
+    });
+
+    test('gives the puck matcher only the actively followed route coordinates', async () => {
+        const preferredRouteCoordinates = [
+            [-87, 41],
+            [-86.99, 41],
+        ];
+        const matchingContexts = [];
+        const harness = createRoadMatchingSessionHarness({
+            createDirectedRoadGraph: createUsableRoadGraph,
+            createRoadMatcherWithHistory: () => ({
+                update(location, context) {
+                    matchingContexts.push(context);
+
+                    return makeMatchedLocation(location);
+                },
+            }),
+            getRoadCorridor: async () => [{ id: 'way-1' }],
+            routingState: {
+                directionsRoute: {
+                    selectedRouteOption: {
+                        coordinates: preferredRouteCoordinates,
+                    },
+                },
+                drivingModeIsActive: true,
+            },
+        });
+        const sessionHandle =
+            await harness.roadMatchingSession.retainRoadMatchingSessionAsync();
+
+        await waitFor(() => harness.foregroundLocationCallbacks.length === 1);
+        harness.foregroundLocationCallbacks[0](makeLocation(41, -87, 100));
+        await waitFor(() => matchingContexts.length === 1);
+
+        assert.equal(
+            matchingContexts[0].preferredRouteCoordinates,
+            preferredRouteCoordinates,
+        );
+
+        harness.setRoutingState({
+            directionsRoute: {
+                selectedRouteOption: {
+                    coordinates: preferredRouteCoordinates,
+                },
+            },
+            drivingModeIsActive: false,
+        });
+        harness.foregroundLocationCallbacks[0](makeLocation(41, -86.99, 200));
+        await waitFor(() => matchingContexts.length === 2);
+
+        assert.equal(matchingContexts[1].preferredRouteCoordinates, null);
 
         sessionHandle.remove();
     });

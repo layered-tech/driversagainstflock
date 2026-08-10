@@ -2,6 +2,7 @@ import {
     getAllDebugOverlayVisibility,
     getDebugOverlayVisibilityKey,
 } from './debug-overlays';
+import { getSharedMapLocationKey } from './shared-map-location-key';
 
 const DEFAULT_SHARED_MAP_PREFERENCES_STATE = {
     debugOverlayIsVisible: false,
@@ -23,21 +24,6 @@ const DEFAULT_SHARED_MAP_PREFERENCES_STATE = {
 
 let sharedMapPreferencesState = DEFAULT_SHARED_MAP_PREFERENCES_STATE;
 const sharedMapPreferencesListeners = new Set();
-
-function getLocationKey(location) {
-    if (!location) {
-        return '';
-    }
-
-    return [
-        location.latitude,
-        location.longitude,
-        location.accuracy,
-        location.recordedAt,
-    ]
-        .map((value) => (Number.isFinite(Number(value)) ? Number(value) : ''))
-        .join(',');
-}
 
 function getCameraSettingsKey(settings) {
     if (!settings) {
@@ -89,8 +75,8 @@ function mapPreferencesStatesAreEqual(firstState, secondState) {
             getCameraSettingsKey(secondState?.initialCameraSettings) &&
         getOffsetKey(firstState?.mapDebugControlOffset) ===
             getOffsetKey(secondState?.mapDebugControlOffset) &&
-        getLocationKey(firstState?.userLocation) ===
-            getLocationKey(secondState?.userLocation)
+        getSharedMapLocationKey(firstState?.userLocation) ===
+            getSharedMapLocationKey(secondState?.userLocation)
     );
 }
 

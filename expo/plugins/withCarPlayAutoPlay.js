@@ -36,6 +36,7 @@ const GET_ROOT_VIEW_FOR_AUTOPLAY = `
         withModuleName: moduleName,
         initialProperties: initialProperties,
         launchOptions: nil,
+        bundleConfiguration: RCTBundleConfiguration.default(),
         devMenuConfiguration: nil
       )
     }
@@ -93,10 +94,13 @@ function addGeneratedSwiftBlock(source, tag, block, anchor) {
         `\\n?[^\\S\\n]*// @generated begin ${tag}[\\s\\S]*?// @generated end ${tag}\\n?`,
         "m",
     );
-    const sanitizedSource = source.replace(pattern, "\n");
+    const sanitizedSource = source.replace(pattern, "");
     const anchorIndex = sanitizedSource.indexOf(anchor);
 
-    if (anchorIndex === -1) {
+    const anchorLineStart = sanitizedSource.lastIndexOf("\n", anchorIndex) + 1;
+    const anchorPrefix = sanitizedSource.slice(anchorLineStart, anchorIndex);
+
+    if (anchorIndex === -1 || !/^\s*(?:public\s+)?$/.test(anchorPrefix)) {
         throw new Error(
             `${PLUGIN_NAME}: could not find "${anchor}" in AppDelegate.swift to insert ${tag}`,
         );

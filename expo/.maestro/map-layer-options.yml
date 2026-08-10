@@ -8,14 +8,14 @@ tags:
     latitude: 30.2672
     longitude: -97.7431
 - launchApp:
+    clearState: true
     stopApp: true
     permissions:
       all: allow
 - runFlow:
     when:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
-    commands:
-      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+    file: subflows/open-expo-dev-client-after-clear.yml
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
@@ -25,40 +25,128 @@ tags:
     visible:
       id: 'map-layer-button'
     timeout: 30000
+- assertNotVisible:
+    id: 'map-settings-sheet'
 
 - tapOn:
     id: 'map-layer-button'
     retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
-      id: 'map-layer-option-standard'
+      id: 'map-settings-sheet'
     timeout: 10000
+- assertVisible: 'Map settings'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-map-settings-open'}
+- assertVisible:
+    id: 'map-layer-option-standard'
 - assertVisible:
     id: 'map-layer-option-standard-satellite'
 - assertVisible:
     id: 'map-surveillance-markers-toggle'
+    checked: true
 - assertVisible:
     id: 'map-marker-clusters-toggle'
+    checked: true
 - assertVisible:
     id: 'map-camera-cones-toggle'
+    checked: true
 - assertVisible:
     id: 'map-traffic-toggle'
+    checked: false
 - assertVisible:
     id: 'map-police-alerts-toggle'
+    checked: false
+- assertVisible:
+    id: 'map-prefer-private-routes-toggle'
+    checked: false
 - tapOn:
-    id: 'map-police-alerts-toggle'
+    id: 'map-surveillance-markers-toggle'
+- assertVisible:
+    id: 'map-surveillance-markers-toggle'
+    checked: false
+- assertVisible:
+    id: 'map-marker-clusters-toggle'
+    checked: false
+- assertVisible:
+    id: 'map-camera-cones-toggle'
+    checked: false
 - tapOn:
-    id: 'map-police-alerts-toggle'
+    id: 'map-surveillance-markers-toggle'
 - tapOn:
     id: 'map-marker-clusters-toggle'
 - tapOn:
     id: 'map-camera-cones-toggle'
-- tapOn:
+- assertVisible:
+    id: 'map-surveillance-markers-toggle'
+    checked: true
+- assertVisible:
     id: 'map-marker-clusters-toggle'
-- tapOn:
+    checked: true
+- assertVisible:
     id: 'map-camera-cones-toggle'
+    checked: true
+- tapOn:
+    id: 'map-prefer-private-routes-toggle'
+- assertVisible:
+    id: 'map-prefer-private-routes-toggle'
+    checked: true
+- tapOn:
+    id: 'map-prefer-private-routes-toggle'
+- assertVisible:
+    id: 'map-prefer-private-routes-toggle'
+    checked: false
 - tapOn:
     id: 'map-traffic-toggle'
+- assertVisible:
+    id: 'map-traffic-toggle'
+    checked: true
+- tapOn:
+    id: 'map-traffic-toggle'
+- assertVisible:
+    id: 'map-traffic-toggle'
+    checked: false
+- tapOn:
+    id: 'map-police-alerts-toggle'
+- assertVisible:
+    id: 'map-police-alerts-toggle'
+    checked: true
+- tapOn:
+    id: 'map-police-alerts-toggle'
+- assertVisible:
+    id: 'map-police-alerts-toggle'
+    checked: false
+
+- tapOn:
+    id: 'map-layer-option-standard-satellite'
+- assertNotVisible:
+    id: 'map-settings-sheet'
+- extendedWaitUntil:
+    visible: 'Map layer: Standard Satellite. Open map layer options'
+    timeout: 10000
+- tapOn:
+    id: 'map-layer-button'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'map-settings-sheet'
+    timeout: 10000
+- assertVisible:
+    id: 'map-layer-option-standard-satellite'
+    selected: true
+- tapOn:
+    id: 'map-layer-option-standard'
+- assertNotVisible:
+    id: 'map-settings-sheet'
+- extendedWaitUntil:
+    visible: 'Map layer: Standard. Open map layer options'
+    timeout: 10000
+- tapOn:
+    id: 'map-layer-button'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'map-settings-sheet'
+    timeout: 10000
 - swipe:
     start: '50%,90%'
     end: '50%,35%'
@@ -74,9 +162,20 @@ tags:
 - assertVisible:
     id: 'offline-map-section-toggle'
 - tapOn:
+    id: 'map-light-preset-option-auto'
+- assertVisible:
+    id: 'map-light-preset-option-auto'
+    selected: true
+- tapOn:
     id: 'map-light-preset-option-night'
 - assertVisible:
     id: 'map-light-preset-option-night'
+    selected: true
+- tapOn:
+    id: 'map-light-preset-option-auto'
+- assertVisible:
+    id: 'map-light-preset-option-auto'
+    selected: true
 - swipe:
     start: '50%,88%'
     end: '50%,30%'
@@ -87,3 +186,4 @@ tags:
     timeout: 10000
 - assertVisible:
     id: 'map-settings-reset-button'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-map-settings-scrolled'}

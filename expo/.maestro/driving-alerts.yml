@@ -9,14 +9,20 @@ tags:
     latitude: 30.2672
     longitude: -97.7431
 - launchApp:
+    clearState: true
     stopApp: true
     permissions:
       all: allow
 - runFlow:
     when:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
-    commands:
-      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+    file: subflows/open-expo-dev-client-after-clear.yml
+- tapOn:
+    id: 'driving-cancel-route-button'
+    optional: true
+- tapOn:
+    id: 'place-details-close-button'
+    optional: true
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
@@ -49,16 +55,24 @@ tags:
       id: 'map-directions-submit-button-map'
       enabled: true
     timeout: 30000
+- assertNotVisible:
+    id: 'directions-route-sheet-presented'
 - tapOn:
     id: 'map-directions-submit-button-map'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: 'directions-route-start-driving-button'
+      id: 'directions-route-sheet-presented'
     timeout: 60000
+- assertVisible:
+    id: 'directions-route-start-driving-button'
 - tapOn:
     id: 'directions-route-start-driving-button'
     retryTapIfNoChange: true
+- extendedWaitUntil:
+    notVisible:
+      id: 'directions-route-sheet-presented'
+    timeout: 10000
 
 - extendedWaitUntil:
     visible:
@@ -66,7 +80,7 @@ tags:
     timeout: 30000
 - assertVisible:
     id: 'driving-upcoming-alert-title'
-    text: 'Police reported'
+- assertVisible: 'Police reported'
 - assertVisible:
     id: 'driving-upcoming-alert-track'
 - assertVisible:
@@ -84,7 +98,7 @@ tags:
     timeout: 10000
 - assertVisible:
     id: 'driving-upcoming-alert-title'
-    text: 'ALPR camera'
+- assertVisible: 'ALPR camera'
 - assertVisible:
     text: 'Flock · on your route'
 - assertVisible:

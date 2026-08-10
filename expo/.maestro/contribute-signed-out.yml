@@ -11,11 +11,6 @@ tags:
     stopApp: true
     permissions:
       all: allow
-- runFlow:
-    when:
-      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
-    commands:
-      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
@@ -32,22 +27,18 @@ tags:
       id: 'map-contribute-button'
     timeout: 30000
 - waitForAnimationToEnd
+- assertNotVisible:
+    id: 'contribute-start-sheet'
 - tapOn:
     id: 'map-contribute-button'
-    retryTapIfNoChange: true
-- runFlow:
-    when:
-      notVisible:
-        id: 'contribute-start-sheet'
-    commands:
-      - tapOn:
-          id: 'map-contribute-button'
-          retryTapIfNoChange: true
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'contribute-start-sheet'
     timeout: 30000
-- assertVisible: 'Start a changeset'
-- assertVisible: 'Not signed in'
+- assertVisible:
+    id: 'contribute-start-sheet-title'
+- assertVisible:
+    id: 'contribute-account-card-signed-out'
 - assertVisible:
     id: 'contribute-sign-in-button'

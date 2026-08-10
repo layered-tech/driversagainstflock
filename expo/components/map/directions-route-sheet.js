@@ -1,4 +1,5 @@
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { useEffect } from 'react';
 import { Text, View } from 'react-native';
 import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
@@ -15,6 +16,7 @@ import {
     NativeWindBottomSheetView,
 } from './native-components';
 import { RouteOptionCard } from './route-option-card';
+import { useBottomSheetPresentedState } from './use-bottom-sheet-presented-state';
 
 export function DirectionsRouteSheet() {
     const {
@@ -30,6 +32,31 @@ export function DirectionsRouteSheet() {
         insets,
         mapPreferencesAreLoaded,
     } = useDirectionsRouteContext();
+    const {
+        bottomSheetIsPresented,
+        handleBottomSheetChange,
+        handleBottomSheetDismiss,
+    } = useBottomSheetPresentedState({
+        onChange: directionsRouteSheetTrackingHandlers.onChange,
+        onDismiss: directionsRouteSheetTrackingHandlers.onDismiss,
+    });
+
+    useEffect(() => {
+        if (!mapPreferencesAreLoaded || !directionsRoute) {
+            return undefined;
+        }
+
+        const presentRouteSheet = () => {
+            directionsRouteSheetRef.current?.present();
+        };
+        const frame = requestAnimationFrame(presentRouteSheet);
+        const retry = setTimeout(presentRouteSheet, 300);
+
+        return () => {
+            cancelAnimationFrame(frame);
+            clearTimeout(retry);
+        };
+    }, [directionsRoute, directionsRouteSheetRef, mapPreferencesAreLoaded]);
 
     if (!mapPreferencesAreLoaded) {
         return null;
@@ -85,10 +112,17 @@ export function DirectionsRouteSheet() {
             handleIndicatorStyle={bottomSheetHandleIndicatorStyle}
             animatedPosition={bottomSheetAnimatedPosition}
             onAnimate={directionsRouteSheetTrackingHandlers.onAnimate}
-            onChange={directionsRouteSheetTrackingHandlers.onChange}
-            onDismiss={directionsRouteSheetTrackingHandlers.onDismiss}
+            onChange={handleBottomSheetChange}
+            onDismiss={handleBottomSheetDismiss}
         >
-            <NativeWindBottomSheetView className="dark:bg-daf-surface-dark bg-white">
+            <NativeWindBottomSheetView
+                className="dark:bg-daf-surface-dark bg-white"
+                testID={
+                    bottomSheetIsPresented
+                        ? 'directions-route-sheet-presented'
+                        : undefined
+                }
+            >
                 {directionsRoute ? (
                     <BottomSheetScrollView
                         showsVerticalScrollIndicator={false}

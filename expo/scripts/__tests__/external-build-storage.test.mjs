@@ -18,8 +18,8 @@ const runScript = (script, args = [], environment = {}) =>
 describe('external build storage wrappers', () => {
     test('reject internal build roots', () => {
         for (const script of [
+            'android-auto-e2e.sh',
             'eas-local-build.sh',
-            'expo-export-external.sh',
             'maestro-test.sh',
             'xcodebuild-external.sh',
         ]) {
@@ -65,17 +65,11 @@ describe('external build storage wrappers', () => {
     });
 
     test('keeps wrapper-owned output paths from being overridden', () => {
-        const exportResult = runScript('expo-export-external.sh', [
-            '--output-dir',
-            '/Volumes/PfeiferDev/other-export',
-        ]);
         const xcodeResult = runScript('xcodebuild-external.sh', [
             '-derivedDataPath',
             '/Volumes/PfeiferDev/other-derived-data',
         ]);
 
-        assert.equal(exportResult.status, 1);
-        assert.match(exportResult.stderr, /controls --output-dir/);
         assert.equal(xcodeResult.status, 1);
         assert.match(xcodeResult.stderr, /controls -derivedDataPath/);
     });

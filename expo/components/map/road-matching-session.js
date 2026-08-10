@@ -11,6 +11,7 @@ import {
     refreshBackgroundAlertsForLocationAsync,
     settleBackgroundWorkWithinDeadlineAsync,
 } from './background-alert-refresh';
+import { getSelectedDirectionsRouteOption } from './directions';
 import {
     getLocationUpdateRecordedAt,
     getRoadMatchingLocationSourcePolicy,
@@ -352,6 +353,19 @@ function activeDirectionsRouteIsBeingFollowed(
     );
 }
 
+function getActiveDirectionsRouteCoordinates(
+    routingState = getSharedRoutingState(),
+) {
+    if (!activeDirectionsRouteIsBeingFollowed(routingState)) {
+        return null;
+    }
+
+    return (
+        getSelectedDirectionsRouteOption(routingState.directionsRoute)
+            ?.coordinates ?? null
+    );
+}
+
 function disableRoadLookAheadForActiveRoute() {
     if (roadLookAheadMode !== 'active-route') {
         roadLookAheadMode = 'active-route';
@@ -410,7 +424,10 @@ function applyRawLocation(location) {
     lastRawLocation = location;
 
     const matcherStartedAt = Date.now();
-    const matchedLocation = matcher?.update(location) ?? null;
+    const matchedLocation =
+        matcher?.update(location, {
+            preferredRouteCoordinates: getActiveDirectionsRouteCoordinates(),
+        }) ?? null;
     const matcherDurationMs = Date.now() - matcherStartedAt;
 
     if (matcherDurationMs >= SLOW_MAP_PIPELINE_OPERATION_THRESHOLD_MS) {

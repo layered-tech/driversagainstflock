@@ -9,6 +9,7 @@ import {
     NativeWindBottomSheetModal,
     NativeWindBottomSheetView,
 } from '../map/native-components';
+import { useBottomSheetPresentedState } from '../map/use-bottom-sheet-presented-state';
 import { ContributeAuthProgress } from './contribute-auth-progress';
 import { useContribute } from './contribute-state';
 
@@ -55,9 +56,12 @@ function formatDraftSavedRelativeTime(value) {
     return `${Math.floor(diffDays / 7)}w ago`;
 }
 
-function ContributeAccountCard({ isAuthenticated, subtitle, title }) {
+function ContributeAccountCard({ isAuthenticated, subtitle, testID, title }) {
     return (
-        <View className="flex-row items-center gap-3 rounded-dafMd bg-daf-surface-alt px-3 py-[11px] dark:bg-daf-surface-inverse">
+        <View
+            className="flex-row items-center gap-3 rounded-dafMd bg-daf-surface-alt px-3 py-[11px] dark:bg-daf-surface-inverse"
+            testID={testID}
+        >
             <View
                 className={`h-10 w-10 items-center justify-center rounded-dafPill ${
                     isAuthenticated
@@ -119,19 +123,26 @@ export function ContributeStartSheet({
         storedDraftSummary,
     } = useContribute();
     const sheetRef = useRef(null);
+    const startSheetIsPresentedRef = useRef(false);
     const [signInError, setSignInError] = useState('');
     const startSheetIsOpen = contributeStatus === 'start-sheet';
     const authProgressIsVisible = isLoading || isSigningIn;
 
     useEffect(() => {
         if (startSheetIsOpen && mapPreferencesAreLoaded) {
-            sheetRef.current?.present();
-        } else {
+            if (!startSheetIsPresentedRef.current) {
+                startSheetIsPresentedRef.current = true;
+                sheetRef.current?.present();
+            }
+        } else if (startSheetIsPresentedRef.current) {
+            startSheetIsPresentedRef.current = false;
             sheetRef.current?.dismiss();
         }
     }, [mapPreferencesAreLoaded, startSheetIsOpen]);
 
     const handleSheetDismiss = useCallback(() => {
+        startSheetIsPresentedRef.current = false;
+
         if (isSigningIn) {
             return;
         }
@@ -139,6 +150,11 @@ export function ContributeStartSheet({
         setSignInError('');
         closeStartSheet();
     }, [closeStartSheet, isSigningIn]);
+    const {
+        bottomSheetIsPresented,
+        handleBottomSheetChange,
+        handleBottomSheetDismiss,
+    } = useBottomSheetPresentedState({ onDismiss: handleSheetDismiss });
 
     const renderStartSheetBackdrop = useCallback(
         (props) =>
@@ -173,6 +189,7 @@ export function ContributeStartSheet({
     return (
         <NativeWindBottomSheetModal
             ref={sheetRef}
+            accessible={false}
             backdropComponent={renderStartSheetBackdrop}
             backgroundStyle={bottomSheetBackgroundStyle}
             enableDynamicSizing
@@ -181,11 +198,16 @@ export function ContributeStartSheet({
             handleIndicatorStyle={bottomSheetHandleIndicatorStyle}
             index={0}
             maxDynamicContentSize={windowHeight * 0.85}
-            onDismiss={handleSheetDismiss}
+            onChange={handleBottomSheetChange}
+            onDismiss={handleBottomSheetDismiss}
         >
             <NativeWindBottomSheetView
                 className="dark:bg-daf-surface-dark bg-white"
-                testID="contribute-start-sheet"
+                testID={
+                    bottomSheetIsPresented
+                        ? 'contribute-start-sheet'
+                        : undefined
+                }
             >
                 <BottomSheetScrollView
                     contentContainerStyle={{
@@ -207,7 +229,10 @@ export function ContributeStartSheet({
                     ) : (
                         <>
                             <View className="gap-1">
-                                <Text className="font-dafDisplay text-[21px] font-bold leading-7 text-daf-text-primary dark:text-white">
+                                <Text
+                                    className="font-dafDisplay text-[21px] font-bold leading-7 text-daf-text-primary dark:text-white"
+                                    testID="contribute-start-sheet-title"
+                                >
                                     Start a changeset
                                 </Text>
                                 <Text className="text-sm text-daf-text-secondary dark:text-neutral-300">
@@ -228,11 +253,13 @@ export function ContributeStartSheet({
                                             ? `@${user.name}`
                                             : 'OpenStreetMap account'
                                     }
+                                    testID="contribute-account-card-signed-in"
                                 />
                             ) : (
                                 <ContributeAccountCard
                                     isAuthenticated={false}
                                     subtitle="You need an OpenStreetMap account to publish edits"
+                                    testID="contribute-account-card-signed-out"
                                     title="Not signed in"
                                 />
                             )}

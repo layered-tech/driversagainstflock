@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useColorScheme, View } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { getDafTheme } from '../design-system/tokens';
+import {
+    ACTIVE_ROUTE_DEVIATION_THRESHOLD_METERS,
+    getActiveRouteDeviationDistanceMeters,
+} from './active-route-deviation';
 import { logMapDrivingStopped } from './analytics';
 import { getDirections } from './api';
 import { DEBUG_OVERLAY_DIRECTIONS_GEOMETRY } from './debug-overlays';
@@ -39,7 +43,6 @@ import { MOBILE_SPEED_LIMIT_BADGE_SIZE } from './speed-limit-layout';
 
 const DRIVING_REROUTE_CONFIRMATION_MS = 2000;
 const DRIVING_REROUTE_COOLDOWN_MS = 8000;
-const DRIVING_REROUTE_DISTANCE_THRESHOLD_METERS = 45;
 const DRIVING_REROUTE_GRACE_PERIOD_MS = 3000;
 
 function createSearchResultRestoreFromRoute(route) {
@@ -121,6 +124,10 @@ export function DrivingGuidanceOverlay({
         () => getDirectionsRouteProgress(directionsRoute, userLocation),
         [directionsRoute, userLocation],
     );
+    const routeDeviationDistance = getActiveRouteDeviationDistanceMeters({
+        routeProgress,
+        userLocation,
+    });
     const maneuver = useMemo(
         () =>
             getActiveDirectionsManeuver(
@@ -289,6 +296,7 @@ export function DrivingGuidanceOverlay({
         if (
             !routeIsActive ||
             !routeProgress ||
+            routeDeviationDistance === null ||
             rerouteAbortControllerRef.current
         ) {
             offRouteDetectedAtRef.current = null;
@@ -306,10 +314,7 @@ export function DrivingGuidanceOverlay({
             return;
         }
 
-        if (
-            routeProgress.distanceFromRoute <
-            DRIVING_REROUTE_DISTANCE_THRESHOLD_METERS
-        ) {
+        if (routeDeviationDistance <= ACTIVE_ROUTE_DEVIATION_THRESHOLD_METERS) {
             offRouteDetectedAtRef.current = null;
             return;
         }
@@ -328,7 +333,13 @@ export function DrivingGuidanceOverlay({
 
         offRouteDetectedAtRef.current = null;
         handleReroute();
-    }, [directionsRoute, handleReroute, routeIsActive, routeProgress]);
+    }, [
+        directionsRoute,
+        handleReroute,
+        routeDeviationDistance,
+        routeIsActive,
+        routeProgress,
+    ]);
 
     return (
         <View className="absolute inset-0 z-50" pointerEvents="box-none">

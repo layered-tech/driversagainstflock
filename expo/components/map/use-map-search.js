@@ -181,6 +181,7 @@ export function useMapSearch({
         placeSheetIsOpenRef,
         placeSheetRef,
         presentPlaceSheet,
+        presentSubmittedSearchResultsSheet,
         submittedSearchResultsSheetRef,
     } = useMapSearchSheetPresentation({
         selectedPlaceDetails,
@@ -272,7 +273,6 @@ export function useMapSearch({
     const { clearDirectionsRouteRequest, requestDirectionsRoute } =
         useDirectionsRouteRequest({
             directionsDebugGeometryIsEnabled,
-            directionsRouteSheetRef,
             isMountedRef,
             setDirectionsRoute,
             setDirectionsRouteError,
@@ -552,12 +552,15 @@ export function useMapSearch({
             abortVoiceSearch();
             setLocalityBoundary?.(null);
             setLocalitySearchError('');
-            setSearchPageIsVisible(true);
             submitSubmittedSearchQuery(query);
+            setSearchIsFocused(false);
+            setSearchPageIsVisible(false);
+            presentSubmittedSearchResultsSheet();
             return true;
         },
         [
             abortVoiceSearch,
+            presentSubmittedSearchResultsSheet,
             primaryLocationTypeBeingSet,
             setLocalityBoundary,
             submitSubmittedSearchQuery,
@@ -855,6 +858,7 @@ export function useMapSearch({
 
             getPlaceDetails({
                 placeId: result.placeId,
+                sessionToken: result.sessionToken,
                 signal: abortController.signal,
             })
                 .then((place) => {
@@ -1160,9 +1164,10 @@ export function useMapSearch({
         placeSheetIsOpenRef.current = false;
         dismissPlaceSheet();
         setSearchMode(DIRECTIONS_MODE_SEARCH);
-        setSearchIsFocused(true);
-        setSearchPageIsVisible(true);
-    }, [submittedSearchResults.length]);
+        setSearchIsFocused(false);
+        setSearchPageIsVisible(false);
+        presentSubmittedSearchResultsSheet();
+    }, [presentSubmittedSearchResultsSheet, submittedSearchResults.length]);
 
     const handleSubmittedSearchResultPress = useCallback(
         (result) => {

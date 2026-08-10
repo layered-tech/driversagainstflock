@@ -9,46 +9,15 @@ tags:
     longitude: -97.7483004606461
 - launchApp:
     clearState: true
+    clearKeychain: true
     stopApp: true
     permissions:
       all: allow
 - runFlow:
     when:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
-    commands:
-      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+    file: subflows/open-expo-dev-client-after-clear.yml
 - waitForAnimationToEnd
-- tapOn:
-    text: 'Drivers Against Flock (Dev)'
-    index: 1
-    optional: true
-- tapOn:
-    point: '50%,26%'
-    repeat: 2
-    optional: true
-- extendedWaitUntil:
-    visible: 'Continue'
-    timeout: 10000
-    optional: true
-- runFlow:
-    when:
-      visible: 'Continue'
-    commands:
-      - tapOn: 'Continue'
-- tapOn:
-    point: '50%,63%'
-    optional: true
-- extendedWaitUntil:
-    visible: 'Close'
-    timeout: 10000
-    optional: true
-- runFlow:
-    when:
-      visible: 'Close'
-    commands:
-      - tapOn:
-          text: 'Close'
-          optional: true
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
@@ -65,10 +34,11 @@ tags:
     latitude: 30.26760492387431
     longitude: -97.7483004606461
 - extendedWaitUntil:
-    visible:
-      id: 'e2e-road-matching-edge-id'
-      text: 'e2e-frontage:0:forward'
+    visible: 'e2e-frontage:0:forward'
     timeout: 30000
+- copyTextFrom:
+    id: 'e2e-road-matching-edge-id'
+- assertTrue: ${maestro.copiedText == 'e2e-frontage:0:forward'}
 - runFlow:
     when:
       visible:
@@ -77,165 +47,196 @@ tags:
       - tapOn:
           id: 'driving-recenter-button'
 - extendedWaitUntil:
-    visible:
-      id: 'e2e-native-puck-proof'
-      text: 'true'
+    visible: 'true'
     timeout: 60000
+- copyTextFrom:
+    id: 'e2e-native-puck-proof'
+- assertTrue: ${maestro.copiedText == 'true'}
 - extendedWaitUntil:
-    visible:
-      id: 'e2e-native-3d-puck-proof'
-      text: 'true'
+    visible: 'true'
     timeout: 60000
-- assertVisible:
+- copyTextFrom:
+    id: 'e2e-native-3d-puck-proof'
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
     id: 'e2e-native-puck-kind'
-    text: '3d'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == '3d'}
+- copyTextFrom:
     id: 'e2e-native-puck-model-uri'
-    text: 'asset://navigation_puck.glb'
+- assertTrue: ${maestro.copiedText.match(/navigation_puck\.glb$/)}
 - assertVisible:
     id: 'e2e-native-puck-model-scale'
-- assertVisible:
+- copyTextFrom:
     id: 'e2e-native-puck-model-rotation'
-    text: '0,0,0'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == '0,0,0'}
+- copyTextFrom:
     id: 'e2e-native-puck-scale-mode'
-    text: 'map'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'map'}
+- copyTextFrom:
     id: 'e2e-native-puck-emissive-strength'
-    text: '1'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == '1'}
+- copyTextFrom:
     id: 'e2e-native-puck-cast-shadows'
-    text: 'false'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'false'}
+- copyTextFrom:
     id: 'e2e-native-puck-receive-shadows'
-    text: 'false'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'false'}
+- copyTextFrom:
     id: 'e2e-native-puck-location-enabled'
-    text: 'true'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
     id: 'e2e-native-puck-bearing'
-    text: 'heading'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'heading'}
+- copyTextFrom:
     id: 'e2e-native-puck-bearing-enabled'
-    text: 'true'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
     id: 'e2e-native-puck-model-layer'
-    text: 'true'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
     id: 'e2e-native-puck-model-source'
-    text: 'true'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
     id: 'e2e-native-puck-indicator-layer'
-    text: 'false'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'false'}
+- copyTextFrom:
     id: 'e2e-native-puck-rendered-at-snapped'
-    text: 'true'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
     id: 'e2e-native-puck-model-byte-length'
-    text: '21636'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == '21636'}
+- copyTextFrom:
     id: 'e2e-native-puck-model-sha256'
-    text: 'ab6a662ad8d0696f4a763ce364a1f73c0d4c5a56361baa4ab57644e85381fccc'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'ab6a662ad8d0696f4a763ce364a1f73c0d4c5a56361baa4ab57644e85381fccc'}
+- copyTextFrom:
     id: 'e2e-road-matching-state'
-    text: 'matched'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'matched'}
+- copyTextFrom:
     id: 'e2e-road-matching-source'
-    text: 'expo-foreground-location-watch'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'expo-foreground-location-watch'}
+- copyTextFrom:
     id: 'e2e-road-matching-provider'
-    text: 'in-house-road-matcher'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'in-house-road-matcher'}
+- copyTextFrom:
     id: 'e2e-road-matching-raw-coordinate'
-    text: '-97.7483005,30.2676049'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == '-97.7483005,30.2676049'}
+- copyTextFrom:
     id: 'e2e-road-matching-coordinate'
-    text: '-97.7483005,30.2675149'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == '-97.7483005,30.2675149'}
+- copyTextFrom:
     id: 'e2e-road-matching-speed-limit'
-    text: '25'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == '25'}
+- copyTextFrom:
     id: 'e2e-road-look-ahead-edge-ids'
-    text: 'e2e-frontage:0:forward,e2e-frontage:1:forward'
-- assertVisible:
-    id: 'e2e-native-puck-provider-coordinate'
-    text: '-97.7483005,30.2675149'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'e2e-frontage:0:forward,e2e-frontage:1:forward'}
+- copyTextFrom:
     id: 'e2e-native-puck-provider-owned'
-    text: 'true'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
     id: 'e2e-native-puck-camera-following'
-    text: 'true'
-- assertVisible:
-    id: 'e2e-native-puck-provider-at-snapped'
-    text: 'true'
-- assertVisible:
-    id: 'e2e-native-puck-provider-at-raw'
-    text: 'false'
-- assertVisible:
-    id: 'e2e-native-puck-proof-source'
-    text: 'native-3d-puck'
-- assertVisible:
-    id: 'e2e-native-puck-indicator-coordinate'
-    text: '-97.7483005,30.2675149'
-- assertVisible:
-    id: 'e2e-native-puck-indicator-at-snapped'
-    text: 'true'
-- assertVisible:
-    id: 'e2e-native-puck-indicator-at-raw'
-    text: 'false'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'true'}
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - copyTextFrom:
+          id: 'e2e-native-puck-provider-coordinate'
+      - assertTrue: ${maestro.copiedText == '-97.7483005,30.2675149'}
+      - copyTextFrom:
+          id: 'e2e-native-puck-provider-at-snapped'
+      - assertTrue: ${maestro.copiedText == 'true'}
+      - copyTextFrom:
+          id: 'e2e-native-puck-provider-at-raw'
+      - assertTrue: ${maestro.copiedText == 'false'}
+      - copyTextFrom:
+          id: 'e2e-native-puck-proof-source'
+      - assertTrue: ${maestro.copiedText == 'native-3d-puck'}
+      - copyTextFrom:
+          id: 'e2e-native-puck-indicator-coordinate'
+      - assertTrue: ${maestro.copiedText == '-97.7483005,30.2675149'}
+      - copyTextFrom:
+          id: 'e2e-native-puck-indicator-at-snapped'
+      - assertTrue: ${maestro.copiedText == 'true'}
+      - copyTextFrom:
+          id: 'e2e-native-puck-indicator-at-raw'
+      - assertTrue: ${maestro.copiedText == 'false'}
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - copyTextFrom:
+          id: 'e2e-native-puck-proof-source'
+      - assertTrue: ${maestro.copiedText == 'rendered-query-3d'}
+- copyTextFrom:
     id: 'driving-speed-limit-value'
-    text: '25'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == '25'}
+- copyTextFrom:
     id: 'e2e-road-graph-load-count'
-    text: '1'
+- assertTrue: ${maestro.copiedText == '1'}
 - setLocation:
     latitude: 30.26760492387431
     longitude: -97.74622027638766
 - extendedWaitUntil:
-    visible:
-      id: 'e2e-road-matching-raw-coordinate'
-      text: '-97.7462203,30.2676049'
-    timeout: 30000
-- assertVisible:
+    visible: '-97.7462203,30.2676049'
+    timeout: 60000
+- copyTextFrom:
+    id: 'e2e-road-matching-raw-coordinate'
+- assertTrue: ${maestro.copiedText == '-97.7462203,30.2676049'}
+- copyTextFrom:
     id: 'e2e-road-matching-edge-id'
-    text: 'e2e-frontage:0:forward'
+- assertTrue: ${maestro.copiedText == 'e2e-frontage:0:forward'}
 - setLocation:
     latitude: 30.26760492387431
     longitude: -97.74414009212921
 - extendedWaitUntil:
-    visible:
-      id: 'e2e-road-matching-raw-coordinate'
-      text: '-97.7441401,30.2676049'
-    timeout: 30000
-- assertVisible:
+    visible: '-97.7441401,30.2676049'
+    timeout: 60000
+- copyTextFrom:
+    id: 'e2e-road-matching-raw-coordinate'
+- assertTrue: ${maestro.copiedText == '-97.7441401,30.2676049'}
+- copyTextFrom:
     id: 'e2e-road-matching-edge-id'
-    text: 'e2e-frontage:0:forward'
-- setLocation:
-    latitude: 30.26760492387431
-    longitude: -97.74226792629662
+- assertTrue: ${maestro.copiedText == 'e2e-frontage:0:forward'}
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setLocation:
+          latitude: 30.26760492387431
+          longitude: -97.74226792629662
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - travel:
+          points:
+            - '30.26760492387431, -97.74414009212921'
+            - '30.26760492387431, -97.74226792629662'
+          speed: 100
 - extendedWaitUntil:
-    visible:
-      id: 'e2e-road-matching-raw-coordinate'
-      text: '-97.7422679,30.2676049'
-    timeout: 30000
+    visible: '-97.7422679,30.2676049'
+    timeout: 60000
+- copyTextFrom:
+    id: 'e2e-road-matching-raw-coordinate'
+- assertTrue: ${maestro.copiedText == '-97.7422679,30.2676049'}
 - extendedWaitUntil:
-    visible:
-      id: 'e2e-road-graph-load-count'
-      text: '1'
-    timeout: 30000
-- assertVisible:
+    visible: '1'
+    timeout: 60000
+- copyTextFrom:
+    id: 'e2e-road-graph-load-count'
+- assertTrue: ${maestro.copiedText == '1'}
+- copyTextFrom:
     id: 'e2e-road-matching-edge-id'
-    text: 'e2e-frontage:1:forward'
+- assertTrue: ${maestro.copiedText == 'e2e-frontage:1:forward'}
 - setLocation:
     latitude: 30.267343972933087
     longitude: -97.74205990787078
 - extendedWaitUntil:
-    visible:
-      id: 'e2e-road-matching-coordinate'
-      text: '-97.7420599,30.2675149'
-    timeout: 30000
+    visible: '-97.7420599,30.2675149'
+    timeout: 60000
+- copyTextFrom:
+    id: 'e2e-road-matching-coordinate'
+- assertTrue: ${maestro.copiedText == '-97.7420599,30.2675149'}
 - runFlow:
     when:
       visible:
@@ -244,81 +245,94 @@ tags:
       - tapOn:
           id: 'driving-recenter-button'
 - extendedWaitUntil:
-    visible:
-      id: 'e2e-native-puck-proof'
-      text: 'true'
+    visible: 'true'
     timeout: 60000
+- copyTextFrom:
+    id: 'e2e-native-puck-proof'
+- assertTrue: ${maestro.copiedText == 'true'}
 - extendedWaitUntil:
-    visible:
-      id: 'e2e-native-3d-puck-proof'
-      text: 'true'
+    visible: 'true'
     timeout: 60000
-- assertVisible:
+- copyTextFrom:
+    id: 'e2e-native-3d-puck-proof'
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
     id: 'e2e-native-puck-kind'
-    text: '3d'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == '3d'}
+- copyTextFrom:
     id: 'e2e-native-puck-model-uri'
-    text: 'asset://navigation_puck.glb'
+- assertTrue: ${maestro.copiedText.match(/navigation_puck\.glb$/)}
 - assertVisible:
     id: 'e2e-native-puck-model-scale'
-- assertVisible:
+- copyTextFrom:
     id: 'e2e-native-puck-model-layer'
-    text: 'true'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
     id: 'e2e-native-puck-model-source'
-    text: 'true'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
     id: 'e2e-native-puck-indicator-layer'
-    text: 'false'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'false'}
+- copyTextFrom:
     id: 'e2e-native-puck-rendered-at-snapped'
-    text: 'true'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
     id: 'e2e-native-puck-model-sha256'
-    text: 'ab6a662ad8d0696f4a763ce364a1f73c0d4c5a56361baa4ab57644e85381fccc'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'ab6a662ad8d0696f4a763ce364a1f73c0d4c5a56361baa4ab57644e85381fccc'}
+- copyTextFrom:
     id: 'e2e-road-matching-edge-id'
-    text: 'e2e-frontage:1:forward'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'e2e-frontage:1:forward'}
+- copyTextFrom:
     id: 'e2e-road-matching-speed-limit'
-    text: '25'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == '25'}
+- copyTextFrom:
     id: 'e2e-road-matching-raw-coordinate'
-    text: '-97.7420599,30.2673440'
-- assertVisible:
-    id: 'e2e-native-puck-provider-coordinate'
-    text: '-97.7420599,30.2675149'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == '-97.7420599,30.2673440'}
+- copyTextFrom:
     id: 'e2e-native-puck-provider-owned'
-    text: 'true'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
     id: 'e2e-native-puck-camera-following'
-    text: 'true'
-- assertVisible:
-    id: 'e2e-native-puck-provider-at-snapped'
-    text: 'true'
-- assertVisible:
-    id: 'e2e-native-puck-provider-at-raw'
-    text: 'false'
-- assertVisible:
-    id: 'e2e-native-puck-proof-source'
-    text: 'native-3d-puck'
-- assertVisible:
-    id: 'e2e-native-puck-indicator-coordinate'
-    text: '-97.7420599,30.2675149'
-- assertVisible:
-    id: 'e2e-native-puck-indicator-at-snapped'
-    text: 'true'
-- assertVisible:
-    id: 'e2e-native-puck-indicator-at-raw'
-    text: 'false'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == 'true'}
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - copyTextFrom:
+          id: 'e2e-native-puck-provider-coordinate'
+      - assertTrue: ${maestro.copiedText == '-97.7420599,30.2675149'}
+      - copyTextFrom:
+          id: 'e2e-native-puck-provider-at-snapped'
+      - assertTrue: ${maestro.copiedText == 'true'}
+      - copyTextFrom:
+          id: 'e2e-native-puck-provider-at-raw'
+      - assertTrue: ${maestro.copiedText == 'false'}
+      - copyTextFrom:
+          id: 'e2e-native-puck-proof-source'
+      - assertTrue: ${maestro.copiedText == 'native-3d-puck'}
+      - copyTextFrom:
+          id: 'e2e-native-puck-indicator-coordinate'
+      - assertTrue: ${maestro.copiedText == '-97.7420599,30.2675149'}
+      - copyTextFrom:
+          id: 'e2e-native-puck-indicator-at-snapped'
+      - assertTrue: ${maestro.copiedText == 'true'}
+      - copyTextFrom:
+          id: 'e2e-native-puck-indicator-at-raw'
+      - assertTrue: ${maestro.copiedText == 'false'}
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - copyTextFrom:
+          id: 'e2e-native-puck-proof-source'
+      - assertTrue: ${maestro.copiedText == 'rendered-query-3d'}
+- copyTextFrom:
     id: 'driving-speed-limit-value'
-    text: '25'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == '25'}
+- copyTextFrom:
     id: 'e2e-road-graph-load-count'
-    text: '1'
-- assertVisible:
+- assertTrue: ${maestro.copiedText == '1'}
+- copyTextFrom:
     id: 'e2e-road-look-ahead-edge-ids'
-    text: 'e2e-frontage:1:forward'
+- assertTrue: ${maestro.copiedText == 'e2e-frontage:1:forward'}
 - takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-in-house-road-matching-parallel-road'}

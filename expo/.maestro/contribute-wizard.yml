@@ -12,37 +12,10 @@ tags:
     stopApp: true
     permissions:
       all: allow
-- tapOn:
-    text: 'Continue'
-    optional: true
 - runFlow:
     when:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
-    commands:
-      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
-- tapOn:
-    text: 'http://10.0.2.2:8081'
-    optional: true
-- extendedWaitUntil:
-    visible: 'Continue'
-    timeout: 10000
-    optional: true
-- runFlow:
-    when:
-      visible: 'Continue'
-    commands:
-      - tapOn: 'Continue'
-- extendedWaitUntil:
-    visible: 'Close'
-    timeout: 10000
-    optional: true
-- runFlow:
-    when:
-      visible: 'Close'
-    commands:
-      - tapOn:
-          text: 'Close'
-          optional: true
+    file: subflows/open-expo-dev-client-after-clear.yml
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
@@ -58,9 +31,11 @@ tags:
     visible:
       id: 'map-contribute-button'
     timeout: 30000
+- assertNotVisible:
+    id: 'contribute-start-sheet'
 - tapOn:
     id: 'map-contribute-button'
-    retryTapIfNoChange: true
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'contribute-start-sheet'
@@ -79,16 +54,24 @@ tags:
     commands:
       - tapOn:
           id: 'contribute-start-editing-button'
-          retryTapIfNoChange: true
+          retryTapIfNoChange: false
 - runFlow:
     when:
       platform: iOS
     commands:
       - tapOn:
-          id: 'contribute-start-sheet'
-          point: '50%,93%'
+          id: 'contribute-start-editing-button'
+          retryTapIfNoChange: false
 
 # Screen 12: place two cameras; Android also covers remove and re-add
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-placement-sheet'
+    timeout: 10000
+- extendedWaitUntil:
+    notVisible:
+      id: 'contribute-start-sheet'
+    timeout: 10000
 - extendedWaitUntil:
     visible: 'Place the cameras'
     timeout: 10000
@@ -125,7 +108,7 @@ tags:
           timeout: 10000
       - tapOn:
           id: 'contribute-next-details-button'
-          retryTapIfNoChange: true
+          retryTapIfNoChange: false
       - openLink: 'driversagainstflock://contribute/camera/0'
 - runFlow:
     when:
@@ -134,6 +117,10 @@ tags:
       - openLink: 'driversagainstflock://contribute/camera/0'
 
 # Screen 13: one form per camera
+- extendedWaitUntil:
+    notVisible:
+      id: 'contribute-placement-sheet'
+    timeout: 10000
 - extendedWaitUntil:
     visible: 'Camera 1 of 2'
     timeout: 10000
@@ -168,7 +155,7 @@ tags:
     timeout: 10000
 - tapOn:
     id: 'contribute-next-changeset-button'
-    retryTapIfNoChange: true
+    retryTapIfNoChange: false
 
 # Screen 14: changeset details
 - extendedWaitUntil:
@@ -181,7 +168,7 @@ tags:
 - assertVisible: '2 nodes will be added to OpenStreetMap.'
 - tapOn:
     id: 'contribute-next-review-button'
-    retryTapIfNoChange: true
+    retryTapIfNoChange: false
 
 # Screen 15: review & publish
 - extendedWaitUntil:
@@ -193,7 +180,7 @@ tags:
 - assertVisible: '.*Map only what you can verify.*'
 - tapOn:
     id: 'contribute-publish-button'
-    retryTapIfNoChange: true
+    retryTapIfNoChange: false
 
 # Screen 16: published
 - extendedWaitUntil:
@@ -206,7 +193,7 @@ tags:
 - assertVisible: 'node/12100882'
 - tapOn:
     id: 'contribute-see-on-map-button'
-    retryTapIfNoChange: true
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'

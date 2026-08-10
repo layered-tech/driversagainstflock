@@ -21,6 +21,7 @@ import {
 } from './auto-play-single-result-countdown';
 // Metro resolves the platform adapter per platform: Android Auto specifics in
 // auto-play-platform.android.js, CarPlay specifics in auto-play-platform.ios.js.
+import { createPlaceSearchSessionToken } from '../lib/place-search-session';
 import { autoPlayPlatform } from './auto-play-platform';
 import {
     DEFAULT_AUTO_PLAY_STATE,
@@ -47,6 +48,7 @@ import {
     searchPlaces,
     searchTextPlaces,
 } from './map/api';
+import { e2eMapApiMocksCanBeEnabled } from './map/api-mocks';
 import { PLACE_SEARCH_MIN_QUERY_LENGTH } from './map/constants';
 import {
     createCurrentLocationDirectionsWaypoint,
@@ -226,6 +228,7 @@ let navigationLocationSubscription = null;
 let navigationLocationUpdateGeneration = 0;
 let searchAbortController = null;
 let searchDebounceTimer = null;
+let placeSearchSessionToken = null;
 let routeLoadAbortController = null;
 let routeLoadingRequestSequence = 0;
 let singleResultCountdown = null;
@@ -827,6 +830,7 @@ function scheduleAutoPlaySingleResultAutoAdvance({
 
 function cancelAutoPlaySearchWork() {
     abortSearchRequest();
+    placeSearchSessionToken = null;
     abortRouteLoadRequest();
     clearAutoPlayRouteLoading();
     clearAutoPlaySingleResultCountdown();
@@ -945,6 +949,7 @@ async function runPlaceAutocomplete(template, searchText, startLocation) {
     abortSearchRequest();
 
     if (input.length < PLACE_SEARCH_MIN_QUERY_LENGTH) {
+        placeSearchSessionToken = null;
         updateSearchTemplateResults(template, [], input, startLocation);
         return;
     }
@@ -965,9 +970,14 @@ async function runPlaceAutocomplete(template, searchText, startLocation) {
             return;
         }
 
+        if (!placeSearchSessionToken) {
+            placeSearchSessionToken = createPlaceSearchSessionToken();
+        }
+
         const results = await searchPlaces({
             input,
             location,
+            sessionToken: placeSearchSessionToken,
             signal: abortController.signal,
         });
 
@@ -1648,7 +1658,11 @@ async function resolvePlaceForResult(result, signal) {
         throw new Error('Place details could not be loaded.');
     }
 
-    return getPlaceDetails({ placeId: result.placeId, signal });
+    return getPlaceDetails({
+        placeId: result.placeId,
+        sessionToken: result.sessionToken,
+        signal,
+    });
 }
 
 async function handleSearchResultSelected(
@@ -2785,16 +2799,22 @@ function syncAutoPlayNavigationFromSharedRoutingState(
 
 function startAutoDriveNavigationSimulation(route) {
     const routeOption = getSelectedDirectionsRouteOption(route);
+    let simulatedLocationCount = 0;
     const simulationStarted = startAutoDriveSimulation({
         coordinates: routeOption?.coordinates,
         onArrive: () => {
             handleAutoDriveArrival(route);
         },
         onLocation: (position) => {
+            simulatedLocationCount += 1;
             const location = getLocationFromPosition(position);
 
             if (location) {
                 scheduleNavigationGuidance(location);
+            }
+
+            if (simulatedLocationCount === 2) {
+                logAutoPlayPlatformAction('auto-drive-progressed');
             }
         },
     });
@@ -2821,6 +2841,9 @@ async function handleAutoDriveArrival(route) {
 }
 
 function handleAutoDriveEnabled() {
+    logAutoPlayPlatformAction('auto-drive-enabled', {
+        hasActiveNavigation: Boolean(activeNavigationRoute),
+    });
     autoDriveIsEnabled = true;
     setAutoPlayDrivingModeIsActive(true);
     setAutoPlayState({
@@ -3467,6 +3490,21 @@ function handleVoiceNavigationWhenReady(
     });
 }
 
+export function dispatchAutoPlayE2ECommand({ query, requestType } = {}) {
+    const normalizedQuery = String(query ?? '').trim();
+
+    if (
+        !e2eMapApiMocksCanBeEnabled() ||
+        !['directions', 'navigation', 'search'].includes(requestType) ||
+        !normalizedQuery
+    ) {
+        return false;
+    }
+
+    handleVoiceNavigationWhenReady(null, normalizedQuery, requestType);
+    return true;
+}
+
 function replayPendingVoiceNavigation() {
     const pendingNavigation = pendingVoiceNavigation;
     pendingVoiceNavigation = null;
@@ -3518,6 +3556,9 @@ async function handleAutoPlayConnect() {
         headerActions: initialRootMapHeaderActions,
         mapButtons: initialRootMapButtons,
         onAppearanceDidChange: (colorScheme) => {
+            logAutoPlayPlatformAction(
+                colorScheme === 'dark' ? 'appearance-dark' : 'appearance-light',
+            );
             setAutoPlayMapColorScheme(colorScheme);
         },
         ...getAutoPlayMapGestureCallbacks({
@@ -3542,11 +3583,7 @@ async function handleAutoPlayConnect() {
             },
         }),
         onStopNavigation: () => {
-            if (autoPlayPlatform?.preservesPhoneNavigationOnHostStop === true) {
-                autoPlayHostNavigationIsActive = false;
-                return;
-            }
-
+            logAutoPlayPlatformAction('host-navigation-stopped');
             stopAutoPlayNavigation({ notifyTemplate: false });
         },
         ...autoPlayPlatform.getMapTemplatePlatformConfig({

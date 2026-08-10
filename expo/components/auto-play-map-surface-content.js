@@ -874,7 +874,11 @@ function useAutoPlayMapController({
         isMapReadyRef.current = true;
         markerLoadsEnabledRef.current = true;
         setIsMapReady(true);
-    }, []);
+
+        if (latestMapBoundsRef.current) {
+            scheduleMarkerLoad(latestMapBoundsRef.current, 0);
+        }
+    }, [scheduleMarkerLoad]);
 
     const handleCompassHeadingUpdate = useCallback(
         (nextHeading) => {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPlaceSearchSessionToken } from '../../lib/place-search-session';
 import {
     getPlaceSearchLocationBias,
     getPlaceSearchLocationBiasKey,
@@ -20,6 +21,7 @@ export function usePlaceAutocomplete({
         origin: null,
     });
     const searchRequestIdRef = useRef(0);
+    const searchSessionTokenRef = useRef(null);
     const [searchResults, setSearchResults] = useState([]);
     const [searchIsLoading, setSearchIsLoading] = useState(false);
     const [searchError, setSearchError] = useState('');
@@ -40,6 +42,7 @@ export function usePlaceAutocomplete({
 
         if (!searchIsFocused || input.length < PLACE_SEARCH_MIN_QUERY_LENGTH) {
             searchRequestIdRef.current += 1;
+            searchSessionTokenRef.current = null;
 
             if (searchAbortControllerRef.current) {
                 searchAbortControllerRef.current.abort();
@@ -65,6 +68,10 @@ export function usePlaceAutocomplete({
         setSearchError('');
         setSearchIsLoading(true);
 
+        if (!searchSessionTokenRef.current) {
+            searchSessionTokenRef.current = createPlaceSearchSessionToken();
+        }
+
         const abortController = new AbortController();
 
         searchAbortControllerRef.current = abortController;
@@ -73,6 +80,7 @@ export function usePlaceAutocomplete({
             input,
             locationBias,
             origin,
+            sessionToken: searchSessionTokenRef.current,
             signal: abortController.signal,
         })
             .then((results) => {
