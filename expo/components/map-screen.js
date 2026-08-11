@@ -99,6 +99,7 @@ import {
 import { useMapPresentation } from './map/use-map-presentation';
 import { useMapSearch } from './map/use-map-search';
 import { makeWazePoliceAlertFeatureCollection } from './map/waze-alerts-api';
+import { ScorecardArrivalRecap } from './scorecard/scorecard-arrival-recap';
 
 // Marker and POI taps are suppressed while contribute placement owns the map.
 function noopMapInteractionHandler() {}
@@ -947,6 +948,7 @@ export default function LocationMapScreen({
                     mapPreferencesAreLoaded={mapPreferencesAreLoaded}
                     screenIsFocused={screenIsFocused}
                 />
+                <ScorecardArrivalRecap />
             </View>
         </MapScreenProviders>
     );

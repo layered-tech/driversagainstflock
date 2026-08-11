@@ -21,6 +21,7 @@ import {
 } from '../../lib/osm/published-node-sync';
 import { addSentryBreadcrumb } from '../../lib/sentry';
 import { useSharedMapState } from '../map/shared-map-state';
+import { useScorecard } from '../scorecard/scorecard-context';
 import {
     clearStoredDraft,
     readCoachMarkDismissed,
@@ -74,6 +75,7 @@ function contributeDraftShouldPersist(contributeStatus, pins) {
 export function ContributeProvider({ children }) {
     const { ensureWriteAccess, openStreetMapAccessToken } = useAuth();
     const { upsertMarkerPoints } = useSharedMapState();
+    const { recordPublishedCameras } = useScorecard();
     const [changeset, setChangeset] = useState(createDefaultChangeset);
     const [coachMarkIsDismissed, setCoachMarkIsDismissed] = useState(false);
     const [contributeStatus, setContributeStatus] = useState('idle');
@@ -381,6 +383,7 @@ export function ContributeProvider({ children }) {
                 })),
                 publishedAt: new Date().toISOString(),
             });
+            recordPublishedCameras((result.nodes ?? []).length);
             setPublishStatus('success');
             setContributeStatus('published');
             setDraftUpdatedAt(null);
@@ -395,7 +398,12 @@ export function ContributeProvider({ children }) {
         } finally {
             publishIsInFlightRef.current = false;
         }
-    }, [ensureWriteAccess, openStreetMapAccessToken, upsertMarkerPoints]);
+    }, [
+        ensureWriteAccess,
+        openStreetMapAccessToken,
+        recordPublishedCameras,
+        upsertMarkerPoints,
+    ]);
 
     const resetForMoreCameras = useCallback(() => {
         setContributeStatus('placing');

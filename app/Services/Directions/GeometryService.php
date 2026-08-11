@@ -271,6 +271,99 @@ class GeometryService
     }
 
     /**
+     * Return the public camera nodes whose view geometry intersects a route.
+     *
+     * @param  array<int, PointOfInterest>  $pois
+     * @param  array<int, array<int, float>>  $coordinates
+     * @return array<int, array{
+     *     osm_id: string|int|null,
+     *     coordinate: array{0: float, 1: float},
+     *     direction_known: bool,
+     *     directions: array<int, array{start: float, end: float, is_range: bool}>,
+     *     route_progress_meters: float,
+     *     route_progress_fraction: float
+     * }>
+     */
+    public function routeCameraCandidates(
+        array $pois,
+        array $coordinates,
+        float $bufferMeters,
+        float $coneAngleDegrees,
+        int $coneSegments,
+    ): array {
+        if (count($coordinates) < 2) {
+            return [];
+        }
+
+        $routeDistance = $this->tupleRouteDistanceMeters($coordinates);
+        $candidates = [];
+
+        foreach ($pois as $index => $poi) {
+            $knownDirections = array_values(array_filter(
+                $poi->directions,
+                fn (mixed $direction): bool => $direction instanceof DirectionRange,
+            ));
+            $rings = $knownDirections === []
+                ? [$this->circleRing($poi->longitude, $poi->latitude, $bufferMeters)]
+                : array_map(
+                    fn (DirectionRange $direction): array => $this->coneRing(
+                        $poi,
+                        $direction,
+                        $bufferMeters,
+                        $coneAngleDegrees,
+                        $coneSegments,
+                    ),
+                    $knownDirections,
+                );
+
+            if (! $this->routeIntersectsAnyRing($coordinates, $rings)) {
+                continue;
+            }
+
+            $progressMeters = $this->routeProgressNearestPoint(
+                $poi->longitude,
+                $poi->latitude,
+                $coordinates,
+            );
+            $key = $poi->id === null
+                ? sprintf('coord:%0.7f,%0.7f,%d', $poi->longitude, $poi->latitude, $index)
+                : sprintf('id:%s', (string) $poi->id);
+            $candidate = [
+                'osm_id' => $poi->id,
+                'coordinate' => [$poi->longitude, $poi->latitude],
+                'direction_known' => $knownDirections !== [],
+                'directions' => array_map(
+                    fn (DirectionRange $direction): array => [
+                        'start' => $direction->start,
+                        'end' => $direction->end,
+                        'is_range' => $direction->isRange,
+                    ],
+                    $knownDirections,
+                ),
+                'route_progress_meters' => round($progressMeters, 1),
+                'route_progress_fraction' => $routeDistance > 0
+                    ? round(min(1, max(0, $progressMeters / $routeDistance)), 6)
+                    : 0.0,
+            ];
+
+            if (
+                ! isset($candidates[$key])
+                || $candidate['route_progress_meters'] < $candidates[$key]['route_progress_meters']
+            ) {
+                $candidates[$key] = $candidate;
+            }
+        }
+
+        $candidates = array_values($candidates);
+        usort(
+            $candidates,
+            fn (array $first, array $second): int => $first['route_progress_meters'] <=> $second['route_progress_meters'],
+        );
+
+        return $candidates;
+    }
+
+    /**
      * @return array<int, array<int, float>>
      */
     private function coneRing(PointOfInterest $poi, DirectionRange $direction, float $distanceMeters, float $coneAngleDegrees, int $segments): array
@@ -479,5 +572,211 @@ class GeometryService
         $closestY = $ay + $projection * $dy;
 
         return hypot($px - $closestX, $py - $closestY);
+    }
+
+    /**
+     * @param  array<int, array<int, float>>  $coordinates
+     */
+    private function tupleRouteDistanceMeters(array $coordinates): float
+    {
+        $distance = 0.0;
+
+        for ($index = 1; $index < count($coordinates); $index++) {
+            $distance += $this->distanceMeters(
+                [
+                    'longitude' => (float) ($coordinates[$index - 1][0] ?? 0),
+                    'latitude' => (float) ($coordinates[$index - 1][1] ?? 0),
+                ],
+                [
+                    'longitude' => (float) ($coordinates[$index][0] ?? 0),
+                    'latitude' => (float) ($coordinates[$index][1] ?? 0),
+                ],
+            );
+        }
+
+        return $distance;
+    }
+
+    /**
+     * @param  array<int, array<int, float>>  $coordinates
+     */
+    private function routeProgressNearestPoint(float $longitude, float $latitude, array $coordinates): float
+    {
+        $bestDistance = INF;
+        $bestProgress = 0.0;
+        $completedDistance = 0.0;
+
+        for ($index = 1; $index < count($coordinates); $index++) {
+            $startLongitude = (float) ($coordinates[$index - 1][0] ?? 0);
+            $startLatitude = (float) ($coordinates[$index - 1][1] ?? 0);
+            $endLongitude = (float) ($coordinates[$index][0] ?? 0);
+            $endLatitude = (float) ($coordinates[$index][1] ?? 0);
+            $segmentDistance = $this->distanceMeters(
+                ['longitude' => $startLongitude, 'latitude' => $startLatitude],
+                ['longitude' => $endLongitude, 'latitude' => $endLatitude],
+            );
+            [$distance, $fraction] = $this->pointToSegmentProjection(
+                $longitude,
+                $latitude,
+                $startLongitude,
+                $startLatitude,
+                $endLongitude,
+                $endLatitude,
+            );
+
+            if ($distance < $bestDistance) {
+                $bestDistance = $distance;
+                $bestProgress = $completedDistance + ($segmentDistance * $fraction);
+            }
+
+            $completedDistance += $segmentDistance;
+        }
+
+        return $bestProgress;
+    }
+
+    /**
+     * @return array{0: float, 1: float}
+     */
+    private function pointToSegmentProjection(
+        float $longitude,
+        float $latitude,
+        float $startLongitude,
+        float $startLatitude,
+        float $endLongitude,
+        float $endLatitude,
+    ): array {
+        $averageLatitude = deg2rad(($latitude + $startLatitude + $endLatitude) / 3);
+        $metersPerDegreeLongitude = max(1.0, 111320 * cos($averageLatitude));
+        $px = $longitude * $metersPerDegreeLongitude;
+        $py = $latitude * 111320;
+        $ax = $startLongitude * $metersPerDegreeLongitude;
+        $ay = $startLatitude * 111320;
+        $bx = $endLongitude * $metersPerDegreeLongitude;
+        $by = $endLatitude * 111320;
+        $dx = $bx - $ax;
+        $dy = $by - $ay;
+
+        if (abs($dx) < 1e-9 && abs($dy) < 1e-9) {
+            return [hypot($px - $ax, $py - $ay), 0.0];
+        }
+
+        $projection = (($px - $ax) * $dx + ($py - $ay) * $dy) / ($dx * $dx + $dy * $dy);
+        $projection = max(0, min(1, $projection));
+        $closestX = $ax + $projection * $dx;
+        $closestY = $ay + $projection * $dy;
+
+        return [hypot($px - $closestX, $py - $closestY), $projection];
+    }
+
+    /**
+     * @param  array<int, array<int, float>>  $coordinates
+     * @param  array<int, array<int, array<int, float>>>  $rings
+     */
+    private function routeIntersectsAnyRing(array $coordinates, array $rings): bool
+    {
+        foreach ($rings as $ring) {
+            for ($index = 1; $index < count($coordinates); $index++) {
+                $start = $coordinates[$index - 1];
+                $end = $coordinates[$index];
+
+                if ($this->segmentIntersectsRing($start, $end, $ring)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<int, float>  $start
+     * @param  array<int, float>  $end
+     * @param  array<int, array<int, float>>  $ring
+     */
+    private function segmentIntersectsRing(array $start, array $end, array $ring): bool
+    {
+        $startLongitude = (float) ($start[0] ?? 0);
+        $startLatitude = (float) ($start[1] ?? 0);
+        $endLongitude = (float) ($end[0] ?? 0);
+        $endLatitude = (float) ($end[1] ?? 0);
+
+        if (
+            $this->pointInRing($startLongitude, $startLatitude, $ring)
+            || $this->pointInRing($endLongitude, $endLatitude, $ring)
+        ) {
+            return true;
+        }
+
+        for ($index = 1; $index < count($ring); $index++) {
+            if ($this->segmentsIntersect(
+                $startLongitude,
+                $startLatitude,
+                $endLongitude,
+                $endLatitude,
+                (float) ($ring[$index - 1][0] ?? 0),
+                (float) ($ring[$index - 1][1] ?? 0),
+                (float) ($ring[$index][0] ?? 0),
+                (float) ($ring[$index][1] ?? 0),
+            )) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function segmentsIntersect(
+        float $firstStartX,
+        float $firstStartY,
+        float $firstEndX,
+        float $firstEndY,
+        float $secondStartX,
+        float $secondStartY,
+        float $secondEndX,
+        float $secondEndY,
+    ): bool {
+        $firstOrientation = $this->orientation($firstStartX, $firstStartY, $firstEndX, $firstEndY, $secondStartX, $secondStartY);
+        $secondOrientation = $this->orientation($firstStartX, $firstStartY, $firstEndX, $firstEndY, $secondEndX, $secondEndY);
+        $thirdOrientation = $this->orientation($secondStartX, $secondStartY, $secondEndX, $secondEndY, $firstStartX, $firstStartY);
+        $fourthOrientation = $this->orientation($secondStartX, $secondStartY, $secondEndX, $secondEndY, $firstEndX, $firstEndY);
+
+        if (
+            (($firstOrientation > 0 && $secondOrientation < 0) || ($firstOrientation < 0 && $secondOrientation > 0))
+            && (($thirdOrientation > 0 && $fourthOrientation < 0) || ($thirdOrientation < 0 && $fourthOrientation > 0))
+        ) {
+            return true;
+        }
+
+        return (abs($firstOrientation) < 1e-12 && $this->pointIsOnSegment($secondStartX, $secondStartY, $firstStartX, $firstStartY, $firstEndX, $firstEndY))
+            || (abs($secondOrientation) < 1e-12 && $this->pointIsOnSegment($secondEndX, $secondEndY, $firstStartX, $firstStartY, $firstEndX, $firstEndY))
+            || (abs($thirdOrientation) < 1e-12 && $this->pointIsOnSegment($firstStartX, $firstStartY, $secondStartX, $secondStartY, $secondEndX, $secondEndY))
+            || (abs($fourthOrientation) < 1e-12 && $this->pointIsOnSegment($firstEndX, $firstEndY, $secondStartX, $secondStartY, $secondEndX, $secondEndY));
+    }
+
+    private function orientation(
+        float $startX,
+        float $startY,
+        float $endX,
+        float $endY,
+        float $pointX,
+        float $pointY,
+    ): float {
+        return (($endX - $startX) * ($pointY - $startY))
+            - (($endY - $startY) * ($pointX - $startX));
+    }
+
+    private function pointIsOnSegment(
+        float $pointX,
+        float $pointY,
+        float $startX,
+        float $startY,
+        float $endX,
+        float $endY,
+    ): bool {
+        return $pointX >= min($startX, $endX) - 1e-12
+            && $pointX <= max($startX, $endX) + 1e-12
+            && $pointY >= min($startY, $endY) - 1e-12
+            && $pointY <= max($startY, $endY) + 1e-12;
     }
 }
