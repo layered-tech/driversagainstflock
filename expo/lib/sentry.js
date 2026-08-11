@@ -4,6 +4,11 @@ import { usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { getApiBaseURL } from './auth/urls';
 import { installNetworkErrorMonitor } from './network-error-monitor';
+import {
+    getPrivacySafeMonitoringPathname,
+    isPrivateScorecardPath,
+    redactPrivateScorecardPath,
+} from './privacy-routes';
 
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN?.trim() ?? '';
 const SENTRY_ENABLED_ENV = process.env.EXPO_PUBLIC_SENTRY_ENABLED;
@@ -15,6 +20,7 @@ const NATIVE_BUILD_VERSION = Constants.nativeBuildVersion ?? 'unknown';
 const API_BASE_URL = getApiBaseURL();
 const ANDROID_AUTO_METRO_LOG_PREFIX = '[Android Auto]';
 const CARPLAY_METRO_LOG_PREFIX = '[CarPlay]';
+let privateScorecardRouteIsActive = false;
 
 export const SENTRY_IS_ENABLED =
     Boolean(SENTRY_DSN) &&
@@ -23,7 +29,7 @@ export const SENTRY_IS_ENABLED =
 
 const sentryReactNavigationIntegration = Sentry.reactNavigationIntegration({
     enableTimeToInitialDisplay: true,
-    useFullPathsForNavigationRoutes: true,
+    useFullPathsForNavigationRoutes: false,
 });
 
 function getSampleRate(value) {
@@ -57,15 +63,70 @@ function setInitialSentryScope() {
 }
 
 function beforeSend(event) {
+    if (sentryEventIsPrivateScorecard(event)) {
+        return null;
+    }
+
     if (event.user) {
         delete event.user.email;
         delete event.user.ip_address;
     }
 
+    if (typeof event.transaction === 'string') {
+        event.transaction = redactPrivateScorecardPath(event.transaction);
+    }
+
+    if (typeof event.request?.url === 'string') {
+        event.request.url = redactPrivateScorecardPath(event.request.url);
+    }
+
+    if (typeof event.tags?.['route.pathname'] === 'string') {
+        event.tags['route.pathname'] = getPrivacySafeMonitoringPathname(
+            event.tags['route.pathname'],
+        );
+    }
+
+    if (Array.isArray(event.breadcrumbs)) {
+        event.breadcrumbs = event.breadcrumbs
+            .map(beforeBreadcrumb)
+            .filter(Boolean);
+    }
+
     return event;
 }
 
+function sentryEventIsPrivateScorecard(event) {
+    return (
+        privateScorecardRouteIsActive ||
+        [
+            event?.transaction,
+            event?.request?.url,
+            event?.tags?.['route.pathname'],
+        ].some(
+            (value) =>
+                typeof value === 'string' &&
+                value.toLowerCase().includes('scorecard'),
+        )
+    );
+}
+
+function beforeSendTransaction(event) {
+    return sentryEventIsPrivateScorecard(event) ? null : event;
+}
+
 function beforeBreadcrumb(breadcrumb) {
+    let serializedBreadcrumb = '';
+
+    try {
+        serializedBreadcrumb = JSON.stringify(breadcrumb ?? {});
+    } catch {
+        serializedBreadcrumb = String(breadcrumb?.message ?? '');
+    }
+
+    if (serializedBreadcrumb.toLowerCase().includes('scorecard')) {
+        return null;
+    }
+
     if (breadcrumb?.category !== 'console') {
         return breadcrumb;
     }
@@ -129,6 +190,7 @@ function initializeSentry() {
     const options = {
         beforeBreadcrumb,
         beforeSend,
+        beforeSendTransaction,
         debug: __DEV__ && process.env.EXPO_PUBLIC_SENTRY_DEBUG === '1',
         dsn: SENTRY_DSN,
         enableAutoSessionTracking: true,
@@ -250,24 +312,34 @@ export function useSentryRouteTracking() {
     const pathname = usePathname();
     const previousPathnameRef = useRef(null);
 
+    privateScorecardRouteIsActive = isPrivateScorecardPath(pathname);
+
     useEffect(() => {
         if (!SENTRY_IS_ENABLED || !pathname) {
             return;
         }
 
-        Sentry.setTag('route.pathname', pathname);
+        if (isPrivateScorecardPath(pathname)) {
+            previousPathnameRef.current = null;
 
-        if (previousPathnameRef.current !== pathname) {
+            return;
+        }
+
+        const safePathname = getPrivacySafeMonitoringPathname(pathname);
+
+        Sentry.setTag('route.pathname', safePathname);
+
+        if (previousPathnameRef.current !== safePathname) {
             addSentryBreadcrumb({
                 category: 'navigation',
                 data: {
                     from: previousPathnameRef.current,
-                    to: pathname,
+                    to: safePathname,
                 },
-                message: `Navigation to ${pathname}`,
+                message: `Navigation to ${safePathname}`,
                 type: 'navigation',
             });
-            previousPathnameRef.current = pathname;
+            previousPathnameRef.current = safePathname;
         }
     }, [pathname]);
 }

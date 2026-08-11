@@ -63,12 +63,29 @@ it('returns alpr nodes along the submitted most probable path', function () {
     ])
         ->assertOk()
         ->assertJsonPath('ok', true)
+        ->assertJsonPath('result.coverage_complete', true)
         ->assertJsonCount(1, 'result.nodes')
         ->assertJsonPath('result.nodes.0.id', 'osm-node-'.$alprNode->id)
         ->assertJsonPath('result.nodes.0.osm_id', 700)
         ->assertJsonPath('result.nodes.0.coordinate', [-97.738, 30.2672])
         ->assertJsonPath('result.nodes.0.camera_direction', 'E')
         ->assertJsonPath('result.nodes.0.tags.name', 'Congress reader');
+});
+
+it('reports when the ALPR response is truncated', function () {
+    config(['electronic-horizon.alpr_maximum_results' => 1]);
+    createElectronicHorizonAlprNode(710, 30.2672, -97.738);
+    createElectronicHorizonAlprNode(711, 30.2672, -97.7379);
+
+    $this->postJson('/api/v1/electronic-horizon/alpr', [
+        'coordinates' => [
+            [-97.7431, 30.2672],
+            [-97.7331, 30.2672],
+        ],
+    ])
+        ->assertOk()
+        ->assertJsonPath('result.coverage_complete', false)
+        ->assertJsonCount(1, 'result.nodes');
 });
 
 it('rejects malformed electronic horizon coordinates', function () {

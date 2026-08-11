@@ -58,13 +58,14 @@ export function SharedMapStateProvider({ children }) {
     const electronicHorizon = useElectronicHorizon({
         enabled: drivingModeIsActive && !directionsRoute,
     });
-    const { upcomingAlerts } = useUpcomingElectronicHorizonAlerts({
-        directionsRoute,
-        electronicHorizon,
-        enabled: drivingModeIsActive,
-        policeAlerts: policeAlertsLoader.policeAlerts,
-        userLocation: mapPreferences.userLocation,
-    });
+    const { alprCoverageComplete, alprNodes, upcomingAlerts } =
+        useUpcomingElectronicHorizonAlerts({
+            directionsRoute,
+            electronicHorizon,
+            enabled: drivingModeIsActive,
+            policeAlerts: policeAlertsLoader.policeAlerts,
+            userLocation: mapPreferences.userLocation,
+        });
 
     useEffect(() => {
         let isMounted = true;
@@ -133,6 +134,8 @@ export function SharedMapStateProvider({ children }) {
 
     const value = useMemo(
         () => ({
+            alprCoverageComplete,
+            alprNodes,
             directionsRoute,
             drivingModeIsActive,
             electronicHorizon,
@@ -186,6 +189,8 @@ export function SharedMapStateProvider({ children }) {
             setPoliceAlertsVisible: mapPreferences.setPoliceAlertsVisible,
         }),
         [
+            alprCoverageComplete,
+            alprNodes,
             directionsRoute,
             drivingModeIsActive,
             electronicHorizon,

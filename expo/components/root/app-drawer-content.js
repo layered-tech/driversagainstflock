@@ -14,6 +14,7 @@ import {
 import { Icon } from '../design-system/icon';
 import { SHOW_MAP_DEBUG_CONTROLS } from '../map/config';
 import { useSharedMapState } from '../map/shared-map-state';
+import { useScorecard } from '../scorecard/scorecard-context';
 import {
     getDrawerActiveRouteName,
     HELP_AND_LEGAL_DRAWER_ITEMS,
@@ -40,6 +41,7 @@ const appVersion =
 
 function DrawerNavigationItem({
     activeRouteName,
+    badge,
     icon,
     isDarkMode,
     label,
@@ -62,7 +64,29 @@ function DrawerNavigationItem({
             )}
             inactiveBackgroundColor="transparent"
             inactiveTintColor={isDarkMode ? '#F5F7F9' : '#11151B'}
-            label={label}
+            label={
+                badge
+                    ? ({ color }) => (
+                          <View className="min-w-0 flex-1 flex-row items-center">
+                              <Text
+                                  className="min-w-0 flex-1 text-[15px]"
+                                  numberOfLines={1}
+                                  style={{
+                                      color,
+                                      fontWeight: isFocused ? '700' : '600',
+                                  }}
+                              >
+                                  {label}
+                              </Text>
+                              <View className="ml-2 rounded-dafPill bg-daf-alert px-2 py-0.5">
+                                  <Text className="font-dafMono text-[11px] font-semibold text-white">
+                                      {badge}
+                                  </Text>
+                              </View>
+                          </View>
+                      )
+                    : label
+            }
             labelStyle={{
                 fontSize: 15,
                 fontWeight: isFocused ? '700' : '600',
@@ -89,6 +113,12 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
         signOut,
         user,
     } = useAuth();
+    const {
+        isHydrated: scorecardIsHydrated,
+        level: scorecardLevel,
+        secureStorageIsAvailable,
+        windowStats: scorecardStats,
+    } = useScorecard();
     const colorScheme = useColorScheme();
     const drawerIsOpen = useDrawerStatus() === 'open';
     const isDarkMode = colorScheme === 'dark';
@@ -191,15 +221,62 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                 {...props}
                 contentContainerStyle={{ paddingBottom: 8 }}
             >
+                {scorecardIsHydrated && secureStorageIsAvailable ? (
+                    <View className="dark:border-daf-border-dark border-b border-daf-border px-5 pb-4 pt-2">
+                        <View className="flex-row items-center gap-3">
+                            <View className="bg-daf-brand/12 dark:bg-daf-brand/15 h-[46px] w-[46px] items-center justify-center rounded-dafPill">
+                                <Icon
+                                    color={isDarkMode ? '#2FC177' : '#0F7D45'}
+                                    name="ghost"
+                                    size={24}
+                                />
+                            </View>
+                            <View className="min-w-0 flex-1">
+                                <Text className="font-dafDisplay text-[17px] font-bold text-daf-text-primary dark:text-white">
+                                    {scorecardLevel.name}
+                                </Text>
+                                <Text
+                                    className="text-[12.5px] text-daf-text-tertiary dark:text-neutral-400"
+                                    numberOfLines={1}
+                                >
+                                    Level {scorecardLevel.level}
+                                    {scorecardLevel.nextLevel
+                                        ? ` · ${scorecardLevel.xpToNext.toLocaleString()} XP to ${scorecardLevel.nextLevel.name}`
+                                        : ' · Maximum level'}
+                                </Text>
+                            </View>
+                            <View className="rounded-dafPill bg-daf-brand px-3 py-1.5">
+                                <Text className="font-dafMono text-[15px] font-bold text-daf-brand-contrast">
+                                    {scorecardStats.privacyScore ?? '—'}
+                                </Text>
+                            </View>
+                        </View>
+                        <View className="mt-3 h-[5px] overflow-hidden rounded-dafPill bg-daf-surface-alt dark:bg-daf-surface-inverse">
+                            <View
+                                className="h-full rounded-dafPill bg-daf-brand"
+                                style={{
+                                    width: `${Math.round(scorecardLevel.progress * 100)}%`,
+                                }}
+                            />
+                        </View>
+                    </View>
+                ) : null}
                 <View className="px-0 pt-2.5">
                     {PRIMARY_DRAWER_ITEMS.map((item) => (
                         <DrawerNavigationItem
                             activeRouteName={activeRouteName}
+                            badge={
+                                item.routeName === 'scorecard' &&
+                                scorecardStats.confirmedReadCount > 0
+                                    ? `${scorecardStats.confirmedReadCount} ${scorecardStats.confirmedReadCount === 1 ? 'read' : 'reads'}`
+                                    : null
+                            }
                             isDarkMode={isDarkMode}
                             key={item.routeName}
                             onPress={() =>
                                 handleDrawerRoutePress(item.routeName)
                             }
+                            testID={`drawer-${item.routeName}-button`}
                             {...item}
                         />
                     ))}

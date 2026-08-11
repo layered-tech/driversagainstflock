@@ -89,6 +89,7 @@ import {
 import { useMapPresentation } from './map/use-map-presentation';
 import { useMapSearch } from './map/use-map-search';
 import { makeWazePoliceAlertFeatureCollection } from './map/waze-alerts-api';
+import { ScorecardArrivalRecap } from './scorecard/scorecard-arrival-recap';
 
 const ROUTE_CHOICE_CAMERA_FIT_RETRY_DELAY_MS =
     PLACE_RESULT_CAMERA_ANIMATION_DURATION_MS + 150;
@@ -858,6 +859,7 @@ export default function LocationMapScreen({
                     mapPreferencesAreLoaded={mapPreferencesAreLoaded}
                     screenIsFocused={screenIsFocused}
                 />
+                <ScorecardArrivalRecap />
             </View>
         </MapScreenProviders>
     );

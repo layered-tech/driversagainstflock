@@ -369,6 +369,53 @@ function normalizeDirectionsManeuver(maneuver, index) {
     };
 }
 
+function normalizeCameraDirection(direction) {
+    const start = getStoredNumber(direction?.start);
+    const end = getStoredNumber(direction?.end);
+
+    if (start === null || end === null) {
+        return null;
+    }
+
+    return {
+        end,
+        isRange: direction?.is_range === true || direction?.isRange === true,
+        start,
+    };
+}
+
+function normalizeRouteCameraCandidate(candidate) {
+    const coordinate = normalizeRouteCoordinate(candidate?.coordinate);
+    const progressFraction = getStoredNumber(
+        candidate?.route_progress_fraction ?? candidate?.routeProgressFraction,
+    );
+    const progressMeters = getStoredNumber(
+        candidate?.route_progress_meters ?? candidate?.routeProgressMeters,
+    );
+    const osmId = candidate?.osm_id ?? candidate?.osmId ?? null;
+
+    if (!coordinate || osmId === null || osmId === undefined) {
+        return null;
+    }
+
+    return {
+        coordinate,
+        directionKnown:
+            candidate?.direction_known === true ||
+            candidate?.directionKnown === true,
+        directions: Array.isArray(candidate?.directions)
+            ? candidate.directions.map(normalizeCameraDirection).filter(Boolean)
+            : [],
+        osmId: String(osmId),
+        routeProgressFraction:
+            progressFraction === null
+                ? null
+                : Math.min(1, Math.max(0, progressFraction)),
+        routeProgressMeters:
+            progressMeters === null ? null : Math.max(0, progressMeters),
+    };
+}
+
 export function normalizeDirectionsRoute(route, routeKey) {
     const coordinates = Array.isArray(route?.coordinates)
         ? route.coordinates.map(normalizeRouteCoordinate).filter(Boolean)
@@ -382,6 +429,18 @@ export function normalizeDirectionsRoute(route, routeKey) {
         routeKey || route?.routeKey || route?.key || DIRECTIONS_ROUTE_PRIVATE;
 
     return {
+        cameraCandidates: Array.isArray(route?.camera_candidates)
+            ? route.camera_candidates
+                  .map(normalizeRouteCameraCandidate)
+                  .filter(Boolean)
+            : Array.isArray(route?.cameraCandidates)
+              ? route.cameraCandidates
+                    .map(normalizeRouteCameraCandidate)
+                    .filter(Boolean)
+              : [],
+        cameraCoverageComplete:
+            route?.camera_coverage_complete === true ||
+            route?.cameraCoverageComplete === true,
         coordinates,
         distance: getStoredNumber(route?.distance),
         duration: getStoredNumber(route?.duration),
@@ -390,6 +449,9 @@ export function normalizeDirectionsRoute(route, routeKey) {
             : [],
         nodeCount: getStoredNumber(
             route?.node_count ?? route?.fastest_route_node_count,
+        ),
+        scoredNodeCount: getStoredNumber(
+            route?.scored_node_count ?? route?.scoredNodeCount,
         ),
         routeKey: resolvedRouteKey,
         routeLabel: ROUTE_LABELS[resolvedRouteKey] || 'Route',
@@ -484,11 +546,14 @@ export function selectDirectionsRoute(route, routeKey) {
     return {
         ...route,
         bounds: getRouteBoundsFromCoordinates(selectedRoute.coordinates),
+        cameraCandidates: selectedRoute.cameraCandidates,
+        cameraCoverageComplete: selectedRoute.cameraCoverageComplete,
         coordinates: selectedRoute.coordinates,
         distance: selectedRoute.distance,
         duration: selectedRoute.duration,
         maneuvers: selectedRoute.maneuvers,
         nodeCount: selectedRoute.nodeCount,
+        scoredNodeCount: selectedRoute.scoredNodeCount,
         routeKey: selectedRoute.routeKey,
         routeLabel: selectedRoute.routeLabel,
         selectedRouteKey: selectedRoute.routeKey,

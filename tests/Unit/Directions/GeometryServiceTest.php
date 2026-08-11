@@ -59,6 +59,49 @@ test('it counts unique points of interest near a route', function () {
         ->and($geometry->countPoisAlongRoute($pois, $route, 250))->toBe(1);
 });
 
+test('it returns stable direction aware route camera candidates in route order', function () {
+    $geometry = new GeometryService;
+    $route = [
+        [0.0002, -0.001],
+        [0.0002, 0.001],
+        [0.002, 0.001],
+    ];
+
+    $candidates = $geometry->routeCameraCandidates([
+        new PointOfInterest(11, 0.0, 0.0, [new DirectionRange(90.0, 90.0)]),
+        new PointOfInterest(12, 0.0015, 0.001, [null]),
+        new PointOfInterest(13, -0.0002, 0.0, [new DirectionRange(270.0, 270.0)]),
+    ], $route, 50, 45, 8);
+
+    expect($candidates)->toHaveCount(2)
+        ->and($candidates[0]['osm_id'])->toBe(11)
+        ->and($candidates[0]['direction_known'])->toBeTrue()
+        ->and($candidates[0]['directions'][0])->toBe([
+            'start' => 90.0,
+            'end' => 90.0,
+            'is_range' => false,
+        ])
+        ->and($candidates[0]['route_progress_fraction'])->toBeGreaterThan(0.2)
+        ->and($candidates[0]['route_progress_fraction'])->toBeLessThan(0.5)
+        ->and($candidates[1]['osm_id'])->toBe(12)
+        ->and($candidates[1]['direction_known'])->toBeFalse()
+        ->and($candidates[1]['directions'])->toBe([])
+        ->and($candidates[1]['route_progress_fraction'])->toBeGreaterThan($candidates[0]['route_progress_fraction']);
+});
+
+test('it does not count a route that passes behind a directional camera', function () {
+    $geometry = new GeometryService;
+
+    $candidates = $geometry->routeCameraCandidates([
+        new PointOfInterest(21, 0.0, 0.0, [new DirectionRange(90.0, 90.0)]),
+    ], [
+        [-0.0002, -0.001],
+        [-0.0002, 0.001],
+    ], 50, 45, 8);
+
+    expect($candidates)->toBe([]);
+});
+
 test('it clears endpoint-blocking polygons from the exclusion zone', function () {
     $geometry = new GeometryService;
     $zone = [

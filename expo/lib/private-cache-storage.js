@@ -30,6 +30,10 @@ function privateCacheUsesSecureStore() {
     );
 }
 
+export function privateCacheStorageIsEncrypted() {
+    return privateCacheUsesSecureStore();
+}
+
 function normalizeStorageKey(storageKey) {
     if (typeof storageKey !== 'string' || !storageKey) {
         throw new TypeError(

@@ -7,11 +7,13 @@ import {
     getUpcomingElectronicHorizonAlerts,
 } from './electronic-horizon';
 import {
+    addElectronicHorizonAlprCoverageListener,
     addElectronicHorizonAlprNodesListener,
     EMPTY_ELECTRONIC_HORIZON_ALPR_NODES,
     getElectronicHorizonAlprCoordinatePathStateKey,
     getElectronicHorizonAlprDirectionsRoutePathKey,
     getElectronicHorizonAlprPathStateKey,
+    getSharedElectronicHorizonAlprCoverageComplete,
     getSharedElectronicHorizonAlprNodes,
     hydrateElectronicHorizonAlprNodes,
     refreshElectronicHorizonAlprNodesIfStale,
@@ -81,6 +83,9 @@ export function useUpcomingElectronicHorizonAlerts({
             ? getSharedElectronicHorizonAlprNodes()
             : EMPTY_ELECTRONIC_HORIZON_ALPR_NODES,
     );
+    const [alprCoverageComplete, setAlprCoverageComplete] = useState(
+        enabled ? getSharedElectronicHorizonAlprCoverageComplete() : null,
+    );
 
     alertPathStateRef.current = { coordinates, pathStateKey };
 
@@ -120,6 +125,7 @@ export function useUpcomingElectronicHorizonAlerts({
     useEffect(() => {
         if (!enabled) {
             setAlprNodes(EMPTY_ELECTRONIC_HORIZON_ALPR_NODES);
+            setAlprCoverageComplete(null);
 
             return undefined;
         }
@@ -127,6 +133,8 @@ export function useUpcomingElectronicHorizonAlerts({
         setAlprNodes(getSharedElectronicHorizonAlprNodes());
         const alprNodesSubscription =
             addElectronicHorizonAlprNodesListener(setAlprNodes);
+        const alprCoverageSubscription =
+            addElectronicHorizonAlprCoverageListener(setAlprCoverageComplete);
 
         void hydrateElectronicHorizonAlprNodes();
 
@@ -147,6 +155,7 @@ export function useUpcomingElectronicHorizonAlerts({
 
         return () => {
             alprNodesSubscription.remove();
+            alprCoverageSubscription.remove();
             clearInterval(intervalId);
             appStateSubscription.remove();
         };
@@ -177,6 +186,7 @@ export function useUpcomingElectronicHorizonAlerts({
     }, [alprNodes.length, pathSource, upcomingAlertComputation]);
 
     return {
+        alprCoverageComplete,
         alprNodes,
         upcomingAlerts: upcomingAlertComputation.upcomingAlerts,
     };

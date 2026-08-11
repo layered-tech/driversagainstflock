@@ -22,6 +22,7 @@ import {
     LIGHT_SYSTEM_BAR_BACKGROUND,
     SystemBars,
 } from '../components/root/system-bars';
+import { ScorecardProvider } from '../components/scorecard/scorecard-context';
 import { logAnalyticsScreenView } from '../lib/analytics';
 import { AuthProvider } from '../lib/auth';
 import { installNetworkDebugFetchMonitor } from '../lib/network-debug';
@@ -32,6 +33,14 @@ import {
 } from '../lib/sentry';
 
 installNetworkDebugFetchMonitor();
+
+function ScorecardContributeProvider({ children }) {
+    return (
+        <ScorecardProvider>
+            <ContributeProvider>{children}</ContributeProvider>
+        </ScorecardProvider>
+    );
+}
 
 function RootLayout() {
     const colorScheme = useColorScheme();
@@ -68,7 +77,7 @@ function RootLayout() {
                         <E2EMapApiMockHandler />
                         <SystemBars />
                         <SharedMapStateProvider>
-                            <ContributeProvider>
+                            <ScorecardContributeProvider>
                                 <View style={{ flex: 1 }}>
                                     <Drawer
                                         drawerContent={(props) => (
@@ -116,6 +125,24 @@ function RootLayout() {
                                                     />
                                                 ),
                                                 title: 'Map',
+                                            }}
+                                        />
+                                        <Drawer.Screen
+                                            name="scorecard"
+                                            options={{
+                                                drawerLabel: 'Scorecard',
+                                                drawerIcon: ({
+                                                    color,
+                                                    size,
+                                                }) => (
+                                                    <Icon
+                                                        color={color}
+                                                        name="gauge"
+                                                        size={size}
+                                                    />
+                                                ),
+                                                popToTopOnBlur: true,
+                                                title: 'Scorecard',
                                             }}
                                         />
                                         <Drawer.Screen
@@ -248,7 +275,7 @@ function RootLayout() {
                                         visible={debugDrawerIsVisible}
                                     />
                                 </View>
-                            </ContributeProvider>
+                            </ScorecardContributeProvider>
                         </SharedMapStateProvider>
                     </AuthProvider>
                 </BottomSheetModalProvider>

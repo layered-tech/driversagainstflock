@@ -40,6 +40,7 @@ describe('Mobile help and legal design', () => {
     test('groups the drawer into primary and help/legal destinations', () => {
         assert.deepEqual(PRIMARY_DRAWER_ITEMS, [
             { icon: 'map', label: 'Map', routeName: 'index' },
+            { icon: 'gauge', label: 'Scorecard', routeName: 'scorecard' },
             { icon: 'flame', label: 'Hotlist', routeName: 'hotlist' },
         ]);
         assert.deepEqual(
