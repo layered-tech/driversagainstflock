@@ -251,7 +251,7 @@ R58M offline
     test('collects the full suite without launcher UI readiness checks', () => {
         const flows = collectMaestroFlows(['.maestro'], EXPO_DIRECTORY);
 
-        assert.equal(flows.length, 24);
+        assert.equal(flows.length, 25);
         assert.deepEqual(
             flows.map((flow) => path.basename(flow)),
             [...flows.map((flow) => path.basename(flow))].sort(),
@@ -277,6 +277,8 @@ R58M offline
             'moving-navigation.yml',
             'road-matching-free-drive.yml',
             'road-matching-parallel-road.yml',
+            'scorecard-gamification.yml',
+            'scorecard.yml',
             'speed-limit-badge.yml',
             'turn-by-turn-navigation.yml',
         ];

@@ -229,7 +229,7 @@ const footerLinks = [
 const tldr = [
     {
         title: 'Location is optional',
-        body: 'The app works with or without it. Deny or revoke access anytime — and we never store your location history.',
+        body: 'The app works with or without it. Explicit drives can keep a sparse, encrypted 30-day Scorecard on your phone; raw GPS trails are not stored and nothing is synced.',
     },
     {
         title: 'We don’t sell or advertise',
@@ -280,11 +280,20 @@ const privacySections = [
             },
             {
                 type: 'paragraph',
-                text: 'DAF does not store your location history. When location is needed for a feature, it may be sent to the service required to complete that request — for example, search information may go to Google Places, map requests may go to Mapbox, locality lookups may go to OpenStreetMap services, police-alert lookups may go to OpenWebNinja, and origin, destination, or route information may go to OpenRouteService.',
+                text: 'DAF does not store a raw GPS trail, trip origin or destination, or route geometry in the Scorecard. During an explicit guided or user-started free drive, the optional Scorecard records only sparse camera-crossing events, avoided public camera nodes, and trip totals. Those details are encrypted on your device, expire after 30 days, and are never sent to DAF, analytics, diagnostics, or a scorecard sync service. When location is needed for another feature you request, it may be sent to the service required to complete that request — for example, search information may go to Google Places, map requests may go to Mapbox, locality lookups may go to OpenStreetMap services, police-alert lookups may go to OpenWebNinja, and origin, destination, or route information may go to OpenRouteService.',
             },
             {
                 type: 'paragraph',
                 text: 'You can deny location access and still use the app, and you can revoke it at any time through your device settings.',
+            },
+            { type: 'heading', text: 'On-device Scorecard' },
+            {
+                type: 'paragraph',
+                text: 'Scorecard recording is on by default for explicit DAF drives only. Camera crossings are matched on your phone against public camera coordinates. Crossing a known directional cone is treated as a confirmed plate read for scoring; an unknown-direction crossing is shown as possible and excluded from score and XP. Scores, levels, badges, trip history, and exposure events are not associated with an account and have no leaderboard or cloud sync.',
+            },
+            {
+                type: 'paragraph',
+                text: 'The app keeps non-geographic lifetime totals, XP, and badge unlocks until you delete them. You can pause Scorecard recording or delete all encrypted Scorecard data at any time from the Scorecard screen.',
             },
             { type: 'heading', text: 'Search and routing information' },
             {
@@ -316,8 +325,8 @@ const privacySections = [
                     'OpenStreetMap Overpass API — for nearby road, place, and speed-limit data used by map features.',
                     'OpenStreetMap.org API and OAuth — for optional account sign-in, authorized map edits, and OpenStreetMap data access.',
                     'OpenWebNinja Waze API — for nearby police-alert and traffic-incident data when that feature is enabled.',
-                    'Firebase Analytics — for mobile-app usage analytics when enabled. The current app may send search terms, place identifiers, event metadata, and a signed-in account identifier.',
-                    'Sentry — for crash, error, and network monitoring when configured and enabled. Diagnostic event data and request URLs may be included.',
+                    'Firebase Analytics — for mobile-app usage analytics when enabled. The current app may send search terms, place identifiers, event metadata, and a signed-in account identifier. Scorecard screens, trips, exposures, scores, badges, and local Scorecard identifiers are excluded.',
+                    'Sentry — for crash, error, and network monitoring when configured and enabled. Diagnostic event data and request URLs may be included. Scorecard screens, navigation, and local Scorecard data are excluded from diagnostics.',
                 ],
             },
             {
@@ -381,7 +390,11 @@ const privacySections = [
         blocks: [
             {
                 type: 'paragraph',
-                text: 'DAF does not store your location history. The mobile app may retain recent destinations, favorites, Home and Work locations, place details, and the current route on your device to support app features. Native mobile cache entries are stored through the operating system secure-storage facility; recent places are limited, place details expire after seven days, and the active route snapshot expires after twelve hours. Favorites and Home or Work locations remain until you remove them or clear app data.',
+                text: 'DAF does not store your Scorecard history on its servers. The native mobile app may retain recent destinations, favorites, Home and Work locations, place details, and the current route on your device to support app features. Native mobile cache entries are stored through the operating system secure-storage facility; recent places are limited, place details expire after seven days, and the active route snapshot expires after twelve hours. Favorites and Home or Work locations remain until you remove them or clear app data.',
+            },
+            {
+                type: 'paragraph',
+                text: 'On native iOS and Android, Scorecard details are encrypted through the operating system secure-storage facility and limited to 30 days. They include timestamps and public camera coordinates for confirmed or possible crossings and avoided cameras, plus trip duration, distance, detour fuel estimates, and the trip-starting state used for the price calculation. Raw GPS samples, origins, destinations, driven route geometry, and plate or vehicle data are not stored in the Scorecard. Lifetime non-geographic totals, XP, and badge unlocks remain until you delete Scorecard history. The web app does not use a plaintext Scorecard fallback.',
             },
             {
                 type: 'paragraph',
@@ -408,6 +421,8 @@ const privacySections = [
                     'Use the app without location access',
                     'Enter locations manually instead of using your current location',
                     'Revoke location access through your device settings',
+                    'Pause on-device Scorecard recording',
+                    'Delete encrypted Scorecard history, lifetime XP, and badges from the Scorecard screen',
                     'Choose whether to sign in with OpenStreetMap',
                     'Request deletion of account information associated with your OpenStreetMap login',
                 ],
@@ -434,7 +449,7 @@ const privacySections = [
         blocks: [
             {
                 type: 'paragraph',
-                text: 'We use reasonable technical and organizational measures to protect the information we process. No system can be guaranteed completely secure, but DAF is designed to limit the information collected and avoid storing unnecessary data such as location history.',
+                text: 'We use reasonable technical and organizational measures to protect the information we process. No system can be guaranteed completely secure, but DAF is designed to limit collection. Scorecard data is minimized, encrypted on the native device, excluded from telemetry and server sync, and automatically stripped of geographic detail after 30 days.',
             },
         ],
     },

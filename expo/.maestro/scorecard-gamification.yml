@@ -1,0 +1,265 @@
+appId: com.anonymous.drivefree.dev
+name: Scorecard Gamification Matrix
+tags:
+  - scorecard
+  - gamification
+  - privacy
+---
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+- launchApp:
+    clearState: true
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    file: subflows/open-expo-dev-client-after-clear.yml
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 30000
+- openLink: 'driversagainstflock://e2e-mocks?scorecard=level-1'
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 10000
+- tapOn:
+    id: 'map-search-drawer-button-map'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'app-drawer-open'
+    timeout: 10000
+- tapOn:
+    id: 'drawer-scorecard-button'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-dashboard'
+    timeout: 10000
+
+# Every XP threshold resolves to the designed level and next-level target.
+# The in-scorecard deep links are accepted only by APP_ENV=e2e and every state
+# still goes through the production encrypted scorecard writer.
+- assertVisible: 'Level 1 · Scout'
+- assertVisible: '0 XP'
+- assertVisible: '450 to Rerouter'
+- openLink: 'driversagainstflock://scorecard?e2eScorecardFixture=level-2'
+- extendedWaitUntil:
+    visible: 'Level 2 · Rerouter'
+    timeout: 10000
+- assertVisible: '450 XP'
+- assertVisible: '900 to Shadow'
+- openLink: 'driversagainstflock://scorecard?e2eScorecardFixture=level-3'
+- extendedWaitUntil:
+    visible: 'Level 3 · Shadow'
+    timeout: 10000
+- assertVisible: '1,350 XP'
+- assertVisible: '900 to Ghost'
+- openLink: 'driversagainstflock://scorecard?e2eScorecardFixture=level-4'
+- extendedWaitUntil:
+    visible: 'Level 4 · Ghost'
+    timeout: 10000
+- assertVisible: '2,250 XP'
+- assertVisible: '750 to Phantom'
+- openLink: 'driversagainstflock://scorecard?e2eScorecardFixture=level-5'
+- extendedWaitUntil:
+    visible: 'Level 5 · Phantom'
+    timeout: 10000
+- assertVisible: '3,000 XP'
+- assertVisible: '1,500 to Specter'
+- openLink: 'driversagainstflock://scorecard?e2eScorecardFixture=level-6'
+- extendedWaitUntil:
+    visible: 'Level 6 · Specter'
+    timeout: 10000
+- assertVisible: '4,500 XP'
+- assertVisible: '2,250 to Cipher'
+- openLink: 'driversagainstflock://scorecard?e2eScorecardFixture=level-7'
+- extendedWaitUntil:
+    visible: 'Level 7 · Cipher'
+    timeout: 10000
+- assertVisible: '6,750 XP'
+- assertVisible: '2,250 to Invisible'
+- openLink: 'driversagainstflock://scorecard?e2eScorecardFixture=level-8'
+- extendedWaitUntil:
+    visible: 'Level 8 · Invisible'
+    timeout: 10000
+- assertVisible: '9,000 XP'
+- assertVisible: 'Maximum level'
+
+# A mid-level populated state proves complete coverage scoring and separately
+# identifies avoided cameras, confirmed reads, and unscored possible reads.
+- openLink: 'driversagainstflock://scorecard?e2eScorecardFixture=populated'
+- extendedWaitUntil:
+    visible: 'Level 4 · Ghost'
+    timeout: 10000
+- assertVisible: '2,520 XP'
+- assertVisible: '480 to Phantom'
+- copyTextFrom:
+    id: 'scorecard-privacy-score'
+- assertTrue: ${maestro.copiedText == '90'}
+- copyTextFrom:
+    id: 'scorecard-stat-avoided'
+- assertTrue: ${maestro.copiedText == '27'}
+- copyTextFrom:
+    id: 'scorecard-stat-confirmed'
+- assertTrue: ${maestro.copiedText == '2'}
+- copyTextFrom:
+    id: 'scorecard-stat-streak'
+- assertTrue: ${maestro.copiedText == '1'}
+- assertVisible: '1 unknown-direction camera crossing is shown in the timeline but excluded from score.'
+
+# The representative state has four earned and two locked badge types.
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-badge-first-detour'
+    direction: DOWN
+    timeout: 10000
+- assertVisible: 'First detour badge, earned'
+- assertVisible: 'Clean week badge, earned'
+- assertVisible: 'Century badge, locked'
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-badge-cartographer'
+    direction: DOWN
+    timeout: 10000
+- assertVisible: 'Ghost badge, earned'
+- assertVisible: 'Zero month badge, locked'
+- assertVisible: 'Cartographer badge, earned'
+- copyTextFrom:
+    id: 'scorecard-badge-count'
+- assertTrue: ${maestro.copiedText == '4 of 6'}
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-badge-states'}
+
+# A complete drive with confirmed reads still earns XP only from avoided
+# cameras, while its reads reduce the score.
+- openLink: 'driversagainstflock://e2e-mocks?scorecard=arrival-exposed'
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-arrival-recap'
+    timeout: 10000
+- assertVisible: 'Arrived · 2 reads'
+- assertVisible: 'Confirmed cone crossings reduce score'
+- copyTextFrom:
+    id: 'scorecard-arrival-recap-avoided'
+- assertTrue: ${maestro.copiedText == '12'}
+- copyTextFrom:
+    id: 'scorecard-arrival-recap-reads'
+- assertTrue: ${maestro.copiedText == '2'}
+- copyTextFrom:
+    id: 'scorecard-arrival-recap-xp'
+- assertTrue: ${maestro.copiedText == '+540 XP'}
+- tapOn:
+    id: 'scorecard-arrival-recap-done'
+- assertNotVisible:
+    id: 'scorecard-arrival-recap'
+
+# Incomplete ALPR coverage withholds the score and cannot claim a clean drive.
+# Its unavailable state price is also surfaced instead of inventing a cost.
+- openLink: 'driversagainstflock://e2e-mocks?scorecard=coverage-incomplete'
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-arrival-recap'
+    timeout: 10000
+- assertVisible: 'Arrived · monitoring incomplete'
+- assertVisible: 'Privacy score withheld'
+- assertVisible: 'The ALPR result limit was hit or coverage was unavailable'
+- copyTextFrom:
+    id: 'scorecard-arrival-recap-avoided'
+- assertTrue: ${maestro.copiedText == '4'}
+- copyTextFrom:
+    id: 'scorecard-arrival-recap-reads'
+- assertTrue: ${maestro.copiedText == '0'}
+- copyTextFrom:
+    id: 'scorecard-arrival-recap-xp'
+- assertTrue: ${maestro.copiedText == '+180 XP'}
+- copyTextFrom:
+    id: 'scorecard-arrival-recap-fuel-cost'
+- assertTrue: ${maestro.copiedText.includes('price unavailable')}
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-incomplete-coverage'}
+- tapOn:
+    id: 'scorecard-arrival-recap-done'
+- assertNotVisible:
+    id: 'scorecard-arrival-recap'
+- tapOn:
+    id: 'map-search-drawer-button-map'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'app-drawer-open'
+    timeout: 10000
+- tapOn:
+    id: 'drawer-scorecard-button'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-dashboard'
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-coverage-incomplete'
+    direction: UP
+    timeout: 10000
+- assertVisible:
+    id: 'scorecard-coverage-incomplete'
+- copyTextFrom:
+    id: 'scorecard-privacy-score'
+- assertTrue: ${maestro.copiedText == '—'}
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-fuel-cost'
+    direction: DOWN
+    timeout: 10000
+- copyTextFrom:
+    id: 'scorecard-fuel-cost'
+- assertTrue: ${maestro.copiedText.includes('price unavailable')}
+- copyTextFrom:
+    id: 'scorecard-cost-per-avoided'
+- assertTrue: ${maestro.copiedText == '—'}
+
+# This fixture satisfies each real badge condition: first private detour,
+# seven clean days, 100 avoided cameras, Level 4, ten clean drives spanning
+# 30 days, and ten published cameras.
+- openLink: 'driversagainstflock://scorecard?e2eScorecardFixture=badges-all'
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-level'
+    direction: UP
+    timeout: 10000
+- assertVisible: 'Level 6 · Specter'
+- assertVisible: '4,500 XP'
+- copyTextFrom:
+    id: 'scorecard-privacy-score'
+- assertTrue: ${maestro.copiedText == '100'}
+- copyTextFrom:
+    id: 'scorecard-stat-avoided'
+- assertTrue: ${maestro.copiedText == '100'}
+- copyTextFrom:
+    id: 'scorecard-stat-confirmed'
+- assertTrue: ${maestro.copiedText == '0'}
+- copyTextFrom:
+    id: 'scorecard-stat-streak'
+- assertTrue: ${maestro.copiedText == '8'}
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-badge-first-detour'
+    direction: DOWN
+    timeout: 10000
+- assertVisible: 'First detour badge, earned'
+- assertVisible: 'Clean week badge, earned'
+- assertVisible: 'Century badge, earned'
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-badge-cartographer'
+    direction: DOWN
+    timeout: 10000
+- assertVisible: 'Ghost badge, earned'
+- assertVisible: 'Zero month badge, earned'
+- assertVisible: 'Cartographer badge, earned'
+- copyTextFrom:
+    id: 'scorecard-badge-count'
+- assertTrue: ${maestro.copiedText == '6 of 6'}
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-all-badges'}

@@ -1,4 +1,8 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+    getPrivateCacheItem,
+    removePrivateCacheItem,
+    setPrivateCacheItem,
+} from '../../lib/private-cache-storage';
 import {
     BACKGROUND_ALERT_FETCH_TIMEOUT_MS,
     BACKGROUND_ALERT_STORAGE_TIMEOUT_MS,
@@ -12,8 +16,26 @@ const ELECTRONIC_HORIZON_ALPR_REFRESH_INTERVAL_MS = 30 * 1000;
 const ELECTRONIC_HORIZON_ALPR_PATH_CHANGE_REFRESH_INTERVAL_MS = 10 * 1000;
 const ELECTRONIC_HORIZON_ALPR_STORAGE_KEY =
     'driversagainstflock.electronicHorizonAlprSnapshot.v1';
+const encryptedAlertStorage = {
+    getItem: getPrivateCacheItem,
+    removeItem: removePrivateCacheItem,
+    setItem: setPrivateCacheItem,
+};
 
 export const EMPTY_ELECTRONIC_HORIZON_ALPR_NODES = Object.freeze([]);
+
+const coverageListeners = new Set();
+let coverageInput = null;
+let sharedCoverageComplete = null;
+
+function setSharedCoverageComplete(coverageComplete) {
+    if (sharedCoverageComplete === coverageComplete) {
+        return;
+    }
+
+    sharedCoverageComplete = coverageComplete;
+    coverageListeners.forEach((listener) => listener(coverageComplete));
+}
 
 function hasActiveRoutePath(pathStateKey) {
     return (
@@ -203,6 +225,10 @@ function electronicHorizonAlprNodesAreFresh(state, input, now) {
 }
 
 function electronicHorizonAlprInputsAreEquivalent(firstInput, secondInput) {
+    if (!firstInput || !secondInput) {
+        return false;
+    }
+
     if (firstInput.primaryPathKey !== secondInput.primaryPathKey) {
         return false;
     }
@@ -220,8 +246,18 @@ function electronicHorizonAlprInputsAreEquivalent(firstInput, secondInput) {
 
 const electronicHorizonAlprStore = createDurableAlertStore({
     emptyItems: EMPTY_ELECTRONIC_HORIZON_ALPR_NODES,
-    fetchItems: ({ coordinates }, signal) =>
-        getElectronicHorizonAlprNodes({ coordinates, signal }),
+    fetchItems: async (input, signal) => {
+        const result = await getElectronicHorizonAlprNodes({
+            coordinates: input.coordinates,
+            signal,
+        });
+
+        if (electronicHorizonAlprInputsAreEquivalent(input, coverageInput)) {
+            setSharedCoverageComplete(result.coverageComplete);
+        }
+
+        return result.nodes;
+    },
     getMetadataForInput: ({ coordinates, primaryPathKey }) => ({
         fetchStartCoordinate: coordinates[0],
         primaryPathKey,
@@ -231,7 +267,7 @@ const electronicHorizonAlprStore = createDurableAlertStore({
     normalizeInput: normalizeElectronicHorizonAlprInput,
     normalizeItems: normalizeElectronicHorizonAlprNodes,
     normalizeMetadata: normalizeElectronicHorizonAlprMetadata,
-    storage: AsyncStorage,
+    storage: encryptedAlertStorage,
     storageKey: ELECTRONIC_HORIZON_ALPR_STORAGE_KEY,
     storageTimeoutMs: BACKGROUND_ALERT_STORAGE_TIMEOUT_MS,
     timeoutMs: BACKGROUND_ALERT_FETCH_TIMEOUT_MS,
@@ -241,8 +277,22 @@ export function addElectronicHorizonAlprNodesListener(listener) {
     return electronicHorizonAlprStore.addListener(listener);
 }
 
+export function addElectronicHorizonAlprCoverageListener(listener) {
+    coverageListeners.add(listener);
+
+    return {
+        remove() {
+            coverageListeners.delete(listener);
+        },
+    };
+}
+
 export function getSharedElectronicHorizonAlprNodes() {
     return electronicHorizonAlprStore.getItems();
+}
+
+export function getSharedElectronicHorizonAlprCoverageComplete() {
+    return sharedCoverageComplete;
 }
 
 export function hydrateElectronicHorizonAlprNodes() {
@@ -253,6 +303,23 @@ export function refreshElectronicHorizonAlprNodesIfStale({
     coordinates,
     primaryPathKey,
 }) {
+    const nextCoverageInput = normalizeElectronicHorizonAlprInput({
+        coordinates,
+        primaryPathKey,
+    });
+
+    if (
+        nextCoverageInput &&
+        (!coverageInput ||
+            !electronicHorizonAlprInputsAreEquivalent(
+                coverageInput,
+                nextCoverageInput,
+            ))
+    ) {
+        coverageInput = nextCoverageInput;
+        setSharedCoverageComplete(null);
+    }
+
     return electronicHorizonAlprStore.refreshIfStale({
         coordinates,
         primaryPathKey,

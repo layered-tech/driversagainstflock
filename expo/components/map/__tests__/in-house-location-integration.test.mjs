@@ -721,11 +721,14 @@ describe('in-house road-matched location integration', () => {
             /refreshElectronicHorizonAlprNodesIfStale[\s\S]*?refreshWazePoliceAlertsIfStale[\s\S]*?Promise\.allSettled\(work\)/,
         );
 
+        assert.match(electronicHorizonAlprStoreSource, /getPrivateCacheItem/);
+        assert.doesNotMatch(electronicHorizonAlprStoreSource, /AsyncStorage/);
+        assert.match(wazePoliceAlertStoreSource, /AsyncStorage/);
+
         for (const alertStoreSource of [
             electronicHorizonAlprStoreSource,
             wazePoliceAlertStoreSource,
         ]) {
-            assert.match(alertStoreSource, /AsyncStorage/);
             assert.match(alertStoreSource, /createDurableAlertStore\(\{/);
             assert.match(alertStoreSource, /Snapshot\.v1/);
         }

@@ -72,6 +72,11 @@ describe('private cache storage', () => {
             },
         });
 
+        assert.equal(
+            harness.privateCacheStorage.privateCacheStorageIsEncrypted(),
+            true,
+        );
+
         await harness.privateCacheStorage.setPrivateCacheItem(
             storageKey,
             value,

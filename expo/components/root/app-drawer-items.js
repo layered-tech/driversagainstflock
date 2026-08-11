@@ -1,5 +1,6 @@
 export const PRIMARY_DRAWER_ITEMS = [
     { icon: 'map', label: 'Map', routeName: 'index' },
+    { icon: 'gauge', label: 'Scorecard', routeName: 'scorecard' },
     { icon: 'flame', label: 'Hotlist', routeName: 'hotlist' },
 ];
 

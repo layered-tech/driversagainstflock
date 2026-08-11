@@ -106,6 +106,7 @@ beforeEach(function () {
         'directions.avoid_buffer_meters' => 50,
         'directions.provider' => 'openrouteservice',
         'directions.poi_backend' => 'overpass',
+        'directions.scorecard_camera_range_meters' => 50,
         'directions.overpass_url' => 'https://overpass.test/api/interpreter',
         'directions.graphhopper.circuit_breaker.store' => 'array',
         'directions.graphhopper.circuit_breaker.failure_threshold' => 3,
@@ -151,6 +152,12 @@ it('returns normalized directions with maneuvers and optional exclusion zone', f
         ->assertJsonPath('result.routes.direct.distance', 1234.5)
         ->assertJsonPath('result.routes.direct.fastest_route_node_count', 1)
         ->assertJsonPath('result.routes.direct.node_count', 1)
+        ->assertJsonPath('result.routes.direct.scored_node_count', 1)
+        ->assertJsonPath('result.routes.direct.camera_coverage_complete', true)
+        ->assertJsonPath('result.routes.direct.camera_candidates.0.osm_id', 100)
+        ->assertJsonPath('result.routes.direct.camera_candidates.0.direction_known', true)
+        ->assertJsonPath('result.routes.direct.camera_candidates.0.directions.0.start', 90)
+        ->assertJsonPath('result.routes.direct.camera_candidates.0.route_progress_fraction', fn (mixed $value): bool => is_numeric($value) && $value > 0 && $value < 1)
         ->assertJsonPath('result.routes.ideal.distance', 1234.5)
         ->assertJsonPath('result.fastest_route_node_count', 1)
         ->assertJsonPath('result.route.maneuvers.0.instruction', 'Head east')
@@ -314,6 +321,35 @@ it('hides the exclusion zone unless requested', function () {
         ->assertOk()
         ->assertJsonPath('result.exclusion_zone', null)
         ->assertJsonPath('result.debug_geometry', null);
+});
+
+it('scores the full fifty meter camera cone independently of the routing buffer', function () {
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::response([
+            'elements' => [[
+                'id' => 105,
+                'lat' => 0,
+                'lon' => 0,
+                'tags' => [
+                    'surveillance:type' => 'ALPR',
+                    'camera:direction' => 'E',
+                ],
+            ]],
+        ]),
+        'https://api.heigit.org/*' => Http::response(orsDirectionsResponse([
+            [0.00036, -0.001],
+            [0.00036, 0.001],
+        ])),
+    ]);
+
+    $this->postJson('/api/v1/directions', directionsRequestPayload([
+        'avoid_buffer' => 35,
+        'start' => ['longitude' => 0.00036, 'latitude' => -0.001],
+        'end' => ['longitude' => 0.00036, 'latitude' => 0.001],
+    ]))
+        ->assertOk()
+        ->assertJsonPath('result.routes.direct.node_count', 1)
+        ->assertJsonPath('result.routes.direct.camera_candidates.0.osm_id', 105);
 });
 
 it('allows alpr near start and destination by default', function () {
