@@ -7,15 +7,18 @@ import {
     createScorecardSession,
     creditAvoidedRouteCameras,
     finalizeScorecardSession,
+    getCleanDriveStreak,
     getExposureScoreImpact,
     getScorecardLevel,
     getScorecardPrivacyScore,
     getScorecardWindowStats,
     parseScorecardState,
     recordScorecardContribution,
+    resetScorecardFuelCostSettings,
     SCORECARD_FIXED_MPG,
     SCORECARD_STATS_WINDOW_MS,
     serializeScorecardState,
+    setScorecardFuelCostSettings,
 } from '../scorecard-engine.js';
 
 function makeRoute() {
@@ -158,6 +161,83 @@ describe('device-local scorecard engine', () => {
         assert.equal(priced.trip.extraFuelCost, expectedCost);
         assert.equal(priced.trip.gasPrice, 3.25);
         assert.equal(priced.state.lifetime.extraFuelCost, expectedCost);
+    });
+
+    test('uses encrypted MPG and gas price settings for retained and future drives', () => {
+        const startedAt = Date.parse('2026-08-01T12:00:00Z');
+        const baseState = {
+            ...createEmptyScorecardState(),
+            activeSession: createScorecardSession({
+                gasPrice: 3.5,
+                id: 'drive-custom-cost',
+                mode: 'guided',
+                startedAt,
+            }),
+        };
+        const finalized = finalizeScorecardSession(baseState, {
+            endedAt: startedAt + 60_000,
+            extraDistanceMeters: 10 * 1609.344,
+        }).state;
+        const customized = setScorecardFuelCostSettings(finalized, {
+            fuelEconomyMpg: 50,
+            gasPricePerGallon: 4,
+        });
+        const stats = getScorecardWindowStats(customized, startedAt + 60_000);
+        const restored = resetScorecardFuelCostSettings(customized);
+        const restoredStats = getScorecardWindowStats(
+            restored,
+            startedAt + 60_000,
+        );
+        const parsed = parseScorecardState(
+            serializeScorecardState(customized, startedAt + 60_000),
+            startedAt + 60_000,
+        );
+        const futureState = {
+            ...customized,
+            activeSession: createScorecardSession({
+                gasPrice: 3.5,
+                id: 'drive-future-custom-cost',
+                mode: 'guided',
+                startedAt: startedAt + 120_000,
+            }),
+        };
+        const futureTrip = finalizeScorecardSession(futureState, {
+            endedAt: startedAt + 180_000,
+            extraDistanceMeters: 5 * 1609.344,
+        }).trip;
+
+        assert.equal(stats.extraGallons, 0.2);
+        assert.equal(stats.extraFuelCost, 0.8);
+        assert.equal(futureTrip.extraGallons, 0.1);
+        assert.equal(futureTrip.extraFuelCost, 0.4);
+        assert.equal(parsed.settings.fuelEconomyMpg, 50);
+        assert.equal(parsed.settings.gasPricePerGallon, 4);
+        assert.equal(restoredStats.extraGallons, 10 / SCORECARD_FIXED_MPG);
+        assert.equal(
+            restoredStats.extraFuelCost,
+            (10 / SCORECARD_FIXED_MPG) * 3.5,
+        );
+    });
+
+    test('counts consecutive clean drives instead of consecutive calendar days', () => {
+        const startedAt = Date.parse('2026-08-01T12:00:00Z');
+        const makeTrip = (offset, confirmedReadCount = 0) => ({
+            confirmedReadCount,
+            endedAt: startedAt + offset,
+            exposureCoverageComplete: true,
+        });
+
+        assert.deepEqual(
+            getCleanDriveStreak([
+                makeTrip(1000),
+                makeTrip(2000),
+                makeTrip(3000, 1),
+                makeTrip(4000),
+                makeTrip(5000),
+                makeTrip(6000),
+            ]),
+            { current: 3, longest: 3 },
+        );
     });
 
     test('shows possible reads but excludes them from score and score impact', () => {

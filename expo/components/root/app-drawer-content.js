@@ -265,12 +265,6 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                     {PRIMARY_DRAWER_ITEMS.map((item) => (
                         <DrawerNavigationItem
                             activeRouteName={activeRouteName}
-                            badge={
-                                item.routeName === 'scorecard' &&
-                                scorecardStats.confirmedReadCount > 0
-                                    ? `${scorecardStats.confirmedReadCount} ${scorecardStats.confirmedReadCount === 1 ? 'read' : 'reads'}`
-                                    : null
-                            }
                             isDarkMode={isDarkMode}
                             key={item.routeName}
                             onPress={() =>
