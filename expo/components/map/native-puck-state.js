@@ -33,17 +33,13 @@ export function nativePuckStateProvesSnapping(puckState) {
 }
 
 export function nativePuckStateProvesRendered3D(puckState) {
-    const modelScale = puckState?.modelScale;
     const modelRotation = puckState?.modelRotation;
-    const resolvedScale = Number(modelScale?.[0]);
     const modelUri = String(puckState?.modelUri ?? '');
 
     return (
         puckState?.puckKind === '3d' &&
         modelUri.endsWith('navigation_puck.glb') &&
-        Array.isArray(modelScale) &&
-        modelScale.length === 3 &&
-        modelScale.every((value) => Number(value) === resolvedScale) &&
+        puckState?.modelScaleIsExpression === true &&
         Array.isArray(modelRotation) &&
         modelRotation.length === 3 &&
         modelRotation.every((value) => Number(value) === 0) &&

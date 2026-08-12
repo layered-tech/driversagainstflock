@@ -103,13 +103,11 @@ import {
 import { NativeWindMapView } from './native-components';
 import {
     AUTO_PLAY_NAVIGATION_PUCK_SIZE,
-    getNavigationPuck3DMapScale,
-    getNavigationPuck3DMinimumZoomLevel,
+    getNavigationPuck3DScaleExpression,
     NAVIGATION_PUCK_SIZE,
 } from './navigation-puck-layout';
 
 const MAP_PREFERRED_FRAMES_PER_SECOND = 30;
-const NAVIGATION_PUCK_3D_SCALE_UPDATE_EPSILON = 0.05;
 
 function getFeatureCollectionFeatureCount(featureCollection) {
     return Array.isArray(featureCollection?.features)
@@ -133,22 +131,6 @@ function useMapboxShapeSourceSignpost({
             visible,
         });
     }, [featureCollection, featureCount, source, surface, visible]);
-}
-
-function getNavigationPuckCameraZoomLevel({
-    minimumZoomLevel,
-    nativeCameraFollowProps,
-}) {
-    const nativeFollowZoomLevel = Number(nativeCameraFollowProps?.zoomLevel);
-
-    if (
-        Number.isFinite(nativeFollowZoomLevel) &&
-        nativeFollowZoomLevel >= minimumZoomLevel
-    ) {
-        return nativeFollowZoomLevel;
-    }
-
-    return null;
 }
 
 function MapLocationProvider({
@@ -675,59 +657,13 @@ export const MapCanvas = memo(function MapCanvas() {
     const navigationPuckSize = Number.isFinite(requestedNavigationPuckSize)
         ? requestedNavigationPuckSize
         : fallbackNavigationPuckSize;
-    const navigationPuck3DMinimumZoomLevel =
-        getNavigationPuck3DMinimumZoomLevel({
-            variant: resolvedNavigationPuckVariant,
-        });
-    const navigationPuckCameraZoomLevel = getNavigationPuckCameraZoomLevel({
-        minimumZoomLevel: navigationPuck3DMinimumZoomLevel,
-        nativeCameraFollowProps,
-    });
-    const [navigationPuck3DMapScale, setNavigationPuck3DMapScale] = useState(
+    const navigationPuck3DScaleExpression = useMemo(
         () =>
-            getNavigationPuck3DMapScale({
+            getNavigationPuck3DScaleExpression({
                 variant: resolvedNavigationPuckVariant,
-                zoomLevel: navigationPuckCameraZoomLevel,
             }),
+        [resolvedNavigationPuckVariant],
     );
-    const navigationPuck3DMapScaleRef = useRef(navigationPuck3DMapScale);
-    const updateNavigationPuck3DMapScale = useCallback(
-        (zoomLevel) => {
-            if (
-                !Number.isFinite(zoomLevel) ||
-                zoomLevel < navigationPuck3DMinimumZoomLevel
-            ) {
-                return;
-            }
-
-            const nextMapScale = getNavigationPuck3DMapScale({
-                variant: resolvedNavigationPuckVariant,
-                zoomLevel,
-            });
-
-            if (
-                Math.abs(navigationPuck3DMapScaleRef.current - nextMapScale) <
-                NAVIGATION_PUCK_3D_SCALE_UPDATE_EPSILON
-            ) {
-                return;
-            }
-
-            navigationPuck3DMapScaleRef.current = nextMapScale;
-            setNavigationPuck3DMapScale(nextMapScale);
-        },
-        [navigationPuck3DMinimumZoomLevel, resolvedNavigationPuckVariant],
-    );
-    const handleMapCameraChanged = useCallback(
-        (state) => {
-            handleCameraChanged(state);
-            updateNavigationPuck3DMapScale(state?.properties?.zoom);
-        },
-        [handleCameraChanged, updateNavigationPuck3DMapScale],
-    );
-
-    useEffect(() => {
-        updateNavigationPuck3DMapScale(navigationPuckCameraZoomLevel);
-    }, [navigationPuckCameraZoomLevel, updateNavigationPuck3DMapScale]);
     const [locationPuck3DStatus, setLocationPuck3DStatus] =
         useState('inactive');
     const [locationPuckCameraFollowStatus, setLocationPuckCameraFollowStatus] =
@@ -842,7 +778,7 @@ export const MapCanvas = memo(function MapCanvas() {
                 layerAbove: userLocationPuckAboveLayer,
                 mapViewRef,
                 requested: locationPuckRequests3D,
-                scale: navigationPuck3DMapScale,
+                scaleExpression: navigationPuck3DScaleExpression,
                 slot: mapLayerSlots.userLocationPuck,
             }),
         [
@@ -850,7 +786,7 @@ export const MapCanvas = memo(function MapCanvas() {
             locationPuckRequests3D,
             mapLayerSlots.userLocationPuck,
             mapViewRef,
-            navigationPuck3DMapScale,
+            navigationPuck3DScaleExpression,
             userLocationPuckAboveLayer,
         ],
     );
@@ -1071,7 +1007,7 @@ export const MapCanvas = memo(function MapCanvas() {
             logoPosition={mapboxLogoPosition}
             compassEnabled={isDrivingMode && !hideCompassDuringNavigation}
             compassPosition={mapCompassPosition}
-            onCameraChanged={handleMapCameraChanged}
+            onCameraChanged={handleCameraChanged}
             onDidFinishLoadingMap={handleMapFinishedLoading}
             onDidFinishLoadingStyle={refreshLocationPuckAfterMapAttachment}
             onPress={handleMapPress}

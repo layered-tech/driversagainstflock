@@ -9,10 +9,9 @@ const AUTO_PLAY_NAVIGATION_PUCK_3D_SCALE_FACTOR = 0.6;
 
 export const AUTO_PLAY_NAVIGATION_PUCK_SIZE = BASE_NAVIGATION_PUCK_SIZE * 1.25;
 export const NAVIGATION_PUCK_SIZE = BASE_NAVIGATION_PUCK_SIZE * 1.5;
-const NAVIGATION_PUCK_3D_DEFAULT_ZOOM_LEVEL = 17;
-
-// Mapbox's 3D puck uses map coordinates, not React Native points. The scale
-// doubles at each zoom level farther out until reaching the 640 maximum.
+// Mapbox's 3D puck uses map coordinates, not React Native points. Keep the
+// tuned scale curve in one renderer-owned expression so a camera jump and its
+// matching puck scale are committed in the same frame.
 export const NAVIGATION_PUCK_3D_ZOOM_SCALES = [
     { mapScale: 480, zoomLevel: 10 }, // 1/3
     { mapScale: 360, zoomLevel: 11 }, // 1/3
@@ -32,17 +31,6 @@ export const AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES =
         mapScale: mapScale * AUTO_PLAY_NAVIGATION_PUCK_3D_SCALE_FACTOR,
         zoomLevel,
     }));
-
-export function getNavigationPuck3DMinimumZoomLevel({
-    variant = 'default',
-} = {}) {
-    const zoomScales =
-        variant === 'auto-play'
-            ? AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES
-            : NAVIGATION_PUCK_3D_ZOOM_SCALES;
-
-    return zoomScales[0].zoomLevel;
-}
 
 function getPositiveDimension(value) {
     const numericValue = Number(value);
@@ -92,41 +80,23 @@ export function getNavigationPuckSize({
     );
 }
 
-export function getNavigationPuck3DMapScale({
+export function getNavigationPuck3DScaleExpression({
     variant = 'default',
-    zoomLevel,
 } = {}) {
     const zoomScales =
         variant === 'auto-play'
             ? AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES
             : NAVIGATION_PUCK_3D_ZOOM_SCALES;
-    const firstZoomScale = zoomScales[0];
-    const lastZoomScale = zoomScales[zoomScales.length - 1];
-    const resolvedZoomLevel = Number.isFinite(zoomLevel)
-        ? zoomLevel
-        : NAVIGATION_PUCK_3D_DEFAULT_ZOOM_LEVEL;
 
-    if (resolvedZoomLevel <= firstZoomScale.zoomLevel) {
-        return firstZoomScale.mapScale;
-    }
-
-    for (let index = 1; index < zoomScales.length; index += 1) {
-        const previousZoomScale = zoomScales[index - 1];
-        const nextZoomScale = zoomScales[index];
-
-        if (resolvedZoomLevel <= nextZoomScale.zoomLevel) {
-            const zoomRange =
-                nextZoomScale.zoomLevel - previousZoomScale.zoomLevel;
-            const zoomRatio =
-                (resolvedZoomLevel - previousZoomScale.zoomLevel) / zoomRange;
-            const mapScaleRange =
-                nextZoomScale.mapScale - previousZoomScale.mapScale;
-
-            return previousZoomScale.mapScale + mapScaleRange * zoomRatio;
-        }
-    }
-
-    return lastZoomScale.mapScale;
+    return JSON.stringify([
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        ...zoomScales.flatMap(({ mapScale, zoomLevel }) => [
+            zoomLevel,
+            ['literal', [mapScale, mapScale, mapScale]],
+        ]),
+    ]);
 }
 
 /**

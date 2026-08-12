@@ -21,7 +21,7 @@ function requestPuck(lifecycle, mapViewRef, requested = true) {
         layerAbove: undefined,
         mapViewRef,
         requested,
-        scale: 7.5,
+        scaleExpression: '["literal",[7.5,7.5,7.5]]',
         slot: undefined,
     });
 }
@@ -142,22 +142,22 @@ describe('3D location puck lifecycle', () => {
         );
     });
 
-    test('passes the map-relative scale to the native puck', () => {
+    test('passes a renderer-owned zoom scale expression to the native puck', () => {
         assert.match(
             mapCanvasSource,
-            /getNavigationPuck3DMapScale\([\s\S]*?variant: resolvedNavigationPuckVariant[\s\S]*?zoomLevel: navigationPuckCameraZoomLevel/,
+            /getNavigationPuck3DScaleExpression\([\s\S]*?variant: resolvedNavigationPuckVariant/,
         );
         assert.match(
             mapCanvasSource,
-            /locationPuckLifecycle\.request\([\s\S]*?scale: navigationPuck3DMapScale/,
+            /locationPuckLifecycle\.request\([\s\S]*?scaleExpression: navigationPuck3DScaleExpression/,
         );
         assert.match(
             mapCanvasSource,
-            /onCameraChanged=\{handleMapCameraChanged\}/,
+            /onCameraChanged=\{handleCameraChanged\}/,
         );
-        assert.match(
+        assert.doesNotMatch(
             mapCanvasSource,
-            /zoomLevel < navigationPuck3DMinimumZoomLevel/,
+            /setNavigationPuck3DMapScale|handleMapCameraChanged/,
         );
     });
 });

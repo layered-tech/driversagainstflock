@@ -5,8 +5,7 @@ import { getRetainedCurrentRoadText } from '../current-road-state.js';
 import {
     AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES,
     AUTO_PLAY_NAVIGATION_PUCK_SIZE,
-    getNavigationPuck3DMapScale,
-    getNavigationPuck3DMinimumZoomLevel,
+    getNavigationPuck3DScaleExpression,
     getNavigationPuckAnchorY,
     getNavigationPuckSize,
     NAVIGATION_PUCK_3D_ZOOM_SCALES,
@@ -66,44 +65,8 @@ describe('current road pill layout', () => {
         );
     });
 
-    test('interpolates native 3D puck scales by map zoom', () => {
-        const firstZoomScale = NAVIGATION_PUCK_3D_ZOOM_SCALES[0];
-        const secondZoomScale = NAVIGATION_PUCK_3D_ZOOM_SCALES[1];
-        const lastZoomScale = NAVIGATION_PUCK_3D_ZOOM_SCALES.at(-1);
-        const midpointZoomLevel =
-            (firstZoomScale.zoomLevel + secondZoomScale.zoomLevel) / 2;
-        const midpointMapScale =
-            (firstZoomScale.mapScale + secondZoomScale.mapScale) / 2;
-
+    test('builds renderer-owned native 3D puck scale expressions', () => {
         assert.ok(NAVIGATION_PUCK_3D_ZOOM_SCALES.length >= 2);
-        assert.equal(
-            getNavigationPuck3DMapScale({
-                zoomLevel: firstZoomScale.zoomLevel - 1,
-            }),
-            firstZoomScale.mapScale,
-        );
-        assert.equal(
-            getNavigationPuck3DMapScale({ zoomLevel: midpointZoomLevel }),
-            midpointMapScale,
-        );
-        assert.equal(
-            getNavigationPuck3DMapScale({
-                zoomLevel: lastZoomScale.zoomLevel + 1,
-            }),
-            lastZoomScale.mapScale,
-        );
-        assert.equal(
-            getNavigationPuck3DMapScale(),
-            getNavigationPuck3DMapScale({ zoomLevel: 17 }),
-        );
-        assert.equal(
-            getNavigationPuck3DMapScale({ zoomLevel: null }),
-            getNavigationPuck3DMapScale({ zoomLevel: 17 }),
-        );
-        assert.equal(
-            getNavigationPuck3DMinimumZoomLevel(),
-            firstZoomScale.zoomLevel,
-        );
         assert.equal(
             AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES.length,
             NAVIGATION_PUCK_3D_ZOOM_SCALES.length,
@@ -115,13 +78,28 @@ describe('current road pill layout', () => {
                 zoomLevel,
             })),
         );
-        assert.equal(
-            getNavigationPuck3DMapScale({
-                variant: 'auto-play',
-                zoomLevel: midpointZoomLevel,
-            }),
-            midpointMapScale * 0.6,
-        );
+
+        for (const [variant, zoomScales] of [
+            ['default', NAVIGATION_PUCK_3D_ZOOM_SCALES],
+            ['auto-play', AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES],
+        ]) {
+            const expression = JSON.parse(
+                getNavigationPuck3DScaleExpression({ variant }),
+            );
+
+            assert.deepEqual(expression.slice(0, 3), [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+            ]);
+            assert.deepEqual(
+                expression.slice(3),
+                zoomScales.flatMap(({ mapScale, zoomLevel }) => [
+                    zoomLevel,
+                    ['literal', [mapScale, mapScale, mapScale]],
+                ]),
+            );
+        }
     });
 
     test('uses the measured puck slot center as the camera anchor', () => {

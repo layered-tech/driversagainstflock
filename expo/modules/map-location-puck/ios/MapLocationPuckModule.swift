@@ -176,11 +176,11 @@ public final class MapLocationPuckModule: Module {
     }
 
     AsyncFunction("applyLocationPuck3D") {
-      (mapViewTag: Int, scale: Double, slot: String?, layerAbove: String?) async throws -> Bool in
+      (mapViewTag: Int, scaleExpression: String, slot: String?, layerAbove: String?) async throws -> Bool in
       let mapView = try await self.resolveMapView(tag: mapViewTag)
       return try await self.applyLocationPuck3D(
         to: mapView,
-        scale: scale,
+        scaleExpression: scaleExpression,
         slot: slot,
         layerAbove: layerAbove
       )
@@ -511,7 +511,7 @@ public final class MapLocationPuckModule: Module {
   @MainActor
   private func applyLocationPuck3D(
     to mapView: MapView,
-    scale: Double,
+    scaleExpression: String,
     slot: String?,
     layerAbove: String?
   ) throws -> Bool {
@@ -527,7 +527,10 @@ public final class MapLocationPuckModule: Module {
       throw MapLocationPuckException("Bundled navigation_puck.glb could not be found.")
     }
 
-    let resolvedScale = scale
+    let resolvedScaleExpression = try JSONDecoder().decode(
+      Exp.self,
+      from: Data(scaleExpression.utf8)
+    )
     let model = Model(
       id: "drivers-against-flock-location-puck",
       uri: modelURL,
@@ -535,7 +538,7 @@ public final class MapLocationPuckModule: Module {
     )
     var configuration = Puck3DConfiguration(
       model: model,
-      modelScale: .constant([resolvedScale, resolvedScale, resolvedScale]),
+      modelScale: .expression(resolvedScaleExpression),
       modelRotation: .constant([0, 0, 0]),
       modelCastShadows: .constant(false),
       modelReceiveShadows: .constant(false),
@@ -586,6 +589,7 @@ public final class MapLocationPuckModule: Module {
     let modelURL = configuration?.model.uri
     let modelData = modelURL.flatMap { try? Data(contentsOf: $0) }
     let modelScale: [Double]? = Self.constantValue(configuration?.modelScale)
+    let modelScaleIsExpression = Self.isExpression(configuration?.modelScale)
     let modelRotation: [Double]? = Self.constantValue(configuration?.modelRotation)
       ?? configuration?.model.orientation
     let modelCastShadows: Bool? = Self.constantValue(configuration?.modelCastShadows)
@@ -600,6 +604,7 @@ public final class MapLocationPuckModule: Module {
       "puckKind": configuration == nil ? "2d" : "3d",
       "modelUri": modelURL?.absoluteString,
       "modelScale": modelScale,
+      "modelScaleIsExpression": modelScaleIsExpression,
       "modelRotation": modelRotation,
       "modelCastShadows": modelCastShadows,
       "modelReceiveShadows": modelReceiveShadows,
@@ -670,6 +675,18 @@ public final class MapLocationPuckModule: Module {
     }
 
     return nil
+  }
+
+  private static func isExpression<T: Codable>(_ value: Value<T>?) -> Bool {
+    guard let value else {
+      return false
+    }
+
+    if case .expression = value {
+      return true
+    }
+
+    return false
   }
 
   private static func mapboxStyleSlot(_ slot: String?) -> Slot? {

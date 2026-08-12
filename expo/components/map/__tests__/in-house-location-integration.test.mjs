@@ -239,6 +239,10 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(
             mapLocationPuckAndroidSource,
+            /modelScaleExpression = scaleExpression/,
+        );
+        assert.match(
+            mapLocationPuckAndroidSource,
             /asset:\/\/navigation_puck\.glb/,
         );
         assert.match(
@@ -311,6 +315,10 @@ describe('in-house road-matched location integration', () => {
         assert.match(
             mapLocationPuckIOSSource,
             /modelScaleMode: \.constant\(\.map\)/,
+        );
+        assert.match(
+            mapLocationPuckIOSSource,
+            /modelScale: \.expression\(resolvedScaleExpression\)/,
         );
         assert.match(mapLocationPuckIOSSource, /import MapboxMaps/);
         assert.match(
