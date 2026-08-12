@@ -67,12 +67,7 @@
             "Sid": "TagPrivateHostedZone",
             "Effect": "Allow",
             "Action": "route53:ChangeTagsForResource",
-            "Resource": "arn:aws:route53:::hostedzone/*",
-            "Condition": {
-                "StringEquals": {
-                    "aws:RequestTag/Project": "daf-routing"
-                }
-            }
+            "Resource": "arn:aws:route53:::hostedzone/Z056780730J8BLDZLRB99"
         },
         {
             "Sid": "ManagePrivateHostedZones",
@@ -253,6 +248,7 @@
             "Effect": "Allow",
             "Action": [
                 "budgets:ModifyBudget",
+                "budgets:ListTagsForResource",
                 "budgets:TagResource",
                 "budgets:UntagResource",
                 "budgets:ViewBudget"
