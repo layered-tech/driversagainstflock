@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Directions\GraphHopperClient;
+use App\Services\Directions\GraphHopperException;
 use App\Services\Directions\OpenRouteServiceClient;
 use Closure;
 use Illuminate\Console\Command;
@@ -85,6 +86,19 @@ class VerifyDirectionsProvidersCommand extends Command
     {
         try {
             $route = $request();
+        } catch (GraphHopperException $exception) {
+            Log::warning('Directions provider verification check failed.', [
+                'check' => $check,
+                'exception_type' => $exception::class,
+                'diagnostic_code' => $exception->diagnosticCode,
+            ]);
+
+            $this->components->twoColumnDetail(
+                $check,
+                'FAIL ('.$exception->diagnosticCode.')',
+            );
+
+            return null;
         } catch (Throwable $exception) {
             Log::warning('Directions provider verification check failed.', [
                 'check' => $check,

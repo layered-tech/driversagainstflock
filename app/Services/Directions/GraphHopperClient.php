@@ -72,10 +72,10 @@ class GraphHopperClient implements DirectionsProvider
             ]);
 
             if ($exception instanceof ConnectionException) {
-                throw GraphHopperException::upstream('GraphHopper could not be reached.');
+                throw GraphHopperException::connection();
             }
 
-            throw GraphHopperException::upstream('GraphHopper could not load directions.');
+            throw GraphHopperException::requestException();
         }
 
         $responseData = $response->json();
@@ -98,7 +98,7 @@ class GraphHopperClient implements DirectionsProvider
                 Log::warning('GraphHopper directions response failed.', $errorContext);
             }
 
-            throw GraphHopperException::upstream('GraphHopper could not load directions.');
+            throw GraphHopperException::response($response->status());
         }
 
         $route = $this->normalize($responseData);
@@ -127,7 +127,7 @@ class GraphHopperClient implements DirectionsProvider
         ));
 
         if (count($polygons) > $maxPolygons || $coordinateCount > $maxCoordinates) {
-            throw GraphHopperException::upstream('GraphHopper avoidance limits were exceeded.');
+            throw GraphHopperException::avoidanceLimits();
         }
 
         $features = array_map(
@@ -168,7 +168,7 @@ class GraphHopperClient implements DirectionsProvider
         $coordinates = Arr::get($path, 'points.coordinates', []);
 
         if (! is_array($coordinates)) {
-            throw GraphHopperException::upstream('GraphHopper returned an invalid route.');
+            throw GraphHopperException::invalidResponse();
         }
 
         $coordinates = array_values(array_map(
@@ -177,7 +177,7 @@ class GraphHopperClient implements DirectionsProvider
         ));
 
         if (count($coordinates) < 2) {
-            throw GraphHopperException::upstream('GraphHopper returned an invalid route.');
+            throw GraphHopperException::invalidResponse();
         }
 
         return [

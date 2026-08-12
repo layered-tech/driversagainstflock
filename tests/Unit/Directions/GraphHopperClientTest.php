@@ -271,6 +271,7 @@ it('identifies a failed provider verification stage without exposing upstream de
         ->toContain('PASS')
         ->toContain('GraphHopper request')
         ->toContain('FAIL')
+        ->toContain('http-401')
         ->toContain('GraphHopper Landmarks request')
         ->toContain('SKIPPED')
         ->toContain('GraphHopper contract')
