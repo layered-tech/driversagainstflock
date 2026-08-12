@@ -27,6 +27,10 @@ describe('local ALPR cone exposure detection', () => {
         assert.equal(result.exposures.length, 1);
         assert.equal(result.exposures[0].certainty, 'confirmed');
         assert.deepEqual(result.exposures[0].cameraCoordinate, [0, 0]);
+        assert.deepEqual(result.exposures[0].routeSegmentCoordinates, [
+            [-0.0003, 0],
+            [0.0003, 0],
+        ]);
         assert.equal(result.exposures[0].rawUserCoordinate, undefined);
     });
 

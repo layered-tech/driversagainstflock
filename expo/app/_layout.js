@@ -23,6 +23,7 @@ import {
     LIGHT_SYSTEM_BAR_BACKGROUND,
     SystemBars,
 } from '../components/root/system-bars';
+import { ScorecardArrivalRecap } from '../components/scorecard/scorecard-arrival-recap';
 import { ScorecardProvider } from '../components/scorecard/scorecard-context';
 import { logAnalyticsScreenView } from '../lib/analytics';
 import { AuthProvider } from '../lib/auth';
@@ -276,6 +277,7 @@ function RootLayout() {
                                         onClose={handleCloseDebugDrawer}
                                         visible={debugDrawerIsVisible}
                                     />
+                                    <ScorecardArrivalRecap />
                                 </View>
                             </ScorecardContributeProvider>
                         </SharedMapStateProvider>

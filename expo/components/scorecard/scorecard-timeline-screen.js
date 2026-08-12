@@ -168,6 +168,9 @@ export default function ScorecardTimelineScreen() {
         [scorecardState.exposures],
     );
     const eventCount = scorecardState.exposures.length;
+    const confirmedEventCount = scorecardState.exposures.filter(
+        (event) => event.certainty === 'confirmed',
+    ).length;
     const bottomPadding = Math.max(insets.bottom + 24, 24);
 
     return (
@@ -292,7 +295,7 @@ export default function ScorecardTimelineScreen() {
                                         : 'text-daf-text-primary dark:text-white'
                                 }`}
                             >
-                                No retained exposure events
+                                No exposure events recorded
                             </Text>
                             <Text
                                 className={`mt-1 text-center text-[13px] leading-[19px] ${
@@ -302,7 +305,7 @@ export default function ScorecardTimelineScreen() {
                                 }`}
                             >
                                 Events appear only during explicit DAF drives
-                                and expire automatically after 30 days.
+                                and remain until you delete them.
                             </Text>
                         </View>
                     ) : (
@@ -350,7 +353,7 @@ export default function ScorecardTimelineScreen() {
                         ))
                     )}
 
-                    {windowStats.confirmedReadCount > 1 ? (
+                    {confirmedEventCount > 1 ? (
                         <DafButton
                             icon="eye"
                             onPress={() => router.push('/scorecard/trail')}

@@ -1,6 +1,8 @@
-export const SCORECARD_DETAIL_RETENTION_DAYS = 30;
-export const SCORECARD_DETAIL_RETENTION_MS =
-    SCORECARD_DETAIL_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+import { normalizeScorecardExposureRouteSegment } from './scorecard-exposure-route.js';
+
+export const SCORECARD_STATS_WINDOW_DAYS = 30;
+export const SCORECARD_STATS_WINDOW_MS =
+    SCORECARD_STATS_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 export const SCORECARD_FIXED_MPG = 25.2;
 export const SCORECARD_STORAGE_VERSION = 1;
 export const SCORECARD_XP_PER_AVOIDED_CAMERA = 45;
@@ -220,6 +222,9 @@ function normalizeExposure(value) {
         occurredAt,
         operator: normalizeOptionalText(value?.operator, 120),
         osmId: String(osmId),
+        routeSegmentCoordinates: normalizeScorecardExposureRouteSegment(
+            value?.routeSegmentCoordinates,
+        ),
         sessionId,
         travelHeading: Number.isFinite(value?.travelHeading)
             ? value.travelHeading
@@ -305,6 +310,7 @@ export function createEmptyScorecardState() {
             privateTripsWithAvoidance: 0,
             xp: 0,
         },
+        pendingRecapTripId: null,
         settings: {
             enabled: true,
         },
@@ -339,8 +345,8 @@ function normalizeBadgeUnlocks(badgeUnlocks) {
     );
 }
 
-export function pruneScorecardDetails(state, now = Date.now()) {
-    const cutoff = now - SCORECARD_DETAIL_RETENTION_MS;
+export function getScorecardStatsWindowState(state, now = Date.now()) {
+    const cutoff = now - SCORECARD_STATS_WINDOW_MS;
 
     return {
         ...state,
@@ -353,29 +359,37 @@ export function pruneScorecardDetails(state, now = Date.now()) {
     };
 }
 
-export function normalizeScorecardState(value, now = Date.now()) {
+export function normalizeScorecardState(value) {
     if (!isRecord(value) || value.version !== SCORECARD_STORAGE_VERSION) {
         return createEmptyScorecardState();
     }
 
-    return pruneScorecardDetails(
-        {
-            activeSession: normalizeActiveSession(value.activeSession),
-            badgeUnlocks: normalizeBadgeUnlocks(value.badgeUnlocks),
-            exposures: Array.isArray(value.exposures)
-                ? value.exposures.map(normalizeExposure).filter(Boolean)
-                : [],
-            lifetime: normalizeLifetime(value.lifetime),
-            settings: {
-                enabled: value.settings?.enabled !== false,
-            },
-            trips: Array.isArray(value.trips)
-                ? value.trips.map(normalizeTrip).filter(Boolean)
-                : [],
-            version: SCORECARD_STORAGE_VERSION,
-        },
-        now,
+    const trips = Array.isArray(value.trips)
+        ? value.trips.map(normalizeTrip).filter(Boolean)
+        : [];
+    const requestedPendingRecapTripId = normalizeOptionalText(
+        value.pendingRecapTripId,
+        100,
     );
+
+    return {
+        activeSession: normalizeActiveSession(value.activeSession),
+        badgeUnlocks: normalizeBadgeUnlocks(value.badgeUnlocks),
+        exposures: Array.isArray(value.exposures)
+            ? value.exposures.map(normalizeExposure).filter(Boolean)
+            : [],
+        lifetime: normalizeLifetime(value.lifetime),
+        pendingRecapTripId: trips.some(
+            (trip) => trip.id === requestedPendingRecapTripId,
+        )
+            ? requestedPendingRecapTripId
+            : null,
+        settings: {
+            enabled: value.settings?.enabled !== false,
+        },
+        trips,
+        version: SCORECARD_STORAGE_VERSION,
+    };
 }
 
 export function parseScorecardState(serializedState, now = Date.now()) {
@@ -527,7 +541,7 @@ export function getCleanDrivingDayStreak(trips) {
 }
 
 export function getScorecardWindowStats(state, now = Date.now()) {
-    const retainedState = pruneScorecardDetails(state, now);
+    const retainedState = getScorecardStatsWindowState(state, now);
     const trips = retainedState.trips;
     const avoidedCameraCount = trips.reduce(
         (total, trip) => total + nonNegativeNumber(trip.avoidedCameraCount),
@@ -700,7 +714,7 @@ export function addScorecardExposure(state, exposure) {
 
 function badgeConditions(state, now) {
     const level = getScorecardLevel(state.lifetime.xp);
-    const retainedTrips = pruneScorecardDetails(state, now).trips;
+    const retainedTrips = getScorecardStatsWindowState(state, now).trips;
     const cleanDrivingDays = getCleanDrivingDayStreak(retainedTrips);
     const windowStats = getScorecardWindowStats(state, now);
     const tripEndTimes = retainedTrips
@@ -831,15 +845,12 @@ export function finalizeScorecardSession(
         xp: state.lifetime.xp + trip.xpEarned,
     };
     const nextState = unlockEarnedScorecardBadges(
-        pruneScorecardDetails(
-            {
-                ...state,
-                activeSession: null,
-                lifetime,
-                trips: [...state.trips, trip],
-            },
-            endedAt,
-        ),
+        {
+            ...state,
+            activeSession: null,
+            lifetime,
+            trips: [...state.trips, trip],
+        },
         endedAt,
     );
 

@@ -1,51 +1,22 @@
-import { useMemo } from 'react';
-import { ScrollView, Text, useColorScheme, View } from 'react-native';
-import Svg, { Circle, Polyline } from 'react-native-svg';
+import { useEffect, useMemo, useState } from 'react';
+import { ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
-import { dafSemanticColors, getDafTheme } from '../design-system/tokens';
+import { dafSemanticColors } from '../design-system/tokens';
+import { getDirections } from '../map/api';
 import { useScorecard } from './scorecard-context';
+import { getScorecardFastestTrailLineCollection } from './scorecard-fastest-trail';
+import { ScorecardExposureMap } from './scorecard-map';
 import {
     ScorecardPrivacyFooter,
     ScorecardScreenHeader,
 } from './scorecard-screen-header';
 
 function getTrailPoints(exposures) {
-    const confirmed = exposures
+    return exposures
         .filter((exposure) => exposure.certainty === 'confirmed')
-        .sort((first, second) => first.occurredAt - second.occurredAt);
-
-    if (confirmed.length === 0) {
-        return [];
-    }
-
-    const longitudes = confirmed.map(
-        (exposure) => exposure.cameraCoordinate[0],
-    );
-    const latitudes = confirmed.map((exposure) => exposure.cameraCoordinate[1]);
-    const minimumLongitude = Math.min(...longitudes);
-    const maximumLongitude = Math.max(...longitudes);
-    const minimumLatitude = Math.min(...latitudes);
-    const maximumLatitude = Math.max(...latitudes);
-    const longitudeRange = Math.max(
-        0.00001,
-        maximumLongitude - minimumLongitude,
-    );
-    const latitudeRange = Math.max(0.00001, maximumLatitude - minimumLatitude);
-
-    return confirmed.map((exposure, index) => ({
-        event: exposure,
-        index: index + 1,
-        x:
-            12 +
-            ((exposure.cameraCoordinate[0] - minimumLongitude) /
-                longitudeRange) *
-                76,
-        y:
-            88 -
-            ((exposure.cameraCoordinate[1] - minimumLatitude) / latitudeRange) *
-                76,
-    }));
+        .sort((first, second) => first.occurredAt - second.occurredAt)
+        .map((event, index) => ({ event, index: index + 1 }));
 }
 
 function formatTrailTime(timestamp) {
@@ -58,22 +29,47 @@ function formatTrailTime(timestamp) {
     }).format(new Date(timestamp));
 }
 
+const EMPTY_TRAIL_LINE_COLLECTION = Object.freeze({
+    features: [],
+    type: 'FeatureCollection',
+});
+
 export default function ScorecardTrailScreen() {
-    const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
-    const theme = getDafTheme(colorScheme);
     const { scorecardState } = useScorecard();
     const trailPoints = useMemo(
         () => getTrailPoints(scorecardState.exposures),
         [scorecardState.exposures],
     );
-    const polylinePoints = trailPoints
-        .map((point) => `${point.x},${point.y}`)
-        .join(' ');
+    const trailExposures = useMemo(
+        () => trailPoints.map((point) => point.event),
+        [trailPoints],
+    );
+    const [trailLineCollection, setTrailLineCollection] = useState(
+        EMPTY_TRAIL_LINE_COLLECTION,
+    );
     const possibleCount = scorecardState.exposures.filter(
         (exposure) => exposure.certainty === 'possible',
     ).length;
     const bottomPadding = Math.max(insets.bottom + 24, 24);
+
+    useEffect(() => {
+        const abortController = new AbortController();
+
+        setTrailLineCollection(EMPTY_TRAIL_LINE_COLLECTION);
+
+        void getScorecardFastestTrailLineCollection({
+            exposures: trailExposures,
+            requestDirections: getDirections,
+            signal: abortController.signal,
+        }).then((collection) => {
+            if (!abortController.signal.aborted) {
+                setTrailLineCollection(collection);
+            }
+        });
+
+        return () => abortController.abort();
+    }, [trailExposures]);
 
     return (
         <View
@@ -113,33 +109,13 @@ export default function ScorecardTrailScreen() {
                         </View>
                         <View className="h-[360px] bg-daf-surface-alt dark:bg-daf-surface-inverse">
                             {trailPoints.length > 0 ? (
-                                <Svg
-                                    height="100%"
-                                    viewBox="0 0 100 100"
-                                    width="100%"
-                                >
-                                    <Polyline
-                                        fill="none"
-                                        opacity="0.8"
-                                        points={polylinePoints}
-                                        stroke={dafSemanticColors.danger}
-                                        strokeDasharray="3 3"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="1"
-                                    />
-                                    {trailPoints.map((point) => (
-                                        <Circle
-                                            cx={point.x}
-                                            cy={point.y}
-                                            fill={dafSemanticColors.danger}
-                                            key={point.event.id}
-                                            r="3.2"
-                                            stroke={theme.surface.card}
-                                            strokeWidth="1.4"
-                                        />
-                                    ))}
-                                </Svg>
+                                <ScorecardExposureMap
+                                    exposures={trailExposures}
+                                    height={360}
+                                    lineCollection={trailLineCollection}
+                                    numbered
+                                    testID="scorecard-trail-map"
+                                />
                             ) : (
                                 <View className="flex-1 items-center justify-center px-6">
                                     <Icon
@@ -169,9 +145,9 @@ export default function ScorecardTrailScreen() {
                                 </Text>
                             </View>
                             <Text className="mt-2 text-xs leading-[18px] text-daf-text-tertiary dark:text-neutral-400">
-                                The connecting line is inference—not a driven
-                                route. No origin, destination, route geometry,
-                                or raw GPS sample is stored.
+                                Route lines use the backend's fastest route
+                                through captures from the same drive in time
+                                order. Returned route geometry is not stored.
                             </Text>
                         </View>
                     </View>

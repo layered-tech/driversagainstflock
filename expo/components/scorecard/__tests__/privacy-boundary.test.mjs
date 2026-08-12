@@ -88,7 +88,7 @@ describe('scorecard telemetry and storage boundary', () => {
         assert.match(contextSource, /APP_ENVIRONMENT !== 'e2e'[\s\S]*?return;/);
         assert.match(
             contextSource,
-            /createE2EScorecardFixture\(requestedFixture\)[\s\S]*?commitState\(fixture\.state\)/,
+            /createE2EScorecardFixture\(requestedFixture\)[\s\S]*?commitState\(\{[\s\S]*?\.\.\.fixture\.state,[\s\S]*?pendingRecapTripId:/,
         );
         assert.match(
             contextSource,
