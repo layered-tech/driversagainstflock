@@ -134,7 +134,7 @@ class GraphHopperClient implements DirectionsProvider
             fn (array $polygon, int $index): array => [
                 'type' => 'Feature',
                 'id' => 'avoid_area_'.$index,
-                'properties' => [],
+                'properties' => (object) [],
                 'geometry' => [
                     'type' => 'Polygon',
                     'coordinates' => $polygon,

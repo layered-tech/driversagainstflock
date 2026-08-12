@@ -178,14 +178,19 @@ it('converts exclusion polygons to a GraphHopper 11 custom model', function () {
         'coordinates' => [$polygon, $polygon],
     ], false);
 
-    Http::assertSent(fn (Request $request): bool => $request['ch.disable'] === true
-        && $request['pass_through'] === false
-        && data_get($request, 'custom_model.priority.0.if') === 'in_avoid_area_0 || in_avoid_area_1'
-        && data_get($request, 'custom_model.priority.0.multiply_by') === '0'
-        && data_get($request, 'custom_model.areas.type') === 'FeatureCollection'
-        && data_get($request, 'custom_model.areas.features.0.id') === 'avoid_area_0'
-        && data_get($request, 'custom_model.areas.features.0.geometry.type') === 'Polygon'
-        && data_get($request, 'custom_model.areas.features.0.geometry.coordinates') === $polygon);
+    Http::assertSent(function (Request $request) use ($polygon): bool {
+        $requestBody = json_decode($request->body());
+
+        return $request['ch.disable'] === true
+            && $request['pass_through'] === false
+            && data_get($request, 'custom_model.priority.0.if') === 'in_avoid_area_0 || in_avoid_area_1'
+            && data_get($request, 'custom_model.priority.0.multiply_by') === '0'
+            && data_get($request, 'custom_model.areas.type') === 'FeatureCollection'
+            && data_get($request, 'custom_model.areas.features.0.id') === 'avoid_area_0'
+            && data_get($request, 'custom_model.areas.features.0.geometry.type') === 'Polygon'
+            && data_get($request, 'custom_model.areas.features.0.geometry.coordinates') === $polygon
+            && is_object(data_get($requestBody, 'custom_model.areas.features.0.properties'));
+    });
 });
 
 it('fails safely without exposing GraphHopper error details', function () {
