@@ -8,9 +8,14 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class OpenRouteServiceClient
+class OpenRouteServiceClient implements DirectionsProvider
 {
     private const DIRECTIONS_ENDPOINT = 'https://api.heigit.org/openrouteservice/v2/directions/driving-car/geojson';
+
+    public function name(): string
+    {
+        return 'openrouteservice';
+    }
 
     /**
      * @param  array<int, array{longitude: float, latitude: float}>  $coordinates

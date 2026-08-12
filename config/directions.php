@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'provider' => env('DIRECTIONS_PROVIDER', 'openrouteservice'),
     'poi_backend' => env('DIRECTIONS_POI_BACKEND', 'database'),
     'avoid_buffer_meters' => (int) env('DIRECTIONS_AVOID_BUFFER_METERS', 50),
     'max_distance_meters' => (int) env('DIRECTIONS_MAX_DISTANCE_METERS', 150000),
@@ -12,4 +13,12 @@ return [
     'overpass_url' => env('DIRECTIONS_OVERPASS_URL', 'https://overpass-api.de/api/interpreter'),
     'speed_limit_radius_meters' => (int) env('DIRECTIONS_SPEED_LIMIT_RADIUS_METERS', 10),
     'speed_limit_cache_seconds' => (int) env('DIRECTIONS_SPEED_LIMIT_CACHE_SECONDS', 30),
+    'graphhopper' => [
+        'circuit_breaker' => [
+            'store' => env('DIRECTIONS_GRAPHHOPPER_CIRCUIT_BREAKER_STORE', 'redis'),
+            'failure_threshold' => (int) env('DIRECTIONS_GRAPHHOPPER_FAILURE_THRESHOLD', 3),
+            'failure_window_seconds' => (int) env('DIRECTIONS_GRAPHHOPPER_FAILURE_WINDOW_SECONDS', 60),
+            'cooldown_seconds' => (int) env('DIRECTIONS_GRAPHHOPPER_COOLDOWN_SECONDS', 60),
+        ],
+    ],
 ];

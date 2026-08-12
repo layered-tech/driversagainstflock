@@ -57,6 +57,28 @@ function orsDirectionsResponse(array $coordinates): array
     ];
 }
 
+function graphHopperDirectionsResponse(array $coordinates): array
+{
+    return [
+        'paths' => [[
+            'distance' => 1234.5,
+            'time' => 321000,
+            'points' => [
+                'type' => 'LineString',
+                'coordinates' => $coordinates,
+            ],
+            'instructions' => [[
+                'text' => 'Head east',
+                'street_name' => 'Main Street',
+                'distance' => 1234.5,
+                'time' => 321000,
+                'interval' => [0, count($coordinates) - 1],
+                'sign' => 0,
+            ]],
+        ]],
+    ];
+}
+
 function createDirectionsOsmNode(
     int $osmId,
     float $latitude,
@@ -82,8 +104,21 @@ beforeEach(function () {
 
     config([
         'directions.avoid_buffer_meters' => 50,
+        'directions.provider' => 'openrouteservice',
         'directions.poi_backend' => 'overpass',
         'directions.overpass_url' => 'https://overpass.test/api/interpreter',
+        'directions.graphhopper.circuit_breaker.store' => 'array',
+        'directions.graphhopper.circuit_breaker.failure_threshold' => 3,
+        'directions.graphhopper.circuit_breaker.failure_window_seconds' => 60,
+        'directions.graphhopper.circuit_breaker.cooldown_seconds' => 60,
+        'services.graphhopper.url' => 'http://graphhopper.test:8080',
+        'services.graphhopper.token' => 'test-graphhopper-token',
+        'services.graphhopper.profile' => 'car',
+        'services.graphhopper.connect_timeout_seconds' => 3,
+        'services.graphhopper.timeout_seconds' => 45,
+        'services.graphhopper.route_timeout_milliseconds' => 40000,
+        'services.graphhopper.max_avoid_polygons' => 100,
+        'services.graphhopper.max_avoid_coordinates' => 5000,
         'services.openrouteservice.api_key' => 'test-ors-key',
     ]);
 });
@@ -153,6 +188,117 @@ it('returns normalized directions with maneuvers and optional exclusion zone', f
         ->and(data_get($orsRequests[0][0]->data(), 'options.avoid_polygons'))->toBeNull()
         ->and(data_get($orsRequests[1][0]->data(), 'continue_straight'))->toBeTrue()
         ->and(data_get($orsRequests[1][0]->data(), 'options.avoid_polygons.type'))->toBe('MultiPolygon');
+});
+
+it('uses GraphHopper as primary without changing the public directions payload', function () {
+    config(['directions.provider' => 'graphhopper']);
+
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::response(['elements' => []]),
+        'http://graphhopper.test:8080/route' => Http::response(graphHopperDirectionsResponse([
+            [-122.676, 45.523],
+            [-122.658, 45.512],
+        ])),
+    ]);
+
+    $this->postJson('/api/v1/directions', directionsRequestPayload())
+        ->assertOk()
+        ->assertJsonPath('ok', true)
+        ->assertJsonPath('result.route.distance', 1234.5)
+        ->assertJsonPath('result.route.duration', 321)
+        ->assertJsonPath('result.route.maneuvers.0.instruction', 'Head east')
+        ->assertJsonPath('result.route.maneuvers.0.type', 11)
+        ->assertJsonPath('result.route.maneuvers.0.way_points', [0, 1])
+        ->assertJsonStructure([
+            'result' => [
+                'route' => ['coordinates', 'distance', 'duration', 'maneuvers'],
+                'routes' => [
+                    'direct' => ['coordinates', 'distance', 'duration', 'maneuvers'],
+                    'ideal' => ['coordinates', 'distance', 'duration', 'maneuvers'],
+                ],
+            ],
+        ]);
+
+    $requests = collect(Http::recorded());
+
+    expect($requests->filter(fn (array $record) => str_contains($record[0]->url(), 'graphhopper.test')))
+        ->toHaveCount(1)
+        ->and($requests->filter(fn (array $record) => str_contains($record[0]->url(), 'openrouteservice')))
+        ->toHaveCount(0);
+});
+
+it('restarts the complete calculation through ORS after a GraphHopper failure', function () {
+    config(['directions.provider' => 'graphhopper']);
+
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::response([
+            'elements' => [[
+                'id' => 120,
+                'lat' => 45.52,
+                'lon' => -122.66,
+                'tags' => [
+                    'surveillance:type' => 'ALPR',
+                    'camera:direction' => 'E',
+                ],
+            ]],
+        ]),
+        'http://graphhopper.test:8080/route' => Http::sequence()
+            ->push(graphHopperDirectionsResponse([
+                [-122.676, 45.523],
+                [-122.66, 45.52],
+                [-122.658, 45.512],
+            ]))
+            ->whenEmpty(Http::response(['message' => 'Unavailable'], 503)),
+        'https://api.heigit.org/*' => Http::sequence()
+            ->push(orsDirectionsResponse([
+                [-122.676, 45.523],
+                [-122.665, 45.518],
+                [-122.658, 45.512],
+            ]))
+            ->push(orsDirectionsResponse([
+                [-122.676, 45.523],
+                [-122.67, 45.515],
+                [-122.658, 45.512],
+            ])),
+    ]);
+
+    $this->postJson('/api/v1/directions', directionsRequestPayload())
+        ->assertOk()
+        ->assertJsonPath('result.routes.direct.coordinates.1.0', -122.665)
+        ->assertJsonPath('result.route.coordinates.1.0', -122.67);
+
+    $requests = collect(Http::recorded());
+
+    expect($requests->filter(fn (array $record) => str_contains($record[0]->url(), 'graphhopper.test'))->count())
+        ->toBeGreaterThan(1)
+        ->and($requests->filter(fn (array $record) => str_contains($record[0]->url(), 'openrouteservice')))
+        ->toHaveCount(2);
+});
+
+it('uses ORS without probing GraphHopper while the circuit breaker is open', function () {
+    config([
+        'directions.provider' => 'graphhopper',
+        'directions.graphhopper.circuit_breaker.failure_threshold' => 1,
+    ]);
+
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::response(['elements' => []]),
+        'http://graphhopper.test:8080/route' => Http::response(['message' => 'Unavailable'], 503),
+        'https://api.heigit.org/*' => Http::response(orsDirectionsResponse([
+            [-122.676, 45.523],
+            [-122.658, 45.512],
+        ])),
+    ]);
+
+    $this->postJson('/api/v1/directions', directionsRequestPayload())->assertOk();
+    $this->postJson('/api/v1/directions', directionsRequestPayload())->assertOk();
+
+    $requests = collect(Http::recorded());
+
+    expect($requests->filter(fn (array $record) => str_contains($record[0]->url(), 'graphhopper.test')))
+        ->toHaveCount(3)
+        ->and($requests->filter(fn (array $record) => str_contains($record[0]->url(), 'openrouteservice')))
+        ->toHaveCount(2);
 });
 
 it('hides the exclusion zone unless requested', function () {

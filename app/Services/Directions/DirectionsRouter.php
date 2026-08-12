@@ -10,6 +10,8 @@ class DirectionsRouter
         private readonly GeometryService $geometry,
         private readonly PoiSourceFactory $poiSourceFactory,
         private readonly OpenRouteServiceClient $openRouteService,
+        private readonly GraphHopperClient $graphHopper,
+        private readonly GraphHopperCircuitBreaker $graphHopperCircuitBreaker,
     ) {}
 
     /**
@@ -17,6 +19,32 @@ class DirectionsRouter
      * @return array{ok: bool, result: array<string, mixed>}
      */
     public function route(array $payload): array
+    {
+        if (config('directions.provider') !== $this->graphHopper->name()) {
+            return $this->calculate($payload, $this->openRouteService);
+        }
+
+        if (! $this->graphHopperCircuitBreaker->allowsRequest()) {
+            Log::warning('GraphHopper circuit breaker is open; using OpenRouteService.');
+
+            return $this->calculate($payload, $this->openRouteService);
+        }
+
+        try {
+            $result = $this->calculate($payload, $this->graphHopper);
+            $this->graphHopperCircuitBreaker->recordSuccess();
+
+            return $result;
+        } catch (GraphHopperException $exception) {
+            return $this->fallBackToOpenRouteService($payload, $exception);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{ok: bool, result: array<string, mixed>}
+     */
+    private function calculate(array $payload, DirectionsProvider $provider): array
     {
         $startedAt = microtime(true);
         $start = $this->coordinate($payload['start']);
@@ -35,6 +63,7 @@ class DirectionsRouter
         $distance = $this->geometry->routeDistanceMeters($routeControlCoordinates);
 
         Log::info('Directions router started.', [
+            'provider' => $provider->name(),
             'distance_meters' => $distance,
             'waypoint_count' => count($waypoints),
             'profile_count' => count($profiles),
@@ -70,7 +99,7 @@ class DirectionsRouter
         $directRouteStartedAt = microtime(true);
         Log::info('Directions direct route request started.');
 
-        $directRoute = $this->openRouteService->route($routeControlCoordinates, [
+        $directRoute = $provider->route($routeControlCoordinates, [
             'type' => 'MultiPolygon',
             'coordinates' => [],
         ], $continueStraight);
@@ -157,7 +186,7 @@ class DirectionsRouter
                     'avoid_polygon_count' => count($zone['coordinates'] ?? []),
                 ]);
 
-                $route = $this->openRouteService->route($routeControlCoordinates, $zone, $continueStraight);
+                $route = $provider->route($routeControlCoordinates, $zone, $continueStraight);
 
                 Log::info('Directions ideal route loaded.', [
                     'attempt' => $attempt + 1,
@@ -231,6 +260,21 @@ class DirectionsRouter
                     : null,
             ],
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{ok: bool, result: array<string, mixed>}
+     */
+    private function fallBackToOpenRouteService(array $payload, GraphHopperException $exception): array
+    {
+        $this->graphHopperCircuitBreaker->recordFailure();
+
+        Log::warning('GraphHopper calculation failed; restarting with OpenRouteService.', [
+            'exception_type' => $exception::class,
+        ]);
+
+        return $this->calculate($payload, $this->openRouteService);
     }
 
     /**
