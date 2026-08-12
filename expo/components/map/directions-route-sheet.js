@@ -28,9 +28,11 @@ export function DirectionsRouteSheet() {
         directionsRouteSheetSnapPoints,
         directionsRouteSheetTrackingHandlers,
         handleDirectionsRouteSelect,
+        handleRouteExportPress,
         handleStartDriving,
         insets,
         mapPreferencesAreLoaded,
+        routeExportIsAvailable,
     } = useDirectionsRouteContext();
     const {
         bottomSheetIsPresented,
@@ -200,6 +202,18 @@ export function DirectionsRouteSheet() {
                                 to skip {skippedCameraCount} monitored points
                             </Text>
                         </View>
+
+                        {routeExportIsAvailable ? (
+                            <DafButton
+                                accessibilityLabel="Export route as GPX or KML text"
+                                icon="download"
+                                onPress={handleRouteExportPress}
+                                testID="directions-route-export-button"
+                                variant="secondary"
+                            >
+                                Export route
+                            </DafButton>
+                        ) : null}
 
                         <DafButton
                             accessibilityLabel="Start driving"

@@ -100,6 +100,8 @@ export function DrivingGuidanceOverlay({
     children,
     navigationPuckSize,
     onLocationAnchorLayout,
+    onRouteExport,
+    routeExportIsAvailable,
     topOverlay = null,
 }) {
     const colorScheme = useColorScheme();
@@ -409,6 +411,8 @@ export function DrivingGuidanceOverlay({
                             bottomInset={insets.bottom}
                             directionsRoute={directionsRoute}
                             onCancelRoute={handleCancelRoute}
+                            onExportRoute={onRouteExport}
+                            routeExportIsAvailable={routeExportIsAvailable}
                             routeOption={routeOption}
                         />
                     </View>

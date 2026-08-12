@@ -157,6 +157,8 @@ export function DestinationCard({
     bottomInset = 0,
     directionsRoute,
     onCancelRoute,
+    onExportRoute,
+    routeExportIsAvailable,
     routeOption,
 }) {
     const destination = directionsRoute?.destination;
@@ -169,7 +171,7 @@ export function DestinationCard({
 
     return (
         <View
-            className="w-full flex-row items-center gap-[14px] px-4 pt-4"
+            className="w-full gap-3 px-4 pt-4"
             style={{
                 paddingBottom: Math.max(
                     bottomInset + DRIVING_DESTINATION_BOTTOM_PADDING,
@@ -178,48 +180,63 @@ export function DestinationCard({
             }}
             testID="driving-destination-card"
         >
-            <View className="min-w-0 flex-1">
-                <View className="mb-1.5 self-start">
-                    <View
-                        className={`h-[26px] justify-center rounded-dafPill px-2.5 ${
-                            isPrivateRoute ? 'bg-daf-brand' : 'bg-daf-azure'
-                        }`}
-                    >
-                        <Text className="text-[12px] font-bold text-white">
-                            {isPrivateRoute ? 'Private route' : 'Fastest route'}
+            <View className="flex-row items-center gap-[14px]">
+                <View className="min-w-0 flex-1">
+                    <View className="mb-1.5 self-start">
+                        <View
+                            className={`h-[26px] justify-center rounded-dafPill px-2.5 ${
+                                isPrivateRoute ? 'bg-daf-brand' : 'bg-daf-azure'
+                            }`}
+                        >
+                            <Text className="text-[12px] font-bold text-white">
+                                {isPrivateRoute
+                                    ? 'Private route'
+                                    : 'Fastest route'}
+                            </Text>
+                        </View>
+                    </View>
+                    <View className="flex-row items-baseline gap-2">
+                        <Text
+                            className="font-dafMono text-2xl font-extrabold text-daf-text-brand dark:text-daf-brand"
+                            numberOfLines={1}
+                            testID="driving-destination-route-summary"
+                        >
+                            {durationLabel || '-'}
+                        </Text>
+                        <Text className="font-dafMono text-[13px] text-daf-text-secondary dark:text-neutral-300">
+                            {[distanceLabel, arrivalLabel]
+                                .filter(Boolean)
+                                .join(' - ')}
                         </Text>
                     </View>
-                </View>
-                <View className="flex-row items-baseline gap-2">
                     <Text
-                        className="font-dafMono text-2xl font-extrabold text-daf-text-brand dark:text-daf-brand"
+                        className="text-[13px] font-medium text-daf-text-secondary dark:text-neutral-300"
                         numberOfLines={1}
-                        testID="driving-destination-route-summary"
+                        testID="driving-destination-title"
                     >
-                        {durationLabel || '-'}
-                    </Text>
-                    <Text className="font-dafMono text-[13px] text-daf-text-secondary dark:text-neutral-300">
-                        {[distanceLabel, arrivalLabel]
-                            .filter(Boolean)
-                            .join(' - ')}
+                        {destinationTitle}
                     </Text>
                 </View>
-                <Text
-                    className="text-[13px] font-medium text-daf-text-secondary dark:text-neutral-300"
-                    numberOfLines={1}
-                    testID="driving-destination-title"
+                <DafButton
+                    accessibilityLabel="Cancel route guidance"
+                    onPress={onCancelRoute}
+                    testID="driving-cancel-route-button"
+                    variant="danger"
                 >
-                    {destinationTitle}
-                </Text>
+                    Exit
+                </DafButton>
             </View>
-            <DafButton
-                accessibilityLabel="Cancel route guidance"
-                onPress={onCancelRoute}
-                testID="driving-cancel-route-button"
-                variant="danger"
-            >
-                Exit
-            </DafButton>
+            {routeExportIsAvailable ? (
+                <DafButton
+                    accessibilityLabel="Export route as GPX or KML text"
+                    icon="download"
+                    onPress={onExportRoute}
+                    testID="driving-route-export-button"
+                    variant="secondary"
+                >
+                    Export route
+                </DafButton>
+            ) : null}
         </View>
     );
 }

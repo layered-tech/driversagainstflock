@@ -13,8 +13,8 @@ import {
     getScorecardWindowStats,
     parseScorecardState,
     recordScorecardContribution,
-    SCORECARD_DETAIL_RETENTION_MS,
     SCORECARD_FIXED_MPG,
+    SCORECARD_STATS_WINDOW_MS,
     serializeScorecardState,
 } from '../scorecard-engine.js';
 
@@ -193,7 +193,7 @@ describe('device-local scorecard engine', () => {
         );
     });
 
-    test('expires geographic detail after 30 days but keeps lifetime totals', () => {
+    test('keeps geographic detail on device while using a 30-day stats window', () => {
         const endedAt = Date.parse('2026-06-01T12:00:00Z');
         const state = {
             ...createEmptyScorecardState(),
@@ -212,6 +212,7 @@ describe('device-local scorecard engine', () => {
                 avoidedCameraCount: 12,
                 xp: 540,
             },
+            pendingRecapTripId: 'drive-old',
             trips: [
                 {
                     endedAt,
@@ -223,15 +224,21 @@ describe('device-local scorecard engine', () => {
         const parsed = parseScorecardState(
             serializeScorecardState(
                 state,
-                endedAt + SCORECARD_DETAIL_RETENTION_MS + 1,
+                endedAt + SCORECARD_STATS_WINDOW_MS + 1,
             ),
-            endedAt + SCORECARD_DETAIL_RETENTION_MS + 1,
+            endedAt + SCORECARD_STATS_WINDOW_MS + 1,
+        );
+        const windowStats = getScorecardWindowStats(
+            parsed,
+            endedAt + SCORECARD_STATS_WINDOW_MS + 1,
         );
 
-        assert.equal(parsed.exposures.length, 0);
-        assert.equal(parsed.trips.length, 0);
+        assert.equal(parsed.exposures.length, 1);
+        assert.equal(parsed.trips.length, 1);
         assert.equal(parsed.lifetime.avoidedCameraCount, 12);
         assert.equal(parsed.lifetime.xp, 540);
+        assert.equal(parsed.pendingRecapTripId, 'drive-old');
+        assert.equal(windowStats.trips.length, 0);
     });
 
     test('whitelists persisted fields so raw GPS and route geometry are dropped', () => {
@@ -256,6 +263,11 @@ describe('device-local scorecard engine', () => {
                     occurredAt: now,
                     osmId: '600',
                     rawUserCoordinate: [-97.7401, 30.2601],
+                    routeSegmentCoordinates: [
+                        [-97.741, 30.259],
+                        [-97.74, 30.26],
+                        [-97.739, 30.261],
+                    ],
                     sessionId: 'drive-private',
                 },
             ],
@@ -269,6 +281,15 @@ describe('device-local scorecard engine', () => {
         assert.deepEqual(
             parseScorecardState(serialized, now).exposures[0].cameraCoordinate,
             [-97.74, 30.26],
+        );
+        assert.deepEqual(
+            parseScorecardState(serialized, now).exposures[0]
+                .routeSegmentCoordinates,
+            [
+                [-97.741, 30.259],
+                [-97.74, 30.26],
+                [-97.739, 30.261],
+            ],
         );
     });
 

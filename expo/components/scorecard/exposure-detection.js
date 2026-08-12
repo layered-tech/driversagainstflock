@@ -121,7 +121,7 @@ function destinationPoint(coordinate, distanceMeters, bearingDegrees) {
     return [normalizedLongitude, (destinationLatitude * 180) / Math.PI];
 }
 
-function makeConeRing(coordinate, directionRange) {
+export function makeScorecardCameraConeRing(coordinate, directionRange) {
     const halfCone = SCORECARD_CAMERA_CONE_ANGLE_DEGREES / 2;
     const start = directionRange.isRange
         ? directionRange.start
@@ -346,7 +346,7 @@ export function processScorecardExposureSegment({
         const directionKnown = directionRanges.length > 0;
         const rings = directionKnown
             ? directionRanges.map((direction) =>
-                  makeConeRing(coordinate, direction),
+                  makeScorecardCameraConeRing(coordinate, direction),
               )
             : [makeCircleRing(coordinate)];
         const previousCameraState = cameraStates[cameraId] ?? {};
@@ -381,6 +381,10 @@ export function processScorecardExposureSegment({
                 occurredAt: currentSample.recordedAt,
                 operator: presentation.operator,
                 osmId: cameraId,
+                routeSegmentCoordinates: [
+                    previousSample.coordinate,
+                    currentSample.coordinate,
+                ],
                 travelHeading,
             });
             cameraStates[cameraId] = {
