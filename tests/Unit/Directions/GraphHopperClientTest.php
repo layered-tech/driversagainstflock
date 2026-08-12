@@ -235,6 +235,9 @@ it('verifies live provider contracts without printing route geometry', function 
     $output = Artisan::output();
 
     expect($exitCode)->toBe(0)
+        ->and($output)->toContain('OpenRouteService request')
+        ->toContain('GraphHopper request')
+        ->toContain('GraphHopper Landmarks request')
         ->and($output)->toContain('OpenRouteService contract')
         ->toContain('keys:canonical')
         ->toContain('maneuvers:canonical-array')
@@ -250,4 +253,30 @@ it('verifies live provider contracts without printing route geometry', function 
     expect($graphHopperRequests)->toHaveCount(2)
         ->and($graphHopperRequests[1][0]->data()['ch.disable'] ?? null)->toBeTrue()
         ->and(data_get($graphHopperRequests[1][0]->data(), 'custom_model.areas.type'))->toBe('FeatureCollection');
+});
+
+it('identifies a failed provider verification stage without exposing upstream details', function () {
+    Http::fake([
+        'http://graphhopper.test:8080/route' => Http::response([
+            'message' => 'Invalid token value that must stay private',
+        ], 401),
+        'https://api.heigit.org/*' => Http::response(openRouteServiceClientResponse()),
+    ]);
+
+    $exitCode = Artisan::call('directions:verify-providers');
+    $output = Artisan::output();
+
+    expect($exitCode)->toBe(1)
+        ->and($output)->toContain('OpenRouteService request')
+        ->toContain('PASS')
+        ->toContain('GraphHopper request')
+        ->toContain('FAIL')
+        ->toContain('GraphHopper Landmarks request')
+        ->toContain('SKIPPED')
+        ->toContain('GraphHopper contract')
+        ->toContain('unavailable')
+        ->not->toContain('Invalid token')
+        ->not->toContain('-77.');
+
+    Http::assertSentCount(2);
 });

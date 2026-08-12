@@ -4,7 +4,9 @@ namespace App\Console\Commands;
 
 use App\Services\Directions\GraphHopperClient;
 use App\Services\Directions\OpenRouteServiceClient;
+use Closure;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class VerifyDirectionsProvidersCommand extends Command
@@ -25,24 +27,38 @@ class VerifyDirectionsProvidersCommand extends Command
         ];
         $exclusionZone = ['type' => 'MultiPolygon', 'coordinates' => []];
 
-        try {
-            $openRouteServiceRoute = $openRouteService->route($coordinates, $exclusionZone);
-            $graphHopperRoute = $graphHopper->route($coordinates, $exclusionZone);
-            $graphHopperAvoidanceRoute = $graphHopper->route(
-                $coordinates,
-                $this->verificationExclusionZone(),
-            );
-        } catch (Throwable) {
-            $this->components->error('Provider connectivity or payload verification failed.');
+        $openRouteServiceRoute = $this->verifyRequest(
+            'OpenRouteService request',
+            fn (): array => $openRouteService->route($coordinates, $exclusionZone),
+        );
+        $graphHopperRoute = $this->verifyRequest(
+            'GraphHopper request',
+            fn (): array => $graphHopper->route($coordinates, $exclusionZone),
+        );
+        $graphHopperAvoidanceRoute = null;
 
-            return self::FAILURE;
+        if ($graphHopperRoute !== null) {
+            $graphHopperAvoidanceRoute = $this->verifyRequest(
+                'GraphHopper Landmarks request',
+                fn (): array => $graphHopper->route(
+                    $coordinates,
+                    $this->verificationExclusionZone(),
+                ),
+            );
+        } else {
+            $this->components->twoColumnDetail('GraphHopper Landmarks request', 'SKIPPED');
         }
 
-        $openRouteServiceContract = $this->contract($openRouteServiceRoute);
-        $graphHopperContract = $this->contract($graphHopperRoute);
+        $openRouteServiceContract = $openRouteServiceRoute === null
+            ? 'unavailable'
+            : $this->contract($openRouteServiceRoute);
+        $graphHopperContract = $graphHopperRoute === null
+            ? 'unavailable'
+            : $this->contract($graphHopperRoute);
         $contractsMatch = $openRouteServiceContract === self::EXPECTED_CONTRACT
             && $graphHopperContract === self::EXPECTED_CONTRACT;
-        $landmarksCustomModelWorks = $this->contract($graphHopperAvoidanceRoute) === self::EXPECTED_CONTRACT;
+        $landmarksCustomModelWorks = $graphHopperAvoidanceRoute !== null
+            && $this->contract($graphHopperAvoidanceRoute) === self::EXPECTED_CONTRACT;
 
         $this->components->twoColumnDetail('OpenRouteService contract', $openRouteServiceContract);
         $this->components->twoColumnDetail('GraphHopper contract', $graphHopperContract);
@@ -52,7 +68,37 @@ class VerifyDirectionsProvidersCommand extends Command
             $landmarksCustomModelWorks ? 'PASS' : 'FAIL',
         );
 
-        return $contractsMatch && $landmarksCustomModelWorks ? self::SUCCESS : self::FAILURE;
+        if (! $contractsMatch || ! $landmarksCustomModelWorks) {
+            $this->components->error('Provider connectivity or payload verification failed.');
+
+            return self::FAILURE;
+        }
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @param  Closure(): array<string, mixed>  $request
+     * @return array<string, mixed>|null
+     */
+    private function verifyRequest(string $check, Closure $request): ?array
+    {
+        try {
+            $route = $request();
+        } catch (Throwable $exception) {
+            Log::warning('Directions provider verification check failed.', [
+                'check' => $check,
+                'exception_type' => $exception::class,
+            ]);
+
+            $this->components->twoColumnDetail($check, 'FAIL');
+
+            return null;
+        }
+
+        $this->components->twoColumnDetail($check, 'PASS');
+
+        return $route;
     }
 
     /**
