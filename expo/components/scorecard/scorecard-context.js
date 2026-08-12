@@ -40,6 +40,11 @@ import {
     recordScorecardContribution,
     SCORECARD_BADGES,
 } from './scorecard-engine';
+import { getScorecardExposureRouteSegment } from './scorecard-exposure-route';
+import {
+    getScorecardRouteDistanceSnapshot,
+    scorecardRouteHasReachedEnd,
+} from './scorecard-route-progress';
 import {
     deleteEncryptedScorecardState,
     loadEncryptedScorecardState,
@@ -97,31 +102,10 @@ function getPlausibleDistanceMeters(previousLocation, currentLocation) {
 }
 
 function getRouteDistanceSnapshot(route, progressFraction = 0) {
-    const routeOption = getSelectedDirectionsRouteOption(route);
-    const directRoute = route?.routes?.direct;
-    const distanceMeters = Math.max(0, Number(routeOption?.distance) || 0);
-    const directDistanceMeters = Math.max(
-        0,
-        Number(directRoute?.distance) || distanceMeters,
-    );
-    const durationSeconds = Math.max(0, Number(routeOption?.duration) || 0);
-    const directDurationSeconds = Math.max(
-        0,
-        Number(directRoute?.duration) || durationSeconds,
-    );
-
     return {
-        distanceMeters,
-        durationSeconds,
-        extraDistanceMeters: Math.max(0, distanceMeters - directDistanceMeters),
-        extraDurationSeconds: Math.max(
-            0,
-            durationSeconds - directDurationSeconds,
-        ),
+        ...getScorecardRouteDistanceSnapshot(route, progressFraction),
         key: getDirectionsRouteSyncKey(route),
-        progressFraction: Math.min(1, Math.max(0, progressFraction)),
         route,
-        routeOption,
     };
 }
 
@@ -179,6 +163,11 @@ export function ScorecardProvider({ children }) {
 
             stateRef.current = loadedState;
             setScorecardState(loadedState);
+            setPendingRecap(
+                loadedState.trips.find(
+                    (trip) => trip.id === loadedState.pendingRecapTripId,
+                ) ?? null,
+            );
             setIsHydrated(true);
         });
 
@@ -201,7 +190,10 @@ export function ScorecardProvider({ children }) {
 
             const fixture = createE2EScorecardFixture(requestedFixture);
 
-            commitState(fixture.state);
+            commitState({
+                ...fixture.state,
+                pendingRecapTripId: fixture.pendingRecap?.id ?? null,
+            });
             setPendingRecap(fixture.pendingRecap);
         },
         [commitState, secureStorageIsAvailable],
@@ -364,7 +356,12 @@ export function ScorecardProvider({ children }) {
 
                 completedTrip = finalized.trip;
 
-                return finalized.state;
+                return arrived && completedTrip
+                    ? {
+                          ...finalized.state,
+                          pendingRecapTripId: completedTrip.id,
+                      }
+                    : finalized.state;
             });
 
             routeSnapshotRef.current = null;
@@ -553,9 +550,17 @@ export function ScorecardProvider({ children }) {
             (!drivingModeIsActive || !scorecardState.settings.enabled) &&
             !arrivalFinalizingRef.current
         ) {
+            const routeEnded =
+                scorecardState.settings.enabled &&
+                activeSession.mode === 'guided' &&
+                scorecardRouteHasReachedEnd(routeSnapshotRef.current);
+
             finalizeActiveSession({
+                arrived: routeEnded,
                 completion: scorecardState.settings.enabled
-                    ? undefined
+                    ? routeEnded
+                        ? 'arrival'
+                        : undefined
                     : 'paused',
             });
         }
@@ -602,19 +607,33 @@ export function ScorecardProvider({ children }) {
             detectorStateRef.current = exposureResult.detectorState;
 
             if (exposureResult.exposures.length > 0) {
+                const selectedRouteCoordinates =
+                    activeSession.mode === 'guided' && directionsRoute
+                        ? getSelectedDirectionsRouteOption(directionsRoute)
+                              ?.coordinates
+                        : null;
+
                 commitState((currentState) =>
-                    exposureResult.exposures.reduce(
-                        (nextState, exposure) =>
-                            addScorecardExposure(nextState, {
-                                ...exposure,
-                                id: createLocalScorecardId(
-                                    'read',
-                                    exposure.occurredAt,
-                                ),
-                                sessionId: activeSession.id,
-                            }),
-                        currentState,
-                    ),
+                    exposureResult.exposures.reduce((nextState, exposure) => {
+                        const guidedRouteSegment =
+                            getScorecardExposureRouteSegment(
+                                selectedRouteCoordinates,
+                                exposure.cameraCoordinate,
+                            );
+
+                        return addScorecardExposure(nextState, {
+                            ...exposure,
+                            id: createLocalScorecardId(
+                                'read',
+                                exposure.occurredAt,
+                            ),
+                            routeSegmentCoordinates:
+                                guidedRouteSegment.length > 0
+                                    ? guidedRouteSegment
+                                    : exposure.routeSegmentCoordinates,
+                            sessionId: activeSession.id,
+                        });
+                    }, currentState),
                 );
             }
         }
@@ -742,7 +761,12 @@ export function ScorecardProvider({ children }) {
     }, [userLocation]);
     const dismissRecap = useCallback(() => {
         setPendingRecap(null);
-    }, []);
+        commitState((currentState) =>
+            currentState.pendingRecapTripId
+                ? { ...currentState, pendingRecapTripId: null }
+                : currentState,
+        );
+    }, [commitState]);
     const recordPublishedCameras = useCallback(
         (count = 1) => {
             if (!secureStorageIsAvailable) {

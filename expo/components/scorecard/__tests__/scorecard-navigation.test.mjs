@@ -21,4 +21,39 @@ describe('scorecard navigation', () => {
         assert.match(timelineSource, /backRoute="index"/);
         assert.match(trailSource, /backRoute="timeline"/);
     });
+
+    test('uses real camera maps without linking exposure detail back to Hotlist', () => {
+        const detailSource = readSource('../scorecard-event-detail-screen.js');
+        const mapSource = readSource('../scorecard-map.js');
+        const trailSource = readSource('../scorecard-trail-screen.js');
+
+        assert.match(detailSource, /ScorecardExposureMap/);
+        assert.doesNotMatch(
+            detailSource,
+            /Open Hotlist|router\.push\('\/hotlist'/,
+        );
+        assert.match(trailSource, /ScorecardExposureMap/);
+        assert.match(trailSource, /getDirections/);
+        assert.match(trailSource, /lineCollection={trailLineCollection}/);
+        assert.match(mapSource, /NativeWindMapView/);
+        assert.match(mapSource, /Mapbox\.FillLayer/);
+        assert.match(mapSource, /Mapbox\.LineLayer/);
+        assert.match(mapSource, /Mapbox\.CircleLayer/);
+        assert.match(mapSource, /fillEmissiveStrength/);
+        assert.match(mapSource, /lineEmissiveStrength/);
+        assert.match(mapSource, /circleEmissiveStrength/);
+        assert.match(mapSource, /textEmissiveStrength/);
+        assert.match(detailSource, /showCones/);
+    });
+
+    test('mounts the arrival recap above every app route', () => {
+        const mapScreenSource = readSource('../../map-screen.js');
+        const rootLayoutSource = readSource('../../../app/_layout.js');
+
+        assert.doesNotMatch(mapScreenSource, /<ScorecardArrivalRecap/);
+        assert.match(
+            rootLayoutSource,
+            /<Drawer[\s\S]*?<ScorecardArrivalRecap \/>/,
+        );
+    });
 });

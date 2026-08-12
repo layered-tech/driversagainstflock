@@ -2,6 +2,7 @@ import {
     getScorecardCoordinateDistanceMeters,
     getScorecardStoredNumber,
 } from './scorecard-geo.js';
+import { SCORECARD_ROUTE_END_TOLERANCE_METERS } from './scorecard-route-progress.js';
 
 export const SCORECARD_ARRIVAL_RADIUS_METERS = 45;
 
@@ -67,11 +68,20 @@ export function updateScorecardArrivalDetection({
         routeDistanceMeters > 0
             ? progressDistance / routeDistanceMeters
             : 0;
+    const isNearDestination =
+        distanceToDestination !== null &&
+        distanceToDestination <= SCORECARD_ARRIVAL_RADIUS_METERS;
+    const hasReachedRouteEnd =
+        progressDistance !== null &&
+        Number.isFinite(routeDistanceMeters) &&
+        routeDistanceMeters > 0 &&
+        progressDistance >=
+            routeDistanceMeters - SCORECARD_ROUTE_END_TOLERANCE_METERS;
     const qualifies =
         sample !== null &&
-        distanceToDestination !== null &&
-        distanceToDestination <= SCORECARD_ARRIVAL_RADIUS_METERS &&
-        progressFraction >= ARRIVAL_MINIMUM_ROUTE_PROGRESS &&
+        (isNearDestination
+            ? progressFraction >= ARRIVAL_MINIMUM_ROUTE_PROGRESS
+            : hasReachedRouteEnd) &&
         routeDeviation !== null &&
         routeDeviation <= ARRIVAL_MAX_ROUTE_DEVIATION_METERS;
 

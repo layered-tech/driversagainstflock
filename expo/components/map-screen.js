@@ -71,6 +71,7 @@ import { MapSearchOverlay } from './map/map-search-overlay';
 import { MarkerDetailsSheet } from './map/marker-details-sheet';
 import { getNavigationPuckSize } from './map/navigation-puck-layout';
 import { RoadMatchingE2EProbe } from './map/road-matching-e2e-probe';
+import { RouteExportModal } from './map/route-export-modal';
 import { SearchResultsSheet } from './map/search-results-sheet';
 import { SelectedPlaceSheet } from './map/selected-place-sheet';
 import {
@@ -96,7 +97,6 @@ import {
 import { useMapPresentation } from './map/use-map-presentation';
 import { useMapSearch } from './map/use-map-search';
 import { makeWazePoliceAlertFeatureCollection } from './map/waze-alerts-api';
-import { ScorecardArrivalRecap } from './scorecard/scorecard-arrival-recap';
 
 const ROUTE_CHOICE_CAMERA_FIT_RETRY_DELAY_MS =
     PLACE_RESULT_CAMERA_ANIMATION_DURATION_MS + 150;
@@ -124,6 +124,7 @@ export default function LocationMapScreen({
     const [drivingMapViewMode, setDrivingMapViewMode] = useState(
         DRIVING_MAP_VIEW_PERSPECTIVE,
     );
+    const [routeExportIsVisible, setRouteExportIsVisible] = useState(false);
     const { height: windowHeight, width: windowWidth } = useWindowDimensions();
     const navigationPuckSize = useMemo(
         () =>
@@ -142,6 +143,7 @@ export default function LocationMapScreen({
     const {
         advancedRouteSettings,
         debugOverlayVisibility,
+        debugOverlayIsVisible,
         drivingModeIsActive,
         handleMarkerLoadingIndicatorHidden,
         initialCameraSettings,
@@ -183,6 +185,8 @@ export default function LocationMapScreen({
     } = useSharedMapState();
     const { setUserLocation, userLocation } = useSharedMapLocationState();
     const isDrivingMode = drivingModeIsActive;
+    const routeExportIsAvailable =
+        SHOW_MAP_DEBUG_CONTROLS && debugOverlayIsVisible;
 
     useEffect(() => {
         if (!isDrivingMode) {
@@ -641,6 +645,13 @@ export default function LocationMapScreen({
         logMapDrivingStarted({ route: null });
         setDrivingModeIsActive(true);
     }, [layerSheetRef, setDrivingModeIsActive]);
+    const handleRouteExportPress = useCallback(() => {
+        if (!routeExportIsAvailable) {
+            return;
+        }
+
+        setRouteExportIsVisible(true);
+    }, [routeExportIsAvailable]);
     const handleStopFreeDrive = useCallback(() => {
         logMapDrivingStopped({ route: null });
         setDrivingModeIsActive(false);
@@ -714,6 +725,8 @@ export default function LocationMapScreen({
         directionsRoute,
         directionsRouteSheetSnapPoints: DIRECTIONS_ROUTE_SHEET_SNAP_POINTS,
         directionsRouteSheetTrackingHandlers,
+        routeExportIsAvailable,
+        handleRouteExportPress,
         handleStartDriving,
         mapPreferencesAreLoaded,
         presentation,
@@ -826,6 +839,8 @@ export default function LocationMapScreen({
                                 onLocationAnchorLayout={
                                     setDrivingLocationAnchorY
                                 }
+                                onRouteExport={handleRouteExportPress}
+                                routeExportIsAvailable={routeExportIsAvailable}
                                 topOverlay={
                                     freeDriveSearchOverlayIsVisible ? (
                                         <MapSearchOverlay
@@ -960,6 +975,11 @@ export default function LocationMapScreen({
                 {!isDrivingMode ? <DirectionsRouteSheet /> : null}
                 <MapLayerSheet />
                 <LocationPermissionSheet />
+                <RouteExportModal
+                    onDismiss={() => setRouteExportIsVisible(false)}
+                    route={directionsRoute}
+                    visible={routeExportIsAvailable && routeExportIsVisible}
+                />
                 <ContributeStartSheet
                     bottomSheetBackgroundStyle={
                         presentation.bottomSheetBackgroundStyle
@@ -983,7 +1003,6 @@ export default function LocationMapScreen({
                     mapPreferencesAreLoaded={mapPreferencesAreLoaded}
                     screenIsFocused={screenIsFocused}
                 />
-                <ScorecardArrivalRecap />
             </View>
         </MapScreenProviders>
     );

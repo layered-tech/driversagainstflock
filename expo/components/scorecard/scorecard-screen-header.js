@@ -102,8 +102,8 @@ export function ScorecardPrivacyFooter({ operatorView = false }) {
                         : 'text-daf-text-tertiary dark:text-neutral-400'
                 }`}
             >
-                Computed and encrypted on this phone. Scorecard details never
-                leave the device and expire after 30 days.
+                Computed and encrypted on this phone. Scorecard details remain
+                on this device until you delete them.
             </Text>
         </View>
     );
