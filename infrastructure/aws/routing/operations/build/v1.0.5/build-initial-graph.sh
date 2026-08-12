@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-readonly OPERATION_VERSION="1.0.2"
+readonly OPERATION_VERSION="1.0.5"
 readonly AWS_REGION="us-east-1"
 readonly ARTIFACT_BUCKET="daf-routing-graphs-326364278889-us-east-1"
 readonly GRAPHHOPPER_VERSION="11.0"
@@ -53,7 +53,7 @@ write_progress() {
 }
 
 finish() {
-    local exit_code=$?
+    local exit_code="${1:-$?}"
 
     if [[ -n "${MONITOR_PID}" ]]; then
         kill "${MONITOR_PID}" >/dev/null 2>&1 || true
@@ -249,9 +249,9 @@ graphhopper:
     - profile: car
   graph.encoded_values: car_access, car_average_speed, road_access
   prepare.lm.threads: 16
-  routing.max_visited_nodes: 1000000
+  routing.max_visited_nodes: 2147483647
   routing.timeout_ms: 300000
-  routing.non_ch.max_waypoint_distance: 1000000
+  routing.non_ch.max_waypoint_distance: 6000000
   import.osm.ignored_highways: footway,construction,cycleway,path,steps
   graph.dataaccess.default_type: MMAP
 
@@ -280,8 +280,10 @@ YAML
 java -jar "${JAR_PATH}" check "${CONFIG_PATH}" > "${PROGRESS_DIR}/config-check.log" 2>&1
 
 write_progress import 20 importing-and-preparing-lm
-java -Xms32g -Xmx104g -XX:+UseZGC -Dfile.encoding=UTF-8 \
-    -jar "${JAR_PATH}" import "${CONFIG_PATH}" > "${PROGRESS_DIR}/import.log" 2>&1
+if [[ ! -f "${GRAPH_PATH}/properties" ]]; then
+    java -Xms32g -Xmx104g -XX:+UseZGC -Dfile.encoding=UTF-8 \
+        -jar "${JAR_PATH}" import "${CONFIG_PATH}" > "${PROGRESS_DIR}/import.log" 2>&1
+fi
 
 write_progress validate 72 starting-validation-server
 java -Xms16g -Xmx32g -XX:+UseZGC -Dfile.encoding=UTF-8 \
@@ -293,7 +295,14 @@ stop_server() {
     wait "${SERVER_PID}" >/dev/null 2>&1 || true
 }
 
-trap 'stop_server; finish' EXIT
+stop_server_and_finish() {
+    local exit_code=$?
+
+    stop_server
+    finish "${exit_code}"
+}
+
+trap stop_server_and_finish EXIT
 
 server_ready=false
 
@@ -320,6 +329,7 @@ validate_route() {
     local request_url="$2"
     local response_path="${BUILD_MOUNT}/output/validation-${label}.json"
 
+    write_progress validate 75 "validating-${label}"
     curl --fail --silent --show-error --output "${response_path}" "${request_url}"
     jq -e '.paths[0].distance > 0 and .paths[0].time > 0' "${response_path}" >/dev/null
     rm -f "${response_path}"
