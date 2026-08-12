@@ -95,12 +95,7 @@
             "Sid": "UseLinuxImage",
             "Effect": "Allow",
             "Action": "ec2:RunInstances",
-            "Resource": "arn:aws:ec2:us-east-1::image/ami-*",
-            "Condition": {
-                "StringEquals": {
-                    "aws:RequestedRegion": "us-east-1"
-                }
-            }
+            "Resource": "arn:aws:ec2:us-east-1::image/ami-*"
         },
         {
             "Sid": "TagResourcesDuringCreation",
@@ -165,6 +160,7 @@
                 "ec2:ModifySecurityGroupRules",
                 "ec2:ModifySubnetAttribute",
                 "ec2:ModifyVolume",
+                "ec2:MonitorInstances",
                 "ec2:ReleaseAddress",
                 "ec2:ReplaceIamInstanceProfileAssociation",
                 "ec2:ReplaceRoute",
@@ -173,7 +169,8 @@
                 "ec2:RevokeSecurityGroupIngress",
                 "ec2:StartInstances",
                 "ec2:StopInstances",
-                "ec2:TerminateInstances"
+                "ec2:TerminateInstances",
+                "ec2:UnmonitorInstances"
             ],
             "Resource": "*",
             "Condition": {
