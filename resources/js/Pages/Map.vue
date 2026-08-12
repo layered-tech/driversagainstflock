@@ -254,6 +254,7 @@ let moveEndIsBound = false;
 let directionWaypointNextId = 1;
 let markerSplashFrameId = null;
 let markerSplashTimeoutId = null;
+let markerConeSyncFrameId = null;
 let systemThemeMediaQuery = null;
 
 const mapHeaderLinks = [
@@ -739,6 +740,11 @@ onBeforeUnmount(() => {
         markerSplashTimeoutId = null;
     }
 
+    if (markerConeSyncFrameId !== null) {
+        window.cancelAnimationFrame(markerConeSyncFrameId);
+        markerConeSyncFrameId = null;
+    }
+
     if (map.value) {
         map.value.remove();
     }
@@ -784,7 +790,7 @@ function initializeMap() {
         refreshRuntimeLayers();
         bindMapInteractions();
         bindMoveEndMarkerLoading();
-        instance.on('idle', syncVisibleMarkerCones);
+        instance.on('idle', queueMarkerConeSync);
         getMarkers();
         requestCurrentLocation();
 
@@ -880,7 +886,17 @@ function bindMapInteractions() {
         map.value.getCanvas().style.cursor = '';
     });
 
+    map.value.on('sourcedata', handleMarkerSourceData);
+
     interactionsAreBound = true;
+}
+
+function handleMarkerSourceData(event) {
+    if (event.sourceId !== 'source-markers' || !event.isSourceLoaded) {
+        return;
+    }
+
+    queueMarkerConeSync();
 }
 
 function addRuntimeSourcesAndLayers() {
@@ -2291,7 +2307,7 @@ function setMarkerPoints(points) {
     syncMarkerSources();
     reconcilePendingSelectedMarker();
     syncSelectedMarkerSource();
-    window.requestAnimationFrame(syncVisibleMarkerCones);
+    queueMarkerConeSync();
 }
 
 function setSelectedMarkerFromFeature(feature) {
@@ -2362,6 +2378,17 @@ function clearPendingSelectedMarker() {
 function syncMarkerSources() {
     setSourceData('source-markers', markerFeatures.value);
     setSourceData('source-marker-cones', markerConeFeatures.value);
+}
+
+function queueMarkerConeSync() {
+    if (markerConeSyncFrameId !== null) {
+        return;
+    }
+
+    markerConeSyncFrameId = window.requestAnimationFrame(() => {
+        markerConeSyncFrameId = null;
+        syncVisibleMarkerCones();
+    });
 }
 
 function syncVisibleMarkerCones() {
