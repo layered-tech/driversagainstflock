@@ -1,0 +1,17 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "UseRoutingBuilderLaunchTemplate",
+            "Effect": "Allow",
+            "Action": "ec2:RunInstances",
+            "Resource": "arn:aws:ec2:us-east-1:326364278889:launch-template/lt-0b5b299d5a38516ac",
+            "Condition": {
+                "StringEquals": {
+                    "aws:RequestedRegion": "us-east-1",
+                    "ec2:ResourceTag/Project": "daf-routing"
+                }
+            }
+        }
+    ]
+}
