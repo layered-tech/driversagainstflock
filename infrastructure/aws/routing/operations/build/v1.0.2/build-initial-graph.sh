@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-readonly OPERATION_VERSION="1.0.1"
+readonly OPERATION_VERSION="1.0.2"
 readonly AWS_REGION="us-east-1"
 readonly ARTIFACT_BUCKET="daf-routing-graphs-326364278889-us-east-1"
 readonly GRAPHHOPPER_VERSION="11.0"
@@ -218,13 +218,21 @@ telemetry_loop &
 MONITOR_PID=$!
 
 write_progress download 5 downloading-us-pbf
-curl --fail --location --silent --show-error --output "${PBF_PATH}" "${PBF_URL}"
+if [[ ! -f "${PBF_PATH}" ]] || ! printf '%s  %s\n' "${PBF_MD5}" "${PBF_PATH}" | md5sum --check --status; then
+    curl --fail --location --silent --show-error --output "${PBF_PATH}.partial" "${PBF_URL}"
+    mv "${PBF_PATH}.partial" "${PBF_PATH}"
+fi
 write_progress checksum 15 verifying-us-pbf
 printf '%s  %s\n' "${PBF_MD5}" "${PBF_PATH}" | md5sum --check --status
 
 write_progress setup 18 downloading-graphhopper
-curl --fail --location --silent --show-error --output "${JAR_PATH}" "${GRAPHHOPPER_URL}"
+if [[ ! -f "${JAR_PATH}" ]] || ! printf '%s  %s\n' "${GRAPHHOPPER_SHA256}" "${JAR_PATH}" | sha256sum --check --status; then
+    curl --fail --location --silent --show-error --output "${JAR_PATH}.partial" "${GRAPHHOPPER_URL}"
+    mv "${JAR_PATH}.partial" "${JAR_PATH}"
+fi
 printf '%s  %s\n' "${GRAPHHOPPER_SHA256}" "${JAR_PATH}" | sha256sum --check --status
+
+sysctl -w vm.max_map_count=262144 >/dev/null
 
 cat > "${CONFIG_PATH}" <<YAML
 graphhopper:
@@ -244,6 +252,7 @@ graphhopper:
   routing.max_visited_nodes: 1000000
   routing.timeout_ms: 300000
   routing.non_ch.max_waypoint_distance: 1000000
+  import.osm.ignored_highways: footway,construction,cycleway,path,steps
   graph.dataaccess.default_type: MMAP
 
 server:
