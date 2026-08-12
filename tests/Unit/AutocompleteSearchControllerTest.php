@@ -3,7 +3,6 @@
 use App\Http\Controllers\Api\AutocompleteSearchController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 uses(TestCase::class);
@@ -35,16 +34,24 @@ it('forwards the client session token across autocomplete requests', function ()
     expect($tokens->all())->toBe([$sessionToken, $sessionToken]);
 });
 
-it('requires the client to provide the autocomplete session token', function () {
-    Http::fake();
+it('generates a one-time session token when the client does not provide one', function () {
+    Http::fake([
+        'https://places.googleapis.com/*' => Http::response([
+            'suggestions' => [],
+        ]),
+    ]);
 
     $controller = new AutocompleteSearchController;
 
-    expect(fn () => $controller(Request::create(
+    $controller(Request::create(
         '/api/search/autocomplete',
         'POST',
         ['input' => 'coffee'],
-    )))->toThrow(ValidationException::class);
+    ));
 
-    Http::assertNothingSent();
+    $sessionToken = Http::recorded()[0][0]->data()['sessionToken'] ?? null;
+
+    expect($sessionToken)->toBeString()->toMatch(
+        '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i',
+    );
 });

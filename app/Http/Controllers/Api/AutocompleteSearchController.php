@@ -6,14 +6,15 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class AutocompleteSearchController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
         $sessionToken = $request->validate([
-            'sessionToken' => ['required', 'uuid'],
-        ])['sessionToken'];
+            'sessionToken' => ['nullable', 'uuid'],
+        ])['sessionToken'] ?? (string) Str::uuid();
 
         return response()->json(
             Http::withHeaders([
