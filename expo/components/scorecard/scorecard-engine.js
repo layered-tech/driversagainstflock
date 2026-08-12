@@ -26,10 +26,10 @@ export const SCORECARD_BADGES = Object.freeze([
         name: 'First detour',
     },
     {
-        caption: 'Drive on 7 consecutive days with zero reads',
+        caption: 'Complete 7 consecutive drives with zero reads',
         icon: 'shield-check',
         id: 'clean-week',
-        name: 'Clean week',
+        name: 'Clean streak',
     },
     {
         caption: 'Avoid 100 cameras',
@@ -65,6 +65,31 @@ function finiteNumber(value, fallback = 0) {
 
 function nonNegativeNumber(value, fallback = 0) {
     return Math.max(0, finiteNumber(value, fallback));
+}
+
+function normalizeFuelEconomyMpg(value) {
+    const mpg = Number(value);
+
+    return Number.isFinite(mpg) && mpg >= 1 && mpg <= 200 ? mpg : null;
+}
+
+function normalizeGasPricePerGallon(value) {
+    const gasPrice = Number(value);
+
+    return Number.isFinite(gasPrice) && gasPrice > 0 && gasPrice < 20
+        ? gasPrice
+        : null;
+}
+
+export function getScorecardFuelCostSettings(settings) {
+    return {
+        fuelEconomyMpg:
+            normalizeFuelEconomyMpg(settings?.fuelEconomyMpg) ??
+            SCORECARD_FIXED_MPG,
+        gasPricePerGallon: normalizeGasPricePerGallon(
+            settings?.gasPricePerGallon,
+        ),
+    };
 }
 
 function isRecord(value) {
@@ -170,6 +195,9 @@ function normalizeActiveSession(value) {
             value?.gasPriceSourceAsOf,
             50,
         ),
+        fuelEconomyMpg:
+            normalizeFuelEconomyMpg(value?.fuelEconomyMpg) ??
+            SCORECARD_FIXED_MPG,
         exposureCoverageObserved: value?.exposureCoverageObserved === true,
         exposureCoveragePending: value?.exposureCoveragePending !== false,
         exposureCoverageWasTruncated:
@@ -276,6 +304,9 @@ function normalizeTrip(value) {
             value?.gasPriceSourceAsOf,
             50,
         ),
+        fuelEconomyMpg:
+            normalizeFuelEconomyMpg(value?.fuelEconomyMpg) ??
+            SCORECARD_FIXED_MPG,
         id,
         localDay: /^\d{4}-\d{2}-\d{2}$/.test(value?.localDay ?? '')
             ? value.localDay
@@ -313,6 +344,8 @@ export function createEmptyScorecardState() {
         pendingRecapTripId: null,
         settings: {
             enabled: true,
+            fuelEconomyMpg: null,
+            gasPricePerGallon: null,
         },
         trips: [],
         version: SCORECARD_STORAGE_VERSION,
@@ -386,6 +419,12 @@ export function normalizeScorecardState(value) {
             : null,
         settings: {
             enabled: value.settings?.enabled !== false,
+            fuelEconomyMpg: normalizeFuelEconomyMpg(
+                value.settings?.fuelEconomyMpg,
+            ),
+            gasPricePerGallon: normalizeGasPricePerGallon(
+                value.settings?.gasPricePerGallon,
+            ),
         },
         trips,
         version: SCORECARD_STORAGE_VERSION,
@@ -466,16 +505,6 @@ export function getScorecardLevel(xp) {
     };
 }
 
-function localDayToUtcTimestamp(localDay) {
-    if (typeof localDay !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(localDay)) {
-        return null;
-    }
-
-    const timestamp = Date.parse(`${localDay}T00:00:00Z`);
-
-    return Number.isFinite(timestamp) ? timestamp : null;
-}
-
 export function getLocalCalendarDay(timestamp) {
     const date = new Date(timestamp);
 
@@ -490,54 +519,79 @@ export function getLocalCalendarDay(timestamp) {
     ].join('-');
 }
 
-export function getCleanDrivingDayStreak(trips) {
-    const perDay = new Map();
-
-    for (const trip of trips) {
-        const localDay = trip.localDay;
-
-        if (localDayToUtcTimestamp(localDay) === null) {
-            continue;
-        }
-
-        const day = perDay.get(localDay) ?? {
-            confirmedReads: 0,
-            coverageComplete: true,
-            trips: 0,
-        };
-
-        day.confirmedReads += nonNegativeNumber(trip.confirmedReadCount);
-        day.coverageComplete &&= trip.exposureCoverageComplete === true;
-        day.trips += 1;
-        perDay.set(localDay, day);
-    }
-
-    const cleanDays = [...perDay.entries()]
-        .filter(
-            ([, day]) =>
-                day.trips > 0 &&
-                day.coverageComplete &&
-                day.confirmedReads === 0,
-        )
-        .map(([localDay]) => localDay)
-        .sort();
+export function getCleanDriveStreak(trips) {
+    const orderedTrips = [...(Array.isArray(trips) ? trips : [])].sort(
+        (first, second) =>
+            finiteNumber(first?.endedAt, 0) - finiteNumber(second?.endedAt, 0),
+    );
     let longest = 0;
     let current = 0;
-    let previousTimestamp = null;
 
-    for (const localDay of cleanDays) {
-        const timestamp = localDayToUtcTimestamp(localDay);
-
+    for (const trip of orderedTrips) {
         current =
-            previousTimestamp !== null &&
-            timestamp - previousTimestamp === 24 * 60 * 60 * 1000
+            trip?.exposureCoverageComplete === true &&
+            nonNegativeNumber(trip?.confirmedReadCount) === 0
                 ? current + 1
-                : 1;
+                : 0;
         longest = Math.max(longest, current);
-        previousTimestamp = timestamp;
     }
 
     return { current, longest };
+}
+
+export function getScorecardTripFuelEstimate(state, trip) {
+    const { fuelEconomyMpg, gasPricePerGallon } = getScorecardFuelCostSettings(
+        state?.settings,
+    );
+    const extraMiles = nonNegativeNumber(trip?.extraMiles);
+    const extraGallons = extraMiles / fuelEconomyMpg;
+    const effectiveGasPrice =
+        gasPricePerGallon ?? normalizeGasPricePerGallon(trip?.gasPrice);
+
+    return {
+        extraFuelCost:
+            effectiveGasPrice === null
+                ? extraMiles === 0
+                    ? 0
+                    : null
+                : extraGallons * effectiveGasPrice,
+        extraGallons,
+        fuelEconomyMpg,
+        gasPricePerGallon: effectiveGasPrice,
+        usesCustomGasPrice: gasPricePerGallon !== null,
+    };
+}
+
+export function setScorecardFuelCostSettings(
+    state,
+    { fuelEconomyMpg, gasPricePerGallon } = {},
+) {
+    const normalizedMpg = normalizeFuelEconomyMpg(fuelEconomyMpg);
+    const normalizedGasPrice = normalizeGasPricePerGallon(gasPricePerGallon);
+
+    if (normalizedMpg === null || normalizedGasPrice === null) {
+        return state;
+    }
+
+    return {
+        ...state,
+        settings: {
+            ...state.settings,
+            fuelEconomyMpg: normalizedMpg,
+            gasPricePerGallon: normalizedGasPrice,
+        },
+    };
+}
+
+export function resetScorecardFuelCostSettings(state) {
+    return {
+        ...state,
+        settings: {
+            ...state.settings,
+            fuelEconomyMpg: null,
+            gasPricePerGallon: null,
+        },
+    };
 }
 
 export function getScorecardWindowStats(state, now = Date.now()) {
@@ -559,23 +613,23 @@ export function getScorecardWindowStats(state, now = Date.now()) {
         (total, trip) => total + nonNegativeNumber(trip.extraMiles),
         0,
     );
-    const extraGallons = trips.reduce(
-        (total, trip) => total + nonNegativeNumber(trip.extraGallons),
+    const fuelEstimates = trips.map((trip) =>
+        getScorecardTripFuelEstimate(state, trip),
+    );
+    const extraGallons = fuelEstimates.reduce(
+        (total, estimate) => total + estimate.extraGallons,
         0,
     );
-    const pricedTrips = trips.filter((trip) =>
-        Number.isFinite(trip.extraFuelCost),
-    );
-    const extraFuelCost = pricedTrips.reduce(
-        (total, trip) => total + nonNegativeNumber(trip.extraFuelCost),
+    const extraFuelCost = fuelEstimates.reduce(
+        (total, estimate) => total + (estimate.extraFuelCost ?? 0),
         0,
     );
     const priceCoverageComplete = trips.every(
-        (trip) =>
+        (trip, index) =>
             nonNegativeNumber(trip.extraMiles) === 0 ||
-            Number.isFinite(trip.extraFuelCost),
+            Number.isFinite(fuelEstimates[index].extraFuelCost),
     );
-    const drivingDayStreak = getCleanDrivingDayStreak(trips);
+    const cleanDriveStreak = getCleanDriveStreak(trips);
     const exposureCoverageComplete = trips.every(
         (trip) => trip.exposureCoverageComplete === true,
     );
@@ -583,7 +637,7 @@ export function getScorecardWindowStats(state, now = Date.now()) {
     return {
         avoidedCameraCount,
         confirmedReadCount,
-        drivingDayStreak: drivingDayStreak.current,
+        cleanDriveStreak: cleanDriveStreak.current,
         exposureCoverageComplete,
         extraFuelCost,
         extraGallons,
@@ -715,7 +769,7 @@ export function addScorecardExposure(state, exposure) {
 function badgeConditions(state, now) {
     const level = getScorecardLevel(state.lifetime.xp);
     const retainedTrips = getScorecardStatsWindowState(state, now).trips;
-    const cleanDrivingDays = getCleanDrivingDayStreak(retainedTrips);
+    const cleanDriveStreak = getCleanDriveStreak(retainedTrips);
     const windowStats = getScorecardWindowStats(state, now);
     const tripEndTimes = retainedTrips
         .map((trip) => finiteNumber(trip.endedAt, 0))
@@ -729,7 +783,7 @@ function badgeConditions(state, now) {
     return {
         cartographer: state.lifetime.contributedCameraCount >= 10,
         century: state.lifetime.avoidedCameraCount >= 100,
-        'clean-week': cleanDrivingDays.longest >= 7,
+        'clean-week': cleanDriveStreak.longest >= 7,
         'first-detour': state.lifetime.privateTripsWithAvoidance >= 1,
         ghost: level.level >= 4,
         'zero-month':
@@ -786,9 +840,12 @@ export function finalizeScorecardSession(
         session.exposureCoverageWasTruncated !== true;
     const avoidedCameraCount = session.creditedAvoidances.length;
     const extraMiles = nonNegativeNumber(extraDistanceMeters) / 1609.344;
-    const extraGallons = extraMiles / SCORECARD_FIXED_MPG;
-    const extraFuelCost = Number.isFinite(session.gasPrice)
-        ? extraGallons * session.gasPrice
+    const fuelSettings = getScorecardFuelCostSettings(state.settings);
+    const effectiveGasPrice =
+        fuelSettings.gasPricePerGallon ?? session.gasPrice;
+    const extraGallons = extraMiles / fuelSettings.fuelEconomyMpg;
+    const extraFuelCost = Number.isFinite(effectiveGasPrice)
+        ? extraGallons * effectiveGasPrice
         : null;
     const cleanDrive = exposureCoverageComplete && confirmedReadCount === 0;
     const trip = {
@@ -808,7 +865,8 @@ export function finalizeScorecardSession(
         extraGallons,
         extraMiles,
         extraDurationSeconds: nonNegativeNumber(extraDurationSeconds),
-        gasPrice: session.gasPrice,
+        fuelEconomyMpg: fuelSettings.fuelEconomyMpg,
+        gasPrice: Number.isFinite(session.gasPrice) ? session.gasPrice : null,
         gasPriceRetrievedAt: session.gasPriceRetrievedAt ?? null,
         gasPriceSourceAsOf: session.gasPriceSourceAsOf ?? null,
         id: session.id,
@@ -878,11 +936,16 @@ export function applyScorecardTripGasPrice(
     const previousFuelCost = Number.isFinite(currentTrip.extraFuelCost)
         ? currentTrip.extraFuelCost
         : 0;
-    const extraFuelCost =
-        nonNegativeNumber(currentTrip.extraGallons) * numericPrice;
+    const fuelEstimate = getScorecardTripFuelEstimate(state, {
+        ...currentTrip,
+        gasPrice: numericPrice,
+    });
+    const extraFuelCost = fuelEstimate.extraFuelCost ?? 0;
     const pricedTrip = {
         ...currentTrip,
         extraFuelCost,
+        extraGallons: fuelEstimate.extraGallons,
+        fuelEconomyMpg: fuelEstimate.fuelEconomyMpg,
         gasPrice: numericPrice,
         gasPriceRetrievedAt: normalizeOptionalText(retrievedAt, 50),
         gasPriceSourceAsOf: normalizeOptionalText(sourceAsOf, 50),

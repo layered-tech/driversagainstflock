@@ -38,7 +38,9 @@ import {
     getScorecardLevel,
     getScorecardWindowStats,
     recordScorecardContribution,
+    resetScorecardFuelCostSettings,
     SCORECARD_BADGES,
+    setScorecardFuelCostSettings,
 } from './scorecard-engine';
 import { getScorecardExposureRouteSegment } from './scorecard-exposure-route';
 import {
@@ -746,6 +748,17 @@ export function ScorecardProvider({ children }) {
         },
         [commitState],
     );
+    const setFuelCostSettings = useCallback(
+        (settings) => {
+            commitState((currentState) =>
+                setScorecardFuelCostSettings(currentState, settings),
+            );
+        },
+        [commitState],
+    );
+    const resetFuelCostSettings = useCallback(() => {
+        commitState(resetScorecardFuelCostSettings);
+    }, [commitState]);
     const deleteHistory = useCallback(async () => {
         const emptyState = createEmptyScorecardState();
 
@@ -805,8 +818,10 @@ export function ScorecardProvider({ children }) {
             level,
             pendingRecap,
             recordPublishedCameras,
+            resetFuelCostSettings,
             scorecardState,
             secureStorageIsAvailable,
+            setFuelCostSettings,
             setTrackingEnabled,
             windowStats,
         }),
@@ -818,8 +833,10 @@ export function ScorecardProvider({ children }) {
             level,
             pendingRecap,
             recordPublishedCameras,
+            resetFuelCostSettings,
             scorecardState,
             secureStorageIsAvailable,
+            setFuelCostSettings,
             setTrackingEnabled,
             windowStats,
         ],

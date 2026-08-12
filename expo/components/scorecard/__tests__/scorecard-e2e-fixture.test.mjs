@@ -144,8 +144,8 @@ describe('scorecard Maestro fixture', () => {
         assert.equal(fixture.state.lifetime.privateTripsWithAvoidance, 10);
         assert.equal(fixture.state.trips.length, 10);
         assert.equal(
-            getScorecardWindowStats(fixture.state, now).drivingDayStreak,
-            8,
+            getScorecardWindowStats(fixture.state, now).cleanDriveStreak,
+            10,
         );
     });
 

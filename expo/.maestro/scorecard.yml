@@ -55,7 +55,7 @@ tags:
 - takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-dashboard'}
 
 - scrollUntilVisible:
-    element: 'What privacy cost you'
+    element: 'What privacy costs you'
     direction: DOWN
     timeout: 10000
 - assertVisible: '25.2 mpg · AAA state rates'

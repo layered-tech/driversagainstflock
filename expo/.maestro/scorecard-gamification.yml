@@ -119,7 +119,7 @@ tags:
     direction: DOWN
     timeout: 10000
 - assertVisible: 'First detour badge, earned'
-- assertVisible: 'Clean week badge, earned'
+- assertVisible: 'Clean streak badge, earned'
 - assertVisible: 'Century badge, locked'
 - scrollUntilVisible:
     element:
@@ -242,14 +242,14 @@ tags:
 - assertTrue: ${maestro.copiedText == '0'}
 - copyTextFrom:
     id: 'scorecard-stat-streak'
-- assertTrue: ${maestro.copiedText == '8'}
+- assertTrue: ${maestro.copiedText == '10'}
 - scrollUntilVisible:
     element:
       id: 'scorecard-badge-first-detour'
     direction: DOWN
     timeout: 10000
 - assertVisible: 'First detour badge, earned'
-- assertVisible: 'Clean week badge, earned'
+- assertVisible: 'Clean streak badge, earned'
 - assertVisible: 'Century badge, earned'
 - scrollUntilVisible:
     element:
