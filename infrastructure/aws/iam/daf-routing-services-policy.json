@@ -8,8 +8,10 @@
                 "s3:CreateBucket",
                 "s3:DeleteBucket",
                 "s3:GetBucket*",
+                "s3:GetAccelerateConfiguration",
                 "s3:GetEncryptionConfiguration",
                 "s3:GetLifecycleConfiguration",
+                "s3:GetReplicationConfiguration",
                 "s3:ListBucket",
                 "s3:ListBucketVersions",
                 "s3:PutBucketOwnershipControls",
@@ -46,6 +48,7 @@
             "Sid": "ReadDns",
             "Effect": "Allow",
             "Action": [
+                "route53:GetChange",
                 "route53:GetHostedZone",
                 "route53:ListHostedZones",
                 "route53:ListHostedZonesByVPC",
@@ -107,6 +110,12 @@
                 "ssm:RemoveTagsFromResource"
             ],
             "Resource": "arn:aws:ssm:us-east-1:326364278889:parameter/daf-routing/*"
+        },
+        {
+            "Sid": "ReadRoutingParameterMetadata",
+            "Effect": "Allow",
+            "Action": "ssm:DescribeParameters",
+            "Resource": "*"
         },
         {
             "Sid": "ReadAmazonLinuxAmiParameter",
@@ -172,7 +181,6 @@
                 "logs:CreateLogStream",
                 "logs:DeleteLogGroup",
                 "logs:DeleteLogStream",
-                "logs:DescribeLogGroups",
                 "logs:DescribeLogStreams",
                 "logs:ListTagsForResource",
                 "logs:PutLogEvents",
@@ -181,6 +189,12 @@
                 "logs:UntagResource"
             ],
             "Resource": "arn:aws:logs:us-east-1:326364278889:log-group:/daf-routing/*"
+        },
+        {
+            "Sid": "ReadRoutingLogGroups",
+            "Effect": "Allow",
+            "Action": "logs:DescribeLogGroups",
+            "Resource": "*"
         },
         {
             "Sid": "ManageRoutingAlarms",
@@ -221,6 +235,12 @@
                 "sns:UntagResource"
             ],
             "Resource": "arn:aws:sns:us-east-1:326364278889:daf-routing-*"
+        },
+        {
+            "Sid": "ReadRoutingSubscriptionAttributes",
+            "Effect": "Allow",
+            "Action": "sns:GetSubscriptionAttributes",
+            "Resource": "*"
         },
         {
             "Sid": "RemoveRoutingSubscriptions",

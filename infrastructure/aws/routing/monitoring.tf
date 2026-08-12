@@ -34,7 +34,16 @@ data "aws_iam_policy_document" "alerts" {
       identifiers = ["arn:aws:iam::${var.aws_account_id}:root"]
     }
 
-    actions   = ["SNS:*"]
+    actions = [
+      "sns:AddPermission",
+      "sns:DeleteTopic",
+      "sns:GetTopicAttributes",
+      "sns:ListSubscriptionsByTopic",
+      "sns:Publish",
+      "sns:RemovePermission",
+      "sns:SetTopicAttributes",
+      "sns:Subscribe",
+    ]
     resources = [local.alerts_topic_arn]
   }
 
