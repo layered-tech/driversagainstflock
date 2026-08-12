@@ -44,6 +44,60 @@
             }
         },
         {
+            "Sid": "UseNetwork",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:CreateNatGateway",
+                "ec2:CreateRouteTable",
+                "ec2:CreateSecurityGroup",
+                "ec2:CreateSubnet"
+            ],
+            "Resource": [
+                "arn:aws:ec2:us-east-1:326364278889:subnet/subnet-0aec59f0da18b6c9c",
+                "arn:aws:ec2:us-east-1:326364278889:vpc/vpc-0ca7765532da9cf89"
+            ],
+            "Condition": {
+                "StringEquals": {
+                    "aws:RequestedRegion": "us-east-1"
+                }
+            }
+        },
+        {
+            "Sid": "UseRoutingEip",
+            "Effect": "Allow",
+            "Action": "ec2:CreateNatGateway",
+            "Resource": "arn:aws:ec2:us-east-1:326364278889:elastic-ip/*",
+            "Condition": {
+                "StringEquals": {
+                    "ec2:ResourceTag/Project": "daf-routing"
+                }
+            }
+        },
+        {
+            "Sid": "UseRoutingNetwork",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:CreateNetworkInterface",
+                "ec2:RunInstances"
+            ],
+            "Resource": [
+                "arn:aws:ec2:us-east-1:326364278889:network-interface/*",
+                "arn:aws:ec2:us-east-1:326364278889:security-group/*",
+                "arn:aws:ec2:us-east-1:326364278889:subnet/*"
+            ],
+            "Condition": {
+                "StringEquals": {
+                    "ec2:ResourceTag/Project": "daf-routing"
+                }
+            }
+        },
+        {
+            "Sid": "UseLinuxImage",
+            "Effect": "Allow",
+            "Action": "ec2:RunInstances",
+            "Resource": "arn:aws:ec2:us-east-1::image/ami-*"
+        },
+        {
             "Sid": "TagResourcesDuringCreation",
             "Effect": "Allow",
             "Action": "ec2:CreateTags",
@@ -106,6 +160,7 @@
                 "ec2:ModifySecurityGroupRules",
                 "ec2:ModifySubnetAttribute",
                 "ec2:ModifyVolume",
+                "ec2:MonitorInstances",
                 "ec2:ReleaseAddress",
                 "ec2:ReplaceIamInstanceProfileAssociation",
                 "ec2:ReplaceRoute",
@@ -114,7 +169,8 @@
                 "ec2:RevokeSecurityGroupIngress",
                 "ec2:StartInstances",
                 "ec2:StopInstances",
-                "ec2:TerminateInstances"
+                "ec2:TerminateInstances",
+                "ec2:UnmonitorInstances"
             ],
             "Resource": "*",
             "Condition": {
@@ -153,6 +209,7 @@
                 "iam:GetInstanceProfile",
                 "iam:GetRole",
                 "iam:GetRolePolicy",
+                "iam:ListAttachedRolePolicies",
                 "iam:ListInstanceProfilesForRole",
                 "iam:ListRolePolicies",
                 "iam:PutRolePolicy",
