@@ -273,7 +273,7 @@ Type=simple
 User=graphhopper
 Group=graphhopper
 WorkingDirectory=/var/lib/graphhopper
-ExecStart=/usr/bin/java -Xms8g -Xmx12g -XX:+UseZGC -Dfile.encoding=UTF-8 -jar /opt/graphhopper/graphhopper-web.jar server /etc/graphhopper/config.yml
+ExecStart=/usr/bin/java -Xms4g -Xmx8g -XX:+UseZGC -Dfile.encoding=UTF-8 -jar /opt/graphhopper/graphhopper-web.jar server /etc/graphhopper/config.yml
 Restart=on-failure
 RestartSec=10s
 TimeoutStopSec=60s

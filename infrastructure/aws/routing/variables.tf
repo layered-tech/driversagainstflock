@@ -76,9 +76,9 @@ variable "serving_private_ip" {
 }
 
 variable "serving_instance_type" {
-  description = "Initial GraphHopper serving instance size."
+  description = "GraphHopper serving instance size."
   type        = string
-  default     = "r7g.xlarge"
+  default     = "r7g.large"
 }
 
 variable "builder_instance_type" {
