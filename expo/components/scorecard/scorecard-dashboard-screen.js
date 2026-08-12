@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
     Alert,
     Pressable,
@@ -14,7 +14,8 @@ import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
 import { dafSemanticColors, getDafTheme } from '../design-system/tokens';
 import { useScorecard } from './scorecard-context';
-import { SCORECARD_FIXED_MPG } from './scorecard-engine';
+import { getScorecardFuelCostSettings } from './scorecard-engine';
+import { ScorecardFuelSettingsModal } from './scorecard-fuel-settings-modal';
 import {
     ScorecardPrivacyFooter,
     ScorecardScreenHeader,
@@ -96,9 +97,15 @@ function PrivacyScoreRing({ score, theme }) {
     );
 }
 
-function StatTile({ colorClassName = '', label, testID, value }) {
+function StatTile({ colorClassName = '', label, onPress, testID, value }) {
+    const Container = onPress ? Pressable : View;
+
     return (
-        <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark flex-1 items-center rounded-dafMd border border-daf-border bg-white px-2 py-3">
+        <Container
+            accessibilityRole={onPress ? 'button' : undefined}
+            className="dark:border-daf-border-dark dark:bg-daf-surface-dark flex-1 items-center rounded-dafMd border border-daf-border bg-white px-2 py-3 active:opacity-70"
+            onPress={onPress}
+        >
             <Text
                 className={`font-dafMono text-2xl font-bold ${colorClassName || 'text-daf-text-primary dark:text-white'}`}
                 testID={testID}
@@ -108,7 +115,7 @@ function StatTile({ colorClassName = '', label, testID, value }) {
             <Text className="mt-0.5 text-[11.5px] font-semibold text-daf-text-secondary dark:text-neutral-300">
                 {label}
             </Text>
-        </View>
+        </Container>
     );
 }
 
@@ -158,11 +165,14 @@ export default function ScorecardDashboardScreen() {
         deleteHistory,
         isHydrated,
         level,
+        resetFuelCostSettings,
         scorecardState,
         secureStorageIsAvailable,
+        setFuelCostSettings,
         setTrackingEnabled,
         windowStats,
     } = useScorecard();
+    const [fuelSettingsAreVisible, setFuelSettingsAreVisible] = useState(false);
     const weeklyReads = useMemo(
         () => getWeeklyConfirmedReads(scorecardState.exposures),
         [scorecardState.exposures],
@@ -170,6 +180,16 @@ export default function ScorecardDashboardScreen() {
     const maximumWeeklyReads = Math.max(1, ...weeklyReads);
     const earnedBadgeCount = badges.filter((badge) => badge.earned).length;
     const exposureCount = scorecardState.exposures.length;
+    const fuelCostSettings = getScorecardFuelCostSettings(
+        scorecardState.settings,
+    );
+    const usesCustomFuelCosts = fuelCostSettings.gasPricePerGallon !== null;
+    const suggestedGasPricePerGallon =
+        scorecardState.activeSession?.gasPrice ??
+        [...scorecardState.trips]
+            .reverse()
+            .find((trip) => Number.isFinite(trip.gasPrice))?.gasPrice ??
+        null;
     const costPerAvoidedCamera =
         windowStats.priceCoverageComplete && windowStats.avoidedCameraCount > 0
             ? windowStats.extraFuelCost / windowStats.avoidedCameraCount
@@ -196,10 +216,7 @@ export default function ScorecardDashboardScreen() {
             className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
             testID="scorecard-dashboard"
         >
-            <ScorecardScreenHeader
-                subtitle="Last 30 days · on this device only"
-                title="Scorecard"
-            />
+            <ScorecardScreenHeader subtitle="Last 30 days" title="Scorecard" />
             <ScrollView
                 className="flex-1"
                 contentContainerStyle={{ paddingBottom: bottomPadding }}
@@ -273,10 +290,6 @@ export default function ScorecardDashboardScreen() {
                                 />
                             </View>
                         </View>
-                        <Text className="mt-3 text-center text-[11px] leading-4 text-daf-text-tertiary dark:text-neutral-400">
-                            Score = 100 × avoided ÷ (avoided + 1.5 × confirmed
-                            reads). Possible reads never affect score or XP.
-                        </Text>
                     </View>
 
                     <View className="flex-row gap-2">
@@ -292,6 +305,7 @@ export default function ScorecardDashboardScreen() {
                         <StatTile
                             colorClassName="text-daf-alert"
                             label="reads"
+                            onPress={() => router.push('/scorecard/timeline')}
                             testID="scorecard-stat-confirmed"
                             value={formatNumber(
                                 windowStats.confirmedReadCount,
@@ -299,10 +313,10 @@ export default function ScorecardDashboardScreen() {
                             )}
                         />
                         <StatTile
-                            label="day streak"
+                            label="drive streak"
                             testID="scorecard-stat-streak"
                             value={formatNumber(
-                                windowStats.drivingDayStreak,
+                                windowStats.cleanDriveStreak,
                                 0,
                             )}
                         />
@@ -360,19 +374,47 @@ export default function ScorecardDashboardScreen() {
                         </View>
                     </View>
 
-                    <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark rounded-dafLg border border-daf-border bg-white px-[15px] py-3.5">
+                    <Pressable
+                        accessibilityHint="Tap or long press to configure MPG and gas price"
+                        accessibilityLabel="Edit privacy cost settings"
+                        accessibilityRole="button"
+                        className="dark:border-daf-border-dark dark:bg-daf-surface-dark rounded-dafLg border border-daf-border bg-white px-[15px] py-3.5 active:opacity-80"
+                        delayLongPress={450}
+                        onLongPress={() => setFuelSettingsAreVisible(true)}
+                        onPress={() => setFuelSettingsAreVisible(true)}
+                        testID="scorecard-privacy-costs"
+                    >
                         <View className="mb-2.5 flex-row items-center gap-2">
                             <Icon
                                 color={dafSemanticColors.speedOk}
                                 name="fuel"
                                 size={17}
                             />
-                            <Text className="min-w-0 flex-1 text-[14.5px] font-bold text-daf-text-primary dark:text-white">
-                                What privacy cost you
-                            </Text>
-                            <Text className="font-dafMono text-[10.5px] text-daf-text-tertiary dark:text-neutral-400">
-                                {SCORECARD_FIXED_MPG} mpg · AAA state rates
-                            </Text>
+                            <View className="min-w-0 flex-1 gap-0.5">
+                                <Text className="text-[14.5px] font-bold text-daf-text-primary dark:text-white">
+                                    What privacy costs you
+                                </Text>
+                                <Text className="font-dafMono text-[10.5px] text-daf-text-tertiary dark:text-neutral-400">
+                                    {formatNumber(
+                                        fuelCostSettings.fuelEconomyMpg,
+                                        1,
+                                    )}{' '}
+                                    mpg ·{' '}
+                                    {usesCustomFuelCosts
+                                        ? `$${formatNumber(fuelCostSettings.gasPricePerGallon, 2)}/gal custom`
+                                        : 'AAA state rates'}
+                                </Text>
+                            </View>
+                            <View
+                                className="bg-daf-brand/10 dark:bg-daf-brand/15 h-8 w-8 shrink-0 items-center justify-center rounded-dafPill"
+                                testID="scorecard-privacy-costs-edit-handle"
+                            >
+                                <Icon
+                                    color={dafSemanticColors.brand}
+                                    name="pencil"
+                                    size={14}
+                                />
+                            </View>
                         </View>
                         <View className="gap-2">
                             <View className="flex-row">
@@ -416,12 +458,7 @@ export default function ScorecardDashboardScreen() {
                                 </Text>
                             </View>
                         </View>
-                        <Text className="mt-2.5 text-[11px] leading-4 text-daf-text-tertiary dark:text-neutral-400">
-                            Each trip uses the Regular average for its starting
-                            state. State selection happens offline; no location
-                            is sent with the price request.
-                        </Text>
-                    </View>
+                    </Pressable>
 
                     <View>
                         <View className="mb-2.5 flex-row items-baseline px-0.5">
@@ -526,6 +563,15 @@ export default function ScorecardDashboardScreen() {
                     <ScorecardPrivacyFooter />
                 </View>
             </ScrollView>
+            <ScorecardFuelSettingsModal
+                fuelEconomyMpg={fuelCostSettings.fuelEconomyMpg}
+                gasPricePerGallon={fuelCostSettings.gasPricePerGallon}
+                onDismiss={() => setFuelSettingsAreVisible(false)}
+                onReset={resetFuelCostSettings}
+                onSave={setFuelCostSettings}
+                suggestedGasPricePerGallon={suggestedGasPricePerGallon}
+                visible={fuelSettingsAreVisible}
+            />
         </View>
     );
 }

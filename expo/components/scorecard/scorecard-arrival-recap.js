@@ -7,7 +7,7 @@ import { dafSemanticColors } from '../design-system/tokens';
 import { useScorecard } from './scorecard-context';
 import {
     getScorecardPrivacyScore,
-    SCORECARD_FIXED_MPG,
+    getScorecardTripFuelEstimate,
 } from './scorecard-engine';
 
 function formatDuration(durationSeconds) {
@@ -54,13 +54,15 @@ function RecapStat({ label, testID, tone = 'default', value }) {
 
 export function ScorecardArrivalRecap() {
     const insets = useSafeAreaInsets();
-    const { dismissRecap, level, pendingRecap, windowStats } = useScorecard();
+    const { dismissRecap, level, pendingRecap, scorecardState, windowStats } =
+        useScorecard();
 
     if (!pendingRecap) {
         return null;
     }
 
     const trip = pendingRecap;
+    const fuelEstimate = getScorecardTripFuelEstimate(scorecardState, trip);
     const currentScore = windowStats.privacyScore;
     const scoreBeforeTrip = windowStats.exposureCoverageComplete
         ? getScorecardPrivacyScore(
@@ -147,7 +149,7 @@ export function ScorecardArrivalRecap() {
                             testID="scorecard-arrival-recap-coverage"
                         >
                             {cleanDrive
-                                ? `Clean drive · streak is now ${windowStats.drivingDayStreak}`
+                                ? `Clean drive · streak is now ${windowStats.cleanDriveStreak}`
                                 : trip.exposureCoverageComplete
                                   ? 'Confirmed cone crossings reduce score'
                                   : 'The ALPR result limit was hit or coverage was unavailable'}
@@ -191,15 +193,16 @@ export function ScorecardArrivalRecap() {
                         size={16}
                     />
                     <Text className="min-w-0 flex-1 text-xs font-semibold text-daf-text-secondary dark:text-neutral-300">
-                        Detour fuel · {SCORECARD_FIXED_MPG} mpg
+                        Detour fuel ·{' '}
+                        {formatNumber(fuelEstimate.fuelEconomyMpg)} mpg
                     </Text>
                     <Text
                         className="font-dafMono text-xs font-semibold text-daf-text-primary dark:text-white"
                         testID="scorecard-arrival-recap-fuel-cost"
                     >
                         +{formatNumber(trip.extraMiles)} mi ·{' '}
-                        {Number.isFinite(trip.extraFuelCost)
-                            ? `≈$${formatNumber(trip.extraFuelCost, 2)}`
+                        {Number.isFinite(fuelEstimate.extraFuelCost)
+                            ? `≈$${formatNumber(fuelEstimate.extraFuelCost, 2)}`
                             : trip.extraMiles > 0
                               ? 'price unavailable'
                               : '$0.00'}
