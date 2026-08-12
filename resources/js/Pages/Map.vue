@@ -16,9 +16,9 @@ import { applyDafTheme, applySystemDafTheme } from '@/design-system/theme';
 import {
     findMarkerDirectionValue,
     formatDirectionLabels,
-    MAX_MARKER_CONE_DIRECTIONS,
     parseDirectionValues,
 } from '@/direction-values';
+import { makeMarkerConeFeatureCollection } from '@/marker-cones';
 import axios from 'axios';
 import mapboxgl from 'mapbox-gl';
 import {
@@ -53,8 +53,7 @@ const props = defineProps({
 const accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 const MAX_MARKER_REQUEST_LATITUDE_SPAN_DEGREES = 40;
 const MAX_MARKER_REQUEST_LONGITUDE_SPAN_DEGREES = 40;
-const MARKER_CONE_DISTANCE_METERS = 125;
-const MARKER_CONE_SPREAD_DEGREES = 28;
+const MARKER_CONE_MIN_ZOOM = 11;
 const EARTH_RADIUS_METERS = 6371008.8;
 const METERS_PER_MILE = 1609.344;
 const FEET_PER_METER = 3.28084;
@@ -254,7 +253,6 @@ let moveEndIsBound = false;
 let directionWaypointNextId = 1;
 let markerSplashFrameId = null;
 let markerSplashTimeoutId = null;
-let markerConeSyncFrameId = null;
 let systemThemeMediaQuery = null;
 
 const mapHeaderLinks = [
@@ -740,11 +738,6 @@ onBeforeUnmount(() => {
         markerSplashTimeoutId = null;
     }
 
-    if (markerConeSyncFrameId !== null) {
-        window.cancelAnimationFrame(markerConeSyncFrameId);
-        markerConeSyncFrameId = null;
-    }
-
     if (map.value) {
         map.value.remove();
     }
@@ -790,7 +783,6 @@ function initializeMap() {
         refreshRuntimeLayers();
         bindMapInteractions();
         bindMoveEndMarkerLoading();
-        instance.on('idle', queueMarkerConeSync);
         getMarkers();
         requestCurrentLocation();
 
@@ -886,17 +878,7 @@ function bindMapInteractions() {
         map.value.getCanvas().style.cursor = '';
     });
 
-    map.value.on('sourcedata', handleMarkerSourceData);
-
     interactionsAreBound = true;
-}
-
-function handleMarkerSourceData(event) {
-    if (event.sourceId !== 'source-markers' || !event.isSourceLoaded) {
-        return;
-    }
-
-    queueMarkerConeSync();
 }
 
 function addRuntimeSourcesAndLayers() {
@@ -977,7 +959,7 @@ function addRuntimeSourcesAndLayers() {
 
     instance.addLayer({
         id: 'daf-marker-cones-fill',
-        minzoom: 11,
+        minzoom: MARKER_CONE_MIN_ZOOM,
         paint: {
             'fill-emissive-strength': MAP_LAYER_EMISSIVE_STRENGTH,
             'fill-color': colors.markerCone,
@@ -989,7 +971,7 @@ function addRuntimeSourcesAndLayers() {
 
     instance.addLayer({
         id: 'daf-marker-cones-outline',
-        minzoom: 11,
+        minzoom: MARKER_CONE_MIN_ZOOM,
         paint: {
             'line-color': colors.markerConeEdge,
             'line-emissive-strength': MAP_LAYER_EMISSIVE_STRENGTH,
@@ -2299,15 +2281,14 @@ function setMarkerPoints(points) {
         type: 'FeatureCollection',
         features,
     };
-    markerConeFeatures.value = {
-        type: 'FeatureCollection',
-        features: [],
-    };
+    markerConeFeatures.value =
+        map.value?.getZoom() >= MARKER_CONE_MIN_ZOOM
+            ? makeMarkerConeFeatureCollection(features)
+            : EMPTY_FEATURE_COLLECTION;
 
     syncMarkerSources();
     reconcilePendingSelectedMarker();
     syncSelectedMarkerSource();
-    queueMarkerConeSync();
 }
 
 function setSelectedMarkerFromFeature(feature) {
@@ -2377,54 +2358,6 @@ function clearPendingSelectedMarker() {
 
 function syncMarkerSources() {
     setSourceData('source-markers', markerFeatures.value);
-    setSourceData('source-marker-cones', markerConeFeatures.value);
-}
-
-function queueMarkerConeSync() {
-    if (markerConeSyncFrameId !== null) {
-        return;
-    }
-
-    markerConeSyncFrameId = window.requestAnimationFrame(() => {
-        markerConeSyncFrameId = null;
-        syncVisibleMarkerCones();
-    });
-}
-
-function syncVisibleMarkerCones() {
-    if (!map.value?.getLayer('daf-marker-dot')) {
-        return;
-    }
-
-    const renderedMarkers = map.value.queryRenderedFeatures(undefined, {
-        layers: ['daf-marker-dot'],
-    });
-    const seenMarkerIds = new Set();
-    const features = [];
-
-    for (const renderedMarker of renderedMarkers) {
-        const markerId =
-            renderedMarker.properties?.id ??
-            renderedMarker.geometry?.coordinates?.join(',');
-
-        if (seenMarkerIds.has(markerId)) {
-            continue;
-        }
-
-        seenMarkerIds.add(markerId);
-
-        const cones = makeMarkerConeFeatures({
-            geometry: renderedMarker.geometry,
-            properties: decodeMarkerProperties(renderedMarker.properties ?? {}),
-        });
-
-        features.push(...cones);
-    }
-
-    markerConeFeatures.value = {
-        type: 'FeatureCollection',
-        features,
-    };
     setSourceData('source-marker-cones', markerConeFeatures.value);
 }
 
@@ -2905,63 +2838,6 @@ function normalizeMarkerFeature(point) {
         },
         type: 'Feature',
     };
-}
-
-function makeMarkerConeFeatures(feature) {
-    const origin = feature.geometry.coordinates;
-    const directions = parseDirectionValues(
-        findMarkerDirectionValue(feature),
-    ).slice(0, MAX_MARKER_CONE_DIRECTIONS);
-
-    return directions.map((direction, directionIndex) => {
-        const left = destinationCoordinate(
-            origin,
-            direction - MARKER_CONE_SPREAD_DEGREES,
-            MARKER_CONE_DISTANCE_METERS,
-        );
-        const center = destinationCoordinate(
-            origin,
-            direction,
-            MARKER_CONE_DISTANCE_METERS * 1.15,
-        );
-        const right = destinationCoordinate(
-            origin,
-            direction + MARKER_CONE_SPREAD_DEGREES,
-            MARKER_CONE_DISTANCE_METERS,
-        );
-
-        return {
-            geometry: {
-                coordinates: [[origin, left, center, right, origin]],
-                type: 'Polygon',
-            },
-            properties: {
-                directionIndex,
-                markerId: feature.properties?.id,
-            },
-            type: 'Feature',
-        };
-    });
-}
-
-function destinationCoordinate(origin, bearingDegrees, distanceMeters) {
-    const [longitude, latitude] = origin;
-    const angularDistance = distanceMeters / EARTH_RADIUS_METERS;
-    const bearing = degreesToRadians(bearingDegrees);
-    const lat1 = degreesToRadians(latitude);
-    const lon1 = degreesToRadians(longitude);
-    const lat2 = Math.asin(
-        Math.sin(lat1) * Math.cos(angularDistance) +
-            Math.cos(lat1) * Math.sin(angularDistance) * Math.cos(bearing),
-    );
-    const lon2 =
-        lon1 +
-        Math.atan2(
-            Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(lat1),
-            Math.cos(angularDistance) - Math.sin(lat1) * Math.sin(lat2),
-        );
-
-    return [normalizeLongitude(radiansToDegrees(lon2)), radiansToDegrees(lat2)];
 }
 
 function markerBoundsAreRequestable(bounds) {
@@ -3715,10 +3591,6 @@ function numericValue(value) {
 
 function degreesToRadians(degrees) {
     return (degrees * Math.PI) / 180;
-}
-
-function radiansToDegrees(radians) {
-    return (radians * 180) / Math.PI;
 }
 </script>
 
