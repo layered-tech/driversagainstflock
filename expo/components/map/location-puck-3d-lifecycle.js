@@ -36,7 +36,13 @@ export function createLocationPuck3DLifecycle({
         return result;
     }
 
-    function request({ layerAbove, mapViewRef, requested, scale, slot }) {
+    function request({
+        layerAbove,
+        mapViewRef,
+        requested,
+        scaleExpression,
+        slot,
+    }) {
         const operationGeneration = generation + 1;
         const mapView = captureMapView(mapViewRef);
 
@@ -60,12 +66,12 @@ export function createLocationPuck3DLifecycle({
                     nativePuckMayBeConfigured = Boolean(mapView);
                     wasApplied = Boolean(
                         mapView &&
-                        (await applyLocationPuck(
-                            mapView,
-                            scale,
-                            slot,
-                            layerAbove,
-                        )),
+                            (await applyLocationPuck(
+                                mapView,
+                                scaleExpression,
+                                slot,
+                                layerAbove,
+                            )),
                     );
                 } catch {
                     wasApplied = false;

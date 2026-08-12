@@ -33,21 +33,21 @@ function getCameraPaddingValue(padding, key) {
 export function isLocationPuck3DSupported() {
     return Boolean(
         mapLocationPuckModule?.applyLocationPuck3D &&
-        mapLocationPuckModule?.clearLocationPuck3D,
+            mapLocationPuckModule?.clearLocationPuck3D,
     );
 }
 
 export function isLocationPuckCameraFollowSupported() {
     return Boolean(
         mapLocationPuckModule?.setLocationPuckCameraFollow &&
-        mapLocationPuckModule?.isLocationPuckCameraFollowActive,
+            mapLocationPuckModule?.isLocationPuckCameraFollowActive,
     );
 }
 
 export function isLocationPuckLocationProviderSupported() {
     return Boolean(
         mapLocationPuckModule?.setLocationPuckLocation &&
-        mapLocationPuckModule?.clearLocationPuckLocationProvider,
+            mapLocationPuckModule?.clearLocationPuckLocationProvider,
     );
 }
 
@@ -118,7 +118,7 @@ export async function isLocationPuckCameraFollowActiveAsync(mapView) {
 
 export async function applyLocationPuck3DAsync(
     mapView,
-    scale,
+    scaleExpression,
     slot,
     layerAbove,
 ) {
@@ -130,7 +130,7 @@ export async function applyLocationPuck3DAsync(
 
     return mapLocationPuckModule.applyLocationPuck3D(
         mapViewTag,
-        scale,
+        scaleExpression,
         slot ?? null,
         layerAbove ?? null,
     );

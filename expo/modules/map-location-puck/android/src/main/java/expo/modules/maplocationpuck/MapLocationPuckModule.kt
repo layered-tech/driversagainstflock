@@ -298,10 +298,9 @@ class MapLocationPuckModule : Module() {
             state != null
         }.runOnQueue(Queues.MAIN)
 
-        AsyncFunction("applyLocationPuck3D") { viewTag: Int, scale: Double, slot: String?, layerAbove: String? ->
+        AsyncFunction("applyLocationPuck3D") { viewTag: Int, scaleExpression: String, slot: String?, layerAbove: String? ->
             val mapView = requireMapView(viewTag)
             val location = mapView.mapView.location
-            val resolvedScale = scale.toFloat()
 
             checkNotNull(readLocationPuckModel()) {
                 "Bundled $LOCATION_PUCK_MODEL_ASSET could not be found."
@@ -313,7 +312,7 @@ class MapLocationPuckModule : Module() {
 
             location.locationPuck = LocationPuck3D(
                 modelUri = LOCATION_PUCK_MODEL_URI,
-                modelScale = listOf(resolvedScale, resolvedScale, resolvedScale),
+                modelScaleExpression = scaleExpression,
                 modelRotation = listOf(0f, 0f, 0f),
                 modelCastShadows = false,
                 modelReceiveShadows = false,
@@ -444,6 +443,7 @@ class MapLocationPuckModule : Module() {
                 "puckKind" to if (locationPuck3D != null) "3d" else "2d",
                 "modelUri" to locationPuck3D?.modelUri,
                 "modelScale" to locationPuck3D?.modelScale,
+                "modelScaleIsExpression" to (locationPuck3D?.modelScaleExpression != null),
                 "modelRotation" to locationPuck3D?.modelRotation,
                 "modelCastShadows" to locationPuck3D?.modelCastShadows,
                 "modelReceiveShadows" to locationPuck3D?.modelReceiveShadows,
