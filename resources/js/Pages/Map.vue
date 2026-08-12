@@ -19,6 +19,7 @@ import {
     parseDirectionValues,
 } from '@/direction-values';
 import { makeMarkerConeFeatureCollection } from '@/marker-cones';
+import { normalizeMapboxColor } from '@/mapbox-colors';
 import axios from 'axios';
 import mapboxgl from 'mapbox-gl';
 import {
@@ -3411,11 +3412,12 @@ function mapColors() {
 }
 
 function cssVar(name, fallback) {
-    return (
+    const color =
         getComputedStyle(document.documentElement)
             .getPropertyValue(name)
-            .trim() || fallback
-    );
+            .trim() || fallback;
+
+    return normalizeMapboxColor(color);
 }
 
 function formatSearchDistance(meters) {
