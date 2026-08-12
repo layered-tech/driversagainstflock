@@ -216,6 +216,16 @@
             }
         },
         {
+            "Sid": "ReadRoutingMetrics",
+            "Effect": "Allow",
+            "Action": [
+                "cloudwatch:GetMetricData",
+                "cloudwatch:GetMetricStatistics",
+                "cloudwatch:ListMetrics"
+            ],
+            "Resource": "*"
+        },
+        {
             "Sid": "ManageRoutingNotifications",
             "Effect": "Allow",
             "Action": [
