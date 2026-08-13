@@ -205,6 +205,16 @@
             "Resource": "arn:aws:cloudwatch:us-east-1:326364278889:alarm:daf-routing-*"
         },
         {
+            "Sid": "ManageRoutingDashboard",
+            "Effect": "Allow",
+            "Action": [
+                "cloudwatch:DeleteDashboards",
+                "cloudwatch:GetDashboard",
+                "cloudwatch:PutDashboard"
+            ],
+            "Resource": "*"
+        },
+        {
             "Sid": "ManageRoutingMetrics",
             "Effect": "Allow",
             "Action": "cloudwatch:PutMetricData",

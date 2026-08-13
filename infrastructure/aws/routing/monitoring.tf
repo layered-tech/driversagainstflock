@@ -126,6 +126,165 @@ resource "aws_cloudwatch_metric_alarm" "serving_cpu" {
   }
 }
 
+resource "aws_cloudwatch_dashboard" "routing" {
+  dashboard_name = "daf-routing"
+
+  dashboard_body = jsonencode({
+    widgets = [
+      {
+        type   = "text"
+        x      = 0
+        y      = 0
+        width  = 24
+        height = 3
+        properties = {
+          markdown = <<-MARKDOWN
+            # DAF Routing / GraphHopper
+            Private GraphHopper routing infrastructure in ${var.aws_region}. The serving endpoint is ${local.graphhopper_dns_name}; access it through Laravel, not the public internet. Budget data is surfaced through the **daf-routing-monthly** alarm and can have normal AWS billing delay.
+          MARKDOWN
+        }
+      },
+      {
+        type   = "alarm"
+        x      = 0
+        y      = 3
+        width  = 24
+        height = 4
+        properties = {
+          alarms = [
+            aws_cloudwatch_metric_alarm.serving_status.arn,
+            aws_cloudwatch_metric_alarm.serving_cpu.arn,
+          ]
+          title = "Routing alarms"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 7
+        width  = 12
+        height = 6
+        properties = {
+          metrics = [
+            ["AWS/EC2", "CPUUtilization", "InstanceId", aws_instance.serving.id, { label = "Serving CPU" }],
+            [".", "StatusCheckFailed", ".", ".", { label = "Serving status check", stat = "Maximum", yAxis = "right" }],
+          ]
+          period = 300
+          region = var.aws_region
+          stat   = "Average"
+          title  = "Serving instance health"
+          view   = "timeSeries"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 7
+        width  = 12
+        height = 6
+        properties = {
+          metrics = [
+            ["AWS/EC2", "NetworkIn", "InstanceId", aws_instance.serving.id, { label = "Inbound bytes" }],
+            [".", "NetworkOut", ".", ".", { label = "Outbound bytes" }],
+          ]
+          period = 300
+          region = var.aws_region
+          stat   = "Sum"
+          title  = "Serving network traffic"
+          view   = "timeSeries"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 13
+        width  = 12
+        height = 6
+        properties = {
+          metrics = [
+            ["AWS/NATGateway", "ActiveConnectionCount", "NatGatewayId", aws_nat_gateway.routing.id, { label = "Active connections" }],
+            [".", "ErrorPortAllocation", ".", ".", { label = "Port allocation errors", stat = "Sum", yAxis = "right" }],
+            [".", "PacketsDropCount", ".", ".", { label = "Dropped packets", stat = "Sum", yAxis = "right" }],
+          ]
+          period = 300
+          region = var.aws_region
+          stat   = "Average"
+          title  = "Private-subnet NAT health"
+          view   = "timeSeries"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 13
+        width  = 12
+        height = 6
+        properties = {
+          metrics = [
+            ["AWS/EBS", "VolumeReadOps", "VolumeId", aws_ebs_volume.graphs.id, { label = "Read operations" }],
+            [".", "VolumeWriteOps", ".", ".", { label = "Write operations" }],
+            [".", "VolumeQueueLength", ".", ".", { label = "Queue length", stat = "Average", yAxis = "right" }],
+          ]
+          period = 300
+          region = var.aws_region
+          stat   = "Sum"
+          title  = "Persistent graph volume"
+          view   = "timeSeries"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 19
+        width  = 12
+        height = 6
+        properties = {
+          metrics = [
+            [{ expression = "SEARCH('{DAF/Routing,ReleaseId} MetricName=\"InitialGraphBuildElapsed\"', 'Maximum', 300)", id = "build_elapsed", label = "Build elapsed seconds" }],
+            [{ expression = "SEARCH('{DAF/Routing,ReleaseId} MetricName=\"BuilderMemoryUsed\"', 'Maximum', 300)", id = "builder_memory", label = "Builder memory used (%)", yAxis = "right" }],
+            [{ expression = "SEARCH('{DAF/Routing,ReleaseId} MetricName=\"BuilderScratchUsed\"', 'Maximum', 300)", id = "builder_scratch", label = "Builder scratch used (%)", yAxis = "right" }],
+          ]
+          period = 300
+          region = var.aws_region
+          title  = "Latest graph build"
+          view   = "timeSeries"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 19
+        width  = 12
+        height = 6
+        properties = {
+          metrics = [
+            ["AWS/S3", "BucketSizeBytes", "BucketName", aws_s3_bucket.graphs.id, "StorageType", "StandardStorage", { label = "Graph artifact storage" }],
+            [".", "NumberOfObjects", ".", ".", ".", "AllStorageTypes", { label = "Artifact objects", yAxis = "right" }],
+          ]
+          period = 86400
+          region = var.aws_region
+          stat   = "Average"
+          title  = "Graph artifact bucket (daily)"
+          view   = "timeSeries"
+        }
+      },
+      {
+        type   = "log"
+        x      = 0
+        y      = 25
+        width  = 24
+        height = 6
+        properties = {
+          query  = "SOURCE '${aws_cloudwatch_log_group.serving.name}' | SOURCE '${aws_cloudwatch_log_group.builder.name}' | fields @timestamp, @log, @message | sort @timestamp desc | limit 20"
+          region = var.aws_region
+          title  = "Recent serving and builder logs"
+          view   = "table"
+        }
+      },
+    ]
+  })
+}
+
 resource "aws_budgets_budget" "monthly" {
   name         = "daf-routing-monthly"
   budget_type  = "COST"

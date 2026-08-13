@@ -32,3 +32,8 @@ output "nat_gateway_id" {
   description = "NAT gateway providing outbound-only access for routing workloads."
   value       = aws_nat_gateway.routing.id
 }
+
+output "cloudwatch_dashboard_name" {
+  description = "CloudWatch dashboard for GraphHopper infrastructure health and operational metrics."
+  value       = aws_cloudwatch_dashboard.routing.dashboard_name
+}
