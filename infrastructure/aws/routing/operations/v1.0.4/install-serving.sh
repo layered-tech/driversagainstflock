@@ -234,6 +234,7 @@ include /run/daf-routing-nginx-auth.conf;
 server {
     listen 8080 default_server;
     server_name _;
+    client_max_body_size 0;
 
     access_log off;
     error_log /var/log/nginx/daf-routing-error.log crit;

@@ -46,14 +46,17 @@ test('it builds endpoint buffer polygons around both endpoints', function () {
 test('it counts unique points of interest near a route', function () {
     $geometry = new GeometryService;
     $route = [[-88.2, 43.1], [-88.21, 43.11], [-88.22, 43.12]];
-
-    $count = $geometry->countPoisAlongRoute([
+    $pois = [
         new PointOfInterest(1, -88.205, 43.105, []),
         new PointOfInterest(1, -88.2051, 43.1051, []),
         new PointOfInterest(2, -88.5, 43.5, []),
-    ], $route, 250);
+    ];
 
-    expect($count)->toBe(1);
+    $routePois = $geometry->poisAlongRoute($pois, $route, 250);
+
+    expect($routePois)->toHaveCount(1)
+        ->and($routePois[0]->id)->toBe(1)
+        ->and($geometry->countPoisAlongRoute($pois, $route, 250))->toBe(1);
 });
 
 test('it clears endpoint-blocking polygons from the exclusion zone', function () {

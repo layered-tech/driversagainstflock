@@ -237,7 +237,18 @@ class GeometryService
      */
     public function countPoisAlongRoute(array $pois, array $coordinates, float $bufferMeters): int
     {
+        return count($this->poisAlongRoute($pois, $coordinates, $bufferMeters));
+    }
+
+    /**
+     * @param  array<int, PointOfInterest>  $pois
+     * @param  array<int, array<int, float>>  $coordinates
+     * @return array<int, PointOfInterest>
+     */
+    public function poisAlongRoute(array $pois, array $coordinates, float $bufferMeters): array
+    {
         $seen = [];
+        $routePois = [];
 
         foreach ($pois as $index => $poi) {
             if (! $this->poiIsNearRoute($poi, $coordinates, $bufferMeters)) {
@@ -248,10 +259,15 @@ class GeometryService
                 ? sprintf('coord:%0.7f,%0.7f,%d', $poi->longitude, $poi->latitude, $index)
                 : sprintf('id:%s', (string) $poi->id);
 
+            if (isset($seen[$key])) {
+                continue;
+            }
+
             $seen[$key] = true;
+            $routePois[] = $poi;
         }
 
-        return count($seen);
+        return $routePois;
     }
 
     /**

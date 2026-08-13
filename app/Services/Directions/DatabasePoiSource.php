@@ -13,6 +13,12 @@ class DatabasePoiSource implements RouteAwarePoiSource
 
     public function find(array $bounds, array $profiles): array
     {
+        if ($profiles === []) {
+            Log::info('Database POI lookup skipped because no profiles were requested.');
+
+            return [];
+        }
+
         $startedAt = microtime(true);
 
         Log::info('Database POI lookup started.', [
@@ -25,6 +31,57 @@ class DatabasePoiSource implements RouteAwarePoiSource
             ->matchingProfiles($profiles)
             ->get();
 
+        $pois = $this->pointsOfInterest($nodes);
+
+        Log::info('Database POI lookup completed.', [
+            'node_count' => $nodes->count(),
+            'poi_count' => count($pois),
+            'elapsed_ms' => $this->elapsedMilliseconds($startedAt),
+        ]);
+
+        return $pois;
+    }
+
+    public function findAlongRoute(array $coordinates, float $bufferMeters, array $profiles): array
+    {
+        if ($profiles === []) {
+            Log::info('Database route POI lookup skipped because no profiles were requested.');
+
+            return [];
+        }
+
+        $startedAt = microtime(true);
+
+        Log::info('Database route POI lookup started.', [
+            'coordinate_count' => count($coordinates),
+            'buffer_meters' => $bufferMeters,
+            'profile_count' => count($profiles),
+        ]);
+
+        $nodes = OsmNode::query()
+            ->select(['id', 'osm_id', 'latitude', 'longitude', 'direction', 'camera_direction', 'tags'])
+            ->matchingProfiles($profiles)
+            ->nearRoute($coordinates, $bufferMeters)
+            ->get()
+            ->unique('osm_id')
+            ->values();
+        $pois = $this->pointsOfInterest($nodes);
+
+        Log::info('Database route POI lookup completed.', [
+            'node_count' => $nodes->count(),
+            'poi_count' => count($pois),
+            'elapsed_ms' => $this->elapsedMilliseconds($startedAt),
+        ]);
+
+        return $pois;
+    }
+
+    /**
+     * @param  iterable<int, OsmNode>  $nodes
+     * @return array<int, PointOfInterest>
+     */
+    private function pointsOfInterest(iterable $nodes): array
+    {
         $pois = [];
 
         foreach ($nodes as $node) {
@@ -37,37 +94,7 @@ class DatabasePoiSource implements RouteAwarePoiSource
             );
         }
 
-        Log::info('Database POI lookup completed.', [
-            'node_count' => $nodes->count(),
-            'poi_count' => count($pois),
-            'elapsed_ms' => $this->elapsedMilliseconds($startedAt),
-        ]);
-
         return $pois;
-    }
-
-    public function countAlongRoute(array $coordinates, float $bufferMeters, array $profiles): int
-    {
-        $startedAt = microtime(true);
-
-        Log::info('Database route POI count started.', [
-            'coordinate_count' => count($coordinates),
-            'buffer_meters' => $bufferMeters,
-            'profile_count' => count($profiles),
-        ]);
-
-        $count = (int) OsmNode::query()
-            ->matchingProfiles($profiles)
-            ->nearRoute($coordinates, $bufferMeters)
-            ->distinct('osm_id')
-            ->count('osm_id');
-
-        Log::info('Database route POI count completed.', [
-            'node_count' => $count,
-            'elapsed_ms' => $this->elapsedMilliseconds($startedAt),
-        ]);
-
-        return $count;
     }
 
     private function elapsedMilliseconds(float $startedAt): int

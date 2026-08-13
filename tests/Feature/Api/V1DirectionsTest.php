@@ -250,7 +250,7 @@ it('restarts the complete calculation through ORS after a GraphHopper failure', 
         'https://api.heigit.org/*' => Http::sequence()
             ->push(orsDirectionsResponse([
                 [-122.676, 45.523],
-                [-122.665, 45.518],
+                [-122.66, 45.52],
                 [-122.658, 45.512],
             ]))
             ->push(orsDirectionsResponse([
@@ -262,7 +262,7 @@ it('restarts the complete calculation through ORS after a GraphHopper failure', 
 
     $this->postJson('/api/v1/directions', directionsRequestPayload())
         ->assertOk()
-        ->assertJsonPath('result.routes.direct.coordinates.1.0', -122.665)
+        ->assertJsonPath('result.routes.direct.coordinates.1.0', -122.66)
         ->assertJsonPath('result.route.coordinates.1.0', -122.67);
 
     $requests = collect(Http::recorded());
@@ -482,36 +482,48 @@ it('uses canonical coordinates for route intersections when stored location is s
         ->assertJsonPath('result.fastest_route_node_count', 1);
 });
 
-it('rebuilds exclusions and retries when the returned route leaves the search bounds', function () {
-    config(['directions.expansion_attempts' => 1]);
+it('accumulates newly encountered database POIs across reroutes', function () {
+    config([
+        'directions.provider' => 'graphhopper',
+        'directions.poi_backend' => 'database',
+        'directions.expansion_attempts' => 3,
+    ]);
+
+    createDirectionsOsmNode(400, 45.5175, -122.667);
+    createDirectionsOsmNode(401, 45.528, -122.667);
 
     Http::fake([
-        'https://overpass.test/api/interpreter' => Http::response([
-            'elements' => [[
-                'id' => 200,
-                'lat' => 45.52,
-                'lon' => -122.66,
-                'tags' => [
-                    'surveillance:type' => 'ALPR',
-                    'camera:direction' => 'E',
-                ],
-            ]],
-        ]),
-        'https://api.heigit.org/*' => Http::sequence()
-            ->push(orsDirectionsResponse([[-122.676, 45.523], [-122.658, 45.512]]))
-            ->push(orsDirectionsResponse([[0.0, 0.0], [10.0, 10.0]]))
-            ->push(orsDirectionsResponse([[-122.676, 45.523], [-122.658, 45.512]])),
+        'http://graphhopper.test:8080/route' => Http::sequence()
+            ->push(graphHopperDirectionsResponse([
+                [-122.676, 45.523],
+                [-122.667, 45.5175],
+                [-122.658, 45.512],
+            ]))
+            ->push(graphHopperDirectionsResponse([
+                [-122.676, 45.523],
+                [-122.667, 45.528],
+                [-122.658, 45.512],
+            ]))
+            ->push(graphHopperDirectionsResponse([
+                [-122.676, 45.523],
+                [-122.667, 45.507],
+                [-122.658, 45.512],
+            ])),
     ]);
 
     $this->postJson('/api/v1/directions', directionsRequestPayload())
         ->assertOk()
-        ->assertJsonPath('result.route.coordinates.1.0', -122.658);
+        ->assertJsonPath('result.routes.direct.fastest_route_node_count', 1)
+        ->assertJsonPath('result.route.coordinates.1.1', 45.507);
 
-    $orsRequests = collect(Http::recorded())
-        ->filter(fn (array $record) => str_contains($record[0]->url(), 'openrouteservice'))
+    $graphHopperRequests = collect(Http::recorded())
+        ->filter(fn (array $record) => str_contains($record[0]->url(), 'graphhopper.test'))
         ->values();
 
-    expect($orsRequests)->toHaveCount(3);
+    expect($graphHopperRequests)->toHaveCount(3)
+        ->and(data_get($graphHopperRequests[0][0]->data(), 'custom_model'))->toBeNull()
+        ->and(data_get($graphHopperRequests[1][0]->data(), 'custom_model.areas.features'))->toHaveCount(1)
+        ->and(data_get($graphHopperRequests[2][0]->data(), 'custom_model.areas.features'))->toHaveCount(2);
 });
 
 it('rejects directions beyond the configured max distance before external calls', function () {

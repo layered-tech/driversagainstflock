@@ -83,10 +83,7 @@ class DirectionsRouter
             throw DirectionsException::badRequest('Directions are too far apart.');
         }
 
-        $searchDistance = max(
-            $avoidBuffer,
-            $distance * (float) config('directions.search_distance_multiplier')
-        );
+        $searchDistance = $avoidBuffer;
         $source = $this->poiSourceFactory->make();
         $maxAttempts = (int) config('directions.expansion_attempts');
 
@@ -112,15 +109,20 @@ class DirectionsRouter
         ]);
 
         $fastestRouteNodeCount = 0;
-        $lastIdealRoute = null;
+        $currentRoute = $directRoute;
+        $lastIdealRoute = $directRoute;
         $lastBounds = null;
         $lastSearchDistance = $searchDistance;
         $lastZone = ['type' => 'MultiPolygon', 'coordinates' => []];
         $completedAttempts = 0;
+        $avoidedPois = [];
 
         for ($attempt = 0; $attempt <= $maxAttempts; $attempt++) {
             $attemptStartedAt = microtime(true);
-            $bounds = $this->geometry->searchBoundsForCoordinates($routeControlCoordinates, $searchDistance);
+            $bounds = $this->geometry->searchBoundsForCoordinates(
+                $this->routeCoordinates($currentRoute['coordinates']),
+                $searchDistance,
+            );
             $lastBounds = $bounds;
             $lastSearchDistance = $searchDistance;
 
@@ -131,33 +133,63 @@ class DirectionsRouter
             ]);
 
             $poiLookupStartedAt = microtime(true);
-            $pois = $source->find($bounds, $profiles);
+            $routePois = $source instanceof RouteAwarePoiSource
+                ? $source->findAlongRoute($currentRoute['coordinates'], $avoidBuffer, $profiles)
+                : $this->geometry->poisAlongRoute(
+                    $source->find($bounds, $profiles),
+                    $currentRoute['coordinates'],
+                    $avoidBuffer,
+                );
+
+            if ($attempt === 0) {
+                $fastestRouteNodeCount = count($routePois);
+            }
+
+            $newPois = [];
+
+            foreach ($routePois as $poi) {
+                $key = $this->poiKey($poi);
+
+                if (isset($avoidedPois[$key])) {
+                    continue;
+                }
+
+                $avoidedPois[$key] = $poi;
+                $newPois[] = $poi;
+            }
 
             Log::info('Directions POI lookup completed.', [
                 'attempt' => $attempt + 1,
                 'source' => get_debug_type($source),
-                'poi_count' => count($pois),
+                'route_poi_count' => count($routePois),
+                'new_poi_count' => count($newPois),
+                'accumulated_poi_count' => count($avoidedPois),
                 'elapsed_ms' => $this->elapsedMilliseconds($poiLookupStartedAt),
             ]);
 
-            $routeCountStartedAt = microtime(true);
-            $fastestRouteNodeCount = $source instanceof RouteAwarePoiSource
-                ? $source->countAlongRoute($directRoute['coordinates'], $avoidBuffer, $profiles)
-                : $this->geometry->countPoisAlongRoute(
-                    $pois,
-                    $directRoute['coordinates'],
-                    $avoidBuffer
-                );
-
             Log::info('Directions route intersection count completed.', [
                 'attempt' => $attempt + 1,
-                'node_count' => $fastestRouteNodeCount,
-                'elapsed_ms' => $this->elapsedMilliseconds($routeCountStartedAt),
+                'node_count' => count($routePois),
+                'new_node_count' => count($newPois),
             ]);
+
+            $completedAttempts = $attempt + 1;
+
+            if ($newPois === []) {
+                $lastIdealRoute = $currentRoute;
+
+                Log::info('Directions route attempt completed without new POIs.', [
+                    'attempt' => $attempt + 1,
+                    'accumulated_poi_count' => count($avoidedPois),
+                    'elapsed_ms' => $this->elapsedMilliseconds($attemptStartedAt),
+                ]);
+
+                break;
+            }
 
             $zoneStartedAt = microtime(true);
             $zone = $this->geometry->exclusionZone(
-                $pois,
+                array_values($avoidedPois),
                 $avoidBuffer,
                 (float) config('directions.cone_angle_degrees'),
                 (int) config('directions.cone_segments')
@@ -170,57 +202,46 @@ class DirectionsRouter
             Log::info('Directions exclusion zone built.', [
                 'attempt' => $attempt + 1,
                 'polygon_count' => count($zone['coordinates'] ?? []),
+                'accumulated_poi_count' => count($avoidedPois),
                 'allow_alpr_near_start_destination' => $allowEndpointAlpr,
                 'elapsed_ms' => $this->elapsedMilliseconds($zoneStartedAt),
             ]);
 
-            $route = ($zone['coordinates'] ?? []) === []
-                ? $directRoute
-                : null;
+            $lastZone = $zone;
 
-            if ($route === null) {
-                $idealRouteStartedAt = microtime(true);
+            if (($zone['coordinates'] ?? []) === []) {
+                $lastIdealRoute = $currentRoute;
 
-                Log::info('Directions ideal route request started.', [
-                    'attempt' => $attempt + 1,
-                    'avoid_polygon_count' => count($zone['coordinates'] ?? []),
-                ]);
-
-                $route = $provider->route($routeControlCoordinates, $zone, $continueStraight);
-
-                Log::info('Directions ideal route loaded.', [
-                    'attempt' => $attempt + 1,
-                    'coordinate_count' => count($route['coordinates']),
-                    'distance_meters' => $route['distance'],
-                    'duration_seconds' => $route['duration'],
-                    'elapsed_ms' => $this->elapsedMilliseconds($idealRouteStartedAt),
-                ]);
-            } else {
                 Log::info('Directions ideal route skipped because exclusion zone is empty.', [
                     'attempt' => $attempt + 1,
                 ]);
-            }
 
-            $lastIdealRoute = $route;
-            $lastZone = $zone;
-            $completedAttempts = $attempt + 1;
-            $routeInsideBounds = $this->geometry->routeInsideBounds($route['coordinates'], $bounds);
-
-            Log::info('Directions route attempt completed.', [
-                'attempt' => $attempt + 1,
-                'route_inside_bounds' => $routeInsideBounds,
-                'elapsed_ms' => $this->elapsedMilliseconds($attemptStartedAt),
-            ]);
-
-            if ($routeInsideBounds) {
                 break;
             }
 
-            $searchDistance *= (float) config('directions.expansion_multiplier');
+            $idealRouteStartedAt = microtime(true);
 
-            Log::info('Directions search distance expanded.', [
+            Log::info('Directions ideal route request started.', [
                 'attempt' => $attempt + 1,
-                'next_search_distance_meters' => $searchDistance,
+                'avoid_polygon_count' => count($zone['coordinates'] ?? []),
+            ]);
+
+            $currentRoute = $provider->route($routeControlCoordinates, $zone, $continueStraight);
+
+            Log::info('Directions ideal route loaded.', [
+                'attempt' => $attempt + 1,
+                'coordinate_count' => count($currentRoute['coordinates']),
+                'distance_meters' => $currentRoute['distance'],
+                'duration_seconds' => $currentRoute['duration'],
+                'elapsed_ms' => $this->elapsedMilliseconds($idealRouteStartedAt),
+            ]);
+
+            $lastIdealRoute = $currentRoute;
+
+            Log::info('Directions route attempt completed.', [
+                'attempt' => $attempt + 1,
+                'accumulated_poi_count' => count($avoidedPois),
+                'elapsed_ms' => $this->elapsedMilliseconds($attemptStartedAt),
             ]);
         }
 
@@ -376,5 +397,29 @@ class DirectionsRouter
             'longitude' => (float) $coordinate['longitude'],
             'latitude' => (float) $coordinate['latitude'],
         ];
+    }
+
+    private function poiKey(PointOfInterest $poi): string
+    {
+        if ($poi->id !== null) {
+            return 'id:'.(string) $poi->id;
+        }
+
+        return sprintf('coordinate:%0.7f,%0.7f', $poi->longitude, $poi->latitude);
+    }
+
+    /**
+     * @param  array<int, array<int, float>>  $coordinates
+     * @return array<int, array{longitude: float, latitude: float}>
+     */
+    private function routeCoordinates(array $coordinates): array
+    {
+        return array_values(array_map(
+            fn (array $coordinate): array => [
+                'longitude' => (float) $coordinate[0],
+                'latitude' => (float) $coordinate[1],
+            ],
+            array_filter($coordinates, fn (array $coordinate): bool => count($coordinate) >= 2),
+        ));
     }
 }

@@ -19,6 +19,7 @@ grep -qF 'request_log:' "${RELEASE_DIR}/install-serving.sh"
 grep -qF 'appenders: []' "${RELEASE_DIR}/install-serving.sh"
 grep -qF 'access_log off;' "${RELEASE_DIR}/install-serving.sh"
 grep -qF 'listen 8080 default_server;' "${RELEASE_DIR}/install-serving.sh"
+grep -qF 'client_max_body_size 0;' "${RELEASE_DIR}/install-serving.sh"
 grep -qF 'ConditionPathExists=/var/lib/graphhopper/releases/current/graph-cache/properties' "${RELEASE_DIR}/install-serving.sh"
 grep -qF 'logs=coordinate-free' "${RELEASE_DIR}/verify-serving.sh"
 
