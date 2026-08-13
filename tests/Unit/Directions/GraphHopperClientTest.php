@@ -95,8 +95,6 @@ beforeEach(function () {
         'services.graphhopper.connect_timeout_seconds' => 3,
         'services.graphhopper.timeout_seconds' => 45,
         'services.graphhopper.route_timeout_milliseconds' => 40000,
-        'services.graphhopper.max_avoid_polygons' => 100,
-        'services.graphhopper.max_avoid_coordinates' => 5000,
         'services.openrouteservice.api_key' => 'test-ors-key',
     ]);
 
@@ -208,9 +206,10 @@ it('fails safely without exposing GraphHopper error details', function () {
         ->toThrow(DirectionsException::class, 'GraphHopper could not load directions.');
 });
 
-it('rejects oversized avoidance models before sending a partial request', function () {
-    config(['services.graphhopper.max_avoid_polygons' => 1]);
-    Http::fake();
+it('sends avoidance models without application-side size limits', function () {
+    Http::fake([
+        'http://graphhopper.test:8080/route' => Http::response(graphHopperClientResponse()),
+    ]);
     $polygon = [[
         [-77.03, 38.89],
         [-77.02, 38.89],
@@ -218,16 +217,19 @@ it('rejects oversized avoidance models before sending a partial request', functi
         [-77.03, 38.90],
         [-77.03, 38.89],
     ]];
+    $polygons = array_fill(0, 1001, $polygon);
 
-    expect(fn () => app(GraphHopperClient::class)->route([
+    app(GraphHopperClient::class)->route([
         ['longitude' => -77.0365, 'latitude' => 38.8977],
         ['longitude' => -77.0091, 'latitude' => 38.8899],
     ], [
         'type' => 'MultiPolygon',
-        'coordinates' => [$polygon, $polygon],
-    ]))->toThrow(DirectionsException::class, 'GraphHopper avoidance limits were exceeded.');
+        'coordinates' => $polygons,
+    ]);
 
-    Http::assertNothingSent();
+    Http::assertSent(fn (Request $request): bool => count(
+        data_get($request, 'custom_model.areas.features', [])
+    ) === count($polygons));
 });
 
 it('verifies live provider contracts without printing route geometry', function () {

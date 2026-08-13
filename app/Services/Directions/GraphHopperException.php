@@ -24,11 +24,6 @@ class GraphHopperException extends DirectionsException
         return new self('GraphHopper could not load directions.', 'http-'.$status);
     }
 
-    public static function avoidanceLimits(): self
-    {
-        return new self('GraphHopper avoidance limits were exceeded.', 'avoidance-limits');
-    }
-
     public static function invalidResponse(): self
     {
         return new self('GraphHopper returned an invalid route.', 'invalid-response');

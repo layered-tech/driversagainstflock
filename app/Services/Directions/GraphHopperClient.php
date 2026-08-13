@@ -119,16 +119,6 @@ class GraphHopperClient implements DirectionsProvider
     private function customModel(array $exclusionZone): array
     {
         $polygons = $exclusionZone['coordinates'] ?? [];
-        $maxPolygons = (int) config('services.graphhopper.max_avoid_polygons');
-        $maxCoordinates = (int) config('services.graphhopper.max_avoid_coordinates');
-        $coordinateCount = array_sum(array_map(
-            fn (array $polygon): int => array_sum(array_map('count', $polygon)),
-            $polygons,
-        ));
-
-        if (count($polygons) > $maxPolygons || $coordinateCount > $maxCoordinates) {
-            throw GraphHopperException::avoidanceLimits();
-        }
 
         $features = array_map(
             fn (array $polygon, int $index): array => [

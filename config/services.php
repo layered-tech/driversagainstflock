@@ -46,8 +46,6 @@ return [
         'connect_timeout_seconds' => (int) env('GRAPHHOPPER_CONNECT_TIMEOUT_SECONDS', 3),
         'timeout_seconds' => (int) env('GRAPHHOPPER_TIMEOUT_SECONDS', 45),
         'route_timeout_milliseconds' => (int) env('GRAPHHOPPER_ROUTE_TIMEOUT_MILLISECONDS', 40000),
-        'max_avoid_polygons' => (int) env('GRAPHHOPPER_MAX_AVOID_POLYGONS', 100),
-        'max_avoid_coordinates' => (int) env('GRAPHHOPPER_MAX_AVOID_COORDINATES', 5000),
     ],
 
     'openwebninja' => [

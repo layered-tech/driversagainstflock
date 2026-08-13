@@ -117,8 +117,6 @@ beforeEach(function () {
         'services.graphhopper.connect_timeout_seconds' => 3,
         'services.graphhopper.timeout_seconds' => 45,
         'services.graphhopper.route_timeout_milliseconds' => 40000,
-        'services.graphhopper.max_avoid_polygons' => 100,
-        'services.graphhopper.max_avoid_coordinates' => 5000,
         'services.openrouteservice.api_key' => 'test-ors-key',
     ]);
 });
