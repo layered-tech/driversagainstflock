@@ -152,7 +152,7 @@ export function ScorecardArrivalRecap() {
                                 ? `Clean drive · streak is now ${windowStats.cleanDriveStreak}`
                                 : trip.exposureCoverageComplete
                                   ? 'Confirmed cone crossings reduce score'
-                                  : 'The ALPR result limit was hit or coverage was unavailable'}
+                                  : 'ALPR monitoring was unavailable for part of this drive'}
                         </Text>
                     </View>
                     <Icon
