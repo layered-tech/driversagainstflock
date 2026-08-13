@@ -69,6 +69,30 @@ describe('road matching Maestro fixture', () => {
         );
     });
 
+    test('has a deterministic east-to-north matched turn', () => {
+        const graph = createDirectedRoadGraph(getE2ERoadCorridorWays());
+        const matcher = createRoadMatcher(graph);
+        const matches = [
+            E2E_ROAD_MATCHING_LOCATIONS.eastboundTurnApproach,
+            E2E_ROAD_MATCHING_LOCATIONS.northboundTurnExit,
+        ].map(([longitude, latitude], index) =>
+            matcher.update({
+                accuracy: 5,
+                latitude,
+                longitude,
+                speed: 12,
+                timestamp: index * 3000 + 1000,
+            }),
+        );
+
+        assert.deepEqual(
+            matches.map((match) => match.roadMatch.edgeId),
+            ['e2e-main-35:1:forward', 'e2e-branch:0:forward'],
+        );
+        assert.ok(Math.abs(matches[0].bearing - 90) < 0.01);
+        assert.equal(matches[1].bearing, 0);
+    });
+
     test('retains the legal frontage-road trace at an ambiguous parallel fix', () => {
         const graph = createDirectedRoadGraph(getE2ERoadCorridorWays());
         const matcher = createRoadMatcher(graph);

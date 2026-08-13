@@ -1,0 +1,108 @@
+appId: com.anonymous.drivefree.dev
+name: Road-matched 3D Puck Heading Turn
+tags:
+  - map
+  - road-matching
+  - puck-heading
+---
+- setLocation:
+    latitude: 30.266984040600367
+    longitude: -97.74049976967694
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    file: subflows/open-expo-dev-client-after-clear.yml
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 30000
+- openLink: 'driversagainstflock://e2e-mocks'
+- extendedWaitUntil:
+    visible:
+      id: 'start-free-drive-button'
+    timeout: 10000
+- tapOn:
+    id: 'start-free-drive-button'
+    retryTapIfNoChange: true
+- setLocation:
+    latitude: 30.266984040600367
+    longitude: -97.74049976967694
+- extendedWaitUntil:
+    visible: 'e2e-main-35:1:forward'
+    timeout: 30000
+- runFlow:
+    when:
+      visible:
+        id: 'driving-recenter-button'
+    commands:
+      - tapOn:
+          id: 'driving-recenter-button'
+- extendedWaitUntil:
+    visible:
+      id: 'e2e-native-puck-heading-lock-proof'
+      text: 'true'
+    timeout: 60000
+- copyTextFrom:
+    id: 'e2e-native-puck-heading-lock-proof'
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
+    id: 'e2e-native-puck-provider-heading'
+- assertTrue: ${Math.abs(Number(maestro.copiedText) - 90) <= 0.5}
+- setLocation:
+    latitude: 30.2680998308318
+    longitude: -97.73973010150132
+- extendedWaitUntil:
+    visible: 'e2e-branch:0:forward'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: 'e2e-native-puck-heading-turn-proof'
+      text: 'true'
+    timeout: 60000
+- copyTextFrom:
+    id: 'e2e-road-matching-edge-id'
+- assertTrue: ${maestro.copiedText == 'e2e-branch:0:forward'}
+- copyTextFrom:
+    id: 'e2e-native-puck-heading-turn-proof'
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
+    id: 'e2e-native-puck-heading-lock-proof'
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
+    id: 'e2e-native-puck-provider-heading'
+- assertTrue: ${Math.abs(Number(maestro.copiedText)) <= 0.5}
+- copyTextFrom:
+    id: 'e2e-native-puck-effective-heading'
+- assertTrue: ${Math.abs(Number(maestro.copiedText)) <= 0.5}
+- copyTextFrom:
+    id: 'e2e-native-puck-max-heading-correction'
+- assertTrue: ${Number(maestro.copiedText) > 45}
+- copyTextFrom:
+    id: 'e2e-native-puck-heading-correction-history'
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
+    id: 'e2e-native-puck-heading-observer'
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
+    id: 'e2e-native-puck-camera-bearing'
+- assertTrue: ${Math.abs(Number(maestro.copiedText)) <= 0.5 || Math.abs(Number(maestro.copiedText) - 360) <= 0.5}
+- copyTextFrom:
+    id: 'e2e-native-puck-provider-owned'
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
+    id: 'e2e-native-puck-camera-following'
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
+    id: 'e2e-native-3d-puck-proof'
+- assertTrue: ${maestro.copiedText == 'true'}
+- copyTextFrom:
+    id: 'e2e-native-puck-proof'
+- assertTrue: ${maestro.copiedText == 'true'}
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-road-matched-puck-heading-turn'}

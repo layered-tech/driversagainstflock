@@ -7,8 +7,11 @@ import {
 import {
     nativePuckCoordinatesMatch,
     nativePuckStateProves3DSnapping,
+    nativePuckStateProvesHeadingLocked,
+    nativePuckStateProvesHeadingTurn,
     nativePuckStateProvesRendered3D,
     nativePuckStateProvesSnapping,
+    shortestSignedHeadingCorrection,
 } from '../native-puck-state.js';
 
 function makeRendered3DPuckState(overrides = {}) {
@@ -193,6 +196,40 @@ describe('native puck snapping proof', () => {
                 [-97.744142, 30.2672],
             ),
             false,
+        );
+    });
+
+    test('uses the shortest signed heading correction across north', () => {
+        assert.equal(shortestSignedHeadingCorrection(359, 1), 2);
+        assert.equal(shortestSignedHeadingCorrection(1, 359), -2);
+        assert.equal(shortestSignedHeadingCorrection(0, 90), 90);
+        assert.equal(shortestSignedHeadingCorrection(90, 0), -90);
+        assert.equal(shortestSignedHeadingCorrection(90, 90), 0);
+    });
+
+    test('proves the model stays locked while the camera settles', () => {
+        const rotatingState = makeRendered3DPuckState({
+            appliedHeadingCorrection: -25,
+            cameraBearing: 25,
+            cameraFollowingPuck: true,
+            effectiveModelHeading: 0,
+            headingCorrectionEverNonZero: true,
+            headingCorrectionObserverActive: true,
+            maximumAbsoluteHeadingCorrection: 90,
+            providerHeading: 0,
+            renderedBearing: 25,
+        });
+
+        assert.equal(nativePuckStateProvesHeadingLocked(rotatingState), true);
+        assert.equal(nativePuckStateProvesHeadingTurn(rotatingState), false);
+        assert.equal(
+            nativePuckStateProvesHeadingTurn({
+                ...rotatingState,
+                appliedHeadingCorrection: 0,
+                cameraBearing: 0,
+                renderedBearing: 0,
+            }),
+            true,
         );
     });
 

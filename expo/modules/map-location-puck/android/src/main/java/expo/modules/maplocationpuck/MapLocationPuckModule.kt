@@ -4,6 +4,7 @@ import android.animation.ValueAnimator
 import android.view.animation.LinearInterpolator
 import android.view.View
 import android.view.ViewGroup
+import com.mapbox.bindgen.Value
 import com.mapbox.common.location.LocationError
 import com.mapbox.geojson.Point
 import com.mapbox.maps.EdgeInsets
@@ -15,6 +16,7 @@ import com.mapbox.maps.plugin.PuckBearing
 import com.mapbox.maps.plugin.locationcomponent.DefaultLocationProvider
 import com.mapbox.maps.plugin.locationcomponent.LocationConsumer
 import com.mapbox.maps.plugin.locationcomponent.LocationProvider
+import com.mapbox.maps.plugin.locationcomponent.OnIndicatorBearingChangedListener
 import com.mapbox.maps.plugin.locationcomponent.OnIndicatorPositionChangedListener
 import com.mapbox.maps.plugin.locationcomponent.PuckLocatedAtPointListener
 import com.mapbox.maps.plugin.locationcomponent.location
@@ -30,6 +32,7 @@ import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import java.lang.ref.WeakReference
 import java.security.MessageDigest
 import java.util.WeakHashMap
 import kotlin.coroutines.resume
@@ -42,11 +45,13 @@ private const val LOCATION_PUCK_DEFAULT_ANIMATION_DURATION_MS = 1_000L
 private const val LOCATION_PUCK_MINIMUM_ANIMATION_DURATION_MS = 250L
 private const val LOCATION_PUCK_MAXIMUM_ANIMATION_DURATION_MS = 1_200L
 private const val LOCATION_PUCK_STALE_SNAP_THRESHOLD_MS = 3_000.0
+private const val LOCATION_PUCK_HEADING_CORRECTION_DURATION_MS = 250.0
 private const val LOCATION_PUCK_MODEL_ASSET = "navigation_puck.glb"
 private const val LOCATION_PUCK_MODEL_URI = "asset://navigation_puck.glb"
 private const val LOCATION_PUCK_MODEL_LAYER = "mapbox-location-model-layer"
 private const val LOCATION_PUCK_MODEL_SOURCE = "mapbox-location-model-source"
 private const val LOCATION_PUCK_INDICATOR_LAYER = "mapbox-location-indicator-layer"
+private const val NON_ZERO_HEADING_CORRECTION_EPSILON = 0.0001
 private val MAPBOX_STYLE_SLOTS = setOf("bottom", "middle", "top")
 private val APP_STYLE_LAYER_IDS = setOf("directions-route-line")
 
@@ -76,13 +81,13 @@ private class SharedLocationPuckProvider : LocationProvider {
         point: Point,
         bearing: Double,
         recordedAt: Double?,
-    ) {
+    ): Boolean {
         if (
             recordedAt != null &&
             lastRecordedAt != null &&
             recordedAt < checkNotNull(lastRecordedAt)
         ) {
-            return
+            return false
         }
 
         val previousRecordedAt = lastRecordedAt
@@ -115,13 +120,32 @@ private class SharedLocationPuckProvider : LocationProvider {
             consumer.onLocationUpdated(point, options = animationOptions)
             consumer.onBearingUpdated(bearing, options = animationOptions)
         }
+
+        return true
     }
 }
 
 private data class SharedLocationPuckProviderState(
     var previousProvider: LocationProvider?,
     val provider: SharedLocationPuckProvider,
-)
+    var renderedBearing: Double? = null,
+    var appliedHeadingCorrection: Double? = null,
+    var effectiveModelHeading: Double? = null,
+    var maximumAbsoluteHeadingCorrection: Double = 0.0,
+    var headingCorrectionEverNonZero: Boolean = false,
+    var headingCorrectionApplicationCount: Int = 0,
+    var bearingListener: OnIndicatorBearingChangedListener? = null,
+) {
+    fun resetHeadingCorrection() {
+        renderedBearing = null
+        appliedHeadingCorrection = null
+        effectiveModelHeading = null
+        maximumAbsoluteHeadingCorrection = 0.0
+        headingCorrectionEverNonZero = false
+        headingCorrectionApplicationCount = 0
+        bearingListener = null
+    }
+}
 
 private fun findMapView(view: View): RNMBXMapView? {
     if (view is RNMBXMapView) {
@@ -257,6 +281,148 @@ class MapLocationPuckModule : Module() {
         }
     }
 
+    private fun normalizedHeading(heading: Double): Double {
+        return ((heading % 360.0) + 360.0) % 360.0
+    }
+
+    private fun shortestSignedHeadingCorrection(
+        matchedHeading: Double,
+        renderedBearing: Double,
+    ): Double {
+        return (normalizedHeading(matchedHeading) - normalizedHeading(renderedBearing) + 540.0) %
+            360.0 - 180.0
+    }
+
+    private fun modelRotationValue(zRotation: Double): Value {
+        return Value(
+            listOf(
+                Value(0.0),
+                Value(0.0),
+                Value(zRotation),
+            ),
+        )
+    }
+
+    private fun zeroDurationTransitionValue(): Value {
+        return Value(
+            hashMapOf(
+                "duration" to Value(0.0),
+                "delay" to Value(0.0),
+            ),
+        )
+    }
+
+    private fun headingCorrectionTransitionValue(): Value {
+        return Value(
+            hashMapOf(
+                "duration" to Value(LOCATION_PUCK_HEADING_CORRECTION_DURATION_MS),
+                "delay" to Value(0.0),
+            ),
+        )
+    }
+
+    private fun applyHeadingCorrection(mapView: RNMBXMapView): Boolean {
+        val state = locationProviderStates[mapView] ?: return false
+        val matchedHeading = state.provider.bearing ?: return false
+        val renderedBearing = state.renderedBearing ?: return false
+        val location = mapView.mapView.location
+        val mapboxMap = mapView.getMapboxMap()
+
+        if (
+            location.locationPuck !is LocationPuck3D ||
+            !mapboxMap.styleLayerExists(LOCATION_PUCK_MODEL_LAYER)
+        ) {
+            return false
+        }
+
+        val correction = shortestSignedHeadingCorrection(
+            matchedHeading = matchedHeading,
+            renderedBearing = renderedBearing,
+        )
+        val transitionResult = mapboxMap.setStyleLayerProperty(
+            LOCATION_PUCK_MODEL_LAYER,
+            "model-rotation-transition",
+            headingCorrectionTransitionValue(),
+        )
+        val rotationResult = mapboxMap.setStyleLayerProperty(
+            LOCATION_PUCK_MODEL_LAYER,
+            "model-rotation",
+            modelRotationValue(correction),
+        )
+
+        if (transitionResult.isError || rotationResult.isError) {
+            return false
+        }
+
+        state.appliedHeadingCorrection = correction
+        state.effectiveModelHeading = normalizedHeading(renderedBearing + correction)
+        state.maximumAbsoluteHeadingCorrection = maxOf(
+            state.maximumAbsoluteHeadingCorrection,
+            kotlin.math.abs(correction),
+        )
+        state.headingCorrectionEverNonZero =
+            state.headingCorrectionEverNonZero ||
+                kotlin.math.abs(correction) > NON_ZERO_HEADING_CORRECTION_EPSILON
+        state.headingCorrectionApplicationCount += 1
+
+        return true
+    }
+
+    private fun attachHeadingCorrection(mapView: RNMBXMapView) {
+        val state = locationProviderStates[mapView] ?: return
+        val location = mapView.mapView.location
+
+        if (location.locationPuck !is LocationPuck3D) {
+            return
+        }
+
+        if (state.bearingListener == null) {
+            val mapViewReference = WeakReference(mapView)
+            val listener = object : OnIndicatorBearingChangedListener {
+                override fun onIndicatorBearingChanged(indicatorBearing: Double) {
+                    val liveMapView = mapViewReference.get() ?: return
+                    val liveState = locationProviderStates[liveMapView] ?: return
+
+                    liveState.renderedBearing = normalizedHeading(indicatorBearing)
+                    applyHeadingCorrection(liveMapView)
+                }
+            }
+
+            state.bearingListener = listener
+            location.addOnIndicatorBearingChangedListener(listener)
+        }
+
+        applyHeadingCorrection(mapView)
+    }
+
+    private fun clearHeadingCorrection(
+        mapView: RNMBXMapView,
+        resetModelRotation: Boolean = true,
+    ) {
+        val state = locationProviderStates[mapView] ?: return
+        val location = mapView.mapView.location
+
+        state.bearingListener?.let(location::removeOnIndicatorBearingChangedListener)
+
+        if (
+            resetModelRotation &&
+            mapView.getMapboxMap().styleLayerExists(LOCATION_PUCK_MODEL_LAYER)
+        ) {
+            mapView.getMapboxMap().setStyleLayerProperty(
+                LOCATION_PUCK_MODEL_LAYER,
+                "model-rotation-transition",
+                zeroDurationTransitionValue(),
+            )
+            mapView.getMapboxMap().setStyleLayerProperty(
+                LOCATION_PUCK_MODEL_LAYER,
+                "model-rotation",
+                modelRotationValue(0.0),
+            )
+        }
+
+        state.resetHeadingCorrection()
+    }
+
     override fun definition() = ModuleDefinition {
         Name("MapLocationPuck")
 
@@ -270,18 +436,23 @@ class MapLocationPuckModule : Module() {
             val mapView = requireMapView(viewTag)
             val provider = ensureLocationProviderForUpdate(mapView)
 
-            provider.update(
+            val providerWasUpdated = provider.update(
                 point = Point.fromLngLat(longitude, latitude),
-                bearing = ((heading % 360) + 360) % 360,
+                bearing = normalizedHeading(heading),
                 recordedAt = recordedAt?.takeIf(Double::isFinite),
             )
 
-            true
+            if (providerWasUpdated) {
+                applyHeadingCorrection(mapView)
+            }
+
+            providerWasUpdated
         }.runOnQueue(Queues.MAIN)
 
         AsyncFunction("clearLocationPuckLocationProvider") { viewTag: Int ->
             val mapView = requireMapView(viewTag)
             clearCameraFollowState(mapView)
+            clearHeadingCorrection(mapView)
             val state = locationProviderStates.remove(mapView)
 
             if (state != null && mapView.mapView.location.getLocationProvider() === state.provider) {
@@ -325,6 +496,7 @@ class MapLocationPuckModule : Module() {
             location.layerAbove = layerAbove?.takeIf(APP_STYLE_LAYER_IDS::contains)
             location.layerBelow = null
             location.enabled = true
+            attachHeadingCorrection(mapView)
 
             true
         }.runOnQueue(Queues.MAIN)
@@ -335,6 +507,7 @@ class MapLocationPuckModule : Module() {
             val hadLocationPuck3D = location.locationPuck is LocationPuck3D
 
             if (hadLocationPuck3D) {
+                clearHeadingCorrection(mapView)
                 location.locationPuck = LocationPuck2D(opacity = 0f)
                 location.layerAbove = null
                 location.layerBelow = null
@@ -462,6 +635,17 @@ class MapLocationPuckModule : Module() {
                 "providerLatitude" to providerPoint?.latitude(),
                 "providerLongitude" to providerPoint?.longitude(),
                 "providerHeading" to providerState?.provider?.bearing,
+                "renderedBearing" to providerState?.renderedBearing,
+                "appliedHeadingCorrection" to providerState?.appliedHeadingCorrection,
+                "effectiveModelHeading" to providerState?.effectiveModelHeading,
+                "maximumAbsoluteHeadingCorrection" to
+                    providerState?.maximumAbsoluteHeadingCorrection,
+                "headingCorrectionEverNonZero" to
+                    providerState?.headingCorrectionEverNonZero,
+                "headingCorrectionApplicationCount" to
+                    providerState?.headingCorrectionApplicationCount,
+                "headingCorrectionObserverActive" to
+                    (providerState?.bearingListener != null),
                 "cameraFollowingPuck" to (
                     cameraFollowStates[mapView]?.let { followState ->
                         viewportOwnsCameraFollowState(mapView, followState)
@@ -469,6 +653,7 @@ class MapLocationPuckModule : Module() {
                 ),
                 "cameraCenterLatitude" to cameraCenter.latitude(),
                 "cameraCenterLongitude" to cameraCenter.longitude(),
+                "cameraBearing" to mapView.getMapboxMap().cameraState.bearing,
                 "modelAssetByteLength" to modelAsset?.size,
                 "modelAssetSha256" to modelAsset?.sha256(),
             )

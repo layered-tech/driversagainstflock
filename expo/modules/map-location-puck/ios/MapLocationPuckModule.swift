@@ -11,6 +11,8 @@ private let locationPuckModelLayer = "puck-model-layer"
 private let locationPuckModelSource = "puck-model-source"
 private let locationPuckIndicatorLayer = "puck"
 private let cameraFollowTransitionTimeoutMilliseconds = 1_000
+private let locationPuckHeadingCorrectionDurationMilliseconds = 250
+private let nonZeroHeadingCorrectionEpsilon = 0.0001
 private let mapPerformanceSignpostLog = OSLog(
   subsystem: Bundle.main.bundleIdentifier ?? "com.anonymous.drivefree",
   category: "PointsOfInterest"
@@ -41,6 +43,13 @@ private final class OwnedLocationProviderState {
   private(set) var latestHeading: Heading
   private(set) var latestLocation: Location
   private(set) var latestRecordedAt: Double?
+  private(set) var renderedBearing: Double?
+  private(set) var appliedHeadingCorrection: Double?
+  private(set) var effectiveModelHeading: Double?
+  private(set) var maximumAbsoluteHeadingCorrection = 0.0
+  private(set) var headingCorrectionEverNonZero = false
+  private(set) var headingCorrectionApplicationCount = 0
+  private(set) var puckRenderCancelable: AnyCancelable?
 
   private let headingSubject: CurrentValueSubject<Heading, Never>
   private let locationSubject: CurrentValueSubject<[Location], Never>
@@ -75,13 +84,13 @@ private final class OwnedLocationProviderState {
     locationManager.dataModel = dataModel
   }
 
-  func update(location: Location, heading: Heading, recordedAt: Double?) {
+  func update(location: Location, heading: Heading, recordedAt: Double?) -> Bool {
     if
       let recordedAt,
       let latestRecordedAt,
       recordedAt < latestRecordedAt
     {
-      return
+      return false
     }
 
     // Publish heading first so the next puck position renders with the matching
@@ -91,6 +100,40 @@ private final class OwnedLocationProviderState {
     latestRecordedAt = recordedAt ?? latestRecordedAt
     headingSubject.send(heading)
     locationSubject.send([location])
+
+    return true
+  }
+
+  func attachPuckRenderObservation(_ cancelable: AnyCancelable) {
+    puckRenderCancelable?.cancel()
+    puckRenderCancelable = cancelable
+  }
+
+  func updateRenderedBearing(_ bearing: Double) {
+    renderedBearing = bearing
+  }
+
+  func recordHeadingCorrection(_ correction: Double, effectiveHeading: Double) {
+    appliedHeadingCorrection = correction
+    effectiveModelHeading = effectiveHeading
+    maximumAbsoluteHeadingCorrection = max(
+      maximumAbsoluteHeadingCorrection,
+      abs(correction)
+    )
+    headingCorrectionEverNonZero = headingCorrectionEverNonZero
+      || abs(correction) > nonZeroHeadingCorrectionEpsilon
+    headingCorrectionApplicationCount += 1
+  }
+
+  func resetHeadingCorrection() {
+    puckRenderCancelable?.cancel()
+    puckRenderCancelable = nil
+    renderedBearing = nil
+    appliedHeadingCorrection = nil
+    effectiveModelHeading = nil
+    maximumAbsoluteHeadingCorrection = 0
+    headingCorrectionEverNonZero = false
+    headingCorrectionApplicationCount = 0
   }
 }
 
@@ -363,6 +406,116 @@ public final class MapLocationPuckModule: Module {
   }
 
   @MainActor
+  private func applyHeadingCorrection(on mapView: MapView) -> Bool {
+    guard
+      let location = mapView.location,
+      let providerState = locationProviderStates.object(forKey: mapView),
+      let renderedBearing = providerState.renderedBearing,
+      location.options.puckType.map({ puckType in
+        if case .puck3D = puckType {
+          return true
+        }
+
+        return false
+      }) == true,
+      mapView.mapboxMap.style.layerExists(withId: locationPuckModelLayer)
+    else {
+      return false
+    }
+
+    let correction = Self.shortestSignedHeadingCorrection(
+      matchedHeading: providerState.latestHeading.direction,
+      renderedBearing: renderedBearing
+    )
+
+    do {
+      try mapView.mapboxMap.style.setLayerProperty(
+        for: locationPuckModelLayer,
+        property: "model-rotation-transition",
+        value: [
+          "duration": locationPuckHeadingCorrectionDurationMilliseconds,
+          "delay": 0,
+        ]
+      )
+      try mapView.mapboxMap.style.setLayerProperty(
+        for: locationPuckModelLayer,
+        property: "model-rotation",
+        value: [0, 0, correction]
+      )
+    } catch {
+      return false
+    }
+
+    providerState.recordHeadingCorrection(
+      correction,
+      effectiveHeading: Self.normalizedHeading(renderedBearing + correction)
+    )
+
+    return true
+  }
+
+  @MainActor
+  private func attachHeadingCorrection(to mapView: MapView) {
+    guard
+      let location = mapView.location,
+      let providerState = locationProviderStates.object(forKey: mapView),
+      let puckType = location.options.puckType,
+      case .puck3D = puckType
+    else {
+      return
+    }
+
+    if providerState.puckRenderCancelable == nil {
+      let cancelable = location.onPuckRender.observe {
+        [weak self, weak mapView, weak providerState] renderingData in
+        guard
+          let self,
+          let mapView,
+          let providerState,
+          let renderedBearing = renderingData.heading?.direction
+        else {
+          return
+        }
+
+        providerState.updateRenderedBearing(Self.normalizedHeading(renderedBearing))
+        self.applyHeadingCorrection(on: mapView)
+      }
+
+      providerState.attachPuckRenderObservation(cancelable)
+    }
+
+    applyHeadingCorrection(on: mapView)
+  }
+
+  @MainActor
+  private func clearHeadingCorrection(
+    from mapView: MapView,
+    resetModelRotation: Bool = true
+  ) {
+    guard let providerState = locationProviderStates.object(forKey: mapView) else {
+      return
+    }
+
+    if
+      resetModelRotation,
+      mapView.mapboxMap.style.layerExists(withId: locationPuckModelLayer)
+    {
+      try? mapView.mapboxMap.style.setLayerProperty(
+        for: locationPuckModelLayer,
+        property: "model-rotation-transition",
+        value: ["duration": 0, "delay": 0]
+      )
+      try? mapView.mapboxMap.style.setLayerProperty(
+        for: locationPuckModelLayer,
+        property: "model-rotation",
+        value: [0, 0, 0]
+      )
+    }
+
+    providerState.resetHeadingCorrection()
+  }
+
+  @MainActor
   private func isLocationPuckCameraFollowActive(on mapView: MapView) -> Bool {
     guard
       liveLocationProviderIsOwned(on: mapView),
@@ -412,12 +565,17 @@ public final class MapLocationPuckModule: Module {
 
     if let providerState = locationProviderStates.object(forKey: mapView) {
       providerState.reassertOwnership(on: locationManager)
-      providerState.update(
+      let providerWasUpdated = providerState.update(
         location: location,
         heading: headingValue,
         recordedAt: normalizedRecordedAt
       )
-      return true
+
+      if providerWasUpdated {
+        applyHeadingCorrection(on: mapView)
+      }
+
+      return providerWasUpdated
     }
 
     let providerState = OwnedLocationProviderState(
@@ -444,6 +602,7 @@ public final class MapLocationPuckModule: Module {
     }
 
     clearCameraFollowState(on: mapView)
+    clearHeadingCorrection(from: mapView)
 
     if locationManager.dataModel === providerState.dataModel {
       locationManager.dataModel = providerState.previousDataModel
@@ -551,6 +710,7 @@ public final class MapLocationPuckModule: Module {
     location.options.puckType = .puck3D(configuration)
     location.options.puckBearing = .heading
     location.options.puckBearingEnabled = true
+    attachHeadingCorrection(to: mapView)
 
     return true
   }
@@ -568,6 +728,7 @@ public final class MapLocationPuckModule: Module {
       return false
     }
 
+    clearHeadingCorrection(from: mapView)
     location.options.puckType = nil
 
     return true
@@ -621,11 +782,19 @@ public final class MapLocationPuckModule: Module {
       "providerLatitude": providerCoordinate?.latitude,
       "providerLongitude": providerCoordinate?.longitude,
       "providerHeading": providerState?.latestHeading.direction,
+      "renderedBearing": providerState?.renderedBearing,
+      "appliedHeadingCorrection": providerState?.appliedHeadingCorrection,
+      "effectiveModelHeading": providerState?.effectiveModelHeading,
+      "maximumAbsoluteHeadingCorrection": providerState?.maximumAbsoluteHeadingCorrection,
+      "headingCorrectionEverNonZero": providerState?.headingCorrectionEverNonZero,
+      "headingCorrectionApplicationCount": providerState?.headingCorrectionApplicationCount,
+      "headingCorrectionObserverActive": providerState?.puckRenderCancelable != nil,
       "cameraFollowingPuck": cameraFollowStates.object(forKey: mapView).map { followState in
         viewportOwnsCameraFollowState(mapView.viewport, followState: followState)
       } ?? false,
       "cameraCenterLatitude": cameraCenter.latitude,
       "cameraCenterLongitude": cameraCenter.longitude,
+      "cameraBearing": mapView.mapboxMap.cameraState.bearing,
       "modelAssetByteLength": modelData?.count,
       "modelAssetSha256": modelData.map(Self.sha256)
     ]
@@ -663,6 +832,17 @@ public final class MapLocationPuckModule: Module {
     let normalizedHeading = heading.truncatingRemainder(dividingBy: 360)
 
     return normalizedHeading >= 0 ? normalizedHeading : normalizedHeading + 360
+  }
+
+  private static func shortestSignedHeadingCorrection(
+    matchedHeading: Double,
+    renderedBearing: Double
+  ) -> Double {
+    let correction = normalizedHeading(matchedHeading)
+      - normalizedHeading(renderedBearing)
+      + 540
+
+    return correction.truncatingRemainder(dividingBy: 360) - 180
   }
 
   private static func constantValue<T: Codable>(_ value: Value<T>?) -> T? {

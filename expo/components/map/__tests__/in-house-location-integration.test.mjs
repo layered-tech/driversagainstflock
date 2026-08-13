@@ -10,6 +10,10 @@ const appConfigSource = readSource('../../../app.config.js');
 const autoPlayMapSurfaceSource = readSource(
     '../../auto-play-map-surface-content.js',
 );
+const androidAutoMapSurfaceSource = readSource(
+    '../../android-auto-map-surface.js',
+);
+const carPlayMapSurfaceSource = readSource('../../carplay-map-surface.js');
 const autoPlaySource = readSource('../../auto-play.js');
 const backgroundAlertRefreshSource = readSource(
     '../background-alert-refresh.js',
@@ -171,6 +175,9 @@ describe('in-house road-matched location integration', () => {
             /createLocationPuckCameraFollowLifecycle/,
         );
         assert.match(mapCanvasSource, /requestLocationPuckCameraFollow/);
+        assert.match(autoPlayMapSurfaceSource, /<MapCanvas/);
+        assert.match(androidAutoMapSurfaceSource, /createAutoPlayMapSurface/);
+        assert.match(carPlayMapSurfaceSource, /createAutoPlayMapSurface/);
         assert.match(
             mapCanvasSource,
             /locationPuckNativeProviderIsReady[\s\S]*?locationPuckRequests3D/,
@@ -301,6 +308,22 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(
             mapLocationPuckAndroidSource,
+            /addOnIndicatorBearingChangedListener/,
+        );
+        assert.match(
+            mapLocationPuckAndroidSource,
+            /shortestSignedHeadingCorrection[\s\S]*?matchedHeading[\s\S]*?renderedBearing/,
+        );
+        assert.match(
+            mapLocationPuckAndroidSource,
+            /"model-rotation-transition"[\s\S]*?zeroDurationTransitionValue\(\)[\s\S]*?"model-rotation"[\s\S]*?modelRotationValue\(correction\)/,
+        );
+        assert.match(
+            mapLocationPuckAndroidSource,
+            /clearHeadingCorrection[\s\S]*?removeOnIndicatorBearingChangedListener/,
+        );
+        assert.match(
+            mapLocationPuckAndroidSource,
             /withTimeoutOrNull[\s\S]*?suspendCancellableCoroutine[\s\S]*?viewport\.transitionTo\([\s\S]*?viewport\.makeImmediateViewportTransition\(\)[\s\S]*?CompletionListener[\s\S]*?continuation\.isActive/,
         );
         assert.match(
@@ -344,6 +367,22 @@ describe('in-house road-matched location integration', () => {
         assert.match(mapLocationPuckIOSSource, /options\.bearing = \.heading/);
         assert.match(
             mapLocationPuckIOSSource,
+            /location\.onPuckRender\.observe/,
+        );
+        assert.match(
+            mapLocationPuckIOSSource,
+            /shortestSignedHeadingCorrection[\s\S]*?matchedHeading[\s\S]*?renderedBearing/,
+        );
+        assert.match(
+            mapLocationPuckIOSSource,
+            /property: "model-rotation-transition"[\s\S]*?"duration": 0[\s\S]*?property: "model-rotation"[\s\S]*?value: \[0, 0, correction\]/,
+        );
+        assert.match(
+            mapLocationPuckIOSSource,
+            /clearHeadingCorrection[\s\S]*?resetHeadingCorrection/,
+        );
+        assert.match(
+            mapLocationPuckIOSSource,
             /transitionImmediately[\s\S]*?withCheckedContinuation[\s\S]*?makeImmediateViewportTransition\(\)[\s\S]*?DispatchQueue\.main\.asyncAfter/,
         );
         assert.match(
@@ -358,6 +397,14 @@ describe('in-house road-matched location integration', () => {
         assert.doesNotMatch(
             roadMatchingE2EProbeSource,
             /NATIVE_PUCK_PROOF_TIMEOUT_MS/,
+        );
+        assert.match(
+            roadMatchingE2EProbeSource,
+            /e2e-native-puck-provider-heading/,
+        );
+        assert.match(
+            roadMatchingE2EProbeSource,
+            /e2e-native-puck-heading-turn-proof/,
         );
     });
 

@@ -61,11 +61,11 @@ const shouldUseSentryBuildPlugin =
     );
 
 const name = IS_E2E
-    ? 'Drivers Against Flock (E2E)'
+    ? 'E2E | Drivers Against Flock'
     : IS_DEV
-      ? 'Drivers Against Flock (Dev)'
+      ? 'Dev | Drivers Against Flock'
       : IS_STAGING
-        ? 'Drivers Against Flock (Staging)'
+        ? 'Staging | Drivers Against Flock'
         : 'Drivers Against Flock';
 
 const applicationId =

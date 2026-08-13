@@ -28,6 +28,8 @@ export const E2E_ROAD_MATCHING_LOCATIONS = Object.freeze({
     // puck render query can distinguish the two screen coordinates.
     main35: getE2ERoadCoordinate(-100, -24),
     main45: getE2ERoadCoordinate(400, -24),
+    eastboundTurnApproach: getE2ERoadCoordinate(250, -24),
+    northboundTurnExit: getE2ERoadCoordinate(324, 100),
     parallelFrontage: getE2ERoadCoordinate(-500, 45),
     parallelRoadAmbiguous: getE2ERoadCoordinate(100, 16),
 });

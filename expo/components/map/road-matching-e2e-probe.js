@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { queryNativePuckState } from './native-puck-proof';
 import {
     nativePuckStateProves3DSnapping,
+    nativePuckStateProvesHeadingLocked,
+    nativePuckStateProvesHeadingTurn,
     nativePuckStateProvesRendered3D,
 } from './native-puck-state';
 import {
@@ -21,6 +23,12 @@ function formatCoordinate(value) {
 
 function formatCoordinatePair(coordinate) {
     return `${formatCoordinate(coordinate?.[0])},${formatCoordinate(coordinate?.[1])}`;
+}
+
+function formatHeading(value) {
+    const numericValue = Number(value);
+
+    return Number.isFinite(numericValue) ? numericValue.toFixed(3) : '';
 }
 
 function formatProofValue(value) {
@@ -57,6 +65,10 @@ export function RoadMatchingE2EProbe({
     const rawCoordinateKey = formatCoordinatePair(rawCoordinate);
     const nativePuckProof = nativePuckStateProves3DSnapping(nativePuckState);
     const native3DPuckProof = nativePuckStateProvesRendered3D(nativePuckState);
+    const nativePuckHeadingLockProof =
+        nativePuckStateProvesHeadingLocked(nativePuckState);
+    const nativePuckHeadingTurnProof =
+        nativePuckStateProvesHeadingTurn(nativePuckState);
     const lookAheadEdgeIds = Array.isArray(roadLookAhead?.primaryPath?.segments)
         ? roadLookAhead.primaryPath.segments
               .map((segment) => segment?.edgeId)
@@ -89,7 +101,14 @@ export function RoadMatchingE2EProbe({
 
             setNativePuckState(nextPuckState);
 
-            if (nativePuckStateProves3DSnapping(nextPuckState)) {
+            const hasHistoricalHeadingCorrection =
+                Number(nextPuckState?.maximumAbsoluteHeadingCorrection) > 0.5;
+
+            if (
+                nativePuckStateProves3DSnapping(nextPuckState) &&
+                (!hasHistoricalHeadingCorrection ||
+                    nativePuckStateProvesHeadingTurn(nextPuckState))
+            ) {
                 return;
             }
 
@@ -341,6 +360,72 @@ export function RoadMatchingE2EProbe({
                 testID="e2e-native-puck-camera-following"
             >
                 {formatProofValue(nativePuckState?.cameraFollowingPuck)}
+            </Text>
+            <Text
+                className="text-[8px] leading-[9px] text-white"
+                testID="e2e-native-puck-provider-heading"
+            >
+                {formatHeading(nativePuckState?.providerHeading)}
+            </Text>
+            <Text
+                className="text-[8px] leading-[9px] text-white"
+                testID="e2e-native-puck-rendered-bearing"
+            >
+                {formatHeading(nativePuckState?.renderedBearing)}
+            </Text>
+            <Text
+                className="text-[8px] leading-[9px] text-white"
+                testID="e2e-native-puck-heading-correction"
+            >
+                {formatHeading(nativePuckState?.appliedHeadingCorrection)}
+            </Text>
+            <Text
+                className="text-[8px] leading-[9px] text-white"
+                testID="e2e-native-puck-effective-heading"
+            >
+                {formatHeading(nativePuckState?.effectiveModelHeading)}
+            </Text>
+            <Text
+                className="text-[8px] leading-[9px] text-white"
+                testID="e2e-native-puck-camera-bearing"
+            >
+                {formatHeading(nativePuckState?.cameraBearing)}
+            </Text>
+            <Text
+                className="text-[8px] leading-[9px] text-white"
+                testID="e2e-native-puck-max-heading-correction"
+            >
+                {formatHeading(
+                    nativePuckState?.maximumAbsoluteHeadingCorrection,
+                )}
+            </Text>
+            <Text
+                className="text-[8px] leading-[9px] text-white"
+                testID="e2e-native-puck-heading-correction-history"
+            >
+                {formatProofValue(
+                    nativePuckState?.headingCorrectionEverNonZero,
+                )}
+            </Text>
+            <Text
+                className="text-[8px] leading-[9px] text-white"
+                testID="e2e-native-puck-heading-observer"
+            >
+                {formatProofValue(
+                    nativePuckState?.headingCorrectionObserverActive,
+                )}
+            </Text>
+            <Text
+                className="text-[8px] leading-[9px] text-white"
+                testID="e2e-native-puck-heading-lock-proof"
+            >
+                {String(nativePuckHeadingLockProof)}
+            </Text>
+            <Text
+                className="text-[8px] leading-[9px] text-white"
+                testID="e2e-native-puck-heading-turn-proof"
+            >
+                {String(nativePuckHeadingTurnProof)}
             </Text>
             <Text
                 className="text-[8px] leading-[9px] text-white"
