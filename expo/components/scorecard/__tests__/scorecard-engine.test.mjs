@@ -81,6 +81,30 @@ describe('device-local scorecard engine', () => {
         );
     });
 
+    test('awards per-camera XP even when ALPR monitoring was unavailable', () => {
+        const startedAt = Date.parse('2026-08-12T12:00:00Z');
+        let session = createScorecardSession({
+            exposureCoverageComplete: false,
+            id: 'drive-partial-monitoring',
+            mode: 'guided',
+            startedAt,
+        });
+
+        session = creditAvoidedRouteCameras(session, makeRoute(), 1, startedAt);
+
+        const { trip } = finalizeScorecardSession(
+            {
+                ...createEmptyScorecardState(),
+                activeSession: session,
+            },
+            { endedAt: startedAt + 60_000 },
+        );
+
+        assert.equal(trip.exposureCoverageComplete, false);
+        assert.equal(trip.avoidedCameraCount, 2);
+        assert.equal(trip.xpEarned, 90);
+    });
+
     test('keeps stable OSM avoidance credit across reroutes', () => {
         const firstRoute = makeRoute();
         const reroute = makeRoute();
