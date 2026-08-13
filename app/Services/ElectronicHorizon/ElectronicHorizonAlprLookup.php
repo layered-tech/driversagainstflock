@@ -41,7 +41,6 @@ class ElectronicHorizonAlprLookup
      */
     private function findUncached(array $coordinates): array
     {
-        $maximumResults = (int) config('electronic-horizon.alpr_maximum_results');
         $nodes = OsmNode::query()
             ->select([
                 'id',
@@ -60,14 +59,11 @@ class ElectronicHorizonAlprLookup
                 (float) config('electronic-horizon.alpr_path_buffer_meters'),
             )
             ->orderBy('id')
-            ->limit($maximumResults + 1)
             ->get();
-        $coverageComplete = $nodes->count() <= $maximumResults;
 
         return [
-            'coverage_complete' => $coverageComplete,
+            'coverage_complete' => true,
             'nodes' => $nodes
-                ->take($maximumResults)
                 ->map(fn (OsmNode $node): array => [
                     'camera_direction' => $node->camera_direction,
                     'coordinate' => [(float) $node->longitude, (float) $node->latitude],
