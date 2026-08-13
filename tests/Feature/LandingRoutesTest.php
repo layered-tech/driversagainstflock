@@ -715,7 +715,9 @@ test('map page uses the V3 full screen map surface', function () {
         ->toContain('DafSegmentedControl')
         ->toContain('DafRouteCard')
         ->toContain('daf-marker-cones-fill')
-        ->toContain('map.value?.getZoom() >= MARKER_CONE_MIN_ZOOM')
+        ->toContain("instance.on('render', syncUnclusteredMarkerCones)")
+        ->toContain("querySourceFeatures('source-markers')")
+        ->toContain('feature.properties?.point_count === undefined')
         ->toContain('makeMarkerConeFeatureCollection(features)')
         ->not->toContain('queryRenderedFeatures')
         ->not->toContain('queueMarkerConeSync')
@@ -881,6 +883,25 @@ test('place details include fields needed by the map detail cards', function () 
         ->toContain("'nationalPhoneNumber'")
         ->toContain("'googleMapsUri'")
         ->toContain("'websiteUri'");
+});
+
+test('map directions show estimated loading progress for long routes', function () {
+    $mapPage = file_get_contents(resource_path('js/Pages/Map.vue'));
+    $routeLoadingProgress = file_get_contents(resource_path('js/Components/Daf/Map/DafRouteLoadingProgress.vue'));
+
+    expect($mapPage)
+        ->toContain('DafRouteLoadingProgress')
+        ->toContain('directionsLoadingElapsedSeconds')
+        ->toContain('startDirectionsLoadingTimer()')
+        ->toContain('stopDirectionsLoadingTimer()')
+        ->toContain(':aria-busy="directionsIsLoading"')
+        ->and($routeLoadingProgress)
+        ->toContain('role="status"')
+        ->toContain('aria-live="polite"')
+        ->toContain('role="progressbar"')
+        ->toContain('Estimated step')
+        ->toContain('Still refining this long route. This can take a while.')
+        ->toContain('motion-reduce:animate-none');
 });
 
 test('directions source defaults use a 50 meter avoid buffer', function () {

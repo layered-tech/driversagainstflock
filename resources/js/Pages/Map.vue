@@ -10,6 +10,7 @@ import DafBottomSheet from '@/Components/Daf/Map/DafBottomSheet.vue';
 import DafMarkerLoadingProgress from '@/Components/Daf/Map/DafMarkerLoadingProgress.vue';
 import DafNodeStatusBadge from '@/Components/Daf/Map/DafNodeStatusBadge.vue';
 import DafRouteCard from '@/Components/Daf/Map/DafRouteCard.vue';
+import DafRouteLoadingProgress from '@/Components/Daf/Map/DafRouteLoadingProgress.vue';
 import DafSearchBar from '@/Components/Daf/Map/DafSearchBar.vue';
 import DafSiteHead from '@/Components/Daf/DafSiteHead.vue';
 import { applyDafTheme, applySystemDafTheme } from '@/design-system/theme';
@@ -227,6 +228,7 @@ const selectedPlaceDetailsIsLoading = ref(false);
 const directionsRoute = ref(null);
 const selectedRouteKey = ref(ROUTE_KEYS.private);
 const directionsIsLoading = ref(false);
+const directionsLoadingElapsedSeconds = ref(0);
 const directionsError = ref('');
 const directionsNotice = ref('');
 const avoidBufferMeters = ref(DEFAULT_AVOID_BUFFER_METERS);
@@ -255,6 +257,9 @@ let directionWaypointNextId = 1;
 let markerSplashFrameId = null;
 let markerSplashTimeoutId = null;
 let systemThemeMediaQuery = null;
+let directionsLoadingStartedAt = null;
+let directionsLoadingTimer = null;
+let unclusteredMarkerConeSignature = null;
 
 const mapHeaderLinks = [
     { label: 'John Doe', href: '/#johndoe' },
@@ -739,6 +744,8 @@ onBeforeUnmount(() => {
         markerSplashTimeoutId = null;
     }
 
+    stopDirectionsLoadingTimer();
+
     if (map.value) {
         map.value.remove();
     }
@@ -799,6 +806,8 @@ function initializeMap() {
 
         refreshRuntimeLayers();
     });
+
+    instance.on('render', syncUnclusteredMarkerCones);
 
     instance.on('error', () => {
         if (!mapLoaded.value) {
@@ -1674,6 +1683,7 @@ async function getDirections() {
 
     routePanelIsCollapsed.value = false;
     directionsIsLoading.value = true;
+    startDirectionsLoadingTimer();
     directionsError.value = '';
 
     try {
@@ -1712,7 +1722,28 @@ async function getDirections() {
         directionsError.value = 'Directions are temporarily unavailable.';
     } finally {
         directionsIsLoading.value = false;
+        stopDirectionsLoadingTimer();
     }
+}
+
+function startDirectionsLoadingTimer() {
+    stopDirectionsLoadingTimer();
+    directionsLoadingElapsedSeconds.value = 0;
+    directionsLoadingStartedAt = Date.now();
+    directionsLoadingTimer = window.setInterval(() => {
+        directionsLoadingElapsedSeconds.value = Math.floor(
+            (Date.now() - directionsLoadingStartedAt) / 1000,
+        );
+    }, 1000);
+}
+
+function stopDirectionsLoadingTimer() {
+    if (directionsLoadingTimer !== null) {
+        window.clearInterval(directionsLoadingTimer);
+        directionsLoadingTimer = null;
+    }
+
+    directionsLoadingStartedAt = null;
 }
 
 async function handleAvoidBufferChanged() {
@@ -2282,10 +2313,8 @@ function setMarkerPoints(points) {
         type: 'FeatureCollection',
         features,
     };
-    markerConeFeatures.value =
-        map.value?.getZoom() >= MARKER_CONE_MIN_ZOOM
-            ? makeMarkerConeFeatureCollection(features)
-            : EMPTY_FEATURE_COLLECTION;
+    markerConeFeatures.value = EMPTY_FEATURE_COLLECTION;
+    unclusteredMarkerConeSignature = null;
 
     syncMarkerSources();
     reconcilePendingSelectedMarker();
@@ -2359,6 +2388,68 @@ function clearPendingSelectedMarker() {
 
 function syncMarkerSources() {
     setSourceData('source-markers', markerFeatures.value);
+    setSourceData('source-marker-cones', markerConeFeatures.value);
+}
+
+function syncUnclusteredMarkerCones() {
+    const instance = map.value;
+
+    if (
+        !instance?.getSource('source-markers') ||
+        !instance.getSource('source-marker-cones') ||
+        !instance.isSourceLoaded('source-markers')
+    ) {
+        return;
+    }
+
+    if (instance.getZoom() < MARKER_CONE_MIN_ZOOM) {
+        setUnclusteredMarkerConeFeatures([], 'below-minimum-zoom');
+
+        return;
+    }
+
+    const unclusteredFeaturesByKey = new Map();
+
+    instance
+        .querySourceFeatures('source-markers')
+        .filter((feature) => feature.properties?.point_count === undefined)
+        .forEach((feature) => {
+            const featureKey = markerConeFeatureKey(feature);
+
+            if (featureKey && !unclusteredFeaturesByKey.has(featureKey)) {
+                unclusteredFeaturesByKey.set(featureKey, feature);
+            }
+        });
+
+    const featureEntries = [...unclusteredFeaturesByKey.entries()].sort(
+        ([firstKey], [secondKey]) => firstKey.localeCompare(secondKey),
+    );
+
+    setUnclusteredMarkerConeFeatures(
+        featureEntries.map(([, feature]) => feature),
+        featureEntries.map(([featureKey]) => featureKey).join('|'),
+    );
+}
+
+function markerConeFeatureKey(feature) {
+    const markerId = feature.properties?.id ?? feature.id;
+
+    if (markerId !== null && markerId !== undefined && markerId !== '') {
+        return `marker:${markerId}`;
+    }
+
+    const coordinates = normalizeLngLat(feature.geometry?.coordinates);
+
+    return coordinates ? `coordinate:${coordinates.join(',')}` : null;
+}
+
+function setUnclusteredMarkerConeFeatures(features, signature) {
+    if (signature === unclusteredMarkerConeSignature) {
+        return;
+    }
+
+    unclusteredMarkerConeSignature = signature;
+    markerConeFeatures.value = makeMarkerConeFeatureCollection(features);
     setSourceData('source-marker-cones', markerConeFeatures.value);
 }
 
@@ -4110,19 +4201,23 @@ function degreesToRadians(degrees) {
                         :show-handle="false"
                         title="Choose route"
                     >
-                        <div class="flex flex-col gap-3">
+                        <div
+                            class="flex flex-col gap-3"
+                            :aria-busy="directionsIsLoading"
+                        >
                             <p
                                 v-if="directionsNotice"
                                 class="text-daf-body-sm text-daf-text-secondary"
                             >
                                 {{ directionsNotice }}
                             </p>
-                            <p
+                            <DafRouteLoadingProgress
                                 v-if="directionsIsLoading"
-                                class="text-daf-body-sm text-daf-text-secondary"
-                            >
-                                Comparing routes around known cameras...
-                            </p>
+                                :elapsed-seconds="
+                                    directionsLoadingElapsedSeconds
+                                "
+                                :refreshing="routeOptions.length > 0"
+                            />
                             <p
                                 v-if="directionsError"
                                 class="text-daf-body-sm font-semibold text-daf-danger"
