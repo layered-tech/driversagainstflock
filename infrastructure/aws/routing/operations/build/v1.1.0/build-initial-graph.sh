@@ -2,15 +2,14 @@
 
 set -euo pipefail
 
-readonly OPERATION_VERSION="1.0.5"
+readonly OPERATION_VERSION="1.1.0"
 readonly AWS_REGION="us-east-1"
 readonly ARTIFACT_BUCKET="daf-routing-graphs-326364278889-us-east-1"
 readonly GRAPHHOPPER_VERSION="11.0"
 readonly GRAPHHOPPER_SHA256="b59c024afe172ec6ec85b6327006c3138ec58c7d0bcd26253d0e42853f613def"
 readonly GRAPHHOPPER_URL="https://repo1.maven.org/maven2/com/graphhopper/graphhopper-web/${GRAPHHOPPER_VERSION}/graphhopper-web-${GRAPHHOPPER_VERSION}.jar"
-readonly PBF_NAME="us-260811.osm.pbf"
-readonly PBF_URL="https://download.geofabrik.de/north-america/${PBF_NAME}"
-readonly PBF_MD5="31b9933dd0d726ef6e7448a8d3b622ca"
+readonly DEFAULT_PBF_NAME="us-260811.osm.pbf"
+readonly DEFAULT_PBF_MD5="31b9933dd0d726ef6e7448a8d3b622ca"
 readonly BUILD_MOUNT="/mnt/daf-build"
 readonly PROGRESS_DIR="/var/lib/daf-routing-build"
 readonly PROGRESS_FILE="${PROGRESS_DIR}/progress"
@@ -36,6 +35,41 @@ readonly SCRATCH_VOLUME_ID="$2"
 readonly RELEASE_ID="$4"
 readonly EXPECTED_VOLUME_SERIAL="${SCRATCH_VOLUME_ID//-/}"
 readonly RELEASE_PREFIX="releases/${RELEASE_ID}"
+PBF_NAME="${DEFAULT_PBF_NAME}"
+PBF_MD5="${DEFAULT_PBF_MD5}"
+
+shift 4
+
+while (( $# > 0 )); do
+    case "$1" in
+        --pbf-name)
+            PBF_NAME="${2:-}"
+            shift 2
+            ;;
+        --pbf-md5)
+            PBF_MD5="${2:-}"
+            shift 2
+            ;;
+        *)
+            echo "ERROR unknown argument: $1" >&2
+            exit 1
+            ;;
+    esac
+done
+
+if [[ ! "${PBF_NAME}" =~ ^us-[0-9]{6}\.osm\.pbf$ ]]; then
+    echo "ERROR invalid dated U.S. PBF name" >&2
+    exit 1
+fi
+
+if [[ ! "${PBF_MD5}" =~ ^[0-9a-f]{32}$ ]]; then
+    echo "ERROR invalid PBF MD5" >&2
+    exit 1
+fi
+
+readonly PBF_NAME
+readonly PBF_MD5
+readonly PBF_URL="https://download.geofabrik.de/north-america/${PBF_NAME}"
 
 install -d -m 0755 "${PROGRESS_DIR}"
 
