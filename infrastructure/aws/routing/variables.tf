@@ -84,11 +84,11 @@ variable "serving_instance_type" {
 variable "builder_instance_type" {
   description = "On-demand ARM builder size with 128 GiB RAM."
   type        = string
-  default     = "r7g.4xlarge"
+  default     = "r8g.4xlarge"
 }
 
 variable "graph_volume_size_gib" {
   description = "Persistent gp3 graph volume size in GiB."
   type        = number
-  default     = 512
+  default     = 128
 }

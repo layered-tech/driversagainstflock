@@ -18,6 +18,10 @@ resource "aws_ssm_parameter" "graph_artifact_prefix" {
   tags = {
     Name = "daf-routing-graph-artifact-prefix"
   }
+
+  lifecycle {
+    ignore_changes = [value]
+  }
 }
 
 resource "aws_ssm_parameter" "service_url" {

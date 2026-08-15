@@ -8,7 +8,8 @@ readonly AWS_ACCOUNT_ID="326364278889"
 readonly AWS_PROFILE="daf-routing"
 readonly AWS_REGION="us-east-1"
 readonly ARTIFACT_BUCKET="daf-routing-graphs-${AWS_ACCOUNT_ID}-${AWS_REGION}"
-readonly BUILD_SCRIPT_VERSION="v1.1.0"
+readonly BUILD_SCRIPT_VERSION="v1.3.0"
+readonly STATUS_INTERVAL_SECONDS=15
 readonly OPERATIONS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly BUILD_SCRIPT_PATH="${OPERATIONS_DIR}/build/${BUILD_SCRIPT_VERSION}/build-initial-graph.sh"
 readonly BUILDER_USER_DATA_PATH="${OPERATIONS_DIR}/builder-user-data.sh"
@@ -171,7 +172,7 @@ readonly BUILD_STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo
 echo "Graph release: ${RELEASE_ID}"
 echo "Road snapshot: ${PBF_NAME}"
-echo "Builder:       temporary r7g.4xlarge with encrypted 768-GiB scratch"
+echo "Builder:       temporary r8g.4xlarge with encrypted 768-GiB scratch"
 echo "Deployment:    not included"
 echo
 
@@ -391,7 +392,7 @@ while true; do
             ;;
     esac
 
-    sleep 60
+    sleep "${STATUS_INTERVAL_SECONDS}"
 done
 
 build_output="$(aws ssm get-command-invocation \
@@ -401,7 +402,7 @@ build_output="$(aws ssm get-command-invocation \
     --instance-id "${INSTANCE_ID}" \
     --query StandardOutputContent \
     --output text)"
-grep -qF "BUILD_OK operation=1.1.0 release=${RELEASE_ID}" <<< "${build_output}" || fail "build command succeeded without the expected completion marker"
+grep -qF "BUILD_OK operation=1.3.0 release=${RELEASE_ID}" <<< "${build_output}" || fail "build command succeeded without the expected completion marker"
 
 manifest_json="$(aws s3 cp \
     --profile "${AWS_PROFILE}" \

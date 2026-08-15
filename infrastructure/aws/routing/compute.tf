@@ -34,11 +34,11 @@ resource "aws_instance" "serving" {
     encrypted             = true
     volume_size           = 30
     volume_type           = "gp3"
-  }
 
-  volume_tags = merge(local.common_tags, {
-    Name = "daf-routing-serving-root"
-  })
+    tags = merge(local.common_tags, {
+      Name = "daf-routing-serving-root"
+    })
+  }
 
   tags = {
     Name = "daf-routing-serving"
@@ -48,14 +48,15 @@ resource "aws_instance" "serving" {
 }
 
 resource "aws_volume_attachment" "graphs" {
-  device_name = "/dev/sdf"
+  device_name = "/dev/sdg"
   volume_id   = aws_ebs_volume.graphs.id
   instance_id = aws_instance.serving.id
 }
 
 resource "aws_launch_template" "builder" {
-  name        = "daf-routing-builder"
-  description = "On-demand 128-GiB ARM GraphHopper graph builder"
+  name                   = "daf-routing-builder"
+  description            = "On-demand 128-GiB ARM GraphHopper graph builder"
+  update_default_version = true
 
   image_id      = data.aws_ssm_parameter.amazon_linux_2023_arm64.value
   instance_type = var.builder_instance_type

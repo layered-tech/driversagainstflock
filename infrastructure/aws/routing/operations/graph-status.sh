@@ -8,6 +8,7 @@ readonly AWS_PROFILE="daf-routing"
 readonly AWS_REGION="us-east-1"
 readonly ARTIFACT_BUCKET="daf-routing-graphs-326364278889-us-east-1"
 readonly ACTIVE_BUILD_KEY="operations/active-build.json"
+readonly STATUS_INTERVAL_SECONDS=15
 
 WATCH=false
 
@@ -18,7 +19,7 @@ Usage: npm run graph:status -- [--watch]
 Show the latest GraphHopper build after reconnecting to a terminal.
 
 Options:
-  --watch    Refresh every 60 seconds until the build finishes.
+  --watch    Refresh every 15 seconds until the build finishes.
   --help     Show this help.
 USAGE
 }
@@ -93,8 +94,10 @@ while true; do
         --no-progress 2>/dev/null || true)"
 
     progress="waiting"
+    resources="waiting"
     if [[ -n "${progress_json}" ]]; then
         progress="$(jq -r '"\(.percent)% — \(.phase) (\(.detail))"' <<< "${progress_json}")"
+        resources="$(jq -r '"CPU \(.resources.cpu_used_percent // 0)% | Memory \(.resources.memory_used_percent // 0)% | Scratch \(.resources.scratch_used_percent // 0)%"' <<< "${progress_json}")"
     fi
 
     artifact_ready="no"
@@ -107,7 +110,7 @@ while true; do
         artifact_ready="yes"
     fi
 
-    printf 'Release:  %s\nSnapshot: %s\nStarted:  %s\nInstance: %s (%s)\nCommand:  %s\nProgress: %s\nArtifact: %s\n' \
+    printf 'Release:  %s\nSnapshot: %s\nStarted:  %s\nInstance: %s (%s)\nCommand:  %s\nProgress: %s\nResources: %s\nArtifact: %s\n' \
         "${release_id}" \
         "${pbf_name}" \
         "${started_at}" \
@@ -115,6 +118,7 @@ while true; do
         "${instance_state}" \
         "${command_status}" \
         "${progress}" \
+        "${resources}" \
         "${artifact_ready}"
 
     if [[ "${WATCH}" != "true" ]]; then
@@ -128,5 +132,5 @@ while true; do
     esac
 
     echo
-    sleep 60
+    sleep "${STATUS_INTERVAL_SECONDS}"
 done

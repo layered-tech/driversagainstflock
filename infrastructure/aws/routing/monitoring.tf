@@ -168,12 +168,20 @@ resource "aws_cloudwatch_dashboard" "routing" {
           metrics = [
             ["AWS/EC2", "CPUUtilization", "InstanceId", aws_instance.serving.id, { label = "Serving CPU" }],
             [".", "StatusCheckFailed", ".", ".", { label = "Serving status check", stat = "Maximum", yAxis = "right" }],
+            ["DAF/Routing", "ServingGraphVolumeUsedPercent", "InstanceId", aws_instance.serving.id, { label = "Graph volume used (%)" }],
+            [".", "ServingMemoryUsedPercent", ".", ".", { label = "Memory used (%)" }],
           ]
-          period = 300
+          period = 60
           region = var.aws_region
           stat   = "Average"
           title  = "Serving instance health"
           view   = "timeSeries"
+          yAxis = {
+            left = {
+              min = 0
+              max = 100
+            }
+          }
         }
       },
       {
@@ -241,6 +249,7 @@ resource "aws_cloudwatch_dashboard" "routing" {
         properties = {
           metrics = [
             [{ expression = "SEARCH('{DAF/Routing,ReleaseId} MetricName=\"InitialGraphBuildElapsed\"', 'Maximum', 300)", id = "build_elapsed", label = "Build elapsed seconds" }],
+            [{ expression = "SEARCH('{DAF/Routing,ReleaseId} MetricName=\"BuilderCpuUsed\"', 'Maximum', 300)", id = "builder_cpu", label = "Builder CPU used (%)", yAxis = "right" }],
             [{ expression = "SEARCH('{DAF/Routing,ReleaseId} MetricName=\"BuilderMemoryUsed\"', 'Maximum', 300)", id = "builder_memory", label = "Builder memory used (%)", yAxis = "right" }],
             [{ expression = "SEARCH('{DAF/Routing,ReleaseId} MetricName=\"BuilderScratchUsed\"', 'Maximum', 300)", id = "builder_scratch", label = "Builder scratch used (%)", yAxis = "right" }],
           ]
