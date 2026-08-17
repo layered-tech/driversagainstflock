@@ -19,6 +19,7 @@ import {
     SCORECARD_STATS_WINDOW_MS,
     serializeScorecardState,
     setScorecardFuelCostSettings,
+    unlockEarnedScorecardBadges,
 } from '../scorecard-engine.js';
 
 function makeRoute() {
@@ -81,7 +82,25 @@ describe('device-local scorecard engine', () => {
         );
     });
 
-    test('awards per-camera XP even when ALPR monitoring was unavailable', () => {
+    test('credits known avoided cameras when route camera coverage is incomplete', () => {
+        const route = makeRoute();
+        route.routes.direct.cameraCoverageComplete = false;
+        route.routes.ideal.cameraCoverageComplete = false;
+        let session = createScorecardSession({
+            id: 'drive-incomplete-route-coverage',
+            mode: 'guided',
+            startedAt: 1,
+        });
+
+        session = creditAvoidedRouteCameras(session, route, 1, 2);
+
+        assert.deepEqual(
+            session.creditedAvoidances.map(({ osmId }) => osmId),
+            ['100', '200'],
+        );
+    });
+
+    test('scores observed results even when ALPR monitoring was unavailable', () => {
         const startedAt = Date.parse('2026-08-12T12:00:00Z');
         let session = createScorecardSession({
             exposureCoverageComplete: false,
@@ -92,17 +111,38 @@ describe('device-local scorecard engine', () => {
 
         session = creditAvoidedRouteCameras(session, makeRoute(), 1, startedAt);
 
-        const { trip } = finalizeScorecardSession(
+        const { state, trip } = finalizeScorecardSession(
             {
                 ...createEmptyScorecardState(),
                 activeSession: session,
             },
             { endedAt: startedAt + 60_000 },
         );
+        const restoredTrip = parseScorecardState(
+            serializeScorecardState(state, startedAt + 60_000),
+            startedAt + 60_000,
+        ).trips[0];
 
         assert.equal(trip.exposureCoverageComplete, false);
+        assert.equal(trip.exposureCoverageObserved, true);
+        assert.equal(trip.exposureCoveragePending, false);
+        assert.equal(trip.exposureCoverageWasTruncated, true);
         assert.equal(trip.avoidedCameraCount, 2);
         assert.equal(trip.xpEarned, 90);
+        assert.equal(state.lifetime.cleanDriveCount, 1);
+        assert.equal(state.lifetime.currentCleanDriveStreak, 1);
+        assert.equal(
+            getScorecardWindowStats(state, startedAt + 60_000).privacyScore,
+            100,
+        );
+        assert.deepEqual(
+            {
+                observed: restoredTrip.exposureCoverageObserved,
+                pending: restoredTrip.exposureCoveragePending,
+                truncated: restoredTrip.exposureCoverageWasTruncated,
+            },
+            { observed: true, pending: false, truncated: true },
+        );
     });
 
     test('keeps stable OSM avoidance credit across reroutes', () => {
@@ -262,6 +302,45 @@ describe('device-local scorecard engine', () => {
             ]),
             { current: 3, longest: 3 },
         );
+    });
+
+    test('counts drives with incomplete coverage when no read was observed', () => {
+        const startedAt = Date.parse('2026-08-01T12:00:00Z');
+
+        assert.deepEqual(
+            getCleanDriveStreak([
+                {
+                    confirmedReadCount: 0,
+                    endedAt: startedAt,
+                    exposureCoverageComplete: false,
+                },
+                {
+                    confirmedReadCount: 0,
+                    endedAt: startedAt + 1000,
+                    exposureCoverageComplete: true,
+                },
+            ]),
+            { current: 2, longest: 2 },
+        );
+    });
+
+    test('earns no-read badges from observed game results regardless of coverage', () => {
+        const now = Date.parse('2026-08-30T12:00:00Z');
+        const state = {
+            ...createEmptyScorecardState(),
+            trips: Array.from({ length: 10 }, (_, index) => ({
+                confirmedReadCount: 0,
+                endedAt: now - (index * (29 * 24 * 60 * 60 * 1000)) / 9,
+                exposureCoverageComplete: false,
+                id: `drive-${index}`,
+                startedAt:
+                    now - (index * (29 * 24 * 60 * 60 * 1000)) / 9 - 1000,
+            })),
+        };
+        const awarded = unlockEarnedScorecardBadges(state, now);
+
+        assert.equal(awarded.badgeUnlocks['clean-week'], now);
+        assert.equal(awarded.badgeUnlocks['zero-month'], now);
     });
 
     test('shows possible reads but excludes them from score and score impact', () => {

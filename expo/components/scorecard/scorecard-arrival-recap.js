@@ -54,8 +54,14 @@ function RecapStat({ label, testID, tone = 'default', value }) {
 
 export function ScorecardArrivalRecap() {
     const insets = useSafeAreaInsets();
-    const { dismissRecap, level, pendingRecap, scorecardState, windowStats } =
-        useScorecard();
+    const {
+        debugOverlayIsVisible,
+        dismissRecap,
+        level,
+        pendingRecap,
+        scorecardState,
+        windowStats,
+    } = useScorecard();
 
     if (!pendingRecap) {
         return null;
@@ -64,29 +70,18 @@ export function ScorecardArrivalRecap() {
     const trip = pendingRecap;
     const fuelEstimate = getScorecardTripFuelEstimate(scorecardState, trip);
     const currentScore = windowStats.privacyScore;
-    const scoreBeforeTrip = windowStats.exposureCoverageComplete
-        ? getScorecardPrivacyScore(
-              Math.max(
-                  0,
-                  windowStats.avoidedCameraCount - trip.avoidedCameraCount,
-              ),
-              Math.max(
-                  0,
-                  windowStats.confirmedReadCount - trip.confirmedReadCount,
-              ),
-          )
-        : null;
+    const scoreBeforeTrip = getScorecardPrivacyScore(
+        Math.max(0, windowStats.avoidedCameraCount - trip.avoidedCameraCount),
+        Math.max(0, windowStats.confirmedReadCount - trip.confirmedReadCount),
+    );
     const scoreDelta =
         currentScore !== null && scoreBeforeTrip !== null
             ? currentScore - scoreBeforeTrip
             : null;
-    const cleanDrive =
-        trip.exposureCoverageComplete && trip.confirmedReadCount === 0;
-    const title = !trip.exposureCoverageComplete
-        ? 'Arrived · monitoring incomplete'
-        : cleanDrive
-          ? 'Arrived, unseen'
-          : `Arrived · ${trip.confirmedReadCount} ${trip.confirmedReadCount === 1 ? 'read' : 'reads'}`;
+    const cleanDrive = trip.confirmedReadCount === 0;
+    const title = cleanDrive
+        ? 'Arrived, unseen'
+        : `Arrived · ${trip.confirmedReadCount} ${trip.confirmedReadCount === 1 ? 'read' : 'reads'}`;
     const handleTimelinePress = () => {
         dismissRecap();
         router.push('/scorecard/timeline');
@@ -141,7 +136,7 @@ export function ScorecardArrivalRecap() {
                             testID="scorecard-arrival-recap-score"
                         >
                             {currentScore === null
-                                ? 'Privacy score withheld'
+                                ? 'Privacy score pending'
                                 : `Privacy score → ${currentScore}`}
                         </Text>
                         <Text
@@ -150,10 +145,29 @@ export function ScorecardArrivalRecap() {
                         >
                             {cleanDrive
                                 ? `Clean drive · streak is now ${windowStats.cleanDriveStreak}`
-                                : trip.exposureCoverageComplete
-                                  ? 'Confirmed cone crossings reduce score'
-                                  : 'ALPR monitoring was unavailable for part of this drive'}
+                                : 'Confirmed cone crossings reduce score'}
                         </Text>
+                        {debugOverlayIsVisible &&
+                        !trip.exposureCoverageComplete ? (
+                            <Text
+                                className="font-dafMono mt-1 text-[10px] text-daf-amber"
+                                testID="scorecard-arrival-recap-coverage-debug"
+                            >
+                                ALPR debug · complete=false · observed=
+                                {String(
+                                    trip.exposureCoverageObserved ?? 'unknown',
+                                )}{' '}
+                                · pendingAtEnd=
+                                {String(
+                                    trip.exposureCoveragePending ?? 'unknown',
+                                )}{' '}
+                                · incompleteResponse=
+                                {String(
+                                    trip.exposureCoverageWasTruncated ??
+                                        'unknown',
+                                )}
+                            </Text>
+                        ) : null}
                     </View>
                     <Icon
                         color={

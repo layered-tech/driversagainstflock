@@ -157,16 +157,18 @@ tags:
 - assertNotVisible:
     id: 'scorecard-arrival-recap'
 
-# Incomplete ALPR coverage withholds the score and cannot claim a clean drive.
-# Its unavailable state price is also surfaced instead of inventing a cost.
+# Incomplete ALPR coverage still scores what the game observed. Coverage
+# diagnostics stay hidden outside debugging mode. An unavailable state price
+# is still surfaced instead of inventing a cost.
 - openLink: 'driversagainstflock://e2e-mocks?scorecard=coverage-incomplete'
 - extendedWaitUntil:
     visible:
       id: 'scorecard-arrival-recap'
     timeout: 10000
-- assertVisible: 'Arrived · monitoring incomplete'
-- assertVisible: 'Privacy score withheld'
-- assertVisible: 'The ALPR result limit was hit or coverage was unavailable'
+- assertVisible: 'Arrived, unseen'
+- assertVisible: 'Privacy score → 88'
+- assertNotVisible:
+    id: 'scorecard-arrival-recap-coverage-debug'
 - copyTextFrom:
     id: 'scorecard-arrival-recap-avoided'
 - assertTrue: ${maestro.copiedText == '4'}
@@ -198,16 +200,11 @@ tags:
     visible:
       id: 'scorecard-dashboard'
     timeout: 10000
-- scrollUntilVisible:
-    element:
-      id: 'scorecard-coverage-incomplete'
-    direction: UP
-    timeout: 10000
-- assertVisible:
+- assertNotVisible:
     id: 'scorecard-coverage-incomplete'
 - copyTextFrom:
     id: 'scorecard-privacy-score'
-- assertTrue: ${maestro.copiedText == '—'}
+- assertTrue: ${maestro.copiedText == '88'}
 - scrollUntilVisible:
     element:
       id: 'scorecard-fuel-cost'

@@ -101,11 +101,17 @@ describe('scorecard Maestro fixture', () => {
             E2E_SCORECARD_IDS.incompleteTrip,
         );
         assert.equal(incomplete.pendingRecap.exposureCoverageComplete, false);
+        assert.equal(incomplete.pendingRecap.exposureCoverageObserved, true);
+        assert.equal(incomplete.pendingRecap.exposureCoveragePending, false);
+        assert.equal(
+            incomplete.pendingRecap.exposureCoverageWasTruncated,
+            true,
+        );
         assert.equal(incomplete.pendingRecap.extraFuelCost, null);
         assert.equal(incomplete.pendingRecap.xpEarned, 180);
         assert.equal(incompleteStats.exposureCoverageComplete, false);
         assert.equal(incompleteStats.priceCoverageComplete, false);
-        assert.equal(incompleteStats.privacyScore, null);
+        assert.equal(incompleteStats.privacyScore, 88);
     });
 
     test('covers every level threshold and maximum-level state', () => {

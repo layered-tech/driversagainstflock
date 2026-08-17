@@ -26,6 +26,26 @@ describe('scorecard dashboard interactions', () => {
         );
     });
 
+    test('limits coverage diagnostics to debugging mode without withholding scores', () => {
+        const arrivalSource = readSource('../scorecard-arrival-recap.js');
+        const dashboardSource = readSource('../scorecard-dashboard-screen.js');
+
+        assert.match(
+            dashboardSource,
+            /debugOverlayIsVisible &&[\s\S]*?coverageDebugStats\.incompleteDriveCount/,
+        );
+        assert.match(
+            arrivalSource,
+            /debugOverlayIsVisible &&[\s\S]*?!trip\.exposureCoverageComplete/,
+        );
+        assert.match(arrivalSource, /pendingAtEnd=/);
+        assert.match(arrivalSource, /incompleteResponse=/);
+        assert.match(dashboardSource, /legacy details unavailable/);
+        assert.doesNotMatch(dashboardSource, /Score withheld/);
+        assert.doesNotMatch(arrivalSource, /Privacy score withheld/);
+        assert.doesNotMatch(arrivalSource, /monitoring incomplete/);
+    });
+
     test('shows an edit handle and opens custom fuel inputs from the privacy cost card', () => {
         const dashboardSource = readSource('../scorecard-dashboard-screen.js');
         const modalSource = readSource('../scorecard-fuel-settings-modal.js');
@@ -44,5 +64,25 @@ describe('scorecard dashboard interactions', () => {
         assert.match(modalSource, /scorecard-fuel-mpg-input/);
         assert.match(modalSource, /scorecard-fuel-price-input/);
         assert.match(modalSource, /scorecard-fuel-settings-reset/);
+    });
+
+    test('offers explicit scorecard backup and destructive restore actions', () => {
+        const dashboardSource = readSource('../scorecard-dashboard-screen.js');
+        const iconPathsSource = readSource('../../design-system/icon-paths.js');
+
+        assert.match(dashboardSource, /scorecard-export-backup/);
+        assert.match(dashboardSource, /scorecard-import-backup/);
+        assert.match(iconPathsSource, /download:/);
+        assert.match(dashboardSource, /Import and replace/);
+        assert.match(dashboardSource, /currently stored on this device/);
+        assert.match(
+            dashboardSource,
+            /Backup files are not encrypted after export/,
+        );
+        assert.match(dashboardSource, /DAF never uploads the/);
+        assert.match(
+            dashboardSource,
+            /Boolean\(scorecardState\.activeSession\)/,
+        );
     });
 });
