@@ -24,6 +24,16 @@ import { updateScorecardArrivalDetection } from './arrival-detection';
 import { processScorecardExposureSegment } from './exposure-detection';
 import { getLocalStartingStateCode } from './local-state-resolver';
 import {
+    createScorecardBackup,
+    getScorecardBackupFilename,
+    parseScorecardBackup,
+} from './scorecard-backup';
+import {
+    exportScorecardBackupFile,
+    importScorecardBackupFile,
+    scorecardBackupFilesAreAvailable,
+} from './scorecard-backup-file';
+import {
     createE2EScorecardFixture,
     getE2EScorecardFixtureFromURL,
 } from './scorecard-e2e-fixture';
@@ -115,6 +125,7 @@ export function ScorecardProvider({ children }) {
     const {
         alprCoverageComplete,
         alprNodes,
+        debugOverlayIsVisible,
         directionsRoute,
         drivingModeIsActive,
         setDirectionsRoute,
@@ -137,6 +148,7 @@ export function ScorecardProvider({ children }) {
     const providerIsMountedRef = useRef(true);
     const routeSnapshotRef = useRef(null);
     const sessionStartInFlightRef = useRef(false);
+    const backupFilesAreAvailable = scorecardBackupFilesAreAvailable();
     const secureStorageIsAvailable = scorecardSecureStorageIsAvailable();
 
     const commitState = useCallback((update) => {
@@ -759,6 +771,66 @@ export function ScorecardProvider({ children }) {
     const resetFuelCostSettings = useCallback(() => {
         commitState(resetScorecardFuelCostSettings);
     }, [commitState]);
+    const exportBackup = useCallback(async () => {
+        if (stateRef.current.activeSession) {
+            throw new Error(
+                'Finish the active drive before exporting a scorecard backup.',
+            );
+        }
+
+        const now = Date.now();
+
+        return exportScorecardBackupFile(
+            createScorecardBackup(stateRef.current, now),
+            getScorecardBackupFilename(now),
+        );
+    }, []);
+    const pickBackupForImport = useCallback(async () => {
+        if (stateRef.current.activeSession) {
+            throw new Error(
+                'Finish the active drive before importing a scorecard backup.',
+            );
+        }
+
+        const serializedBackup = await importScorecardBackupFile();
+
+        return serializedBackup === null
+            ? null
+            : parseScorecardBackup(serializedBackup);
+    }, []);
+    const restoreBackup = useCallback(
+        async (backup) => {
+            if (stateRef.current.activeSession) {
+                throw new Error(
+                    'Finish the active drive before importing a scorecard backup.',
+                );
+            }
+
+            if (!backup?.state) {
+                throw new Error('The selected scorecard backup is invalid.');
+            }
+
+            const wasSaved = await saveEncryptedScorecardState(backup.state);
+
+            if (!wasSaved) {
+                throw new Error(
+                    'The imported scorecard could not be saved securely.',
+                );
+            }
+
+            stateRef.current = backup.state;
+            setScorecardState(backup.state);
+            setPendingRecap(null);
+            pendingE2EFixtureURLRef.current = null;
+            routeSnapshotRef.current = null;
+            arrivalDetectionRef.current = null;
+            detectorStateRef.current = { cameras: {} };
+            freeDriveDistanceMetersRef.current = 0;
+            gasPriceRequestsRef.current.clear();
+            previousLocationRef.current = userLocation;
+        },
+        [userLocation],
+    );
     const deleteHistory = useCallback(async () => {
         const emptyState = createEmptyScorecardState();
 
@@ -811,14 +883,19 @@ export function ScorecardProvider({ children }) {
     );
     const value = useMemo(
         () => ({
+            backupFilesAreAvailable,
             badges,
+            debugOverlayIsVisible,
             deleteHistory,
             dismissRecap,
+            exportBackup,
             isHydrated,
             level,
             pendingRecap,
+            pickBackupForImport,
             recordPublishedCameras,
             resetFuelCostSettings,
+            restoreBackup,
             scorecardState,
             secureStorageIsAvailable,
             setFuelCostSettings,
@@ -826,14 +903,19 @@ export function ScorecardProvider({ children }) {
             windowStats,
         }),
         [
+            backupFilesAreAvailable,
             badges,
+            debugOverlayIsVisible,
             deleteHistory,
             dismissRecap,
+            exportBackup,
             isHydrated,
             level,
             pendingRecap,
+            pickBackupForImport,
             recordPublishedCameras,
             resetFuelCostSettings,
+            restoreBackup,
             scorecardState,
             secureStorageIsAvailable,
             setFuelCostSettings,
