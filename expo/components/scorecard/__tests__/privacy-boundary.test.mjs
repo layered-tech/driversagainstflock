@@ -101,6 +101,23 @@ describe('scorecard telemetry and storage boundary', () => {
         assert.doesNotMatch(fixtureSource, /fetch\(|AsyncStorage|SecureStore/);
     });
 
+    test('keeps backup transfer user-directed and restores through encrypted persistence', () => {
+        const backupSource = readSource('../scorecard-backup.js');
+        const contextSource = readSource('../scorecard-context.js');
+
+        assert.match(backupSource, /serializeScorecardState/);
+        assert.match(backupSource, /activeSession: null/);
+        assert.match(backupSource, /pendingRecapTripId: null/);
+        assert.doesNotMatch(
+            backupSource,
+            /fetch\(|analytics|sentry|latitude|longitude/,
+        );
+        assert.match(
+            contextSource,
+            /saveEncryptedScorecardState\(backup\.state\)[\s\S]*?setScorecardState\(backup\.state\)/,
+        );
+    });
+
     test('requests a generic price table without sending a state or location', () => {
         const gasPriceSource = readSource('../state-gas-prices.js');
 

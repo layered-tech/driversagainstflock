@@ -67,6 +67,10 @@ function nonNegativeNumber(value, fallback = 0) {
     return Math.max(0, finiteNumber(value, fallback));
 }
 
+function optionalBoolean(value) {
+    return typeof value === 'boolean' ? value : null;
+}
+
 function normalizeFuelEconomyMpg(value) {
     const mpg = Number(value);
 
@@ -287,6 +291,15 @@ function normalizeTrip(value) {
                   .filter(Boolean)
             : [],
         exposureCoverageComplete: value?.exposureCoverageComplete === true,
+        exposureCoverageObserved: optionalBoolean(
+            value?.exposureCoverageObserved,
+        ),
+        exposureCoveragePending: optionalBoolean(
+            value?.exposureCoveragePending,
+        ),
+        exposureCoverageWasTruncated: optionalBoolean(
+            value?.exposureCoverageWasTruncated,
+        ),
         extraFuelCost: Number.isFinite(value?.extraFuelCost)
             ? nonNegativeNumber(value.extraFuelCost)
             : null,
@@ -529,10 +542,7 @@ export function getCleanDriveStreak(trips) {
 
     for (const trip of orderedTrips) {
         current =
-            trip?.exposureCoverageComplete === true &&
-            nonNegativeNumber(trip?.confirmedReadCount) === 0
-                ? current + 1
-                : 0;
+            nonNegativeNumber(trip?.confirmedReadCount) === 0 ? current + 1 : 0;
         longest = Math.max(longest, current);
     }
 
@@ -644,9 +654,10 @@ export function getScorecardWindowStats(state, now = Date.now()) {
         extraMiles,
         possibleReadCount,
         priceCoverageComplete,
-        privacyScore: exposureCoverageComplete
-            ? getScorecardPrivacyScore(avoidedCameraCount, confirmedReadCount)
-            : null,
+        privacyScore: getScorecardPrivacyScore(
+            avoidedCameraCount,
+            confirmedReadCount,
+        ),
         trips,
     };
 }
@@ -661,13 +672,7 @@ export function getAvoidableRouteCameraCandidates(route) {
     const selectedRoute =
         routeOptionForKey(route, selectedRouteKey) ?? route ?? null;
 
-    if (
-        !directRoute ||
-        !selectedRoute ||
-        selectedRouteKey === 'direct' ||
-        directRoute.cameraCoverageComplete !== true ||
-        selectedRoute.cameraCoverageComplete !== true
-    ) {
+    if (!directRoute || !selectedRoute || selectedRouteKey === 'direct') {
         return [];
     }
 
@@ -786,10 +791,7 @@ function badgeConditions(state, now) {
         'clean-week': cleanDriveStreak.longest >= 7,
         'first-detour': state.lifetime.privateTripsWithAvoidance >= 1,
         ghost: level.level >= 4,
-        'zero-month':
-            coversThirtyDays &&
-            windowStats.exposureCoverageComplete &&
-            windowStats.confirmedReadCount === 0,
+        'zero-month': coversThirtyDays && windowStats.confirmedReadCount === 0,
     };
 }
 
@@ -847,7 +849,7 @@ export function finalizeScorecardSession(
     const extraFuelCost = Number.isFinite(effectiveGasPrice)
         ? extraGallons * effectiveGasPrice
         : null;
-    const cleanDrive = exposureCoverageComplete && confirmedReadCount === 0;
+    const cleanDrive = confirmedReadCount === 0;
     const trip = {
         avoidedCameraCount,
         avoidedCameras: session.creditedAvoidances,
@@ -861,6 +863,10 @@ export function finalizeScorecardSession(
         endedAt,
         exposureEventIds: sessionExposures.map((event) => event.id),
         exposureCoverageComplete,
+        exposureCoverageObserved: session.exposureCoverageObserved === true,
+        exposureCoveragePending: session.exposureCoveragePending === true,
+        exposureCoverageWasTruncated:
+            session.exposureCoverageWasTruncated === true,
         extraFuelCost,
         extraGallons,
         extraMiles,

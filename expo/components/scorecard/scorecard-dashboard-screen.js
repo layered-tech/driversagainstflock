@@ -30,6 +30,22 @@ function formatNumber(value, maximumFractionDigits = 1) {
     });
 }
 
+function getBackupErrorMessage(error, fallback) {
+    return typeof error?.message === 'string' && error.message.trim()
+        ? error.message
+        : fallback;
+}
+
+function getBackupSummaryMessage(backup) {
+    const { completedDriveCount, exposureCount, xp } = backup.summary;
+
+    return [
+        `${formatNumber(completedDriveCount, 0)} completed ${completedDriveCount === 1 ? 'drive' : 'drives'}`,
+        `${formatNumber(xp, 0)} XP`,
+        `${formatNumber(exposureCount, 0)} retained exposure ${exposureCount === 1 ? 'event' : 'events'}`,
+    ].join(' · ');
+}
+
 function getWeeklyConfirmedReads(exposures, now = Date.now()) {
     const buckets = Array.from({ length: WEEK_BUCKET_COUNT }, () => 0);
     const start = now - WEEK_BUCKET_COUNT * WEEK_MS;
@@ -47,6 +63,31 @@ function getWeeklyConfirmedReads(exposures, now = Date.now()) {
     }
 
     return buckets;
+}
+
+function getCoverageDebugStats(trips) {
+    const incompleteTrips = trips.filter(
+        (trip) => !trip.exposureCoverageComplete,
+    );
+
+    return {
+        incompleteDriveCount: incompleteTrips.length,
+        incompleteResponseCount: incompleteTrips.filter(
+            (trip) => trip.exposureCoverageWasTruncated === true,
+        ).length,
+        metadataUnavailableCount: incompleteTrips.filter(
+            (trip) =>
+                trip.exposureCoverageObserved === null &&
+                trip.exposureCoveragePending === null &&
+                trip.exposureCoverageWasTruncated === null,
+        ).length,
+        neverObservedCount: incompleteTrips.filter(
+            (trip) => trip.exposureCoverageObserved === false,
+        ).length,
+        pendingAtEndCount: incompleteTrips.filter(
+            (trip) => trip.exposureCoveragePending === true,
+        ).length,
+    };
 }
 
 function PrivacyScoreRing({ score, theme }) {
@@ -161,23 +202,33 @@ export default function ScorecardDashboardScreen() {
     const insets = useSafeAreaInsets();
     const theme = getDafTheme(colorScheme);
     const {
+        backupFilesAreAvailable,
         badges,
+        debugOverlayIsVisible,
         deleteHistory,
+        exportBackup,
         isHydrated,
         level,
+        pickBackupForImport,
         resetFuelCostSettings,
+        restoreBackup,
         scorecardState,
         secureStorageIsAvailable,
         setFuelCostSettings,
         setTrackingEnabled,
         windowStats,
     } = useScorecard();
+    const [backupActionIsPending, setBackupActionIsPending] = useState(false);
     const [fuelSettingsAreVisible, setFuelSettingsAreVisible] = useState(false);
     const weeklyReads = useMemo(
         () => getWeeklyConfirmedReads(scorecardState.exposures),
         [scorecardState.exposures],
     );
     const maximumWeeklyReads = Math.max(1, ...weeklyReads);
+    const coverageDebugStats = useMemo(
+        () => getCoverageDebugStats(windowStats.trips),
+        [windowStats.trips],
+    );
     const earnedBadgeCount = badges.filter((badge) => badge.earned).length;
     const exposureCount = scorecardState.exposures.length;
     const fuelCostSettings = getScorecardFuelCostSettings(
@@ -195,6 +246,96 @@ export default function ScorecardDashboardScreen() {
             ? windowStats.extraFuelCost / windowStats.avoidedCameraCount
             : null;
     const bottomPadding = Math.max(insets.bottom + 28, 28);
+    const backupActionsAreDisabled =
+        backupActionIsPending ||
+        !backupFilesAreAvailable ||
+        !isHydrated ||
+        !secureStorageIsAvailable ||
+        Boolean(scorecardState.activeSession);
+
+    const handleExportBackup = async () => {
+        setBackupActionIsPending(true);
+
+        try {
+            const wasExported = await exportBackup();
+
+            if (wasExported) {
+                Alert.alert(
+                    'Scorecard backup exported',
+                    'Keep the backup file somewhere you trust so it is available after reinstalling or changing devices.',
+                );
+            }
+        } catch (error) {
+            Alert.alert(
+                'Could not export backup',
+                getBackupErrorMessage(
+                    error,
+                    'The scorecard backup could not be exported.',
+                ),
+            );
+        } finally {
+            setBackupActionIsPending(false);
+        }
+    };
+
+    const handleRestoreBackup = async (backup) => {
+        setBackupActionIsPending(true);
+
+        try {
+            await restoreBackup(backup);
+            Alert.alert(
+                'Scorecard restored',
+                'The imported scorecard is now stored in encrypted storage on this device.',
+            );
+        } catch (error) {
+            Alert.alert(
+                'Could not restore backup',
+                getBackupErrorMessage(
+                    error,
+                    'The imported scorecard could not be saved.',
+                ),
+            );
+        } finally {
+            setBackupActionIsPending(false);
+        }
+    };
+
+    const handleImportBackup = async () => {
+        setBackupActionIsPending(true);
+
+        try {
+            const backup = await pickBackupForImport();
+
+            if (!backup) {
+                return;
+            }
+
+            const exportedAt = new Date(backup.exportedAt).toLocaleDateString();
+
+            Alert.alert(
+                'Replace scorecard with this backup?',
+                `Backup from ${exportedAt}\n${getBackupSummaryMessage(backup)}\n\nImporting replaces the scorecard currently stored on this device.`,
+                [
+                    { style: 'cancel', text: 'Cancel' },
+                    {
+                        onPress: () => void handleRestoreBackup(backup),
+                        style: 'destructive',
+                        text: 'Import and replace',
+                    },
+                ],
+            );
+        } catch (error) {
+            Alert.alert(
+                'Could not import backup',
+                getBackupErrorMessage(
+                    error,
+                    'Choose a valid Drivers Against Flock scorecard backup.',
+                ),
+            );
+        } finally {
+            setBackupActionIsPending(false);
+        }
+    };
 
     const handleDeleteHistory = () => {
         Alert.alert(
@@ -241,14 +382,23 @@ export default function ScorecardDashboardScreen() {
                             score={isHydrated ? windowStats.privacyScore : null}
                             theme={theme}
                         />
-                        {!windowStats.exposureCoverageComplete &&
-                        windowStats.trips.length > 0 ? (
+                        {debugOverlayIsVisible &&
+                        coverageDebugStats.incompleteDriveCount > 0 ? (
                             <Text
                                 className="mt-1 text-center text-xs text-daf-amber"
                                 testID="scorecard-coverage-incomplete"
                             >
-                                Score withheld because camera coverage was
-                                incomplete for at least one drive.
+                                ALPR debug ·{' '}
+                                {coverageDebugStats.incompleteDriveCount}/
+                                {windowStats.trips.length} drives incomplete ·{' '}
+                                {coverageDebugStats.neverObservedCount} never
+                                observed ·{' '}
+                                {coverageDebugStats.pendingAtEndCount} pending
+                                at end ·{' '}
+                                {coverageDebugStats.incompleteResponseCount}{' '}
+                                incomplete responses ·{' '}
+                                {coverageDebugStats.metadataUnavailableCount}{' '}
+                                legacy details unavailable
                             </Text>
                         ) : null}
                         <View className="mt-3.5 flex-row items-center gap-2">
@@ -543,6 +693,73 @@ export default function ScorecardDashboardScreen() {
                                 </Text>
                             </View>
                         ) : null}
+                        <View className="dark:border-daf-border-dark mt-3 border-t border-daf-border pt-3">
+                            <Text className="text-[14px] font-semibold text-daf-text-primary dark:text-white">
+                                Backup and restore
+                            </Text>
+                            <Text className="mt-0.5 text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400">
+                                Save a scorecard backup for reinstalling or
+                                moving to another device. DAF never uploads the
+                                file.
+                            </Text>
+                            <View className="mt-3 flex-row gap-2">
+                                <Pressable
+                                    accessibilityRole="button"
+                                    className={`min-h-hitMin border-daf-brand/30 bg-daf-brand/10 flex-1 flex-row items-center justify-center gap-2 rounded-dafPill border active:opacity-70 ${
+                                        backupActionsAreDisabled
+                                            ? 'opacity-50'
+                                            : ''
+                                    }`}
+                                    disabled={backupActionsAreDisabled}
+                                    onPress={() => void handleExportBackup()}
+                                    testID="scorecard-export-backup"
+                                >
+                                    <Icon
+                                        color={dafSemanticColors.brand}
+                                        name="download"
+                                        size={16}
+                                    />
+                                    <Text className="text-[13px] font-semibold text-daf-text-brand dark:text-daf-brand">
+                                        Export backup
+                                    </Text>
+                                </Pressable>
+                                <Pressable
+                                    accessibilityRole="button"
+                                    className={`min-h-hitMin dark:border-daf-border-dark flex-1 flex-row items-center justify-center gap-2 rounded-dafPill border border-daf-border bg-daf-surface-alt active:opacity-70 dark:bg-daf-surface-inverse ${
+                                        backupActionsAreDisabled
+                                            ? 'opacity-50'
+                                            : ''
+                                    }`}
+                                    disabled={backupActionsAreDisabled}
+                                    onPress={() => void handleImportBackup()}
+                                    testID="scorecard-import-backup"
+                                >
+                                    <Icon
+                                        color={dafSemanticColors.speedOk}
+                                        name="upload"
+                                        size={16}
+                                    />
+                                    <Text className="text-[13px] font-semibold text-daf-text-secondary dark:text-neutral-300">
+                                        Import backup
+                                    </Text>
+                                </Pressable>
+                            </View>
+                            <Text className="mt-2 text-[11px] leading-4 text-daf-amber">
+                                Backup files are not encrypted after export.
+                                Store them somewhere you trust.
+                            </Text>
+                            {scorecardState.activeSession ? (
+                                <Text className="mt-1 text-[11px] leading-4 text-daf-text-tertiary dark:text-neutral-400">
+                                    Finish the active drive before backing up or
+                                    restoring.
+                                </Text>
+                            ) : !backupFilesAreAvailable ? (
+                                <Text className="mt-1 text-[11px] leading-4 text-daf-text-tertiary dark:text-neutral-400">
+                                    Backup tools require a current native app
+                                    build.
+                                </Text>
+                            ) : null}
+                        </View>
                         <Pressable
                             accessibilityRole="button"
                             className="min-h-hitMin border-daf-alert/30 bg-daf-alert/10 mt-3 flex-row items-center justify-center gap-2 rounded-dafPill border active:opacity-70"
