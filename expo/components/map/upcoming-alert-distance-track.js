@@ -16,10 +16,13 @@ function clampProgress(progress) {
 export function UpcomingAlertDistanceTrack({
     accentColor,
     compact = false,
+    isDarkMode,
     progress,
     testID = 'upcoming-alert-distance-track',
 }) {
-    const theme = getDafTheme(useColorScheme());
+    const systemColorScheme = useColorScheme();
+    const resolvedIsDarkMode = isDarkMode ?? systemColorScheme === 'dark';
+    const theme = getDafTheme(resolvedIsDarkMode ? 'dark' : 'light');
     const [trackWidth, setTrackWidth] = useState(0);
     const resolvedProgress = clampProgress(progress);
     const progressPercent = `${resolvedProgress * 100}%`;
@@ -54,7 +57,7 @@ export function UpcomingAlertDistanceTrack({
                 }}
             >
                 <View
-                    className={`absolute left-0 right-0 ${compact ? 'top-[6px] h-[3px]' : 'top-[7px] h-1'} rounded-dafPill bg-daf-surface-alt dark:bg-[#1A2027]`}
+                    className={`absolute left-0 right-0 ${compact ? 'top-[6px] h-[3px]' : 'top-[7px] h-1'} rounded-dafPill ${resolvedIsDarkMode ? 'bg-[#1A2027]' : 'bg-daf-surface-alt'}`}
                 />
                 <View
                     className={`absolute left-0 ${compact ? 'top-[6px] h-[3px]' : 'top-[7px] h-1'} rounded-dafPill`}

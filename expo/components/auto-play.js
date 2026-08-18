@@ -129,6 +129,7 @@ const AUTO_PLAY_GLYPH_BACKGROUND_COLOR = {
 };
 const ROOT_MAP_BUTTON_APPEARANCE_DEFAULTS = {
     isDarkMapLayer: false,
+    mapLightPreset: null,
     trackingState: 'inactive',
 };
 const ROOT_MAP_BUTTON_ACTIVE_ICON_COLOR = '#2563eb';
@@ -2547,7 +2548,16 @@ function updateRootMapButtonAppearance(appearance) {
     const darkMapLayerChanged =
         nextAppearance.isDarkMapLayer !==
         rootMapButtonAppearance.isDarkMapLayer;
+    const mapLightPresetChanged =
+        nextAppearance.mapLightPreset !==
+        rootMapButtonAppearance.mapLightPreset;
     rootMapButtonAppearance = nextAppearance;
+
+    if (mapLightPresetChanged && nextAppearance.mapLightPreset) {
+        logAutoPlayPlatformAction(
+            `map-preset-${nextAppearance.mapLightPreset}`,
+        );
+    }
 
     if (nextAppearanceKey === rootMapButtonAppearanceKey) {
         return;

@@ -11,6 +11,7 @@ const CARPLAY_SURFACE_PLATFORM_CONFIG = {
     },
     hideCompassDuringNavigation: true,
     ornamentSafeAreaLeftScale: 1,
+    usesHostColorSchemeForAutomaticMapPreset: false,
 };
 
 export const CarPlayMapSurface = createAutoPlayMapSurface(

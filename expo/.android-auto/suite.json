@@ -58,12 +58,13 @@
                 },
                 {
                     "type": "screenshot",
-                    "name": "day-mode"
+                    "name": "day-mode",
+                    "requireVisibleMapCrop": true
                 },
                 {
                     "type": "dhu",
                     "command": "night",
-                    "waitForMetro": "[Android Auto] appearance-dark"
+                    "waitForMetro": "[Android Auto] map-preset-night"
                 },
                 {
                     "type": "sleep",
@@ -71,21 +72,34 @@
                 },
                 {
                     "type": "screenshot",
-                    "name": "night-mode"
+                    "name": "night-mode",
+                    "requireVisibleMapCrop": true
                 },
                 {
-                    "type": "assertImagesDiffer",
-                    "first": "day-mode",
-                    "second": "night-mode"
+                    "type": "assertMapThemeContrast",
+                    "day": "day-mode",
+                    "night": "night-mode",
+                    "recapture": "night-mode"
                 },
                 {
                     "type": "dhu",
                     "command": "day",
-                    "waitForMetro": "[Android Auto] appearance-light"
+                    "waitForMetro": "[Android Auto] map-preset-day"
                 },
                 {
                     "type": "sleep",
-                    "milliseconds": 1500
+                    "milliseconds": 2500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "day-mode-return",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertMapThemeContrast",
+                    "day": "day-mode-return",
+                    "night": "night-mode",
+                    "recapture": "day-mode-return"
                 }
             ]
         },
@@ -166,13 +180,69 @@
                 {
                     "type": "assertOcr",
                     "screenshot": "navigation-started",
-                    "contains": ["Turn right to avoid monitored intersections"]
+                    "contains": [
+                        "Turn right to avoid",
+                        "monitored intersections"
+                    ]
                 }
             ]
         },
         {
             "name": "advances navigation through AUTO_DRIVE",
             "steps": [
+                {
+                    "type": "dhu",
+                    "command": "day"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 1500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "active-guidance-day",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "dhu",
+                    "command": "night",
+                    "waitForMetro": "[Android Auto] map-preset-night"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 2500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "active-guidance-night",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertMapThemeContrast",
+                    "day": "active-guidance-day",
+                    "night": "active-guidance-night",
+                    "recapture": "active-guidance-night"
+                },
+                {
+                    "type": "dhu",
+                    "command": "day",
+                    "waitForMetro": "[Android Auto] map-preset-day"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 2500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "active-guidance-day-return",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertMapThemeContrast",
+                    "day": "active-guidance-day-return",
+                    "night": "active-guidance-night",
+                    "recapture": "active-guidance-day-return"
+                },
                 {
                     "type": "screenshot",
                     "name": "auto-drive-before"
@@ -222,7 +292,10 @@
                 {
                     "type": "assertOcr",
                     "screenshot": "phone-asleep",
-                    "contains": ["Turn right to avoid monitored intersections"]
+                    "contains": [
+                        "Arrive at your destination",
+                        "Austin Central Library"
+                    ]
                 },
                 {
                     "type": "phoneWake"
@@ -250,7 +323,8 @@
                     "screenshot": "host-stopped-navigation",
                     "contains": ["For you"],
                     "notContains": [
-                        "Turn right to avoid monitored intersections"
+                        "Turn right to avoid monitored intersections",
+                        "Arrive at your destination"
                     ]
                 },
                 {

@@ -2,16 +2,14 @@ import { useMemo } from 'react';
 import { Platform, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { LOCATION_TRACKING_NONE } from '../map-location-mode-shared';
-import {
-    MAPBOX_STANDARD_LIGHT_PRESET_NIGHT,
-    MAPBOX_STANDARD_STYLE_URL,
-} from './config';
+import { MAPBOX_STANDARD_STYLE_URL } from './config';
 import {
     DRIVING_DESTINATION_SURFACE_HEIGHT,
     MAP_CONTROL_BUTTON_CLASS_NAME,
     MAP_CONTROL_EDGE_OFFSET,
     MAP_SEARCH_BAR_HEIGHT,
 } from './constants';
+import { mapLightPresetUsesDarkAppearance } from './map-light-preset-appearance';
 import { getMapLayerByStyleURL } from './map-preferences';
 import { getMapboxCompassSafeAreaInsets } from './mapbox-ornament-layout';
 
@@ -20,6 +18,7 @@ const DRIVING_ROUTE_COMPASS_EXTRA_BOTTOM_OFFSET = 18;
 export function useMapPresentation({
     destinationCardIsOverlay = true,
     hasActiveDirectionsRoute = false,
+    isDarkModeOverride,
     isDrivingMode,
     locationTrackingMode,
     mapLightPreset,
@@ -31,13 +30,13 @@ export function useMapPresentation({
     const measuredInsets = useSafeAreaInsets();
     const insets = safeAreaInsetsOverride ?? measuredInsets;
     const isSystemDarkMode = useColorScheme() === 'dark';
+    const resolvedIsDarkMode = isDarkModeOverride ?? isSystemDarkMode;
     const resolvedSearchSource =
         searchSource || (isDrivingMode ? 'driving' : 'map');
     const selectedMapLayer =
         getMapLayerByStyleURL(mapStyleURL) ??
         getMapLayerByStyleURL(MAPBOX_STANDARD_STYLE_URL);
-    const isDarkMapLayer =
-        mapLightPreset === MAPBOX_STANDARD_LIGHT_PRESET_NIGHT;
+    const isDarkMapLayer = mapLightPresetUsesDarkAppearance(mapLightPreset);
     const isSatelliteMapLayer = selectedMapLayer.key === 'standard-satellite';
     const isTrackingActive = locationTrackingMode !== LOCATION_TRACKING_NONE;
     const trackingButtonAccessibilityLabel = isTrackingActive
@@ -91,13 +90,13 @@ export function useMapPresentation({
     })();
     const drivingRecenterIconColor = isDarkMapLayer ? '#2FC177' : '#1FBF6B';
     const locatingIndicatorColor = isDarkMapLayer ? '#ffffff' : '#1FBF6B';
-    const primaryButtonIndicatorColor = isSystemDarkMode
+    const primaryButtonIndicatorColor = resolvedIsDarkMode
         ? '#171717'
         : '#ffffff';
-    const searchPlaceholderColor = isSystemDarkMode ? '#a3a3a3' : '#737373';
-    const searchIconColor = isSystemDarkMode ? '#a3a3a3' : '#525252';
-    const searchPrimaryIconColor = isSystemDarkMode ? '#f5f5f5' : '#171717';
-    const searchGlassTintColor = isSystemDarkMode
+    const searchPlaceholderColor = resolvedIsDarkMode ? '#a3a3a3' : '#737373';
+    const searchIconColor = resolvedIsDarkMode ? '#a3a3a3' : '#525252';
+    const searchPrimaryIconColor = resolvedIsDarkMode ? '#f5f5f5' : '#171717';
+    const searchGlassTintColor = resolvedIsDarkMode
         ? 'rgba(23,23,23,0.72)'
         : 'rgba(255,255,255,0.7)';
     const voiceSearchIconColor = voiceSearchIsListening
@@ -135,15 +134,15 @@ export function useMapPresentation({
             // Match the sheet content surface (daf-surface-dark / white) so the
             // handle strip is flush with the body. Using a different dark value here
             // produces a two-tone seam at the handle in dark mode.
-            backgroundColor: isSystemDarkMode ? '#161B22' : '#ffffff',
+            backgroundColor: resolvedIsDarkMode ? '#161B22' : '#ffffff',
         }),
-        [isSystemDarkMode],
+        [resolvedIsDarkMode],
     );
     const bottomSheetHandleIndicatorStyle = useMemo(
         () => ({
-            backgroundColor: isSystemDarkMode ? '#3A434E' : '#D4D9DF',
+            backgroundColor: resolvedIsDarkMode ? '#3A434E' : '#D4D9DF',
         }),
-        [isSystemDarkMode],
+        [resolvedIsDarkMode],
     );
     const mapCompassPosition = useMemo(() => {
         if (isDrivingMode) {
@@ -220,7 +219,7 @@ export function useMapPresentation({
         drivingRecenterIconColor,
         insets,
         isDarkMapLayer,
-        isSystemDarkMode,
+        isSystemDarkMode: resolvedIsDarkMode,
         isTrackingActive,
         locatingIndicatorColor,
         mapboxAttributionPosition,

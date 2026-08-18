@@ -20,6 +20,7 @@ import {
     AutoPlayMapStatusOverlay,
     AutoPlayTopRightStatusOverlay,
 } from './auto-play-map-status-overlay';
+import { resolveAutoPlayMapLightPresetPreference } from './auto-play-map-theme';
 import {
     getAutoPlayBoundsFitPadding,
     getAutoPlayViewportMetrics,
@@ -49,12 +50,7 @@ import {
 import { useLockOnLocationMode } from './map-lock-on-location-mode';
 import { useMockWazePoliceAlertsEnabled } from './map/api-mocks';
 import { getBoundsFitCameraStop } from './map/camera-state';
-import {
-    MAPBOX_STANDARD_LIGHT_PRESET_AUTO,
-    MAPBOX_STANDARD_LIGHT_PRESET_DAY,
-    MAPBOX_STANDARD_LIGHT_PRESET_NIGHT,
-    SHOW_MAP_DEBUG_CONTROLS,
-} from './map/config';
+import { SHOW_MAP_DEBUG_CONTROLS } from './map/config';
 import { DEFAULT_ZOOM_LEVEL, ZOOM_STEP } from './map/constants';
 import {
     DEBUG_OVERLAY_DIRECTIONS_GEOMETRY,
@@ -87,6 +83,7 @@ import {
     shouldAcceptLocationUpdate,
 } from './map/location-watch-options';
 import { MapCanvas } from './map/map-canvas';
+import { mapLightPresetUsesDarkAppearance } from './map/map-light-preset-appearance';
 import {
     MapScreenProviders,
     useAutoPlayMapScreenContextValues,
@@ -129,6 +126,7 @@ const DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG = {
     currentRoadPill: null,
     ornamentSafeAreaLeftScale: 1,
     showDrivingStatusOnSecondarySurfaces: false,
+    usesHostColorSchemeForAutomaticMapPreset: false,
 };
 
 const EMPTY_AUTOPLAY_MAP_CONTROL_HANDLERS = {
@@ -141,6 +139,7 @@ const EMPTY_AUTOPLAY_MAP_CONTROL_HANDLERS = {
 };
 const DEFAULT_AUTOPLAY_MAP_BUTTON_APPEARANCE = {
     isDarkMapLayer: false,
+    mapLightPreset: null,
     trackingState: 'inactive',
 };
 const DEFAULT_AUTO_PLAY_COLOR_SCHEME = 'light';
@@ -218,12 +217,6 @@ function useAutoPlayColorScheme(initialColorScheme) {
     }, []);
 
     return colorScheme;
-}
-
-function getAutoPlayMapLightPreset(colorScheme) {
-    return colorScheme === 'dark'
-        ? MAPBOX_STANDARD_LIGHT_PRESET_NIGHT
-        : MAPBOX_STANDARD_LIGHT_PRESET_DAY;
 }
 
 function notifyAutoPlayMapButtonAppearance(appearance) {
@@ -1435,6 +1428,7 @@ export function AutoPlayMapSurfaceContent({
         hideCompassDuringNavigation,
         ornamentSafeAreaLeftScale,
         showDrivingStatusOnSecondarySurfaces,
+        usesHostColorSchemeForAutomaticMapPreset,
     } = {
         ...DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG,
         ...platformConfig,
@@ -1453,6 +1447,7 @@ export function AutoPlayMapSurfaceContent({
     const [layoutSize, setLayoutSize] = useState(null);
     const [followViewportAnchorY, setFollowViewportAnchorY] =
         useState(undefined);
+    const [appliedMapLightPreset, setAppliedMapLightPreset] = useState(null);
     const mapPreferences = useMapPreferencesState();
     const markerLoader = useMarkerLoader();
     const isDrivingMode = autoPlayState.drivingModeIsActive !== false;
@@ -1490,18 +1485,11 @@ export function AutoPlayMapSurfaceContent({
         routePreviewIsActive,
         searchResultsMapIsActive,
     });
-    const userLocationIsUsableForLightPreset =
-        Number.isFinite(Number(mapPreferences.userLocation?.latitude)) &&
-        Number.isFinite(Number(mapPreferences.userLocation?.longitude));
-    // Match the phone map: resolve the user's light preset preference by time
-    // of day at their location. The car host's day/night scheme is only the
-    // fallback when the preference is auto and no location is available yet.
-    const mapLightPresetPreference =
-        mapPreferences.mapLightPresetPreference ===
-            MAPBOX_STANDARD_LIGHT_PRESET_AUTO &&
-        !userLocationIsUsableForLightPreset
-            ? getAutoPlayMapLightPreset(autoPlayColorScheme)
-            : mapPreferences.mapLightPresetPreference;
+    const mapLightPresetPreference = resolveAutoPlayMapLightPresetPreference({
+        colorScheme: autoPlayColorScheme,
+        lightPresetPreference: mapPreferences.mapLightPresetPreference,
+        usesHostColorSchemeForAutomaticMapPreset,
+    });
     const mapLightPreset = useMapboxStandardLightPreset(
         mapLightPresetPreference,
         mapPreferences.userLocation,
@@ -1574,6 +1562,7 @@ export function AutoPlayMapSurfaceContent({
     const presentation = useMapPresentation({
         destinationCardIsOverlay: true,
         hasActiveDirectionsRoute: Boolean(activeDirectionsRoute),
+        isDarkModeOverride: mapLightPresetUsesDarkAppearance(mapLightPreset),
         isDrivingMode,
         locationTrackingMode: controller.locationTrackingMode,
         mapLightPreset,
@@ -1693,6 +1682,9 @@ export function AutoPlayMapSurfaceContent({
         markerFeatureCollection,
         navigationPuckSize,
         navigationPuckRefreshKey,
+        onMapAppearanceApplied: isRootMapSurface
+            ? setAppliedMapLightPreset
+            : undefined,
         policeAlertFeatureCollection,
         policeAlertsVisible:
             (mapPreferences.policeAlertsVisible ||
@@ -1761,6 +1753,7 @@ export function AutoPlayMapSurfaceContent({
 
         notifyAutoPlayMapButtonAppearance({
             isDarkMapLayer: presentation.isDarkMapLayer,
+            mapLightPreset: appliedMapLightPreset,
             trackingState: controller.drivingRecenterIsVisible
                 ? 'recenter'
                 : controller.locationTrackingMode !== LOCATION_TRACKING_NONE
@@ -1768,6 +1761,7 @@ export function AutoPlayMapSurfaceContent({
                   : 'inactive',
         });
     }, [
+        appliedMapLightPreset,
         controller.drivingRecenterIsVisible,
         controller.locationTrackingMode,
         isRootMapSurface,
@@ -1961,6 +1955,7 @@ export function AutoPlayMapSurfaceContent({
                             controller.roadMatchedLocationWatchEnabled ||
                             secondaryDrivingStatusIsVisible
                         }
+                        isDarkMode={presentation.isDarkMapLayer}
                         markerLoader={markerLoader}
                         mapPreferencesAreLoaded={
                             mapPreferences.mapPreferencesAreLoaded
@@ -1974,6 +1969,7 @@ export function AutoPlayMapSurfaceContent({
                 ) : null}
                 {rendersDrivingStatus ? (
                     <AutoPlayTopRightStatusOverlay
+                        isDarkMode={presentation.isDarkMapLayer}
                         mapControlLayoutInsets={
                             presentation.mapControlLayoutInsets
                         }

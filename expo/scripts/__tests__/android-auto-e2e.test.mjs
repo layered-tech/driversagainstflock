@@ -1,15 +1,21 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import {
-    Runner,
     builtInDisplayHasState,
     childProcessIsRunning,
     currentAutoPlayWakeLockIsHeld,
+    DEFAULT_MAP_CROP,
     envFileHasNonEmptyValue,
     findNodeBounds,
+    getMapSurfaceVisibilityAssertionFailure,
+    getMapThemeContrastAssertionFailure,
     getOCRAssertionFailure,
+    MINIMUM_MAP_THEME_LUMINANCE_DIFFERENCE,
+    MINIMUM_VISIBLE_MAP_CROP_LUMINANCE,
     normalizeOCRText,
     parseAdbForwardList,
+    Runner,
     tcpDumpHasListeningPort,
 } from '../android-auto-e2e.mjs';
 
@@ -56,6 +62,182 @@ describe('Android Auto E2E helpers', () => {
             getOCRAssertionFailure(ocr, { notContains: ['speed limit'] }),
             'Unexpected "speed limit"',
         );
+    });
+
+    test('requires the day map crop to be visibly lighter than night', () => {
+        assert.equal(getMapThemeContrastAssertionFailure(0.72, 0.51), null);
+        assert.equal(getMapThemeContrastAssertionFailure(0.7, 0.55), null);
+        assert.equal(
+            getMapThemeContrastAssertionFailure(0.64, 0.5),
+            'Expected day map crop to be at least 0.1500 lighter than night; received day=0.6400, night=0.5000, difference=0.1400',
+        );
+        assert.equal(
+            getMapThemeContrastAssertionFailure(0.42, 0.58),
+            'Expected day map crop to be at least 0.1500 lighter than night; received day=0.4200, night=0.5800, difference=-0.1600',
+        );
+        assert.equal(MINIMUM_MAP_THEME_LUMINANCE_DIFFERENCE, 0.15);
+        assert.deepEqual(DEFAULT_MAP_CROP, {
+            height: 220,
+            width: 280,
+            x: 430,
+            y: 220,
+        });
+    });
+
+    test('rejects empty map crops before comparing themes', () => {
+        assert.equal(getMapSurfaceVisibilityAssertionFailure(0.08), null);
+        assert.equal(
+            getMapSurfaceVisibilityAssertionFailure(0),
+            'Expected the map crop to be visible; received mean luminance=0.0000',
+        );
+        assert.equal(MINIMUM_VISIBLE_MAP_CROP_LUMINANCE, 0.01);
+    });
+
+    test('analyzes the fixed map crop for directional day/night contrast', async () => {
+        const analysisCalls = [];
+        const reports = [];
+        const runner = Object.create(Runner.prototype);
+        runner.screenshots = new Map([
+            ['day-mode', { imagePath: '/artifacts/day.png' }],
+            ['night-mode', { imagePath: '/artifacts/night.png' }],
+        ]);
+        runner.run = (_command, args) => {
+            analysisCalls.push(args);
+
+            return {
+                stdout: args[1].endsWith('day.png') ? '0.7219\n' : '0.5011\n',
+            };
+        };
+        runner.ocrBinary = '/artifacts/android-auto-ocr';
+        runner.report = (message) => reports.push(message);
+
+        await runner.assertMapThemeContrast('day-mode', 'night-mode');
+
+        assert.deepEqual(analysisCalls, [
+            [
+                '--mean-luminance',
+                '/artifacts/day.png',
+                '430',
+                '220',
+                '280',
+                '220',
+            ],
+            [
+                '--mean-luminance',
+                '/artifacts/night.png',
+                '430',
+                '220',
+                '280',
+                '220',
+            ],
+        ]);
+        assert.deepEqual(reports, [
+            'Map theme contrast day-mode=0.7219 night-mode=0.5011 difference=0.2208',
+        ]);
+    });
+
+    test('recaptures the current theme until Mapbox visibly applies it', async () => {
+        const captures = [];
+        const reports = [];
+        const runner = Object.create(Runner.prototype);
+        let nightLuminance = 0.72;
+        runner.mapCropMeanLuminance = (name) =>
+            name === 'day-mode' ? 0.72 : nightLuminance;
+        runner.captureScreenshot = async (name) => {
+            captures.push(name);
+            nightLuminance = 0.48;
+        };
+        runner.ensureMapCropIsVisible = async () => {};
+        runner.report = (message) => reports.push(message);
+
+        await runner.assertMapThemeContrast('day-mode', 'night-mode', {
+            recapture: 'night-mode',
+            retryDelayMilliseconds: 0,
+        });
+
+        assert.deepEqual(captures, ['night-mode']);
+        assert.equal(reports.length, 2);
+        assert.match(reports[0], /difference=0\.0000/);
+        assert.match(reports[1], /difference=0\.2400/);
+    });
+
+    test('uses applied map preset markers and crop contrast in idle and active guidance', () => {
+        const suite = JSON.parse(
+            readFileSync(
+                new URL('../../.android-auto/suite.json', import.meta.url),
+                'utf8',
+            ),
+        );
+        const idleThemeTest = suite.tests.find(
+            ({ name }) =>
+                name === 'switches between day and night presentation',
+        );
+        const activeGuidanceTest = suite.tests.find(({ name }) =>
+            name.includes('AUTO_DRIVE'),
+        );
+        const navigationTest = suite.tests.find(({ name }) =>
+            name.includes('private guidance'),
+        );
+        const phoneSleepTest = suite.tests.find(({ name }) =>
+            name.includes('phone sleeps'),
+        );
+
+        assert.deepEqual(suite.display, { height: 720, width: 1280 });
+        assert.deepEqual(
+            navigationTest.steps.find(
+                ({ screenshot, type }) =>
+                    type === 'assertOcr' && screenshot === 'navigation-started',
+            ).contains,
+            ['Turn right to avoid', 'monitored intersections'],
+        );
+        assert.deepEqual(
+            phoneSleepTest.steps.find(
+                ({ screenshot, type }) =>
+                    type === 'assertOcr' && screenshot === 'phone-asleep',
+            ).contains,
+            ['Arrive at your destination', 'Austin Central Library'],
+        );
+
+        for (const themeTest of [idleThemeTest, activeGuidanceTest]) {
+            assert.ok(themeTest);
+            const themeCommands = themeTest.steps.filter(
+                ({ command, type }) =>
+                    type === 'dhu' && ['day', 'night'].includes(command),
+            );
+            assert.deepEqual(
+                themeCommands.map(({ command }) => command),
+                ['day', 'night', 'day'],
+            );
+            assert.deepEqual(
+                themeCommands.map(({ waitForMetro }) => waitForMetro ?? null),
+                [
+                    null,
+                    '[Android Auto] map-preset-night',
+                    '[Android Auto] map-preset-day',
+                ],
+            );
+            assert.equal(
+                themeTest.steps.filter(
+                    ({ type }) => type === 'assertMapThemeContrast',
+                ).length,
+                2,
+            );
+            const contrastSteps = themeTest.steps.filter(
+                ({ type }) => type === 'assertMapThemeContrast',
+            );
+            assert.equal(contrastSteps[0].recapture, contrastSteps[0].night);
+            assert.equal(contrastSteps[1].recapture, contrastSteps[1].day);
+            assert.ok(
+                themeTest.steps
+                    .filter(
+                        ({ name, type }) =>
+                            type === 'screenshot' && /day|night/.test(name),
+                    )
+                    .every(({ requireVisibleMapCrop }) =>
+                        Boolean(requireVisibleMapCrop),
+                    ),
+            );
+        }
     });
 
     test('requires a non-empty Mapbox token without exposing its value', () => {

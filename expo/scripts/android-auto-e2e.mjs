@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
     appendFileSync,
     createWriteStream,
@@ -27,6 +27,14 @@ const UI_DUMP_PATH = '/sdcard/android-auto-e2e-ui.xml';
 const SESSION_WAKE_LOCK = 'AutoPlay:AndroidAutoSession';
 const HEAD_UNIT_PORT = 5277;
 const DEVELOPMENT_CLIENT_LAUNCH_TIMEOUTS = [45000, 120000];
+export const DEFAULT_MAP_CROP = Object.freeze({
+    height: 220,
+    width: 280,
+    x: 430,
+    y: 220,
+});
+export const MINIMUM_MAP_THEME_LUMINANCE_DIFFERENCE = 0.15;
+export const MINIMUM_VISIBLE_MAP_CROP_LUMINANCE = 0.01;
 
 const delay = (milliseconds) =>
     new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
@@ -178,6 +186,31 @@ export function getOCRAssertionFailure(
     }
 
     return null;
+}
+
+export function getMapThemeContrastAssertionFailure(
+    dayLuminance,
+    nightLuminance,
+    minimumDifference = MINIMUM_MAP_THEME_LUMINANCE_DIFFERENCE,
+) {
+    const difference = dayLuminance - nightLuminance;
+
+    if (difference + Number.EPSILON >= minimumDifference) {
+        return null;
+    }
+
+    return `Expected day map crop to be at least ${minimumDifference.toFixed(4)} lighter than night; received day=${dayLuminance.toFixed(4)}, night=${nightLuminance.toFixed(4)}, difference=${difference.toFixed(4)}`;
+}
+
+export function getMapSurfaceVisibilityAssertionFailure(
+    luminance,
+    minimumLuminance = MINIMUM_VISIBLE_MAP_CROP_LUMINANCE,
+) {
+    if (luminance + Number.EPSILON >= minimumLuminance) {
+        return null;
+    }
+
+    return `Expected the map crop to be visible; received mean luminance=${luminance.toFixed(4)}`;
 }
 
 function commandText(command, args) {
@@ -1024,6 +1057,112 @@ export class Runner {
         }
     }
 
+    mapCropMeanLuminance(name) {
+        const screenshot = this.screenshots.get(name);
+
+        if (!screenshot) {
+            throw new Error(`Screenshot was not captured: ${name}`);
+        }
+
+        const { height, width, x, y } = DEFAULT_MAP_CROP;
+        const result = this.run(this.ocrBinary, [
+            '--mean-luminance',
+            screenshot.imagePath,
+            String(x),
+            String(y),
+            String(width),
+            String(height),
+        ]);
+        const luminance = Number(result.stdout.trim());
+
+        if (!Number.isFinite(luminance) || luminance < 0 || luminance > 1) {
+            throw new Error(
+                `Invalid map crop luminance for ${name}: ${result.stdout.trim()}`,
+            );
+        }
+
+        return luminance;
+    }
+
+    async ensureMapCropIsVisible(
+        name,
+        { retryDelayMilliseconds = 1000, timeout = 20000 } = {},
+    ) {
+        const deadline = Date.now() + timeout;
+
+        while (true) {
+            const luminance = this.mapCropMeanLuminance(name);
+            const failure = getMapSurfaceVisibilityAssertionFailure(luminance);
+            this.report(`Map crop visibility ${name}=${luminance.toFixed(4)}`);
+
+            if (!failure) {
+                return luminance;
+            }
+
+            if (Date.now() >= deadline) {
+                throw new Error(failure);
+            }
+
+            await delay(retryDelayMilliseconds);
+            await this.captureScreenshot(name);
+        }
+    }
+
+    async assertMapThemeContrast(
+        dayName,
+        nightName,
+        { recapture, retryDelayMilliseconds = 1000, timeout = 20000 } = {},
+    ) {
+        const deadline = Date.now() + timeout;
+
+        while (true) {
+            const dayLuminance = this.mapCropMeanLuminance(dayName);
+            const nightLuminance = this.mapCropMeanLuminance(nightName);
+            const invisibleCrop = [
+                [dayName, dayLuminance],
+                [nightName, nightLuminance],
+            ].find(([, luminance]) =>
+                getMapSurfaceVisibilityAssertionFailure(luminance),
+            );
+
+            if (invisibleCrop) {
+                const [name, luminance] = invisibleCrop;
+                const failure =
+                    getMapSurfaceVisibilityAssertionFailure(luminance);
+
+                if (recapture !== name || Date.now() >= deadline) {
+                    throw new Error(failure);
+                }
+
+                await this.ensureMapCropIsVisible(name, {
+                    retryDelayMilliseconds,
+                    timeout: Math.max(0, deadline - Date.now()),
+                });
+                continue;
+            }
+
+            const difference = dayLuminance - nightLuminance;
+            this.report(
+                `Map theme contrast ${dayName}=${dayLuminance.toFixed(4)} ${nightName}=${nightLuminance.toFixed(4)} difference=${difference.toFixed(4)}`,
+            );
+            const failure = getMapThemeContrastAssertionFailure(
+                dayLuminance,
+                nightLuminance,
+            );
+
+            if (!failure) {
+                return;
+            }
+
+            if (!recapture || Date.now() >= deadline) {
+                throw new Error(failure);
+            }
+
+            await delay(retryDelayMilliseconds);
+            await this.captureScreenshot(recapture);
+        }
+    }
+
     async wakePhone() {
         this.adb(['shell', 'input', 'keyevent', 'KEYCODE_WAKEUP']);
         this.adb(['shell', 'wm', 'dismiss-keyguard'], { allowFailure: true });
@@ -1055,6 +1194,10 @@ export class Runner {
                 break;
             case 'screenshot':
                 await this.captureScreenshot(step.name);
+
+                if (step.requireVisibleMapCrop) {
+                    await this.ensureMapCropIsVisible(step.name, step);
+                }
                 break;
             case 'assertOcr':
                 await this.assertOcr(step.screenshot, step);
@@ -1070,6 +1213,9 @@ export class Runner {
                 }
                 break;
             }
+            case 'assertMapThemeContrast':
+                await this.assertMapThemeContrast(step.day, step.night, step);
+                break;
             case 'assertService':
                 await this.waitFor(
                     () => this.serviceRunning() === step.running,

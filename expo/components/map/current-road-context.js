@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Text, useColorScheme, View } from 'react-native';
 import {
     getCurrentRoadText,
     getRetainedCurrentRoadText,
@@ -47,12 +47,15 @@ export function useStableCurrentRoadText(userLocation) {
 
 export function CurrentRoadPill({
     className = '',
+    isDarkMode,
     roadText: roadTextOverride,
     style,
     testID = 'current-road-pill',
     textStyle,
     userLocation,
 }) {
+    const systemColorScheme = useColorScheme();
+    const resolvedIsDarkMode = isDarkMode ?? systemColorScheme === 'dark';
     const roadText =
         typeof roadTextOverride === 'string'
             ? roadTextOverride.trim()
@@ -64,13 +67,13 @@ export function CurrentRoadPill({
 
     return (
         <View
-            className={`max-w-full rounded-full border border-black/10 bg-white/95 px-3 py-1.5 shadow-sm dark:border-white/15 dark:bg-neutral-900/95 ${className}`}
+            className={`max-w-full rounded-full border px-3 py-1.5 shadow-sm ${resolvedIsDarkMode ? 'border-white/15 bg-neutral-900/95' : 'border-black/10 bg-white/95'} ${className}`}
             pointerEvents="none"
             style={style}
             testID={testID}
         >
             <Text
-                className="max-w-full text-center text-[16px] font-semibold leading-[22px] text-neutral-900 dark:text-neutral-100"
+                className={`max-w-full text-center text-[16px] font-semibold leading-[22px] ${resolvedIsDarkMode ? 'text-neutral-100' : 'text-neutral-900'}`}
                 ellipsizeMode="tail"
                 numberOfLines={1}
                 style={textStyle}

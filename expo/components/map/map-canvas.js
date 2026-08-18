@@ -13,14 +13,13 @@ import {
     Platform,
     Pressable,
     Text,
+    useColorScheme,
     View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { ContributeDraftPinMarkers } from '../contribute/contribute-draft-pin-markers';
 import {
     MAPBOX_ACCESS_TOKEN,
-    MAPBOX_STANDARD_LIGHT_PRESET_DUSK,
-    MAPBOX_STANDARD_LIGHT_PRESET_NIGHT,
     MAPBOX_STANDARD_STYLE_IMPORT_ID,
     MAPBOX_TRAFFIC_SOURCE_ID,
     MAPBOX_TRAFFIC_SOURCE_LAYER_ID,
@@ -89,6 +88,7 @@ import {
     PoliceAlertImages,
 } from './map-assets';
 import { getMapLayerSlots } from './map-layer-slots';
+import { mapLightPresetUsesDarkAppearance } from './map-light-preset-appearance';
 import {
     getCoordinateKey,
     RouteWaypointMarker,
@@ -506,6 +506,7 @@ export const MapCanvas = memo(function MapCanvas() {
         e2eMapApiMocksEnabled,
         hideCompassDuringNavigation,
         initialCameraSettings,
+        isDarkModeOverride,
         isDrivingMode,
         isFollowing,
         locationAccessGranted,
@@ -528,6 +529,7 @@ export const MapCanvas = memo(function MapCanvas() {
         navigationPuckSize: requestedNavigationPuckSize,
         navigationPuckRefreshKey = 'default',
         navigationPuckVariant,
+        onMapAppearanceApplied,
         policeAlertFeatureCollection,
         policeAlertsVisible,
         preferredFramesPerSecond = MAP_PREFERRED_FRAMES_PER_SECOND,
@@ -535,6 +537,7 @@ export const MapCanvas = memo(function MapCanvas() {
         userLocationPuckVisible = true,
         usesSharedLocationProvider = false,
     } = useMapCanvasContext();
+    const systemColorScheme = useColorScheme();
     const {
         directionsWaypointMarkers,
         handleSelectedPlaceMarkerPress,
@@ -575,8 +578,15 @@ export const MapCanvas = memo(function MapCanvas() {
         [mapLightPreset],
     );
     const isDuskNightMapLightPreset =
-        mapLightPreset === MAPBOX_STANDARD_LIGHT_PRESET_DUSK ||
-        mapLightPreset === MAPBOX_STANDARD_LIGHT_PRESET_NIGHT;
+        mapLightPresetUsesDarkAppearance(mapLightPreset);
+    const mapFallbackIsDarkMode =
+        isDarkModeOverride ?? systemColorScheme === 'dark';
+    const mapFallbackContainerClassName = mapFallbackIsDarkMode
+        ? 'flex-1 items-center justify-center bg-neutral-900'
+        : 'flex-1 items-center justify-center bg-gray-200';
+    const mapFallbackTextClassName = mapFallbackIsDarkMode
+        ? 'text-center text-sm font-semibold leading-5 text-neutral-300'
+        : 'text-center text-sm font-semibold leading-5 text-neutral-600';
     const mapOverlayEmissiveStrength = isDuskNightMapLightPreset ? 1 : 0;
     const mapRoutePalette = isDuskNightMapLightPreset
         ? MAP_ROUTE_PALETTES.duskNight
@@ -812,6 +822,9 @@ export const MapCanvas = memo(function MapCanvas() {
             resolvedNavigationPuckVariant,
         ],
     );
+    const handleMapFinishedRenderingFrameFully = useCallback(() => {
+        onMapAppearanceApplied?.(mapLightPreset);
+    }, [mapLightPreset, onMapAppearanceApplied]);
     const requestLocationPuckCameraFollow = useCallback(
         ({ cameraIsPrepared = false } = {}) =>
             locationPuckCameraFollowLifecycle.request({
@@ -980,7 +993,7 @@ export const MapCanvas = memo(function MapCanvas() {
 
     if (!mapPreferencesAreLoaded) {
         return (
-            <View className="flex-1 items-center justify-center bg-gray-200 dark:bg-neutral-900">
+            <View className={mapFallbackContainerClassName}>
                 <ActivityIndicator color="#6b7280" size="small" />
             </View>
         );
@@ -988,8 +1001,8 @@ export const MapCanvas = memo(function MapCanvas() {
 
     if (!MAPBOX_ACCESS_TOKEN) {
         return (
-            <View className="flex-1 items-center justify-center bg-gray-200 px-6 dark:bg-neutral-900">
-                <Text className="text-center text-sm font-semibold leading-5 text-neutral-600 dark:text-neutral-300">
+            <View className={`${mapFallbackContainerClassName} px-6`}>
+                <Text className={mapFallbackTextClassName}>
                     Add EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN to load the Mapbox map.
                 </Text>
             </View>
@@ -1010,13 +1023,16 @@ export const MapCanvas = memo(function MapCanvas() {
             onCameraChanged={handleCameraChanged}
             onDidFinishLoadingMap={handleMapFinishedLoading}
             onDidFinishLoadingStyle={refreshLocationPuckAfterMapAttachment}
+            onDidFinishRenderingFrameFully={
+                handleMapFinishedRenderingFrameFully
+            }
             onPress={handleMapPress}
             preferredFramesPerSecond={preferredFramesPerSecond}
             projection={mapLayerSlots.mapProjection}
             styleURL={mapStyleURL}
         >
             <Mapbox.StyleImport
-                key={`${MAPBOX_STANDARD_STYLE_IMPORT_ID}-${mapStyleURL}`}
+                key={`${MAPBOX_STANDARD_STYLE_IMPORT_ID}-${mapStyleURL}-${mapLightPreset}`}
                 config={styleImportConfig}
                 existing
                 id={MAPBOX_STANDARD_STYLE_IMPORT_ID}
