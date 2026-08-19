@@ -7,7 +7,7 @@ tags:
 ---
 - setLocation:
     latitude: 30.266984040600367
-    longitude: -97.74049976967694
+    longitude: -97.74101981574155
 - launchApp:
     clearState: true
     clearKeychain: true
@@ -31,9 +31,11 @@ tags:
 - tapOn:
     id: 'start-free-drive-button'
     retryTapIfNoChange: true
-- setLocation:
-    latitude: 30.266984040600367
-    longitude: -97.74049976967694
+- travel:
+    points:
+      - '30.266984040600367, -97.74101981574155'
+      - '30.266984040600367, -97.74049976967694'
+    speed: 12
 - extendedWaitUntil:
     visible: 'e2e-main-35:1:forward'
     timeout: 30000
@@ -55,9 +57,12 @@ tags:
 - copyTextFrom:
     id: 'e2e-native-puck-provider-heading'
 - assertTrue: ${Math.abs(Number(maestro.copiedText) - 90) <= 0.5}
-- setLocation:
-    latitude: 30.2680998308318
-    longitude: -97.73973010150132
+- travel:
+    points:
+      - '30.266984040600367, -97.74049976967694'
+      - '30.267200000000000, -97.73997972361234'
+      - '30.2680998308318, -97.73973010150132'
+    speed: 12
 - extendedWaitUntil:
     visible: 'e2e-branch:0:forward'
     timeout: 60000

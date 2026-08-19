@@ -209,6 +209,14 @@ export function createAndroidDevClientLaunchArgs({ appId, url }) {
     ];
 }
 
+export function createAndroidClearAppStateArgs(appId) {
+    return ['shell', 'pm', 'clear', appId];
+}
+
+export function createAndroidCollapseStatusBarArgs() {
+    return ['shell', 'cmd', 'statusbar', 'collapse'];
+}
+
 export function selectManagedMetroConnection({
     androidEmulator = false,
     hostOverride,
@@ -632,6 +640,17 @@ export class MaestroTestRunner {
         );
     }
 
+    clearAppStateForBootstrap() {
+        if (this.target.platform !== 'android') {
+            return;
+        }
+
+        this.report(
+            'Clearing Android app state before development-client bootstrap',
+        );
+        this.adb(createAndroidClearAppStateArgs(this.appId));
+    }
+
     openDevelopmentClient() {
         this.forceStopApp();
 
@@ -722,6 +741,16 @@ export class MaestroTestRunner {
         );
     }
 
+    collapseAndroidStatusBar() {
+        if (!this.target || this.target.platform !== 'android') {
+            return;
+        }
+
+        this.adb(createAndroidCollapseStatusBarArgs(), {
+            allowFailure: true,
+        });
+    }
+
     runMaestroFlow(flow) {
         const args = [
             '--platform',
@@ -765,6 +794,7 @@ export class MaestroTestRunner {
         }
 
         for (let attempt = 1; attempt <= maximumAttempts; attempt += 1) {
+            this.collapseAndroidStatusBar();
             this.resetAndroidLocation();
             this.report(
                 `Running ${flowName} (attempt ${attempt}/${maximumAttempts})`,
@@ -852,6 +882,7 @@ export class MaestroTestRunner {
         this.flows = collectMaestroFlows(this.args, EXPO_DIRECTORY);
         this.target = this.discoverTarget();
         this.verifyTarget();
+        this.clearAppStateForBootstrap();
 
         if (this.manageMetro) {
             await this.startMetro();

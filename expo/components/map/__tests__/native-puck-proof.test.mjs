@@ -83,48 +83,44 @@ describe('native puck snapping proof', () => {
         );
     });
 
-    test('requires the installed provider and native indicator at the snapped coordinate', () => {
+    test('requires the installed provider and rendered puck at the snapped coordinate', () => {
         assert.equal(
             nativePuckStateProvesSnapping({
                 proofSource: 'native-3d-puck',
-                indicatorAtRawCoordinate: false,
-                indicatorAtSnappedCoordinate: true,
                 providerOwnedByApp: true,
                 providerAtRawCoordinate: false,
                 providerAtSnappedCoordinate: true,
+                renderedAtSnappedCoordinate: true,
             }),
             true,
         );
         assert.equal(
             nativePuckStateProvesSnapping({
                 proofSource: 'native-3d-puck',
-                indicatorAtRawCoordinate: false,
-                indicatorAtSnappedCoordinate: false,
                 providerOwnedByApp: true,
                 providerAtRawCoordinate: false,
                 providerAtSnappedCoordinate: true,
+                renderedAtSnappedCoordinate: false,
             }),
             false,
         );
         assert.equal(
             nativePuckStateProvesSnapping({
                 proofSource: 'native-3d-puck',
-                indicatorAtRawCoordinate: false,
-                indicatorAtSnappedCoordinate: true,
                 providerOwnedByApp: true,
                 providerAtRawCoordinate: true,
                 providerAtSnappedCoordinate: true,
+                renderedAtSnappedCoordinate: true,
             }),
             false,
         );
         assert.equal(
             nativePuckStateProvesSnapping({
                 proofSource: 'native-3d-puck',
-                indicatorAtRawCoordinate: true,
-                indicatorAtSnappedCoordinate: true,
-                providerOwnedByApp: true,
+                providerOwnedByApp: false,
                 providerAtRawCoordinate: false,
                 providerAtSnappedCoordinate: true,
+                renderedAtSnappedCoordinate: true,
             }),
             false,
         );

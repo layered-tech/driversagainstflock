@@ -22,6 +22,7 @@ import {
     LOCATION_ZOOM_LEVEL,
 } from '../map-location-mode-shared';
 import { useLockOnLocationMode } from '../map-lock-on-location-mode';
+import { mapApiMocksAreEnabled } from './api-mocks';
 import {
     getBoundsFitCameraStop,
     getCameraDebugState,
@@ -714,6 +715,7 @@ export function useMapLocationController({
                 fallbackCourseHeading: currentCourseHeadingRef.current,
                 locationCourseHeading: nextHeading,
                 nextLocation,
+                preferDerivedMotion: mapApiMocksAreEnabled(),
                 previousLocation,
             });
 

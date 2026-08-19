@@ -1,4 +1,5 @@
 import { MINIMUM_DRIVING_COURSE_SPEED_MPS } from './constants';
+import { resolveDrivingMotionState } from './driving-motion-resolution';
 import {
     getCoordinateBearingDegrees,
     getCoordinateDistanceMeters,
@@ -71,27 +72,18 @@ export function getDrivingMotionState({
     fallbackCourseHeading,
     locationCourseHeading,
     nextLocation,
+    preferDerivedMotion = false,
     previousLocation,
 }) {
     const derivedMotion = getDerivedMotion(previousLocation, nextLocation);
     const measuredSpeed = getStoredNumber(nextLocation?.speed);
-    const speed = measuredSpeed ?? derivedMotion.speed;
-    const measuredCourseHeading =
-        locationCourseHeading ?? derivedMotion.courseHeading;
-    const courseHeading =
-        measuredCourseHeading ??
-        (speed !== null && speed >= MINIMUM_DRIVING_COURSE_SPEED_MPS
-            ? fallbackCourseHeading
-            : null);
-    const isMoving =
-        courseHeading !== null &&
-        (speed !== null
-            ? speed >= MINIMUM_DRIVING_COURSE_SPEED_MPS
-            : measuredCourseHeading !== null);
 
-    return {
-        courseHeading: isMoving ? courseHeading : null,
-        isMoving,
-        speed,
-    };
+    return resolveDrivingMotionState({
+        derivedMotion,
+        fallbackCourseHeading,
+        locationCourseHeading,
+        measuredSpeed,
+        minimumCourseSpeed: MINIMUM_DRIVING_COURSE_SPEED_MPS,
+        preferDerivedMotion,
+    });
 }

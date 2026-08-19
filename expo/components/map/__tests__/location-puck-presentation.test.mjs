@@ -108,6 +108,17 @@ describe('location puck presentation', () => {
         });
     });
 
+    test('does not predict ahead when presentation prediction is disabled', () => {
+        const location = makeLocation();
+
+        assert.equal(
+            getLocationPuckPresentationLocation(location, 10_100, {
+                predictionEnabled: false,
+            }),
+            location,
+        );
+    });
+
     test('caps the projected distance at twenty meters', () => {
         const location = makeLocation({ speed: 80 });
         const presentationLocation = getLocationPuckPresentationLocation(

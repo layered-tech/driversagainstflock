@@ -8,9 +8,15 @@ tags:
     latitude: 30.2672
     longitude: -97.7431
 - launchApp:
+    clearState: true
     stopApp: true
     permissions:
       all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    file: subflows/open-expo-dev-client-after-clear.yml
+- waitForAnimationToEnd
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
@@ -26,6 +32,7 @@ tags:
 
 - tapOn:
     id: 'map-search-input-map'
+- waitForAnimationToEnd
 - inputText: 'Barton Springs Pool'
 - extendedWaitUntil:
     visible:
@@ -89,6 +96,7 @@ tags:
 
 - tapOn:
     id: 'map-search-input-map'
+- waitForAnimationToEnd
 - eraseText
 - inputText: 'Austin Central Library'
 - extendedWaitUntil:

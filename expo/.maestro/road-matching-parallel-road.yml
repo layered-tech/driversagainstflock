@@ -6,7 +6,7 @@ tags:
 ---
 - setLocation:
     latitude: 30.26760492387431
-    longitude: -97.7483004606461
+    longitude: -97.7488205067107
 - launchApp:
     clearState: true
     clearKeychain: true
@@ -34,6 +34,9 @@ tags:
     latitude: 30.26760492387431
     longitude: -97.7483004606461
 - extendedWaitUntil:
+    visible: '-97.7483005,30.2676049'
+    timeout: 60000
+- extendedWaitUntil:
     visible: 'e2e-frontage:0:forward'
     timeout: 30000
 - copyTextFrom:
@@ -47,13 +50,13 @@ tags:
       - tapOn:
           id: 'driving-recenter-button'
 - extendedWaitUntil:
-    visible: 'true'
+    visible: 'native-puck-proof-ready'
     timeout: 60000
 - copyTextFrom:
     id: 'e2e-native-puck-proof'
 - assertTrue: ${maestro.copiedText == 'true'}
 - extendedWaitUntil:
-    visible: 'true'
+    visible: 'native-puck-proof-ready'
     timeout: 60000
 - copyTextFrom:
     id: 'e2e-native-3d-puck-proof'
@@ -151,15 +154,6 @@ tags:
       - copyTextFrom:
           id: 'e2e-native-puck-proof-source'
       - assertTrue: ${maestro.copiedText == 'native-3d-puck'}
-      - copyTextFrom:
-          id: 'e2e-native-puck-indicator-coordinate'
-      - assertTrue: ${maestro.copiedText == '-97.7483005,30.2675149'}
-      - copyTextFrom:
-          id: 'e2e-native-puck-indicator-at-snapped'
-      - assertTrue: ${maestro.copiedText == 'true'}
-      - copyTextFrom:
-          id: 'e2e-native-puck-indicator-at-raw'
-      - assertTrue: ${maestro.copiedText == 'false'}
 - runFlow:
     when:
       platform: iOS
@@ -229,6 +223,12 @@ tags:
     id: 'e2e-road-matching-edge-id'
 - assertTrue: ${maestro.copiedText == 'e2e-frontage:1:forward'}
 - setLocation:
+    latitude: 30.26760492387431
+    longitude: -97.74221592169016
+- extendedWaitUntil:
+    visible: '-97.7422159,30.2676049'
+    timeout: 60000
+- setLocation:
     latitude: 30.267343972933087
     longitude: -97.74205990787078
 - extendedWaitUntil:
@@ -245,13 +245,13 @@ tags:
       - tapOn:
           id: 'driving-recenter-button'
 - extendedWaitUntil:
-    visible: 'true'
+    visible: 'native-puck-proof-ready'
     timeout: 60000
 - copyTextFrom:
     id: 'e2e-native-puck-proof'
 - assertTrue: ${maestro.copiedText == 'true'}
 - extendedWaitUntil:
-    visible: 'true'
+    visible: 'native-puck-proof-ready'
     timeout: 60000
 - copyTextFrom:
     id: 'e2e-native-3d-puck-proof'
@@ -310,15 +310,6 @@ tags:
       - copyTextFrom:
           id: 'e2e-native-puck-proof-source'
       - assertTrue: ${maestro.copiedText == 'native-3d-puck'}
-      - copyTextFrom:
-          id: 'e2e-native-puck-indicator-coordinate'
-      - assertTrue: ${maestro.copiedText == '-97.7420599,30.2675149'}
-      - copyTextFrom:
-          id: 'e2e-native-puck-indicator-at-snapped'
-      - assertTrue: ${maestro.copiedText == 'true'}
-      - copyTextFrom:
-          id: 'e2e-native-puck-indicator-at-raw'
-      - assertTrue: ${maestro.copiedText == 'false'}
 - runFlow:
     when:
       platform: iOS

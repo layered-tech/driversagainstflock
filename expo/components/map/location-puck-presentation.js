@@ -91,6 +91,7 @@ function getCoordinateAhead({ coordinate, distanceMeters, heading }) {
 export function getLocationPuckPresentationLocation(
     location,
     now = Date.now(),
+    { predictionEnabled = true } = {},
 ) {
     const coordinate = getLocationCoordinate(location);
     const speed = getStoredNumber(location?.speed);
@@ -100,6 +101,7 @@ export function getLocationPuckPresentationLocation(
         recordedAt === null || !Number.isFinite(now) ? null : now - recordedAt;
 
     if (
+        !predictionEnabled ||
         !coordinate ||
         location?.isMoving !== true ||
         location?.roadMatch?.isOffRoad !== false ||

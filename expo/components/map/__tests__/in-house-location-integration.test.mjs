@@ -68,6 +68,14 @@ const wazePoliceAlertsSource = readSource('../use-waze-police-alerts.js');
 const wazePoliceAlertStoreSource = readSource('../waze-police-alert-store.js');
 
 describe('in-house road-matched location integration', () => {
+    test('exposes a unique native puck readiness value to Maestro', () => {
+        assert.match(roadMatchingE2EProbeSource, /e2e-native-puck-proof/);
+        assert.match(
+            roadMatchingE2EProbeSource,
+            /nativePuckProof[\s\S]*?'native-puck-proof-ready'[\s\S]*?'native-puck-proof-pending'/,
+        );
+    });
+
     test('keeps native location callbacks safe after the Expo host is destroyed', () => {
         assert.match(expoLocationPatchSource, /sendEventSafely/);
         assert.match(
@@ -131,7 +139,7 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(
             drivingLocationProviderSource,
-            /getLocationPuckPresentationLocation\(userLocation\)[\s\S]*?userLocation: presentationLocation/,
+            /getLocationPuckPresentationLocation\(userLocation,[\s\S]*?predictionEnabled: !mapApiMocksAreEnabled\(\)[\s\S]*?userLocation: presentationLocation/,
         );
         assert.match(
             locationPuckPresentationSource,
@@ -216,7 +224,7 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(
             nativePuckStateSource,
-            /providerAtSnappedCoordinate === true[\s\S]*?providerAtRawCoordinate === false[\s\S]*?indicatorAtSnappedCoordinate === true[\s\S]*?indicatorAtRawCoordinate === false/,
+            /providerAtSnappedCoordinate === true[\s\S]*?providerAtRawCoordinate === false[\s\S]*?renderedAtSnappedCoordinate === true/,
         );
         assert.match(
             nativePuckStateSource,
@@ -316,11 +324,15 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(
             mapLocationPuckAndroidSource,
-            /"model-rotation-transition"[\s\S]*?zeroDurationTransitionValue\(\)[\s\S]*?"model-rotation"[\s\S]*?modelRotationValue\(correction\)/,
+            /"model-rotation-transition"[\s\S]*?headingCorrectionTransitionValue\(\)[\s\S]*?"model-rotation"[\s\S]*?modelRotationValue\(correction\)/,
         );
         assert.match(
             mapLocationPuckAndroidSource,
             /clearHeadingCorrection[\s\S]*?removeOnIndicatorBearingChangedListener/,
+        );
+        assert.match(
+            mapLocationPuckAndroidSource,
+            /clearHeadingCorrection[\s\S]*?zeroDurationTransitionValue\(\)[\s\S]*?modelRotationValue\(0\.0\)/,
         );
         assert.match(
             mapLocationPuckAndroidSource,
@@ -375,11 +387,15 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(
             mapLocationPuckIOSSource,
-            /property: "model-rotation-transition"[\s\S]*?"duration": 0[\s\S]*?property: "model-rotation"[\s\S]*?value: \[0, 0, correction\]/,
+            /property: "model-rotation-transition"[\s\S]*?"duration": locationPuckHeadingCorrectionDurationMilliseconds[\s\S]*?property: "model-rotation"[\s\S]*?value: \[0, 0, correction\]/,
         );
         assert.match(
             mapLocationPuckIOSSource,
             /clearHeadingCorrection[\s\S]*?resetHeadingCorrection/,
+        );
+        assert.match(
+            mapLocationPuckIOSSource,
+            /clearHeadingCorrection[\s\S]*?property: "model-rotation-transition"[\s\S]*?"duration": 0[\s\S]*?value: \[0, 0, 0\]/,
         );
         assert.match(
             mapLocationPuckIOSSource,

@@ -97,7 +97,6 @@ tags:
     visible:
       id: 'map-search-input-map'
     timeout: 30000
-- openLink: 'driversagainstflock://e2e-mocks'
 - extendedWaitUntil:
     visible:
       id: 'map-search-directions-button-map'
@@ -108,7 +107,7 @@ tags:
 
 - tapOn:
     id: 'map-search-directions-button-map'
-    retryTapIfNoChange: true
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'map-directions-destination-input-map'

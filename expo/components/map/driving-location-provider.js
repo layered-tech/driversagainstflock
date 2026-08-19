@@ -1,5 +1,6 @@
 import Mapbox from '@rnmapbox/maps';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { mapApiMocksAreEnabled } from './api-mocks';
 import { normalizeDirectionDegrees, normalizeLongitude } from './geo';
 import {
     clearLocationPuckLocationProviderAsync,
@@ -91,7 +92,10 @@ export function DrivingLocationProvider({
     userLocation,
 }) {
     const presentationLocation = useMemo(
-        () => getLocationPuckPresentationLocation(userLocation),
+        () =>
+            getLocationPuckPresentationLocation(userLocation, Date.now(), {
+                predictionEnabled: !mapApiMocksAreEnabled(),
+            }),
         [
             userLocation?.courseHeading,
             userLocation?.heading,

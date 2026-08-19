@@ -33,11 +33,13 @@ tags:
     visible:
       id: 'map-marker-0-map'
     timeout: 60000
-- assertNotVisible:
-    id: 'marker-details-sheet-presented'
+- extendedWaitUntil:
+    notVisible:
+      id: 'marker-details-sheet-presented'
+    timeout: 1000
 - tapOn:
     id: 'map-marker-0-map'
-    retryTapIfNoChange: true
+    waitToSettleTimeoutMs: 1000
 - extendedWaitUntil:
     visible:
       id: 'marker-details-sheet-presented'

@@ -231,6 +231,14 @@ export function RoadMatchingE2EProbe({
             </Text>
             <Text
                 className="text-[8px] leading-[9px] text-white"
+                testID="e2e-native-puck-proof-readiness"
+            >
+                {nativePuckProof
+                    ? 'native-puck-proof-ready'
+                    : 'native-puck-proof-pending'}
+            </Text>
+            <Text
+                className="text-[8px] leading-[9px] text-white"
                 testID="e2e-native-puck-proof-source"
             >
                 {nativePuckState?.proofSource ?? ''}

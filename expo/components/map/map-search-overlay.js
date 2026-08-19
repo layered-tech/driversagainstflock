@@ -162,8 +162,8 @@ export function MapSearchOverlay({
                                     </Text>
                                 </View>
 
-                                <View className="flex-row items-stretch gap-2.5">
-                                    <View className="relative w-3">
+                                <View className="flex-row items-start gap-2.5">
+                                    <View className="relative w-3 self-stretch">
                                         <View className="dark:bg-daf-border-dark absolute bottom-[22px] left-[5px] top-[22px] w-0.5 rounded-dafPill bg-daf-border-strong" />
                                         <View className="flex-1 items-center justify-center">
                                             <View className="dark:border-daf-surface-dark h-[11px] w-[11px] rounded-dafPill border-2 border-white bg-daf-brand" />
@@ -178,7 +178,13 @@ export function MapSearchOverlay({
                                         </View>
                                     </View>
 
-                                    <View className="min-w-0 flex-1 gap-2">
+                                    <View
+                                        className={`min-w-0 flex-1 gap-2 ${
+                                            directionsStopIsVisible
+                                                ? 'min-h-[148px]'
+                                                : 'min-h-24'
+                                        }`}
+                                    >
                                         <DirectionsField
                                             active={
                                                 directionsActiveField ===

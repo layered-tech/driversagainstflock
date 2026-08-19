@@ -62,7 +62,6 @@ import {
 } from './map/map-screen-context';
 import { MapSearchOverlay } from './map/map-search-overlay';
 import { MarkerDetailsSheet } from './map/marker-details-sheet';
-import { NativeWindSafeAreaView } from './map/native-components';
 import { getNavigationPuckSize } from './map/navigation-puck-layout';
 import { RoadMatchingE2EProbe } from './map/road-matching-e2e-probe';
 import { SearchResultsSheet } from './map/search-results-sheet';
@@ -721,10 +720,14 @@ export default function LocationMapScreen({
                                 />
                             </DrivingGuidanceOverlay>
                         ) : (
-                            <NativeWindSafeAreaView
-                                className="absolute inset-0 z-40 px-3 pt-3"
-                                edges={['top', 'right', 'left']}
+                            <View
+                                className="absolute inset-0 z-40"
                                 pointerEvents="box-none"
+                                style={{
+                                    paddingLeft: safeAreaInsets.left + 12,
+                                    paddingRight: safeAreaInsets.right + 12,
+                                    paddingTop: safeAreaInsets.top + 12,
+                                }}
                             >
                                 {contributePlacementIsActive ? (
                                     <ContributePlacementOverlay
@@ -820,7 +823,7 @@ export default function LocationMapScreen({
                                         onPress={handleMarkerSourcePress}
                                     />
                                 ))}
-                            </NativeWindSafeAreaView>
+                            </View>
                         )}
                         <MapFullScreenSearch />
                         {mapChromeIsVisible ? <MapDebugControls /> : null}

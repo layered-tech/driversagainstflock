@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 import {
     collectMaestroFlows,
+    createAndroidClearAppStateArgs,
+    createAndroidCollapseStatusBarArgs,
     createAndroidDevClientLaunchArgs,
     createExpoDevClientUrl,
     createExpoStartArgs,
@@ -226,6 +228,22 @@ R58M offline
         assert.doesNotMatch(args.join(' '), /android\.intent\.category/);
     });
 
+    test('clears persisted Android tasks before development-client bootstrap', () => {
+        assert.deepEqual(
+            createAndroidClearAppStateArgs('com.anonymous.drivefree.dev'),
+            ['shell', 'pm', 'clear', 'com.anonymous.drivefree.dev'],
+        );
+    });
+
+    test('collapses Android system UI before every flow attempt', () => {
+        assert.deepEqual(createAndroidCollapseStatusBarArgs(), [
+            'shell',
+            'cmd',
+            'statusbar',
+            'collapse',
+        ]);
+    });
+
     test('rejects an invalid requested Metro port', async () => {
         await assert.rejects(() => selectMetroPort('not-a-port'), /Invalid/);
     });
@@ -233,7 +251,7 @@ R58M offline
     test('collects the full suite without launcher UI readiness checks', () => {
         const flows = collectMaestroFlows(['.maestro'], EXPO_DIRECTORY);
 
-        assert.equal(flows.length, 26);
+        assert.equal(flows.length, 24);
         assert.deepEqual(
             flows.map((flow) => path.basename(flow)),
             [...flows.map((flow) => path.basename(flow))].sort(),
@@ -256,6 +274,7 @@ R58M offline
             'driving-alerts.yml',
             'map-layer-options.yml',
             'marker-osm-details-toggle.yml',
+            'moving-navigation.yml',
             'road-matching-free-drive.yml',
             'road-matching-parallel-road.yml',
             'speed-limit-badge.yml',
@@ -361,5 +380,120 @@ R58M offline
             );
             assert.match(source, /copyTextFrom:\s+id:/);
         }
+    });
+
+    test('simulates motion for the road-matched heading turn', () => {
+        const source = readFileSync(
+            path.join(
+                EXPO_DIRECTORY,
+                '.maestro',
+                'road-matching-heading-turn.yml',
+            ),
+            'utf8',
+        );
+
+        assert.equal(source.match(/- travel:/g)?.length, 2);
+        assert.equal(source.match(/speed: 12/g)?.length, 2);
+        assert.match(
+            source,
+            /points:\s+- ['"]30\.266984040600367, -97\.74101981574155['"]\s+- ['"]30\.266984040600367, -97\.74049976967694['"]/,
+        );
+        assert.match(
+            source,
+            /points:\s+- ['"]30\.266984040600367, -97\.74049976967694['"]\s+- ['"]30\.267200000000000, -97\.73997972361234['"]\s+- ['"]30\.2680998308318, -97\.73973010150132['"]/,
+        );
+    });
+
+    test('enters the parallel-road fixture from the west and waits for puck proof', () => {
+        const source = readFileSync(
+            path.join(
+                EXPO_DIRECTORY,
+                '.maestro',
+                'road-matching-parallel-road.yml',
+            ),
+            'utf8',
+        );
+
+        assert.match(
+            source,
+            /longitude: -97\.7488205067107[\s\S]*?- setLocation:\s+latitude: 30\.26760492387431\s+longitude: -97\.7483004606461\s+- extendedWaitUntil:\s+visible: '-97\.7483005,30\.2676049'/,
+        );
+        assert.equal(
+            source.match(/visible: 'native-puck-proof-ready'/g)?.length,
+            4,
+        );
+        assert.match(
+            source,
+            /longitude: -97\.74221592169016\s+- extendedWaitUntil:\s+visible: '-97\.7422159,30\.2676049'\s+timeout: 60000\s+- setLocation:\s+latitude: 30\.267343972933087\s+longitude: -97\.74205990787078\s+- extendedWaitUntil:\s+visible: '-97\.7420599,30\.2675149'/,
+        );
+    });
+
+    test('moves navigation through deterministic route points without slow travel', () => {
+        const source = readFileSync(
+            path.join(EXPO_DIRECTORY, '.maestro', 'moving-navigation.yml'),
+            'utf8',
+        );
+
+        assert.match(source, /clearState: true/);
+        assert.match(
+            source,
+            /file: subflows\/open-expo-dev-client-after-clear\.yml/,
+        );
+        assert.match(source, /visible: 'expo-foreground-location-watch'/);
+        assert.match(source, /openLink: 'driversagainstflock:\/\/e2e-mocks'/);
+        assert.doesNotMatch(source, /speed: 1(?:\s|$)/);
+        assert.equal(source.match(/- travel:/g)?.length, 3);
+        assert.equal(source.match(/speed: 12/g)?.length, 3);
+        assert.equal(source.match(/waitToSettleTimeoutMs: 1000/g)?.length, 8);
+        assert.match(
+            source,
+            /points:\s+- '30\.2672, -97\.7431'\s+- '30\.270606, -97\.749971'\s+speed: 12[\s\S]*?visible: '-97\.7499710,30\.2706060'/,
+        );
+        assert.match(
+            source,
+            /points:\s+- '30\.270606, -97\.749971'\s+- '30\.262012, -97\.744842'\s+speed: 12[\s\S]*?visible: '-97\.7448420,30\.2620120'/,
+        );
+        assert.match(
+            source,
+            /points:\s+- '30\.262012, -97\.744842'\s+- '30\.2654, -97\.7518'\s+speed: 12[\s\S]*?visible: '-97\.7518000,30\.2654000'/,
+        );
+    });
+
+    test('bounds the marker OSM details toggle waits', () => {
+        const source = readFileSync(
+            path.join(
+                EXPO_DIRECTORY,
+                '.maestro',
+                'marker-osm-details-toggle.yml',
+            ),
+            'utf8',
+        );
+
+        assert.match(
+            source,
+            /notVisible:\s+id: 'marker-details-sheet-presented'\s+timeout: 1000/,
+        );
+        assert.match(
+            source,
+            /id: 'map-marker-0-map'\s+waitToSettleTimeoutMs: 1000/,
+        );
+    });
+
+    test('bounds map layer option taps on the continuously rendering map', () => {
+        const source = readFileSync(
+            path.join(EXPO_DIRECTORY, '.maestro', 'map-layer-options.yml'),
+            'utf8',
+        );
+
+        const tapCount = source.match(/- tapOn:/g)?.length;
+
+        assert.equal(tapCount, 18);
+        assert.equal(
+            source.match(/waitToSettleTimeoutMs: 0/g)?.length,
+            tapCount + 3,
+        );
+        assert.equal(source.match(/- swipe:/g)?.length, 3);
+        assert.equal(source.match(/timeout: 1000(?:\s|$)/g)?.length, 3);
+        assert.doesNotMatch(source, /- assertNotVisible:/);
     });
 });
