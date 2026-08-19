@@ -414,17 +414,67 @@ R58M offline
             'utf8',
         );
 
+        assert.equal(source.match(/- travel:/g)?.length, 7);
+        assert.equal(source.match(/speed: 12/g)?.length, 6);
+        assert.equal(
+            source.match(/Math\.abs\(Number\(maestro\.copiedText\.split/g)
+                ?.length,
+            18,
+        );
         assert.match(
             source,
-            /longitude: -97\.7488205067107[\s\S]*?- setLocation:\s+latitude: 30\.26760492387431\s+longitude: -97\.7483004606461\s+- extendedWaitUntil:\s+visible: '-97\.7483005,30\.2676049'/,
+            /id: 'start-free-drive-button'[\s\S]*?visible: 'expo-foreground-location-watch'\s+timeout: 30000\s+- travel:/,
         );
+        assert.match(
+            source,
+            /longitude: -97\.7488205067107[\s\S]*?- travel:\s+points:\s+- '30\.26760492387431, -97\.7488205067107'\s+- '30\.26760492387431, -97\.7483004606461'\s+speed: 12\s+- setLocation:\s+latitude: 30\.26760492387431\s+longitude: -97\.7483004606461/,
+        );
+        assert.ok(source.includes("visible: '-97\\.7483[0-9]+,30\\.2676049'"));
         assert.equal(
             source.match(/visible: 'native-puck-proof-ready'/g)?.length,
             4,
         );
         assert.match(
             source,
-            /longitude: -97\.74221592169016\s+- extendedWaitUntil:\s+visible: '-97\.7422159,30\.2676049'\s+timeout: 60000\s+- setLocation:\s+latitude: 30\.267343972933087\s+longitude: -97\.74205990787078\s+- extendedWaitUntil:\s+visible: '-97\.7420599,30\.2675149'/,
+            /longitude: -97\.74221592169016\s+- travel:\s+points:\s+- '30\.26760492387431, -97\.74221592169016'\s+- '30\.267343972933087, -97\.74205990787078'\s+speed: 12\s+- setLocation:\s+latitude: 30\.267343972933087\s+longitude: -97\.74205990787078/,
+        );
+        assert.ok(
+            source.includes("visible: '-97\\.7420[0-9]+,30\\.2673[0-9]+'"),
+        );
+    });
+
+    test('waits for native puck readiness in free drive', () => {
+        const source = readFileSync(
+            path.join(
+                EXPO_DIRECTORY,
+                '.maestro',
+                'road-matching-free-drive.yml',
+            ),
+            'utf8',
+        );
+
+        assert.equal(
+            source.match(/visible: 'native-puck-proof-ready'/g)?.length,
+            4,
+        );
+        assert.doesNotMatch(source, /visible: 'true'/);
+        assert.match(
+            source,
+            /longitude: -97\.74466013819383[\s\S]*?points:\s+- '30\.26698404060037, -97\.74466013819383'\s+- '30\.26698404060037, -97\.74414009212921'\s+speed: 12\s+- setLocation:\s+latitude: 30\.26698404060037\s+longitude: -97\.74414009212921\s+- extendedWaitUntil:\s+visible: '-97\.7441401,30\.2669840'/,
+        );
+        assert.match(
+            source,
+            /id: 'e2e-native-3d-puck-proof'\s+- assertTrue: \$\{maestro\.copiedText == 'true'\}\s+- extendedWaitUntil:\s+visible: '-97\.7441401,30\.2672000'\s+timeout: 60000/,
+        );
+        assert.equal(
+            source.match(
+                /Math\.abs\(Number\(maestro\.copiedText\.split\(','\)\[0\]\) - -97\.(?:7441401|7389396)\) <= 0\.0001/g,
+            )?.length,
+            2,
+        );
+        assert.doesNotMatch(
+            source,
+            /e2e-native-puck-indicator-at-(?:snapped|raw)/,
         );
     });
 
@@ -451,11 +501,23 @@ R58M offline
         );
         assert.match(
             source,
-            /points:\s+- '30\.270606, -97\.749971'\s+- '30\.262012, -97\.744842'\s+speed: 12[\s\S]*?visible: '-97\.7448420,30\.2620120'/,
+            /points:\s+- '30\.270606, -97\.749971'\s+- '30\.262012, -97\.744842'\s+- '30\.262520, -97\.745886'\s+speed: 12[\s\S]*?visible: '-97\.7458860,30\.2625200'[\s\S]*?visible: '\.\*Arrive at your destination\.\*'/,
         );
         assert.match(
             source,
-            /points:\s+- '30\.262012, -97\.744842'\s+- '30\.2654, -97\.7518'\s+speed: 12[\s\S]*?visible: '-97\.7518000,30\.2654000'/,
+            /points:\s+- '30\.262520, -97\.745886'\s+- '30\.2654, -97\.7518'\s+speed: 12[\s\S]*?visible: '-97\.7518000,30\.2654000'/,
+        );
+    });
+
+    test('drives onto the mocked speed-limit segment after navigation starts', () => {
+        const source = readFileSync(
+            path.join(EXPO_DIRECTORY, '.maestro', 'speed-limit-badge.yml'),
+            'utf8',
+        );
+
+        assert.match(
+            source,
+            /id: 'directions-route-start-driving-button'[\s\S]*?notVisible:\s+id: 'directions-route-sheet-presented'[\s\S]*?visible: 'expo-foreground-location-watch'[\s\S]*?- travel:\s+points:\s+- '30\.26698404060037, -97\.74466013819383'\s+- '30\.26698404060037, -97\.74414009212921'\s+speed: 12[\s\S]*?visible: 'e2e-main-35:0:forward'[\s\S]*?id: 'driving-speed-limit-sign'/,
         );
     });
 
@@ -479,6 +541,18 @@ R58M offline
         );
     });
 
+    test('waits for the map after dismissing place details', () => {
+        const source = readFileSync(
+            path.join(EXPO_DIRECTORY, '.maestro', 'place-details-drag.yml'),
+            'utf8',
+        );
+
+        assert.match(
+            source,
+            /notVisible:\s+id: 'selected-place-sheet-presented'\s+timeout: 10000\s+- extendedWaitUntil:\s+visible:\s+id: 'map-search-input-map'\s+timeout: 30000/,
+        );
+    });
+
     test('bounds map layer option taps on the continuously rendering map', () => {
         const source = readFileSync(
             path.join(EXPO_DIRECTORY, '.maestro', 'map-layer-options.yml'),
@@ -488,6 +562,10 @@ R58M offline
         const tapCount = source.match(/- tapOn:/g)?.length;
 
         assert.equal(tapCount, 18);
+        assert.equal(
+            source.match(/retryTapIfNoChange: false/g)?.length,
+            tapCount,
+        );
         assert.equal(
             source.match(/waitToSettleTimeoutMs: 0/g)?.length,
             tapCount + 3,

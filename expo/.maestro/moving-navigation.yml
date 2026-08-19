@@ -104,16 +104,17 @@ tags:
     points:
       - '30.270606, -97.749971'
       - '30.262012, -97.744842'
+      - '30.262520, -97.745886'
     speed: 12
 - extendedWaitUntil:
-    visible: '-97.7448420,30.2620120'
+    visible: '-97.7458860,30.2625200'
     timeout: 30000
 - extendedWaitUntil:
-    visible: 'Arrive at your destination'
+    visible: '.*Arrive at your destination.*'
     timeout: 30000
 - travel:
     points:
-      - '30.262012, -97.744842'
+      - '30.262520, -97.745886'
       - '30.2654, -97.7518'
     speed: 12
 - extendedWaitUntil:

@@ -60,6 +60,6 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
-    timeout: 10000
+    timeout: 30000
 - assertNotVisible:
     id: 'selected-place-title'

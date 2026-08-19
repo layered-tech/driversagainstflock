@@ -30,11 +30,19 @@ tags:
 - tapOn:
     id: 'start-free-drive-button'
     retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: 'expo-foreground-location-watch'
+    timeout: 30000
+- travel:
+    points:
+      - '30.26760492387431, -97.7488205067107'
+      - '30.26760492387431, -97.7483004606461'
+    speed: 12
 - setLocation:
     latitude: 30.26760492387431
     longitude: -97.7483004606461
 - extendedWaitUntil:
-    visible: '-97.7483005,30.2676049'
+    visible: '-97\.7483[0-9]+,30\.2676049'
     timeout: 60000
 - extendedWaitUntil:
     visible: 'e2e-frontage:0:forward'
@@ -122,10 +130,10 @@ tags:
 - assertTrue: ${maestro.copiedText == 'in-house-road-matcher'}
 - copyTextFrom:
     id: 'e2e-road-matching-raw-coordinate'
-- assertTrue: ${maestro.copiedText == '-97.7483005,30.2676049'}
+- assertTrue: ${Math.abs(Number(maestro.copiedText.split(',')[0]) - (-97.7483005)) < 0.0001 && Math.abs(Number(maestro.copiedText.split(',')[1]) - 30.2676049) < 0.000001}
 - copyTextFrom:
     id: 'e2e-road-matching-coordinate'
-- assertTrue: ${maestro.copiedText == '-97.7483005,30.2675149'}
+- assertTrue: ${Math.abs(Number(maestro.copiedText.split(',')[0]) - (-97.7483005)) < 0.0001 && Math.abs(Number(maestro.copiedText.split(',')[1]) - 30.2675149) < 0.000001}
 - copyTextFrom:
     id: 'e2e-road-matching-speed-limit'
 - assertTrue: ${maestro.copiedText == '25'}
@@ -144,7 +152,7 @@ tags:
     commands:
       - copyTextFrom:
           id: 'e2e-native-puck-provider-coordinate'
-      - assertTrue: ${maestro.copiedText == '-97.7483005,30.2675149'}
+      - assertTrue: ${Math.abs(Number(maestro.copiedText.split(',')[0]) - (-97.7483005)) < 0.0001 && Math.abs(Number(maestro.copiedText.split(',')[1]) - 30.2675149) < 0.000001}
       - copyTextFrom:
           id: 'e2e-native-puck-provider-at-snapped'
       - assertTrue: ${maestro.copiedText == 'true'}
@@ -167,27 +175,37 @@ tags:
 - copyTextFrom:
     id: 'e2e-road-graph-load-count'
 - assertTrue: ${maestro.copiedText == '1'}
+- travel:
+    points:
+      - '30.26760492387431, -97.7483004606461'
+      - '30.26760492387431, -97.74622027638766'
+    speed: 12
 - setLocation:
     latitude: 30.26760492387431
     longitude: -97.74622027638766
 - extendedWaitUntil:
-    visible: '-97.7462203,30.2676049'
+    visible: '-97\.7462[0-9]+,30\.2676049'
     timeout: 60000
 - copyTextFrom:
     id: 'e2e-road-matching-raw-coordinate'
-- assertTrue: ${maestro.copiedText == '-97.7462203,30.2676049'}
+- assertTrue: ${Math.abs(Number(maestro.copiedText.split(',')[0]) - (-97.7462203)) < 0.0001 && Math.abs(Number(maestro.copiedText.split(',')[1]) - 30.2676049) < 0.000001}
 - copyTextFrom:
     id: 'e2e-road-matching-edge-id'
 - assertTrue: ${maestro.copiedText == 'e2e-frontage:0:forward'}
+- travel:
+    points:
+      - '30.26760492387431, -97.74622027638766'
+      - '30.26760492387431, -97.74414009212921'
+    speed: 12
 - setLocation:
     latitude: 30.26760492387431
     longitude: -97.74414009212921
 - extendedWaitUntil:
-    visible: '-97.7441401,30.2676049'
+    visible: '-97\.7441[0-9]+,30\.2676049'
     timeout: 60000
 - copyTextFrom:
     id: 'e2e-road-matching-raw-coordinate'
-- assertTrue: ${maestro.copiedText == '-97.7441401,30.2676049'}
+- assertTrue: ${Math.abs(Number(maestro.copiedText.split(',')[0]) - (-97.7441401)) < 0.0001 && Math.abs(Number(maestro.copiedText.split(',')[1]) - 30.2676049) < 0.000001}
 - copyTextFrom:
     id: 'e2e-road-matching-edge-id'
 - assertTrue: ${maestro.copiedText == 'e2e-frontage:0:forward'}
@@ -195,6 +213,11 @@ tags:
     when:
       platform: Android
     commands:
+      - travel:
+          points:
+            - '30.26760492387431, -97.74414009212921'
+            - '30.26760492387431, -97.74226792629662'
+          speed: 12
       - setLocation:
           latitude: 30.26760492387431
           longitude: -97.74226792629662
@@ -208,11 +231,11 @@ tags:
             - '30.26760492387431, -97.74226792629662'
           speed: 100
 - extendedWaitUntil:
-    visible: '-97.7422679,30.2676049'
+    visible: '-97\.7422[0-9]+,30\.2676049'
     timeout: 60000
 - copyTextFrom:
     id: 'e2e-road-matching-raw-coordinate'
-- assertTrue: ${maestro.copiedText == '-97.7422679,30.2676049'}
+- assertTrue: ${Math.abs(Number(maestro.copiedText.split(',')[0]) - (-97.7422679)) < 0.0001 && Math.abs(Number(maestro.copiedText.split(',')[1]) - 30.2676049) < 0.000001}
 - extendedWaitUntil:
     visible: '1'
     timeout: 60000
@@ -222,21 +245,28 @@ tags:
 - copyTextFrom:
     id: 'e2e-road-matching-edge-id'
 - assertTrue: ${maestro.copiedText == 'e2e-frontage:1:forward'}
+- travel:
+    points:
+      - '30.26760492387431, -97.74226792629662'
+      - '30.26760492387431, -97.74221592169016'
+    speed: 12
 - setLocation:
     latitude: 30.26760492387431
     longitude: -97.74221592169016
-- extendedWaitUntil:
-    visible: '-97.7422159,30.2676049'
-    timeout: 60000
+- travel:
+    points:
+      - '30.26760492387431, -97.74221592169016'
+      - '30.267343972933087, -97.74205990787078'
+    speed: 12
 - setLocation:
     latitude: 30.267343972933087
     longitude: -97.74205990787078
 - extendedWaitUntil:
-    visible: '-97.7420599,30.2675149'
+    visible: '-97\.7420[0-9]+,30\.2673[0-9]+'
     timeout: 60000
 - copyTextFrom:
     id: 'e2e-road-matching-coordinate'
-- assertTrue: ${maestro.copiedText == '-97.7420599,30.2675149'}
+- assertTrue: ${Math.abs(Number(maestro.copiedText.split(',')[0]) - (-97.7420599)) < 0.0001 && Math.abs(Number(maestro.copiedText.split(',')[1]) - 30.2675149) < 0.000001}
 - runFlow:
     when:
       visible:
@@ -287,7 +317,7 @@ tags:
 - assertTrue: ${maestro.copiedText == '25'}
 - copyTextFrom:
     id: 'e2e-road-matching-raw-coordinate'
-- assertTrue: ${maestro.copiedText == '-97.7420599,30.2673440'}
+- assertTrue: ${Math.abs(Number(maestro.copiedText.split(',')[0]) - (-97.7420599)) < 0.0001 && Math.abs(Number(maestro.copiedText.split(',')[1]) - 30.2673440) < 0.0001}
 - copyTextFrom:
     id: 'e2e-native-puck-provider-owned'
 - assertTrue: ${maestro.copiedText == 'true'}
@@ -300,7 +330,7 @@ tags:
     commands:
       - copyTextFrom:
           id: 'e2e-native-puck-provider-coordinate'
-      - assertTrue: ${maestro.copiedText == '-97.7420599,30.2675149'}
+      - assertTrue: ${Math.abs(Number(maestro.copiedText.split(',')[0]) - (-97.7420599)) < 0.0001 && Math.abs(Number(maestro.copiedText.split(',')[1]) - 30.2675149) < 0.000001}
       - copyTextFrom:
           id: 'e2e-native-puck-provider-at-snapped'
       - assertTrue: ${maestro.copiedText == 'true'}

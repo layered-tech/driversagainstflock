@@ -6,8 +6,8 @@ tags:
   - visual
 ---
 - setLocation:
-    latitude: 30.2672
-    longitude: -97.7431
+    latitude: 30.26698404060037
+    longitude: -97.74466013819383
 - launchApp:
     clearState: true
     stopApp: true
@@ -60,8 +60,8 @@ tags:
       id: 'map-search-directions-button-map'
     timeout: 10000
 - setLocation:
-    latitude: 30.2672
-    longitude: -97.7431
+    latitude: 30.26698404060037
+    longitude: -97.74466013819383
 
 - tapOn:
     id: 'map-search-directions-button-map'
@@ -103,6 +103,20 @@ tags:
     notVisible:
       id: 'directions-route-sheet-presented'
     timeout: 10000
+- extendedWaitUntil:
+    visible: 'expo-foreground-location-watch'
+    timeout: 30000
+- travel:
+    points:
+      - '30.26698404060037, -97.74466013819383'
+      - '30.26698404060037, -97.74414009212921'
+    speed: 12
+- setLocation:
+    latitude: 30.26698404060037
+    longitude: -97.74414009212921
+- extendedWaitUntil:
+    visible: 'e2e-main-35:0:forward'
+    timeout: 60000
 
 - extendedWaitUntil:
     visible:

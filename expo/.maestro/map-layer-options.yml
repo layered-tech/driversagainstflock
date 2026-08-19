@@ -64,6 +64,7 @@ tags:
     checked: false
 - tapOn:
     id: 'map-surveillance-markers-toggle'
+    retryTapIfNoChange: false
     waitToSettleTimeoutMs: 0
 - assertVisible:
     id: 'map-surveillance-markers-toggle'
@@ -76,12 +77,15 @@ tags:
     checked: false
 - tapOn:
     id: 'map-surveillance-markers-toggle'
+    retryTapIfNoChange: false
     waitToSettleTimeoutMs: 0
 - tapOn:
     id: 'map-marker-clusters-toggle'
+    retryTapIfNoChange: false
     waitToSettleTimeoutMs: 0
 - tapOn:
     id: 'map-camera-cones-toggle'
+    retryTapIfNoChange: false
     waitToSettleTimeoutMs: 0
 - assertVisible:
     id: 'map-surveillance-markers-toggle'
@@ -94,36 +98,42 @@ tags:
     checked: true
 - tapOn:
     id: 'map-prefer-private-routes-toggle'
+    retryTapIfNoChange: false
     waitToSettleTimeoutMs: 0
 - assertVisible:
     id: 'map-prefer-private-routes-toggle'
     checked: true
 - tapOn:
     id: 'map-prefer-private-routes-toggle'
+    retryTapIfNoChange: false
     waitToSettleTimeoutMs: 0
 - assertVisible:
     id: 'map-prefer-private-routes-toggle'
     checked: false
 - tapOn:
     id: 'map-traffic-toggle'
+    retryTapIfNoChange: false
     waitToSettleTimeoutMs: 0
 - assertVisible:
     id: 'map-traffic-toggle'
     checked: true
 - tapOn:
     id: 'map-traffic-toggle'
+    retryTapIfNoChange: false
     waitToSettleTimeoutMs: 0
 - assertVisible:
     id: 'map-traffic-toggle'
     checked: false
 - tapOn:
     id: 'map-police-alerts-toggle'
+    retryTapIfNoChange: false
     waitToSettleTimeoutMs: 0
 - assertVisible:
     id: 'map-police-alerts-toggle'
     checked: true
 - tapOn:
     id: 'map-police-alerts-toggle'
+    retryTapIfNoChange: false
     waitToSettleTimeoutMs: 0
 - assertVisible:
     id: 'map-police-alerts-toggle'
@@ -131,6 +141,7 @@ tags:
 
 - tapOn:
     id: 'map-layer-option-standard-satellite'
+    retryTapIfNoChange: false
     waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
     notVisible:
@@ -152,6 +163,7 @@ tags:
     selected: true
 - tapOn:
     id: 'map-layer-option-standard'
+    retryTapIfNoChange: false
     waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
     notVisible:
@@ -186,18 +198,21 @@ tags:
     id: 'offline-map-section-toggle'
 - tapOn:
     id: 'map-light-preset-option-auto'
+    retryTapIfNoChange: false
     waitToSettleTimeoutMs: 0
 - assertVisible:
     id: 'map-light-preset-option-auto'
     selected: true
 - tapOn:
     id: 'map-light-preset-option-night'
+    retryTapIfNoChange: false
     waitToSettleTimeoutMs: 0
 - assertVisible:
     id: 'map-light-preset-option-night'
     selected: true
 - tapOn:
     id: 'map-light-preset-option-auto'
+    retryTapIfNoChange: false
     waitToSettleTimeoutMs: 0
 - assertVisible:
     id: 'map-light-preset-option-auto'

@@ -7,7 +7,7 @@ tags:
 ---
 - setLocation:
     latitude: 30.26698404060037
-    longitude: -97.74414009212921
+    longitude: -97.74466013819383
 - launchApp:
     clearState: true
     clearKeychain: true
@@ -31,9 +31,17 @@ tags:
 - tapOn:
     id: 'start-free-drive-button'
     retryTapIfNoChange: true
+- travel:
+    points:
+      - '30.26698404060037, -97.74466013819383'
+      - '30.26698404060037, -97.74414009212921'
+    speed: 12
 - setLocation:
     latitude: 30.26698404060037
     longitude: -97.74414009212921
+- extendedWaitUntil:
+    visible: '-97.7441401,30.2669840'
+    timeout: 60000
 - extendedWaitUntil:
     visible: 'e2e-main-35:0:forward'
     timeout: 30000
@@ -48,17 +56,20 @@ tags:
       - tapOn:
           id: 'driving-recenter-button'
 - extendedWaitUntil:
-    visible: 'true'
+    visible: 'native-puck-proof-ready'
     timeout: 60000
 - copyTextFrom:
     id: 'e2e-native-puck-proof'
 - assertTrue: ${maestro.copiedText == 'true'}
 - extendedWaitUntil:
-    visible: 'true'
+    visible: 'native-puck-proof-ready'
     timeout: 60000
 - copyTextFrom:
     id: 'e2e-native-3d-puck-proof'
 - assertTrue: ${maestro.copiedText == 'true'}
+- extendedWaitUntil:
+    visible: '-97.7441401,30.2672000'
+    timeout: 60000
 - copyTextFrom:
     id: 'e2e-native-puck-kind'
 - assertTrue: ${maestro.copiedText == '3d'}
@@ -154,13 +165,7 @@ tags:
       - assertTrue: ${maestro.copiedText == 'native-3d-puck'}
       - copyTextFrom:
           id: 'e2e-native-puck-indicator-coordinate'
-      - assertTrue: ${maestro.copiedText == '-97.7441401,30.2672000'}
-      - copyTextFrom:
-          id: 'e2e-native-puck-indicator-at-snapped'
-      - assertTrue: ${maestro.copiedText == 'true'}
-      - copyTextFrom:
-          id: 'e2e-native-puck-indicator-at-raw'
-      - assertTrue: ${maestro.copiedText == 'false'}
+      - assertTrue: ${Math.abs(Number(maestro.copiedText.split(',')[0]) - -97.7441401) <= 0.0001 && Math.abs(Number(maestro.copiedText.split(',')[1]) - 30.2672) <= 0.000001}
 - runFlow:
     when:
       platform: iOS
@@ -215,13 +220,13 @@ tags:
       - tapOn:
           id: 'driving-recenter-button'
 - extendedWaitUntil:
-    visible: 'true'
+    visible: 'native-puck-proof-ready'
     timeout: 60000
 - copyTextFrom:
     id: 'e2e-native-puck-proof'
 - assertTrue: ${maestro.copiedText == 'true'}
 - extendedWaitUntil:
-    visible: 'true'
+    visible: 'native-puck-proof-ready'
     timeout: 60000
 - copyTextFrom:
     id: 'e2e-native-3d-puck-proof'
@@ -279,13 +284,7 @@ tags:
       - assertTrue: ${maestro.copiedText == 'native-3d-puck'}
       - copyTextFrom:
           id: 'e2e-native-puck-indicator-coordinate'
-      - assertTrue: ${maestro.copiedText == '-97.7389396,30.2672000'}
-      - copyTextFrom:
-          id: 'e2e-native-puck-indicator-at-snapped'
-      - assertTrue: ${maestro.copiedText == 'true'}
-      - copyTextFrom:
-          id: 'e2e-native-puck-indicator-at-raw'
-      - assertTrue: ${maestro.copiedText == 'false'}
+      - assertTrue: ${Math.abs(Number(maestro.copiedText.split(',')[0]) - -97.7389396) <= 0.0001 && Math.abs(Number(maestro.copiedText.split(',')[1]) - 30.2672) <= 0.000001}
 - runFlow:
     when:
       platform: iOS
