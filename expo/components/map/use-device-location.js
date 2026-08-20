@@ -1,5 +1,6 @@
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { publishAcceptedDeviceLocation } from './accepted-device-location';
 import {
     getLocationCompassHeading,
     getLocationCourseHeading,
@@ -180,6 +181,7 @@ export function useLocationWatch({
             }),
             (location) => {
                 if (isActive) {
+                    publishAcceptedDeviceLocation(location);
                     handleUserLocationUpdate(location);
                 }
             },

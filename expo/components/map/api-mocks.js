@@ -9,6 +9,10 @@ import {
 } from './directions';
 import { getCoordinateDistanceMeters, getStoredNumber } from './geo';
 import { getE2ERoadCorridorWays } from './road-matching-e2e-fixture';
+import {
+    getScorecardDriveE2EDirectionsFixture,
+    getScorecardDriveE2ERoadCorridorWays,
+} from './scorecard-drive-e2e-fixture';
 import { getMockSpeedLimitSnapshot } from './speed-limit-mock';
 
 const E2E_MAP_API_MOCKS_ENV = process.env.EXPO_PUBLIC_E2E_MAP_API_MOCKS === '1';
@@ -286,7 +290,10 @@ export function mockWazePoliceAlertsAreEnabled() {
 export async function getMockRoadCorridor({ signal }) {
     throwIfAborted(signal);
 
-    return getE2ERoadCorridorWays();
+    return [
+        ...getE2ERoadCorridorWays(),
+        ...getScorecardDriveE2ERoadCorridorWays(),
+    ];
 }
 
 export async function searchMockPlaces({ input, origin, signal }) {
@@ -476,6 +483,20 @@ export async function getMockDirections({
     waypoints = [],
 }) {
     throwIfAborted(signal);
+
+    const scorecardDriveFixture = getScorecardDriveE2EDirectionsFixture();
+
+    if (scorecardDriveFixture) {
+        const debugGeometry = showZone
+            ? getMockDirectionsDebugGeometry({ end, start })
+            : { debugGeometry: null, exclusionZone: null };
+
+        return {
+            debugGeometry: debugGeometry.debugGeometry,
+            exclusionZone: debugGeometry.exclusionZone,
+            route: normalizeDirectionsRouteResponse(scorecardDriveFixture),
+        };
+    }
 
     const waypointCoordinates = Array.isArray(waypoints)
         ? waypoints

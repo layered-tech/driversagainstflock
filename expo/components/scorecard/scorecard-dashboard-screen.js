@@ -382,15 +382,26 @@ export default function ScorecardDashboardScreen() {
                             score={isHydrated ? windowStats.privacyScore : null}
                             theme={theme}
                         />
-                        {debugOverlayIsVisible &&
-                        coverageDebugStats.incompleteDriveCount > 0 ? (
+                        {coverageDebugStats.incompleteDriveCount > 0 ? (
                             <Text
                                 className="mt-1 text-center text-xs text-daf-amber"
                                 testID="scorecard-coverage-incomplete"
                             >
+                                Camera inventory was incomplete for{' '}
+                                {coverageDebugStats.incompleteDriveCount}{' '}
+                                {coverageDebugStats.incompleteDriveCount === 1
+                                    ? 'drive'
+                                    : 'drives'}
+                                ; known cameras are still scored.
+                            </Text>
+                        ) : null}
+                        {debugOverlayIsVisible &&
+                        coverageDebugStats.incompleteDriveCount > 0 ? (
+                            <Text
+                                className="mt-1 text-center text-xs text-daf-amber"
+                                testID="scorecard-coverage-incomplete-debug"
+                            >
                                 ALPR debug ·{' '}
-                                {coverageDebugStats.incompleteDriveCount}/
-                                {windowStats.trips.length} drives incomplete ·{' '}
                                 {coverageDebugStats.neverObservedCount} never
                                 observed ·{' '}
                                 {coverageDebugStats.pendingAtEndCount} pending

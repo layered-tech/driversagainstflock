@@ -22,6 +22,19 @@ describe('scorecard navigation', () => {
         assert.match(trailSource, /backRoute="timeline"/);
     });
 
+    test('gives timeline events platform-stable accessibility labels', () => {
+        const timelineSource = readSource('../scorecard-timeline-screen.js');
+
+        assert.match(
+            timelineSource,
+            /accessibilityLabel=\{`\$\{event\.label\}, \$\{eventSummary\}`\}/,
+        );
+        assert.match(
+            timelineSource,
+            /accessibilityLabel=\{`\$\{event\.label\}, \$\{getEventSummary\(event\)\}`\}/,
+        );
+    });
+
     test('uses real camera maps without linking exposure detail back to Hotlist', () => {
         const detailSource = readSource('../scorecard-event-detail-screen.js');
         const mapSource = readSource('../scorecard-map.js');

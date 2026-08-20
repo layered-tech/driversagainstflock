@@ -34,6 +34,7 @@ const sharedRoutingStatePersistenceScheduler =
             ),
     });
 const routeCoordinatesSyncKeyCache = new WeakMap();
+const routeCameraArraySyncKeyCache = new WeakMap();
 const resolveBackgroundRoutingState = createBackgroundRoutingStateResolver({
     getLiveState: () => sharedRoutingState,
     hasLiveState: () => liveRoutingStateHasBeenSet,
@@ -85,6 +86,82 @@ function getRouteCoordinatesSyncKey(coordinates) {
     return key;
 }
 
+function getRouteCameraArraySyncKey(cameras) {
+    if (!Array.isArray(cameras)) {
+        return '';
+    }
+
+    const cachedKey = routeCameraArraySyncKeyCache.get(cameras);
+
+    if (cachedKey) {
+        return cachedKey;
+    }
+
+    const cameraKeys = cameras
+        .map((camera) => {
+            const directions = Array.isArray(camera?.directions)
+                ? camera.directions
+                      .map(
+                          (direction) =>
+                              `${direction?.start ?? ''}:${direction?.end ?? ''}:${direction?.isRange === true || direction?.is_range === true ? 1 : 0}`,
+                      )
+                      .sort()
+                      .join(',')
+                : '';
+
+            return [
+                camera?.osmId ?? camera?.osm_id ?? '',
+                getCoordinateSyncKey(camera?.coordinate),
+                camera?.directionKnown === true ||
+                camera?.direction_known === true
+                    ? 1
+                    : 0,
+                directions,
+            ].join(':');
+        })
+        .sort();
+    let hash = 2166136261;
+
+    for (const cameraKey of cameraKeys) {
+        for (let index = 0; index < cameraKey.length; index += 1) {
+            hash = Math.imul(hash ^ cameraKey.charCodeAt(index), 16777619);
+        }
+    }
+
+    const key = `${cameras.length}:${(hash >>> 0).toString(36)}`;
+
+    routeCameraArraySyncKeyCache.set(cameras, key);
+
+    return key;
+}
+
+function getRouteCameraContractSyncKey(route, selectedRouteOption) {
+    const routeOptions = route?.routes
+        ? Object.values(route.routes)
+        : Array.isArray(route?.routeOptions)
+          ? route.routeOptions
+          : selectedRouteOption
+            ? [selectedRouteOption]
+            : [];
+
+    return [
+        route?.avoidanceSearchComplete === true ? 1 : 0,
+        ...routeOptions
+            .filter(Boolean)
+            .map((routeOption) =>
+                [
+                    routeOption.routeKey ?? '',
+                    routeOption.cameraCoverageComplete === true ? 1 : 0,
+                    getRouteCameraArraySyncKey(routeOption.cameraCandidates),
+                    getRouteCameraArraySyncKey(
+                        routeOption.monitoringCameraNodes,
+                    ),
+                ].join(':'),
+            )
+            .sort(),
+    ].join(';');
+}
+
 export function getDirectionsRouteSyncKey(route) {
     if (!route) {
         return '';
@@ -109,6 +186,7 @@ export function getDirectionsRouteSyncKey(route) {
         routeOption?.duration ?? '',
         routeOption?.coordinates?.length ?? '',
         getRouteCoordinatesSyncKey(routeOption?.coordinates),
+        getRouteCameraContractSyncKey(route, routeOption),
     ].join('|');
 }
 

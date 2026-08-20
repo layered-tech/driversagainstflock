@@ -26,13 +26,21 @@ describe('scorecard dashboard interactions', () => {
         );
     });
 
-    test('limits coverage diagnostics to debugging mode without withholding scores', () => {
+    test('discloses incomplete inventory while limiting diagnostics to debugging mode', () => {
         const arrivalSource = readSource('../scorecard-arrival-recap.js');
         const dashboardSource = readSource('../scorecard-dashboard-screen.js');
 
         assert.match(
             dashboardSource,
-            /debugOverlayIsVisible &&[\s\S]*?coverageDebugStats\.incompleteDriveCount/,
+            /Camera inventory was incomplete for[\s\S]*?known cameras are still scored/,
+        );
+        assert.match(
+            arrivalSource,
+            /Known cameras scored · camera inventory incomplete/,
+        );
+        assert.match(
+            dashboardSource,
+            /debugOverlayIsVisible &&[\s\S]*?testID="scorecard-coverage-incomplete-debug"/,
         );
         assert.match(
             arrivalSource,
@@ -43,7 +51,6 @@ describe('scorecard dashboard interactions', () => {
         assert.match(dashboardSource, /legacy details unavailable/);
         assert.doesNotMatch(dashboardSource, /Score withheld/);
         assert.doesNotMatch(arrivalSource, /Privacy score withheld/);
-        assert.doesNotMatch(arrivalSource, /monitoring incomplete/);
     });
 
     test('shows an edit handle and opens custom fuel inputs from the privacy cost card', () => {

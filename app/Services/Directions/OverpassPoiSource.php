@@ -59,26 +59,47 @@ class OverpassPoiSource implements PoiSource
             throw DirectionsException::upstream('Overpass could not load POIs for directions.');
         }
 
-        $pois = collect($response->json('elements', []))
-            ->flatMap(function (array $element) {
-                $tags = $element['tags'] ?? [];
-                $longitude = $element['lon'] ?? null;
-                $latitude = $element['lat'] ?? null;
+        $payload = $response->json();
+        $elements = is_array($payload) ? ($payload['elements'] ?? null) : null;
 
-                if (! is_numeric($longitude) || ! is_numeric($latitude)) {
-                    return [];
-                }
+        if (
+            ! is_array($payload)
+            || array_key_exists('remark', $payload)
+            || ! is_array($elements)
+        ) {
+            Log::warning('Overpass POI lookup returned an incomplete response.', [
+                'elapsed_ms' => $this->elapsedMilliseconds($startedAt),
+                'status' => $response->status(),
+            ]);
 
-                return [new PointOfInterest(
-                    $element['id'] ?? null,
-                    (float) $longitude,
-                    (float) $latitude,
-                    $this->directionParser->parseMany($tags['direction'] ?? $tags['camera:direction'] ?? null),
-                    $tags,
-                )];
-            })
-            ->values()
-            ->all();
+            throw DirectionsException::upstream('Overpass could not load POIs for directions.');
+        }
+
+        $pois = [];
+
+        foreach ($elements as $element) {
+            $tags = is_array($element) ? ($element['tags'] ?? []) : null;
+            $identifier = is_array($element) ? ($element['id'] ?? null) : null;
+            $longitude = is_array($element) ? ($element['lon'] ?? null) : null;
+            $latitude = is_array($element) ? ($element['lat'] ?? null) : null;
+
+            if (! is_array($tags) || ! is_numeric($longitude) || ! is_numeric($latitude)) {
+                Log::warning('Overpass POI lookup returned a malformed element.', [
+                    'elapsed_ms' => $this->elapsedMilliseconds($startedAt),
+                    'status' => $response->status(),
+                ]);
+
+                throw DirectionsException::upstream('Overpass could not load POIs for directions.');
+            }
+
+            $pois[] = new PointOfInterest(
+                is_int($identifier) || is_string($identifier) ? $identifier : null,
+                (float) $longitude,
+                (float) $latitude,
+                $this->directionParser->parseMany($tags['direction'] ?? $tags['camera:direction'] ?? null),
+                $tags,
+            );
+        }
 
         Log::info('Overpass POI lookup completed.', [
             'status' => $response->status(),

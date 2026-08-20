@@ -10,6 +10,10 @@ const directionsRouteRequestSource = readFileSync(
     new URL('../use-directions-route-request.js', import.meta.url),
     'utf8',
 );
+const routeOptionCardSource = readFileSync(
+    new URL('../route-option-card.js', import.meta.url),
+    'utf8',
+);
 
 test('presents the directions sheet after the route renders', () => {
     assert.match(
@@ -59,5 +63,20 @@ test('offers the selected route as selectable GPX or KML export text', () => {
     assert.match(
         mapScreenSource,
         /const routeExportIsAvailable =[\s\S]*?SHOW_MAP_DEBUG_CONTROLS && debugOverlayIsVisible/,
+    );
+});
+
+test('uses the scorecard stable-ID difference for camera avoidance copy', () => {
+    assert.match(
+        directionsRouteSheetSource,
+        /getAvoidableRouteCameraCandidates\(\s*directionsRoute,\s*DIRECTIONS_ROUTE_PRIVATE,\s*\)/,
+    );
+    assert.doesNotMatch(
+        directionsRouteSheetSource,
+        /\(directRoute\?\.nodeCount[\s\S]*?- \(privateRoute\?\.nodeCount/,
+    );
+    assert.match(
+        routeOptionCardSource,
+        /testID=\{`directions-route-option-\$\{routeOption\.routeKey\}-camera-count`\}/,
     );
 });

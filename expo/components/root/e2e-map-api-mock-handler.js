@@ -8,6 +8,7 @@ import {
     setMapApiMocksEnabled,
 } from '../map/api-mocks';
 import { setE2EDrivingAlertsFixture } from '../map/e2e-driving-alert-fixture';
+import { setScorecardDriveE2EScenario } from '../map/scorecard-drive-e2e-fixture';
 import {
     getE2EAutoPlayCommandFromURL,
     getE2EMockFlagsFromURL,
@@ -30,6 +31,7 @@ function applyE2EMocksFromURL(value) {
         authMockIsEnabled,
         drivingAlertsFixture,
         mocksAreEnabled,
+        scorecardDriveScenario,
     } = getE2EMockFlagsFromURL(value);
 
     if (!mocksAreEnabled) {
@@ -39,6 +41,7 @@ function applyE2EMocksFromURL(value) {
     setMapApiMocksEnabled(true);
     setOSMApiMocksEnabled(true);
     setE2EDrivingAlertsFixture(drivingAlertsFixture);
+    setScorecardDriveE2EScenario(scorecardDriveScenario);
 
     if (authMockIsEnabled) {
         injectE2EMockSession(E2E_MOCK_AUTH_SESSION);

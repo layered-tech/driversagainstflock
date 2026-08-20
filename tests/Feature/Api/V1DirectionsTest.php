@@ -79,6 +79,29 @@ function graphHopperDirectionsResponse(array $coordinates): array
     ];
 }
 
+/**
+ * @return array{south: float, west: float, north: float, east: float}
+ */
+function overpassBoundsFromQuery(string $query): array
+{
+    $matched = preg_match(
+        '/\((-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)\);/',
+        $query,
+        $matches,
+    );
+
+    if ($matched !== 1) {
+        throw new RuntimeException('Overpass query did not contain bounds.');
+    }
+
+    return [
+        'south' => (float) $matches[1],
+        'west' => (float) $matches[2],
+        'north' => (float) $matches[3],
+        'east' => (float) $matches[4],
+    ];
+}
+
 function createDirectionsOsmNode(
     int $osmId,
     float $latitude,
@@ -130,6 +153,8 @@ it('returns normalized directions with maneuvers and optional exclusion zone', f
                 'lat' => 45.52,
                 'lon' => -122.66,
                 'tags' => [
+                    'name' => 'Main Street reader',
+                    'operator' => 'City agency',
                     'surveillance:type' => 'ALPR',
                     'camera:direction' => 'E',
                 ],
@@ -158,6 +183,14 @@ it('returns normalized directions with maneuvers and optional exclusion zone', f
         ->assertJsonPath('result.routes.direct.camera_candidates.0.direction_known', true)
         ->assertJsonPath('result.routes.direct.camera_candidates.0.directions.0.start', 90)
         ->assertJsonPath('result.routes.direct.camera_candidates.0.route_progress_fraction', fn (mixed $value): bool => is_numeric($value) && $value > 0 && $value < 1)
+        ->assertJsonPath('result.routes.direct.monitoring_camera_nodes.0.osm_id', 100)
+        ->assertJsonPath('result.routes.direct.monitoring_camera_nodes.0.coordinate', [-122.66, 45.52])
+        ->assertJsonPath('result.routes.direct.monitoring_camera_nodes.0.direction_known', true)
+        ->assertJsonPath('result.routes.direct.monitoring_camera_nodes.0.directions.0.start', 90)
+        ->assertJsonPath('result.routes.direct.monitoring_camera_nodes.0.name', 'Main Street reader')
+        ->assertJsonPath('result.routes.direct.monitoring_camera_nodes.0.operator', 'City agency')
+        ->assertJsonPath('result.routes.ideal.monitoring_camera_nodes.0.osm_id', 100)
+        ->assertJsonPath('result.avoidance_search_complete', true)
         ->assertJsonPath('result.routes.ideal.distance', 1234.5)
         ->assertJsonPath('result.fastest_route_node_count', 1)
         ->assertJsonPath('result.route.maneuvers.0.instruction', 'Head east')
@@ -229,7 +262,9 @@ it('uses GraphHopper as primary without changing the public directions payload',
     expect($requests->filter(fn (array $record) => str_contains($record[0]->url(), 'graphhopper.test')))
         ->toHaveCount(1)
         ->and($requests->filter(fn (array $record) => str_contains($record[0]->url(), 'openrouteservice')))
-        ->toHaveCount(0);
+        ->toHaveCount(0)
+        ->and($requests->filter(fn (array $record) => str_contains($record[0]->url(), 'overpass.test')))
+        ->toHaveCount(1);
 });
 
 it('restarts the complete calculation through ORS after a GraphHopper failure', function () {
@@ -561,6 +596,233 @@ it('accumulates newly encountered database POIs across reroutes', function () {
         ->and(data_get($graphHopperRequests[1][0]->data(), 'custom_model.areas.features'))->toHaveCount(1)
         ->and(data_get($graphHopperRequests[2][0]->data(), 'custom_model.areas.features'))->toHaveCount(2);
 });
+
+it('loads camera inventory for the final route when avoidance attempts are exhausted', function () {
+    config([
+        'directions.provider' => 'graphhopper',
+        'directions.poi_backend' => 'database',
+        'directions.expansion_attempts' => 1,
+    ]);
+
+    createDirectionsOsmNode(410, 45.5175, -122.667, ['surveillance:type' => 'ALPR']);
+    createDirectionsOsmNode(411, 45.528, -122.667, ['surveillance:type' => 'ALPR']);
+    createDirectionsOsmNode(412, 45.507, -122.667, ['surveillance:type' => 'ALPR']);
+
+    Http::fake([
+        'http://graphhopper.test:8080/route' => Http::sequence()
+            ->push(graphHopperDirectionsResponse([
+                [-122.676, 45.523],
+                [-122.667, 45.5175],
+                [-122.658, 45.512],
+            ]))
+            ->push(graphHopperDirectionsResponse([
+                [-122.676, 45.523],
+                [-122.667, 45.528],
+                [-122.658, 45.512],
+            ]))
+            ->push(graphHopperDirectionsResponse([
+                [-122.676, 45.523],
+                [-122.667, 45.507],
+                [-122.658, 45.512],
+            ])),
+    ]);
+
+    $this->postJson('/api/v1/directions', directionsRequestPayload())
+        ->assertOk()
+        ->assertJsonPath('result.avoidance_search_complete', false)
+        ->assertJsonPath('result.routes.direct.camera_coverage_complete', true)
+        ->assertJsonPath('result.routes.direct.camera_candidates.0.osm_id', 410)
+        ->assertJsonPath('result.routes.ideal.camera_coverage_complete', true)
+        ->assertJsonPath('result.routes.ideal.camera_candidates.0.osm_id', 412)
+        ->assertJsonPath('result.routes.ideal.monitoring_camera_nodes.0.osm_id', 412);
+});
+
+it('queries only the unresolved final private geometry after exhausting overpass avoidance attempts', function () {
+    config([
+        'directions.provider' => 'graphhopper',
+        'directions.poi_backend' => 'overpass',
+        'directions.expansion_attempts' => 0,
+    ]);
+
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::sequence()
+            ->push(['elements' => [[
+                'id' => 510,
+                'lat' => 45.5175,
+                'lon' => -122.667,
+                'tags' => ['surveillance:type' => 'ALPR'],
+            ]]])
+            ->push(['elements' => [[
+                'id' => 511,
+                'lat' => 45.528,
+                'lon' => -122.667,
+                'tags' => ['surveillance:type' => 'ALPR'],
+            ]]]),
+        'http://graphhopper.test:8080/route' => Http::sequence()
+            ->push(graphHopperDirectionsResponse([
+                [-122.676, 45.523],
+                [-122.667, 45.5175],
+                [-122.658, 45.512],
+            ]))
+            ->push(graphHopperDirectionsResponse([
+                [-122.676, 45.523],
+                [-122.667, 45.528],
+                [-122.658, 45.512],
+            ])),
+    ]);
+
+    $this->postJson('/api/v1/directions', directionsRequestPayload())
+        ->assertOk()
+        ->assertJsonPath('result.avoidance_search_complete', false)
+        ->assertJsonPath('result.routes.direct.camera_coverage_complete', true)
+        ->assertJsonPath('result.routes.direct.camera_candidates.0.osm_id', 510)
+        ->assertJsonPath('result.routes.ideal.camera_coverage_complete', true)
+        ->assertJsonPath('result.routes.ideal.camera_candidates.0.osm_id', 511);
+
+    $overpassRequests = collect(Http::recorded())
+        ->filter(fn (array $record) => str_contains($record[0]->url(), 'overpass.test'))
+        ->values();
+    $directBounds = overpassBoundsFromQuery($overpassRequests[0][0]->data()['data']);
+    $idealBounds = overpassBoundsFromQuery($overpassRequests[1][0]->data()['data']);
+
+    expect($overpassRequests)->toHaveCount(2)
+        ->and($idealBounds)->not->toBe($directBounds)
+        ->and($idealBounds['south'])->toBeLessThanOrEqual(45.528)
+        ->and($idealBounds['north'])->toBeGreaterThanOrEqual(45.528)
+        ->and($idealBounds['west'])->toBeLessThanOrEqual(-122.667)
+        ->and($idealBounds['east'])->toBeGreaterThanOrEqual(-122.667);
+});
+
+it('retains known private candidates with incomplete coverage when its final refresh fails', function () {
+    config([
+        'directions.provider' => 'graphhopper',
+        'directions.poi_backend' => 'overpass',
+        'directions.expansion_attempts' => 0,
+    ]);
+
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::sequence()
+            ->push(['elements' => [
+                [
+                    'id' => 520,
+                    'lat' => 45.5175,
+                    'lon' => -122.667,
+                    'tags' => ['surveillance:type' => 'ALPR'],
+                ],
+                [
+                    'id' => 521,
+                    'lat' => 45.519,
+                    'lon' => -122.667,
+                    'tags' => ['surveillance:type' => 'ALPR'],
+                ],
+            ]])
+            ->push(['error' => 'Unavailable'], 503),
+        'http://graphhopper.test:8080/route' => Http::sequence()
+            ->push(graphHopperDirectionsResponse([
+                [-122.676, 45.523],
+                [-122.667, 45.5175],
+                [-122.658, 45.512],
+            ]))
+            ->push(graphHopperDirectionsResponse([
+                [-122.676, 45.523],
+                [-122.667, 45.519],
+                [-122.658, 45.512],
+            ])),
+    ]);
+
+    $this->postJson('/api/v1/directions', directionsRequestPayload())
+        ->assertOk()
+        ->assertJsonPath('result.avoidance_search_complete', false)
+        ->assertJsonPath('result.routes.direct.camera_coverage_complete', true)
+        ->assertJsonPath('result.routes.direct.camera_candidates.0.osm_id', 520)
+        ->assertJsonPath('result.routes.ideal.camera_coverage_complete', false)
+        ->assertJsonPath('result.routes.ideal.camera_candidates.0.osm_id', 521);
+
+    $overpassRequests = collect(Http::recorded())
+        ->filter(fn (array $record) => str_contains($record[0]->url(), 'overpass.test'));
+
+    expect($overpassRequests)->toHaveCount(2);
+});
+
+it('keeps id-less cameras monitoring-only and discloses incomplete scoring coverage', function () {
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::response([
+            'elements' => [[
+                'lat' => 45.52,
+                'lon' => -122.66,
+                'tags' => ['surveillance:type' => 'ALPR'],
+            ]],
+        ]),
+        'https://api.heigit.org/*' => Http::response(orsDirectionsResponse([
+            [-122.676, 45.523],
+            [-122.66, 45.52],
+            [-122.658, 45.512],
+        ])),
+    ]);
+
+    $this->postJson('/api/v1/directions', directionsRequestPayload())
+        ->assertOk()
+        ->assertJsonPath('result.routes.direct.camera_coverage_complete', false)
+        ->assertJsonCount(0, 'result.routes.direct.camera_candidates')
+        ->assertJsonPath('result.routes.direct.monitoring_camera_nodes.0.osm_id', null)
+        ->assertJsonPath('result.routes.direct.node_count', 1)
+        ->assertJsonPath('result.routes.direct.scored_node_count', 0);
+});
+
+it('returns routes with incomplete coverage when the final inventory refresh fails', function () {
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::sequence()
+            ->push(['elements' => []])
+            ->push(['error' => 'Unavailable'], 503),
+        'https://api.heigit.org/*' => Http::response(orsDirectionsResponse([
+            [-122.676, 45.523],
+            [-122.658, 45.512],
+        ])),
+    ]);
+
+    $this->postJson('/api/v1/directions', directionsRequestPayload([
+        'avoid_buffer' => 35,
+    ]))
+        ->assertOk()
+        ->assertJsonPath('result.avoidance_search_complete', true)
+        ->assertJsonPath('result.routes.direct.camera_coverage_complete', false)
+        ->assertJsonPath('result.routes.ideal.camera_coverage_complete', false)
+        ->assertJsonCount(0, 'result.routes.direct.monitoring_camera_nodes');
+});
+
+it('does not certify incomplete successful overpass responses', function (mixed $incompleteResponse) {
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::sequence()
+            ->push(['elements' => []])
+            ->push($incompleteResponse),
+        'https://api.heigit.org/*' => Http::response(orsDirectionsResponse([
+            [-122.676, 45.523],
+            [-122.658, 45.512],
+        ])),
+    ]);
+
+    $this->postJson('/api/v1/directions', directionsRequestPayload([
+        'avoid_buffer' => 35,
+    ]))
+        ->assertOk()
+        ->assertJsonPath('result.avoidance_search_complete', true)
+        ->assertJsonPath('result.routes.direct.camera_coverage_complete', false)
+        ->assertJsonPath('result.routes.ideal.camera_coverage_complete', false)
+        ->assertJsonCount(0, 'result.routes.direct.camera_candidates');
+
+    $overpassRequests = collect(Http::recorded())
+        ->filter(fn (array $record) => str_contains($record[0]->url(), 'overpass.test'));
+
+    expect($overpassRequests)->toHaveCount(2);
+})->with([
+    'runtime remark' => [[
+        'elements' => [],
+        'remark' => 'runtime error: query timed out',
+    ]],
+    'missing elements' => [['version' => 0.6]],
+    'malformed json' => ['not-json'],
+    'malformed element' => [['elements' => [['id' => 530]]]],
+]);
 
 it('rejects directions beyond the configured max distance before external calls', function () {
     config(['directions.max_distance_meters' => 100]);

@@ -1,0 +1,236 @@
+appId: com.anonymous.drivefree.dev
+name: Scorecard Local Exposure Drive
+tags:
+  - scorecard
+  - navigation
+  - privacy
+---
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+- launchApp:
+    clearKeychain: true
+    clearState: true
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    file: subflows/open-expo-dev-client-after-clear.yml
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 30000
+- openLink: 'driversagainstflock://e2e-mocks?scorecardDrive=local-exposure'
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-directions-button-map'
+    timeout: 10000
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+- tapOn:
+    id: 'map-search-directions-button-map'
+    retryTapIfNoChange: true
+    waitToSettleTimeoutMs: 1000
+- extendedWaitUntil:
+    visible:
+      id: 'map-directions-destination-input-map'
+    timeout: 10000
+- tapOn:
+    id: 'map-directions-destination-input-map'
+    waitToSettleTimeoutMs: 1000
+- inputText: 'Austin Central Library'
+- extendedWaitUntil:
+    visible:
+      id: 'map-directions-search-result-0-map'
+    timeout: 30000
+- tapOn:
+    id: 'map-directions-search-result-0-map'
+    retryTapIfNoChange: true
+    waitToSettleTimeoutMs: 1000
+- extendedWaitUntil:
+    visible:
+      id: 'map-directions-submit-button-map'
+      enabled: true
+    timeout: 30000
+- tapOn:
+    id: 'map-directions-submit-button-map'
+    retryTapIfNoChange: true
+    waitToSettleTimeoutMs: 1000
+- extendedWaitUntil:
+    visible:
+      id: 'directions-route-sheet-presented'
+    timeout: 60000
+- assertVisible:
+    id: 'directions-route-option-direct'
+- assertVisible:
+    id: 'directions-route-option-ideal'
+- tapOn:
+    id: 'directions-route-option-direct'
+    retryTapIfNoChange: true
+    waitToSettleTimeoutMs: 1000
+- extendedWaitUntil:
+    visible:
+      id: 'directions-route-option-direct-selected-badge'
+    timeout: 10000
+- tapOn:
+    id: 'directions-route-option-ideal'
+    retryTapIfNoChange: true
+    waitToSettleTimeoutMs: 1000
+- extendedWaitUntil:
+    visible:
+      id: 'directions-route-option-ideal-selected-badge'
+    timeout: 10000
+- tapOn:
+    id: 'directions-route-start-driving-button'
+    retryTapIfNoChange: true
+    waitToSettleTimeoutMs: 1000
+- extendedWaitUntil:
+    notVisible:
+      id: 'directions-route-sheet-presented'
+    timeout: 10000
+- extendedWaitUntil:
+    visible: 'expo-foreground-location-watch'
+    timeout: 30000
+- extendedWaitUntil:
+    visible: 'scorecard-hydrated'
+    timeout: 30000
+- extendedWaitUntil:
+    visible: 'scorecard-guided-active'
+    timeout: 30000
+- extendedWaitUntil:
+    visible: 'scorecard-camera-inventory-ready'
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: 'e2e-scorecard-storage-synced'
+    timeout: 30000
+- copyTextFrom:
+    id: 'e2e-scorecard-persisted-revision'
+- assertTrue: ${Number(maestro.copiedText) > 0}
+
+# Cross a known directional cone, then an unknown-direction circle. The third
+# camera is nearby but faces away from the route and must not produce an event.
+- travel:
+    points:
+      - '30.2672, -97.7431'
+      - '30.26684, -97.74484'
+      - '30.266580475257296, -97.74609436958974'
+    speed: 0.2
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: '__e2e-scorecard-waypoint-delivery-delay__'
+          timeout: 1500
+          optional: true
+- setLocation:
+    latitude: 30.26657
+    longitude: -97.746145
+- extendedWaitUntil:
+    visible: '-97.7461450,30.2665700'
+    timeout: 30000
+- travel:
+    points:
+      - '30.26657, -97.746145'
+      - '30.266130475220972, -97.74826936976532'
+    speed: 0.2
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: '__e2e-scorecard-waypoint-delivery-delay__'
+          timeout: 1500
+          optional: true
+- setLocation:
+    latitude: 30.26612
+    longitude: -97.74832
+- extendedWaitUntil:
+    visible: '-97.7483200,30.2661200'
+    timeout: 30000
+- travel:
+    points:
+      - '30.26612, -97.74832'
+      - '30.26471, -97.74978'
+      - '30.265818801782373, -97.75111250740513'
+    speed: 0.2
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: '__e2e-scorecard-waypoint-delivery-delay__'
+          timeout: 1500
+          optional: true
+- setLocation:
+    latitude: 30.26585
+    longitude: -97.75115
+- extendedWaitUntil:
+    visible: '-97.7511500,30.2658500'
+    timeout: 30000
+- travel:
+    points:
+      - '30.26585, -97.75115'
+      - '30.26555, -97.75158'
+      - '30.2655125, -97.751635'
+      - '30.265475, -97.75169'
+      - '30.2654375, -97.751745'
+      - '30.2654, -97.7518'
+    speed: 0.08
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-arrival-recap'
+    timeout: 60000
+- assertVisible: 'Arrived · 1 read'
+- copyTextFrom:
+    id: 'scorecard-arrival-recap-score'
+- assertTrue: ${maestro.copiedText == 'Privacy score → 0'}
+- copyTextFrom:
+    id: 'scorecard-arrival-recap-avoided'
+- assertTrue: ${maestro.copiedText == '0'}
+- copyTextFrom:
+    id: 'scorecard-arrival-recap-reads'
+- assertTrue: ${maestro.copiedText == '1'}
+- copyTextFrom:
+    id: 'scorecard-arrival-recap-xp'
+- assertTrue: ${maestro.copiedText == '+0 XP'}
+- extendedWaitUntil:
+    visible:
+      id: 'e2e-scorecard-storage-synced'
+    timeout: 30000
+- copyTextFrom:
+    id: 'e2e-scorecard-persisted-revision'
+- assertTrue: ${Number(maestro.copiedText) > 0}
+
+# Relaunch before dismissing the recap to prove the encrypted state restores
+# both the trip and its locally modeled exposure events.
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-arrival-recap'
+    timeout: 30000
+- copyTextFrom:
+    id: 'scorecard-arrival-recap-reads'
+- assertTrue: ${maestro.copiedText == '1'}
+- tapOn:
+    id: 'scorecard-arrival-recap-timeline'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-timeline'
+    timeout: 10000
+- assertVisible: '1 confirmed · 1 possible · 0 avoided'
+- assertVisible: 'Directional cone crossing, Confirmed cone crossing · 258°'
+- assertVisible: 'Unknown-direction crossing, Possible crossing · camera direction unknown · not scored'
+- assertNotVisible: '.*Behind-cone negative control.*'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-local-exposure-drive'}

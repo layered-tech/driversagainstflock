@@ -203,6 +203,45 @@ describe('shared route geometry synchronization', () => {
             sharedRoutingState.getDirectionsRouteSyncKey(correctedRoute),
         );
     });
+
+    test('publishes candidate and monitoring-catalog changes with stable geometry', () => {
+        const { sharedRoutingState } = createSharedRoutingStateHarness({
+            readPersistedState: async () => null,
+        });
+        const firstRoute = {
+            requestedAt: 1_000,
+            routeOptions: [
+                {
+                    cameraCandidates: [{ osmId: '100' }],
+                    cameraCoverageComplete: true,
+                    coordinates: [
+                        [-97.75, 30.26],
+                        [-97.73, 30.28],
+                    ],
+                    distance: 1_000,
+                    duration: 100,
+                    monitoringCameraNodes: [{ osmId: '100' }],
+                    routeKey: 'direct',
+                },
+            ],
+            selectedRouteKey: 'direct',
+        };
+        const correctedRoute = {
+            ...firstRoute,
+            routeOptions: [
+                {
+                    ...firstRoute.routeOptions[0],
+                    cameraCandidates: [{ osmId: '200' }],
+                    monitoringCameraNodes: [{ osmId: '100' }, { osmId: '200' }],
+                },
+            ],
+        };
+
+        assert.notEqual(
+            sharedRoutingState.getDirectionsRouteSyncKey(firstRoute),
+            sharedRoutingState.getDirectionsRouteSyncKey(correctedRoute),
+        );
+    });
 });
 
 describe('background routing state resolution', () => {

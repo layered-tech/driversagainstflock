@@ -3,6 +3,7 @@
 namespace App\Services\Directions;
 
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class DirectionsRouter
 {
@@ -113,12 +114,13 @@ class DirectionsRouter
         $currentRoute = $directRoute;
         $lastIdealRoute = $directRoute;
         $lastBounds = null;
-        $lastPois = [];
         $lastSearchDistance = $searchDistance;
         $lastZone = ['type' => 'MultiPolygon', 'coordinates' => []];
         $completedAttempts = 0;
         $avoidedPois = [];
+        $avoidanceSearchComplete = false;
         $candidatePois = [];
+        $routePoiInventories = [];
 
         for ($attempt = 0; $attempt <= $maxAttempts; $attempt++) {
             $attemptStartedAt = microtime(true);
@@ -136,13 +138,21 @@ class DirectionsRouter
             ]);
 
             $poiLookupStartedAt = microtime(true);
+            $sourceSearchDistance = $source instanceof RouteAwarePoiSource
+                ? max($avoidBuffer, $scorecardCameraRange)
+                : $searchDistance;
             $sourcePois = $source instanceof RouteAwarePoiSource
                 ? $source->findAlongRoute(
                     $currentRoute['coordinates'],
-                    max($avoidBuffer, $scorecardCameraRange),
+                    $sourceSearchDistance,
                     $profiles,
                 )
                 : $source->find($bounds, $profiles);
+
+            if ($sourceSearchDistance >= $scorecardCameraRange) {
+                $routePoiInventories[$this->routeInventoryKey($currentRoute['coordinates'])] = $sourcePois;
+            }
+
             $routePois = $this->geometry->poisAlongRoute(
                 $sourcePois,
                 $currentRoute['coordinates'],
@@ -170,8 +180,6 @@ class DirectionsRouter
                 $newPois[] = $poi;
             }
 
-            $lastPois = array_values($candidatePois);
-
             Log::info('Directions POI lookup completed.', [
                 'attempt' => $attempt + 1,
                 'source' => get_debug_type($source),
@@ -191,6 +199,7 @@ class DirectionsRouter
 
             if ($newPois === []) {
                 $lastIdealRoute = $currentRoute;
+                $avoidanceSearchComplete = true;
 
                 Log::info('Directions route attempt completed without new POIs.', [
                     'attempt' => $attempt + 1,
@@ -225,6 +234,7 @@ class DirectionsRouter
 
             if (($zone['coordinates'] ?? []) === []) {
                 $lastIdealRoute = $currentRoute;
+                $avoidanceSearchComplete = true;
 
                 Log::info('Directions ideal route skipped because exclusion zone is empty.', [
                     'attempt' => $attempt + 1,
@@ -261,28 +271,30 @@ class DirectionsRouter
 
         Log::info('Directions router completed.', [
             'attempts' => $completedAttempts,
+            'avoidance_search_complete' => $avoidanceSearchComplete,
             'fastest_route_node_count' => $fastestRouteNodeCount,
             'elapsed_ms' => $this->elapsedMilliseconds($startedAt),
         ]);
 
         $resolvedIdealRoute = $lastIdealRoute ?? $directRoute;
-        $directCandidates = $this->geometry->routeCameraCandidates(
-            $lastPois,
+        $directInventory = $this->finalRouteCameraInventory(
+            $source,
             $directRoute['coordinates'],
             $scorecardCameraRange,
-            (float) config('directions.cone_angle_degrees'),
-            (int) config('directions.cone_segments'),
+            $profiles,
+            array_values($candidatePois),
+            $routePoiInventories[$this->routeInventoryKey($directRoute['coordinates'])] ?? null,
         );
-        $idealCandidates = $this->geometry->routeCameraCandidates(
-            $lastPois,
-            $resolvedIdealRoute['coordinates'],
-            $scorecardCameraRange,
-            (float) config('directions.cone_angle_degrees'),
-            (int) config('directions.cone_segments'),
-        );
-        $cameraCoverageComplete = $lastBounds !== null
-            && $this->geometry->routeInsideBounds($directRoute['coordinates'], $lastBounds)
-            && $this->geometry->routeInsideBounds($resolvedIdealRoute['coordinates'], $lastBounds);
+        $idealInventory = $directRoute['coordinates'] === $resolvedIdealRoute['coordinates']
+            ? $directInventory
+            : $this->finalRouteCameraInventory(
+                $source,
+                $resolvedIdealRoute['coordinates'],
+                $scorecardCameraRange,
+                $profiles,
+                array_values($candidatePois),
+                $routePoiInventories[$this->routeInventoryKey($resolvedIdealRoute['coordinates'])] ?? null,
+            );
 
         return [
             'ok' => true,
@@ -290,26 +302,15 @@ class DirectionsRouter
                 'route' => $resolvedIdealRoute,
                 'routes' => [
                     'direct' => array_merge($directRoute, [
-                        'camera_candidates' => $directCandidates,
-                        'camera_coverage_complete' => $cameraCoverageComplete,
-                        'fastest_route_node_count' => count($directCandidates),
-                        'node_count' => count($directCandidates),
-                        'scored_node_count' => count(array_filter(
-                            $directCandidates,
-                            fn (array $candidate): bool => $candidate['direction_known'],
-                        )),
+                        ...$directInventory,
+                        'fastest_route_node_count' => $directInventory['node_count'],
                     ]),
                     'ideal' => array_merge($resolvedIdealRoute, [
-                        'camera_candidates' => $idealCandidates,
-                        'camera_coverage_complete' => $cameraCoverageComplete,
-                        'node_count' => count($idealCandidates),
-                        'scored_node_count' => count(array_filter(
-                            $idealCandidates,
-                            fn (array $candidate): bool => $candidate['direction_known'],
-                        )),
+                        ...$idealInventory,
                     ]),
                 ],
-                'fastest_route_node_count' => count($directCandidates),
+                'avoidance_search_complete' => $avoidanceSearchComplete,
+                'fastest_route_node_count' => $directInventory['node_count'],
                 'exclusion_zone' => $showZone ? [
                     'type' => 'Feature',
                     'geometry' => $lastZone,
@@ -327,6 +328,78 @@ class DirectionsRouter
                     )
                     : null,
             ],
+        ];
+    }
+
+    /**
+     * @param  array<int, array<int, float>>  $coordinates
+     * @param  array<int, array<string, mixed>>  $profiles
+     * @param  array<int, PointOfInterest>  $fallbackPois
+     * @param  array<int, PointOfInterest>|null  $retainedPois
+     * @return array{
+     *     camera_candidates: array<int, array<string, mixed>>,
+     *     camera_coverage_complete: bool,
+     *     monitoring_camera_nodes: array<int, array<string, mixed>>,
+     *     node_count: int,
+     *     scored_node_count: int
+     * }
+     */
+    private function finalRouteCameraInventory(
+        PoiSource $source,
+        array $coordinates,
+        float $cameraRangeMeters,
+        array $profiles,
+        array $fallbackPois,
+        ?array $retainedPois,
+    ): array {
+        $cameraCoverageComplete = $retainedPois !== null;
+        $sourcePois = $retainedPois;
+
+        if ($sourcePois === null) {
+            try {
+                $sourcePois = $source instanceof RouteAwarePoiSource
+                    ? $source->findAlongRoute($coordinates, $cameraRangeMeters, $profiles)
+                    : $source->find(
+                        $this->geometry->searchBoundsForCoordinates(
+                            $this->routeCoordinates($coordinates),
+                            $cameraRangeMeters,
+                        ),
+                        $profiles,
+                    );
+                $cameraCoverageComplete = true;
+            } catch (Throwable $exception) {
+                $sourcePois = $fallbackPois;
+
+                Log::warning('Directions final camera inventory lookup failed.', [
+                    'exception_type' => $exception::class,
+                    'source' => get_debug_type($source),
+                ]);
+            }
+        }
+
+        $intersections = $this->geometry->routeCameraIntersections(
+            $sourcePois,
+            $coordinates,
+            $cameraRangeMeters,
+            (float) config('directions.cone_angle_degrees'),
+            (int) config('directions.cone_segments'),
+        );
+        $cameraCandidates = array_values(array_filter(
+            $intersections,
+            fn (array $candidate): bool => $candidate['osm_id'] !== null,
+        ));
+
+        return [
+            'camera_candidates' => $cameraCandidates,
+            'camera_coverage_complete' => $cameraCoverageComplete
+                && count($cameraCandidates) === count($intersections),
+            'monitoring_camera_nodes' => $this->geometry->routeMonitoringCameraNodes(
+                $sourcePois,
+                $coordinates,
+                $cameraRangeMeters,
+            ),
+            'node_count' => count($intersections),
+            'scored_node_count' => count($cameraCandidates),
         ];
     }
 
@@ -453,6 +526,14 @@ class DirectionsRouter
         }
 
         return sprintf('coordinate:%0.7f,%0.7f', $poi->longitude, $poi->latitude);
+    }
+
+    /**
+     * @param  array<int, array<int, float>>  $coordinates
+     */
+    private function routeInventoryKey(array $coordinates): string
+    {
+        return hash('sha256', serialize($coordinates));
     }
 
     /**

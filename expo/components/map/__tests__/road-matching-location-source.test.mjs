@@ -184,6 +184,9 @@ function createRoadMatchingSessionHarness({
         sourceType: 'module',
     }).code;
     const mockedModules = {
+        './accepted-device-location': {
+            publishAcceptedDeviceLocation() {},
+        },
         '../auto-play-session-state': {
             addAutoPlaySessionStateListener(listener) {
                 autoPlaySessionStateListeners.add(listener);

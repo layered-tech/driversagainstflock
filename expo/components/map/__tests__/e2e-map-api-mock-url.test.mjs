@@ -14,6 +14,7 @@ describe('E2E map API mock links', () => {
                 authMockIsEnabled: false,
                 drivingAlertsFixture: null,
                 mocksAreEnabled: true,
+                scorecardDriveScenario: null,
             },
         );
     });
@@ -26,6 +27,7 @@ describe('E2E map API mock links', () => {
                 authMockIsEnabled: true,
                 drivingAlertsFixture: null,
                 mocksAreEnabled: true,
+                scorecardDriveScenario: null,
             },
         );
         assert.deepEqual(
@@ -35,6 +37,7 @@ describe('E2E map API mock links', () => {
                 authMockIsEnabled: false,
                 drivingAlertsFixture: null,
                 mocksAreEnabled: true,
+                scorecardDriveScenario: null,
             },
         );
     });
@@ -47,6 +50,7 @@ describe('E2E map API mock links', () => {
                 authMockIsEnabled: false,
                 drivingAlertsFixture: null,
                 mocksAreEnabled: false,
+                scorecardDriveScenario: null,
             },
         );
     });
@@ -64,6 +68,28 @@ describe('E2E map API mock links', () => {
             ).drivingAlertsFixture,
             null,
         );
+    });
+
+    test('accepts only supported scorecard drive scenarios from mock links', () => {
+        for (const scenario of ['private-route', 'local-exposure']) {
+            assert.equal(
+                getE2EMockFlagsFromURL(
+                    `driversagainstflock://e2e-mocks?scorecardDrive=${scenario}`,
+                ).scorecardDriveScenario,
+                scenario,
+            );
+        }
+
+        for (const value of [
+            'driversagainstflock://e2e-mocks?scorecardDrive=unknown',
+            'driversagainstflock://map?scorecardDrive=private-route',
+            'not a URL',
+        ]) {
+            assert.equal(
+                getE2EMockFlagsFromURL(value).scorecardDriveScenario,
+                null,
+            );
+        }
     });
 });
 

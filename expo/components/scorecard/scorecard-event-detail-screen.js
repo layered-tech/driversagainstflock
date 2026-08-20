@@ -4,7 +4,10 @@ import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
 import { dafSemanticColors } from '../design-system/tokens';
 import { useScorecard } from './scorecard-context';
-import { getExposureScoreImpact } from './scorecard-engine';
+import {
+    getExposureScoreImpact,
+    getScorecardMonitoringCameraKey,
+} from './scorecard-engine';
 import { ScorecardExposureMap } from './scorecard-map';
 import {
     ScorecardPrivacyFooter,
@@ -89,9 +92,10 @@ export default function ScorecardEventDetailScreen() {
 
     const confirmed = event.certainty === 'confirmed';
     const impact = getExposureScoreImpact(scorecardState, event.id);
+    const eventCameraKey = getScorecardMonitoringCameraKey(event);
     const readsAtCamera = scorecardState.exposures.filter(
         (exposure) =>
-            exposure.osmId === event.osmId &&
+            getScorecardMonitoringCameraKey(exposure) === eventCameraKey &&
             exposure.certainty === 'confirmed',
     ).length;
 
@@ -129,7 +133,9 @@ export default function ScorecardEventDetailScreen() {
                             {event.label}
                         </Text>
                         <Text className="font-dafMono mt-1 text-xs text-daf-text-tertiary dark:text-neutral-400">
-                            OSM node {event.osmId} · public camera data
+                            {event.osmId
+                                ? `OSM node ${event.osmId} · public camera data`
+                                : 'Public camera data · no OSM node ID'}
                         </Text>
                         <View
                             className={`mt-3 flex-row items-center gap-2.5 rounded-dafMd border px-3 py-2.5 ${

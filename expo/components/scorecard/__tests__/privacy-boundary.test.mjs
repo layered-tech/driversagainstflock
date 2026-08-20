@@ -114,7 +114,7 @@ describe('scorecard telemetry and storage boundary', () => {
         );
         assert.match(
             contextSource,
-            /saveEncryptedScorecardState\(backup\.state\)[\s\S]*?setScorecardState\(backup\.state\)/,
+            /normalizeScorecardState\([\s\S]*?backup\.state,[\s\S]*?restoredAt[\s\S]*?saveEncryptedScorecardState\([\s\S]*?restoredState,[\s\S]*?restoredAt[\s\S]*?setScorecardState\(restoredState\)/,
         );
     });
 

@@ -39,7 +39,6 @@ tags:
 - assertVisible:
     id: 'drawer-scorecard-button'
 - assertVisible: 'Ghost'
-- assertVisible: '2 reads'
 - tapOn:
     id: 'drawer-scorecard-button'
     retryTapIfNoChange: true
@@ -60,6 +59,11 @@ tags:
     timeout: 10000
 - assertVisible: '25.2 mpg · AAA state rates'
 - assertVisible: '6.7 mi'
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-badge-count'
+    direction: DOWN
+    timeout: 10000
 - assertVisible: '4 of 6'
 - scrollUntilVisible:
     element:
@@ -92,7 +96,7 @@ tags:
     id: 'scorecard-operator-view-toggle'
     checked: true
 - assertVisible: 'OPERATOR VIEW · 2 CONFIRMED · 30 DAYS'
-- assertVisible: 'PLATE, VEHICLE, HOTLIST, AND AGENCY-SHARING DETAILS ARE NOT AVAILABLE TO DAF. THIS SIMULATION USES ONLY THE PUBLIC CAMERA NODE AND YOUR ON-DEVICE CROSSING.'
+- assertVisible: 'Built locally from your explicit DAF drives and public camera nodes. DAF has no plate image, vehicle description, hotlist result, or access to an operator database.'
 - takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-operator-view'}
 - tapOn:
     id: 'scorecard-operator-view-toggle'
@@ -119,7 +123,9 @@ tags:
     id: 'scorecard-confirmed-read-disclaimer'
 - assertVisible: 'Crossing a known directional cone is treated as a confirmed plate read for this scorecard. DAF does not receive a plate image or confirmation from the camera operator.'
 - takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-event-detail'}
-- tapOn: 'Go back'
+- tapOn:
+    text: 'Go back'
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'scorecard-timeline'
@@ -177,7 +183,9 @@ tags:
 
 # The setting is on by default, persists through the encrypted state writer,
 # and deletion clears all retained and lifetime scorecard state.
-- tapOn: 'Go back'
+- tapOn:
+    text: 'Go back'
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'scorecard-dashboard'
@@ -200,6 +208,11 @@ tags:
 - assertVisible:
     id: 'scorecard-tracking-toggle'
     checked: true
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-delete-history'
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: 'scorecard-delete-history'
 - assertVisible: 'Delete encrypted scorecard history?'
