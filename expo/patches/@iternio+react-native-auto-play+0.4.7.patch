@@ -2893,7 +2893,7 @@ index 2793085..4fcde31 100644
 +    case failed
  }
 diff --git a/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js b/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js
-index abdbba8..2d39b0f 100644
+index abdbba8..893a22f 100644
 --- a/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js
 +++ b/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js
 @@ -9,6 +9,7 @@ const HybridCarPlayDashboard = Platform.OS === 'ios'
@@ -2904,7 +2904,7 @@ index abdbba8..2d39b0f 100644
      isConnected = false;
      id = 'CarPlayDashboard';
      constructor() {
-@@ -27,15 +28,20 @@ class Dashboard {
+@@ -27,15 +28,22 @@ class Dashboard {
              return;
          }
          const { component, isConnected } = this;
@@ -2927,11 +2927,38 @@ index abdbba8..2d39b0f 100644
 +            this.componentRegistered = true;
 +        }
 +        if (isConnected) {
-+            HybridCarPlayDashboard.initRootView();
++            HybridCarPlayDashboard.initRootView().catch((error) => {
++                console.warn('CarPlayDashboard.initRootView failed', error);
++            });
 +        }
      }
      setComponent(component) {
          if (Platform.OS !== 'ios') {
+@@ -56,9 +64,9 @@ class Dashboard {
+     setButtons(buttons) {
+         if (HybridCarPlayDashboard == null) {
+             console.warn(`CarPlayDashboard.setButtons is not supported on ${Platform.OS}`);
+-            return;
++            return Promise.resolve();
+         }
+-        HybridCarPlayDashboard.setButtons(buttons.map((button) => ({ ...button, image: NitroImageUtil.convert(button.image) })));
++        return HybridCarPlayDashboard.setButtons(buttons.map((button) => ({ ...button, image: NitroImageUtil.convert(button.image) })));
+     }
+     /**
+      * attach a listener for generic notifications like didConnect, didDisconnect, ...
+diff --git a/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.d.ts b/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.d.ts
+index b06c9ec..c3c639e 100644
+--- a/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.d.ts
++++ b/node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.d.ts
+@@ -20,7 +20,7 @@ declare class Dashboard {
+      * otherwise the dashboard will not show up!
+      * @namespace iOS
+      */
+-    setButtons(buttons: Array<CarPlayDashboardButton>): void;
++    setButtons(buttons: Array<CarPlayDashboardButton>): Promise<void>;
+     /**
+      * attach a listener for generic notifications like didConnect, didDisconnect, ...
+      * @namespace iOS
 diff --git a/node_modules/@iternio/react-native-auto-play/lib/specs/AutoPlay.nitro.d.ts b/node_modules/@iternio/react-native-auto-play/lib/specs/AutoPlay.nitro.d.ts
 index a55c66d..761f5d5 100644
 --- a/node_modules/@iternio/react-native-auto-play/lib/specs/AutoPlay.nitro.d.ts
@@ -3614,7 +3641,7 @@ index f76989c..25a68a2 100644
        virtual std::shared_ptr<Promise<bool>> requestVoiceInputPermission() = 0;
        virtual std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>> startVoiceInput(std::optional<double> silenceThresholdMs, std::optional<double> maxDurationMs, const std::optional<std::string>& listeningText) = 0;
 diff --git a/node_modules/@iternio/react-native-auto-play/src/scenes/CarPlayDashboardScene.ts b/node_modules/@iternio/react-native-auto-play/src/scenes/CarPlayDashboardScene.ts
-index ec0b626..5c53fbf 100644
+index ec0b626..3f25372 100644
 --- a/node_modules/@iternio/react-native-auto-play/src/scenes/CarPlayDashboardScene.ts
 +++ b/node_modules/@iternio/react-native-auto-play/src/scenes/CarPlayDashboardScene.ts
 @@ -25,6 +25,7 @@ export type CarPlayDashboardEvent = EventName | VisibilityState;
@@ -3625,7 +3652,7 @@ index ec0b626..5c53fbf 100644
    public isConnected = false;
    public readonly id = 'CarPlayDashboard';
  
-@@ -47,20 +48,26 @@ class Dashboard {
+@@ -47,20 +48,28 @@ class Dashboard {
      }
  
      const { component, isConnected } = this;
@@ -3658,11 +3685,29 @@ index ec0b626..5c53fbf 100644
 +    }
 +
 +    if (isConnected) {
-+      HybridCarPlayDashboard.initRootView();
++      HybridCarPlayDashboard.initRootView().catch((error) => {
++        console.warn('CarPlayDashboard.initRootView failed', error);
++      });
 +    }
    }
  
    public setComponent(component: React.ComponentType<RootComponentInitialProps>) {
+@@ -80,12 +89,12 @@ class Dashboard {
+    * otherwise the dashboard will not show up!
+    * @namespace iOS
+    */
+-  public setButtons(buttons: Array<CarPlayDashboardButton>) {
++  public setButtons(buttons: Array<CarPlayDashboardButton>): Promise<void> {
+     if (HybridCarPlayDashboard == null) {
+       console.warn(`CarPlayDashboard.setButtons is not supported on ${Platform.OS}`);
+-      return;
++      return Promise.resolve();
+     }
+-    HybridCarPlayDashboard.setButtons(
++    return HybridCarPlayDashboard.setButtons(
+       buttons.map((button) => ({ ...button, image: NitroImageUtil.convert(button.image) }))
+     );
+   }
 diff --git a/node_modules/@iternio/react-native-auto-play/src/specs/AutoPlay.nitro.ts b/node_modules/@iternio/react-native-auto-play/src/specs/AutoPlay.nitro.ts
 index 4f9cec9..858b2ec 100644
 --- a/node_modules/@iternio/react-native-auto-play/src/specs/AutoPlay.nitro.ts

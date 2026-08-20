@@ -5,7 +5,7 @@ import { CarPlayMapSurface } from './carplay-map-surface';
 let voiceSearchController;
 
 function applyDashboardButtons(CarPlayDashboard, makeGlyphImage) {
-    CarPlayDashboard.setButtons([
+    return CarPlayDashboard.setButtons([
         {
             image: makeGlyphImage('location'),
             launchHeadUnitScene: true,
@@ -13,7 +13,9 @@ function applyDashboardButtons(CarPlayDashboard, makeGlyphImage) {
             subtitleVariants: ['Find a destination'],
             titleVariants: ['Open map'],
         },
-    ]);
+    ]).catch((error) => {
+        console.warn('[CarPlay] Could not update Dashboard buttons', error);
+    });
 }
 
 // CarPlay extension of the platform-agnostic auto-play core.

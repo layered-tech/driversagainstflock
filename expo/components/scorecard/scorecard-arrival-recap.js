@@ -140,12 +140,18 @@ export function ScorecardArrivalRecap() {
                                 : `Privacy score → ${currentScore}`}
                         </Text>
                         <Text
-                            className="text-xs text-daf-text-secondary dark:text-neutral-300"
+                            className={`text-xs ${
+                                trip.exposureCoverageComplete
+                                    ? 'text-daf-text-secondary dark:text-neutral-300'
+                                    : 'text-daf-amber'
+                            }`}
                             testID="scorecard-arrival-recap-coverage"
                         >
-                            {cleanDrive
-                                ? `Clean drive · streak is now ${windowStats.cleanDriveStreak}`
-                                : 'Confirmed cone crossings reduce score'}
+                            {!trip.exposureCoverageComplete
+                                ? 'Known cameras scored · camera inventory incomplete'
+                                : cleanDrive
+                                  ? `Clean drive · streak is now ${windowStats.cleanDriveStreak}`
+                                  : 'Confirmed cone crossings reduce score'}
                         </Text>
                         {debugOverlayIsVisible &&
                         !trip.exposureCoverageComplete ? (

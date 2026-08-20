@@ -1,5 +1,9 @@
 import { normalizeDirectionDegrees } from '../map/direction-values.js';
 import {
+    getScorecardMonitoringCameraKey,
+    SCORECARD_CAMERA_REENTRY_DEBOUNCE_MS,
+} from './scorecard-engine.js';
+import {
     getScorecardCoordinateBearingDegrees,
     getScorecardCoordinateDistanceMeters,
     getScorecardStoredNumber,
@@ -8,7 +12,6 @@ import {
 export const SCORECARD_CAMERA_CONE_ANGLE_DEGREES = 45;
 export const SCORECARD_CAMERA_RANGE_METERS = 50;
 
-const CAMERA_REENTRY_DEBOUNCE_MS = 2 * 60 * 1000;
 const CONE_ARC_SEGMENTS = 8;
 const MAX_LOCATION_ACCURACY_METERS = 35;
 const MAX_LOCATION_GAP_MS = 15 * 1000;
@@ -66,6 +69,22 @@ export function parseCameraDirectionRanges(value) {
 
     if (Array.isArray(value)) {
         return value.flatMap(parseCameraDirectionRanges);
+    }
+
+    if (value !== null && typeof value === 'object') {
+        const start = normalizeDirectionDegrees(value.start);
+        const end = normalizeDirectionDegrees(value.end ?? value.start);
+
+        return start === null || end === null
+            ? []
+            : [
+                  {
+                      end,
+                      isRange:
+                          value.isRange === true || value.is_range === true,
+                      start,
+                  },
+              ];
     }
 
     return String(value)
@@ -259,11 +278,20 @@ function getCameraPresentation(node) {
 
     return {
         label:
+            node?.label ||
+            node?.name ||
             tags.name ||
             tags['addr:street'] ||
             tags.road ||
-            `ALPR camera · OSM ${node.osmId}`,
-        operator: typeof tags.operator === 'string' ? tags.operator : null,
+            (node?.osmId === null || node?.osmId === undefined
+                ? 'ALPR camera'
+                : `ALPR camera · OSM ${node.osmId}`),
+        operator:
+            typeof node?.operator === 'string'
+                ? node.operator
+                : typeof tags.operator === 'string'
+                  ? tags.operator
+                  : null,
     };
 }
 
@@ -290,21 +318,29 @@ function formatDirectionLabel(directionRanges) {
         .join(', ');
 }
 
-function segmentIsPlausible(previousSample, currentSample) {
+function getSegmentDisposition(previousSample, currentSample) {
     const elapsedMs = currentSample.recordedAt - previousSample.recordedAt;
     const distanceMeters = getScorecardCoordinateDistanceMeters(
         previousSample.coordinate,
         currentSample.coordinate,
     );
 
-    return (
-        elapsedMs > 0 &&
-        elapsedMs <= MAX_LOCATION_GAP_MS &&
-        distanceMeters !== null &&
-        distanceMeters >= MIN_MOVEMENT_METERS &&
-        distanceMeters / (elapsedMs / 1000) <=
-            MAX_PLAUSIBLE_SPEED_METERS_PER_SECOND
-    );
+    if (elapsedMs <= 0 || distanceMeters === null) {
+        return 'reject';
+    }
+
+    if (elapsedMs > MAX_LOCATION_GAP_MS) {
+        return 'reanchor';
+    }
+
+    if (distanceMeters < MIN_MOVEMENT_METERS) {
+        return 'reject';
+    }
+
+    return distanceMeters / (elapsedMs / 1000) <=
+        MAX_PLAUSIBLE_SPEED_METERS_PER_SECOND
+        ? 'process'
+        : 'reject';
 }
 
 export function processScorecardExposureSegment({
@@ -316,12 +352,39 @@ export function processScorecardExposureSegment({
     const previousSample = normalizeLocationSample(previousLocation);
     const currentSample = normalizeLocationSample(currentLocation);
 
-    if (
-        !previousSample ||
-        !currentSample ||
-        !segmentIsPlausible(previousSample, currentSample)
-    ) {
-        return { detectorState, exposures: [] };
+    if (!currentSample) {
+        return {
+            detectorState,
+            exposures: [],
+            nextLocationAnchor: previousLocation ?? null,
+            segmentAccepted: false,
+        };
+    }
+
+    if (!previousSample) {
+        return {
+            detectorState,
+            exposures: [],
+            nextLocationAnchor: currentLocation,
+            segmentAccepted: false,
+        };
+    }
+
+    const segmentDisposition = getSegmentDisposition(
+        previousSample,
+        currentSample,
+    );
+
+    if (segmentDisposition !== 'process') {
+        return {
+            detectorState,
+            exposures: [],
+            nextLocationAnchor:
+                segmentDisposition === 'reanchor'
+                    ? currentLocation
+                    : previousLocation,
+            segmentAccepted: false,
+        };
     }
 
     const cameraStates = { ...(detectorState.cameras ?? {}) };
@@ -333,16 +396,29 @@ export function processScorecardExposureSegment({
 
     for (const node of nodes) {
         const coordinate = normalizeNodeCoordinate(node);
-        const osmId = node?.osmId;
+        const osmId = node?.osmId ?? node?.osm_id ?? null;
 
-        if (!coordinate || osmId === null || osmId === undefined) {
+        if (!coordinate) {
             continue;
         }
 
-        const cameraId = String(osmId);
         const directionRanges = parseCameraDirectionRanges(
-            node.direction ?? node.cameraDirection,
+            node.directions ??
+                node.cameraDirections ??
+                node.direction ??
+                node.cameraDirection,
         );
+        const cameraId = getScorecardMonitoringCameraKey({
+            ...node,
+            coordinate,
+            directions: directionRanges,
+            osmId,
+        });
+
+        if (!cameraId) {
+            continue;
+        }
+
         const directionKnown = directionRanges.length > 0;
         const rings = directionKnown
             ? directionRanges.map((direction) =>
@@ -367,7 +443,7 @@ export function processScorecardExposureSegment({
         const debounceExpired =
             !Number.isFinite(previousCameraState.lastReadAt) ||
             currentSample.recordedAt - previousCameraState.lastReadAt >=
-                CAMERA_REENTRY_DEBOUNCE_MS;
+                SCORECARD_CAMERA_REENTRY_DEBOUNCE_MS;
 
         if (intersects && !wasInside && debounceExpired) {
             const presentation = getCameraPresentation(node);
@@ -380,7 +456,10 @@ export function processScorecardExposureSegment({
                 label: presentation.label,
                 occurredAt: currentSample.recordedAt,
                 operator: presentation.operator,
-                osmId: cameraId,
+                osmId:
+                    osmId === null || osmId === undefined
+                        ? null
+                        : String(osmId),
                 routeSegmentCoordinates: [
                     previousSample.coordinate,
                     currentSample.coordinate,
@@ -402,5 +481,7 @@ export function processScorecardExposureSegment({
     return {
         detectorState: { cameras: cameraStates },
         exposures,
+        nextLocationAnchor: currentLocation,
+        segmentAccepted: true,
     };
 }

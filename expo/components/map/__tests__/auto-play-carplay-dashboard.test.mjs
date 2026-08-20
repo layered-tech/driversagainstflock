@@ -50,6 +50,27 @@ const dashboardSceneSource = readFileSync(
     ),
     'utf8',
 );
+const dashboardWrapperSource = readFileSync(
+    new URL(
+        '../../../node_modules/@iternio/react-native-auto-play/src/scenes/CarPlayDashboardScene.ts',
+        import.meta.url,
+    ),
+    'utf8',
+);
+const dashboardRuntimeSource = readFileSync(
+    new URL(
+        '../../../node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.js',
+        import.meta.url,
+    ),
+    'utf8',
+);
+const dashboardTypesSource = readFileSync(
+    new URL(
+        '../../../node_modules/@iternio/react-native-auto-play/lib/scenes/CarPlayDashboardScene.d.ts',
+        import.meta.url,
+    ),
+    'utf8',
+);
 const autoPlayPatch = readFileSync(
     new URL(
         '../../../patches/@iternio+react-native-auto-play+0.4.7.patch',
@@ -73,6 +94,42 @@ test('CarPlay reapplies Dashboard shortcuts after its scene connects', () => {
     assert.match(
         iosPlatformSource,
         /applyDashboardButtons\(CarPlayDashboard, makeGlyphImage\);[\s\S]*?CarPlayDashboard\.addListener\('didConnect',[\s\S]*?applyDashboardButtons\(CarPlayDashboard, makeGlyphImage\)/,
+    );
+});
+
+test('CarPlay consumes Dashboard Nitro promises without hiding failures', () => {
+    assert.match(
+        iosPlatformSource,
+        /return CarPlayDashboard\.setButtons\([\s\S]*?\.catch\(\(error\) => \{[\s\S]*?console\.warn\([\s\S]*?error/,
+    );
+
+    for (const source of [dashboardWrapperSource, dashboardRuntimeSource]) {
+        assert.match(
+            source,
+            /HybridCarPlayDashboard\.initRootView\(\)\.catch\(\(error\) => \{[\s\S]*?console\.warn\([\s\S]*?error/,
+        );
+        assert.match(source, /return HybridCarPlayDashboard\.setButtons\(/);
+    }
+
+    assert.match(
+        dashboardWrapperSource,
+        /setButtons\(buttons: Array<CarPlayDashboardButton>\): Promise<void>/,
+    );
+    assert.match(
+        dashboardTypesSource,
+        /setButtons\(buttons: Array<CarPlayDashboardButton>\): Promise<void>/,
+    );
+    assert.match(
+        autoPlayPatch,
+        /\+\s+HybridCarPlayDashboard\.initRootView\(\)\.catch\(\(error\) => \{/,
+    );
+    assert.match(
+        autoPlayPatch,
+        /\+\s+return HybridCarPlayDashboard\.setButtons\(/,
+    );
+    assert.match(
+        autoPlayPatch,
+        /\+\s+setButtons\(buttons: Array<CarPlayDashboardButton>\): Promise<void>/,
     );
 });
 

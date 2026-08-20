@@ -54,6 +54,28 @@ describe('local ALPR cone exposure detection', () => {
         assert.equal(result.exposures[0].certainty, 'possible');
     });
 
+    test('accepts structured route-snapshot direction ranges', () => {
+        const result = processScorecardExposureSegment({
+            currentLocation: location(0.0003, 0, 5000),
+            nodes: [
+                {
+                    coordinate: [0, 0],
+                    directions: [{ end: 22.5, isRange: true, start: -22.5 }],
+                    label: 'Route snapshot camera',
+                    operator: 'Example agency',
+                    osmId: null,
+                },
+            ],
+            previousLocation: location(-0.0003, 0, 1000),
+        });
+
+        assert.equal(result.exposures.length, 1);
+        assert.equal(result.exposures[0].certainty, 'confirmed');
+        assert.equal(result.exposures[0].label, 'Route snapshot camera');
+        assert.equal(result.exposures[0].operator, 'Example agency');
+        assert.equal(result.exposures[0].osmId, null);
+    });
+
     test('rejects inaccurate, stale, and implausibly fast segments', () => {
         assert.deepEqual(
             processScorecardExposureSegment({

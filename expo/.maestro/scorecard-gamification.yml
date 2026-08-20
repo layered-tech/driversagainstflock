@@ -200,8 +200,15 @@ tags:
     visible:
       id: 'scorecard-dashboard'
     timeout: 10000
-- assertNotVisible:
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-privacy-score'
+    direction: UP
+    timeout: 10000
+- assertVisible:
     id: 'scorecard-coverage-incomplete'
+- assertNotVisible:
+    id: 'scorecard-coverage-incomplete-debug'
 - copyTextFrom:
     id: 'scorecard-privacy-score'
 - assertTrue: ${maestro.copiedText == '88'}

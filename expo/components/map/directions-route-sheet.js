@@ -7,6 +7,7 @@ import {
     DafIconButton,
     DafTextInput,
 } from '../design-system/primitives';
+import { getAvoidableRouteCameraCandidates } from '../scorecard/scorecard-engine';
 import {
     AVOID_BUFFER_STEP_METERS,
     getAdvancedRouteSettings,
@@ -124,17 +125,14 @@ export function DirectionsRouteSheet() {
     const topContentPadding = 4;
     const bottomContentPadding = Math.max(insets.bottom + 12, 20);
     const routeCount = routeOptions.length;
-    const privateAvoidsCameras =
-        privateRoute && (privateRoute.nodeCount ?? 0) === 0;
+    const skippedCameraCount = getAvoidableRouteCameraCandidates(
+        directionsRoute,
+        DIRECTIONS_ROUTE_PRIVATE,
+    ).length;
+    const privateAvoidsCameras = skippedCameraCount > 0;
     const routeSubtitle = `${routeCount} ${
         routeCount === 1 ? 'route' : 'routes'
     } - ${privateAvoidsCameras ? 1 : 0} avoids cameras`;
-    const skippedCameraCount = Math.max(
-        0,
-        (directRoute?.nodeCount ??
-            directionsRoute?.fastestRouteNodeCount ??
-            0) - (privateRoute?.nodeCount ?? 0),
-    );
     const privateAddsDuration =
         privateRoute && directRoute
             ? formatDirectionsDuration(

@@ -6,6 +6,7 @@ import {
     addAutoPlaySessionStateListener,
     autoPlaySessionOwnsForegroundLocation,
 } from '../auto-play-session-state';
+import { publishAcceptedDeviceLocation } from './accepted-device-location';
 import { getRoadCorridor } from './api';
 import {
     refreshBackgroundAlertsForLocationAsync,
@@ -550,6 +551,7 @@ async function publishRawLocationAsync(
 
     lastRawLocationSource = source;
     emit(sessionStateListeners, getRoadMatchingSessionDiagnostics());
+    publishAcceptedDeviceLocation(location);
     applyRawLocation(location);
     emit(sessionStateListeners, getRoadMatchingSessionDiagnostics());
 

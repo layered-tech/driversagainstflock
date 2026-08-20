@@ -251,7 +251,7 @@ R58M offline
     test('collects the full suite without launcher UI readiness checks', () => {
         const flows = collectMaestroFlows(['.maestro'], EXPO_DIRECTORY);
 
-        assert.equal(flows.length, 26);
+        assert.equal(flows.length, 28);
         assert.deepEqual(
             flows.map((flow) => path.basename(flow)),
             [...flows.map((flow) => path.basename(flow))].sort(),
@@ -278,6 +278,8 @@ R58M offline
             'road-matching-free-drive.yml',
             'road-matching-parallel-road.yml',
             'scorecard-gamification.yml',
+            'scorecard-local-exposure-drive.yml',
+            'scorecard-private-route-drive.yml',
             'scorecard.yml',
             'speed-limit-badge.yml',
             'turn-by-turn-navigation.yml',
@@ -314,6 +316,38 @@ R58M offline
         assert.match(
             subflow,
             /runFlow:\s+when:\s+visible: '[^']*Development Build[^']*'\s+commands:\s+- openLink: \$\{MAESTRO_EXPO_DEV_CLIENT_URL\}/,
+        );
+    });
+
+    test('restores the scorecard top before reading recap-updated totals', () => {
+        const source = readFileSync(
+            path.join(EXPO_DIRECTORY, '.maestro', 'scorecard-gamification.yml'),
+            'utf8',
+        );
+
+        assert.match(
+            source,
+            /id: 'drawer-scorecard-button'[\s\S]*?id: 'scorecard-dashboard'[\s\S]*?- scrollUntilVisible:\s+element:\s+id: 'scorecard-privacy-score'\s+direction: UP\s+timeout: 10000\s+- assertVisible:\s+id: 'scorecard-coverage-incomplete'\s+- assertNotVisible:\s+id: 'scorecard-coverage-incomplete-debug'\s+- copyTextFrom:\s+id: 'scorecard-privacy-score'/,
+        );
+    });
+
+    test('keeps confirmed-read assertions on scorecard surfaces', () => {
+        const source = readFileSync(
+            path.join(EXPO_DIRECTORY, '.maestro', 'scorecard.yml'),
+            'utf8',
+        );
+
+        assert.doesNotMatch(source, /- assertVisible: '2 reads'/);
+        assert.match(source, /id: 'scorecard-event-read-e2e-confirmed-east'/);
+        assert.match(source, /id: 'scorecard-event-read-e2e-confirmed-west'/);
+        assert.equal(
+            source.match(/text: 'Go back'\s+retryTapIfNoChange: false/g)
+                ?.length,
+            2,
+        );
+        assert.match(
+            source,
+            /id: 'scorecard-tracking-toggle'\s+checked: true\s+- scrollUntilVisible:\s+element:\s+id: 'scorecard-delete-history'\s+direction: DOWN\s+timeout: 10000\s+- tapOn:\s+id: 'scorecard-delete-history'/,
         );
     });
 
@@ -404,6 +438,22 @@ R58M offline
             source,
             /points:\s+- ['"]30\.266984040600367, -97\.74049976967694['"]\s+- ['"]30\.267200000000000, -97\.73997972361234['"]\s+- ['"]30\.2680998308318, -97\.73973010150132['"]/,
         );
+        assert.match(
+            source,
+            /text: 'true'\s+childOf:\s+id: 'e2e-native-puck-heading-lock-proof'/,
+        );
+        assert.match(
+            source,
+            /text: 'true'\s+childOf:\s+id: 'e2e-native-puck-heading-turn-proof'/,
+        );
+        assert.doesNotMatch(
+            source,
+            /visible:\s+id: 'e2e-native-puck-heading-(?:lock|turn)-proof'\s+text:/,
+        );
+        assert.match(
+            source,
+            /id: 'e2e-native-puck-effective-heading'\s+- assertTrue: \$\{Math\.abs\(Number\(maestro\.copiedText\)\) <= 0\.5 \|\| Math\.abs\(Number\(maestro\.copiedText\) - 360\) <= 0\.5\}/,
+        );
     });
 
     test('enters the parallel-road fixture from the west and waits for puck proof', () => {
@@ -462,8 +512,9 @@ R58M offline
         assert.doesNotMatch(source, /visible: 'true'/);
         assert.match(
             source,
-            /longitude: -97\.74466013819383[\s\S]*?points:\s+- '30\.26698404060037, -97\.74466013819383'\s+- '30\.26698404060037, -97\.74414009212921'\s+speed: 12\s+- setLocation:\s+latitude: 30\.26698404060037\s+longitude: -97\.74414009212921\s+- extendedWaitUntil:\s+visible: '-97\.7441401,30\.2669840'/,
+            /longitude: -97\.74466013819383[\s\S]*?points:\s+- '30\.26698404060037, -97\.74466013819383'\s+- '30\.26698404060037, -97\.74419209212921'[\s\S]*?speed: 0\.2[\s\S]*?platform: Android[\s\S]*?id: '__e2e-foreground-location-delivery-delay__'\s+timeout: 1500\s+optional: true\s+- setLocation:\s+latitude: 30\.26698404060037\s+longitude: -97\.74414009212921\s+- extendedWaitUntil:\s+visible: '-97\.7441401,30\.2669840'/,
         );
+        assert.doesNotMatch(source, /speed: 12(?:\s|$)/);
         assert.match(
             source,
             /id: 'e2e-native-3d-puck-proof'\s+- assertTrue: \$\{maestro\.copiedText == 'true'\}\s+- extendedWaitUntil:\s+visible: '-97\.7441401,30\.2672000'\s+timeout: 60000/,
@@ -509,6 +560,113 @@ R58M offline
             source,
             /points:\s+- '30\.262520, -97\.745886'\s+- '30\.2654, -97\.7518'\s+speed: 12[\s\S]*?visible: '-97\.7518000,30\.2654000'/,
         );
+    });
+
+    test('drives real scorecard lifecycles without scorecard state fixtures', () => {
+        const flowExpectations = new Map([
+            [
+                'scorecard-private-route-drive.yml',
+                {
+                    scenario: 'private-route',
+                    travelCount: 3,
+                    waypointDeliveryCount: 2,
+                },
+            ],
+            [
+                'scorecard-local-exposure-drive.yml',
+                {
+                    scenario: 'local-exposure',
+                    travelCount: 4,
+                    waypointDeliveryCount: 3,
+                },
+            ],
+        ]);
+
+        for (const [flow, expectation] of flowExpectations) {
+            const source = readFileSync(
+                path.join(EXPO_DIRECTORY, '.maestro', flow),
+                'utf8',
+            );
+
+            assert.equal(source.match(/\bclearState:\s*true\b/g)?.length, 1);
+            assert.equal(source.match(/\bclearKeychain:\s*true\b/g)?.length, 1);
+            assert.equal(
+                source.match(/- travel:/g)?.length,
+                expectation.travelCount,
+            );
+            assert.equal(
+                source.match(/speed: 0\.2/g)?.length,
+                expectation.travelCount - 1,
+            );
+            assert.equal(source.match(/speed: 0\.08/g)?.length, 1);
+            assert.equal(
+                source.match(
+                    /visible: '-97\.[0-9]+,30\.[0-9]+'\s+timeout: 30000/g,
+                )?.length,
+                expectation.waypointDeliveryCount,
+            );
+            assert.equal(
+                source.match(
+                    /platform: Android\s+commands:\s+- extendedWaitUntil:\s+visible:\s+id: '__e2e-scorecard-waypoint-delivery-delay__'\s+timeout: 1500\s+optional: true/g,
+                )?.length,
+                expectation.waypointDeliveryCount,
+            );
+            assert.equal(
+                source.match(/^- setLocation:/gm)?.length,
+                expectation.waypointDeliveryCount + 2,
+            );
+            assert.match(
+                source,
+                new RegExp(
+                    `driversagainstflock:\\/\\/e2e-mocks\\?scorecardDrive=${expectation.scenario}`,
+                ),
+            );
+            assert.match(source, /visible: 'expo-foreground-location-watch'/);
+            assert.match(source, /visible: 'scorecard-hydrated'/);
+            assert.match(source, /visible: 'scorecard-guided-active'/);
+            assert.match(source, /visible: 'scorecard-camera-inventory-ready'/);
+            assert.match(source, /id: 'scorecard-arrival-recap'/);
+            assert.equal(
+                source.match(/id: 'e2e-scorecard-storage-synced'/g)?.length,
+                2,
+            );
+            assert.equal(
+                source.match(/id: 'e2e-scorecard-persisted-revision'/g)?.length,
+                2,
+            );
+            assert.match(
+                source,
+                /scorecard-camera-inventory-ready'[\s\S]*?id: 'e2e-scorecard-storage-synced'[\s\S]*?id: 'e2e-scorecard-persisted-revision'[\s\S]*?Number\(maestro\.copiedText\) > 0[\s\S]*?- travel:/,
+            );
+            assert.match(
+                source,
+                /launchApp:\s+stopApp: true\s+permissions:\s+all: allow/,
+            );
+            assert.doesNotMatch(source, /(?:[?&]|\b)scorecard=/i);
+            assert.doesNotMatch(source, /e2eScorecardFixture/i);
+            assert.doesNotMatch(source, /driving-cancel-route-button/);
+        }
+    });
+
+    test('exposes scorecard lifecycle readiness only in the E2E probe', () => {
+        const source = readFileSync(
+            path.join(
+                EXPO_DIRECTORY,
+                'components',
+                'scorecard',
+                'scorecard-e2e-probe.js',
+            ),
+            'utf8',
+        );
+
+        assert.match(source, /APP_ENVIRONMENT !== 'e2e'/);
+        assert.match(source, /testID="e2e-scorecard-hydrated"/);
+        assert.match(source, /testID="e2e-scorecard-guided-active"/);
+        assert.match(source, /testID="e2e-scorecard-camera-inventory-ready"/);
+        assert.match(source, /testID="e2e-scorecard-state-revision"/);
+        assert.match(source, /testID="e2e-scorecard-persisted-revision"/);
+        assert.match(source, /testID="e2e-scorecard-storage-synced"/);
+        assert.match(source, /persistedRevision === stateRevision/);
     });
 
     test('drives onto the mocked speed-limit segment after navigation starts', () => {

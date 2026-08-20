@@ -1,3 +1,5 @@
+import { scorecardDriveE2EScenarioIsSupported } from '../map/scorecard-drive-e2e-fixture.js';
+
 function getDeepLinkPath(url) {
     return [url.hostname, url.pathname]
         .filter(Boolean)
@@ -29,12 +31,22 @@ export function getE2EMockFlagsFromURL(value) {
             E2E_DRIVING_ALERT_FIXTURES.has(requestedDrivingAlertsFixture)
                 ? requestedDrivingAlertsFixture
                 : null;
+        const requestedScorecardDriveScenario =
+            url.searchParams.get('scorecardDrive');
+        const scorecardDriveScenario =
+            mocksAreEnabled &&
+            scorecardDriveE2EScenarioIsSupported(
+                requestedScorecardDriveScenario,
+            )
+                ? requestedScorecardDriveScenario
+                : null;
 
         return {
             authMockIsDisabled: mocksAreEnabled && !authMockIsEnabled,
             authMockIsEnabled,
             drivingAlertsFixture,
             mocksAreEnabled,
+            scorecardDriveScenario,
         };
     } catch {
         return {
@@ -42,6 +54,7 @@ export function getE2EMockFlagsFromURL(value) {
             authMockIsEnabled: false,
             drivingAlertsFixture: null,
             mocksAreEnabled: false,
+            scorecardDriveScenario: null,
         };
     }
 }
