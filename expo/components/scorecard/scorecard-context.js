@@ -10,18 +10,21 @@ import {
 } from 'react';
 import { APP_ENVIRONMENT } from '../../lib/auth/constants';
 import {
+    addAcceptedDeviceLocationListener,
+    getLatestAcceptedDeviceLocation,
+} from '../map/accepted-device-location';
+import {
     getDirectionsRouteProgress,
     getDirectionsWaypointCoordinate,
     getSelectedDirectionsRouteOption,
 } from '../map/directions';
-import { getCoordinateDistanceMeters, getStoredNumber } from '../map/geo';
+import { getStoredNumber } from '../map/geo';
 import {
     useSharedMapLocationState,
     useSharedMapState,
 } from '../map/shared-map-state';
 import { getDirectionsRouteSyncKey } from '../map/shared-routing-state';
 import { updateScorecardArrivalDetection } from './arrival-detection';
-import { processScorecardExposureSegment } from './exposure-detection';
 import { getLocalStartingStateCode } from './local-state-resolver';
 import {
     createScorecardBackup,
@@ -34,25 +37,30 @@ import {
     scorecardBackupFilesAreAvailable,
 } from './scorecard-backup-file';
 import {
+    processScorecardRawLocationFix,
+    updateScorecardRawLocationAnchor,
+} from './scorecard-drive-coordinator';
+import {
     createE2EScorecardFixture,
     getE2EScorecardFixtureFromURL,
 } from './scorecard-e2e-fixture';
+import { ScorecardE2EProbe } from './scorecard-e2e-probe';
 import {
     addScorecardExposure,
     applyScorecardTripGasPrice,
     createEmptyScorecardState,
     createLocalScorecardId,
     createScorecardSession,
-    creditAvoidedRouteCameras,
     finalizeScorecardSession,
     getScorecardLevel,
     getScorecardWindowStats,
+    mergeScorecardSessionRouteCatalog,
+    normalizeScorecardState,
     recordScorecardContribution,
     resetScorecardFuelCostSettings,
     SCORECARD_BADGES,
     setScorecardFuelCostSettings,
 } from './scorecard-engine';
-import { getScorecardExposureRouteSegment } from './scorecard-exposure-route';
 import {
     getScorecardRouteDistanceSnapshot,
     scorecardRouteHasReachedEnd,
@@ -66,8 +74,6 @@ import {
 import { getRegularGasPriceForState } from './state-gas-prices';
 
 const ScorecardContext = createContext(null);
-const MAX_DISTANCE_SAMPLE_GAP_MS = 15 * 1000;
-const MAX_PLAUSIBLE_SPEED_METERS_PER_SECOND = 70;
 
 function getLocationCoordinate(location) {
     const latitude = getStoredNumber(
@@ -82,43 +88,20 @@ function getLocationCoordinate(location) {
         : [longitude, latitude];
 }
 
-function getLocationTimestamp(location) {
-    return (
-        getStoredNumber(location?.timestamp ?? location?.recordedAt) ??
-        Date.now()
-    );
-}
-
-function getPlausibleDistanceMeters(previousLocation, currentLocation) {
-    const previousCoordinate = getLocationCoordinate(previousLocation);
-    const currentCoordinate = getLocationCoordinate(currentLocation);
-    const previousTimestamp = getLocationTimestamp(previousLocation);
-    const currentTimestamp = getLocationTimestamp(currentLocation);
-    const elapsedMs = currentTimestamp - previousTimestamp;
-    const distanceMeters =
-        previousCoordinate && currentCoordinate
-            ? getCoordinateDistanceMeters(previousCoordinate, currentCoordinate)
-            : null;
-
-    if (
-        distanceMeters === null ||
-        elapsedMs <= 0 ||
-        elapsedMs > MAX_DISTANCE_SAMPLE_GAP_MS ||
-        distanceMeters / (elapsedMs / 1000) >
-            MAX_PLAUSIBLE_SPEED_METERS_PER_SECOND
-    ) {
-        return 0;
-    }
-
-    return distanceMeters;
-}
-
 function getRouteDistanceSnapshot(route, progressFraction = 0) {
     return {
         ...getScorecardRouteDistanceSnapshot(route, progressFraction),
         key: getDirectionsRouteSyncKey(route),
         route,
     };
+}
+
+function seedRawLocationAnchor(previousLocation, ...candidateLocations) {
+    return candidateLocations.reduce(
+        (anchor, candidateLocation) =>
+            updateScorecardRawLocationAnchor(anchor, candidateLocation),
+        previousLocation ?? null,
+    );
 }
 
 export function ScorecardProvider({ children }) {
@@ -137,32 +120,63 @@ export function ScorecardProvider({ children }) {
     );
     const [isHydrated, setIsHydrated] = useState(false);
     const [pendingRecap, setPendingRecap] = useState(null);
+    const [persistedRevision, setPersistedRevision] = useState(0);
     const stateRef = useRef(scorecardState);
+    const [stateRevision, setStateRevision] = useState(0);
     const arrivalDetectionRef = useRef(null);
     const arrivalFinalizingRef = useRef(false);
     const detectorStateRef = useRef({ cameras: {} });
     const freeDriveDistanceMetersRef = useRef(0);
     const gasPriceRequestsRef = useRef(new Set());
     const pendingE2EFixtureURLRef = useRef(null);
-    const previousLocationRef = useRef(null);
+    const persistedRevisionRef = useRef(0);
+    const previousRawLocationRef = useRef(null);
     const providerIsMountedRef = useRef(true);
+    const rawLocationRuntimeRef = useRef(null);
     const routeSnapshotRef = useRef(null);
     const sessionStartInFlightRef = useRef(false);
+    const stateRevisionRef = useRef(0);
     const backupFilesAreAvailable = scorecardBackupFilesAreAvailable();
     const secureStorageIsAvailable = scorecardSecureStorageIsAvailable();
 
+    rawLocationRuntimeRef.current = {
+        alprNodes,
+        drivingModeIsActive,
+        isHydrated,
+    };
+
     const commitState = useCallback((update) => {
         const currentState = stateRef.current;
-        const nextState =
+        const updatedState =
             typeof update === 'function' ? update(currentState) : update;
 
-        if (!nextState || nextState === currentState) {
+        if (!updatedState || updatedState === currentState) {
             return currentState;
         }
 
+        const committedAt = Date.now();
+        const nextState = normalizeScorecardState(updatedState, committedAt);
+
         stateRef.current = nextState;
         setScorecardState(nextState);
-        void saveEncryptedScorecardState(nextState).catch(() => {});
+        const revision = stateRevisionRef.current + 1;
+
+        stateRevisionRef.current = revision;
+        setStateRevision(revision);
+        void saveEncryptedScorecardState(nextState, committedAt)
+            .then((wasSaved) => {
+                if (
+                    !wasSaved ||
+                    !providerIsMountedRef.current ||
+                    revision <= persistedRevisionRef.current
+                ) {
+                    return;
+                }
+
+                persistedRevisionRef.current = revision;
+                setPersistedRevision(revision);
+            })
+            .catch(() => {});
 
         return nextState;
     }, []);
@@ -299,6 +313,23 @@ export function ScorecardProvider({ children }) {
             return;
         }
 
+        commitState((currentState) => {
+            const currentSession = currentState.activeSession;
+
+            if (!currentSession || currentSession.mode !== 'guided') {
+                return currentState;
+            }
+
+            const mergedSession = mergeScorecardSessionRouteCatalog(
+                currentSession,
+                directionsRoute,
+            );
+
+            return mergedSession === currentSession
+                ? currentState
+                : { ...currentState, activeSession: mergedSession };
+        });
+
         const nextKey = getDirectionsRouteSyncKey(directionsRoute);
         const currentSnapshot = routeSnapshotRef.current;
 
@@ -312,7 +343,12 @@ export function ScorecardProvider({ children }) {
                 0,
             );
         }
-    }, [directionsRoute, rollRouteSnapshotIntoSession]);
+    }, [
+        commitState,
+        directionsRoute,
+        rollRouteSnapshotIntoSession,
+        scorecardState.activeSession?.id,
+    ]);
 
     const finalizeActiveSession = useCallback(
         ({ arrived = false, completion } = {}) => {
@@ -382,7 +418,7 @@ export function ScorecardProvider({ children }) {
             arrivalDetectionRef.current = null;
             detectorStateRef.current = { cameras: {} };
             freeDriveDistanceMetersRef.current = 0;
-            previousLocationRef.current = null;
+            previousRawLocationRef.current = null;
 
             if (arrived && completedTrip) {
                 setPendingRecap(completedTrip);
@@ -414,9 +450,11 @@ export function ScorecardProvider({ children }) {
             ? getLocalStartingStateCode(routeStartCoordinate)
             : null;
         const session = createScorecardSession({
-            exposureCoverageComplete: alprCoverageComplete,
+            exposureCoverageComplete:
+                mode === 'free' ? alprCoverageComplete : null,
             id: createLocalScorecardId('drive', startedAt),
             mode,
+            route: mode === 'guided' ? directionsRoute : null,
             startedAt,
             startingStateCode,
         });
@@ -431,7 +469,11 @@ export function ScorecardProvider({ children }) {
         arrivalDetectionRef.current = null;
         detectorStateRef.current = { cameras: {} };
         freeDriveDistanceMetersRef.current = 0;
-        previousLocationRef.current = userLocation;
+        previousRawLocationRef.current = seedRawLocationAnchor(
+            previousRawLocationRef.current,
+            getLatestAcceptedDeviceLocation(),
+            userLocation,
+        );
         sessionStartInFlightRef.current = false;
     }, [
         commitState,
@@ -517,6 +559,10 @@ export function ScorecardProvider({ children }) {
                 return currentState;
             }
 
+            if (activeSession.mode === 'guided') {
+                return currentState;
+            }
+
             if (alprCoverageComplete === null) {
                 return activeSession.exposureCoveragePending === true
                     ? currentState
@@ -589,8 +635,71 @@ export function ScorecardProvider({ children }) {
     ]);
 
     useEffect(() => {
+        const subscription = addAcceptedDeviceLocationListener(
+            (currentLocation) => {
+                const runtime = rawLocationRuntimeRef.current;
+                const activeSession = stateRef.current.activeSession;
+
+                if (
+                    !runtime?.isHydrated ||
+                    !runtime.drivingModeIsActive ||
+                    !activeSession ||
+                    !stateRef.current.settings.enabled
+                ) {
+                    previousRawLocationRef.current =
+                        updateScorecardRawLocationAnchor(
+                            previousRawLocationRef.current,
+                            currentLocation,
+                        );
+                    return;
+                }
+
+                const previousLocation = previousRawLocationRef.current;
+                const result = processScorecardRawLocationFix({
+                    activeSession,
+                    currentLocation,
+                    detectorState: detectorStateRef.current,
+                    previousLocation,
+                    supplementalNodes: runtime.alprNodes,
+                });
+
+                previousRawLocationRef.current = result.previousLocation;
+                detectorStateRef.current = result.detectorState;
+                freeDriveDistanceMetersRef.current += result.distanceMeters;
+
+                if (result.exposures.length === 0) {
+                    return;
+                }
+
+                commitState((currentState) => {
+                    if (currentState.activeSession?.id !== activeSession.id) {
+                        return currentState;
+                    }
+
+                    return result.exposures.reduce(
+                        (nextState, exposure) =>
+                            addScorecardExposure(nextState, {
+                                ...exposure,
+                                id: createLocalScorecardId(
+                                    'read',
+                                    exposure.occurredAt,
+                                ),
+                                routeSegmentCoordinates: null,
+                                sessionId: activeSession.id,
+                            }),
+                        currentState,
+                    );
+                });
+            },
+        );
+
+        return () => {
+            subscription.remove();
+        };
+    }, [commitState]);
+
+    useEffect(() => {
         const activeSession = stateRef.current.activeSession;
-        const previousLocation = previousLocationRef.current;
 
         if (
             !isHydrated ||
@@ -599,57 +708,7 @@ export function ScorecardProvider({ children }) {
             !scorecardState.settings.enabled ||
             !userLocation
         ) {
-            previousLocationRef.current = userLocation;
             return;
-        }
-
-        if (previousLocation && activeSession.mode === 'free') {
-            freeDriveDistanceMetersRef.current += getPlausibleDistanceMeters(
-                previousLocation,
-                userLocation,
-            );
-        }
-
-        if (previousLocation) {
-            const exposureResult = processScorecardExposureSegment({
-                currentLocation: userLocation,
-                detectorState: detectorStateRef.current,
-                nodes: alprNodes,
-                previousLocation,
-            });
-
-            detectorStateRef.current = exposureResult.detectorState;
-
-            if (exposureResult.exposures.length > 0) {
-                const selectedRouteCoordinates =
-                    activeSession.mode === 'guided' && directionsRoute
-                        ? getSelectedDirectionsRouteOption(directionsRoute)
-                              ?.coordinates
-                        : null;
-
-                commitState((currentState) =>
-                    exposureResult.exposures.reduce((nextState, exposure) => {
-                        const guidedRouteSegment =
-                            getScorecardExposureRouteSegment(
-                                selectedRouteCoordinates,
-                                exposure.cameraCoordinate,
-                            );
-
-                        return addScorecardExposure(nextState, {
-                            ...exposure,
-                            id: createLocalScorecardId(
-                                'read',
-                                exposure.occurredAt,
-                            ),
-                            routeSegmentCoordinates:
-                                guidedRouteSegment.length > 0
-                                    ? guidedRouteSegment
-                                    : exposure.routeSegmentCoordinates,
-                            sessionId: activeSession.id,
-                        });
-                    }, currentState),
-                );
-            }
         }
 
         if (activeSession.mode === 'guided' && directionsRoute) {
@@ -679,23 +738,6 @@ export function ScorecardProvider({ children }) {
                 );
             }
 
-            commitState((currentState) => {
-                if (currentState.activeSession?.id !== activeSession.id) {
-                    return currentState;
-                }
-
-                const nextSession = creditAvoidedRouteCameras(
-                    currentState.activeSession,
-                    directionsRoute,
-                    progressFraction,
-                    getLocationTimestamp(userLocation),
-                );
-
-                return nextSession === currentState.activeSession
-                    ? currentState
-                    : { ...currentState, activeSession: nextSession };
-            });
-
             const arrivalResult = updateScorecardArrivalDetection({
                 destinationCoordinate: getDirectionsWaypointCoordinate(
                     directionsRoute.destination,
@@ -710,34 +752,13 @@ export function ScorecardProvider({ children }) {
 
             if (arrivalResult.arrived && !arrivalFinalizingRef.current) {
                 arrivalFinalizingRef.current = true;
-                commitState((currentState) => {
-                    if (currentState.activeSession?.id !== activeSession.id) {
-                        return currentState;
-                    }
-
-                    const fullyCreditedSession = creditAvoidedRouteCameras(
-                        currentState.activeSession,
-                        directionsRoute,
-                        1,
-                        getLocationTimestamp(userLocation),
-                    );
-
-                    return {
-                        ...currentState,
-                        activeSession: fullyCreditedSession,
-                    };
-                });
                 finalizeActiveSession({ arrived: true });
                 setDirectionsRoute(null);
                 setDrivingModeIsActive(false);
                 arrivalFinalizingRef.current = false;
             }
         }
-
-        previousLocationRef.current = userLocation;
     }, [
-        alprNodes,
-        commitState,
         directionsRoute,
         drivingModeIsActive,
         finalizeActiveSession,
@@ -810,7 +831,15 @@ export function ScorecardProvider({ children }) {
                 throw new Error('The selected scorecard backup is invalid.');
             }
 
-            const wasSaved = await saveEncryptedScorecardState(backup.state);
+            const restoredAt = Date.now();
+            const restoredState = normalizeScorecardState(
+                backup.state,
+                restoredAt,
+            );
+            const wasSaved = await saveEncryptedScorecardState(
+                restoredState,
+                restoredAt,
+            );
 
             if (!wasSaved) {
                 throw new Error(
@@ -818,8 +847,8 @@ export function ScorecardProvider({ children }) {
                 );
             }
 
-            stateRef.current = backup.state;
-            setScorecardState(backup.state);
+            stateRef.current = restoredState;
+            setScorecardState(restoredState);
             setPendingRecap(null);
             pendingE2EFixtureURLRef.current = null;
             routeSnapshotRef.current = null;
@@ -827,7 +856,11 @@ export function ScorecardProvider({ children }) {
             detectorStateRef.current = { cameras: {} };
             freeDriveDistanceMetersRef.current = 0;
             gasPriceRequestsRef.current.clear();
-            previousLocationRef.current = userLocation;
+            previousRawLocationRef.current = seedRawLocationAnchor(
+                previousRawLocationRef.current,
+                getLatestAcceptedDeviceLocation(),
+                userLocation,
+            );
         },
         [userLocation],
     );
@@ -841,7 +874,11 @@ export function ScorecardProvider({ children }) {
         arrivalDetectionRef.current = null;
         detectorStateRef.current = { cameras: {} };
         freeDriveDistanceMetersRef.current = 0;
-        previousLocationRef.current = userLocation;
+        previousRawLocationRef.current = seedRawLocationAnchor(
+            previousRawLocationRef.current,
+            getLatestAcceptedDeviceLocation(),
+            userLocation,
+        );
         await deleteEncryptedScorecardState().catch(() => {});
     }, [userLocation]);
     const dismissRecap = useCallback(() => {
@@ -927,6 +964,17 @@ export function ScorecardProvider({ children }) {
     return (
         <ScorecardContext.Provider value={value}>
             {children}
+            <ScorecardE2EProbe
+                activeSession={scorecardState.activeSession}
+                cameraInventoryReady={
+                    scorecardState.activeSession?.mode === 'guided' &&
+                    scorecardState.activeSession
+                        .routeCameraSnapshotInitialized === true
+                }
+                isHydrated={isHydrated}
+                persistedRevision={persistedRevision}
+                stateRevision={stateRevision}
+            />
         </ScorecardContext.Provider>
     );
 }

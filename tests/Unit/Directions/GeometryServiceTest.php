@@ -102,6 +102,60 @@ test('it does not count a route that passes behind a directional camera', functi
     expect($candidates)->toBe([]);
 });
 
+test('it returns every nearby camera for local monitoring with structured directions', function () {
+    $geometry = new GeometryService;
+
+    $nodes = $geometry->routeMonitoringCameraNodes([
+        new PointOfInterest(31, 0.0, 0.0, [new DirectionRange(270.0, 270.0)], [
+            'name' => 'Westbound reader',
+            'operator' => 'City agency',
+            'serial_number' => 'private-detail',
+        ]),
+        new PointOfInterest(null, -0.0002, 0.0005, [null]),
+        new PointOfInterest(32, 0.01, 0.01, [null]),
+    ], [
+        [0.0002, -0.001],
+        [0.0002, 0.001],
+    ], 50);
+
+    expect($nodes)->toHaveCount(2)
+        ->and($nodes[0])->toBe([
+            'osm_id' => 31,
+            'coordinate' => [0.0, 0.0],
+            'direction_known' => true,
+            'directions' => [[
+                'start' => 270.0,
+                'end' => 270.0,
+                'is_range' => false,
+            ]],
+            'name' => 'Westbound reader',
+            'operator' => 'City agency',
+        ])
+        ->and($nodes[1]['osm_id'])->toBeNull()
+        ->and($nodes[1]['direction_known'])->toBeFalse()
+        ->and($nodes[1]['directions'])->toBe([]);
+});
+
+test('it keeps cameras without stable ids out of scored route candidates', function () {
+    $geometry = new GeometryService;
+    $route = [
+        [0.0002, -0.001],
+        [0.0002, 0.001],
+    ];
+    $pois = [
+        new PointOfInterest(null, 0.0, 0.0, [null]),
+        new PointOfInterest(41, 0.0001, 0.0005, [null]),
+    ];
+
+    $intersections = $geometry->routeCameraIntersections($pois, $route, 50, 45, 8);
+    $candidates = $geometry->routeCameraCandidates($pois, $route, 50, 45, 8);
+
+    expect($intersections)->toHaveCount(2)
+        ->and($intersections[0]['osm_id'])->toBeNull()
+        ->and($candidates)->toHaveCount(1)
+        ->and($candidates[0]['osm_id'])->toBe(41);
+});
+
 test('it clears endpoint-blocking polygons from the exclusion zone', function () {
     $geometry = new GeometryService;
     $zone = [

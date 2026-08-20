@@ -61,11 +61,19 @@ function groupEventsByDay(exposures) {
     return [...groups.entries()].map(([day, events]) => ({ day, events }));
 }
 
+function getEventSummary(event) {
+    return event.certainty === 'confirmed'
+        ? `Confirmed cone crossing · ${event.cameraDirectionLabel ?? 'direction reported'}`
+        : 'Possible crossing · camera direction unknown · not scored';
+}
+
 function StandardEventRow({ event }) {
     const confirmed = event.certainty === 'confirmed';
+    const eventSummary = getEventSummary(event);
 
     return (
         <Pressable
+            accessibilityLabel={`${event.label}, ${eventSummary}`}
             accessibilityRole="button"
             className="dark:border-daf-border-dark dark:bg-daf-surface-dark flex-row items-center gap-3 rounded-dafMd border border-daf-border bg-white px-[13px] py-3 active:opacity-70"
             onPress={() =>
@@ -97,9 +105,7 @@ function StandardEventRow({ event }) {
                     className="text-xs text-daf-text-tertiary dark:text-neutral-400"
                     numberOfLines={1}
                 >
-                    {confirmed
-                        ? `Confirmed cone crossing · ${event.cameraDirectionLabel ?? 'direction reported'}`
-                        : 'Possible crossing · camera direction unknown · not scored'}
+                    {eventSummary}
                 </Text>
             </View>
             <Text className="font-dafMono text-xs text-daf-text-secondary dark:text-neutral-300">
@@ -117,6 +123,7 @@ function StandardEventRow({ event }) {
 function OperatorEventRow({ event }) {
     return (
         <Pressable
+            accessibilityLabel={`${event.label}, ${getEventSummary(event)}`}
             accessibilityRole="button"
             className="rounded-dafMd border border-l-[3px] border-[#262E37] border-l-daf-alert bg-[#161B22] px-[13px] py-3 active:opacity-70"
             onPress={() =>
@@ -135,7 +142,7 @@ function OperatorEventRow({ event }) {
                     className="font-dafMono ml-auto text-[11px] text-[#828D9B]"
                     numberOfLines={1}
                 >
-                    OSM {event.osmId}
+                    {event.osmId ? `OSM ${event.osmId}` : 'NO OSM ID'}
                 </Text>
             </View>
             <Text className="font-dafMono text-[12px] font-semibold uppercase text-white">

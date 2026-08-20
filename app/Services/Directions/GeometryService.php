@@ -291,6 +291,40 @@ class GeometryService
         float $coneAngleDegrees,
         int $coneSegments,
     ): array {
+        return array_values(array_filter(
+            $this->routeCameraIntersections(
+                $pois,
+                $coordinates,
+                $bufferMeters,
+                $coneAngleDegrees,
+                $coneSegments,
+            ),
+            fn (array $candidate): bool => $candidate['osm_id'] !== null,
+        ));
+    }
+
+    /**
+     * Return every camera whose view geometry intersects a route, including
+     * monitoring-only cameras that do not have a stable OSM identifier.
+     *
+     * @param  array<int, PointOfInterest>  $pois
+     * @param  array<int, array<int, float>>  $coordinates
+     * @return array<int, array{
+     *     osm_id: string|int|null,
+     *     coordinate: array{0: float, 1: float},
+     *     direction_known: bool,
+     *     directions: array<int, array{start: float, end: float, is_range: bool}>,
+     *     route_progress_meters: float,
+     *     route_progress_fraction: float
+     * }>
+     */
+    public function routeCameraIntersections(
+        array $pois,
+        array $coordinates,
+        float $bufferMeters,
+        float $coneAngleDegrees,
+        int $coneSegments,
+    ): array {
         if (count($coordinates) < 2) {
             return [];
         }
@@ -361,6 +395,101 @@ class GeometryService
         );
 
         return $candidates;
+    }
+
+    /**
+     * Return every camera close enough to a route for device-local monitoring.
+     *
+     * @param  array<int, PointOfInterest>  $pois
+     * @param  array<int, array<int, float>>  $coordinates
+     * @return array<int, array{
+     *     osm_id: string|int|null,
+     *     coordinate: array{0: float, 1: float},
+     *     direction_known: bool,
+     *     directions: array<int, array{start: float, end: float, is_range: bool}>,
+     *     name: string|null,
+     *     operator: string|null
+     * }>
+     */
+    public function routeMonitoringCameraNodes(array $pois, array $coordinates, float $bufferMeters): array
+    {
+        if (count($coordinates) < 2) {
+            return [];
+        }
+
+        $nodes = [];
+
+        foreach ($this->poisAlongRoute($pois, $coordinates, $bufferMeters) as $index => $poi) {
+            $knownDirections = $this->knownDirections($poi);
+            $key = $poi->id === null
+                ? sprintf('coord:%0.7f,%0.7f,%d', $poi->longitude, $poi->latitude, $index)
+                : sprintf('id:%s', (string) $poi->id);
+            $nodes[$key] = [
+                'osm_id' => $poi->id,
+                'coordinate' => [$poi->longitude, $poi->latitude],
+                'direction_known' => $knownDirections !== [],
+                'directions' => $this->serializeDirections($knownDirections),
+                'name' => $this->presentationTag($poi, 'name'),
+                'operator' => $this->presentationTag($poi, 'operator'),
+                'route_progress_meters' => $this->routeProgressNearestPoint(
+                    $poi->longitude,
+                    $poi->latitude,
+                    $coordinates,
+                ),
+            ];
+        }
+
+        $nodes = array_values($nodes);
+        usort(
+            $nodes,
+            fn (array $first, array $second): int => $first['route_progress_meters'] <=> $second['route_progress_meters'],
+        );
+
+        return array_map(function (array $node): array {
+            unset($node['route_progress_meters']);
+
+            return $node;
+        }, $nodes);
+    }
+
+    /**
+     * @return array<int, DirectionRange>
+     */
+    private function knownDirections(PointOfInterest $poi): array
+    {
+        return array_values(array_filter(
+            $poi->directions,
+            fn (mixed $direction): bool => $direction instanceof DirectionRange,
+        ));
+    }
+
+    /**
+     * @param  array<int, DirectionRange>  $directions
+     * @return array<int, array{start: float, end: float, is_range: bool}>
+     */
+    private function serializeDirections(array $directions): array
+    {
+        return array_map(
+            fn (DirectionRange $direction): array => [
+                'start' => $direction->start,
+                'end' => $direction->end,
+                'is_range' => $direction->isRange,
+            ],
+            $directions,
+        );
+    }
+
+    private function presentationTag(PointOfInterest $poi, string $key): ?string
+    {
+        $value = $poi->tags[$key] ?? null;
+
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
     }
 
     /**

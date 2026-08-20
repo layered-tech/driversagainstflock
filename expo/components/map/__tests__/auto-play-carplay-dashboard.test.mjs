@@ -67,6 +67,13 @@ test('CarPlay reapplies Dashboard shortcuts after its scene connects', () => {
     );
 });
 
+test('CarPlay consumes Dashboard Nitro promises without hiding failures', () => {
+    assert.match(
+        iosPlatformSource,
+        /Promise\.resolve\(\s*CarPlayDashboard\.setButtons\([\s\S]*?\.catch\(\(error\) => \{[\s\S]*?console\.warn\([\s\S]*?error/,
+    );
+});
+
 test('CarPlay Dashboard mounts its map only while its pane is visible', () => {
     assert.match(
         iosPlatformSource,

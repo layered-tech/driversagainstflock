@@ -5,16 +5,19 @@ import {
     applyScorecardTripGasPrice,
     createEmptyScorecardState,
     createScorecardSession,
-    creditAvoidedRouteCameras,
     finalizeScorecardSession,
+    getAvoidableRouteCameraCandidates,
     getCleanDriveStreak,
     getExposureScoreImpact,
     getScorecardLevel,
+    getScorecardMonitoringCameraKey,
     getScorecardPrivacyScore,
     getScorecardWindowStats,
+    mergeScorecardSessionRouteCatalog,
     parseScorecardState,
     recordScorecardContribution,
     resetScorecardFuelCostSettings,
+    SCORECARD_CAMERA_REENTRY_DEBOUNCE_MS,
     SCORECARD_FIXED_MPG,
     SCORECARD_STATS_WINDOW_MS,
     serializeScorecardState,
@@ -47,10 +50,29 @@ function makeRoute() {
                     },
                 ],
                 cameraCoverageComplete: true,
+                distance: 1_000,
+                duration: 100,
+                routeKey: 'direct',
             },
             ideal: {
                 cameraCandidates: [],
                 cameraCoverageComplete: true,
+                distance: 1_200,
+                duration: 130,
+                monitoringCameraNodes: [
+                    {
+                        coordinate: [-97.71, 30.29],
+                        directions: [{ end: 90, isRange: false, start: 90 }],
+                        osmId: 'private-monitor',
+                    },
+                    {
+                        coordinate: [-97.7, 30.3],
+                        directions: [],
+                        name: 'Monitoring-only camera',
+                        osmId: null,
+                    },
+                ],
+                routeKey: 'ideal',
             },
         },
         selectedRouteKey: 'ideal',
@@ -64,71 +86,151 @@ describe('device-local scorecard engine', () => {
         assert.equal(getScorecardPrivacyScore(0, 2), 0);
     });
 
-    test('credits only completed, direction-known avoided cameras once', () => {
-        let session = createScorecardSession({
-            id: 'drive-1',
-            mode: 'guided',
-            startedAt: 1,
-        });
-        const route = makeRoute();
-
-        session = creditAvoidedRouteCameras(session, route, 0.5, 2);
-        session = creditAvoidedRouteCameras(session, route, 0.8, 3);
-        session = creditAvoidedRouteCameras(session, route, 1, 4);
-
-        assert.deepEqual(
-            session.creditedAvoidances.map(({ osmId }) => osmId),
-            ['100', '200'],
+    test('matches null-ID route and supplemental cameras by normalized geometry', () => {
+        assert.equal(
+            getScorecardMonitoringCameraKey({
+                coordinate: [-97.74, 30.26],
+                directions: [{ end: 0, isRange: false, start: 0 }],
+                name: 'Route presentation',
+                osmId: null,
+            }),
+            getScorecardMonitoringCameraKey({
+                coordinate: [-97.74, 30.26],
+                direction: 'N',
+                name: 'Supplemental presentation',
+                osmId: null,
+            }),
         );
     });
 
-    test('credits known avoided cameras when route camera coverage is incomplete', () => {
+    test('snapshots all stable fastest-only cameras, including unknown directions', () => {
+        const route = makeRoute();
+        const session = createScorecardSession({
+            id: 'drive-1',
+            mode: 'guided',
+            route,
+            startedAt: 1,
+        });
+
+        assert.deepEqual(
+            getAvoidableRouteCameraCandidates(route).map(({ osmId }) => osmId),
+            ['100', '200', 'unknown'],
+        );
+        assert.deepEqual(
+            session.avoidanceBaseline.map(({ osmId }) => osmId),
+            ['100', '200', 'unknown'],
+        );
+        assert.deepEqual(
+            session.monitoringCameras
+                .map(({ osmId }) => osmId)
+                .filter(Boolean)
+                .sort(),
+            ['100', '200', 'private-monitor', 'unknown'],
+        );
+        assert.equal(session.monitoringCameras.at(-1).osmId, null);
+        assert.equal(session.routeCameraSnapshotInitialized, true);
+        assert.equal(session.selectedRouteKey, 'ideal');
+        assert.equal(session.initialRouteDistanceMeters, 1_200);
+        assert.equal(session.initialRouteDurationSeconds, 130);
+        assert.equal(session.initialDirectRouteDistanceMeters, 1_000);
+        assert.equal(session.initialDirectRouteDurationSeconds, 100);
+    });
+
+    test('uses stable-ID difference when the private route substitutes a camera', () => {
+        const route = makeRoute();
+
+        route.routes.ideal.cameraCandidates = [
+            route.routes.direct.cameraCandidates[1],
+            {
+                coordinate: [-97.7, 30.3],
+                directionKnown: true,
+                osmId: 'private-only',
+            },
+        ];
+
+        assert.deepEqual(
+            getAvoidableRouteCameraCandidates(route).map(({ osmId }) => osmId),
+            ['100', 'unknown'],
+        );
+    });
+
+    test('awards no avoidance when the initial fastest route is selected', () => {
+        const route = makeRoute();
+
+        route.selectedRouteKey = 'direct';
+        const session = createScorecardSession({
+            id: 'drive-direct',
+            mode: 'guided',
+            route,
+            startedAt: 1,
+        });
+        const finalized = finalizeScorecardSession(
+            {
+                ...createEmptyScorecardState(),
+                activeSession: session,
+            },
+            { completion: 'arrival', endedAt: 60_001 },
+        );
+
+        assert.deepEqual(session.avoidanceBaseline, []);
+        assert.equal(finalized.trip.avoidedCameraCount, 0);
+        assert.equal(finalized.trip.xpEarned, 0);
+    });
+
+    test('awards the immutable baseline on successful completion despite incomplete coverage', () => {
         const route = makeRoute();
         route.routes.direct.cameraCoverageComplete = false;
         route.routes.ideal.cameraCoverageComplete = false;
-        let session = createScorecardSession({
+        const startedAt = Date.parse('2026-08-12T12:00:00Z');
+        const session = createScorecardSession({
             id: 'drive-incomplete-route-coverage',
             mode: 'guided',
-            startedAt: 1,
+            route,
+            startedAt,
         });
-
-        session = creditAvoidedRouteCameras(session, route, 1, 2);
+        const { trip } = finalizeScorecardSession(
+            {
+                ...createEmptyScorecardState(),
+                activeSession: session,
+            },
+            { completion: 'arrival', endedAt: startedAt + 60_000 },
+        );
 
         assert.deepEqual(
-            session.creditedAvoidances.map(({ osmId }) => osmId),
-            ['100', '200'],
+            trip.avoidedCameras.map(({ osmId }) => osmId),
+            ['100', '200', 'unknown'],
         );
+        assert.equal(trip.xpEarned, 135);
     });
 
-    test('scores observed results even when ALPR monitoring was unavailable', () => {
+    test('uses the guided route snapshot instead of supplemental monitoring coverage', () => {
         const startedAt = Date.parse('2026-08-12T12:00:00Z');
-        let session = createScorecardSession({
+        const session = createScorecardSession({
             exposureCoverageComplete: false,
             id: 'drive-partial-monitoring',
             mode: 'guided',
+            route: makeRoute(),
             startedAt,
         });
-
-        session = creditAvoidedRouteCameras(session, makeRoute(), 1, startedAt);
 
         const { state, trip } = finalizeScorecardSession(
             {
                 ...createEmptyScorecardState(),
                 activeSession: session,
             },
-            { endedAt: startedAt + 60_000 },
+            { completion: 'arrival', endedAt: startedAt + 60_000 },
         );
         const restoredTrip = parseScorecardState(
             serializeScorecardState(state, startedAt + 60_000),
             startedAt + 60_000,
         ).trips[0];
 
-        assert.equal(trip.exposureCoverageComplete, false);
+        assert.equal(trip.exposureCoverageComplete, true);
         assert.equal(trip.exposureCoverageObserved, true);
         assert.equal(trip.exposureCoveragePending, false);
-        assert.equal(trip.exposureCoverageWasTruncated, true);
-        assert.equal(trip.avoidedCameraCount, 2);
-        assert.equal(trip.xpEarned, 90);
+        assert.equal(trip.exposureCoverageWasTruncated, false);
+        assert.equal(trip.avoidedCameraCount, 3);
+        assert.equal(trip.xpEarned, 135);
         assert.equal(state.lifetime.cleanDriveCount, 1);
         assert.equal(state.lifetime.currentCleanDriveStreak, 1);
         assert.equal(
@@ -141,33 +243,243 @@ describe('device-local scorecard engine', () => {
                 pending: restoredTrip.exposureCoveragePending,
                 truncated: restoredTrip.exposureCoverageWasTruncated,
             },
-            { observed: true, pending: false, truncated: true },
+            { observed: true, pending: false, truncated: false },
         );
     });
 
-    test('keeps stable OSM avoidance credit across reroutes', () => {
+    test('merges reroute monitoring cameras without changing the initial baseline', () => {
         const firstRoute = makeRoute();
         const reroute = makeRoute();
-        reroute.routes.direct.cameraCandidates[0].routeProgressFraction = 0.1;
         reroute.routes.direct.cameraCandidates.push({
             coordinate: [-97.71, 30.29],
             directionKnown: true,
             osmId: '300',
             routeProgressFraction: 0.2,
         });
-        let session = createScorecardSession({
+        const session = createScorecardSession({
             id: 'drive-1',
             mode: 'guided',
+            route: firstRoute,
             startedAt: 1,
         });
-
-        session = creditAvoidedRouteCameras(session, firstRoute, 0.3, 2);
-        session = creditAvoidedRouteCameras(session, reroute, 0.4, 3);
+        const reroutedSession = mergeScorecardSessionRouteCatalog(
+            session,
+            reroute,
+        );
 
         assert.deepEqual(
-            session.creditedAvoidances.map(({ osmId }) => osmId),
-            ['100', '300'],
+            reroutedSession.avoidanceBaseline.map(({ osmId }) => osmId),
+            ['100', '200', 'unknown'],
         );
+        assert.deepEqual(
+            reroutedSession.monitoringCameras
+                .map(({ osmId }) => osmId)
+                .filter(Boolean)
+                .sort(),
+            ['100', '200', '300', 'private-monitor', 'unknown'],
+        );
+        assert.equal(
+            mergeScorecardSessionRouteCatalog(reroutedSession, reroute),
+            reroutedSession,
+        );
+    });
+
+    test('removes confirmed and possible exposures from completion awards', () => {
+        const startedAt = Date.parse('2026-08-12T12:00:00Z');
+        let state = {
+            ...createEmptyScorecardState(),
+            activeSession: createScorecardSession({
+                id: 'drive-exposed-baseline',
+                mode: 'guided',
+                route: makeRoute(),
+                startedAt,
+            }),
+        };
+
+        for (const [osmId, certainty] of [
+            ['100', 'confirmed'],
+            ['unknown', 'possible'],
+        ]) {
+            state = addScorecardExposure(state, {
+                cameraCoordinate: [-97.74, 30.26],
+                certainty,
+                id: `read-${osmId}`,
+                occurredAt: startedAt + 1_000,
+                osmId,
+                sessionId: 'drive-exposed-baseline',
+            });
+        }
+
+        const finalized = finalizeScorecardSession(state, {
+            completion: 'arrival',
+            endedAt: startedAt + 60_000,
+        });
+
+        assert.deepEqual(
+            finalized.trip.avoidedCameras.map(({ osmId }) => osmId),
+            ['200'],
+        );
+        assert.equal(finalized.trip.xpEarned, 45);
+        assert.equal(finalized.state.lifetime.xp, 45);
+    });
+
+    test('retains the two-minute camera debounce across encrypted relaunches', () => {
+        const startedAt = Date.parse('2026-08-12T12:00:00Z');
+        let state = {
+            ...createEmptyScorecardState(),
+            activeSession: createScorecardSession({
+                id: 'drive-relaunch-debounce',
+                mode: 'guided',
+                route: makeRoute(),
+                startedAt,
+            }),
+        };
+        const exposure = {
+            cameraCoordinate: [-97.74, 30.26],
+            cameraDirections: [{ end: 90, isRange: false, start: 90 }],
+            certainty: 'confirmed',
+            id: 'read-before-relaunch',
+            occurredAt: startedAt + 1_000,
+            osmId: '100',
+            sessionId: 'drive-relaunch-debounce',
+        };
+
+        state = addScorecardExposure(state, exposure);
+        state = parseScorecardState(
+            serializeScorecardState(state, startedAt + 2_000),
+            startedAt + 2_000,
+        );
+        const immediateReentry = addScorecardExposure(state, {
+            ...exposure,
+            id: 'read-immediate-reentry',
+            occurredAt:
+                exposure.occurredAt + SCORECARD_CAMERA_REENTRY_DEBOUNCE_MS - 1,
+        });
+        const validReentry = addScorecardExposure(state, {
+            ...exposure,
+            id: 'read-valid-reentry',
+            occurredAt:
+                exposure.occurredAt + SCORECARD_CAMERA_REENTRY_DEBOUNCE_MS,
+        });
+
+        assert.equal(immediateReentry, state);
+        assert.equal(validReentry.exposures.length, 2);
+    });
+
+    test('keeps cancelled guided facts without awarding completion progress', () => {
+        const startedAt = Date.parse('2026-08-12T12:00:00Z');
+        let state = {
+            ...createEmptyScorecardState(),
+            lifetime: {
+                ...createEmptyScorecardState().lifetime,
+                currentCleanDriveStreak: 4,
+                longestCleanDriveStreak: 4,
+            },
+            activeSession: createScorecardSession({
+                id: 'drive-cancelled',
+                mode: 'guided',
+                route: makeRoute(),
+                startedAt,
+            }),
+        };
+        state = addScorecardExposure(state, {
+            cameraCoordinate: [-97.74, 30.26],
+            certainty: 'possible',
+            id: 'read-cancelled',
+            occurredAt: startedAt + 1_000,
+            osmId: '100',
+            sessionId: 'drive-cancelled',
+        });
+
+        const finalized = finalizeScorecardSession(state, {
+            completion: 'cancelled',
+            distanceMeters: 1_000,
+            endedAt: startedAt + 60_000,
+        });
+
+        assert.equal(finalized.trip.completed, false);
+        assert.equal(finalized.trip.distanceMiles, 1_000 / 1609.344);
+        assert.equal(finalized.trip.possibleReadCount, 1);
+        assert.equal(finalized.trip.avoidedCameraCount, 0);
+        assert.equal(finalized.trip.xpEarned, 0);
+        assert.equal(finalized.state.lifetime.completedDriveCount, 0);
+        assert.equal(finalized.state.lifetime.cleanDriveCount, 0);
+        assert.equal(finalized.state.lifetime.currentCleanDriveStreak, 4);
+        assert.equal(finalized.state.lifetime.possibleReadCount, 1);
+    });
+
+    test('keeps a paused guided trip incomplete without resetting its streak', () => {
+        const startedAt = Date.parse('2026-08-12T12:00:00Z');
+        const initialState = createEmptyScorecardState();
+        const finalized = finalizeScorecardSession(
+            {
+                ...initialState,
+                activeSession: createScorecardSession({
+                    id: 'drive-paused',
+                    mode: 'guided',
+                    route: makeRoute(),
+                    startedAt,
+                }),
+                lifetime: {
+                    ...initialState.lifetime,
+                    currentCleanDriveStreak: 3,
+                    longestCleanDriveStreak: 3,
+                },
+            },
+            { completion: 'paused', endedAt: startedAt + 60_000 },
+        );
+
+        assert.equal(finalized.trip.completed, false);
+        assert.equal(finalized.trip.avoidedCameraCount, 0);
+        assert.equal(finalized.trip.xpEarned, 0);
+        assert.equal(finalized.state.lifetime.completedDriveCount, 0);
+        assert.equal(finalized.state.lifetime.currentCleanDriveStreak, 3);
+    });
+
+    test('atomically finalizes XP, badges, lifetime totals, and active-session removal', () => {
+        const startedAt = Date.parse('2026-08-12T12:00:00Z');
+        const finalized = finalizeScorecardSession(
+            {
+                ...createEmptyScorecardState(),
+                activeSession: createScorecardSession({
+                    id: 'drive-atomic-arrival',
+                    mode: 'guided',
+                    route: makeRoute(),
+                    startedAt,
+                }),
+            },
+            { completion: 'arrival', endedAt: startedAt + 60_000 },
+        );
+
+        assert.equal(finalized.state.activeSession, null);
+        assert.equal(finalized.trip.xpEarned, 135);
+        assert.equal(finalized.state.lifetime.xp, 135);
+        assert.equal(finalized.state.lifetime.avoidedCameraCount, 3);
+        assert.equal(finalized.state.lifetime.completedDriveCount, 1);
+        assert.equal(finalized.state.lifetime.privateTripsWithAvoidance, 1);
+        assert.equal(
+            finalized.state.badgeUnlocks['first-detour'],
+            startedAt + 60_000,
+        );
+    });
+
+    test('treats explicit free-drive manual completion as successful', () => {
+        const startedAt = Date.parse('2026-08-12T12:00:00Z');
+        const finalized = finalizeScorecardSession(
+            {
+                ...createEmptyScorecardState(),
+                activeSession: createScorecardSession({
+                    id: 'drive-free',
+                    mode: 'free',
+                    startedAt,
+                }),
+            },
+            { completion: 'manual', endedAt: startedAt + 60_000 },
+        );
+
+        assert.equal(finalized.trip.completed, true);
+        assert.equal(finalized.state.lifetime.completedDriveCount, 1);
+        assert.equal(finalized.state.lifetime.cleanDriveCount, 1);
     });
 
     test('prices only extra miles using 25.2 mpg and the starting-state price', () => {
@@ -376,7 +688,37 @@ describe('device-local scorecard engine', () => {
         );
     });
 
-    test('keeps geographic detail on device while using a 30-day stats window', () => {
+    test('persists monitoring-only exposure events without fabricating an OSM ID', () => {
+        const startedAt = Date.parse('2026-08-12T12:00:00Z');
+        let state = {
+            ...createEmptyScorecardState(),
+            activeSession: createScorecardSession({
+                id: 'drive-monitoring-only',
+                mode: 'free',
+                startedAt,
+            }),
+        };
+
+        state = addScorecardExposure(state, {
+            cameraCoordinate: [-97.74, 30.26],
+            certainty: 'possible',
+            id: 'read-monitoring-only',
+            label: 'Monitoring-only camera',
+            occurredAt: startedAt + 1_000,
+            osmId: null,
+            sessionId: 'drive-monitoring-only',
+        });
+        const restored = parseScorecardState(
+            serializeScorecardState(state, startedAt + 2_000),
+            startedAt + 2_000,
+        );
+
+        assert.equal(restored.exposures.length, 1);
+        assert.equal(restored.exposures[0].osmId, null);
+        assert.equal(restored.exposures[0].label, 'Monitoring-only camera');
+    });
+
+    test('prunes geographic detail after 30 days while preserving lifetime totals', () => {
         const endedAt = Date.parse('2026-06-01T12:00:00Z');
         const state = {
             ...createEmptyScorecardState(),
@@ -416,12 +758,52 @@ describe('device-local scorecard engine', () => {
             endedAt + SCORECARD_STATS_WINDOW_MS + 1,
         );
 
-        assert.equal(parsed.exposures.length, 1);
-        assert.equal(parsed.trips.length, 1);
+        assert.equal(parsed.exposures.length, 0);
+        assert.equal(parsed.trips.length, 0);
         assert.equal(parsed.lifetime.avoidedCameraCount, 12);
         assert.equal(parsed.lifetime.xp, 540);
-        assert.equal(parsed.pendingRecapTripId, 'drive-old');
+        assert.equal(parsed.pendingRecapTripId, null);
         assert.equal(windowStats.trips.length, 0);
+    });
+
+    test('expires stale active-session geography as an incomplete trip', () => {
+        const startedAt = Date.parse('2026-06-01T12:00:00Z');
+        let state = {
+            ...createEmptyScorecardState(),
+            activeSession: {
+                ...createScorecardSession({
+                    id: 'drive-stale-active',
+                    mode: 'guided',
+                    route: makeRoute(),
+                    startedAt,
+                }),
+                completedDistanceMeters: 800,
+            },
+        };
+
+        state = addScorecardExposure(state, {
+            cameraCoordinate: [-97.74, 30.26],
+            certainty: 'confirmed',
+            id: 'read-stale-active',
+            occurredAt: startedAt + 1_000,
+            osmId: '100',
+            sessionId: 'drive-stale-active',
+        });
+        const now = startedAt + SCORECARD_STATS_WINDOW_MS + 2_001;
+        const serialized = serializeScorecardState(state, now);
+        const restored = parseScorecardState(serialized, now);
+
+        assert.equal(restored.activeSession, null);
+        assert.equal(restored.exposures.length, 0);
+        assert.equal(restored.trips.length, 1);
+        assert.equal(restored.trips[0].completed, false);
+        assert.equal(restored.trips[0].completion, 'paused');
+        assert.equal(restored.trips[0].distanceMiles, 800 / 1609.344);
+        assert.equal(restored.trips[0].avoidedCameraCount, 0);
+        assert.equal(restored.lifetime.completedDriveCount, 0);
+        assert.equal(restored.lifetime.confirmedReadCount, 1);
+        assert.doesNotMatch(serialized, /monitoringCameras|avoidanceBaseline/);
+        assert.doesNotMatch(serialized, /cameraCoordinate/);
     });
 
     test('whitelists persisted fields so raw GPS and route geometry are dropped', () => {
@@ -432,6 +814,7 @@ describe('device-local scorecard engine', () => {
                 ...createScorecardSession({
                     id: 'drive-private',
                     mode: 'guided',
+                    route: makeRoute(),
                     startedAt: now,
                 }),
                 destination: [-97.7, 30.3],
@@ -461,6 +844,36 @@ describe('device-local scorecard engine', () => {
             serialized,
             /destination|rawGpsSamples|routeGeometry|rawUserCoordinate/,
         );
+        const restoredSession = parseScorecardState(
+            serialized,
+            now,
+        ).activeSession;
+
+        assert.deepEqual(
+            restoredSession.avoidanceBaseline.map(({ osmId }) => osmId),
+            ['100', '200', 'unknown'],
+        );
+        assert.equal(restoredSession.monitoringCameras.length, 5);
+        assert.equal(restoredSession.routeCameraSnapshotInitialized, true);
+        assert.equal(restoredSession.selectedRouteKey, 'ideal');
+        assert.equal(restoredSession.initialRouteDistanceMeters, 1_200);
+        assert.equal(restoredSession.initialDirectRouteDistanceMeters, 1_000);
+
+        const legacySession = parseScorecardState(
+            JSON.stringify({
+                ...createEmptyScorecardState(),
+                activeSession: {
+                    id: 'legacy-guided-drive',
+                    mode: 'guided',
+                    startedAt: now,
+                },
+            }),
+            now,
+        ).activeSession;
+
+        assert.deepEqual(legacySession.avoidanceBaseline, []);
+        assert.deepEqual(legacySession.monitoringCameras, []);
+        assert.equal(legacySession.routeCameraSnapshotInitialized, false);
         assert.deepEqual(
             parseScorecardState(serialized, now).exposures[0].cameraCoordinate,
             [-97.74, 30.26],
@@ -468,11 +881,7 @@ describe('device-local scorecard engine', () => {
         assert.deepEqual(
             parseScorecardState(serialized, now).exposures[0]
                 .routeSegmentCoordinates,
-            [
-                [-97.741, 30.259],
-                [-97.74, 30.26],
-                [-97.739, 30.261],
-            ],
+            [],
         );
     });
 
