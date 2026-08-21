@@ -1,5 +1,7 @@
 import { makeScorecardCameraConeRing } from './exposure-detection.js';
-import { normalizeScorecardExposureRouteSegment } from './scorecard-exposure-route.js';
+import { getScorecardDestinationCoordinate } from './scorecard-geo.js';
+
+const EXPOSURE_TRAVEL_LINE_HALF_LENGTH_METERS = 75;
 
 function normalizeCoordinate(value) {
     const longitude = Number(value?.[0]);
@@ -55,17 +57,33 @@ export function makeScorecardExposurePointCollection(exposures) {
     };
 }
 
-export function makeScorecardExposureRouteLineCollection(exposures) {
+export function makeScorecardExposureTravelLineCollection(exposures) {
     return {
         features: getScorecardMapExposures(exposures).flatMap((exposure) => {
-            const coordinates = normalizeScorecardExposureRouteSegment(
-                exposure.routeSegmentCoordinates,
+            const travelHeading = exposure.travelHeading;
+
+            if (!Number.isFinite(travelHeading)) {
+                return [];
+            }
+
+            const start = getScorecardDestinationCoordinate(
+                exposure.cameraCoordinate,
+                EXPOSURE_TRAVEL_LINE_HALF_LENGTH_METERS,
+                travelHeading + 180,
+            );
+            const end = getScorecardDestinationCoordinate(
+                exposure.cameraCoordinate,
+                EXPOSURE_TRAVEL_LINE_HALF_LENGTH_METERS,
+                travelHeading,
             );
 
-            return coordinates.length >= 2
+            return start && end
                 ? [
                       {
-                          geometry: { coordinates, type: 'LineString' },
+                          geometry: {
+                              coordinates: [start, end],
+                              type: 'LineString',
+                          },
                           properties: { eventId: exposure.id },
                           type: 'Feature',
                       },
