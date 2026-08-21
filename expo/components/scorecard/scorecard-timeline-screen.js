@@ -64,7 +64,7 @@ function groupEventsByDay(exposures) {
 function getEventSummary(event) {
     return event.certainty === 'confirmed'
         ? `Confirmed cone crossing · ${event.cameraDirectionLabel ?? 'direction reported'}`
-        : 'Possible crossing · camera direction unknown · not scored';
+        : 'Possible crossing · camera direction unknown';
 }
 
 function StandardEventRow({ event }) {

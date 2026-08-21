@@ -20,6 +20,37 @@ export function autoPlaySearchRequestIsCurrent(currentRequest, request) {
     return currentRequest === request && request?.signal?.aborted !== true;
 }
 
+function getAutoPlayNodeCount(value) {
+    if (value === null || value === undefined || value === '') {
+        return null;
+    }
+
+    const nodeCount = Number(value);
+
+    return Number.isFinite(nodeCount)
+        ? Math.max(0, Math.floor(nodeCount))
+        : null;
+}
+
+export function getAutoPlayPotentiallyAvoidedNodeCount(
+    routeOption,
+    baselineRouteOption,
+    route,
+) {
+    const baselineNodeCount =
+        getAutoPlayNodeCount(
+            route?.fastestRouteNodeCount ?? baselineRouteOption?.nodeCount,
+        ) ??
+        baselineRouteOption?.cameraCandidates?.length ??
+        0;
+    const routeNodeCount =
+        getAutoPlayNodeCount(routeOption?.nodeCount) ??
+        routeOption?.cameraCandidates?.length ??
+        0;
+
+    return Math.max(0, baselineNodeCount - routeNodeCount);
+}
+
 function normalizeAutoPlaySearchText(searchText) {
     return String(searchText ?? '').trim();
 }

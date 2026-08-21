@@ -14,7 +14,7 @@ const E2E_SCORECARD_FIXTURES = new Set([
     'arrival',
     'arrival-exposed',
     'badges-all',
-    'coverage-incomplete',
+    'price-unavailable',
     'populated',
     ...E2E_SCORECARD_LEVEL_FIXTURES,
 ]);
@@ -28,7 +28,7 @@ export const E2E_SCORECARD_IDS = Object.freeze({
     confirmedEast: 'read-e2e-confirmed-east',
     confirmedWest: 'read-e2e-confirmed-west',
     exposedTrip: 'drive-e2e-exposed',
-    incompleteTrip: 'drive-e2e-incomplete',
+    unpricedTrip: 'drive-e2e-unpriced',
     possible: 'read-e2e-possible',
 });
 
@@ -75,7 +75,6 @@ function createAvoidedCameras(count, tripIndex, endedAt) {
 function createTrip({
     avoidedCameraCount,
     endedAt,
-    exposureCoverageComplete = true,
     exposureEventIds = [],
     extraMiles,
     gasPrice = E2E_GAS_PRICE,
@@ -99,10 +98,6 @@ function createTrip({
         distanceMiles: 12.4 + tripIndex * 2.1,
         durationSeconds: 2_100 + tripIndex * 180,
         endedAt,
-        exposureCoverageComplete,
-        exposureCoverageObserved: true,
-        exposureCoveragePending: false,
-        exposureCoverageWasTruncated: !exposureCoverageComplete,
         exposureEventIds,
         extraFuelCost: hasGasPrice ? extraGallons * gasPrice : null,
         extraGallons,
@@ -241,14 +236,13 @@ function createPopulatedScorecardFixture(now) {
     return state;
 }
 
-function createIncompleteCoverageFixture(populatedState, now) {
-    const incompleteTrip = createTrip({
+function createPriceUnavailableFixture(populatedState, now) {
+    const unpricedTrip = createTrip({
         avoidedCameraCount: 4,
         endedAt: now - 3 * 60 * 1000,
-        exposureCoverageComplete: false,
         extraMiles: 1.8,
         gasPrice: null,
-        id: E2E_SCORECARD_IDS.incompleteTrip,
+        id: E2E_SCORECARD_IDS.unpricedTrip,
         tripIndex: 4,
     });
     const state = normalizeScorecardState(
@@ -258,7 +252,7 @@ function createIncompleteCoverageFixture(populatedState, now) {
                 ...populatedState.trips.filter(
                     ({ id }) => id !== E2E_SCORECARD_IDS.arrivalTrip,
                 ),
-                incompleteTrip,
+                unpricedTrip,
             ],
         },
         now,
@@ -266,7 +260,7 @@ function createIncompleteCoverageFixture(populatedState, now) {
 
     return {
         pendingRecap: state.trips.find(
-            ({ id }) => id === E2E_SCORECARD_IDS.incompleteTrip,
+            ({ id }) => id === E2E_SCORECARD_IDS.unpricedTrip,
         ),
         state,
     };
@@ -364,8 +358,8 @@ export function createE2EScorecardFixture(
 
     const state = createPopulatedScorecardFixture(now);
 
-    if (fixtureName === 'coverage-incomplete') {
-        return createIncompleteCoverageFixture(state, now);
+    if (fixtureName === 'price-unavailable') {
+        return createPriceUnavailableFixture(state, now);
     }
 
     const pendingTripId =

@@ -101,9 +101,6 @@ tags:
     visible: 'scorecard-guided-active'
     timeout: 30000
 - extendedWaitUntil:
-    visible: 'scorecard-camera-inventory-ready'
-    timeout: 30000
-- extendedWaitUntil:
     visible:
       id: 'e2e-scorecard-storage-synced'
     timeout: 30000
@@ -188,7 +185,7 @@ tags:
     visible:
       id: 'scorecard-arrival-recap'
     timeout: 60000
-- assertVisible: 'Arrived · 1 read'
+- assertVisible: 'Arrived · 2 crossings'
 - copyTextFrom:
     id: 'scorecard-arrival-recap-score'
 - assertTrue: ${maestro.copiedText == 'Privacy score → 0'}
@@ -196,8 +193,8 @@ tags:
     id: 'scorecard-arrival-recap-avoided'
 - assertTrue: ${maestro.copiedText == '0'}
 - copyTextFrom:
-    id: 'scorecard-arrival-recap-reads'
-- assertTrue: ${maestro.copiedText == '1'}
+    id: 'scorecard-arrival-recap-crossings'
+- assertTrue: ${maestro.copiedText == '2'}
 - copyTextFrom:
     id: 'scorecard-arrival-recap-xp'
 - assertTrue: ${maestro.copiedText == '+0 XP'}
@@ -220,8 +217,8 @@ tags:
       id: 'scorecard-arrival-recap'
     timeout: 30000
 - copyTextFrom:
-    id: 'scorecard-arrival-recap-reads'
-- assertTrue: ${maestro.copiedText == '1'}
+    id: 'scorecard-arrival-recap-crossings'
+- assertTrue: ${maestro.copiedText == '2'}
 - tapOn:
     id: 'scorecard-arrival-recap-timeline'
     retryTapIfNoChange: true
@@ -231,6 +228,6 @@ tags:
     timeout: 10000
 - assertVisible: '1 confirmed · 1 possible · 0 avoided'
 - assertVisible: 'Directional cone crossing, Confirmed cone crossing · 258°'
-- assertVisible: 'Unknown-direction crossing, Possible crossing · camera direction unknown · not scored'
+- assertVisible: 'Unknown-direction crossing, Possible crossing · camera direction unknown'
 - assertNotVisible: '.*Behind-cone negative control.*'
 - takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-local-exposure-drive'}

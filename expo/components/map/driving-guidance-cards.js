@@ -218,12 +218,12 @@ export function DestinationCard({
                     </Text>
                 </View>
                 <DafButton
-                    accessibilityLabel="Cancel route guidance"
+                    accessibilityLabel="End route guidance"
                     onPress={onCancelRoute}
                     testID="driving-cancel-route-button"
                     variant="danger"
                 >
-                    Exit
+                    End
                 </DafButton>
             </View>
             {routeExportIsAvailable ? (

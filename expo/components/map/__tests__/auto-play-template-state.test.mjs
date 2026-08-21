@@ -8,6 +8,7 @@ import {
     getAutoPlayMapButtonAppearanceKey,
     getAutoPlayMapContentVisibility,
     getAutoPlayNavigationPuckRefreshKey,
+    getAutoPlayPotentiallyAvoidedNodeCount,
     getAutoPlayPrimaryLocationHeaderActionTypes,
     getAutoPlayPrimaryLocationTypes,
     getAutoPlayRouteChoiceText,
@@ -21,6 +22,33 @@ import {
 } from '../../auto-play-template-state.js';
 
 describe('Auto Play template state', () => {
+    test('shows the selected route camera-count difference', () => {
+        assert.equal(
+            getAutoPlayPotentiallyAvoidedNodeCount(
+                { nodeCount: 1 },
+                { nodeCount: 4 },
+                { fastestRouteNodeCount: 4 },
+            ),
+            3,
+        );
+        assert.equal(
+            getAutoPlayPotentiallyAvoidedNodeCount(
+                { nodeCount: 4 },
+                { nodeCount: 4 },
+                { fastestRouteNodeCount: 4 },
+            ),
+            0,
+        );
+        assert.equal(
+            getAutoPlayPotentiallyAvoidedNodeCount(
+                { cameraCandidates: [], nodeCount: null },
+                { nodeCount: 3 },
+                { fastestRouteNodeCount: 3 },
+            ),
+            3,
+        );
+    });
+
     test('shows driving status on root and opted-in secondary map surfaces', () => {
         assert.deepEqual(
             getAutoPlayDrivingStatusVisibility({

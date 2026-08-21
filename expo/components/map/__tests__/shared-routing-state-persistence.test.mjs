@@ -202,6 +202,12 @@ describe('shared route geometry synchronization', () => {
             sharedRoutingState.getDirectionsRouteSyncKey(firstRoute),
             sharedRoutingState.getDirectionsRouteSyncKey(correctedRoute),
         );
+        assert.notEqual(
+            sharedRoutingState.getDirectionsRouteGeometrySyncKey(firstRoute),
+            sharedRoutingState.getDirectionsRouteGeometrySyncKey(
+                correctedRoute,
+            ),
+        );
     });
 
     test('publishes candidate and monitoring-catalog changes with stable geometry', () => {
@@ -240,6 +246,12 @@ describe('shared route geometry synchronization', () => {
         assert.notEqual(
             sharedRoutingState.getDirectionsRouteSyncKey(firstRoute),
             sharedRoutingState.getDirectionsRouteSyncKey(correctedRoute),
+        );
+        assert.equal(
+            sharedRoutingState.getDirectionsRouteGeometrySyncKey(firstRoute),
+            sharedRoutingState.getDirectionsRouteGeometrySyncKey(
+                correctedRoute,
+            ),
         );
     });
 });

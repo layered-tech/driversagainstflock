@@ -23,7 +23,7 @@ import {
     useSharedMapLocationState,
     useSharedMapState,
 } from '../map/shared-map-state';
-import { getDirectionsRouteSyncKey } from '../map/shared-routing-state';
+import { getDirectionsRouteGeometrySyncKey } from '../map/shared-routing-state';
 import { updateScorecardArrivalDetection } from './arrival-detection';
 import { getLocalStartingStateCode } from './local-state-resolver';
 import {
@@ -63,7 +63,8 @@ import {
 } from './scorecard-engine';
 import {
     getScorecardRouteDistanceSnapshot,
-    scorecardRouteHasReachedEnd,
+    getScorecardRouteProgressFraction,
+    scorecardRouteEndedAtDestination,
 } from './scorecard-route-progress';
 import {
     deleteEncryptedScorecardState,
@@ -88,10 +89,39 @@ function getLocationCoordinate(location) {
         : [longitude, latitude];
 }
 
+function getMostRecentLocationCoordinate(...locations) {
+    let latestCoordinate = null;
+    let latestTimestamp = null;
+
+    for (const location of locations) {
+        const coordinate = getLocationCoordinate(location);
+
+        if (!coordinate) {
+            continue;
+        }
+
+        const timestamp = getStoredNumber(
+            location?.timestamp ?? location?.recordedAt,
+        );
+
+        if (
+            latestCoordinate === null ||
+            (timestamp === null && latestTimestamp === null) ||
+            (timestamp !== null &&
+                (latestTimestamp === null || timestamp >= latestTimestamp))
+        ) {
+            latestCoordinate = coordinate;
+            latestTimestamp = timestamp;
+        }
+    }
+
+    return latestCoordinate;
+}
+
 function getRouteDistanceSnapshot(route, progressFraction = 0) {
     return {
         ...getScorecardRouteDistanceSnapshot(route, progressFraction),
-        key: getDirectionsRouteSyncKey(route),
+        key: getDirectionsRouteGeometrySyncKey(route),
         route,
     };
 }
@@ -106,9 +136,7 @@ function seedRawLocationAnchor(previousLocation, ...candidateLocations) {
 
 export function ScorecardProvider({ children }) {
     const {
-        alprCoverageComplete,
         alprNodes,
-        debugOverlayIsVisible,
         directionsRoute,
         drivingModeIsActive,
         setDirectionsRoute,
@@ -330,7 +358,7 @@ export function ScorecardProvider({ children }) {
                 : { ...currentState, activeSession: mergedSession };
         });
 
-        const nextKey = getDirectionsRouteSyncKey(directionsRoute);
+        const nextKey = getDirectionsRouteGeometrySyncKey(directionsRoute);
         const currentSnapshot = routeSnapshotRef.current;
 
         if (currentSnapshot?.key && currentSnapshot.key !== nextKey) {
@@ -406,7 +434,8 @@ export function ScorecardProvider({ children }) {
 
                 completedTrip = finalized.trip;
 
-                return arrived && completedTrip
+                return completedTrip?.completed &&
+                    completedTrip.mode === 'guided'
                     ? {
                           ...finalized.state,
                           pendingRecapTripId: completedTrip.id,
@@ -420,7 +449,7 @@ export function ScorecardProvider({ children }) {
             freeDriveDistanceMetersRef.current = 0;
             previousRawLocationRef.current = null;
 
-            if (arrived && completedTrip) {
+            if (completedTrip?.completed && completedTrip.mode === 'guided') {
                 setPendingRecap(completedTrip);
             }
 
@@ -450,8 +479,6 @@ export function ScorecardProvider({ children }) {
             ? getLocalStartingStateCode(routeStartCoordinate)
             : null;
         const session = createScorecardSession({
-            exposureCoverageComplete:
-                mode === 'free' ? alprCoverageComplete : null,
             id: createLocalScorecardId('drive', startedAt),
             mode,
             route: mode === 'guided' ? directionsRoute : null,
@@ -475,13 +502,7 @@ export function ScorecardProvider({ children }) {
             userLocation,
         );
         sessionStartInFlightRef.current = false;
-    }, [
-        commitState,
-        alprCoverageComplete,
-        directionsRoute,
-        secureStorageIsAvailable,
-        userLocation,
-    ]);
+    }, [commitState, directionsRoute, secureStorageIsAvailable, userLocation]);
 
     useEffect(() => {
         const activeSession = stateRef.current.activeSession;
@@ -552,44 +573,6 @@ export function ScorecardProvider({ children }) {
     ]);
 
     useEffect(() => {
-        commitState((currentState) => {
-            const activeSession = currentState.activeSession;
-
-            if (!activeSession) {
-                return currentState;
-            }
-
-            if (activeSession.mode === 'guided') {
-                return currentState;
-            }
-
-            if (alprCoverageComplete === null) {
-                return activeSession.exposureCoveragePending === true
-                    ? currentState
-                    : {
-                          ...currentState,
-                          activeSession: {
-                              ...activeSession,
-                              exposureCoveragePending: true,
-                          },
-                      };
-            }
-
-            return {
-                ...currentState,
-                activeSession: {
-                    ...activeSession,
-                    exposureCoverageObserved: true,
-                    exposureCoveragePending: false,
-                    exposureCoverageWasTruncated:
-                        activeSession.exposureCoverageWasTruncated === true ||
-                        alprCoverageComplete === false,
-                },
-            };
-        });
-    }, [alprCoverageComplete, commitState]);
-
-    useEffect(() => {
         if (!isHydrated || !secureStorageIsAvailable) {
             return;
         }
@@ -610,18 +593,27 @@ export function ScorecardProvider({ children }) {
             (!drivingModeIsActive || !scorecardState.settings.enabled) &&
             !arrivalFinalizingRef.current
         ) {
-            const routeEnded =
+            const endLocation = getMostRecentLocationCoordinate(
+                getLatestAcceptedDeviceLocation(),
+                userLocation,
+            );
+            const manuallyCompletedGuidedRoute =
                 scorecardState.settings.enabled &&
                 activeSession.mode === 'guided' &&
-                scorecardRouteHasReachedEnd(routeSnapshotRef.current);
+                scorecardRouteEndedAtDestination(
+                    routeSnapshotRef.current,
+                    endLocation,
+                );
 
             finalizeActiveSession({
-                arrived: routeEnded,
-                completion: scorecardState.settings.enabled
-                    ? routeEnded
-                        ? 'arrival'
-                        : undefined
-                    : 'paused',
+                arrived: manuallyCompletedGuidedRoute,
+                completion: !scorecardState.settings.enabled
+                    ? 'paused'
+                    : activeSession.mode === 'guided'
+                      ? manuallyCompletedGuidedRoute
+                          ? 'manual'
+                          : 'cancelled'
+                      : 'manual',
             });
         }
     }, [
@@ -632,6 +624,7 @@ export function ScorecardProvider({ children }) {
         scorecardState.settings.enabled,
         secureStorageIsAvailable,
         startSession,
+        userLocation,
     ]);
 
     useEffect(() => {
@@ -719,17 +712,13 @@ export function ScorecardProvider({ children }) {
                 userLocation,
             );
             const routeDistanceMeters = Number(routeOption?.distance) || 0;
-            const progressFraction =
-                routeProgress && routeDistanceMeters > 0
-                    ? Math.min(
-                          1,
-                          Math.max(
-                              0,
-                              routeProgress.alongRouteDistance /
-                                  routeDistanceMeters,
-                          ),
-                      )
-                    : 0;
+            const progressFraction = getScorecardRouteProgressFraction(
+                routeSnapshotRef.current,
+                routeProgress,
+            );
+            const routeProgressDistanceMeters =
+                routeSnapshotRef.current?.geometryDistanceMeters ||
+                routeDistanceMeters;
 
             if (routeSnapshotRef.current) {
                 routeSnapshotRef.current.progressFraction = Math.max(
@@ -743,7 +732,7 @@ export function ScorecardProvider({ children }) {
                     directionsRoute.destination,
                 ),
                 location: userLocation,
-                routeDistanceMeters,
+                routeDistanceMeters: routeProgressDistanceMeters,
                 routeProgress,
                 state: arrivalDetectionRef.current,
             });
@@ -922,7 +911,6 @@ export function ScorecardProvider({ children }) {
         () => ({
             backupFilesAreAvailable,
             badges,
-            debugOverlayIsVisible,
             deleteHistory,
             dismissRecap,
             exportBackup,
@@ -942,7 +930,6 @@ export function ScorecardProvider({ children }) {
         [
             backupFilesAreAvailable,
             badges,
-            debugOverlayIsVisible,
             deleteHistory,
             dismissRecap,
             exportBackup,
@@ -966,11 +953,6 @@ export function ScorecardProvider({ children }) {
             {children}
             <ScorecardE2EProbe
                 activeSession={scorecardState.activeSession}
-                cameraInventoryReady={
-                    scorecardState.activeSession?.mode === 'guided' &&
-                    scorecardState.activeSession
-                        .routeCameraSnapshotInitialized === true
-                }
                 isHydrated={isHydrated}
                 persistedRevision={persistedRevision}
                 stateRevision={stateRevision}

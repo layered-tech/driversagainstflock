@@ -327,7 +327,7 @@ R58M offline
 
         assert.match(
             source,
-            /id: 'drawer-scorecard-button'[\s\S]*?id: 'scorecard-dashboard'[\s\S]*?- scrollUntilVisible:\s+element:\s+id: 'scorecard-privacy-score'\s+direction: UP\s+timeout: 10000\s+- assertVisible:\s+id: 'scorecard-coverage-incomplete'\s+- assertNotVisible:\s+id: 'scorecard-coverage-incomplete-debug'\s+- copyTextFrom:\s+id: 'scorecard-privacy-score'/,
+            /id: 'drawer-scorecard-button'[\s\S]*?id: 'scorecard-dashboard'[\s\S]*?- scrollUntilVisible:\s+element:\s+id: 'scorecard-privacy-score'\s+direction: UP\s+timeout: 10000\s+- copyTextFrom:\s+id: 'scorecard-privacy-score'/,
         );
     });
 
@@ -567,6 +567,7 @@ R58M offline
             [
                 'scorecard-private-route-drive.yml',
                 {
+                    endsManually: true,
                     scenario: 'private-route',
                     travelCount: 3,
                     waypointDeliveryCount: 2,
@@ -575,6 +576,7 @@ R58M offline
             [
                 'scorecard-local-exposure-drive.yml',
                 {
+                    endsManually: false,
                     scenario: 'local-exposure',
                     travelCount: 4,
                     waypointDeliveryCount: 3,
@@ -624,7 +626,6 @@ R58M offline
             assert.match(source, /visible: 'expo-foreground-location-watch'/);
             assert.match(source, /visible: 'scorecard-hydrated'/);
             assert.match(source, /visible: 'scorecard-guided-active'/);
-            assert.match(source, /visible: 'scorecard-camera-inventory-ready'/);
             assert.match(source, /id: 'scorecard-arrival-recap'/);
             assert.equal(
                 source.match(/id: 'e2e-scorecard-storage-synced'/g)?.length,
@@ -636,7 +637,7 @@ R58M offline
             );
             assert.match(
                 source,
-                /scorecard-camera-inventory-ready'[\s\S]*?id: 'e2e-scorecard-storage-synced'[\s\S]*?id: 'e2e-scorecard-persisted-revision'[\s\S]*?Number\(maestro\.copiedText\) > 0[\s\S]*?- travel:/,
+                /scorecard-guided-active'[\s\S]*?id: 'e2e-scorecard-storage-synced'[\s\S]*?id: 'e2e-scorecard-persisted-revision'[\s\S]*?Number\(maestro\.copiedText\) > 0[\s\S]*?- travel:/,
             );
             assert.match(
                 source,
@@ -644,7 +645,11 @@ R58M offline
             );
             assert.doesNotMatch(source, /(?:[?&]|\b)scorecard=/i);
             assert.doesNotMatch(source, /e2eScorecardFixture/i);
-            assert.doesNotMatch(source, /driving-cancel-route-button/);
+            if (expectation.endsManually) {
+                assert.match(source, /driving-cancel-route-button/);
+            } else {
+                assert.doesNotMatch(source, /driving-cancel-route-button/);
+            }
         }
     });
 
@@ -662,7 +667,10 @@ R58M offline
         assert.match(source, /APP_ENVIRONMENT !== 'e2e'/);
         assert.match(source, /testID="e2e-scorecard-hydrated"/);
         assert.match(source, /testID="e2e-scorecard-guided-active"/);
-        assert.match(source, /testID="e2e-scorecard-camera-inventory-ready"/);
+        assert.doesNotMatch(
+            source,
+            /testID="e2e-scorecard-camera-inventory-ready"/,
+        );
         assert.match(source, /testID="e2e-scorecard-state-revision"/);
         assert.match(source, /testID="e2e-scorecard-persisted-revision"/);
         assert.match(source, /testID="e2e-scorecard-storage-synced"/);

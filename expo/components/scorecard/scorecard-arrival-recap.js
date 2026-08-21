@@ -54,14 +54,8 @@ function RecapStat({ label, testID, tone = 'default', value }) {
 
 export function ScorecardArrivalRecap() {
     const insets = useSafeAreaInsets();
-    const {
-        debugOverlayIsVisible,
-        dismissRecap,
-        level,
-        pendingRecap,
-        scorecardState,
-        windowStats,
-    } = useScorecard();
+    const { dismissRecap, level, pendingRecap, scorecardState, windowStats } =
+        useScorecard();
 
     if (!pendingRecap) {
         return null;
@@ -72,16 +66,27 @@ export function ScorecardArrivalRecap() {
     const currentScore = windowStats.privacyScore;
     const scoreBeforeTrip = getScorecardPrivacyScore(
         Math.max(0, windowStats.avoidedCameraCount - trip.avoidedCameraCount),
-        Math.max(0, windowStats.confirmedReadCount - trip.confirmedReadCount),
+        Math.max(
+            0,
+            windowStats.cameraCrossingCount -
+                trip.confirmedReadCount -
+                trip.possibleReadCount,
+        ),
     );
     const scoreDelta =
         currentScore !== null && scoreBeforeTrip !== null
             ? currentScore - scoreBeforeTrip
             : null;
-    const cleanDrive = trip.confirmedReadCount === 0;
+    const cameraCrossingCount =
+        trip.confirmedReadCount + trip.possibleReadCount;
+    const cleanDrive = cameraCrossingCount === 0;
+    const completionLabel =
+        trip.completion === 'arrival' || trip.completion === 'arrived'
+            ? 'Arrived'
+            : 'Route ended';
     const title = cleanDrive
-        ? 'Arrived, unseen'
-        : `Arrived · ${trip.confirmedReadCount} ${trip.confirmedReadCount === 1 ? 'read' : 'reads'}`;
+        ? `${completionLabel}, unseen`
+        : `${completionLabel} · ${cameraCrossingCount} ${cameraCrossingCount === 1 ? 'crossing' : 'crossings'}`;
     const handleTimelinePress = () => {
         dismissRecap();
         router.push('/scorecard/timeline');
@@ -140,40 +145,13 @@ export function ScorecardArrivalRecap() {
                                 : `Privacy score → ${currentScore}`}
                         </Text>
                         <Text
-                            className={`text-xs ${
-                                trip.exposureCoverageComplete
-                                    ? 'text-daf-text-secondary dark:text-neutral-300'
-                                    : 'text-daf-amber'
-                            }`}
-                            testID="scorecard-arrival-recap-coverage"
+                            className="text-xs text-daf-text-secondary dark:text-neutral-300"
+                            testID="scorecard-arrival-recap-result"
                         >
-                            {!trip.exposureCoverageComplete
-                                ? 'Known cameras scored · camera inventory incomplete'
-                                : cleanDrive
-                                  ? `Clean drive · streak is now ${windowStats.cleanDriveStreak}`
-                                  : 'Confirmed cone crossings reduce score'}
+                            {cleanDrive
+                                ? `Clean drive · streak is now ${windowStats.cleanDriveStreak}`
+                                : 'Camera crossings reduce score'}
                         </Text>
-                        {debugOverlayIsVisible &&
-                        !trip.exposureCoverageComplete ? (
-                            <Text
-                                className="font-dafMono mt-1 text-[10px] text-daf-amber"
-                                testID="scorecard-arrival-recap-coverage-debug"
-                            >
-                                ALPR debug · complete=false · observed=
-                                {String(
-                                    trip.exposureCoverageObserved ?? 'unknown',
-                                )}{' '}
-                                · pendingAtEnd=
-                                {String(
-                                    trip.exposureCoveragePending ?? 'unknown',
-                                )}{' '}
-                                · incompleteResponse=
-                                {String(
-                                    trip.exposureCoverageWasTruncated ??
-                                        'unknown',
-                                )}
-                            </Text>
-                        ) : null}
                     </View>
                     <Icon
                         color={
@@ -194,10 +172,10 @@ export function ScorecardArrivalRecap() {
                         value={trip.avoidedCameraCount}
                     />
                     <RecapStat
-                        label="reads"
-                        testID="scorecard-arrival-recap-reads"
-                        tone={trip.confirmedReadCount > 0 ? 'alert' : 'default'}
-                        value={trip.confirmedReadCount}
+                        label="crossings"
+                        testID="scorecard-arrival-recap-crossings"
+                        tone={cameraCrossingCount > 0 ? 'alert' : 'default'}
+                        value={cameraCrossingCount}
                     />
                     <RecapStat
                         label="for privacy"

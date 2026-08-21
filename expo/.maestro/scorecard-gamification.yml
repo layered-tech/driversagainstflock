@@ -90,8 +90,8 @@ tags:
 - assertVisible: '9,000 XP'
 - assertVisible: 'Maximum level'
 
-# A mid-level populated state proves complete coverage scoring and separately
-# identifies avoided cameras, confirmed reads, and unscored possible reads.
+# A mid-level populated state shows the locked avoided-camera awards and all
+# locally detected camera crossings as separate game inputs.
 - openLink: 'driversagainstflock://scorecard?e2eScorecardFixture=populated'
 - extendedWaitUntil:
     visible: 'Level 4 · Ghost'
@@ -100,17 +100,16 @@ tags:
 - assertVisible: '480 to Phantom'
 - copyTextFrom:
     id: 'scorecard-privacy-score'
-- assertTrue: ${maestro.copiedText == '90'}
+- assertTrue: ${maestro.copiedText == '86'}
 - copyTextFrom:
     id: 'scorecard-stat-avoided'
 - assertTrue: ${maestro.copiedText == '27'}
 - copyTextFrom:
-    id: 'scorecard-stat-confirmed'
-- assertTrue: ${maestro.copiedText == '2'}
+    id: 'scorecard-stat-crossings'
+- assertTrue: ${maestro.copiedText == '3'}
 - copyTextFrom:
     id: 'scorecard-stat-streak'
 - assertTrue: ${maestro.copiedText == '1'}
-- assertVisible: '1 unknown-direction camera crossing is shown in the timeline but excluded from score.'
 
 # The representative state has four earned and two locked badge types.
 - scrollUntilVisible:
@@ -134,21 +133,21 @@ tags:
 - assertTrue: ${maestro.copiedText == '4 of 6'}
 - takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-badge-states'}
 
-# A complete drive with confirmed reads still earns XP only from avoided
-# cameras, while its reads reduce the score.
+# A completed drive keeps every locked avoidance award while its independently
+# detected camera crossings reduce the score.
 - openLink: 'driversagainstflock://e2e-mocks?scorecard=arrival-exposed'
 - extendedWaitUntil:
     visible:
       id: 'scorecard-arrival-recap'
     timeout: 10000
-- assertVisible: 'Arrived · 2 reads'
-- assertVisible: 'Confirmed cone crossings reduce score'
+- assertVisible: 'Arrived · 3 crossings'
+- assertVisible: 'Camera crossings reduce score'
 - copyTextFrom:
     id: 'scorecard-arrival-recap-avoided'
 - assertTrue: ${maestro.copiedText == '12'}
 - copyTextFrom:
-    id: 'scorecard-arrival-recap-reads'
-- assertTrue: ${maestro.copiedText == '2'}
+    id: 'scorecard-arrival-recap-crossings'
+- assertTrue: ${maestro.copiedText == '3'}
 - copyTextFrom:
     id: 'scorecard-arrival-recap-xp'
 - assertTrue: ${maestro.copiedText == '+540 XP'}
@@ -157,23 +156,19 @@ tags:
 - assertNotVisible:
     id: 'scorecard-arrival-recap'
 
-# Incomplete ALPR coverage still scores what the game observed. Coverage
-# diagnostics stay hidden outside debugging mode. An unavailable state price
-# is still surfaced instead of inventing a cost.
-- openLink: 'driversagainstflock://e2e-mocks?scorecard=coverage-incomplete'
+# A missing state gas price affects only the fuel estimate, never points.
+- openLink: 'driversagainstflock://e2e-mocks?scorecard=price-unavailable'
 - extendedWaitUntil:
     visible:
       id: 'scorecard-arrival-recap'
     timeout: 10000
 - assertVisible: 'Arrived, unseen'
-- assertVisible: 'Privacy score → 88'
-- assertNotVisible:
-    id: 'scorecard-arrival-recap-coverage-debug'
+- assertVisible: 'Privacy score → 84'
 - copyTextFrom:
     id: 'scorecard-arrival-recap-avoided'
 - assertTrue: ${maestro.copiedText == '4'}
 - copyTextFrom:
-    id: 'scorecard-arrival-recap-reads'
+    id: 'scorecard-arrival-recap-crossings'
 - assertTrue: ${maestro.copiedText == '0'}
 - copyTextFrom:
     id: 'scorecard-arrival-recap-xp'
@@ -181,7 +176,7 @@ tags:
 - copyTextFrom:
     id: 'scorecard-arrival-recap-fuel-cost'
 - assertTrue: ${maestro.copiedText.includes('price unavailable')}
-- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-incomplete-coverage'}
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-price-unavailable'}
 - tapOn:
     id: 'scorecard-arrival-recap-done'
 - assertNotVisible:
@@ -205,13 +200,9 @@ tags:
       id: 'scorecard-privacy-score'
     direction: UP
     timeout: 10000
-- assertVisible:
-    id: 'scorecard-coverage-incomplete'
-- assertNotVisible:
-    id: 'scorecard-coverage-incomplete-debug'
 - copyTextFrom:
     id: 'scorecard-privacy-score'
-- assertTrue: ${maestro.copiedText == '88'}
+- assertTrue: ${maestro.copiedText == '84'}
 - scrollUntilVisible:
     element:
       id: 'scorecard-fuel-cost'
@@ -242,7 +233,7 @@ tags:
     id: 'scorecard-stat-avoided'
 - assertTrue: ${maestro.copiedText == '100'}
 - copyTextFrom:
-    id: 'scorecard-stat-confirmed'
+    id: 'scorecard-stat-crossings'
 - assertTrue: ${maestro.copiedText == '0'}
 - copyTextFrom:
     id: 'scorecard-stat-streak'

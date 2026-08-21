@@ -2,11 +2,18 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
     getScorecardRouteDistanceSnapshot,
-    scorecardRouteHasReachedEnd,
+    getScorecardRouteProgressFraction,
+    scorecardRouteEndedAtDestination,
 } from '../scorecard-route-progress.js';
 
 function route() {
     return {
+        destination: {
+            location: {
+                latitude: 30.301,
+                longitude: -97.7,
+            },
+        },
         routes: {
             direct: {
                 coordinates: [
@@ -39,17 +46,43 @@ describe('scorecard route progress accounting', () => {
         assert.ok(Math.abs(snapshot.extraDistanceMeters - 1126.54) < 0.001);
         assert.equal(snapshot.extraDurationSeconds, 420);
         assert.equal(snapshot.progressFraction, 0.5);
+        assert.deepEqual(snapshot.destinationCoordinate, [-97.7, 30.301]);
+        assert.ok(snapshot.geometryDistanceMeters > 0);
     });
 
-    test('recognizes teardown at the routed endpoint as arrival', () => {
-        const snapshot = getScorecardRouteDistanceSnapshot(route(), 0.998);
+    test('measures route completion against geometry instead of reported distance', () => {
+        const snapshot = getScorecardRouteDistanceSnapshot(route());
 
-        assert.equal(scorecardRouteHasReachedEnd(snapshot), true);
         assert.equal(
-            scorecardRouteHasReachedEnd({
-                ...snapshot,
-                progressFraction: 0.99,
+            getScorecardRouteProgressFraction(snapshot, {
+                alongRouteDistance: snapshot.geometryDistanceMeters,
             }),
+            1,
+        );
+        assert.ok(
+            getScorecardRouteProgressFraction(snapshot, {
+                alongRouteDistance: snapshot.geometryDistanceMeters * 0.5,
+            }) < 0.51,
+        );
+    });
+
+    test('recognizes a manual end at the route destination without trusting reported progress', () => {
+        const snapshot = getScorecardRouteDistanceSnapshot(route(), 0.35);
+
+        assert.equal(
+            scorecardRouteEndedAtDestination(snapshot, [-97.7, 30.3]),
+            true,
+        );
+        assert.equal(
+            scorecardRouteEndedAtDestination(snapshot, [-97.7, 30.301]),
+            true,
+        );
+        assert.equal(
+            scorecardRouteEndedAtDestination(snapshot, [-97.75, 30.25]),
+            false,
+        );
+        assert.equal(
+            scorecardRouteEndedAtDestination(snapshot, [181, 0]),
             false,
         );
     });

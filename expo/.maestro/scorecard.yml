@@ -47,10 +47,9 @@ tags:
       id: 'scorecard-dashboard'
     timeout: 10000
 - assertVisible: 'Level 4 · Ghost'
-- assertVisible: '90'
+- assertVisible: '86'
 - assertVisible: '27'
-- assertVisible: '2'
-- assertVisible: '1 unknown-direction camera crossing is shown in the timeline but excluded from score.'
+- assertVisible: '3'
 - takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-dashboard'}
 
 - scrollUntilVisible:
@@ -84,9 +83,10 @@ tags:
 - assertVisible:
     id: 'scorecard-event-read-e2e-possible'
 
-# Unknown-direction events remain visible but unscored, while operator view
+# Unknown-direction events remain visibly qualified while still counting as
+# game crossings. Operator view
 # never invents plate, vehicle, hotlist, or agency-sharing data.
-- assertVisible: 'Possible crossing · camera direction unknown · not scored'
+- assertVisible: 'Possible crossing · camera direction unknown'
 - assertVisible:
     id: 'scorecard-operator-view-toggle'
     checked: false
