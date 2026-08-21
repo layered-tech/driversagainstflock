@@ -61,6 +61,52 @@ export function getScorecardCoordinateDistanceMeters(
     );
 }
 
+export function getScorecardDestinationCoordinate(
+    coordinate,
+    distanceMeters,
+    bearingDegrees,
+) {
+    const longitude = Number(coordinate?.[0]);
+    const latitude = Number(coordinate?.[1]);
+    const distance = Number(distanceMeters);
+    const bearing = Number(bearingDegrees);
+
+    if (
+        !Number.isFinite(longitude) ||
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(distance) ||
+        distance < 0 ||
+        !Number.isFinite(bearing)
+    ) {
+        return null;
+    }
+
+    const angularDistance = distance / EARTH_RADIUS_METERS;
+    const bearingRadians = degreesToRadians(bearing);
+    const latitudeRadians = degreesToRadians(latitude);
+    const longitudeRadians = degreesToRadians(longitude);
+    const destinationLatitude = Math.asin(
+        Math.sin(latitudeRadians) * Math.cos(angularDistance) +
+            Math.cos(latitudeRadians) *
+                Math.sin(angularDistance) *
+                Math.cos(bearingRadians),
+    );
+    const destinationLongitude =
+        longitudeRadians +
+        Math.atan2(
+            Math.sin(bearingRadians) *
+                Math.sin(angularDistance) *
+                Math.cos(latitudeRadians),
+            Math.cos(angularDistance) -
+                Math.sin(latitudeRadians) * Math.sin(destinationLatitude),
+        );
+    const destinationLongitudeDegrees = radiansToDegrees(destinationLongitude);
+    const normalizedLongitude =
+        ((((destinationLongitudeDegrees + 180) % 360) + 360) % 360) - 180;
+
+    return [normalizedLongitude, radiansToDegrees(destinationLatitude)];
+}
+
 export function getScorecardCoordinateBearingDegrees(
     fromCoordinate,
     toCoordinate,

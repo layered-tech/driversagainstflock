@@ -15,7 +15,7 @@ import {
     getScorecardMapGeometryBounds,
     makeScorecardExposureConeCollection,
     makeScorecardExposurePointCollection,
-    makeScorecardExposureRouteLineCollection,
+    makeScorecardExposureTravelLineCollection,
 } from './scorecard-map-data';
 
 const MAP_HORIZONTAL_INSET = 32;
@@ -67,7 +67,7 @@ export function ScorecardExposureMap({
     const resolvedLineCollection = useMemo(
         () =>
             lineCollection ??
-            makeScorecardExposureRouteLineCollection(mappedExposures),
+            makeScorecardExposureTravelLineCollection(mappedExposures),
         [lineCollection, mappedExposures],
     );
     const coneCollection = useMemo(
