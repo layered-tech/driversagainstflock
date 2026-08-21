@@ -14,7 +14,6 @@ function ScorecardE2EProbeValue({ children, testID }) {
 
 export function ScorecardE2EProbe({
     activeSession,
-    cameraInventoryReady,
     isHydrated,
     persistedRevision,
     stateRevision,
@@ -44,11 +43,6 @@ export function ScorecardE2EProbe({
                 {guidedSessionIsActive
                     ? 'scorecard-guided-active'
                     : 'scorecard-guided-inactive'}
-            </ScorecardE2EProbeValue>
-            <ScorecardE2EProbeValue testID="e2e-scorecard-camera-inventory-ready">
-                {cameraInventoryReady
-                    ? 'scorecard-camera-inventory-ready'
-                    : 'scorecard-camera-inventory-pending'}
             </ScorecardE2EProbeValue>
             <ScorecardE2EProbeValue testID="e2e-scorecard-state-revision">
                 {String(stateRevision ?? 0)}

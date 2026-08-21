@@ -59,6 +59,14 @@ describe('scorecard navigation', () => {
         assert.match(detailSource, /showCones/);
     });
 
+    test('shows score impact for both confirmed and possible crossings', () => {
+        const detailSource = readSource('../scorecard-event-detail-screen.js');
+
+        assert.match(detailSource, /label="Score impact"[\s\S]*?tone="alert"/);
+        assert.match(detailSource, /value=\{`\$\{impact > 0/);
+        assert.doesNotMatch(detailSource, /Excluded/);
+    });
+
     test('mounts the arrival recap above every app route', () => {
         const mapScreenSource = readSource('../../map-screen.js');
         const rootLayoutSource = readSource('../../../app/_layout.js');

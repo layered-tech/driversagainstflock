@@ -46,15 +46,11 @@ function getBackupSummaryMessage(backup) {
     ].join(' · ');
 }
 
-function getWeeklyConfirmedReads(exposures, now = Date.now()) {
+function getWeeklyCameraCrossings(exposures, now = Date.now()) {
     const buckets = Array.from({ length: WEEK_BUCKET_COUNT }, () => 0);
     const start = now - WEEK_BUCKET_COUNT * WEEK_MS;
 
     for (const exposure of exposures) {
-        if (exposure.certainty !== 'confirmed') {
-            continue;
-        }
-
         const index = Math.floor((exposure.occurredAt - start) / WEEK_MS);
 
         if (index >= 0 && index < buckets.length) {
@@ -63,31 +59,6 @@ function getWeeklyConfirmedReads(exposures, now = Date.now()) {
     }
 
     return buckets;
-}
-
-function getCoverageDebugStats(trips) {
-    const incompleteTrips = trips.filter(
-        (trip) => !trip.exposureCoverageComplete,
-    );
-
-    return {
-        incompleteDriveCount: incompleteTrips.length,
-        incompleteResponseCount: incompleteTrips.filter(
-            (trip) => trip.exposureCoverageWasTruncated === true,
-        ).length,
-        metadataUnavailableCount: incompleteTrips.filter(
-            (trip) =>
-                trip.exposureCoverageObserved === null &&
-                trip.exposureCoveragePending === null &&
-                trip.exposureCoverageWasTruncated === null,
-        ).length,
-        neverObservedCount: incompleteTrips.filter(
-            (trip) => trip.exposureCoverageObserved === false,
-        ).length,
-        pendingAtEndCount: incompleteTrips.filter(
-            (trip) => trip.exposureCoveragePending === true,
-        ).length,
-    };
 }
 
 function PrivacyScoreRing({ score, theme }) {
@@ -204,7 +175,6 @@ export default function ScorecardDashboardScreen() {
     const {
         backupFilesAreAvailable,
         badges,
-        debugOverlayIsVisible,
         deleteHistory,
         exportBackup,
         isHydrated,
@@ -220,15 +190,11 @@ export default function ScorecardDashboardScreen() {
     } = useScorecard();
     const [backupActionIsPending, setBackupActionIsPending] = useState(false);
     const [fuelSettingsAreVisible, setFuelSettingsAreVisible] = useState(false);
-    const weeklyReads = useMemo(
-        () => getWeeklyConfirmedReads(scorecardState.exposures),
+    const weeklyCrossings = useMemo(
+        () => getWeeklyCameraCrossings(scorecardState.exposures),
         [scorecardState.exposures],
     );
-    const maximumWeeklyReads = Math.max(1, ...weeklyReads);
-    const coverageDebugStats = useMemo(
-        () => getCoverageDebugStats(windowStats.trips),
-        [windowStats.trips],
-    );
+    const maximumWeeklyCrossings = Math.max(1, ...weeklyCrossings);
     const earnedBadgeCount = badges.filter((badge) => badge.earned).length;
     const exposureCount = scorecardState.exposures.length;
     const fuelCostSettings = getScorecardFuelCostSettings(
@@ -242,7 +208,7 @@ export default function ScorecardDashboardScreen() {
             .find((trip) => Number.isFinite(trip.gasPrice))?.gasPrice ??
         null;
     const costPerAvoidedCamera =
-        windowStats.priceCoverageComplete && windowStats.avoidedCameraCount > 0
+        windowStats.allDetourCostsPriced && windowStats.avoidedCameraCount > 0
             ? windowStats.extraFuelCost / windowStats.avoidedCameraCount
             : null;
     const bottomPadding = Math.max(insets.bottom + 28, 28);
@@ -382,36 +348,6 @@ export default function ScorecardDashboardScreen() {
                             score={isHydrated ? windowStats.privacyScore : null}
                             theme={theme}
                         />
-                        {coverageDebugStats.incompleteDriveCount > 0 ? (
-                            <Text
-                                className="mt-1 text-center text-xs text-daf-amber"
-                                testID="scorecard-coverage-incomplete"
-                            >
-                                Camera inventory was incomplete for{' '}
-                                {coverageDebugStats.incompleteDriveCount}{' '}
-                                {coverageDebugStats.incompleteDriveCount === 1
-                                    ? 'drive'
-                                    : 'drives'}
-                                ; known cameras are still scored.
-                            </Text>
-                        ) : null}
-                        {debugOverlayIsVisible &&
-                        coverageDebugStats.incompleteDriveCount > 0 ? (
-                            <Text
-                                className="mt-1 text-center text-xs text-daf-amber"
-                                testID="scorecard-coverage-incomplete-debug"
-                            >
-                                ALPR debug ·{' '}
-                                {coverageDebugStats.neverObservedCount} never
-                                observed ·{' '}
-                                {coverageDebugStats.pendingAtEndCount} pending
-                                at end ·{' '}
-                                {coverageDebugStats.incompleteResponseCount}{' '}
-                                incomplete responses ·{' '}
-                                {coverageDebugStats.metadataUnavailableCount}{' '}
-                                legacy details unavailable
-                            </Text>
-                        ) : null}
                         <View className="mt-3.5 flex-row items-center gap-2">
                             <Icon
                                 color={theme.text.brand}
@@ -465,11 +401,11 @@ export default function ScorecardDashboardScreen() {
                         />
                         <StatTile
                             colorClassName="text-daf-alert"
-                            label="reads"
+                            label="crossings"
                             onPress={() => router.push('/scorecard/timeline')}
-                            testID="scorecard-stat-confirmed"
+                            testID="scorecard-stat-crossings"
                             value={formatNumber(
-                                windowStats.confirmedReadCount,
+                                windowStats.cameraCrossingCount,
                                 0,
                             )}
                         />
@@ -483,44 +419,26 @@ export default function ScorecardDashboardScreen() {
                         />
                     </View>
 
-                    {windowStats.possibleReadCount > 0 ? (
-                        <View className="border-daf-amber/35 bg-daf-amber/10 flex-row items-start gap-2 rounded-dafMd border px-3 py-2.5">
-                            <Icon
-                                color={dafSemanticColors.warning}
-                                name="triangle-alert"
-                                size={15}
-                            />
-                            <Text className="min-w-0 flex-1 text-xs leading-[18px] text-daf-text-secondary dark:text-neutral-300">
-                                {windowStats.possibleReadCount}{' '}
-                                unknown-direction camera
-                                {windowStats.possibleReadCount === 1
-                                    ? ' crossing is'
-                                    : ' crossings are'}{' '}
-                                shown in the timeline but excluded from score.
-                            </Text>
-                        </View>
-                    ) : null}
-
                     <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark rounded-dafLg border border-daf-border bg-white px-[15px] py-3.5">
                         <View className="mb-3 flex-row items-baseline">
                             <Text className="text-[14.5px] font-bold text-daf-text-primary dark:text-white">
-                                Confirmed reads per week
+                                Camera crossings per week
                             </Text>
                             <Text className="font-dafMono ml-auto text-[11px] text-daf-text-tertiary dark:text-neutral-400">
                                 30-day detail window
                             </Text>
                         </View>
                         <View className="h-[86px] flex-row items-end gap-2">
-                            {weeklyReads.map((readCount, index) => (
+                            {weeklyCrossings.map((crossingCount, index) => (
                                 <View
                                     className={`min-h-[5px] flex-1 rounded-t-[4px] ${
-                                        index === weeklyReads.length - 1
+                                        index === weeklyCrossings.length - 1
                                             ? 'bg-daf-alert'
                                             : 'bg-daf-alert/25'
                                     }`}
                                     key={`week-${index}`}
                                     style={{
-                                        height: `${Math.max(6, (readCount / maximumWeeklyReads) * 100)}%`,
+                                        height: `${Math.max(6, (crossingCount / maximumWeeklyCrossings) * 100)}%`,
                                     }}
                                 />
                             ))}
@@ -530,7 +448,7 @@ export default function ScorecardDashboardScreen() {
                                 30 days ago
                             </Text>
                             <Text className="font-dafMono text-[10.5px] font-bold text-daf-alert">
-                                This week · {weeklyReads.at(-1) ?? 0}
+                                This week · {weeklyCrossings.at(-1) ?? 0}
                             </Text>
                         </View>
                     </View>
@@ -599,7 +517,7 @@ export default function ScorecardDashboardScreen() {
                                 >
                                     {formatNumber(windowStats.extraGallons, 2)}{' '}
                                     gal ·{' '}
-                                    {windowStats.priceCoverageComplete
+                                    {windowStats.allDetourCostsPriced
                                         ? `$${formatNumber(windowStats.extraFuelCost, 2)}`
                                         : 'price unavailable'}
                                 </Text>

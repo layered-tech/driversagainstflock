@@ -40,6 +40,29 @@ describe('scorecard drive pipeline wiring', () => {
             contextSource,
             /mergeScorecardSessionRouteCatalog[\s\S]*?scorecardState\.activeSession\?\.id/,
         );
+        assert.match(contextSource, /getDirectionsRouteGeometrySyncKey/);
+        assert.doesNotMatch(contextSource, /getDirectionsRouteSyncKey/);
+    });
+
+    test('settles a user-ended guided route from destination proximity, not reported progress', () => {
+        const contextSource = readSource('../scorecard-context.js');
+
+        assert.doesNotMatch(contextSource, /scorecardRouteHasReachedEnd/);
+        assert.match(contextSource, /scorecardRouteEndedAtDestination/);
+        assert.match(
+            contextSource,
+            /manuallyCompletedGuidedRoute\s*\?\s*'manual'\s*:\s*'cancelled'/,
+        );
+        assert.match(contextSource, /getScorecardRouteProgressFraction/);
+    });
+
+    test('shows completion recaps only for guided drives', () => {
+        const contextSource = readSource('../scorecard-context.js');
+
+        assert.match(
+            contextSource,
+            /completedTrip\?\.completed\s*&&\s*completedTrip\.mode === 'guided'/,
+        );
     });
 
     test('uses one normalized revision for runtime and encrypted persistence', () => {

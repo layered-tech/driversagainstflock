@@ -289,7 +289,7 @@ const privacySections = [
             { type: 'heading', text: 'On-device Scorecard' },
             {
                 type: 'paragraph',
-                text: 'Scorecard recording is on by default for explicit DAF drives only. Camera crossings are matched on your phone against public camera coordinates. Crossing a known directional cone is treated as a confirmed plate read for scoring; an unknown-direction crossing is shown as possible and excluded from score and XP. Scores, levels, badges, trip history, and exposure events are not associated with an account and have no leaderboard or cloud sync.',
+                text: 'Scorecard recording is on by default for explicit DAF drives only. Camera crossings are matched on your phone against public camera coordinates. Every locally detected crossing reduces the privacy score; direction metadata changes only whether the timeline labels it confirmed or possible. Scores, levels, badges, trip history, and exposure events are not associated with an account and have no leaderboard or cloud sync.',
             },
             {
                 type: 'paragraph',

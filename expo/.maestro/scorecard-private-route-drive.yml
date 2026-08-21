@@ -110,9 +110,6 @@ tags:
     visible: 'scorecard-guided-active'
     timeout: 30000
 - extendedWaitUntil:
-    visible: 'scorecard-camera-inventory-ready'
-    timeout: 30000
-- extendedWaitUntil:
     visible:
       id: 'e2e-scorecard-storage-synced'
     timeout: 30000
@@ -121,7 +118,8 @@ tags:
 - assertTrue: ${Number(maestro.copiedText) > 0}
 
 # The private route remains outside both fastest-route camera regions. The
-# slow final leg provides two accurate fixes at least three seconds apart.
+# user ends guidance near the destination before automatic arrival fires;
+# completion must still settle the camera difference locked at Start.
 - travel:
     points:
       - '30.2672, -97.7431'
@@ -166,17 +164,17 @@ tags:
 - travel:
     points:
       - '30.26585, -97.75115'
-      - '30.26555, -97.75158'
-      - '30.2655125, -97.751635'
-      - '30.265475, -97.75169'
-      - '30.2654375, -97.751745'
-      - '30.2654, -97.7518'
+      - '30.26578, -97.75125'
+      - '30.26573, -97.75132'
     speed: 0.08
+- tapOn:
+    id: 'driving-cancel-route-button'
+    retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
       id: 'scorecard-arrival-recap'
     timeout: 60000
-- assertVisible: 'Arrived, unseen'
+- assertVisible: 'Route ended, unseen'
 - copyTextFrom:
     id: 'scorecard-arrival-recap-score'
 - assertTrue: ${maestro.copiedText == 'Privacy score → 100'}
@@ -184,7 +182,7 @@ tags:
     id: 'scorecard-arrival-recap-avoided'
 - assertTrue: ${maestro.copiedText == '2'}
 - copyTextFrom:
-    id: 'scorecard-arrival-recap-reads'
+    id: 'scorecard-arrival-recap-crossings'
 - assertTrue: ${maestro.copiedText == '0'}
 - copyTextFrom:
     id: 'scorecard-arrival-recap-xp'
@@ -237,13 +235,13 @@ tags:
     id: 'scorecard-stat-avoided'
 - assertTrue: ${maestro.copiedText == '2'}
 - copyTextFrom:
-    id: 'scorecard-stat-confirmed'
+    id: 'scorecard-stat-crossings'
 - assertTrue: ${maestro.copiedText == '0'}
 - copyTextFrom:
     id: 'scorecard-level-xp'
 - assertTrue: ${maestro.copiedText == '90 XP'}
 - tapOn:
-    id: 'scorecard-stat-confirmed'
+    id: 'scorecard-stat-crossings'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:

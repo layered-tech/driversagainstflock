@@ -15,6 +15,7 @@ import {
     setAutoPlaySessionRenderState,
 } from './auto-play-session-state';
 import { getAutoPlaySharedNavigationAction } from './auto-play-shared-navigation';
+import { publishAcceptedDeviceLocation } from './map/accepted-device-location';
 import {
     AUTO_PLAY_SINGLE_RESULT_COUNTDOWN_SECONDS,
     createAutoPlaySingleResultCountdown,
@@ -36,6 +37,7 @@ import {
     createAutoPlaySearchCallbackState,
     getAutoPlayHeaderButtonVisibility,
     getAutoPlayMapButtonAppearanceKey,
+    getAutoPlayPotentiallyAvoidedNodeCount,
     getAutoPlayPrimaryLocationHeaderActionTypes,
     getAutoPlayRouteChoiceText,
     getAutoPlaySearchLoadingCopy,
@@ -92,7 +94,7 @@ import {
 import { formatSearchResultDistance } from './map/search-formatters';
 import {
     addSharedRoutingStateListener,
-    getDirectionsRouteSyncKey,
+    getDirectionsRouteGeometrySyncKey,
     getSharedRoutingState,
     hydrateSharedRoutingStateAsync,
     setSharedRoutingState,
@@ -1428,14 +1430,6 @@ function getRouteNumberDelta(value, baseline) {
         : null;
 }
 
-function getPotentiallyAvoidedNodeCount(route, baselineRouteOption) {
-    return (
-        Number(route?.fastestRouteNodeCount) ||
-        Number(baselineRouteOption?.nodeCount) ||
-        0
-    );
-}
-
 function getPotentiallyAvoidedNodesText(nodeCount) {
     return nodeCount > 0
         ? `Potentially avoids ${nodeCount} monitored ${nodeCount === 1 ? 'node' : 'nodes'}`
@@ -1443,9 +1437,10 @@ function getPotentiallyAvoidedNodesText(nodeCount) {
 }
 
 function getRouteOptionDetail(routeOption, baselineRouteOption, route) {
-    const potentiallyAvoidedNodeCount = getPotentiallyAvoidedNodeCount(
-        route,
+    const potentiallyAvoidedNodeCount = getAutoPlayPotentiallyAvoidedNodeCount(
+        routeOption,
         baselineRouteOption,
+        route,
     );
     const durationDelta = getRouteNumberDelta(
         routeOption.duration,
@@ -2704,7 +2699,7 @@ function syncAutoPlayNavigationFromSharedRoutingState(
 
     const navigationAction = getAutoPlaySharedNavigationAction({
         activeNavigationRoute,
-        getRouteSyncKey: getDirectionsRouteSyncKey,
+        getRouteSyncKey: getDirectionsRouteGeometrySyncKey,
         hostNavigationIsActive: autoPlayHostNavigationIsActive,
         rootMapTemplateIsReady,
         routingState,
@@ -2718,7 +2713,7 @@ function syncAutoPlayNavigationFromSharedRoutingState(
         // The shared state wants navigation but the root template has not
         // finished settling, so the start is silently deferred. Record each
         // distinct deferred route once instead of on every publish.
-        const deferredStartKey = getDirectionsRouteSyncKey(
+        const deferredStartKey = getDirectionsRouteGeometrySyncKey(
             routingState.directionsRoute,
         );
 
@@ -2756,6 +2751,7 @@ function startAutoDriveNavigationSimulation(route) {
         },
         onLocation: (position) => {
             simulatedLocationCount += 1;
+            publishAcceptedDeviceLocation(position);
             const location = getLocationFromPosition(position);
 
             if (location) {
