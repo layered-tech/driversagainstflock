@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
+    getScorecardCoordinateBearingDegrees,
+    getScorecardCoordinateDistanceMeters,
+} from '../scorecard-geo.js';
+import {
     getScorecardMapBounds,
     getScorecardMapGeometryBounds,
     makeScorecardExposureConeCollection,
     makeScorecardExposurePointCollection,
-    makeScorecardExposureRouteLineCollection,
+    makeScorecardExposureTravelLineCollection,
 } from '../scorecard-map-data.js';
 
 const exposures = [
@@ -22,11 +26,7 @@ const exposures = [
         id: 'earlier',
         occurredAt: 1000,
         cameraDirections: [{ end: 90, isRange: false, start: 90 }],
-        routeSegmentCoordinates: [
-            [-97.81, 30.19],
-            [-97.8, 30.2],
-            [-97.79, 30.21],
-        ],
+        travelHeading: 90,
         sessionId: 'drive-one',
     },
     {
@@ -55,15 +55,51 @@ describe('scorecard exposure map data', () => {
         );
     });
 
-    test('maps the locally retained driven segment at an exposure', () => {
-        const routes = makeScorecardExposureRouteLineCollection(exposures);
+    test('derives an approximate travel line without retained GPS samples', () => {
+        const routes = makeScorecardExposureTravelLineCollection(exposures);
+        const coordinates = routes.features[0].geometry.coordinates;
 
         assert.equal(routes.features.length, 1);
-        assert.deepEqual(routes.features[0].geometry.coordinates, [
-            [-97.81, 30.19],
-            [-97.8, 30.2],
-            [-97.79, 30.21],
+        assert.equal(coordinates.length, 2);
+        assert.ok(
+            Math.abs(
+                getScorecardCoordinateDistanceMeters(
+                    coordinates[0],
+                    exposures[1].cameraCoordinate,
+                ) - 75,
+            ) < 0.01,
+        );
+        assert.ok(
+            Math.abs(
+                getScorecardCoordinateDistanceMeters(
+                    exposures[1].cameraCoordinate,
+                    coordinates[1],
+                ) - 75,
+            ) < 0.01,
+        );
+        assert.ok(
+            Math.abs(
+                getScorecardCoordinateBearingDegrees(
+                    coordinates[0],
+                    coordinates[1],
+                ) - 90,
+            ) < 0.01,
+        );
+    });
+
+    test('omits a travel line when the retained heading is unavailable', () => {
+        const routes = makeScorecardExposureTravelLineCollection([
+            {
+                cameraCoordinate: [-97.8, 30.2],
+                certainty: 'confirmed',
+                id: 'missing-heading',
+                occurredAt: 1000,
+                sessionId: 'drive-one',
+                travelHeading: null,
+            },
         ]);
+
+        assert.deepEqual(routes.features, []);
     });
 
     test('maps the camera view cone from its reported direction', () => {

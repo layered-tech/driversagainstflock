@@ -57,6 +57,7 @@ describe('scorecard navigation', () => {
         assert.match(mapSource, /circleEmissiveStrength/);
         assert.match(mapSource, /textEmissiveStrength/);
         assert.match(detailSource, /showCones/);
+        assert.match(detailSource, /Approximate direction of travel/);
     });
 
     test('shows score impact for both confirmed and possible crossings', () => {

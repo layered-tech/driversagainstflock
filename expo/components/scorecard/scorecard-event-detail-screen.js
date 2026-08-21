@@ -118,7 +118,7 @@ export default function ScorecardEventDetailScreen() {
                 className="flex-1"
                 contentContainerStyle={{ paddingBottom: bottomPadding }}
             >
-                <View className="h-[270px] overflow-hidden bg-daf-surface-alt dark:bg-daf-surface-inverse">
+                <View className="relative h-[270px] overflow-hidden bg-daf-surface-alt dark:bg-daf-surface-inverse">
                     <ScorecardExposureMap
                         exposures={[event]}
                         height={270}
@@ -126,6 +126,13 @@ export default function ScorecardEventDetailScreen() {
                         showCones
                         testID="scorecard-event-map"
                     />
+                    {Number.isFinite(event.travelHeading) ? (
+                        <View className="absolute bottom-3 left-3 rounded-dafPill bg-white/90 px-3 py-1.5 dark:bg-black/75">
+                            <Text className="text-[11px] font-semibold text-daf-text-secondary dark:text-neutral-200">
+                                Approximate direction of travel
+                            </Text>
+                        </View>
+                    ) : null}
                 </View>
                 <View className="gap-3 px-4 py-4">
                     <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark rounded-dafLg border border-daf-border bg-white p-4">
