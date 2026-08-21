@@ -162,7 +162,7 @@ function getRouteCameraContractSyncKey(route, selectedRouteOption) {
     ].join(';');
 }
 
-export function getDirectionsRouteSyncKey(route) {
+export function getDirectionsRouteGeometrySyncKey(route) {
     if (!route) {
         return '';
     }
@@ -186,6 +186,18 @@ export function getDirectionsRouteSyncKey(route) {
         routeOption?.duration ?? '',
         routeOption?.coordinates?.length ?? '',
         getRouteCoordinatesSyncKey(routeOption?.coordinates),
+    ].join('|');
+}
+
+export function getDirectionsRouteSyncKey(route) {
+    if (!route) {
+        return '';
+    }
+
+    const routeOption = getSelectedDirectionsRouteOption(route);
+
+    return [
+        getDirectionsRouteGeometrySyncKey(route),
         getRouteCameraContractSyncKey(route, routeOption),
     ].join('|');
 }

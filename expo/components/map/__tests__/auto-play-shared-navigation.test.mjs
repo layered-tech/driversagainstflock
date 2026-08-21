@@ -43,6 +43,17 @@ const route = {
 };
 const getRouteSyncKey = (candidateRoute) =>
     candidateRoute?.selectedRouteKey ?? '';
+const getGeometryRouteSyncKey = (candidateRoute) => {
+    const selectedRouteOption = candidateRoute?.routeOptions?.find(
+        (routeOption) =>
+            routeOption.routeKey === candidateRoute?.selectedRouteKey,
+    );
+
+    return JSON.stringify([
+        candidateRoute?.selectedRouteKey ?? '',
+        selectedRouteOption?.coordinates ?? [],
+    ]);
+};
 
 function createDeferred() {
     let resolve;
@@ -119,6 +130,47 @@ describe('shared phone and car navigation contract', () => {
                 },
             }).action,
             'none',
+        );
+    });
+
+    test('does not restart host navigation for camera-only route enrichment', () => {
+        const enrichedRoute = {
+            ...route,
+            routeOptions: route.routeOptions.map((routeOption) => ({
+                ...routeOption,
+                cameraCandidates: [
+                    {
+                        coordinate: [-86.95, 41.05],
+                        osmId: 'camera-1',
+                    },
+                ],
+                cameraCoverageComplete: true,
+                nodeCount: 1,
+            })),
+        };
+
+        assert.equal(
+            getAutoPlaySharedNavigationAction({
+                activeNavigationRoute: route,
+                getRouteSyncKey: getGeometryRouteSyncKey,
+                rootMapTemplateIsReady: true,
+                routingState: {
+                    directionsRoute: enrichedRoute,
+                    drivingModeIsActive: true,
+                },
+            }).action,
+            'none',
+        );
+        assert.match(
+            autoPlaySource,
+            /getRouteSyncKey: getDirectionsRouteGeometrySyncKey/,
+        );
+    });
+
+    test('publishes auto-drive fixes to the shared accepted-location stream', () => {
+        assert.match(
+            autoPlaySource,
+            /function startAutoDriveNavigationSimulation[\s\S]*?onLocation: \(position\) => \{[\s\S]*?publishAcceptedDeviceLocation\(position\)/,
         );
     });
 

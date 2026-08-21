@@ -110,7 +110,7 @@ export default function ScorecardEventDetailScreen() {
                 subtitle={
                     confirmed
                         ? 'Confirmed directional cone crossing'
-                        : 'Possible crossing · excluded from score'
+                        : 'Possible unknown-direction crossing'
                 }
                 title="Exposure detail"
             />
@@ -177,12 +177,8 @@ export default function ScorecardEventDetailScreen() {
                             />
                             <DetailCell
                                 label="Score impact"
-                                tone={confirmed ? 'alert' : 'default'}
-                                value={
-                                    confirmed
-                                        ? `${impact > 0 ? '+' : ''}${impact} pts`
-                                        : 'Excluded'
-                                }
+                                tone="alert"
+                                value={`${impact > 0 ? '+' : ''}${impact} pts`}
                             />
                         </View>
 

@@ -163,14 +163,10 @@ test('offers the selected route as selectable GPX or KML export text', () => {
     );
 });
 
-test('uses the scorecard stable-ID difference for camera avoidance copy', () => {
+test('uses the scorecard start-time count for camera avoidance copy', () => {
     assert.match(
         directionsRouteSheetSource,
-        /getAvoidableRouteCameraCandidates\(\s*directionsRoute,\s*DIRECTIONS_ROUTE_PRIVATE,\s*\)/,
-    );
-    assert.doesNotMatch(
-        directionsRouteSheetSource,
-        /\(directRoute\?\.nodeCount[\s\S]*?- \(privateRoute\?\.nodeCount/,
+        /getAvoidableRouteCameraCount\(\s*directionsRoute,\s*DIRECTIONS_ROUTE_PRIVATE,\s*\)/,
     );
     assert.match(
         routeOptionCardSource,

@@ -20,7 +20,7 @@ describe('scorecard Maestro fixture', () => {
             'arrival',
             'arrival-exposed',
             'badges-all',
-            'coverage-incomplete',
+            'price-unavailable',
             'populated',
             ...E2E_SCORECARD_LEVEL_FIXTURES,
         ];
@@ -68,7 +68,8 @@ describe('scorecard Maestro fixture', () => {
         assert.equal(stats.avoidedCameraCount, 27);
         assert.equal(stats.confirmedReadCount, 2);
         assert.equal(stats.possibleReadCount, 1);
-        assert.equal(stats.privacyScore, 90);
+        assert.equal(stats.cameraCrossingCount, 3);
+        assert.equal(stats.privacyScore, 86);
         assert.equal(fixture.state.exposures.length, 3);
         assert.equal(fixture.state.lifetime.xp, 2520);
         assert.equal(fixture.pendingRecap, null);
@@ -78,40 +79,25 @@ describe('scorecard Maestro fixture', () => {
         );
     });
 
-    test('provides clean, exposed, and incomplete arrival coverage states', () => {
+    test('provides clean, exposed, and unpriced arrival states', () => {
         const now = Date.parse('2026-08-10T18:00:00Z');
         const clean = createE2EScorecardFixture('arrival', now);
         const exposed = createE2EScorecardFixture('arrival-exposed', now);
-        const incomplete = createE2EScorecardFixture(
-            'coverage-incomplete',
-            now,
-        );
-        const incompleteStats = getScorecardWindowStats(incomplete.state, now);
+        const unpriced = createE2EScorecardFixture('price-unavailable', now);
+        const unpricedStats = getScorecardWindowStats(unpriced.state, now);
 
         assert.equal(clean.pendingRecap.id, E2E_SCORECARD_IDS.arrivalTrip);
         assert.equal(clean.pendingRecap.confirmedReadCount, 0);
-        assert.equal(clean.pendingRecap.exposureCoverageComplete, true);
         assert.equal(clean.pendingRecap.xpEarned, 360);
         assert.equal(exposed.pendingRecap.id, E2E_SCORECARD_IDS.exposedTrip);
         assert.equal(exposed.pendingRecap.confirmedReadCount, 2);
         assert.equal(exposed.pendingRecap.possibleReadCount, 1);
         assert.equal(exposed.pendingRecap.xpEarned, 540);
-        assert.equal(
-            incomplete.pendingRecap.id,
-            E2E_SCORECARD_IDS.incompleteTrip,
-        );
-        assert.equal(incomplete.pendingRecap.exposureCoverageComplete, false);
-        assert.equal(incomplete.pendingRecap.exposureCoverageObserved, true);
-        assert.equal(incomplete.pendingRecap.exposureCoveragePending, false);
-        assert.equal(
-            incomplete.pendingRecap.exposureCoverageWasTruncated,
-            true,
-        );
-        assert.equal(incomplete.pendingRecap.extraFuelCost, null);
-        assert.equal(incomplete.pendingRecap.xpEarned, 180);
-        assert.equal(incompleteStats.exposureCoverageComplete, false);
-        assert.equal(incompleteStats.priceCoverageComplete, false);
-        assert.equal(incompleteStats.privacyScore, 88);
+        assert.equal(unpriced.pendingRecap.id, E2E_SCORECARD_IDS.unpricedTrip);
+        assert.equal(unpriced.pendingRecap.extraFuelCost, null);
+        assert.equal(unpriced.pendingRecap.xpEarned, 180);
+        assert.equal(unpricedStats.allDetourCostsPriced, false);
+        assert.equal(unpricedStats.privacyScore, 84);
     });
 
     test('covers every level threshold and maximum-level state', () => {

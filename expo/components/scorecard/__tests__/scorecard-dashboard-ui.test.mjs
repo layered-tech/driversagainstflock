@@ -17,40 +17,23 @@ describe('scorecard dashboard interactions', () => {
         assert.match(dashboardSource, /windowStats\.cleanDriveStreak/);
     });
 
-    test('opens the exposure timeline from the reads tile', () => {
+    test('opens the exposure timeline from the crossings tile', () => {
         const dashboardSource = readSource('../scorecard-dashboard-screen.js');
 
         assert.match(
             dashboardSource,
-            /label="reads"[\s\S]*?onPress=\{\(\) => router\.push\('\/scorecard\/timeline'\)\}/,
+            /label="crossings"[\s\S]*?onPress=\{\(\) => router\.push\('\/scorecard\/timeline'\)\}/,
         );
     });
 
-    test('discloses incomplete inventory while limiting diagnostics to debugging mode', () => {
+    test('keeps camera inventory diagnostics out of the game UI', () => {
         const arrivalSource = readSource('../scorecard-arrival-recap.js');
         const dashboardSource = readSource('../scorecard-dashboard-screen.js');
 
-        assert.match(
-            dashboardSource,
-            /Camera inventory was incomplete for[\s\S]*?known cameras are still scored/,
-        );
-        assert.match(
-            arrivalSource,
-            /Known cameras scored · camera inventory incomplete/,
-        );
-        assert.match(
-            dashboardSource,
-            /debugOverlayIsVisible &&[\s\S]*?testID="scorecard-coverage-incomplete-debug"/,
-        );
-        assert.match(
-            arrivalSource,
-            /debugOverlayIsVisible &&[\s\S]*?!trip\.exposureCoverageComplete/,
-        );
-        assert.match(arrivalSource, /pendingAtEnd=/);
-        assert.match(arrivalSource, /incompleteResponse=/);
-        assert.match(dashboardSource, /legacy details unavailable/);
-        assert.doesNotMatch(dashboardSource, /Score withheld/);
-        assert.doesNotMatch(arrivalSource, /Privacy score withheld/);
+        assert.doesNotMatch(dashboardSource, /coverage|inventory/i);
+        assert.doesNotMatch(arrivalSource, /coverage|inventory/i);
+        assert.doesNotMatch(dashboardSource, /debugOverlayIsVisible/);
+        assert.doesNotMatch(arrivalSource, /debugOverlayIsVisible/);
     });
 
     test('shows an edit handle and opens custom fuel inputs from the privacy cost card', () => {

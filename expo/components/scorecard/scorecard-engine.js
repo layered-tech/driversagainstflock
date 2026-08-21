@@ -27,7 +27,7 @@ export const SCORECARD_BADGES = Object.freeze([
         name: 'First detour',
     },
     {
-        caption: 'Complete 7 consecutive drives with zero reads',
+        caption: 'Complete 7 consecutive drives with zero camera crossings',
         icon: 'shield-check',
         id: 'clean-week',
         name: 'Clean streak',
@@ -45,7 +45,7 @@ export const SCORECARD_BADGES = Object.freeze([
         name: 'Ghost',
     },
     {
-        caption: 'Finish 10 drives across 30 days with zero reads',
+        caption: 'Finish 10 drives across 30 days with zero camera crossings',
         icon: 'moon',
         id: 'zero-month',
         name: 'Zero month',
@@ -68,8 +68,16 @@ function nonNegativeNumber(value, fallback = 0) {
     return Math.max(0, finiteNumber(value, fallback));
 }
 
-function optionalBoolean(value) {
-    return typeof value === 'boolean' ? value : null;
+function optionalNonNegativeInteger(value) {
+    return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : null;
+}
+
+function scorecardCompletionIsSuccessful(mode, completion) {
+    return mode === 'guided'
+        ? completion === 'arrival' ||
+              completion === 'arrived' ||
+              completion === 'manual'
+        : completion === 'manual';
 }
 
 function normalizeFuelEconomyMpg(value) {
@@ -226,12 +234,12 @@ function normalizeSparseCameraRecord(value) {
     );
     const osmId = normalizeStableCameraId(value?.osmId ?? value?.osm_id);
 
-    if (!coordinate || !osmId) {
+    if (!osmId) {
         return null;
     }
 
     return {
-        coordinate,
+        ...(coordinate ? { coordinate } : {}),
         earnedAt: finiteNumber(value?.earnedAt, 0),
         osmId,
     };
@@ -255,20 +263,17 @@ function normalizeActiveSession(value) {
         value?.completedExtraDurationSeconds,
     );
 
+    const avoidanceBaseline = Array.isArray(value?.avoidanceBaseline)
+        ? value.avoidanceBaseline
+        : [];
+
     return {
-        avoidanceBaseline: Array.isArray(value?.avoidanceBaseline)
-            ? value.avoidanceBaseline
-                  .map(normalizeSparseCameraRecord)
-                  .filter(Boolean)
-            : [],
+        avoidanceBaseline: avoidanceBaseline
+            .map(normalizeSparseCameraRecord)
+            .filter(Boolean),
         completedDistanceMeters,
         completedExtraDistanceMeters,
         completedExtraDurationSeconds,
-        creditedAvoidances: Array.isArray(value?.creditedAvoidances)
-            ? value.creditedAvoidances
-                  .map(normalizeSparseCameraRecord)
-                  .filter(Boolean)
-            : [],
         gasPrice: Number.isFinite(value?.gasPrice) ? value.gasPrice : null,
         gasPriceRetrievedAt: normalizeOptionalText(
             value?.gasPriceRetrievedAt,
@@ -281,10 +286,6 @@ function normalizeActiveSession(value) {
         fuelEconomyMpg:
             normalizeFuelEconomyMpg(value?.fuelEconomyMpg) ??
             SCORECARD_FIXED_MPG,
-        exposureCoverageObserved: value?.exposureCoverageObserved === true,
-        exposureCoveragePending: value?.exposureCoveragePending !== false,
-        exposureCoverageWasTruncated:
-            value?.exposureCoverageWasTruncated === true,
         id,
         initialDirectRouteDistanceMeters: nonNegativeNumber(
             value?.initialDirectRouteDistanceMeters,
@@ -298,14 +299,15 @@ function normalizeActiveSession(value) {
         initialRouteDurationSeconds: nonNegativeNumber(
             value?.initialRouteDurationSeconds,
         ),
+        lockedAvoidedCameraCount:
+            optionalNonNegativeInteger(value?.lockedAvoidedCameraCount) ??
+            avoidanceBaseline.length,
         monitoringCameras: Array.isArray(value?.monitoringCameras)
             ? value.monitoringCameras
                   .map(normalizeMonitoringCameraRecord)
                   .filter(Boolean)
             : [],
         mode: value?.mode === 'guided' ? 'guided' : 'free',
-        routeCameraSnapshotInitialized:
-            value?.routeCameraSnapshotInitialized === true,
         selectedRouteKey: normalizeOptionalText(value?.selectedRouteKey, 30),
         startedAt,
         startingStateCode: /^[A-Z]{2}$/.test(value?.startingStateCode ?? '')
@@ -374,7 +376,7 @@ function normalizeTrip(value) {
     const completed =
         typeof value?.completed === 'boolean'
             ? value.completed
-            : completion !== 'cancelled' && completion !== 'paused';
+            : scorecardCompletionIsSuccessful(value?.mode, completion);
 
     return {
         avoidedCameraCount: nonNegativeNumber(value?.avoidedCameraCount),
@@ -394,16 +396,6 @@ function normalizeTrip(value) {
                   .map((eventId) => normalizeOptionalText(eventId, 100))
                   .filter(Boolean)
             : [],
-        exposureCoverageComplete: value?.exposureCoverageComplete === true,
-        exposureCoverageObserved: optionalBoolean(
-            value?.exposureCoverageObserved,
-        ),
-        exposureCoveragePending: optionalBoolean(
-            value?.exposureCoveragePending,
-        ),
-        exposureCoverageWasTruncated: optionalBoolean(
-            value?.exposureCoverageWasTruncated,
-        ),
         extraFuelCost: Number.isFinite(value?.extraFuelCost)
             ? nonNegativeNumber(value.extraFuelCost)
             : null,
@@ -610,10 +602,10 @@ export function createLocalScorecardId(prefix, now = Date.now()) {
         .slice(2, 12)}`;
 }
 
-export function getScorecardPrivacyScore(avoidedCount, confirmedReadCount) {
+export function getScorecardPrivacyScore(avoidedCount, cameraCrossingCount) {
     const avoided = nonNegativeNumber(avoidedCount);
-    const confirmedReads = nonNegativeNumber(confirmedReadCount);
-    const denominator = avoided + 1.5 * confirmedReads;
+    const cameraCrossings = nonNegativeNumber(cameraCrossingCount);
+    const denominator = avoided + 1.5 * cameraCrossings;
 
     return denominator > 0 ? Math.round((100 * avoided) / denominator) : null;
 }
@@ -678,8 +670,11 @@ export function getCleanDriveStreak(trips) {
     let current = 0;
 
     for (const trip of orderedTrips) {
-        current =
-            nonNegativeNumber(trip?.confirmedReadCount) === 0 ? current + 1 : 0;
+        const cameraCrossingCount =
+            nonNegativeNumber(trip?.confirmedReadCount) +
+            nonNegativeNumber(trip?.possibleReadCount);
+
+        current = cameraCrossingCount === 0 ? current + 1 : 0;
         longest = Math.max(longest, current);
     }
 
@@ -756,6 +751,7 @@ export function getScorecardWindowStats(state, now = Date.now()) {
         (total, trip) => total + nonNegativeNumber(trip.possibleReadCount),
         0,
     );
+    const cameraCrossingCount = confirmedReadCount + possibleReadCount;
     const extraMiles = trips.reduce(
         (total, trip) => total + nonNegativeNumber(trip.extraMiles),
         0,
@@ -771,29 +767,25 @@ export function getScorecardWindowStats(state, now = Date.now()) {
         (total, estimate) => total + (estimate.extraFuelCost ?? 0),
         0,
     );
-    const priceCoverageComplete = trips.every(
+    const allDetourCostsPriced = trips.every(
         (trip, index) =>
             nonNegativeNumber(trip.extraMiles) === 0 ||
             Number.isFinite(fuelEstimates[index].extraFuelCost),
     );
     const cleanDriveStreak = getCleanDriveStreak(trips);
-    const exposureCoverageComplete = trips.every(
-        (trip) => trip.exposureCoverageComplete === true,
-    );
-
     return {
         avoidedCameraCount,
+        allDetourCostsPriced,
+        cameraCrossingCount,
         confirmedReadCount,
         cleanDriveStreak: cleanDriveStreak.current,
-        exposureCoverageComplete,
         extraFuelCost,
         extraGallons,
         extraMiles,
         possibleReadCount,
-        priceCoverageComplete,
         privacyScore: getScorecardPrivacyScore(
             avoidedCameraCount,
-            confirmedReadCount,
+            cameraCrossingCount,
         ),
         trips,
     };
@@ -853,12 +845,6 @@ function getScorecardRouteSnapshot(route) {
     }
 
     return {
-        cameraCoverageComplete:
-            routeOptions.length > 0 &&
-            routeOptions.every(
-                (routeOption) => routeOption.cameraCoverageComplete === true,
-            ),
-        initialized: routeOptions.length > 0,
         monitoringCameras: [...camerasById.values()],
     };
 }
@@ -966,8 +952,32 @@ export function getAvoidableRouteCameraCandidates(route, comparisonRouteKey) {
     });
 }
 
+export function getAvoidableRouteCameraCount(route, comparisonRouteKey) {
+    const directRoute = routeOptionForKey(route, 'direct');
+    const selectedRouteKey =
+        comparisonRouteKey ?? route?.selectedRouteKey ?? route?.routeKey;
+    const selectedRoute =
+        routeOptionForKey(route, selectedRouteKey) ?? route ?? null;
+
+    if (!directRoute || !selectedRoute || selectedRouteKey === 'direct') {
+        return 0;
+    }
+
+    const directCameraCount =
+        optionalNonNegativeInteger(
+            directRoute.nodeCount ?? route?.fastestRouteNodeCount,
+        ) ??
+        directRoute.cameraCandidates?.length ??
+        0;
+    const selectedCameraCount =
+        optionalNonNegativeInteger(selectedRoute.nodeCount) ??
+        selectedRoute.cameraCandidates?.length ??
+        0;
+
+    return Math.max(0, directCameraCount - selectedCameraCount);
+}
+
 export function createScorecardSession({
-    exposureCoverageComplete = null,
     gasPrice = null,
     gasPriceRetrievedAt = null,
     gasPriceSourceAsOf = null,
@@ -978,19 +988,16 @@ export function createScorecardSession({
     startingStateCode = null,
 }) {
     const normalizedMode = mode === 'guided' ? 'guided' : 'free';
+    const lockedAvoidedCameraCount =
+        normalizedMode === 'guided' ? getAvoidableRouteCameraCount(route) : 0;
     const routeSnapshot =
         normalizedMode === 'guided'
             ? getScorecardRouteSnapshot(route)
             : {
-                  cameraCoverageComplete: false,
-                  initialized: false,
                   monitoringCameras: [],
               };
-    const coverageComplete = routeSnapshot.initialized
-        ? routeSnapshot.cameraCoverageComplete
-        : exposureCoverageComplete;
     const initialRouteSnapshot =
-        normalizedMode === 'guided' && routeSnapshot.initialized
+        normalizedMode === 'guided'
             ? getInitialRouteSessionSnapshot(route)
             : {
                   initialDirectRouteDistanceMeters: 0,
@@ -1002,23 +1009,20 @@ export function createScorecardSession({
 
     return {
         avoidanceBaseline:
-            normalizedMode === 'guided' && routeSnapshot.initialized
+            normalizedMode === 'guided'
                 ? getAvoidableRouteCameraCandidates(route)
                       .map(normalizeSparseCameraRecord)
                       .filter(Boolean)
+                      .slice(0, lockedAvoidedCameraCount)
                 : [],
-        creditedAvoidances: [],
-        exposureCoverageObserved: typeof coverageComplete === 'boolean',
-        exposureCoveragePending: typeof coverageComplete !== 'boolean',
-        exposureCoverageWasTruncated: coverageComplete === false,
         gasPrice: Number.isFinite(gasPrice) ? gasPrice : null,
         gasPriceRetrievedAt,
         gasPriceSourceAsOf,
         id,
         ...initialRouteSnapshot,
+        lockedAvoidedCameraCount,
         mode: normalizedMode,
         monitoringCameras: routeSnapshot.monitoringCameras,
-        routeCameraSnapshotInitialized: routeSnapshot.initialized,
         startedAt,
         startingStateCode:
             typeof startingStateCode === 'string' ? startingStateCode : null,
@@ -1031,10 +1035,6 @@ export function mergeScorecardSessionRouteCatalog(session, route) {
     }
 
     const routeSnapshot = getScorecardRouteSnapshot(route);
-
-    if (!routeSnapshot.initialized) {
-        return session;
-    }
 
     const camerasById = new Map(
         (session.monitoringCameras ?? [])
@@ -1064,15 +1064,7 @@ export function mergeScorecardSessionRouteCatalog(session, route) {
     }
 
     const monitoringCameras = [...camerasById.values()];
-    const exposureCoverageWasTruncated =
-        session.exposureCoverageWasTruncated === true ||
-        routeSnapshot.cameraCoverageComplete !== true;
-
     if (
-        session.exposureCoverageObserved === true &&
-        session.exposureCoveragePending === false &&
-        session.exposureCoverageWasTruncated === exposureCoverageWasTruncated &&
-        session.routeCameraSnapshotInitialized === true &&
         monitoringCameraCatalogsAreEqual(
             session.monitoringCameras,
             monitoringCameras,
@@ -1083,11 +1075,7 @@ export function mergeScorecardSessionRouteCatalog(session, route) {
 
     return {
         ...session,
-        exposureCoverageObserved: true,
-        exposureCoveragePending: false,
-        exposureCoverageWasTruncated,
         monitoringCameras,
-        routeCameraSnapshotInitialized: true,
     };
 }
 
@@ -1156,7 +1144,7 @@ function badgeConditions(state, now) {
         'clean-week': cleanDriveStreak.longest >= 7,
         'first-detour': state.lifetime.privateTripsWithAvoidance >= 1,
         ghost: level.level >= 4,
-        'zero-month': coversThirtyDays && windowStats.confirmedReadCount === 0,
+        'zero-month': coversThirtyDays && windowStats.cameraCrossingCount === 0,
     };
 }
 
@@ -1201,25 +1189,17 @@ export function finalizeScorecardSession(
     const possibleReadCount = sessionExposures.filter(
         (event) => event.certainty === 'possible',
     ).length;
-    const exposureCoverageComplete =
-        session.exposureCoverageObserved === true &&
-        session.exposureCoveragePending !== true &&
-        session.exposureCoverageWasTruncated !== true;
-    const completed =
-        session.mode === 'guided'
-            ? completion === 'arrival' || completion === 'arrived'
-            : completion === 'manual';
-    const exposedCameraIds = new Set(
-        sessionExposures
-            .map((exposure) => normalizeStableCameraId(exposure.osmId))
-            .filter(Boolean),
-    );
+    const cameraCrossingCount = confirmedReadCount + possibleReadCount;
+    const completed = scorecardCompletionIsSuccessful(session.mode, completion);
     const avoidedCameras = completed
-        ? (session.avoidanceBaseline ?? [])
-              .filter((camera) => !exposedCameraIds.has(String(camera.osmId)))
-              .map((camera) => ({ ...camera, earnedAt: endedAt }))
+        ? (session.avoidanceBaseline ?? []).map((camera) => ({
+              ...camera,
+              earnedAt: endedAt,
+          }))
         : [];
-    const avoidedCameraCount = avoidedCameras.length;
+    const avoidedCameraCount = completed
+        ? nonNegativeNumber(session.lockedAvoidedCameraCount)
+        : 0;
     const extraMiles = nonNegativeNumber(extraDistanceMeters) / 1609.344;
     const fuelSettings = getScorecardFuelCostSettings(state.settings);
     const effectiveGasPrice =
@@ -1228,7 +1208,7 @@ export function finalizeScorecardSession(
     const extraFuelCost = Number.isFinite(effectiveGasPrice)
         ? extraGallons * effectiveGasPrice
         : null;
-    const cleanDrive = completed && confirmedReadCount === 0;
+    const cleanDrive = completed && cameraCrossingCount === 0;
     const trip = {
         avoidedCameraCount,
         avoidedCameras,
@@ -1242,11 +1222,6 @@ export function finalizeScorecardSession(
         ),
         endedAt,
         exposureEventIds: sessionExposures.map((event) => event.id),
-        exposureCoverageComplete,
-        exposureCoverageObserved: session.exposureCoverageObserved === true,
-        exposureCoveragePending: session.exposureCoveragePending === true,
-        exposureCoverageWasTruncated:
-            session.exposureCoverageWasTruncated === true,
         extraFuelCost,
         extraGallons,
         extraMiles,
@@ -1388,13 +1363,13 @@ export function getExposureScoreImpact(state, exposureId, now = Date.now()) {
         (exposure) => exposure.id === exposureId,
     );
 
-    if (!event || event.certainty !== 'confirmed') {
+    if (!event) {
         return 0;
     }
 
     const scoreWithoutEvent = getScorecardPrivacyScore(
         stats.avoidedCameraCount,
-        Math.max(0, stats.confirmedReadCount - 1),
+        Math.max(0, stats.cameraCrossingCount - 1),
     );
 
     if (stats.privacyScore === null || scoreWithoutEvent === null) {

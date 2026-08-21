@@ -7,6 +7,7 @@ import {
     createScorecardSession,
     finalizeScorecardSession,
     getAvoidableRouteCameraCandidates,
+    getAvoidableRouteCameraCount,
     getCleanDriveStreak,
     getExposureScoreImpact,
     getScorecardLevel,
@@ -52,6 +53,7 @@ function makeRoute() {
                 cameraCoverageComplete: true,
                 distance: 1_000,
                 duration: 100,
+                nodeCount: 3,
                 routeKey: 'direct',
             },
             ideal: {
@@ -72,6 +74,7 @@ function makeRoute() {
                         osmId: null,
                     },
                 ],
+                nodeCount: 0,
                 routeKey: 'ideal',
             },
         },
@@ -80,7 +83,7 @@ function makeRoute() {
 }
 
 describe('device-local scorecard engine', () => {
-    test('uses the transparent avoided-versus-confirmed-read score', () => {
+    test('uses the transparent avoided-versus-camera-crossing score', () => {
         assert.equal(getScorecardPrivacyScore(41, 6), 82);
         assert.equal(getScorecardPrivacyScore(0, 0), null);
         assert.equal(getScorecardPrivacyScore(0, 2), 0);
@@ -120,6 +123,7 @@ describe('device-local scorecard engine', () => {
             session.avoidanceBaseline.map(({ osmId }) => osmId),
             ['100', '200', 'unknown'],
         );
+        assert.equal(session.lockedAvoidedCameraCount, 3);
         assert.deepEqual(
             session.monitoringCameras
                 .map(({ osmId }) => osmId)
@@ -128,7 +132,6 @@ describe('device-local scorecard engine', () => {
             ['100', '200', 'private-monitor', 'unknown'],
         );
         assert.equal(session.monitoringCameras.at(-1).osmId, null);
-        assert.equal(session.routeCameraSnapshotInitialized, true);
         assert.equal(session.selectedRouteKey, 'ideal');
         assert.equal(session.initialRouteDistanceMeters, 1_200);
         assert.equal(session.initialRouteDurationSeconds, 130);
@@ -147,11 +150,62 @@ describe('device-local scorecard engine', () => {
                 osmId: 'private-only',
             },
         ];
+        route.routes.ideal.nodeCount = 2;
 
         assert.deepEqual(
             getAvoidableRouteCameraCandidates(route).map(({ osmId }) => osmId),
             ['100', 'unknown'],
         );
+        assert.equal(getAvoidableRouteCameraCount(route), 1);
+    });
+
+    test('locks a fastest-only camera by ID without requiring extra metadata', () => {
+        const route = makeRoute();
+
+        route.routes.direct.cameraCandidates.push({ osmId: 'id-only' });
+        route.routes.direct.nodeCount = 4;
+        const session = createScorecardSession({
+            id: 'drive-id-only-camera',
+            mode: 'guided',
+            route,
+            startedAt: 1,
+        });
+        const { trip } = finalizeScorecardSession(
+            {
+                ...createEmptyScorecardState(),
+                activeSession: session,
+            },
+            { completion: 'arrival', endedAt: 60_001 },
+        );
+
+        assert.equal(session.avoidanceBaseline.at(-1).osmId, 'id-only');
+        assert.equal(trip.avoidedCameraCount, 4);
+        assert.equal(trip.xpEarned, 180);
+    });
+
+    test('locks the visible route-count difference when a camera has no stable ID', () => {
+        const route = makeRoute();
+
+        route.routes.direct.nodeCount = 4;
+        const session = createScorecardSession({
+            id: 'drive-id-less-camera',
+            mode: 'guided',
+            route,
+            startedAt: 1,
+        });
+        const { trip } = finalizeScorecardSession(
+            {
+                ...createEmptyScorecardState(),
+                activeSession: session,
+            },
+            { completion: 'arrival', endedAt: 60_001 },
+        );
+
+        assert.equal(session.avoidanceBaseline.length, 3);
+        assert.equal(session.lockedAvoidedCameraCount, 4);
+        assert.equal(trip.avoidedCameraCount, 4);
+        assert.equal(trip.avoidedCameras.length, 3);
+        assert.equal(trip.xpEarned, 180);
     });
 
     test('awards no avoidance when the initial fastest route is selected', () => {
@@ -177,7 +231,7 @@ describe('device-local scorecard engine', () => {
         assert.equal(finalized.trip.xpEarned, 0);
     });
 
-    test('awards the immutable baseline on successful completion despite incomplete coverage', () => {
+    test('awards the start-time baseline without checking route inventory coverage', () => {
         const route = makeRoute();
         route.routes.direct.cameraCoverageComplete = false;
         route.routes.ideal.cameraCoverageComplete = false;
@@ -203,10 +257,9 @@ describe('device-local scorecard engine', () => {
         assert.equal(trip.xpEarned, 135);
     });
 
-    test('uses the guided route snapshot instead of supplemental monitoring coverage', () => {
+    test('uses the guided start snapshot without supplemental scoring metadata', () => {
         const startedAt = Date.parse('2026-08-12T12:00:00Z');
         const session = createScorecardSession({
-            exposureCoverageComplete: false,
             id: 'drive-partial-monitoring',
             mode: 'guided',
             route: makeRoute(),
@@ -220,15 +273,6 @@ describe('device-local scorecard engine', () => {
             },
             { completion: 'arrival', endedAt: startedAt + 60_000 },
         );
-        const restoredTrip = parseScorecardState(
-            serializeScorecardState(state, startedAt + 60_000),
-            startedAt + 60_000,
-        ).trips[0];
-
-        assert.equal(trip.exposureCoverageComplete, true);
-        assert.equal(trip.exposureCoverageObserved, true);
-        assert.equal(trip.exposureCoveragePending, false);
-        assert.equal(trip.exposureCoverageWasTruncated, false);
         assert.equal(trip.avoidedCameraCount, 3);
         assert.equal(trip.xpEarned, 135);
         assert.equal(state.lifetime.cleanDriveCount, 1);
@@ -236,14 +280,6 @@ describe('device-local scorecard engine', () => {
         assert.equal(
             getScorecardWindowStats(state, startedAt + 60_000).privacyScore,
             100,
-        );
-        assert.deepEqual(
-            {
-                observed: restoredTrip.exposureCoverageObserved,
-                pending: restoredTrip.exposureCoveragePending,
-                truncated: restoredTrip.exposureCoverageWasTruncated,
-            },
-            { observed: true, pending: false, truncated: false },
         );
     });
 
@@ -284,7 +320,7 @@ describe('device-local scorecard engine', () => {
         );
     });
 
-    test('removes confirmed and possible exposures from completion awards', () => {
+    test('keeps exposure penalties separate from the locked avoidance award', () => {
         const startedAt = Date.parse('2026-08-12T12:00:00Z');
         let state = {
             ...createEmptyScorecardState(),
@@ -317,10 +353,12 @@ describe('device-local scorecard engine', () => {
 
         assert.deepEqual(
             finalized.trip.avoidedCameras.map(({ osmId }) => osmId),
-            ['200'],
+            ['100', '200', 'unknown'],
         );
-        assert.equal(finalized.trip.xpEarned, 45);
-        assert.equal(finalized.state.lifetime.xp, 45);
+        assert.equal(finalized.trip.confirmedReadCount, 1);
+        assert.equal(finalized.trip.possibleReadCount, 1);
+        assert.equal(finalized.trip.xpEarned, 135);
+        assert.equal(finalized.state.lifetime.xp, 135);
     });
 
     test('retains the two-minute camera debounce across encrypted relaunches', () => {
@@ -366,7 +404,7 @@ describe('device-local scorecard engine', () => {
         assert.equal(validReentry.exposures.length, 2);
     });
 
-    test('keeps cancelled guided facts without awarding completion progress', () => {
+    test('awards the locked baseline when the user ends a guided route', () => {
         const startedAt = Date.parse('2026-08-12T12:00:00Z');
         let state = {
             ...createEmptyScorecardState(),
@@ -376,7 +414,7 @@ describe('device-local scorecard engine', () => {
                 longestCleanDriveStreak: 4,
             },
             activeSession: createScorecardSession({
-                id: 'drive-cancelled',
+                id: 'drive-manually-ended',
                 mode: 'guided',
                 route: makeRoute(),
                 startedAt,
@@ -385,27 +423,49 @@ describe('device-local scorecard engine', () => {
         state = addScorecardExposure(state, {
             cameraCoordinate: [-97.74, 30.26],
             certainty: 'possible',
-            id: 'read-cancelled',
+            id: 'read-manually-ended',
             occurredAt: startedAt + 1_000,
             osmId: '100',
-            sessionId: 'drive-cancelled',
+            sessionId: 'drive-manually-ended',
         });
 
         const finalized = finalizeScorecardSession(state, {
-            completion: 'cancelled',
+            completion: 'manual',
             distanceMeters: 1_000,
             endedAt: startedAt + 60_000,
         });
 
-        assert.equal(finalized.trip.completed, false);
+        assert.equal(finalized.trip.completed, true);
         assert.equal(finalized.trip.distanceMiles, 1_000 / 1609.344);
         assert.equal(finalized.trip.possibleReadCount, 1);
+        assert.equal(finalized.trip.avoidedCameraCount, 3);
+        assert.equal(finalized.trip.xpEarned, 135);
+        assert.equal(finalized.state.lifetime.completedDriveCount, 1);
+        assert.equal(finalized.state.lifetime.cleanDriveCount, 0);
+        assert.equal(finalized.state.lifetime.currentCleanDriveStreak, 0);
+        assert.equal(finalized.state.lifetime.possibleReadCount, 1);
+    });
+
+    test('does not award the locked baseline when guidance ends early', () => {
+        const startedAt = Date.parse('2026-08-12T12:00:00Z');
+        const finalized = finalizeScorecardSession(
+            {
+                ...createEmptyScorecardState(),
+                activeSession: createScorecardSession({
+                    id: 'drive-ended-early',
+                    mode: 'guided',
+                    route: makeRoute(),
+                    startedAt,
+                }),
+            },
+            { completion: 'cancelled', endedAt: startedAt + 60_000 },
+        );
+
+        assert.equal(finalized.trip.completed, false);
         assert.equal(finalized.trip.avoidedCameraCount, 0);
         assert.equal(finalized.trip.xpEarned, 0);
         assert.equal(finalized.state.lifetime.completedDriveCount, 0);
-        assert.equal(finalized.state.lifetime.cleanDriveCount, 0);
-        assert.equal(finalized.state.lifetime.currentCleanDriveStreak, 4);
-        assert.equal(finalized.state.lifetime.possibleReadCount, 1);
+        assert.equal(finalized.state.lifetime.avoidedCameraCount, 0);
     });
 
     test('keeps a paused guided trip incomplete without resetting its streak', () => {
@@ -597,10 +657,14 @@ describe('device-local scorecard engine', () => {
 
     test('counts consecutive clean drives instead of consecutive calendar days', () => {
         const startedAt = Date.parse('2026-08-01T12:00:00Z');
-        const makeTrip = (offset, confirmedReadCount = 0) => ({
+        const makeTrip = (
+            offset,
+            confirmedReadCount = 0,
+            possibleReadCount = 0,
+        ) => ({
             confirmedReadCount,
             endedAt: startedAt + offset,
-            exposureCoverageComplete: true,
+            possibleReadCount,
         });
 
         assert.deepEqual(
@@ -609,14 +673,14 @@ describe('device-local scorecard engine', () => {
                 makeTrip(2000),
                 makeTrip(3000, 1),
                 makeTrip(4000),
-                makeTrip(5000),
+                makeTrip(5000, 0, 1),
                 makeTrip(6000),
             ]),
-            { current: 3, longest: 3 },
+            { current: 1, longest: 2 },
         );
     });
 
-    test('counts drives with incomplete coverage when no read was observed', () => {
+    test('counts every completed drive with no camera crossings', () => {
         const startedAt = Date.parse('2026-08-01T12:00:00Z');
 
         assert.deepEqual(
@@ -624,27 +688,25 @@ describe('device-local scorecard engine', () => {
                 {
                     confirmedReadCount: 0,
                     endedAt: startedAt,
-                    exposureCoverageComplete: false,
                 },
                 {
                     confirmedReadCount: 0,
                     endedAt: startedAt + 1000,
-                    exposureCoverageComplete: true,
                 },
             ]),
             { current: 2, longest: 2 },
         );
     });
 
-    test('earns no-read badges from observed game results regardless of coverage', () => {
+    test('earns no-crossing badges from completed game results', () => {
         const now = Date.parse('2026-08-30T12:00:00Z');
         const state = {
             ...createEmptyScorecardState(),
             trips: Array.from({ length: 10 }, (_, index) => ({
                 confirmedReadCount: 0,
                 endedAt: now - (index * (29 * 24 * 60 * 60 * 1000)) / 9,
-                exposureCoverageComplete: false,
                 id: `drive-${index}`,
+                possibleReadCount: 0,
                 startedAt:
                     now - (index * (29 * 24 * 60 * 60 * 1000)) / 9 - 1000,
             })),
@@ -655,13 +717,14 @@ describe('device-local scorecard engine', () => {
         assert.equal(awarded.badgeUnlocks['zero-month'], now);
     });
 
-    test('shows possible reads but excludes them from score and score impact', () => {
+    test('scores every detected camera crossing regardless of direction metadata', () => {
         const startedAt = Date.parse('2026-08-01T12:00:00Z');
         let state = {
             ...createEmptyScorecardState(),
             activeSession: createScorecardSession({
                 id: 'drive-possible',
-                mode: 'free',
+                mode: 'guided',
+                route: makeRoute(),
                 startedAt,
             }),
         };
@@ -675,16 +738,17 @@ describe('device-local scorecard engine', () => {
             sessionId: 'drive-possible',
         });
         state = finalizeScorecardSession(state, {
+            completion: 'arrival',
             endedAt: startedAt + 5000,
         }).state;
         const stats = getScorecardWindowStats(state, startedAt + 5000);
 
         assert.equal(stats.possibleReadCount, 1);
         assert.equal(stats.confirmedReadCount, 0);
-        assert.equal(stats.privacyScore, null);
+        assert.equal(stats.privacyScore, 67);
         assert.equal(
             getExposureScoreImpact(state, 'read-possible', startedAt + 5000),
-            0,
+            -33,
         );
     });
 
@@ -853,8 +917,8 @@ describe('device-local scorecard engine', () => {
             restoredSession.avoidanceBaseline.map(({ osmId }) => osmId),
             ['100', '200', 'unknown'],
         );
+        assert.equal(restoredSession.lockedAvoidedCameraCount, 3);
         assert.equal(restoredSession.monitoringCameras.length, 5);
-        assert.equal(restoredSession.routeCameraSnapshotInitialized, true);
         assert.equal(restoredSession.selectedRouteKey, 'ideal');
         assert.equal(restoredSession.initialRouteDistanceMeters, 1_200);
         assert.equal(restoredSession.initialDirectRouteDistanceMeters, 1_000);
@@ -872,8 +936,8 @@ describe('device-local scorecard engine', () => {
         ).activeSession;
 
         assert.deepEqual(legacySession.avoidanceBaseline, []);
+        assert.equal(legacySession.lockedAvoidedCameraCount, 0);
         assert.deepEqual(legacySession.monitoringCameras, []);
-        assert.equal(legacySession.routeCameraSnapshotInitialized, false);
         assert.deepEqual(
             parseScorecardState(serialized, now).exposures[0].cameraCoordinate,
             [-97.74, 30.26],
