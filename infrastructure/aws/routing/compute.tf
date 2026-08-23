@@ -45,6 +45,10 @@ resource "aws_instance" "serving" {
   }
 
   depends_on = [aws_route.routing_private_internet]
+
+  lifecycle {
+    ignore_changes = [ami]
+  }
 }
 
 resource "aws_volume_attachment" "graphs" {
@@ -54,12 +58,15 @@ resource "aws_volume_attachment" "graphs" {
 }
 
 resource "aws_launch_template" "builder" {
-  name                   = "daf-routing-builder"
-  description            = "On-demand 128-GiB ARM GraphHopper graph builder"
-  update_default_version = true
+  name                                 = "daf-routing-builder"
+  description                          = "Manual and scheduled ARM GraphHopper graph builder"
+  instance_initiated_shutdown_behavior = "terminate"
+  update_default_version               = true
 
   image_id      = data.aws_ssm_parameter.amazon_linux_2023_arm64.value
   instance_type = var.builder_instance_type
+
+  user_data = base64encode(file("${path.module}/operations/scheduled-builder-user-data.sh"))
 
   iam_instance_profile {
     name = aws_iam_instance_profile.builder.name
@@ -86,6 +93,19 @@ resource "aws_launch_template" "builder" {
     }
   }
 
+  block_device_mappings {
+    device_name = "/dev/sdf"
+
+    ebs {
+      delete_on_termination = true
+      encrypted             = true
+      iops                  = 3000
+      throughput            = 250
+      volume_size           = 768
+      volume_type           = "gp3"
+    }
+  }
+
   metadata_options {
     http_endpoint               = "enabled"
     http_protocol_ipv6          = "disabled"
@@ -108,7 +128,7 @@ resource "aws_launch_template" "builder" {
   tag_specifications {
     resource_type = "volume"
     tags = merge(local.common_tags, {
-      Name = "daf-routing-builder-root"
+      Name = "daf-routing-builder-volume"
     })
   }
 

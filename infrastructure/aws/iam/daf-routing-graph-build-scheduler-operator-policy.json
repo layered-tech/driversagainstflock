@@ -1,0 +1,66 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "PassSchedulerRoleOnlyToScheduler",
+            "Effect": "Allow",
+            "Action": "iam:PassRole",
+            "Resource": "arn:aws:iam::326364278889:role/daf-routing-graph-build-scheduler",
+            "Condition": {
+                "StringEquals": {
+                    "iam:PassedToService": "scheduler.amazonaws.com"
+                }
+            }
+        },
+        {
+            "Sid": "ManageRoutingSchedules",
+            "Effect": "Allow",
+            "Action": [
+                "scheduler:CreateSchedule",
+                "scheduler:DeleteSchedule",
+                "scheduler:GetSchedule",
+                "scheduler:ListTagsForResource",
+                "scheduler:TagResource",
+                "scheduler:UntagResource",
+                "scheduler:UpdateSchedule"
+            ],
+            "Resource": "arn:aws:scheduler:us-east-1:326364278889:schedule/default/daf-routing-weekly-graph-build"
+        },
+        {
+            "Sid": "ListRoutingSchedules",
+            "Effect": "Allow",
+            "Action": "scheduler:ListSchedules",
+            "Resource": "*"
+        },
+        {
+            "Sid": "ManageRoutingSchedulerDlq",
+            "Effect": "Allow",
+            "Action": [
+                "sqs:CreateQueue",
+                "sqs:DeleteQueue",
+                "sqs:GetQueueAttributes",
+                "sqs:GetQueueUrl",
+                "sqs:ListQueueTags",
+                "sqs:SetQueueAttributes",
+                "sqs:TagQueue",
+                "sqs:UntagQueue"
+            ],
+            "Resource": "arn:aws:sqs:us-east-1:326364278889:daf-routing-graph-build-scheduler-dlq"
+        },
+        {
+            "Sid": "ListRoutingQueues",
+            "Effect": "Allow",
+            "Action": "sqs:ListQueues",
+            "Resource": "*"
+        },
+        {
+            "Sid": "ManageRoutingOperationObjectTags",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObjectTagging",
+                "s3:PutObjectTagging"
+            ],
+            "Resource": "arn:aws:s3:::daf-routing-graphs-326364278889-us-east-1/operations/*"
+        }
+    ]
+}

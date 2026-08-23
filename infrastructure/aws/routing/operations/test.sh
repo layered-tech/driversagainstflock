@@ -76,7 +76,7 @@ grep -qF 'operations/active-build.json' "${BUILD_STATUS}"
 grep -qF 'Refresh every 15 seconds' "${BUILD_STATUS}"
 grep -qF 'readonly STATUS_INTERVAL_SECONDS=15' "${BUILD_STATUS}"
 grep -qF 'Artifact: %s' "${BUILD_STATUS}"
-grep -qF 'update_default_version = true' "${COMPUTE_TERRAFORM}"
+grep -Eq 'update_default_version[[:space:]]*=[[:space:]]*true' "${COMPUTE_TERRAFORM}"
 grep -qF 'MetricName=\"BuilderCpuUsed\"' "${MONITORING_TERRAFORM}"
 grep -qF 'ignore_changes = [value]' "${PARAMETERS_TERRAFORM}"
 grep -qF 'default     = "r8g.4xlarge"' "${VARIABLES_TERRAFORM}"
@@ -155,5 +155,7 @@ if rg -n '(latitude|longitude|point=|coordinates)' "${RELEASE_DIR}"; then
     echo "Operation output must not include coordinate-bearing fields" >&2
     exit 1
 fi
+
+bash "${OPERATIONS_DIR}/scheduled-builder-test.sh"
 
 echo "operations-tests: PASS"

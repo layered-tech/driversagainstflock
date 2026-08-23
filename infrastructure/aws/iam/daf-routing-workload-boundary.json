@@ -77,6 +77,83 @@
                     "cloudwatch:namespace": "DAF/Routing"
                 }
             }
+        },
+        {
+            "Sid": "LaunchReviewedBuilderTemplate",
+            "Effect": "Allow",
+            "Action": "ec2:RunInstances",
+            "Resource": "*",
+            "Condition": {
+                "ArnLike": {
+                    "ec2:LaunchTemplate": "arn:aws:ec2:us-east-1:326364278889:launch-template/lt-0b5b299d5a38516ac"
+                },
+                "Bool": {
+                    "ec2:IsLaunchTemplateResource": "true"
+                }
+            }
+        },
+        {
+            "Sid": "TagBuilderResourcesAtLaunch",
+            "Effect": "Allow",
+            "Action": "ec2:CreateTags",
+            "Resource": [
+                "arn:aws:ec2:us-east-1:326364278889:instance/*",
+                "arn:aws:ec2:us-east-1:326364278889:network-interface/*",
+                "arn:aws:ec2:us-east-1:326364278889:volume/*"
+            ],
+            "Condition": {
+                "StringEquals": {
+                    "ec2:CreateAction": "RunInstances"
+                }
+            }
+        },
+        {
+            "Sid": "PassBuilderRoleOnlyToEc2",
+            "Effect": "Allow",
+            "Action": "iam:PassRole",
+            "Resource": "arn:aws:iam::326364278889:role/daf-routing-builder",
+            "Condition": {
+                "StringEquals": {
+                    "iam:PassedToService": "ec2.amazonaws.com"
+                }
+            }
+        },
+        {
+            "Sid": "SendSchedulerFailuresToDlq",
+            "Effect": "Allow",
+            "Action": "sqs:SendMessage",
+            "Resource": "arn:aws:sqs:us-east-1:326364278889:daf-routing-graph-build-scheduler-dlq"
+        },
+        {
+            "Sid": "ReadServingDeploymentState",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeInstances",
+                "ssm:DescribeInstanceInformation",
+                "ssm:GetCommandInvocation"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "RunReviewedServingOperation",
+            "Effect": "Allow",
+            "Action": "ssm:SendCommand",
+            "Resource": [
+                "arn:aws:ec2:us-east-1:326364278889:instance/i-048e46c69284d112a",
+                "arn:aws:ssm:us-east-1::document/AWS-RunShellScript"
+            ]
+        },
+        {
+            "Sid": "UpdateActiveGraphPointer",
+            "Effect": "Allow",
+            "Action": "ssm:PutParameter",
+            "Resource": "arn:aws:ssm:us-east-1:326364278889:parameter/daf-routing/graph-artifact-prefix"
+        },
+        {
+            "Sid": "PublishGraphAutomationFailures",
+            "Effect": "Allow",
+            "Action": "sns:Publish",
+            "Resource": "arn:aws:sns:us-east-1:326364278889:daf-routing-alerts"
         }
     ]
 }

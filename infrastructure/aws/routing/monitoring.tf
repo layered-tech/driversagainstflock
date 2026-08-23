@@ -154,6 +154,7 @@ resource "aws_cloudwatch_dashboard" "routing" {
           alarms = [
             aws_cloudwatch_metric_alarm.serving_status.arn,
             aws_cloudwatch_metric_alarm.serving_cpu.arn,
+            aws_cloudwatch_metric_alarm.graph_build_scheduler_dlq.arn,
           ]
           title = "Routing alarms"
         }
@@ -295,20 +296,24 @@ resource "aws_cloudwatch_dashboard" "routing" {
 }
 
 resource "aws_budgets_budget" "monthly" {
-  name         = "daf-routing-monthly"
-  budget_type  = "COST"
-  limit_amount = "350"
-  limit_unit   = "USD"
-  time_unit    = "MONTHLY"
+  name             = "daf-routing-monthly"
+  billing_view_arn = "arn:aws:billing::${var.aws_account_id}:billingview/primary"
+  budget_type      = "COST"
+  limit_amount     = "150"
+  limit_unit       = "USD"
+  time_unit        = "MONTHLY"
+  metrics          = ["UnblendedCost"]
 
-  cost_filter {
-    name   = "TagKeyValue"
-    values = ["Project\u0024daf-routing"]
+  filter_expression {
+    tags {
+      key    = "Project"
+      values = ["daf-routing"]
+    }
   }
 
   notification {
     comparison_operator       = "GREATER_THAN"
-    threshold                 = 275
+    threshold                 = 75
     threshold_type            = "ABSOLUTE_VALUE"
     notification_type         = "ACTUAL"
     subscriber_sns_topic_arns = [aws_sns_topic.alerts.arn]
@@ -316,7 +321,7 @@ resource "aws_budgets_budget" "monthly" {
 
   notification {
     comparison_operator       = "GREATER_THAN"
-    threshold                 = 350
+    threshold                 = 125
     threshold_type            = "ABSOLUTE_VALUE"
     notification_type         = "ACTUAL"
     subscriber_sns_topic_arns = [aws_sns_topic.alerts.arn]

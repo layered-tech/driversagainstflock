@@ -61,6 +61,9 @@ while true; do
     instance_id="$(jq -r '.instance_id // empty' <<< "${state_json}")"
     command_id="$(jq -r '.command_id // empty' <<< "${state_json}")"
     started_at="$(jq -r '.started_at // empty' <<< "${state_json}")"
+    mode="$(jq -r '.mode // "manual"' <<< "${state_json}")"
+    workflow_status="$(jq -r '.status // .launcher_status // "running"' <<< "${state_json}")"
+    workflow_detail="$(jq -r '.detail // "waiting"' <<< "${state_json}")"
 
     [[ "${release_id}" =~ ^[0-9]{8}T[0-9]{6}Z-us-v[0-9]+$ ]] || fail "recorded release ID is invalid"
     [[ "${pbf_name}" =~ ^us-[0-9]{6}\.osm\.pbf$ ]] || fail "recorded PBF name is invalid"
@@ -110,9 +113,12 @@ while true; do
         artifact_ready="yes"
     fi
 
-    printf 'Release:  %s\nSnapshot: %s\nStarted:  %s\nInstance: %s (%s)\nCommand:  %s\nProgress: %s\nResources: %s\nArtifact: %s\n' \
+    printf 'Release:  %s\nSnapshot: %s\nMode:     %s\nStatus:   %s (%s)\nStarted:  %s\nInstance: %s (%s)\nCommand:  %s\nProgress: %s\nResources: %s\nArtifact: %s\n' \
         "${release_id}" \
         "${pbf_name}" \
+        "${mode}" \
+        "${workflow_status}" \
+        "${workflow_detail}" \
         "${started_at}" \
         "${instance_id}" \
         "${instance_state}" \
@@ -124,6 +130,16 @@ while true; do
     if [[ "${WATCH}" != "true" ]]; then
         exit 0
     fi
+    case "${workflow_status}" in
+        build_failed|deployment_pending|deployment_failed|deployed)
+            exit 0
+            ;;
+        built)
+            if [[ "${mode}" == "manual" ]]; then
+                exit 0
+            fi
+            ;;
+    esac
 
     case "${command_status}" in
         Success|Cancelled|Cancelling|Failed|TimedOut)

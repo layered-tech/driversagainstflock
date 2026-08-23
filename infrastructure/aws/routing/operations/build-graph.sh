@@ -9,10 +9,13 @@ readonly AWS_PROFILE="daf-routing"
 readonly AWS_REGION="us-east-1"
 readonly ARTIFACT_BUCKET="daf-routing-graphs-${AWS_ACCOUNT_ID}-${AWS_REGION}"
 readonly BUILD_SCRIPT_VERSION="v1.3.0"
+readonly WORKFLOW_SCRIPT_VERSION="v1.0.0"
 readonly STATUS_INTERVAL_SECONDS=15
 readonly OPERATIONS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly BUILD_SCRIPT_PATH="${OPERATIONS_DIR}/build/${BUILD_SCRIPT_VERSION}/build-initial-graph.sh"
+readonly WORKFLOW_SCRIPT_PATH="${OPERATIONS_DIR}/scheduled-builder/${WORKFLOW_SCRIPT_VERSION}/run-build.sh"
 readonly BUILDER_USER_DATA_PATH="${OPERATIONS_DIR}/builder-user-data.sh"
+readonly WORKFLOW_SCRIPT_KEY="operations/scheduled-builder/${WORKFLOW_SCRIPT_VERSION}/run-build.sh"
 readonly GEOFABRIK_INDEX_URL="https://download.geofabrik.de/north-america/"
 
 ASSUME_YES=false
@@ -56,6 +59,9 @@ cleanup() {
     local exit_code=$?
 
     trap - EXIT
+    if (( exit_code != 0 )) && [[ -n "${INSTANCE_ID}" ]] && declare -F publish_build_state >/dev/null; then
+        publish_build_state build_failed "${COMMAND_ID}" || true
+    fi
 
     if [[ -n "${INSTANCE_ID}" && !( "${TERMINAL_DETACHED}" == "true" && -n "${COMMAND_ID}" ) ]]; then
         echo "Cleaning up temporary builder ${INSTANCE_ID}..."
@@ -140,6 +146,7 @@ require_command shasum
 require_command sort
 
 [[ -f "${BUILD_SCRIPT_PATH}" ]] || fail "build script not found: ${BUILD_SCRIPT_PATH}"
+[[ -f "${WORKFLOW_SCRIPT_PATH}" ]] || fail "workflow script not found: ${WORKFLOW_SCRIPT_PATH}"
 [[ -f "${BUILDER_USER_DATA_PATH}" ]] || fail "builder user data not found: ${BUILDER_USER_DATA_PATH}"
 
 if [[ -n "${PBF_NAME}" || -n "${PBF_MD5}" ]]; then
@@ -167,6 +174,7 @@ readonly PBF_NAME
 readonly PBF_MD5
 readonly RELEASE_ID
 readonly BUILD_SCRIPT_SHA="$(shasum -a 256 "${BUILD_SCRIPT_PATH}" | awk '{print $1}')"
+readonly WORKFLOW_SCRIPT_SHA="$(shasum -a 256 "${WORKFLOW_SCRIPT_PATH}" | awk '{print $1}')"
 readonly BUILD_STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 echo
@@ -186,9 +194,21 @@ require_command aws
 publish_build_state() {
     local launcher_status="$1"
     local command_id="${2:-}"
+    local existing_json="{}"
     local state_json
 
+    existing_json="$(aws s3 cp \
+        "s3://${ARTIFACT_BUCKET}/operations/active-build.json" - \
+        --profile "${AWS_PROFILE}" \
+        --region "${AWS_REGION}" \
+        --no-progress 2>/dev/null || printf '{}')"
+
+    if ! jq -e 'type == "object"' <<< "${existing_json}" >/dev/null 2>&1; then
+        existing_json="{}"
+    fi
+
     state_json="$(jq -nc \
+        --argjson existing "${existing_json}" \
         --arg release_id "${RELEASE_ID}" \
         --arg pbf_name "${PBF_NAME}" \
         --arg pbf_md5 "${PBF_MD5}" \
@@ -196,14 +216,18 @@ publish_build_state() {
         --arg command_id "${command_id}" \
         --arg launcher_status "${launcher_status}" \
         --arg started_at "${BUILD_STARTED_AT}" \
-        '{
+        '($existing | if .release_id == $release_id then . else {} end) as $base
+        | ($launcher_status == "running" and (["built", "build_failed", "deployment_pending", "deployment_failed", "deployed"] | index($base.status)) != null) as $preserve_terminal
+        | $base + {
             release_id: $release_id,
             pbf_name: $pbf_name,
             pbf_md5: $pbf_md5,
             instance_id: $instance_id,
-            command_id: $command_id,
-            launcher_status: $launcher_status,
-            started_at: $started_at
+            command_id: (if $command_id == "" then ($base.command_id // "") else $command_id end),
+            mode: "manual",
+            status: (if $preserve_terminal then $base.status else $launcher_status end),
+            launcher_status: (if $preserve_terminal then ($base.launcher_status // $base.status) else $launcher_status end),
+            started_at: ($base.started_at // $started_at)
         }')"
 
     printf '%s\n' "${state_json}" | aws s3 cp - \
@@ -245,6 +269,17 @@ aws s3api put-object \
     --body "${BUILD_SCRIPT_PATH}" \
     --server-side-encryption AES256 \
     --metadata "sha256=${BUILD_SCRIPT_SHA}" \
+    --output json >/dev/null
+
+echo "Publishing shared build workflow ${WORKFLOW_SCRIPT_VERSION}..."
+aws s3api put-object \
+    --profile "${AWS_PROFILE}" \
+    --region "${AWS_REGION}" \
+    --bucket "${ARTIFACT_BUCKET}" \
+    --key "${WORKFLOW_SCRIPT_KEY}" \
+    --body "${WORKFLOW_SCRIPT_PATH}" \
+    --server-side-encryption AES256 \
+    --metadata "sha256=${WORKFLOW_SCRIPT_SHA}" \
     --output json >/dev/null
 
 echo "Launching temporary builder..."
@@ -311,8 +346,9 @@ done
 [[ "${ssm_status}" == "Online" ]] || fail "builder did not become available through SSM"
 
 parameters_json="$(jq -nc \
-    --arg script_key "operations/build/${BUILD_SCRIPT_VERSION}/build-initial-graph.sh" \
-    --arg script_sha "${BUILD_SCRIPT_SHA}" \
+    --arg workflow_key "${WORKFLOW_SCRIPT_KEY}" \
+    --arg workflow_sha "${WORKFLOW_SCRIPT_SHA}" \
+    --arg instance_id "${INSTANCE_ID}" \
     --arg scratch_volume_id "${SCRATCH_VOLUME_ID}" \
     --arg release_id "${RELEASE_ID}" \
     --arg pbf_name "${PBF_NAME}" \
@@ -323,11 +359,11 @@ parameters_json="$(jq -nc \
             "set -euo pipefail",
             "trap '\''shutdown -h +1'\'' EXIT",
             "systemctl is-active --quiet daf-routing-builder-expiry.timer",
-            "readonly SCRIPT=/var/lib/daf-routing-build/build-initial-graph.sh",
-            "aws s3 cp --region us-east-1 --no-progress s3://daf-routing-graphs-326364278889-us-east-1/" + $script_key + " $SCRIPT",
-            "printf \"" + $script_sha + "  %s\\n\" \"$SCRIPT\" | sha256sum --check --status",
+            "readonly SCRIPT=/var/lib/daf-routing-build/run-build.sh",
+            "aws s3 cp --region us-east-1 --no-progress s3://daf-routing-graphs-326364278889-us-east-1/" + $workflow_key + " $SCRIPT",
+            "printf \"" + $workflow_sha + "  %s\\n\" \"$SCRIPT\" | sha256sum --check --status",
             "chmod 0700 \"$SCRIPT\"",
-            "bash \"$SCRIPT\" --scratch-volume-id " + $scratch_volume_id + " --release-id " + $release_id + " --pbf-name " + $pbf_name + " --pbf-md5 " + $pbf_md5
+            "bash \"$SCRIPT\" --mode manual --instance-id " + $instance_id + " --scratch-volume-id " + $scratch_volume_id + " --release-id " + $release_id + " --pbf-name " + $pbf_name + " --pbf-md5 " + $pbf_md5
         ]
     }')"
 
@@ -417,4 +453,3 @@ jq -e \
     <<< "${manifest_json}" >/dev/null || fail "uploaded manifest did not match the requested build"
 
 BUILD_COMPLETED=true
-publish_build_state completed "${COMMAND_ID}"
