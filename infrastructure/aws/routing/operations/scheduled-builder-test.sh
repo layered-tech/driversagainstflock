@@ -94,9 +94,10 @@ grep -qF 'mv -Tf "${GRAPH_ROOT}/current.rollback" "${GRAPH_ROOT}/current"' "${DE
 grep -qF 'grep -qF "${expected_value}" "${CONFIG_PATH}"' "${DEPLOY}"
 grep -qF 'local_release_id}" != "${RELEASE_ID}" && "${local_release_id}" != "${PREVIOUS_TARGET}' "${DEPLOY}"
 
-grep -qF 'default     = "cron(0 2 ? * SUN *)"' "${ROUTING_DIR}/schedule_variables.tf"
+grep -qF 'default     = "cron(15 15 ? * SUN *)"' "${ROUTING_DIR}/schedule_variables.tf"
 grep -qF 'default     = "America/Chicago"' "${ROUTING_DIR}/schedule_variables.tf"
 grep -qF 'ClientToken = "<aws.scheduler.scheduled-time>"' "${ROUTING_DIR}/scheduler.tf"
+grep -qF '}), "\\u003caws.scheduler.scheduled-time\\u003e", "<aws.scheduler.scheduled-time>")' "${ROUTING_DIR}/scheduler.tf"
 grep -qF 'Version          = "$Default"' "${ROUTING_DIR}/scheduler.tf"
 grep -qF 'arn      = "arn:aws:scheduler:::aws-sdk:ec2:runInstances"' "${ROUTING_DIR}/scheduler.tf"
 grep -qF 'maximum_retry_attempts       = 3' "${ROUTING_DIR}/scheduler.tf"
@@ -119,7 +120,8 @@ jq -e '.Statement[] | select(.Sid == "ManageRoutingSchedules")
     | .Resource == "arn:aws:scheduler:us-east-1:326364278889:schedule/default/daf-routing-weekly-graph-build"' \
     "${SCHEDULER_OPERATOR_POLICY}" >/dev/null
 jq -e '.Statement[] | select(.Sid == "ManageRoutingSchedulerDlq")
-    | .Resource == "arn:aws:sqs:us-east-1:326364278889:daf-routing-graph-build-scheduler-dlq"' \
+    | (.Action | index("sqs:ReceiveMessage")) != null
+    and .Resource == "arn:aws:sqs:us-east-1:326364278889:daf-routing-graph-build-scheduler-dlq"' \
     "${SCHEDULER_OPERATOR_POLICY}" >/dev/null
 jq -e '.Statement[] | select(.Sid == "ManageRoutingOperationObjectTags")
     | (.Action | sort) == ["s3:GetObjectTagging", "s3:PutObjectTagging"]

@@ -166,7 +166,7 @@ resource "aws_scheduler_schedule" "graph_build" {
   target {
     arn      = "arn:aws:scheduler:::aws-sdk:ec2:runInstances"
     role_arn = aws_iam_role.scheduler.arn
-    input = jsonencode({
+    input = replace(jsonencode({
       ClientToken = "<aws.scheduler.scheduled-time>"
       LaunchTemplate = {
         LaunchTemplateId = aws_launch_template.builder.id
@@ -174,7 +174,7 @@ resource "aws_scheduler_schedule" "graph_build" {
       }
       MaxCount = 1
       MinCount = 1
-    })
+    }), "\\u003caws.scheduler.scheduled-time\\u003e", "<aws.scheduler.scheduled-time>")
 
     dead_letter_config {
       arn = aws_sqs_queue.graph_build_scheduler_dlq.arn

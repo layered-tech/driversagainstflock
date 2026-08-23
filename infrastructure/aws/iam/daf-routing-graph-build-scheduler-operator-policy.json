@@ -41,6 +41,7 @@
                 "sqs:GetQueueAttributes",
                 "sqs:GetQueueUrl",
                 "sqs:ListQueueTags",
+                "sqs:ReceiveMessage",
                 "sqs:SetQueueAttributes",
                 "sqs:TagQueue",
                 "sqs:UntagQueue"
