@@ -51,23 +51,19 @@ test('Android Auto presents submitted place results with the host map', () => {
     );
 });
 
-test('Android Auto waits for a stable query before requesting autocomplete', () => {
-    assert.match(autoPlaySource, /const SEARCH_DEBOUNCE_MS = 2000;/);
+test('Android Auto searches only after explicit submission', () => {
+    assert.match(androidPlatformSource, /supportsSearchAutocomplete:\s*false/);
     assert.match(
         autoPlaySource,
-        /function schedulePlaceAutocomplete[\s\S]*?abortSearchRequest\(\)[\s\S]*?setTimeout\([\s\S]*?SEARCH_DEBOUNCE_MS/,
+        /onSearchTextChanged: \(searchText\) => \{[\s\S]*?supportsSearchAutocomplete === false\) \{\s*return;\s*\}[\s\S]*?schedulePlaceAutocomplete/,
     );
     assert.match(
         autoPlaySource,
-        /const runSubmittedSearch[\s\S]*?handleSearchTextSubmitted[\s\S]*?runPlaceTextSearch\([\s\S]*?\.finally\([\s\S]*?handleSearchTextSubmissionCompleted/,
+        /const runSubmittedSearch[\s\S]*?handleSearchTextSubmitted[\s\S]*?runPlaceTextSearch\(/,
     );
     assert.match(
         autoPlaySource,
-        /onSearchTextSubmitted:[\s\S]*?runSubmittedSearch\(searchText\)/,
-    );
-    assert.match(
-        autoPlaySource,
-        /onSearchTextChanged:[\s\S]*?handleSearchTextChanged[\s\S]*?searchTextChange\.ignored[\s\S]*?return;/,
+        /onSearchTextSubmitted: \(searchText\) => \{\s*return runSubmittedSearch\(searchText\);\s*\}/,
     );
 });
 

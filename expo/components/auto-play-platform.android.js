@@ -11,6 +11,7 @@ export const autoPlayPlatform = {
         console.log(`[Android Auto] ${action}`, payload);
     },
     showsSearchResultsOnMap: true,
+    supportsSearchAutocomplete: false,
     maneuverCardAppearance: 'dark',
     maneuverCardIconColor: '#ffffff',
     // Android Auto owns the pan affordance in the map action strip. Keeping the
