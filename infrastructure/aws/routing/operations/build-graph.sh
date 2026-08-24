@@ -10,12 +10,15 @@ readonly AWS_REGION="us-east-1"
 readonly ARTIFACT_BUCKET="daf-routing-graphs-${AWS_ACCOUNT_ID}-${AWS_REGION}"
 readonly BUILD_SCRIPT_VERSION="v1.3.0"
 readonly WORKFLOW_SCRIPT_VERSION="v1.0.0"
+readonly LOGGING_SCRIPT_VERSION="v1.0.0"
 readonly STATUS_INTERVAL_SECONDS=15
 readonly OPERATIONS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly BUILD_SCRIPT_PATH="${OPERATIONS_DIR}/build/${BUILD_SCRIPT_VERSION}/build-initial-graph.sh"
 readonly WORKFLOW_SCRIPT_PATH="${OPERATIONS_DIR}/scheduled-builder/${WORKFLOW_SCRIPT_VERSION}/run-build.sh"
+readonly LOGGING_SCRIPT_PATH="${OPERATIONS_DIR}/logging/${LOGGING_SCRIPT_VERSION}/install-cloudwatch-logs.sh"
 readonly BUILDER_USER_DATA_PATH="${OPERATIONS_DIR}/builder-user-data.sh"
 readonly WORKFLOW_SCRIPT_KEY="operations/scheduled-builder/${WORKFLOW_SCRIPT_VERSION}/run-build.sh"
+readonly LOGGING_SCRIPT_KEY="operations/logging/${LOGGING_SCRIPT_VERSION}/install-cloudwatch-logs.sh"
 readonly GEOFABRIK_INDEX_URL="https://download.geofabrik.de/north-america/"
 
 ASSUME_YES=false
@@ -147,6 +150,7 @@ require_command sort
 
 [[ -f "${BUILD_SCRIPT_PATH}" ]] || fail "build script not found: ${BUILD_SCRIPT_PATH}"
 [[ -f "${WORKFLOW_SCRIPT_PATH}" ]] || fail "workflow script not found: ${WORKFLOW_SCRIPT_PATH}"
+[[ -f "${LOGGING_SCRIPT_PATH}" ]] || fail "logging script not found: ${LOGGING_SCRIPT_PATH}"
 [[ -f "${BUILDER_USER_DATA_PATH}" ]] || fail "builder user data not found: ${BUILDER_USER_DATA_PATH}"
 
 if [[ -n "${PBF_NAME}" || -n "${PBF_MD5}" ]]; then
@@ -175,6 +179,7 @@ readonly PBF_MD5
 readonly RELEASE_ID
 readonly BUILD_SCRIPT_SHA="$(shasum -a 256 "${BUILD_SCRIPT_PATH}" | awk '{print $1}')"
 readonly WORKFLOW_SCRIPT_SHA="$(shasum -a 256 "${WORKFLOW_SCRIPT_PATH}" | awk '{print $1}')"
+readonly LOGGING_SCRIPT_SHA="$(shasum -a 256 "${LOGGING_SCRIPT_PATH}" | awk '{print $1}')"
 readonly BUILD_STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 echo
@@ -282,6 +287,17 @@ aws s3api put-object \
     --metadata "sha256=${WORKFLOW_SCRIPT_SHA}" \
     --output json >/dev/null
 
+echo "Publishing checksum-pinned logging operation ${LOGGING_SCRIPT_VERSION}..."
+aws s3api put-object \
+    --profile "${AWS_PROFILE}" \
+    --region "${AWS_REGION}" \
+    --bucket "${ARTIFACT_BUCKET}" \
+    --key "${LOGGING_SCRIPT_KEY}" \
+    --body "${LOGGING_SCRIPT_PATH}" \
+    --server-side-encryption AES256 \
+    --metadata "sha256=${LOGGING_SCRIPT_SHA}" \
+    --output json >/dev/null
+
 echo "Launching temporary builder..."
 INSTANCE_ID="$(aws ec2 run-instances \
     --profile "${AWS_PROFILE}" \
@@ -358,6 +374,8 @@ parameters_json="$(jq -nc \
         commands: [
             "set -euo pipefail",
             "trap '\''shutdown -h +1'\'' EXIT",
+            "while [[ ! -f /var/lib/cloud/instance/boot-finished ]]; do sleep 2; done",
+            "systemctl is-active --quiet amazon-cloudwatch-agent",
             "systemctl is-active --quiet daf-routing-builder-expiry.timer",
             "readonly SCRIPT=/var/lib/daf-routing-build/run-build.sh",
             "aws s3 cp --region us-east-1 --no-progress s3://daf-routing-graphs-326364278889-us-east-1/" + $workflow_key + " $SCRIPT",

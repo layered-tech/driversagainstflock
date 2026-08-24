@@ -7,7 +7,7 @@ variable "graph_build_schedule_enabled" {
 variable "graph_build_schedule_expression" {
   description = "EventBridge Scheduler cron expression for GraphHopper graph builds."
   type        = string
-  default     = "cron(15 15 ? * SUN *)"
+  default     = "cron(0 2 ? * SUN *)"
 
   validation {
     condition     = can(regex("^cron\\(.+\\)$", var.graph_build_schedule_expression))

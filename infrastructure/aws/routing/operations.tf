@@ -10,6 +10,11 @@ locals {
       key          = "operations/serving/v1.1.0/deploy-graph.sh"
       source       = "operations/serving/v1.1.0/deploy-graph.sh"
     }
+    logging = {
+      content_type = "text/x-shellscript"
+      key          = "operations/logging/v1.0.0/install-cloudwatch-logs.sh"
+      source       = "operations/logging/v1.0.0/install-cloudwatch-logs.sh"
+    }
     scheduled_builder = {
       content_type = "text/x-shellscript"
       key          = "operations/scheduled-builder/v1.0.0/run-build.sh"

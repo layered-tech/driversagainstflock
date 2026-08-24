@@ -35,6 +35,7 @@ readonly DEPLOY_SCRIPT="${OPERATIONS_DIR}/serving/v1.0.8/deploy-graph.sh"
 readonly REPAIR_SCRIPT="${OPERATIONS_DIR}/serving/v1.0.8/repair-serving-config.sh"
 readonly MIGRATE_VOLUME_SCRIPT="${OPERATIONS_DIR}/serving/v1.0.9/migrate-graph-volume.sh"
 readonly SERVING_METRICS_SCRIPT="${OPERATIONS_DIR}/serving/v1.0.10/install-serving-metrics.sh"
+readonly CLOUDWATCH_LOGS_SCRIPT="${OPERATIONS_DIR}/logging/v1.0.0/install-cloudwatch-logs.sh"
 
 grep -qF 'readonly DEFAULT_PBF_NAME="us-260811.osm.pbf"' "${BUILD_SCRIPT}"
 grep -qF 'readonly OPERATION_VERSION="1.3.0"' "${BUILD_SCRIPT}"
@@ -71,6 +72,8 @@ grep -qF -- '--instance-initiated-shutdown-behavior terminate' "${BUILD_LAUNCHER
 grep -qF 'OnBootSec=13h' "${BUILDER_USER_DATA}"
 grep -qF 'ExecStart=/usr/bin/systemctl poweroff' "${BUILDER_USER_DATA}"
 grep -qF 'systemctl is-active --quiet daf-routing-builder-expiry.timer' "${BUILD_LAUNCHER}"
+grep -qF '/var/lib/cloud/instance/boot-finished' "${BUILD_LAUNCHER}"
+grep -qF 'systemctl is-active --quiet amazon-cloudwatch-agent' "${BUILD_LAUNCHER}"
 grep -qF "trap '\\''shutdown -h +1'\\'' EXIT" "${BUILD_LAUNCHER}"
 grep -qF 'operations/active-build.json' "${BUILD_STATUS}"
 grep -qF 'Refresh every 15 seconds' "${BUILD_STATUS}"
@@ -101,6 +104,25 @@ grep -qF 'ReadWritePaths=/run/daf-routing-serving-metrics' "${SERVING_METRICS_SC
 grep -qF 'RuntimeDirectory=daf-routing-serving-metrics' "${SERVING_METRICS_SCRIPT}"
 grep -qF '"ServingGraphVolumeUsedPercent"' "${MONITORING_TERRAFORM}"
 grep -qF '"ServingMemoryUsedPercent"' "${MONITORING_TERRAFORM}"
+grep -qF 'readonly OPERATION_VERSION="1.0.0"' "${CLOUDWATCH_LOGS_SCRIPT}"
+grep -qF 'dnf install -y amazon-cloudwatch-agent jq' "${CLOUDWATCH_LOGS_SCRIPT}"
+grep -qF 'if [[ ! -e "${LOG_FILE}" ]]' "${CLOUDWATCH_LOGS_SCRIPT}"
+grep -qF 'role must be serving or builder' "${CLOUDWATCH_LOGS_SCRIPT}"
+grep -qF 'LOG_FILE="/var/log/daf-routing/${ROLE}-events.log"' "${CLOUDWATCH_LOGS_SCRIPT}"
+grep -qF '"log_group_name": "/daf-routing/${ROLE}"' "${CLOUDWATCH_LOGS_SCRIPT}"
+grep -qF '"log_stream_name": "{instance_id}"' "${CLOUDWATCH_LOGS_SCRIPT}"
+grep -qF 'NRestarts' "${CLOUDWATCH_LOGS_SCRIPT}"
+grep -qF 'OnUnitActiveSec=60s' "${CLOUDWATCH_LOGS_SCRIPT}"
+grep -qF 'amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s' "${CLOUDWATCH_LOGS_SCRIPT}"
+grep -qF 'write_cloudwatch_event' "${BUILD_SCRIPT}"
+grep -qF '"event":"build_progress"' "${BUILD_SCRIPT}"
+grep -qF 'write_cloudwatch_event' "${OPERATIONS_DIR}/scheduled-builder/v1.0.0/run-build.sh"
+grep -qF '"event":"workflow_state"' "${OPERATIONS_DIR}/scheduled-builder/v1.0.0/run-build.sh"
+
+if rg -n 'journalctl|access.log|graphhopper.log|import.log|server.log|request_url' "${CLOUDWATCH_LOGS_SCRIPT}"; then
+    echo "CloudWatch logging must collect only curated event files" >&2
+    exit 1
+fi
 grep -qF 'title  = "Serving instance health"' "${MONITORING_TERRAFORM}"
 
 dry_run_output="$("${BUILD_LAUNCHER}" \

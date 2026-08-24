@@ -13,6 +13,7 @@ readonly DEFAULT_PBF_MD5="31b9933dd0d726ef6e7448a8d3b622ca"
 readonly BUILD_MOUNT="/mnt/daf-build"
 readonly PROGRESS_DIR="/var/lib/daf-routing-build"
 readonly PROGRESS_FILE="${PROGRESS_DIR}/progress"
+readonly CLOUDWATCH_EVENT_LOG="/var/log/daf-routing/builder-events.log"
 readonly CPU_SAMPLE_FILE="${PROGRESS_DIR}/cpu-sample"
 readonly TELEMETRY_INTERVAL_SECONDS=15
 readonly BUILD_STARTED_EPOCH="$(date +%s)"
@@ -75,6 +76,18 @@ readonly PBF_URL="https://download.geofabrik.de/north-america/${PBF_NAME}"
 
 install -d -m 0755 "${PROGRESS_DIR}"
 
+write_cloudwatch_event() {
+    local phase="$1"
+    local percent="$2"
+    local detail="$3"
+
+    [[ -f "${CLOUDWATCH_EVENT_LOG}" ]] || return 0
+    [[ "${phase}" =~ ^[a-z-]+$ && "${percent}" =~ ^[0-9]+$ && "${detail}" =~ ^[a-z0-9-]+$ ]] || return 0
+
+    printf '{"timestamp":"%s","event":"build_progress","role":"builder","release_id":"%s","phase":"%s","percent":%s,"detail":"%s"}\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${RELEASE_ID}" "${phase}" "${percent}" "${detail}" >> "${CLOUDWATCH_EVENT_LOG}" || true
+}
+
 write_progress() {
     local phase="$1"
     local percent="$2"
@@ -85,6 +98,7 @@ write_progress() {
         "${phase}" "${percent}" "${detail}" "$(date +%s)" > "${temporary_file}"
     chmod 0644 "${temporary_file}"
     mv -f "${temporary_file}" "${PROGRESS_FILE}"
+    write_cloudwatch_event "${phase}" "${percent}" "${detail}"
     echo "PROGRESS phase=${phase} percent=${percent} detail=${detail}"
 }
 

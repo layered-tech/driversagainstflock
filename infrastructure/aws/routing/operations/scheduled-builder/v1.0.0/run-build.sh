@@ -12,10 +12,11 @@ readonly BUILD_SCRIPT_VERSION="v1.3.0"
 readonly DEPLOY_SCRIPT_VERSION="v1.1.0"
 readonly BUILD_SCRIPT_KEY="operations/build/${BUILD_SCRIPT_VERSION}/build-initial-graph.sh"
 readonly DEPLOY_SCRIPT_KEY="operations/serving/${DEPLOY_SCRIPT_VERSION}/deploy-graph.sh"
-readonly BUILD_SCRIPT_SHA256="986f4ba65ce02b89747f4af0b52ea412ba56015142958513db747f1e57f3a292"
+readonly BUILD_SCRIPT_SHA256="2db8a26abb7d7a2b998a1dede77c23b7951f2c23e1bd1e26f17b9d1f9f98e7c8"
 readonly DEPLOY_SCRIPT_SHA256="dcdb2f0c49383b9a4f21c03896c4c700a9b7879167d882575a71767a382fcd25"
 readonly GEOFABRIK_INDEX_URL="https://download.geofabrik.de/north-america/"
 readonly OPERATION_ROOT="/var/lib/daf-routing-build/operations"
+readonly CLOUDWATCH_EVENT_LOG="/var/log/daf-routing/builder-events.log"
 
 MODE="scheduled"
 DRY_RUN=false
@@ -69,12 +70,25 @@ is_terminal_state() {
     esac
 }
 
+write_cloudwatch_event() {
+    local state="$1"
+    local detail="$2"
+
+    [[ -f "${CLOUDWATCH_EVENT_LOG}" ]] || return 0
+    [[ "${state}" =~ ^[a-z_]+$ && "${detail}" =~ ^[a-z0-9-]+$ ]] || return 0
+
+    printf '{"timestamp":"%s","event":"workflow_state","role":"builder","release_id":"%s","mode":"%s","state":"%s","detail":"%s"}\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${RELEASE_ID}" "${MODE}" "${state}" "${detail}" >> "${CLOUDWATCH_EVENT_LOG}" || true
+}
+
 publish_state() {
     local state="$1"
     local detail="$2"
     local existing_json="{}"
     local finished_at=""
     local state_path="${OPERATION_ROOT}/active-build.json"
+
+    write_cloudwatch_event "${state}" "${detail}"
 
     if is_terminal_state "${state}"; then
         finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"

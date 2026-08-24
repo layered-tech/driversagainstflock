@@ -8,11 +8,14 @@ readonly IAM_DIR="${ROUTING_DIR}/../iam"
 readonly WORKFLOW="${OPERATIONS_DIR}/scheduled-builder/v1.0.0/run-build.sh"
 readonly BUILD="${OPERATIONS_DIR}/build/v1.3.0/build-initial-graph.sh"
 readonly SCHEDULED_USER_DATA="${OPERATIONS_DIR}/scheduled-builder-user-data.sh"
+readonly MANUAL_USER_DATA="${OPERATIONS_DIR}/builder-user-data.sh"
+readonly LOGGING="${OPERATIONS_DIR}/logging/v1.0.0/install-cloudwatch-logs.sh"
 readonly DEPLOY="${OPERATIONS_DIR}/serving/v1.1.0/deploy-graph.sh"
 readonly STATUS="${OPERATIONS_DIR}/graph-status.sh"
 readonly SCHEDULER_OPERATOR_POLICY="${IAM_DIR}/daf-routing-graph-build-scheduler-operator-policy.json"
 readonly BUILD_SHA256="$(shasum -a 256 "${BUILD}" | awk '{print $1}')"
 readonly DEPLOY_SHA256="$(shasum -a 256 "${DEPLOY}" | awk '{print $1}')"
+readonly LOGGING_SHA256="$(shasum -a 256 "${LOGGING}" | awk '{print $1}')"
 while IFS= read -r policy_file; do
     policy_character_count="$(tr -d '[:space:]' < "${policy_file}" | wc -c | tr -d ' ')"
 
@@ -27,6 +30,10 @@ readonly WORKFLOW_SHA256="$(shasum -a 256 "${WORKFLOW}" | awk '{print $1}')"
 grep -qF "readonly BUILD_SCRIPT_SHA256=\"${BUILD_SHA256}\"" "${WORKFLOW}"
 grep -qF "readonly DEPLOY_SCRIPT_SHA256=\"${DEPLOY_SHA256}\"" "${WORKFLOW}"
 grep -qF "readonly BOOTSTRAP_SHA256=\"${WORKFLOW_SHA256}\"" "${SCHEDULED_USER_DATA}"
+grep -qF "readonly LOGGING_SHA256=\"${LOGGING_SHA256}\"" "${SCHEDULED_USER_DATA}"
+grep -qF "readonly LOGGING_SHA256=\"${LOGGING_SHA256}\"" "${MANUAL_USER_DATA}"
+grep -qF 'bash "${LOGGING_PATH}" builder' "${SCHEDULED_USER_DATA}"
+grep -qF 'bash "${LOGGING_PATH}" builder' "${MANUAL_USER_DATA}"
 
 scheduled_dry_run="$(${WORKFLOW} \
     --dry-run \
@@ -78,7 +85,7 @@ fi
 grep -qF 'trap finish EXIT' "${SCHEDULED_USER_DATA}"
 grep -qF 'aws sns publish' "${SCHEDULED_USER_DATA}"
 grep -qF 'OnBootSec=13h' "${SCHEDULED_USER_DATA}"
-grep -qF 'dnf install -y jq' "${SCHEDULED_USER_DATA}"
+grep -qF 'bash "${LOGGING_PATH}" builder' "${SCHEDULED_USER_DATA}"
 grep -qF 'bash "${BOOTSTRAP_PATH}" --mode scheduled' "${SCHEDULED_USER_DATA}"
 
 if grep -Eq 'dnf install.*[[:space:]]curl([[:space:]]|$)' "${SCHEDULED_USER_DATA}"; then
@@ -94,7 +101,7 @@ grep -qF 'mv -Tf "${GRAPH_ROOT}/current.rollback" "${GRAPH_ROOT}/current"' "${DE
 grep -qF 'grep -qF "${expected_value}" "${CONFIG_PATH}"' "${DEPLOY}"
 grep -qF 'local_release_id}" != "${RELEASE_ID}" && "${local_release_id}" != "${PREVIOUS_TARGET}' "${DEPLOY}"
 
-grep -qF 'default     = "cron(15 15 ? * SUN *)"' "${ROUTING_DIR}/schedule_variables.tf"
+grep -qF 'default     = "cron(0 2 ? * SUN *)"' "${ROUTING_DIR}/schedule_variables.tf"
 grep -qF 'default     = "America/Chicago"' "${ROUTING_DIR}/schedule_variables.tf"
 grep -qF 'ClientToken = "<aws.scheduler.scheduled-time>"' "${ROUTING_DIR}/scheduler.tf"
 grep -qF '}), "\\u003caws.scheduler.scheduled-time\\u003e", "<aws.scheduler.scheduled-time>")' "${ROUTING_DIR}/scheduler.tf"

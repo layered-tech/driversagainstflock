@@ -285,7 +285,7 @@ resource "aws_cloudwatch_dashboard" "routing" {
         width  = 24
         height = 6
         properties = {
-          query  = "SOURCE '${aws_cloudwatch_log_group.serving.name}' | SOURCE '${aws_cloudwatch_log_group.builder.name}' | fields @timestamp, @log, @message | sort @timestamp desc | limit 20"
+          query  = "SOURCE '${aws_cloudwatch_log_group.serving.name}' | SOURCE '${aws_cloudwatch_log_group.builder.name}' | fields @timestamp, @log, role, event, service, active_state, sub_state, result, exit_code, restart_count, release_id, mode, state, phase, percent, detail | sort @timestamp desc | limit 20"
           region = var.aws_region
           title  = "Recent serving and builder logs"
           view   = "table"
