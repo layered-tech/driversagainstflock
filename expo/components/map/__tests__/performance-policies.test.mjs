@@ -311,14 +311,22 @@ describe('shouldUseRoadMatchedLocationWatch', () => {
     });
 
     test('observes another persistent session only while the phone is active', () => {
-        assert.equal(
+        const roadMatchedLocationWatchEnabled =
             shouldUseRoadMatchedLocationWatch({
                 ...supportedLocationOptions,
                 isDrivingMode: false,
                 persistentRoadMatchingWatchIsActive: true,
                 phoneLocationUpdatesAreEnabled: true,
+            });
+
+        assert.equal(roadMatchedLocationWatchEnabled, true);
+        assert.equal(
+            shouldUseDeviceLocationWatch({
+                autoDriveSimulationIsActive: false,
+                phoneLocationUpdatesAreEnabled: true,
+                roadMatchedLocationWatchEnabled,
             }),
-            true,
+            false,
         );
         assert.equal(
             shouldUseRoadMatchedLocationWatch({

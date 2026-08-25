@@ -229,7 +229,7 @@ const footerLinks = [
 const tldr = [
     {
         title: 'Location is optional',
-        body: 'The app works with or without it. Explicit drives can keep a sparse, encrypted 30-day Scorecard on your phone; raw GPS trails are not stored and nothing is synced.',
+        body: 'The app works with or without it. Exposure tracking runs during guided navigation, a phone-started free drive, and while Android Auto or CarPlay is connected and the vehicle is moving. Parked-only automotive connections are not saved; raw GPS trails are not stored and nothing is synced.',
     },
     {
         title: 'We don’t sell or advertise',
@@ -280,7 +280,7 @@ const privacySections = [
             },
             {
                 type: 'paragraph',
-                text: 'DAF does not store a raw GPS trail, trip origin or destination, or route geometry in the Scorecard. During an explicit guided or user-started free drive, the optional Scorecard records only sparse camera-crossing events, avoided public camera nodes, and trip totals. Those details are encrypted on your device, expire after 30 days, and are never sent to DAF, analytics, diagnostics, or a scorecard sync service. When location is needed for another feature you request, it may be sent to the service required to complete that request — for example, search information may go to Google Places, map requests may go to Mapbox, locality lookups may go to OpenStreetMap services, police-alert lookups may go to OpenWebNinja, and origin, destination, or route information may go to OpenRouteService.',
+                text: 'DAF does not store a raw GPS trail, trip origin or destination, or route geometry in the Scorecard. During guided navigation, a phone-started free drive, or route-free driving while Android Auto or CarPlay is connected, the optional Scorecard records only sparse camera-crossing events, avoided public camera nodes, and trip totals. Parked-only automotive connections are not saved. Those details are encrypted on your device, expire after 30 days, and are never sent to DAF, analytics, diagnostics, or a scorecard sync service. When location is needed for another feature you request, it may be sent to the service required to complete that request — for example, search information may go to Google Places, map requests may go to Mapbox, locality lookups may go to OpenStreetMap services, police-alert lookups may go to OpenWebNinja, and origin, destination, or route information may go to OpenRouteService.',
             },
             {
                 type: 'paragraph',
@@ -289,7 +289,7 @@ const privacySections = [
             { type: 'heading', text: 'On-device Scorecard' },
             {
                 type: 'paragraph',
-                text: 'Scorecard recording is on by default for explicit DAF drives only. Camera crossings are matched on your phone against public camera coordinates. Every locally detected crossing reduces the privacy score; direction metadata changes only whether the timeline labels it confirmed or possible. Scores, levels, badges, trip history, and exposure events are not associated with an account and have no leaderboard or cloud sync.',
+                text: 'Scorecard recording is on by default during guided navigation, a phone-started free drive, and route-free driving while Android Auto or CarPlay is connected and the vehicle is moving. Parked-only automotive connections are not saved. Camera crossings are matched on your phone against public camera coordinates. Every locally detected crossing reduces the privacy score; direction metadata changes only whether the timeline labels it confirmed or possible. Scores, levels, badges, trip history, and exposure events are not associated with an account and have no leaderboard or cloud sync.',
             },
             {
                 type: 'paragraph',

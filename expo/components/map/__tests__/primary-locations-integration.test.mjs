@@ -139,7 +139,15 @@ describe('Home and Work map search integration', () => {
         );
         assert.match(
             autoPlaySource,
-            /function startAutoPlayNavigation[\s\S]*?catch \(error\) \{[\s\S]*?activeNavigationRoute = null;[\s\S]*?activeNavigationDestination = null;[\s\S]*?updateRootTemplateHeaderActions\(\);/,
+            /function startAutoPlayNavigation[\s\S]*?const rollbackNavigationStart[\s\S]*?stopAutoPlayNavigation\(\{\s*notifyTemplate: false,\s*publishSharedState,\s*\}\)[\s\S]*?showAutoPlayError/,
+        );
+        assert.match(
+            autoPlaySource,
+            /void navigationLocationStartup\.catch\(\(error\) => \{\s*rollbackNavigationStart\(error, startupGeneration\);/,
+        );
+        assert.match(
+            autoPlaySource,
+            /catch \(error\) \{\s*rollbackNavigationStart\(error\);\s*\}/,
         );
         assert.match(
             autoPlaySource,

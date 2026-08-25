@@ -131,7 +131,7 @@ test('navigation setup failures cancel any native session that may have started'
     );
     assert.match(
         startNavigationSource,
-        /catch \(error\) \{[\s\S]*?if \(nativeNavigationMayBeActive\) \{\s*cancelNativeAutoPlayNavigation\(rootMapTemplate\);\s*\}/,
+        /const rollbackNavigationStart =[\s\S]*?if \(nativeNavigationMayBeActive\) \{\s*cancelNativeAutoPlayNavigation\(rootMapTemplate\);\s*\}[\s\S]*?catch \(error\) \{\s*rollbackNavigationStart\(error\);\s*\}/,
     );
     assert.match(
         startNavigationSource,

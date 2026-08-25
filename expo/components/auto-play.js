@@ -18,11 +18,11 @@ import {
     setAutoPlaySessionRenderState,
 } from './auto-play-session-state';
 import { getAutoPlaySharedNavigationAction } from './auto-play-shared-navigation';
-import { publishAcceptedDeviceLocation } from './map/accepted-device-location';
 import {
     AUTO_PLAY_SINGLE_RESULT_COUNTDOWN_SECONDS,
     createAutoPlaySingleResultCountdown,
 } from './auto-play-single-result-countdown';
+import { publishAcceptedDeviceLocation } from './map/accepted-device-location';
 // Metro resolves the platform adapter per platform: Android Auto specifics in
 // auto-play-platform.android.js, CarPlay specifics in auto-play-platform.ios.js.
 import { getAutoPlayManeuverConfig } from './auto-play-maneuver-config';
@@ -199,6 +199,10 @@ let autoPlayRegistered = false;
 let autoPlayConnectionGeneration = 0;
 let autoPlayClusterConnectionGeneration = 0;
 let autoPlayNavigationRuntimeIsClusterOwned = false;
+let autoPlayConnectionRoadMatchingGeneration = 0;
+let autoPlayConnectionRoadMatchingHandle = null;
+let autoPlayConnectionRoadMatchingIsRequested = false;
+let autoPlayConnectionRoadMatchingPromise = null;
 let rootMapTemplate = null;
 let rootMapTemplateIsReady = false;
 let pendingVoiceNavigation = null;
@@ -2740,11 +2744,12 @@ function startAutoDriveNavigationSimulation(
     });
 
     if (!simulationStarted) {
-        startNavigationLocationUpdates(route);
-        return;
+        return startNavigationLocationUpdates(route);
     }
 
-    stopNavigationLocationUpdates();
+    void stopNavigationLocationUpdates();
+
+    return null;
 }
 
 async function handleAutoDriveArrival(route, routeGeneration) {
@@ -2972,6 +2977,30 @@ function startAutoPlayNavigation(
     activeNavigationDestination = route.destination;
     let nativeNavigationMayBeActive = hostNavigationAlreadyStarted;
 
+    const rollbackNavigationStart = (error, startupGeneration = null) => {
+        if (
+            activeNavigationRoute !== route ||
+            routeGeneration !== navigationRouteGeneration ||
+            (startupGeneration !== null &&
+                startupGeneration !== navigationLocationUpdateGeneration)
+        ) {
+            return;
+        }
+
+        if (nativeNavigationMayBeActive) {
+            cancelNativeAutoPlayNavigation(rootMapTemplate);
+        }
+
+        void stopAutoPlayNavigation({
+            notifyTemplate: false,
+            publishSharedState,
+        });
+        showAutoPlayError(
+            'Navigation unavailable',
+            error?.message || 'Navigation could not be started.',
+        );
+    };
+
     try {
         if (!hostNavigationAlreadyStarted) {
             hideAutoPlayRoutePreview();
@@ -2986,18 +3015,6 @@ function startAutoPlayNavigation(
         rootMapTemplate.registerManeuvers?.(
             makeAutoPlayRegisteredManeuvers(route),
         );
-        updateNavigationGuidance(null);
-
-        if (autoDriveIsEnabled) {
-            startAutoDriveNavigationSimulation(route, routeGeneration);
-        } else {
-            startNavigationLocationUpdates(route);
-        }
-
-        HybridAutoPlay.popToRootTemplate(false).catch(() => {});
-
-        autoPlayNavigationRuntimeIsClusterOwned = false;
-        setActiveAutoPlayNavigationState(route, selectedRoute);
 
         if (publishSharedState) {
             setSharedRoutingState({
@@ -3005,19 +3022,27 @@ function startAutoPlayNavigation(
                 drivingModeIsActive: true,
             });
         }
-    } catch (error) {
-        if (nativeNavigationMayBeActive) {
-            cancelNativeAutoPlayNavigation(rootMapTemplate);
+
+        updateNavigationGuidance(null);
+
+        const navigationLocationStartup = autoDriveIsEnabled
+            ? startAutoDriveNavigationSimulation(route)
+            : startNavigationLocationUpdates(route);
+
+        if (navigationLocationStartup) {
+            const startupGeneration = navigationLocationUpdateGeneration;
+
+            void navigationLocationStartup.catch((error) => {
+                rollbackNavigationStart(error, startupGeneration);
+            });
         }
 
-        void stopAutoPlayNavigation({
-            notifyTemplate: false,
-            publishSharedState,
-        });
-        showAutoPlayError(
-            'Navigation unavailable',
-            error?.message || 'Navigation could not be started.',
-        );
+        HybridAutoPlay.popToRootTemplate(false).catch(() => {});
+
+        autoPlayNavigationRuntimeIsClusterOwned = false;
+        setActiveAutoPlayNavigationState(route, selectedRoute);
+    } catch (error) {
+        rollbackNavigationStart(error);
     }
 }
 
@@ -3582,6 +3607,69 @@ function reattachClusterOwnedNavigationToRoot() {
     });
 }
 
+function retainAutoPlayConnectionRoadMatchingSession(connectionGeneration) {
+    autoPlayConnectionRoadMatchingIsRequested = true;
+    autoPlayConnectionRoadMatchingGeneration = connectionGeneration;
+
+    if (
+        autoPlayConnectionRoadMatchingHandle ||
+        autoPlayConnectionRoadMatchingPromise
+    ) {
+        return;
+    }
+
+    const retainPromise = retainRoadMatchingSessionAsync({
+        persistent: true,
+    });
+
+    autoPlayConnectionRoadMatchingPromise = retainPromise;
+
+    void retainPromise
+        .then((sessionHandle) => {
+            if (autoPlayConnectionRoadMatchingPromise === retainPromise) {
+                autoPlayConnectionRoadMatchingPromise = null;
+            }
+
+            if (
+                !autoPlayConnectionRoadMatchingIsRequested ||
+                connectionGeneration !==
+                    autoPlayConnectionRoadMatchingGeneration ||
+                connectionGeneration !== autoPlayConnectionGeneration
+            ) {
+                sessionHandle.remove();
+
+                if (
+                    autoPlayConnectionRoadMatchingIsRequested &&
+                    !autoPlayConnectionRoadMatchingHandle &&
+                    !autoPlayConnectionRoadMatchingPromise
+                ) {
+                    retainAutoPlayConnectionRoadMatchingSession(
+                        autoPlayConnectionRoadMatchingGeneration,
+                    );
+                }
+
+                return;
+            }
+
+            autoPlayConnectionRoadMatchingHandle = sessionHandle;
+        })
+        .catch(() => {
+            if (autoPlayConnectionRoadMatchingPromise === retainPromise) {
+                autoPlayConnectionRoadMatchingPromise = null;
+            }
+        });
+}
+
+function releaseAutoPlayConnectionRoadMatchingSession() {
+    autoPlayConnectionRoadMatchingIsRequested = false;
+    autoPlayConnectionRoadMatchingGeneration = autoPlayConnectionGeneration;
+
+    const sessionHandle = autoPlayConnectionRoadMatchingHandle;
+
+    autoPlayConnectionRoadMatchingHandle = null;
+    sessionHandle?.remove();
+}
+
 const ROOT_TEMPLATE_SETUP_TIMEOUT_MS = 10000;
 const ROOT_TEMPLATE_SETUP_RETRY_DELAYS_MS = [1000, 2000, 4000];
 
@@ -3597,6 +3685,7 @@ async function handleAutoPlayConnect() {
 
     autoPlayNavigationRuntimeIsClusterOwned = false;
     setAutoPlaySessionConnected(true);
+    retainAutoPlayConnectionRoadMatchingSession(connectionGeneration);
 
     rootMapTemplateIsReady = false;
     lastAppliedMapButtonsKey = null;
@@ -3766,6 +3855,7 @@ function handleAutoPlayDisconnect() {
         Platform.OS === 'android' && AutoPlayCluster.hasConnectedSessions?.();
 
     autoPlayConnectionGeneration += 1;
+    releaseAutoPlayConnectionRoadMatchingSession();
     setAutoPlaySessionConnected(Boolean(clusterIsConnected));
     voiceNavigationRequestGeneration += 1;
     autoPlayPlatform?.cancelSearchVoiceInput?.();

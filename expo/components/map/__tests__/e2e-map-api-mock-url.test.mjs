@@ -71,7 +71,11 @@ describe('E2E map API mock links', () => {
     });
 
     test('accepts only supported scorecard drive scenarios from mock links', () => {
-        for (const scenario of ['private-route', 'local-exposure']) {
+        for (const scenario of [
+            'private-route',
+            'local-exposure',
+            'automotive-free-exposure',
+        ]) {
             assert.equal(
                 getE2EMockFlagsFromURL(
                     `driversagainstflock://e2e-mocks?scorecardDrive=${scenario}`,

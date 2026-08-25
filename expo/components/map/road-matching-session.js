@@ -552,12 +552,16 @@ async function publishRawLocationAsync(
 
     lastRawLocationSource = source;
     emit(sessionStateListeners, getRoadMatchingSessionDiagnostics());
-    publishAcceptedDeviceLocation(location);
+    const acceptedLocationSettlement = publishAcceptedDeviceLocation(location);
     applyRawLocation(location);
     emit(sessionStateListeners, getRoadMatchingSessionDiagnostics());
 
     if (updateWasDeliveredInBackground) {
         updateBackgroundDeliveryDiagnostics(location, currentAppState);
+    }
+
+    if (source === BACKGROUND_LOCATION_SOURCE) {
+        await acceptedLocationSettlement;
     }
 
     const graphBeforeRequest = roadGraph;
@@ -1219,6 +1223,10 @@ function clearReleasedRoadMatchingSessionState() {
 
 export function roadMatchingLocationIsSupported() {
     return typeof Location.watchPositionAsync === 'function';
+}
+
+export function getPersistentRoadMatchingWatchIsActive() {
+    return activePersistentRetainerCount > 0;
 }
 
 export async function retainRoadMatchingSessionAsync({

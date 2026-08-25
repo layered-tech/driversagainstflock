@@ -592,15 +592,18 @@ export default function ScorecardDashboardScreen() {
                         <View className="flex-row items-center gap-3">
                             <View className="min-w-0 flex-1">
                                 <Text className="text-[14px] font-semibold text-daf-text-primary dark:text-white">
-                                    Record explicit DAF drives
+                                    Record DAF drives
                                 </Text>
                                 <Text className="mt-0.5 text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400">
-                                    Guided and user-started free drives only.
-                                    Stored encrypted on this device.
+                                    Exposure tracking runs during guided drives,
+                                    phone-started Free Drive, and while Android
+                                    Auto or CarPlay is connected and the vehicle
+                                    is moving. Parked-only connections are not
+                                    saved. Stored encrypted on this device.
                                 </Text>
                             </View>
                             <Switch
-                                accessibilityLabel="Record explicit DAF drives"
+                                accessibilityLabel="Record DAF drives"
                                 disabled={!secureStorageIsAvailable}
                                 onValueChange={setTrackingEnabled}
                                 trackColor={{
