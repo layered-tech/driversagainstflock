@@ -171,6 +171,13 @@ the boundary.
 
 ### Phase 3: saved Terraform plan
 
+Status: complete on 2026-08-25. The saved plan contains 57 creates, zero
+updates, zero replacements, and zero destroys, and both protected-topology
+checks pass. The runtime artifact SHA-256 is
+`f4e783e8f8eac3b7a52909f09db684077182aaf7ba2d7c0ca5110a68e1ea5c2f`; the
+saved plan SHA-256 is
+`e5f892c746dc1b0e210d8adb954c6159a0956356ea76c18461510afb9df93a07`.
+
 Approval required. This phase may read AWS APIs and use the protected S3 state
 backend and lock file, but it must not apply changes.
 
