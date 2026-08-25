@@ -143,7 +143,9 @@ No AWS credentials or production databases are used in this phase.
 
 ### Phase 2: OSM operator IAM bootstrap
 
-Status: read-only preflight complete; IAM mutations not started.
+Status: complete on 2026-08-24. All four live `v1` policy documents match the
+reviewed local JSON. The workload boundary has zero attachments, and each of
+the three operator policies has one attachment.
 
 Approval required for every mutation.
 
@@ -161,7 +163,7 @@ Approval required for every mutation.
   the protected routing state bucket.
 - Keep the explicit Route 53 deny limited to the Moonlit public hosted zone so
   it cannot override the routing policy's access to its private hosted zone.
-- Re-run IAM simulation and read-only discovery to prove the boundary.
+- Read back the live policy documents and attachment counts before continuing.
 
 Rollback: detach the three OSM operator policies and delete only the newly
 created OSM policies after confirming that no `daf-osm-*` workload role uses
