@@ -269,7 +269,7 @@ export default function ScorecardTimelineScreen() {
                                 size={15}
                             />
                             <Text className="min-w-0 flex-1 text-xs leading-[18px] text-[#A9B2BD]">
-                                Built locally from your explicit DAF drives and
+                                Built locally from your recorded DAF drives and
                                 public camera nodes. DAF has no plate image,
                                 vehicle description, hotlist result, or access
                                 to an operator database.
@@ -311,8 +311,9 @@ export default function ScorecardTimelineScreen() {
                                         : 'text-daf-text-secondary dark:text-neutral-300'
                                 }`}
                             >
-                                Events appear only during explicit DAF drives
-                                and remain until you delete them.
+                                Events appear only during recorded DAF drives
+                                and expire after 30 days unless you delete them
+                                sooner.
                             </Text>
                         </View>
                     ) : (

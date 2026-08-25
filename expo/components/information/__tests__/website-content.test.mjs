@@ -41,6 +41,20 @@ describe('website information screens', () => {
             privacyPage.sections,
             getWebsiteArray('Privacy.vue', 'privacySections'),
         );
+        const privacyCopy = JSON.stringify(privacyPage);
+
+        assert.match(privacyCopy, /guided navigation/);
+        assert.match(privacyCopy, /phone-started free drive/);
+        assert.match(privacyCopy, /Android Auto or CarPlay/);
+        assert.match(
+            privacyCopy,
+            /Parked-only automotive connections are not saved/,
+        );
+        assert.doesNotMatch(
+            privacyCopy,
+            /explicit DAF drives only|explicit guided or user-started free drive/,
+        );
+
         assert.equal(privacyPage.badgeLabels[0], 'Last updated August 2026');
     });
 

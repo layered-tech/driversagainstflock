@@ -163,6 +163,64 @@ describe('shared phone and car navigation contract', () => {
         );
     });
 
+    test('holds one generation-safe persistent road-matching owner for the car connection', () => {
+        assert.match(
+            autoPlaySource,
+            /function retainAutoPlayConnectionRoadMatchingSession\(connectionGeneration\)[\s\S]*?retainRoadMatchingSessionAsync\(\{\s*persistent: true,[\s\S]*?connectionGeneration !==[\s\S]*?autoPlayConnectionRoadMatchingGeneration[\s\S]*?sessionHandle\.remove\(\)/,
+        );
+        assert.match(
+            autoPlaySource,
+            /async function handleAutoPlayConnect\(\)[\s\S]*?setAutoPlaySessionConnected\(true\)[\s\S]*?retainAutoPlayConnectionRoadMatchingSession\(connectionGeneration\)/,
+        );
+        assert.match(
+            autoPlaySource,
+            /function handleAutoPlayDisconnect\(\)[\s\S]*?releaseAutoPlayConnectionRoadMatchingSession\(\)[\s\S]*?setAutoPlaySessionConnected\(false\)/,
+        );
+    });
+
+    test('publishes guided state before automotive location updates and rolls it back on failure', () => {
+        const navigationStartSource = autoPlaySource.slice(
+            autoPlaySource.indexOf('function startAutoPlayNavigation('),
+            autoPlaySource.indexOf(
+                'function handleRootHeaderPrimaryLocationPress',
+            ),
+        );
+        const rollbackStartIndex = navigationStartSource.indexOf(
+            'const rollbackNavigationStart =',
+        );
+        const guidedStateIndex = navigationStartSource.indexOf(
+            'directionsRoute: route,',
+        );
+        const liveLocationIndex = navigationStartSource.indexOf(
+            'startNavigationLocationUpdates(route)',
+        );
+        const simulatedLocationIndex = navigationStartSource.indexOf(
+            'startAutoDriveNavigationSimulation(route)',
+        );
+        const asyncCatchIndex = navigationStartSource.indexOf(
+            'void navigationLocationStartup.catch',
+        );
+        const catchIndex = navigationStartSource.indexOf('} catch (error) {');
+
+        assert.notEqual(guidedStateIndex, -1);
+        assert.notEqual(liveLocationIndex, -1);
+        assert.notEqual(simulatedLocationIndex, -1);
+        assert.notEqual(asyncCatchIndex, -1);
+        assert.notEqual(catchIndex, -1);
+        assert.notEqual(rollbackStartIndex, -1);
+        assert.ok(guidedStateIndex < liveLocationIndex);
+        assert.ok(guidedStateIndex < simulatedLocationIndex);
+        assert.ok(asyncCatchIndex > liveLocationIndex);
+        assert.match(
+            navigationStartSource,
+            /const rollbackNavigationStart =[\s\S]*?startupGeneration !== navigationLocationUpdateGeneration[\s\S]*?if \(publishSharedState\) \{[\s\S]*?setSharedRoutingState\(\{\s*directionsRoute: null,\s*drivingModeIsActive: false,/,
+        );
+        assert.match(
+            navigationStartSource.slice(asyncCatchIndex, catchIndex + 80),
+            /\.catch\(\(error\) => \{[\s\S]*?rollbackNavigationStart\(error, startupGeneration\)[\s\S]*?\} catch \(error\) \{\s*rollbackNavigationStart\(error\)/,
+        );
+    });
+
     test('reattaches a phone route after the car host has stopped', () => {
         assert.deepEqual(
             getAutoPlaySharedNavigationAction({

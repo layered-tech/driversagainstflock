@@ -6,6 +6,22 @@ const readSource = (relativePath) =>
     readFileSync(new URL(relativePath, import.meta.url), 'utf8');
 
 describe('scorecard drive pipeline wiring', () => {
+    test('initializes the process runtime before router and Auto Play registration', () => {
+        const indexSource = readSource('../../../index.js');
+        const runtimeInitializationIndex = indexSource.indexOf(
+            'initializeScorecardRuntime()',
+        );
+        const routerRegistrationIndex = indexSource.indexOf(
+            "require('expo-router/entry')",
+        );
+        const autoPlayRegistrationIndex =
+            indexSource.indexOf('registerAutoPlay()');
+
+        assert.notEqual(runtimeInitializationIndex, -1);
+        assert.ok(runtimeInitializationIndex < routerRegistrationIndex);
+        assert.ok(runtimeInitializationIndex < autoPlayRegistrationIndex);
+    });
+
     test('publishes raw fixes before road matching and fallback rendering', () => {
         const roadMatchingSource = readSource(
             '../../map/road-matching-session.js',
@@ -22,55 +38,62 @@ describe('scorecard drive pipeline wiring', () => {
         );
     });
 
-    test('uses the raw stream and removes progressive route credit', () => {
+    test('owns the accepted-location stream in one process runtime', () => {
         const contextSource = readSource('../scorecard-context.js');
+        const instanceSource = readSource('../scorecard-runtime-instance.js');
+        const runtimeSource = readSource('../scorecard-runtime.js');
 
-        assert.match(contextSource, /addAcceptedDeviceLocationListener/);
-        assert.match(contextSource, /processScorecardRawLocationFix/);
-        assert.match(contextSource, /updateScorecardRawLocationAnchor/);
-        assert.match(contextSource, /seedRawLocationAnchor/);
-        assert.doesNotMatch(contextSource, /creditAvoidedRouteCameras/);
-        assert.doesNotMatch(contextSource, /getScorecardExposureRouteSegment/);
+        assert.match(instanceSource, /addAcceptedDeviceLocationListener/);
+        assert.match(runtimeSource, /processScorecardRawLocationFix/);
+        assert.match(runtimeSource, /updateScorecardRawLocationAnchor/);
+        assert.doesNotMatch(contextSource, /addAcceptedDeviceLocationListener/);
+        assert.doesNotMatch(runtimeSource, /creditAvoidedRouteCameras/);
+        assert.doesNotMatch(runtimeSource, /getScorecardExposureRouteSegment/);
     });
 
     test('rebuilds the runtime route snapshot after active-session hydration', () => {
-        const contextSource = readSource('../scorecard-context.js');
+        const instanceSource = readSource('../scorecard-runtime-instance.js');
+        const runtimeSource = readSource('../scorecard-runtime.js');
 
-        assert.match(
-            contextSource,
-            /mergeScorecardSessionRouteCatalog[\s\S]*?scorecardState\.activeSession\?\.id/,
-        );
-        assert.match(contextSource, /getDirectionsRouteGeometrySyncKey/);
-        assert.doesNotMatch(contextSource, /getDirectionsRouteSyncKey/);
+        assert.match(runtimeSource, /mergeScorecardSessionRouteCatalog/);
+        assert.match(runtimeSource, /getRouteDistanceSnapshot/);
+        assert.match(instanceSource, /getDirectionsRouteGeometrySyncKey/);
+        assert.doesNotMatch(runtimeSource, /getDirectionsRouteSyncKey/);
     });
 
     test('settles a user-ended guided route from destination proximity, not reported progress', () => {
-        const contextSource = readSource('../scorecard-context.js');
+        const runtimeSource = readSource('../scorecard-runtime.js');
 
-        assert.doesNotMatch(contextSource, /scorecardRouteHasReachedEnd/);
-        assert.match(contextSource, /scorecardRouteEndedAtDestination/);
+        assert.doesNotMatch(runtimeSource, /scorecardRouteHasReachedEnd/);
+        assert.match(runtimeSource, /scorecardRouteEndedAtDestination/);
         assert.match(
-            contextSource,
-            /manuallyCompletedGuidedRoute\s*\?\s*'manual'\s*:\s*'cancelled'/,
+            runtimeSource,
+            /manuallyCompleted\s*\?\s*'manual'\s*:\s*'cancelled'/,
         );
-        assert.match(contextSource, /getScorecardRouteProgressFraction/);
+        assert.match(runtimeSource, /getScorecardRouteProgressFraction/);
     });
 
     test('shows completion recaps only for guided drives', () => {
-        const contextSource = readSource('../scorecard-context.js');
+        const runtimeSource = readSource('../scorecard-runtime.js');
 
         assert.match(
-            contextSource,
+            runtimeSource,
             /completedTrip\?\.completed\s*&&\s*completedTrip\.mode === 'guided'/,
         );
     });
 
     test('uses one normalized revision for runtime and encrypted persistence', () => {
         const contextSource = readSource('../scorecard-context.js');
+        const runtimeSource = readSource('../scorecard-runtime.js');
 
         assert.match(
-            contextSource,
-            /const committedAt = Date\.now\(\);\s+const nextState = normalizeScorecardState\(updatedState, committedAt\);[\s\S]*?stateRef\.current = nextState;[\s\S]*?saveEncryptedScorecardState\(nextState, committedAt\)/,
+            runtimeSource,
+            /const committedAt = now\(\);[\s\S]*?const nextState = normalizeScorecardState\(updatedState, committedAt\);[\s\S]*?scorecardState = nextState;[\s\S]*?persistCommittedState\(nextState, committedAt, revision\)/,
         );
+        assert.match(
+            runtimeSource,
+            /function persistCommittedState\(state, committedAt, revision\)[\s\S]*?enqueuePersistence\(async \(\) => \{[\s\S]*?saveState\(state, committedAt\)/,
+        );
+        assert.doesNotMatch(contextSource, /saveEncryptedScorecardState/);
     });
 });

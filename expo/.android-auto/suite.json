@@ -46,6 +46,36 @@
             ]
         },
         {
+            "name": "records a route-free crossing on the phone Scorecard",
+            "steps": [
+                {
+                    "type": "scorecardDriveScenario",
+                    "scenario": "automotive-free-exposure"
+                },
+                {
+                    "type": "geoFix",
+                    "latitude": 30.266264,
+                    "longitude": -97.7479
+                },
+                {
+                    "type": "waitForScorecardCameraInventory"
+                },
+                {
+                    "type": "geoFix",
+                    "latitude": 30.266264,
+                    "longitude": -97.74735
+                },
+                {
+                    "type": "assertPhoneScorecardCrossings",
+                    "count": 1
+                },
+                {
+                    "type": "assertWakeLock",
+                    "held": true
+                }
+            ]
+        },
+        {
             "name": "switches between day and night presentation",
             "steps": [
                 {
