@@ -1,0 +1,11 @@
+[Unit]
+Description=Back up the OSM PostgreSQL database daily
+
+[Timer]
+OnCalendar=*-*-* 04:00:00 UTC
+RandomizedDelaySec=45min
+Persistent=true
+Unit=daf-osm-backup.service
+
+[Install]
+WantedBy=timers.target

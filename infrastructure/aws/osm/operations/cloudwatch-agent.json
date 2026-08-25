@@ -1,0 +1,63 @@
+{
+  "agent": {
+    "metrics_collection_interval": 60,
+    "run_as_user": "root"
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/daf-osm/current-*.log",
+            "log_group_name": "/daf-osm/runtime",
+            "log_stream_name": "{instance_id}/current"
+          },
+          {
+            "file_path": "/var/log/daf-osm/history-*.log",
+            "log_group_name": "/daf-osm/runtime",
+            "log_stream_name": "{instance_id}/history"
+          },
+          {
+            "file_path": "/var/log/daf-osm/backup.log",
+            "log_group_name": "/daf-osm/runtime",
+            "log_stream_name": "{instance_id}/backup"
+          }
+        ]
+      }
+    }
+  },
+  "metrics": {
+    "namespace": "DAF/OSM",
+    "append_dimensions": {
+      "InstanceId": "${aws:InstanceId}"
+    },
+    "aggregation_dimensions": [
+      ["InstanceId"]
+    ],
+    "metrics_collected": {
+      "disk": {
+        "measurement": [
+          {
+            "name": "used_percent",
+            "rename": "DataVolumeUsedPercent",
+            "unit": "Percent"
+          }
+        ],
+        "metrics_collection_interval": 60,
+        "resources": [
+          "__DATA_MOUNT_PATH__"
+        ]
+      },
+      "mem": {
+        "measurement": [
+          {
+            "name": "mem_used_percent",
+            "rename": "MemoryUsedPercent",
+            "unit": "Percent"
+          }
+        ],
+        "metrics_collection_interval": 60
+      }
+    }
+  }
+}

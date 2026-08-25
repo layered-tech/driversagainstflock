@@ -1,0 +1,25 @@
+[Unit]
+Description=Bootstrap current North America ALPR state
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=osm_ingest
+Group=osm_ingest
+EnvironmentFile=/etc/daf-osm/daf-osm.env
+RuntimeDirectory=daf-osm
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/bin/flock --nonblock /run/daf-osm/current.lock /opt/daf-osm/bin/bootstrap-current.sh
+TimeoutStartSec=infinity
+Nice=5
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+StandardOutput=append:/var/log/daf-osm/current-bootstrap.log
+StandardError=append:/var/log/daf-osm/current-bootstrap.log
