@@ -82,7 +82,9 @@ configure_data_volume()
         printf 'UUID=%s %s xfs defaults,nofail,x-systemd.device-timeout=5min 0 2\n' \
             "$${filesystem_uuid}" "$${DATA_MOUNT_PATH}" >> /etc/fstab
     fi
-    mount "$${DATA_MOUNT_PATH}"
+    if ! mountpoint --quiet "$${DATA_MOUNT_PATH}"; then
+        mount "$${DATA_MOUNT_PATH}"
+    fi
     mountpoint --quiet "$${DATA_MOUNT_PATH}" || fail "Data volume did not mount"
 }
 
@@ -124,7 +126,7 @@ main()
     [[ "$${ARTIFACTS_SHA256}" =~ ^[0-9a-f]{64}$ ]] \
         || fail "ARTIFACTS_SHA256 must be a plan-pinned lowercase SHA-256"
 
-    dnf install --assumeyes awscli2 coreutils ec2-utils nvme-cli openssl tar xfsprogs
+    dnf install --assumeyes awscli coreutils ec2-utils nvme-cli openssl tar xfsprogs
 
     resolved_device="$(resolve_data_device)" || fail "Data volume was not attached within ten minutes"
     configure_data_volume "$${resolved_device}"
@@ -160,6 +162,7 @@ main()
     current_instance_id="$(instance_id)"
     publisher_password="$(openssl rand -base64 48 | tr -d '\n')"
 
+    env \
     AWS_REGION="$${AWS_REGION}" \
     DATA_MOUNT_PATH="$${DATA_MOUNT_PATH}" \
     POSTGRESQL_PORT="$${configured_port}" \

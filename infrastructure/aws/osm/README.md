@@ -195,6 +195,16 @@ plan creates no workload resources.
 
 ### Phase 4: infrastructure apply
 
+Status: complete on 2026-08-25. The reviewed infrastructure plan and scoped
+bootstrap repair plans were applied without changing the protected Moonlit or
+routing-owned topology. The final runtime artifact SHA-256 is
+`f11fe72c3218de8a2222d1e448c0b47353f8f65be2537ccd286d90ce503cf5c6`.
+PostgreSQL 17, the pinned OSM tools, TLS, SSM, metrics, alarms, networking,
+encrypted storage, protected S3 buckets, private DNS, parameters, dashboard,
+budget, anomaly monitor, and confirmed SNS subscription were verified. Neither
+data bootstrap is active, the backup timer is disabled, and the full
+post-apply Terraform plan reports no changes.
+
 Approval required only after the saved plan is reviewed.
 
 - Apply the exact saved plan, never a newly calculated plan.

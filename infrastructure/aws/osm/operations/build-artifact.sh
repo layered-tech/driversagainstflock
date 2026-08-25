@@ -164,11 +164,44 @@ for contract in (
     "e2afb9420e489fa5c300b7e4b25b03f235602b93",
     "97dccf105391d410701ae8bd52170dc0ee041373",
     "daf-osm-install.lock",
+    "patch_boost_discovery",
+    "find_package(Boost CONFIG 1.50 REQUIRED)",
+    "find_package(Boost 1.50 REQUIRED)",
+    "find_package(Boost CONFIG 1.55.0 REQUIRED COMPONENTS program_options)",
+    "find_package(Boost 1.55.0 REQUIRED COMPONENTS program_options)",
+    "osm2pgsql --version 2>&1",
+    "osmium --version 2>&1",
+    "installed_osm_tools_are_current",
+    'chmod 0711 "${DATA_MOUNT_PATH}"',
+    "--group=osm_ingest --mode=0750 /etc/daf-osm",
+    "systemctl restart",
 ):
     if contract not in install_core:
         raise SystemExit(f"Missing AL2023 install contract: {contract}")
 
 user_data = (operations / "user-data.sh").read_text(encoding="utf-8")
+if "awscli2" in install_core or "awscli2" in user_data:
+    raise SystemExit("AL2023 bootstrap must use the awscli package name")
+if not re.search(r"(?m)^\s*awscli\s*$", install_core):
+    raise SystemExit("Packaged installer must install the AL2023 awscli package")
+if "curl-minimal" not in install_core or re.search(r"(?m)^\s*curl\s*$", install_core):
+    raise SystemExit("Packaged installer must preserve AL2023 curl-minimal")
+for contract in (
+    "runtime_packages=(",
+    "dnf install --assumeno",
+    "Dependencies resolved.",
+    "Operation aborted.",
+    "Problem:",
+):
+    if contract not in install_core:
+        raise SystemExit(f"Missing package transaction preflight contract: {contract}")
+if "dnf install --assumeyes awscli coreutils" not in user_data:
+    raise SystemExit("User data must install the AL2023 awscli package")
+if not re.search(r"(?m)^    env \\$", user_data):
+    raise SystemExit("User data must pass install variables through env")
+if 'if ! mountpoint --quiet "$${DATA_MOUNT_PATH}"; then' not in user_data:
+    raise SystemExit("User data must tolerate an already-mounted data volume")
+
 if "systemctl start --no-block daf-osm-" in user_data:
     raise SystemExit("User data must not start either data bootstrap")
 if "sha256sum --check" not in user_data:

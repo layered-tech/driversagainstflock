@@ -612,9 +612,15 @@ resource "aws_ce_anomaly_monitor" "project" {
   monitor_type = "CUSTOM"
 
   monitor_specification = jsonencode({
+    And            = null
+    CostCategories = null
+    Dimensions     = null
+    Not            = null
+    Or             = null
     Tags = {
-      Key    = "Project"
-      Values = ["daf-osm"]
+      Key          = "user:Project"
+      MatchOptions = null
+      Values       = ["daf-osm"]
     }
   })
 

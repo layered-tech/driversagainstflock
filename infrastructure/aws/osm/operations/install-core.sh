@@ -70,38 +70,57 @@ trap cleanup_build_root EXIT
 
 install_packages()
 {
+    local package_plan
+    local package_plan_status=0
+    local -a runtime_packages=(
+        amazon-cloudwatch-agent
+        awscli
+        boost-devel
+        bzip2-devel
+        cmake
+        curl-minimal
+        expat-devel
+        gcc-c++
+        git
+        gzip
+        jq
+        json-devel
+        libpq-devel
+        lua-devel
+        make
+        nvme-cli
+        openssl
+        postgresql17
+        postgresql17-contrib
+        postgresql17-postgis
+        postgresql17-server
+        protozero-devel
+        python3
+        python3-devel
+        python3-pip
+        tar
+        util-linux
+        xfsprogs
+        zlib-devel
+    )
+
     assert_supported_system_release
     dnf install --assumeyes spal-release
-    dnf install --assumeyes \
-        amazon-cloudwatch-agent \
-        awscli2 \
-        boost-devel \
-        bzip2-devel \
-        cmake \
-        curl \
-        expat-devel \
-        gcc-c++ \
-        git \
-        gzip \
-        jq \
-        json-devel \
-        libpq-devel \
-        lua-devel \
-        make \
-        nvme-cli \
-        openssl \
-        postgresql17 \
-        postgresql17-contrib \
-        postgresql17-postgis \
-        postgresql17-server \
-        protozero-devel \
-        python3 \
-        python3-devel \
-        python3-pip \
-        tar \
-        util-linux \
-        xfsprogs \
-        zlib-devel
+
+    package_plan="$(LC_ALL=C dnf install --assumeno "${runtime_packages[@]}" 2>&1)" \
+        || package_plan_status=$?
+    printf '%s\n' "${package_plan}"
+
+    if (( package_plan_status != 0 )); then
+        if (( package_plan_status != 1 )) \
+            || ! grep --fixed-strings --quiet 'Dependencies resolved.' <<< "${package_plan}" \
+            || ! grep --fixed-strings --quiet 'Operation aborted.' <<< "${package_plan}" \
+            || grep --fixed-strings --quiet 'Problem:' <<< "${package_plan}"; then
+            return "${package_plan_status}"
+        fi
+    fi
+
+    LC_ALL=C dnf install --assumeyes "${runtime_packages[@]}"
 }
 
 checkout_commit()
@@ -118,6 +137,47 @@ checkout_commit()
         || { log "ERROR: immutable source checkout mismatch for ${repository_url}" >&2; return 1; }
 }
 
+patch_boost_discovery()
+{
+    local source_root="$1"
+    local project_name="$2"
+    local config_find="$3"
+    local module_find="$4"
+    local cmake_file="${source_root}/CMakeLists.txt"
+
+    if [[ "$(grep --fixed-strings --line-regexp --count "${config_find}" "${cmake_file}" || true)" != 1 ]]; then
+        log "ERROR: pinned ${project_name} Boost discovery contract changed" >&2
+        return 1
+    fi
+
+    sed --in-place "s/${config_find}/${module_find}/" "${cmake_file}"
+    if ! grep --fixed-strings --line-regexp --quiet "${module_find}" "${cmake_file}"; then
+        log "ERROR: failed to select CMake module-mode Boost discovery for ${project_name}" >&2
+        return 1
+    fi
+}
+
+installed_osm_tools_are_current()
+{
+    local marker_path=/opt/daf-osm/source-versions
+    local osm2pgsql_version_output
+    local osmium_version_output
+
+    [[ -x /usr/local/bin/osm2pgsql ]] || return 1
+    [[ -x /usr/local/bin/osmium ]] || return 1
+    [[ -r "${marker_path}" ]] || return 1
+    [[ "$(wc --lines < "${marker_path}")" -eq 3 ]] || return 1
+    grep --fixed-strings --line-regexp --quiet "osm2pgsql_commit=${OSM2PGSQL_COMMIT}" "${marker_path}" || return 1
+    grep --fixed-strings --line-regexp --quiet "osmium_tool_commit=${OSMIUM_TOOL_COMMIT}" "${marker_path}" || return 1
+    grep --fixed-strings --line-regexp --quiet "libosmium_commit=${LIBOSMIUM_COMMIT}" "${marker_path}" || return 1
+
+    osm2pgsql_version_output="$(osm2pgsql --version 2>&1)" || return 1
+    osmium_version_output="$(osmium --version 2>&1)" || return 1
+    grep --fixed-strings --line-regexp --quiet 'osm2pgsql version 2.3.1' <<< "${osm2pgsql_version_output}" || return 1
+    grep --fixed-strings --line-regexp --quiet 'osmium version 1.19.0' <<< "${osmium_version_output}" || return 1
+    grep --fixed-strings --line-regexp --quiet 'libosmium version 2.23.1' <<< "${osmium_version_output}" || return 1
+}
+
 build_osm_tools()
 {
     local osm2pgsql_source
@@ -125,6 +185,11 @@ build_osm_tools()
     local libosmium_source
     local osm2pgsql_version_output
     local osmium_version_output
+
+    if installed_osm_tools_are_current; then
+        log 'Pinned OSM command-line tools already installed'
+        return
+    fi
 
     find /var/tmp \
         -xdev \
@@ -146,6 +211,11 @@ build_osm_tools()
         "${OSM2PGSQL_COMMIT}" \
         "${osm2pgsql_source}"
     git -C "${osm2pgsql_source}" submodule update --init --recursive --depth=1
+    patch_boost_discovery \
+        "${osm2pgsql_source}" \
+        osm2pgsql \
+        'find_package(Boost CONFIG 1.50 REQUIRED)' \
+        'find_package(Boost 1.50 REQUIRED)'
 
     cmake \
         -S "${osm2pgsql_source}" \
@@ -165,6 +235,11 @@ build_osm_tools()
         https://github.com/osmcode/osmium-tool.git \
         "${OSMIUM_TOOL_COMMIT}" \
         "${osmium_source}"
+    patch_boost_discovery \
+        "${osmium_source}" \
+        osmium-tool \
+        'find_package(Boost CONFIG 1.55.0 REQUIRED COMPONENTS program_options)' \
+        'find_package(Boost 1.55.0 REQUIRED COMPONENTS program_options)'
 
     cmake \
         -S "${osmium_source}" \
@@ -177,8 +252,8 @@ build_osm_tools()
     cmake --install "${osmium_source}/build"
     ldconfig
 
-    osm2pgsql_version_output="$(osm2pgsql --version)"
-    osmium_version_output="$(osmium --version)"
+    osm2pgsql_version_output="$(osm2pgsql --version 2>&1)"
+    osmium_version_output="$(osmium --version 2>&1)"
     grep --fixed-strings --line-regexp --quiet 'osm2pgsql version 2.3.1' \
         <<< "${osm2pgsql_version_output}" \
         || { log 'ERROR: installed osm2pgsql version is not exactly 2.3.1' >&2; return 1; }
@@ -213,7 +288,7 @@ install_runtime_files()
     install --mode=0644 "${OPERATIONS_SOURCE}"/systemd/*.service /etc/systemd/system/
     install --mode=0644 "${OPERATIONS_SOURCE}"/systemd/*.timer /etc/systemd/system/
 
-    install --directory --mode=0750 /etc/daf-osm
+    install --directory --owner=root --group=osm_ingest --mode=0750 /etc/daf-osm
     sed "s|__DATA_MOUNT_PATH__|${DATA_MOUNT_PATH}|g" \
         "${OPERATIONS_SOURCE}/cloudwatch-agent.json" \
         > /etc/daf-osm/cloudwatch-agent.json
@@ -230,6 +305,7 @@ create_service_user_and_paths()
             osm_ingest
     fi
 
+    chmod 0711 "${DATA_MOUNT_PATH}"
     install --directory --owner=postgres --group=postgres --mode=0700 "${POSTGRESQL_DATA_PATH}"
     install --directory --owner=osm_ingest --group=osm_ingest --mode=0750 \
         "${SERVICE_DATA_PATH}" \
@@ -403,7 +479,7 @@ enable_operations()
         -s \
         -c file:/etc/daf-osm/cloudwatch-agent.json
 
-    systemctl start \
+    systemctl restart \
         daf-osm-current-update.timer \
         daf-osm-history-update.timer \
         daf-osm-metrics.timer \
