@@ -1,5 +1,6 @@
 export const SCORECARD_DRIVE_E2E_SCENARIOS = Object.freeze({
     LocalExposure: 'local-exposure',
+    AutomotiveFreeExposure: 'automotive-free-exposure',
     PrivateRoute: 'private-route',
 });
 
@@ -421,19 +422,81 @@ export function getScorecardDriveE2EDirectionsFixture(
         return makePrivateRouteFixture();
     }
 
-    if (scenario === SCORECARD_DRIVE_E2E_SCENARIOS.LocalExposure) {
+    if (
+        scenario === SCORECARD_DRIVE_E2E_SCENARIOS.LocalExposure ||
+        scenario === SCORECARD_DRIVE_E2E_SCENARIOS.AutomotiveFreeExposure
+    ) {
         return makeLocalExposureFixture();
     }
 
     return null;
 }
 
+function makeElectronicHorizonNode(node, index) {
+    const direction =
+        node.directions
+            .map((range) =>
+                range.is_range
+                    ? range.start + '-' + range.end
+                    : String(range.start),
+            )
+            .join(';') || null;
+
+    return {
+        cameraDirection: direction,
+        coordinate: [...node.coordinate],
+        direction,
+        id: 'e2e-automotive-free-alpr-' + index,
+        osmId: node.osm_id,
+        tags: {
+            name: node.name,
+            operator: node.operator,
+        },
+    };
+}
+
 export function getScorecardDriveE2EElectronicHorizonFixture(
     scenario = runtimeScorecardDriveE2EScenario,
 ) {
-    return scorecardDriveE2EScenarioIsSupported(scenario)
-        ? { coverageComplete: true, nodes: [] }
-        : null;
+    if (!scorecardDriveE2EScenarioIsSupported(scenario)) {
+        return null;
+    }
+
+    if (scenario !== SCORECARD_DRIVE_E2E_SCENARIOS.AutomotiveFreeExposure) {
+        return { coverageComplete: true, nodes: [] };
+    }
+
+    const fixture = getScorecardDriveE2EDirectionsFixture(scenario);
+
+    return {
+        coverageComplete: true,
+        nodes: fixture.routes.direct.monitoring_camera_nodes.map(
+            makeElectronicHorizonNode,
+        ),
+    };
+}
+
+export function scorecardDriveE2ECameraInventoryIsReady(
+    nodes,
+    scenario = runtimeScorecardDriveE2EScenario,
+) {
+    const expectedNodes =
+        getScorecardDriveE2EElectronicHorizonFixture(scenario)?.nodes ?? [];
+
+    if (expectedNodes.length === 0 || !Array.isArray(nodes)) {
+        return false;
+    }
+
+    const availableOsmIds = new Set(
+        nodes
+            .map((node) => node?.osmId)
+            .filter((osmId) => osmId !== null && osmId !== undefined)
+            .map(String),
+    );
+
+    return expectedNodes.every((node) =>
+        availableOsmIds.has(String(node.osmId)),
+    );
 }
 
 export function getScorecardDriveE2ERoadCorridorWays(

@@ -1,5 +1,11 @@
 import * as Location from 'expo-location';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+    useSyncExternalStore,
+} from 'react';
 import { publishAcceptedDeviceLocation } from './accepted-device-location';
 import {
     getLocationCompassHeading,
@@ -15,58 +21,29 @@ import {
 } from './location-watch-options';
 import {
     addRoadMatchedLocationListener,
+    addRoadMatchingSessionStateListener,
     getLastRoadMatchedLocationAsync,
+    getPersistentRoadMatchingWatchIsActive,
     retainRoadMatchingSessionAsync,
     roadMatchingLocationIsSupported,
 } from './road-matching-session';
 
 export { roadMatchingLocationIsSupported } from './road-matching-session';
 
-let persistentRoadMatchingWatchCount = 0;
-let persistentRoadMatchingWatchIsActive = false;
-const persistentRoadMatchingWatchListeners = new Set();
+function subscribeToPersistentRoadMatchingWatchActivity(listener) {
+    const subscription = addRoadMatchingSessionStateListener(listener);
 
-function getPersistentRoadMatchingWatchIsActive() {
-    return persistentRoadMatchingWatchIsActive;
-}
-
-function emitPersistentRoadMatchingWatchActivity() {
-    persistentRoadMatchingWatchListeners.forEach((listener) =>
-        listener(persistentRoadMatchingWatchIsActive),
-    );
-}
-
-function updatePersistentRoadMatchingWatchActivity(delta) {
-    persistentRoadMatchingWatchCount = Math.max(
-        0,
-        persistentRoadMatchingWatchCount + delta,
-    );
-
-    const nextIsActive = persistentRoadMatchingWatchCount > 0;
-
-    if (persistentRoadMatchingWatchIsActive === nextIsActive) {
-        return;
-    }
-
-    persistentRoadMatchingWatchIsActive = nextIsActive;
-    emitPersistentRoadMatchingWatchActivity();
+    return () => {
+        subscription.remove();
+    };
 }
 
 export function usePersistentRoadMatchingWatchIsActive() {
-    const [isActive, setIsActive] = useState(
+    return useSyncExternalStore(
+        subscribeToPersistentRoadMatchingWatchActivity,
+        getPersistentRoadMatchingWatchIsActive,
         getPersistentRoadMatchingWatchIsActive,
     );
-
-    useEffect(() => {
-        persistentRoadMatchingWatchListeners.add(setIsActive);
-        setIsActive(getPersistentRoadMatchingWatchIsActive());
-
-        return () => {
-            persistentRoadMatchingWatchListeners.delete(setIsActive);
-        };
-    }, []);
-
-    return isActive;
 }
 
 export function useCurrentLocation({
@@ -230,18 +207,6 @@ export function useRoadMatchedLocationWatch({
         typeof handleUserLocationUpdate === 'function';
 
     handleUserLocationUpdateRef.current = handleUserLocationUpdate;
-
-    useEffect(() => {
-        if (!enabled || !persistent) {
-            return undefined;
-        }
-
-        updatePersistentRoadMatchingWatchActivity(1);
-
-        return () => {
-            updatePersistentRoadMatchingWatchActivity(-1);
-        };
-    }, [enabled, persistent]);
 
     useEffect(() => {
         if (

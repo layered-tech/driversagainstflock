@@ -17,6 +17,30 @@ describe('scorecard dashboard interactions', () => {
         assert.match(dashboardSource, /windowStats\.cleanDriveStreak/);
     });
 
+    test('describes every exposure-tracked drive source accurately', () => {
+        const dashboardSource = readSource('../scorecard-dashboard-screen.js');
+        const timelineSource = readSource('../scorecard-timeline-screen.js');
+
+        assert.match(dashboardSource, /Record DAF drives/);
+        assert.match(dashboardSource, /Exposure tracking runs during guided/);
+        assert.match(dashboardSource, /phone-started Free Drive/);
+        assert.match(
+            dashboardSource,
+            /Android\s+Auto or CarPlay[\s\S]*?vehicle\s+is moving/,
+        );
+        assert.match(
+            dashboardSource,
+            /Parked-only connections[\s\S]*?not\s+saved/,
+        );
+        assert.match(timelineSource, /your recorded DAF drives/);
+        assert.match(timelineSource, /only during recorded DAF drives/);
+        assert.match(timelineSource, /expire after 30 days/);
+        assert.doesNotMatch(
+            `${dashboardSource}\n${timelineSource}`,
+            /explicit DAF drives|Guided and user-started free drives only/,
+        );
+    });
+
     test('opens the exposure timeline from the crossings tile', () => {
         const dashboardSource = readSource('../scorecard-dashboard-screen.js');
 

@@ -92,6 +92,32 @@ export function findNodeBounds(xml, label) {
     return null;
 }
 
+export function findNodeByResourceId(xml, resourceId) {
+    for (const match of String(xml ?? '').matchAll(/<node\b[^>]*>/g)) {
+        const attributes = Object.fromEntries(
+            [...match[0].matchAll(/([\w:-]+)="([^"]*)"/g)].map(
+                ([, key, value]) => [key, decodeXML(value)],
+            ),
+        );
+        const identifiers = [
+            attributes['resource-id'],
+            attributes['content-desc'],
+        ].filter(Boolean);
+
+        if (
+            identifiers.some(
+                (identifier) =>
+                    identifier === resourceId ||
+                    identifier.endsWith(':id/' + resourceId),
+            )
+        ) {
+            return attributes;
+        }
+    }
+
+    return null;
+}
+
 export function currentAutoPlayWakeLockIsHeld(powerDump) {
     return new RegExp(
         `^\\s+PARTIAL_WAKE_LOCK\\s+.*'${SESSION_WAKE_LOCK}'`,
@@ -1023,6 +1049,73 @@ export class Runner {
         }
     }
 
+    async dispatchScorecardDriveScenario(scenario) {
+        const outputStart = this.metroOutput.length;
+        const url =
+            'driversagainstflock://e2e-mocks?scorecardDrive=' +
+            encodeURIComponent(scenario);
+
+        this.adb([
+            'shell',
+            'am',
+            'start',
+            '-W',
+            '-a',
+            'android.intent.action.VIEW',
+            '-d',
+            url,
+            this.suite.appId,
+        ]);
+        this.scorecardScenarioOutputStart = outputStart;
+        await this.waitForMetroMarker(
+            '[E2E] scorecard-drive-scenario-ready',
+            outputStart,
+            30000,
+        );
+    }
+
+    async waitForScorecardCameraInventory() {
+        await this.waitForMetroMarker(
+            '[E2E] scorecard-camera-inventory-ready',
+            this.scorecardScenarioOutputStart ?? 0,
+            60000,
+        );
+    }
+
+    setEmulatorLocation({ latitude, longitude }) {
+        this.adb(['emu', 'geo', 'fix', String(longitude), String(latitude)]);
+    }
+
+    async assertPhoneScorecardCrossings(expectedCount) {
+        await this.wakePhone();
+        this.adb([
+            'shell',
+            'am',
+            'start',
+            '-W',
+            '-a',
+            'android.intent.action.VIEW',
+            '-d',
+            'driversagainstflock://scorecard',
+            this.suite.appId,
+        ]);
+        await this.waitFor(
+            () => {
+                const crossingNode = findNodeByResourceId(
+                    this.dumpUi(),
+                    'scorecard-stat-crossings',
+                );
+
+                return crossingNode?.text === String(expectedCount);
+            },
+            'phone Scorecard crossing count ' + expectedCount,
+            30000,
+        );
+        this.report(
+            'Phone Scorecard shows ' + expectedCount + ' route-free crossing',
+        );
+    }
+
     async assertOcr(
         name,
         { contains = [], notContains = [], timeout = 20000 } = {},
@@ -1233,6 +1326,19 @@ export class Runner {
             case 'deepLink':
                 await this.dispatchDeepLink(step.requestType, step.query);
                 break;
+            case 'scorecardDriveScenario':
+                await this.dispatchScorecardDriveScenario(step.scenario);
+                break;
+            case 'geoFix':
+                this.setEmulatorLocation(step);
+                break;
+            case 'waitForScorecardCameraInventory':
+                await this.waitForScorecardCameraInventory();
+                break;
+            case 'assertPhoneScorecardCrossings':
+                await this.assertPhoneScorecardCrossings(step.count);
+                break;
+
             case 'autoDrive': {
                 const outputStart = this.metroOutput.length;
                 this.adb([

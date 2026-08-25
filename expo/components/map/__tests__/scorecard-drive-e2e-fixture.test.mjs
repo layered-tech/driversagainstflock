@@ -10,6 +10,7 @@ import {
     getScorecardDriveE2ERouteDistanceMeters,
     getScorecardDriveE2EScenario,
     SCORECARD_DRIVE_E2E_SCENARIOS,
+    scorecardDriveE2ECameraInventoryIsReady,
     setScorecardDriveE2EScenario,
 } from '../scorecard-drive-e2e-fixture.js';
 
@@ -461,13 +462,44 @@ describe('scorecard drive E2E route fixtures', () => {
         assert.ok(exposures.every((exposure) => exposure.osmId !== '982003'));
     });
 
-    test('keeps Electronic Horizon empty for local-only processing', () => {
-        for (const scenario of Object.values(SCORECARD_DRIVE_E2E_SCENARIOS)) {
+    test('publishes global cameras only for automotive free-drive coverage', () => {
+        for (const scenario of [
+            SCORECARD_DRIVE_E2E_SCENARIOS.LocalExposure,
+            SCORECARD_DRIVE_E2E_SCENARIOS.PrivateRoute,
+        ]) {
             assert.deepEqual(
                 getScorecardDriveE2EElectronicHorizonFixture(scenario),
                 { coverageComplete: true, nodes: [] },
             );
         }
+
+        const automotiveFixture = getScorecardDriveE2EElectronicHorizonFixture(
+            SCORECARD_DRIVE_E2E_SCENARIOS.AutomotiveFreeExposure,
+        );
+
+        assert.equal(automotiveFixture.coverageComplete, true);
+        assert.deepEqual(
+            automotiveFixture.nodes.map((node) => [node.osmId, node.direction]),
+            [
+                [982001, '258'],
+                [982002, null],
+                [982003, '348'],
+            ],
+        );
+        assert.equal(
+            scorecardDriveE2ECameraInventoryIsReady(
+                automotiveFixture.nodes,
+                SCORECARD_DRIVE_E2E_SCENARIOS.AutomotiveFreeExposure,
+            ),
+            true,
+        );
+        assert.equal(
+            scorecardDriveE2ECameraInventoryIsReady(
+                [{ osmId: 982001 }],
+                SCORECARD_DRIVE_E2E_SCENARIOS.AutomotiveFreeExposure,
+            ),
+            false,
+        );
     });
 
     test('matches the road corridor to the selected route through its endpoint', () => {
@@ -486,7 +518,7 @@ describe('scorecard drive E2E route fixtures', () => {
         }
     });
 
-    test('plumbs the URL-selected scenario into directions and empty EH mocks', () => {
+    test('plumbs the URL-selected scenario into directions and global EH mocks', () => {
         const handlerSource = readFileSync(
             new URL('../../root/e2e-map-api-mock-handler.js', import.meta.url),
             'utf8',

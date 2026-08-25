@@ -8,7 +8,11 @@ import {
     setMapApiMocksEnabled,
 } from '../map/api-mocks';
 import { setE2EDrivingAlertsFixture } from '../map/e2e-driving-alert-fixture';
-import { setScorecardDriveE2EScenario } from '../map/scorecard-drive-e2e-fixture';
+import { getSharedElectronicHorizonAlprNodes } from '../map/electronic-horizon-alpr-store';
+import {
+    scorecardDriveE2ECameraInventoryIsReady,
+    setScorecardDriveE2EScenario,
+} from '../map/scorecard-drive-e2e-fixture';
 import {
     getE2EAutoPlayCommandFromURL,
     getE2EMockFlagsFromURL,
@@ -42,6 +46,19 @@ function applyE2EMocksFromURL(value) {
     setOSMApiMocksEnabled(true);
     setE2EDrivingAlertsFixture(drivingAlertsFixture);
     setScorecardDriveE2EScenario(scorecardDriveScenario);
+
+    if (
+        scorecardDriveScenario &&
+        scorecardDriveE2ECameraInventoryIsReady(
+            getSharedElectronicHorizonAlprNodes(),
+        )
+    ) {
+        console.info('[E2E] scorecard-camera-inventory-ready');
+    }
+
+    if (scorecardDriveScenario) {
+        console.info('[E2E] scorecard-drive-scenario-ready');
+    }
 
     if (authMockIsEnabled) {
         injectE2EMockSession(E2E_MOCK_AUTH_SESSION);

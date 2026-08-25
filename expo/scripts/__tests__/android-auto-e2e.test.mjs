@@ -8,6 +8,7 @@ import {
     DEFAULT_MAP_CROP,
     envFileHasNonEmptyValue,
     findNodeBounds,
+    findNodeByResourceId,
     getMapSurfaceVisibilityAssertionFailure,
     getMapThemeContrastAssertionFailure,
     getOCRAssertionFailure,
@@ -35,6 +36,17 @@ describe('Android Auto E2E helpers', () => {
             top: 675,
         });
         assert.equal(findNodeBounds(xml, 'Developer settings'), null);
+    });
+
+    test('finds the phone Scorecard value by React Native test ID', () => {
+        const xml =
+            '<node text="1" resource-id="com.anonymous.drivefree.dev:id/scorecard-stat-crossings" content-desc="" bounds="[0,0][10,10]" />';
+
+        assert.equal(
+            findNodeByResourceId(xml, 'scorecard-stat-crossings')?.text,
+            '1',
+        );
+        assert.equal(findNodeByResourceId(xml, 'missing-scorecard-stat'), null);
     });
 
     test('normalizes OCR across host line wrapping', () => {
@@ -238,6 +250,66 @@ describe('Android Auto E2E helpers', () => {
                     ),
             );
         }
+    });
+    test('crosses a global camera route-free and checks the phone Scorecard', () => {
+        const suite = JSON.parse(
+            readFileSync(
+                new URL('../../.android-auto/suite.json', import.meta.url),
+                'utf8',
+            ),
+        );
+        const freeDriveTest = suite.tests.find(({ name }) =>
+            name.includes('route-free crossing'),
+        );
+        const geoFixes = freeDriveTest.steps.filter(
+            ({ type }) => type === 'geoFix',
+        );
+        const scenarioStep = freeDriveTest.steps.find(
+            ({ type }) => type === 'scorecardDriveScenario',
+        );
+        const cameraInventoryStep = freeDriveTest.steps.find(
+            ({ type }) => type === 'waitForScorecardCameraInventory',
+        );
+        const phoneAssertion = freeDriveTest.steps.find(
+            ({ type }) => type === 'assertPhoneScorecardCrossings',
+        );
+
+        assert.equal(scenarioStep.scenario, 'automotive-free-exposure');
+        assert.deepEqual(geoFixes, [
+            {
+                latitude: 30.266264,
+                longitude: -97.7479,
+                type: 'geoFix',
+            },
+            {
+                latitude: 30.266264,
+                longitude: -97.74735,
+                type: 'geoFix',
+            },
+        ]);
+        assert.ok(geoFixes[0].longitude < -97.747624);
+        assert.ok(geoFixes[1].longitude > -97.747624);
+        assert.equal(phoneAssertion.count, 1);
+        assert.ok(
+            freeDriveTest.steps.indexOf(scenarioStep) <
+                freeDriveTest.steps.indexOf(geoFixes[0]),
+        );
+        assert.ok(
+            freeDriveTest.steps.indexOf(geoFixes[0]) <
+                freeDriveTest.steps.indexOf(cameraInventoryStep),
+        );
+        assert.ok(
+            freeDriveTest.steps.indexOf(cameraInventoryStep) <
+                freeDriveTest.steps.indexOf(geoFixes[1]),
+        );
+        assert.ok(
+            freeDriveTest.steps.indexOf(geoFixes[1]) <
+                freeDriveTest.steps.indexOf(phoneAssertion),
+        );
+        assert.equal(
+            freeDriveTest.steps.some(({ type }) => type === 'sleep'),
+            false,
+        );
     });
 
     test('requires a non-empty Mapbox token without exposing its value', () => {

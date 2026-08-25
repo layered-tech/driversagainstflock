@@ -88,7 +88,7 @@ describe('scorecard telemetry and storage boundary', () => {
         assert.match(contextSource, /APP_ENVIRONMENT !== 'e2e'[\s\S]*?return;/);
         assert.match(
             contextSource,
-            /createE2EScorecardFixture\(requestedFixture\)[\s\S]*?commitState\(\{[\s\S]*?\.\.\.fixture\.state,[\s\S]*?pendingRecapTripId:/,
+            /createE2EScorecardFixture\(requestedFixture\)[\s\S]*?updateScorecardRuntimeState\(\s*\{[\s\S]*?\.\.\.fixture\.state,[\s\S]*?pendingRecapTripId:/,
         );
         assert.match(
             contextSource,
@@ -105,6 +105,7 @@ describe('scorecard telemetry and storage boundary', () => {
         const backupSource = readSource('../scorecard-backup.js');
         const contextSource = readSource('../scorecard-context.js');
 
+        const runtimeSource = readSource('../scorecard-runtime.js');
         assert.match(backupSource, /serializeScorecardState/);
         assert.match(backupSource, /activeSession: null/);
         assert.match(backupSource, /pendingRecapTripId: null/);
@@ -114,7 +115,15 @@ describe('scorecard telemetry and storage boundary', () => {
         );
         assert.match(
             contextSource,
-            /normalizeScorecardState\([\s\S]*?backup\.state,[\s\S]*?restoredAt[\s\S]*?saveEncryptedScorecardState\([\s\S]*?restoredState,[\s\S]*?restoredAt[\s\S]*?setScorecardState\(restoredState\)/,
+            /replaceScorecardRuntimeState\(backup\.state\)/,
+        );
+        assert.match(
+            runtimeSource,
+            /async function performStateReplacement\(nextState\)[\s\S]*?normalizeScorecardState\([\s\S]*?nextState,[\s\S]*?replacedAt[\s\S]*?await enqueuePersistence\([\s\S]*?saveState\(normalizedState, replacedAt\)[\s\S]*?if \(!wasSaved\)[\s\S]*?return false;[\s\S]*?scorecardState = normalizedState[\s\S]*?function replaceState\(nextState\)[\s\S]*?stateReplacementQueue/,
+        );
+        assert.doesNotMatch(
+            contextSource,
+            /saveEncryptedScorecardState|setScorecardState/,
         );
     });
 

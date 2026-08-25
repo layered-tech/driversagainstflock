@@ -15,11 +15,11 @@ import {
     setAutoPlaySessionRenderState,
 } from './auto-play-session-state';
 import { getAutoPlaySharedNavigationAction } from './auto-play-shared-navigation';
-import { publishAcceptedDeviceLocation } from './map/accepted-device-location';
 import {
     AUTO_PLAY_SINGLE_RESULT_COUNTDOWN_SECONDS,
     createAutoPlaySingleResultCountdown,
 } from './auto-play-single-result-countdown';
+import { publishAcceptedDeviceLocation } from './map/accepted-device-location';
 // Metro resolves the platform adapter per platform: Android Auto specifics in
 // auto-play-platform.android.js, CarPlay specifics in auto-play-platform.ios.js.
 import { createPlaceSearchSessionToken } from '../lib/place-search-session';
@@ -217,6 +217,10 @@ const ROOT_MAP_CONTROL_BUTTON_IMAGE = {
 let autoPlayModule;
 let autoPlayRegistered = false;
 let autoPlayConnectionGeneration = 0;
+let autoPlayConnectionRoadMatchingGeneration = 0;
+let autoPlayConnectionRoadMatchingHandle = null;
+let autoPlayConnectionRoadMatchingIsRequested = false;
+let autoPlayConnectionRoadMatchingPromise = null;
 let rootMapTemplate = null;
 let rootMapTemplateIsReady = false;
 let pendingVoiceNavigation = null;
@@ -2826,11 +2830,12 @@ function startAutoDriveNavigationSimulation(route) {
     });
 
     if (!simulationStarted) {
-        startNavigationLocationUpdates(route);
-        return;
+        return startNavigationLocationUpdates(route);
     }
 
-    stopNavigationLocationUpdates();
+    void stopNavigationLocationUpdates();
+
+    return null;
 }
 
 async function handleAutoDriveArrival(route) {
@@ -2940,6 +2945,40 @@ function startAutoPlayNavigation(
     activeNavigationRoute = route;
     activeNavigationDestination = route.destination;
 
+    const rollbackNavigationStart = (error, startupGeneration = null) => {
+        if (
+            activeNavigationRoute !== route ||
+            (startupGeneration !== null &&
+                startupGeneration !== navigationLocationUpdateGeneration)
+        ) {
+            return;
+        }
+
+        void stopNavigationLocationUpdates();
+        autoPlayHostNavigationIsActive = false;
+        activeNavigationRoute = null;
+        activeNavigationDestination = null;
+
+        try {
+            rootMapTemplate?.stopNavigation();
+        } catch {
+            // The host may have already stopped the failed navigation.
+        }
+
+        if (publishSharedState) {
+            setSharedRoutingState({
+                directionsRoute: null,
+                drivingModeIsActive: false,
+            });
+        }
+
+        updateRootTemplateHeaderActions();
+        showAutoPlayError(
+            'Navigation unavailable',
+            error?.message || 'Navigation could not be started.',
+        );
+    };
+
     try {
         if (!hostNavigationAlreadyStarted) {
             hideAutoPlayRoutePreview();
@@ -2949,12 +2988,26 @@ function startAutoPlayNavigation(
         }
 
         autoPlayHostNavigationIsActive = true;
+
+        if (publishSharedState) {
+            setSharedRoutingState({
+                directionsRoute: route,
+                drivingModeIsActive: true,
+            });
+        }
+
         updateNavigationGuidance(null);
 
-        if (autoDriveIsEnabled) {
-            startAutoDriveNavigationSimulation(route);
-        } else {
-            startNavigationLocationUpdates(route);
+        const navigationLocationStartup = autoDriveIsEnabled
+            ? startAutoDriveNavigationSimulation(route)
+            : startNavigationLocationUpdates(route);
+
+        if (navigationLocationStartup) {
+            const startupGeneration = navigationLocationUpdateGeneration;
+
+            void navigationLocationStartup.catch((error) => {
+                rollbackNavigationStart(error, startupGeneration);
+            });
         }
 
         HybridAutoPlay.popToRootTemplate(false).catch(() => {});
@@ -2974,22 +3027,8 @@ function startAutoPlayNavigation(
             title: 'Guidance active',
         });
         updateRootTemplateHeaderActions();
-
-        if (publishSharedState) {
-            setSharedRoutingState({
-                directionsRoute: route,
-                drivingModeIsActive: true,
-            });
-        }
     } catch (error) {
-        autoPlayHostNavigationIsActive = false;
-        activeNavigationRoute = null;
-        activeNavigationDestination = null;
-        updateRootTemplateHeaderActions();
-        showAutoPlayError(
-            'Navigation unavailable',
-            error?.message || 'Navigation could not be started.',
-        );
+        rollbackNavigationStart(error);
     }
 }
 
@@ -3527,6 +3566,69 @@ function replayPendingVoiceNavigation() {
     );
 }
 
+function retainAutoPlayConnectionRoadMatchingSession(connectionGeneration) {
+    autoPlayConnectionRoadMatchingIsRequested = true;
+    autoPlayConnectionRoadMatchingGeneration = connectionGeneration;
+
+    if (
+        autoPlayConnectionRoadMatchingHandle ||
+        autoPlayConnectionRoadMatchingPromise
+    ) {
+        return;
+    }
+
+    const retainPromise = retainRoadMatchingSessionAsync({
+        persistent: true,
+    });
+
+    autoPlayConnectionRoadMatchingPromise = retainPromise;
+
+    void retainPromise
+        .then((sessionHandle) => {
+            if (autoPlayConnectionRoadMatchingPromise === retainPromise) {
+                autoPlayConnectionRoadMatchingPromise = null;
+            }
+
+            if (
+                !autoPlayConnectionRoadMatchingIsRequested ||
+                connectionGeneration !==
+                    autoPlayConnectionRoadMatchingGeneration ||
+                connectionGeneration !== autoPlayConnectionGeneration
+            ) {
+                sessionHandle.remove();
+
+                if (
+                    autoPlayConnectionRoadMatchingIsRequested &&
+                    !autoPlayConnectionRoadMatchingHandle &&
+                    !autoPlayConnectionRoadMatchingPromise
+                ) {
+                    retainAutoPlayConnectionRoadMatchingSession(
+                        autoPlayConnectionRoadMatchingGeneration,
+                    );
+                }
+
+                return;
+            }
+
+            autoPlayConnectionRoadMatchingHandle = sessionHandle;
+        })
+        .catch(() => {
+            if (autoPlayConnectionRoadMatchingPromise === retainPromise) {
+                autoPlayConnectionRoadMatchingPromise = null;
+            }
+        });
+}
+
+function releaseAutoPlayConnectionRoadMatchingSession() {
+    autoPlayConnectionRoadMatchingIsRequested = false;
+    autoPlayConnectionRoadMatchingGeneration = autoPlayConnectionGeneration;
+
+    const sessionHandle = autoPlayConnectionRoadMatchingHandle;
+
+    autoPlayConnectionRoadMatchingHandle = null;
+    sessionHandle?.remove();
+}
+
 const ROOT_TEMPLATE_SETUP_TIMEOUT_MS = 10000;
 const ROOT_TEMPLATE_SETUP_RETRY_DELAYS_MS = [1000, 2000, 4000];
 
@@ -3536,6 +3638,7 @@ async function handleAutoPlayConnect() {
     const { MapTemplate } = loadAutoPlayModule();
 
     setAutoPlaySessionConnected(true);
+    retainAutoPlayConnectionRoadMatchingSession(connectionGeneration);
 
     rootMapTemplateIsReady = false;
     lastAppliedMapButtonsKey = null;
@@ -3680,6 +3783,7 @@ async function handleAutoPlayConnect() {
 
 function handleAutoPlayDisconnect() {
     autoPlayConnectionGeneration += 1;
+    releaseAutoPlayConnectionRoadMatchingSession();
     setAutoPlaySessionConnected(false);
     voiceNavigationRequestGeneration += 1;
     autoPlayPlatform?.cancelSearchVoiceInput?.();
