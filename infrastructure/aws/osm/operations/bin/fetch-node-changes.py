@@ -43,6 +43,7 @@ def parse_arguments(arguments: Optional[Sequence[str]] = None) -> argparse.Names
     update.add_argument("--pending-state", required=True)
     update.add_argument("--output", required=True)
     update.add_argument("--max-size-mb", required=True, type=int)
+    update.add_argument("--simplify", action="store_true")
     update.set_defaults(command_handler=update_state)
 
     return parser.parse_args(arguments)
@@ -130,7 +131,7 @@ def update_state(arguments: argparse.Namespace) -> int:
                 handler,
                 current_sequence + 1,
                 max_size=arguments.max_size_mb * 1024,
-                simplify=False,
+                simplify=arguments.simplify,
             )
         finally:
             writer.close()

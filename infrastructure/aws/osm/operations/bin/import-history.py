@@ -42,7 +42,7 @@ def parse_arguments() -> argparse.Namespace:
 
 
 def decode_opl(value: str) -> str:
-    return unquote(value, encoding="utf-8", errors="strict")
+    return unquote(value, encoding="utf-8", errors="replace").replace("\x00", "\ufffd")
 
 
 def parse_tags(encoded_tags: str) -> dict[str, str]:
@@ -132,7 +132,7 @@ def main() -> int:
     )
 
     osmium = subprocess.Popen(
-        ["osmium", "cat", arguments.input, "--output-format=opl"],
+        ["osmium", "cat", "--output-format=opl", arguments.input],
         stdout=subprocess.PIPE,
         text=True,
     )

@@ -38,6 +38,7 @@ node_version_count="$(/opt/daf-osm/venv/bin/python \
     --state "${CURRENT_STATE}" \
     --pending-state "${pending_state}" \
     --output "${raw_change}" \
+    --simplify \
     --max-size-mb "${CURRENT_MAX_CHANGE_SIZE_MB}")" \
     || download_status=$?
 
@@ -88,6 +89,7 @@ if (( written_count > 0 )); then
         --port="${POSTGRESQL_PORT}" \
         --username=osm_ingest \
         --prefix="${OSM2PGSQL_PREFIX}" \
+        --schema=osm_ingest \
         --middle-schema=osm_ingest \
         --cache="${OSM2PGSQL_CACHE_MB}" \
         --number-processes="${OSM2PGSQL_PROCESSES}" \
@@ -100,8 +102,15 @@ if (( written_count > 0 )); then
 else
     psql_osm \
         --set=replication_sequence="${replication_sequence}" \
-        --set=source_timestamp="${source_timestamp}" \
-        --command="INSERT INTO osm_pipeline.state (state_key, state_value) VALUES ('current_applied_sequence', :'replication_sequence'), ('current_source_timestamp', :'source_timestamp'), ('last_successful_replication_unix_time', extract(epoch FROM clock_timestamp())::bigint::text) ON CONFLICT (state_key) DO UPDATE SET state_value = EXCLUDED.state_value, updated_at = clock_timestamp();"
+        --set=source_timestamp="${source_timestamp}" <<'CURRENT_STATE_SQL'
+INSERT INTO osm_pipeline.state (state_key, state_value)
+VALUES
+    ('current_applied_sequence', :'replication_sequence'),
+    ('current_source_timestamp', :'source_timestamp'),
+    ('last_successful_replication_unix_time', extract(epoch FROM clock_timestamp())::bigint::text)
+ON CONFLICT (state_key) DO UPDATE
+SET state_value = EXCLUDED.state_value, updated_at = clock_timestamp();
+CURRENT_STATE_SQL
 fi
 
 promote_state "${pending_state}" "${CURRENT_STATE}"

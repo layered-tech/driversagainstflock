@@ -238,6 +238,52 @@ class ReplicationStateInvariantTest(unittest.TestCase):
         self.assertEqual(len(FakeWriter.instances[0].nodes), 2)
         self.assertTrue(FakeWriter.instances[0].closed)
 
+    def test_update_can_simplify_current_nodes(self) -> None:
+        latest_timestamp = dt.datetime(2026, 8, 24, 12, 37, tzinfo=dt.timezone.utc)
+        FakeReplicationServer.latest_state = OsmosisState(
+            sequence=43,
+            timestamp=latest_timestamp,
+        )
+        FakeReplicationServer.states = {
+            43: OsmosisState(sequence=43, timestamp=latest_timestamp),
+        }
+        FakeReplicationServer.applied_sequence = 43
+        FakeReplicationServer.emitted_node_count = 1
+
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / "current.state"
+            state.write_text(
+                "sequenceNumber=41\ntimestamp=2026-08-24T12\\:34\\:56Z\n",
+                encoding="utf-8",
+            )
+            pending_state = Path(directory) / "current.pending.state"
+            output_path = Path(directory) / "nodes.osc.pbf"
+            result, output = self.run_cli(
+                [
+                    "update",
+                    "--server",
+                    "https://example.invalid/replication/minute/",
+                    "--state",
+                    str(state),
+                    "--pending-state",
+                    str(pending_state),
+                    "--output",
+                    str(output_path),
+                    "--max-size-mb",
+                    "7",
+                    "--simplify",
+                ]
+            )
+
+            self.assertEqual(result, 0)
+            self.assertEqual(output, "1\n")
+
+        server = FakeReplicationServer.instances[0]
+        self.assertEqual(
+            server.apply_calls,
+            [{"start_id": 42, "max_size": 7 * 1024, "simplify": True}],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

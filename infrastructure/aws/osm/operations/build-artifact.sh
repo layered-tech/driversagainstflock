@@ -238,11 +238,18 @@ if any(position < 0 for position in positions) or positions != sorted(positions)
     raise SystemExit(
         "History bootstrap must qualify regional exact-tag versions before all-version retention"
     )
+if r"https://osm-planet-us-west-2\.s3\.dualstack\.us-west-2\.amazonaws\.com/planet-full-history/pbf/" not in history_bootstrap:
+    raise SystemExit("History bootstrap must allow the official OSM US West S3 distribution path")
 if "TRUNCATE osm_pipeline.global_alpr_node_ids" not in (
     operations / "bin/bootstrap-history.sh"
 ).read_text(encoding="utf-8"):
     raise SystemExit("History bootstrap candidates must start from an isolated set")
 
+history_importer = (operations / "bin/import-history.py").read_text(encoding="utf-8")
+if '["osmium", "cat", "--output-format=opl", arguments.input]' not in history_importer:
+    raise SystemExit("History importer must select OPL before its positional input")
+if 'return unquote(value, encoding="utf-8", errors="replace").replace("\\x00", "\\ufffd")' not in history_importer:
+    raise SystemExit("History importer must safely replace invalid legacy UTF-8 and NUL bytes")
 history_update = (operations / "bin/history-update.sh").read_text(encoding="utf-8")
 if "'n/surveillance:type=ALPR'" not in history_update or "api_history" not in history_update:
     raise SystemExit("API backfill must qualify exact regional tags then import full history")
@@ -252,16 +259,31 @@ replication_helper = (
 ).read_text(encoding="utf-8")
 if "--output-schema" in current_bootstrap or "--output-schema" in current_update:
     raise SystemExit("osm2pgsql 2.3.1 does not support --output-schema")
+for current_command in (current_bootstrap, current_update):
+    if "--schema=osm_ingest" not in current_command:
+        raise SystemExit(
+            "osm2pgsql current commands must align the default and middle schemas"
+        )
+    if "--middle-schema=osm_ingest" not in current_command:
+        raise SystemExit("osm2pgsql current middle tables must use osm_ingest")
 if "fetch-node-changes.py update" not in current_update:
     raise SystemExit("Current replication must use the full-state node-only helper")
+if "--simplify" not in current_update:
+    raise SystemExit("Current replication must collapse each node to its latest version")
+if re.search(r"--command=.*:'", current_update):
+    raise SystemExit("Current cursor SQL variables must be supplied through standard input")
+if "--simplify" in history_update:
+    raise SystemExit("History replication must retain intermediate node versions")
+if re.search(r"--command=.*:'", history_update):
+    raise SystemExit("History SQL variables must be supplied through standard input")
 if "fetch-node-changes.py update" not in history_update:
     raise SystemExit("History replication must use the full-state node-only helper")
 if "publish-current.sql" in history_bootstrap or "publish-current.sql" in history_update:
     raise SystemExit("Only the current pipeline may publish current rows and cursors")
 if "fetch-node-changes.py initialize" not in history_bootstrap:
     raise SystemExit("History bootstrap must initialize a full overlap cursor")
-if "simplify=False" not in replication_helper:
-    raise SystemExit("Global minute history must retain intermediate versions")
+if "simplify=arguments.simplify" not in replication_helper:
+    raise SystemExit("Replication simplification must be selected per stream")
 legacy_cursor_contract = "\n".join(
     (current_update, history_update, history_bootstrap, install_core)
 )
@@ -272,8 +294,14 @@ if (
     raise SystemExit("Runtime must not use pyosmium's incompatible numeric sequence file")
 
 common = (operations / "bin/common.sh").read_text(encoding="utf-8")
-if "BEGIN; INSERT INTO osm_pipeline.state" not in common:
+common_core = (operations / "bin/common-core.sh").read_text(encoding="utf-8")
+if "BEGIN;\nINSERT INTO osm_pipeline.state" not in common:
     raise SystemExit("History sequence and timestamp must commit atomically")
+for state_helper in (common, common_core):
+    if re.search(r"--command=.*:'", state_helper):
+        raise SystemExit("psql variable SQL must be supplied through standard input")
+    if "<<'PIPELINE_STATE_SQL'" not in state_helper:
+        raise SystemExit("Pipeline state writes must use a quoted SQL heredoc")
 
 current_filter = (
     operations / "bin/filter-current-change.py"

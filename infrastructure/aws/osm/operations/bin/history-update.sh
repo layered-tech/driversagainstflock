@@ -82,8 +82,18 @@ fi
 candidate_list="${work_directory}/regional-candidates.tsv"
 psql_osm --tuples-only --no-align --field-separator=$'\t' \
     --set=max_candidates="${HISTORY_API_MAX_NODES_PER_RUN}" \
-    --command="SELECT candidates.node_id, candidates.last_seen_version FROM osm_pipeline.global_alpr_node_ids AS candidates LEFT JOIN osm_history.tracked_nodes AS tracked ON tracked.node_id = candidates.node_id WHERE tracked.node_id IS NULL AND (candidates.last_region_check_version IS NULL OR candidates.last_region_check_version < candidates.last_seen_version) ORDER BY candidates.node_id LIMIT :'max_candidates'::integer" \
-    > "${candidate_list}"
+    > "${candidate_list}" <<'HISTORY_CANDIDATES_SQL'
+SELECT candidates.node_id, candidates.last_seen_version
+FROM osm_pipeline.global_alpr_node_ids AS candidates
+LEFT JOIN osm_history.tracked_nodes AS tracked ON tracked.node_id = candidates.node_id
+WHERE tracked.node_id IS NULL
+  AND (
+      candidates.last_region_check_version IS NULL
+      OR candidates.last_region_check_version < candidates.last_seen_version
+  )
+ORDER BY candidates.node_id
+LIMIT :'max_candidates'::integer;
+HISTORY_CANDIDATES_SQL
 
 processed_candidates=0
 while IFS=$'\t' read -r node_id last_seen_version; do
@@ -138,8 +148,13 @@ while IFS=$'\t' read -r node_id last_seen_version; do
     else
         psql_osm \
             --set=node_id="${node_id}" \
-            --set=last_seen_version="${last_seen_version}" \
-            --command="UPDATE osm_pipeline.global_alpr_node_ids SET last_region_check_version = :'last_seen_version'::integer, last_region_checked_at = clock_timestamp(), updated_at = clock_timestamp() WHERE node_id = :'node_id'::bigint"
+            --set=last_seen_version="${last_seen_version}" <<'HISTORY_REGION_CHECK_SQL'
+UPDATE osm_pipeline.global_alpr_node_ids
+SET last_region_check_version = :'last_seen_version'::integer,
+    last_region_checked_at = clock_timestamp(),
+    updated_at = clock_timestamp()
+WHERE node_id = :'node_id'::bigint;
+HISTORY_REGION_CHECK_SQL
     fi
 
     processed_candidates=$((processed_candidates + 1))

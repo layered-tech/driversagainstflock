@@ -44,8 +44,10 @@ fi
 require_file "${POLYGON_PATH}"
 
 resolved_history_url="$(sed -n 's/^resolved_url=//p' "${HISTORY_METADATA_PATH}" | tail -n 1)"
-[[ "${resolved_history_url}" == https://planet.openstreetmap.org/pbf/full-history/history-*.osm.pbf ]] \
-    || die "Unexpected resolved full-history URL: ${resolved_history_url}"
+if [[ ! "${resolved_history_url}" =~ ^https://planet\.openstreetmap\.org/pbf/full-history/history-[0-9]{6}\.osm\.pbf$ \
+    && ! "${resolved_history_url}" =~ ^https://osm-planet-us-west-2\.s3\.dualstack\.us-west-2\.amazonaws\.com/planet-full-history/pbf/[0-9]{4}/history-[0-9]{6}\.osm\.pbf$ ]]; then
+    die "Unexpected resolved full-history URL: ${resolved_history_url}"
+fi
 
 history_md5="$(awk 'NR == 1 { print $1 }' "${PLANET_CHECKSUM_PATH}")"
 [[ "${history_md5}" =~ ^[0-9a-fA-F]{32}$ ]] || die 'Full-history MD5 file is invalid'

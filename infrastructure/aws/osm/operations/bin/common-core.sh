@@ -118,7 +118,12 @@ write_pipeline_state()
     psql_osm \
         --set=state_key="${key}" \
         --set=state_value="${value}" \
-        --command="INSERT INTO osm_pipeline.state (state_key, state_value) VALUES (:'state_key', :'state_value') ON CONFLICT (state_key) DO UPDATE SET state_value = EXCLUDED.state_value, updated_at = clock_timestamp();"
+        <<'PIPELINE_STATE_SQL'
+INSERT INTO osm_pipeline.state (state_key, state_value)
+VALUES (:'state_key', :'state_value')
+ON CONFLICT (state_key) DO UPDATE
+SET state_value = EXCLUDED.state_value, updated_at = clock_timestamp();
+PIPELINE_STATE_SQL
 }
 
 clean_stale_work_directories()

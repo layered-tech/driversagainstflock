@@ -113,6 +113,7 @@ osm2pgsql \
     --port="${POSTGRESQL_PORT}" \
     --username=osm_ingest \
     --prefix="${OSM2PGSQL_PREFIX}" \
+    --schema=osm_ingest \
     --middle-schema=osm_ingest \
     --cache="${OSM2PGSQL_CACHE_MB}" \
     --number-processes="${OSM2PGSQL_PROCESSES}" \

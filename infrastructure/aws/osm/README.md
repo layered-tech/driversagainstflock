@@ -220,7 +220,14 @@ buckets. Any Terraform rollback must use a separately reviewed saved plan.
 
 ### Phase 5: current North America bootstrap
 
-Approval required. This starts the initial current extract download and import.
+Status: complete on 2026-08-25. The checksum-verified North America extract
+bootstrapped 136,183 exact-tagged current nodes; the validated post-replication
+snapshot contained 136,358 current and staging rows with zero publication, tag,
+contributor, geometry, or output-shape errors. Data-changing and zero-relevant-node
+minute intervals both completed successfully, replication lag recovered to 207
+seconds, and the freshness, failure, and publication-parity alarms reached `OK`.
+The deployed runtime artifact SHA-256 is
+`fd205049c76505ff5e89833e47155b78172cc8ce35ed025eb2b379e5f99567ad`.
 
 - Start `daf-osm-current-bootstrap.service` through SSM.
 - Verify the source checksum before import.
