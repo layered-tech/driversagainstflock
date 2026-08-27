@@ -588,11 +588,12 @@ resource "aws_cloudwatch_dashboard" "osm" {
             ["DAF/OSM", "MemoryUsedPercent", "InstanceId", aws_instance.database.id, { label = "Memory used (%)" }],
             ["DAF/OSM", "DataVolumeUsedPercent", "InstanceId", aws_instance.database.id, { label = "Data volume used (%)" }],
           ]
-          period = 300
-          region = var.aws_region
-          stat   = "Average"
-          title  = "Database instance health"
-          view   = "timeSeries"
+          period  = 60
+          region  = var.aws_region
+          stat    = "Average"
+          stacked = true
+          title   = "Database instance health"
+          view    = "timeSeries"
           yAxis = {
             left = {
               min = 0
@@ -613,10 +614,11 @@ resource "aws_cloudwatch_dashboard" "osm" {
             ["AWS/EBS", "VolumeWriteOps", "VolumeId", aws_ebs_volume.data.id, { label = "Write operations", stat = "Sum" }],
             ["AWS/EBS", "VolumeQueueLength", "VolumeId", aws_ebs_volume.data.id, { label = "Queue length", stat = "Average", yAxis = "right" }],
           ]
-          period = 300
-          region = var.aws_region
-          title  = "Persistent database volume"
-          view   = "timeSeries"
+          period  = 60
+          region  = var.aws_region
+          stacked = false
+          title   = "Persistent database volume"
+          view    = "timeSeries"
         }
       },
       {
@@ -636,11 +638,13 @@ resource "aws_cloudwatch_dashboard" "osm" {
             ["DAF/OSM", "HistoryConsumerFailures", "InstanceId", aws_instance.database.id, { label = "History failures", stat = "Sum", yAxis = "right" }],
             ["DAF/OSM", "LastSuccessfulReplicationUnixTime", "InstanceId", aws_instance.database.id, { label = "Last success (Unix time)", stat = "Maximum", visible = false }],
           ]
-          period = 300
-          region = var.aws_region
-          stat   = "Maximum"
-          title  = "Minute replication"
-          view   = "timeSeries"
+          period               = 60
+          region               = var.aws_region
+          setPeriodToTimeRange = true
+          stacked              = false
+          stat                 = "Maximum"
+          title                = "Minute replication"
+          view                 = "timeSeries"
         }
       },
       {
@@ -658,11 +662,13 @@ resource "aws_cloudwatch_dashboard" "osm" {
             ["DAF/OSM", "HistoryConsumerSequence", "InstanceId", aws_instance.database.id, { label = "History sequence", yAxis = "right" }],
             ["DAF/OSM", "HistoryBootstrapComplete", "InstanceId", aws_instance.database.id, { label = "History bootstrap complete", yAxis = "right" }],
           ]
-          period = 300
-          region = var.aws_region
-          stat   = "Maximum"
-          title  = "Publication and history volume"
-          view   = "timeSeries"
+          period               = 60
+          region               = var.aws_region
+          setPeriodToTimeRange = true
+          stacked              = true
+          stat                 = "Maximum"
+          title                = "Publication and history volume"
+          view                 = "bar"
         }
       },
       {
@@ -680,7 +686,7 @@ resource "aws_cloudwatch_dashboard" "osm" {
             ["DAF/OSM", "BackupFailures", "InstanceId", aws_instance.database.id, { label = "Backup failures", stat = "Sum", yAxis = "right" }],
             ["DAF/OSM", "PublicationParityMismatch", "InstanceId", aws_instance.database.id, { label = "Parity mismatches", stat = "Maximum", yAxis = "right" }],
           ]
-          period = 900
+          period = 60
           region = var.aws_region
           stat   = "Maximum"
           title  = "History, backups, and parity"

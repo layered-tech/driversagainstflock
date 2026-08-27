@@ -159,6 +159,19 @@ if cloudwatch["metrics"].get("namespace") != "DAF/OSM":
     raise SystemExit("CloudWatch namespace must be DAF/OSM")
 if "retention_in_days" in json.dumps(cloudwatch):
     raise SystemExit("Terraform must remain authoritative for log retention")
+log_paths = {
+    entry["file_path"]
+    for entry in cloudwatch["logs"]["logs_collected"]["files"]["collect_list"]
+}
+required_log_paths = {
+    "/var/log/daf-osm/global-update.log",
+    "/var/log/daf-osm/metrics.log",
+    "/var/log/daf-osm/backup.log",
+}
+if not required_log_paths.issubset(log_paths):
+    raise SystemExit("CloudWatch must collect active global runtime logs")
+if log_paths & {"/var/log/daf-osm/current-*.log", "/var/log/daf-osm/history-*.log"}:
+    raise SystemExit("CloudWatch still collects retired replication logs")
 
 install = (operations / "install.sh").read_text(encoding="utf-8")
 for contract in (
