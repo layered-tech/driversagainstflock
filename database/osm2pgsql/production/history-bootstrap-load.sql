@@ -7,7 +7,7 @@ INSERT INTO osm_history.tracked_nodes (
     node_id,
     first_alpr_at,
     last_alpr_at,
-    region_confirmed_at,
+    qualified_at,
     api_backfilled_at
 )
 SELECT
@@ -33,9 +33,9 @@ ON CONFLICT (node_id) DO UPDATE SET
         osm_history.tracked_nodes.last_alpr_at,
         EXCLUDED.last_alpr_at
     ),
-    region_confirmed_at = least(
-        osm_history.tracked_nodes.region_confirmed_at,
-        EXCLUDED.region_confirmed_at
+    qualified_at = least(
+        osm_history.tracked_nodes.qualified_at,
+        EXCLUDED.qualified_at
     ),
     api_backfilled_at = COALESCE(
         EXCLUDED.api_backfilled_at,
@@ -48,18 +48,14 @@ INSERT INTO osm_pipeline.global_alpr_node_ids (
     first_seen_version,
     last_seen_version,
     first_seen_at,
-    last_seen_at,
-    last_region_check_version,
-    last_region_checked_at
+    last_seen_at
 )
 SELECT
     node_id,
     min(osm_version) FILTER (WHERE tags ->> 'surveillance:type' = 'ALPR'),
     max(osm_version) FILTER (WHERE tags ->> 'surveillance:type' = 'ALPR'),
     min(osm_updated_at) FILTER (WHERE tags ->> 'surveillance:type' = 'ALPR'),
-    max(osm_updated_at) FILTER (WHERE tags ->> 'surveillance:type' = 'ALPR'),
-    max(osm_version),
-    clock_timestamp()
+    max(osm_updated_at) FILTER (WHERE tags ->> 'surveillance:type' = 'ALPR')
 FROM osm_pipeline.node_versions_stage
 GROUP BY node_id
 HAVING bool_or(tags ->> 'surveillance:type' = 'ALPR')
@@ -84,12 +80,6 @@ ON CONFLICT (node_id) DO UPDATE SET
         osm_pipeline.global_alpr_node_ids.last_seen_at,
         EXCLUDED.last_seen_at
     ),
-    last_region_check_version = COALESCE(
-        greatest(osm_pipeline.global_alpr_node_ids.last_region_check_version, EXCLUDED.last_region_check_version),
-        osm_pipeline.global_alpr_node_ids.last_region_check_version,
-        EXCLUDED.last_region_check_version
-    ),
-    last_region_checked_at = clock_timestamp(),
     updated_at = clock_timestamp();
 
 INSERT INTO osm_history.alpr_node_versions (

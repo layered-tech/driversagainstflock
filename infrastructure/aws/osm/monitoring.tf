@@ -235,11 +235,11 @@ resource "aws_cloudwatch_metric_alarm" "postgresql_health" {
   })
 }
 
-resource "aws_cloudwatch_metric_alarm" "replication_freshness" {
-  alarm_name          = "daf-osm-replication-stale"
-  alarm_description   = "OSM minute replication is more than 10 minutes behind for 10 minutes"
+resource "aws_cloudwatch_metric_alarm" "shared_feed_freshness" {
+  alarm_name          = "daf-osm-shared-feed-stale"
+  alarm_description   = "The shared global OSM minute feed is more than 10 minutes behind"
   namespace           = "DAF/OSM"
-  metric_name         = "ReplicationLagSeconds"
+  metric_name         = "SharedFeedSourceLagSeconds"
   statistic           = "Maximum"
   period              = 300
   evaluation_periods  = 2
@@ -255,15 +255,15 @@ resource "aws_cloudwatch_metric_alarm" "replication_freshness" {
   }
 
   tags = merge(local.common_tags, {
-    Name = "daf-osm-replication-stale"
+    Name = "daf-osm-shared-feed-stale"
   })
 }
 
-resource "aws_cloudwatch_metric_alarm" "replication_failure" {
-  alarm_name          = "daf-osm-replication-failure"
-  alarm_description   = "An OSM current or history replication update has failed"
+resource "aws_cloudwatch_metric_alarm" "shared_feed_failure" {
+  alarm_name          = "daf-osm-shared-feed-failure"
+  alarm_description   = "The shared global OSM feed acquisition or orchestration failed"
   namespace           = "DAF/OSM"
-  metric_name         = "ReplicationUpdateFailures"
+  metric_name         = "SharedFeedFailures"
   statistic           = "Sum"
   period              = 300
   evaluation_periods  = 1
@@ -279,15 +279,92 @@ resource "aws_cloudwatch_metric_alarm" "replication_failure" {
   }
 
   tags = merge(local.common_tags, {
-    Name = "daf-osm-replication-failure"
+    Name = "daf-osm-shared-feed-failure"
   })
 }
 
-resource "aws_cloudwatch_metric_alarm" "history_freshness" {
+resource "aws_cloudwatch_metric_alarm" "current_consumer_failure" {
+  alarm_name          = "daf-osm-current-consumer-failure"
+  alarm_description   = "The global current projection consumer failed"
+  namespace           = "DAF/OSM"
+  metric_name         = "CurrentConsumerFailures"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    InstanceId = aws_instance.database.id
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "daf-osm-current-consumer-failure"
+  })
+}
+
+resource "aws_cloudwatch_metric_alarm" "history_consumer_failure" {
+  alarm_name          = "daf-osm-history-consumer-failure"
+  alarm_description   = "The global history projection consumer failed"
+  namespace           = "DAF/OSM"
+  metric_name         = "HistoryConsumerFailures"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    InstanceId = aws_instance.database.id
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "daf-osm-history-consumer-failure"
+  })
+}
+
+resource "aws_cloudwatch_metric_alarm" "current_consumer_freshness" {
+  alarm_name          = "daf-osm-current-consumer-stale"
+  alarm_description   = "The global current projection is more than 10 minutes behind"
+  namespace           = "DAF/OSM"
+  metric_name         = "CurrentConsumerLagSeconds"
+  statistic           = "Maximum"
+  period              = 300
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  threshold           = 600
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "breaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    InstanceId = aws_instance.database.id
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "daf-osm-current-consumer-stale"
+  })
+}
+
+moved {
+  from = aws_cloudwatch_metric_alarm.history_freshness
+  to   = aws_cloudwatch_metric_alarm.history_consumer_freshness
+}
+
+resource "aws_cloudwatch_metric_alarm" "history_consumer_freshness" {
   alarm_name          = "daf-osm-history-stale"
   alarm_description   = "The append-only OSM history projection is more than one hour behind"
   namespace           = "DAF/OSM"
-  metric_name         = "HistoryLagSeconds"
+  metric_name         = "HistoryConsumerLagSeconds"
   statistic           = "Maximum"
   period              = 300
   evaluation_periods  = 2
@@ -304,6 +381,78 @@ resource "aws_cloudwatch_metric_alarm" "history_freshness" {
 
   tags = merge(local.common_tags, {
     Name = "daf-osm-history-stale"
+  })
+}
+
+resource "aws_cloudwatch_metric_alarm" "retained_spool" {
+  alarm_name          = "daf-osm-shared-feed-spool-retained"
+  alarm_description   = "A shared global replication batch has remained uncommitted for 10 minutes"
+  namespace           = "DAF/OSM"
+  metric_name         = "SharedFeedRetainedBatchCount"
+  statistic           = "Maximum"
+  period              = 300
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "breaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    InstanceId = aws_instance.database.id
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "daf-osm-shared-feed-spool-retained"
+  })
+}
+
+resource "aws_cloudwatch_metric_alarm" "current_cursor_divergence" {
+  alarm_name          = "daf-osm-current-cursor-divergence"
+  alarm_description   = "The global current consumer remains more than five sequences from the shared feed"
+  namespace           = "DAF/OSM"
+  metric_name         = "CurrentConsumerCursorDivergence"
+  statistic           = "Maximum"
+  period              = 300
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  threshold           = 5
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "breaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    InstanceId = aws_instance.database.id
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "daf-osm-current-cursor-divergence"
+  })
+}
+
+resource "aws_cloudwatch_metric_alarm" "history_cursor_divergence" {
+  alarm_name          = "daf-osm-history-cursor-divergence"
+  alarm_description   = "The global history consumer remains more than five sequences from the shared feed"
+  namespace           = "DAF/OSM"
+  metric_name         = "HistoryConsumerCursorDivergence"
+  statistic           = "Maximum"
+  period              = 300
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  threshold           = 5
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "breaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    InstanceId = aws_instance.database.id
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "daf-osm-history-cursor-divergence"
   })
 }
 
@@ -410,9 +559,15 @@ resource "aws_cloudwatch_dashboard" "osm" {
             aws_cloudwatch_metric_alarm.data_volume_usage.arn,
             aws_cloudwatch_metric_alarm.memory_usage.arn,
             aws_cloudwatch_metric_alarm.postgresql_health.arn,
-            aws_cloudwatch_metric_alarm.replication_freshness.arn,
-            aws_cloudwatch_metric_alarm.replication_failure.arn,
-            aws_cloudwatch_metric_alarm.history_freshness.arn,
+            aws_cloudwatch_metric_alarm.shared_feed_freshness.arn,
+            aws_cloudwatch_metric_alarm.shared_feed_failure.arn,
+            aws_cloudwatch_metric_alarm.current_consumer_freshness.arn,
+            aws_cloudwatch_metric_alarm.current_consumer_failure.arn,
+            aws_cloudwatch_metric_alarm.history_consumer_freshness.arn,
+            aws_cloudwatch_metric_alarm.history_consumer_failure.arn,
+            aws_cloudwatch_metric_alarm.retained_spool.arn,
+            aws_cloudwatch_metric_alarm.current_cursor_divergence.arn,
+            aws_cloudwatch_metric_alarm.history_cursor_divergence.arn,
             aws_cloudwatch_metric_alarm.backup_freshness.arn,
             aws_cloudwatch_metric_alarm.backup_failure.arn,
             aws_cloudwatch_metric_alarm.publication_parity.arn,
@@ -473,8 +628,12 @@ resource "aws_cloudwatch_dashboard" "osm" {
         properties = {
           metrics = [
             ["DAF/OSM", "PostgreSQLUp", "InstanceId", aws_instance.database.id, { label = "PostgreSQL healthy", stat = "Minimum" }],
-            ["DAF/OSM", "ReplicationLagSeconds", "InstanceId", aws_instance.database.id, { label = "Replication lag (seconds)" }],
-            ["DAF/OSM", "ReplicationUpdateFailures", "InstanceId", aws_instance.database.id, { label = "Update failures", stat = "Sum", yAxis = "right" }],
+            ["DAF/OSM", "SharedFeedSourceLagSeconds", "InstanceId", aws_instance.database.id, { label = "Shared source lag (seconds)" }],
+            ["DAF/OSM", "CurrentConsumerLagSeconds", "InstanceId", aws_instance.database.id, { label = "Current lag (seconds)" }],
+            ["DAF/OSM", "HistoryConsumerLagSeconds", "InstanceId", aws_instance.database.id, { label = "History lag (seconds)" }],
+            ["DAF/OSM", "SharedFeedFailures", "InstanceId", aws_instance.database.id, { label = "Feed failures", stat = "Sum", yAxis = "right" }],
+            ["DAF/OSM", "CurrentConsumerFailures", "InstanceId", aws_instance.database.id, { label = "Current failures", stat = "Sum", yAxis = "right" }],
+            ["DAF/OSM", "HistoryConsumerFailures", "InstanceId", aws_instance.database.id, { label = "History failures", stat = "Sum", yAxis = "right" }],
             ["DAF/OSM", "LastSuccessfulReplicationUnixTime", "InstanceId", aws_instance.database.id, { label = "Last success (Unix time)", stat = "Maximum", visible = false }],
           ]
           period = 300
@@ -494,7 +653,9 @@ resource "aws_cloudwatch_dashboard" "osm" {
           metrics = [
             ["DAF/OSM", "CurrentAlprNodeCount", "InstanceId", aws_instance.database.id, { label = "Current ALPR nodes" }],
             ["DAF/OSM", "HistoryEventCount", "InstanceId", aws_instance.database.id, { label = "History events" }],
-            ["DAF/OSM", "ReplicationSequence", "InstanceId", aws_instance.database.id, { label = "Replication sequence", yAxis = "right" }],
+            ["DAF/OSM", "SharedFeedSequence", "InstanceId", aws_instance.database.id, { label = "Shared feed sequence", yAxis = "right" }],
+            ["DAF/OSM", "CurrentConsumerSequence", "InstanceId", aws_instance.database.id, { label = "Current sequence", yAxis = "right" }],
+            ["DAF/OSM", "HistoryConsumerSequence", "InstanceId", aws_instance.database.id, { label = "History sequence", yAxis = "right" }],
             ["DAF/OSM", "HistoryBootstrapComplete", "InstanceId", aws_instance.database.id, { label = "History bootstrap complete", yAxis = "right" }],
           ]
           period = 300
@@ -512,7 +673,9 @@ resource "aws_cloudwatch_dashboard" "osm" {
         height = 6
         properties = {
           metrics = [
-            ["DAF/OSM", "HistoryLagSeconds", "InstanceId", aws_instance.database.id, { label = "History lag (seconds)" }],
+            ["DAF/OSM", "SharedFeedRetainedBatchCount", "InstanceId", aws_instance.database.id, { label = "Retained spool batches" }],
+            ["DAF/OSM", "CurrentConsumerCursorDivergence", "InstanceId", aws_instance.database.id, { label = "Current cursor divergence" }],
+            ["DAF/OSM", "HistoryConsumerCursorDivergence", "InstanceId", aws_instance.database.id, { label = "History cursor divergence" }],
             ["DAF/OSM", "BackupAgeSeconds", "InstanceId", aws_instance.database.id, { label = "Backup age (seconds)" }],
             ["DAF/OSM", "BackupFailures", "InstanceId", aws_instance.database.id, { label = "Backup failures", stat = "Sum", yAxis = "right" }],
             ["DAF/OSM", "PublicationParityMismatch", "InstanceId", aws_instance.database.id, { label = "Parity mismatches", stat = "Maximum", yAxis = "right" }],

@@ -27,7 +27,7 @@ cat > "${work_directory}/change.osc" <<'OSM_CHANGE'
   </create>
 </osmChange>
 OSM_CHANGE
-: > "${work_directory}/tracked.txt"
+printf '9\n' > "${work_directory}/tracked.txt"
 
 python3 infrastructure/aws/osm/operations/bin/filter-current-change.py \
     --input "${work_directory}/change.osc" \
@@ -35,13 +35,19 @@ python3 infrastructure/aws/osm/operations/bin/filter-current-change.py \
     --tracked-ids "${work_directory}/tracked.txt" \
     > "${work_directory}/written-count.txt"
 
-[[ "$(cat "${work_directory}/written-count.txt")" == 3 ]] \
-    || { echo 'Expected all ALPR, untagged, and deleted node versions in the batch' >&2; exit 1; }
-[[ "$(osmium fileinfo --extended --get=data.count.nodes "${work_directory}/filtered.osc.gz")" == 3 ]] \
-    || { echo 'Filtered current change does not contain three node versions' >&2; exit 1; }
+[[ "$(cat "${work_directory}/written-count.txt")" == 1 ]] \
+    || { echo 'Expected one terminal current-state version for the ALPR node' >&2; exit 1; }
+[[ "$(osmium fileinfo --extended --get=data.count.nodes "${work_directory}/filtered.osc.gz")" == 1 ]] \
+    || { echo 'Filtered current change does not contain one terminal node version' >&2; exit 1; }
 [[ "$(osmium fileinfo --extended --get=data.count.ways "${work_directory}/filtered.osc.gz")" == 0 ]] \
     || { echo 'Filtered current change unexpectedly retained a way' >&2; exit 1; }
 [[ "$(osmium fileinfo --extended --get=data.count.relations "${work_directory}/filtered.osc.gz")" == 0 ]] \
     || { echo 'Filtered current change unexpectedly retained a relation' >&2; exit 1; }
 
-echo 'Current ALPR-to-untagged-to-deleted batch invariant passed'
+terminal_line="$(osmium cat --output-format=opl "${work_directory}/filtered.osc.gz")"
+[[ "${terminal_line}" == n9\ v3\ * ]] \
+    || { echo 'Filtered current change did not retain the highest node version' >&2; exit 1; }
+[[ "${terminal_line}" == *' dD '* ]] \
+    || { echo 'Filtered current change did not retain terminal deletion visibility' >&2; exit 1; }
+
+echo 'Current ALPR-to-untagged-to-deleted terminal-state invariant passed'

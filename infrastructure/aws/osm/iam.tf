@@ -50,6 +50,7 @@ data "aws_iam_policy_document" "database" {
       "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/daf-osm/database/endpoint",
       "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/daf-osm/database/name",
       "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/daf-osm/database/port",
+      "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/daf-osm/database/publisher-password",
     ]
   }
 

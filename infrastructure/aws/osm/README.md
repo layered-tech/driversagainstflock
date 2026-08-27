@@ -11,7 +11,8 @@ initialization and planning.
 
 ## Data scope
 
-The database retains only the OSM node data required by this workload:
+Through Phase 7, the deployed database retains only the OSM node data required
+by the original North America workload:
 
 - The current state of North America nodes whose exact
   `surveillance:type=ALPR` tag is present.
@@ -24,6 +25,12 @@ The database retains only the OSM node data required by this workload:
   monitor the pipeline.
 - osm2pgsql slim middle tables needed to apply current-state minute diffs.
 
+Phase 7.5 converts the entire active data stack to global scope: global
+bootstrap sources, every currently exact-tagged public node worldwide, every
+public version of every node that has had the exact tag anywhere, and one global
+minute feed with separately checkpointed current and history consumers. The
+completed Phase 7 regional stack remains only as a versioned rollback artifact.
+
 The application-readable role can select both the current and historical
 schemas, including contributor fields.
 
@@ -33,19 +40,22 @@ temporary PostgreSQL rows.
 
 ## Sources
 
-| Purpose | Source |
-| --- | --- |
-| North America current extract | `https://download.openstreetmap.fr/extracts/north-america-latest.osm.pbf` |
-| Current extract checksum | `https://download.openstreetmap.fr/extracts/north-america-latest.osm.pbf.md5` |
-| North America minute diffs | `https://download.openstreetmap.fr/replication/north-america/minute/` |
-| Full public node history | `https://planet.openstreetmap.org/pbf/full-history/history-latest.osm.pbf` |
-| Global minute diffs for history | `https://planet.openstreetmap.org/replication/minute/` |
-| Node-history backfill | `https://api.openstreetmap.org/api/0.6/node/{id}/history` |
+| Purpose                                                                            | Source                                                                        |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| North America current extract through Phase 7                                      | `https://download.openstreetmap.fr/extracts/north-america-latest.osm.pbf`     |
+| North America current checksum through Phase 7                                     | `https://download.openstreetmap.fr/extracts/north-america-latest.osm.pbf.md5` |
+| North America current minute diffs retired by Phase 7.5                            | `https://download.openstreetmap.fr/replication/north-america/minute/`         |
+| Global current planet snapshot after Phase 7.5                                     | `https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf`                  |
+| Full public node history                                                           | Release-aligned immutable object under `https://osm-planet-us-west-2.s3.dualstack.us-west-2.amazonaws.com/planet-full-history/pbf/` |
+| Global minute diffs for history through Phase 7 and both consumers after Phase 7.5 | `https://planet.openstreetmap.org/replication/minute/`                        |
+| Node-history backfill                                                              | `https://api.openstreetmap.org/api/0.6/node/{id}/history`                     |
 
-The region polygon is used only to decide whether an exact-tagged node has been
-in North America. Once a node qualifies, every publicly available version of
-that node is retained, including versions before or after its qualifying
-location or tag.
+Through Phase 7, the region polygon is used only to decide whether an
+exact-tagged node has been in North America. Once a node qualifies, every
+publicly available version of that node is retained, including versions before
+or after its qualifying location or tag. Phase 7.5 removes that regional
+qualification boundary and removes the polygon from the active runtime and
+validation contract.
 
 ## AWS layout
 
@@ -243,9 +253,18 @@ table and do not cut over any consumer.
 
 ### Phase 6: complete public node-history bootstrap
 
-Approval required. The approval summary must include the current full-history
-file size, available EBS space, expected runtime, and temporary NAT processing
-cost.
+Status: complete on 2026-08-26. The checksum-verified 161,811,792,379-byte
+full-history source bootstrapped 144,113 qualifying North America nodes and
+203,237 public lifecycle versions. Global minute catch-up and API backfills
+then advanced the validated dataset to 214,092 lifecycle versions with zero
+contributor, tag, visibility, geometry, staging, output-shape, or cursor-parity
+errors. Database and file history cursors matched at sequence 7,259,738,
+observed history lag recovered to 109 seconds, and all relevant database,
+storage, freshness, failure, and publication-parity alarms reached `OK`. The
+source and checksum remain retained without partial files, and the Phase 7
+backup timer remains disabled and inactive. The deployed runtime artifact
+SHA-256 is
+`c493b31cba846b41ae9f30754b4c4321122d3c8910277960a4e1c170cf07482a`.
 
 - Start `daf-osm-history-bootstrap.service` through SSM.
 - Identify exact ALPR versions, qualify IDs by North America location, then load
@@ -269,9 +288,19 @@ projection or protected EBS volume.
 
 ### Phase 7: backup, restore, and history-source cleanup proof
 
-Approval required for the production backup and isolated restore operation.
-Timer enablement and history-source cleanup each require separate explicit
-approval after their gates pass.
+Status: complete on 2026-08-26. The first encrypted, versioned PostgreSQL
+backup was uploaded and remotely verified at 42,627,010 bytes with SHA-256
+`212f65e339f8c58d946abbf340299a3fec18aaa6e83178da18ede605737e39c3`.
+An isolated restore reproduced 136,510 current nodes, 214,147 public lifecycle
+versions, current/history cursors 7,259,810 and 7,259,811, all 21 validated
+constraints, staging parity, contributor-field aggregates, and table ownership.
+The isolated database and temporary restore files were then removed while the
+verified S3 backup and sidecars remained intact. The daily backup timer is
+enabled and active. After its bootstrap, validation, backup, database, and file
+sequence gates passed, the 161,811,792,379-byte full-history source and checksum
+were removed and the durable cleanup marker was recorded at history sequence
+7,259,838. The final deployed runtime artifact SHA-256 is
+`e1aed7af7870921b96128d8a726272284e85f04d090624da42a95c8a6d588e97`.
 
 - Through SSM, manually start `daf-osm-backup.service` to complete, upload, and
   remotely verify the first encrypted logical backup. Do not enable the timer
@@ -292,6 +321,86 @@ approval after their gates pass.
 
 Rollback: discard only the isolated restore after approval. Keep the verified
 backup under the configured S3 lifecycle.
+
+### Phase 7.5: single global replication and global node stack
+
+Approval required for the destructive in-place database rebuild and runtime
+deployment. There are no production database consumers before Phase 8, so this
+phase does not create a shadow database: it stops the Phase 7 timers, verifies
+the completed Phase 7 backup marker, rebuilds the existing OSM schemas globally,
+and accepts bootstrap downtime. Activating the global timer requires separate
+explicit approval after both global bootstraps and shared-feed initialization
+pass. Cleaning the retained global history source requires another explicit
+approval after validation, backup, and restore gates pass. Phase 8 application
+cutover remains an independent approval.
+
+- Replace the independent regional-current and global-history downloaders with
+  one global minute-diff acquisition path. Fetch each sequence once and retain
+  its durable spool entry until both downstream consumers have committed it.
+- Keep independent current and history applied cursors, failure state, and
+  retry behavior. A successful consumer must not advance the other consumer or
+  allow a shared diff to be removed before both commits are durable.
+- Bootstrap the global current projection in the rebuilt database from a checksum-pinned
+  current planet snapshot, initialize it at the matching global replication
+  cursor, and replay retained global diffs until it reaches the shared feed head.
+- Store the current state of every visible public node worldwide whose exact
+  `surveillance:type=ALPR` tag is present. Remove it from the current projection
+  when it becomes invisible or loses the exact tag.
+- Re-download the checksum-pinned full-history planet source and bootstrap
+  global history qualification without a region polygon so nodes that qualified
+  only in the past are not missed. Retain every publicly available version of
+  every globally qualifying node, then continue applying lifecycle versions
+  from the shared global feed and API backfills.
+- Validate nonzero global counts, exact-tag filtering, current/staging parity,
+  contributor fields, complete tags, visibility, geometry, sequence continuity,
+  per-consumer cursor parity, retry recovery, and output shape against the
+  checksum-pinned global bootstrap sources. No regional subset is an acceptance
+  gate.
+- Add separate shared-feed, current-consumer, and history-consumer metrics and
+  alarms for source lag, retained spool depth, applied cursors, cursor divergence,
+  failures, and publication parity.
+- Complete and remotely verify a post-migration backup, then restore it into an
+  isolated database and repeat the global current/history validation there.
+- After explicit activation approval, enable the single global timer. The final
+  runtime contains no North America source, timer, cursor, polygon, metric,
+  alarm, or validation branch. Preserve the completed Phase 7 backup and
+  versioned artifact as the rollback source.
+
+Execution order through SSM after the destructive rebuild/runtime deployment is
+approved:
+
+1. Start `daf-osm-global-rebuild-prepare.service`. This preserves the Phase 7
+   backup marker, drains database readers, drops the unused schemas, and creates
+   the global schema.
+2. Start `daf-osm-current-bootstrap.service`, then
+   `daf-osm-history-bootstrap.service`. Do not overlap the two planet downloads.
+3. Verify both immutable planet filenames identify the same release, then start
+   `daf-osm-global-initialize.service`. It requires identical checksum-pinned
+   bootstrap sequence and timestamp values before creating the shared feed.
+4. After separate activation approval, start
+   `daf-osm-global-activate.service`. Let the one shared feed replay until its
+   shared, current, and history database/file cursors converge and its retained
+   spool is empty.
+5. Run `runuser --user osm_ingest -- /opt/daf-osm/bin/validate.sh`. Only after
+   `global-validation.complete` exists, manually start
+   `daf-osm-backup.service` and verify the remote archive and both sidecars.
+6. Restore that backup into an isolated database. Re-run the global counts,
+   constraints, metadata, output-shape, and shared/current/history cursor checks
+   against the restore. Remove only the isolated restore after the proof passes.
+7. Enable and start `daf-osm-backup.timer`. After separate source-cleanup
+   approval, run
+   `runuser --user osm_ingest -- /opt/daf-osm/bin/cleanup-history-bootstrap.sh`
+   and verify the global cleanup marker and source absence.
+
+Rollback: leave Phase 8 consumers unchanged and stop the global timer. Restore
+the completed Phase 7 database backup. Before installing the versioned Phase 7
+runtime artifact, run `/opt/daf-osm/bin/restore-phase7-runtime-state.sh` as root.
+It reconstructs both legacy replication state files from the restored database
+snapshot and restores the preserved Phase 7 bootstrap, validation, backup, and
+source-cleanup markers. Install the Phase 7 artifact and resume its
+regional-current and global-history services only after their restored file
+cursors match the restored database cursors. Remove incomplete global bootstrap
+files only after the Phase 7 stack is validated.
 
 ### Phase 8: consumer cutover
 

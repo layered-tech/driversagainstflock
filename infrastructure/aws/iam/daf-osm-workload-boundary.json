@@ -38,7 +38,8 @@
             "Resource": [
                 "arn:aws:ssm:us-east-1:326364278889:parameter/daf-osm/database/endpoint",
                 "arn:aws:ssm:us-east-1:326364278889:parameter/daf-osm/database/name",
-                "arn:aws:ssm:us-east-1:326364278889:parameter/daf-osm/database/port"
+                "arn:aws:ssm:us-east-1:326364278889:parameter/daf-osm/database/port",
+                "arn:aws:ssm:us-east-1:326364278889:parameter/daf-osm/database/publisher-password"
             ]
         },
         {

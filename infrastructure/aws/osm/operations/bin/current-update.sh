@@ -4,18 +4,12 @@ set -Eeuo pipefail
 # shellcheck source=common.sh
 source /opt/daf-osm/bin/common.sh
 
-readonly BOOTSTRAP_MARKER="${OSM_STATE_PATH}/current-bootstrap.complete"
-readonly CURRENT_STATE="${OSM_STATE_PATH}/current-replication.state"
+readonly BOOTSTRAP_MARKER="${OSM_STATE_PATH}/global-current-bootstrap.complete"
+readonly CURRENT_STATE="${OSM_STATE_PATH}/global-current-replication.state"
 
-on_error()
-{
-    local exit_code=$?
-    trap - ERR
-    put_metric ReplicationUpdateFailures 1 Count || true
-    exit "${exit_code}"
-}
-
-trap on_error ERR
+if (( $# != 2 )); then
+    die 'Current consumer requires a shared global change and state file'
+fi
 
 if [[ ! -f "${BOOTSTRAP_MARKER}" ]]; then
     log 'Current-state bootstrap is not complete; skipping update'
@@ -28,27 +22,13 @@ work_directory="$(mktemp --directory "${OSM_WORK_PATH}/current-update.XXXXXX")"
 trap 'rm -rf -- "${work_directory}"' EXIT
 
 pending_state="${work_directory}/current-replication.pending.state"
-raw_change="${work_directory}/current-raw.osc.gz"
+raw_change="${work_directory}/current-raw.osh.pbf"
 filtered_change="${work_directory}/current-alpr.osc.gz"
 tracked_ids="${work_directory}/tracked-node-ids.txt"
-download_status=0
-node_version_count="$(/opt/daf-osm/venv/bin/python \
-    /opt/daf-osm/bin/fetch-node-changes.py update \
-    --server "${OSM_CURRENT_REPLICATION_URL}" \
-    --state "${CURRENT_STATE}" \
-    --pending-state "${pending_state}" \
-    --output "${raw_change}" \
-    --simplify \
-    --max-size-mb "${CURRENT_MAX_CHANGE_SIZE_MB}")" \
-    || download_status=$?
-
-if [[ "${download_status}" -eq 3 ]]; then
-    log 'No current replication changes are available'
-    exit 0
-fi
-[[ "${download_status}" -eq 0 ]] || die "Current replication download failed with status ${download_status}"
-[[ "${node_version_count}" =~ ^[0-9]+$ ]] \
-    || die 'Node-only current replication downloader returned an invalid count'
+require_file "$1"
+require_file "$2"
+install --mode=0640 "$1" "${raw_change}"
+install --mode=0640 "$2" "${pending_state}"
 require_file "${raw_change}"
 require_file "${pending_state}"
 
@@ -117,6 +97,6 @@ promote_state "${pending_state}" "${CURRENT_STATE}"
 current_count="$(psql_osm --tuples-only --no-align \
     --command='SELECT count(*) FROM osm_current.alpr_nodes')"
 put_metric CurrentAlprNodeCount "${current_count}" Count
-put_metric ReplicationSequence "${replication_sequence}" Count
+put_metric CurrentConsumerSequence "${replication_sequence}" Count
 put_metric LastSuccessfulReplicationUnixTime "$(date --utc +%s)" Seconds
 log "Applied current replication sequence ${replication_sequence} (${written_count} relevant versions)"

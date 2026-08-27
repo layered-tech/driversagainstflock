@@ -1,5 +1,5 @@
 [Unit]
-Description=Bootstrap complete North America ALPR node history
+Description=Bootstrap complete global ALPR node history
 After=network-online.target postgresql.service
 Wants=network-online.target
 
@@ -12,7 +12,7 @@ RuntimeDirectory=daf-osm
 RuntimeDirectoryMode=0750
 RuntimeDirectoryPreserve=yes
 ExecCondition=/opt/daf-osm/bin/history-bootstrap-condition.sh
-ExecStart=/usr/bin/flock --nonblock /run/daf-osm/history.lock /opt/daf-osm/bin/bootstrap-history.sh
+ExecStart=/usr/bin/flock --nonblock /run/daf-osm/global-history.lock /opt/daf-osm/bin/bootstrap-history.sh
 TimeoutStartSec=infinity
 Nice=15
 IOSchedulingClass=idle

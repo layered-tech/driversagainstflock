@@ -19,32 +19,14 @@ cat > "${work_directory}/history.osh" <<'OSM_HISTORY'
 </osm>
 OSM_HISTORY
 
-cat > "${work_directory}/north-america.poly" <<'OSM_POLYGON'
-north-america-test
-1
-  -110 30
-  -90 30
-  -90 50
-  -110 50
-  -110 30
-END
-END
-OSM_POLYGON
-
 osmium tags-filter \
     --omit-referenced \
     --output "${work_directory}/matching.osh.pbf" \
     "${work_directory}/history.osh" \
     'n/surveillance:type=ALPR'
-osmium extract \
-    --with-history \
-    --option=relations=false \
-    --polygon "${work_directory}/north-america.poly" \
-    --output "${work_directory}/qualifying.osh.pbf" \
-    "${work_directory}/matching.osh.pbf"
 osmium getid \
     --with-history \
-    --id-osm-file "${work_directory}/qualifying.osh.pbf" \
+    --id-osm-file "${work_directory}/matching.osh.pbf" \
     --output "${work_directory}/retained.osh.pbf" \
     "${work_directory}/history.osh"
 
@@ -56,12 +38,12 @@ retained_node_two_versions="$(awk '$1 == "n2" { count++ } END { print count + 0 
 
 [[ "${retained_node_one_versions}" == 3 ]] \
     || { echo "Expected all three lifecycle versions for qualifying node 1" >&2; exit 1; }
-[[ "${retained_node_two_versions}" == 0 ]] \
-    || { echo "Node 2 must not qualify from an untagged version inside the region" >&2; exit 1; }
+[[ "${retained_node_two_versions}" == 2 ]] \
+    || { echo "Expected both lifecycle versions for globally qualifying node 2" >&2; exit 1; }
 
 for contributor in outside-before inside-alpr outside-after; do
     grep --fixed-strings --quiet "u${contributor}" "${work_directory}/retained.opl" \
         || { echo "Missing retained contributor ${contributor}" >&2; exit 1; }
 done
 
-echo 'History qualification and all-version retention invariant passed'
+echo 'Global history qualification and all-version retention invariant passed'

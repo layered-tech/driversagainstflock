@@ -41,6 +41,23 @@ acquire_install_lock()
     fi
 }
 
+acquire_replication_locks()
+{
+    install --directory --mode=0755 /run/daf-osm
+    exec 10> /run/daf-osm/backup.lock
+    flock 10
+    exec 8> /run/daf-osm/current.lock
+    flock 8
+    exec 7> /run/daf-osm/history.lock
+    flock 7
+    exec 6> /run/daf-osm/global.lock
+    flock 6
+    exec 5> /run/daf-osm/global-current.lock
+    flock 5
+    exec 4> /run/daf-osm/global-history.lock
+    flock 4
+}
+
 assert_supported_system_release()
 {
     local system_release
@@ -308,11 +325,27 @@ create_service_user_and_paths()
     chmod 0711 "${DATA_MOUNT_PATH}"
     install --directory --owner=postgres --group=postgres --mode=0700 "${POSTGRESQL_DATA_PATH}"
     install --directory --owner=osm_ingest --group=osm_ingest --mode=0750 \
+        /run/daf-osm \
         "${SERVICE_DATA_PATH}" \
         "${SERVICE_DATA_PATH}/backups" \
         "${SERVICE_DATA_PATH}/downloads" \
+        "${SERVICE_DATA_PATH}/global-replication-spool" \
         "${SERVICE_DATA_PATH}/state" \
         "${SERVICE_DATA_PATH}/work"
+    chown osm_ingest:osm_ingest \
+        /run/daf-osm/backup.lock \
+        /run/daf-osm/current.lock \
+        /run/daf-osm/history.lock \
+        /run/daf-osm/global.lock \
+        /run/daf-osm/global-current.lock \
+        /run/daf-osm/global-history.lock
+    chmod 0640 \
+        /run/daf-osm/backup.lock \
+        /run/daf-osm/current.lock \
+        /run/daf-osm/history.lock \
+        /run/daf-osm/global.lock \
+        /run/daf-osm/global-current.lock \
+        /run/daf-osm/global-history.lock
     install --directory --owner=osm_ingest --group=osm_ingest --mode=0750 /var/log/daf-osm
 }
 
@@ -466,12 +499,24 @@ DATABASE_SQL
 
 enable_operations()
 {
-    systemctl daemon-reload
-    systemctl enable \
+    systemctl disable --now \
         daf-osm-current-update.timer \
         daf-osm-history-update.timer \
+        2>/dev/null || true
+    rm --force -- \
+        /etc/systemd/system/daf-osm-current-update.service \
+        /etc/systemd/system/daf-osm-current-update.timer \
+        /etc/systemd/system/daf-osm-history-update.service \
+        /etc/systemd/system/daf-osm-history-update.timer
+    systemctl daemon-reload
+    systemctl enable \
         daf-osm-metrics.timer \
         daf-osm-backup.timer
+    if [[ -s "${SERVICE_DATA_PATH}/state/global-stack.complete" ]]; then
+        systemctl enable daf-osm-global-update.timer
+    else
+        systemctl disable --now daf-osm-global-update.timer
+    fi
 
     /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
         -a fetch-config \
@@ -480,10 +525,11 @@ enable_operations()
         -c file:/etc/daf-osm/cloudwatch-agent.json
 
     systemctl restart \
-        daf-osm-current-update.timer \
-        daf-osm-history-update.timer \
         daf-osm-metrics.timer \
         daf-osm-backup.timer
+    if [[ -s "${SERVICE_DATA_PATH}/state/global-stack.complete" ]]; then
+        systemctl restart daf-osm-global-update.timer
+    fi
 }
 
 main()
@@ -503,5 +549,5 @@ main()
 }
 
 acquire_install_lock
+acquire_replication_locks
 main "$@"
-

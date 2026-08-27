@@ -43,8 +43,6 @@ CREATE TABLE IF NOT EXISTS osm_pipeline.global_alpr_node_ids (
     last_seen_version integer,
     first_seen_at timestamptz,
     last_seen_at timestamptz,
-    last_region_check_version integer,
-    last_region_checked_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
     updated_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
@@ -54,7 +52,7 @@ CREATE TABLE IF NOT EXISTS osm_history.tracked_nodes (
     node_id bigint NOT NULL UNIQUE,
     first_alpr_at timestamptz,
     last_alpr_at timestamptz,
-    region_confirmed_at timestamptz NOT NULL,
+    qualified_at timestamptz NOT NULL,
     api_backfilled_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
     updated_at timestamptz NOT NULL DEFAULT clock_timestamp()
@@ -174,6 +172,6 @@ END
 $ownership_contract$;
 
 COMMENT ON TABLE osm_current.alpr_nodes IS
-    'Current North America OSM nodes with surveillance:type=ALPR.';
+    'Current global OSM nodes with surveillance:type=ALPR.';
 COMMENT ON TABLE osm_history.alpr_node_versions IS
-    'All public OSM lifecycle versions for every tracked North America ALPR node, including contributor metadata.';
+    'All public OSM lifecycle versions for every globally qualified ALPR node, including contributor metadata.';

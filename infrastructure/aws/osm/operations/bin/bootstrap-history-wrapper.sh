@@ -4,11 +4,11 @@ set -Eeuo pipefail
 # shellcheck source=common.sh
 source /opt/daf-osm/bin/common.sh
 
-readonly BOOTSTRAP_MARKER="${OSM_STATE_PATH}/history-bootstrap.complete"
-readonly HISTORY_STATE="${OSM_STATE_PATH}/history-replication.state"
-readonly PLANET_PATH="${OSM_DOWNLOAD_PATH}/history-bootstrap.osm.pbf"
-readonly CHECKSUM_PATH="${OSM_DOWNLOAD_PATH}/history-bootstrap.osm.pbf.md5"
-readonly HTTP_METADATA_PATH="${OSM_STATE_PATH}/history-planet-http-headers.txt"
+readonly BOOTSTRAP_MARKER="${OSM_STATE_PATH}/global-history-bootstrap.complete"
+readonly HISTORY_STATE="${OSM_STATE_PATH}/global-history-replication.state"
+readonly PLANET_PATH="${OSM_DOWNLOAD_PATH}/global-history-bootstrap.osm.pbf"
+readonly CHECKSUM_PATH="${OSM_DOWNLOAD_PATH}/global-history-bootstrap.osm.pbf.md5"
+readonly HTTP_METADATA_PATH="${OSM_STATE_PATH}/global-history-planet-http-headers.txt"
 
 bootstrap_status=0
 /opt/daf-osm/bin/bootstrap-history-core.sh || bootstrap_status=$?

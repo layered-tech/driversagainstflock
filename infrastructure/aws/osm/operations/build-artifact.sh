@@ -58,6 +58,7 @@ required_paths = {
     "operations/cloudwatch-agent.json",
     "operations/bin/backup.sh",
     "operations/bin/backup-core.sh",
+    "operations/bin/activate-global-feed.sh",
     "operations/bin/bootstrap-current.sh",
     "operations/bin/bootstrap-current-core.sh",
     "operations/bin/bootstrap-history.sh",
@@ -69,20 +70,25 @@ required_paths = {
     "operations/bin/current-update.sh",
     "operations/bin/fetch-node-changes.py",
     "operations/bin/filter-current-change.py",
+    "operations/bin/global-update.sh",
     "operations/bin/history-bootstrap-condition.sh",
     "operations/bin/history-update.sh",
     "operations/bin/import-history.py",
+    "operations/bin/initialize-global-stack.sh",
     "operations/bin/metrics.sh",
+    "operations/bin/prepare-global-rebuild.sh",
+    "operations/bin/restore-phase7-runtime-state.sh",
     "operations/bin/validate.sh",
     "operations/bin/validate-core.sh",
     "operations/systemd/daf-osm-backup.service",
     "operations/systemd/daf-osm-backup.timer",
     "operations/systemd/daf-osm-current-bootstrap.service",
-    "operations/systemd/daf-osm-current-update.service",
-    "operations/systemd/daf-osm-current-update.timer",
+    "operations/systemd/daf-osm-global-activate.service",
+    "operations/systemd/daf-osm-global-initialize.service",
+    "operations/systemd/daf-osm-global-rebuild-prepare.service",
+    "operations/systemd/daf-osm-global-update.service",
+    "operations/systemd/daf-osm-global-update.timer",
     "operations/systemd/daf-osm-history-bootstrap.service",
-    "operations/systemd/daf-osm-history-update.service",
-    "operations/systemd/daf-osm-history-update.timer",
     "operations/systemd/daf-osm-metrics.service",
     "operations/systemd/daf-osm-metrics.timer",
     "database/osm2pgsql/production/alpr-current.lua",
@@ -112,6 +118,10 @@ for service_source, service_destination in sources:
     if service_destination.suffix != ".service":
         continue
     service = service_source.read_text(encoding="utf-8")
+    if "/run/daf-osm/" in service and "RuntimeDirectory=daf-osm" not in service:
+        raise SystemExit(
+            f"{service_source.name} uses a runtime lock without creating its directory"
+        )
     for executable in re.findall(r"/opt/daf-osm/bin/([A-Za-z0-9._-]+)", service):
         runtime_path = f"operations/bin/{executable}"
         if runtime_path not in source_by_destination:
@@ -128,16 +138,19 @@ for python_source, destination in sources:
 
 environment = (operations / "daf-osm.env").read_text(encoding="utf-8")
 for endpoint in (
-    "https://download.openstreetmap.fr/extracts/north-america-latest.osm.pbf",
-    "https://download.openstreetmap.fr/extracts/north-america-latest.osm.pbf.md5",
-    "https://download.openstreetmap.fr/extracts/north-america.state.txt",
-    "https://download.openstreetmap.fr/replication/north-america/minute/",
-    "https://download.geofabrik.de/north-america.poly",
-    "https://planet.openstreetmap.org/pbf/full-history/history-latest.osm.pbf",
+    "https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf",
+    "https://osm-planet-us-west-2.s3.dualstack.us-west-2.amazonaws.com/planet-full-history/pbf",
     "https://planet.openstreetmap.org/replication/minute/",
 ):
     if endpoint not in environment:
         raise SystemExit(f"Missing required OSM endpoint: {endpoint}")
+for retired_contract in (
+    "download.openstreetmap.fr",
+    "NORTH_AMERICA",
+    "OSM_REGION_POLYGON",
+):
+    if retired_contract in environment:
+        raise SystemExit(f"Retired regional environment contract remains: {retired_contract}")
 
 cloudwatch = json.loads(
     (operations / "cloudwatch-agent.json").read_text(encoding="utf-8")
@@ -164,6 +177,9 @@ for contract in (
     "e2afb9420e489fa5c300b7e4b25b03f235602b93",
     "97dccf105391d410701ae8bd52170dc0ee041373",
     "daf-osm-install.lock",
+    "/run/daf-osm/backup.lock",
+    "/run/daf-osm/global-current.lock",
+    "/run/daf-osm/global-history.lock",
     "patch_boost_discovery",
     "find_package(Boost CONFIG 1.50 REQUIRED)",
     "find_package(Boost 1.50 REQUIRED)",
@@ -178,6 +194,17 @@ for contract in (
 ):
     if contract not in install_core:
         raise SystemExit(f"Missing AL2023 install contract: {contract}")
+
+installer_lock_positions = [
+    install_core.find("/run/daf-osm/backup.lock"),
+    install_core.find("/run/daf-osm/current.lock"),
+    install_core.find("/run/daf-osm/history.lock"),
+    install_core.find("/run/daf-osm/global.lock"),
+    install_core.find("/run/daf-osm/global-current.lock"),
+    install_core.find("/run/daf-osm/global-history.lock"),
+]
+if any(position < 0 for position in installer_lock_positions) or installer_lock_positions != sorted(installer_lock_positions):
+    raise SystemExit("Installer lock order must be backup, legacy consumers, then global consumers")
 
 user_data = (operations / "user-data.sh").read_text(encoding="utf-8")
 if "awscli2" in install_core or "awscli2" in user_data:
@@ -210,10 +237,14 @@ if "sha256sum --check" not in user_data:
 current_bootstrap = (
     operations / "bin/bootstrap-current-core.sh"
 ).read_text(encoding="utf-8")
-if "discard_current_snapshot\n    die" not in current_bootstrap:
-    raise SystemExit("Inconsistent current snapshots must be discarded before retry")
-if current_bootstrap.count("reject_inconsistent_current_snapshot") < 4:
-    raise SystemExit("Every inconsistent current state/header outcome must force a fresh snapshot")
+for contract in (
+    "${resolved_planet_url}.md5",
+    'n/surveillance:type=ALPR',
+    'fetch-node-changes.py initialize',
+    'global-current-replication.state',
+):
+    if contract not in current_bootstrap:
+        raise SystemExit(f"Missing global current bootstrap contract: {contract}")
 
 history_unit = (
     operations / "systemd/daf-osm-history-bootstrap.service"
@@ -226,9 +257,15 @@ if "ExecCondition=/opt/daf-osm/bin/history-bootstrap-condition.sh" not in histor
 history_bootstrap = (
     operations / "bin/bootstrap-history-core.sh"
 ).read_text(encoding="utf-8")
+for contract in (
+    "current_planet_resolved_url",
+    "history-${planet_release}.osm.pbf",
+    "Current and full-history planet releases differ",
+):
+    if contract not in history_bootstrap:
+        raise SystemExit(f"Missing release-aligned history bootstrap contract: {contract}")
 ordered_contracts = (
     "'n/surveillance:type=ALPR'",
-    '--polygon "${POLYGON_PATH}"',
     "discover-history-candidates.sql",
     "osmium getid",
     '--input "${all_candidate_versions}"',
@@ -236,7 +273,7 @@ ordered_contracts = (
 positions = [history_bootstrap.find(contract) for contract in ordered_contracts]
 if any(position < 0 for position in positions) or positions != sorted(positions):
     raise SystemExit(
-        "History bootstrap must qualify regional exact-tag versions before all-version retention"
+        "History bootstrap must qualify global exact-tag versions before all-version retention"
     )
 if r"https://osm-planet-us-west-2\.s3\.dualstack\.us-west-2\.amazonaws\.com/planet-full-history/pbf/" not in history_bootstrap:
     raise SystemExit("History bootstrap must allow the official OSM US West S3 distribution path")
@@ -250,9 +287,11 @@ if '["osmium", "cat", "--output-format=opl", arguments.input]' not in history_im
     raise SystemExit("History importer must select OPL before its positional input")
 if 'return unquote(value, encoding="utf-8", errors="replace").replace("\\x00", "\\ufffd")' not in history_importer:
     raise SystemExit("History importer must safely replace invalid legacy UTF-8 and NUL bytes")
+if 'csv.writer(psql_stdin, delimiter="\\t", lineterminator="\\r\\n")' not in history_importer:
+    raise SystemExit("History importer must quote embedded carriage returns and newlines")
 history_update = (operations / "bin/history-update.sh").read_text(encoding="utf-8")
-if "'n/surveillance:type=ALPR'" not in history_update or "api_history" not in history_update:
-    raise SystemExit("API backfill must qualify exact regional tags then import full history")
+if "api_history" not in history_update or "--polygon" in history_update:
+    raise SystemExit("Global API backfill must import full history without regional qualification")
 current_update = (operations / "bin/current-update.sh").read_text(encoding="utf-8")
 replication_helper = (
     operations / "bin/fetch-node-changes.py"
@@ -266,18 +305,94 @@ for current_command in (current_bootstrap, current_update):
         )
     if "--middle-schema=osm_ingest" not in current_command:
         raise SystemExit("osm2pgsql current middle tables must use osm_ingest")
-if "fetch-node-changes.py update" not in current_update:
-    raise SystemExit("Current replication must use the full-state node-only helper")
-if "--simplify" not in current_update:
-    raise SystemExit("Current replication must collapse each node to its latest version")
+if "fetch-node-changes.py update" in current_update:
+    raise SystemExit("Current consumer must not download a second replication stream")
 if re.search(r"--command=.*:'", current_update):
     raise SystemExit("Current cursor SQL variables must be supplied through standard input")
 if "--simplify" in history_update:
     raise SystemExit("History replication must retain intermediate node versions")
 if re.search(r"--command=.*:'", history_update):
     raise SystemExit("History SQL variables must be supplied through standard input")
-if "fetch-node-changes.py update" not in history_update:
-    raise SystemExit("History replication must use the full-state node-only helper")
+if "fetch-node-changes.py update" in history_update:
+    raise SystemExit("History consumer must not download a second replication stream")
+if "CurrentConsumerFailures" in current_update or "HistoryConsumerFailures" in history_update:
+    raise SystemExit("Consumers must not duplicate orchestrator failure metrics")
+global_update = (operations / "bin/global-update.sh").read_text(encoding="utf-8")
+for contract in (
+    'readonly GLOBAL_STATE="${OSM_STATE_PATH}/global-replication.state"',
+    'readonly GLOBAL_SPOOL_PATH="${OSM_DATA_PATH}/global-replication-spool"',
+    '--server "${OSM_GLOBAL_REPLICATION_URL}"',
+    '/opt/daf-osm/bin/current-update.sh',
+    '/opt/daf-osm/bin/history-update.sh',
+    'current_sequence >= replication_sequence && history_sequence >= replication_sequence',
+):
+    if contract not in global_update:
+        raise SystemExit(f"Missing shared global replication contract: {contract}")
+if global_update.count("fetch-node-changes.py update") != 1:
+    raise SystemExit("Shared global replication must fetch each batch exactly once")
+if "--simplify" in global_update:
+    raise SystemExit("Shared global replication must retain versions for history")
+if 'global-stack.complete' not in global_update:
+    raise SystemExit("Shared global replication must remain gated until global bootstrap")
+if "trap - ERR" not in global_update:
+    raise SystemExit("Consumer failures must not increment shared-feed failure metrics")
+initializer = (operations / "bin/initialize-global-stack.sh").read_text(encoding="utf-8")
+for contract in (
+    "global-current-bootstrap.complete",
+    "global-history-bootstrap.complete",
+    "shared_feed_sequence",
+    "shared_feed_source_timestamp",
+    "Global current and history bootstraps do not share one release cursor",
+    "Global current and history bootstraps do not share one release timestamp",
+):
+    if contract not in initializer:
+        raise SystemExit(f"Missing global initialization contract: {contract}")
+activator = (operations / "bin/activate-global-feed.sh").read_text(encoding="utf-8")
+for contract in (
+    "global-stack.complete",
+    "daf-osm-global-update.timer",
+    "daf-osm-metrics.timer",
+):
+    if contract not in activator:
+        raise SystemExit(f"Missing global activation contract: {contract}")
+rebuild = (operations / "bin/prepare-global-rebuild.sh").read_text(encoding="utf-8")
+for contract in (
+    "phase7-backup.complete",
+    "phase7-current-bootstrap.complete",
+    "phase7-history-bootstrap.complete",
+    "phase7-validation.complete",
+    "phase7-history-bootstrap-source-removed.complete",
+    "history-bootstrap-source-removed.complete",
+    "daf-osm-metrics.timer",
+    "daf-osm-backup.timer",
+    "/run/daf-osm/backup.lock",
+    "/run/daf-osm/global.lock",
+    "/run/daf-osm/global-current.lock",
+    "/run/daf-osm/global-history.lock",
+    "restore_runtime_lock_ownership",
+    "trap restore_runtime_lock_ownership EXIT",
+    "DROP SCHEMA IF EXISTS osm_current CASCADE",
+):
+    if contract not in rebuild:
+        raise SystemExit(f"Missing in-place global rebuild contract: {contract}")
+phase_seven_restore = (
+    operations / "bin/restore-phase7-runtime-state.sh"
+).read_text(encoding="utf-8")
+for contract in (
+    "current_applied_sequence",
+    "current_source_timestamp",
+    "history_applied_sequence",
+    "history_source_timestamp",
+    "phase7-backup.complete",
+    "daf-osm-global-update.timer",
+    "daf-osm-backup.timer",
+    "/run/daf-osm/backup.lock",
+):
+    if contract not in phase_seven_restore:
+        raise SystemExit(f"Missing Phase 7 rollback reconstruction contract: {contract}")
+install_enabled_units = install_core[install_core.find("enable_operations()") :]
+if "systemctl disable --now daf-osm-global-update.timer" not in install_enabled_units:
+    raise SystemExit("Global replication timer must await separately approved activation")
 if "publish-current.sql" in history_bootstrap or "publish-current.sql" in history_update:
     raise SystemExit("Only the current pipeline may publish current rows and cursors")
 if "fetch-node-changes.py initialize" not in history_bootstrap:
@@ -308,13 +423,29 @@ current_filter = (
 ).read_text(encoding="utf-8")
 if "self.tracked_ids.add(node.id)" not in current_filter:
     raise SystemExit("Current filter must retain later versions after an ALPR match")
+for contract in (
+    "osmium.MergeInputReader()",
+    "reader.apply(handler, simplify=True)",
+):
+    if contract not in current_filter:
+        raise SystemExit(
+            "Current consumer must collapse shared history batches to terminal node versions"
+        )
 
 cleanup = (
     operations / "bin/cleanup-history-bootstrap.sh"
 ).read_text(encoding="utf-8")
+cleanup_lock_positions = [
+    cleanup.find("/run/daf-osm/global.lock"),
+    cleanup.find("/run/daf-osm/global-current.lock"),
+    cleanup.find("/run/daf-osm/global-history.lock"),
+    cleanup.find('if [[ -f "${CLEANUP_MARKER}" ]]'),
+]
+if any(position < 0 for position in cleanup_lock_positions) or cleanup_lock_positions != sorted(cleanup_lock_positions):
+    raise SystemExit("History source cleanup must freeze shared/current/history before its gates")
 for contract in (
-    "history-bootstrap-source-removal.pending",
-    "validation.complete",
+    "global-history-bootstrap-source-removal.pending",
+    "global-validation.complete",
     "backup.complete",
 ):
     if contract not in cleanup:
@@ -322,13 +453,35 @@ for contract in (
 
 backup = (operations / "bin/backup-core.sh").read_text(encoding="utf-8")
 backup_wrapper = (operations / "bin/backup.sh").read_text(encoding="utf-8")
+backup_unit = (
+    operations / "systemd/daf-osm-backup.service"
+).read_text(encoding="utf-8")
+
+backup_lock_positions = [
+    backup_wrapper.find("/run/daf-osm/backup.lock"),
+    backup_wrapper.find("/run/daf-osm/global.lock"),
+    backup_wrapper.find("/run/daf-osm/global-current.lock"),
+    backup_wrapper.find("/run/daf-osm/global-history.lock"),
+    backup_wrapper.find("source /opt/daf-osm/bin/backup-core.sh"),
+]
+if any(position < 0 for position in backup_lock_positions) or backup_lock_positions != sorted(backup_lock_positions):
+    raise SystemExit("Backup must freeze backup/shared/current/history before snapshot capture")
+if "flock" in backup_unit:
+    raise SystemExit("Backup service must delegate the complete lock order to backup.sh")
+
+if "--compress=gzip:6" not in backup:
+    raise SystemExit("Backup compression must match the deployed pg_dump build")
 
 if backup.count("psql_osm") != 1:
     raise SystemExit("Backup must capture its database observation in one query")
 if "psql_osm" in backup_wrapper:
     raise SystemExit("Backup wrapper must not re-query after dump/upload")
 
-for state_key in ("current_applied_sequence", "history_applied_sequence"):
+for state_key in (
+    "shared_feed_sequence",
+    "current_applied_sequence",
+    "history_applied_sequence",
+):
     if backup.count(f"state_key = '{state_key}'") != 1:
         raise SystemExit(f"Backup must capture {state_key} exactly once")
 
@@ -348,6 +501,9 @@ for contract in (
     "cleanup_local_backup",
     '--argjson current_sequence "${backup_current_sequence}"',
     '--argjson history_sequence "${backup_history_sequence}"',
+    '--argjson shared_sequence "${backup_shared_sequence}"',
+    "global-validation.complete",
+    "Pre-dump global cursors have not converged",
     "pre_dump_current_alpr_node_count:",
     "pre_dump_history_event_count:",
 ):
@@ -355,12 +511,24 @@ for contract in (
         raise SystemExit(f"Missing truthful backup contract: {contract}")
 
 for contract in (
+    'last_successful_backup_shared_sequence "${backup_shared_sequence}"',
     'last_successful_backup_current_sequence "${backup_current_sequence}"',
     'last_successful_backup_history_sequence "${backup_history_sequence}"',
     '"${backup_completed_at}"',
 ):
     if contract not in backup_wrapper:
         raise SystemExit(f"Backup marker does not reuse sourced snapshot: {contract}")
+
+schema = (database / "schema-base.sql").read_text(encoding="utf-8")
+if "qualified_at timestamptz NOT NULL" not in schema:
+    raise SystemExit("Global history qualification timestamp is missing")
+for retired_column in (
+    "region_confirmed_at",
+    "last_region_check_version",
+    "last_region_checked_at",
+):
+    if retired_column in schema:
+        raise SystemExit(f"Retired regional schema column remains: {retired_column}")
 
 if re.search(
     r"(?m)^\s*(current_alpr_node_count|history_event_count):",
@@ -392,6 +560,17 @@ for contract in (
 validation = (
     operations / "bin/validate-core.sh"
 ).read_text(encoding="utf-8")
+validation_wrapper = (
+    operations / "bin/validate.sh"
+).read_text(encoding="utf-8")
+validation_lock_positions = [
+    validation_wrapper.find("/run/daf-osm/global.lock"),
+    validation_wrapper.find("/run/daf-osm/global-current.lock"),
+    validation_wrapper.find("/run/daf-osm/global-history.lock"),
+    validation_wrapper.find("/opt/daf-osm/bin/validate-core.sh"),
+]
+if any(position < 0 for position in validation_lock_positions) or validation_lock_positions != sorted(validation_lock_positions):
+    raise SystemExit("Validation must freeze shared/current/history before checking and marking")
 for contract in (
     "has_database_privilege('osm_ingest', current_database(), 'TEMPORARY')",
     "has_database_privilege('osm_publisher', current_database(), 'TEMPORARY')",

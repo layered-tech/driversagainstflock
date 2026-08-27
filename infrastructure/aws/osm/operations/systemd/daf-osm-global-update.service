@@ -1,5 +1,5 @@
 [Unit]
-Description=Apply global minute updates to North America ALPR history
+Description=Acquire and apply one global OSM minute feed
 After=network-online.target postgresql.service
 Wants=network-online.target
 
@@ -11,15 +11,15 @@ EnvironmentFile=/etc/daf-osm/daf-osm.env
 RuntimeDirectory=daf-osm
 RuntimeDirectoryMode=0750
 RuntimeDirectoryPreserve=yes
-ExecStart=/usr/bin/flock --nonblock /run/daf-osm/history.lock /opt/daf-osm/bin/history-update.sh
+ExecStart=/usr/bin/flock --nonblock /run/daf-osm/global.lock /opt/daf-osm/bin/global-update.sh
 TimeoutStartSec=50min
-Nice=10
+Nice=5
 IOSchedulingClass=best-effort
-IOSchedulingPriority=7
+IOSchedulingPriority=6
 UMask=0027
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=full
-StandardOutput=append:/var/log/daf-osm/history-update.log
-StandardError=append:/var/log/daf-osm/history-update.log
+StandardOutput=append:/var/log/daf-osm/global-update.log
+StandardError=append:/var/log/daf-osm/global-update.log

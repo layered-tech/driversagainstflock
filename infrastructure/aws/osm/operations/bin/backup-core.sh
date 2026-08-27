@@ -4,8 +4,10 @@ set -Eeuo pipefail
 # shellcheck source=common.sh
 source /opt/daf-osm/bin/common.sh
 
-readonly CURRENT_BOOTSTRAP_MARKER="${OSM_STATE_PATH}/current-bootstrap.complete"
-readonly HISTORY_BOOTSTRAP_MARKER="${OSM_STATE_PATH}/history-bootstrap.complete"
+readonly CURRENT_BOOTSTRAP_MARKER="${OSM_STATE_PATH}/global-current-bootstrap.complete"
+readonly HISTORY_BOOTSTRAP_MARKER="${OSM_STATE_PATH}/global-history-bootstrap.complete"
+readonly GLOBAL_STACK_MARKER="${OSM_STATE_PATH}/global-stack.complete"
+readonly GLOBAL_VALIDATION_MARKER="${OSM_STATE_PATH}/global-validation.complete"
 
 backup_partial=''
 backup_path=''
@@ -34,8 +36,11 @@ on_error()
 
 trap on_error ERR
 
-if [[ ! -f "${CURRENT_BOOTSTRAP_MARKER}" || ! -f "${HISTORY_BOOTSTRAP_MARKER}" ]]; then
-    log 'Current and history bootstraps are not both complete; skipping backup'
+if [[ ! -f "${CURRENT_BOOTSTRAP_MARKER}" \
+    || ! -f "${HISTORY_BOOTSTRAP_MARKER}" \
+    || ! -f "${GLOBAL_STACK_MARKER}" \
+    || ! -f "${GLOBAL_VALIDATION_MARKER}" ]]; then
+    log 'Global stack validation is incomplete; skipping backup'
     exit 0
 fi
 
@@ -57,26 +62,34 @@ checksum_key="${archive_key}.sha256"
 manifest_key="${archive_key}.json"
 
 IFS=$'\t' read -r \
+    backup_shared_sequence \
     backup_current_sequence \
     backup_history_sequence \
     backup_pre_dump_current_count \
     backup_pre_dump_history_count \
     <<< "$(psql_osm --tuples-only --no-align --field-separator=$'\t' --command="
 SELECT
+    COALESCE((SELECT state_value FROM osm_pipeline.state WHERE state_key = 'shared_feed_sequence'), '0'),
     COALESCE((SELECT state_value FROM osm_pipeline.state WHERE state_key = 'current_applied_sequence'), '0'),
     COALESCE((SELECT state_value FROM osm_pipeline.state WHERE state_key = 'history_applied_sequence'), '0'),
     (SELECT count(*) FROM osm_current.alpr_nodes),
     (SELECT count(*) FROM osm_history.alpr_node_versions)
 ")"
+[[ "${backup_shared_sequence}" =~ ^[0-9]+$ ]] \
+    || die 'Pre-dump backup shared feed sequence is invalid'
 [[ "${backup_current_sequence}" =~ ^[0-9]+$ ]] \
     || die 'Pre-dump backup current sequence is invalid'
 [[ "${backup_history_sequence}" =~ ^[0-9]+$ ]] \
     || die 'Pre-dump backup history sequence is invalid'
+[[ "${backup_shared_sequence}" == "${backup_current_sequence}" \
+    && "${backup_shared_sequence}" == "${backup_history_sequence}" ]] \
+    || die 'Pre-dump global cursors have not converged'
 [[ "${backup_pre_dump_current_count}" =~ ^[0-9]+$ ]] \
     || die 'Pre-dump current ALPR node count is invalid'
 [[ "${backup_pre_dump_history_count}" =~ ^[0-9]+$ ]] \
     || die 'Pre-dump history event count is invalid'
 readonly \
+    backup_shared_sequence \
     backup_current_sequence \
     backup_history_sequence \
     backup_pre_dump_current_count \
@@ -86,7 +99,7 @@ log "Creating PostgreSQL backup ${backup_name}"
 pg_dump \
     --no-password \
     --format=custom \
-    --compress=zstd:6 \
+    --compress=gzip:6 \
     --file="${backup_partial}" \
     "${DATABASE_NAME}"
 require_file "${backup_partial}"
@@ -107,6 +120,7 @@ jq --null-input \
     --arg archive "${backup_name}" \
     --arg sha256 "${backup_sha256}" \
     --argjson size_bytes "${local_archive_size}" \
+    --argjson shared_sequence "${backup_shared_sequence}" \
     --argjson current_sequence "${backup_current_sequence}" \
     --argjson history_sequence "${backup_history_sequence}" \
     --argjson pre_dump_current_count "${backup_pre_dump_current_count}" \
@@ -117,6 +131,7 @@ jq --null-input \
         archive: $archive,
         sha256: $sha256,
         size_bytes: $size_bytes,
+        shared_replication_sequence: $shared_sequence,
         current_replication_sequence: $current_sequence,
         history_replication_sequence: $history_sequence,
         pre_dump_current_alpr_node_count: $pre_dump_current_count,

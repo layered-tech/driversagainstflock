@@ -106,7 +106,7 @@ def start_psql_copy() -> subprocess.Popen[str]:
 
 
 def stream_rows(osmium_stdout: TextIO, psql_stdin: TextIO, source: str, sequence: int | None) -> int:
-    writer = csv.writer(psql_stdin, delimiter="\t", lineterminator="\n")
+    writer = csv.writer(psql_stdin, delimiter="\t", lineterminator="\r\n")
     row_count = 0
 
     for line_number, line in enumerate(osmium_stdout, start=1):

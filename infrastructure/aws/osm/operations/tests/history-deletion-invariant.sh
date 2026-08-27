@@ -14,32 +14,14 @@ cat > "${work_directory}/history.osh" <<'OSM_HISTORY'
 </osm>
 OSM_HISTORY
 
-cat > "${work_directory}/north-america.poly" <<'OSM_POLYGON'
-north-america-test
-1
-  -110 30
-  -90 30
-  -90 50
-  -110 50
-  -110 30
-END
-END
-OSM_POLYGON
-
 osmium tags-filter \
     --omit-referenced \
     --output "${work_directory}/matching.osh.pbf" \
     "${work_directory}/history.osh" \
     'n/surveillance:type=ALPR'
-osmium extract \
-    --with-history \
-    --option=relations=false \
-    --polygon "${work_directory}/north-america.poly" \
-    --output "${work_directory}/qualifying.osh.pbf" \
-    "${work_directory}/matching.osh.pbf"
 osmium getid \
     --with-history \
-    --id-osm-file "${work_directory}/qualifying.osh.pbf" \
+    --id-osm-file "${work_directory}/matching.osh.pbf" \
     --output-format=opl \
     --output "${work_directory}/retained.opl" \
     "${work_directory}/history.osh"

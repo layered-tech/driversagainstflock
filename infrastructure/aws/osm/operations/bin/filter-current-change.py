@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep exact ALPR nodes and all later versions in the same change batch."""
+"""Keep the terminal current-state version of relevant ALPR nodes."""
 
 from __future__ import annotations
 
@@ -42,10 +42,12 @@ def main() -> int:
         if line
     }
 
+    reader = osmium.MergeInputReader()
+    reader.add_file(arguments.input)
     writer = osmium.SimpleWriter(arguments.output, overwrite=True)
     handler = CurrentChangeFilter(writer, tracked_ids)
     try:
-        handler.apply_file(arguments.input)
+        reader.apply(handler, simplify=True)
     finally:
         writer.close()
 

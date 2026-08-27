@@ -1,5 +1,5 @@
 [Unit]
-Description=Bootstrap current North America ALPR state
+Description=Bootstrap current global ALPR state
 After=network-online.target postgresql.service
 Wants=network-online.target
 
@@ -11,7 +11,7 @@ EnvironmentFile=/etc/daf-osm/daf-osm.env
 RuntimeDirectory=daf-osm
 RuntimeDirectoryMode=0750
 RuntimeDirectoryPreserve=yes
-ExecStart=/usr/bin/flock --nonblock /run/daf-osm/current.lock /opt/daf-osm/bin/bootstrap-current.sh
+ExecStart=/usr/bin/flock --nonblock /run/daf-osm/global-current.lock /opt/daf-osm/bin/bootstrap-current.sh
 TimeoutStartSec=infinity
 Nice=5
 IOSchedulingClass=best-effort

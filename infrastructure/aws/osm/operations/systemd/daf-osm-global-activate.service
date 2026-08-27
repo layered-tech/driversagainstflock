@@ -1,0 +1,22 @@
+[Unit]
+Description=Activate the single global OSM replication timer
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+EnvironmentFile=/etc/daf-osm/daf-osm.env
+RuntimeDirectory=daf-osm
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/bin/flock --nonblock /run/daf-osm/global-activate.lock /opt/daf-osm/bin/activate-global-feed.sh
+TimeoutStartSec=10min
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+StandardOutput=append:/var/log/daf-osm/global-activate.log
+StandardError=append:/var/log/daf-osm/global-activate.log

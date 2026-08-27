@@ -1,0 +1,22 @@
+[Unit]
+Description=Prepare the backup-gated in-place global OSM rebuild
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+EnvironmentFile=/etc/daf-osm/daf-osm.env
+RuntimeDirectory=daf-osm
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/bin/flock --nonblock /run/daf-osm/global-rebuild.lock /opt/daf-osm/bin/prepare-global-rebuild.sh
+TimeoutStartSec=30min
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+StandardOutput=append:/var/log/daf-osm/global-rebuild.log
+StandardError=append:/var/log/daf-osm/global-rebuild.log

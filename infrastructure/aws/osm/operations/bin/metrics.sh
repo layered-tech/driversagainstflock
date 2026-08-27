@@ -18,16 +18,24 @@ if (( postgresql_up == 0 )); then
 fi
 
 IFS=$'\t' read -r \
-    replication_lag_seconds \
+    shared_feed_lag_seconds \
+    current_lag_seconds \
     history_lag_seconds \
     backup_age_seconds \
     current_count \
     history_count \
-    replication_sequence \
+    shared_feed_sequence \
+    current_sequence \
+    history_sequence \
     last_successful_replication \
     history_bootstrap_complete \
     <<< "$(psql_osm --tuples-only --no-align --field-separator=$'\t' --command="
 SELECT
+    COALESCE((
+        SELECT greatest(0, extract(epoch FROM clock_timestamp() - state_value::timestamptz))::bigint
+        FROM osm_pipeline.state
+        WHERE state_key = 'shared_feed_source_timestamp'
+    ), ${UNKNOWN_AGE_SECONDS}),
     COALESCE((
         SELECT greatest(0, extract(epoch FROM clock_timestamp() - state_value::timestamptz))::bigint
         FROM osm_pipeline.state
@@ -45,7 +53,9 @@ SELECT
     ), ${UNKNOWN_AGE_SECONDS}),
     (SELECT count(*) FROM osm_current.alpr_nodes),
     (SELECT count(*) FROM osm_history.alpr_node_versions),
+    COALESCE((SELECT state_value::bigint FROM osm_pipeline.state WHERE state_key = 'shared_feed_sequence'), 0),
     COALESCE((SELECT state_value::bigint FROM osm_pipeline.state WHERE state_key = 'current_applied_sequence'), 0),
+    COALESCE((SELECT state_value::bigint FROM osm_pipeline.state WHERE state_key = 'history_applied_sequence'), 0),
     COALESCE((SELECT state_value::bigint FROM osm_pipeline.state WHERE state_key = 'last_successful_replication_unix_time'), 0),
     COALESCE((SELECT state_value::integer FROM osm_pipeline.state WHERE state_key = 'history_bootstrap_complete'), 0)
 ")"
@@ -60,32 +70,58 @@ fi
 publication_parity_mismatch=$(( stage_count > current_count \
     ? stage_count - current_count \
     : current_count - stage_count ))
+current_cursor_divergence=$(( shared_feed_sequence > current_sequence \
+    ? shared_feed_sequence - current_sequence \
+    : current_sequence - shared_feed_sequence ))
+history_cursor_divergence=$(( shared_feed_sequence > history_sequence \
+    ? shared_feed_sequence - history_sequence \
+    : history_sequence - shared_feed_sequence ))
+retained_spool_batches="$(find "${OSM_DATA_PATH}/global-replication-spool" \
+    -xdev \
+    -mindepth 1 \
+    -maxdepth 1 \
+    -type d \
+    -name 'sequence-[0-9]*' \
+    -print \
+    | wc --lines)"
 
 for numeric_value in \
-    "${replication_lag_seconds}" \
+    "${shared_feed_lag_seconds}" \
+    "${current_lag_seconds}" \
     "${history_lag_seconds}" \
     "${backup_age_seconds}" \
     "${current_count}" \
     "${history_count}" \
-    "${replication_sequence}" \
+    "${shared_feed_sequence}" \
+    "${current_sequence}" \
+    "${history_sequence}" \
     "${last_successful_replication}" \
     "${history_bootstrap_complete}" \
-    "${publication_parity_mismatch}"; do
+    "${publication_parity_mismatch}" \
+    "${current_cursor_divergence}" \
+    "${history_cursor_divergence}" \
+    "${retained_spool_batches}"; do
     [[ "${numeric_value}" =~ ^[0-9]+$ ]] || die "Metric query returned non-numeric value: ${numeric_value}"
 done
 
 metric_data="$(jq --compact-output --null-input \
     --arg instance_id "${INSTANCE_ID}" \
     --argjson postgresql_up "${postgresql_up}" \
-    --argjson replication_lag_seconds "${replication_lag_seconds}" \
+    --argjson shared_feed_lag_seconds "${shared_feed_lag_seconds}" \
+    --argjson current_lag_seconds "${current_lag_seconds}" \
     --argjson history_lag_seconds "${history_lag_seconds}" \
     --argjson backup_age_seconds "${backup_age_seconds}" \
     --argjson current_count "${current_count}" \
     --argjson history_count "${history_count}" \
-    --argjson replication_sequence "${replication_sequence}" \
+    --argjson shared_feed_sequence "${shared_feed_sequence}" \
+    --argjson current_sequence "${current_sequence}" \
+    --argjson history_sequence "${history_sequence}" \
     --argjson last_successful_replication "${last_successful_replication}" \
     --argjson history_bootstrap_complete "${history_bootstrap_complete}" \
     --argjson publication_parity_mismatch "${publication_parity_mismatch}" \
+    --argjson current_cursor_divergence "${current_cursor_divergence}" \
+    --argjson history_cursor_divergence "${history_cursor_divergence}" \
+    --argjson retained_spool_batches "${retained_spool_batches}" \
     '
     def metric($name; $value; $unit): {
         MetricName: $name,
@@ -95,15 +131,21 @@ metric_data="$(jq --compact-output --null-input \
     };
     [
         metric("PostgreSQLUp"; $postgresql_up; "None"),
-        metric("ReplicationLagSeconds"; $replication_lag_seconds; "Seconds"),
-        metric("HistoryLagSeconds"; $history_lag_seconds; "Seconds"),
+        metric("SharedFeedSourceLagSeconds"; $shared_feed_lag_seconds; "Seconds"),
+        metric("CurrentConsumerLagSeconds"; $current_lag_seconds; "Seconds"),
+        metric("HistoryConsumerLagSeconds"; $history_lag_seconds; "Seconds"),
         metric("BackupAgeSeconds"; $backup_age_seconds; "Seconds"),
         metric("CurrentAlprNodeCount"; $current_count; "Count"),
         metric("HistoryEventCount"; $history_count; "Count"),
-        metric("ReplicationSequence"; $replication_sequence; "Count"),
+        metric("SharedFeedSequence"; $shared_feed_sequence; "Count"),
+        metric("CurrentConsumerSequence"; $current_sequence; "Count"),
+        metric("HistoryConsumerSequence"; $history_sequence; "Count"),
         metric("LastSuccessfulReplicationUnixTime"; $last_successful_replication; "Seconds"),
         metric("HistoryBootstrapComplete"; $history_bootstrap_complete; "None"),
-        metric("PublicationParityMismatch"; $publication_parity_mismatch; "Count")
+        metric("PublicationParityMismatch"; $publication_parity_mismatch; "Count"),
+        metric("CurrentConsumerCursorDivergence"; $current_cursor_divergence; "Count"),
+        metric("HistoryConsumerCursorDivergence"; $history_cursor_divergence; "Count"),
+        metric("SharedFeedRetainedBatchCount"; $retained_spool_batches; "Count")
     ]
     ')"
 

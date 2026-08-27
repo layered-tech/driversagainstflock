@@ -22,10 +22,12 @@ assert_positive()
     (( value > 0 )) || die "${label}: expected a positive count, found ${value}"
 }
 
-require_file "${OSM_STATE_PATH}/current-bootstrap.complete"
-require_file "${OSM_STATE_PATH}/history-bootstrap.complete"
-require_file "${OSM_STATE_PATH}/current-replication.state"
-require_file "${OSM_STATE_PATH}/history-replication.state"
+require_file "${OSM_STATE_PATH}/global-stack.complete"
+require_file "${OSM_STATE_PATH}/global-current-bootstrap.complete"
+require_file "${OSM_STATE_PATH}/global-history-bootstrap.complete"
+require_file "${OSM_STATE_PATH}/global-replication.state"
+require_file "${OSM_STATE_PATH}/global-current-replication.state"
+require_file "${OSM_STATE_PATH}/global-history-replication.state"
 
 current_count="$(psql_osm --tuples-only --no-align \
     --command='SELECT count(*) FROM osm_current.alpr_nodes')"
@@ -51,6 +53,7 @@ SELECT
   + (SELECT count(*) FROM osm_history.alpr_node_versions WHERE visible AND (longitude IS NULL OR latitude IS NULL OR geom IS NULL))
   + (SELECT count(*) FROM osm_history.alpr_node_versions WHERE geom IS NOT NULL AND (ST_SRID(geom) <> 4326 OR GeometryType(geom) <> 'POINT'))
   + (SELECT count(*) FROM osm_history.tracked_nodes AS tracked WHERE NOT EXISTS (SELECT 1 FROM osm_history.alpr_node_versions AS versions WHERE versions.node_id = tracked.node_id AND versions.tags ->> 'surveillance:type' = 'ALPR'))
+  + (SELECT count(*) FROM osm_pipeline.global_alpr_node_ids AS candidates LEFT JOIN osm_history.tracked_nodes AS tracked ON tracked.node_id = candidates.node_id WHERE tracked.node_id IS NULL)
   + (SELECT count(*) FROM osm_history.alpr_node_versions WHERE jsonb_typeof(tags) <> 'object')
 ")"
 assert_zero 'Current/history data contract violations' "${contract_errors}"
@@ -112,15 +115,23 @@ WHERE schemaname IN ('osm_ingest', 'osm_pipeline', 'osm_current', 'osm_history')
 ")"
 assert_zero 'Road or segment output tables' "${road_tables}"
 
+database_shared_sequence="$(psql_osm --tuples-only --no-align \
+    --command="SELECT state_value FROM osm_pipeline.state WHERE state_key = 'shared_feed_sequence'")"
 database_current_sequence="$(psql_osm --tuples-only --no-align \
     --command="SELECT state_value FROM osm_pipeline.state WHERE state_key = 'current_applied_sequence'")"
 database_history_sequence="$(psql_osm --tuples-only --no-align \
     --command="SELECT state_value FROM osm_pipeline.state WHERE state_key = 'history_applied_sequence'")"
-file_current_sequence="$(state_sequence "${OSM_STATE_PATH}/current-replication.state")"
-file_history_sequence="$(state_sequence "${OSM_STATE_PATH}/history-replication.state")"
+file_shared_sequence="$(state_sequence "${OSM_STATE_PATH}/global-replication.state")"
+file_current_sequence="$(state_sequence "${OSM_STATE_PATH}/global-current-replication.state")"
+file_history_sequence="$(state_sequence "${OSM_STATE_PATH}/global-history-replication.state")"
+[[ "${database_shared_sequence}" == "${file_shared_sequence}" ]] \
+    || die 'Shared feed database/file cursors differ'
 [[ "${database_current_sequence}" == "${file_current_sequence}" ]] \
     || die 'Current replication database/file cursors differ'
 [[ "${database_history_sequence}" == "${file_history_sequence}" ]] \
     || die 'History replication database/file cursors differ'
+[[ "${database_shared_sequence}" == "${database_current_sequence}" \
+    && "${database_shared_sequence}" == "${database_history_sequence}" ]] \
+    || die 'Shared, current, and history cursors have not converged'
 
-log "Validation complete: ${current_count} current nodes, ${history_count} public lifecycle versions"
+log "Global validation complete: ${current_count} current nodes, ${history_count} public lifecycle versions at sequence ${database_shared_sequence}"
