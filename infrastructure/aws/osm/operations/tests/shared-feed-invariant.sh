@@ -6,6 +6,7 @@ global_update="${operations_directory}/bin/global-update.sh"
 current_update="${operations_directory}/bin/current-update.sh"
 history_update="${operations_directory}/bin/history-update.sh"
 initializer="${operations_directory}/bin/initialize-global-stack.sh"
+metrics_timer="${operations_directory}/systemd/daf-osm-metrics.timer"
 
 [[ "$(grep --fixed-strings --count 'fetch-node-changes.py update' "${global_update}")" == 1 ]] \
     || { echo 'Shared feed must download each batch exactly once' >&2; exit 1; }
@@ -35,5 +36,7 @@ grep --fixed-strings --quiet 'Global current and history bootstraps do not share
     || { echo 'Shared feed initialization permits mismatched bootstrap cursors' >&2; exit 1; }
 grep --fixed-strings --quiet 'Global current and history bootstraps do not share one release timestamp' "${initializer}" \
     || { echo 'Shared feed initialization permits mismatched bootstrap timestamps' >&2; exit 1; }
+grep --fixed-strings --quiet 'OnActiveSec=1min' "${metrics_timer}" \
+    || { echo 'Metrics timer has no activation-relative first trigger' >&2; exit 1; }
 
 echo 'Shared global feed retention and dual-consumer invariant passed'
