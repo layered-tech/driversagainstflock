@@ -1,0 +1,13 @@
+[Unit]
+Description=Run shared global OSM replication every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=1min
+AccuracySec=1s
+RandomizedDelaySec=5s
+Persistent=true
+Unit=daf-osm-global-update.service
+
+[Install]
+WantedBy=timers.target

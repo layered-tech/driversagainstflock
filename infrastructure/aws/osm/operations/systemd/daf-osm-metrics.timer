@@ -1,0 +1,13 @@
+[Unit]
+Description=Publish OSM pipeline health metrics every minute
+
+[Timer]
+OnBootSec=4min
+OnActiveSec=1min
+OnUnitInactiveSec=1min
+AccuracySec=5s
+Persistent=true
+Unit=daf-osm-metrics.service
+
+[Install]
+WantedBy=timers.target

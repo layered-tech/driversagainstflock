@@ -2,6 +2,7 @@
 
 namespace App\Repositories;
 
+use App\Models\CurrentOsmNode;
 use App\Models\Marker;
 use App\Models\OsmNode;
 use App\Support\Bearing;
@@ -197,7 +198,7 @@ class MapRepository
 
     private function osmNodeQuery(): Builder
     {
-        return OsmNode::query()
+        return CurrentOsmNode::query()
             ->select([
                 'id',
                 'osm_id',

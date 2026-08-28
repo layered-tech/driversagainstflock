@@ -1,0 +1,111 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "SystemsManagerManagedInstance",
+            "Effect": "Allow",
+            "Action": [
+                "ec2messages:AcknowledgeMessage",
+                "ec2messages:DeleteMessage",
+                "ec2messages:FailMessage",
+                "ec2messages:GetEndpoint",
+                "ec2messages:GetMessages",
+                "ec2messages:SendReply",
+                "ssm:DescribeAssociation",
+                "ssm:DescribeDocument",
+                "ssm:GetDeployablePatchSnapshotForInstance",
+                "ssm:GetDocument",
+                "ssm:GetManifest",
+                "ssm:ListAssociations",
+                "ssm:ListInstanceAssociations",
+                "ssm:PutComplianceItems",
+                "ssm:PutConfigurePackageResult",
+                "ssm:PutInventory",
+                "ssm:UpdateAssociationStatus",
+                "ssm:UpdateInstanceAssociationStatus",
+                "ssm:UpdateInstanceInformation",
+                "ssmmessages:CreateControlChannel",
+                "ssmmessages:CreateDataChannel",
+                "ssmmessages:OpenControlChannel",
+                "ssmmessages:OpenDataChannel"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "ReadOsmParameters",
+            "Effect": "Allow",
+            "Action": "ssm:GetParameter",
+            "Resource": [
+                "arn:aws:ssm:us-east-1:326364278889:parameter/daf-osm/database/endpoint",
+                "arn:aws:ssm:us-east-1:326364278889:parameter/daf-osm/database/name",
+                "arn:aws:ssm:us-east-1:326364278889:parameter/daf-osm/database/port",
+                "arn:aws:ssm:us-east-1:326364278889:parameter/daf-osm/database/publisher-password"
+            ]
+        },
+        {
+            "Sid": "PublishOsmDatabaseParameters",
+            "Effect": "Allow",
+            "Action": "ssm:PutParameter",
+            "Resource": [
+                "arn:aws:ssm:us-east-1:326364278889:parameter/daf-osm/database/publisher-password",
+                "arn:aws:ssm:us-east-1:326364278889:parameter/daf-osm/database/publisher-username"
+            ]
+        },
+        {
+            "Sid": "ListBootstrapArtifact",
+            "Effect": "Allow",
+            "Action": "s3:ListBucket",
+            "Resource": "arn:aws:s3:::daf-osm-artifacts-326364278889-us-east-1"
+        },
+        {
+            "Sid": "ReadBootstrapArtifact",
+            "Effect": "Allow",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::daf-osm-artifacts-326364278889-us-east-1/*"
+        },
+        {
+            "Sid": "ListPostgresqlBackups",
+            "Effect": "Allow",
+            "Action": "s3:ListBucket",
+            "Resource": "arn:aws:s3:::daf-osm-backups-326364278889-us-east-1"
+        },
+        {
+            "Sid": "ListPostgresqlBackupUploads",
+            "Effect": "Allow",
+            "Action": "s3:ListBucketMultipartUploads",
+            "Resource": "arn:aws:s3:::daf-osm-backups-326364278889-us-east-1"
+        },
+        {
+            "Sid": "ManagePostgresqlBackupObjects",
+            "Effect": "Allow",
+            "Action": [
+                "s3:AbortMultipartUpload",
+                "s3:GetObject",
+                "s3:ListMultipartUploadParts",
+                "s3:PutObject"
+            ],
+            "Resource": "arn:aws:s3:::daf-osm-backups-326364278889-us-east-1/*"
+        },
+        {
+            "Sid": "WriteOsmLogs",
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogStream",
+                "logs:DescribeLogStreams",
+                "logs:PutLogEvents"
+            ],
+            "Resource": "arn:aws:logs:us-east-1:326364278889:log-group:/daf-osm/runtime:*"
+        },
+        {
+            "Sid": "WriteOsmMetrics",
+            "Effect": "Allow",
+            "Action": "cloudwatch:PutMetricData",
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "cloudwatch:namespace": "DAF/OSM"
+                }
+            }
+        }
+    ]
+}

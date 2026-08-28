@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\OsmNode;
+use App\Models\CurrentOsmNode;
 use App\Support\SearchMetadata;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -93,7 +93,7 @@ class HotlistController extends Controller
         )
             ->paginate(self::PER_PAGE)
             ->withQueryString()
-            ->through(fn (OsmNode $node): array => $this->formatNode($node));
+            ->through(fn (CurrentOsmNode $node): array => $this->formatNode($node));
 
         return [
             'nodes' => $this->paginationPayload($nodes),
@@ -149,7 +149,7 @@ class HotlistController extends Controller
 
     private function baseQuery(): Builder
     {
-        return OsmNode::query()
+        return CurrentOsmNode::query()
             ->where('osm_version', 1)
             ->select([
                 'id',
@@ -440,7 +440,7 @@ class HotlistController extends Controller
 
     private function latestSyncedAt(): ?string
     {
-        $latestSyncedAt = OsmNode::query()->max('last_synced_at');
+        $latestSyncedAt = CurrentOsmNode::query()->max('last_synced_at');
 
         return $latestSyncedAt === null
             ? null
@@ -469,7 +469,7 @@ class HotlistController extends Controller
      *     syncedAt: string|null
      * }
      */
-    private function formatNode(OsmNode $node): array
+    private function formatNode(CurrentOsmNode $node): array
     {
         $tags = is_array($node->tags) ? $node->tags : [];
         $type = $this->nodeType($node, $tags);
@@ -499,12 +499,12 @@ class HotlistController extends Controller
         ];
     }
 
-    private function freshnessTime(OsmNode $node): ?Carbon
+    private function freshnessTime(CurrentOsmNode $node): ?Carbon
     {
         return $node->osm_updated_at ?? $node->created_at;
     }
 
-    private function contributorLabel(OsmNode $node): string
+    private function contributorLabel(CurrentOsmNode $node): string
     {
         return $node->osm_user ?: 'OSM';
     }
@@ -520,7 +520,7 @@ class HotlistController extends Controller
     /**
      * @param  array<string, mixed>  $tags
      */
-    private function nodeType(OsmNode $node, array $tags): string
+    private function nodeType(CurrentOsmNode $node, array $tags): string
     {
         $rawType = strtoupper((string) ($node->surveillance_type ?? $tags['surveillance:type'] ?? $tags['camera:type'] ?? ''));
 
