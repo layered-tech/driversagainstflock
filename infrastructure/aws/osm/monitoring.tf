@@ -591,7 +591,7 @@ resource "aws_cloudwatch_dashboard" "osm" {
           period  = 60
           region  = var.aws_region
           stat    = "Average"
-          stacked = true
+          stacked = false
           title   = "Database instance health"
           view    = "timeSeries"
           yAxis = {
@@ -645,6 +645,9 @@ resource "aws_cloudwatch_dashboard" "osm" {
           stat                 = "Maximum"
           title                = "Minute replication"
           view                 = "timeSeries"
+          legend = {
+            position = "right"
+          }
         }
       },
       {
@@ -665,7 +668,7 @@ resource "aws_cloudwatch_dashboard" "osm" {
           period               = 60
           region               = var.aws_region
           setPeriodToTimeRange = true
-          stacked              = true
+          stacked              = false
           stat                 = "Maximum"
           title                = "Publication and history volume"
           view                 = "bar"
@@ -691,6 +694,9 @@ resource "aws_cloudwatch_dashboard" "osm" {
           stat   = "Maximum"
           title  = "History, backups, and parity"
           view   = "timeSeries"
+          legend = {
+            position = "right"
+          }
         }
       },
       {
