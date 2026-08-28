@@ -72,6 +72,15 @@ return [
             'after_commit' => false,
         ],
 
+        'redis-long-running' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => 'marker-files',
+            'retry_after' => (int) env('REDIS_LONG_RUNNING_QUEUE_RETRY_AFTER', 720),
+            'block_for' => null,
+            'after_commit' => false,
+        ],
+
     ],
 
     /*

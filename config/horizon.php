@@ -210,6 +210,19 @@ return [
             'timeout' => 60,
             'nice' => 0,
         ],
+
+        'supervisor-marker-files' => [
+            'connection' => 'redis-long-running',
+            'queue' => ['marker-files'],
+            'balance' => false,
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 3,
+            'timeout' => 660,
+            'nice' => 0,
+        ],
     ],
 
     'environments' => [
@@ -219,6 +232,9 @@ return [
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
             ],
+            'supervisor-marker-files' => [
+                'maxProcesses' => 1,
+            ],
         ],
 
         'staging' => [
@@ -227,11 +243,17 @@ return [
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
             ],
+            'supervisor-marker-files' => [
+                'maxProcesses' => 1,
+            ],
         ],
 
         'local' => [
             'supervisor-1' => [
                 'maxProcesses' => 15,
+            ],
+            'supervisor-marker-files' => [
+                'maxProcesses' => 1,
             ],
         ],
     ],

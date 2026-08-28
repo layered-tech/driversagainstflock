@@ -522,28 +522,42 @@ legacy `markers`, `confirmations`, or `nodes` tables during the observation
 window.
 
 The Phase 9A follow-up application artifact moves marker-file generation into
-the existing Redis/Horizon queue. `markers:refresh-file` now returns after
-dispatching one unique `App\Jobs\RefreshMarkerFile` job; Horizon performs the
-OSM read and atomic file replacement. The same artifact removes the unused
+an isolated Redis/Horizon queue. `markers:refresh-file` now returns after
+dispatching one unique `App\Jobs\RefreshMarkerFile` job to the
+`redis-long-running:marker-files` queue; a dedicated Horizon worker performs
+the OSM read and atomic file replacement without occupying the default queue.
+The same artifact removes the unused
 directions provider verification command and the unused Laravel Socialite and
 mobile OAuth bridge. Expo's direct OpenStreetMap OAuth flow is independent and
 is unchanged. `OPENSTREETMAP_API_URL` remains required by the published-node
 callback.
 
-After deploying the follow-up artifact, restart Horizon through the normal
-deployment hook, then run:
+The first production queue attempt proved that the old 55-second job timeout
+was too short. The corrective artifact uses a 600-second job timeout, a
+660-second dedicated supervisor timeout, and a 720-second Redis
+`retry_after`, preserving the required timeout ordering and preventing a second
+copy from starting while the first still runs. Set
+`REDIS_LONG_RUNNING_QUEUE_RETRY_AFTER=720` in production before deployment.
+
+After deploying the corrective artifact, terminate Horizon through the normal
+deployment hook so its process monitor reloads the new supervisor configuration,
+then run:
 
 ```bash
+php artisan horizon:terminate
 php artisan horizon:status
+php artisan horizon:supervisors
 stat --format='before: modified=%y bytes=%s' storage/app/markers/markers-v3.json
 php artisan markers:refresh-file
 ```
 
-The command must report `Marker file refresh queued.` and Horizon must be
-running. After Horizon processes the job, rerun `stat` and confirm the modified
-time advanced and the file is nonempty. Then confirm the retired backend OAuth
-routes and directions command are absent and the retained OSM API URL is still
-configured:
+Wait for the process monitor to restart Horizon before checking its status.
+`horizon:supervisors` must show both `redis:default` and
+`redis-long-running:marker-files` workers. The refresh command must report
+`Marker file refresh queued.` After Horizon processes the job, rerun `stat` and
+confirm the modified time advanced and the file is nonempty. Then confirm the
+retired backend OAuth routes and directions command are absent and the retained
+OSM API URL is still configured:
 
 ```bash
 php artisan tinker --execute 'dump(["osm_redirect_route" => Route::has("auth.openstreetmap.redirect"), "osm_callback_route" => Route::has("auth.openstreetmap.callback"), "directions_verifier" => array_key_exists("directions:verify-providers", Artisan::all()), "openstreetmap_api_url" => config("services.openstreetmap.api_url")]);'
