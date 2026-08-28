@@ -20,6 +20,7 @@ POLICY_PATHS = {
 PUBLIC_HOSTED_ZONE_ARN = "arn:aws:route53:::hostedzone/Z06275341CPJ6OSABH1X6"
 ROUTING_PRIVATE_HOSTED_ZONE_ID = "Z056780730J8BLDZLRB99"
 OSM_DASHBOARD_ARN = "arn:aws:cloudwatch::326364278889:dashboard/daf-osm"
+OSM_ALARM_ARN = "arn:aws:cloudwatch:us-east-1:326364278889:alarm:daf-osm-*"
 OSM_TOPIC_ARN = "arn:aws:sns:us-east-1:326364278889:daf-osm-*"
 
 
@@ -83,6 +84,16 @@ def main() -> int:
         dashboard_list["Action"] == "cloudwatch:ListDashboards"
         and dashboard_list["Resource"] == "*",
         "Only dashboard listing may use an unscoped resource",
+    )
+
+    alarms = statement_by_sid(policies["monitoring"], "ManageOsmAlarms")
+    require(
+        alarms["Resource"] == OSM_ALARM_ARN,
+        "Alarm operations must remain scoped to daf-osm alarms",
+    )
+    require(
+        "cloudwatch:DescribeAlarmHistory" in alarms["Action"],
+        "The operator must be able to audit daf-osm alarm history",
     )
 
     subscriptions = statement_by_sid(policies["monitoring"], "ManageOsmSubscriptions")

@@ -648,8 +648,15 @@ php artisan tinker --execute 'dump((new App\Models\OsmNode)->getConnectionName()
 
 All four table-presence values must be `false`; the model must report connection
 `osm`, table `osm_current.application_alpr_nodes`, and a nonzero current row
-count. Queue a fresh marker cache and repeat the Phase 9A marker, hotlist,
-electronic-horizon, and directions smoke tests.
+count. Retain the marker file already validated during Phase 9A; Phase 9B does
+not queue another refresh. Repeat the marker, hotlist, electronic-horizon, and
+directions smoke tests against the deployed application.
+
+The production Phase 9B migration removed all four application tables. The
+post-migration reader check still resolved connection `osm` and view
+`osm_current.application_alpr_nodes`, which returned 147,148 current rows. The
+retained marker file was present, and the marker, hotlist, electronic-horizon,
+and directions endpoints all returned HTTP 200. Phase 9B is complete.
 
 There is no rollback for this approved drop. Do not run
 `php artisan migrate:rollback` and do not deploy a Phase 8 application release
@@ -658,24 +665,97 @@ the legacy node rows would need to be reconstructed from the OSM source.
 
 #### Phase 9C: remove obsolete configuration
 
-After the table-drop observation window, remove the retained
+The application artifact audit found no remaining runtime or `.env.example`
+references to the retired settings. The `OSM2PGSQL_*` values under
+`infrastructure/aws/osm/operations` configure the active OSM server pipeline;
+they are not Laravel application settings and must remain.
+
+Remove the retained values below from the Laravel site's Forge environment:
 `OSM_READER_ENABLED`, `OVERPASS_INGESTION_ENABLED`,
 `OSM_READER_MAXIMUM_SOURCE_AGE_MINUTES`, and application-local `OSM2PGSQL_*`
-environment values. Also remove the retired backend
+values. Also remove the retired backend
 `OPENSTREETMAP_CLIENT_ID`, `OPENSTREETMAP_CLIENT_SECRET`,
 `OPENSTREETMAP_REDIRECT_URI`, `MOBILE_AUTH_REDIRECT_SCHEMES`, and
 `MOBILE_AUTH_CODE_EXPIRES_MINUTES` values. Retain `OPENSTREETMAP_API_URL` and
 the OSM reader connection, table, host, port, database, SELECT-only username,
 password, and SSL mode.
 
+Inspect names only before editing; this command does not print values:
+
+```bash
+grep -E '^(OSM_READER_ENABLED|OVERPASS_INGESTION_ENABLED|OSM_READER_MAXIMUM_SOURCE_AGE_MINUTES|OSM2PGSQL_[A-Z0-9_]+|OPENSTREETMAP_CLIENT_ID|OPENSTREETMAP_CLIENT_SECRET|OPENSTREETMAP_REDIRECT_URI|MOBILE_AUTH_REDIRECT_SCHEMES|MOBILE_AUTH_CODE_EXPIRES_MINUTES)=' .env | cut -d= -f1 || true
+```
+
+After saving the Forge environment, rebuild Laravel's configuration cache and
+verify only the active reader contract without printing credentials:
+
+```bash
+php artisan config:cache
+php artisan config:show osm
+php artisan tinker --execute 'dump(["connection" => config("osm.reader.connection"), "table" => config("osm.reader.table"), "api_url" => config("services.openstreetmap.api_url")]);'
+```
+
+`config:show osm` must contain only the reader connection and table. The final
+values must be connection `osm`, table
+`osm_current.application_alpr_nodes`, and API URL
+`https://api.openstreetmap.org/api/0.6`. Repeat the four Phase 9B endpoint smoke
+tests; no marker-file refresh is required.
+
+Production configuration caching and the three-value reader check passed on
+2026-08-28. The operator explicitly waived another endpoint smoke-test pass
+after the successful Phase 9B checks. Phase 9C is complete.
+
 #### Phase 9D: steady-state infrastructure
 
-- Resize from any temporary import instance class only after CPU, memory, lag,
-  and I/O data support the steady-state class.
-- Adjust EBS size or throughput only from measured utilization.
-- Review budget attribution, alarm history, backup growth, and lifecycle results.
-- Remove bootstrap intermediates and obsolete credentials only after resolving
-  exact paths and proving recovery sources.
+The initial read-only audit covers the first 23 hours after the global stack
+reached steady state, including the application cutover at
+2026-08-28T03:07:06Z:
+
+- The database remains on `r7g.large`. Its peak hourly CPU average was 5.74%,
+  the highest individual CPU sample was 14.40%, and peak memory use was 3.07%.
+- The protected data volume remains a 512 GiB gp3 volume with 3,000 IOPS and
+  250 MiB/s throughput. Current use is 0.86%, and steady-state use peaked at
+  0.98%. Peak queue depth was 0.092. The conservative sum of the independent
+  five-minute read/write peaks was 10.72 IOPS and 1.96 MiB/s.
+- Shared-feed, current, and history lag stayed below 171 seconds. PostgreSQL
+  remained healthy; current parity, cursor divergence, and retained-spool
+  values are zero.
+- All 17 `daf-osm-*` alarms are currently `OK`, with no state transitions since
+  application cutover. Pre-cutover alarm transitions were limited to bootstrap
+  telemetry startup and brief minute-update parity, spool, and cursor windows.
+- The newest verified backup was 1,155 seconds old at audit time. The four
+  retained dumps total about 175.5 MB and range from 42.6 MB to 46.5 MB. The
+  35-day lifecycle configuration remains enabled.
+- The project budget reports $7.469 actual spend against $300; AWS has not yet
+  produced a forecast for this new stack.
+- The data host has empty work and local-backup directories. Its downloaded
+  bootstrap state is 4 KiB, and old extracted runtime artifacts total only
+  4.44 MB. Those artifacts are not worth a destructive production cleanup.
+- The `osm_publisher` credential is the active SELECT-only Laravel reader even
+  though its historical name is misleading. Do not remove its role, SSM
+  parameters, or Laravel environment values.
+
+The measured I/O load supports returning gp3 throughput to its included
+125 MiB/s baseline while retaining the 3,000 IOPS baseline. The Terraform
+default now expresses that in-place change. Keep the 512 GiB volume because EBS
+cannot shrink it in place, and keep `r7g.large` until at least seven full days
+of steady-state metrics and scheduled backups are available.
+
+The audit initially found that the operator could inspect current alarm state
+but not alarm history. The reviewed `DafOsmMonitoring` policy added scoped
+`cloudwatch:DescribeAlarmHistory` permission and was published as live default
+version `v2` on 2026-08-28. It has one attachment, the new permission remains
+scoped to `daf-osm-*`, and all exact alarm-history reads now pass. The IAM
+approval gate is complete; the saved Terraform throughput plan remains a
+separate, unapplied approval gate.
+
+The reviewed monitoring policy file SHA-256 is
+`c78c4aa15fb2105d44ae2ad19d0f504127d94d8c4b8640553d3b116513ceaaf1`.
+The saved Terraform plan SHA-256 is
+`2463638123d0025a6f6ecd0be391e856f32e64c72a1e62f322cb805a3e3547ac`.
+That plan contains zero creates, one in-place update, zero replacements, and
+zero destroys. Its only action changes `aws_ebs_volume.data` throughput from
+250 MiB/s to 125 MiB/s; every output is unchanged.
 
 There is no automatic destroy phase. Protected EBS, S3, state, and database
 resources require an explicit decommission plan.

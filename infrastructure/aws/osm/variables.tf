@@ -103,7 +103,7 @@ variable "data_snapshot_id" {
 variable "data_throughput_mibps" {
   description = "Provisioned throughput in MiB/s for the persistent gp3 OSM data volume."
   type        = number
-  default     = 250
+  default     = 125
 
   validation {
     condition     = var.data_throughput_mibps >= 125 && var.data_throughput_mibps <= 2000

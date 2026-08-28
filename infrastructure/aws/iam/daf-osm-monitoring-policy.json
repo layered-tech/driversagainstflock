@@ -29,6 +29,7 @@
             "Effect": "Allow",
             "Action": [
                 "cloudwatch:DeleteAlarms",
+                "cloudwatch:DescribeAlarmHistory",
                 "cloudwatch:DescribeAlarms",
                 "cloudwatch:ListTagsForResource",
                 "cloudwatch:PutMetricAlarm",
