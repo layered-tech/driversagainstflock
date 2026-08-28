@@ -559,6 +559,14 @@ confirm the modified time advanced and the file is nonempty. Then confirm the
 retired backend OAuth routes and directions command are absent and the retained
 OSM API URL is still configured:
 
+The corrective queue deployment passed its production marker-file check. A
+queued refresh advanced `markers-v3.json` from
+`2026-08-28 04:22:38.196545167 +0000` to
+`2026-08-28 04:24:16.666889871 +0000`; the resulting file remained nonempty at
+100,696,634 bytes, and the public marker endpoint returned HTTP 200. The
+unchanged byte count is acceptable because the advanced modification time
+proves that the atomic replacement completed.
+
 ```bash
 php artisan tinker --execute 'dump(["osm_redirect_route" => Route::has("auth.openstreetmap.redirect"), "osm_callback_route" => Route::has("auth.openstreetmap.callback"), "directions_verifier" => array_key_exists("directions:verify-providers", Artisan::all()), "openstreetmap_api_url" => config("services.openstreetmap.api_url")]);'
 curl -sS -o /dev/null -w 'marker file v3: %{http_code}\n' https://driversagainstflock.org/api/markers
@@ -570,6 +578,14 @@ offers backend OpenStreetMap login. Keep the old backend OAuth environment
 values through the observation window if rollback to the prior release remains
 necessary; the new release does not read them.
 
+The production backend-removal check returned `false` for both retired OAuth
+routes and for the directions verifier command. Its first check exposed the
+development OpenStreetMap API URL; after correcting the production environment
+and rebuilding Laravel's configuration cache, the application resolved
+`https://api.openstreetmap.org/api/0.6`, whose capabilities endpoint returned
+HTTP 200. The production login page no longer offered backend OpenStreetMap
+login.
+
 Rollback: deploy the Phase 8 application release. The retained tables and the
 still-configured `OSM_READER_ENABLED=true` and
 `OVERPASS_INGESTION_ENABLED=false` values restore the previous release without
@@ -578,12 +594,11 @@ reconstructing data.
 #### Phase 9B: drop legacy application tables
 
 This is a separate destructive database release. Begin only after Phase 9A has
-completed its observation window, the aggregate inventory is accepted, a
-restorable application-database backup is verified, and the exact migration is
-approved. Drop dependent `confirmations` first, then `markers`, then `nodes`.
-Historical migrations remain immutable; the cleanup migration records the
-forward-only retirement. Before including the now-unreferenced
-`social_accounts` table, inventory it separately in production:
+completed its observation window, the aggregate inventory is accepted, and the
+exact migration is approved. Drop dependent `confirmations` first, then
+`markers`, then `nodes`. Historical migrations remain immutable; the cleanup
+migration records the forward-only retirement. Before including the
+now-unreferenced `social_accounts` table, inventory it separately in production:
 
 ```bash
 php artisan tinker --execute 'dump(["social_accounts_total" => DB::table("social_accounts")->count()]);'
@@ -591,13 +606,55 @@ php artisan tinker --execute 'dump(["social_accounts_total" => DB::table("social
 
 Stop if the count is nonzero until those accounts are explicitly accounted for.
 The local development table contained zero rows during the follow-up artifact
-audit. Once approved, the cleanup migration may drop `social_accounts` together
-with the three legacy OSM tables.
+audit, and the production inventory also returned zero rows. No social-account
+data requires migration.
 
-Afterward, verify that all four tables are absent, queue a marker cache `v3`
-refresh, confirm the queued job completes, and repeat the Phase 9A smoke tests.
-Rollback requires restoring the verified application-database backup before
-deploying the Phase 8 release.
+The approved Phase 9B artifact adds
+`2026_08_28_043658_drop_legacy_osm_and_social_tables.php`. Its forward-only
+migration drops `confirmations`, `markers`, `nodes`, and `social_accounts` in
+that order. The schema audit found no foreign keys into or out of those tables.
+The migration cannot reconstruct retired data, so its `down` method stops
+instead of pretending the drop can be reversed.
+
+The application owner explicitly approved applying Phase 9B without an
+application-database backup. `markers`, `confirmations`, and `social_accounts`
+were empty, while the 147,027 legacy `nodes` rows had already been superseded by
+the independently maintained OSM reader database. This approval accepts that a
+Phase 8 application rollback is no longer available after the migration runs.
+
+Immediately before deployment, repeat the aggregate inventory. Stop if any
+count differs from its approved value:
+
+```bash
+php artisan tinker --execute 'dump(["markers_total" => DB::table("markers")->count(), "confirmations_total" => DB::table("confirmations")->count(), "nodes_total" => DB::table("nodes")->count(), "social_accounts_total" => DB::table("social_accounts")->count()]);'
+php artisan migrate --pretend --force
+```
+
+The approved values are zero markers, zero confirmations, 147,027 legacy nodes,
+and zero social accounts. The migration preview must contain only the expected
+four table drops before applying it:
+
+```bash
+php artisan migrate --force
+```
+
+Afterward, verify that all four tables are absent and that `App\Models\OsmNode`
+still reads the OSM compatibility view rather than the application database:
+
+```bash
+php artisan tinker --execute 'dump(["confirmations" => Schema::hasTable("confirmations"), "markers" => Schema::hasTable("markers"), "nodes" => Schema::hasTable("nodes"), "social_accounts" => Schema::hasTable("social_accounts")]);'
+php artisan tinker --execute 'dump((new App\Models\OsmNode)->getConnectionName(), (new App\Models\OsmNode)->getTable(), App\Models\OsmNode::query()->count());'
+```
+
+All four table-presence values must be `false`; the model must report connection
+`osm`, table `osm_current.application_alpr_nodes`, and a nonzero current row
+count. Queue a fresh marker cache and repeat the Phase 9A marker, hotlist,
+electronic-horizon, and directions smoke tests.
+
+There is no rollback for this approved drop. Do not run
+`php artisan migrate:rollback` and do not deploy a Phase 8 application release
+afterward. Any future need for these tables requires a new forward migration;
+the legacy node rows would need to be reconstructed from the OSM source.
 
 #### Phase 9C: remove obsolete configuration
 

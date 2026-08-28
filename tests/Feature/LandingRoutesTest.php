@@ -594,12 +594,13 @@ test('hotlist update stat follows the selected timeframe window', function () {
         );
 });
 
-test('hotlist indexes exist for newest first queries', function () {
-    $indexes = collect(Schema::getIndexes('nodes'))->pluck('name');
+test('osm reader tests use an isolated fixture table', function () {
+    $node = new OsmNode;
 
-    expect($indexes)
-        ->toContain('nodes_hotlist_osm_updated_at_id_index')
-        ->toContain('nodes_hotlist_type_osm_updated_at_id_index');
+    expect($node->getConnectionName())->toBe('pgsql')
+        ->and($node->getTable())->toBe('testing_osm_nodes')
+        ->and(Schema::hasTable('nodes'))->toBeFalse()
+        ->and(Schema::hasTable('testing_osm_nodes'))->toBeTrue();
 });
 
 test('landing hero passes zip codes to the full map', function () {
