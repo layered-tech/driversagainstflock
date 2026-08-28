@@ -746,8 +746,8 @@ but not alarm history. The reviewed `DafOsmMonitoring` policy added scoped
 `cloudwatch:DescribeAlarmHistory` permission and was published as live default
 version `v2` on 2026-08-28. It has one attachment, the new permission remains
 scoped to `daf-osm-*`, and all exact alarm-history reads now pass. The IAM
-approval gate is complete; the saved Terraform throughput plan remains a
-separate, unapplied approval gate.
+approval gate is complete. The Terraform throughput change remained a separate
+approval gate.
 
 The reviewed monitoring policy file SHA-256 is
 `c78c4aa15fb2105d44ae2ad19d0f504127d94d8c4b8640553d3b116513ceaaf1`.
@@ -756,6 +756,18 @@ The saved Terraform plan SHA-256 is
 That plan contains zero creates, one in-place update, zero replacements, and
 zero destroys. Its only action changes `aws_ebs_volume.data` throughput from
 250 MiB/s to 125 MiB/s; every output is unchanged.
+
+The exact saved plan was applied on 2026-08-28: zero resources were added, one
+was changed in place, and zero were destroyed. The attached 512 GiB gp3 volume
+now reports 125 MiB/s throughput and 3,000 IOPS. AWS entered its normal
+background `optimizing` state with the target configuration already active.
+A fresh Terraform plan reports no changes.
+
+The immediate post-apply check found PostgreSQL and all four runtime timers or
+agents active, all 17 alarms `OK`, and the metrics service successful. Shared,
+current, and history lag were 66 seconds; backup age was 2,388 seconds; parity,
+both cursor divergences, and retained spool were zero. The current and history
+projections contained 147,164 and 238,006 rows, respectively.
 
 There is no automatic destroy phase. Protected EBS, S3, state, and database
 resources require an explicit decommission plan.
