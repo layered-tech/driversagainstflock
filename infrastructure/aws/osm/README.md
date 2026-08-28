@@ -506,6 +506,15 @@ php artisan route:list --path=api
 php artisan list
 ```
 
+The Phase 9A production deployment bound `App\Models\OsmNode` to connection
+`osm` and view `osm_current.application_alpr_nodes`. The view returned 147,131
+rows while the untouched legacy table remained at 147,027 rows with its
+`2026-08-27 22:04:55` final sync timestamp. The production schedule contained
+only `markers:refresh-file` and `telescope:prune`. Route inspection confirmed
+that the legacy save, delete, and confirmation routes were absent while the
+published-node callback remained registered. Bounded marker, hotlist,
+electronic-horizon, and directions smoke tests all returned HTTP 200.
+
 Smoke-test marker, hotlist, electronic-horizon, directions, and published-node
 flows. Confirm that no application query or scheduled command accesses the
 legacy `markers`, `confirmations`, or `nodes` tables during the observation
