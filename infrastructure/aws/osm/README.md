@@ -404,18 +404,43 @@ files only after the Phase 7 stack is validated.
 
 ### Phase 8: consumer cutover
 
+Status: local implementation complete on 2026-08-27. The production reader
+view, application deployment, credential configuration, parity proof, and
+two-flag cutover remain pending their explicit production approvals.
+
 Approval required and intentionally separate from infrastructure rollout.
 
-- Add the production application or new service as an explicitly approved
-  database client.
-- Retrieve reader credentials without printing decrypted secrets.
-- Compare current ALPR counts and representative rows with the existing source.
-- Disable the scheduled Overpass current-state ingestion only after parity and
-  freshness gates pass.
-- Keep public API response contracts unchanged.
+- Deploy the versioned OSM artifact containing
+  `osm_current.application_alpr_nodes`, then apply `schema.sql` on the OSM host.
+  The compatibility view exposes only the existing application column contract,
+  and `osm_publisher` retains SELECT-only access.
+- Deploy the Laravel reader support with `OSM_READER_ENABLED=false` and
+  `OVERPASS_INGESTION_ENABLED=true`. This makes the new connection available
+  without changing production reads or the existing ingestion schedule.
+- Retrieve `/daf-osm/database/endpoint`, `/daf-osm/database/port`,
+  `/daf-osm/database/name`, `/daf-osm/database/publisher-username`, and the
+  decrypted `/daf-osm/database/publisher-password` directly into protected
+  production environment fields. Never echo, log, or place the password in a
+  command argument, shell history, repository file, or command result.
+- Run `php artisan app:verify-osm-cutover` while the application still reads its
+  legacy table. By default, it requires exact aggregate count parity, a reader
+  source age of no more than ten minutes, and matching canonical fields for five
+  evenly distributed rows. Use repeated `--node=<id>` options for separately
+  approved representative node IDs. The command reports aggregate counts,
+  timestamps, IDs, and mismatched field names without printing tags,
+  coordinates, or credentials.
+- Only after that command passes, set `OSM_READER_ENABLED=true` and
+  `OVERPASS_INGESTION_ENABLED=false` in the same production configuration
+  change and redeploy or reload every web, worker, and scheduler process.
+- Re-run `php artisan app:verify-osm-cutover`, inspect `php artisan config:show
+  osm`, and smoke-test the marker, directions, hotlist, and electronic-horizon
+  endpoints. Confirm that their response shapes are unchanged and that no new
+  scheduled Overpass batch starts.
 
-Rollback: restore Overpass ingestion and the previous application configuration;
-the OSM database continues replicating independently.
+Rollback: atomically restore `OSM_READER_ENABLED=false` and
+`OVERPASS_INGESTION_ENABLED=true`, then redeploy or reload every application
+process. The legacy application table remains intact through the observation
+window, and the OSM database continues replicating independently.
 
 ### Phase 9: steady-state resize and cleanup
 

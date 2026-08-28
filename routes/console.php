@@ -7,9 +7,10 @@ use Illuminate\Support\Facades\Schedule;
 Schedule::command(FetchOverpassDataCommand::class, ['--all', '--full'])
     ->hourly()
     ->withoutOverlapping(3600)
-    ->onOneServer();
+    ->onOneServer()
+    ->when(fn (): bool => (bool) config('osm.overpass_ingestion_enabled'));
 
-//Schedule::command(Osm2pgsqlReplicationUpdateCommand::class)
+// Schedule::command(Osm2pgsqlReplicationUpdateCommand::class)
 //    ->everyMinute()
 //    ->withoutOverlapping(60)
 //    ->onOneServer();

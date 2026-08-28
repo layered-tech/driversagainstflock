@@ -2,7 +2,7 @@
 
 namespace App\Services\ElectronicHorizon;
 
-use App\Models\OsmNode;
+use App\Models\CurrentOsmNode;
 use App\Services\Directions\DirectionsException;
 use App\Services\Directions\GeometryService;
 use Illuminate\Support\Facades\Cache;
@@ -32,7 +32,7 @@ class ElectronicHorizonAlprLookup
      */
     private function findUncached(array $coordinates): array
     {
-        return OsmNode::query()
+        return CurrentOsmNode::query()
             ->select([
                 'id',
                 'osm_id',
@@ -52,7 +52,7 @@ class ElectronicHorizonAlprLookup
             ->orderBy('id')
             ->limit((int) config('electronic-horizon.alpr_maximum_results'))
             ->get()
-            ->map(fn (OsmNode $node): array => [
+            ->map(fn (CurrentOsmNode $node): array => [
                 'camera_direction' => $node->camera_direction,
                 'coordinate' => [(float) $node->longitude, (float) $node->latitude],
                 'direction' => $node->direction,

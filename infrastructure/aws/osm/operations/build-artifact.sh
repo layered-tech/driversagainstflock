@@ -567,6 +567,8 @@ for contract in (
     'GRANT CONNECT, TEMPORARY ON DATABASE :"database_name" TO osm_ingest;',
     'GRANT CONNECT ON DATABASE :"database_name" TO osm_publisher;',
     "GRANT SELECT ON ALL TABLES IN SCHEMA osm_current, osm_history TO osm_publisher;",
+    "CREATE OR REPLACE VIEW osm_current.application_alpr_nodes AS",
+    "GRANT SELECT ON osm_current.application_alpr_nodes TO osm_publisher;",
 ):
     if contract not in schema:
         raise SystemExit(f"Missing database ownership/reader contract: {contract}")

@@ -2,7 +2,7 @@
 
 namespace App\Services\Directions;
 
-use App\Models\OsmNode;
+use App\Models\CurrentOsmNode;
 use Illuminate\Support\Facades\Log;
 
 class DatabasePoiSource implements RouteAwarePoiSource
@@ -25,7 +25,7 @@ class DatabasePoiSource implements RouteAwarePoiSource
             'profile_count' => count($profiles),
         ]);
 
-        $nodes = OsmNode::query()
+        $nodes = CurrentOsmNode::query()
             ->select(['id', 'osm_id', 'latitude', 'longitude', 'direction', 'camera_direction', 'tags'])
             ->withinBounds($bounds)
             ->matchingProfiles($profiles)
@@ -58,7 +58,7 @@ class DatabasePoiSource implements RouteAwarePoiSource
             'profile_count' => count($profiles),
         ]);
 
-        $nodes = OsmNode::query()
+        $nodes = CurrentOsmNode::query()
             ->select(['id', 'osm_id', 'latitude', 'longitude', 'direction', 'camera_direction', 'tags'])
             ->matchingProfiles($profiles)
             ->nearRoute($coordinates, $bufferMeters)
@@ -77,7 +77,7 @@ class DatabasePoiSource implements RouteAwarePoiSource
     }
 
     /**
-     * @param  iterable<int, OsmNode>  $nodes
+     * @param  iterable<int, CurrentOsmNode>  $nodes
      * @return array<int, PointOfInterest>
      */
     private function pointsOfInterest(iterable $nodes): array
@@ -105,7 +105,7 @@ class DatabasePoiSource implements RouteAwarePoiSource
     /**
      * @return array<int, DirectionRange|null>
      */
-    private function directionsForNode(OsmNode $node): array
+    private function directionsForNode(CurrentOsmNode $node): array
     {
         return $this->directionParser->parseMany(
             $node->direction

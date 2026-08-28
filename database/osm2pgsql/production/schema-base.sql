@@ -139,11 +139,35 @@ CREATE INDEX IF NOT EXISTS alpr_nodes_geom_index
 CREATE INDEX IF NOT EXISTS alpr_nodes_updated_index
     ON osm_current.alpr_nodes (osm_updated_at);
 
+CREATE OR REPLACE VIEW osm_current.application_alpr_nodes AS
+SELECT
+    id,
+    node_id AS osm_id,
+    latitude,
+    longitude,
+    geom AS location,
+    tags,
+    surveillance_type,
+    direction,
+    camera_direction,
+    osm_updated_at,
+    osm_version,
+    changeset_id AS osm_changeset_id,
+    osm_user,
+    osm_uid,
+    source_replication_sequence,
+    source_timestamp,
+    published_at AS last_synced_at,
+    published_at AS created_at,
+    published_at AS updated_at
+FROM osm_current.alpr_nodes;
+
 GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA osm_pipeline TO osm_ingest;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA osm_current, osm_history TO osm_ingest;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA osm_pipeline, osm_current, osm_history TO osm_ingest;
 
 GRANT SELECT ON ALL TABLES IN SCHEMA osm_current, osm_history TO osm_publisher;
+GRANT SELECT ON osm_current.application_alpr_nodes TO osm_publisher;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE osm_owner IN SCHEMA osm_pipeline
     GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON TABLES TO osm_ingest;
@@ -173,5 +197,7 @@ $ownership_contract$;
 
 COMMENT ON TABLE osm_current.alpr_nodes IS
     'Current global OSM nodes with surveillance:type=ALPR.';
+COMMENT ON VIEW osm_current.application_alpr_nodes IS
+    'Read-only compatibility projection for the Drivers Against Flock application.';
 COMMENT ON TABLE osm_history.alpr_node_versions IS
     'All public OSM lifecycle versions for every globally qualified ALPR node, including contributor metadata.';

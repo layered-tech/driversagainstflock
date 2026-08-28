@@ -66,6 +66,14 @@ WHERE schemaname IN ('osm_pipeline', 'osm_current', 'osm_history')
 ")"
 assert_zero 'Production tables not owned by osm_owner' "${production_owner_errors}"
 
+application_view_errors="$(psql_osm --tuples-only --no-align --command="
+SELECT
+    CASE WHEN to_regclass('osm_current.application_alpr_nodes') IS NULL THEN 1 ELSE 0 END
+  + CASE WHEN (SELECT count(*) FROM osm_current.application_alpr_nodes) = (SELECT count(*) FROM osm_current.alpr_nodes) THEN 0 ELSE 1 END
+  + CASE WHEN (SELECT viewowner FROM pg_views WHERE schemaname = 'osm_current' AND viewname = 'application_alpr_nodes') = 'osm_owner' THEN 0 ELSE 1 END
+")"
+assert_zero 'Application reader view contract violations' "${application_view_errors}"
+
 public_connect_grants="$(psql_osm --tuples-only --no-align --command="
 SELECT count(*)
 FROM pg_database AS databases
@@ -89,8 +97,10 @@ assert_zero 'Database role privilege contract violations' "${database_role_privi
 publisher_privilege_errors="$(psql_osm --tuples-only --no-align --command="
 SELECT
     CASE WHEN has_table_privilege('osm_publisher', 'osm_current.alpr_nodes', 'SELECT') THEN 0 ELSE 1 END
+  + CASE WHEN has_table_privilege('osm_publisher', 'osm_current.application_alpr_nodes', 'SELECT') THEN 0 ELSE 1 END
   + CASE WHEN has_table_privilege('osm_publisher', 'osm_history.alpr_node_versions', 'SELECT') THEN 0 ELSE 1 END
   + CASE WHEN has_table_privilege('osm_publisher', 'osm_current.alpr_nodes', 'INSERT,UPDATE,DELETE,TRUNCATE') THEN 1 ELSE 0 END
+  + CASE WHEN has_table_privilege('osm_publisher', 'osm_current.application_alpr_nodes', 'INSERT,UPDATE,DELETE,TRUNCATE') THEN 1 ELSE 0 END
   + CASE WHEN has_table_privilege('osm_publisher', 'osm_history.alpr_node_versions', 'INSERT,UPDATE,DELETE,TRUNCATE') THEN 1 ELSE 0 END
 ")"
 assert_zero 'Publisher least-privilege contract violations' "${publisher_privilege_errors}"

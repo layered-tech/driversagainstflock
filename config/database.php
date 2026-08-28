@@ -98,6 +98,20 @@ return [
             'sslmode' => 'prefer',
         ],
 
+        'osm' => [
+            'driver' => 'pgsql',
+            'host' => env('OSM_READER_HOST', 'database.daf-osm.internal'),
+            'port' => env('OSM_READER_PORT', '5432'),
+            'database' => env('OSM_READER_DATABASE', 'daf_osm'),
+            'username' => env('OSM_READER_USERNAME', 'osm_publisher'),
+            'password' => env('OSM_READER_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'osm_current,public',
+            'sslmode' => env('OSM_READER_SSLMODE', 'require'),
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),

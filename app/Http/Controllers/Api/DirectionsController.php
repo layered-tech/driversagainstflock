@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\OsmNode;
+use App\Models\CurrentOsmNode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -82,7 +82,7 @@ class DirectionsController extends Controller
                 'exclusion_buffer_meters' => $exclusionZonesBufferInMeters,
             ]);
 
-            $avoidNodes = OsmNode::query()
+            $avoidNodes = CurrentOsmNode::query()
                 ->select(['id', 'osm_id'])
                 ->selectRaw(
                     'ST_AsGeoJSON(ST_Buffer(location::geography, ?)::geometry) AS geojson',
