@@ -2,9 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Services\MarkerFileCache;
+use App\Jobs\RefreshMarkerFile;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\File;
 
 class RefreshMarkerFileCommand extends Command
 {
@@ -20,18 +19,16 @@ class RefreshMarkerFileCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Refresh the static nationwide markers payload';
+    protected $description = 'Queue a refresh of the static nationwide markers payload';
 
     /**
      * Execute the console command.
      */
-    public function handle(MarkerFileCache $markerFileCache): int
+    public function handle(): int
     {
-        $path = $markerFileCache->refresh();
+        RefreshMarkerFile::dispatch();
 
-        $this->components->info('Marker file refreshed.');
-        $this->line($path);
-        $this->line(File::size($path).' bytes');
+        $this->components->info('Marker file refresh queued.');
 
         return self::SUCCESS;
     }

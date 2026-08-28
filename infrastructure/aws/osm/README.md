@@ -514,11 +514,47 @@ only `markers:refresh-file` and `telescope:prune`. Route inspection confirmed
 that the legacy save, delete, and confirmation routes were absent while the
 published-node callback remained registered. Bounded marker, hotlist,
 electronic-horizon, and directions smoke tests all returned HTTP 200.
+The unbounded marker-file `v3` endpoint also returned HTTP 200.
 
 Smoke-test marker, hotlist, electronic-horizon, directions, and published-node
 flows. Confirm that no application query or scheduled command accesses the
 legacy `markers`, `confirmations`, or `nodes` tables during the observation
 window.
+
+The Phase 9A follow-up application artifact moves marker-file generation into
+the existing Redis/Horizon queue. `markers:refresh-file` now returns after
+dispatching one unique `App\Jobs\RefreshMarkerFile` job; Horizon performs the
+OSM read and atomic file replacement. The same artifact removes the unused
+directions provider verification command and the unused Laravel Socialite and
+mobile OAuth bridge. Expo's direct OpenStreetMap OAuth flow is independent and
+is unchanged. `OPENSTREETMAP_API_URL` remains required by the published-node
+callback.
+
+After deploying the follow-up artifact, restart Horizon through the normal
+deployment hook, then run:
+
+```bash
+php artisan horizon:status
+stat --format='before: modified=%y bytes=%s' storage/app/markers/markers-v3.json
+php artisan markers:refresh-file
+```
+
+The command must report `Marker file refresh queued.` and Horizon must be
+running. After Horizon processes the job, rerun `stat` and confirm the modified
+time advanced and the file is nonempty. Then confirm the retired backend OAuth
+routes and directions command are absent and the retained OSM API URL is still
+configured:
+
+```bash
+php artisan tinker --execute 'dump(["osm_redirect_route" => Route::has("auth.openstreetmap.redirect"), "osm_callback_route" => Route::has("auth.openstreetmap.callback"), "directions_verifier" => array_key_exists("directions:verify-providers", Artisan::all()), "openstreetmap_api_url" => config("services.openstreetmap.api_url")]);'
+curl -sS -o /dev/null -w 'marker file v3: %{http_code}\n' https://driversagainstflock.org/api/markers
+```
+
+All three Boolean values must be `false`, the OSM API URL must be present, and
+the marker endpoint must return HTTP 200. Also verify the login page no longer
+offers backend OpenStreetMap login. Keep the old backend OAuth environment
+values through the observation window if rollback to the prior release remains
+necessary; the new release does not read them.
 
 Rollback: deploy the Phase 8 application release. The retained tables and the
 still-configured `OSM_READER_ENABLED=true` and
@@ -532,19 +568,34 @@ completed its observation window, the aggregate inventory is accepted, a
 restorable application-database backup is verified, and the exact migration is
 approved. Drop dependent `confirmations` first, then `markers`, then `nodes`.
 Historical migrations remain immutable; the cleanup migration records the
-forward-only retirement.
+forward-only retirement. Before including the now-unreferenced
+`social_accounts` table, inventory it separately in production:
 
-Afterward, verify that all three tables are absent, refresh marker cache `v3`,
-and repeat the Phase 9A smoke tests. Rollback requires restoring the verified
-application-database backup before deploying the Phase 8 release.
+```bash
+php artisan tinker --execute 'dump(["social_accounts_total" => DB::table("social_accounts")->count()]);'
+```
+
+Stop if the count is nonzero until those accounts are explicitly accounted for.
+The local development table contained zero rows during the follow-up artifact
+audit. Once approved, the cleanup migration may drop `social_accounts` together
+with the three legacy OSM tables.
+
+Afterward, verify that all four tables are absent, queue a marker cache `v3`
+refresh, confirm the queued job completes, and repeat the Phase 9A smoke tests.
+Rollback requires restoring the verified application-database backup before
+deploying the Phase 8 release.
 
 #### Phase 9C: remove obsolete configuration
 
 After the table-drop observation window, remove the retained
 `OSM_READER_ENABLED`, `OVERPASS_INGESTION_ENABLED`,
 `OSM_READER_MAXIMUM_SOURCE_AGE_MINUTES`, and application-local `OSM2PGSQL_*`
-environment values. Retain the OSM reader connection, table, host, port,
-database, SELECT-only username, password, and SSL mode.
+environment values. Also remove the retired backend
+`OPENSTREETMAP_CLIENT_ID`, `OPENSTREETMAP_CLIENT_SECRET`,
+`OPENSTREETMAP_REDIRECT_URI`, `MOBILE_AUTH_REDIRECT_SCHEMES`, and
+`MOBILE_AUTH_CODE_EXPIRES_MINUTES` values. Retain `OPENSTREETMAP_API_URL` and
+the OSM reader connection, table, host, port, database, SELECT-only username,
+password, and SSL mode.
 
 #### Phase 9D: steady-state infrastructure
 

@@ -4,7 +4,6 @@ use App\Http\Controllers\Api\AutocompleteSearchController;
 use App\Http\Controllers\Api\DirectionsController;
 use App\Http\Controllers\Api\LocalityBoundaryController;
 use App\Http\Controllers\Api\MarkersController;
-use App\Http\Controllers\Api\MobileOAuthTokenController;
 use App\Http\Controllers\Api\PlaceController;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\SearchController;
@@ -25,7 +24,6 @@ use Illuminate\Validation\ValidationException;
 
 Route::get('markers', MarkersController::class);
 Route::post('register', RegisterController::class);
-Route::post('oauth/mobile/token', MobileOAuthTokenController::class);
 
 Route::post('search/autocomplete', AutocompleteSearchController::class)
     ->middleware('throttle:autocomplete');

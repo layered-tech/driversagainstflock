@@ -11,13 +11,6 @@ defineProps({
     canResetPassword: {
         type: Boolean,
     },
-    mobileLogin: {
-        type: Boolean,
-    },
-    openStreetMapLoginUrl: {
-        type: String,
-        required: true,
-    },
     status: {
         type: String,
     },
@@ -42,21 +35,6 @@ const submit = () => {
 
         <div v-if="status" class="mb-4 text-sm font-medium text-green-600">
             {{ status }}
-        </div>
-
-        <a
-            :href="openStreetMapLoginUrl"
-            class="flex w-full items-center justify-center rounded-md border border-green-700 bg-green-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:border-green-500 dark:bg-green-600 dark:hover:bg-green-500 dark:focus:ring-offset-gray-800"
-        >
-            Login with OpenStreetMap
-        </a>
-
-        <div class="my-6 flex items-center gap-3">
-            <div class="h-px flex-1 bg-gray-200 dark:bg-gray-700"></div>
-            <span class="text-xs uppercase text-gray-500 dark:text-gray-400">
-                or
-            </span>
-            <div class="h-px flex-1 bg-gray-200 dark:bg-gray-700"></div>
         </div>
 
         <form @submit.prevent="submit">
