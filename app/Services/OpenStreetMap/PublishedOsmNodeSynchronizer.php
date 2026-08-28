@@ -5,8 +5,9 @@ namespace App\Services\OpenStreetMap;
 use App\Exceptions\PublishedOsmNodeSyncException;
 use App\Models\OsmNode;
 use App\Repositories\MapRepository;
-use App\Services\Overpass\OverpassNodeSynchronizer;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 
 class PublishedOsmNodeSynchronizer
@@ -18,7 +19,6 @@ class PublishedOsmNodeSynchronizer
     private const USER_AGENT = 'DriversAgainstFlock/1.0 (+https://driversagainstflock.com)';
 
     public function __construct(
-        private OverpassNodeSynchronizer $nodeSynchronizer,
         private MapRepository $mapRepository,
     ) {}
 
@@ -29,14 +29,18 @@ class PublishedOsmNodeSynchronizer
     public function sync(int $changesetId, array $nodes): array
     {
         $elements = $this->fetchVerifiedElements($changesetId, $nodes);
-        $result = $this->nodeSynchronizer->syncMany($elements);
-        $points = $this->markerPoints($nodes);
+        $created = collect($elements)->where('version', 1)->count();
 
         return [
-            'synced' => $result['synced'],
-            'created' => $result['created'],
-            'updated' => $result['updated'],
-            'points' => $points,
+            'synced' => count($elements),
+            'created' => $created,
+            'updated' => count($elements) - $created,
+            'points' => array_map(
+                fn (array $element): array => $this->mapRepository->transformOsmNode(
+                    $this->nodeFromElement($element),
+                ),
+                $elements,
+            ),
         ];
     }
 
@@ -110,29 +114,32 @@ class PublishedOsmNodeSynchronizer
         return array_values($verifiedElements);
     }
 
-    /**
-     * @param  array<int, array{id: int, version: int}>  $nodes
-     * @return array<int, array<string, mixed>>
-     */
-    private function markerPoints(array $nodes): array
+    /** @param array<string, mixed> $element */
+    private function nodeFromElement(array $element): OsmNode
     {
-        $osmNodeIds = array_column($nodes, 'id');
-        $storedNodes = OsmNode::query()
-            ->whereIntegerInRaw('osm_id', $osmNodeIds)
-            ->get()
-            ->keyBy('osm_id');
+        $tags = array_map(
+            fn (mixed $value): string => (string) $value,
+            is_array($element['tags'] ?? null) ? $element['tags'] : [],
+        );
+        $node = new OsmNode([
+            'osm_id' => (int) $element['id'],
+            'latitude' => (float) $element['lat'],
+            'longitude' => (float) $element['lon'],
+            'tags' => $tags,
+            'surveillance_type' => Arr::get($tags, 'surveillance:type'),
+            'direction' => Arr::get($tags, 'direction'),
+            'camera_direction' => Arr::get($tags, 'camera:direction'),
+            'osm_updated_at' => Carbon::parse((string) $element['timestamp']),
+            'osm_version' => (int) $element['version'],
+            'osm_changeset_id' => (int) $element['changeset'],
+            'osm_user' => is_scalar($element['user'] ?? null) ? (string) $element['user'] : null,
+            'osm_uid' => is_numeric($element['uid'] ?? null) ? (int) $element['uid'] : null,
+        ]);
+        $node->id = (int) $element['id'];
+        $node->created_at = $node->osm_updated_at;
+        $node->updated_at = $node->osm_updated_at;
 
-        return collect($osmNodeIds)
-            ->map(function (int $osmNodeId) use ($storedNodes): ?array {
-                $node = $storedNodes->get($osmNodeId);
-
-                return $node instanceof OsmNode
-                    ? $this->mapRepository->transformOsmNode($node)
-                    : null;
-            })
-            ->filter()
-            ->values()
-            ->all();
+        return $node;
     }
 
     private function apiUrl(string $path): string

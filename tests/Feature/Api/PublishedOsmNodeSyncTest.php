@@ -45,7 +45,7 @@ beforeEach(function () {
     ]);
 });
 
-it('stores current canonical published nodes and returns map points idempotently', function () {
+it('returns canonical published node points without writing the reader source', function () {
     $secondNode = publishedOsmNode([
         'id' => PUBLISHED_OSM_NODE_TWO,
         'lat' => 37.7838342,
@@ -79,39 +79,23 @@ it('stores current canonical published nodes and returns map points idempotently
     $firstResponse = $this->postJson('/api/v1/osm/published-nodes', $payload)
         ->assertOk()
         ->assertJsonPath('ok', true)
+        ->assertJsonPath('result.synced', 2)
+        ->assertJsonPath('result.created', 1)
+        ->assertJsonPath('result.updated', 1)
         ->assertJsonCount(2, 'result.points');
-
-    $firstNode = OsmNode::query()->where('osm_id', PUBLISHED_OSM_NODE_ONE)->firstOrFail();
-    $secondStoredNode = OsmNode::query()->where('osm_id', PUBLISHED_OSM_NODE_TWO)->firstOrFail();
-    $firstInternalId = $firstNode->id;
-    $secondInternalId = $secondStoredNode->id;
-
-    expect(OsmNode::query()->count())->toBe(2)
-        ->and((float) $firstNode->latitude)->toBe(37.7832121)
-        ->and((float) $firstNode->longitude)->toBe(-122.4074189)
-        ->and((float) $firstNode->location->latitude)->toBe(37.7832121)
-        ->and((float) $firstNode->location->longitude)->toBe(-122.4074189)
-        ->and($firstNode->surveillance_type)->toBe('ALPR')
-        ->and($firstNode->direction)->toBe('45')
-        ->and($firstNode->osm_version)->toBe(1)
-        ->and($firstNode->osm_changeset_id)->toBe(PUBLISHED_OSM_CHANGESET_ID)
-        ->and($firstNode->osm_user)->toBe('daf_mapper')
-        ->and($firstNode->osm_uid)->toBe(21937416)
-        ->and($firstNode->osm_updated_at?->toJSON())->toBe('2026-07-22T18:20:00.000000Z')
-        ->and($firstNode->last_synced_at)->not->toBeNull()
-        ->and($secondStoredNode->camera_direction)->toBe('225')
-        ->and($secondStoredNode->direction)->toBeNull()
-        ->and($secondStoredNode->osm_version)->toBe(3);
 
     $pointsByOsmId = collect($firstResponse->json('result.points'))
         ->keyBy('properties.osm_id');
 
-    expect($pointsByOsmId)->toHaveCount(2)
+    expect(OsmNode::query()->exists())->toBeFalse()
+        ->and($pointsByOsmId)->toHaveCount(2)
         ->and($pointsByOsmId[PUBLISHED_OSM_NODE_ONE]['location'])->toBe([
             -122.4074189,
             37.7832121,
         ])
-        ->and($pointsByOsmId[PUBLISHED_OSM_NODE_ONE]['properties']['id'])->toBe('osm-node-'.$firstInternalId)
+        ->and($pointsByOsmId[PUBLISHED_OSM_NODE_ONE]['properties']['id'])->toBe('osm-node-'.PUBLISHED_OSM_NODE_ONE)
+        ->and($pointsByOsmId[PUBLISHED_OSM_NODE_ONE]['properties']['direction'])->toBe('45')
+        ->and($pointsByOsmId[PUBLISHED_OSM_NODE_TWO]['properties']['direction'])->toBe('225')
         ->and($pointsByOsmId[PUBLISHED_OSM_NODE_ONE]['properties']['osm_nodes'][0]['node_id'])->toBe(PUBLISHED_OSM_NODE_ONE)
         ->and($pointsByOsmId[PUBLISHED_OSM_NODE_ONE]['properties']['osm_nodes'][0]['tags']['surveillance:type'])->toBe('ALPR');
 
@@ -120,9 +104,7 @@ it('stores current canonical published nodes and returns map points idempotently
         ->assertJsonPath('ok', true)
         ->assertJsonCount(2, 'result.points');
 
-    expect(OsmNode::query()->count())->toBe(2)
-        ->and(OsmNode::query()->where('osm_id', PUBLISHED_OSM_NODE_ONE)->value('id'))->toBe($firstInternalId)
-        ->and(OsmNode::query()->where('osm_id', PUBLISHED_OSM_NODE_TWO)->value('id'))->toBe($secondInternalId);
+    expect(OsmNode::query()->exists())->toBeFalse();
 
     Http::assertSentCount(2);
     Http::assertSent(function (Request $request): bool {

@@ -51,4 +51,15 @@ describe('upsertMarkerPointList', () => {
     test('treats malformed list inputs as empty lists', () => {
         assert.deepEqual(upsertMarkerPointList(null, undefined), []);
     });
+
+    test('replaces OSM markers by stable OSM id across database ids', () => {
+        const existing = marker('osm-node-41', 'Before publish');
+        existing.properties.osm_id = 9001;
+        const published = marker('osm-node-9001', 'Just published');
+        published.properties.osm_id = 9001;
+
+        assert.deepEqual(upsertMarkerPointList([existing], [published]), [
+            published,
+        ]);
+    });
 });

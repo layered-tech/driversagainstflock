@@ -2,7 +2,7 @@
 
 namespace App\Support;
 
-use App\Models\CurrentOsmNode;
+use App\Models\OsmNode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -75,7 +75,7 @@ class SearchMetadata
 
     public function latestHotlistUpdatedAt(): ?string
     {
-        $latestUpdatedAt = CurrentOsmNode::query()
+        $latestUpdatedAt = OsmNode::query()
             ->where('osm_version', 1)
             ->orderByRaw(self::HOTLIST_UPDATED_AT_EXPRESSION.' desc')
             ->toBase()

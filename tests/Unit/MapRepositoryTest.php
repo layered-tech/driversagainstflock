@@ -1,9 +1,7 @@
 <?php
 
-use App\Models\Marker;
 use App\Models\OsmNode;
 use App\Repositories\MapRepository;
-use MatanYadaev\EloquentSpatial\Objects\Point;
 use Tests\TestCase;
 
 uses(TestCase::class);
@@ -51,25 +49,4 @@ test('it preserves semicolon-delimited OSM node directions', function () {
     expect($transformed['properties']['direction'])->toBe('90;270')
         ->and($transformed['properties']['bearing'])->toBeNull()
         ->and($transformed['properties']['heading'])->toBeNull();
-});
-
-test('it transforms markers without style records', function () {
-    $marker = new Marker([
-        'bearing' => 45,
-        'type' => 'falcon-lr',
-    ]);
-    $marker->id = 123;
-    $marker->point = new Point(43.1, -88.2);
-
-    $transformed = (new MapRepository)->transformMarkerForFile($marker);
-
-    expect(array_key_exists('style_id', $transformed['properties']))->toBeFalse()
-        ->and($transformed['properties']['style'])->toBe([
-            'circle_color' => '#59FF89',
-            'stroke_color' => '#032E32',
-            'cluster_circle_color' => '#59FF89',
-            'cluster_stroke_color' => '#032E32',
-        ])
-        ->and($transformed['properties']['icon'])->toBe('falcon-lr')
-        ->and($transformed['location'])->toBe([-88.2, 43.1]);
 });

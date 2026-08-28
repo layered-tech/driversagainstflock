@@ -12,7 +12,15 @@ class OsmNode extends Model
 {
     use HasFactory, HasSpatial;
 
-    protected $table = 'nodes';
+    public function getConnectionName(): ?string
+    {
+        return (string) config('osm.reader.connection', 'osm');
+    }
+
+    public function getTable(): string
+    {
+        return (string) config('osm.reader.table', 'osm_current.application_alpr_nodes');
+    }
 
     /**
      * The attributes that are mass assignable.

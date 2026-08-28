@@ -1,9 +1,6 @@
 <?php
 
 use App\Http\Controllers\Api\AutocompleteSearchController;
-use App\Http\Controllers\Api\ConfirmMarkerController;
-use App\Http\Controllers\Api\CreateMarkerController;
-use App\Http\Controllers\Api\DeleteMarkerController;
 use App\Http\Controllers\Api\DirectionsController;
 use App\Http\Controllers\Api\LocalityBoundaryController;
 use App\Http\Controllers\Api\MarkersController;
@@ -19,8 +16,6 @@ use App\Http\Controllers\Api\V1\PublishedOsmNodeSyncController;
 use App\Http\Controllers\Api\V1\RoadCorridorController;
 use App\Http\Controllers\Api\V1\SpeedLimitController;
 use App\Http\Controllers\HotlistController;
-use App\Models\Confirmation;
-use App\Models\Marker;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
@@ -71,10 +66,6 @@ Route::post('v1/osm/published-nodes', PublishedOsmNodeSyncController::class)
 
 Route::group(['middleware' => 'auth:sanctum'], function (Router $router) {
     $router->get('user', UserController::class);
-
-    $router->post('save', CreateMarkerController::class)->can('add', Marker::class);
-    $router->post('delete/{marker}', DeleteMarkerController::class)->can('delete', Marker::class);
-    $router->post('confirm/{marker}', ConfirmMarkerController::class)->can('create', Confirmation::class);
 });
 
 Route::post('/sanctum/token', function (Request $request) {

@@ -16,7 +16,7 @@ it('uses the versioned marker payload filename', function () {
     $markerRepository = mock(MapRepository::class);
     $markerFileCache = new MarkerFileCache($markerRepository);
 
-    expect($markerFileCache->path())->toBe(storage_path('app/markers/markers-v2.json'));
+    expect($markerFileCache->path())->toBe(storage_path('app/markers/markers-v3.json'));
 });
 
 afterEach(function () {

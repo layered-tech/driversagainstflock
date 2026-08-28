@@ -1,4 +1,10 @@
 function getMarkerPointId(markerPoint) {
+    const osmId = markerPoint?.properties?.osm_id;
+
+    if (osmId !== null && osmId !== undefined && String(osmId) !== '') {
+        return `osm-node:${osmId}`;
+    }
+
     const markerId = markerPoint?.properties?.id ?? markerPoint?.id;
 
     return markerId === null || markerId === undefined ? '' : String(markerId);

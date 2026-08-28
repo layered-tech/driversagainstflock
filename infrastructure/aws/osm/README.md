@@ -40,15 +40,15 @@ temporary PostgreSQL rows.
 
 ## Sources
 
-| Purpose                                                                            | Source                                                                        |
-| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| North America current extract through Phase 7                                      | `https://download.openstreetmap.fr/extracts/north-america-latest.osm.pbf`     |
-| North America current checksum through Phase 7                                     | `https://download.openstreetmap.fr/extracts/north-america-latest.osm.pbf.md5` |
-| North America current minute diffs retired by Phase 7.5                            | `https://download.openstreetmap.fr/replication/north-america/minute/`         |
-| Global current planet snapshot after Phase 7.5                                     | `https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf`                  |
+| Purpose                                                                            | Source                                                                                                                              |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| North America current extract through Phase 7                                      | `https://download.openstreetmap.fr/extracts/north-america-latest.osm.pbf`                                                           |
+| North America current checksum through Phase 7                                     | `https://download.openstreetmap.fr/extracts/north-america-latest.osm.pbf.md5`                                                       |
+| North America current minute diffs retired by Phase 7.5                            | `https://download.openstreetmap.fr/replication/north-america/minute/`                                                               |
+| Global current planet snapshot after Phase 7.5                                     | `https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf`                                                                        |
 | Full public node history                                                           | Release-aligned immutable object under `https://osm-planet-us-west-2.s3.dualstack.us-west-2.amazonaws.com/planet-full-history/pbf/` |
-| Global minute diffs for history through Phase 7 and both consumers after Phase 7.5 | `https://planet.openstreetmap.org/replication/minute/`                        |
-| Node-history backfill                                                              | `https://api.openstreetmap.org/api/0.6/node/{id}/history`                     |
+| Global minute diffs for history through Phase 7 and both consumers after Phase 7.5 | `https://planet.openstreetmap.org/replication/minute/`                                                                              |
+| Node-history backfill                                                              | `https://api.openstreetmap.org/api/0.6/node/{id}/history`                                                                           |
 
 Through Phase 7, the region polygon is used only to decide whether an
 exact-tagged node has been in North America. Once a node qualifies, every
@@ -404,11 +404,32 @@ files only after the Phase 7 stack is validated.
 
 ### Phase 8: consumer cutover
 
-Status: local implementation complete on 2026-08-27. The production reader
-view, application deployment, credential configuration, parity proof, and
-two-flag cutover remain pending their explicit production approvals.
+Status: complete on 2026-08-27.
 
-Approval required and intentionally separate from infrastructure rollout.
+Production approval was granted separately for the saved Terraform plan,
+artifact apply, reader-view deployment, pre-cutover application deployment,
+and final two-flag cutover.
+
+Completion record:
+
+- Terraform applied only the versioned bootstrap object: zero resources added,
+  one changed, and zero destroyed. Artifact SHA-256
+  `0dee6e8daba1ee5b9221bfe139940befe9e6edc35b15e617d43c32d6c5fa0abc`
+  is S3 version `JCvQe8LajzclSTp4Dv_ZMzJMzuJAjH.7`.
+- SSM command `9a468990-4d6e-425b-9c7d-d246cd390b8c` installed the
+  reader schema and validator. Database validation passed with 147,105 current
+  nodes, 237,925 public lifecycle versions, and replication sequence 7,261,831.
+- Pre-cutover verification kept `OSM_READER_ENABLED=false` and
+  `OVERPASS_INGESTION_ENABLED=true`. The reader was three minutes fresh, five
+  representative rows matched, and the 92-row difference passed the explicitly
+  approved maximum difference of 100. Exact count parity is not expected between
+  the independent legacy batch and minute-replicated sources.
+- The atomic production cutover set `OSM_READER_ENABLED=true` and
+  `OVERPASS_INGESTION_ENABLED=false`. Post-cutover verification found a
+  one-minute-old reader, a 93-row difference within the same approved bound,
+  and parity for five representative rows. No legacy Overpass batch was active.
+- Marker, hotlist, electronic-horizon, and directions production smoke tests
+  each returned HTTP 200 without printing response payloads.
 
 - Deploy the versioned OSM artifact containing
   `osm_current.application_alpr_nodes`, then apply `schema.sql` on the OSM host.
@@ -432,8 +453,9 @@ Approval required and intentionally separate from infrastructure rollout.
 - Only after that command passes, set `OSM_READER_ENABLED=true` and
   `OVERPASS_INGESTION_ENABLED=false` in the same production configuration
   change and redeploy or reload every web, worker, and scheduler process.
-- Re-run `php artisan app:verify-osm-cutover`, inspect `php artisan config:show
-  osm`, and smoke-test the marker, directions, hotlist, and electronic-horizon
+- Re-run `php artisan app:verify-osm-cutover`, inspect
+  `php artisan config:show osm`, and smoke-test the marker, directions, hotlist,
+  and electronic-horizon
   endpoints. Confirm that their response shapes are unchanged and that no new
   scheduled Overpass batch starts.
 
@@ -444,7 +466,78 @@ window, and the OSM database continues replicating independently.
 
 ### Phase 9: steady-state resize and cleanup
 
-Each change requires separate approval.
+Status: in progress. Each change requires separate approval.
+
+#### Phase 9A: retire application-local OSM storage
+
+Deploy the runtime cleanup before dropping any application tables. The cleanup
+makes `App\Models\OsmNode` permanently read the configured SELECT-only OSM
+connection and compatibility view, removes the legacy Overpass and local
+osm2pgsql writers, removes local marker mutation and confirmation features, and
+keeps the published-node callback response without persisting it locally. Marker
+payload cache version `v3` prevents a pre-cleanup static file from continuing to
+serve legacy local markers.
+
+Before deployment, run this read-only aggregate inventory on the Laravel host:
+
+```bash
+php artisan tinker --execute 'dump(["markers_total" => DB::table("markers")->count(), "markers_active" => DB::table("markers")->whereNull("deleted_at")->count(), "confirmations_total" => DB::table("confirmations")->count(), "nodes_total" => DB::table("nodes")->count(), "nodes_latest_sync" => DB::table("nodes")->max("last_synced_at")]);'
+```
+
+Stop if `markers_active` is nonzero until those records are accounted for or
+their retirement is approved explicitly. Keep the three legacy tables and the
+Phase 8 environment flags unchanged through the Phase 9A observation window so
+the previous release remains deployable as rollback.
+
+Production inventory passed before the Phase 9A deployment: `markers` contained
+zero total and zero active rows, `confirmations` contained zero rows, and the
+legacy `nodes` table contained 147,027 rows with a latest sync timestamp of
+`2026-08-27 22:04:55`. No local marker or confirmation data requires migration;
+the legacy node rows remain only as the Phase 8 rollback source until Phase 9B.
+
+After the cleanup deploy, refresh the versioned marker file, inspect the reader
+binding, and prove the retired routes and commands are absent:
+
+```bash
+php artisan markers:refresh-file
+php artisan config:show osm
+php artisan tinker --execute 'dump((new App\Models\OsmNode)->getConnectionName(), (new App\Models\OsmNode)->getTable());'
+php artisan route:list --path=api
+php artisan list
+```
+
+Smoke-test marker, hotlist, electronic-horizon, directions, and published-node
+flows. Confirm that no application query or scheduled command accesses the
+legacy `markers`, `confirmations`, or `nodes` tables during the observation
+window.
+
+Rollback: deploy the Phase 8 application release. The retained tables and the
+still-configured `OSM_READER_ENABLED=true` and
+`OVERPASS_INGESTION_ENABLED=false` values restore the previous release without
+reconstructing data.
+
+#### Phase 9B: drop legacy application tables
+
+This is a separate destructive database release. Begin only after Phase 9A has
+completed its observation window, the aggregate inventory is accepted, a
+restorable application-database backup is verified, and the exact migration is
+approved. Drop dependent `confirmations` first, then `markers`, then `nodes`.
+Historical migrations remain immutable; the cleanup migration records the
+forward-only retirement.
+
+Afterward, verify that all three tables are absent, refresh marker cache `v3`,
+and repeat the Phase 9A smoke tests. Rollback requires restoring the verified
+application-database backup before deploying the Phase 8 release.
+
+#### Phase 9C: remove obsolete configuration
+
+After the table-drop observation window, remove the retained
+`OSM_READER_ENABLED`, `OVERPASS_INGESTION_ENABLED`,
+`OSM_READER_MAXIMUM_SOURCE_AGE_MINUTES`, and application-local `OSM2PGSQL_*`
+environment values. Retain the OSM reader connection, table, host, port,
+database, SELECT-only username, password, and SSL mode.
+
+#### Phase 9D: steady-state infrastructure
 
 - Resize from any temporary import instance class only after CPU, memory, lag,
   and I/O data support the steady-state class.
