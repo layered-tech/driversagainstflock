@@ -6,6 +6,7 @@ import {
     getPlaceDisplayName,
     getPlaceTypeLabel,
 } from './place-formatters';
+import { shouldHoldRoundaboutManeuver } from './roundabout-guidance';
 
 const METERS_PER_MILE = 1609.344;
 const FEET_PER_METER = 3.28084;
@@ -1140,6 +1141,10 @@ export function getActiveDirectionsManeuver(
                 upcomingManeuver,
                 Math.max(0, upcomingManeuver.startDistance - progressDistance),
             );
+        }
+
+        if (shouldHoldRoundaboutManeuver(currentManeuver)) {
+            return decorateActiveManeuver(currentManeuver, 0);
         }
 
         const distanceIntoCurrentManeuver = Math.max(

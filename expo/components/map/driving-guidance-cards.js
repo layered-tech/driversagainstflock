@@ -10,6 +10,23 @@ import {
     formatDirectionsDuration,
     formatDirectionsManeuverDistance,
 } from './directions';
+import { getRoundaboutExitNumber } from './roundabout-guidance';
+
+function RoundaboutExitIcon({ exitNumber }) {
+    return (
+        <View
+            accessibilityLabel={`Roundabout exit ${exitNumber}`}
+            accessible
+            className="h-[34px] w-[34px] items-center justify-center rounded-full border-[3px] border-white"
+        >
+            <Text
+                className={`${exitNumber >= 10 ? 'text-[15px]' : 'text-[20px]'} font-dafMono font-extrabold leading-[20px] text-white`}
+            >
+                {exitNumber}
+            </Text>
+        </View>
+    );
+}
 
 function getManeuverIcon(maneuver) {
     const maneuverType = Number(maneuver?.type);
@@ -72,6 +89,7 @@ export function ManeuverCard({ maneuver, nextManeuver }) {
             : maneuverDistanceLabel
               ? maneuverDistanceLabel
               : maneuverLabel;
+    const roundaboutExitNumber = getRoundaboutExitNumber(maneuver);
 
     return (
         <View
@@ -79,12 +97,16 @@ export function ManeuverCard({ maneuver, nextManeuver }) {
             testID="driving-maneuver-card"
         >
             <View className="h-[52px] w-[52px] items-center justify-center rounded-dafMd bg-daf-brand">
-                <Icon
-                    color={dafSemanticColors.brandContrast}
-                    name={getManeuverIcon(maneuver)}
-                    size={30}
-                    stroke={2.4}
-                />
+                {roundaboutExitNumber === null ? (
+                    <Icon
+                        color={dafSemanticColors.brandContrast}
+                        name={getManeuverIcon(maneuver)}
+                        size={30}
+                        stroke={2.4}
+                    />
+                ) : (
+                    <RoundaboutExitIcon exitNumber={roundaboutExitNumber} />
+                )}
             </View>
 
             <View className="min-w-0 flex-1">

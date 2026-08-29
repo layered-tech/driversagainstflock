@@ -130,6 +130,32 @@ it('normalizes GraphHopper responses to the directions provider contract', funct
         && ! isset($request['custom_model']));
 });
 
+it('keeps a GraphHopper roundabout traversal active until its exit', function () {
+    $response = graphHopperClientResponse();
+    $response['paths'][0]['instructions'][1] = [
+        'text' => 'At the roundabout, take the second exit',
+        'street_name' => 'Second Street',
+        'distance' => 1134.5,
+        'time' => 301000,
+        'interval' => [1, 2],
+        'sign' => 6,
+        'exit_number' => 2,
+        'exited' => true,
+    ];
+
+    Http::fake([
+        'http://graphhopper.test:8080/route' => Http::response($response),
+    ]);
+
+    $route = app(GraphHopperClient::class)->route([
+        ['longitude' => -77.0365, 'latitude' => 38.8977],
+        ['longitude' => -77.0091, 'latitude' => 38.8899],
+    ], ['type' => 'MultiPolygon', 'coordinates' => []]);
+
+    expect(data_get($route, 'maneuvers.1.type'))->toBe(7)
+        ->and(data_get($route, 'maneuvers.1.exit_number'))->toBe(2);
+});
+
 it('normalizes ORS and GraphHopper to the same payload structure', function () {
     Http::fake([
         'http://graphhopper.test:8080/route' => Http::response(graphHopperClientResponse()),

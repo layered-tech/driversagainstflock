@@ -29,6 +29,7 @@
         "e2e:ios": "cd expo && MAESTRO_PLATFORM=ios ./scripts/maestro-test.sh .maestro",
         "node:test": "cd expo && npm test",
         "osm:tunnel": "./infrastructure/aws/osm/operations/start-local-tunnel.sh",
+        "graphhopper:tunnel": "./infrastructure/aws/routing/operations/start-local-tunnel.sh",
         "graph:build": "./infrastructure/aws/routing/operations/build-graph.sh",
         "graph:status": "./infrastructure/aws/routing/operations/graph-status.sh"
     },
