@@ -126,6 +126,7 @@ const DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG = {
     currentRoadPill: null,
     ornamentSafeAreaLeftScale: 1,
     showDrivingStatusOnSecondarySurfaces: false,
+    showSpeedLimitOnSecondarySurfaces: true,
     usesHostColorSchemeForAutomaticMapPreset: false,
 };
 
@@ -1428,6 +1429,7 @@ export function AutoPlayMapSurfaceContent({
         hideCompassDuringNavigation,
         ornamentSafeAreaLeftScale,
         showDrivingStatusOnSecondarySurfaces,
+        showSpeedLimitOnSecondarySurfaces,
         usesHostColorSchemeForAutomaticMapPreset,
     } = {
         ...DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG,
@@ -1435,12 +1437,16 @@ export function AutoPlayMapSurfaceContent({
     };
     const autoPlayState = useAutoPlayState();
     const isRootMapSurface = !id || id === AUTO_PLAY_ROOT_MODULE_ID;
-    const { rendersDrivingStatus, secondaryDrivingStatusIsVisible } =
-        getAutoPlayDrivingStatusVisibility({
-            isRootMapSurface,
-            showDrivingStatus,
-            showDrivingStatusOnSecondarySurfaces,
-        });
+    const {
+        rendersDrivingStatus,
+        rendersSpeedLimit,
+        secondaryDrivingStatusIsVisible,
+    } = getAutoPlayDrivingStatusVisibility({
+        isRootMapSurface,
+        showDrivingStatus,
+        showDrivingStatusOnSecondarySurfaces,
+        showSpeedLimitOnSecondarySurfaces,
+    });
     const fittedDirectionsRouteKeyRef = useRef('');
     const fittedSearchResultsKeyRef = useRef('');
     const mapBrowsingContextWasActiveRef = useRef(false);
@@ -1963,6 +1969,7 @@ export function AutoPlayMapSurfaceContent({
                         onLocationAnchorLayout={handleLocationAnchorLayout}
                         navigationPuckSize={navigationPuckSize}
                         presentation={presentation}
+                        rendersSpeedLimit={rendersSpeedLimit}
                         userLocation={mapPreferences.userLocation}
                         viewportMetrics={viewportMetrics}
                     />

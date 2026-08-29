@@ -21,6 +21,7 @@ const ANDROID_AUTO_SURFACE_PLATFORM_CONFIG = {
     // Android's secondary map surface is the instrument cluster. Reuse the
     // driving stack there so its camera anchor and status match the main map.
     showDrivingStatusOnSecondarySurfaces: true,
+    showSpeedLimitOnSecondarySurfaces: false,
     usesHostColorSchemeForAutomaticMapPreset: true,
 };
 

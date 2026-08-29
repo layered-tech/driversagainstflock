@@ -317,6 +317,7 @@ export function AutoPlayMapStatusOverlay({
     navigationPuckSize = AUTO_PLAY_NAVIGATION_PUCK_SIZE,
     onLocationAnchorLayout,
     presentation,
+    rendersSpeedLimit = true,
     userLocation,
     viewportMetrics,
 }) {
@@ -324,7 +325,8 @@ export function AutoPlayMapStatusOverlay({
     const resolvedIsDarkMode = isDarkMode ?? systemColorScheme === 'dark';
     const routeIsActive = Boolean(activeDirectionsRoute);
     const speedLimit = useRouteSpeedLimit({
-        routeIsActive: routeIsActive || freeDriveIsActive,
+        routeIsActive:
+            rendersSpeedLimit && (routeIsActive || freeDriveIsActive),
         userLocation,
     });
     const speedLimitIsVisible = Boolean(

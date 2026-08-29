@@ -286,6 +286,7 @@ export function getAutoPlayDrivingStatusVisibility({
     isRootMapSurface,
     showDrivingStatus,
     showDrivingStatusOnSecondarySurfaces,
+    showSpeedLimitOnSecondarySurfaces = true,
 }) {
     const secondaryDrivingStatusIsVisible = Boolean(
         !isRootMapSurface &&
@@ -295,6 +296,11 @@ export function getAutoPlayDrivingStatusVisibility({
     return {
         rendersDrivingStatus: Boolean(
             isRootMapSurface || secondaryDrivingStatusIsVisible,
+        ),
+        rendersSpeedLimit: Boolean(
+            isRootMapSurface ||
+            (secondaryDrivingStatusIsVisible &&
+                showSpeedLimitOnSecondarySurfaces),
         ),
         secondaryDrivingStatusIsVisible,
     };

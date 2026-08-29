@@ -451,6 +451,8 @@ POSTGRESQL_CONFIGURATION
     cat > "${client_authentication}" <<CLIENT_AUTHENTICATION
 local   all              postgres                              peer
 local   ${DATABASE_NAME} osm_ingest                            peer
+hostssl ${DATABASE_NAME} osm_publisher 127.0.0.1/32            scram-sha-256
+hostssl ${DATABASE_NAME} osm_publisher ::1/128                 scram-sha-256
 hostssl ${DATABASE_NAME} osm_publisher ${DATABASE_CLIENT_CIDR} scram-sha-256
 CLIENT_AUTHENTICATION
     chown postgres:postgres "${client_authentication}"
