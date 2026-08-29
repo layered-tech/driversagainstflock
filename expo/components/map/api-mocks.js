@@ -44,9 +44,7 @@ const MOCK_PLACES = {
         },
         primaryType: 'department_store',
         primaryTypeDisplayName: { text: 'Department store' },
-        rating: 3.8,
         types: ['department_store', 'store', 'establishment'],
-        userRatingCount: 2900,
     },
     'mock-walmart-neighborhood-market': {
         businessStatus: 'OPERATIONAL',
@@ -59,9 +57,7 @@ const MOCK_PLACES = {
         },
         primaryType: 'grocery_store',
         primaryTypeDisplayName: { text: 'Grocery store' },
-        rating: 4.1,
         types: ['grocery_store', 'store', 'establishment'],
-        userRatingCount: 1600,
     },
     'mock-barton-springs-pool': {
         displayName: { text: 'Barton Springs Pool' },
@@ -73,8 +69,6 @@ const MOCK_PLACES = {
         },
         primaryType: 'public_swimming_pool',
         primaryTypeDisplayName: { text: 'Swimming pool' },
-        rating: 4.7,
-        userRatingCount: 4000,
     },
     'mock-austin-central-library': {
         displayName: { text: 'Austin Central Library' },
@@ -86,8 +80,6 @@ const MOCK_PLACES = {
         },
         primaryType: 'library',
         primaryTypeDisplayName: { text: 'Public library' },
-        rating: 4.8,
-        userRatingCount: 1700,
     },
     'mock-cypress-residence': {
         displayName: { text: '2140 Cypress Ave' },

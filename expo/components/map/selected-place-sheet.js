@@ -26,7 +26,6 @@ export function SelectedPlaceSheet() {
         bottomSheetBackgroundStyle,
         bottomSheetHandleIndicatorStyle,
         bottomSheetAnimatedPosition,
-        handleOpenSelectedPlaceWebsite,
         handleGetDirectionsToSelectedPlace,
         handleSetSelectedPlaceAsPrimaryLocation,
         handleSelectedPlaceBackToSearchResults,
@@ -41,16 +40,12 @@ export function SelectedPlaceSheet() {
         searchPrimaryIconColor,
         selectedPlaceAddress,
         selectedPlaceCanReturnToSearchResults,
-        selectedPlaceCurrentHoursSummary,
         selectedPlaceDetails,
         selectedPlaceHeaderSubtitle,
         selectedPlaceIsFavorite,
         selectedPlaceIsLoading,
         selectedPlaceName,
-        selectedPlaceOpenNowLabel,
-        selectedPlacePhoneNumber,
         selectedPlacePrimaryLocationType,
-        selectedPlaceRatingLabel,
         selectedSearchResult,
     } = usePlaceSheetContext();
     const {
@@ -152,49 +147,6 @@ export function SelectedPlaceSheet() {
                             ) : null}
                         </View>
 
-                        {selectedPlaceRatingLabel ||
-                        selectedPlaceOpenNowLabel ? (
-                            <View className="flex-row flex-wrap items-center gap-2">
-                                {selectedPlaceRatingLabel ? (
-                                    <View className="flex-row items-center gap-1">
-                                        <Icon
-                                            color="#FFB02E"
-                                            fill="#FFB02E"
-                                            name="star"
-                                            size={15}
-                                        />
-                                        <Text
-                                            className="text-[13px] font-semibold text-amber-700 dark:text-daf-amber"
-                                            testID="selected-place-rating"
-                                        >
-                                            {selectedPlaceRatingLabel}
-                                        </Text>
-                                    </View>
-                                ) : null}
-                                {selectedPlaceOpenNowLabel ? (
-                                    <View className="flex-row items-center gap-1.5">
-                                        <Text
-                                            className="text-[13px] font-semibold text-daf-text-brand dark:text-daf-brand"
-                                            testID="selected-place-open-now"
-                                        >
-                                            {selectedPlaceOpenNowLabel}
-                                        </Text>
-                                        {selectedPlaceCurrentHoursSummary ? (
-                                            <Text
-                                                className="text-[13px] font-medium text-daf-text-secondary dark:text-neutral-300"
-                                                numberOfLines={1}
-                                                testID="selected-place-hours-summary"
-                                            >
-                                                {
-                                                    selectedPlaceCurrentHoursSummary
-                                                }
-                                            </Text>
-                                        ) : null}
-                                    </View>
-                                ) : null}
-                            </View>
-                        ) : null}
-
                         <View className="gap-3">
                             {selectedPlaceAddress ? (
                                 <View className="flex-row items-start gap-3">
@@ -209,22 +161,6 @@ export function SelectedPlaceSheet() {
                                         testID="selected-place-address"
                                     >
                                         {selectedPlaceAddress}
-                                    </Text>
-                                </View>
-                            ) : null}
-                            {selectedPlacePhoneNumber ? (
-                                <View className="flex-row items-center gap-3">
-                                    <Icon
-                                        color="#828D9B"
-                                        name="phone"
-                                        size={18}
-                                    />
-                                    <Text
-                                        className="min-w-0 flex-1 text-[13px] font-medium leading-5 text-daf-text-secondary dark:text-neutral-300"
-                                        selectable
-                                        testID="selected-place-phone"
-                                    >
-                                        {selectedPlacePhoneNumber}
                                     </Text>
                                 </View>
                             ) : null}
@@ -338,14 +274,6 @@ export function SelectedPlaceSheet() {
                                 selected={selectedPlaceIsFavorite}
                                 tone="alert"
                             />
-                            {selectedPlaceDetails?.websiteUri ? (
-                                <DafIconButton
-                                    accessibilityLabel="Open place website"
-                                    color={searchPrimaryIconColor}
-                                    icon="globe"
-                                    onPress={handleOpenSelectedPlaceWebsite}
-                                />
-                            ) : null}
                         </View>
                     </BottomSheetScrollView>
                 ) : null}

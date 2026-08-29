@@ -81,7 +81,6 @@ export function normalizeSavedLocation(location) {
     const longitude =
         getSafeNumber(location?.longitude) ??
         getSafeNumber(location?.location?.longitude);
-    const websiteUri = getSafeString(location?.websiteUri);
     const savedLocation = {
         id,
         placeId,
@@ -103,10 +102,6 @@ export function normalizeSavedLocation(location) {
     if (latitude !== null && longitude !== null) {
         savedLocation.latitude = latitude;
         savedLocation.longitude = longitude;
-    }
-
-    if (websiteUri) {
-        savedLocation.websiteUri = websiteUri;
     }
 
     if (Number.isFinite(location?.selectedAt)) {
@@ -185,7 +180,6 @@ export function createSavedLocationFromPlace({
         placeId: result?.placeId || place?.id || result?.id,
         secondaryText: result?.secondaryText,
         typeLabel: typeLabel || result?.typeLabel,
-        websiteUri: place?.websiteUri,
     });
 }
 

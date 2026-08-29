@@ -762,11 +762,7 @@ test('map page uses the V3 full screen map surface', function () {
         ->toContain('selectedDetailItemIsVisible')
         ->toContain('selectedPlace')
         ->toContain('selectedPlaceIsAddress')
-        ->toContain('selectedPlaceBusinessFields')
         ->toContain('selectedPlaceResidentialFields')
-        ->toContain('selectedPlaceRatingValueLabel')
-        ->toContain('selectedPlaceRatingCountLabel')
-        ->toContain('selectedPlaceCategoryPriceLabel')
         ->toContain('selectedPlaceNearbyNodeCount')
         ->toContain('selectedPlaceNearbyNodeCountLabel')
         ->toContain('NEARBY_NODE_RADIUS_FEET = 1500')
@@ -873,17 +869,30 @@ test('map node status badge handles loading and live pulses', function () {
         ->not->toContain('loadingDescription');
 });
 
-test('place details include fields needed by the map detail cards', function () {
+test('place details and map cards exclude enterprise fields', function () {
     $placeController = file_get_contents(app_path('Http/Controllers/Api/PlaceController.php'));
+    $mapPage = file_get_contents(resource_path('js/Pages/Map.vue'));
 
     expect($placeController)
         ->toContain("'addressComponents'")
         ->toContain("'plusCode'")
-        ->toContain("'regularOpeningHours'")
-        ->toContain("'currentOpeningHours'")
-        ->toContain("'nationalPhoneNumber'")
         ->toContain("'googleMapsUri'")
-        ->toContain("'websiteUri'");
+        ->not->toContain("'currentOpeningHours'")
+        ->not->toContain("'internationalPhoneNumber'")
+        ->not->toContain("'nationalPhoneNumber'")
+        ->not->toContain("'priceLevel'")
+        ->not->toContain("'rating'")
+        ->not->toContain("'regularOpeningHours'")
+        ->not->toContain("'userRatingCount'")
+        ->not->toContain("'websiteUri'")
+        ->and($mapPage)
+        ->not->toContain('selectedPlaceBusinessFields')
+        ->not->toContain('selectedPlaceOpenStatusLabel')
+        ->not->toContain('selectedPlacePhoneLabel')
+        ->not->toContain('selectedPlaceRatingValueLabel')
+        ->not->toContain('selectedPlaceRatingCountLabel')
+        ->not->toContain('selectedPlaceWebsiteLabel')
+        ->toContain('selectedPlaceNeighborhoodLabel');
 });
 
 test('map directions show estimated loading progress for long routes', function () {

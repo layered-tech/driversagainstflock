@@ -82,13 +82,6 @@ const GENERIC_ALPR_PROFILE = {
         'surveillance:type': 'ALPR',
     },
 };
-const PRICE_LEVEL_LABELS = {
-    PRICE_LEVEL_FREE: 'Free',
-    PRICE_LEVEL_INEXPENSIVE: '$',
-    PRICE_LEVEL_MODERATE: '$$',
-    PRICE_LEVEL_EXPENSIVE: '$$$',
-    PRICE_LEVEL_VERY_EXPENSIVE: '$$$$',
-};
 const EMPTY_FEATURE_COLLECTION = {
     type: 'FeatureCollection',
     features: [],
@@ -481,41 +474,8 @@ const selectedPlaceAreaLabel = computed(
         selectedPlaceTypeLabel.value,
 );
 
-const selectedPlacePriceLabel = computed(() =>
-    formatPlacePrice(selectedPlaceData.value?.priceLevel),
-);
-
-const selectedPlaceRatingValueLabel = computed(() =>
-    formatPlaceRatingValue(selectedPlaceData.value),
-);
-
-const selectedPlaceRatingCountLabel = computed(() =>
-    formatPlaceRatingCount(selectedPlaceData.value),
-);
-
-const selectedPlaceOpenStatusLabel = computed(() =>
-    formatPlaceOpenStatus(selectedPlaceData.value),
-);
-
-const selectedPlaceCategoryPriceLabel = computed(() =>
-    [selectedPlaceTypeLabel.value, selectedPlacePriceLabel.value]
-        .filter(Boolean)
-        .join(' · '),
-);
-
 const selectedPlaceNeighborhoodLabel = computed(
     () => neighborhoodFromPlace(selectedPlaceData.value) ?? 'Unknown',
-);
-
-const selectedPlacePhoneLabel = computed(
-    () =>
-        selectedPlaceData.value?.nationalPhoneNumber ??
-        selectedPlaceData.value?.internationalPhoneNumber ??
-        'Unavailable',
-);
-
-const selectedPlaceWebsiteLabel = computed(() =>
-    formatWebsiteHost(selectedPlaceData.value?.websiteUri),
 );
 
 const selectedPlaceGoogleMapsUrl = computed(
@@ -533,36 +493,6 @@ const selectedPlaceCountyLabel = computed(
 const selectedPlacePlusCodeLabel = computed(
     () => plusCodeFromPlace(selectedPlaceData.value) ?? 'Unknown',
 );
-
-const selectedPlaceBusinessFields = computed(() => {
-    if (!selectedPlaceData.value) {
-        return [];
-    }
-
-    return [
-        {
-            label: 'Hours',
-            mono: false,
-            value: selectedPlaceOpenStatusLabel.value,
-        },
-        {
-            label: 'Phone',
-            mono: false,
-            value: selectedPlacePhoneLabel.value,
-        },
-        {
-            brand: true,
-            label: 'Website',
-            mono: false,
-            value: selectedPlaceWebsiteLabel.value,
-        },
-        {
-            label: 'Neighborhood',
-            mono: false,
-            value: selectedPlaceNeighborhoodLabel.value,
-        },
-    ];
-});
 
 const selectedPlaceResidentialFields = computed(() => {
     if (!selectedPlaceData.value) {
@@ -3053,52 +2983,6 @@ function formatPlaceType(type) {
     return label ? label.charAt(0).toUpperCase() + label.slice(1) : null;
 }
 
-function formatPlaceRatingValue(place) {
-    const rating = numericValue(place?.rating);
-
-    return rating === null ? '' : rating.toFixed(1);
-}
-
-function formatPlaceRatingCount(place) {
-    const userRatingCount = numericValue(place?.userRatingCount);
-
-    return userRatingCount === null
-        ? ''
-        : `(${userRatingCount.toLocaleString()})`;
-}
-
-function formatPlacePrice(priceLevel) {
-    return PRICE_LEVEL_LABELS[priceLevel] ?? '';
-}
-
-function formatPlaceOpenStatus(place) {
-    const openNow =
-        place?.currentOpeningHours?.openNow ??
-        place?.regularOpeningHours?.openNow;
-
-    if (openNow === true) {
-        return 'Open now';
-    }
-
-    if (openNow === false) {
-        return 'Closed now';
-    }
-
-    return 'Hours unavailable';
-}
-
-function formatWebsiteHost(url) {
-    if (!url) {
-        return 'Unavailable';
-    }
-
-    try {
-        return new URL(url).hostname.replace(/^www\./, '');
-    } catch {
-        return url;
-    }
-}
-
 function postalCodeFromPlace(place) {
     return (
         addressComponentValue(place, ['postal_code'], { short: true }) ??
@@ -4465,65 +4349,6 @@ function degreesToRadians(degrees) {
                                         >
                                             {{ selectedPlaceTitle }}
                                         </h2>
-                                        <div
-                                            class="flex flex-wrap items-center gap-1.5 text-daf-body-sm text-daf-text-secondary"
-                                        >
-                                            <span
-                                                v-if="
-                                                    selectedPlaceRatingValueLabel
-                                                "
-                                                class="text-daf-warning"
-                                                aria-hidden="true"
-                                            >
-                                                <svg
-                                                    class="block size-3.5"
-                                                    viewBox="0 0 24 24"
-                                                    fill="currentColor"
-                                                    stroke="none"
-                                                >
-                                                    <polygon
-                                                        points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
-                                                    />
-                                                </svg>
-                                            </span>
-                                            <span
-                                                v-if="
-                                                    selectedPlaceRatingValueLabel
-                                                "
-                                                class="font-semibold text-daf-text-primary"
-                                            >
-                                                {{
-                                                    selectedPlaceRatingValueLabel
-                                                }}
-                                            </span>
-                                            <span
-                                                v-if="
-                                                    selectedPlaceRatingCountLabel
-                                                "
-                                            >
-                                                {{
-                                                    selectedPlaceRatingCountLabel
-                                                }}
-                                            </span>
-                                            <span
-                                                v-if="
-                                                    selectedPlaceRatingValueLabel &&
-                                                    selectedPlaceCategoryPriceLabel
-                                                "
-                                                class="text-daf-text-tertiary"
-                                            >
-                                                &middot;
-                                            </span>
-                                            <span
-                                                v-if="
-                                                    selectedPlaceCategoryPriceLabel
-                                                "
-                                            >
-                                                {{
-                                                    selectedPlaceCategoryPriceLabel
-                                                }}
-                                            </span>
-                                        </div>
                                     </div>
                                 </div>
 
@@ -4539,15 +4364,6 @@ function degreesToRadians(degrees) {
                                         {{ selectedPlaceTypeLabel }}
                                     </DafBadge>
                                     <DafBadge
-                                        v-if="
-                                            selectedPlaceOpenStatusLabel !==
-                                            'Hours unavailable'
-                                        "
-                                        tone="info"
-                                    >
-                                        {{ selectedPlaceOpenStatusLabel }}
-                                    </DafBadge>
-                                    <DafBadge
                                         v-if="selectedPlaceDetailsIsLoading"
                                         tone="ghost"
                                     >
@@ -4555,32 +4371,16 @@ function degreesToRadians(degrees) {
                                     </DafBadge>
                                 </div>
 
-                                <div
-                                    class="mb-4 grid grid-cols-2 gap-x-4 gap-y-3.5"
-                                >
+                                <div class="mb-4 min-w-0">
                                     <div
-                                        v-for="field in selectedPlaceBusinessFields"
-                                        :key="field.label"
-                                        class="min-w-0"
+                                        class="mb-[3px] font-mono text-daf-label font-semibold uppercase tracking-[var(--ls-label)] text-daf-text-tertiary"
                                     >
-                                        <div
-                                            class="mb-[3px] font-mono text-daf-label font-semibold uppercase tracking-[var(--ls-label)] text-daf-text-tertiary"
-                                        >
-                                            {{ field.label }}
-                                        </div>
-                                        <div
-                                            :class="[
-                                                'break-words text-daf-body-sm text-daf-text-primary',
-                                                field.mono
-                                                    ? 'font-mono'
-                                                    : 'font-medium',
-                                                field.brand
-                                                    ? 'text-daf-text-brand'
-                                                    : '',
-                                            ]"
-                                        >
-                                            {{ field.value }}
-                                        </div>
+                                        Neighborhood
+                                    </div>
+                                    <div
+                                        class="break-words text-daf-body-sm font-medium text-daf-text-primary"
+                                    >
+                                        {{ selectedPlaceNeighborhoodLabel }}
                                     </div>
                                 </div>
 

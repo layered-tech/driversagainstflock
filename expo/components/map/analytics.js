@@ -57,13 +57,6 @@ export function logMapPlaceSelected({ result, source }) {
     });
 }
 
-export function logMapSelectedPlaceWebsiteOpened({ place, result }) {
-    return logAnalyticsEvent('place_website_opened', {
-        content_type: 'place',
-        item_id: place?.id || getPlaceIdFromResult(result),
-    });
-}
-
 export function logMapDirectionsRequested({
     destinationWaypoint,
     source,
