@@ -1,5 +1,6 @@
 import { EMPTY_FEATURE_COLLECTION } from './constants';
 import { getStoredNumber, normalizeLongitude } from './geo';
+import { shouldKeepCurrentManeuverActive } from './navigation-advancement';
 import {
     getPlaceAddress,
     getPlaceCoordinate,
@@ -11,9 +12,6 @@ import { shouldHoldRoundaboutManeuver } from './roundabout-guidance';
 const METERS_PER_MILE = 1609.344;
 const FEET_PER_METER = 3.28084;
 const EARTH_RADIUS_METERS = 6371008.8;
-const MANEUVER_COMPLETION_HOLD_DISTANCE_RATIO = 0.35;
-const MAX_MANEUVER_COMPLETION_HOLD_DISTANCE_METERS = 120;
-const MIN_MANEUVER_COMPLETION_HOLD_DISTANCE_METERS = 30;
 const routeProgressDataCache = new WeakMap();
 export const DIRECTIONS_FIELD_START = 'start';
 export const DIRECTIONS_FIELD_STOP = 'stop';
@@ -1035,21 +1033,6 @@ function getRouteProgressData(route) {
     return progressData;
 }
 
-function getManeuverCompletionHoldDistance(maneuver) {
-    const stepDistance = Math.max(
-        0,
-        (maneuver?.endDistance ?? 0) - (maneuver?.startDistance ?? 0),
-    );
-
-    return Math.min(
-        MAX_MANEUVER_COMPLETION_HOLD_DISTANCE_METERS,
-        Math.max(
-            MIN_MANEUVER_COMPLETION_HOLD_DISTANCE_METERS,
-            stepDistance * MANEUVER_COMPLETION_HOLD_DISTANCE_RATIO,
-        ),
-    );
-}
-
 function decorateActiveManeuver(maneuver, distanceToManeuver) {
     if (!maneuver) {
         return null;
@@ -1147,16 +1130,12 @@ export function getActiveDirectionsManeuver(
             return decorateActiveManeuver(currentManeuver, 0);
         }
 
-        const distanceIntoCurrentManeuver = Math.max(
-            0,
-            progressDistance - currentManeuver.startDistance,
-        );
-
         if (
-            !upcomingManeuver ||
-            currentManeuver.type === 10 ||
-            distanceIntoCurrentManeuver <=
-                getManeuverCompletionHoldDistance(currentManeuver)
+            shouldKeepCurrentManeuverActive({
+                currentManeuver,
+                progressDistance,
+                upcomingManeuver,
+            })
         ) {
             return decorateActiveManeuver(currentManeuver, 0);
         }
