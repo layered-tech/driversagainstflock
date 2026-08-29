@@ -38,6 +38,12 @@
                 "buildType": "app-bundle"
             }
         },
+        "staging-apk": {
+            "extends": "staging",
+            "android": {
+                "buildType": "apk"
+            }
+        },
         "production": {
             "autoIncrement": true,
             "environment": "production",
