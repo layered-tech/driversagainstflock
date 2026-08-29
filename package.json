@@ -11,6 +11,7 @@
         "prebuild:staging": "cd expo && APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- expo prebuild --clean",
         "prebuild:production": "cd expo && APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- expo prebuild --clean",
         "build:android:staging": "cd expo && APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- ./scripts/eas-local-build.sh -p android --profile staging --no-wait",
+        "build:android:staging-apk": "cd expo && APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- ./scripts/eas-local-build.sh -p android --profile staging-apk --no-wait",
         "build:android:production": "cd expo && APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p android --profile production --non-interactive --no-wait",
         "build:android:production-apk": "cd expo && APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p android --profile production-apk --non-interactive --no-wait",
         "build:ios:staging": "cd expo && APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- ./scripts/eas-local-build.sh -p ios --profile production --no-wait --non-interactive",
