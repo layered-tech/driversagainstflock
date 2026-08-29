@@ -128,6 +128,7 @@ export default function LocationMapScreen({
     const { contributePlacementIsActive, pins: contributePins } =
         useContribute();
     const {
+        advancedRouteSettings,
         debugOverlayVisibility,
         drivingModeIsActive,
         handleMarkerLoadingIndicatorHidden,
@@ -153,6 +154,7 @@ export default function LocationMapScreen({
         renderMarkerLoadingIndicator,
         scheduleMarkerLoad: scheduleSharedMarkerLoad,
         setDirectionsRoute,
+        setAdvancedRouteSettings,
         setDrivingModeIsActive,
         setDebugOverlayVisibility,
         setMapLightPresetPreference,
@@ -240,6 +242,7 @@ export default function LocationMapScreen({
         [e2eMapApiMocksAreRequested],
     );
     const searchController = useMapSearch({
+        advancedRouteSettings,
         directionsDebugGeometryIsEnabled:
             debugOverlayVisibility?.[DEBUG_OVERLAY_DIRECTIONS_GEOMETRY] ===
             true,
@@ -257,6 +260,7 @@ export default function LocationMapScreen({
         searchResultsCameraPadding,
         searchSource,
         setDirectionsRoute,
+        setAdvancedRouteSettings,
         setLocalityBoundary,
         setPendingDirectionsRequest,
         setPendingSearchResultRestore,

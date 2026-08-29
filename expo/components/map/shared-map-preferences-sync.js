@@ -1,10 +1,15 @@
 import {
+    getAdvancedRouteSettingsKey,
+    normalizeAdvancedRouteSettings,
+} from './advanced-route-settings';
+import {
     getAllDebugOverlayVisibility,
     getDebugOverlayVisibilityKey,
 } from './debug-overlays';
 import { getSharedMapLocationKey } from './shared-map-location-key';
 
 const DEFAULT_SHARED_MAP_PREFERENCES_STATE = {
+    advancedRouteSettings: normalizeAdvancedRouteSettings(),
     debugOverlayIsVisible: false,
     debugOverlayVisibility: getAllDebugOverlayVisibility(false),
     initialCameraSettings: null,
@@ -48,6 +53,8 @@ function getOffsetKey(offset) {
 
 function mapPreferencesStatesAreEqual(firstState, secondState) {
     return (
+        getAdvancedRouteSettingsKey(firstState?.advancedRouteSettings) ===
+            getAdvancedRouteSettingsKey(secondState?.advancedRouteSettings) &&
         Boolean(firstState?.debugOverlayIsVisible) ===
             Boolean(secondState?.debugOverlayIsVisible) &&
         getDebugOverlayVisibilityKey(firstState?.debugOverlayVisibility) ===

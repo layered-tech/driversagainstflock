@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { Keyboard } from 'react-native';
+import { normalizeAdvancedRouteSettings } from './advanced-route-settings';
 import {
     logMapDirectionsRequested,
     logMapDirectionsRouteLoaded,
@@ -8,9 +9,11 @@ import { getDirections } from './api';
 import {
     getDirectionsRouteBounds,
     getDirectionsWaypointApiCoord,
+    selectDirectionsRoute,
 } from './directions';
 
 export function useDirectionsRouteRequest({
+    advancedRouteSettings,
     directionsDebugGeometryIsEnabled = false,
     isMountedRef,
     setDirectionsRoute,
@@ -29,11 +32,17 @@ export function useDirectionsRouteRequest({
 
     const requestDirectionsRoute = useCallback(
         ({
+            advancedRouteSettings: requestedAdvancedRouteSettings,
             destinationWaypoint,
+            selectedRouteKey,
             source = 'directions_form',
             startWaypoint,
             stopWaypoints = [],
         }) => {
+            const normalizedAdvancedRouteSettings =
+                normalizeAdvancedRouteSettings(
+                    requestedAdvancedRouteSettings ?? advancedRouteSettings,
+                );
             const startApiCoord = getDirectionsWaypointApiCoord(startWaypoint);
             const destinationApiCoord =
                 getDirectionsWaypointApiCoord(destinationWaypoint);
@@ -63,6 +72,7 @@ export function useDirectionsRouteRequest({
             });
 
             getDirections({
+                advancedRouteSettings: normalizedAdvancedRouteSettings,
                 end: destinationApiCoord,
                 showZone: directionsDebugGeometryIsEnabled,
                 signal: abortController.signal,
@@ -77,9 +87,16 @@ export function useDirectionsRouteRequest({
                         return;
                     }
 
-                    const bounds = getDirectionsRouteBounds(route);
+                    const routeWithPreservedSelection = selectDirectionsRoute(
+                        route,
+                        selectedRouteKey,
+                    );
+                    const bounds = getDirectionsRouteBounds(
+                        routeWithPreservedSelection,
+                    );
                     const nextRoute = {
-                        ...route,
+                        ...routeWithPreservedSelection,
+                        advancedRouteSettings: normalizedAdvancedRouteSettings,
                         bounds,
                         debugGeometry,
                         destination: destinationWaypoint,
@@ -124,6 +141,7 @@ export function useDirectionsRouteRequest({
         },
         [
             clearDirectionsRouteRequest,
+            advancedRouteSettings,
             directionsDebugGeometryIsEnabled,
             isMountedRef,
             setDirectionsRoute,
