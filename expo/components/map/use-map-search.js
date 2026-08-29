@@ -1,10 +1,9 @@
 import { useIsFocused, useNavigation } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, Linking } from 'react-native';
+import { Keyboard } from 'react-native';
 import {
     logMapDirectionsRouteSelected,
     logMapPlaceSelected,
-    logMapSelectedPlaceWebsiteOpened,
 } from './analytics';
 import { getLocalityBoundary, getPlaceDetails } from './api';
 import {
@@ -248,18 +247,10 @@ export function useMapSearch({
         selectedPlaceAddress,
         selectedPlaceCanReturnToSearchResults,
         selectedPlaceCoordinate,
-        selectedPlaceHasDetailBox,
-        selectedPlaceHasHoursBox,
         selectedPlaceHeaderSubtitle,
-        selectedPlaceCurrentHoursSummary,
         selectedPlaceIsFavorite,
         selectedPlaceName,
-        selectedPlaceOpenNowLabel,
-        selectedPlacePhoneNumber,
         selectedPlacePrimaryLocationType,
-        selectedPlaceRatingLabel,
-        selectedPlaceRatingStars,
-        selectedPlaceWeekdayDescriptions,
         selectedSavedLocation,
     } = useSelectedPlaceDetails({
         favoriteLocations,
@@ -1176,18 +1167,6 @@ export function useMapSearch({
         [handleSearchResultPress],
     );
 
-    const handleOpenSelectedPlaceWebsite = useCallback(() => {
-        const websiteUri = selectedPlaceDetails?.websiteUri;
-
-        if (websiteUri) {
-            logMapSelectedPlaceWebsiteOpened({
-                place: selectedPlaceDetails,
-                result: selectedSearchResult,
-            });
-            Linking.openURL(websiteUri).catch(() => {});
-        }
-    }, [selectedPlaceDetails, selectedSearchResult]);
-
     useEffect(
         () => () => {
             if (directionsPlaceAbortControllerRef.current) {
@@ -1682,7 +1661,6 @@ export function useMapSearch({
         handleLocationAccessSearchChange,
         handleLocationAccessSearchSubmit,
         handleMapPress,
-        handleOpenSelectedPlaceWebsite,
         handlePlaceSheetDismiss,
         handlePrimaryLocationPress,
         handlePrimaryLocationUnset,
@@ -1728,19 +1706,11 @@ export function useMapSearch({
         selectedPlaceCoordinate,
         selectedPlaceDetails,
         selectedPlaceError,
-        selectedPlaceHasDetailBox,
-        selectedPlaceHasHoursBox,
-        selectedPlaceCurrentHoursSummary,
         selectedPlaceHeaderSubtitle,
         selectedPlaceIsFavorite,
         selectedPlaceIsLoading,
         selectedPlaceName,
-        selectedPlaceOpenNowLabel,
-        selectedPlacePhoneNumber,
         selectedPlacePrimaryLocationType,
-        selectedPlaceRatingLabel,
-        selectedPlaceRatingStars,
-        selectedPlaceWeekdayDescriptions,
         selectedSearchResult,
         submittedSearchError,
         submittedSearchIsLoading,

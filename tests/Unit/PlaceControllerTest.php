@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\PlaceController;
+use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -48,4 +49,36 @@ it('does not invent a place-details session token', function () {
     parse_str(parse_url($sentRequest->url(), PHP_URL_QUERY) ?? '', $query);
 
     expect($query)->not->toHaveKey('sessionToken');
+});
+
+it('does not request enterprise place details fields', function () {
+    Http::fake([
+        'https://places.googleapis.com/*' => Http::response([
+            'id' => 'place-id',
+        ]),
+    ]);
+
+    $controller = new PlaceController;
+
+    $controller(Request::create('/api/place/place-id', 'GET'), 'place-id');
+
+    Http::assertSent(function (ClientRequest $request): bool {
+        return $request->hasHeader('X-Goog-FieldMask', implode(',', [
+            'id',
+            'name',
+            'displayName',
+            'formattedAddress',
+            'shortFormattedAddress',
+            'addressComponents',
+            'location',
+            'viewport',
+            'types',
+            'primaryType',
+            'primaryTypeDisplayName',
+            'businessStatus',
+            'googleMapsUri',
+            'plusCode',
+            'utcOffsetMinutes',
+        ]));
+    });
 });

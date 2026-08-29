@@ -1,16 +1,9 @@
 import { useMemo } from 'react';
 import {
-    formatPlaceRating,
     getPlaceAddress,
     getPlaceCoordinate,
-    getPlaceCurrentHoursSummary,
     getPlaceDisplayName,
-    getPlaceOpenNowLabel,
-    getPlacePhoneNumber,
-    getPlaceRatingStarStates,
-    getPlaceRatingValue,
     getPlaceTypeLabel,
-    getPlaceWeekdayDescriptions,
 } from './place-formatters';
 import { getPrimaryLocationTypeToOffer } from './primary-locations';
 import {
@@ -45,30 +38,6 @@ export function useSelectedPlaceDetails({
     );
     const selectedPlaceTypeLabel = getPlaceTypeLabel(selectedPlaceDetails);
     const selectedPlaceHeaderSubtitle = selectedPlaceTypeLabel;
-    const selectedPlaceCurrentHoursSummary =
-        getPlaceCurrentHoursSummary(selectedPlaceDetails);
-    const selectedPlaceOpenNowLabel =
-        getPlaceOpenNowLabel(selectedPlaceDetails);
-    const selectedPlacePhoneNumber = getPlacePhoneNumber(selectedPlaceDetails);
-    const selectedPlaceRatingValue = getPlaceRatingValue(selectedPlaceDetails);
-    const selectedPlaceRatingLabel = formatPlaceRating(selectedPlaceDetails);
-    const selectedPlaceRatingStars = useMemo(
-        () => getPlaceRatingStarStates(selectedPlaceRatingValue),
-        [selectedPlaceRatingValue],
-    );
-    const selectedPlaceHasDetailBox = Boolean(
-        selectedPlaceAddress ||
-        selectedPlaceRatingLabel ||
-        selectedPlacePhoneNumber,
-    );
-    const selectedPlaceWeekdayDescriptions = useMemo(
-        () => getPlaceWeekdayDescriptions(selectedPlaceDetails),
-        [selectedPlaceDetails],
-    );
-    const selectedPlaceHasHoursBox = Boolean(
-        selectedPlaceOpenNowLabel ||
-        selectedPlaceWeekdayDescriptions.length > 0,
-    );
     const selectedSavedLocation = useMemo(
         () =>
             createSavedLocationFromPlace({
@@ -127,19 +96,11 @@ export function useSelectedPlaceDetails({
         selectedPlaceAddress,
         selectedPlaceCanReturnToSearchResults,
         selectedPlaceCoordinate,
-        selectedPlaceHasDetailBox,
-        selectedPlaceHasHoursBox,
         selectedPlaceHeaderSubtitle,
-        selectedPlaceCurrentHoursSummary,
         selectedPlaceIsFavorite,
         selectedPlaceName,
-        selectedPlaceOpenNowLabel,
-        selectedPlacePhoneNumber,
         selectedPlacePrimaryLocationType,
-        selectedPlaceRatingLabel,
-        selectedPlaceRatingStars,
         selectedPlaceTypeLabel,
-        selectedPlaceWeekdayDescriptions,
         selectedSavedLocation,
     };
 }

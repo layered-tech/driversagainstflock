@@ -23,15 +23,7 @@ class PlaceController extends Controller
         'primaryTypeDisplayName',
         'businessStatus',
         'googleMapsUri',
-        'websiteUri',
-        'internationalPhoneNumber',
-        'nationalPhoneNumber',
-        'rating',
-        'userRatingCount',
-        'priceLevel',
         'plusCode',
-        'regularOpeningHours',
-        'currentOpeningHours',
         'utcOffsetMinutes',
     ];
 
