@@ -56,8 +56,8 @@ const shouldUseSentryBuildPlugin =
     (!IS_DEV && !IS_E2E) ||
     Boolean(
         process.env.SENTRY_AUTH_TOKEN ||
-        process.env.SENTRY_ORG ||
-        process.env.SENTRY_PROJECT,
+            process.env.SENTRY_ORG ||
+            process.env.SENTRY_PROJECT,
     );
 
 const name = IS_E2E
@@ -72,8 +72,33 @@ const applicationId =
     IS_DEV || IS_E2E
         ? 'com.anonymous.drivefree.dev'
         : IS_STAGING
-          ? 'com.anonymous.drivefree'
+          ? 'com.anonymous.drivefree.staging'
           : 'com.anonymous.drivefree';
+const productionIcon = './assets/images/app-logo.png';
+const stagingIcon = './assets/images/logos/staging-ios-icon-default.png';
+const icon = IS_STAGING ? stagingIcon : productionIcon;
+const iosIcon = IS_STAGING
+    ? {
+          dark: './assets/images/logos/staging-ios-icon-dark.png',
+          light: stagingIcon,
+          tinted: './assets/images/logos/staging-ios-icon-monochrome.png',
+      }
+    : {
+          dark: './assets/images/logos/ios-icon-dark.png',
+          light: './assets/images/logos/ios-icon-default.png',
+          tinted: './assets/images/logos/ios-icon-monochrome.png',
+      };
+const androidAdaptiveIcon = IS_STAGING
+    ? {
+          backgroundColor: '#FF6200',
+          foregroundImage: stagingIcon,
+      }
+    : {
+          backgroundColor: '#E6F4FE',
+          foregroundImage: './assets/images/logos/android-icon-foreground.png',
+          backgroundImage: './assets/images/logos/android-icon-background.png',
+          monochromeImage: './assets/images/logos/android-icon-monochrome.png',
+      };
 
 module.exports = {
     name,
@@ -81,7 +106,7 @@ module.exports = {
     scheme: 'driversagainstflock',
     version: require('./package.json').version,
     orientation: 'portrait',
-    icon: './assets/images/app-logo.png',
+    icon,
     userInterfaceStyle: 'automatic',
     splash: {
         image: './assets/images/splash-icon.png',
@@ -100,22 +125,11 @@ module.exports = {
         },
         bundleIdentifier: applicationId,
         googleServicesFile: iosGoogleServicesFile,
-        icon: {
-            dark: './assets/images/logos/ios-icon-dark.png',
-            light: './assets/images/logos/ios-icon-default.png',
-            monochrome: './assets/images/logos/ios-icon-monochrome.png',
-        },
+        icon: iosIcon,
     },
     android: {
-        adaptiveIcon: {
-            backgroundColor: '#E6F4FE',
-            foregroundImage:
-                './assets/images/logos/android-icon-foreground.png',
-            backgroundImage:
-                './assets/images/logos/android-icon-background.png',
-            monochromeImage:
-                './assets/images/logos/android-icon-monochrome.png',
-        },
+        adaptiveIcon: androidAdaptiveIcon,
+        icon,
         permissions: [
             'android.permission.ACCESS_COARSE_LOCATION',
             'android.permission.ACCESS_FINE_LOCATION',
