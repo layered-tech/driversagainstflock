@@ -30,6 +30,7 @@ describe('Auto Play template state', () => {
             }),
             {
                 rendersDrivingStatus: true,
+                rendersSpeedLimit: true,
                 secondaryDrivingStatusIsVisible: false,
             },
         );
@@ -41,6 +42,7 @@ describe('Auto Play template state', () => {
             }),
             {
                 rendersDrivingStatus: true,
+                rendersSpeedLimit: true,
                 secondaryDrivingStatusIsVisible: true,
             },
         );
@@ -52,6 +54,36 @@ describe('Auto Play template state', () => {
             }),
             {
                 rendersDrivingStatus: false,
+                rendersSpeedLimit: false,
+                secondaryDrivingStatusIsVisible: false,
+            },
+        );
+    });
+
+    test('hides only the configured secondary-surface speed limit', () => {
+        assert.deepEqual(
+            getAutoPlayDrivingStatusVisibility({
+                isRootMapSurface: false,
+                showDrivingStatus: false,
+                showDrivingStatusOnSecondarySurfaces: true,
+                showSpeedLimitOnSecondarySurfaces: false,
+            }),
+            {
+                rendersDrivingStatus: true,
+                rendersSpeedLimit: false,
+                secondaryDrivingStatusIsVisible: true,
+            },
+        );
+        assert.deepEqual(
+            getAutoPlayDrivingStatusVisibility({
+                isRootMapSurface: true,
+                showDrivingStatus: false,
+                showDrivingStatusOnSecondarySurfaces: true,
+                showSpeedLimitOnSecondarySurfaces: false,
+            }),
+            {
+                rendersDrivingStatus: true,
+                rendersSpeedLimit: true,
                 secondaryDrivingStatusIsVisible: false,
             },
         );

@@ -214,16 +214,24 @@ describe('Auto Play current-road pill layout', () => {
             /showDrivingStatusOnSecondarySurfaces:\s*true/,
         );
         assert.match(
+            androidAutoMapSurfaceSource,
+            /showSpeedLimitOnSecondarySurfaces:\s*false/,
+        );
+        assert.match(
             mapSurfaceContentSource,
-            /getAutoPlayDrivingStatusVisibility\(\{[\s\S]*?showDrivingStatusOnSecondarySurfaces/,
+            /getAutoPlayDrivingStatusVisibility\(\{[\s\S]*?showDrivingStatusOnSecondarySurfaces,[\s\S]*?showSpeedLimitOnSecondarySurfaces/,
         );
         assert.match(
             mapSurfaceContentSource,
             /freeDriveIsActive=\{[\s\S]*?secondaryDrivingStatusIsVisible/,
         );
         assert.match(
+            mapSurfaceContentSource,
+            /<AutoPlayMapStatusOverlay[\s\S]*?rendersSpeedLimit=\{rendersSpeedLimit\}/,
+        );
+        assert.match(
             mapStatusOverlaySource,
-            /useRouteSpeedLimit\([\s\S]*?<DrivingLocationRoadStack[\s\S]*?onLocationAnchorLayout/,
+            /useRouteSpeedLimit\(\{[\s\S]*?routeIsActive:\s*rendersSpeedLimit\s*&&[\s\S]*?<DrivingLocationRoadStack[\s\S]*?onLocationAnchorLayout/,
         );
     });
 });

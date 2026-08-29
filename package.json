@@ -28,6 +28,7 @@
         "e2e:android-auto": "cd expo && ./scripts/android-auto-e2e.sh",
         "e2e:ios": "cd expo && MAESTRO_PLATFORM=ios ./scripts/maestro-test.sh .maestro",
         "node:test": "cd expo && npm test",
+        "osm:tunnel": "./infrastructure/aws/osm/operations/start-local-tunnel.sh",
         "graph:build": "./infrastructure/aws/routing/operations/build-graph.sh",
         "graph:status": "./infrastructure/aws/routing/operations/graph-status.sh"
     },
