@@ -220,6 +220,7 @@ export function DrivingGuidanceOverlay({
         setRerouteIsLoading(true);
 
         getDirections({
+            advancedRouteSettings: directionsRoute?.advancedRouteSettings,
             end,
             showZone:
                 debugOverlayVisibility?.[DEBUG_OVERLAY_DIRECTIONS_GEOMETRY] ===
@@ -245,6 +246,8 @@ export function DrivingGuidanceOverlay({
 
                 setDirectionsRoute({
                     ...selectedRoute,
+                    advancedRouteSettings:
+                        directionsRoute?.advancedRouteSettings,
                     bounds,
                     debugGeometry,
                     destination: destinationWaypoint,

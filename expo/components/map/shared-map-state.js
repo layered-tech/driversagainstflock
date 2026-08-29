@@ -133,6 +133,7 @@ export function SharedMapStateProvider({ children }) {
 
     const value = useMemo(
         () => ({
+            advancedRouteSettings: mapPreferences.advancedRouteSettings,
             directionsRoute,
             drivingModeIsActive,
             electronicHorizon,
@@ -167,6 +168,7 @@ export function SharedMapStateProvider({ children }) {
             scheduleMarkerLoad: markerLoader.scheduleMarkerLoad,
             upsertMarkerPoints: markerLoader.upsertMarkerPoints,
             setDirectionsRoute,
+            setAdvancedRouteSettings: mapPreferences.setAdvancedRouteSettings,
             setDrivingModeIsActive,
             setDebugOverlayIsVisible: mapPreferences.setDebugOverlayIsVisible,
             setDebugOverlayVisibility: mapPreferences.setDebugOverlayVisibility,
@@ -190,6 +192,7 @@ export function SharedMapStateProvider({ children }) {
             drivingModeIsActive,
             electronicHorizon,
             localityBoundary,
+            mapPreferences.advancedRouteSettings,
             mapPreferences.cameraConesVisible,
             mapPreferences.debugOverlayIsVisible,
             mapPreferences.debugOverlayVisibility,
@@ -205,6 +208,7 @@ export function SharedMapStateProvider({ children }) {
             mapPreferences.preferPrivateRoutes,
             mapPreferences.selectMapStyleURL,
             mapPreferences.setCameraConesVisible,
+            mapPreferences.setAdvancedRouteSettings,
             mapPreferences.setDebugOverlayIsVisible,
             mapPreferences.setDebugOverlayVisibility,
             mapPreferences.setMapDebugControlOffset,

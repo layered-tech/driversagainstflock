@@ -1,6 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import {
+    getStoredAdvancedRouteSettings,
+    normalizeAdvancedRouteSettings,
+} from './advanced-route-settings';
 import { MAP_PREFERENCES_STORAGE_KEY } from './constants';
 import {
     DEBUG_OVERLAY_KEYS,
@@ -85,6 +89,9 @@ export function useMapPreferencesState() {
     const [preferPrivateRoutes, setPreferPrivateRoutes] = useState(
         sharedMapPreferences.preferPrivateRoutes === true,
     );
+    const [advancedRouteSettings, setAdvancedRouteSettingsState] = useState(
+        getStoredAdvancedRouteSettings(sharedMapPreferences),
+    );
     const [policeAlertsVisible, setPoliceAlertsVisible] = useState(
         sharedMapPreferences.policeAlertsVisible === true,
     );
@@ -136,6 +143,9 @@ export function useMapPreferencesState() {
                     preferences.cameraConesVisible !== false,
             );
             setPreferPrivateRoutes(preferences.preferPrivateRoutes === true);
+            setAdvancedRouteSettingsState(
+                getStoredAdvancedRouteSettings(preferences),
+            );
             setPoliceAlertsVisible(preferences.policeAlertsVisible === true);
             const nextDebugOverlayVisibility =
                 getDebugOverlayVisibilityWithDefaults(
@@ -207,6 +217,8 @@ export function useMapPreferencesState() {
                     getStoredCameraConesVisible(preferences);
                 const storedPreferPrivateRoutes =
                     getStoredPreferPrivateRoutes(preferences);
+                const storedAdvancedRouteSettings =
+                    getStoredAdvancedRouteSettings(preferences);
                 const storedPoliceAlertsVisible =
                     getStoredPoliceAlertsVisible(preferences);
                 const storedMapLightPresetPreference =
@@ -227,6 +239,7 @@ export function useMapPreferencesState() {
                 setMarkerClustersEnabled(storedMarkerClustersEnabled);
                 setCameraConesVisible(storedCameraConesVisible);
                 setPreferPrivateRoutes(storedPreferPrivateRoutes);
+                setAdvancedRouteSettingsState(storedAdvancedRouteSettings);
                 setPoliceAlertsVisible(storedPoliceAlertsVisible);
                 setDebugOverlayVisibilityState(storedDebugOverlayVisibility);
 
@@ -303,6 +316,7 @@ export function useMapPreferencesState() {
         );
 
         setSharedMapPreferencesState({
+            advancedRouteSettings,
             debugOverlayVisibility,
             debugOverlayIsVisible,
             initialCameraSettings,
@@ -320,6 +334,7 @@ export function useMapPreferencesState() {
             userLocation,
         });
     }, [
+        advancedRouteSettings,
         debugOverlayVisibility,
         initialCameraSettings,
         mapDebugControlOffset,
@@ -354,6 +369,7 @@ export function useMapPreferencesState() {
             cameraConesVisible,
             preferPrivateRoutes,
             policeAlertsVisible,
+            advancedRouteSettings,
         );
         const settingsKey = JSON.stringify({
             ...preferences,
@@ -367,6 +383,7 @@ export function useMapPreferencesState() {
             { immediate: settingsChanged },
         );
     }, [
+        advancedRouteSettings,
         debugOverlayVisibility,
         mapDebugControlOffset,
         mapLightPresetPreference,
@@ -411,8 +428,12 @@ export function useMapPreferencesState() {
         },
         [defaultMapStyleURL],
     );
+    const setAdvancedRouteSettings = useCallback((settings) => {
+        setAdvancedRouteSettingsState(normalizeAdvancedRouteSettings(settings));
+    }, []);
 
     return {
+        advancedRouteSettings,
         initialCameraSettings,
         debugOverlayVisibility,
         debugOverlayIsVisible,
@@ -435,6 +456,7 @@ export function useMapPreferencesState() {
         setSurveillanceMarkersVisible,
         setMarkerClustersEnabled,
         setCameraConesVisible,
+        setAdvancedRouteSettings,
         setPreferPrivateRoutes,
         setPoliceAlertsVisible,
         setUserLocation,

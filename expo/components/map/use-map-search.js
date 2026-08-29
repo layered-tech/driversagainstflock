@@ -17,6 +17,7 @@ import {
     DIRECTIONS_MODE_SEARCH,
     getDirectionsRouteBounds,
     getDirectionsWaypointApiCoord,
+    getSelectedDirectionsRouteKey,
     selectDirectionsRoute,
 } from './directions';
 import { currentLocationWaypointNeedsRefresh } from './directions-current-location-sync';
@@ -45,6 +46,7 @@ import { useSubmittedSearch } from './use-submitted-search';
 import { useVoiceSearch } from './use-voice-search';
 
 export function useMapSearch({
+    advancedRouteSettings,
     directionsDebugGeometryIsEnabled = false,
     directionsRouteCameraPadding,
     directionsRoute,
@@ -60,6 +62,7 @@ export function useMapSearch({
     searchResultsCameraPadding,
     searchSource = 'map',
     setDirectionsRoute,
+    setAdvancedRouteSettings,
     setLocalityBoundary,
     setPendingDirectionsRequest,
     setPendingSearchResultRestore,
@@ -263,6 +266,7 @@ export function useMapSearch({
     });
     const { clearDirectionsRouteRequest, requestDirectionsRoute } =
         useDirectionsRouteRequest({
+            advancedRouteSettings,
             directionsDebugGeometryIsEnabled,
             isMountedRef,
             setDirectionsRoute,
@@ -1599,6 +1603,34 @@ export function useMapSearch({
         ],
     );
 
+    const handleDirectionsAdvancedSettingsApply = useCallback(
+        (advancedRouteSettings) => {
+            const destinationWaypoint = directionsRoute?.destination;
+            const startWaypoint = directionsRoute?.start;
+
+            if (!destinationWaypoint || !startWaypoint) {
+                setDirectionsRouteError(
+                    'The current route is missing its start or destination.',
+                );
+
+                return false;
+            }
+
+            setAdvancedRouteSettings(advancedRouteSettings);
+
+            return requestDirectionsRoute({
+                advancedRouteSettings,
+                destinationWaypoint,
+                selectedRouteKey:
+                    getSelectedDirectionsRouteKey(directionsRoute),
+                source: 'advanced_route_settings',
+                startWaypoint,
+                stopWaypoints: directionsRoute?.stopWaypoints ?? [],
+            });
+        },
+        [directionsRoute, requestDirectionsRoute, setAdvancedRouteSettings],
+    );
+
     const handleToggleSelectedPlaceFavorite = useCallback(() => {
         toggleSavedLocationFavorite(selectedSavedLocation);
     }, [selectedSavedLocation, toggleSavedLocationFavorite]);
@@ -1641,6 +1673,7 @@ export function useMapSearch({
         handleDestinationCategoryPress,
         handleDirectionsDestinationClear,
         handleDirectionsDestinationChange,
+        handleDirectionsAdvancedSettingsApply,
         handleDirectionsFieldFocus,
         handleDirectionsModePress,
         handleDirectionsModeDismiss,

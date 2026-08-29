@@ -2,6 +2,7 @@ import {
     getLocationCoordinate,
     LOCATION_ZOOM_LEVEL,
 } from '../map-location-mode-shared';
+import { normalizeAdvancedRouteSettings } from './advanced-route-settings';
 import {
     MAPBOX_STANDARD_LIGHT_PRESET_AUTO,
     MAPBOX_STANDARD_LIGHT_PRESET_DAWN,
@@ -241,6 +242,7 @@ export function getPersistableMapPreferences(
     cameraConesVisible,
     preferPrivateRoutes,
     policeAlertsVisible,
+    advancedRouteSettings,
 ) {
     const mapLayer = getMapLayerByStyleURL(mapStyleURL);
     const persistableMapStyleURL =
@@ -252,6 +254,9 @@ export function getPersistableMapPreferences(
         getDebugOverlayVisibilityWithDefaults(debugOverlayVisibility);
 
     return {
+        advancedRouteSettings: normalizeAdvancedRouteSettings(
+            advancedRouteSettings,
+        ),
         mapLayerKey: mapLayer?.key ?? 'standard',
         mapStyleURL: persistableMapStyleURL,
         mapStyleIsUserSelected:

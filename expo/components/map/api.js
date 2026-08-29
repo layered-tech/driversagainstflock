@@ -1,5 +1,9 @@
 import { addSentryBreadcrumb } from '../../lib/sentry';
 import {
+    getAdvancedRouteSettingsRequestPayload,
+    normalizeAdvancedRouteSettings,
+} from './advanced-route-settings';
+import {
     getMockDirections,
     getMockPlaceDetails,
     getMockRoadCorridor,
@@ -23,6 +27,7 @@ import {
     setCachedPlaceDetails,
 } from './place-details-cache';
 import { normalizePlaceDetails } from './place-formatters';
+import { getSharedMapPreferencesState } from './shared-map-preferences-sync';
 
 const GENERIC_ALPR_PROFILE = {
     id: 'generic-alpr',
@@ -776,14 +781,36 @@ export async function getLocalityBoundary({ signal, zip }) {
 }
 
 export async function getDirections({
+    advancedRouteSettings,
     end,
     showZone = false,
     signal,
     start,
     waypoints = [],
 }) {
+    const storedAdvancedRouteSettings =
+        getSharedMapPreferencesState().advancedRouteSettings;
+    const normalizedAdvancedRouteSettings = normalizeAdvancedRouteSettings(
+        advancedRouteSettings ?? storedAdvancedRouteSettings,
+    );
+
     if (mapApiMocksAreEnabled()) {
-        return getMockDirections({ end, showZone, signal, start, waypoints });
+        const result = await getMockDirections({
+            advancedRouteSettings: normalizedAdvancedRouteSettings,
+            end,
+            showZone,
+            signal,
+            start,
+            waypoints,
+        });
+
+        return {
+            ...result,
+            route: {
+                ...result.route,
+                advancedRouteSettings: normalizedAdvancedRouteSettings,
+            },
+        };
     }
 
     addSentryBreadcrumb({
@@ -791,6 +818,10 @@ export async function getDirections({
         data: {
             hasEnd: Boolean(end),
             hasStart: Boolean(start),
+            allowAlprNearStartDestination:
+                normalizedAdvancedRouteSettings.allowAlprNearStartDestination,
+            avoidBufferMeters:
+                normalizedAdvancedRouteSettings.avoidBufferMeters,
             waypointCount: Array.isArray(waypoints) ? waypoints.length : 0,
             profileCount: 1,
         },
@@ -800,6 +831,9 @@ export async function getDirections({
     try {
         const response = await fetch(buildApiURL('v1/directions'), {
             body: JSON.stringify({
+                ...getAdvancedRouteSettingsRequestPayload(
+                    normalizedAdvancedRouteSettings,
+                ),
                 continue_straight: true,
                 end,
                 profile: [GENERIC_ALPR_PROFILE],
@@ -825,7 +859,13 @@ export async function getDirections({
             message: 'Directions loaded',
         });
 
-        return result;
+        return {
+            ...result,
+            route: {
+                ...result.route,
+                advancedRouteSettings: normalizedAdvancedRouteSettings,
+            },
+        };
     } catch (error) {
         addApiErrorBreadcrumb({
             error,

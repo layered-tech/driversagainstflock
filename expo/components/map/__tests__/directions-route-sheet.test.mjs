@@ -10,6 +10,18 @@ const directionsRouteRequestSource = readFileSync(
     new URL('../use-directions-route-request.js', import.meta.url),
     'utf8',
 );
+const directionsApiSource = readFileSync(
+    new URL('../api.js', import.meta.url),
+    'utf8',
+);
+const mapSearchSource = readFileSync(
+    new URL('../use-map-search.js', import.meta.url),
+    'utf8',
+);
+const mapPreferencesSource = readFileSync(
+    new URL('../use-map-preferences-state.js', import.meta.url),
+    'utf8',
+);
 
 test('presents the directions sheet after the route renders', () => {
     assert.match(
@@ -31,5 +43,59 @@ test('presents the directions sheet after the route renders', () => {
     assert.doesNotMatch(
         directionsRouteRequestSource,
         /setDirectionsRoute\(nextRoute\);\s+directionsRouteSheetRef\.current\?\.present\(\);/,
+    );
+});
+
+test('keeps advanced settings available and recalculates the selected route', () => {
+    assert.match(
+        directionsRouteSheetSource,
+        /testID="directions-route-advanced-settings-toggle"/,
+    );
+    assert.match(
+        directionsRouteSheetSource,
+        /testID="directions-route-avoid-distance-input"/,
+    );
+    assert.match(
+        directionsRouteSheetSource,
+        /handleDirectionsAdvancedSettingsApply\(settings\)/,
+    );
+    assert.match(
+        mapSearchSource,
+        /destinationWaypoint = directionsRoute\?\.destination;[\s\S]*?startWaypoint = directionsRoute\?\.start;[\s\S]*?stopWaypoints: directionsRoute\?\.stopWaypoints \?\? \[\]/,
+    );
+    assert.match(
+        mapSearchSource,
+        /selectedRouteKey:\s+getSelectedDirectionsRouteKey\(directionsRoute\)/,
+    );
+    assert.match(
+        directionsApiSource,
+        /getAdvancedRouteSettingsRequestPayload\([\s\S]*?normalizedAdvancedRouteSettings/,
+    );
+    assert.match(
+        directionsRouteRequestSource,
+        /getDirections\(\{\s+advancedRouteSettings:\s+normalizedAdvancedRouteSettings,/,
+    );
+});
+
+test('persists advanced settings and reuses them for later route requests', () => {
+    assert.match(
+        mapSearchSource,
+        /setAdvancedRouteSettings\(advancedRouteSettings\);[\s\S]*?requestDirectionsRoute\(\{/,
+    );
+    assert.match(
+        mapPreferencesSource,
+        /getStoredAdvancedRouteSettings\(preferences\)[\s\S]*?setAdvancedRouteSettingsState\(storedAdvancedRouteSettings\)/,
+    );
+    assert.match(
+        mapPreferencesSource,
+        /getPersistableMapPreferences\([\s\S]*?advancedRouteSettings,[\s\S]*?mapPreferencesPersistenceScheduler\.schedule/,
+    );
+    assert.match(
+        directionsApiSource,
+        /getSharedMapPreferencesState\(\)\.advancedRouteSettings[\s\S]*?advancedRouteSettings \?\? storedAdvancedRouteSettings/,
+    );
+    assert.match(
+        directionsApiSource,
+        /route: \{[\s\S]*?advancedRouteSettings: normalizedAdvancedRouteSettings/,
     );
 });
