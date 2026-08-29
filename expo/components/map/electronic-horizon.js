@@ -386,14 +386,10 @@ function getClosestPathProjection(path, target) {
         const endOffset = coordinateToRelativeMeters(end, start);
         const targetOffset = coordinateToRelativeMeters(target, start);
         const squaredSegmentLength = endOffset.x ** 2 + endOffset.y ** 2;
-        const progress = Math.min(
-            1,
-            Math.max(
-                0,
-                (targetOffset.x * endOffset.x + targetOffset.y * endOffset.y) /
-                    squaredSegmentLength,
-            ),
-        );
+        const projectedProgress =
+            (targetOffset.x * endOffset.x + targetOffset.y * endOffset.y) /
+            squaredSegmentLength;
+        const progress = Math.min(1, Math.max(0, projectedProgress));
         const closestOffset = {
             x: endOffset.x * progress,
             y: endOffset.y * progress,
@@ -405,7 +401,11 @@ function getClosestPathProjection(path, target) {
         const nextPosition = {
             coordinate: interpolateCoordinate(start, end, progress),
             distanceAheadMeters:
-                distanceBeforeSegmentMeters + segmentDistanceMeters * progress,
+                distanceBeforeSegmentMeters +
+                segmentDistanceMeters *
+                    (distanceBeforeSegmentMeters === 0 && projectedProgress < 0
+                        ? projectedProgress
+                        : progress),
             distanceFromPathMeters,
             segmentIndex: index - 1,
         };
