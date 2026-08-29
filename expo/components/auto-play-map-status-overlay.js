@@ -339,6 +339,7 @@ export function AutoPlayMapStatusOverlay({
         drivingStatusIsVisible && Number.isFinite(Number(currentSpeedMps)),
     );
     const currentSpeedWithoutLimitIsVisible = Boolean(
+        rendersSpeedLimit &&
         Platform.OS === 'android' &&
         drivingStatusIsVisible &&
         currentSpeedMph > 0,

@@ -233,5 +233,9 @@ describe('Auto Play current-road pill layout', () => {
             mapStatusOverlaySource,
             /useRouteSpeedLimit\(\{[\s\S]*?routeIsActive:\s*rendersSpeedLimit\s*&&[\s\S]*?<DrivingLocationRoadStack[\s\S]*?onLocationAnchorLayout/,
         );
+        assert.match(
+            mapStatusOverlaySource,
+            /const currentSpeedWithoutLimitIsVisible = Boolean\(\s*rendersSpeedLimit\s*&&[\s\S]*?Platform\.OS === 'android'/,
+        );
     });
 });
