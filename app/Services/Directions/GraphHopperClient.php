@@ -233,10 +233,6 @@ class GraphHopperClient implements DirectionsProvider
             return 11;
         }
 
-        if ((int) ($instruction['sign'] ?? 0) === 6 && ($instruction['exited'] ?? false)) {
-            return 8;
-        }
-
         return match ((int) ($instruction['sign'] ?? 0)) {
             -7 => 12,
             -3 => 2,

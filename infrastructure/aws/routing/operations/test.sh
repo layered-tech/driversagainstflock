@@ -36,6 +36,7 @@ readonly REPAIR_SCRIPT="${OPERATIONS_DIR}/serving/v1.0.8/repair-serving-config.s
 readonly MIGRATE_VOLUME_SCRIPT="${OPERATIONS_DIR}/serving/v1.0.9/migrate-graph-volume.sh"
 readonly SERVING_METRICS_SCRIPT="${OPERATIONS_DIR}/serving/v1.0.10/install-serving-metrics.sh"
 readonly CLOUDWATCH_LOGS_SCRIPT="${OPERATIONS_DIR}/logging/v1.0.0/install-cloudwatch-logs.sh"
+readonly LOCAL_TUNNEL_TEST="${OPERATIONS_DIR}/tests/local-tunnel-invariant.sh"
 
 grep -qF 'readonly DEFAULT_PBF_NAME="us-260811.osm.pbf"' "${BUILD_SCRIPT}"
 grep -qF 'readonly OPERATION_VERSION="1.3.0"' "${BUILD_SCRIPT}"
@@ -124,6 +125,8 @@ if rg -n 'journalctl|access.log|graphhopper.log|import.log|server.log|request_ur
     exit 1
 fi
 grep -qF 'title  = "Serving instance health"' "${MONITORING_TERRAFORM}"
+
+"${LOCAL_TUNNEL_TEST}"
 
 dry_run_output="$("${BUILD_LAUNCHER}" \
     --dry-run \
