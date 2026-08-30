@@ -24,7 +24,7 @@ const drivingLocationProviderSource = readSource(
 const durableAlertStoreSource = readSource('../durable-alert-store.js');
 const easJson = JSON.parse(readSource('../../../eas.json'));
 const expoLocationPatchSource = readSource(
-    '../../../patches/expo-location+57.0.7.patch',
+    '../../../patches/expo-location+57.0.8.patch',
 );
 const electronicHorizonAlprStoreSource = readSource(
     '../electronic-horizon-alpr-store.js',

@@ -7,6 +7,7 @@
         "lint": "eslint resources/js --fix",
         "start": "cd expo && npx expo start",
         "horizon": "valet php artisan horizon",
+        "start:metro": "cd expo && npx expo start --dev-client",
         "prebuild:local": "cd expo && npx expo prebuild --clean",
         "prebuild:staging": "cd expo && APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- expo prebuild --clean",
         "prebuild:production": "cd expo && APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- expo prebuild --clean",
@@ -15,14 +16,10 @@
         "build:android:production-apk": "cd expo && APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p android --profile production-apk --non-interactive --no-wait",
         "build:ios:staging": "cd expo && APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- ./scripts/eas-local-build.sh -p ios --profile production --no-wait --non-interactive",
         "build:ios:production": "cd expo && APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p ios --profile production --no-wait --non-interactive",
-        "sentry:upload-sourcemaps": "cd expo && sentry-expo-upload-sourcemaps dist",
-        "android": "cd expo && npx expo run:android",
+        "android:no-bundler": "cd expo && npx expo run:android --no-bundler --device",
         "android:auto": "cd expo && adb forward tcp:5277 tcp:5277 && \"$ANDROID_HOME/extras/google/auto/desktop-head-unit\" -c ./config/android-auto-dhu.ini",
         "android:auto:portrait": "cd expo && adb forward tcp:5277 tcp:5277 && \"$ANDROID_HOME/extras/google/auto/desktop-head-unit\" -c ./config/android-auto-dhu-portrait.ini",
-        "android:no-bundler": "cd expo && npx expo run:android --no-bundler --device",
-        "ios": "cd expo && npx expo run:ios",
         "ios:no-bundler": "cd expo && npx expo run:ios --no-bundler --device",
-        "start:metro": "cd expo && npx expo start --dev-client",
         "e2e": "cd expo && ./scripts/maestro-test.sh .maestro",
         "e2e:android": "cd expo && MAESTRO_PLATFORM=android ./scripts/maestro-test.sh .maestro",
         "e2e:android-auto": "cd expo && ./scripts/android-auto-e2e.sh",
@@ -32,7 +29,8 @@
         "osm:tunnel": "./infrastructure/aws/osm/operations/start-local-tunnel.sh",
         "graphhopper:tunnel": "./infrastructure/aws/routing/operations/start-local-tunnel.sh",
         "graph:build": "./infrastructure/aws/routing/operations/build-graph.sh",
-        "graph:status": "./infrastructure/aws/routing/operations/graph-status.sh"
+        "graph:status": "./infrastructure/aws/routing/operations/graph-status.sh",
+        "sentry:upload-sourcemaps": "cd expo && sentry-expo-upload-sourcemaps dist"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",

@@ -6,6 +6,7 @@ const NAVIGATION_PUCK_VIEWPORT_RATIO = 0.19;
 const NAVIGATION_PUCK_MINIMUM_SIZE = 56;
 const NAVIGATION_PUCK_MAXIMUM_SIZE = 88;
 const AUTO_PLAY_NAVIGATION_PUCK_3D_SCALE_FACTOR = 0.6;
+const IOS_NAVIGATION_PUCK_3D_SCALE_FACTOR = 0.6;
 
 export const AUTO_PLAY_NAVIGATION_PUCK_SIZE = BASE_NAVIGATION_PUCK_SIZE * 1.25;
 export const NAVIGATION_PUCK_SIZE = BASE_NAVIGATION_PUCK_SIZE * 1.5;
@@ -81,12 +82,17 @@ export function getNavigationPuckSize({
 }
 
 export function getNavigationPuck3DScaleExpression({
+    platform,
     variant = 'default',
 } = {}) {
     const zoomScales =
         variant === 'auto-play'
             ? AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES
             : NAVIGATION_PUCK_3D_ZOOM_SCALES;
+    const platformScaleFactor =
+        platform === 'ios' && variant !== 'auto-play'
+            ? IOS_NAVIGATION_PUCK_3D_SCALE_FACTOR
+            : 1;
 
     return JSON.stringify([
         'interpolate',
@@ -94,7 +100,7 @@ export function getNavigationPuck3DScaleExpression({
         ['zoom'],
         ...zoomScales.flatMap(({ mapScale, zoomLevel }) => [
             zoomLevel,
-            ['literal', [mapScale, mapScale, mapScale]],
+            ['literal', Array(3).fill(mapScale * platformScaleFactor)],
         ]),
     ]);
 }

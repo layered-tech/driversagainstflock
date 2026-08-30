@@ -5,8 +5,8 @@ import { createAutoPlayMapSurface } from './auto-play-map-surface';
 const CARPLAY_SURFACE_PLATFORM_CONFIG = {
     currentRoadPill: {
         textStyle: {
-            fontSize: 14,
-            lineHeight: 20,
+            fontSize: 11,
+            lineHeight: 16,
         },
     },
     hideCompassDuringNavigation: true,

@@ -102,6 +102,42 @@ describe('current road pill layout', () => {
         }
     });
 
+    test('scales only the iOS phone 3D puck', () => {
+        const getExpressionScales = ({ platform, variant = 'default' }) =>
+            JSON.parse(
+                getNavigationPuck3DScaleExpression({ platform, variant }),
+            )
+                .slice(3)
+                .filter((_, index) => index % 2 === 1)
+                .map(([, scale]) => scale[0]);
+        const defaultScales = NAVIGATION_PUCK_3D_ZOOM_SCALES.map(
+            ({ mapScale }) => mapScale,
+        );
+        const autoPlayScales = AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES.map(
+            ({ mapScale }) => mapScale,
+        );
+
+        assert.deepEqual(
+            getExpressionScales({ platform: 'ios' }),
+            defaultScales.map((mapScale) => mapScale * 0.8),
+        );
+        assert.deepEqual(
+            getExpressionScales({ platform: 'android' }),
+            defaultScales,
+        );
+        assert.deepEqual(
+            getExpressionScales({ platform: 'ios', variant: 'auto-play' }),
+            autoPlayScales,
+        );
+        assert.deepEqual(
+            getExpressionScales({
+                platform: 'android',
+                variant: 'auto-play',
+            }),
+            autoPlayScales,
+        );
+    });
+
     test('uses the measured puck slot center as the camera anchor', () => {
         assert.equal(
             getNavigationPuckAnchorY({

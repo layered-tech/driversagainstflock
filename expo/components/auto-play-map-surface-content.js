@@ -8,6 +8,7 @@ import {
     useState,
 } from 'react';
 import { Dimensions, View } from 'react-native';
+import { getAutoPlayAlertSurfaceVisibility } from './auto-play-alert-surface-visibility';
 import {
     autoPlayCameraDebugStateUpdatesAreEnabled,
     AutoPlayDebugOverlays,
@@ -1499,6 +1500,13 @@ export function AutoPlayMapSurfaceContent({
         useState(undefined);
     const [appliedMapLightPreset, setAppliedMapLightPreset] = useState(null);
     const mapPreferences = useMapPreferencesState();
+    const mockWazePoliceAlertsEnabled = useMockWazePoliceAlertsEnabled();
+    const alertSurfaceVisibility = getAutoPlayAlertSurfaceVisibility({
+        isRootMapSurface,
+        policeAlertsVisible:
+            mapPreferences.policeAlertsVisible || mockWazePoliceAlertsEnabled,
+        surveillanceMarkersVisible: mapPreferences.surveillanceMarkersVisible,
+    });
     const markerLoader = useMarkerLoader();
     const isDrivingMode = autoPlayState.drivingModeIsActive !== false;
     const drivingMapViewMode =
@@ -1529,7 +1537,8 @@ export function AutoPlayMapSurfaceContent({
         routePreviewIsActive: rendersDrivingStatus && routePreviewIsActive,
         searchResultsMapIsActive:
             rendersDrivingStatus && searchResultsMapIsActive,
-        surveillanceMarkersVisible: mapPreferences.surveillanceMarkersVisible,
+        surveillanceMarkersVisible:
+            alertSurfaceVisibility.surveillanceMarkersVisible,
     });
     const navigationPuckRefreshKey = getAutoPlayNavigationPuckRefreshKey({
         isNavigating: autoPlayState.isNavigating,
@@ -1617,7 +1626,7 @@ export function AutoPlayMapSurfaceContent({
         mapGestureCoordinateScale,
         mapBrowsingContextIsActive,
         mapPreferencesAreLoaded: mapPreferences.mapPreferencesAreLoaded,
-        markersAreVisible: mapPreferences.surveillanceMarkersVisible,
+        markersAreVisible: alertSurfaceVisibility.surveillanceMarkersVisible,
         scheduleSharedMarkerLoad: markerLoader.scheduleMarkerLoad,
         setUserLocation: mapPreferences.setUserLocation,
         userLocation: mapPreferences.userLocation,
@@ -1683,16 +1692,15 @@ export function AutoPlayMapSurfaceContent({
     );
     const electronicHorizon = useElectronicHorizon({
         enabled:
+            alertSurfaceVisibility.upcomingAlertsVisible &&
             rendersDrivingStatus &&
             isDrivingMode &&
             !activeDirectionsRoute &&
             !searchResultsMapIsActive,
     });
-    const mockWazePoliceAlertsEnabled = useMockWazePoliceAlertsEnabled();
     const policeAlertsLoader = useWazePoliceAlerts({
         policeAlertsAreEnabled:
-            (mapPreferences.policeAlertsVisible ||
-                mockWazePoliceAlertsEnabled) &&
+            alertSurfaceVisibility.policeAlertsVisible &&
             !searchResultsMapIsActive,
         userLocation: mapPreferences.userLocation,
     });
@@ -1707,7 +1715,10 @@ export function AutoPlayMapSurfaceContent({
         directionsRoute: activeDirectionsRoute,
         electronicHorizon,
         enabled:
-            rendersDrivingStatus && isDrivingMode && !searchResultsMapIsActive,
+            alertSurfaceVisibility.upcomingAlertsVisible &&
+            rendersDrivingStatus &&
+            isDrivingMode &&
+            !searchResultsMapIsActive,
         policeAlerts: policeAlertsLoader.policeAlerts,
         userLocation: mapPreferences.userLocation,
     });
@@ -1793,8 +1804,7 @@ export function AutoPlayMapSurfaceContent({
             : undefined,
         policeAlertFeatureCollection,
         policeAlertsVisible:
-            (mapPreferences.policeAlertsVisible ||
-                mockWazePoliceAlertsEnabled) &&
+            alertSurfaceVisibility.policeAlertsVisible &&
             !searchResultsMapIsActive,
         preferredFramesPerSecond: isRootMapSurface ? 30 : 20,
         presentation,
@@ -2188,7 +2198,10 @@ export function AutoPlayMapSurfaceContent({
                             autoPlayState.singleResultCountdown
                         }
                         upcomingAlerts={
-                            searchResultsMapIsActive ? [] : upcomingAlerts
+                            alertSurfaceVisibility.upcomingAlertsVisible &&
+                            !searchResultsMapIsActive
+                                ? upcomingAlerts
+                                : []
                         }
                     />
                 ) : null}

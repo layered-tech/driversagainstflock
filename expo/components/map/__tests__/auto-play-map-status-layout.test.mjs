@@ -181,14 +181,14 @@ describe('Auto Play current-road pill layout', () => {
         );
     });
 
-    test('uses smaller road text on automotive surfaces', () => {
+    test('uses surface-specific road text sizing', () => {
         assert.match(
             androidAutoMapSurfaceSource,
             /currentRoadPill:\s*\{[\s\S]*?reserveSpeedLimitSpace:\s*true,[\s\S]*?textStyle:\s*\{[\s\S]*?fontSize:\s*14,[\s\S]*?lineHeight:\s*20/,
         );
         assert.match(
             carPlayMapSurfaceSource,
-            /currentRoadPill:\s*\{[\s\S]*?textStyle:\s*\{[\s\S]*?fontSize:\s*14,[\s\S]*?lineHeight:\s*20/,
+            /currentRoadPill:\s*\{[\s\S]*?textStyle:\s*\{[\s\S]*?fontSize:\s*11,[\s\S]*?lineHeight:\s*16/,
         );
         assert.match(
             mapStatusOverlaySource,
@@ -205,6 +205,21 @@ describe('Auto Play current-road pill layout', () => {
         assert.match(
             currentRoadContextSource,
             /text-\[16px\][\s\S]*?leading-\[22px\][\s\S]*?ellipsizeMode="tail"[\s\S]*?style=\{textStyle\}/,
+        );
+    });
+
+    test('reduces alert typography on CarPlay without changing Android defaults', () => {
+        assert.match(
+            mapStatusOverlaySource,
+            /function AutoPlayAlertSource[\s\S]*?ios:text-\[10px\] ios:leading-3 text-\[11px\] leading-\[13px\]/,
+        );
+        assert.match(
+            mapStatusOverlaySource,
+            /function AutoPlaySingleUpcomingAlert[\s\S]*?ios:text-\[13px\] ios:leading-\[15px\] text-\[14px\][\s\S]*?font-dafMono ios:text-\[12px\] ios:leading-\[12px\] text-\[18px\]/,
+        );
+        assert.match(
+            mapStatusOverlaySource,
+            /function AutoPlayCombinedAlertColumn[\s\S]*?ios:text-\[11px\] ios:leading-\[13px\][\s\S]*?text-xs[\s\S]*?font-dafMono ios:text-\[12px\] ios:leading-\[12px\] text-\[17px\]/,
         );
     });
 

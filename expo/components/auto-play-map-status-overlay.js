@@ -123,7 +123,7 @@ function AutoPlayAlertIcon({ alertPresentation, compact = false, isDarkMode }) {
 function AutoPlayAlertSource({ alertPresentation, isDarkMode }) {
     return (
         <Text
-            className={`text-[11px] leading-[13px] ${isDarkMode ? 'text-neutral-400' : 'text-daf-text-tertiary'}`}
+            className={`ios:text-[10px] ios:leading-3 text-[11px] leading-[13px] ${isDarkMode ? 'text-neutral-400' : 'text-daf-text-tertiary'}`}
             numberOfLines={1}
         >
             {alertPresentation.subtitle}
@@ -146,7 +146,7 @@ function AutoPlaySingleUpcomingAlert({ isDarkMode, presentation }) {
                 />
                 <View className="min-w-0 flex-1">
                     <Text
-                        className={`text-[14px] font-semibold leading-4 ${isDarkMode ? 'text-white' : 'text-daf-text-primary'}`}
+                        className={`ios:text-[13px] ios:leading-[15px] text-[14px] font-semibold leading-4 ${isDarkMode ? 'text-white' : 'text-daf-text-primary'}`}
                         numberOfLines={1}
                     >
                         {alertPresentation.title}
@@ -157,7 +157,7 @@ function AutoPlaySingleUpcomingAlert({ isDarkMode, presentation }) {
                     />
                 </View>
                 <Text
-                    className="font-dafMono text-[18px] font-extrabold leading-[18px]"
+                    className="font-dafMono ios:text-[12px] ios:leading-[12px] text-[18px] font-extrabold leading-[18px]"
                     numberOfLines={1}
                     style={{ color: alertPresentation.accentColor }}
                 >
@@ -196,14 +196,14 @@ function AutoPlayCombinedAlertColumn({
                     isDarkMode={isDarkMode}
                 />
                 <Text
-                    className={`min-w-0 flex-1 text-xs font-semibold leading-[14px] ${isDarkMode ? 'text-white' : 'text-daf-text-primary'}`}
+                    className={`ios:text-[11px] ios:leading-[13px] min-w-0 flex-1 text-xs font-semibold leading-[14px] ${isDarkMode ? 'text-white' : 'text-daf-text-primary'}`}
                     numberOfLines={1}
                 >
                     {alertPresentation.title}
                 </Text>
             </View>
             <Text
-                className="font-dafMono text-[17px] font-extrabold leading-[17px]"
+                className="font-dafMono ios:text-[12px] ios:leading-[12px] text-[17px] font-extrabold leading-[17px]"
                 numberOfLines={1}
                 style={{ color: alertPresentation.accentColor }}
             >

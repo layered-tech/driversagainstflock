@@ -1861,7 +1861,7 @@ index 701338c..862bf87 100644
  
 +                    // Start JS work only after its update target is retained
 +                    // and registered, so fast responses cannot be dropped.
-+                    config.onSearchTextSubmitted(searchText)
++                    self.config.onSearchTextSubmitted(self.searchText)
 +
                      let _ = try await interfaceController.pushTemplate(
                          listTemplate.template,

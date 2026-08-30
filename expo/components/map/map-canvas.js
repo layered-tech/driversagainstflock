@@ -670,6 +670,7 @@ export const MapCanvas = memo(function MapCanvas() {
     const navigationPuck3DScaleExpression = useMemo(
         () =>
             getNavigationPuck3DScaleExpression({
+                platform: Platform.OS,
                 variant: resolvedNavigationPuckVariant,
             }),
         [resolvedNavigationPuckVariant],

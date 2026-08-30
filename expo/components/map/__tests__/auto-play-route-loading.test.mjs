@@ -152,7 +152,7 @@ describe('Auto Play route-loading overlay', () => {
         );
         assert.match(
             mapSurfaceSource,
-            /upcomingAlerts=\{\s*searchResultsMapIsActive \? \[\] : upcomingAlerts\s*\}/,
+            /upcomingAlerts=\{[\s\S]*?alertSurfaceVisibility\.upcomingAlertsVisible[\s\S]*?!searchResultsMapIsActive[\s\S]*?\? upcomingAlerts[\s\S]*?: \[\]/,
         );
     });
 });

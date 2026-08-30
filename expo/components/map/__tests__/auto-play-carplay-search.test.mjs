@@ -275,7 +275,7 @@ test('CarPlay owns a stable loading result list before submitting and pushing it
         'scene.templateStore.addTemplate',
     );
     const submittedIndex = submissionSource.indexOf(
-        'config.onSearchTextSubmitted(searchText)',
+        'self.config.onSearchTextSubmitted(self.searchText)',
     );
     const pushedIndex = submissionSource.indexOf(
         'interfaceController.pushTemplate',
@@ -303,6 +303,10 @@ test('CarPlay owns a stable loading result list before submitting and pushing it
     assert.match(
         searchTemplatePatch,
         /^\+\s*sections:\s*\[[^\]]*loading[^\]]*\],?$/im,
+    );
+    assert.match(
+        searchTemplatePatch,
+        /^\+\s*self\.config\.onSearchTextSubmitted\(self\.searchText\)$/m,
     );
 });
 
