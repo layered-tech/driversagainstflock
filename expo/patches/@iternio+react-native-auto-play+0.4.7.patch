@@ -26,7 +26,7 @@ index ecc4dae..6214102 100644
  
          <meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" tools:ignore="MetadataTagInsideApplicationTag" />
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoScreen.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoScreen.kt
-index a12064c..56ef8b6 100644
+index a12064c..d316001 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoScreen.kt
 +++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoScreen.kt
 @@ -1,5 +1,8 @@
@@ -55,10 +55,11 @@ index a12064c..56ef8b6 100644
                          screens.remove(moduleName)
                          HybridAutoPlay.removeListeners(moduleName)
                          AndroidAutoTemplate.getTemplate(moduleName)?.onPopped()
-@@ -85,6 +91,31 @@ class AndroidAutoScreen(
+@@ -85,7 +91,35 @@ class AndroidAutoScreen(
          })
      }
  
+-    fun applyConfigUpdate(invalidate: Boolean = false) {
 +    private val invalidationPending = AtomicBoolean(false)
 +    private val invalidationHandler = Handler(Looper.getMainLooper())
 +    private var lastInvalidationAtMs = 0L
@@ -84,21 +85,31 @@ index a12064c..56ef8b6 100644
 +        invalidationHandler.postDelayed(invalidationRunnable, delayMs)
 +    }
 +
-     fun applyConfigUpdate(invalidate: Boolean = false) {
++    fun applyConfigUpdate(
++        invalidate: Boolean = false,
++        immediate: Boolean = false,
++    ) {
          val config = AndroidAutoTemplate.getConfig(moduleName) ?: return
  
-@@ -105,9 +136,7 @@ class AndroidAutoScreen(
+         when (config) {
+@@ -105,9 +139,15 @@ class AndroidAutoScreen(
                  return
              }
  
 -            UiThreadUtil.runOnUiThread {
--                invalidate()
--            }
++            if (immediate) {
++                invalidationHandler.removeCallbacks(invalidationRunnable)
++                invalidationPending.set(false)
++                lastInvalidationAtMs = SystemClock.uptimeMillis()
+                 invalidate()
++                return
+             }
++
 +            scheduleInvalidation()
          }
      }
  
-@@ -117,6 +146,8 @@ class AndroidAutoScreen(
+@@ -117,6 +157,8 @@ class AndroidAutoScreen(
  
      companion object {
          const val TAG = "AndroidAutoScreen"
@@ -851,6 +862,35 @@ index dd85e78..35a90b7 100644
              }
          }
  
+diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridListTemplate.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridListTemplate.kt
+index 325ed8e..0114403 100644
+--- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridListTemplate.kt
++++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridListTemplate.kt
+@@ -3,6 +3,7 @@ package com.margelo.nitro.swe.iternio.reactnativeautoplay
+ import com.margelo.nitro.core.Promise
+ import com.margelo.nitro.swe.iternio.reactnativeautoplay.template.AndroidAutoTemplate
+ import com.margelo.nitro.swe.iternio.reactnativeautoplay.template.ListTemplate
++import com.margelo.nitro.swe.iternio.reactnativeautoplay.utils.ThreadUtil
+ 
+ class HybridListTemplate : HybridListTemplateSpec() {
+ 
+@@ -19,7 +20,14 @@ class HybridListTemplate : HybridListTemplateSpec() {
+     ): Promise<Unit> {
+         return Promise.async {
+             val template = AndroidAutoTemplate.getTemplate<ListTemplate>(templateId)
+-            template.updateSections(sections)
++            val result = ThreadUtil.postOnUiAndAwait {
++                template.updateSections(sections)
++            }
++
++            if (result.isFailure) {
++                throw result.exceptionOrNull()
++                    ?: UnknownError("unknown error updating list sections")
++            }
+         }
+     }
+ }
+\ No newline at end of file
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridMapTemplate.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridMapTemplate.kt
 index 205c812..999a307 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridMapTemplate.kt
@@ -899,22 +939,71 @@ index 205c812..999a307 100644
  
      override fun setManeuverState(templateId: String, state: ManeuverState) {
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridSearchTemplate.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridSearchTemplate.kt
-index f1a45c0..cbbc2b5 100644
+index f1a45c0..e6d0334 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridSearchTemplate.kt
 +++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridSearchTemplate.kt
-@@ -16,7 +16,11 @@ class HybridSearchTemplate : HybridSearchTemplateSpec() {
+@@ -3,6 +3,7 @@ package com.margelo.nitro.swe.iternio.reactnativeautoplay
+ import com.margelo.nitro.core.Promise
+ import com.margelo.nitro.swe.iternio.reactnativeautoplay.template.AndroidAutoTemplate
+ import com.margelo.nitro.swe.iternio.reactnativeautoplay.template.SearchTemplate
++import com.margelo.nitro.swe.iternio.reactnativeautoplay.utils.ThreadUtil
+ 
+ class HybridSearchTemplate : HybridSearchTemplateSpec() {
+ 
+@@ -16,8 +17,19 @@ class HybridSearchTemplate : HybridSearchTemplateSpec() {
  
      override fun updateSearchResults(templateId: String, results: NitroSection): Promise<Unit> {
          return Promise.async {
 -            val template = AndroidAutoTemplate.getTemplate<SearchTemplate>(templateId)
+-            template.updateSearchResults(results)
 +            val template = AndroidAutoTemplate.getTemplate(templateId) as? SearchTemplate
 +                ?: throw IllegalArgumentException(
 +                    "updateSearchResults failed, template $templateId not found or not a SearchTemplate"
 +                )
 +
-             template.updateSearchResults(results)
++            val result = ThreadUtil.postOnUiAndAwait {
++                template.updateSearchResults(results)
++            }
++
++            if (result.isFailure) {
++                throw result.exceptionOrNull()
++                    ?: UnknownError("unknown error updating search results")
++            }
          }
      }
+ }
+\ No newline at end of file
+diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/AndroidAutoTemplate.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/AndroidAutoTemplate.kt
+index 6f4df6a..23b7637 100644
+--- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/AndroidAutoTemplate.kt
++++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/AndroidAutoTemplate.kt
+@@ -22,8 +22,12 @@ abstract class AndroidAutoTemplate<T>(val context: CarContext, var config: T) {
+     abstract val autoDismissMs: Double?
+ 
+     fun applyConfigUpdate() {
++        applyConfigUpdate(immediate = false)
++    }
++
++    fun applyConfigUpdate(immediate: Boolean) {
+         val screen = AndroidAutoScreen.getScreen(templateId)
+-        screen?.applyConfigUpdate(invalidate = true)
++        screen?.applyConfigUpdate(invalidate = true, immediate = immediate)
+     }
+ 
+     companion object {
+diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/ListTemplate.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/ListTemplate.kt
+index 17a5a07..ae24b77 100644
+--- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/ListTemplate.kt
++++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/ListTemplate.kt
+@@ -77,7 +77,7 @@ class ListTemplate(context: CarContext, config: ListTemplateConfig) :
+ 
+     fun updateSections(sections: Array<NitroSection>?) {
+         config = config.copy(sections = sections)
+-        super.applyConfigUpdate()
++        super.applyConfigUpdate(immediate = true)
+     }
+ 
+     companion object {
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt
 index 55d563b..123a887 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt
@@ -934,7 +1023,8 @@ index 55d563b..123a887 100644
  import com.facebook.react.bridge.UiThreadUtil
  import com.margelo.nitro.swe.iternio.reactnativeautoplay.AlertActionStyle
  import com.margelo.nitro.swe.iternio.reactnativeautoplay.AlertDismissalReason
-@@ -58,5 +58,11 @@ class MapTemplate(
+@@ -57,7 +57,13 @@ class MapTemplate(
+ 
                  override fun onStopNavigation() {
                      navigationEnded()
 -                    config.onStopNavigation()
@@ -947,6 +1037,7 @@ index 55d563b..123a887 100644
 +                    }
                  }
              }
+ 
 @@ -302,8 +308,6 @@ class MapTemplate(
              navigationInfo = null
  
@@ -997,6 +1088,19 @@ index e8641d0..e0f5b30 100644
          return formatter.format(calendar.time)
      }
  
+diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/SearchTemplate.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/SearchTemplate.kt
+index ed80c75..665f89e 100644
+--- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/SearchTemplate.kt
++++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/SearchTemplate.kt
+@@ -60,7 +60,7 @@ class SearchTemplate(context: CarContext, config: SearchTemplateConfig) :
+ 
+     fun updateSearchResults(results: NitroSection) {
+         config = config.copy(results = results)
+-        super.applyConfigUpdate()
++        super.applyConfigUpdate(immediate = true)
+     }
+ 
+     override fun setTemplateHeaderActions(headerActions: Array<NitroAction>?) {
 diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/TripPreviewTemplate.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/TripPreviewTemplate.kt
 index 2f334a6..4d240b7 100644
 --- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/TripPreviewTemplate.kt
@@ -1354,6 +1458,42 @@ index 275e99d..ed9707f 100644
              (template: MapTemplate) in
              template.setManeuverState(state: state)
          }
+diff --git a/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridSearchTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridSearchTemplate.swift
+index 7161c06..1a76556 100644
+--- a/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridSearchTemplate.swift
++++ b/node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridSearchTemplate.swift
+@@ -6,6 +6,7 @@
+ //
+ 
+ import NitroModules
++import UIKit
+ 
+ class HybridSearchTemplate: HybridSearchTemplateSpec {
+     func createSearchTemplate(config: SearchTemplateConfig) throws {
+@@ -19,11 +20,23 @@ class HybridSearchTemplate: HybridSearchTemplateSpec {
+         }
+     }
+ 
++    // Keyboard searches update both CPSearchTemplate and its retained results list.
+     func updateSearchResults(templateId: String, results: NitroSection) throws
+         -> Promise<Void>
+     {
+         return Promise.async {
+             try await MainActor.run {
++                // CarPlay remains interactive while the handset is locked.
++                // Keep the completed keyboard-search mutation alive long
++                // enough for the head unit to consume it.
++                let backgroundTask = UIApplication.shared.beginBackgroundTask(
++                    withName: "CarPlay search update"
++                )
++
++                defer {
++                    UIApplication.shared.endBackgroundTask(backgroundTask)
++                }
++
+                 try RootModule.withAutoPlayTemplate(templateId: templateId) {
+                     (template: SearchTemplate) in
+                     template.updateSearchResults(results: results)
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/scenes/DashboardSceneDelegate.swift b/node_modules/@iternio/react-native-auto-play/ios/scenes/DashboardSceneDelegate.swift
 index 0263eaf..c9c22e1 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/scenes/DashboardSceneDelegate.swift
@@ -1388,9 +1528,11 @@ index a93a165..ee302b5 100644
  
          HybridAutoPlay.emit(event: .diddisconnect)
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/scenes/WindowApplicationSceneDelegate.swift b/node_modules/@iternio/react-native-auto-play/ios/scenes/WindowApplicationSceneDelegate.swift
+index a6e8956..4659128 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/scenes/WindowApplicationSceneDelegate.swift
 +++ b/node_modules/@iternio/react-native-auto-play/ios/scenes/WindowApplicationSceneDelegate.swift
-@@ -34,4 +34,6 @@ class WindowApplicationSceneDelegate: UIResponder, UIWindowSceneDelegate {
+@@ -33,7 +33,9 @@ class WindowApplicationSceneDelegate: UIResponder, UIWindowSceneDelegate {
+ 
          if let url = connectionOptions.urlContexts.first?.url {
              // Linking API -> on app start
 -            NitroLinkingManager.shared().launchURL = url
@@ -1398,7 +1540,9 @@ diff --git a/node_modules/@iternio/react-native-auto-play/ios/scenes/WindowAppli
 +                NitroLinkingManager.shared().launchURL = url
 +            }
          }
-@@ -51,7 +53,22 @@ class WindowApplicationSceneDelegate: UIResponder, UIWindowSceneDelegate {
+ 
+         if let userActivity = connectionOptions.userActivities.first(where: {
+@@ -51,9 +53,24 @@ class WindowApplicationSceneDelegate: UIResponder, UIWindowSceneDelegate {
      ) {
          // Linking API -> app already running
          guard let urlContext = URLContexts.first else { return }
@@ -1409,8 +1553,7 @@ diff --git a/node_modules/@iternio/react-native-auto-play/ios/scenes/WindowAppli
 +
          NitroLinkingManager.shared().openURL(urlContext)
      }
--
-+
+ 
 +    private func openExpoDevelopmentClient(_ url: URL) -> Bool {
 +        guard url.host == "expo-development-client" else { return false }
 +
@@ -1422,6 +1565,8 @@ diff --git a/node_modules/@iternio/react-native-auto-play/ios/scenes/WindowAppli
 +    }
 +
      func scene(
+         _ scene: UIScene,
+         continue userActivity: NSUserActivity
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift
 index 8930590..dce2b56 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift
@@ -1555,7 +1700,7 @@ index d15e414..e27a27d 100644
              // we don't want to keep the origin travel estimate
              travelEstimates: routeChoice.steps[1...].map { step in
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/templates/SearchTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/templates/SearchTemplate.swift
-index 701338c..0ec0e3d 100644
+index 701338c..862bf87 100644
 --- a/node_modules/@iternio/react-native-auto-play/ios/templates/SearchTemplate.swift
 +++ b/node_modules/@iternio/react-native-auto-play/ios/templates/SearchTemplate.swift
 @@ -37,6 +37,15 @@ class SearchTemplate: AutoPlayTemplate, CPSearchTemplateDelegate {
@@ -1610,7 +1755,7 @@ index 701338c..0ec0e3d 100644
          config.onPopped?()
      }
  
-@@ -92,21 +101,24 @@ class SearchTemplate: AutoPlayTemplate, CPSearchTemplateDelegate {
+@@ -92,21 +101,38 @@ class SearchTemplate: AutoPlayTemplate, CPSearchTemplateDelegate {
          updatedSearchText searchText: String,
          completionHandler: @escaping ([CPListItem]) -> Void
      ) {
@@ -1633,23 +1778,94 @@ index 701338c..0ec0e3d 100644
          self.searchText = searchText
  
 +        // CarPlay requires every text-update completion handler to be resolved.
-+        // Live results are intentionally disabled by the app on this host, so
-+        // clear the transient list now and wait for keyboard Search to load the
-+        // submitted results into its dedicated list template.
-+        completionHandler([])
++        // Live results are disabled by the app on this host, so retain the
++        // current rows until keyboard Search publishes the next generation.
++        if let traitCollection = SceneStore.getRootTraitCollection() {
++            let currentResults = Parser.parseSearchResults(
++                section: results,
++                traitCollection: traitCollection
++            )
++            completionHandler(currentResults)
++        }
++        else {
++            let currentResults = results.items.map { row in
++                CPListItem(
++                    text: row.title.text,
++                    detailText: row.detailedText?.text
++                )
++            }
++            completionHandler(currentResults)
++        }
 +
          if pushedListTemplate != nil {
              return
          }
-@@ -126,6 +138,8 @@ class SearchTemplate: AutoPlayTemplate, CPSearchTemplateDelegate {
+@@ -126,7 +152,35 @@ class SearchTemplate: AutoPlayTemplate, CPSearchTemplateDelegate {
          _ searchTemplate: CPSearchTemplate
      ) {
  
+-        // Create a new ListTemplate with the search results
 +        completePendingSearchResults()
 +
-         // Create a new ListTemplate with the search results
++        let submittedSearchLoadingResults = NitroSection(
++            title: nil,
++            items: [
++                NitroRow(
++                    title: AutoText(
++                        text: "Searching...",
++                        distance: nil,
++                        duration: nil
++                    ),
++                    detailedText: AutoText(
++                        text: "Looking for places near the car.",
++                        distance: nil,
++                        duration: nil
++                    ),
++                    browsable: nil,
++                    enabled: false,
++                    image: nil,
++                    checked: nil,
++                    onPress: nil,
++                    selected: nil
++                )
++            ],
++            type: .default
++        )
++        self.results = submittedSearchLoadingResults
++
++        // Create a stable ListTemplate that owns loading and completed results.
          let listConfig = ListTemplateConfig(
              id: "\(config.id)-results",
+             onWillAppear: nil,
+@@ -137,16 +191,13 @@ class SearchTemplate: AutoPlayTemplate, CPSearchTemplateDelegate {
+             autoDismissMs: nil,
+             headerActions: config.headerActions,
+             title: config.title,
+-            sections: [results],
++            sections: [submittedSearchLoadingResults],
+             mapConfig: nil
+         )
+ 
+         let listTemplate = ListTemplate(config: listConfig)
+         self.pushedListTemplate = listTemplate
+ 
+-        // execute callback after creating the template to avoid race condition in updateSearchResults
+-        config.onSearchTextSubmitted(searchText)
+-
+         // Push the template
+         Task { @MainActor in
+             do {
+@@ -161,6 +212,10 @@ class SearchTemplate: AutoPlayTemplate, CPSearchTemplateDelegate {
+ 
+                     listTemplate.invalidate()
+ 
++                    // Start JS work only after its update target is retained
++                    // and registered, so fast responses cannot be dropped.
++                    config.onSearchTextSubmitted(searchText)
++
+                     let _ = try await interfaceController.pushTemplate(
+                         listTemplate.template,
+                         animated: true
 diff --git a/node_modules/@iternio/react-native-auto-play/ios/templates/VoiceInputTemplate.swift b/node_modules/@iternio/react-native-auto-play/ios/templates/VoiceInputTemplate.swift
 new file mode 100644
 index 0000000..4f0642e

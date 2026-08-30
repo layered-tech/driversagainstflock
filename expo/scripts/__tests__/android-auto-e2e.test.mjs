@@ -192,8 +192,8 @@ describe('Android Auto E2E helpers', () => {
             ({ name }) =>
                 name === 'switches between day and night presentation',
         );
-        const activeGuidanceTest = suite.tests.find(({ name }) =>
-            name.includes('AUTO_DRIVE'),
+        const activeGuidanceTest = suite.tests.find(
+            ({ name }) => name === 'renders active guidance map themes',
         );
         const navigationTest = suite.tests.find(({ name }) =>
             name.includes('private guidance'),
@@ -346,6 +346,53 @@ describe('Android Auto E2E helpers', () => {
                     ),
             );
         }
+    });
+
+    test('requires live guidance progress while the phone display is off', () => {
+        const suite = JSON.parse(
+            readFileSync(
+                new URL('../../.android-auto/suite.json', import.meta.url),
+                'utf8',
+            ),
+        );
+        const phoneSleepTest = suite.tests.find(({ name }) =>
+            name.includes('phone sleeps'),
+        );
+
+        assert.ok(phoneSleepTest);
+
+        const stepIndex = (predicate) =>
+            phoneSleepTest.steps.findIndex(predicate);
+        const phoneSleepIndex = stepIndex(({ type }) => type === 'phoneSleep');
+        const beforeProgressIndex = stepIndex(
+            ({ name, type }) =>
+                type === 'screenshot' &&
+                name === 'phone-asleep-before-progress',
+        );
+        const autoDriveIndex = stepIndex(({ type }) => type === 'autoDrive');
+        const afterProgressIndex = stepIndex(
+            ({ name, type }) =>
+                type === 'screenshot' && name === 'phone-asleep',
+        );
+        const progressAssertionIndex = stepIndex(
+            ({ first, second, type }) =>
+                type === 'assertImagesDiffer' &&
+                first === 'phone-asleep-before-progress' &&
+                second === 'phone-asleep',
+        );
+        const phoneWakeIndex = stepIndex(({ type }) => type === 'phoneWake');
+        const autoDriveStep = phoneSleepTest.steps[autoDriveIndex];
+
+        assert.ok(phoneSleepIndex < beforeProgressIndex);
+        assert.ok(beforeProgressIndex < autoDriveIndex);
+        assert.ok(autoDriveIndex < afterProgressIndex);
+        assert.ok(afterProgressIndex < progressAssertionIndex);
+        assert.ok(progressAssertionIndex < phoneWakeIndex);
+        assert.equal(
+            autoDriveStep.waitForMetro,
+            '[Android Auto] auto-drive-progressed',
+        );
+        assert.equal(autoDriveStep.timeout, 15000);
     });
 
     test('requires a non-empty Mapbox token without exposing its value', () => {

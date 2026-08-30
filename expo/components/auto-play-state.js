@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { DRIVING_MAP_VIEW_PERSPECTIVE } from './map/driving-map-view';
 
 export const DEFAULT_AUTO_PLAY_STATE = {
@@ -37,16 +37,18 @@ export function setAutoPlayState(nextState) {
     autoPlayStateListeners.forEach((listener) => listener(autoPlayState));
 }
 
+function subscribeToAutoPlayState(listener) {
+    autoPlayStateListeners.add(listener);
+
+    return () => {
+        autoPlayStateListeners.delete(listener);
+    };
+}
+
 export function useAutoPlayState() {
-    const [state, setState] = useState(autoPlayState);
-
-    useEffect(() => {
-        autoPlayStateListeners.add(setState);
-
-        return () => {
-            autoPlayStateListeners.delete(setState);
-        };
-    }, []);
-
-    return state;
+    return useSyncExternalStore(
+        subscribeToAutoPlayState,
+        getAutoPlayState,
+        getAutoPlayState,
+    );
 }
