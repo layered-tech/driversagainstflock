@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
@@ -5,6 +6,7 @@ import { Icon } from '../design-system/icon';
 import { dafSemanticColors } from '../design-system/tokens';
 import { getDirections } from '../map/api';
 import { useScorecard } from './scorecard-context';
+import { getScorecardExposureDriveGroup } from './scorecard-drive-exposures';
 import { getScorecardFastestTrailLineCollection } from './scorecard-fastest-trail';
 import { ScorecardExposureMap } from './scorecard-map';
 import {
@@ -29,6 +31,22 @@ function formatTrailTime(timestamp) {
     }).format(new Date(timestamp));
 }
 
+function formatDriveSubtitle(driveGroup) {
+    if (!driveGroup) {
+        return 'Drive unavailable · camera hits only';
+    }
+
+    const mode = driveGroup.active
+        ? 'Drive in progress'
+        : driveGroup.mode === 'guided'
+          ? 'Guided drive'
+          : driveGroup.mode === 'free'
+            ? 'Free drive'
+            : 'Unfinished drive';
+
+    return `${mode} · ${formatTrailTime(driveGroup.startedAt)}`;
+}
+
 const EMPTY_TRAIL_LINE_COLLECTION = Object.freeze({
     features: [],
     type: 'FeatureCollection',
@@ -36,27 +54,43 @@ const EMPTY_TRAIL_LINE_COLLECTION = Object.freeze({
 
 export default function ScorecardTrailScreen() {
     const insets = useSafeAreaInsets();
+    const { driveId: requestedDriveId } = useLocalSearchParams();
     const { scorecardState } = useScorecard();
+    const driveGroup = useMemo(
+        () => getScorecardExposureDriveGroup(scorecardState, requestedDriveId),
+        [requestedDriveId, scorecardState],
+    );
     const trailPoints = useMemo(
-        () => getTrailPoints(scorecardState.exposures),
-        [scorecardState.exposures],
+        () => getTrailPoints(driveGroup?.exposures ?? []),
+        [driveGroup],
     );
     const trailExposures = useMemo(
-        () => trailPoints.map((point) => point.event),
-        [trailPoints],
+        () =>
+            trailPoints.map((point) => ({
+                ...point.event,
+                sessionId: driveGroup?.driveId,
+            })),
+        [driveGroup, trailPoints],
     );
-    const [trailLineCollection, setTrailLineCollection] = useState(
-        EMPTY_TRAIL_LINE_COLLECTION,
-    );
-    const possibleCount = scorecardState.exposures.filter(
-        (exposure) => exposure.certainty === 'possible',
-    ).length;
+    const selectedDriveId = driveGroup?.driveId ?? null;
+    const [trailLineResult, setTrailLineResult] = useState({
+        collection: EMPTY_TRAIL_LINE_COLLECTION,
+        driveId: null,
+    });
+    const trailLineCollection =
+        trailLineResult.driveId === selectedDriveId
+            ? trailLineResult.collection
+            : EMPTY_TRAIL_LINE_COLLECTION;
+    const possibleCount = driveGroup?.possibleCount ?? 0;
     const bottomPadding = Math.max(insets.bottom + 24, 24);
 
     useEffect(() => {
         const abortController = new AbortController();
 
-        setTrailLineCollection(EMPTY_TRAIL_LINE_COLLECTION);
+        setTrailLineResult({
+            collection: EMPTY_TRAIL_LINE_COLLECTION,
+            driveId: selectedDriveId,
+        });
 
         void getScorecardFastestTrailLineCollection({
             exposures: trailExposures,
@@ -64,12 +98,15 @@ export default function ScorecardTrailScreen() {
             signal: abortController.signal,
         }).then((collection) => {
             if (!abortController.signal.aborted) {
-                setTrailLineCollection(collection);
+                setTrailLineResult({
+                    collection,
+                    driveId: selectedDriveId,
+                });
             }
         });
 
         return () => abortController.abort();
-    }, [trailExposures]);
+    }, [selectedDriveId, trailExposures]);
 
     return (
         <View
@@ -79,7 +116,7 @@ export default function ScorecardTrailScreen() {
             <ScorecardScreenHeader
                 back
                 backRoute="timeline"
-                subtitle="Camera hits only · no GPS trail"
+                subtitle={formatDriveSubtitle(driveGroup)}
                 title="Reconstructed trail"
             />
             <ScrollView
@@ -96,15 +133,20 @@ export default function ScorecardTrailScreen() {
                             />
                             <View className="min-w-0 flex-1">
                                 <Text className="font-dafDisplay text-[16px] font-bold text-daf-text-primary dark:text-white">
-                                    What {trailPoints.length}{' '}
-                                    {trailPoints.length === 1
-                                        ? 'read reveals'
-                                        : 'reads reveal'}
+                                    {driveGroup
+                                        ? `What ${trailPoints.length} ${trailPoints.length === 1 ? 'read reveals' : 'reads reveal'}`
+                                        : 'No trail to display'}
                                 </Text>
                                 <Text className="text-xs text-daf-text-secondary dark:text-neutral-300">
                                     Chronology reconstructed from public camera
                                     points and timestamps alone.
                                 </Text>
+                                {driveGroup ? (
+                                    <Text className="font-dafMono mt-1 text-[11px] text-daf-text-tertiary dark:text-neutral-400">
+                                        {driveGroup.confirmedCount} confirmed ·{' '}
+                                        {possibleCount} possible for this drive
+                                    </Text>
+                                ) : null}
                             </View>
                         </View>
                         <View className="h-[360px] bg-daf-surface-alt dark:bg-daf-surface-inverse">
@@ -124,11 +166,14 @@ export default function ScorecardTrailScreen() {
                                         size={32}
                                     />
                                     <Text className="mt-3 text-center text-base font-bold text-daf-text-primary dark:text-white">
-                                        No confirmed reads to connect
+                                        {driveGroup
+                                            ? 'No confirmed reads to connect'
+                                            : 'Drive no longer available'}
                                     </Text>
                                     <Text className="mt-1 text-center text-[13px] leading-[19px] text-daf-text-secondary dark:text-neutral-300">
-                                        A trail is shown only from confirmed
-                                        directional-cone crossings.
+                                        {driveGroup
+                                            ? 'A trail is shown only from confirmed directional-cone crossings.'
+                                            : 'Its exposure events may have expired or been deleted. Return to the timeline to choose another drive.'}
                                     </Text>
                                 </View>
                             )}

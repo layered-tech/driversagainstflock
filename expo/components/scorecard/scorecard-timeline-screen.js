@@ -10,9 +10,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
-import { DafButton } from '../design-system/primitives';
 import { dafSemanticColors, getDafTheme } from '../design-system/tokens';
 import { useScorecard } from './scorecard-context';
+import { getScorecardExposureDriveGroups } from './scorecard-drive-exposures';
 import {
     ScorecardPrivacyFooter,
     ScorecardScreenHeader,
@@ -45,20 +45,72 @@ function formatOperatorTimestamp(timestamp) {
     }).format(new Date(timestamp));
 }
 
-function groupEventsByDay(exposures) {
+function getLocalDayKey(timestamp) {
+    const date = new Date(timestamp);
+
+    return [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, '0'),
+        String(date.getDate()).padStart(2, '0'),
+    ].join('-');
+}
+
+function groupDrivesByDay(driveGroups) {
     const groups = new Map();
 
-    for (const exposure of [...exposures].sort(
-        (first, second) => second.occurredAt - first.occurredAt,
-    )) {
-        const day = formatDay(exposure.occurredAt);
-        const group = groups.get(day) ?? [];
+    for (const driveGroup of driveGroups) {
+        const dayKey = getLocalDayKey(driveGroup.endedAt);
+        const group = groups.get(dayKey) ?? {
+            day: formatDay(driveGroup.endedAt),
+            dayKey,
+            drives: [],
+        };
 
-        group.push(exposure);
-        groups.set(day, group);
+        group.drives.push(driveGroup);
+        groups.set(dayKey, group);
     }
 
-    return [...groups.entries()].map(([day, events]) => ({ day, events }));
+    return [...groups.values()];
+}
+
+function formatDriveTitle(group) {
+    if (group.active) {
+        return 'Drive in progress';
+    }
+
+    if (!group.trip) {
+        return 'Unfinished drive';
+    }
+
+    return group.mode === 'guided' ? 'Guided drive' : 'Free drive';
+}
+
+function formatDriveTimeRange(group) {
+    const start = formatTime(group.startedAt);
+    const end = formatTime(group.endedAt);
+
+    return start === end ? start : `${start}–${end}`;
+}
+
+function formatDriveDetails(group) {
+    const details = [
+        `${group.confirmedCount} confirmed`,
+        `${group.possibleCount} possible`,
+    ];
+
+    if (group.trip?.durationSeconds > 0) {
+        details.push(
+            `${Math.max(1, Math.round(group.trip.durationSeconds / 60))} min`,
+        );
+    }
+
+    if (group.trip?.distanceMiles > 0) {
+        details.push(
+            `${group.trip.distanceMiles < 10 ? group.trip.distanceMiles.toFixed(1) : Math.round(group.trip.distanceMiles)} mi`,
+        );
+    }
+
+    return details.join(' · ');
 }
 
 function getEventSummary(event) {
@@ -164,20 +216,58 @@ function OperatorEventRow({ event }) {
     );
 }
 
+function DriveTrailButton({ driveId, operatorView }) {
+    return (
+        <Pressable
+            accessibilityLabel="View reconstructed trail for this drive"
+            accessibilityRole="button"
+            className={`min-h-hitComfy flex-row items-center justify-center gap-2 rounded-dafPill border px-[18px] active:opacity-75 ${
+                operatorView
+                    ? 'border-[#3A434E] bg-[#11151B]'
+                    : 'dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95 border-daf-border-glass bg-white/95'
+            }`}
+            onPress={() =>
+                router.push({
+                    params: { driveId },
+                    pathname: '/scorecard/trail',
+                })
+            }
+            testID={`scorecard-open-trail-${driveId}`}
+        >
+            <Icon
+                color={
+                    operatorView
+                        ? dafSemanticColors.danger
+                        : dafSemanticColors.brand
+                }
+                name="eye"
+                size={17}
+                stroke={2.4}
+            />
+            <Text
+                className={`text-[15px] font-semibold ${
+                    operatorView
+                        ? 'text-white'
+                        : 'text-daf-text-primary dark:text-white'
+                }`}
+            >
+                View reconstructed trail
+            </Text>
+        </Pressable>
+    );
+}
+
 export default function ScorecardTimelineScreen() {
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
     const theme = getDafTheme(colorScheme);
     const { scorecardState, windowStats } = useScorecard();
     const [operatorView, setOperatorView] = useState(false);
-    const groupedEvents = useMemo(
-        () => groupEventsByDay(scorecardState.exposures),
-        [scorecardState.exposures],
+    const groupedDays = useMemo(
+        () => groupDrivesByDay(getScorecardExposureDriveGroups(scorecardState)),
+        [scorecardState],
     );
     const eventCount = scorecardState.exposures.length;
-    const confirmedEventCount = scorecardState.exposures.filter(
-        (event) => event.certainty === 'confirmed',
-    ).length;
     const bottomPadding = Math.max(insets.bottom + 24, 24);
 
     return (
@@ -317,9 +407,9 @@ export default function ScorecardTimelineScreen() {
                             </Text>
                         </View>
                     ) : (
-                        groupedEvents.map((group) => (
-                            <View key={group.day}>
-                                <View className="mb-2 mt-1 flex-row items-baseline">
+                        groupedDays.map((dayGroup) => (
+                            <View className="gap-2" key={dayGroup.dayKey}>
+                                <View className="flex-row items-baseline">
                                     <Text
                                         className={`text-[13px] font-bold ${
                                             operatorView
@@ -327,7 +417,7 @@ export default function ScorecardTimelineScreen() {
                                                 : 'text-daf-text-primary dark:text-white'
                                         }`}
                                     >
-                                        {group.day}
+                                        {dayGroup.day}
                                     </Text>
                                     <Text
                                         className={`font-dafMono ml-auto text-[11px] ${
@@ -336,41 +426,101 @@ export default function ScorecardTimelineScreen() {
                                                 : 'text-daf-text-tertiary dark:text-neutral-400'
                                         }`}
                                     >
-                                        {group.events.length}{' '}
-                                        {group.events.length === 1
-                                            ? 'event'
-                                            : 'events'}
+                                        {dayGroup.drives.length}{' '}
+                                        {dayGroup.drives.length === 1
+                                            ? 'drive'
+                                            : 'drives'}
                                     </Text>
                                 </View>
-                                <View className="gap-2">
-                                    {group.events.map((event) =>
-                                        operatorView ? (
-                                            <OperatorEventRow
-                                                event={event}
-                                                key={event.id}
-                                            />
-                                        ) : (
-                                            <StandardEventRow
-                                                event={event}
-                                                key={event.id}
-                                            />
-                                        ),
-                                    )}
+                                <View className="gap-3">
+                                    {dayGroup.drives.map((driveGroup) => (
+                                        <View
+                                            className={`overflow-hidden rounded-dafLg border ${
+                                                operatorView
+                                                    ? 'border-[#262E37] bg-[#11151B]'
+                                                    : 'dark:border-daf-border-dark border-daf-border bg-daf-surface-alt dark:bg-daf-surface-inverse'
+                                            }`}
+                                            key={driveGroup.driveId}
+                                            testID={`scorecard-drive-group-${driveGroup.driveId}`}
+                                        >
+                                            <View
+                                                className={`gap-1 border-b px-3.5 py-3 ${
+                                                    operatorView
+                                                        ? 'border-[#262E37]'
+                                                        : 'dark:border-daf-border-dark border-daf-border'
+                                                }`}
+                                            >
+                                                <View className="flex-row items-baseline gap-3">
+                                                    <Text
+                                                        className={`min-w-0 flex-1 text-[14px] font-bold ${
+                                                            operatorView
+                                                                ? 'font-dafMono uppercase text-white'
+                                                                : 'text-daf-text-primary dark:text-white'
+                                                        }`}
+                                                        numberOfLines={1}
+                                                    >
+                                                        {formatDriveTitle(
+                                                            driveGroup,
+                                                        )}
+                                                    </Text>
+                                                    <Text
+                                                        className={`font-dafMono text-[11px] ${
+                                                            operatorView
+                                                                ? 'text-[#A9B2BD]'
+                                                                : 'text-daf-text-secondary dark:text-neutral-300'
+                                                        }`}
+                                                    >
+                                                        {formatDriveTimeRange(
+                                                            driveGroup,
+                                                        )}
+                                                    </Text>
+                                                </View>
+                                                <Text
+                                                    className={`text-xs ${
+                                                        operatorView
+                                                            ? 'font-dafMono text-[#828D9B]'
+                                                            : 'text-daf-text-tertiary dark:text-neutral-400'
+                                                    }`}
+                                                >
+                                                    {formatDriveDetails(
+                                                        driveGroup,
+                                                    )}
+                                                </Text>
+                                            </View>
+                                            <View className="gap-2 p-2.5">
+                                                {driveGroup.exposures.map(
+                                                    (event) =>
+                                                        operatorView ? (
+                                                            <OperatorEventRow
+                                                                event={event}
+                                                                key={event.id}
+                                                            />
+                                                        ) : (
+                                                            <StandardEventRow
+                                                                event={event}
+                                                                key={event.id}
+                                                            />
+                                                        ),
+                                                )}
+                                            </View>
+                                            <View
+                                                className={`border-t p-2.5 ${
+                                                    operatorView
+                                                        ? 'border-[#262E37]'
+                                                        : 'dark:border-daf-border-dark border-daf-border'
+                                                }`}
+                                            >
+                                                <DriveTrailButton
+                                                    driveId={driveGroup.driveId}
+                                                    operatorView={operatorView}
+                                                />
+                                            </View>
+                                        </View>
+                                    ))}
                                 </View>
                             </View>
                         ))
                     )}
-
-                    {confirmedEventCount > 1 ? (
-                        <DafButton
-                            icon="eye"
-                            onPress={() => router.push('/scorecard/trail')}
-                            testID="scorecard-open-trail"
-                            variant="secondary"
-                        >
-                            View reconstructed trail
-                        </DafButton>
-                    ) : null}
                     <ScorecardPrivacyFooter operatorView={operatorView} />
                 </View>
             </ScrollView>
