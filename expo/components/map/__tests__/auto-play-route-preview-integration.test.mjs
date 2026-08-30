@@ -29,7 +29,7 @@ test('Android Auto reveals route choices immediately after result selection', ()
     );
     assert.match(
         autoPlaySource,
-        /setAutoPlayRoutePreviewState\(previewRoute\)[\s\S]*?clearAutoPlaySubmittedSearchResults\(\)[\s\S]*?await HybridAutoPlay\.popToRootTemplate\(false\)[\s\S]*?mapTemplate\.showTripSelector/,
+        /clearAutoPlaySubmittedSearchResults\(\)[\s\S]*?await HybridAutoPlay\.popToRootTemplate\(false\)[\s\S]*?mapTemplate\.showTripSelector[\s\S]*?setAutoPlayRoutePreviewState\(previewRoute\)/,
     );
     assert.match(
         autoPlaySource,
@@ -51,9 +51,9 @@ test('route preview waits for the map and applies a selected top-down camera sto
     assert.match(mapSurfaceSource, /getAutoPlayRoutePreviewFitKey\(/);
     assert.match(
         mapSurfaceSource,
-        /const bounds\s*=\s*getDirectionsRouteBounds\(displayedDirectionsRoute\)\s*\?\?\s*displayedDirectionsRoute\.bounds/,
+        /routePreviewIsActive\s*\?\s*\(?getDirectionsRouteOptionsBounds\(displayedDirectionsRoute\)\s*\?\?\s*displayedDirectionsRoute\.bounds\)?/,
     );
-    assert.doesNotMatch(mapSurfaceSource, /getDirectionsRouteOptionsBounds/);
+    assert.match(mapSurfaceSource, /getDirectionsRouteOptionsBounds/);
     assert.match(
         mapSurfaceSource,
         /getAutoPlayRoutePreviewFitKey\(\{[\s\S]*?bounds,[\s\S]*?route: displayedDirectionsRoute/,

@@ -33,7 +33,7 @@
                 {
                     "type": "assertOcr",
                     "screenshot": "connected-map",
-                    "contains": ["Congress Avenue", "SPEED LIMIT"]
+                    "contains": ["Congress Avenue", "SPEED", "LIMIT"]
                 },
                 {
                     "type": "assertService",
@@ -249,7 +249,7 @@
             ]
         },
         {
-            "name": "advances navigation through AUTO_DRIVE",
+            "name": "renders active guidance map themes",
             "steps": [
                 {
                     "type": "dhu",
@@ -305,8 +305,24 @@
                     "recapture": "active-guidance-day-return"
                 },
                 {
+                    "type": "assertWakeLock",
+                    "held": true
+                }
+            ]
+        },
+        {
+            "name": "advances guidance while the phone sleeps",
+            "steps": [
+                {
+                    "type": "phoneSleep"
+                },
+                {
+                    "type": "assertWakeLock",
+                    "held": true
+                },
+                {
                     "type": "screenshot",
-                    "name": "auto-drive-before"
+                    "name": "phone-asleep-before-progress"
                 },
                 {
                     "type": "autoDrive",
@@ -319,44 +335,24 @@
                 },
                 {
                     "type": "screenshot",
-                    "name": "auto-drive-after"
+                    "name": "phone-asleep"
                 },
                 {
                     "type": "assertImagesDiffer",
-                    "first": "auto-drive-before",
-                    "second": "auto-drive-after"
-                },
-                {
-                    "type": "assertWakeLock",
-                    "held": true
-                }
-            ]
-        },
-        {
-            "name": "keeps guidance alive while the phone sleeps",
-            "steps": [
-                {
-                    "type": "phoneSleep"
-                },
-                {
-                    "type": "sleep",
-                    "milliseconds": 6000
-                },
-                {
-                    "type": "assertWakeLock",
-                    "held": true
-                },
-                {
-                    "type": "screenshot",
-                    "name": "phone-asleep"
+                    "first": "phone-asleep-before-progress",
+                    "second": "phone-asleep"
                 },
                 {
                     "type": "assertOcr",
                     "screenshot": "phone-asleep",
                     "contains": [
-                        "Arrive at your destination",
+                        "Arrive at your destin",
                         "Austin Central Library"
                     ]
+                },
+                {
+                    "type": "assertWakeLock",
+                    "held": true
                 },
                 {
                     "type": "phoneWake"

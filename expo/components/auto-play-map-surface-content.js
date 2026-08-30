@@ -61,6 +61,7 @@ import {
     DIRECTIONS_FIELD_DESTINATION,
     DIRECTIONS_FIELD_START,
     getDirectionsRouteBounds,
+    getDirectionsRouteOptionsBounds,
     getDirectionsWaypointCoordinate,
     makeDirectionsDebugFeatureCollection,
     makeDirectionsRouteFeatureCollection,
@@ -424,6 +425,7 @@ function useAutoPlayMapController({
     isDrivingMode,
     locationUpdatesEnabled = true,
     mapGestureCoordinateScale = 1,
+    mapBrowsingContextIsActive = false,
     mapPreferencesAreLoaded,
     markersAreVisible = true,
     scheduleSharedMarkerLoad,
@@ -445,6 +447,7 @@ function useAutoPlayMapController({
     const markerShapeSourceRef = useRef(null);
     const mapViewRef = useRef(null);
     const locationPuckCameraFollowReleaseRef = useRef(async () => false);
+    const mapBrowsingContextIsActiveRef = useRef(mapBrowsingContextIsActive);
     const manualMapGestureGenerationRef = useRef(0);
     const pendingCameraStopRef = useRef(null);
     const previousDrivingModeRef = useRef(isDrivingMode);
@@ -459,6 +462,8 @@ function useAutoPlayMapController({
     const [locationTrackingMode, setLocationTrackingMode] = useState(
         LOCATION_TRACKING_NONE,
     );
+
+    mapBrowsingContextIsActiveRef.current = mapBrowsingContextIsActive;
     const { findCurrentLocation, isLocating, locationError, setLocationError } =
         useCurrentLocation({
             currentCourseHeadingRef,
@@ -673,9 +678,9 @@ function useAutoPlayMapController({
                 return;
             }
 
-            if (isDrivingMode) {
+            if (isDrivingMode && !mapBrowsingContextIsActiveRef.current) {
                 followLocationMode.start(currentLocation);
-            } else {
+            } else if (!isDrivingMode) {
                 lockOnLocationMode.start(currentLocation);
             }
         }
@@ -698,6 +703,7 @@ function useAutoPlayMapController({
             locationUpdatesEnabled ||
             !locationAccessGranted ||
             !userLocation ||
+            mapBrowsingContextIsActiveRef.current ||
             locationTrackingModeRef.current !== LOCATION_TRACKING_NONE
         ) {
             return;
@@ -953,6 +959,7 @@ function useAutoPlayMapController({
 
             if (
                 isDrivingMode &&
+                !mapBrowsingContextIsActiveRef.current &&
                 currentTrackingMode !== LOCATION_TRACKING_FOLLOW
             ) {
                 followLocationMode.start(nextLocationWithHeading);
@@ -1227,7 +1234,7 @@ function useAutoPlayMapController({
     ]);
 
     const fitCameraToBounds = useCallback(
-        (
+        async (
             bounds,
             {
                 adaptsPaddingToViewport = false,
@@ -1266,8 +1273,18 @@ function useAutoPlayMapController({
 
             if (isDrivingMode) {
                 followLocationMode.pauseUntilRecenter();
+
+                try {
+                    await locationPuckCameraFollowReleaseRef.current?.();
+                } catch {
+                    // A failed native release must not prevent a requested fit.
+                }
             } else {
                 setTrackingMode(LOCATION_TRACKING_NONE);
+            }
+
+            if (!isMapReadyRef.current || !cameraRef.current) {
+                return false;
             }
 
             markerLoadsEnabledRef.current = true;
@@ -1598,6 +1615,7 @@ export function AutoPlayMapSurfaceContent({
         isDrivingMode,
         locationUpdatesEnabled: isRootMapSurface,
         mapGestureCoordinateScale,
+        mapBrowsingContextIsActive,
         mapPreferencesAreLoaded: mapPreferences.mapPreferencesAreLoaded,
         markersAreVisible: mapPreferences.surveillanceMarkersVisible,
         scheduleSharedMarkerLoad: markerLoader.scheduleMarkerLoad,
@@ -1983,17 +2001,20 @@ export function AutoPlayMapSurfaceContent({
             return;
         }
 
-        const fitSearchResultsToBounds = () => {
+        let isCancelled = false;
+        const fitSearchResultsToBounds = async () => {
             if (fittedSearchResultsKeyRef.current === searchResultsFitKey) {
                 return true;
             }
 
             if (
-                controller.fitCameraToBounds(bounds, {
+                await controller.fitCameraToBounds(bounds, {
                     adaptsPaddingToViewport: true,
                 })
             ) {
-                fittedSearchResultsKeyRef.current = searchResultsFitKey;
+                if (!isCancelled) {
+                    fittedSearchResultsKeyRef.current = searchResultsFitKey;
+                }
 
                 return true;
             }
@@ -2001,15 +2022,17 @@ export function AutoPlayMapSurfaceContent({
             return false;
         };
 
-        fitSearchResultsToBounds();
+        void fitSearchResultsToBounds();
 
-        const frame = requestAnimationFrame(fitSearchResultsToBounds);
-        const retry = setTimeout(
-            fitSearchResultsToBounds,
-            AUTO_PLAY_ROUTE_PREVIEW_CAMERA_FIT_RETRY_DELAY_MS,
-        );
+        const frame = requestAnimationFrame(() => {
+            void fitSearchResultsToBounds();
+        });
+        const retry = setTimeout(() => {
+            void fitSearchResultsToBounds();
+        }, AUTO_PLAY_ROUTE_PREVIEW_CAMERA_FIT_RETRY_DELAY_MS);
 
         return () => {
+            isCancelled = true;
             cancelAnimationFrame(frame);
             clearTimeout(retry);
         };
@@ -2037,9 +2060,11 @@ export function AutoPlayMapSurfaceContent({
             return;
         }
 
-        const bounds =
-            getDirectionsRouteBounds(displayedDirectionsRoute) ??
-            displayedDirectionsRoute.bounds;
+        const bounds = routePreviewIsActive
+            ? (getDirectionsRouteOptionsBounds(displayedDirectionsRoute) ??
+              displayedDirectionsRoute.bounds)
+            : (getDirectionsRouteBounds(displayedDirectionsRoute) ??
+              displayedDirectionsRoute.bounds);
         const boundsKey = [bounds?.sw, bounds?.ne]
             .flat()
             .filter((coordinate) => Number.isFinite(Number(coordinate)))
@@ -2069,17 +2094,20 @@ export function AutoPlayMapSurfaceContent({
             return;
         }
 
-        const fitRouteToBounds = () => {
+        let isCancelled = false;
+        const fitRouteToBounds = async () => {
             if (fittedDirectionsRouteKeyRef.current === routeFitKey) {
                 return true;
             }
 
             if (
-                controller.fitCameraToBounds(bounds, {
+                await controller.fitCameraToBounds(bounds, {
                     adaptsPaddingToViewport: routePreviewIsActive,
                 })
             ) {
-                fittedDirectionsRouteKeyRef.current = routeFitKey;
+                if (!isCancelled) {
+                    fittedDirectionsRouteKeyRef.current = routeFitKey;
+                }
 
                 return true;
             }
@@ -2087,15 +2115,17 @@ export function AutoPlayMapSurfaceContent({
             return false;
         };
 
-        fitRouteToBounds();
+        void fitRouteToBounds();
 
-        const frame = requestAnimationFrame(fitRouteToBounds);
-        const retry = setTimeout(
-            fitRouteToBounds,
-            AUTO_PLAY_ROUTE_PREVIEW_CAMERA_FIT_RETRY_DELAY_MS,
-        );
+        const frame = requestAnimationFrame(() => {
+            void fitRouteToBounds();
+        });
+        const retry = setTimeout(() => {
+            void fitRouteToBounds();
+        }, AUTO_PLAY_ROUTE_PREVIEW_CAMERA_FIT_RETRY_DELAY_MS);
 
         return () => {
+            isCancelled = true;
             cancelAnimationFrame(frame);
             clearTimeout(retry);
         };

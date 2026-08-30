@@ -1583,8 +1583,6 @@ async function showRoutePreview(route) {
         setAutoPlayRoutePreviewState(previewRoute);
     };
 
-    setAutoPlayRoutePreviewState(previewRoute);
-
     try {
         // The trip selector belongs to the root map. Remove every search
         // template first so the route choices are visible immediately.
@@ -1617,6 +1615,7 @@ async function showRoutePreview(route) {
             trips,
         });
         routePreviewIsVisible = true;
+        setAutoPlayRoutePreviewState(previewRoute);
         logAutoPlayPlatformAction('route-choices-presented', {
             destinationLabel: route.destination?.label || 'Destination',
             routeChoiceCount: routeOptions.length,

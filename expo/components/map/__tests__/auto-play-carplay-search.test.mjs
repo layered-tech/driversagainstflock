@@ -51,12 +51,42 @@ const hybridListTemplateSource = readFileSync(
     ),
     'utf8',
 );
+const hybridSearchTemplateSource = readFileSync(
+    new URL(
+        '../../../node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridSearchTemplate.swift',
+        import.meta.url,
+    ),
+    'utf8',
+);
 const autoPlayPatch = readFileSync(
     new URL(
         '../../../patches/@iternio+react-native-auto-play+0.4.7.patch',
         import.meta.url,
     ),
     'utf8',
+);
+
+function getPatchedFileDiff(filePath) {
+    const diffHeader = `diff --git a/${filePath} b/${filePath}`;
+    const diffStart = autoPlayPatch.indexOf(diffHeader);
+
+    if (diffStart < 0) {
+        return '';
+    }
+
+    const nextDiffStart = autoPlayPatch.indexOf('\ndiff --git ', diffStart + 1);
+
+    return autoPlayPatch.slice(
+        diffStart,
+        nextDiffStart < 0 ? undefined : nextDiffStart,
+    );
+}
+
+const searchTemplatePatch = getPatchedFileDiff(
+    'node_modules/@iternio/react-native-auto-play/ios/templates/SearchTemplate.swift',
+);
+const hybridSearchTemplatePatch = getPatchedFileDiff(
+    'node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridSearchTemplate.swift',
 );
 
 test('CarPlay keeps keyboard Search and voice input as separate header actions', () => {
@@ -200,6 +230,80 @@ test('CarPlay keeps the completed result-list update alive while the phone is lo
             /MainActor\.run[\s\S]*?UIApplication\.shared\.beginBackgroundTask\([\s\S]*?CarPlay list update[\s\S]*?defer \{[\s\S]*?UIApplication\.shared\.endBackgroundTask\(backgroundTask\)[\s\S]*?template\.updateSections/,
         );
     }
+});
+
+test('CarPlay keeps keyboard search-result updates alive while the phone is locked', () => {
+    for (const source of [
+        hybridSearchTemplateSource,
+        hybridSearchTemplatePatch,
+    ]) {
+        assert.match(source, /import UIKit/);
+        assert.match(
+            source,
+            /func updateSearchResults[\s\S]*?MainActor\.run[\s\S]*?UIApplication\.shared\.beginBackgroundTask\([\s\S]*?defer \{[\s\S]*?UIApplication\.shared\.endBackgroundTask\(backgroundTask\)[\s\S]*?template\.updateSearchResults/,
+        );
+    }
+});
+
+test('CarPlay owns a stable loading result list before submitting and pushing it', () => {
+    const submissionStart = searchTemplateSource.indexOf(
+        'func searchTemplateSearchButtonPressed',
+    );
+    const submissionSource = searchTemplateSource.slice(submissionStart);
+    const loadingSectionDeclaration = submissionSource.match(
+        /let\s+([A-Za-z_]\w*loading\w*)\s*=/i,
+    );
+
+    assert.ok(submissionStart >= 0, 'expected the native submission handler');
+    assert.ok(
+        loadingSectionDeclaration,
+        'expected a stable native loading section for the result list',
+    );
+
+    const loadingSectionName = loadingSectionDeclaration[1];
+
+    assert.match(
+        submissionSource,
+        new RegExp(`sections:\\s*\\[${loadingSectionName}\\]`),
+    );
+    assert.doesNotMatch(submissionSource, /sections:\s*\[results\]/);
+
+    const retainedIndex = submissionSource.indexOf(
+        'self.pushedListTemplate = listTemplate',
+    );
+    const registeredIndex = submissionSource.indexOf(
+        'scene.templateStore.addTemplate',
+    );
+    const submittedIndex = submissionSource.indexOf(
+        'config.onSearchTextSubmitted(searchText)',
+    );
+    const pushedIndex = submissionSource.indexOf(
+        'interfaceController.pushTemplate',
+    );
+
+    assert.ok(retainedIndex >= 0, 'expected SearchTemplate to retain the list');
+    assert.ok(
+        registeredIndex >= 0,
+        'expected the template store to own the list',
+    );
+    assert.ok(submittedIndex >= 0, 'expected the JS submission callback');
+    assert.ok(pushedIndex >= 0, 'expected the CarPlay list push');
+    assert.ok(
+        retainedIndex < submittedIndex,
+        'the native list must be retained before search work can update it',
+    );
+    assert.ok(
+        registeredIndex < submittedIndex,
+        'the template store must own the list before search work can update it',
+    );
+    assert.ok(
+        submittedIndex < pushedIndex,
+        'search work must start only after the stable list is owned',
+    );
+    assert.match(
+        searchTemplatePatch,
+        /^\+\s*sections:\s*\[[^\]]*loading[^\]]*\],?$/im,
+    );
 });
 
 test('CarPlay voice input shows a red mic, start cue, and search status', () => {
@@ -682,11 +786,8 @@ test('CarPlay salvages a partial transcript when finalization errors', () => {
     );
 });
 
-test('CarPlay resolves every transient search callback before a submitted search', () => {
-    for (const source of [searchTemplateSource, autoPlayPatch]) {
-        assert.match(source, /completePendingSearchResults/);
-        assert.match(source, /completionHandler\(\[\]\)/);
-    }
+test('CarPlay preserves current results while resolving transient search callbacks', () => {
+    assert.match(searchTemplateSource, /completePendingSearchResults/);
 
     assert.match(
         searchTemplateSource,
@@ -701,5 +802,54 @@ test('CarPlay resolves every transient search callback before a submitted search
     assert.doesNotMatch(
         searchTemplateSource,
         /if searchText == self\.searchText/,
+    );
+
+    const updatedSearchStart = searchTemplateSource.indexOf(
+        'updatedSearchText searchText: String',
+    );
+    const selectedResultStart = searchTemplateSource.indexOf(
+        'selectedResult item: CPListItem',
+        updatedSearchStart,
+    );
+    const updatedSearchSource = searchTemplateSource.slice(
+        updatedSearchStart,
+        selectedResultStart,
+    );
+    const firstSearchTextAssignment = updatedSearchSource.indexOf(
+        'self.searchText = searchText',
+    );
+    const transientSearchTextAssignment = updatedSearchSource.indexOf(
+        'self.searchText = searchText',
+        firstSearchTextAssignment + 1,
+    );
+    const transientUpdateSource = updatedSearchSource.slice(
+        transientSearchTextAssignment,
+    );
+    const storesAndInvalidatesCurrentResults =
+        /self\.completionHandler\s*=\s*completionHandler[\s\S]*?invalidate\(\)/.test(
+            transientUpdateSource,
+        );
+    const parsesAndCompletesCurrentResults =
+        /let\s+([A-Za-z_]\w*)\s*=\s*Parser\.parseSearchResults\([\s\S]*?section:\s*results[\s\S]*?(?:completionHandler|completePendingSearchResults)\(\1\)/.test(
+            transientUpdateSource,
+        );
+
+    assert.ok(updatedSearchStart >= 0, 'expected the text-update delegate');
+    assert.ok(
+        selectedResultStart > updatedSearchStart,
+        'expected the text-update delegate boundary',
+    );
+    assert.ok(
+        transientSearchTextAssignment > firstSearchTextAssignment,
+        'expected the post-initialization text-update path',
+    );
+    assert.doesNotMatch(transientUpdateSource, /completionHandler\(\[\]\)/);
+    assert.ok(
+        storesAndInvalidatesCurrentResults || parsesAndCompletesCurrentResults,
+        'transient callbacks must resolve with the currently visible results',
+    );
+    assert.doesNotMatch(
+        searchTemplatePatch,
+        /^\+\s*completionHandler\(\[\]\)$/m,
     );
 });
