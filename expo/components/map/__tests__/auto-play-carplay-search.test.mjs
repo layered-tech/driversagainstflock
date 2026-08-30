@@ -293,6 +293,10 @@ test('CarPlay owns a stable loading result list before submitting and pushing it
         'expected the template store to own the list',
     );
     assert.ok(submittedIndex >= 0, 'expected the JS submission callback');
+    assert.doesNotMatch(
+        submissionSource,
+        /(?<!self\.)config\.onSearchTextSubmitted\(searchText\)/,
+    );
     assert.ok(pushedIndex >= 0, 'expected the CarPlay list push');
     assert.ok(
         retainedIndex < submittedIndex,
