@@ -45,11 +45,45 @@ export function getAutoPlaySpeedLimitOverlayLayout({
     };
 }
 
+export function getAutoPlaySpeedLimitBadgeSize({
+    portraitSize,
+    size,
+    viewportMetrics,
+}) {
+    const resolvedPortraitSize = getFiniteViewportValue(portraitSize);
+    const visibleHeight = getFiniteViewportValue(
+        viewportMetrics?.visibleHeight,
+    );
+    const visibleWidth = getFiniteViewportValue(viewportMetrics?.visibleWidth);
+
+    // Android Auto can compose a portrait map slot inside a landscape host
+    // surface. Use the live visible map geometry instead of device orientation.
+    if (
+        resolvedPortraitSize === null ||
+        resolvedPortraitSize <= 0 ||
+        visibleHeight === null ||
+        visibleHeight <= 0 ||
+        visibleWidth === null ||
+        visibleWidth <= 0 ||
+        visibleWidth >= visibleHeight
+    ) {
+        return size;
+    }
+
+    return resolvedPortraitSize;
+}
+
 export function getAutoPlayCurrentRoadPillLayout({
+    gap = AUTO_PLAY_CURRENT_ROAD_PILL_SPEED_LIMIT_GAP,
     mapControlLayoutInsets,
     size,
     viewportMetrics,
 }) {
+    const configuredGap = getFiniteViewportValue(gap);
+    const speedLimitGap =
+        configuredGap !== null && configuredGap >= 0
+            ? configuredGap
+            : AUTO_PLAY_CURRENT_ROAD_PILL_SPEED_LIMIT_GAP;
     const viewportWidth = getFiniteViewportValue(viewportMetrics?.width);
     const visibleLeft = getFiniteViewportValue(
         viewportMetrics?.visibleRect?.left,
@@ -81,10 +115,7 @@ export function getAutoPlayCurrentRoadPillLayout({
         0,
         Math.min(
             AUTO_PLAY_CURRENT_ROAD_PILL_MAX_WIDTH,
-            (speedLimitLeft -
-                AUTO_PLAY_CURRENT_ROAD_PILL_SPEED_LIMIT_GAP -
-                roadPillCenterX) *
-                2,
+            (speedLimitLeft - speedLimitGap - roadPillCenterX) * 2,
         ),
     );
 

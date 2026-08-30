@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import {
     getAutoPlayCurrentRoadPillLayout,
+    getAutoPlaySpeedLimitBadgeSize,
     getAutoPlaySpeedLimitOverlayLayout,
     getAutoPlayTopRightStatusOverlayLayout,
 } from '../../auto-play-map-status-layout.js';
@@ -37,7 +38,7 @@ const currentRoadContextSource = readFileSync(
 );
 
 describe('Auto Play speed-limit layout', () => {
-    test('aligns the visible right and bottom edges to the control inset', () => {
+    test('keeps the default badge aligned to the bottom-right control inset', () => {
         const mapControlLayoutInsets = {
             bottom: 37,
             left: 25,
@@ -77,6 +78,47 @@ describe('Auto Play speed-limit layout', () => {
         assert.deepEqual(overlayLayout.positionStyle, {
             bottom: 37,
             right: 29,
+        });
+    });
+
+    test('uses the Android Auto compact badge only for portrait map slots', () => {
+        const layouts = [
+            {
+                expectedSize: 56,
+                viewportMetrics: {
+                    visibleHeight: 1080,
+                    visibleWidth: 1042,
+                },
+            },
+            {
+                expectedSize: AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE,
+                viewportMetrics: {
+                    visibleHeight: 720,
+                    visibleWidth: 1280,
+                },
+            },
+            {
+                expectedSize: AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE,
+                viewportMetrics: {
+                    visibleHeight: 800,
+                    visibleWidth: 800,
+                },
+            },
+            {
+                expectedSize: AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE,
+                viewportMetrics: {},
+            },
+        ];
+
+        layouts.forEach(({ expectedSize, viewportMetrics }) => {
+            assert.equal(
+                getAutoPlaySpeedLimitBadgeSize({
+                    portraitSize: 56,
+                    size: AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE,
+                    viewportMetrics,
+                }),
+                expectedSize,
+            );
         });
     });
 
@@ -135,13 +177,14 @@ describe('Auto Play current-road pill layout', () => {
             width: 400,
         };
         const currentRoadPillLayout = getAutoPlayCurrentRoadPillLayout({
+            gap: 8,
             mapControlLayoutInsets,
-            size: AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE,
+            size: 56,
             viewportMetrics,
         });
         const speedLimitOverlayLayout = getAutoPlaySpeedLimitOverlayLayout({
             mapControlLayoutInsets,
-            size: AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE,
+            size: 56,
         });
         const speedLimitLeft =
             viewportMetrics.width -
@@ -153,7 +196,7 @@ describe('Auto Play current-road pill layout', () => {
                 2 +
             currentRoadPillLayout.maximumWidth / 2;
 
-        assert.ok(roadPillRight <= speedLimitLeft - 16);
+        assert.ok(roadPillRight <= speedLimitLeft - 8);
     });
 
     test('keeps wide-display labels comfortably bounded', () => {
@@ -170,21 +213,50 @@ describe('Auto Play current-road pill layout', () => {
         );
     });
 
-    test('leaves the existing layout unconstrained until the viewport mounts', () => {
+    test('gives Android Auto road text more room with its compact gap', () => {
+        const viewportMetrics = {
+            visibleRect: { left: 0, right: 400 },
+            width: 400,
+        };
+        const defaultLayout = getAutoPlayCurrentRoadPillLayout({
+            mapControlLayoutInsets,
+            size: 56,
+            viewportMetrics,
+        });
+        const androidAutoLayout = getAutoPlayCurrentRoadPillLayout({
+            gap: 8,
+            mapControlLayoutInsets,
+            size: 56,
+            viewportMetrics,
+        });
+
         assert.equal(
+            androidAutoLayout.maximumWidth,
+            defaultLayout.maximumWidth + 16,
+        );
+    });
+
+    test('leaves the existing layout unconstrained until the viewport mounts', () => {
+        assert.deepEqual(
             getAutoPlayCurrentRoadPillLayout({
                 mapControlLayoutInsets,
                 size: AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE,
                 viewportMetrics: {},
-            }).maximumWidth,
-            undefined,
+            }),
+            {
+                maximumWidth: undefined,
+            },
         );
     });
 
     test('uses surface-specific road text sizing', () => {
         assert.match(
             androidAutoMapSurfaceSource,
-            /currentRoadPill:\s*\{[\s\S]*?reserveSpeedLimitSpace:\s*true,[\s\S]*?textStyle:\s*\{[\s\S]*?fontSize:\s*14,[\s\S]*?lineHeight:\s*20/,
+            /currentRoadPill:\s*\{[\s\S]*?reserveSpeedLimitSpace:\s*true,[\s\S]*?speedLimitGap:\s*8,[\s\S]*?speedLimitAdjacentTextStyle:\s*\{[\s\S]*?fontSize:\s*12,[\s\S]*?lineHeight:\s*16,[\s\S]*?textStyle:\s*\{[\s\S]*?fontSize:\s*14,[\s\S]*?lineHeight:\s*20/,
+        );
+        assert.doesNotMatch(
+            carPlayMapSurfaceSource,
+            /speedLimitGap|portraitSize/,
         );
         assert.match(
             carPlayMapSurfaceSource,
@@ -192,7 +264,7 @@ describe('Auto Play current-road pill layout', () => {
         );
         assert.match(
             mapStatusOverlaySource,
-            /currentRoadPill\?\.reserveSpeedLimitSpace[\s\S]*?getAutoPlayCurrentRoadPillLayout/,
+            /rendersSpeedLimit &&[\s\S]*?speedStatusIsVisible &&[\s\S]*?currentRoadPill\?\.reserveSpeedLimitSpace[\s\S]*?getAutoPlayCurrentRoadPillLayout\(\{[\s\S]*?gap:\s*currentRoadPill\.speedLimitGap/,
         );
         assert.match(
             mapStatusOverlaySource,
@@ -200,7 +272,7 @@ describe('Auto Play current-road pill layout', () => {
         );
         assert.match(
             mapStatusOverlaySource,
-            /currentRoadPillTextStyle=\{currentRoadPill\?\.textStyle\}/,
+            /currentRoadPillTextStyle=\{[\s\S]*?rendersSpeedLimit[\s\S]*?currentRoadPill\?\.speedLimitAdjacentTextStyle[\s\S]*?currentRoadPill\?\.textStyle/,
         );
         assert.match(
             currentRoadContextSource,
@@ -251,6 +323,26 @@ describe('Auto Play current-road pill layout', () => {
         assert.match(
             mapStatusOverlaySource,
             /const currentSpeedWithoutLimitIsVisible = Boolean\(\s*rendersSpeedLimit\s*&&[\s\S]*?Platform\.OS === 'android'/,
+        );
+        assert.match(
+            mapStatusOverlaySource,
+            /useRouteSpeedLimit\(\{\s*routeIsActive:\s*rendersSpeedLimit\s*&&\s*\(routeIsActive \|\| freeDriveIsActive\),\s*userLocation,\s*\}\)/,
+        );
+        assert.match(
+            mapStatusOverlaySource,
+            /const speedStatusIsVisible =\s*speedLimitIsVisible \|\| currentSpeedWithoutLimitIsVisible/,
+        );
+        assert.match(
+            androidAutoMapSurfaceSource,
+            /speedLimitBadge:\s*\{[\s\S]*?portraitSize:\s*56/,
+        );
+        assert.match(
+            mapSurfaceContentSource,
+            /speedLimitBadge,[\s\S]*?<AutoPlayMapStatusOverlay[\s\S]*?speedLimitBadge=\{speedLimitBadge\}/,
+        );
+        assert.match(
+            mapStatusOverlaySource,
+            /const speedLimitBadgeSize = getAutoPlaySpeedLimitBadgeSize\([\s\S]*?size:\s*speedLimitBadgeSize,[\s\S]*?getAutoPlayCurrentRoadPillLayout\([\s\S]*?size:\s*speedLimitBadgeSize,[\s\S]*?<SpeedLimitSign[\s\S]*?size=\{speedLimitBadgeSize\}/,
         );
     });
 });

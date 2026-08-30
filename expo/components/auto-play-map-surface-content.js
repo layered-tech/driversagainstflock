@@ -138,6 +138,7 @@ const DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG = {
     ornamentSafeAreaLeftScale: 1,
     showDrivingStatusOnSecondarySurfaces: false,
     showSpeedLimitOnSecondarySurfaces: true,
+    speedLimitBadge: null,
     usesHostColorSchemeForAutomaticMapPreset: false,
 };
 
@@ -1473,6 +1474,7 @@ export function AutoPlayMapSurfaceContent({
         ornamentSafeAreaLeftScale,
         showDrivingStatusOnSecondarySurfaces,
         showSpeedLimitOnSecondarySurfaces,
+        speedLimitBadge,
         usesHostColorSchemeForAutomaticMapPreset,
     } = {
         ...DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG,
@@ -2183,6 +2185,7 @@ export function AutoPlayMapSurfaceContent({
                         navigationPuckSize={navigationPuckSize}
                         presentation={presentation}
                         rendersSpeedLimit={rendersSpeedLimit}
+                        speedLimitBadge={speedLimitBadge}
                         userLocation={mapPreferences.userLocation}
                         viewportMetrics={viewportMetrics}
                     />

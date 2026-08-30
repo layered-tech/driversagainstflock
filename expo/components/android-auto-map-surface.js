@@ -11,6 +11,11 @@ const ANDROID_AUTO_SURFACE_PLATFORM_CONFIG = {
     applyWindowScaleToMapGestures: true,
     currentRoadPill: {
         reserveSpeedLimitSpace: true,
+        speedLimitGap: 8,
+        speedLimitAdjacentTextStyle: {
+            fontSize: 12,
+            lineHeight: 16,
+        },
         textStyle: {
             fontSize: 14,
             lineHeight: 20,
@@ -22,6 +27,9 @@ const ANDROID_AUTO_SURFACE_PLATFORM_CONFIG = {
     // driving stack there so its camera anchor and status match the main map.
     showDrivingStatusOnSecondarySurfaces: true,
     showSpeedLimitOnSecondarySurfaces: false,
+    speedLimitBadge: {
+        portraitSize: 56,
+    },
     usesHostColorSchemeForAutomaticMapPreset: true,
 };
 

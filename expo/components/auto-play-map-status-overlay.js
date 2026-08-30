@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import {
     getAutoPlayCurrentRoadPillLayout,
+    getAutoPlaySpeedLimitBadgeSize,
     getAutoPlaySpeedLimitOverlayLayout,
     getAutoPlayTopRightStatusOverlayLayout,
 } from './auto-play-map-status-layout';
@@ -318,6 +319,7 @@ export function AutoPlayMapStatusOverlay({
     onLocationAnchorLayout,
     presentation,
     rendersSpeedLimit = true,
+    speedLimitBadge,
     userLocation,
     viewportMetrics,
 }) {
@@ -344,21 +346,30 @@ export function AutoPlayMapStatusOverlay({
         drivingStatusIsVisible &&
         currentSpeedMph > 0,
     );
-    const speedStatusIsVisible =
-        speedLimitIsVisible || currentSpeedWithoutLimitIsVisible;
     const markerLoadingIsVisible =
         mapPreferencesAreLoaded && markerLoader.renderMarkerLoadingIndicator;
+    const speedStatusIsVisible =
+        speedLimitIsVisible || currentSpeedWithoutLimitIsVisible;
+    const speedLimitBadgeSize = getAutoPlaySpeedLimitBadgeSize({
+        portraitSize: speedLimitBadge?.portraitSize,
+        size: AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE,
+        viewportMetrics,
+    });
     const speedLimitOverlayLayout = getAutoPlaySpeedLimitOverlayLayout({
         mapControlLayoutInsets: presentation.mapControlLayoutInsets,
-        size: AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE,
+        size: speedLimitBadgeSize,
     });
-    const currentRoadPillLayout = currentRoadPill?.reserveSpeedLimitSpace
-        ? getAutoPlayCurrentRoadPillLayout({
-              mapControlLayoutInsets: presentation.mapControlLayoutInsets,
-              size: AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE,
-              viewportMetrics,
-          })
-        : null;
+    const currentRoadPillLayout =
+        rendersSpeedLimit &&
+        speedStatusIsVisible &&
+        currentRoadPill?.reserveSpeedLimitSpace
+            ? getAutoPlayCurrentRoadPillLayout({
+                  gap: currentRoadPill.speedLimitGap,
+                  mapControlLayoutInsets: presentation.mapControlLayoutInsets,
+                  size: speedLimitBadgeSize,
+                  viewportMetrics,
+              })
+            : null;
     return (
         <>
             {drivingStatusIsVisible ? (
@@ -379,7 +390,12 @@ export function AutoPlayMapStatusOverlay({
                                           currentRoadPillLayout.maximumWidth,
                                   }
                         }
-                        currentRoadPillTextStyle={currentRoadPill?.textStyle}
+                        currentRoadPillTextStyle={
+                            rendersSpeedLimit
+                                ? (currentRoadPill?.speedLimitAdjacentTextStyle ??
+                                  currentRoadPill?.textStyle)
+                                : currentRoadPill?.textStyle
+                        }
                         onLocationAnchorLayout={onLocationAnchorLayout}
                         puckSize={navigationPuckSize}
                         userLocation={userLocation}
@@ -419,7 +435,7 @@ export function AutoPlayMapStatusOverlay({
                                     currentSpeedWithoutLimitIsVisible
                                 }
                                 isDarkMode={resolvedIsDarkMode}
-                                size={AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE}
+                                size={speedLimitBadgeSize}
                                 speedLimit={speedLimit}
                                 testID="android-auto-speed-limit-sign"
                                 valueTestID="android-auto-speed-limit-value"
