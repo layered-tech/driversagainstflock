@@ -35,6 +35,26 @@ describe('scorecard navigation', () => {
         );
     });
 
+    test('opens reconstructed trails with an explicit drive selection', () => {
+        const timelineSource = readSource('../scorecard-timeline-screen.js');
+        const trailSource = readSource('../scorecard-trail-screen.js');
+
+        assert.match(
+            timelineSource,
+            /params: \{ driveId \},[\s\S]*?pathname: '\/scorecard\/trail'/,
+        );
+        assert.match(trailSource, /useLocalSearchParams\(\)/);
+        assert.match(trailSource, /getScorecardExposureDriveGroup\(/);
+        assert.match(
+            trailSource,
+            /getTrailPoints\(driveGroup\?\.exposures \?\? \[\]\)/,
+        );
+        assert.doesNotMatch(
+            trailSource,
+            /getTrailPoints\(scorecardState\.exposures\)/,
+        );
+    });
+
     test('uses real camera maps without linking exposure detail back to Hotlist', () => {
         const detailSource = readSource('../scorecard-event-detail-screen.js');
         const mapSource = readSource('../scorecard-map.js');

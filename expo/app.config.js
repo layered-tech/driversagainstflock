@@ -72,7 +72,7 @@ const applicationId =
     IS_DEV || IS_E2E
         ? 'com.anonymous.drivefree.dev'
         : IS_STAGING
-          ? 'com.anonymous.drivefree.staging'
+          ? 'com.anonymous.drivefree'
           : 'com.anonymous.drivefree';
 const productionIcon = './assets/images/app-logo.png';
 const stagingIcon = './assets/images/logos/staging-ios-icon-default.png';
