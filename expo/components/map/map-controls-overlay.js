@@ -1,7 +1,11 @@
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { ContributeEntryButton } from '../contribute/contribute-entry-button';
 import { Icon } from '../design-system/icon';
 import { MAP_CONTROL_BUTTON_CLASS_NAME, ZOOM_STEP } from './constants';
+import {
+    getDrivingMapViewPresentation,
+    getNextDrivingMapViewMode,
+} from './driving-map-view';
 import { MapControlButton } from './map-control-button';
 import { MapLayerButton } from './map-layer-controls';
 import { useMapControlsContext } from './map-screen-context';
@@ -21,8 +25,11 @@ export function MapControlsOverlay({
         drivingRecenterButtonGlassTintColor,
         drivingRecenterIconColor,
         drivingRecenterIsVisible,
+        drivingMapViewControlIsVisible,
+        drivingMapViewMode,
         freeDriveIsActive,
         handleDrivingRecenterPress,
+        handleDrivingMapViewPress,
         handleLocationTrackingPress,
         handleMarkerLoadingIndicatorHidden,
         handleStartFreeDrive,
@@ -60,6 +67,11 @@ export function MapControlsOverlay({
     const handleUserLocationPress = drivingRecenterIsVisible
         ? handleDrivingRecenterPress
         : handleLocationTrackingPress;
+    const drivingMapViewPresentation =
+        getDrivingMapViewPresentation(drivingMapViewMode);
+    const nextDrivingMapViewPresentation = getDrivingMapViewPresentation(
+        getNextDrivingMapViewMode(drivingMapViewMode),
+    );
 
     if (!mapPreferencesAreLoaded) {
         return null;
@@ -90,6 +102,32 @@ export function MapControlsOverlay({
             ) : null}
 
             <MapLayerButton />
+
+            {drivingMapViewControlIsVisible ? (
+                <MapControlButton
+                    accessibilityHint={`Switches to ${nextDrivingMapViewPresentation.label.toLowerCase()} map view.`}
+                    accessibilityLabel={`Map view: ${drivingMapViewPresentation.label}`}
+                    accessibilityRole="button"
+                    className={`${MAP_CONTROL_BUTTON_CLASS_NAME} ${defaultMapControlClassName}`}
+                    glassTintColor={defaultMapControlGlassTintColor}
+                    onPress={handleDrivingMapViewPress}
+                    testID="driving-map-view-button"
+                >
+                    <View className="items-center justify-center gap-0.5">
+                        <Icon
+                            color={defaultMapControlIconColor}
+                            name={drivingMapViewPresentation.iconName}
+                            size={17}
+                        />
+                        <Text
+                            className="text-[8px] font-bold uppercase leading-[9px]"
+                            style={{ color: defaultMapControlIconColor }}
+                        >
+                            {drivingMapViewPresentation.shortLabel}
+                        </Text>
+                    </View>
+                </MapControlButton>
+            ) : null}
 
             {showFreeDriveButton ? (
                 <MapControlButton

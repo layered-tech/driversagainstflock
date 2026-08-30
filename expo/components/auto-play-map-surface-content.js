@@ -16,6 +16,7 @@ import {
     addAutoDriveSimulationLocationListener,
     useAutoDriveSimulationIsActive,
 } from './auto-play-drive-simulation';
+import { registerAutoPlayMapControlHandlers } from './auto-play-map-control-handlers';
 import {
     AutoPlayMapStatusOverlay,
     AutoPlayTopRightStatusOverlay,
@@ -25,7 +26,7 @@ import {
     getAutoPlayBoundsFitPadding,
     getAutoPlayViewportMetrics,
 } from './auto-play-map-viewport';
-import { useAutoPlayState } from './auto-play-state';
+import { setAutoPlayState, useAutoPlayState } from './auto-play-state';
 import {
     getAutoPlayDrivingStatusVisibility,
     getAutoPlayMapContentVisibility,
@@ -65,6 +66,14 @@ import {
     makeDirectionsRouteFeatureCollection,
 } from './map/directions';
 import { getLocationWithDrivingMotionState } from './map/driving-location-state';
+import {
+    DRIVING_MAP_VIEW_PERSPECTIVE,
+    DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
+    getDrivingMapViewFollowConfiguration,
+    getNextDrivingMapViewMode,
+    shouldRestoreDrivingPerspective,
+    shouldShowDrivingMapStatus,
+} from './map/driving-map-view';
 import { getDrivingMotionState } from './map/driving-motion-state';
 import { makeElectronicHorizonDebugFeatureCollection } from './map/electronic-horizon-debug';
 import {
@@ -130,15 +139,8 @@ const DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG = {
     usesHostColorSchemeForAutomaticMapPreset: false,
 };
 
-const EMPTY_AUTOPLAY_MAP_CONTROL_HANDLERS = {
-    handleLocationTrackingPress: () => {},
-    handlePan: () => {},
-    handlePanningInterfaceChanged: () => {},
-    handleZoomGesture: () => {},
-    handleZoomInPress: () => {},
-    handleZoomOutPress: () => {},
-};
 const DEFAULT_AUTOPLAY_MAP_BUTTON_APPEARANCE = {
+    drivingMapViewMode: DRIVING_MAP_VIEW_PERSPECTIVE,
     isDarkMapLayer: false,
     mapLightPreset: null,
     trackingState: 'inactive',
@@ -146,29 +148,17 @@ const DEFAULT_AUTOPLAY_MAP_BUTTON_APPEARANCE = {
 const DEFAULT_AUTO_PLAY_COLOR_SCHEME = 'light';
 const EMPTY_AUTO_PLAY_SUBMITTED_SEARCH_RESULTS = Object.freeze([]);
 
-let autoPlayMapControlHandlers = EMPTY_AUTOPLAY_MAP_CONTROL_HANDLERS;
 let autoPlayMapButtonAppearanceListener = () => {};
 let autoPlayMapColorScheme = DEFAULT_AUTO_PLAY_COLOR_SCHEME;
 const autoPlayMapColorSchemeListeners = new Set();
 
-export function getAutoPlayMapControlHandlers() {
-    return autoPlayMapControlHandlers;
+function logAutoPlayMapSurfaceAction(action) {
+    if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.log(`[Auto Play] ${action}`);
+    }
 }
 
-function registerAutoPlayMapControlHandlers(handlers) {
-    const nextHandlers = {
-        ...EMPTY_AUTOPLAY_MAP_CONTROL_HANDLERS,
-        ...handlers,
-    };
-
-    autoPlayMapControlHandlers = nextHandlers;
-
-    return () => {
-        if (autoPlayMapControlHandlers === nextHandlers) {
-            autoPlayMapControlHandlers = EMPTY_AUTOPLAY_MAP_CONTROL_HANDLERS;
-        }
-    };
-}
+export { getAutoPlayMapControlHandlers } from './auto-play-map-control-handlers';
 
 export function setAutoPlayMapButtonAppearanceListener(listener) {
     autoPlayMapButtonAppearanceListener =
@@ -429,6 +419,7 @@ function getPointCoordinate(point) {
 
 function useAutoPlayMapController({
     cameraDebugStateUpdatesEnabled = false,
+    drivingMapViewMode = DRIVING_MAP_VIEW_PERSPECTIVE,
     initialCameraSettings,
     isDrivingMode,
     locationUpdatesEnabled = true,
@@ -550,6 +541,8 @@ function useAutoPlayMapController({
         cameraViewportInsets: viewportMetrics.cameraPadding,
         clampZoomLevel,
         currentZoomRef,
+        ...getDrivingMapViewFollowConfiguration(drivingMapViewMode),
+        followIsEnabled: drivingMapViewMode !== DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
         followSpeedZoomEnabled: true,
         followViewportAnchorY,
         isDrivingMode,
@@ -560,6 +553,8 @@ function useAutoPlayMapController({
         userLocationRef,
         viewportHeight: viewportMetrics.height,
     });
+    const pauseDrivingFollowUntilRecenter =
+        followLocationMode.pauseUntilRecenter;
     const scheduleMarkerLoad = useCallback(
         (bounds, delay, { manualPanIsStarting = false } = {}) => {
             if (
@@ -1236,6 +1231,7 @@ function useAutoPlayMapController({
             bounds,
             {
                 adaptsPaddingToViewport = false,
+                allowBeforeMapReady = false,
                 duration = AUTO_PLAY_ROUTE_PREVIEW_CAMERA_FIT_DURATION_MS,
                 padding = [88, 96, 112, 96],
             } = {},
@@ -1260,7 +1256,11 @@ function useAutoPlayMapController({
                 viewportWidth: viewport?.width,
             });
 
-            if (!cameraStop || !isMapReadyRef.current || !cameraRef.current) {
+            if (
+                !cameraStop ||
+                (!allowBeforeMapReady && !isMapReadyRef.current) ||
+                !cameraRef.current
+            ) {
                 return false;
             }
 
@@ -1301,6 +1301,30 @@ function useAutoPlayMapController({
             return true;
         }
     }, [followLocationMode, isDrivingMode, setTrackingMode]);
+
+    const fitDrivingCameraToBounds = useCallback(
+        async (bounds, { shouldApply = () => true, ...options } = {}) => {
+            if (!isDrivingMode || !shouldApply()) {
+                return false;
+            }
+
+            manualMapGestureGenerationRef.current += 1;
+            pauseDrivingFollowUntilRecenter();
+
+            try {
+                await locationPuckCameraFollowReleaseRef.current?.();
+            } catch {
+                // Declarative follow is also disabled while overview is active.
+            }
+
+            if (!shouldApply() || !isMountedRef.current) {
+                return false;
+            }
+
+            return fitCameraToBounds(bounds, options);
+        },
+        [fitCameraToBounds, isDrivingMode, pauseDrivingFollowUntilRecenter],
+    );
 
     const handlePanningInterfaceChanged = useCallback(
         (isPanningInterfaceVisible) => {
@@ -1391,6 +1415,7 @@ function useAutoPlayMapController({
         currentCameraDebugState,
         drivingRecenterIsVisible,
         fitCameraToBounds,
+        fitDrivingCameraToBounds,
         handleCameraChanged,
         handleDrivingRecenterPress,
         handleLocationRecenterPress,
@@ -1448,8 +1473,10 @@ export function AutoPlayMapSurfaceContent({
         showSpeedLimitOnSecondarySurfaces,
     });
     const fittedDirectionsRouteKeyRef = useRef('');
+    const fittedDrivingRouteOverviewKeyRef = useRef('');
     const fittedSearchResultsKeyRef = useRef('');
     const mapBrowsingContextWasActiveRef = useRef(false);
+    const previousDrivingMapViewModeRef = useRef(DRIVING_MAP_VIEW_PERSPECTIVE);
     const [layoutSize, setLayoutSize] = useState(null);
     const [followViewportAnchorY, setFollowViewportAnchorY] =
         useState(undefined);
@@ -1457,6 +1484,8 @@ export function AutoPlayMapSurfaceContent({
     const mapPreferences = useMapPreferencesState();
     const markerLoader = useMarkerLoader();
     const isDrivingMode = autoPlayState.drivingModeIsActive !== false;
+    const drivingMapViewMode =
+        autoPlayState.drivingMapViewMode ?? DRIVING_MAP_VIEW_PERSPECTIVE;
     const routePreviewIsActive = Boolean(
         !autoPlayState.isNavigating && autoPlayState.directionsRoute,
     );
@@ -1542,6 +1571,17 @@ export function AutoPlayMapSurfaceContent({
             }),
         [applyWindowScaleToMapGestures, windowInfo?.scale],
     );
+    useEffect(() => {
+        if (isRootMapSurface) {
+            return undefined;
+        }
+
+        logAutoPlayMapSurfaceAction('secondary-map-surface-mounted');
+
+        return () => {
+            logAutoPlayMapSurfaceAction('secondary-map-surface-unmounted');
+        };
+    }, [isRootMapSurface]);
     const handleLocationAnchorLayout = useCallback((nextAnchorY) => {
         setFollowViewportAnchorY((previousAnchorY) =>
             previousAnchorY === nextAnchorY ? previousAnchorY : nextAnchorY,
@@ -1553,6 +1593,7 @@ export function AutoPlayMapSurfaceContent({
                 debugOverlayVisibility,
                 debugOverlaysAreVisible,
             }),
+        drivingMapViewMode,
         initialCameraSettings: mapPreferences.initialCameraSettings,
         isDrivingMode,
         locationUpdatesEnabled: isRootMapSurface,
@@ -1565,6 +1606,47 @@ export function AutoPlayMapSurfaceContent({
         followViewportAnchorY,
         viewportMetrics,
     });
+    const handleDrivingMapViewPress = useCallback(() => {
+        if (!isRootMapSurface || !activeDirectionsRoute) {
+            return;
+        }
+
+        const nextMode = getNextDrivingMapViewMode(drivingMapViewMode);
+
+        setAutoPlayState({ drivingMapViewMode: nextMode });
+        logAutoPlayMapSurfaceAction(`driving-map-view-${nextMode}-requested`);
+    }, [activeDirectionsRoute, drivingMapViewMode, isRootMapSurface]);
+    useEffect(() => {
+        const previousDrivingMapViewMode =
+            previousDrivingMapViewModeRef.current;
+        const isReturningToPerspective =
+            previousDrivingMapViewMode === DRIVING_MAP_VIEW_ROUTE_OVERVIEW &&
+            drivingMapViewMode === DRIVING_MAP_VIEW_PERSPECTIVE;
+
+        previousDrivingMapViewModeRef.current = drivingMapViewMode;
+
+        if (
+            !isRootMapSurface ||
+            !activeDirectionsRoute ||
+            !isReturningToPerspective
+        ) {
+            return;
+        }
+
+        controller.handleDrivingRecenterPress().then(
+            () => {
+                logAutoPlayMapSurfaceAction(
+                    'driving-map-view-perspective-restored',
+                );
+            },
+            () => {},
+        );
+    }, [
+        activeDirectionsRoute,
+        controller.handleDrivingRecenterPress,
+        drivingMapViewMode,
+        isRootMapSurface,
+    ]);
     const presentation = useMapPresentation({
         destinationCardIsOverlay: true,
         hasActiveDirectionsRoute: Boolean(activeDirectionsRoute),
@@ -1730,9 +1812,13 @@ export function AutoPlayMapSurfaceContent({
         }
 
         return registerAutoPlayMapControlHandlers({
-            handleLocationTrackingPress: controller.drivingRecenterIsVisible
-                ? controller.handleDrivingRecenterPress
-                : controller.handleLocationTrackingPress,
+            handleDrivingMapViewPress,
+            handleLocationTrackingPress:
+                drivingMapViewMode === DRIVING_MAP_VIEW_ROUTE_OVERVIEW
+                    ? handleDrivingMapViewPress
+                    : controller.drivingRecenterIsVisible
+                      ? controller.handleDrivingRecenterPress
+                      : controller.handleLocationTrackingPress,
             handlePan: controller.handlePan,
             handlePanningInterfaceChanged:
                 controller.handlePanningInterfaceChanged,
@@ -1749,6 +1835,8 @@ export function AutoPlayMapSurfaceContent({
         controller.handlePanningInterfaceChanged,
         controller.handleZoomGesture,
         controller.handleZoomPress,
+        drivingMapViewMode,
+        handleDrivingMapViewPress,
         isRootMapSurface,
     ]);
 
@@ -1758,6 +1846,7 @@ export function AutoPlayMapSurfaceContent({
         }
 
         notifyAutoPlayMapButtonAppearance({
+            drivingMapViewMode,
             isDarkMapLayer: presentation.isDarkMapLayer,
             mapLightPreset: appliedMapLightPreset,
             trackingState: controller.drivingRecenterIsVisible
@@ -1770,6 +1859,7 @@ export function AutoPlayMapSurfaceContent({
         appliedMapLightPreset,
         controller.drivingRecenterIsVisible,
         controller.locationTrackingMode,
+        drivingMapViewMode,
         isRootMapSurface,
         presentation.isDarkMapLayer,
     ]);
@@ -1785,6 +1875,88 @@ export function AutoPlayMapSurfaceContent({
             );
         };
     }, [isRootMapSurface]);
+
+    useEffect(() => {
+        if (!isRootMapSurface || activeDirectionsRoute) {
+            return;
+        }
+
+        fittedDrivingRouteOverviewKeyRef.current = '';
+        if (
+            shouldRestoreDrivingPerspective({
+                hasActiveDirectionsRoute: Boolean(activeDirectionsRoute),
+                isRootMapSurface,
+                mode: drivingMapViewMode,
+            })
+        ) {
+            setAutoPlayState({
+                drivingMapViewMode: DRIVING_MAP_VIEW_PERSPECTIVE,
+            });
+        }
+    }, [activeDirectionsRoute, drivingMapViewMode, isRootMapSurface]);
+
+    useEffect(() => {
+        if (
+            !isRootMapSurface ||
+            !activeDirectionsRoute ||
+            drivingMapViewMode !== DRIVING_MAP_VIEW_ROUTE_OVERVIEW
+        ) {
+            if (drivingMapViewMode !== DRIVING_MAP_VIEW_ROUTE_OVERVIEW) {
+                fittedDrivingRouteOverviewKeyRef.current = '';
+            }
+
+            return undefined;
+        }
+
+        const bounds =
+            getDirectionsRouteBounds(activeDirectionsRoute) ??
+            activeDirectionsRoute.bounds;
+        const overviewKey = [
+            bounds?.sw,
+            bounds?.ne,
+            activeDirectionsRoute.selectedRouteKey,
+            activeDirectionsRoute.routeKey,
+            viewportMetrics.key,
+        ]
+            .flat()
+            .join(':');
+
+        if (
+            !bounds ||
+            fittedDrivingRouteOverviewKeyRef.current === overviewKey
+        ) {
+            return undefined;
+        }
+
+        let requestIsCurrent = true;
+
+        void controller
+            .fitDrivingCameraToBounds(bounds, {
+                adaptsPaddingToViewport: true,
+                allowBeforeMapReady: true,
+                duration: 500,
+                shouldApply: () => requestIsCurrent,
+            })
+            .then((wasFitted) => {
+                if (requestIsCurrent && wasFitted) {
+                    fittedDrivingRouteOverviewKeyRef.current = overviewKey;
+                    logAutoPlayMapSurfaceAction(
+                        'driving-route-overview-fitted',
+                    );
+                }
+            });
+
+        return () => {
+            requestIsCurrent = false;
+        };
+    }, [
+        activeDirectionsRoute,
+        controller.fitDrivingCameraToBounds,
+        controller.isMapReady,
+        drivingMapViewMode,
+        isRootMapSurface,
+        viewportMetrics.key,
+    ]);
 
     useEffect(() => {
         if (
@@ -1955,7 +2127,8 @@ export function AutoPlayMapSurfaceContent({
                         activeDirectionsRoute={activeDirectionsRoute}
                         currentRoadPill={currentRoadPill}
                         drivingStatusIsVisible={
-                            mapContentVisibility.drivingStatusIsVisible
+                            mapContentVisibility.drivingStatusIsVisible &&
+                            shouldShowDrivingMapStatus(drivingMapViewMode)
                         }
                         freeDriveIsActive={
                             controller.roadMatchedLocationWatchEnabled ||

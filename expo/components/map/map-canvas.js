@@ -597,8 +597,8 @@ export const MapCanvas = memo(function MapCanvas() {
         () => makeSelectedDirectionsRouteColorExpression(mapRoutePalette),
         [mapRoutePalette],
     );
-    const drivingCameraFollowMode = Mapbox.UserTrackingMode.FollowWithHeading;
     const locationBoundCameraFollowProps = nativeCameraFollowProps;
+    const drivingCameraFollowMode = Mapbox.UserTrackingMode.FollowWithHeading;
     const nativeLocationPuckCameraFollowIsSupported =
         isLocationPuckCameraFollowSupported();
     const puckBearing = isDrivingMode

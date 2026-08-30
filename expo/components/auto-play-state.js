@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { DRIVING_MAP_VIEW_PERSPECTIVE } from './map/driving-map-view';
 
 export const DEFAULT_AUTO_PLAY_STATE = {
     detailText: 'Search for a destination to start a private route.',
     directionsRoute: null,
+    drivingMapViewMode: DRIVING_MAP_VIEW_PERSPECTIVE,
     drivingModeIsActive: true,
     errorText: '',
     isNavigating: false,

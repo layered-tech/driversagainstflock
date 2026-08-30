@@ -11,6 +11,7 @@ import {
 } from './navigation-puck-layout';
 
 export function DrivingLocationRoadStack({
+    currentRoadPillIsVisible = true,
     currentRoadPillIsDarkMode,
     currentRoadPillTestID,
     currentRoadPillStyle,
@@ -23,9 +24,12 @@ export function DrivingLocationRoadStack({
 }) {
     const layoutYRef = useRef(null);
     const currentRoadText = useStableCurrentRoadText(userLocation);
-    const currentRoadIsVisible = shouldShowCurrentRoadPill({
-        roadText: currentRoadText,
-    });
+    const currentRoadIsVisible = Boolean(
+        currentRoadPillIsVisible &&
+        shouldShowCurrentRoadPill({
+            roadText: currentRoadText,
+        }),
+    );
     const notifyLocationAnchorLayout = useCallback(() => {
         const anchorY = getNavigationPuckAnchorY({
             layoutY: layoutYRef.current,

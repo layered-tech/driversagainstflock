@@ -26,6 +26,7 @@
         "e2e": "cd expo && ./scripts/maestro-test.sh .maestro",
         "e2e:android": "cd expo && MAESTRO_PLATFORM=android ./scripts/maestro-test.sh .maestro",
         "e2e:android-auto": "cd expo && ./scripts/android-auto-e2e.sh",
+        "e2e:android-auto:portrait": "cd expo && ./scripts/android-auto-e2e.sh ./.android-auto/suite-portrait.json",
         "e2e:ios": "cd expo && MAESTRO_PLATFORM=ios ./scripts/maestro-test.sh .maestro",
         "node:test": "cd expo && npm test",
         "osm:tunnel": "./infrastructure/aws/osm/operations/start-local-tunnel.sh",

@@ -188,6 +188,67 @@
             ]
         },
         {
+            "name": "toggles between 3D follow and route overview",
+            "steps": [
+                {
+                    "type": "screenshot",
+                    "name": "map-view-perspective-before",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "dhu",
+                    "command": "tap 600 300; sleep 1; tap 730 55",
+                    "waitForMetro": "[Auto Play] driving-route-overview-fitted",
+                    "timeout": 15000
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 1500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "map-view-route-overview",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "map-view-route-overview",
+                    "contains": ["Arrive at your destin"],
+                    "notContains": ["SPEED", "LIMIT", "Congress Avenue"]
+                },
+                {
+                    "type": "assertMapCropsDiffer",
+                    "first": "map-view-perspective-before",
+                    "second": "map-view-route-overview"
+                },
+                {
+                    "type": "dhu",
+                    "command": "tap 600 300; sleep 1; tap 730 55",
+                    "waitForMetro": "[Auto Play] driving-map-view-perspective-restored",
+                    "timeout": 15000
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 1500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "map-view-perspective-after",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "map-view-perspective-after",
+                    "contains": ["Arrive at your destin", "SPEED", "LIMIT"]
+                },
+                {
+                    "type": "assertMapCropsDiffer",
+                    "first": "map-view-route-overview",
+                    "second": "map-view-perspective-after"
+                }
+            ]
+        },
+        {
             "name": "advances navigation through AUTO_DRIVE",
             "steps": [
                 {
@@ -321,7 +382,7 @@
                 {
                     "type": "assertOcr",
                     "screenshot": "host-stopped-navigation",
-                    "contains": ["For you"],
+                    "contains": ["SPEED", "LIMIT", "Congress Avenue"],
                     "notContains": [
                         "Turn right to avoid monitored intersections",
                         "Arrive at your destination"

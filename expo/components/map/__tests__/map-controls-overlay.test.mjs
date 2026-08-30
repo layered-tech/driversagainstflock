@@ -10,6 +10,10 @@ const mapScreenSource = readFileSync(
     new URL('../../map-screen.js', import.meta.url),
     'utf8',
 );
+const mapScreenContextSource = readFileSync(
+    new URL('../map-screen-context.js', import.meta.url),
+    'utf8',
+);
 
 describe('MapControlsOverlay', () => {
     test('hides the free-drive control during route navigation', () => {
@@ -48,6 +52,43 @@ describe('MapControlsOverlay', () => {
         assert.match(
             mapControlsOverlaySource,
             /<View className="-translate-x-px translate-y-px">[\s\S]*?<Icon[\s\S]*?name=\{freeDriveIsActive \? 'x' : 'navigation'\}/,
+        );
+    });
+
+    test('shows one labeled map-view control during route navigation', () => {
+        assert.match(
+            mapControlsOverlaySource,
+            /\{drivingMapViewControlIsVisible \? \([\s\S]*?accessibilityLabel=\{`Map view: \$\{drivingMapViewPresentation\.label\}`\}[\s\S]*?testID="driving-map-view-button"/,
+        );
+        assert.match(
+            mapControlsOverlaySource,
+            /getNextDrivingMapViewMode\(drivingMapViewMode\)/,
+        );
+        assert.match(
+            mapScreenSource,
+            /drivingMapViewControlIsVisible: Boolean\(\s*isDrivingMode && selectedDirectionsRouteOption/,
+        );
+    });
+
+    test('fits the active route only while route overview is selected', () => {
+        assert.match(
+            mapScreenSource,
+            /drivingMapViewMode !== DRIVING_MAP_VIEW_ROUTE_OVERVIEW[\s\S]*?fitDrivingCameraToBounds\(drivingRouteOverviewBounds/,
+        );
+        assert.match(
+            mapScreenSource,
+            /getDirectionsRouteBounds\(directionsRoute\)/,
+        );
+    });
+
+    test('returns route overview to perspective when recenter is pressed', () => {
+        assert.match(
+            mapScreenSource,
+            /const handleDrivingRecenterPress = useCallback\(\(\) => \{[\s\S]*?drivingMapViewMode === DRIVING_MAP_VIEW_ROUTE_OVERVIEW[\s\S]*?setDrivingMapViewMode\(DRIVING_MAP_VIEW_PERSPECTIVE\)[\s\S]*?locationController\.handleDrivingRecenterPress\(\)/,
+        );
+        assert.match(
+            mapScreenContextSource,
+            /handleDrivingRecenterPressOverride \?\?[\s\S]*?locationController\.handleDrivingRecenterPress/,
         );
     });
 });

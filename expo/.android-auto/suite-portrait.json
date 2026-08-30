@@ -1,0 +1,179 @@
+{
+    "name": "Android Auto portrait end-to-end",
+    "appId": "com.anonymous.drivefree.dev",
+    "serviceComponent": "com.anonymous.drivefree.dev/com.margelo.nitro.swe.iternio.reactnativeautoplay.AndroidAutoService",
+    "dhuConfig": "config/android-auto-dhu-portrait.ini",
+    "requiredMetroMarkers": ["[Auto Play] secondary-map-surface-mounted"],
+    "display": {
+        "width": 1920,
+        "height": 1080
+    },
+    "metro": {
+        "host": "10.0.2.2",
+        "port": 8091
+    },
+    "location": {
+        "latitude": 30.2672,
+        "longitude": -97.7431
+    },
+    "tests": [
+        {
+            "name": "connects with the portrait cluster display",
+            "steps": [
+                {
+                    "type": "dhu",
+                    "command": "tap 400 300"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 2500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "portrait-connected-map"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "portrait-connected-map",
+                    "contains": ["Congress Avenue", "SPEED", "LIMIT"]
+                },
+                {
+                    "type": "assertService",
+                    "running": true
+                },
+                {
+                    "type": "assertWakeLock",
+                    "held": true
+                }
+            ]
+        },
+        {
+            "name": "starts portrait guidance with the cluster display",
+            "steps": [
+                {
+                    "type": "deepLink",
+                    "requestType": "directions",
+                    "query": "Austin Central Library"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 7000
+                },
+                {
+                    "type": "screenshot",
+                    "name": "portrait-route-choices"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "portrait-route-choices",
+                    "contains": [
+                        "Austin Central Library",
+                        "Private route",
+                        "3 monitored nodes",
+                        "Start"
+                    ]
+                },
+                {
+                    "type": "dhu",
+                    "command": "tap 170 390"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 5000
+                },
+                {
+                    "type": "screenshot",
+                    "name": "portrait-navigation-started"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "portrait-navigation-started",
+                    "contains": [
+                        "Turn right to avoid",
+                        "monitored intersections",
+                        "SPEED",
+                        "LIMIT",
+                        "Congress Avenue"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "toggles portrait guidance between 3D follow and route overview",
+            "steps": [
+                {
+                    "type": "screenshot",
+                    "name": "portrait-map-view-perspective-before",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "dhu",
+                    "command": "tap 600 500; sleep 1; tap 903 55",
+                    "waitForMetro": "[Auto Play] driving-route-overview-fitted",
+                    "timeout": 15000
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 1500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "portrait-map-view-route-overview",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "portrait-map-view-route-overview",
+                    "contains": ["Arrive at your destin"],
+                    "notContains": ["SPEED", "LIMIT", "Congress Avenue"]
+                },
+                {
+                    "type": "assertMapCropsDiffer",
+                    "first": "portrait-map-view-perspective-before",
+                    "second": "portrait-map-view-route-overview"
+                },
+                {
+                    "type": "dhu",
+                    "command": "tap 600 500; sleep 1; tap 903 55",
+                    "waitForMetro": "[Auto Play] driving-map-view-perspective-restored",
+                    "timeout": 15000
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 1500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "portrait-map-view-perspective-after",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "portrait-map-view-perspective-after",
+                    "contains": ["Arrive at your destin", "SPEED", "LIMIT"]
+                },
+                {
+                    "type": "assertMapCropsDiffer",
+                    "first": "portrait-map-view-route-overview",
+                    "second": "portrait-map-view-perspective-after"
+                }
+            ]
+        },
+        {
+            "name": "releases the portrait session wake lock on disconnect",
+            "steps": [
+                {
+                    "type": "disconnect"
+                },
+                {
+                    "type": "assertWakeLock",
+                    "held": false
+                },
+                {
+                    "type": "assertService",
+                    "running": false
+                }
+            ]
+        }
+    ]
+}

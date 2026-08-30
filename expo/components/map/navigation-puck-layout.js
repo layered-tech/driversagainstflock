@@ -13,9 +13,9 @@ export const NAVIGATION_PUCK_SIZE = BASE_NAVIGATION_PUCK_SIZE * 1.5;
 // tuned scale curve in one renderer-owned expression so a camera jump and its
 // matching puck scale are committed in the same frame.
 export const NAVIGATION_PUCK_3D_ZOOM_SCALES = [
-    { mapScale: 480, zoomLevel: 10 }, // 1/3
-    { mapScale: 360, zoomLevel: 11 }, // 1/3
-    { mapScale: 270, zoomLevel: 12 }, // 1/3
+    { mapScale: 683.43, zoomLevel: 10 }, // 1/3
+    { mapScale: 455.62, zoomLevel: 11 }, // 1/3
+    { mapScale: 303.75, zoomLevel: 12 }, // 1/3
     { mapScale: 202.5, zoomLevel: 13 }, // 1/2
     { mapScale: 135, zoomLevel: 14 }, // 1/2
     { mapScale: 90, zoomLevel: 15 }, // 1/2

@@ -8,9 +8,11 @@ import {
     DEFAULT_MAP_CROP,
     envFileHasNonEmptyValue,
     findNodeBounds,
+    getMapCropPixelDifferenceAssertionFailure,
     getMapSurfaceVisibilityAssertionFailure,
     getMapThemeContrastAssertionFailure,
     getOCRAssertionFailure,
+    MINIMUM_MAP_CROP_PIXEL_DIFFERENCE,
     MINIMUM_MAP_THEME_LUMINANCE_DIFFERENCE,
     MINIMUM_VISIBLE_MAP_CROP_LUMINANCE,
     normalizeOCRText,
@@ -93,6 +95,15 @@ describe('Android Auto E2E helpers', () => {
         assert.equal(MINIMUM_VISIBLE_MAP_CROP_LUMINANCE, 0.01);
     });
 
+    test('requires camera modes to materially change the map crop', () => {
+        assert.equal(getMapCropPixelDifferenceAssertionFailure(0.08), null);
+        assert.equal(
+            getMapCropPixelDifferenceAssertionFailure(0.009),
+            'Expected map crops to differ by at least 0.0100; received 0.0090',
+        );
+        assert.equal(MINIMUM_MAP_CROP_PIXEL_DIFFERENCE, 0.01);
+    });
+
     test('analyzes the fixed map crop for directional day/night contrast', async () => {
         const analysisCalls = [];
         const reports = [];
@@ -168,6 +179,15 @@ describe('Android Auto E2E helpers', () => {
                 'utf8',
             ),
         );
+        const portraitSuite = JSON.parse(
+            readFileSync(
+                new URL(
+                    '../../.android-auto/suite-portrait.json',
+                    import.meta.url,
+                ),
+                'utf8',
+            ),
+        );
         const idleThemeTest = suite.tests.find(
             ({ name }) =>
                 name === 'switches between day and night presentation',
@@ -178,11 +198,56 @@ describe('Android Auto E2E helpers', () => {
         const navigationTest = suite.tests.find(({ name }) =>
             name.includes('private guidance'),
         );
+        const mapViewToggleTest = suite.tests.find(({ name }) =>
+            name.includes('3D follow'),
+        );
         const phoneSleepTest = suite.tests.find(({ name }) =>
             name.includes('phone sleeps'),
         );
+        const hostStopTest = suite.tests.find(({ name }) =>
+            name.includes('host stop'),
+        );
 
         assert.deepEqual(suite.display, { height: 720, width: 1280 });
+        assert.deepEqual(portraitSuite.display, {
+            height: 1080,
+            width: 1920,
+        });
+        assert.deepEqual(portraitSuite.requiredMetroMarkers, [
+            '[Auto Play] secondary-map-surface-mounted',
+        ]);
+        assert.equal(
+            portraitSuite.dhuConfig,
+            'config/android-auto-dhu-portrait.ini',
+        );
+        const portraitMapViewToggleTest = portraitSuite.tests.find(({ name }) =>
+            name.includes('3D follow'),
+        );
+        assert.equal(
+            portraitMapViewToggleTest.steps.filter(
+                ({ type }) => type === 'assertMapCropsDiffer',
+            ).length,
+            2,
+        );
+        assert.deepEqual(
+            portraitMapViewToggleTest.steps
+                .filter(({ type }) => type === 'dhu')
+                .map(({ command, waitForMetro }) => ({
+                    command,
+                    waitForMetro,
+                })),
+            [
+                {
+                    command: 'tap 600 500; sleep 1; tap 903 55',
+                    waitForMetro: '[Auto Play] driving-route-overview-fitted',
+                },
+                {
+                    command: 'tap 600 500; sleep 1; tap 903 55',
+                    waitForMetro:
+                        '[Auto Play] driving-map-view-perspective-restored',
+                },
+            ],
+        );
         assert.deepEqual(
             navigationTest.steps.find(
                 ({ screenshot, type }) =>
@@ -196,6 +261,49 @@ describe('Android Auto E2E helpers', () => {
                     type === 'assertOcr' && screenshot === 'phone-asleep',
             ).contains,
             ['Arrive at your destination', 'Austin Central Library'],
+        );
+        assert.deepEqual(
+            hostStopTest.steps.find(
+                ({ screenshot, type }) =>
+                    type === 'assertOcr' &&
+                    screenshot === 'host-stopped-navigation',
+            ).contains,
+            ['SPEED', 'LIMIT', 'Congress Avenue'],
+        );
+        assert.deepEqual(
+            mapViewToggleTest.steps
+                .filter(
+                    ({ command, type }) =>
+                        type === 'dhu' && command.endsWith('tap 730 55'),
+                )
+                .map(({ waitForMetro }) => waitForMetro),
+            [
+                '[Auto Play] driving-route-overview-fitted',
+                '[Auto Play] driving-map-view-perspective-restored',
+            ],
+        );
+        assert.deepEqual(
+            mapViewToggleTest.steps.find(
+                ({ screenshot, type }) =>
+                    type === 'assertOcr' &&
+                    screenshot === 'map-view-route-overview',
+            ),
+            {
+                contains: ['Arrive at your destin'],
+                notContains: ['SPEED', 'LIMIT', 'Congress Avenue'],
+                screenshot: 'map-view-route-overview',
+                type: 'assertOcr',
+            },
+        );
+        assert.equal(
+            mapViewToggleTest.steps.filter(
+                ({ type }) => type === 'assertMapCropsDiffer',
+            ).length,
+            2,
+        );
+        assert.ok(
+            suite.tests.indexOf(mapViewToggleTest) <
+                suite.tests.indexOf(activeGuidanceTest),
         );
 
         for (const themeTest of [idleThemeTest, activeGuidanceTest]) {
@@ -478,12 +586,16 @@ describe('Android Auto E2E helpers', () => {
         runner.waitFor = async (predicate) =>
             assert.equal(await predicate(), true);
         runner.waitForMetroMarker = async (...args) => markers.push(args);
+        runner.suite = {
+            requiredMetroMarkers: ['[Auto Play] secondary-map-surface-mounted'],
+        };
 
         await runner.waitForCarAppReady(321);
 
         assert.deepEqual(markers, [
             ['Running "AutoPlayRoot"', 321, 60000],
             ['[Android Auto] map-loaded', 321, 60000],
+            ['[Auto Play] secondary-map-surface-mounted', 321, 60000],
         ]);
     });
 });

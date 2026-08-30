@@ -35,6 +35,7 @@ export const DEFAULT_MAP_CROP = Object.freeze({
 });
 export const MINIMUM_MAP_THEME_LUMINANCE_DIFFERENCE = 0.15;
 export const MINIMUM_VISIBLE_MAP_CROP_LUMINANCE = 0.01;
+export const MINIMUM_MAP_CROP_PIXEL_DIFFERENCE = 0.01;
 
 const delay = (milliseconds) =>
     new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
@@ -213,6 +214,17 @@ export function getMapSurfaceVisibilityAssertionFailure(
     return `Expected the map crop to be visible; received mean luminance=${luminance.toFixed(4)}`;
 }
 
+export function getMapCropPixelDifferenceAssertionFailure(
+    difference,
+    minimumDifference = MINIMUM_MAP_CROP_PIXEL_DIFFERENCE,
+) {
+    if (difference + Number.EPSILON >= minimumDifference) {
+        return null;
+    }
+
+    return `Expected map crops to differ by at least ${minimumDifference.toFixed(4)}; received ${difference.toFixed(4)}`;
+}
+
 function commandText(command, args) {
     return [command, ...args]
         .map((value) =>
@@ -293,6 +305,9 @@ export class Runner {
         );
         this.dhuConfig = resolve(
             environment.ANDROID_AUTO_E2E_DHU_CONFIG ||
+                (this.suite.dhuConfig
+                    ? join(EXPO_DIRECTORY, this.suite.dhuConfig)
+                    : null) ||
                 join(EXPO_DIRECTORY, 'config', 'android-auto-dhu.ini'),
         );
         this.artifactsRoot = resolve(
@@ -856,6 +871,9 @@ export class Runner {
             outputStart,
             60000,
         );
+        for (const marker of this.suite.requiredMetroMarkers ?? []) {
+            await this.waitForMetroMarker(marker, outputStart, 60000);
+        }
     }
 
     async launchApp() {
@@ -1084,6 +1102,49 @@ export class Runner {
         return luminance;
     }
 
+    mapCropPixelDifference(firstName, secondName) {
+        const first = this.screenshots.get(firstName);
+        const second = this.screenshots.get(secondName);
+
+        if (!first || !second) {
+            throw new Error(
+                `Screenshots were not captured: ${firstName}, ${secondName}`,
+            );
+        }
+
+        const { height, width, x, y } = DEFAULT_MAP_CROP;
+        const result = this.run(this.ocrBinary, [
+            '--mean-pixel-difference',
+            first.imagePath,
+            second.imagePath,
+            String(x),
+            String(y),
+            String(width),
+            String(height),
+        ]);
+        const difference = Number(result.stdout.trim());
+
+        if (!Number.isFinite(difference) || difference < 0 || difference > 1) {
+            throw new Error(
+                `Invalid map crop pixel difference for ${firstName}, ${secondName}: ${result.stdout.trim()}`,
+            );
+        }
+
+        return difference;
+    }
+
+    assertMapCropsDiffer(firstName, secondName) {
+        const difference = this.mapCropPixelDifference(firstName, secondName);
+        this.report(
+            `Map crop pixel difference ${firstName}, ${secondName}=${difference.toFixed(4)}`,
+        );
+        const failure = getMapCropPixelDifferenceAssertionFailure(difference);
+
+        if (failure) {
+            throw new Error(failure);
+        }
+    }
+
     async ensureMapCropIsVisible(
         name,
         { retryDelayMilliseconds = 1000, timeout = 20000 } = {},
@@ -1213,6 +1274,9 @@ export class Runner {
                 }
                 break;
             }
+            case 'assertMapCropsDiffer':
+                this.assertMapCropsDiffer(step.first, step.second);
+                break;
             case 'assertMapThemeContrast':
                 await this.assertMapThemeContrast(step.day, step.night, step);
                 break;

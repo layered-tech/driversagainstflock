@@ -35,6 +35,11 @@ import {
     PLACE_RESULT_ZOOM_LEVEL,
 } from './constants';
 import { getLocationWithDrivingMotionState } from './driving-location-state';
+import {
+    DRIVING_MAP_VIEW_PERSPECTIVE,
+    DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
+    getDrivingMapViewFollowConfiguration,
+} from './driving-map-view';
 import { getDrivingMotionState } from './driving-motion-state';
 import {
     clampZoomLevel,
@@ -77,6 +82,7 @@ export function useMapLocationController({
     cameraFocusPadding = EMPTY_CAMERA_PADDING,
     cameraDebugStateUpdatesEnabled = false,
     drivingCameraFollowViewportAnchorY,
+    drivingMapViewMode = DRIVING_MAP_VIEW_PERSPECTIVE,
     initialCameraSettings,
     isDrivingMode,
     lockOnLocationUpdateAnimationDurationRef,
@@ -105,6 +111,7 @@ export function useMapLocationController({
     const mapViewRef = useRef(null);
     const latestCameraSettingsRef = useRef(initialCameraSettings);
     const latestMapBoundsRef = useRef(null);
+    const locationPuckCameraFollowReleaseRef = useRef(async () => false);
     const pendingCameraStopRef = useRef(null);
     const previousDrivingModeRef = useRef(isDrivingMode);
     const previousMarkersAreVisibleRef = useRef(markersAreVisible);
@@ -270,6 +277,8 @@ export function useMapLocationController({
         cameraRef,
         clampZoomLevel,
         currentZoomRef,
+        ...getDrivingMapViewFollowConfiguration(drivingMapViewMode),
+        followIsEnabled: drivingMapViewMode !== DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
         followSpeedZoomEnabled: true,
         followViewportAnchorY: drivingCameraFollowViewportAnchorY,
         isDrivingMode,
@@ -279,6 +288,8 @@ export function useMapLocationController({
         setTrackingMode,
         userLocationRef,
     });
+    const pauseDrivingFollowUntilRecenter =
+        followLocationMode.pauseUntilRecenter;
     const scheduleMarkerLoad = useCallback(
         (bounds, delay, { manualPanIsStarting = false } = {}) => {
             if (
@@ -1010,6 +1021,57 @@ export function useMapLocationController({
         ],
     );
 
+    const fitDrivingCameraToBounds = useCallback(
+        async (
+            bounds,
+            {
+                duration = 500,
+                padding = [120, 72, 156, 24],
+                shouldApply = () => true,
+            } = {},
+        ) => {
+            if (!isDrivingMode || !shouldApply()) {
+                return false;
+            }
+
+            const cameraStop = getBoundsFitCameraStop({
+                bounds,
+                duration,
+                padding,
+                viewportHeight: windowHeight,
+                viewportWidth: windowWidth,
+            });
+
+            if (!cameraStop) {
+                return false;
+            }
+
+            pauseDrivingFollowUntilRecenter();
+            markerLoadsEnabledRef.current = true;
+            currentZoomRef.current = cameraStop.zoomLevel;
+
+            try {
+                await locationPuckCameraFollowReleaseRef.current?.();
+            } catch {
+                // The declarative follow state is also disabled for overview mode.
+            }
+
+            if (!shouldApply() || !isMountedRef.current || !cameraRef.current) {
+                return false;
+            }
+
+            cameraRef.current.setCamera(cameraStop);
+
+            return true;
+        },
+        [
+            isDrivingMode,
+            pauseDrivingFollowUntilRecenter,
+            windowHeight,
+            windowWidth,
+        ],
+    );
+
     const isFollowing = locationTrackingMode === LOCATION_TRACKING_FOLLOW;
     const drivingRecenterIsVisible =
         isDrivingMode &&
@@ -1027,6 +1089,7 @@ export function useMapLocationController({
         findCurrentLocation,
         followLocationMode,
         fitCameraToBounds,
+        fitDrivingCameraToBounds,
         handleCameraChanged,
         handleDrivingRecenterPress,
         handleLocationTrackingPress,
@@ -1040,6 +1103,7 @@ export function useMapLocationController({
         isRequestingLocation,
         locationAccessGranted,
         locationError,
+        locationPuckCameraFollowReleaseRef,
         locationTrackingMode,
         markerShapeSourceRef,
         mapViewRef,

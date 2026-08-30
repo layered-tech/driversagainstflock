@@ -138,6 +138,8 @@ export function useMapCanvasContextValue({
             markerClustersEnabled,
             cameraConesVisible,
             localityBoundary,
+            locationPuckCameraFollowReleaseRef:
+                locationController.locationPuckCameraFollowReleaseRef,
             mapViewRef: locationController.mapViewRef,
             markerFeatureCollection,
             markerShapeSourceRef: locationController.markerShapeSourceRef,
@@ -164,6 +166,7 @@ export function useMapCanvasContextValue({
             locationController.handleMapLoaded,
             locationController.isFollowing,
             locationController.locationAccessGranted,
+            locationController.locationPuckCameraFollowReleaseRef,
             locationController.mapViewRef,
             locationController.markerShapeSourceRef,
             locationController.nativeCameraFollowProps,
@@ -193,7 +196,11 @@ export function useMapLocationContextValue(userLocation) {
 }
 
 export function useMapControlsContextValue({
+    drivingMapViewControlIsVisible,
+    drivingMapViewMode,
     freeDriveIsActive,
+    handleDrivingRecenterPress: handleDrivingRecenterPressOverride,
+    handleDrivingMapViewPress,
     handleStartFreeDrive,
     handleStopFreeDrive,
     handleMarkerLoadingIndicatorHidden,
@@ -217,8 +224,12 @@ export function useMapControlsContextValue({
             drivingRecenterIconColor: presentation.drivingRecenterIconColor,
             drivingRecenterIsVisible:
                 locationController.drivingRecenterIsVisible,
+            drivingMapViewControlIsVisible,
+            drivingMapViewMode,
             freeDriveIsActive,
+            handleDrivingMapViewPress,
             handleDrivingRecenterPress:
+                handleDrivingRecenterPressOverride ??
                 locationController.handleDrivingRecenterPress,
             handleStartFreeDrive,
             handleStopFreeDrive,
@@ -240,7 +251,11 @@ export function useMapControlsContextValue({
             trackingIconColor: presentation.trackingIconColor,
         }),
         [
+            drivingMapViewControlIsVisible,
+            drivingMapViewMode,
             freeDriveIsActive,
+            handleDrivingRecenterPressOverride,
+            handleDrivingMapViewPress,
             handleStartFreeDrive,
             handleStopFreeDrive,
             handleMarkerLoadingIndicatorHidden,

@@ -177,6 +177,25 @@ describe('location puck camera follow fallback', () => {
         assert.deepEqual(fallbackProps, { followUserLocation: false });
     });
 
+    test('keeps fallback heading-following in perspective mode', () => {
+        const fallbackProps = getLocationPuckCameraFollowFallbackProps({
+            followProps: defaultFollowProps,
+            followUserMode: 'follow-with-heading',
+            mapIsReady: true,
+            nativeFollowIsSupported: false,
+            nativeFollowStatus: 'unsupported',
+            platform: 'ios',
+        });
+
+        assert.deepEqual(fallbackProps, {
+            followPadding: defaultFollowProps.padding,
+            followPitch: defaultFollowProps.pitch,
+            followUserLocation: true,
+            followUserMode: 'follow-with-heading',
+            followZoomLevel: defaultFollowProps.zoomLevel,
+        });
+    });
+
     test('remounts an idle camera before replacing fallback ownership', () => {
         assert.equal(
             getLocationPuckCameraControllerKey({
@@ -329,6 +348,24 @@ describe('location puck camera follow lifecycle', () => {
         assert.equal(calls[0].mapView, mapViewRef.current);
         assert.equal(calls[1].followProps.zoomLevel, 16);
         assert.equal(lifecycle.getStatus(), 'active');
+    });
+
+    test('reconfigures native follow when route overview disables it', async () => {
+        const enabledStates = [];
+        const lifecycle = createLocationPuckCameraFollowLifecycle({
+            configureCameraFollow: async (_mapView, followProps) => {
+                enabledStates.push(followProps.enabled);
+                return true;
+            },
+        });
+        const mapViewRef = { current: { id: 'map' } };
+
+        await requestFollow(lifecycle, mapViewRef);
+        await requestFollow(lifecycle, mapViewRef, {
+            enabled: false,
+        });
+
+        assert.deepEqual(enabledStates, [true, false]);
     });
 
     test('retries after post-commit verification observes a late idle', async () => {

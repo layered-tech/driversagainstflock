@@ -19,12 +19,14 @@ From `expo/`:
 
 ```sh
 npm run e2e:android-auto
+npm run e2e:android-auto:portrait
 ```
 
 Or from the repository root:
 
 ```sh
 npm run e2e:android-auto
+npm run e2e:android-auto:portrait
 ```
 
 The default suite is [`suite.json`](./suite.json). To use another suite from `expo/`, pass its path after `--`:
@@ -33,18 +35,21 @@ The default suite is [`suite.json`](./suite.json). To use another suite from `ex
 npm run e2e:android-auto -- /absolute/path/to/suite.json
 ```
 
+The portrait command uses [`suite-portrait.json`](./suite-portrait.json) with the cluster display enabled. It starts active guidance, toggles between 3D follow and route overview in both directions, verifies the camera changes visually, and checks the route-only overlay state.
+
 ## Coverage
 
-The default suite contains eight ordered scenarios:
+The default suite contains nine ordered scenarios:
 
 1. Connect to Android Auto and render the Mapbox map, with service and session wake-lock checks.
 2. Switch between day and night presentation.
 3. Show native Android Auto search results for Walmart.
 4. Offer two routes to Austin Central Library and start the private route.
-5. Advance active guidance with Android Auto's `AUTO_DRIVE` test command.
-6. Keep guidance and the session wake lock alive while the phone sleeps.
-7. Handle the Android Auto host's Stop action and return to the host dashboard while the car session remains connected.
-8. Disconnect and release the Android Auto service and session wake lock.
+5. Toggle from 3D follow to route overview and back.
+6. Advance active guidance with Android Auto's `AUTO_DRIVE` test command.
+7. Keep guidance and the session wake lock alive while the phone sleeps.
+8. Handle the Android Auto host's Stop action and return to the host dashboard while the car session remains connected.
+9. Disconnect and release the Android Auto service and session wake lock.
 
 ## Artifacts
 

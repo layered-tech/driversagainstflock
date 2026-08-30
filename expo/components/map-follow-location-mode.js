@@ -19,7 +19,7 @@ const LOCATION_FOLLOW_CAMERA_PITCH = 55;
 const METERS_PER_SECOND_PER_MPH = 0.44704;
 const RECENTER_REASON_AWAY = 'away';
 const LOCATION_FOLLOW_SPEED_ZOOM_LEVELS = [
-    { speedMph: 25, zoomLevel: 19 },
+    { speedMph: 25, zoomLevel: 18.5 },
     { speedMph: 30, zoomLevel: 18.25 },
     { speedMph: 35, zoomLevel: 17.5 },
     { speedMph: 40, zoomLevel: 16.75 },
@@ -73,6 +73,8 @@ export function useFollowLocationMode({
     cameraViewportInsets,
     clampZoomLevel,
     currentZoomRef,
+    followIsEnabled = true,
+    followPitch = LOCATION_FOLLOW_CAMERA_PITCH,
     followSpeedZoomEnabled = false,
     followViewportAnchorY,
     isDrivingMode,
@@ -209,15 +211,18 @@ export function useFollowLocationMode({
     const nativeCameraFollowProps = useMemo(
         () => ({
             enabled:
+                followIsEnabled &&
                 isDrivingMode &&
                 locationTrackingMode === LOCATION_TRACKING_FOLLOW &&
                 !recenterIsNeeded,
             padding: followCameraPadding,
-            pitch: LOCATION_FOLLOW_CAMERA_PITCH,
+            pitch: followPitch,
             zoomLevel: nativeFollowZoomLevel,
         }),
         [
             followCameraPadding,
+            followIsEnabled,
+            followPitch,
             isDrivingMode,
             locationTrackingMode,
             nativeFollowZoomLevel,

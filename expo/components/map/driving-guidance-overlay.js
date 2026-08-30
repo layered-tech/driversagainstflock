@@ -98,6 +98,7 @@ function createSearchResultRestoreFromRoute(route) {
 
 export function DrivingGuidanceOverlay({
     children,
+    drivingStatusIsVisible = true,
     navigationPuckSize,
     onLocationAnchorLayout,
     topOverlay = null,
@@ -369,18 +370,20 @@ export function DrivingGuidanceOverlay({
                     className={`${headerCardIsVisible || topOverlay ? 'pt-3' : ''} flex-row items-start gap-3 px-3`}
                     pointerEvents="box-none"
                 >
-                    <View pointerEvents="box-none">
-                        <SpeedLimitSign
-                            currentSpeedMps={getRouteCurrentSpeedMps(
-                                userLocation,
-                            )}
-                            currentSpeedPlacement="bottom-right"
-                            currentSpeedVisible
-                            isDarkMode={colorScheme === 'dark'}
-                            size={MOBILE_SPEED_LIMIT_BADGE_SIZE}
-                            speedLimit={speedLimit}
-                        />
-                    </View>
+                    {drivingStatusIsVisible ? (
+                        <View pointerEvents="box-none">
+                            <SpeedLimitSign
+                                currentSpeedMps={getRouteCurrentSpeedMps(
+                                    userLocation,
+                                )}
+                                currentSpeedPlacement="bottom-right"
+                                currentSpeedVisible
+                                isDarkMode={colorScheme === 'dark'}
+                                size={MOBILE_SPEED_LIMIT_BADGE_SIZE}
+                                speedLimit={speedLimit}
+                            />
+                        </View>
+                    ) : null}
                     <View className="flex-1" pointerEvents="none" />
                     <View className="items-end" pointerEvents="box-none">
                         {children}
@@ -390,6 +393,7 @@ export function DrivingGuidanceOverlay({
                 <View className="flex-1" pointerEvents="none" />
 
                 <DrivingLocationRoadStack
+                    currentRoadPillIsVisible={drivingStatusIsVisible}
                     onLocationAnchorLayout={onLocationAnchorLayout}
                     puckSize={navigationPuckSize}
                     testID="driving-location-road-stack"

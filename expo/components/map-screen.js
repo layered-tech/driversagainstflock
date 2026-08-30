@@ -37,6 +37,13 @@ import {
 } from './map/directions';
 import { DirectionsRouteSheet } from './map/directions-route-sheet';
 import { DrivingGuidanceOverlay } from './map/driving-guidance-overlay';
+import {
+    DRIVING_MAP_VIEW_PERSPECTIVE,
+    DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
+    getDrivingRouteOverviewPadding,
+    getNextDrivingMapViewMode,
+    shouldShowDrivingMapStatus,
+} from './map/driving-map-view';
 import { makeElectronicHorizonDebugFeatureCollection } from './map/electronic-horizon-debug';
 import { makeMarkerFeatureCollection } from './map/geo';
 import { LocationPermissionSheet } from './map/location-permission-sheet';
@@ -103,6 +110,7 @@ export default function LocationMapScreen({
 } = {}) {
     const lockOnLocationUpdateAnimationDurationRef = useRef(null);
     const fittedDirectionsRouteChoicesKeyRef = useRef('');
+    const fittedDrivingRouteOverviewKeyRef = useRef('');
     // Set by every programmatic sheet dismiss so the sheets' onDismiss handlers can
     // distinguish a user drag-to-close from an internal flow transition.
     const placeSheetProgrammaticDismissRef = useRef(false);
@@ -112,6 +120,9 @@ export default function LocationMapScreen({
     const directionsRouteUserCloseRef = useRef(null);
     const [drivingLocationAnchorY, setDrivingLocationAnchorY] =
         useState(undefined);
+    const [drivingMapViewMode, setDrivingMapViewMode] = useState(
+        DRIVING_MAP_VIEW_PERSPECTIVE,
+    );
     const { height: windowHeight, width: windowWidth } = useWindowDimensions();
     const navigationPuckSize = useMemo(
         () =>
@@ -223,6 +234,7 @@ export default function LocationMapScreen({
         cameraFocusPadding,
         cameraDebugStateUpdatesEnabled,
         drivingCameraFollowViewportAnchorY: drivingLocationAnchorY,
+        drivingMapViewMode,
         initialCameraSettings,
         isDrivingMode,
         lockOnLocationUpdateAnimationDurationRef,
@@ -303,6 +315,19 @@ export default function LocationMapScreen({
         () => getSelectedDirectionsRouteOption(directionsRoute),
         [directionsRoute],
     );
+    const drivingRouteOverviewBounds = useMemo(
+        () => getDirectionsRouteBounds(directionsRoute),
+        [directionsRoute],
+    );
+    const drivingRouteOverviewPadding = useMemo(
+        () => getDrivingRouteOverviewPadding(safeAreaInsets),
+        [
+            safeAreaInsets.bottom,
+            safeAreaInsets.left,
+            safeAreaInsets.right,
+            safeAreaInsets.top,
+        ],
+    );
     const freeDriveIsActive = isDrivingMode && !selectedDirectionsRouteOption;
     const mapSearchOverlayIsVisible =
         searchOverlayVisible ?? (!isDrivingMode || freeDriveIsActive);
@@ -333,6 +358,92 @@ export default function LocationMapScreen({
         !routeComparisonIsActive;
     const freeDriveSearchOverlayIsVisible =
         freeDriveIsActive && resolvedMapSearchOverlayIsVisible;
+
+    const handleDrivingMapViewPress = useCallback(() => {
+        const nextMode = getNextDrivingMapViewMode(drivingMapViewMode);
+
+        setDrivingMapViewMode(nextMode);
+
+        if (nextMode !== DRIVING_MAP_VIEW_ROUTE_OVERVIEW) {
+            locationController.followLocationMode.recenter();
+        }
+    }, [drivingMapViewMode, locationController.followLocationMode]);
+    const handleDrivingRecenterPress = useCallback(() => {
+        if (drivingMapViewMode === DRIVING_MAP_VIEW_ROUTE_OVERVIEW) {
+            setDrivingMapViewMode(DRIVING_MAP_VIEW_PERSPECTIVE);
+        }
+
+        return locationController.handleDrivingRecenterPress();
+    }, [drivingMapViewMode, locationController.handleDrivingRecenterPress]);
+
+    useEffect(() => {
+        if (isDrivingMode && selectedDirectionsRouteOption) {
+            return;
+        }
+
+        fittedDrivingRouteOverviewKeyRef.current = '';
+        setDrivingMapViewMode((currentMode) =>
+            currentMode === DRIVING_MAP_VIEW_PERSPECTIVE
+                ? currentMode
+                : DRIVING_MAP_VIEW_PERSPECTIVE,
+        );
+    }, [isDrivingMode, selectedDirectionsRouteOption]);
+
+    useEffect(() => {
+        if (
+            drivingMapViewMode !== DRIVING_MAP_VIEW_ROUTE_OVERVIEW ||
+            !isDrivingMode ||
+            !selectedDirectionsRouteOption ||
+            !locationController.isMapReady ||
+            !Array.isArray(drivingRouteOverviewBounds?.sw) ||
+            !Array.isArray(drivingRouteOverviewBounds?.ne)
+        ) {
+            if (drivingMapViewMode !== DRIVING_MAP_VIEW_ROUTE_OVERVIEW) {
+                fittedDrivingRouteOverviewKeyRef.current = '';
+            }
+
+            return undefined;
+        }
+
+        const overviewKey = [
+            drivingRouteOverviewBounds.sw.join(','),
+            drivingRouteOverviewBounds.ne.join(','),
+            drivingRouteOverviewPadding.join(','),
+            windowHeight,
+            windowWidth,
+        ].join('|');
+
+        if (fittedDrivingRouteOverviewKeyRef.current === overviewKey) {
+            return undefined;
+        }
+
+        let requestIsCurrent = true;
+
+        void locationController
+            .fitDrivingCameraToBounds(drivingRouteOverviewBounds, {
+                padding: drivingRouteOverviewPadding,
+                shouldApply: () => requestIsCurrent,
+            })
+            .then((wasFitted) => {
+                if (requestIsCurrent && wasFitted) {
+                    fittedDrivingRouteOverviewKeyRef.current = overviewKey;
+                }
+            });
+
+        return () => {
+            requestIsCurrent = false;
+        };
+    }, [
+        drivingMapViewMode,
+        drivingRouteOverviewBounds,
+        drivingRouteOverviewPadding,
+        isDrivingMode,
+        locationController.fitDrivingCameraToBounds,
+        locationController.isMapReady,
+        selectedDirectionsRouteOption,
+        windowHeight,
+        windowWidth,
+    ]);
 
     useEffect(() => {
         if (!freeDriveIsActive || !searchController.searchPageIsVisible) {
@@ -566,7 +677,13 @@ export default function LocationMapScreen({
     });
     const locationValue = useMapLocationContextValue(userLocation);
     const controlsValue = useMapControlsContextValue({
+        drivingMapViewControlIsVisible: Boolean(
+            isDrivingMode && selectedDirectionsRouteOption,
+        ),
+        drivingMapViewMode,
         freeDriveIsActive,
+        handleDrivingRecenterPress,
+        handleDrivingMapViewPress,
         handleStartFreeDrive,
         handleStopFreeDrive,
         handleMarkerLoadingIndicatorHidden,
@@ -701,6 +818,9 @@ export default function LocationMapScreen({
                         ) : null}
                         {isDrivingMode ? (
                             <DrivingGuidanceOverlay
+                                drivingStatusIsVisible={shouldShowDrivingMapStatus(
+                                    drivingMapViewMode,
+                                )}
                                 navigationPuckSize={navigationPuckSize}
                                 onLocationAnchorLayout={
                                     setDrivingLocationAnchorY

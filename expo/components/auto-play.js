@@ -71,6 +71,10 @@ import {
     selectDirectionsRoute,
 } from './map/directions';
 import {
+    DRIVING_MAP_VIEW_PERSPECTIVE,
+    DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
+} from './map/driving-map-view';
+import {
     createEmptyPrimaryLocations,
     createPrimaryLocationDirectionsWaypoint,
     getPrimaryLocationLabel,
@@ -115,6 +119,8 @@ const AUTO_PLAY_ICON_GLYPH_MAP = {
     house: 0xf015,
     'level-up-alt': 0xf3bf,
     location: 0xf3c5,
+    'location-arrow': 0xf124,
+    map: 0xf279,
     minus: 0xf068,
     microphone: 0xf130,
     plus: 0xf067,
@@ -131,6 +137,7 @@ const AUTO_PLAY_GLYPH_BACKGROUND_COLOR = {
     lightColor: 'rgba(255,255,255,0.68)',
 };
 const ROOT_MAP_BUTTON_APPEARANCE_DEFAULTS = {
+    drivingMapViewMode: DRIVING_MAP_VIEW_PERSPECTIVE,
     isDarkMapLayer: false,
     mapLightPreset: null,
     trackingState: 'inactive',
@@ -2454,6 +2461,9 @@ function updateRootMapButtonAppearance(appearance) {
     const mapLightPresetChanged =
         nextAppearance.mapLightPreset !==
         rootMapButtonAppearance.mapLightPreset;
+    const drivingMapViewModeChanged =
+        nextAppearance.drivingMapViewMode !==
+        rootMapButtonAppearance.drivingMapViewMode;
     rootMapButtonAppearance = nextAppearance;
 
     if (mapLightPresetChanged && nextAppearance.mapLightPreset) {
@@ -2462,17 +2472,28 @@ function updateRootMapButtonAppearance(appearance) {
         );
     }
 
-    if (nextAppearanceKey === rootMapButtonAppearanceKey) {
+    const mapButtonAppearanceChanged =
+        nextAppearanceKey !== rootMapButtonAppearanceKey;
+
+    if (!mapButtonAppearanceChanged && !drivingMapViewModeChanged) {
         return;
     }
 
-    rootMapButtonAppearanceKey = nextAppearanceKey;
+    if (mapButtonAppearanceChanged) {
+        rootMapButtonAppearanceKey = nextAppearanceKey;
+    }
 
     if (!rootMapTemplate || !rootMapTemplateIsReady) {
         return;
     }
 
-    updateRootMapButtons();
+    if (mapButtonAppearanceChanged) {
+        updateRootMapButtons();
+    }
+
+    if (drivingMapViewModeChanged) {
+        updateRootTemplateHeaderActions();
+    }
 
     if (darkMapLayerChanged && activeNavigationRoute) {
         // Maneuver card colors are baked in when updateManeuvers runs, so a
@@ -2583,6 +2604,22 @@ function getRootHeaderDrivingModeButtonImage() {
                 : AUTO_PLAY_GLYPH_COLOR,
         }),
         fontScale: 0.74,
+    };
+}
+
+function getRootHeaderDrivingMapViewButtonImage() {
+    const routeOverviewIsActive =
+        rootMapButtonAppearance.drivingMapViewMode ===
+        DRIVING_MAP_VIEW_ROUTE_OVERVIEW;
+
+    return {
+        ...makeGlyphImage(routeOverviewIsActive ? 'map' : 'location-arrow', {
+            backgroundColor: 'transparent',
+            color: routeOverviewIsActive
+                ? ROOT_MAP_BUTTON_ACTIVE_ICON_COLOR
+                : AUTO_PLAY_GLYPH_COLOR,
+        }),
+        fontScale: 0.7,
     };
 }
 
@@ -2961,6 +2998,9 @@ const handleRootHeaderVoiceSearchPress = () => {
 const handleRootHeaderDrivingModePress = () => {
     toggleAutoPlayDrivingMode();
 };
+const handleRootHeaderDrivingMapViewPress = () => {
+    getAutoPlayMapControlHandlers().handleDrivingMapViewPress();
+};
 const handleRootHeaderExitNavigationPress = () => {
     stopAutoPlayNavigation();
 };
@@ -3001,6 +3041,9 @@ let cachedRootMapHeaderActionsKey = '';
 function getRootMapHeaderActions() {
     const hasActiveNavigation = Boolean(activeNavigationRoute);
     const drivingModeKey = getAutoPlayDrivingModeIsActive() ? '1' : '0';
+    const drivingMapViewModeKey = hasActiveNavigation
+        ? rootMapButtonAppearance.drivingMapViewMode
+        : 'hidden';
     const { navigationExitButtonIsVisible, trailingNavigationButtonIsVisible } =
         getAutoPlayHeaderButtonVisibility({
             hasActiveNavigation,
@@ -3015,7 +3058,7 @@ function getRootMapHeaderActions() {
             primaryLocations: autoPlayPrimaryLocations,
         });
     const primaryLocationTypes = primaryLocationHeaderActionTypes.android;
-    const rootMapHeaderActionsKey = `${drivingModeKey}:${navigationExitButtonIsVisible ? 'navigating' : 'ready'}:${trailingNavigationButtonIsVisible ? 'trailing' : 'search-only'}:${primaryLocationTypes.join(':')}`;
+    const rootMapHeaderActionsKey = `${drivingModeKey}:${drivingMapViewModeKey}:${navigationExitButtonIsVisible ? 'navigating' : 'ready'}:${trailingNavigationButtonIsVisible ? 'trailing' : 'search-only'}:${primaryLocationTypes.join(':')}`;
 
     if (
         cachedRootMapHeaderActions &&
@@ -3034,6 +3077,13 @@ function getRootMapHeaderActions() {
         onPress: handleRootHeaderVoiceSearchPress,
         type: 'image',
     };
+    const drivingMapViewButton = hasActiveNavigation
+        ? {
+              image: getRootHeaderDrivingMapViewButtonImage(),
+              onPress: handleRootHeaderDrivingMapViewPress,
+              type: 'image',
+          }
+        : null;
     const trailingNavigationButton = trailingNavigationButtonIsVisible
         ? {
               image: navigationExitButtonIsVisible
@@ -3056,6 +3106,7 @@ function getRootMapHeaderActions() {
 
     cachedRootMapHeaderActions = {
         android: [
+            ...(drivingMapViewButton ? [drivingMapViewButton] : []),
             searchButton,
             ...androidPrimaryLocationButtons,
             ...(trailingNavigationButton ? [trailingNavigationButton] : []),
@@ -3063,7 +3114,10 @@ function getRootMapHeaderActions() {
         ios: {
             leadingNavigationBarButtons: [searchButton, voiceSearchButton],
             trailingNavigationBarButtons: trailingNavigationButton
-                ? [trailingNavigationButton]
+                ? [
+                      ...(drivingMapViewButton ? [drivingMapViewButton] : []),
+                      trailingNavigationButton,
+                  ]
                 : carPlayPrimaryLocationButtons,
         },
     };
