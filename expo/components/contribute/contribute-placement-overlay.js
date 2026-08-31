@@ -12,6 +12,7 @@ import { DafChip } from '../design-system/primitives';
 import { dafSemanticColors } from '../design-system/tokens';
 import { MAP_CONTROL_BUTTON_CLASS_NAME } from '../map/constants';
 import { MapControlButton } from '../map/map-control-button';
+import { saveDraftBeforeExit } from './contribute-draft-actions';
 import { useContribute } from './contribute-state';
 
 function getMapBoundsMidpoint(bounds) {
@@ -63,8 +64,17 @@ export function ContributePlacementOverlay({
                 },
                 {
                     onPress: async () => {
-                        await saveDraft();
-                        exitContribute();
+                        const draftWasSaved = await saveDraftBeforeExit(
+                            saveDraft,
+                            exitContribute,
+                        );
+
+                        if (!draftWasSaved) {
+                            Alert.alert(
+                                'Draft not saved',
+                                'Your draft could not be saved on this device. Please try again before leaving.',
+                            );
+                        }
                     },
                     text: 'Save draft & exit',
                 },

@@ -1195,6 +1195,25 @@ function abortPendingRoadGraphWork() {
     graphRequest = null;
 }
 
+function clearReleasedRoadMatchingSessionState() {
+    lastBackgroundDelivery = null;
+    lastBackgroundDeliveryAppState = null;
+    lastRawLocation = null;
+    lastRawLocationAppState = null;
+    lastRawLocationRecordedAt = null;
+    lastRawLocationSource = null;
+    lastRoadMatchedLocation = null;
+    rawLocationHistory = [];
+    matcher?.reset?.();
+
+    if (lastRoadLookAhead !== null) {
+        lastRoadLookAhead = null;
+        emit(lookAheadListeners, null);
+    }
+
+    emit(locationListeners, null);
+}
+
 export function roadMatchingLocationIsSupported() {
     return typeof Location.watchPositionAsync === 'function';
 }
@@ -1233,8 +1252,7 @@ export async function retainRoadMatchingSessionAsync({
 
             if (activeRetainerCount === 0) {
                 backgroundPermissionRequestAttempted = false;
-                lastBackgroundDelivery = null;
-                lastBackgroundDeliveryAppState = null;
+                clearReleasedRoadMatchingSessionState();
                 abortPendingRoadGraphWork();
             }
 

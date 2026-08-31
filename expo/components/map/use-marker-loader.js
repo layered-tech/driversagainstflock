@@ -12,6 +12,7 @@ import {
     getMarkerRequestBoundsSpan,
     markerRequestBoundsAreLoadable,
     markerRequestBoundsContainCameraBounds,
+    shouldSkipMarkerLoadRequest,
 } from './geo';
 import { upsertMarkerPointList } from './marker-point-merge';
 
@@ -214,24 +215,21 @@ export function useMarkerLoader() {
             const boundsKey = getMarkerBoundsKey(requestBounds);
             const activeRequestContainsBounds =
                 activeMarkerRequestContainsBounds(bounds, boundsKey);
-            const abortedActiveRequest = activeRequestContainsBounds
-                ? false
-                : abortActiveMarkerRequest();
 
             if (
                 boundsKey === lastLoadedMarkerBoundsKeyRef.current ||
-                markerRequestBoundsContainCameraBounds(
-                    lastLoadedMarkerRequestBoundsRef.current,
-                    bounds,
-                ) ||
-                activeRequestContainsBounds
+                shouldSkipMarkerLoadRequest({
+                    activeRequestContainsBounds,
+                    cameraBounds: bounds,
+                    lastLoadedRequestBounds:
+                        lastLoadedMarkerRequestBoundsRef.current,
+                    pendingRequestBounds: null,
+                })
             ) {
-                if (abortedActiveRequest) {
-                    setMarkersAreLoading(false);
-                }
-
                 return;
             }
+
+            abortActiveMarkerRequest();
 
             const requestId = markerRequestIdRef.current + 1;
             const abortController = new AbortController();
@@ -362,30 +360,21 @@ export function useMarkerLoader() {
             const boundsKey = getMarkerBoundsKey(requestBounds);
             const activeRequestContainsBounds =
                 activeMarkerRequestContainsBounds(bounds, boundsKey);
-            const abortedActiveRequest = activeRequestContainsBounds
-                ? false
-                : abortActiveMarkerRequest();
 
             if (
-                markerRequestBoundsContainCameraBounds(
-                    lastLoadedMarkerRequestBoundsRef.current,
-                    bounds,
-                ) ||
-                activeRequestContainsBounds ||
-                markerRequestBoundsContainCameraBounds(
-                    pendingMarkerLoadRequestBoundsRef.current,
-                    bounds,
-                )
+                shouldSkipMarkerLoadRequest({
+                    activeRequestContainsBounds,
+                    cameraBounds: bounds,
+                    lastLoadedRequestBounds:
+                        lastLoadedMarkerRequestBoundsRef.current,
+                    pendingRequestBounds:
+                        pendingMarkerLoadRequestBoundsRef.current,
+                })
             ) {
-                if (
-                    abortedActiveRequest &&
-                    !pendingMarkerLoadRequestBoundsRef.current
-                ) {
-                    setMarkersAreLoading(false);
-                }
-
                 return;
             }
+
+            abortActiveMarkerRequest();
 
             if (markerLoadDebounceRef.current) {
                 clearTimeout(markerLoadDebounceRef.current);

@@ -48,7 +48,7 @@ test('driving bounds fit releases native puck follow before moving the camera', 
     );
 });
 
-test('search and route fit callers await asynchronous camera ownership', () => {
+test('search and route fits cannot apply after their surface state is replaced', () => {
     const searchFitSource = sourceBetween(
         mapSurfaceSource,
         'const fitSearchResultsToBounds =',
@@ -67,10 +67,32 @@ test('search and route fit callers await asynchronous camera ownership', () => {
         assert.match(source, /=\s*async\s*\(\)\s*=>/);
         assert.match(
             source,
-            /await controller\.fitCameraToBounds\(bounds/,
-            `${name} bounds fitting must await camera ownership`,
+            /await controller\.fitCameraToBounds\(bounds,[\s\S]*?shouldApply:\s*\(\)\s*=>\s*!isCancelled/,
+            `${name} bounds fitting must cancel before it takes camera ownership`,
         );
     }
+
+    assert.doesNotMatch(
+        searchFitSource,
+        /requestAnimationFrame|setTimeout/,
+        'search fitting must not queue delayed camera commands after cleanup',
+    );
+    assert.doesNotMatch(
+        routeFitSource,
+        /requestAnimationFrame|setTimeout/,
+        'route fitting must not queue delayed camera commands after cleanup',
+    );
+
+    const fitCameraSource = sourceBetween(
+        mapSurfaceSource,
+        'const fitCameraToBounds = useCallback(',
+        'const pauseFollowForManualMapGesture',
+    );
+    assert.match(
+        fitCameraSource,
+        /shouldApply = \(\) => true[\s\S]*?await locationPuckCameraFollowReleaseRef\.current[\s\S]*?!shouldApply\(\)[\s\S]*?cameraRef\.current\.setCamera/,
+        'the controller must recheck cancellation after native follow releases',
+    );
 });
 
 test('location hydration cannot reclaim follow while browsing owns the camera', () => {
@@ -94,7 +116,54 @@ test('location hydration cannot reclaim follow while browsing owns the camera', 
     assert.match(mapControllerCall, /mapBrowsingContextIsActive/);
     assert.match(
         locationHydrationSource,
-        /if \(\s*isDrivingMode\s*&&\s*!mapBrowsingContextIsActive(?:Ref)?(?:\.current)?\s*\) \{\s*followLocationMode\.start\(currentLocation\);/,
+        /if \(\s*isDrivingModeRef\.current\s*&&\s*!mapBrowsingContextIsActiveRef\.current\s*\) \{[\s\S]*?followLocationMode\.start\(currentLocation\);/,
         'search or route browsing must retain camera ownership after location hydration',
+    );
+    assert.match(
+        locationHydrationSource,
+        /locationUpdatesEnabledRef\.current[\s\S]*?isDrivingModeRef\.current/,
+        'hydration must read the current host state after its permission request resolves',
+    );
+});
+
+test('the driving location control can remain off until the user recenters', () => {
+    const trackingPressSource = sourceBetween(
+        mapSurfaceSource,
+        'const handleLocationTrackingPress = useCallback',
+        'const handleDrivingRecenterPress',
+    );
+    const locationUpdateSource = sourceBetween(
+        mapSurfaceSource,
+        'const handleUserLocationUpdate = useCallback',
+        '// While the Play Store auto-drive simulation',
+    );
+    const sharedLocationAutoStartSource = sourceBetween(
+        mapSurfaceSource,
+        'useEffect(() => {\n        if (\n            locationUpdatesEnabled ||',
+        'useEffect(() => {\n        if (!isMapReady || !pendingCameraStopRef.current)',
+    );
+    const drivingSessionSource = sourceBetween(
+        mapSurfaceSource,
+        'const wasDrivingMode = previousDrivingModeRef.current;',
+        'const handleCameraChanged = useCallback',
+    );
+
+    assert.match(
+        trackingPressSource,
+        /isDrivingMode[\s\S]*?followAutoStartIsSuppressedRef\.current = true[\s\S]*?activeLocationMode\.stop\(\)/,
+    );
+    assert.match(
+        locationUpdateSource,
+        /currentTrackingMode !== LOCATION_TRACKING_FOLLOW[\s\S]*?!followAutoStartIsSuppressedRef\.current[\s\S]*?followLocationMode\.start/,
+    );
+    assert.match(
+        sharedLocationAutoStartSource,
+        /if \(isDrivingMode\) \{[\s\S]*?followAutoStartIsSuppressedRef\.current[\s\S]*?return;[\s\S]*?followLocationMode\.start\(userLocation\)/,
+        'the shared-location fallback must honor an explicit tracking-off request',
+    );
+    assert.match(
+        drivingSessionSource,
+        /if \(isDrivingMode\) \{[\s\S]*?followAutoStartIsSuppressedRef\.current = false[\s\S]*?followLocationMode\.start/,
+        'a new driving session must reset the prior session tracking preference',
     );
 });

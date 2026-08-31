@@ -16,6 +16,7 @@ import { dafSemanticColors } from '../design-system/tokens';
 import { toggleNearestDrawer } from '../map/navigation';
 import {
     getLegalDocumentMetadata,
+    getLegalSectionScrollOffset,
     getLegalTableOfContents,
 } from './information-page-state';
 
@@ -286,6 +287,7 @@ function SafetyNotice({ children }) {
 
 export function LegalScreen({ page, testID }) {
     const scrollViewRef = useRef(null);
+    const sectionsContainerOffsetRef = useRef(null);
     const sectionOffsetsRef = useRef({});
     const [tableOfContentsIsOpen, setTableOfContentsIsOpen] = useState(
         page.tableOfContentsInitiallyOpen === true,
@@ -312,7 +314,10 @@ export function LegalScreen({ page, testID }) {
 
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-                const offset = sectionOffsetsRef.current[sectionId];
+                const offset = getLegalSectionScrollOffset(
+                    sectionsContainerOffsetRef.current,
+                    sectionOffsetsRef.current[sectionId],
+                );
 
                 if (typeof offset === 'number') {
                     scrollViewRef.current?.scrollTo({
@@ -375,7 +380,13 @@ export function LegalScreen({ page, testID }) {
                         />
                     </View>
 
-                    <View className="mt-[14px]">
+                    <View
+                        className="mt-[14px]"
+                        onLayout={(event) => {
+                            sectionsContainerOffsetRef.current =
+                                event.nativeEvent.layout.y;
+                        }}
+                    >
                         {page.sections.map((section, index) => (
                             <LegalSection
                                 isFirst={index === 0}

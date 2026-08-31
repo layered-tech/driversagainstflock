@@ -9,6 +9,7 @@
 const HOUR_IN_MS = 60 * 60 * 1000;
 const DAY_IN_MS = 24 * HOUR_IN_MS;
 const NODE_COLOR_HUE_OFFSET = 12;
+const DRIVERS_AGAINST_FLOCK_CREATED_BY_PREFIX = 'DriversAgainstFlock.org (';
 
 const SHORT_MONTH_LABELS = [
     'Jan',
@@ -136,6 +137,15 @@ export function isSurveillanceTags(tags) {
         tags.man_made === 'surveillance' ||
         tags['disused:man_made'] === 'surveillance' ||
         Boolean(tags['surveillance:type'])
+    );
+}
+
+export function isDriversAgainstFlockChangeset(changeset) {
+    const createdBy = changeset?.tags?.created_by;
+
+    return (
+        typeof createdBy === 'string' &&
+        createdBy.startsWith(DRIVERS_AGAINST_FLOCK_CREATED_BY_PREFIX)
     );
 }
 

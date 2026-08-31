@@ -272,6 +272,25 @@ export function markerRequestBoundsContainCameraBounds(
     );
 }
 
+export function shouldSkipMarkerLoadRequest({
+    activeRequestContainsBounds,
+    cameraBounds,
+    lastLoadedRequestBounds,
+    pendingRequestBounds,
+}) {
+    return (
+        activeRequestContainsBounds ||
+        markerRequestBoundsContainCameraBounds(
+            lastLoadedRequestBounds,
+            cameraBounds,
+        ) ||
+        markerRequestBoundsContainCameraBounds(
+            pendingRequestBounds,
+            cameraBounds,
+        )
+    );
+}
+
 export function resolveMarkerLoadBounds({
     cameraBounds,
     drivingFollowIsActive,

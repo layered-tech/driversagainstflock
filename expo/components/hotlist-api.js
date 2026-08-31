@@ -176,6 +176,7 @@ async function readHotlistResponse(response) {
 
 export async function getHotlist({
     manufacturer = 'all',
+    page = 1,
     signal,
     timeWindow = '7',
 } = {}) {
@@ -183,6 +184,7 @@ export async function getHotlist({
         category: 'hotlist',
         data: {
             manufacturer,
+            page,
             window: timeWindow,
         },
         message: 'Mobile hotlist requested',
@@ -196,6 +198,11 @@ export async function getHotlist({
                 manufacturer,
                 window: timeWindow,
             },
+            nodes: {
+                ...MOCK_HOTLIST_PAYLOAD.nodes,
+                currentPage: page,
+                data: page === 1 ? MOCK_HOTLIST_PAYLOAD.nodes.data : [],
+            },
         });
     }
 
@@ -203,6 +210,7 @@ export async function getHotlist({
         buildApiURL('v1/hotlist', {
             direction: 'desc',
             manufacturer,
+            page,
             sort: 'updated',
             window: timeWindow,
         }),

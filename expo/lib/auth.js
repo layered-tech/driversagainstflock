@@ -23,6 +23,10 @@ import {
     OPENSTREETMAP_DEFAULT_SCOPES,
 } from './auth/openstreetmap';
 import {
+    acquireOperationLock,
+    releaseOperationLock,
+} from './auth/operation-lock';
+import {
     forgetStoredOAuthRequest,
     getStoredAuth,
     getStoredOAuthRequest,
@@ -68,6 +72,7 @@ export function AuthProvider({ children }) {
     const oauthCompletionRef = useRef(null);
     const completedOAuthKeyRef = useRef(null);
     const pendingOAuthRequestRef = useRef(null);
+    const signInOperationLockRef = useRef(false);
 
     const clearSession = useCallback(async () => {
         addSentryBreadcrumb({
@@ -303,25 +308,9 @@ export function AuthProvider({ children }) {
     }, [user]);
 
     const signInWithOpenStreetMap = useCallback(async () => {
-        if (isSigningIn) {
+        if (!acquireOperationLock(signInOperationLockRef)) {
             return null;
         }
-
-        const state = createOAuthState();
-        const codeVerifier = createPKCECodeVerifier();
-        const { codeChallenge, codeChallengeMethod } =
-            await createPKCEChallenge(codeVerifier);
-        const authURL = buildOpenStreetMapAuthorizationURL({
-            codeChallenge,
-            codeChallengeMethod,
-            scopes: OPENSTREETMAP_DEFAULT_SCOPES,
-            state,
-        });
-        const oauthRequest = {
-            codeVerifier,
-            scopes: OPENSTREETMAP_DEFAULT_SCOPES,
-            state,
-        };
 
         setIsSigningIn(true);
         addSentryBreadcrumb({
@@ -330,6 +319,22 @@ export function AuthProvider({ children }) {
         });
 
         try {
+            const state = createOAuthState();
+            const codeVerifier = createPKCECodeVerifier();
+            const { codeChallenge, codeChallengeMethod } =
+                await createPKCEChallenge(codeVerifier);
+            const authURL = buildOpenStreetMapAuthorizationURL({
+                codeChallenge,
+                codeChallengeMethod,
+                scopes: OPENSTREETMAP_DEFAULT_SCOPES,
+                state,
+            });
+            const oauthRequest = {
+                codeVerifier,
+                scopes: OPENSTREETMAP_DEFAULT_SCOPES,
+                state,
+            };
+
             pendingOAuthRequestRef.current = oauthRequest;
             await setStoredOAuthRequest(oauthRequest);
 
@@ -355,9 +360,10 @@ export function AuthProvider({ children }) {
                 expectedRequest: oauthRequest,
             });
         } finally {
+            releaseOperationLock(signInOperationLockRef);
             setIsSigningIn(false);
         }
-    }, [completeOpenStreetMapLogin, isSigningIn]);
+    }, [completeOpenStreetMapLogin]);
 
     const hasWriteScope = grantedScopes.includes(OSM_WRITE_SCOPE);
 

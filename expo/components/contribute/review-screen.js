@@ -1,12 +1,13 @@
 import { router } from 'expo-router';
 import { useCallback } from 'react';
-import { ScrollView, Text, useColorScheme, View } from 'react-native';
+import { Alert, ScrollView, Text, useColorScheme, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { usePreventRemove } from '../../lib/use-prevent-remove';
 import { Icon } from '../design-system/icon';
 import { DafButton, DafSectionLabel } from '../design-system/primitives';
 import { dafColors, getDafTheme } from '../design-system/tokens';
+import { saveDraftBeforeExit } from './contribute-draft-actions';
 import { useContribute } from './contribute-state';
 import { ContributePageHeader } from './step-header';
 
@@ -75,9 +76,17 @@ export default function ReviewPublishScreen() {
     }, [publish]);
 
     const handleSaveDraftPress = useCallback(async () => {
-        await saveDraft();
-        router.replace('/');
-        exitContribute();
+        const draftWasSaved = await saveDraftBeforeExit(saveDraft, () => {
+            router.replace('/');
+            exitContribute();
+        });
+
+        if (!draftWasSaved) {
+            Alert.alert(
+                'Draft not saved',
+                'Your draft could not be saved on this device. Please try again before leaving.',
+            );
+        }
     }, [exitContribute, saveDraft]);
 
     return (

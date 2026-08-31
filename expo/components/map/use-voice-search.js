@@ -114,9 +114,11 @@ export function useVoiceSearch({
                 );
             }),
             speechRecognition.addListener('result', (event) => {
+                const resultIsFinal =
+                    event?.isFinal ?? event?.results?.[0]?.isFinal;
                 const transcript = event?.results?.[0]?.transcript?.trim();
 
-                if (!transcript) {
+                if (!transcript || resultIsFinal === false) {
                     return;
                 }
 

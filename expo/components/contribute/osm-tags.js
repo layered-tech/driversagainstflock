@@ -1,3 +1,11 @@
+import {
+    CAMERA_MOUNT_TAG_VALUES,
+    getCameraDirectionTagValue,
+    getCameraManufacturerTags,
+    getCameraSurveillanceTags,
+    normalizeCameraDegrees,
+} from '../../lib/osm/camera-schema.js';
+
 const CARDINAL_DIRECTIONS = [
     'N',
     'NNE',
@@ -17,63 +25,13 @@ const CARDINAL_DIRECTIONS = [
     'NNW',
 ];
 
-const CAMERA_MOUNT_TAG_VALUES = [
-    'building',
-    'gantry',
-    'pole',
-    'traffic_signals',
-];
-
-const ALPR_SURVEILLANCE_TAGS = {
-    'camera:type': 'fixed',
-    surveillance: 'public',
-    'surveillance:type': 'ALPR',
-    'surveillance:zone': 'traffic',
-};
-
-const CCTV_SURVEILLANCE_TAGS = {
-    'camera:type': 'fixed',
-    surveillance: 'public',
-    'surveillance:type': 'camera',
-};
-
-const MANUFACTURER_TAGS = {
-    flock: {
-        manufacturer: 'Flock Safety',
-        'manufacturer:wikidata': 'Q108485435',
-    },
-    motorola: {
-        manufacturer: 'Motorola Solutions',
-        'manufacturer:wikidata': 'Q634815',
-    },
-};
-
-function normalizeDegrees(degrees) {
-    if (typeof degrees !== 'number' || !Number.isFinite(degrees)) {
-        return null;
-    }
-
-    return ((Math.round(degrees) % 360) + 360) % 360;
-}
-
-function getDirectionTagValue(directions) {
-    if (!Array.isArray(directions)) {
-        return '';
-    }
-
-    return directions
-        .map(normalizeDegrees)
-        .filter((degrees) => degrees !== null)
-        .join(';');
-}
-
 export function buildNodeTags(details = {}) {
     const { directions, manufacturer, mount, operator, type } = details;
     const tags = {
         man_made: 'surveillance',
-        ...(type === 'cctv' ? CCTV_SURVEILLANCE_TAGS : ALPR_SURVEILLANCE_TAGS),
+        ...getCameraSurveillanceTags(type),
     };
-    const manufacturerTags = MANUFACTURER_TAGS[manufacturer];
+    const manufacturerTags = getCameraManufacturerTags(manufacturer);
 
     if (manufacturerTags) {
         Object.assign(tags, manufacturerTags);
@@ -85,7 +43,7 @@ export function buildNodeTags(details = {}) {
         tags.operator = trimmedOperator;
     }
 
-    const directionTagValue = getDirectionTagValue(directions);
+    const directionTagValue = getCameraDirectionTagValue(directions);
 
     if (directionTagValue) {
         tags.direction = directionTagValue;
@@ -135,7 +93,7 @@ export function buildChangesetTags({ comment, hashtags, source } = {}) {
 }
 
 export function degreesToCardinal(degrees) {
-    const normalizedDegrees = normalizeDegrees(degrees);
+    const normalizedDegrees = normalizeCameraDegrees(degrees);
 
     if (normalizedDegrees === null) {
         return '';
@@ -148,7 +106,7 @@ export function degreesToCardinal(degrees) {
 }
 
 export function formatBearingChip(degrees) {
-    const normalizedDegrees = normalizeDegrees(degrees);
+    const normalizedDegrees = normalizeCameraDegrees(degrees);
 
     if (normalizedDegrees === null) {
         return '';

@@ -1,7 +1,11 @@
-export function getOSMBaseURL() {
-    const configuredBaseURL = process.env.EXPO_PUBLIC_OSM_BASE_URL?.trim();
+import { APP_ENVIRONMENT } from '../auth/constants';
+import { resolveOSMBaseURL } from './config-values.js';
 
-    return configuredBaseURL.replace(/\/+$/, '');
+export function getOSMBaseURL() {
+    return resolveOSMBaseURL(
+        process.env.EXPO_PUBLIC_OSM_BASE_URL,
+        APP_ENVIRONMENT,
+    );
 }
 
 export function getOSMOAuthAuthorizationURL() {

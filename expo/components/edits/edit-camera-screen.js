@@ -186,6 +186,7 @@ export default function EditCameraScreen() {
     const [removeSheetIsOpen, setRemoveSheetIsOpen] = useState(false);
     const removeActionHandledRef = useRef(false);
     const saveIsInFlightRef = useRef(false);
+    const dirtyDetailFieldsRef = useRef(new Set());
     const action = getRouteParamValue(params.action);
     const nodeId = parseNodeIdParam(params.nodeId);
     const isSaving = publishStatus === 'publishing';
@@ -244,6 +245,7 @@ export default function EditCameraScreen() {
                     );
                 }
 
+                dirtyDetailFieldsRef.current.clear();
                 setDetails(parseNodeDetails(fetchedNode?.tags ?? {}));
                 setNode(fetchedNode);
                 setNodeLocation(fetchedNodeLocation);
@@ -294,10 +296,18 @@ export default function EditCameraScreen() {
     }, [publishStatus]);
 
     const updateDetails = useCallback((detailsPatch) => {
-        setDetails((currentDetails) => ({
-            ...currentDetails,
-            ...detailsPatch,
-        }));
+        setDetails((currentDetails) => {
+            Object.entries(detailsPatch).forEach(([field, value]) => {
+                if (currentDetails?.[field] !== value) {
+                    dirtyDetailFieldsRef.current.add(field);
+                }
+            });
+
+            return {
+                ...currentDetails,
+                ...detailsPatch,
+            };
+        });
     }, []);
 
     const handleBackPress = useCallback(() => {
@@ -441,7 +451,9 @@ export default function EditCameraScreen() {
                     id: node.id,
                     latitude: nodeLocation.latitude,
                     longitude: nodeLocation.longitude,
-                    tags: buildUpdatedNodeTags(node.tags, details),
+                    tags: buildUpdatedNodeTags(node.tags, details, {
+                        dirtyFields: dirtyDetailFieldsRef.current,
+                    }),
                     version: node.version,
                 },
             });

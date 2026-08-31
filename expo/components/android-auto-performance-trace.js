@@ -9,10 +9,10 @@ export const ANDROID_AUTO_PERFORMANCE_TRACE_STORAGE_KEY =
     'driversagainstflock.androidAutoPerformanceTrace.v1';
 
 const TRACE_SCHEMA_VERSION = 1;
-const MAX_TRACE_ENTRIES = 4000;
-const PERSIST_DELAY_MS = 3000;
-const EVENT_LOOP_WATCHDOG_INTERVAL_MS = 250;
-const EVENT_LOOP_DELAY_THRESHOLD_MS = 100;
+const MAX_TRACE_ENTRIES = 1000;
+const PERSIST_DELAY_MS = 15000;
+const EVENT_LOOP_WATCHDOG_INTERVAL_MS = 1000;
+const EVENT_LOOP_DELAY_THRESHOLD_MS = 200;
 const PERMITTED_TRACE_DATA_KEYS = new Set([
     'delayMs',
     'durationMs',
@@ -67,13 +67,21 @@ function snapshotActiveTrace() {
         return null;
     }
 
+    const { persistedRevision, revision, ...trace } = activeTrace;
+
     return {
-        ...activeTrace,
+        ...trace,
         entries: [...activeTrace.entries],
     };
 }
 
 function queueTracePersistence() {
+    const trace = activeTrace;
+
+    if (!trace || trace.revision === trace.persistedRevision) {
+        return persistenceQueue;
+    }
+
     const traceSnapshot = snapshotActiveTrace();
 
     if (!traceSnapshot) {
@@ -81,6 +89,7 @@ function queueTracePersistence() {
     }
 
     const serializedTrace = JSON.stringify(traceSnapshot);
+    const persistedRevision = trace.revision;
 
     persistenceQueue = persistenceQueue
         .catch(() => {})
@@ -90,6 +99,11 @@ function queueTracePersistence() {
                 serializedTrace,
             ),
         )
+        .then(() => {
+            if (activeTrace === trace) {
+                trace.persistedRevision = persistedRevision;
+            }
+        })
         .catch(() => {});
 
     return persistenceQueue;
@@ -129,6 +143,7 @@ function addTraceEntry(event, data) {
     };
 
     activeTrace.entries.push(entry);
+    activeTrace.revision += 1;
 
     if (activeTrace.entries.length > MAX_TRACE_ENTRIES) {
         activeTrace.entries.splice(
@@ -175,6 +190,8 @@ function startTrace() {
 
     activeTrace = {
         entries: [],
+        persistedRevision: 0,
+        revision: 0,
         schemaVersion: TRACE_SCHEMA_VERSION,
         startedAt,
     };

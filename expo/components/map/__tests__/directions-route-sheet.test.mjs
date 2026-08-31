@@ -24,26 +24,53 @@ const mapPreferencesSource = readFileSync(
 );
 
 test('presents the directions sheet after the route renders', () => {
+    const routeSheetPresentationEffectCount = [
+        ...directionsRouteSheetSource.matchAll(
+            /const presentRouteSheet = \(\) => \{/g,
+        ),
+    ].length;
+
+    assert.equal(routeSheetPresentationEffectCount, 1);
     assert.match(
         directionsRouteSheetSource,
         /if \(!mapPreferencesAreLoaded \|\| !directionsRoute\) \{\s+return undefined;\s+\}/,
     );
     assert.match(
         directionsRouteSheetSource,
-        /const frame = requestAnimationFrame\(presentRouteSheet\);/,
+        /const frame = requestAnimationFrame\(\(\) => \{\s+if \(!presentRouteSheet\(\)\) \{/,
     );
     assert.match(
         directionsRouteSheetSource,
-        /const retry = setTimeout\(presentRouteSheet, 300\);/,
+        /retry = setTimeout\(presentRouteSheet, 300\);/,
     );
     assert.match(
         directionsRouteSheetSource,
-        /cancelAnimationFrame\(frame\);\s+clearTimeout\(retry\);/,
+        /cancelAnimationFrame\(frame\);[\s\S]*?if \(retry !== null\) \{\s+clearTimeout\(retry\);/,
     );
     assert.doesNotMatch(
         directionsRouteRequestSource,
         /setDirectionsRoute\(nextRoute\);\s+directionsRouteSheetRef\.current\?\.present\(\);/,
     );
+});
+
+test('keeps route-selection camera fitting under the map screen owner', () => {
+    const routeSelectionStart = mapSearchSource.indexOf(
+        'const handleDirectionsRouteSelect = useCallback(',
+    );
+    const routeSelectionEnd = mapSearchSource.indexOf(
+        'const handleDirectionsAdvancedSettingsApply = useCallback(',
+        routeSelectionStart,
+    );
+    const routeSelectionSource = mapSearchSource.slice(
+        routeSelectionStart,
+        routeSelectionEnd,
+    );
+
+    assert.ok(
+        routeSelectionStart >= 0 && routeSelectionEnd > routeSelectionStart,
+    );
+    assert.match(routeSelectionSource, /setDirectionsRoute\(nextRoute\)/);
+    assert.doesNotMatch(routeSelectionSource, /fitCameraToBounds/);
 });
 
 test('keeps advanced settings available and recalculates the selected route', () => {
@@ -66,6 +93,10 @@ test('keeps advanced settings available and recalculates the selected route', ()
     assert.match(
         mapSearchSource,
         /selectedRouteKey:\s+getSelectedDirectionsRouteKey\(directionsRoute\)/,
+    );
+    assert.match(
+        mapSearchSource,
+        /currentLocationWaypointNeedsRefresh\(\{[\s\S]*?value: directionsStopValue,[\s\S]*?waypoint: directionsStopWaypoint,[\s\S]*?setDirectionsStopWaypoint\(directionsCurrentLocationWaypoint\)/,
     );
     assert.match(
         directionsApiSource,

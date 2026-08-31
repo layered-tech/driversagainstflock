@@ -538,7 +538,7 @@ export function createDirectedRoadGraph(ways) {
             continue;
         }
 
-        const nodeIds = coordinates.map((coordinate, index) =>
+        const nodeIds = coordinates.map((_, index) =>
             String(way.nodeIds?.[index] ?? `${way.id}:node:${index}`),
         );
         const direction = getWayDirection(way);

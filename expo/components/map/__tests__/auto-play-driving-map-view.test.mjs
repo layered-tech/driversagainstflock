@@ -88,7 +88,7 @@ test('automotive route mode releases follow and fits the active route', () => {
     );
     assert.match(
         mapSurfaceSource,
-        /fitDrivingCameraToBounds[\s\S]*?locationPuckCameraFollowReleaseRef\.current\?\.\(\)[\s\S]*?fitCameraToBounds\(bounds, options\)/,
+        /const fitCameraToBounds = useCallback\([\s\S]*?followLocationMode\.pauseUntilRecenter\(\)[\s\S]*?locationPuckCameraFollowReleaseRef\.current\?\.\(\)[\s\S]*?cameraRef\.current\.setCamera\(cameraStop\)/,
     );
     assert.match(
         mapSurfaceSource,
@@ -96,15 +96,19 @@ test('automotive route mode releases follow and fits the active route', () => {
     );
     assert.match(
         mapSurfaceSource,
-        /const pauseDrivingFollowUntilRecenter =\s*followLocationMode\.pauseUntilRecenter/,
-    );
-    assert.match(
-        mapSurfaceSource,
         /if \(!isRootMapSurface \|\| activeDirectionsRoute\)[\s\S]*?shouldRestoreDrivingPerspective\(\{[\s\S]*?isRootMapSurface/,
     );
     assert.match(
         mapSurfaceSource,
-        /const fitDrivingCameraToBounds = useCallback\([\s\S]*?pauseDrivingFollowUntilRecenter\(\)[\s\S]*?\[\s*fitCameraToBounds,\s*isDrivingMode,\s*pauseDrivingFollowUntilRecenter,?\s*\]/,
+        /const fitDrivingCameraToBounds = useCallback\([\s\S]*?manualMapGestureGenerationRef\.current \+= 1[\s\S]*?fitCameraToBounds\(bounds,[\s\S]*?shouldApply: \(\) => shouldApply\(\) && isMountedRef\.current[\s\S]*?\[fitCameraToBounds, isDrivingMode\]/,
+    );
+    assert.equal(
+        sourceBetween(
+            mapSurfaceSource,
+            'const fitDrivingCameraToBounds = useCallback(',
+            'const handlePanningInterfaceChanged',
+        ).match(/locationPuckCameraFollowReleaseRef/g)?.length ?? 0,
+        0,
     );
     assert.match(
         mapSurfaceSource,
