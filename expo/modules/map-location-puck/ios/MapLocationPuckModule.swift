@@ -13,6 +13,7 @@ private let locationPuckIndicatorLayer = "puck"
 private let cameraFollowTransitionTimeoutMilliseconds = 1_000
 private let locationPuckHeadingCorrectionDurationMilliseconds = 250
 private let nonZeroHeadingCorrectionEpsilon = 0.0001
+private let headingCorrectionUpdateEpsilonDegrees = 0.25
 private let mapPerformanceSignpostLog = OSLog(
   subsystem: Bundle.main.bundleIdentifier ?? "com.anonymous.drivefree",
   category: "PointsOfInterest"
@@ -111,6 +112,10 @@ private final class OwnedLocationProviderState {
 
   func updateRenderedBearing(_ bearing: Double) {
     renderedBearing = bearing
+  }
+
+  func invalidateAppliedHeadingCorrection() {
+    appliedHeadingCorrection = nil
   }
 
   func recordHeadingCorrection(_ correction: Double, effectiveHeading: Double) {
@@ -428,6 +433,13 @@ public final class MapLocationPuckModule: Module {
       renderedBearing: renderedBearing
     )
 
+    if
+      let appliedCorrection = providerState.appliedHeadingCorrection,
+      abs(appliedCorrection - correction) < headingCorrectionUpdateEpsilonDegrees
+    {
+      return true
+    }
+
     do {
       try mapView.mapboxMap.style.setLayerProperty(
         for: locationPuckModelLayer,
@@ -464,6 +476,10 @@ public final class MapLocationPuckModule: Module {
     else {
       return
     }
+
+    // The model layer may have been recreated by a style update. Reapply once
+    // at attachment time, then coalesce per-frame bearing callbacks.
+    providerState.invalidateAppliedHeadingCorrection()
 
     if providerState.puckRenderCancelable == nil {
       let cancelable = location.onPuckRender.observe {

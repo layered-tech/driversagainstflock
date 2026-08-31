@@ -16,9 +16,11 @@ import {
     uploadMockDeletedNode,
     uploadMockModifiedNode,
 } from './api-mocks';
+import { runChangesetUpload } from './changeset-lifecycle';
 import { getOSMApiBaseURL } from './config';
-import { OSM_ERROR_CODES, OSMApiError, throwOSMResponseError } from './errors';
+import { normalizeOSMRequestError, throwOSMResponseError } from './errors';
 import { normalizeOsmJsonChangeset, normalizeOsmJsonNode } from './normalizers';
+import { chunkUniqueValues, mapWithConcurrency } from './request-batching';
 import {
     buildChangesetCreateXML,
     buildOsmChangeCreateXML,
@@ -33,33 +35,8 @@ const OSM_CREATED_BY = `DriversAgainstFlock.org (${Platform.OS}:${Constants.expo
 const OSM_UPLOAD_TIMEOUT_MS = 30000;
 const BACKEND_SYNC_TIMEOUT_MS = 15000;
 const OSM_XML_CONTENT_TYPE = 'text/xml; charset=utf-8';
-const AUTH_TIMEOUT_ERROR_MESSAGE =
-    'The server did not respond. Please try again.';
-
-function toOSMRequestError(error) {
-    if (error instanceof OSMApiError) {
-        return error;
-    }
-
-    if (
-        error?.name === 'AbortError' ||
-        error?.message === AUTH_TIMEOUT_ERROR_MESSAGE
-    ) {
-        return new OSMApiError({
-            code: OSM_ERROR_CODES.timeout,
-            detail: error?.message ?? '',
-        });
-    }
-
-    if (error instanceof TypeError) {
-        return new OSMApiError({
-            code: OSM_ERROR_CODES.network,
-            detail: error?.message ?? '',
-        });
-    }
-
-    return error;
-}
+const OSM_NODE_IDS_PER_REQUEST = 100;
+const OSM_NODE_REQUEST_CONCURRENCY = 3;
 
 async function fetchOSM(url, options) {
     let response;
@@ -67,7 +44,7 @@ async function fetchOSM(url, options) {
     try {
         response = await fetchWithTimeout(url, options);
     } catch (error) {
-        throw toOSMRequestError(error);
+        throw normalizeOSMRequestError(error);
     }
 
     if (!response.ok) {
@@ -322,20 +299,29 @@ export async function fetchNodesByIds({ nodeIds, signal }) {
         return fetchMockNodesByIds({ nodeIds, signal });
     }
 
-    const response = await fetchOSM(
-        `${getOSMApiBaseURL()}/nodes.json?nodes=${nodeIds.join(',')}`,
-        {
-            headers: {
-                Accept: 'application/json',
-            },
-            signal,
+    const nodeIdChunks = chunkUniqueValues(nodeIds, OSM_NODE_IDS_PER_REQUEST);
+    const nodeGroups = await mapWithConcurrency(
+        nodeIdChunks,
+        OSM_NODE_REQUEST_CONCURRENCY,
+        async (nodeIdChunk) => {
+            const response = await fetchOSM(
+                `${getOSMApiBaseURL()}/nodes.json?nodes=${nodeIdChunk.join(',')}`,
+                {
+                    headers: {
+                        Accept: 'application/json',
+                    },
+                    signal,
+                },
+            );
+            const data = await response.json().catch(() => ({}));
+
+            return (data?.elements ?? [])
+                .filter((element) => element?.type === 'node')
+                .map(normalizeOsmJsonNode);
         },
     );
-    const data = await response.json().catch(() => ({}));
 
-    return (data?.elements ?? [])
-        .filter((element) => element?.type === 'node')
-        .map(normalizeOsmJsonNode);
+    return nodeGroups.flat();
 }
 
 export async function fetchNode({ nodeId, signal }) {
@@ -363,26 +349,28 @@ export async function publishNodes({
     nodes,
     onProgress,
 }) {
-    onProgress?.('creating-changeset');
-
-    const changesetId = await createChangeset({
-        accessToken,
-        tags: changesetTags,
-    });
-
-    onProgress?.('uploading');
-
-    const diffNodes = await uploadCreatedNodes({
-        accessToken,
+    const {
         changesetId,
-        nodes,
-    });
-
-    onProgress?.('closing');
-
-    const closeFailed = await closeChangesetIgnoringFailure({
-        accessToken,
-        changesetId,
+        closeFailed,
+        uploadResult: diffNodes,
+    } = await runChangesetUpload({
+        close: (createdChangesetId) =>
+            closeChangesetIgnoringFailure({
+                accessToken,
+                changesetId: createdChangesetId,
+            }),
+        create: () =>
+            createChangeset({
+                accessToken,
+                tags: changesetTags,
+            }),
+        onProgress,
+        upload: (createdChangesetId) =>
+            uploadCreatedNodes({
+                accessToken,
+                changesetId: createdChangesetId,
+                nodes,
+            }),
     });
 
     return {
@@ -398,26 +386,28 @@ export async function publishNodeUpdate({
     node,
     onProgress,
 }) {
-    onProgress?.('creating-changeset');
-
-    const changesetId = await createChangeset({
-        accessToken,
-        tags: changesetTags,
-    });
-
-    onProgress?.('uploading');
-
-    const diffNodes = await uploadModifiedNode({
-        accessToken,
+    const {
         changesetId,
-        node,
-    });
-
-    onProgress?.('closing');
-
-    const closeFailed = await closeChangesetIgnoringFailure({
-        accessToken,
-        changesetId,
+        closeFailed,
+        uploadResult: diffNodes,
+    } = await runChangesetUpload({
+        close: (createdChangesetId) =>
+            closeChangesetIgnoringFailure({
+                accessToken,
+                changesetId: createdChangesetId,
+            }),
+        create: () =>
+            createChangeset({
+                accessToken,
+                tags: changesetTags,
+            }),
+        onProgress,
+        upload: (createdChangesetId) =>
+            uploadModifiedNode({
+                accessToken,
+                changesetId: createdChangesetId,
+                node,
+            }),
     });
 
     return {
@@ -433,26 +423,24 @@ export async function publishNodeDeletion({
     node,
     onProgress,
 }) {
-    onProgress?.('creating-changeset');
-
-    const changesetId = await createChangeset({
-        accessToken,
-        tags: changesetTags,
-    });
-
-    onProgress?.('uploading');
-
-    await uploadDeletedNode({
-        accessToken,
-        changesetId,
-        node,
-    });
-
-    onProgress?.('closing');
-
-    const closeFailed = await closeChangesetIgnoringFailure({
-        accessToken,
-        changesetId,
+    const { changesetId, closeFailed } = await runChangesetUpload({
+        close: (createdChangesetId) =>
+            closeChangesetIgnoringFailure({
+                accessToken,
+                changesetId: createdChangesetId,
+            }),
+        create: () =>
+            createChangeset({
+                accessToken,
+                tags: changesetTags,
+            }),
+        onProgress,
+        upload: (createdChangesetId) =>
+            uploadDeletedNode({
+                accessToken,
+                changesetId: createdChangesetId,
+                node,
+            }),
     });
 
     return {

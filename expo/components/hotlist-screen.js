@@ -1,5 +1,5 @@
 import { useNavigation } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Platform,
@@ -15,6 +15,7 @@ import { Icon } from './design-system/icon';
 import { DafButton, DafSegmentedControl } from './design-system/primitives';
 import { dafSemanticColors } from './design-system/tokens';
 import { getHotlist } from './hotlist-api';
+import { getNextHotlistPage, mergeHotlistPages } from './hotlist-pagination';
 import { toggleNearestDrawer } from './map/navigation';
 
 const WINDOW_OPTIONS = [
@@ -212,9 +213,13 @@ export default function HotlistScreen() {
     const [errorMessage, setErrorMessage] = useState('');
     const [hotlist, setHotlist] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [loadMoreError, setLoadMoreError] = useState('');
     const [manufacturer, setManufacturer] = useState('all');
     const [timeWindow, setTimeWindow] = useState('7');
+    const requestControllerRef = useRef(null);
+    const requestGenerationRef = useRef(0);
     const isDarkMode = colorScheme === 'dark';
     const headerPaddingTop =
         Platform.OS === 'ios'
@@ -267,78 +272,102 @@ export default function HotlistScreen() {
         ];
     }, [hotlist?.manufacturerCounts]);
     const nodes = hotlist?.nodes?.data ?? [];
+    const nextPage = getNextHotlistPage(hotlist);
 
     const loadHotlist = useCallback(
-        async ({ refresh = false } = {}) => {
-            const controller = new AbortController();
+        async ({ append = false, mode = 'load', page = 1 } = {}) => {
+            requestControllerRef.current?.abort();
 
-            if (refresh) {
+            const controller = new AbortController();
+            const requestGeneration = requestGenerationRef.current + 1;
+
+            requestControllerRef.current = controller;
+            requestGenerationRef.current = requestGeneration;
+
+            if (mode === 'refresh') {
                 setIsRefreshing(true);
+            } else if (mode === 'more') {
+                setIsLoadingMore(true);
+                setLoadMoreError('');
             } else {
                 setIsLoading(true);
+                setErrorMessage('');
+                setHotlist(null);
             }
 
             try {
                 const payload = await getHotlist({
                     manufacturer,
+                    page,
                     signal: controller.signal,
                     timeWindow,
                 });
 
-                setHotlist(payload);
-                setErrorMessage('');
-            } catch (error) {
-                if (error?.name !== 'AbortError') {
-                    setErrorMessage(
-                        error?.message || 'Hotlist could not be loaded.',
-                    );
+                if (requestGeneration !== requestGenerationRef.current) {
+                    return false;
                 }
-            } finally {
-                setIsLoading(false);
-                setIsRefreshing(false);
-            }
 
-            return () => {
-                controller.abort();
-            };
+                setHotlist((currentHotlist) =>
+                    append
+                        ? mergeHotlistPages(currentHotlist, payload)
+                        : payload,
+                );
+                setErrorMessage('');
+                setLoadMoreError('');
+
+                return true;
+            } catch (error) {
+                if (
+                    requestGeneration !== requestGenerationRef.current ||
+                    error?.name === 'AbortError'
+                ) {
+                    return false;
+                }
+
+                const message =
+                    error?.message || 'Hotlist could not be loaded.';
+
+                if (mode === 'more') {
+                    setLoadMoreError(message);
+                } else {
+                    setErrorMessage(message);
+                }
+
+                return false;
+            } finally {
+                if (requestGeneration === requestGenerationRef.current) {
+                    setIsLoading(false);
+                    setIsLoadingMore(false);
+                    setIsRefreshing(false);
+
+                    if (requestControllerRef.current === controller) {
+                        requestControllerRef.current = null;
+                    }
+                }
+            }
         },
         [manufacturer, timeWindow],
     );
 
     useEffect(() => {
-        const controller = new AbortController();
-
-        setIsLoading(true);
-
-        getHotlist({
-            manufacturer,
-            signal: controller.signal,
-            timeWindow,
-        })
-            .then((payload) => {
-                setHotlist(payload);
-                setErrorMessage('');
-            })
-            .catch((error) => {
-                if (error?.name !== 'AbortError') {
-                    setErrorMessage(
-                        error?.message || 'Hotlist could not be loaded.',
-                    );
-                }
-            })
-            .finally(() => {
-                setIsLoading(false);
-                setIsRefreshing(false);
-            });
+        void loadHotlist();
 
         return () => {
-            controller.abort();
+            requestGenerationRef.current += 1;
+            requestControllerRef.current?.abort();
         };
-    }, [manufacturer, timeWindow]);
+    }, [loadHotlist]);
 
     const handleRefresh = useCallback(() => {
-        loadHotlist({ refresh: true });
+        void loadHotlist({ mode: 'refresh' });
     }, [loadHotlist]);
+    const handleLoadMore = useCallback(() => {
+        if (nextPage === null || isLoadingMore) {
+            return;
+        }
+
+        void loadHotlist({ append: true, mode: 'more', page: nextPage });
+    }, [isLoadingMore, loadHotlist, nextPage]);
     const handleDrawerPress = useCallback(() => {
         toggleNearestDrawer(navigation);
     }, [navigation]);
@@ -464,7 +493,7 @@ export default function HotlistScreen() {
                 ) : errorMessage ? (
                     <HotlistErrorState
                         message={errorMessage}
-                        onRetry={() => loadHotlist()}
+                        onRetry={() => void loadHotlist()}
                     />
                 ) : nodes.length === 0 ? (
                     <HotlistEmptyState />
@@ -477,6 +506,27 @@ export default function HotlistScreen() {
                                 testID={`hotlist-row-${index}`}
                             />
                         ))}
+                        <View className="dark:border-daf-border-dark items-center gap-2 border-t border-daf-border px-4 py-4">
+                            <Text className="text-xs text-daf-text-tertiary dark:text-neutral-400">
+                                Showing {formatCount(nodes.length)} of{' '}
+                                {formatCount(hotlist?.nodes?.total)}
+                            </Text>
+                            {loadMoreError ? (
+                                <Text className="text-center text-xs text-daf-alert">
+                                    {loadMoreError}
+                                </Text>
+                            ) : null}
+                            {nextPage !== null ? (
+                                <DafButton
+                                    loading={isLoadingMore}
+                                    onPress={handleLoadMore}
+                                    testID="hotlist-load-more-button"
+                                    variant="secondary"
+                                >
+                                    Load more
+                                </DafButton>
+                            ) : null}
+                        </View>
                     </View>
                 )}
 

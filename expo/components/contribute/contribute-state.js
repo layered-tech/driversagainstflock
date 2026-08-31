@@ -118,7 +118,7 @@ export function ContributeProvider({ children }) {
             draftStateRef.current;
 
         if (currentPins.length === 0) {
-            return;
+            return false;
         }
 
         const storedDraft = await writeStoredDraft({
@@ -127,30 +127,17 @@ export function ContributeProvider({ children }) {
         });
 
         if (!storedDraft) {
-            return;
+            return false;
         }
 
         setDraftUpdatedAt(storedDraft.updatedAt);
         setStoredDraftSummary(getStoredDraftSummary(storedDraft));
+
+        return true;
     }, []);
 
     useEffect(() => {
         if (!contributeDraftShouldPersist(contributeStatus, pins)) {
-            // Removing the last pin mid-session must also remove the draft
-            // this session already persisted, or deleted pins resurface
-            // through the resume-draft card. draftUpdatedAt guards unrelated
-            // stored drafts from a session that never persisted anything.
-            if (
-                contributeStatus !== 'idle' &&
-                contributeStatus !== 'published' &&
-                pins.length === 0 &&
-                draftUpdatedAt
-            ) {
-                clearStoredDraft();
-                setDraftUpdatedAt(null);
-                setStoredDraftSummary(null);
-            }
-
             return undefined;
         }
 
@@ -161,7 +148,22 @@ export function ContributeProvider({ children }) {
         return () => {
             clearTimeout(autosaveTimeoutId);
         };
-    }, [changeset, contributeStatus, draftUpdatedAt, persistDraftNow, pins]);
+    }, [changeset, contributeStatus, persistDraftNow, pins]);
+
+    useEffect(() => {
+        // Removing the last pin mid-session must also remove the draft this
+        // session persisted, or deleted pins resurface through the resume card.
+        if (
+            contributeStatus !== 'idle' &&
+            contributeStatus !== 'published' &&
+            pins.length === 0 &&
+            draftUpdatedAt
+        ) {
+            clearStoredDraft();
+            setDraftUpdatedAt(null);
+            setStoredDraftSummary(null);
+        }
+    }, [contributeStatus, draftUpdatedAt, pins.length]);
 
     useEffect(() => {
         const appStateSubscription = AppState.addEventListener(

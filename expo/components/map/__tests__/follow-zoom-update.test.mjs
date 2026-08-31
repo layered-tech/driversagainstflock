@@ -55,10 +55,10 @@ describe('getFollowZoomUpdate', () => {
         );
     });
 
-    test('coalesces speed zoom changes to one accepted location every four seconds', () => {
+    test('coalesces speed zoom changes without deferring normal acceleration for seconds', () => {
         const lastUpdateAt = 10_000;
 
-        for (const elapsed of [500, 1000, 2000, 3999]) {
+        for (const elapsed of [100, 250, FOLLOW_ZOOM_UPDATE_INTERVAL_MS - 1]) {
             assert.deepEqual(
                 getFollowZoomUpdate({
                     currentZoomLevel: 18,

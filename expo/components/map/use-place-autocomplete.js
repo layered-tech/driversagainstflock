@@ -8,6 +8,8 @@ import {
 } from './api';
 import { PLACE_SEARCH_MIN_QUERY_LENGTH } from './constants';
 
+export const PLACE_AUTOCOMPLETE_DEBOUNCE_MS = 250;
+
 export function usePlaceAutocomplete({
     isMountedRef,
     searchIsFocused,
@@ -76,49 +78,53 @@ export function usePlaceAutocomplete({
 
         searchAbortControllerRef.current = abortController;
 
-        searchPlaces({
-            input,
-            locationBias,
-            origin,
-            sessionToken: searchSessionTokenRef.current,
-            signal: abortController.signal,
-        })
-            .then((results) => {
-                if (
-                    isMountedRef.current &&
-                    searchRequestIdRef.current === requestId
-                ) {
-                    setSearchResults(results);
-                }
+        const debounceTimeout = setTimeout(() => {
+            searchPlaces({
+                input,
+                locationBias,
+                origin,
+                sessionToken: searchSessionTokenRef.current,
+                signal: abortController.signal,
             })
-            .catch((error) => {
-                if (error?.name === 'AbortError') {
-                    return;
-                }
+                .then((results) => {
+                    if (
+                        isMountedRef.current &&
+                        searchRequestIdRef.current === requestId
+                    ) {
+                        setSearchResults(results);
+                    }
+                })
+                .catch((error) => {
+                    if (error?.name === 'AbortError') {
+                        return;
+                    }
 
-                if (
-                    isMountedRef.current &&
-                    searchRequestIdRef.current === requestId
-                ) {
-                    setSearchError(
-                        error?.message || 'Places could not be loaded.',
-                    );
-                }
-            })
-            .finally(() => {
-                if (searchAbortControllerRef.current === abortController) {
-                    searchAbortControllerRef.current = null;
-                }
+                    if (
+                        isMountedRef.current &&
+                        searchRequestIdRef.current === requestId
+                    ) {
+                        setSearchError(
+                            error?.message || 'Places could not be loaded.',
+                        );
+                    }
+                })
+                .finally(() => {
+                    if (searchAbortControllerRef.current === abortController) {
+                        searchAbortControllerRef.current = null;
+                    }
 
-                if (
-                    isMountedRef.current &&
-                    searchRequestIdRef.current === requestId
-                ) {
-                    setSearchIsLoading(false);
-                }
-            });
+                    if (
+                        isMountedRef.current &&
+                        searchRequestIdRef.current === requestId
+                    ) {
+                        setSearchIsLoading(false);
+                    }
+                });
+        }, PLACE_AUTOCOMPLETE_DEBOUNCE_MS);
 
         return () => {
+            clearTimeout(debounceTimeout);
+
             if (searchAbortControllerRef.current === abortController) {
                 searchAbortControllerRef.current.abort();
                 searchAbortControllerRef.current = null;

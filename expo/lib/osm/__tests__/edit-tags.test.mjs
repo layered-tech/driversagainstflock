@@ -321,8 +321,76 @@ describe('buildUpdatedNodeTags', () => {
         };
 
         assert.deepEqual(
-            buildUpdatedNodeTags(existingTags, parseNodeDetails(existingTags)),
+            buildUpdatedNodeTags(existingTags, parseNodeDetails(existingTags), {
+                dirtyFields: [],
+            }),
             existingTags,
+        );
+    });
+
+    test('preserves unknown managed values when only another field is edited', () => {
+        const existingTags = {
+            'camera:mount': 'lamppost',
+            'camera:type': 'dome',
+            direction: 'NW;forward',
+            man_made: 'surveillance',
+            manufacturer: 'Axis Communications',
+            'manufacturer:wikidata': 'Q12345',
+            operator: 'Old operator',
+            surveillance: 'outdoor',
+            'surveillance:type': 'ANPR',
+            'surveillance:zone': 'parking',
+        };
+        const details = {
+            ...parseNodeDetails(existingTags),
+            operator: 'New operator',
+        };
+
+        assert.deepEqual(
+            buildUpdatedNodeTags(existingTags, details, {
+                dirtyFields: ['operator'],
+            }),
+            {
+                ...existingTags,
+                operator: 'New operator',
+            },
+        );
+    });
+
+    test('preserves CCTV semantics for an untouched gantry-mounted camera', () => {
+        const existingTags = {
+            'camera:mount': 'gantry',
+            'camera:type': 'fixed',
+            man_made: 'surveillance',
+            surveillance: 'public',
+            'surveillance:type': 'camera',
+        };
+
+        assert.deepEqual(
+            buildUpdatedNodeTags(existingTags, parseNodeDetails(existingTags), {
+                dirtyFields: [],
+            }),
+            existingTags,
+        );
+    });
+
+    test('replaces only an explicitly dirty managed field group', () => {
+        const existingTags = {
+            'camera:mount': 'lamppost',
+            manufacturer: 'Axis Communications',
+            'manufacturer:wikidata': 'Q12345',
+            'surveillance:type': 'ANPR',
+        };
+        const details = parseNodeDetails(existingTags);
+
+        assert.deepEqual(
+            buildUpdatedNodeTags(existingTags, details, {
+                dirtyFields: ['manufacturer'],
+            }),
+            {
+                'camera:mount': 'lamppost',
+                'surveillance:type': 'ANPR',
+            },
         );
     });
 });

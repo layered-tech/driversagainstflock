@@ -154,7 +154,7 @@ export async function createMockChangeset({ signal } = {}) {
 export async function uploadMockCreatedNodes({ nodes, signal } = {}) {
     throwIfAborted(signal);
 
-    return (nodes ?? []).map((node, index) => ({
+    return (nodes ?? []).map((_, index) => ({
         newId: MOCK_NODE_ID_START + index,
         newVersion: 1,
         oldId: -(index + 1),

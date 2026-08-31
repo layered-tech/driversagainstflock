@@ -8,6 +8,7 @@ import {
     normalizeRoadHeading,
     projectCoordinateOntoRoadSegment,
 } from './road-graph.js';
+import { routeProjectionCandidateIsPreferred } from './route-projection.js';
 
 const DEFAULT_OPTIONS = Object.freeze({
     beamWidth: 8,
@@ -264,6 +265,7 @@ function getOffRoadDistanceThreshold(observation, options) {
 
 function createPreferredRouteSegments(coordinates) {
     const routeSegments = [];
+    let distanceBeforeRouteMeters = 0;
 
     for (
         let index = 0;
@@ -273,18 +275,30 @@ function createPreferredRouteSegments(coordinates) {
         const start = coordinates[index];
         const end = coordinates[index + 1];
         const bearing = getRoadCoordinateBearingDegrees(start, end);
+        const lengthMeters = getRoadCoordinateDistanceMeters(start, end);
 
-        if (bearing === null) {
+        if (bearing === null || lengthMeters === null || lengthMeters <= 0) {
             continue;
         }
 
-        routeSegments.push({ bearing, end, start });
+        routeSegments.push({
+            bearing,
+            distanceBeforeRouteMeters,
+            end,
+            lengthMeters,
+            start,
+        });
+        distanceBeforeRouteMeters += lengthMeters;
     }
 
     return routeSegments;
 }
 
-function getClosestPreferredRouteProjection(coordinate, routeSegments) {
+function getClosestPreferredRouteProjection(
+    coordinate,
+    routeSegments,
+    previousDistanceAlongRouteMeters = null,
+) {
     let closestProjection = null;
 
     routeSegments.forEach((segment, routeSegmentIndex) => {
@@ -292,14 +306,32 @@ function getClosestPreferredRouteProjection(coordinate, routeSegments) {
             coordinate,
             segment,
         );
+        const distanceAlongRouteMeters = projection
+            ? segment.distanceBeforeRouteMeters +
+              segment.lengthMeters * projection.fraction
+            : null;
 
         if (
             projection &&
-            (!closestProjection ||
-                projection.distanceMeters < closestProjection.distanceMeters)
+            routeProjectionCandidateIsPreferred({
+                candidate: {
+                    distanceAlongRouteMeters,
+                    distanceFromRouteMeters: projection.distanceMeters,
+                },
+                current: closestProjection
+                    ? {
+                          distanceAlongRouteMeters:
+                              closestProjection.distanceAlongRouteMeters,
+                          distanceFromRouteMeters:
+                              closestProjection.distanceMeters,
+                      }
+                    : null,
+                previousDistanceAlongRouteMeters,
+            })
         ) {
             closestProjection = {
                 ...projection,
+                distanceAlongRouteMeters,
                 routeBearing: segment.bearing,
                 routeSegmentIndex,
             };
@@ -597,6 +629,7 @@ export function createRoadMatcher(graph, configuredOptions = {}) {
     });
     let lastMatchedResult = null;
     let preferredRouteCoordinates = null;
+    let preferredRouteDistanceMeters = null;
     let preferredRouteIsApplied = false;
     let preferredRouteSegments = [];
     let previousObservation = null;
@@ -605,6 +638,7 @@ export function createRoadMatcher(graph, configuredOptions = {}) {
     function reset() {
         lastMatchedResult = null;
         preferredRouteCoordinates = null;
+        preferredRouteDistanceMeters = null;
         preferredRouteIsApplied = false;
         preferredRouteSegments = [];
         previousObservation = null;
@@ -622,13 +656,18 @@ export function createRoadMatcher(graph, configuredOptions = {}) {
 
         if (preferredRouteChanged) {
             preferredRouteCoordinates = route;
+            preferredRouteDistanceMeters = null;
             preferredRouteSegments = createPreferredRouteSegments(route);
         }
 
         const preferredRouteProjection = getClosestPreferredRouteProjection(
             observation.coordinate,
             preferredRouteSegments,
+            preferredRouteDistanceMeters,
         );
+
+        preferredRouteDistanceMeters =
+            preferredRouteProjection?.distanceAlongRouteMeters ?? null;
         const nextPreferredRouteIsApplied = Boolean(
             preferredRouteProjection &&
             preferredRouteProjection.distanceMeters <=

@@ -54,3 +54,17 @@ export function getLegalDocumentMetadata(page) {
         updatedLabel: page.badgeLabels[0],
     };
 }
+
+export function getLegalSectionScrollOffset(
+    sectionsContainerOffset,
+    sectionOffset,
+) {
+    if (
+        !Number.isFinite(sectionsContainerOffset) ||
+        !Number.isFinite(sectionOffset)
+    ) {
+        return null;
+    }
+
+    return Math.max(0, sectionsContainerOffset + sectionOffset);
+}

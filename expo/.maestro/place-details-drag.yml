@@ -42,7 +42,9 @@ tags:
 
 # Dragging the card up must not dismiss it — it stays open.
 - swipe:
-    start: '50%,77%'
+    # The content-fit sheet starts near 82% on this fixture. Start on its
+    # handle; the former 77% start landed on the map after the sheet shrank.
+    start: '50%,83%'
     end: '50%,30%'
     duration: 700
 - assertVisible:
@@ -50,7 +52,7 @@ tags:
 
 # Dragging the card down must close it (same as tapping ✕).
 - swipe:
-    start: '50%,77%'
+    start: '50%,83%'
     end: '50%,98%'
     duration: 900
 - extendedWaitUntil:

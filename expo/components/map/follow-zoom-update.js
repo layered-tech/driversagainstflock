@@ -1,5 +1,8 @@
 export const FOLLOW_ZOOM_UPDATE_EPSILON = 0.05;
-export const FOLLOW_ZOOM_UPDATE_INTERVAL_MS = 4000;
+// A long throttle makes normal acceleration look like a sequence of large
+// camera jumps. This is short enough to track driving speed while still
+// coalescing the high-frequency location stream.
+export const FOLLOW_ZOOM_UPDATE_INTERVAL_MS = 750;
 
 export function getFollowZoomUpdate({
     currentZoomLevel,

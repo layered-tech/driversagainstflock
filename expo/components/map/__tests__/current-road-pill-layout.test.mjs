@@ -119,7 +119,7 @@ describe('current road pill layout', () => {
 
         assert.deepEqual(
             getExpressionScales({ platform: 'ios' }),
-            defaultScales.map((mapScale) => mapScale * 0.8),
+            defaultScales.map((mapScale) => mapScale * 0.6),
         );
         assert.deepEqual(
             getExpressionScales({ platform: 'android' }),

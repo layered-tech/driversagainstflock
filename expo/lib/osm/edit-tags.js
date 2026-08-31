@@ -1,21 +1,18 @@
-export const EDIT_CAMERA_TYPE_OPTIONS = [
-    { label: 'ALPR', value: 'alpr' },
-    { label: 'CCTV', value: 'cctv' },
-    { label: 'Gantry', value: 'gantry' },
-];
+import {
+    CAMERA_MANUFACTURER_OPTIONS,
+    CAMERA_MOUNT_OPTIONS,
+    CAMERA_MOUNT_TAG_VALUES,
+    CAMERA_TYPE_OPTIONS,
+    getCameraDirectionTagValue,
+    getCameraManufacturerTags,
+    getCameraManufacturerValue,
+    getCameraSurveillanceTags,
+    normalizeCameraDegrees,
+} from './camera-schema.js';
 
-export const EDIT_MANUFACTURER_OPTIONS = [
-    { label: 'Flock', value: 'flock' },
-    { label: 'Motorola', value: 'motorola' },
-    { label: 'Other', value: 'other' },
-];
-
-export const EDIT_MOUNT_OPTIONS = [
-    { label: 'Pole', value: 'pole' },
-    { label: 'Gantry', value: 'gantry' },
-    { label: 'Building', value: 'building' },
-    { label: 'Traffic light', value: 'traffic_signals' },
-];
+export const EDIT_CAMERA_TYPE_OPTIONS = CAMERA_TYPE_OPTIONS;
+export const EDIT_MANUFACTURER_OPTIONS = CAMERA_MANUFACTURER_OPTIONS;
+export const EDIT_MOUNT_OPTIONS = CAMERA_MOUNT_OPTIONS;
 
 export const REMOVAL_REASONS = [
     { comment: 'gone from pole', label: 'Gone from pole', value: 'gone' },
@@ -28,68 +25,19 @@ export const REMOVAL_REASONS = [
     { comment: 'no longer present', label: 'Other', value: 'other' },
 ];
 
-const CAMERA_MOUNT_TAG_VALUES = EDIT_MOUNT_OPTIONS.map(
-    (option) => option.value,
-);
-
-const ALPR_SURVEILLANCE_TAGS = {
-    'camera:type': 'fixed',
-    surveillance: 'public',
-    'surveillance:type': 'ALPR',
-    'surveillance:zone': 'traffic',
-};
-
-const CCTV_SURVEILLANCE_TAGS = {
-    'camera:type': 'fixed',
-    surveillance: 'public',
-    'surveillance:type': 'camera',
-};
-
-const MANUFACTURER_TAGS = {
-    flock: {
-        manufacturer: 'Flock Safety',
-        'manufacturer:wikidata': 'Q108485435',
-    },
-    motorola: {
-        manufacturer: 'Motorola Solutions',
-        'manufacturer:wikidata': 'Q634815',
-    },
-};
-
-const MANUFACTURER_TAG_VALUES = {
-    'Flock Safety': 'flock',
-    'Motorola Solutions': 'motorola',
-};
-
-/**
- * Tag keys this app manages on a surveillance node. Everything else on the
- * node is preserved verbatim when publishing a new version (OSM etiquette).
- */
-const MANAGED_TAG_KEYS = [
-    'camera:mount',
-    'camera:type',
-    'direction',
-    'disused:man_made',
-    'man_made',
+/** Form fields that own one or more OSM tags on a surveillance node. */
+const EDITABLE_DETAIL_FIELDS = [
+    'directions',
+    'isActive',
     'manufacturer',
-    'manufacturer:wikidata',
+    'mount',
     'operator',
-    'surveillance',
-    'surveillance:type',
-    'surveillance:zone',
+    'type',
 ];
-
-function normalizeDegrees(degrees) {
-    if (typeof degrees !== 'number' || !Number.isFinite(degrees)) {
-        return null;
-    }
-
-    return ((Math.round(degrees) % 360) + 360) % 360;
-}
 
 function parseDirectionTagValue(directionValue) {
     if (typeof directionValue === 'number') {
-        const normalizedDegrees = normalizeDegrees(directionValue);
+        const normalizedDegrees = normalizeCameraDegrees(directionValue);
 
         return normalizedDegrees === null ? [] : [normalizedDegrees];
     }
@@ -102,19 +50,8 @@ function parseDirectionTagValue(directionValue) {
         .split(';')
         .map((token) => token.trim())
         .filter((token) => token !== '')
-        .map((token) => normalizeDegrees(Number(token)))
+        .map((token) => normalizeCameraDegrees(Number(token)))
         .filter((degrees) => degrees !== null);
-}
-
-function getDirectionTagValue(directions) {
-    if (!Array.isArray(directions)) {
-        return '';
-    }
-
-    return directions
-        .map(normalizeDegrees)
-        .filter((degrees) => degrees !== null)
-        .join(';');
 }
 
 /**
@@ -140,7 +77,7 @@ export function parseNodeDetails(tags = {}) {
     return {
         directions: parseDirectionTagValue(safeTags.direction),
         isActive: safeTags['disused:man_made'] !== 'surveillance',
-        manufacturer: MANUFACTURER_TAG_VALUES[safeTags.manufacturer] ?? 'other',
+        manufacturer: getCameraManufacturerValue(safeTags.manufacturer),
         mount: CAMERA_MOUNT_TAG_VALUES.includes(mountTagValue)
             ? mountTagValue
             : null,
@@ -150,56 +87,81 @@ export function parseNodeDetails(tags = {}) {
 }
 
 /**
- * Builds the FULL tag set for the next version of an existing node: every
- * unmanaged existing tag is preserved untouched, all managed keys are
- * stripped, and the managed vocabulary for `details` is applied on top.
+ * Builds the full tag set for the next node version. Existing tags are kept
+ * verbatim unless their owning form field is dirty. Omitting `dirtyFields`
+ * applies the complete form for callers that intentionally rebuild all tags.
  */
-export function buildUpdatedNodeTags(existingTags, details = {}) {
-    const tags = {};
-
-    for (const [key, value] of Object.entries(existingTags ?? {})) {
-        if (!MANAGED_TAG_KEYS.includes(key)) {
-            tags[key] = value;
-        }
-    }
+export function buildUpdatedNodeTags(
+    existingTags,
+    details = {},
+    { dirtyFields = EDITABLE_DETAIL_FIELDS } = {},
+) {
+    const tags = { ...(existingTags ?? {}) };
+    const dirtyFieldSet = new Set(dirtyFields);
 
     const { directions, isActive, manufacturer, mount, operator, type } =
         details;
 
-    if (isActive === false) {
-        tags['disused:man_made'] = 'surveillance';
-    } else {
-        tags.man_made = 'surveillance';
+    if (dirtyFieldSet.has('isActive')) {
+        delete tags['disused:man_made'];
+        delete tags.man_made;
+
+        if (isActive === false) {
+            tags['disused:man_made'] = 'surveillance';
+        } else {
+            tags.man_made = 'surveillance';
+        }
     }
 
-    Object.assign(
-        tags,
-        type === 'cctv' ? CCTV_SURVEILLANCE_TAGS : ALPR_SURVEILLANCE_TAGS,
-    );
-
-    const manufacturerTags = MANUFACTURER_TAGS[manufacturer];
-
-    if (manufacturerTags) {
-        Object.assign(tags, manufacturerTags);
+    if (dirtyFieldSet.has('type')) {
+        delete tags['camera:type'];
+        delete tags.surveillance;
+        delete tags['surveillance:type'];
+        delete tags['surveillance:zone'];
+        Object.assign(tags, getCameraSurveillanceTags(type));
     }
 
-    const trimmedOperator = typeof operator === 'string' ? operator.trim() : '';
+    if (dirtyFieldSet.has('manufacturer')) {
+        delete tags.manufacturer;
+        delete tags['manufacturer:wikidata'];
 
-    if (trimmedOperator) {
-        tags.operator = trimmedOperator;
+        const manufacturerTags = getCameraManufacturerTags(manufacturer);
+
+        if (manufacturerTags) {
+            Object.assign(tags, manufacturerTags);
+        }
     }
 
-    const directionTagValue = getDirectionTagValue(directions);
+    if (dirtyFieldSet.has('operator')) {
+        delete tags.operator;
 
-    if (directionTagValue) {
-        tags.direction = directionTagValue;
+        const trimmedOperator =
+            typeof operator === 'string' ? operator.trim() : '';
+
+        if (trimmedOperator) {
+            tags.operator = trimmedOperator;
+        }
     }
 
-    if (CAMERA_MOUNT_TAG_VALUES.includes(mount)) {
-        tags['camera:mount'] = mount;
+    if (dirtyFieldSet.has('directions')) {
+        delete tags.direction;
+
+        const directionTagValue = getCameraDirectionTagValue(directions);
+
+        if (directionTagValue) {
+            tags.direction = directionTagValue;
+        }
     }
 
-    if (type === 'gantry') {
+    if (dirtyFieldSet.has('mount')) {
+        delete tags['camera:mount'];
+
+        if (CAMERA_MOUNT_TAG_VALUES.includes(mount)) {
+            tags['camera:mount'] = mount;
+        }
+    }
+
+    if (dirtyFieldSet.has('type') && type === 'gantry') {
         tags['camera:mount'] = 'gantry';
     }
 

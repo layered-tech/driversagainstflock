@@ -503,7 +503,6 @@ export const MapCanvas = memo(function MapCanvas() {
         directionsDebugFeatureCollection,
         directionsRouteFeatureCollection,
         electronicHorizonDebugFeatureCollection,
-        e2eMapApiMocksEnabled,
         hideCompassDuringNavigation,
         initialCameraSettings,
         isDarkModeOverride,

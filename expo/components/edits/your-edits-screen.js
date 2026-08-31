@@ -16,9 +16,11 @@ import {
     fetchNodesByIds,
     fetchUserChangesets,
 } from '../../lib/osm/client';
+import { mapWithConcurrency } from '../../lib/osm/request-batching';
 import {
     buildYourEditsModel,
     collectSurveillanceNodeIds,
+    isDriversAgainstFlockChangeset,
 } from '../../lib/osm/user-edits';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
@@ -284,14 +286,19 @@ export default function YourEditsScreen() {
 
     const loadYourEdits = useCallback(
         async ({ signal } = {}) => {
-            const changesets = await fetchUserChangesets({
+            const recentChangesets = await fetchUserChangesets({
                 accessToken: openStreetMapAccessToken,
-                limit: 10,
+                limit: 50,
                 signal,
                 uid: user?.id,
             });
-            const nodeGroups = await Promise.all(
-                changesets.map((changeset) =>
+            const changesets = recentChangesets
+                .filter(isDriversAgainstFlockChangeset)
+                .slice(0, 10);
+            const nodeGroups = await mapWithConcurrency(
+                changesets,
+                3,
+                (changeset) =>
                     fetchChangesetNodes({
                         changesetId: changeset.id,
                         signal,
@@ -305,7 +312,6 @@ export default function YourEditsScreen() {
                         // failing the whole screen.
                         return { created: [], deleted: [], modified: [] };
                     }),
-                ),
             );
             const changesetNodesById = {};
 

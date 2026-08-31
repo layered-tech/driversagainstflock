@@ -7,6 +7,7 @@ import {
     formatChangesetDateLabel,
     formatCoordinateLabel,
     formatGroupedNumber,
+    isDriversAgainstFlockChangeset,
     isSurveillanceTags,
 } from '../user-edits.js';
 
@@ -82,6 +83,38 @@ describe('isSurveillanceTags', () => {
         assert.equal(isSurveillanceTags({}), false);
         assert.equal(isSurveillanceTags(null), false);
         assert.equal(isSurveillanceTags(undefined), false);
+    });
+});
+
+describe('isDriversAgainstFlockChangeset', () => {
+    test('accepts app-created changesets across platform versions', () => {
+        assert.equal(
+            isDriversAgainstFlockChangeset({
+                tags: {
+                    created_by: 'DriversAgainstFlock.org (ios:2.8.4)',
+                },
+            }),
+            true,
+        );
+        assert.equal(
+            isDriversAgainstFlockChangeset({
+                tags: {
+                    created_by: 'DriversAgainstFlock.org (android:2.6.0)',
+                },
+            }),
+            true,
+        );
+    });
+
+    test('rejects unrelated or untagged changesets', () => {
+        assert.equal(
+            isDriversAgainstFlockChangeset({
+                tags: { created_by: 'StreetComplete 61.1' },
+            }),
+            false,
+        );
+        assert.equal(isDriversAgainstFlockChangeset({ tags: {} }), false);
+        assert.equal(isDriversAgainstFlockChangeset(null), false);
     });
 });
 

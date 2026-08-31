@@ -759,6 +759,49 @@ describe('road matching location source integration', () => {
         sessionHandle.remove();
     });
 
+    test('clears the previous session location before a new session starts', async () => {
+        const harness = createRoadMatchingSessionHarness({
+            createDirectedRoadGraph: createUsableRoadGraph,
+            createRoadMatcherWithHistory: createUpdatingRoadMatcher,
+            getRoadCorridor: async () => [{ id: 'way-1' }],
+        });
+        const firstSessionHandle =
+            await harness.roadMatchingSession.retainRoadMatchingSessionAsync();
+
+        await waitFor(() => harness.foregroundLocationCallbacks.length === 1);
+        harness.foregroundLocationCallbacks[0](makeLocation(41, -87, 100));
+        await waitFor(
+            () =>
+                harness.roadMatchingSession.getRoadMatchingSessionDiagnostics()
+                    .state === 'matched',
+        );
+        assert.ok(
+            await harness.roadMatchingSession.getLastRoadMatchedLocationAsync(),
+        );
+
+        firstSessionHandle.remove();
+
+        assert.equal(
+            await harness.roadMatchingSession.getLastRoadMatchedLocationAsync(),
+            null,
+        );
+        assert.equal(
+            harness.roadMatchingSession.getRoadMatchingSessionDiagnostics()
+                .lastRawCoordinate,
+            null,
+        );
+
+        const secondSessionHandle =
+            await harness.roadMatchingSession.retainRoadMatchingSessionAsync();
+
+        assert.equal(
+            await harness.roadMatchingSession.getLastRoadMatchedLocationAsync(),
+            null,
+        );
+
+        secondSessionHandle.remove();
+    });
+
     test('gives the puck matcher only the actively followed route coordinates', async () => {
         const preferredRouteCoordinates = [
             [-87, 41],

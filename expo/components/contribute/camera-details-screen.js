@@ -7,6 +7,11 @@ import {
     useColorScheme,
     View,
 } from 'react-native';
+import {
+    CAMERA_MANUFACTURER_OPTIONS,
+    CAMERA_MOUNT_OPTIONS,
+    CAMERA_TYPE_OPTIONS,
+} from '../../lib/osm/camera-schema.js';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
 import {
@@ -21,25 +26,6 @@ import { CompassDial } from './compass-dial';
 import { useContribute } from './contribute-state';
 import { formatBearingChip } from './osm-tags';
 import { ContributePageHeader } from './step-header';
-
-const CAMERA_TYPE_OPTIONS = [
-    { label: 'ALPR', value: 'alpr' },
-    { label: 'CCTV', value: 'cctv' },
-    { label: 'Gantry', value: 'gantry' },
-];
-
-const MANUFACTURER_OPTIONS = [
-    { label: 'Flock', value: 'flock' },
-    { label: 'Motorola', value: 'motorola' },
-    { label: 'Other', value: 'other' },
-];
-
-const MOUNT_OPTIONS = [
-    { label: 'Pole', value: 'pole' },
-    { label: 'Gantry', value: 'gantry' },
-    { label: 'Building', value: 'building' },
-    { label: 'Traffic light', value: 'traffic_signals' },
-];
 
 function parseCameraIndexParam(indexParam) {
     const rawIndex = Array.isArray(indexParam) ? indexParam[0] : indexParam;
@@ -222,7 +208,7 @@ export default function CameraDetailsScreen() {
                         </DafSectionLabel>
                         <DafSegmentedControl
                             onChange={handleManufacturerChange}
-                            options={MANUFACTURER_OPTIONS}
+                            options={CAMERA_MANUFACTURER_OPTIONS}
                             testIDPrefix="contribute-manufacturer"
                             value={details.manufacturer}
                         />
@@ -341,7 +327,7 @@ export default function CameraDetailsScreen() {
                             Mounted on
                         </DafSectionLabel>
                         <View className="flex-row flex-wrap gap-2">
-                            {MOUNT_OPTIONS.map((option) => (
+                            {CAMERA_MOUNT_OPTIONS.map((option) => (
                                 <DafChip
                                     key={option.value}
                                     onPress={() =>

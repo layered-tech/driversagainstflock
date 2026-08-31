@@ -547,6 +547,9 @@ R58M offline
             'utf8',
         );
 
+        assert.equal(source.match(/start: '50%,83%'/g)?.length, 2);
+        assert.doesNotMatch(source, /start: '50%,77%'/);
+
         assert.match(
             source,
             /notVisible:\s+id: 'selected-place-sheet-presented'\s+timeout: 10000\s+- extendedWaitUntil:\s+visible:\s+id: 'map-search-input-map'\s+timeout: 30000/,

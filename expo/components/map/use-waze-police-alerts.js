@@ -26,12 +26,24 @@ export function useWazePoliceAlerts({ policeAlertsAreEnabled, userLocation }) {
     );
     const currentCenter = getWazePoliceAlertsCenter(userLocation);
     const centerRef = useRef(currentCenter);
+    const previousMockWazePoliceAlertsEnabledRef = useRef(
+        mockWazePoliceAlertsEnabled,
+    );
     const latitude = getStoredNumber(userLocation?.latitude);
     const longitude = getStoredNumber(userLocation?.longitude);
 
     centerRef.current = currentCenter;
 
     useEffect(() => {
+        if (
+            previousMockWazePoliceAlertsEnabledRef.current ===
+            mockWazePoliceAlertsEnabled
+        ) {
+            return;
+        }
+
+        previousMockWazePoliceAlertsEnabledRef.current =
+            mockWazePoliceAlertsEnabled;
         invalidateWazePoliceAlerts();
     }, [mockWazePoliceAlertsEnabled]);
 

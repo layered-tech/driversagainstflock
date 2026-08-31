@@ -17,6 +17,7 @@ import {
     getDirectionsWaypointApiCoord,
     getDirectionsWaypointCoordinate,
     getNextDirectionsManeuver,
+    getRemainingDirectionsStopWaypoints,
     getSelectedDirectionsRouteKey,
     getSelectedDirectionsRouteOption,
     selectDirectionsRoute,
@@ -215,6 +216,10 @@ export function DrivingGuidanceOverlay({
         const abortController = new AbortController();
         const selectedRouteKey = getSelectedDirectionsRouteKey(directionsRoute);
         const requestedAt = Date.now();
+        const remainingStopWaypoints = getRemainingDirectionsStopWaypoints(
+            directionsRoute,
+            routeProgress,
+        );
 
         rerouteAbortControllerRef.current = abortController;
         lastRerouteAtRef.current = requestedAt;
@@ -228,7 +233,7 @@ export function DrivingGuidanceOverlay({
                 true,
             signal: abortController.signal,
             start,
-            waypoints: (directionsRoute?.stopWaypoints ?? [])
+            waypoints: remainingStopWaypoints
                 .map(getDirectionsWaypointApiCoord)
                 .filter(Boolean),
         })
@@ -255,7 +260,7 @@ export function DrivingGuidanceOverlay({
                     exclusionZone,
                     requestedAt,
                     start: currentLocationWaypoint,
-                    stopWaypoints: directionsRoute?.stopWaypoints ?? [],
+                    stopWaypoints: remainingStopWaypoints,
                 });
             })
             .catch((error) => {
@@ -273,6 +278,7 @@ export function DrivingGuidanceOverlay({
     }, [
         debugOverlayVisibility,
         directionsRoute,
+        routeProgress,
         setDirectionsRoute,
         userLocation,
     ]);

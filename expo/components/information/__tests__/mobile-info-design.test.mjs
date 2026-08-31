@@ -9,6 +9,7 @@ import { faqItems } from '../community-content.js';
 import {
     FAQ_FILTERS,
     getLegalDocumentMetadata,
+    getLegalSectionScrollOffset,
     getLegalTableOfContents,
     getVisibleFaqItems,
 } from '../information-page-state.js';
@@ -152,6 +153,14 @@ describe('Mobile help and legal design', () => {
             legalScreenSource,
             /Promise\.resolve\(\)[\s\S]*Share\.share/,
         );
+    });
+
+    test('translates nested legal section coordinates into scroll coordinates', () => {
+        assert.equal(getLegalSectionScrollOffset(480, 125), 605);
+        assert.equal(getLegalSectionScrollOffset(0, 0), 0);
+        assert.equal(getLegalSectionScrollOffset(undefined, 125), null);
+        assert.equal(getLegalSectionScrollOffset(480, Number.NaN), null);
+        assert.match(legalScreenSource, /sectionsContainerOffsetRef/);
     });
 
     test('omits the open-source licenses item from About & Legal', () => {

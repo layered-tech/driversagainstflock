@@ -8,6 +8,11 @@ import {
     getPlaceTypeLabel,
 } from './place-formatters';
 import { shouldHoldRoundaboutManeuver } from './roundabout-guidance';
+import {
+    createRouteProjectionPath,
+    getRemainingRouteWaypoints,
+    projectCoordinateOntoRoute,
+} from './route-projection';
 
 const METERS_PER_MILE = 1609.344;
 const FEET_PER_METER = 3.28084;
@@ -814,141 +819,20 @@ function getCumulativeRouteDistances(coordinates) {
     return distances;
 }
 
-function getLongitudeDeltaDegrees(fromLongitude, toLongitude) {
-    let delta =
-        normalizeLongitude(toLongitude) - normalizeLongitude(fromLongitude);
-
-    if (delta > 180) {
-        delta -= 360;
-    } else if (delta < -180) {
-        delta += 360;
-    }
-
-    return delta;
-}
-
-function projectCoordinateOntoSegment(
-    startCoordinate,
-    endCoordinate,
-    userCoordinate,
-) {
-    if (
-        !Array.isArray(startCoordinate) ||
-        !Array.isArray(endCoordinate) ||
-        !Array.isArray(userCoordinate)
-    ) {
-        return null;
-    }
-
-    const startLongitude = getStoredNumber(startCoordinate[0]);
-    const startLatitude = getStoredNumber(startCoordinate[1]);
-    const endLongitude = getStoredNumber(endCoordinate[0]);
-    const endLatitude = getStoredNumber(endCoordinate[1]);
-    const userLongitude = getStoredNumber(userCoordinate[0]);
-    const userLatitude = getStoredNumber(userCoordinate[1]);
-
-    if (
-        startLongitude === null ||
-        startLatitude === null ||
-        endLongitude === null ||
-        endLatitude === null ||
-        userLongitude === null ||
-        userLatitude === null
-    ) {
-        return null;
-    }
-
-    const originLatitudeRadians =
-        (((startLatitude + endLatitude + userLatitude) / 3) * Math.PI) / 180;
-    const metersPerDegreeLatitude = (EARTH_RADIUS_METERS * Math.PI) / 180;
-    const metersPerDegreeLongitude =
-        metersPerDegreeLatitude * Math.cos(originLatitudeRadians);
-    const segmentX =
-        getLongitudeDeltaDegrees(startLongitude, endLongitude) *
-        metersPerDegreeLongitude;
-    const segmentY = (endLatitude - startLatitude) * metersPerDegreeLatitude;
-    const pointX =
-        getLongitudeDeltaDegrees(startLongitude, userLongitude) *
-        metersPerDegreeLongitude;
-    const pointY = (userLatitude - startLatitude) * metersPerDegreeLatitude;
-    const segmentLengthSquared = segmentX ** 2 + segmentY ** 2;
-
-    if (segmentLengthSquared < 0.000001) {
-        return {
-            alongSegmentDistance: 0,
-            distanceFromRoute: Math.hypot(pointX, pointY),
-            segmentFraction: 0,
-        };
-    }
-
-    const segmentFraction = Math.max(
-        0,
-        Math.min(
-            1,
-            (pointX * segmentX + pointY * segmentY) / segmentLengthSquared,
-        ),
+function getClosestRoutePosition(projectionPath, userCoordinate) {
+    const projection = projectCoordinateOntoRoute(
+        projectionPath,
+        userCoordinate,
     );
-    const projectedX = segmentX * segmentFraction;
-    const projectedY = segmentY * segmentFraction;
 
-    return {
-        alongSegmentDistance: Math.sqrt(segmentLengthSquared) * segmentFraction,
-        distanceFromRoute: Math.hypot(pointX - projectedX, pointY - projectedY),
-        segmentFraction,
-    };
-}
-
-function getClosestRoutePosition(
-    coordinates,
-    cumulativeDistances,
-    userCoordinate,
-) {
-    let closestPosition = null;
-
-    for (let index = 0; index < coordinates.length - 1; index += 1) {
-        const projection = projectCoordinateOntoSegment(
-            coordinates[index],
-            coordinates[index + 1],
-            userCoordinate,
-        );
-
-        if (!projection) {
-            continue;
-        }
-
-        const alongRouteDistance =
-            (cumulativeDistances[index] ?? 0) + projection.alongSegmentDistance;
-
-        if (
-            !closestPosition ||
-            projection.distanceFromRoute <
-                closestPosition.distanceFromRoute - 0.5 ||
-            (Math.abs(
-                projection.distanceFromRoute -
-                    closestPosition.distanceFromRoute,
-            ) <= 0.5 &&
-                alongRouteDistance > closestPosition.alongRouteDistance)
-        ) {
-            closestPosition = {
-                alongRouteDistance,
-                coordinateIndex: index,
-                distanceFromRoute: projection.distanceFromRoute,
-                segmentFraction: projection.segmentFraction,
-            };
-        }
-    }
-
-    if (closestPosition) {
-        return closestPosition;
+    if (projection) {
+        return projection;
     }
 
     return {
         alongRouteDistance: 0,
         coordinateIndex: 0,
-        distanceFromRoute: getCoordinateDistanceMeters(
-            coordinates[0],
-            userCoordinate,
-        ),
+        distanceFromRoute: null,
         segmentFraction: 0,
     };
 }
@@ -1015,6 +899,7 @@ function getRouteProgressData(route) {
     }
 
     const cumulativeDistances = getCumulativeRouteDistances(coordinates);
+    const projectionPath = createRouteProjectionPath(coordinates);
     const progressData = {
         coordinates,
         cumulativeDistances,
@@ -1024,6 +909,7 @@ function getRouteProgressData(route) {
             coordinates,
             cumulativeDistances,
         ),
+        projectionPath,
     };
 
     if (selectedRoute && typeof selectedRoute === 'object') {
@@ -1054,7 +940,7 @@ function getUpcomingManeuver(maneuvers, progressDistance) {
 }
 
 export function getDirectionsRouteProgress(route, userLocation) {
-    const { coordinates, cumulativeDistances } = getRouteProgressData(route);
+    const { coordinates, projectionPath } = getRouteProgressData(route);
 
     if (coordinates.length < 2) {
         return null;
@@ -1066,11 +952,17 @@ export function getDirectionsRouteProgress(route, userLocation) {
         return null;
     }
 
-    return getClosestRoutePosition(
-        coordinates,
-        cumulativeDistances,
-        userCoordinate,
-    );
+    return getClosestRoutePosition(projectionPath, userCoordinate);
+}
+
+export function getRemainingDirectionsStopWaypoints(route, routeProgress) {
+    const { projectionPath } = getRouteProgressData(route);
+
+    return getRemainingRouteWaypoints({
+        path: projectionPath,
+        progressDistanceMeters: routeProgress?.alongRouteDistance,
+        waypoints: route?.stopWaypoints,
+    });
 }
 
 function getCurrentManeuver(maneuvers, progressDistance) {

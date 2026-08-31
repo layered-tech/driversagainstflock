@@ -142,14 +142,27 @@ describe('Android Auto performance trace', () => {
         );
     });
 
+    test('does not serialize an unchanged active trace again', async () => {
+        const harness = createTraceHarness();
+
+        harness.transitionAutoPlaySession({ isConnected: true });
+        await harness.trace.getAndroidAutoPerformanceTraceAsync();
+        await harness.trace.getAndroidAutoPerformanceTraceAsync();
+
+        assert.equal(harness.calls.setItems.length, 1);
+
+        harness.transitionAutoPlaySession({ isConnected: false });
+        await harness.trace.getAndroidAutoPerformanceTraceAsync();
+    });
+
     test('makes the stored trace selectable from the debug drawer', () => {
         assert.match(
             androidAutoPerformanceTraceSource,
-            /MAX_TRACE_ENTRIES = 4000/,
+            /MAX_TRACE_ENTRIES = 1000/,
         );
         assert.match(
             androidAutoPerformanceTraceSource,
-            /EVENT_LOOP_DELAY_THRESHOLD_MS = 100/,
+            /EVENT_LOOP_DELAY_THRESHOLD_MS = 200/,
         );
         assert.match(debugDrawerSource, /getAndroidAutoPerformanceTraceAsync/);
         assert.match(debugDrawerSource, /selectable/);

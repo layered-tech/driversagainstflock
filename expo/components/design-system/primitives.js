@@ -106,14 +106,15 @@ export function DafButton({
             : resolvedVariant === 'danger'
               ? '#ffffff'
               : dafSemanticColors.brand;
+    const isDisabled = disabled || loading;
 
     return (
         <Pressable
             accessibilityLabel={accessibilityLabel}
             accessibilityRole="button"
-            accessibilityState={{ busy: loading, disabled }}
+            accessibilityState={{ busy: loading, disabled: isDisabled }}
             className={`${sizeClassNames[size] ?? sizeClassNames.md} flex-row items-center justify-center gap-2 rounded-dafPill disabled:opacity-55 ${variantClassNames[resolvedVariant]} ${className}`}
-            disabled={disabled}
+            disabled={isDisabled}
             onPress={onPress}
             testID={testID}
         >

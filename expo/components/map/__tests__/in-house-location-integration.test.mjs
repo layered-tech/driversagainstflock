@@ -328,6 +328,14 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(
             mapLocationPuckAndroidSource,
+            /HEADING_CORRECTION_UPDATE_EPSILON_DEGREES = 0\.25[\s\S]*?appliedHeadingCorrection[\s\S]*?HEADING_CORRECTION_UPDATE_EPSILON_DEGREES[\s\S]*?return true[\s\S]*?"model-rotation-transition"/,
+        );
+        assert.match(
+            mapLocationPuckAndroidSource,
+            /attachHeadingCorrection[\s\S]*?state\.appliedHeadingCorrection = null[\s\S]*?addOnIndicatorBearingChangedListener/,
+        );
+        assert.match(
+            mapLocationPuckAndroidSource,
             /clearHeadingCorrection[\s\S]*?removeOnIndicatorBearingChangedListener/,
         );
         assert.match(
@@ -388,6 +396,14 @@ describe('in-house road-matched location integration', () => {
         assert.match(
             mapLocationPuckIOSSource,
             /property: "model-rotation-transition"[\s\S]*?"duration": locationPuckHeadingCorrectionDurationMilliseconds[\s\S]*?property: "model-rotation"[\s\S]*?value: \[0, 0, correction\]/,
+        );
+        assert.match(
+            mapLocationPuckIOSSource,
+            /headingCorrectionUpdateEpsilonDegrees = 0\.25[\s\S]*?appliedHeadingCorrection[\s\S]*?headingCorrectionUpdateEpsilonDegrees[\s\S]*?return true[\s\S]*?property: "model-rotation-transition"/,
+        );
+        assert.match(
+            mapLocationPuckIOSSource,
+            /attachHeadingCorrection[\s\S]*?invalidateAppliedHeadingCorrection\(\)[\s\S]*?location\.onPuckRender\.observe/,
         );
         assert.match(
             mapLocationPuckIOSSource,
@@ -691,6 +707,10 @@ describe('in-house road-matched location integration', () => {
         assert.match(
             wazePoliceAlertsSource,
             /centerRef\.current = currentCenter/,
+        );
+        assert.match(
+            wazePoliceAlertsSource,
+            /previousMockWazePoliceAlertsEnabledRef\.current ===\s*mockWazePoliceAlertsEnabled[\s\S]*?previousMockWazePoliceAlertsEnabledRef\.current =\s*mockWazePoliceAlertsEnabled[\s\S]*?invalidateWazePoliceAlerts\(\)/,
         );
         assert.match(
             wazePoliceAlertsSource,

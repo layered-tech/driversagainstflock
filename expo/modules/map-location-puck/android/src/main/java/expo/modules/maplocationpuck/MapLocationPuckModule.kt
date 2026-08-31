@@ -52,6 +52,7 @@ private const val LOCATION_PUCK_MODEL_LAYER = "mapbox-location-model-layer"
 private const val LOCATION_PUCK_MODEL_SOURCE = "mapbox-location-model-source"
 private const val LOCATION_PUCK_INDICATOR_LAYER = "mapbox-location-indicator-layer"
 private const val NON_ZERO_HEADING_CORRECTION_EPSILON = 0.0001
+private const val HEADING_CORRECTION_UPDATE_EPSILON_DEGREES = 0.25
 private val MAPBOX_STYLE_SLOTS = setOf("bottom", "middle", "top")
 private val APP_STYLE_LAYER_IDS = setOf("directions-route-line")
 
@@ -339,6 +340,16 @@ class MapLocationPuckModule : Module() {
             matchedHeading = matchedHeading,
             renderedBearing = renderedBearing,
         )
+
+        if (
+            state.appliedHeadingCorrection?.let { appliedCorrection ->
+                kotlin.math.abs(appliedCorrection - correction) <
+                    HEADING_CORRECTION_UPDATE_EPSILON_DEGREES
+            } == true
+        ) {
+            return true
+        }
+
         val transitionResult = mapboxMap.setStyleLayerProperty(
             LOCATION_PUCK_MODEL_LAYER,
             "model-rotation-transition",
@@ -375,6 +386,10 @@ class MapLocationPuckModule : Module() {
         if (location.locationPuck !is LocationPuck3D) {
             return
         }
+
+        // The model layer may have been recreated by a style update. Reapply
+        // once at attachment time, then coalesce per-frame bearing callbacks.
+        state.appliedHeadingCorrection = null
 
         if (state.bearingListener == null) {
             val mapViewReference = WeakReference(mapView)

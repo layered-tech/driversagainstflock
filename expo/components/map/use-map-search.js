@@ -183,11 +183,10 @@ export function useMapSearch({
         placeSheetIsOpenRef,
         placeSheetRef,
         presentPlaceSheet,
+        schedulePlaceSheetPresentation,
         presentSubmittedSearchResultsSheet,
         submittedSearchResultsSheetRef,
     } = useMapSearchSheetPresentation({
-        selectedPlaceDetails,
-        selectedPlaceIsLoading,
         selectedSearchResult,
     });
     // Every programmatic dismiss flags itself so the sheet's `onDismiss` can tell a
@@ -469,12 +468,27 @@ export function useMapSearch({
                 directionsCurrentLocationWaypoint.inputValue,
             );
         }
+
+        if (
+            currentLocationWaypointNeedsRefresh({
+                currentLocationWaypoint: directionsCurrentLocationWaypoint,
+                value: directionsStopValue,
+                waypoint: directionsStopWaypoint,
+            })
+        ) {
+            setDirectionsStopWaypoint(directionsCurrentLocationWaypoint);
+            setDirectionsStopValue(
+                directionsCurrentLocationWaypoint.inputValue,
+            );
+        }
     }, [
         directionsCurrentLocationWaypoint,
         directionsDestinationValue,
         directionsDestinationWaypoint,
         directionsStartValue,
         directionsStartWaypoint,
+        directionsStopValue,
+        directionsStopWaypoint,
     ]);
 
     const handleDrawerPress = useCallback(() => {
@@ -1456,15 +1470,14 @@ export function useMapSearch({
         Keyboard.dismiss();
 
         if (selectedSearchResult) {
-            presentPlaceSheet();
-            setTimeout(presentPlaceSheet, 300);
+            schedulePlaceSheetPresentation();
         }
     }, [
         abortVoiceSearch,
         clearDirectionsPlaceRequest,
         clearDirectionsRouteRequest,
         defaultSearchMode,
-        presentPlaceSheet,
+        schedulePlaceSheetPresentation,
         selectedSearchResult,
         setDirectionsRoute,
         setDirectionsSearchError,
@@ -1583,24 +1596,11 @@ export function useMapSearch({
     const handleDirectionsRouteSelect = useCallback(
         (routeKey) => {
             const nextRoute = selectDirectionsRoute(directionsRoute, routeKey);
-            const bounds =
-                nextRoute?.bounds ?? getDirectionsRouteBounds(nextRoute);
 
             setDirectionsRoute(nextRoute);
             logMapDirectionsRouteSelected({ routeKey });
-
-            if (bounds) {
-                fitCameraToBounds?.(bounds, {
-                    padding: directionsRouteCameraPadding,
-                });
-            }
         },
-        [
-            directionsRoute,
-            directionsRouteCameraPadding,
-            fitCameraToBounds,
-            setDirectionsRoute,
-        ],
+        [directionsRoute, setDirectionsRoute],
     );
 
     const handleDirectionsAdvancedSettingsApply = useCallback(

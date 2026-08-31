@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
+    normalizeOSMRequestError,
     OSM_ERROR_CODES,
     OSMApiError,
     throwOSMResponseError,
@@ -94,5 +95,22 @@ describe('OSMApiError', () => {
         });
 
         assert.match(error.message, /already deleted/);
+    });
+});
+
+describe('normalizeOSMRequestError', () => {
+    test('preserves caller cancellation for screen lifecycle handling', () => {
+        const abortError = new DOMException('Aborted', 'AbortError');
+
+        assert.equal(normalizeOSMRequestError(abortError), abortError);
+    });
+
+    test('maps the request deadline message to an OSM timeout', () => {
+        const error = normalizeOSMRequestError(
+            new Error('The server did not respond. Please try again.'),
+        );
+
+        assert.ok(error instanceof OSMApiError);
+        assert.equal(error.code, OSM_ERROR_CODES.timeout);
     });
 });

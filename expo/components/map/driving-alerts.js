@@ -174,19 +174,6 @@ export function formatUpcomingAlertAge(publishedAt, now = Date.now()) {
     return `${elapsedHours} hr${elapsedHours === 1 ? '' : 's'} ago`;
 }
 
-export function getUpcomingAlertPassProgress(distanceMeters) {
-    const distance = Number(distanceMeters);
-
-    if (!Number.isFinite(distance)) {
-        return 0;
-    }
-
-    return Math.min(
-        1,
-        Math.max(0, distance / UPCOMING_ALERT_WARNING_DISTANCE_METERS),
-    );
-}
-
 export function getUpcomingAlertApproachProgress(distanceMeters) {
     const distance = Number(distanceMeters);
 

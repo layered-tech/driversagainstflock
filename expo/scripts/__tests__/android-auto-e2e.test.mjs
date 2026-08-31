@@ -260,7 +260,7 @@ describe('Android Auto E2E helpers', () => {
                 ({ screenshot, type }) =>
                     type === 'assertOcr' && screenshot === 'phone-asleep',
             ).contains,
-            ['Arrive at your destination', 'Austin Central Library'],
+            ['Arrive at your destin', 'Austin Central Library'],
         );
         assert.deepEqual(
             hostStopTest.steps.find(

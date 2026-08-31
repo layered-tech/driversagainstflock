@@ -10,6 +10,10 @@ import { ContributePlacementSheet } from './contribute/contribute-placement-shee
 import { ContributeStartSheet } from './contribute/contribute-start-sheet';
 import { useContribute } from './contribute/contribute-state';
 import { Icon } from './design-system/icon';
+import {
+    fitRouteComparisonCamera,
+    getDisplayedMapStyleURL,
+} from './map-screen-behavior';
 import { logMapDrivingStarted, logMapDrivingStopped } from './map/analytics';
 import { getMockMarkerPointsSnapshot } from './map/api-mocks';
 import { useMapCameraPadding } from './map/camera-focus-padding';
@@ -19,7 +23,6 @@ import {
 } from './map/config';
 import {
     DIRECTIONS_ROUTE_SHEET_SNAP_POINTS,
-    PLACE_RESULT_CAMERA_ANIMATION_DURATION_MS,
     SEARCH_RESULTS_SHEET_SNAP_POINTS,
 } from './map/constants';
 import {
@@ -96,9 +99,6 @@ import {
 import { useMapPresentation } from './map/use-map-presentation';
 import { useMapSearch } from './map/use-map-search';
 import { makeWazePoliceAlertFeatureCollection } from './map/waze-alerts-api';
-
-const ROUTE_CHOICE_CAMERA_FIT_RETRY_DELAY_MS =
-    PLACE_RESULT_CAMERA_ANIMATION_DURATION_MS + 150;
 
 // Marker and POI taps are suppressed while contribute placement owns the map.
 function noopMapInteractionHandler() {}
@@ -486,44 +486,12 @@ export default function LocationMapScreen({
             directionsRoute?.bounds ??
             getDirectionsRouteBounds(directionsRoute);
 
-        if (!Array.isArray(bounds?.sw) || !Array.isArray(bounds?.ne)) {
-            return;
-        }
-
-        const routeChoicesFitKey = [
-            bounds.sw.join(','),
-            bounds.ne.join(','),
-            directionsRouteCameraPadding.join(','),
-        ].join('|');
-
-        if (
-            routeChoicesFitKey &&
-            fittedDirectionsRouteChoicesKeyRef.current === routeChoicesFitKey
-        ) {
-            return;
-        }
-
-        const fitRouteChoicesToBounds = () =>
-            locationController.fitCameraToBounds(bounds, {
-                padding: directionsRouteCameraPadding,
-            });
-
-        if (!fitRouteChoicesToBounds()) {
-            return;
-        }
-
-        fittedDirectionsRouteChoicesKeyRef.current = routeChoicesFitKey;
-
-        const frame = requestAnimationFrame(fitRouteChoicesToBounds);
-        const retry = setTimeout(
-            fitRouteChoicesToBounds,
-            ROUTE_CHOICE_CAMERA_FIT_RETRY_DELAY_MS,
-        );
-
-        return () => {
-            cancelAnimationFrame(frame);
-            clearTimeout(retry);
-        };
+        fittedDirectionsRouteChoicesKeyRef.current = fitRouteComparisonCamera({
+            bounds,
+            cameraPadding: directionsRouteCameraPadding,
+            fitCameraToBounds: locationController.fitCameraToBounds,
+            previousFitKey: fittedDirectionsRouteChoicesKeyRef.current,
+        });
     }, [
         directionsRoute,
         directionsRouteCameraPadding,
@@ -542,13 +510,11 @@ export default function LocationMapScreen({
             navigation.setOptions({ swipeEnabled: true });
         };
     }, [contributePlacementIsActive, navigation]);
-    useEffect(() => {
-        if (!contributePlacementIsActive || !mapPreferencesAreLoaded) {
-            return;
-        }
-
-        setMapStyleURL(MAPBOX_STANDARD_SATELLITE_STYLE_URL);
-    }, [contributePlacementIsActive, mapPreferencesAreLoaded, setMapStyleURL]);
+    const displayedMapStyleURL = getDisplayedMapStyleURL({
+        contributionMapStyleURL: MAPBOX_STANDARD_SATELLITE_STYLE_URL,
+        contributePlacementIsActive,
+        mapStyleURL,
+    });
     const handleMarkerDetailsClosePress = useCallback(() => {
         markerDetailsSheetRef.current?.dismiss();
         setSelectedMarker(null);
@@ -566,7 +532,7 @@ export default function LocationMapScreen({
         isDrivingMode,
         locationTrackingMode: locationController.locationTrackingMode,
         mapLightPreset,
-        mapStyleURL,
+        mapStyleURL: displayedMapStyleURL,
         searchSource,
         voiceSearchIsListening: searchController.voiceSearchIsListening,
     });
@@ -650,7 +616,6 @@ export default function LocationMapScreen({
         directionsDebugFeatureCollection,
         directionsRouteFeatureCollection,
         electronicHorizonDebugFeatureCollection,
-        e2eMapApiMocksEnabled: e2eMapApiMocksAreRequested,
         handleMapPress: contributePlacementIsActive
             ? noopMapInteractionHandler
             : handleMapPress,
@@ -662,7 +627,7 @@ export default function LocationMapScreen({
         locationController,
         mapLightPreset,
         mapPreferencesAreLoaded,
-        mapStyleURL,
+        mapStyleURL: displayedMapStyleURL,
         mapTrafficEnabled,
         surveillanceMarkersVisible,
         markerClustersEnabled,

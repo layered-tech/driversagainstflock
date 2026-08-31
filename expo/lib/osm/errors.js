@@ -11,6 +11,9 @@ export const OSM_ERROR_CODES = {
     unauthorized: 'unauthorized',
 };
 
+const AUTH_TIMEOUT_ERROR_MESSAGE =
+    'The server did not respond. Please try again.';
+
 const OSM_ERROR_MESSAGES = {
     [OSM_ERROR_CODES.badRequest]:
         'OpenStreetMap rejected the edit — check the details and try again.',
@@ -53,6 +56,28 @@ export class OSMApiError extends Error {
         this.name = 'OSMApiError';
         this.status = status;
     }
+}
+
+export function normalizeOSMRequestError(error) {
+    if (error instanceof OSMApiError) {
+        return error;
+    }
+
+    if (error?.message === AUTH_TIMEOUT_ERROR_MESSAGE) {
+        return new OSMApiError({
+            code: OSM_ERROR_CODES.timeout,
+            detail: error?.message ?? '',
+        });
+    }
+
+    if (error instanceof TypeError) {
+        return new OSMApiError({
+            code: OSM_ERROR_CODES.network,
+            detail: error?.message ?? '',
+        });
+    }
+
+    return error;
 }
 
 export async function throwOSMResponseError(response) {

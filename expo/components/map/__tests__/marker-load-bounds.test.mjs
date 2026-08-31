@@ -8,14 +8,42 @@ import {
     getDrivingMarkerRequiredRadiusMeters,
     markerRequestBoundsContainCameraBounds,
     resolveMarkerLoadBounds,
+    shouldSkipMarkerLoadRequest,
 } from '../marker-load-bounds.js';
 
 const CHICAGO_LOCATION = {
     latitude: 41.8781,
     longitude: -87.6298,
 };
+const markerLoaderSource = readFileSync(
+    new URL('../use-marker-loader.js', import.meta.url),
+    'utf8',
+);
 
 describe('driving marker load bounds', () => {
+    test('does not replace an active request for a late cached viewport', () => {
+        const cachedRequestBounds = {
+            sw_lng: -88,
+            sw_lat: 41,
+            ne_lng: -87,
+            ne_lat: 42,
+        };
+        const lateCachedCameraBounds = {
+            sw: [-87.9, 41.1],
+            ne: [-87.1, 41.9],
+        };
+
+        assert.equal(
+            shouldSkipMarkerLoadRequest({
+                activeRequestContainsBounds: false,
+                cameraBounds: lateCachedCameraBounds,
+                lastLoadedRequestBounds: cachedRequestBounds,
+                pendingRequestBounds: null,
+            }),
+            true,
+        );
+    });
+
     test('coalesces heading changes and small movements into one request', () => {
         const headingBounds = [
             {
@@ -225,4 +253,15 @@ test('wires stable driving coverage into phone and automotive maps', () => {
         assert.match(source, /followLocationMode\.getRecenterIsNeeded\(\)/);
         assert.match(source, /manualPanIsStarting/);
     }
+});
+
+test('keeps the active-bound containment helper available to the marker loader', () => {
+    assert.match(
+        markerLoaderSource,
+        /markerRequestBoundsContainCameraBounds,[\s\S]*?shouldSkipMarkerLoadRequest,/,
+    );
+    assert.match(
+        markerLoaderSource,
+        /const activeMarkerRequestContainsBounds[\s\S]*?markerRequestBoundsContainCameraBounds\(/,
+    );
 });

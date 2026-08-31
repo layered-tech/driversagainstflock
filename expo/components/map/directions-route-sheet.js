@@ -77,32 +77,30 @@ export function DirectionsRouteSheet() {
             return undefined;
         }
 
+        let retry = null;
         const presentRouteSheet = () => {
-            directionsRouteSheetRef.current?.present();
+            const routeSheet = directionsRouteSheetRef.current;
+
+            if (!routeSheet) {
+                return false;
+            }
+
+            routeSheet.present();
+
+            return true;
         };
-        const frame = requestAnimationFrame(presentRouteSheet);
-        const retry = setTimeout(presentRouteSheet, 300);
+        const frame = requestAnimationFrame(() => {
+            if (!presentRouteSheet()) {
+                retry = setTimeout(presentRouteSheet, 300);
+            }
+        });
 
         return () => {
             cancelAnimationFrame(frame);
-            clearTimeout(retry);
-        };
-    }, [directionsRoute, directionsRouteSheetRef, mapPreferencesAreLoaded]);
 
-    useEffect(() => {
-        if (!mapPreferencesAreLoaded || !directionsRoute) {
-            return undefined;
-        }
-
-        const presentRouteSheet = () => {
-            directionsRouteSheetRef.current?.present();
-        };
-        const frame = requestAnimationFrame(presentRouteSheet);
-        const retry = setTimeout(presentRouteSheet, 300);
-
-        return () => {
-            cancelAnimationFrame(frame);
-            clearTimeout(retry);
+            if (retry !== null) {
+                clearTimeout(retry);
+            }
         };
     }, [directionsRoute, directionsRouteSheetRef, mapPreferencesAreLoaded]);
 

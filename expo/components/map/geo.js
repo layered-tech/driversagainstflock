@@ -30,6 +30,7 @@ export {
     getLongitudeIntervals,
     longitudeIntervalsContain,
     markerRequestBoundsContainCameraBounds,
+    shouldSkipMarkerLoadRequest,
 } from './marker-load-bounds';
 
 const FLOCK_ALPR_WIKIDATA_ID = 'Q108485435';
