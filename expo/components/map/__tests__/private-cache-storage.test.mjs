@@ -14,6 +14,7 @@ const transformModulesCommonJs = require('@babel/plugin-transform-modules-common
 function createPrivateCacheStorageHarness({ legacyEntries = {} } = {}) {
     const legacyStorage = new Map(Object.entries(legacyEntries));
     const secureStorage = new Map();
+    let secureDeleteFailure = null;
     const module = { exports: {} };
     const transformedSource = transformSync(privateCacheStorageSource, {
         babelrc: false,
@@ -34,6 +35,11 @@ function createPrivateCacheStorageHarness({ legacyEntries = {} } = {}) {
         'expo-secure-store': {
             AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: 1,
             deleteItemAsync: async (key) => {
+                if (secureDeleteFailure?.(key)) {
+                    secureDeleteFailure = null;
+                    throw new Error('secure delete failed');
+                }
+
                 secureStorage.delete(key);
             },
             getItemAsync: async (key) => secureStorage.get(key) ?? null,
@@ -53,6 +59,9 @@ function createPrivateCacheStorageHarness({ legacyEntries = {} } = {}) {
     );
 
     return {
+        failNextSecureDelete(predicate) {
+            secureDeleteFailure = predicate;
+        },
         legacyStorage,
         privateCacheStorage: module.exports,
         secureStorage,
@@ -115,5 +124,38 @@ describe('private cache storage', () => {
         );
         assert.equal(harness.legacyStorage.has(storageKey), false);
         assert.ok(harness.secureStorage.size > 0);
+    });
+
+    test('keeps the manifest until every encrypted chunk is deleted', async () => {
+        const harness = createPrivateCacheStorageHarness();
+        const storageKey = 'driversagainstflock.deviceScorecard.v1';
+
+        await harness.privateCacheStorage.setPrivateCacheItem(
+            storageKey,
+            'encrypted scorecard payload',
+        );
+
+        const [manifestKey, serializedManifest] = [
+            ...harness.secureStorage.entries(),
+        ].find(([, value]) => value.includes('"generation"'));
+        const manifest = JSON.parse(serializedManifest);
+        const chunkKeyPrefix = `${manifestKey}.${manifest.generation}.`;
+
+        harness.failNextSecureDelete((key) => key.startsWith(chunkKeyPrefix));
+
+        await assert.rejects(
+            harness.privateCacheStorage.removePrivateCacheItem(storageKey),
+            /secure delete failed/,
+        );
+        assert.equal(harness.secureStorage.has(manifestKey), true);
+
+        await harness.privateCacheStorage.removePrivateCacheItem(storageKey);
+
+        assert.equal(
+            [...harness.secureStorage.keys()].some(
+                (key) => key === manifestKey || key.startsWith(chunkKeyPrefix),
+            ),
+            false,
+        );
     });
 });

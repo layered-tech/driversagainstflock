@@ -119,7 +119,11 @@ describe('scorecard telemetry and storage boundary', () => {
         );
         assert.match(
             runtimeSource,
-            /async function performStateReplacement\(nextState\)[\s\S]*?normalizeScorecardState\([\s\S]*?nextState,[\s\S]*?replacedAt[\s\S]*?await enqueuePersistence\([\s\S]*?saveState\(normalizedState, replacedAt\)[\s\S]*?if \(!wasSaved\)[\s\S]*?return false;[\s\S]*?scorecardState = normalizedState[\s\S]*?function replaceState\(nextState\)[\s\S]*?stateReplacementQueue/,
+            /async function performStateReplacement\(nextState\)[\s\S]*?normalizeScorecardState\([\s\S]*?nextState,[\s\S]*?replacedAt[\s\S]*?await enqueuePersistence\([\s\S]*?saveState\(normalizedState, replacedAt\)[\s\S]*?if \(!wasSaved\)[\s\S]*?return false;[\s\S]*?scorecardState = normalizedState/,
+        );
+        assert.match(
+            runtimeSource,
+            /function queueStateReplacement\(operation\)[\s\S]*?stateReplacementQueue[\s\S]*?function replaceState\(nextState\)[\s\S]*?queueStateReplacement/,
         );
         assert.doesNotMatch(
             contextSource,

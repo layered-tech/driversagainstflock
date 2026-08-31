@@ -18,6 +18,8 @@ import {
     scorecardRouteEndedAtDestination,
 } from './scorecard-route-progress.js';
 
+const FREE_DRIVE_DISTANCE_CHECKPOINT_METERS = 500;
+
 function getLocationCoordinate(location) {
     const latitude = Number(location?.coords?.latitude ?? location?.latitude);
     const longitude = Number(
@@ -321,7 +323,8 @@ export function createScorecardRuntime({
             activeSession.mode === 'guided'
                 ? (activeSession.completedDistanceMeters ?? 0) +
                   routeDistanceMeters
-                : freeDriveDistanceMeters;
+                : (activeSession.completedDistanceMeters ?? 0) +
+                  freeDriveDistanceMeters;
         const extraDistanceMeters =
             activeSession.mode === 'guided'
                 ? (activeSession.completedExtraDistanceMeters ?? 0) +
@@ -585,9 +588,52 @@ export function createScorecardRuntime({
 
         previousRawLocation = result.previousLocation;
         detectorState = result.detectorState;
-        freeDriveDistanceMeters += result.distanceMeters;
 
-        if (result.exposures.length > 0) {
+        if (activeSession.mode === 'free') {
+            freeDriveDistanceMeters += result.distanceMeters;
+
+            const shouldCheckpointDistance =
+                freeDriveDistanceMeters > 0 &&
+                ((activeSession.completedDistanceMeters ?? 0) === 0 ||
+                    freeDriveDistanceMeters >=
+                        FREE_DRIVE_DISTANCE_CHECKPOINT_METERS ||
+                    result.exposures.length > 0);
+
+            if (shouldCheckpointDistance || result.exposures.length > 0) {
+                const checkpointDistanceMeters = shouldCheckpointDistance
+                    ? freeDriveDistanceMeters
+                    : 0;
+
+                if (shouldCheckpointDistance) {
+                    freeDriveDistanceMeters = 0;
+                }
+
+                commitState((currentState) => {
+                    if (currentState.activeSession?.id !== activeSession.id) {
+                        return currentState;
+                    }
+
+                    const stateWithDistance = checkpointDistanceMeters
+                        ? {
+                              ...currentState,
+                              activeSession: {
+                                  ...currentState.activeSession,
+                                  completedDistanceMeters:
+                                      (currentState.activeSession
+                                          .completedDistanceMeters ?? 0) +
+                                      checkpointDistanceMeters,
+                              },
+                          }
+                        : currentState;
+
+                    return addExposureRecords(
+                        stateWithDistance,
+                        result.exposures,
+                        activeSession.id,
+                    );
+                });
+            }
+        } else if (result.exposures.length > 0) {
             commitState((currentState) =>
                 currentState.activeSession?.id === activeSession.id
                     ? addExposureRecords(
@@ -622,9 +668,12 @@ export function createScorecardRuntime({
             return;
         }
 
-        const session = createSession('free');
+        const session = {
+            ...createSession('free'),
+            completedDistanceMeters: result.distanceMeters,
+        };
 
-        freeDriveDistanceMeters = result.distanceMeters;
+        freeDriveDistanceMeters = 0;
         automotiveProvisionalIsArmed = false;
         commitState((currentState) =>
             addExposureRecords(
@@ -868,13 +917,7 @@ export function createScorecardRuntime({
         return true;
     }
 
-    async function waitForStateReplacement() {
-        while (stateReplacementPromise) {
-            await stateReplacementPromise.catch(() => {});
-        }
-    }
-
-    function replaceState(nextState) {
+    function queueStateReplacement(operation) {
         pendingStateReplacementCount += 1;
 
         const queuedReplacement = stateReplacementQueue
@@ -882,7 +925,7 @@ export function createScorecardRuntime({
             .then(async () => {
                 await hydrate();
 
-                return performStateReplacement(nextState);
+                return operation();
             });
         let replacementCompletion;
 
@@ -905,11 +948,18 @@ export function createScorecardRuntime({
         return replacementCompletion;
     }
 
-    async function deleteHistory() {
-        await hydrate();
-        await waitForStateReplacement();
+    function replaceState(nextState) {
+        return queueStateReplacement(() => performStateReplacement(nextState));
+    }
 
+    async function performHistoryDeletion() {
         const deletedAt = now();
+        await enqueuePersistence(async () => {
+            await deleteState();
+
+            return true;
+        });
+
         scorecardState = normalizeScorecardState(
             createEmptyScorecardState(),
             deletedAt,
@@ -917,25 +967,18 @@ export function createScorecardRuntime({
         stateRevision += 1;
         const deletionRevision = stateRevision;
 
+        if (deletionRevision > persistedRevision) {
+            persistedRevision = deletionRevision;
+        }
+
         resetDriveTracking({ seedLatestLocation: true });
         publishSnapshot();
-        const deletionPersistence = enqueuePersistence(async () => {
-            await deleteState();
 
-            return true;
-        });
-        requestDriveStateReconciliation();
+        return true;
+    }
 
-        try {
-            const wasDeleted = await deletionPersistence.catch(() => false);
-
-            if (wasDeleted && deletionRevision > persistedRevision) {
-                persistedRevision = deletionRevision;
-                publishSnapshot();
-            }
-        } finally {
-            requestDriveStateReconciliation();
-        }
+    function deleteHistory() {
+        return queueStateReplacement(performHistoryDeletion);
     }
 
     async function waitForIdle() {

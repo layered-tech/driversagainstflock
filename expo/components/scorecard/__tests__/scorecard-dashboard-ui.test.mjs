@@ -99,4 +99,26 @@ describe('scorecard dashboard interactions', () => {
             /Boolean\(scorecardState\.activeSession\)/,
         );
     });
+
+    test('reports encrypted history deletion failures and offers a retry', () => {
+        const contextSource = readSource('../scorecard-context.js');
+        const dashboardSource = readSource('../scorecard-dashboard-screen.js');
+
+        assert.match(
+            contextSource,
+            /await deleteScorecardRuntimeHistory\(\);[\s\S]*?pendingE2EFixtureURLRef\.current = null;/,
+        );
+        assert.doesNotMatch(
+            contextSource,
+            /deleteScorecardRuntimeHistory\(\)\.catch/,
+        );
+        assert.match(
+            dashboardSource,
+            /handleConfirmedDeleteHistory = async \(\)[\s\S]*?await deleteHistory\(\);[\s\S]*?Could not delete scorecard history[\s\S]*?still on this device[\s\S]*?Try again/,
+        );
+        assert.match(
+            dashboardSource,
+            /onPress: \(\) => void handleConfirmedDeleteHistory\(\),[\s\S]*?style: 'destructive'/,
+        );
+    });
 });

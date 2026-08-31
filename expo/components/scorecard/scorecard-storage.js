@@ -25,14 +25,29 @@ export async function loadEncryptedScorecardState(now = Date.now()) {
         return createEmptyScorecardState();
     }
 
+    let serializedState;
+
     try {
-        return parseScorecardState(
-            await getPrivateCacheItem(SCORECARD_STORAGE_KEY),
-            now,
-        );
+        serializedState = await getPrivateCacheItem(SCORECARD_STORAGE_KEY);
     } catch {
         return createEmptyScorecardState();
     }
+
+    const state = parseScorecardState(serializedState, now);
+    const normalizedSerializedState = serializeScorecardState(state, now);
+
+    if (
+        typeof serializedState === 'string' &&
+        normalizedSerializedState &&
+        normalizedSerializedState !== serializedState
+    ) {
+        await setPrivateCacheItem(
+            SCORECARD_STORAGE_KEY,
+            normalizedSerializedState,
+        ).catch(() => {});
+    }
+
+    return state;
 }
 
 export async function saveEncryptedScorecardState(state, now = Date.now()) {

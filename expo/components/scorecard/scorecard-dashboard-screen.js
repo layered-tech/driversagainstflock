@@ -303,6 +303,24 @@ export default function ScorecardDashboardScreen() {
         }
     };
 
+    const handleConfirmedDeleteHistory = async () => {
+        try {
+            await deleteHistory();
+        } catch {
+            Alert.alert(
+                'Could not delete scorecard history',
+                'Your encrypted scorecard history is still on this device. Please try again.',
+                [
+                    { style: 'cancel', text: 'Cancel' },
+                    {
+                        onPress: () => void handleConfirmedDeleteHistory(),
+                        text: 'Try again',
+                    },
+                ],
+            );
+        }
+    };
+
     const handleDeleteHistory = () => {
         Alert.alert(
             'Delete encrypted scorecard history?',
@@ -310,7 +328,7 @@ export default function ScorecardDashboardScreen() {
             [
                 { style: 'cancel', text: 'Cancel' },
                 {
-                    onPress: () => void deleteHistory(),
+                    onPress: () => void handleConfirmedDeleteHistory(),
                     style: 'destructive',
                     text: 'Delete',
                 },

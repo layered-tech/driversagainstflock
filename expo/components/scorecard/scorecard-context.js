@@ -245,9 +245,9 @@ export function ScorecardProvider({ children }) {
         gasPriceRequestsRef.current.clear();
     }, []);
     const deleteHistory = useCallback(async () => {
+        await deleteScorecardRuntimeHistory();
         pendingE2EFixtureURLRef.current = null;
         gasPriceRequestsRef.current.clear();
-        await deleteScorecardRuntimeHistory().catch(() => {});
     }, []);
     const dismissRecap = useCallback(() => {
         updateScorecardRuntimeState((currentState) =>

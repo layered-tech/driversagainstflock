@@ -72,6 +72,67 @@ describe('scorecard fastest reconstructed trail', () => {
         ]);
     });
 
+    test('chunks long drives within the waypoint limit and stitches their routes', async () => {
+        const longDriveExposures = Array.from({ length: 13 }, (_, index) => ({
+            cameraCoordinate: [-97.8 + index / 100, 30.2 + index / 100],
+            id: `long-drive-${index}`,
+            occurredAt: 1000 + index,
+            sessionId: 'long-drive',
+        }));
+        const requests = [];
+        const signal = AbortSignal.timeout(1000);
+        const requestDirections = async (request) => {
+            requests.push(request);
+
+            return {
+                route: {
+                    routes: {
+                        direct: {
+                            coordinates: [
+                                request.start,
+                                ...request.waypoints,
+                                request.end,
+                            ].map(({ latitude, longitude }) => [
+                                longitude,
+                                latitude,
+                            ]),
+                        },
+                    },
+                },
+            };
+        };
+
+        const collection = await getScorecardFastestTrailLineCollection({
+            exposures: longDriveExposures,
+            requestDirections,
+            signal,
+        });
+
+        assert.equal(requests.length, 2);
+        assert.deepEqual(
+            requests.map(({ signal: requestSignal, waypoints }) => ({
+                signal: requestSignal,
+                waypointCount: waypoints.length,
+            })),
+            [
+                { signal, waypointCount: 10 },
+                { signal, waypointCount: 0 },
+            ],
+        );
+        assert.deepEqual(
+            collection.features[0].geometry.coordinates,
+            longDriveExposures.map(({ cameraCoordinate }) => cameraCoordinate),
+        );
+
+        await getScorecardFastestTrailLineCollection({
+            exposures: longDriveExposures,
+            requestDirections,
+            signal,
+        });
+
+        assert.equal(requests.length, 2);
+    });
+
     test('fails silently without falling back to straight lines', async () => {
         const collection = await getScorecardFastestTrailLineCollection({
             exposures: exposures.map((exposure) => ({

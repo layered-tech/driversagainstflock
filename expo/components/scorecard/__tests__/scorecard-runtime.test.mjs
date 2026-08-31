@@ -479,6 +479,114 @@ describe('scorecard process runtime', () => {
         assert.equal(deletedStates.length, 1);
     });
 
+    test('rejects history deletion when encrypted storage cannot be cleared', async () => {
+        const deletionFailure = new Error('secure deletion failed');
+        const { deletedStates, runtime } = createRuntimeHarness({
+            deleteState: async () => {
+                throw deletionFailure;
+            },
+        });
+
+        await runtime.hydrate();
+        runtime.setTrackingEnabled(false);
+        await runtime.waitForIdle();
+        const snapshotBeforeDeletion = runtime.getSnapshot();
+
+        await assert.rejects(runtime.deleteHistory(), deletionFailure);
+        const snapshotAfterDeletion = runtime.getSnapshot();
+
+        assert.equal(deletedStates.length, 1);
+        assert.deepEqual(
+            snapshotAfterDeletion.scorecardState,
+            snapshotBeforeDeletion.scorecardState,
+        );
+        assert.equal(
+            snapshotAfterDeletion.stateRevision,
+            snapshotBeforeDeletion.stateRevision,
+        );
+        assert.equal(
+            snapshotAfterDeletion.persistedRevision,
+            snapshotBeforeDeletion.persistedRevision,
+        );
+    });
+
+    test('keeps scorecard state visible until encrypted deletion succeeds', async () => {
+        const deferredDeletion = createDeferred();
+        const { runtime } = createRuntimeHarness({
+            deleteState: () => deferredDeletion.promise,
+        });
+
+        await runtime.hydrate();
+        runtime.setTrackingEnabled(false);
+        await runtime.waitForIdle();
+        const snapshotBeforeDeletion = runtime.getSnapshot();
+        const deletion = runtime.deleteHistory();
+
+        await flushAsyncWork();
+
+        assert.deepEqual(
+            runtime.getSnapshot().scorecardState,
+            snapshotBeforeDeletion.scorecardState,
+        );
+        assert.equal(
+            runtime.getSnapshot().stateRevision,
+            snapshotBeforeDeletion.stateRevision,
+        );
+
+        deferredDeletion.resolve();
+        assert.equal(await deletion, true);
+        assert.equal(
+            runtime.getSnapshot().scorecardState.settings.enabled,
+            true,
+        );
+    });
+
+    test('retains free-drive distance across encrypted runtime recreation', async () => {
+        const firstHarness = createRuntimeHarness();
+
+        await firstHarness.runtime.hydrate();
+        firstHarness.runtime.setRoutingState({
+            directionsRoute: null,
+            drivingModeIsActive: true,
+        });
+        firstHarness.runtime.handleAcceptedLocation(
+            location(0, -0.0002, 1_000, { speed: 3 }),
+        );
+        firstHarness.runtime.handleAcceptedLocation(
+            location(0, 0, 2_000, { speed: 3 }),
+        );
+        await firstHarness.runtime.waitForIdle();
+
+        const persistedState = firstHarness.savedStates.at(-1).state;
+        const persistedDistanceMeters =
+            persistedState.activeSession.completedDistanceMeters;
+
+        assert.ok(persistedDistanceMeters > 0);
+
+        const secondHarness = createRuntimeHarness({
+            initialState: persistedState,
+        });
+
+        secondHarness.runtime.setRoutingState({
+            directionsRoute: null,
+            drivingModeIsActive: true,
+        });
+        await secondHarness.runtime.hydrate();
+        secondHarness.runtime.setRoutingState({
+            directionsRoute: null,
+            drivingModeIsActive: false,
+        });
+
+        const completedTrip =
+            secondHarness.runtime.getSnapshot().scorecardState.trips[0];
+
+        assert.ok(completedTrip);
+        assert.equal(
+            completedTrip.distanceMiles,
+            persistedDistanceMeters / 1609.344,
+        );
+    });
+
     test('clears a provisional anchor across tracking disable and re-enable', async () => {
         const { runtime } = createRuntimeHarness();
 
