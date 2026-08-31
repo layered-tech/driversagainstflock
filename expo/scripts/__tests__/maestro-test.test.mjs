@@ -24,6 +24,14 @@ const EXPO_DIRECTORY = path.resolve(
     '..',
     '..',
 );
+const AUTO_PLAY_PACKAGE_ROOT = process.env.AUTO_PLAY_PACKAGE_ROOT
+    ? path.resolve(process.env.AUTO_PLAY_PACKAGE_ROOT)
+    : path.join(
+          EXPO_DIRECTORY,
+          'node_modules',
+          '@iternio',
+          'react-native-auto-play',
+      );
 
 describe('Maestro managed development server', () => {
     test('parses only connected Android devices', () => {
@@ -318,32 +326,19 @@ R58M offline
     test('forwards iOS Expo development-client scene URLs', () => {
         const sceneDelegate = readFileSync(
             path.join(
-                EXPO_DIRECTORY,
-                'node_modules',
-                '@iternio',
-                'react-native-auto-play',
+                AUTO_PLAY_PACKAGE_ROOT,
                 'ios',
                 'scenes',
                 'WindowApplicationSceneDelegate.swift',
             ),
             'utf8',
         );
-        const dependencyPatch = readFileSync(
-            path.join(
-                EXPO_DIRECTORY,
-                'patches',
-                '@iternio+react-native-auto-play+0.4.7.patch',
-            ),
-            'utf8',
-        );
 
-        for (const source of [sceneDelegate, dependencyPatch]) {
-            assert.match(source, /url\.host == "expo-development-client"/);
-            assert.match(
-                source,
-                /UIApplication\.shared\.delegate\?\.application\?\(/,
-            );
-        }
+        assert.match(sceneDelegate, /url\.host == "expo-development-client"/);
+        assert.match(
+            sceneDelegate,
+            /UIApplication\.shared\.delegate\?\.application\?\(/,
+        );
     });
 
     test('serializes iOS speech permission registration on the main thread', () => {

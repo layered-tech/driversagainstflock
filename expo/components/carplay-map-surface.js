@@ -10,6 +10,7 @@ const CARPLAY_SURFACE_PLATFORM_CONFIG = {
         },
     },
     hideCompassDuringNavigation: true,
+    hostOwnsNavigationUI: true,
     ornamentSafeAreaLeftScale: 1,
     usesHostColorSchemeForAutomaticMapPreset: false,
 };

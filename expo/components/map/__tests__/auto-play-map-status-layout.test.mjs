@@ -16,6 +16,10 @@ const androidAutoMapSurfaceSource = readFileSync(
     new URL('../../android-auto-map-surface.js', import.meta.url),
     'utf8',
 );
+const androidAutoPlatformSource = readFileSync(
+    new URL('../../auto-play-platform.android.js', import.meta.url),
+    'utf8',
+);
 const carPlayMapSurfaceSource = readFileSync(
     new URL('../../carplay-map-surface.js', import.meta.url),
     'utf8',
@@ -30,6 +34,10 @@ const speedLimitSource = readFileSync(
 );
 const mapSurfaceContentSource = readFileSync(
     new URL('../../auto-play-map-surface-content.js', import.meta.url),
+    'utf8',
+);
+const autoPlaySource = readFileSync(
+    new URL('../../auto-play.js', import.meta.url),
     'utf8',
 );
 const currentRoadContextSource = readFileSync(
@@ -295,43 +303,34 @@ describe('Auto Play current-road pill layout', () => {
         );
     });
 
-    test('reuses the shared driving stack on the Android Auto cluster', () => {
+    test('uses a dedicated map-only surface on the Android Auto cluster', () => {
         assert.match(
-            androidAutoMapSurfaceSource,
-            /showDrivingStatusOnSecondarySurfaces:\s*true/,
+            autoPlaySource,
+            /AutoPlayCluster\.setComponent\(\s*autoPlayPlatform\.ClusterSurface \?\? autoPlayPlatform\.MapSurface/,
         );
         assert.match(
             androidAutoMapSurfaceSource,
-            /showSpeedLimitOnSecondarySurfaces:\s*false/,
+            /export const AndroidAutoClusterSurface = createAutoPlayMapSurface\(\{[\s\S]*?hostOwnsNavigationUI:\s*true/,
         );
         assert.match(
-            mapSurfaceContentSource,
-            /getAutoPlayDrivingStatusVisibility\(\{[\s\S]*?showDrivingStatusOnSecondarySurfaces,[\s\S]*?showSpeedLimitOnSecondarySurfaces/,
+            androidAutoPlatformSource,
+            /ClusterSurface:\s*AndroidAutoClusterSurface/,
         );
-        assert.match(
-            mapSurfaceContentSource,
-            /freeDriveIsActive=\{[\s\S]*?secondaryDrivingStatusIsVisible/,
+        assert.doesNotMatch(
+            androidAutoMapSurfaceSource,
+            /showDrivingStatusOnSecondarySurfaces|showSpeedLimitOnSecondarySurfaces/,
         );
-        assert.match(
-            mapSurfaceContentSource,
-            /<AutoPlayMapStatusOverlay[\s\S]*?rendersSpeedLimit=\{rendersSpeedLimit\}/,
+        assert.doesNotMatch(
+            androidAutoPlatformSource,
+            /ClusterSurface:\s*AndroidAutoMapSurface/,
         );
-        assert.match(
-            mapStatusOverlaySource,
-            /useRouteSpeedLimit\(\{[\s\S]*?routeIsActive:\s*rendersSpeedLimit\s*&&[\s\S]*?<DrivingLocationRoadStack[\s\S]*?onLocationAnchorLayout/,
+        assert.doesNotMatch(
+            androidAutoPlatformSource,
+            /supportsSearchAutocomplete|usesHeaderDrivingModeButton/,
         );
-        assert.match(
-            mapStatusOverlaySource,
-            /const currentSpeedWithoutLimitIsVisible = Boolean\(\s*rendersSpeedLimit\s*&&[\s\S]*?Platform\.OS === 'android'/,
-        );
-        assert.match(
-            mapStatusOverlaySource,
-            /useRouteSpeedLimit\(\{\s*routeIsActive:\s*rendersSpeedLimit\s*&&\s*\(routeIsActive \|\| freeDriveIsActive\),\s*userLocation,\s*\}\)/,
-        );
-        assert.match(
-            mapStatusOverlaySource,
-            /const speedStatusIsVisible =\s*speedLimitIsVisible \|\| currentSpeedWithoutLimitIsVisible/,
-        );
+    });
+
+    test('keeps the root Android Auto status layout compact', () => {
         assert.match(
             androidAutoMapSurfaceSource,
             /speedLimitBadge:\s*\{[\s\S]*?portraitSize:\s*56/,

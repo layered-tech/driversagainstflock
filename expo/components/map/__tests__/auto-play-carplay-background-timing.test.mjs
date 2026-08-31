@@ -1,9 +1,19 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
+const autoPlayPackageRoot = process.env.AUTO_PLAY_PACKAGE_ROOT
+    ? resolve(process.env.AUTO_PLAY_PACKAGE_ROOT)
+    : fileURLToPath(
+          new URL(
+              '../../../node_modules/@iternio/react-native-auto-play/',
+              import.meta.url,
+          ),
+      );
 const appConfig = require('../../../app.config.js');
 const packageJson = require('../../../package.json');
 const reactNativePatch = readFileSync(
@@ -24,11 +34,16 @@ const reactNativeTimingSource = readFileSync(
     ),
     'utf8',
 );
-const autoPlayPatch = readFileSync(
-    new URL(
-        '../../../patches/@iternio+react-native-auto-play+0.4.7.patch',
-        import.meta.url,
-    ),
+const autoPlayPodspecSource = readFileSync(
+    join(autoPlayPackageRoot, 'ReactNativeAutoPlay.podspec'),
+    'utf8',
+);
+const nitroLinkingManagerSource = readFileSync(
+    join(autoPlayPackageRoot, 'ios/ReactHelpers/NitroLinkingManager.m'),
+    'utf8',
+);
+const linkingManagerCategorySource = readFileSync(
+    join(autoPlayPackageRoot, 'ios/ReactHelpers/RCTLinkingManager+Custom.mm'),
     'utf8',
 );
 const dynamicFrameworksCompatPlugin = readFileSync(
@@ -102,10 +117,22 @@ test('source-built rnmapbox links the split React Native frameworks', () => {
     );
 });
 
-test('AutoPlay links the React Native linking manager it calls', () => {
-    assert.match(
-        autoPlayPatch,
-        /diff --git a\/node_modules\/@iternio\/react-native-auto-play\/ReactNativeAutoPlay\.podspec/,
+test('AutoPlay resolves React Native linking at the final app link', () => {
+    assert.match(autoPlayPodspecSource, /^ {2}s\.static_framework = true$/m);
+    assert.doesNotMatch(
+        autoPlayPodspecSource,
+        /s\.dependency 'React-RCTLinking'/,
     );
-    assert.match(autoPlayPatch, /^\+ {2}s\.dependency 'React-RCTLinking'$/m);
+    assert.match(
+        autoPlayPodspecSource,
+        /^ {2}s\.dependency 'React-Core\/RCTLinkingHeaders'$/m,
+    );
+    assert.match(
+        nitroLinkingManagerSource,
+        /#import "React\/RCTLinkingManager\.h"[\s\S]*?\[RCTLinkingManager application:/,
+    );
+    assert.match(
+        linkingManagerCategorySource,
+        /#import <React\/RCTLinkingManager\.h>[\s\S]*?@implementation RCTLinkingManager \(Custom\)/,
+    );
 });

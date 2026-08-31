@@ -1,8 +1,36 @@
-import { AndroidAutoMapSurface } from './android-auto-map-surface';
+import {
+    AndroidAutoClusterSurface,
+    AndroidAutoMapSurface,
+} from './android-auto-map-surface';
 
 // Android Auto extension of the platform-agnostic auto-play core.
 export const autoPlayPlatform = {
+    ClusterSurface: AndroidAutoClusterSurface,
     MapSurface: AndroidAutoMapSurface,
+    createErrorTemplate({
+        autoPlayModule,
+        headerActions,
+        message,
+        searchAction,
+        title,
+    }) {
+        const { InformationTemplate } = autoPlayModule;
+
+        return new InformationTemplate({
+            actions: {
+                android: [searchAction],
+            },
+            headerActions,
+            items: [
+                {
+                    detailedText: message,
+                    title,
+                    type: 'text',
+                },
+            ],
+            title,
+        });
+    },
     logAction(action, payload = {}) {
         if (typeof __DEV__ === 'undefined' || !__DEV__) {
             return;
@@ -11,13 +39,8 @@ export const autoPlayPlatform = {
         console.log(`[Android Auto] ${action}`, payload);
     },
     showsSearchResultsOnMap: true,
-    supportsSearchAutocomplete: false,
     maneuverCardAppearance: 'dark',
     maneuverCardIconColor: '#ffffff',
-    // Android Auto owns the pan affordance in the map action strip. Keeping the
-    // old driving-mode toggle in the header made it look like the required pan
-    // action had been replaced even though the host may hide PAN on touch units.
-    usesHeaderDrivingModeButton: false,
 
     // MapTemplate callbacks that only exist on Android Auto: double-tap zoom
     // and the Play Store AUTO_DRIVE simulation handshake.

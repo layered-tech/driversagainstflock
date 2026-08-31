@@ -1,16 +1,27 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { describe, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { getAutoPlaySharedNavigationAction } from '../../auto-play-shared-navigation.js';
+
+const autoPlayPackageRoot = process.env.AUTO_PLAY_PACKAGE_ROOT
+    ? resolve(process.env.AUTO_PLAY_PACKAGE_ROOT)
+    : fileURLToPath(
+          new URL(
+              '../../../node_modules/@iternio/react-native-auto-play/',
+              import.meta.url,
+          ),
+      );
 
 const autoPlaySource = readFileSync(
     new URL('../../auto-play.js', import.meta.url),
     'utf8',
 );
 const androidAutoMapTemplateSource = readFileSync(
-    new URL(
-        '../../../node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt',
-        import.meta.url,
+    join(
+        autoPlayPackageRoot,
+        'android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt',
     ),
     'utf8',
 );
@@ -241,9 +252,10 @@ describe('shared phone and car navigation contract', () => {
         );
 
         assert.doesNotMatch(disconnectSource, /setSharedRoutingState/);
-        assert.doesNotMatch(disconnectSource, /activeNavigationRoute = null/);
-        assert.doesNotMatch(disconnectSource, /stopNavigationLocationUpdates/);
-        assert.doesNotMatch(disconnectSource, /stopAutoDriveSimulation/);
+        assert.match(disconnectSource, /autoDriveIsEnabled = false/);
+        assert.match(disconnectSource, /stopAutoDriveSimulation\(\)/);
+        assert.match(disconnectSource, /stopNavigationLocationUpdates\(\)/);
+        assert.match(disconnectSource, /activeNavigationRoute = null/);
 
         const hostStopSource = autoPlaySource.slice(
             autoPlaySource.indexOf('onStopNavigation: () => {'),
@@ -262,10 +274,14 @@ describe('shared phone and car navigation contract', () => {
         );
     });
 
-    test('forwards only a visible Android Auto cancellation to JavaScript', () => {
+    test('always forwards an Android Auto host cancellation to JavaScript', () => {
         assert.match(
             androidAutoMapTemplateSource,
-            /override fun onStopNavigation\(\) \{[\s\S]*?screen\?\.lifecycle\?\.currentState\?\.isAtLeast\([\s\S]*?Lifecycle\.State\.RESUMED,[\s\S]*?\) == true[\s\S]*?config\.onStopNavigation\(\)/,
+            /override fun onStopNavigation\(\) \{\s*navigationEnded\(\)\s*config\.onStopNavigation\(\)\s*\}/,
+        );
+        assert.doesNotMatch(
+            androidAutoMapTemplateSource,
+            /Lifecycle\.State\.RESUMED/,
         );
     });
 });

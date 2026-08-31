@@ -103,7 +103,7 @@ describe('Auto Play route-loading overlay', () => {
     test('renders on shared driving maps even while search results own the map', () => {
         assert.match(
             mapSurfaceSource,
-            /rendersDrivingStatus && !searchResultsMapIsActive[\s\S]*?<AutoPlayMapStatusOverlay[\s\S]*?\) : null\}[\s\S]*?rendersDrivingStatus \? \([\s\S]*?<AutoPlayTopRightStatusOverlay[\s\S]*?routeLoading=\{autoPlayState\.routeLoading\}/,
+            /rendersAppOverlays && !searchResultsMapIsActive[\s\S]*?<AutoPlayMapStatusOverlay[\s\S]*?\) : null\}[\s\S]*?rendersAppOverlays \? \([\s\S]*?<AutoPlayTopRightStatusOverlay[\s\S]*?routeLoading=\{autoPlayState\.routeLoading\}/,
         );
         assert.match(
             mapStatusOverlaySource,

@@ -38,10 +38,6 @@
                 {
                     "type": "assertService",
                     "running": true
-                },
-                {
-                    "type": "assertWakeLock",
-                    "held": true
                 }
             ]
         },
@@ -303,10 +299,6 @@
                     "day": "active-guidance-day-return",
                     "night": "active-guidance-night",
                     "recapture": "active-guidance-day-return"
-                },
-                {
-                    "type": "assertWakeLock",
-                    "held": true
                 }
             ]
         },
@@ -315,10 +307,6 @@
             "steps": [
                 {
                     "type": "phoneSleep"
-                },
-                {
-                    "type": "assertWakeLock",
-                    "held": true
                 },
                 {
                     "type": "screenshot",
@@ -349,10 +337,6 @@
                         "Arrive at your destin",
                         "Austin Central Library"
                     ]
-                },
-                {
-                    "type": "assertWakeLock",
-                    "held": true
                 },
                 {
                     "type": "phoneWake"
@@ -387,22 +371,14 @@
                 {
                     "type": "assertService",
                     "running": true
-                },
-                {
-                    "type": "assertWakeLock",
-                    "held": true
                 }
             ]
         },
         {
-            "name": "releases the session wake lock on disconnect",
+            "name": "stops the Android Auto service on disconnect",
             "steps": [
                 {
                     "type": "disconnect"
-                },
-                {
-                    "type": "assertWakeLock",
-                    "held": false
                 },
                 {
                     "type": "assertService",

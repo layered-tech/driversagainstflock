@@ -1,48 +1,64 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
+const autoPlayPackageRoot = process.env.AUTO_PLAY_PACKAGE_ROOT
+    ? resolve(process.env.AUTO_PLAY_PACKAGE_ROOT)
+    : fileURLToPath(
+          new URL(
+              '../../../node_modules/@iternio/react-native-auto-play/',
+              import.meta.url,
+          ),
+      );
 const iosHybridMapTemplateSource = readFileSync(
-    new URL(
-        '../../../node_modules/@iternio/react-native-auto-play/ios/hybrid/HybridMapTemplate.swift',
-        import.meta.url,
-    ),
+    join(autoPlayPackageRoot, 'ios/hybrid/HybridMapTemplate.swift'),
+    'utf8',
+);
+const iosRootModuleSource = readFileSync(
+    join(autoPlayPackageRoot, 'ios/utils/RootModule.swift'),
     'utf8',
 );
 const androidHybridMapTemplateSource = readFileSync(
-    new URL(
-        '../../../node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridMapTemplate.kt',
-        import.meta.url,
-    ),
-    'utf8',
-);
-const autoPlayPatch = readFileSync(
-    new URL(
-        '../../../patches/@iternio+react-native-auto-play+0.4.7.patch',
-        import.meta.url,
+    join(
+        autoPlayPackageRoot,
+        'android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridMapTemplate.kt',
     ),
     'utf8',
 );
 
-test('CarPlay runs synchronous navigation mutations on the main thread', () => {
+test('CarPlay isolates every synchronous map-template mutation on the main actor', () => {
+    assert.match(
+        iosRootModuleSource,
+        /performOnMainActor<Result>[\s\S]*?MainActor\.assumeIsolated[\s\S]*?DispatchQueue\.main\.sync/,
+    );
     assert.match(
         iosHybridMapTemplateSource,
-        /withMapTemplateOnMainThread[\s\S]*?Thread\.isMainThread[\s\S]*?DispatchQueue\.main\.sync\(execute: operation\)/,
+        /func createMapTemplate[\s\S]*?try RootModule\.performOnMainActor/,
+    );
+    assert.match(
+        iosHybridMapTemplateSource,
+        /func setTemplateMapButtons[\s\S]*?MainActor\.run/,
     );
 
     for (const method of [
+        'showNavigationAlert',
+        'updateNavigationAlert',
+        'dismissNavigationAlert',
+        'showTripSelector',
+        'hideTripSelector',
         'updateVisibleTravelEstimate',
         'updateTravelEstimates',
         'updateManeuvers',
+        'registerManeuvers',
         'startNavigation',
         'stopNavigation',
         'setManeuverState',
     ]) {
         assert.match(
             iosHybridMapTemplateSource,
-            new RegExp(
-                `func ${method}\\([\\s\\S]*?try withMapTemplateOnMainThread\\(`,
-            ),
+            new RegExp(`func ${method}\\([\\s\\S]*?withMapTemplateOnMainActor`),
         );
     }
 });
@@ -64,12 +80,13 @@ test('Android Auto posts synchronous navigation mutations to the UI thread', () 
     }
 });
 
-test('the tracked dependency patch preserves both platform thread hops', () => {
-    assert.match(autoPlayPatch, /ios\/hybrid\/HybridMapTemplate\.swift/);
+test('Android Auto implements the shared navigation-session API', () => {
     assert.match(
-        autoPlayPatch,
-        /DispatchQueue\.main\.sync\(execute: operation\)/,
+        androidHybridMapTemplateSource,
+        /override fun registerManeuvers\([\s\S]*?maneuvers: Array<NitroRoutingManeuver>[\s\S]*?Android Auto receives the current and next maneuver through updateManeuvers/,
     );
-    assert.match(autoPlayPatch, /android\/.*\/HybridMapTemplate\.kt/);
-    assert.match(autoPlayPatch, /UiThreadUtil\.runOnUiThread/);
+    assert.match(
+        androidHybridMapTemplateSource,
+        /override fun stopNavigation\([\s\S]*?reason: NavigationStopReason[\s\S]*?UiThreadUtil\.runOnUiThread[\s\S]*?MapTemplate\.stopNavigation\(\)/,
+    );
 });

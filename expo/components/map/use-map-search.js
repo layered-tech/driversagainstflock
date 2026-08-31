@@ -1487,9 +1487,14 @@ export function useMapSearch({
     ]);
 
     useEffect(() => {
+        const destinationQuery = String(
+            pendingDirectionsRequest?.destinationQuery ?? '',
+        ).trim();
+
         if (
             !screenIsFocused ||
-            !pendingDirectionsRequest?.destinationWaypoint ||
+            (!pendingDirectionsRequest?.destinationWaypoint &&
+                !destinationQuery) ||
             handledPendingDirectionsRequestIdRef.current ===
                 pendingDirectionsRequest.id
         ) {
@@ -1501,6 +1506,26 @@ export function useMapSearch({
 
         const destinationWaypoint =
             pendingDirectionsRequest.destinationWaypoint;
+
+        if (!destinationWaypoint) {
+            setDirectionsActiveField(DIRECTIONS_FIELD_DESTINATION);
+            setDirectionsDestinationValue(destinationQuery);
+            setDirectionsDestinationWaypoint(null);
+            setDirectionsPlaceError('');
+            setDirectionsRouteError('');
+            setDirectionsSearchError('');
+            setDirectionsSearchIsFocused(true);
+            setDirectionsSearchPageIsVisible(true);
+            setSearchIsFocused(false);
+            setSearchMode(DIRECTIONS_MODE_DIRECTIONS);
+            setPendingDirectionsRequest?.(null);
+
+            requestAnimationFrame(() => {
+                directionsDestinationInputRef.current?.focus();
+            });
+            return;
+        }
+
         const shouldUseCurrentLocation =
             directionsCurrentLocationWaypoint &&
             (!directionsStartWaypoint ||

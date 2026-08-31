@@ -19,7 +19,7 @@ describe('Auto Play voice request type', () => {
     });
 
     test('keeps lossy and unknown text-only requests results-only', () => {
-        for (const requestType of ['query', undefined, null, 'unknown', true]) {
+        for (const requestType of ['query', undefined, null, 'unknown']) {
             assert.equal(
                 resolveAutoPlayVoiceRequestType({ requestType }),
                 'search',
@@ -28,17 +28,17 @@ describe('Auto Play voice request type', () => {
         }
     });
 
-    test('supports the legacy boolean callback without auto-starting ambiguous text', () => {
+    test('does not treat obsolete boolean callbacks as navigation requests', () => {
         assert.equal(
             resolveAutoPlayVoiceRequestType({
                 hasDestinationCoordinates: true,
                 requestType: true,
             }),
-            'navigation',
+            'directions',
         );
         assert.equal(
             resolveAutoPlayVoiceRequestType({ requestType: false }),
-            'directions',
+            'search',
         );
     });
 

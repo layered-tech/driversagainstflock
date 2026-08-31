@@ -53,11 +53,7 @@ export function CarPlayDashboardSurface(props) {
     return (
         <View className="flex-1">
             {isVisible ? (
-                <CarPlayMapSurface
-                    {...props}
-                    colorScheme={colorScheme}
-                    showDrivingStatus
-                />
+                <CarPlayMapSurface {...props} colorScheme={colorScheme} />
             ) : (
                 <View className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]" />
             )}

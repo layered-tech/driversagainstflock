@@ -126,7 +126,7 @@ test('location hydration cannot reclaim follow while browsing owns the camera', 
     );
 });
 
-test('the driving location control can remain off until the user recenters', () => {
+test('the driving location control recenters without disabling follow', () => {
     const trackingPressSource = sourceBetween(
         mapSurfaceSource,
         'const handleLocationTrackingPress = useCallback',
@@ -148,22 +148,21 @@ test('the driving location control can remain off until the user recenters', () 
         'const handleCameraChanged = useCallback',
     );
 
-    assert.match(
-        trackingPressSource,
-        /isDrivingMode[\s\S]*?followAutoStartIsSuppressedRef\.current = true[\s\S]*?activeLocationMode\.stop\(\)/,
-    );
+    assert.match(trackingPressSource, /await handleLocationRecenterPress\(\)/);
+    assert.doesNotMatch(trackingPressSource, /activeLocationMode\.stop\(\)/);
+    assert.doesNotMatch(mapSurfaceSource, /followAutoStartIsSuppressedRef/);
     assert.match(
         locationUpdateSource,
-        /currentTrackingMode !== LOCATION_TRACKING_FOLLOW[\s\S]*?!followAutoStartIsSuppressedRef\.current[\s\S]*?followLocationMode\.start/,
+        /currentTrackingMode !== LOCATION_TRACKING_FOLLOW[\s\S]*?followLocationMode\.start/,
     );
     assert.match(
         sharedLocationAutoStartSource,
-        /if \(isDrivingMode\) \{[\s\S]*?followAutoStartIsSuppressedRef\.current[\s\S]*?return;[\s\S]*?followLocationMode\.start\(userLocation\)/,
-        'the shared-location fallback must honor an explicit tracking-off request',
+        /if \(isDrivingMode\) \{[\s\S]*?followLocationMode\.start\(userLocation\)/,
+        'the shared-location fallback must restore automatic follow',
     );
     assert.match(
         drivingSessionSource,
-        /if \(isDrivingMode\) \{[\s\S]*?followAutoStartIsSuppressedRef\.current = false[\s\S]*?followLocationMode\.start/,
-        'a new driving session must reset the prior session tracking preference',
+        /if \(isDrivingMode\) \{[\s\S]*?followLocationMode\.start/,
+        'a new driving session must start automatic follow',
     );
 });

@@ -1065,7 +1065,7 @@ export function getNextDirectionsManeuver(
         routeProgress,
     );
 
-    return (
+    const nextManeuver =
         maneuversWithProgress.find((maneuver) => {
             if (maneuver.type === 11) {
                 return false;
@@ -1079,6 +1079,12 @@ export function getNextDirectionsManeuver(
             }
 
             return maneuver.startDistance >= progressDistance;
-        }) ?? null
+        }) ?? null;
+
+    return decorateActiveManeuver(
+        nextManeuver,
+        nextManeuver
+            ? Math.max(0, nextManeuver.startDistance - progressDistance)
+            : 0,
     );
 }

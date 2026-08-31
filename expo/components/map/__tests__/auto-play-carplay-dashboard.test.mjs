@@ -1,6 +1,17 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const autoPlayPackageRoot = process.env.AUTO_PLAY_PACKAGE_ROOT
+    ? resolve(process.env.AUTO_PLAY_PACKAGE_ROOT)
+    : fileURLToPath(
+          new URL(
+              '../../../node_modules/@iternio/react-native-auto-play/',
+              import.meta.url,
+          ),
+      );
 
 const iosPlatformSource = readFileSync(
     new URL('../../auto-play-platform.ios.js', import.meta.url),
@@ -12,6 +23,10 @@ const dashboardSurfaceSource = readFileSync(
 );
 const autoPlayMapSurfaceSource = readFileSync(
     new URL('../../auto-play-map-surface.js', import.meta.url),
+    'utf8',
+);
+const carPlayMapSurfaceSource = readFileSync(
+    new URL('../../carplay-map-surface.js', import.meta.url),
     'utf8',
 );
 const autoPlayMapSurfaceContentSource = readFileSync(
@@ -36,37 +51,9 @@ const mapLocationPuckPodspecSource = readFileSync(
     ),
     'utf8',
 );
-const mapTemplateSource = readFileSync(
-    new URL(
-        '../../../node_modules/@iternio/react-native-auto-play/ios/templates/MapTemplate.swift',
-        import.meta.url,
-    ),
-    'utf8',
-);
 const dashboardSceneSource = readFileSync(
-    new URL(
-        '../../../node_modules/@iternio/react-native-auto-play/ios/scenes/DashboardSceneDelegate.swift',
-        import.meta.url,
-    ),
+    join(autoPlayPackageRoot, 'ios/scenes/DashboardSceneDelegate.swift'),
     'utf8',
-);
-const autoPlayPatch = readFileSync(
-    new URL(
-        '../../../patches/@iternio+react-native-auto-play+0.4.7.patch',
-        import.meta.url,
-    ),
-    'utf8',
-);
-const dashboardScenePatchStart = autoPlayPatch.indexOf(
-    'diff --git a/node_modules/@iternio/react-native-auto-play/ios/scenes/DashboardSceneDelegate.swift',
-);
-const dashboardScenePatchEnd = autoPlayPatch.indexOf(
-    '\ndiff --git ',
-    dashboardScenePatchStart + 1,
-);
-const dashboardScenePatch = autoPlayPatch.slice(
-    dashboardScenePatchStart,
-    dashboardScenePatchEnd,
 );
 
 test('CarPlay reapplies Dashboard shortcuts after its scene connects', () => {
@@ -91,48 +78,20 @@ test('CarPlay Dashboard mounts its map only while its pane is visible', () => {
     );
 });
 
-test('CarPlay Dashboard shows shared driving status instead of a navigation card', () => {
-    assert.match(
-        dashboardSurfaceSource,
-        /<CarPlayMapSurface[\s\S]*?showDrivingStatus/,
-    );
+test('CarPlay head-unit and Dashboard surfaces leave navigation chrome to the host', () => {
+    assert.match(carPlayMapSurfaceSource, /hostOwnsNavigationUI:\s*true/);
+    assert.doesNotMatch(dashboardSurfaceSource, /showDrivingStatus/);
     assert.doesNotMatch(
         dashboardSurfaceSource,
         /carplay-dashboard-status-card/,
     );
     assert.doesNotMatch(dashboardSurfaceSource, /Ready to navigate/);
-    assert.match(
-        autoPlayMapSurfaceSource,
-        /showDrivingStatus=\{props\?\.showDrivingStatus\}/,
-    );
-    assert.match(
-        autoPlayMapSurfaceContentSource,
-        /getAutoPlayDrivingStatusVisibility\(\{[\s\S]*?isRootMapSurface,[\s\S]*?showDrivingStatus,[\s\S]*?showDrivingStatusOnSecondarySurfaces/,
-    );
+    assert.match(autoPlayMapSurfaceContentSource, /hostOwnsNavigationUI/);
     assert.match(
         autoPlayMapSurfaceContentSource,
         /locationUpdatesEnabled: isRootMapSurface/,
     );
-    assert.match(
-        autoPlayMapSurfaceContentSource,
-        /routePreviewIsActive: rendersDrivingStatus && routePreviewIsActive/,
-    );
-    assert.match(
-        autoPlayMapSurfaceContentSource,
-        /rendersDrivingStatus && !searchResultsMapIsActive[\s\S]*?<AutoPlayMapStatusOverlay/,
-    );
-    assert.match(
-        autoPlayMapSurfaceContentSource,
-        /freeDriveIsActive=\{[\s\S]*?controller\.roadMatchedLocationWatchEnabled \|\|[\s\S]*?secondaryDrivingStatusIsVisible/,
-    );
-    assert.match(
-        autoPlayMapSurfaceContentSource,
-        /rendersDrivingStatus \? \([\s\S]*?<AutoPlayTopRightStatusOverlay/,
-    );
-    assert.match(
-        autoPlayMapSurfaceContentSource,
-        /enabled:[\s\S]*?rendersDrivingStatus[\s\S]*?useUpcomingElectronicHorizonAlerts/,
-    );
+    assert.match(autoPlayMapSurfaceSource, /platformConfig=\{platformConfig\}/);
     assert.match(iosPlatformSource, /titleVariants: \['Open map'\]/);
     assert.match(
         iosPlatformSource,
@@ -146,10 +105,6 @@ test('CarPlay sizes the map to its Dashboard pane instead of the full display', 
         /"height": window\.bounds\.size\.height\.rounded\(\),[\s\S]*?"width": window\.bounds\.size\.width\.rounded\(\)/,
     );
     assert.doesNotMatch(dashboardSceneSource, /window\.screen\.bounds/);
-    assert.match(
-        dashboardScenePatch,
-        /-                "height": window\.screen\.bounds\.size\.height\.rounded\(\),[\s\S]*?\+                "height": window\.bounds\.size\.height\.rounded\(\),[\s\S]*?\+                "width": window\.bounds\.size\.width\.rounded\(\)/,
-    );
 });
 
 test('CarPlay Dashboard uses the Mapbox release with its active-scene renderer fix', () => {
@@ -161,17 +116,7 @@ test('CarPlay Dashboard uses the Mapbox release with its active-scene renderer f
     assert.match(mapLocationPuckAndroidBuildSource, /'11\.24\.1'/);
 });
 
-test('CarPlay refreshes the active maneuver estimate after publishing maneuvers', () => {
-    for (const source of [mapTemplateSource, autoPlayPatch]) {
-        assert.match(source, /for: sessionManeuvers\[maneuverIndex\]/);
-        assert.match(
-            source,
-            /navigationSession\.upcomingManeuvers = upcomingManeuvers[\s\S]*?let currentManeuver = navigationSession\.upcomingManeuvers\.first[\s\S]*?navigationSession\.updateEstimates\([\s\S]*?for: currentManeuver/,
-        );
-    }
-});
-
 test('CarPlay removes the idle Car action but retains navigation exit support', () => {
-    assert.match(iosPlatformSource, /usesHeaderDrivingModeButton:\s*false/);
+    assert.doesNotMatch(iosPlatformSource, /usesHeaderDrivingModeButton/);
     assert.match(iosPlatformSource, /usesHeaderExitNavigationButton:\s*true/);
 });
