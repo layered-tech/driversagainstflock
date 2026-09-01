@@ -22,6 +22,7 @@ const ANDROID_AUTO_SURFACE_PLATFORM_CONFIG = {
         },
     },
     hideCompassDuringNavigation: true,
+    hideMapboxCompass: true,
     ornamentSafeAreaLeftScale: 0.65,
     speedLimitBadge: {
         portraitSize: 56,

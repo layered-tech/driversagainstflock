@@ -1,6 +1,7 @@
 import * as Location from 'expo-location';
 import { Platform } from 'react-native';
 import { createAutoPlayArrivalDetector } from './auto-play-arrival-state';
+import { getAutoPlayCompassNeedleImage } from './auto-play-compass-images';
 import {
     startAutoDriveSimulation,
     stopAutoDriveSimulation,
@@ -130,6 +131,7 @@ const AUTO_PLAY_GLYPH_BACKGROUND_COLOR = {
     lightColor: 'rgba(255,255,255,0.68)',
 };
 const ROOT_MAP_BUTTON_APPEARANCE_DEFAULTS = {
+    compassNorthDirection: 0,
     drivingMapViewMode: DRIVING_MAP_VIEW_PERSPECTIVE,
     isDarkMapLayer: false,
     mapLightPreset: null,
@@ -2368,6 +2370,9 @@ function updateRootMapButtonAppearance(appearance) {
     const drivingMapViewModeChanged =
         nextAppearance.drivingMapViewMode !==
         rootMapButtonAppearance.drivingMapViewMode;
+    const compassNorthDirectionChanged =
+        nextAppearance.compassNorthDirection !==
+        rootMapButtonAppearance.compassNorthDirection;
     rootMapButtonAppearance = nextAppearance;
 
     if (mapLightPresetChanged && nextAppearance.mapLightPreset) {
@@ -2379,7 +2384,20 @@ function updateRootMapButtonAppearance(appearance) {
     const mapButtonAppearanceChanged =
         nextAppearanceKey !== rootMapButtonAppearanceKey;
 
-    if (!mapButtonAppearanceChanged && !drivingMapViewModeChanged) {
+    const drivingMapViewButtonIsVisible = Boolean(
+        autoPlayPlatform?.usesDrivingMapViewButtonForDebugging === true,
+    );
+    const perspectiveCompassButtonIsVisible = Boolean(
+        drivingMapViewButtonIsVisible &&
+        (!activeNavigationRoute ||
+            nextAppearance.drivingMapViewMode === DRIVING_MAP_VIEW_PERSPECTIVE),
+    );
+
+    if (
+        !mapButtonAppearanceChanged &&
+        !drivingMapViewModeChanged &&
+        !(compassNorthDirectionChanged && perspectiveCompassButtonIsVisible)
+    ) {
         return;
     }
 
@@ -2391,7 +2409,11 @@ function updateRootMapButtonAppearance(appearance) {
         return;
     }
 
-    if (mapButtonAppearanceChanged) {
+    if (
+        mapButtonAppearanceChanged ||
+        (drivingMapViewModeChanged && drivingMapViewButtonIsVisible) ||
+        (compassNorthDirectionChanged && perspectiveCompassButtonIsVisible)
+    ) {
         updateRootMapButtons();
     }
 
@@ -2499,8 +2521,22 @@ function getRootHeaderExitNavigationButtonImage() {
 
 function getRootHeaderDrivingMapViewButtonImage() {
     const routeOverviewIsActive =
+        Boolean(activeNavigationRoute) &&
         rootMapButtonAppearance.drivingMapViewMode ===
-        DRIVING_MAP_VIEW_ROUTE_OVERVIEW;
+            DRIVING_MAP_VIEW_ROUTE_OVERVIEW;
+
+    if (
+        !routeOverviewIsActive &&
+        autoPlayPlatform?.usesDrivingMapViewButtonForDebugging === true
+    ) {
+        return {
+            image: getAutoPlayCompassNeedleImage(
+                rootMapButtonAppearance.compassNorthDirection,
+                rootMapButtonAppearance.isDarkMapLayer,
+            ),
+            type: 'asset',
+        };
+    }
 
     return {
         ...makeGlyphImage(routeOverviewIsActive ? 'map' : 'location-arrow', {
@@ -2543,22 +2579,40 @@ let cachedRootMapButtons = null;
 let cachedRootMapButtonsKey = '';
 
 function getRootMapButtons() {
-    // The visual appearance is the map light mode plus inactive/highlighted
-    // tracking. Memoize by that key so identical button arrays are reused —
-    // important because every fresh array forces the native side to re-parse
-    // glyphs and rebuild the ActionStrip.
-    if (
-        cachedRootMapButtons &&
-        cachedRootMapButtonsKey === rootMapButtonAppearanceKey
-    ) {
+    const showsDrivingMapViewButton = Boolean(
+        autoPlayPlatform?.usesDrivingMapViewButtonForDebugging === true,
+    );
+    const effectiveDrivingMapViewMode = activeNavigationRoute
+        ? rootMapButtonAppearance.drivingMapViewMode
+        : DRIVING_MAP_VIEW_PERSPECTIVE;
+    const drivingMapViewModeKey = showsDrivingMapViewButton
+        ? effectiveDrivingMapViewMode
+        : 'hidden';
+    const compassNorthDirectionKey =
+        showsDrivingMapViewButton &&
+        effectiveDrivingMapViewMode === DRIVING_MAP_VIEW_PERSPECTIVE
+            ? rootMapButtonAppearance.compassNorthDirection
+            : 'hidden';
+    const rootMapButtonsKey = `${rootMapButtonAppearanceKey}:${showsDrivingMapViewButton ? 'driving-map-view' : 'pan'}:${drivingMapViewModeKey}:${compassNorthDirectionKey}`;
+
+    // Memoize the rendered appearance so identical arrays are reused. Every
+    // fresh array forces the native side to re-parse images and rebuild the
+    // ActionStrip.
+    if (cachedRootMapButtons && cachedRootMapButtonsKey === rootMapButtonsKey) {
         return cachedRootMapButtons;
     }
 
     cachedRootMapButtons = [
-        {
-            image: getRootMapPanButtonImage(),
-            type: 'pan',
-        },
+        showsDrivingMapViewButton
+            ? {
+                  image: getRootHeaderDrivingMapViewButtonImage(),
+                  onPress: handleRootHeaderDrivingMapViewPress,
+                  type: 'custom',
+              }
+            : {
+                  image: getRootMapPanButtonImage(),
+                  type: 'pan',
+              },
         {
             image: getRootMapZoomInButtonImage(),
             onPress: handleRootZoomInPress,
@@ -2575,7 +2629,7 @@ function getRootMapButtons() {
             type: 'custom',
         },
     ];
-    cachedRootMapButtonsKey = rootMapButtonAppearanceKey;
+    cachedRootMapButtonsKey = rootMapButtonsKey;
     return cachedRootMapButtons;
 }
 
@@ -2811,6 +2865,7 @@ async function stopAutoPlayNavigation({
         title: 'Drivers Against Flock',
         ...completionState,
     });
+    updateRootMapButtons();
     updateRootTemplateHeaderActions();
     await locationUpdatesStopped;
 
@@ -2832,6 +2887,7 @@ function setActiveAutoPlayNavigationState(route, selectedRoute) {
         statusLabel: 'Navigating',
         title: 'Guidance active',
     });
+    updateRootMapButtons();
     updateRootTemplateHeaderActions();
 }
 
@@ -3069,6 +3125,10 @@ let cachedRootMapHeaderActionsKey = '';
 
 function getRootMapHeaderActions() {
     const hasActiveNavigation = Boolean(activeNavigationRoute);
+    const androidHeaderActionsMode =
+        autoPlayPlatform?.usesSearchOnlyRootHeaderAction === true
+            ? 'search-only'
+            : 'default';
     const drivingMapViewModeKey = hasActiveNavigation
         ? rootMapButtonAppearance.drivingMapViewMode
         : 'hidden';
@@ -3084,7 +3144,7 @@ function getRootMapHeaderActions() {
             primaryLocations: autoPlayPrimaryLocations,
         });
     const primaryLocationTypes = primaryLocationHeaderActionTypes.android;
-    const rootMapHeaderActionsKey = `${drivingMapViewModeKey}:${navigationExitButtonIsVisible ? 'navigating' : 'ready'}:${trailingNavigationButtonIsVisible ? 'trailing' : 'search-only'}:${primaryLocationTypes.join(':')}`;
+    const rootMapHeaderActionsKey = `${androidHeaderActionsMode}:${drivingMapViewModeKey}:${navigationExitButtonIsVisible ? 'navigating' : 'ready'}:${trailingNavigationButtonIsVisible ? 'trailing' : 'search-only'}:${primaryLocationTypes.join(':')}`;
 
     if (
         cachedRootMapHeaderActions &&
@@ -3127,12 +3187,17 @@ function getRootMapHeaderActions() {
         );
 
     cachedRootMapHeaderActions = {
-        android: [
-            ...(drivingMapViewButton ? [drivingMapViewButton] : []),
-            searchButton,
-            ...androidPrimaryLocationButtons,
-            ...(trailingNavigationButton ? [trailingNavigationButton] : []),
-        ],
+        android:
+            autoPlayPlatform?.usesSearchOnlyRootHeaderAction === true
+                ? [searchButton]
+                : [
+                      ...(drivingMapViewButton ? [drivingMapViewButton] : []),
+                      searchButton,
+                      ...androidPrimaryLocationButtons,
+                      ...(trailingNavigationButton
+                          ? [trailingNavigationButton]
+                          : []),
+                  ],
         ios: {
             leadingNavigationBarButtons: [searchButton, voiceSearchButton],
             trailingNavigationBarButtons: trailingNavigationButton

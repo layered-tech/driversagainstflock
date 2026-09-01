@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { Dimensions, View } from 'react-native';
 import { getAutoPlayAlertSurfaceVisibility } from './auto-play-alert-surface-visibility';
+import { getAutoPlayCompassNorthDirection } from './auto-play-compass-images';
 import {
     autoPlayCameraDebugStateUpdatesAreEnabled,
     AutoPlayDebugOverlays,
@@ -141,6 +142,7 @@ const DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG = {
 };
 
 const DEFAULT_AUTOPLAY_MAP_BUTTON_APPEARANCE = {
+    compassNorthDirection: 0,
     drivingMapViewMode: DRIVING_MAP_VIEW_PERSPECTIVE,
     isDarkMapLayer: false,
     mapLightPreset: null,
@@ -428,6 +430,7 @@ function useAutoPlayMapController({
     mapBrowsingContextIsActive = false,
     mapPreferencesAreLoaded,
     markersAreVisible = true,
+    onCompassNorthDirectionChange,
     scheduleSharedMarkerLoad,
     setUserLocation,
     userLocation,
@@ -436,6 +439,7 @@ function useAutoPlayMapController({
 }) {
     const cameraRef = useRef(null);
     const currentCompassHeadingRef = useRef(null);
+    const compassNorthDirectionRef = useRef(0);
     const currentCourseHeadingRef = useRef(null);
     const currentZoomRef = useRef(DEFAULT_ZOOM_LEVEL);
     const isMapReadyRef = useRef(false);
@@ -796,10 +800,26 @@ function useAutoPlayMapController({
         (state) => {
             const previousZoomLevel = currentZoomRef.current;
             const nextZoomLevel = state?.properties?.zoom;
+            const nextCameraHeading =
+                state?.properties?.heading ?? state?.properties?.bearing;
             const nextCameraDebugState = cameraDebugStateUpdatesEnabled
                 ? getCameraDebugState(state)
                 : null;
             let zoomLevelChanged = false;
+
+            if (Number.isFinite(Number(nextCameraHeading))) {
+                const nextCompassNorthDirection =
+                    getAutoPlayCompassNorthDirection(nextCameraHeading);
+
+                if (
+                    nextCompassNorthDirection !==
+                    compassNorthDirectionRef.current
+                ) {
+                    compassNorthDirectionRef.current =
+                        nextCompassNorthDirection;
+                    onCompassNorthDirectionChange?.(nextCompassNorthDirection);
+                }
+            }
 
             if (nextCameraDebugState) {
                 setPendingCameraDebugState(
@@ -854,6 +874,7 @@ function useAutoPlayMapController({
             cameraDebugStateUpdatesEnabled,
             followLocationMode,
             isDrivingMode,
+            onCompassNorthDirectionChange,
             scheduleMarkerLoad,
             setPendingCameraDebugState,
             setTrackingMode,
@@ -1459,6 +1480,7 @@ export function AutoPlayMapSurfaceContent({
         applyWindowScaleToMapGestures,
         currentRoadPill,
         hideCompassDuringNavigation,
+        hideMapboxCompass,
         hostOwnsNavigationUI,
         ornamentSafeAreaLeftScale,
         speedLimitBadge,
@@ -1486,6 +1508,7 @@ export function AutoPlayMapSurfaceContent({
     const [followViewportAnchorY, setFollowViewportAnchorY] =
         useState(undefined);
     const [appliedMapLightPreset, setAppliedMapLightPreset] = useState(null);
+    const [compassNorthDirection, setCompassNorthDirection] = useState(0);
     const mapPreferences = useMapPreferencesState();
     const mockWazePoliceAlertsEnabled = useMockWazePoliceAlertsEnabled();
     const alertSurfaceVisibility = getAutoPlayAlertSurfaceVisibility({
@@ -1614,6 +1637,7 @@ export function AutoPlayMapSurfaceContent({
         mapBrowsingContextIsActive,
         mapPreferencesAreLoaded: mapPreferences.mapPreferencesAreLoaded,
         markersAreVisible: alertSurfaceVisibility.surveillanceMarkersVisible,
+        onCompassNorthDirectionChange: setCompassNorthDirection,
         scheduleSharedMarkerLoad: markerLoader.scheduleMarkerLoad,
         setUserLocation: mapPreferences.setUserLocation,
         userLocation: mapPreferences.userLocation,
@@ -1776,6 +1800,7 @@ export function AutoPlayMapSurfaceContent({
         electronicHorizonDebugFeatureCollection,
         directionsWaypointMarkers,
         hideCompassDuringNavigation: Boolean(
+            hideMapboxCompass ||
             (hideCompassDuringNavigation && activeDirectionsRoute) ||
             !mapContentVisibility.compassIsVisible,
         ),
@@ -1861,6 +1886,7 @@ export function AutoPlayMapSurfaceContent({
         }
 
         notifyAutoPlayMapButtonAppearance({
+            compassNorthDirection,
             drivingMapViewMode,
             isDarkMapLayer: presentation.isDarkMapLayer,
             mapLightPreset: appliedMapLightPreset,
@@ -1872,6 +1898,7 @@ export function AutoPlayMapSurfaceContent({
         });
     }, [
         appliedMapLightPreset,
+        compassNorthDirection,
         controller.drivingRecenterIsVisible,
         controller.locationTrackingMode,
         drivingMapViewMode,
