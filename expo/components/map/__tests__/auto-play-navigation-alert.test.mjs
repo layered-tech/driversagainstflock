@@ -46,6 +46,14 @@ const mapSurfaceSource = readFileSync(
     new URL('../../auto-play-map-surface-content.js', import.meta.url),
     'utf8',
 );
+const carPlaySurfaceSource = readFileSync(
+    new URL('../../carplay-map-surface.js', import.meta.url),
+    'utf8',
+);
+const androidAutoSurfaceSource = readFileSync(
+    new URL('../../android-auto-map-surface.js', import.meta.url),
+    'utf8',
+);
 
 describe('car navigation alert content', () => {
     test('has nothing to announce without an upcoming ALPR or police alert', () => {
@@ -405,6 +413,28 @@ describe('car navigation alert wiring', () => {
         );
         assert.match(announcerSource, /mapTemplate\.updateAlert\(/);
         assert.match(announcerSource, /mapTemplate\.dismissAlert\(/);
+    });
+
+    test('announces on both car hosts, not just Android Auto', () => {
+        // The announcer rides `rendersAppOverlays`, so a head-unit surface that
+        // opts out of the app overlay layer silently mutes every alert. Only
+        // secondary surfaces (cluster, CarPlay Dashboard) may opt out, and they
+        // are excluded by their host-assigned module id instead.
+        assert.doesNotMatch(carPlaySurfaceSource, /^\s*hostOwnsNavigationUI:/m);
+        assert.match(
+            androidAutoSurfaceSource,
+            /const ANDROID_AUTO_SURFACE_PLATFORM_CONFIG = \{[\s\S]*?\n\};/,
+        );
+        assert.doesNotMatch(
+            androidAutoSurfaceSource.slice(
+                0,
+                androidAutoSurfaceSource.indexOf(
+                    'export const AndroidAutoMapSurface',
+                ),
+            ),
+            /^\s*hostOwnsNavigationUI:/m,
+        );
+        assert.match(mapSurfaceSource, /enabled:\s*rendersAppOverlays &&/);
     });
 
     test('re-runs the announcement pass as soon as a banner is dismissed', () => {

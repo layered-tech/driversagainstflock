@@ -133,7 +133,7 @@ describe('Auto Play speed-limit layout', () => {
     test('keeps the current-speed dial in the full badge frame without a limit', () => {
         assert.match(
             mapStatusOverlaySource,
-            /getCurrentSpeedMph,[\s\S]*?const currentSpeedMps = getRouteCurrentSpeedMps\(userLocation\);[\s\S]*?const currentSpeedWithoutLimitIsVisible = Boolean\([\s\S]*?Platform\.OS === 'android'[\s\S]*?currentSpeedMph > 0,[\s\S]*?\);[\s\S]*?const speedStatusIsVisible =[\s\S]*?speedLimitIsVisible \|\| currentSpeedWithoutLimitIsVisible;/,
+            /getCurrentSpeedMph,[\s\S]*?const currentSpeedMps = getRouteCurrentSpeedMps\(userLocation\);[\s\S]*?const currentSpeedWithoutLimitIsVisible = Boolean\(\s*speedLimitIsRendered && drivingStatusIsVisible && currentSpeedMph > 0,\s*\);[\s\S]*?const speedStatusIsVisible =[\s\S]*?speedLimitIsVisible \|\| currentSpeedWithoutLimitIsVisible;/,
         );
         assert.match(
             mapStatusOverlaySource,
@@ -147,6 +147,9 @@ describe('Auto Play speed-limit layout', () => {
             speedLimitSource,
             /<View[\s\S]*?height: layout\.containerHeight,[\s\S]*?width: layout\.containerWidth,[\s\S]*?\{speedLimitIsVisible \? \([\s\S]*?\{currentSpeedDialIsVisible \? \(/,
         );
+        // The dial belongs to both car hosts. Gating it on Platform.OS left
+        // CarPlay with no speed readout at all on unmapped roads.
+        assert.doesNotMatch(mapStatusOverlaySource, /Platform\.OS/);
     });
 });
 
@@ -272,7 +275,7 @@ describe('Auto Play current-road pill layout', () => {
         );
         assert.match(
             mapStatusOverlaySource,
-            /rendersSpeedLimit &&[\s\S]*?speedStatusIsVisible &&[\s\S]*?currentRoadPill\?\.reserveSpeedLimitSpace[\s\S]*?getAutoPlayCurrentRoadPillLayout\(\{[\s\S]*?gap:\s*currentRoadPill\.speedLimitGap/,
+            /speedLimitIsRendered &&[\s\S]*?speedStatusIsVisible &&[\s\S]*?currentRoadPill\?\.reserveSpeedLimitSpace[\s\S]*?getAutoPlayCurrentRoadPillLayout\(\{[\s\S]*?gap:\s*currentRoadPill\.speedLimitGap/,
         );
         assert.match(
             mapStatusOverlaySource,
@@ -280,7 +283,7 @@ describe('Auto Play current-road pill layout', () => {
         );
         assert.match(
             mapStatusOverlaySource,
-            /currentRoadPillTextStyle=\{[\s\S]*?rendersSpeedLimit[\s\S]*?currentRoadPill\?\.speedLimitAdjacentTextStyle[\s\S]*?currentRoadPill\?\.textStyle/,
+            /currentRoadPillTextStyle=\{[\s\S]*?speedLimitIsRendered[\s\S]*?currentRoadPill\?\.speedLimitAdjacentTextStyle[\s\S]*?currentRoadPill\?\.textStyle/,
         );
         assert.match(
             currentRoadContextSource,

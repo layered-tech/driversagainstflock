@@ -78,15 +78,19 @@ test('CarPlay Dashboard mounts its map only while its pane is visible', () => {
     );
 });
 
-test('CarPlay head-unit and Dashboard surfaces leave navigation chrome to the host', () => {
-    assert.match(carPlayMapSurfaceSource, /hostOwnsNavigationUI:\s*true/);
+test('CarPlay Dashboard leaves navigation chrome to the host', () => {
     assert.doesNotMatch(dashboardSurfaceSource, /showDrivingStatus/);
     assert.doesNotMatch(
         dashboardSurfaceSource,
         /carplay-dashboard-status-card/,
     );
     assert.doesNotMatch(dashboardSurfaceSource, /Ready to navigate/);
-    assert.match(autoPlayMapSurfaceContentSource, /hostOwnsNavigationUI/);
+    // The Dashboard mounts the head-unit surface, so the only thing keeping its
+    // driving status off is the module id the host hands the secondary scene.
+    assert.match(
+        autoPlayMapSurfaceContentSource,
+        /const isRootMapSurface = !id \|\| id === AUTO_PLAY_ROOT_MODULE_ID/,
+    );
     assert.match(
         autoPlayMapSurfaceContentSource,
         /locationUpdatesEnabled: isRootMapSurface/,
@@ -97,6 +101,15 @@ test('CarPlay head-unit and Dashboard surfaces leave navigation chrome to the ho
         iosPlatformSource,
         /subtitleVariants: \['Find a destination'\]/,
     );
+});
+
+// Regression: the head-unit surface once set `hostOwnsNavigationUI`, which
+// suppressed the whole app overlay layer on CarPlay. That took the current road
+// pill, the speed limit badge and the navigation alert banner with it, and
+// dropped the measured follow anchor so the puck sat dead centre.
+test('CarPlay head-unit surface keeps the app overlays the host does not draw', () => {
+    assert.doesNotMatch(carPlayMapSurfaceSource, /^\s*hostOwnsNavigationUI:/m);
+    assert.match(carPlayMapSurfaceSource, /currentRoadPill: \{/);
 });
 
 test('CarPlay sizes the map to its Dashboard pane instead of the full display', () => {

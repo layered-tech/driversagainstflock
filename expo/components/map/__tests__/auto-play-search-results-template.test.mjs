@@ -173,7 +173,7 @@ test('Android Auto supplies submitted result markers and frames them on its map'
     );
     assert.match(
         autoPlayMapSurfaceSource,
-        /rendersAppOverlays && !searchResultsMapIsActive[\s\S]*?<AutoPlayMapStatusOverlay/,
+        /<AutoPlayMapStatusOverlay[\s\S]*?statusChromeIsVisible=\{\s*rendersAppOverlays && !searchResultsMapIsActive\s*\}/,
     );
     assert.match(
         mapScreenContextSource,

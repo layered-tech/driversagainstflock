@@ -104,6 +104,7 @@ import {
 } from './map/map-screen-context';
 import { resolveMarkerLoadBounds } from './map/marker-load-bounds';
 import { getNavigationPuckSize } from './map/navigation-puck-layout';
+import { getRouteCurrentSpeedMps } from './map/speed-limit';
 import { getSubmittedSearchResultsBounds } from './map/submitted-search-results-bounds';
 import { useDeferredCameraDebugState } from './map/use-deferred-camera-debug-state';
 import {
@@ -119,7 +120,6 @@ import { useMapPreferencesState } from './map/use-map-preferences-state';
 import { useMapPresentation } from './map/use-map-presentation';
 import { useMarkerLoader } from './map/use-marker-loader';
 import { useUpcomingElectronicHorizonAlerts } from './map/use-upcoming-electronic-horizon-alerts';
-import { getRouteCurrentSpeedMps } from './map/speed-limit';
 import { useWazePoliceAlerts } from './map/use-waze-police-alerts';
 import { makeWazePoliceAlertFeatureCollection } from './map/waze-alerts-api';
 
@@ -2175,31 +2175,35 @@ export function AutoPlayMapSurfaceContent({
                 }}
             >
                 <MapCanvas />
-                {rendersAppOverlays && !searchResultsMapIsActive ? (
-                    <AutoPlayMapStatusOverlay
-                        activeDirectionsRoute={activeDirectionsRoute}
-                        currentRoadPill={currentRoadPill}
-                        drivingStatusIsVisible={
-                            mapContentVisibility.drivingStatusIsVisible &&
-                            shouldShowDrivingMapStatus(drivingMapViewMode)
-                        }
-                        freeDriveIsActive={
-                            controller.roadMatchedLocationWatchEnabled
-                        }
-                        isDarkMode={presentation.isDarkMapLayer}
-                        markerLoader={markerLoader}
-                        mapPreferencesAreLoaded={
-                            mapPreferences.mapPreferencesAreLoaded
-                        }
-                        onLocationAnchorLayout={handleLocationAnchorLayout}
-                        navigationPuckSize={navigationPuckSize}
-                        presentation={presentation}
-                        rendersSpeedLimit={rendersSpeedLimit}
-                        speedLimitBadge={speedLimitBadge}
-                        userLocation={mapPreferences.userLocation}
-                        viewportMetrics={viewportMetrics}
-                    />
-                ) : null}
+                {/* Always mounted: a host-owned surface hides the chrome but
+                    still follows the driver, and the follow camera reads its
+                    anchor off this overlay's puck slot. */}
+                <AutoPlayMapStatusOverlay
+                    activeDirectionsRoute={activeDirectionsRoute}
+                    currentRoadPill={currentRoadPill}
+                    drivingStatusIsVisible={
+                        mapContentVisibility.drivingStatusIsVisible &&
+                        shouldShowDrivingMapStatus(drivingMapViewMode)
+                    }
+                    freeDriveIsActive={
+                        controller.roadMatchedLocationWatchEnabled
+                    }
+                    isDarkMode={presentation.isDarkMapLayer}
+                    markerLoader={markerLoader}
+                    mapPreferencesAreLoaded={
+                        mapPreferences.mapPreferencesAreLoaded
+                    }
+                    onLocationAnchorLayout={handleLocationAnchorLayout}
+                    navigationPuckSize={navigationPuckSize}
+                    presentation={presentation}
+                    rendersSpeedLimit={rendersSpeedLimit}
+                    speedLimitBadge={speedLimitBadge}
+                    statusChromeIsVisible={
+                        rendersAppOverlays && !searchResultsMapIsActive
+                    }
+                    userLocation={mapPreferences.userLocation}
+                    viewportMetrics={viewportMetrics}
+                />
                 {rendersAppOverlays ? (
                     <AutoPlayTopRightStatusOverlay
                         isDarkMode={presentation.isDarkMapLayer}

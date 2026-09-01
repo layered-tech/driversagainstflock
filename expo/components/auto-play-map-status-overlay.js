@@ -1,10 +1,4 @@
-import {
-    ActivityIndicator,
-    Platform,
-    Text,
-    useColorScheme,
-    View,
-} from 'react-native';
+import { ActivityIndicator, Text, useColorScheme, View } from 'react-native';
 import {
     getAutoPlayCurrentRoadPillLayout,
     getAutoPlaySpeedLimitBadgeSize,
@@ -134,6 +128,15 @@ export function AutoPlayTopRightStatusOverlay({
     );
 }
 
+/**
+ * Draws the app-owned map chrome and, just as importantly, the invisible puck
+ * slot the follow camera measures its anchor from.
+ *
+ * `statusChromeIsVisible` is what a host-owned secondary surface (the CarPlay
+ * Dashboard, either instrument cluster) turns off. Those surfaces still follow
+ * the driver, so they still need the measured anchor — without it the camera
+ * falls back to centring the puck in the viewport.
+ */
 export function AutoPlayMapStatusOverlay({
     activeDirectionsRoute,
     currentRoadPill,
@@ -147,19 +150,22 @@ export function AutoPlayMapStatusOverlay({
     presentation,
     rendersSpeedLimit = true,
     speedLimitBadge,
+    statusChromeIsVisible = true,
     userLocation,
     viewportMetrics,
 }) {
     const systemColorScheme = useColorScheme();
     const resolvedIsDarkMode = isDarkMode ?? systemColorScheme === 'dark';
     const routeIsActive = Boolean(activeDirectionsRoute);
+    const speedLimitIsRendered = statusChromeIsVisible && rendersSpeedLimit;
     const speedLimit = useRouteSpeedLimit({
         routeIsActive:
-            rendersSpeedLimit && (routeIsActive || freeDriveIsActive),
+            speedLimitIsRendered && (routeIsActive || freeDriveIsActive),
         userLocation,
     });
     const speedLimitIsVisible = Boolean(
         drivingStatusIsVisible &&
+        speedLimitIsRendered &&
         Number.isFinite(Number(speedLimit?.speedLimitMph)),
     );
     const currentSpeedMps = getRouteCurrentSpeedMps(userLocation);
@@ -167,14 +173,18 @@ export function AutoPlayMapStatusOverlay({
     const currentSpeedIsVisible = Boolean(
         drivingStatusIsVisible && Number.isFinite(Number(currentSpeedMps)),
     );
+    // Both car hosts leave the map canvas to the app, so the speed dial stands
+    // in for the badge wherever the road has no mapped limit. The handset keeps
+    // the badge hidden there because its dial shares the row with the maneuver
+    // card, which the car hosts draw in their own chrome instead.
     const currentSpeedWithoutLimitIsVisible = Boolean(
-        rendersSpeedLimit &&
-        Platform.OS === 'android' &&
-        drivingStatusIsVisible &&
-        currentSpeedMph > 0,
+        speedLimitIsRendered && drivingStatusIsVisible && currentSpeedMph > 0,
     );
-    const markerLoadingIsVisible =
-        mapPreferencesAreLoaded && markerLoader.renderMarkerLoadingIndicator;
+    const markerLoadingIsVisible = Boolean(
+        statusChromeIsVisible &&
+        mapPreferencesAreLoaded &&
+        markerLoader.renderMarkerLoadingIndicator,
+    );
     const speedStatusIsVisible =
         speedLimitIsVisible || currentSpeedWithoutLimitIsVisible;
     const speedLimitBadgeSize = getAutoPlaySpeedLimitBadgeSize({
@@ -187,7 +197,7 @@ export function AutoPlayMapStatusOverlay({
         size: speedLimitBadgeSize,
     });
     const currentRoadPillLayout =
-        rendersSpeedLimit &&
+        speedLimitIsRendered &&
         speedStatusIsVisible &&
         currentRoadPill?.reserveSpeedLimitSpace
             ? getAutoPlayCurrentRoadPillLayout({
@@ -208,6 +218,7 @@ export function AutoPlayMapStatusOverlay({
                     <View className="flex-1" pointerEvents="none" />
                     <DrivingLocationRoadStack
                         currentRoadPillIsDarkMode={resolvedIsDarkMode}
+                        currentRoadPillIsVisible={statusChromeIsVisible}
                         currentRoadPillTestID="android-auto-current-road-pill"
                         currentRoadPillStyle={
                             currentRoadPillLayout?.maximumWidth === undefined
@@ -218,7 +229,7 @@ export function AutoPlayMapStatusOverlay({
                                   }
                         }
                         currentRoadPillTextStyle={
-                            rendersSpeedLimit
+                            speedLimitIsRendered
                                 ? (currentRoadPill?.speedLimitAdjacentTextStyle ??
                                   currentRoadPill?.textStyle)
                                 : currentRoadPill?.textStyle

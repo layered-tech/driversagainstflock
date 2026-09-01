@@ -1,10 +1,20 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import {
     getAutoPlayBoundsFitPadding,
     getAutoPlayViewportMetrics,
 } from '../../auto-play-map-viewport.js';
 import { getFollowCameraPadding } from '../follow-camera-padding.js';
+
+const mapSurfaceContentSource = readFileSync(
+    new URL('../../auto-play-map-surface-content.js', import.meta.url),
+    'utf8',
+);
+const mapStatusOverlaySource = readFileSync(
+    new URL('../../auto-play-map-status-overlay.js', import.meta.url),
+    'utf8',
+);
 
 const CAMERA_ANCHOR_PIXEL_TOLERANCE = 0.5;
 
@@ -48,6 +58,44 @@ describe('Auto Play map viewport geometry', () => {
             paddingTop: 136,
         });
         assertApproximatelyEqual(anchor.y, 248);
+    });
+
+    test('centres the puck when nothing measured an anchor', () => {
+        const viewportMetrics = getAutoPlayViewportMetrics({
+            safeAreaInsets: { bottom: 120, left: 24, right: 12, top: 16 },
+            windowInfo: { height: 480, width: 800 },
+        });
+        const anchor = getCameraAnchor({
+            height: viewportMetrics.height,
+            padding: getFollowPadding(viewportMetrics, undefined),
+            width: viewportMetrics.width,
+        });
+
+        assertApproximatelyEqual(anchor.y, viewportMetrics.center.y);
+    });
+
+    test('measures the follow anchor on host-owned surfaces too', () => {
+        // Regression: the CarPlay Dashboard and both instrument clusters hide
+        // the app's status chrome but still follow the driver, so an overlay
+        // mounted only for the chrome left them on the centred fallback above.
+        assert.doesNotMatch(
+            mapSurfaceContentSource,
+            /rendersAppOverlays && !searchResultsMapIsActive \? \(\s*<AutoPlayMapStatusOverlay/,
+        );
+        assert.match(
+            mapSurfaceContentSource,
+            /<AutoPlayMapStatusOverlay[\s\S]*?onLocationAnchorLayout=\{handleLocationAnchorLayout\}[\s\S]*?statusChromeIsVisible=\{\s*rendersAppOverlays && !searchResultsMapIsActive\s*\}/,
+        );
+        // The puck slot rides `drivingStatusIsVisible`; only the pill drawn
+        // beneath it answers to the chrome flag.
+        assert.match(
+            mapStatusOverlaySource,
+            /drivingStatusIsVisible \? \([\s\S]*?onLocationAnchorLayout=\{onLocationAnchorLayout\}/,
+        );
+        assert.match(
+            mapStatusOverlaySource,
+            /currentRoadPillIsVisible=\{statusChromeIsVisible\}/,
+        );
     });
 
     test('uses raw host insets for the camera while retaining the ornament adjustment', () => {
