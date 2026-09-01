@@ -288,21 +288,6 @@ describe('Auto Play current-road pill layout', () => {
         );
     });
 
-    test('reduces alert typography on CarPlay without changing Android defaults', () => {
-        assert.match(
-            mapStatusOverlaySource,
-            /function AutoPlayAlertSource[\s\S]*?ios:text-\[10px\] ios:leading-3 text-\[11px\] leading-\[13px\]/,
-        );
-        assert.match(
-            mapStatusOverlaySource,
-            /function AutoPlaySingleUpcomingAlert[\s\S]*?ios:text-\[13px\] ios:leading-\[15px\] text-\[14px\][\s\S]*?font-dafMono ios:text-\[12px\] ios:leading-\[12px\] text-\[18px\]/,
-        );
-        assert.match(
-            mapStatusOverlaySource,
-            /function AutoPlayCombinedAlertColumn[\s\S]*?ios:text-\[11px\] ios:leading-\[13px\][\s\S]*?text-xs[\s\S]*?font-dafMono ios:text-\[12px\] ios:leading-\[12px\] text-\[17px\]/,
-        );
-    });
-
     test('uses a dedicated map-only surface on the Android Auto cluster', () => {
         assert.match(
             autoPlaySource,

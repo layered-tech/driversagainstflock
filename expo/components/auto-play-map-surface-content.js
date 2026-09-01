@@ -28,6 +28,7 @@ import {
     getAutoPlayBoundsFitPadding,
     getAutoPlayViewportMetrics,
 } from './auto-play-map-viewport';
+import { useAutoPlayNavigationAlerts } from './auto-play-navigation-alert-announcer';
 import { setAutoPlayState, useAutoPlayState } from './auto-play-state';
 import {
     getAutoPlayAppOverlayVisibility,
@@ -118,6 +119,7 @@ import { useMapPreferencesState } from './map/use-map-preferences-state';
 import { useMapPresentation } from './map/use-map-presentation';
 import { useMarkerLoader } from './map/use-marker-loader';
 import { useUpcomingElectronicHorizonAlerts } from './map/use-upcoming-electronic-horizon-alerts';
+import { getRouteCurrentSpeedMps } from './map/speed-limit';
 import { useWazePoliceAlerts } from './map/use-waze-police-alerts';
 import { makeWazePoliceAlertFeatureCollection } from './map/waze-alerts-api';
 
@@ -1733,6 +1735,19 @@ export function AutoPlayMapSurfaceContent({
         policeAlerts: policeAlertsLoader.policeAlerts,
         userLocation: mapPreferences.userLocation,
     });
+
+    // ALPR and police warnings ride the car host's own navigation alert banner
+    // rather than an app-drawn card, so they are suppressed whenever another
+    // template owns the screen and the host would refuse the alert.
+    useAutoPlayNavigationAlerts({
+        currentSpeedMps: getRouteCurrentSpeedMps(mapPreferences.userLocation),
+        enabled:
+            rendersAppOverlays &&
+            alertSurfaceVisibility.upcomingAlertsVisible &&
+            !routePreviewIsActive &&
+            !searchResultsMapIsActive,
+        upcomingAlerts,
+    });
     const directionsRouteFeatureCollection = useMemo(
         () => makeDirectionsRouteFeatureCollection(displayedDirectionsRoute),
         [displayedDirectionsRoute],
@@ -2194,12 +2209,6 @@ export function AutoPlayMapSurfaceContent({
                         routeLoading={autoPlayState.routeLoading}
                         singleResultCountdown={
                             autoPlayState.singleResultCountdown
-                        }
-                        upcomingAlerts={
-                            alertSurfaceVisibility.upcomingAlertsVisible &&
-                            !searchResultsMapIsActive
-                                ? upcomingAlerts
-                                : []
                         }
                     />
                 ) : null}

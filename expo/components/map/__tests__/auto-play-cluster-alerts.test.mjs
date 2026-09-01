@@ -59,6 +59,6 @@ test('the automotive map renderer applies the surface alert policy', () => {
     );
     assert.match(
         autoPlayMapSurfaceSource,
-        /upcomingAlerts=\{[\s\S]*?alertSurfaceVisibility\.upcomingAlertsVisible[\s\S]*?upcomingAlerts[\s\S]*?: \[\]/,
+        /useAutoPlayNavigationAlerts\(\{[\s\S]*?enabled:[\s\S]*?alertSurfaceVisibility\.upcomingAlertsVisible[\s\S]*?upcomingAlerts,\s*\}\);/,
     );
 });

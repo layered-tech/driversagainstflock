@@ -127,7 +127,7 @@ describe('Auto Play route-loading overlay', () => {
         );
     });
 
-    test('shares the alert rail at the host-safe top-right edge', () => {
+    test('shares the status rail at the host-safe top-right edge', () => {
         assert.deepEqual(
             getAutoPlayTopRightStatusOverlayLayout({
                 mapControlLayoutInsets: {
@@ -144,15 +144,7 @@ describe('Auto Play route-loading overlay', () => {
         );
         assert.match(
             mapStatusOverlaySource,
-            /function AutoPlayTopRightStatusOverlay[\s\S]*?getDrivingAlertsPresentation\(upcomingAlerts\)[\s\S]*?pointerEvents="none"[\s\S]*?<AutoPlayCombinedUpcomingAlerts[\s\S]*?<AutoPlaySingleUpcomingAlert[\s\S]*?<AutoPlayRouteLoadingCard/,
-        );
-        assert.match(
-            mapStatusOverlaySource,
-            /function AutoPlayCombinedUpcomingAlerts[\s\S]*?auto-play-upcoming-alert-police[\s\S]*?auto-play-upcoming-alert-alpr/,
-        );
-        assert.match(
-            mapSurfaceSource,
-            /upcomingAlerts=\{[\s\S]*?alertSurfaceVisibility\.upcomingAlertsVisible[\s\S]*?!searchResultsMapIsActive[\s\S]*?\? upcomingAlerts[\s\S]*?: \[\]/,
+            /function AutoPlayTopRightStatusOverlay[\s\S]*?pointerEvents="none"[\s\S]*?<AutoPlaySingleResultCountdownCard[\s\S]*?<AutoPlayRouteLoadingCard/,
         );
     });
 });
