@@ -38,6 +38,7 @@ import {
     getAutoPlayRoutePreviewFitKey,
     getAutoPlaySearchResultsFitKey,
     getAutoPlaySearchResultsMapIsActive,
+    getAutoPlaySpeedLimitVisibility,
 } from './auto-play-template-state';
 import { useFollowLocationMode } from './map-follow-location-mode';
 import {
@@ -93,6 +94,7 @@ import {
     normalizeDirectionDegrees,
 } from './map/geo';
 import {
+    isRoadMatchedLocationUpdate,
     locationUpdateIsStale,
     shouldAcceptLocationUpdate,
 } from './map/location-watch-options';
@@ -134,6 +136,7 @@ const AUTO_PLAY_ZOOM_BUTTON_ANIMATION_DURATION_MS =
     LOCATION_CAMERA_USER_INTERACTION_ANIMATION_DURATION_MS;
 const AUTO_PLAY_ROUTE_PREVIEW_CAMERA_FIT_DURATION_MS = 900;
 const AUTO_PLAY_ROOT_MODULE_ID = 'AutoPlayRoot';
+const AUTO_PLAY_CARPLAY_DASHBOARD_MODULE_ID = 'CarPlayDashboard';
 const DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG = {
     applyWindowScaleToMapGestures: false,
     currentRoadPill: null,
@@ -1493,8 +1496,10 @@ export function AutoPlayMapSurfaceContent({
     };
     const autoPlayState = useAutoPlayState();
     const isRootMapSurface = !id || id === AUTO_PLAY_ROOT_MODULE_ID;
+    const isDashboardMapSurface = id === AUTO_PLAY_CARPLAY_DASHBOARD_MODULE_ID;
     const { rendersDrivingStatus, rendersSpeedLimit } =
         getAutoPlayDrivingStatusVisibility({
+            isDashboardMapSurface,
             isRootMapSurface,
         });
     const rendersAppOverlays = getAutoPlayAppOverlayVisibility({
@@ -1514,6 +1519,7 @@ export function AutoPlayMapSurfaceContent({
     const mapPreferences = useMapPreferencesState();
     const mockWazePoliceAlertsEnabled = useMockWazePoliceAlertsEnabled();
     const alertSurfaceVisibility = getAutoPlayAlertSurfaceVisibility({
+        isDashboardMapSurface,
         isRootMapSurface,
         policeAlertsVisible:
             mapPreferences.policeAlertsVisible || mockWazePoliceAlertsEnabled,
@@ -1541,6 +1547,12 @@ export function AutoPlayMapSurfaceContent({
         routePreviewIsActive,
         submittedSearchQuery: autoPlayState.submittedSearchQuery,
         submittedSearchResults,
+    });
+    const speedLimitIsRendered = getAutoPlaySpeedLimitVisibility({
+        hostOwnsNavigationUI,
+        rendersSpeedLimit,
+        searchResultsMapIsActive:
+            rendersDrivingStatus && searchResultsMapIsActive,
     });
     const mapBrowsingContextIsActive = Boolean(
         isRootMapSurface && (routePreviewIsActive || searchResultsMapIsActive),
@@ -2163,6 +2175,12 @@ export function AutoPlayMapSurfaceContent({
         viewportMetrics.key,
     ]);
 
+    // Secondary surfaces do not run their own location watch, so free-drive
+    // speed limits there follow whether the shared location was road matched.
+    const freeDriveIsActive = isRootMapSurface
+        ? controller.roadMatchedLocationWatchEnabled
+        : isRoadMatchedLocationUpdate(mapPreferences.userLocation);
+
     return (
         <MapScreenProviders {...autoPlayContextValues}>
             <View
@@ -2185,9 +2203,7 @@ export function AutoPlayMapSurfaceContent({
                         mapContentVisibility.drivingStatusIsVisible &&
                         shouldShowDrivingMapStatus(drivingMapViewMode)
                     }
-                    freeDriveIsActive={
-                        controller.roadMatchedLocationWatchEnabled
-                    }
+                    freeDriveIsActive={freeDriveIsActive}
                     isDarkMode={presentation.isDarkMapLayer}
                     markerLoader={markerLoader}
                     mapPreferencesAreLoaded={
@@ -2196,7 +2212,7 @@ export function AutoPlayMapSurfaceContent({
                     onLocationAnchorLayout={handleLocationAnchorLayout}
                     navigationPuckSize={navigationPuckSize}
                     presentation={presentation}
-                    rendersSpeedLimit={rendersSpeedLimit}
+                    rendersSpeedLimit={speedLimitIsRendered}
                     speedLimitBadge={speedLimitBadge}
                     statusChromeIsVisible={
                         rendersAppOverlays && !searchResultsMapIsActive

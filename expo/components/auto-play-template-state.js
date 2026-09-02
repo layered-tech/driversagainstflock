@@ -228,13 +228,30 @@ export function getAutoPlayMapContentVisibility({
     };
 }
 
-export function getAutoPlayDrivingStatusVisibility({ isRootMapSurface }) {
+export function getAutoPlayDrivingStatusVisibility({
+    isDashboardMapSurface = false,
+    isRootMapSurface,
+}) {
     const rendersDrivingStatus = Boolean(isRootMapSurface);
 
     return {
         rendersDrivingStatus,
-        rendersSpeedLimit: rendersDrivingStatus,
+        // The CarPlay Dashboard draws the maneuver card and trip estimates
+        // itself but leaves the map canvas to the app, so the speed badge is
+        // the one piece of driving status that follows the driver there.
+        rendersSpeedLimit:
+            rendersDrivingStatus || Boolean(isDashboardMapSurface),
     };
+}
+
+export function getAutoPlaySpeedLimitVisibility({
+    hostOwnsNavigationUI = false,
+    rendersSpeedLimit,
+    searchResultsMapIsActive = false,
+}) {
+    return Boolean(
+        rendersSpeedLimit && !hostOwnsNavigationUI && !searchResultsMapIsActive,
+    );
 }
 
 export function getAutoPlayAppOverlayVisibility({

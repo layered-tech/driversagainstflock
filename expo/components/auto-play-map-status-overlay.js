@@ -136,6 +136,10 @@ export function AutoPlayTopRightStatusOverlay({
  * Dashboard, either instrument cluster) turns off. Those surfaces still follow
  * the driver, so they still need the measured anchor — without it the camera
  * falls back to centring the puck in the viewport.
+ *
+ * `rendersSpeedLimit` arrives already resolved by the surface, so the speed
+ * badge can outlive the rest of the chrome: the CarPlay Dashboard keeps it
+ * while leaving the road pill and loading indicator off.
  */
 export function AutoPlayMapStatusOverlay({
     activeDirectionsRoute,
@@ -157,7 +161,7 @@ export function AutoPlayMapStatusOverlay({
     const systemColorScheme = useColorScheme();
     const resolvedIsDarkMode = isDarkMode ?? systemColorScheme === 'dark';
     const routeIsActive = Boolean(activeDirectionsRoute);
-    const speedLimitIsRendered = statusChromeIsVisible && rendersSpeedLimit;
+    const speedLimitIsRendered = Boolean(rendersSpeedLimit);
     const speedLimit = useRouteSpeedLimit({
         routeIsActive:
             speedLimitIsRendered && (routeIsActive || freeDriveIsActive),

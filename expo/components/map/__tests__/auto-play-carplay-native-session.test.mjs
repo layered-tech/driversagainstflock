@@ -188,6 +188,99 @@ test('CarPlay clears stale road guidance for non-routing maneuver states', () =>
     );
     assert.match(
         routingSource,
-        /navigationSession\.currentRoadNameVariants =\s*upcomingManeuvers\.first\?\.roadFollowingManeuverVariants \?\? \[\]/,
+        /let currentRoadNameVariants =\s*upcomingManeuvers\.first\?\.roadFollowingManeuverVariants \?\? \[\][\s\S]*?navigationSession\.currentRoadNameVariants =\s*currentRoadNameVariants/,
+    );
+});
+
+// Regression: every guidance tick re-assigned `upcomingManeuvers` with the same
+// CPManeuver objects. CarPlay treats each assignment as a new route guidance
+// update, so the Dashboard card re-animated and the simulator's update counter
+// climbed while the driver was still on the same step.
+test('CarPlay re-sends upcoming maneuvers only when their identity changes', () => {
+    const routingSource = sourceBetween(
+        mapTemplateSource,
+        'func updateManeuvers(maneuvers:',
+        'func startNavigation',
+    );
+    const messageSource = sourceBetween(
+        mapTemplateSource,
+        'func updateManeuvers(messageManeuver',
+        'func registerManeuvers',
+    );
+
+    assert.match(
+        routingSource,
+        /let upcomingManeuversChanged =\s*navigationSession\.upcomingManeuvers\.map\(\{ \$0\.id \}\)\s*!= upcomingManeuvers\.map\(\{ \$0\.id \}\)\s*if upcomingManeuversChanged \{\s*navigationSession\.upcomingManeuvers = upcomingManeuvers\s*\}/,
+    );
+    assert.equal(
+        routingSource.match(
+            /navigationSession\.upcomingManeuvers = upcomingManeuvers/g,
+        )?.length,
+        1,
+    );
+    // Estimates are re-sent only when CarPlay would render a different value:
+    // raw GPS jitter must not turn into a Dashboard card redraw every second.
+    assert.match(
+        mapTemplateSource,
+        /private func travelEstimatesDisplayKey\([\s\S]*?\(distance\.value \* scale\)\.rounded\(\) \/ scale[\s\S]*?\(travelEstimates\.timeRemaining \/ 60\)\.rounded\(\)/,
+    );
+    assert.match(
+        mapTemplateSource,
+        /private func updateEstimatesIfChanged\([\s\S]*?if !force, sentManeuverTravelEstimateKeysById\[maneuver\.id\] == key \{\s*return\s*\}[\s\S]*?navigationSession\.updateEstimates\(travelEstimates, for: maneuver\)/,
+    );
+    assert.equal(
+        mapTemplateSource.match(/navigationSession\.updateEstimates\(/g)
+            ?.length,
+        1,
+    );
+    assert.match(
+        routingSource,
+        /updateEstimatesIfChanged\([\s\S]*?travelEstimates: nitroManeuver\.travelEstimates[\s\S]*?for: maneuver,\s*in: navigationSession\s*\)/,
+    );
+    assert.match(
+        routingSource,
+        /if upcomingManeuversChanged,\s*let currentManeuver[\s\S]*?updateEstimatesIfChanged\([\s\S]*?force: true/,
+    );
+    assert.match(
+        mapTemplateSource,
+        /func registerManeuvers\(maneuvers: \[NitroRoutingManeuver\]\)[\s\S]*?updateEstimatesIfChanged\(/,
+    );
+    assert.match(
+        mapTemplateSource,
+        /func updateVisibleTravelEstimate\([\s\S]*?updateTripEstimatesIfChanged\(estimates, for: trip\)/,
+    );
+    assert.match(
+        mapTemplateSource,
+        /func startNavigation\(trip: CPTrip\)[\s\S]*?navigationManeuversById\.removeAll\(\)\s*resetSentTravelEstimates\(\)/,
+    );
+    assert.match(
+        mapTemplateSource,
+        /func stopNavigation\(reason: NavigationStopReason = \.cancelled\)[\s\S]*?navigationManeuversById\.removeAll\(\)\s*resetSentTravelEstimates\(\)/,
+    );
+    assert.match(
+        routingSource,
+        /if navigationSession\.currentLaneGuidance !== currentLaneGuidance \{\s*navigationSession\.currentLaneGuidance = currentLaneGuidance/,
+    );
+    assert.match(
+        routingSource,
+        /if navigationSession\.currentRoadNameVariants\s*!= currentRoadNameVariants\s*\{/,
+    );
+    assert.match(
+        routingSource,
+        /if maneuvers\.isEmpty \{\s*if !navigationSession\.upcomingManeuvers\.isEmpty \{\s*navigationSession\.upcomingManeuvers = \[\]/,
+    );
+    // Lane guidances register once with their maneuver, not on every update.
+    assert.match(
+        routingSource,
+        /let newLaneGuidances = newlyRegisteredManeuvers\.compactMap \{\s*\$0\.laneGuidance\s*\}/,
+    );
+    assert.doesNotMatch(
+        routingSource,
+        /navigationSession\.add\(laneGuidances\)/,
+    );
+    // A repeated message maneuver stays on screen instead of being recreated.
+    assert.match(
+        messageSource,
+        /currentManeuver\.id == messageManeuver\.title,\s*currentManeuver\.cardBackgroundColor == cardBackgroundColor\s*\{\s*return\s*\}/,
     );
 });

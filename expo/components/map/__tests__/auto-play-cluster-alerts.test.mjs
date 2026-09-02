@@ -8,22 +8,49 @@ const autoPlayMapSurfaceSource = readFileSync(
     'utf8',
 );
 
-for (const surface of ['Android Auto cluster', 'CarPlay dashboard']) {
-    test(`${surface} hides ALPR and police alerts`, () => {
-        assert.deepEqual(
-            getAutoPlayAlertSurfaceVisibility({
-                isRootMapSurface: false,
-                policeAlertsVisible: true,
-                surveillanceMarkersVisible: true,
-            }),
-            {
-                policeAlertsVisible: false,
-                surveillanceMarkersVisible: false,
-                upcomingAlertsVisible: false,
-            },
-        );
-    });
-}
+test('the Android Auto cluster hides ALPR and police alerts', () => {
+    assert.deepEqual(
+        getAutoPlayAlertSurfaceVisibility({
+            isRootMapSurface: false,
+            policeAlertsVisible: true,
+            surveillanceMarkersVisible: true,
+        }),
+        {
+            policeAlertsVisible: false,
+            surveillanceMarkersVisible: false,
+            upcomingAlertsVisible: false,
+        },
+    );
+});
+
+test('the CarPlay dashboard keeps ALPR, police, and upcoming alerts', () => {
+    assert.deepEqual(
+        getAutoPlayAlertSurfaceVisibility({
+            isDashboardMapSurface: true,
+            isRootMapSurface: false,
+            policeAlertsVisible: true,
+            surveillanceMarkersVisible: true,
+        }),
+        {
+            policeAlertsVisible: true,
+            surveillanceMarkersVisible: true,
+            upcomingAlertsVisible: true,
+        },
+    );
+    assert.deepEqual(
+        getAutoPlayAlertSurfaceVisibility({
+            isDashboardMapSurface: true,
+            isRootMapSurface: false,
+            policeAlertsVisible: false,
+            surveillanceMarkersVisible: false,
+        }),
+        {
+            policeAlertsVisible: false,
+            surveillanceMarkersVisible: false,
+            upcomingAlertsVisible: true,
+        },
+    );
+});
 
 test('the main in-car map keeps its configured alerts', () => {
     assert.deepEqual(
@@ -43,7 +70,7 @@ test('the main in-car map keeps its configured alerts', () => {
 test('the automotive map renderer applies the surface alert policy', () => {
     assert.match(
         autoPlayMapSurfaceSource,
-        /getAutoPlayAlertSurfaceVisibility\(\{[\s\S]*?isRootMapSurface,[\s\S]*?policeAlertsVisible:[\s\S]*?surveillanceMarkersVisible:/,
+        /getAutoPlayAlertSurfaceVisibility\(\{[\s\S]*?isDashboardMapSurface,[\s\S]*?isRootMapSurface,[\s\S]*?policeAlertsVisible:[\s\S]*?surveillanceMarkersVisible:/,
     );
     assert.match(
         autoPlayMapSurfaceSource,

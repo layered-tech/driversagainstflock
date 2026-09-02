@@ -33,6 +33,10 @@ const autoPlayMapSurfaceContentSource = readFileSync(
     new URL('../../auto-play-map-surface-content.js', import.meta.url),
     'utf8',
 );
+const mapStatusOverlaySource = readFileSync(
+    new URL('../../auto-play-map-status-overlay.js', import.meta.url),
+    'utf8',
+);
 const appConfigSource = readFileSync(
     new URL('../../../app.config.js', import.meta.url),
     'utf8',
@@ -100,6 +104,40 @@ test('CarPlay Dashboard leaves navigation chrome to the host', () => {
     assert.match(
         iosPlatformSource,
         /subtitleVariants: \['Find a destination'\]/,
+    );
+});
+
+test('CarPlay Dashboard keeps the speed badge while the host draws the rest', () => {
+    assert.match(
+        autoPlayMapSurfaceContentSource,
+        /const AUTO_PLAY_CARPLAY_DASHBOARD_MODULE_ID = 'CarPlayDashboard';/,
+    );
+    assert.match(
+        autoPlayMapSurfaceContentSource,
+        /const isDashboardMapSurface = id === AUTO_PLAY_CARPLAY_DASHBOARD_MODULE_ID;[\s\S]*?getAutoPlayDrivingStatusVisibility\(\{\s*isDashboardMapSurface,\s*isRootMapSurface,\s*\}\)/,
+    );
+    assert.match(
+        autoPlayMapSurfaceContentSource,
+        /const speedLimitIsRendered = getAutoPlaySpeedLimitVisibility\(\{\s*hostOwnsNavigationUI,\s*rendersSpeedLimit,\s*searchResultsMapIsActive:\s*rendersDrivingStatus && searchResultsMapIsActive,\s*\}\)/,
+    );
+    // The Dashboard has no location watch of its own, so free-drive limits
+    // follow the shared road-matched location instead of the controller flag.
+    assert.match(
+        autoPlayMapSurfaceContentSource,
+        /const freeDriveIsActive = isRootMapSurface\s*\? controller\.roadMatchedLocationWatchEnabled\s*: isRoadMatchedLocationUpdate\(mapPreferences\.userLocation\)/,
+    );
+    assert.match(
+        autoPlayMapSurfaceContentSource,
+        /<AutoPlayMapStatusOverlay[\s\S]*?freeDriveIsActive=\{freeDriveIsActive\}[\s\S]*?rendersSpeedLimit=\{speedLimitIsRendered\}/,
+    );
+    // The badge must not ride on the chrome flag the Dashboard turns off.
+    assert.match(
+        mapStatusOverlaySource,
+        /const speedLimitIsRendered = Boolean\(rendersSpeedLimit\);/,
+    );
+    assert.doesNotMatch(
+        mapStatusOverlaySource,
+        /statusChromeIsVisible && rendersSpeedLimit/,
     );
 });
 

@@ -44,7 +44,7 @@
         "@fortawesome/free-solid-svg-icons": "^7.2.0",
         "@fortawesome/react-native-fontawesome": "^1.0.0",
         "@gorhom/bottom-sheet": "^5.2.10",
-        "@iternio/react-native-auto-play": "git+https://github.com/layered-tech/react-native-auto-play.git#027047ee6c0c04d05fa93165169cf8176da970fc",
+        "@iternio/react-native-auto-play": "git+https://github.com/layered-tech/react-native-auto-play.git#c98c05ee9776211b961cf7ece654ced2ed03a4f1",
         "@react-native-async-storage/async-storage": "2.2.0",
         "@react-native-firebase/analytics": "^24.1.0",
         "@react-native-firebase/app": "^24.1.0",

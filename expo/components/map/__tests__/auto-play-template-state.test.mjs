@@ -15,6 +15,7 @@ import {
     getAutoPlaySearchLoadingCopy,
     getAutoPlaySearchResultsFitKey,
     getAutoPlaySearchResultsMapIsActive,
+    getAutoPlaySpeedLimitVisibility,
     getAutoPlayTripEstimateValues,
     makeAutoPlayTripSelectorTrips,
     makeAutoPlayTripSteps,
@@ -56,6 +57,47 @@ describe('Auto Play template state', () => {
                 rendersDrivingStatus: false,
                 rendersSpeedLimit: false,
             },
+        );
+        // The CarPlay Dashboard is the one secondary surface that keeps the
+        // speed badge: the host draws its maneuver card, the app owns the map.
+        assert.deepEqual(
+            getAutoPlayDrivingStatusVisibility({
+                isDashboardMapSurface: true,
+                isRootMapSurface: false,
+            }),
+            {
+                rendersDrivingStatus: false,
+                rendersSpeedLimit: true,
+            },
+        );
+    });
+
+    test('resolves the speed badge independently of the rest of the chrome', () => {
+        assert.equal(
+            getAutoPlaySpeedLimitVisibility({
+                hostOwnsNavigationUI: false,
+                rendersSpeedLimit: true,
+                searchResultsMapIsActive: false,
+            }),
+            true,
+        );
+        assert.equal(
+            getAutoPlaySpeedLimitVisibility({
+                hostOwnsNavigationUI: true,
+                rendersSpeedLimit: true,
+            }),
+            false,
+        );
+        assert.equal(
+            getAutoPlaySpeedLimitVisibility({
+                rendersSpeedLimit: true,
+                searchResultsMapIsActive: true,
+            }),
+            false,
+        );
+        assert.equal(
+            getAutoPlaySpeedLimitVisibility({ rendersSpeedLimit: false }),
+            false,
         );
     });
 
