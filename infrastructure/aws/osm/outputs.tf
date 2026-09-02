@@ -10,7 +10,7 @@ output "backup_bucket_name" {
 
 output "data_volume_id" {
   description = "Protected encrypted EBS volume containing PostgreSQL, osm2pgsql state, retained history, and working data."
-  value       = aws_ebs_volume.data.id
+  value       = aws_ebs_volume.data_canonical.id
 }
 
 output "database_dns_name" {

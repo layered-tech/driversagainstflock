@@ -610,9 +610,9 @@ resource "aws_cloudwatch_dashboard" "osm" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/EBS", "VolumeReadOps", "VolumeId", aws_ebs_volume.data.id, { label = "Read operations", stat = "Sum" }],
-            ["AWS/EBS", "VolumeWriteOps", "VolumeId", aws_ebs_volume.data.id, { label = "Write operations", stat = "Sum" }],
-            ["AWS/EBS", "VolumeQueueLength", "VolumeId", aws_ebs_volume.data.id, { label = "Queue length", stat = "Average", yAxis = "right" }],
+            ["AWS/EBS", "VolumeReadOps", "VolumeId", aws_ebs_volume.data_legacy.id, { label = "Read operations", stat = "Sum" }],
+            ["AWS/EBS", "VolumeWriteOps", "VolumeId", aws_ebs_volume.data_legacy.id, { label = "Write operations", stat = "Sum" }],
+            ["AWS/EBS", "VolumeQueueLength", "VolumeId", aws_ebs_volume.data_legacy.id, { label = "Queue length", stat = "Average", yAxis = "right" }],
           ]
           period  = 60
           region  = var.aws_region

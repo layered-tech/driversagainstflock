@@ -34,6 +34,8 @@ database = repository / "database/osm2pgsql/production"
 sources: list[tuple[Path, Path]] = [
     (operations / "install.sh", Path("operations/install.sh")),
     (operations / "install-core.sh", Path("operations/install-core.sh")),
+    (operations / "install-graphhopper.sh", Path("operations/install-graphhopper.sh")),
+    (operations / "migrate-data-volume.sh", Path("operations/migrate-data-volume.sh")),
     (operations / "daf-osm.env", Path("operations/daf-osm.env")),
     (operations / "cloudwatch-agent.json", Path("operations/cloudwatch-agent.json")),
 ]
@@ -54,6 +56,8 @@ if missing:
 required_paths = {
     "operations/install.sh",
     "operations/install-core.sh",
+    "operations/install-graphhopper.sh",
+    "operations/migrate-data-volume.sh",
     "operations/daf-osm.env",
     "operations/cloudwatch-agent.json",
     "operations/bin/backup.sh",

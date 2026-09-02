@@ -27,6 +27,12 @@ variable "alert_email" {
   }
 }
 
+variable "attach_graph_legacy_volume" {
+  description = "Whether the protected legacy graph volume remains attached to the routing host."
+  type        = bool
+  default     = false
+}
+
 variable "vpc_id" {
   description = "Existing production VPC, read through a data source and never managed here."
   type        = string
@@ -88,7 +94,12 @@ variable "builder_instance_type" {
 }
 
 variable "graph_volume_size_gib" {
-  description = "Persistent gp3 graph volume size in GiB."
+  description = "Canonical persistent gp3 graph volume size in GiB."
   type        = number
-  default     = 128
+  default     = 64
+
+  validation {
+    condition     = var.graph_volume_size_gib == 64
+    error_message = "graph_volume_size_gib must remain 64 GiB during the consolidation migration."
+  }
 }

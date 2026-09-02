@@ -186,6 +186,22 @@
             }
         },
         {
+            "Sid": "AttachCanonicalRoutingGraph",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:AttachVolume",
+                "ec2:DetachVolume"
+            ],
+            "Resource": "arn:aws:ec2:us-east-1:326364278889:volume/*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:RequestedRegion": "us-east-1",
+                    "ec2:ResourceTag/Name": "daf-routing-graphs-canonical",
+                    "ec2:ResourceTag/Project": "daf-routing"
+                }
+            }
+        },
+        {
             "Sid": "CreateOsmRolesWithBoundary",
             "Effect": "Allow",
             "Action": "iam:CreateRole",

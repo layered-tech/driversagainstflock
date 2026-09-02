@@ -21,4 +21,13 @@ locals {
 
   publisher_password_parameter_name = "/daf-osm/database/publisher-password"
   publisher_username_parameter_name = "/daf-osm/database/publisher-username"
+
+  routing_graph_volume_id = try(
+    data.terraform_remote_state.routing.outputs.graph_volume_id,
+    var.routing_graph_volume_id,
+  )
+  routing_serving_security_group_id = try(
+    data.terraform_remote_state.routing.outputs.serving_security_group_id,
+    var.routing_serving_security_group_id,
+  )
 }

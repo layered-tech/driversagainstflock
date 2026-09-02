@@ -1,7 +1,10 @@
 resource "aws_network_interface" "database" {
-  subnet_id       = aws_subnet.private.id
-  private_ips     = [var.database_private_ip]
-  security_groups = [aws_security_group.database.id]
+  subnet_id   = aws_subnet.private.id
+  private_ips = [var.database_private_ip]
+  security_groups = [
+    aws_security_group.database.id,
+    local.routing_serving_security_group_id,
+  ]
 
   tags = {
     Name = "daf-osm-database"
@@ -88,10 +91,37 @@ resource "aws_instance" "database" {
   }
 }
 
-resource "aws_volume_attachment" "data" {
+resource "aws_volume_attachment" "data_legacy" {
+  count = var.attach_data_legacy_volume ? 1 : 0
+
   device_name                    = var.data_device
-  volume_id                      = aws_ebs_volume.data.id
+  volume_id                      = aws_ebs_volume.data_legacy.id
+  instance_id                    = aws_instance.database.id
+  force_detach                   = false
+  stop_instance_before_detaching = false
+}
+
+resource "aws_volume_attachment" "data_migration" {
+  device_name                    = var.data_migration_device
+  volume_id                      = aws_ebs_volume.data_canonical.id
   instance_id                    = aws_instance.database.id
   force_detach                   = false
   stop_instance_before_detaching = true
+}
+
+resource "aws_volume_attachment" "shared_graph" {
+  count = var.attach_graph_volume_to_shared_host ? 1 : 0
+
+  device_name                    = var.graph_device
+  volume_id                      = local.routing_graph_volume_id
+  instance_id                    = aws_instance.database.id
+  force_detach                   = false
+  stop_instance_before_detaching = true
+
+  lifecycle {
+    precondition {
+      condition     = local.routing_graph_volume_id != null
+      error_message = "The routing state must export graph_volume_id before enabling the shared-host attachment."
+    }
+  }
 }

@@ -51,9 +51,17 @@ resource "aws_instance" "serving" {
   }
 }
 
-resource "aws_volume_attachment" "graphs" {
+resource "aws_volume_attachment" "graph_legacy" {
+  count = var.attach_graph_legacy_volume ? 1 : 0
+
   device_name = "/dev/sdg"
-  volume_id   = aws_ebs_volume.graphs.id
+  volume_id   = aws_ebs_volume.graph_legacy.id
+  instance_id = aws_instance.serving.id
+}
+
+resource "aws_volume_attachment" "graph_migration" {
+  device_name = "/dev/sdh"
+  volume_id   = aws_ebs_volume.graph_canonical.id
   instance_id = aws_instance.serving.id
 }
 

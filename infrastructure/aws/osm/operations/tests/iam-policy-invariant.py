@@ -22,6 +22,10 @@ ROUTING_PRIVATE_HOSTED_ZONE_ID = "Z056780730J8BLDZLRB99"
 OSM_DASHBOARD_ARN = "arn:aws:cloudwatch::326364278889:dashboard/daf-osm"
 OSM_ALARM_ARN = "arn:aws:cloudwatch:us-east-1:326364278889:alarm:daf-osm-*"
 OSM_TOPIC_ARN = "arn:aws:sns:us-east-1:326364278889:daf-osm-*"
+ROUTING_GRAPH_BUCKET_ARN = "arn:aws:s3:::daf-routing-graphs-326364278889-us-east-1"
+ROUTING_LOG_GROUP_ARN = (
+    "arn:aws:logs:us-east-1:326364278889:log-group:/daf-routing/serving:*"
+)
 
 
 def require(condition: bool, message: str) -> None:
@@ -72,6 +76,53 @@ def main() -> int:
     require(
         public_zone_guard["Resource"] == PUBLIC_HOSTED_ZONE_ARN,
         "Public hosted-zone guard has the wrong target",
+    )
+
+    boundary = policies["boundary"]
+    routing_parameters = statement_by_sid(boundary, "ReadRoutingParameters")
+    require(
+        set(routing_parameters["Action"]) == {"ssm:GetParameter", "ssm:GetParameters"}
+        and routing_parameters["Resource"]
+        == "arn:aws:ssm:us-east-1:326364278889:parameter/daf-routing/*",
+        "Shared host routing parameter reads are not narrowly scoped",
+    )
+    require(
+        statement_by_sid(boundary, "ListGraphArtifacts")["Resource"]
+        == ROUTING_GRAPH_BUCKET_ARN,
+        "Shared host graph listing targets the wrong bucket",
+    )
+    require(
+        statement_by_sid(boundary, "ReadGraphArtifacts")["Resource"]
+        == f"{ROUTING_GRAPH_BUCKET_ARN}/*",
+        "Shared host graph reads target the wrong bucket",
+    )
+    require(
+        statement_by_sid(boundary, "WriteRoutingLogs")["Resource"]
+        == ROUTING_LOG_GROUP_ARN,
+        "Shared host routing logs target the wrong log group",
+    )
+    routing_metrics = statement_by_sid(boundary, "WriteRoutingMetrics")
+    require(
+        routing_metrics["Condition"]["StringEquals"]["cloudwatch:namespace"]
+        == "DAF/Routing",
+        "Shared host routing metrics can escape the routing namespace",
+    )
+
+    graph_attachment = statement_by_sid(
+        policies["infrastructure"], "AttachCanonicalRoutingGraph"
+    )
+    require(
+        set(graph_attachment["Action"]) == {"ec2:AttachVolume", "ec2:DetachVolume"}
+        and graph_attachment["Resource"]
+        == "arn:aws:ec2:us-east-1:326364278889:volume/*",
+        "Cross-state graph permission must allow only volume attachment operations",
+    )
+    graph_conditions = graph_attachment["Condition"]["StringEquals"]
+    require(
+        graph_conditions["ec2:ResourceTag/Name"]
+        == "daf-routing-graphs-canonical"
+        and graph_conditions["ec2:ResourceTag/Project"] == "daf-routing",
+        "Cross-state graph permission can target a noncanonical routing volume",
     )
 
     dashboard = statement_by_sid(policies["monitoring"], "ManageOsmDashboard")

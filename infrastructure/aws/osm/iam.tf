@@ -139,6 +139,49 @@ data "aws_iam_policy_document" "database" {
       values   = ["DAF/OSM"]
     }
   }
+
+  statement {
+    sid       = "ReadRoutingParameters"
+    effect    = "Allow"
+    actions   = ["ssm:GetParameter", "ssm:GetParameters"]
+    resources = ["arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/daf-routing/*"]
+  }
+
+  statement {
+    sid       = "ListGraphArtifacts"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = ["arn:aws:s3:::${data.terraform_remote_state.routing.outputs.graph_artifact_bucket}"]
+  }
+
+  statement {
+    sid       = "ReadGraphArtifacts"
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
+    resources = ["arn:aws:s3:::${data.terraform_remote_state.routing.outputs.graph_artifact_bucket}/*"]
+  }
+
+  statement {
+    sid     = "WriteRoutingLogs"
+    effect  = "Allow"
+    actions = ["logs:CreateLogStream", "logs:DescribeLogStreams", "logs:PutLogEvents"]
+    resources = [
+      "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/daf-routing/serving:*",
+    ]
+  }
+
+  statement {
+    sid       = "WriteRoutingMetrics"
+    effect    = "Allow"
+    actions   = ["cloudwatch:PutMetricData"]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "cloudwatch:namespace"
+      values   = ["DAF/Routing"]
+    }
+  }
 }
 
 resource "aws_iam_role" "database" {

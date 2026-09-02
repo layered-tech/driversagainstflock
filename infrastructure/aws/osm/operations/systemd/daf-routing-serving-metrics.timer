@@ -1,0 +1,12 @@
+[Unit]
+Description=Publish DAF routing serving utilization metrics every minute
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=60s
+AccuracySec=5s
+Persistent=true
+Unit=daf-routing-serving-metrics.service
+
+[Install]
+WantedBy=timers.target

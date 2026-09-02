@@ -63,8 +63,8 @@ fi
 
 readonly NEW_DEVICE_SIZE="$(blockdev --getsize64 "${NEW_DEVICE}")"
 
-if (( NEW_DEVICE_SIZE < 120 * 1024 * 1024 * 1024 )); then
-    echo "ERROR replacement graph volume is smaller than 120 GiB" >&2
+if (( NEW_DEVICE_SIZE < 64 * 1024 * 1024 * 1024 )); then
+    echo "ERROR replacement graph volume is smaller than 64 GiB" >&2
     exit 1
 fi
 

@@ -37,6 +37,7 @@ readonly MIGRATE_VOLUME_SCRIPT="${OPERATIONS_DIR}/serving/v1.0.9/migrate-graph-v
 readonly SERVING_METRICS_SCRIPT="${OPERATIONS_DIR}/serving/v1.0.10/install-serving-metrics.sh"
 readonly CLOUDWATCH_LOGS_SCRIPT="${OPERATIONS_DIR}/logging/v1.0.0/install-cloudwatch-logs.sh"
 readonly LOCAL_TUNNEL_TEST="${OPERATIONS_DIR}/tests/local-tunnel-invariant.sh"
+readonly VOLUME_MIGRATION_TEST="${OPERATIONS_DIR}/tests/volume-migration-invariant.sh"
 
 grep -qF 'readonly DEFAULT_PBF_NAME="us-260811.osm.pbf"' "${BUILD_SCRIPT}"
 grep -qF 'readonly OPERATION_VERSION="1.3.0"' "${BUILD_SCRIPT}"
@@ -84,7 +85,7 @@ grep -Eq 'update_default_version[[:space:]]*=[[:space:]]*true' "${COMPUTE_TERRAF
 grep -qF 'MetricName=\"BuilderCpuUsed\"' "${MONITORING_TERRAFORM}"
 grep -qF 'ignore_changes = [value]' "${PARAMETERS_TERRAFORM}"
 grep -qF 'default     = "r8g.4xlarge"' "${VARIABLES_TERRAFORM}"
-grep -qF 'default     = 128' "${VARIABLES_TERRAFORM}"
+grep -qF 'default     = 64' "${VARIABLES_TERRAFORM}"
 grep -qF 'readonly OPERATION_VERSION="1.0.9"' "${MIGRATE_VOLUME_SCRIPT}"
 grep -qF 'rsync -aHAX --numeric-ids --delete' "${MIGRATE_VOLUME_SCRIPT}"
 grep -qF 'cp -a "${FSTAB_BACKUP}" /etc/fstab' "${MIGRATE_VOLUME_SCRIPT}"
@@ -127,6 +128,7 @@ fi
 grep -qF 'title  = "Serving instance health"' "${MONITORING_TERRAFORM}"
 
 "${LOCAL_TUNNEL_TEST}"
+"${VOLUME_MIGRATION_TEST}"
 
 dry_run_output="$("${BUILD_LAUNCHER}" \
     --dry-run \

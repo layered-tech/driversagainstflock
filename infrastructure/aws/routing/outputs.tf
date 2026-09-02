@@ -18,6 +18,11 @@ output "graph_artifact_bucket" {
   value       = aws_s3_bucket.graphs.id
 }
 
+output "graph_volume_id" {
+  description = "Canonical encrypted EBS volume for GraphHopper graph releases."
+  value       = aws_ebs_volume.graph_canonical.id
+}
+
 output "builder_launch_template_id" {
   description = "Launch template used by the separately approved on-demand build workflow."
   value       = aws_launch_template.builder.id
@@ -26,6 +31,11 @@ output "builder_launch_template_id" {
 output "private_subnet_id" {
   description = "Routing-only private subnet."
   value       = aws_subnet.routing_private.id
+}
+
+output "serving_security_group_id" {
+  description = "Security group allowing GraphHopper requests from Laravel."
+  value       = aws_security_group.serving.id
 }
 
 output "nat_gateway_id" {

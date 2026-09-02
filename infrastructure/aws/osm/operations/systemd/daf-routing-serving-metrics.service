@@ -1,0 +1,20 @@
+[Unit]
+Description=Publish DAF routing serving utilization metrics
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor=/var/lib/graphhopper
+
+[Service]
+Type=oneshot
+ExecStart=/opt/daf-osm/bin/publish-routing-serving-metrics.sh
+TimeoutStartSec=30s
+User=root
+Group=root
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadOnlyPaths=/var/lib/graphhopper /proc/meminfo
+ReadWritePaths=/run/daf-routing-serving-metrics
+RuntimeDirectory=daf-routing-serving-metrics
+RuntimeDirectoryMode=0750

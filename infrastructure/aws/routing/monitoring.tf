@@ -230,7 +230,7 @@ resource "aws_cloudwatch_dashboard" "routing" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/EBS", "VolumeReadOps", "VolumeId", aws_ebs_volume.graphs.id, { label = "Read operations" }],
+            ["AWS/EBS", "VolumeReadOps", "VolumeId", aws_ebs_volume.graph_legacy.id, { label = "Read operations" }],
             [".", "VolumeWriteOps", ".", ".", { label = "Write operations" }],
             [".", "VolumeQueueLength", ".", ".", { label = "Queue length", stat = "Average", yAxis = "right" }],
           ]

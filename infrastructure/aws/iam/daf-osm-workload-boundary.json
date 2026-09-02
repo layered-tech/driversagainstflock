@@ -106,6 +106,48 @@
                     "cloudwatch:namespace": "DAF/OSM"
                 }
             }
+        },
+        {
+            "Sid": "ReadRoutingParameters",
+            "Effect": "Allow",
+            "Action": [
+                "ssm:GetParameter",
+                "ssm:GetParameters"
+            ],
+            "Resource": "arn:aws:ssm:us-east-1:326364278889:parameter/daf-routing/*"
+        },
+        {
+            "Sid": "ListGraphArtifacts",
+            "Effect": "Allow",
+            "Action": "s3:ListBucket",
+            "Resource": "arn:aws:s3:::daf-routing-graphs-326364278889-us-east-1"
+        },
+        {
+            "Sid": "ReadGraphArtifacts",
+            "Effect": "Allow",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::daf-routing-graphs-326364278889-us-east-1/*"
+        },
+        {
+            "Sid": "WriteRoutingLogs",
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogStream",
+                "logs:DescribeLogStreams",
+                "logs:PutLogEvents"
+            ],
+            "Resource": "arn:aws:logs:us-east-1:326364278889:log-group:/daf-routing/serving:*"
+        },
+        {
+            "Sid": "WriteRoutingMetrics",
+            "Effect": "Allow",
+            "Action": "cloudwatch:PutMetricData",
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "cloudwatch:namespace": "DAF/Routing"
+                }
+            }
         }
     ]
 }

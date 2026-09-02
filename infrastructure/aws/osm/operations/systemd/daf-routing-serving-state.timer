@@ -1,0 +1,12 @@
+[Unit]
+Description=Check DAF GraphHopper service state every minute
+
+[Timer]
+OnBootSec=15s
+OnUnitActiveSec=60s
+AccuracySec=5s
+Persistent=true
+Unit=daf-routing-serving-state.service
+
+[Install]
+WantedBy=timers.target

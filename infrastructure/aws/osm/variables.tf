@@ -9,6 +9,12 @@ variable "alert_email" {
   }
 }
 
+variable "attach_data_legacy_volume" {
+  description = "Whether the protected legacy OSM data volume remains attached to the database host."
+  type        = bool
+  default     = false
+}
+
 variable "amazon_linux_arm64_parameter_name" {
   description = "Public SSM parameter resolving the approved Amazon Linux 2023 ARM64 AMI."
   type        = string
@@ -44,6 +50,12 @@ variable "backup_prefix" {
   }
 }
 
+variable "attach_graph_volume_to_shared_host" {
+  description = "Whether to attach the routing-owned canonical graph volume to the shared OSM host."
+  type        = bool
+  default     = false
+}
+
 variable "bootstrap_artifact_key" {
   description = "Versioned S3 object key containing the PostgreSQL and osm2pgsql bootstrap asset bundle."
   type        = string
@@ -74,6 +86,17 @@ variable "data_iops" {
   validation {
     condition     = var.data_iops >= 3000 && var.data_iops <= 80000
     error_message = "data_iops must be between 3000 and 80000."
+  }
+}
+
+variable "data_migration_device" {
+  description = "Temporary device name for the canonical OSM data volume during migration."
+  type        = string
+  default     = "/dev/sdh"
+
+  validation {
+    condition     = startswith(var.data_migration_device, "/dev/") && var.data_migration_device != var.data_device
+    error_message = "data_migration_device must be a distinct absolute device path under /dev."
   }
 }
 
@@ -112,13 +135,13 @@ variable "data_throughput_mibps" {
 }
 
 variable "data_volume_size_gib" {
-  description = "Persistent OSM data volume size in GiB; sized for current state and retained ALPR history."
+  description = "Canonical OSM data volume size in GiB for the consolidated host."
   type        = number
-  default     = 512
+  default     = 256
 
   validation {
-    condition     = var.data_volume_size_gib >= 256 && var.data_volume_size_gib <= 16384
-    error_message = "data_volume_size_gib must be between 256 and 16384 GiB."
+    condition     = var.data_volume_size_gib == 256
+    error_message = "data_volume_size_gib must remain 256 GiB during the consolidation migration."
   }
 }
 
@@ -158,6 +181,20 @@ variable "database_private_ip" {
   validation {
     condition     = var.database_private_ip == "10.0.3.10"
     error_message = "database_private_ip must remain the approved address 10.0.3.10."
+  }
+}
+
+variable "graph_device" {
+  description = "Device name used when the routing-owned graph volume moves to the shared host."
+  type        = string
+  default     = "/dev/sdi"
+
+  validation {
+    condition = (
+      startswith(var.graph_device, "/dev/") &&
+      !contains([var.data_device, var.data_migration_device], var.graph_device)
+    )
+    error_message = "graph_device must be a distinct absolute device path under /dev."
   }
 }
 
@@ -217,6 +254,29 @@ variable "routing_state_bucket" {
   description = "Protected S3 bucket containing the existing routing Terraform remote state."
   type        = string
   default     = "daf-routing-tfstate-326364278889-us-east-1"
+}
+
+variable "routing_graph_volume_id" {
+  description = "Temporary fallback canonical graph volume ID until routing state publishes its output."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition     = var.routing_graph_volume_id == null || can(regex("^vol-[0-9a-f]{17}$", var.routing_graph_volume_id))
+    error_message = "routing_graph_volume_id must be null or a valid EBS volume ID."
+  }
+}
+
+variable "routing_serving_security_group_id" {
+  description = "Existing routing security-group ID used until routing state publishes its output."
+  type        = string
+  default     = "sg-0538f9bdcfcbfeb6f"
+
+  validation {
+    condition     = can(regex("^sg-[0-9a-f]{17}$", var.routing_serving_security_group_id))
+    error_message = "routing_serving_security_group_id must be a valid security-group ID."
+  }
 }
 
 variable "routing_state_key" {

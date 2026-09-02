@@ -241,17 +241,34 @@ resource "aws_s3_bucket_policy" "backups" {
   depends_on = [aws_s3_bucket_public_access_block.backups]
 }
 
-resource "aws_ebs_volume" "data" {
+resource "aws_ebs_volume" "data_legacy" {
   availability_zone = data.aws_subnet.public.availability_zone
   encrypted         = true
   iops              = var.data_iops
-  size              = var.data_volume_size_gib
+  size              = 512
   snapshot_id       = var.data_snapshot_id
   throughput        = var.data_throughput_mibps
   type              = "gp3"
 
   tags = {
     Name = "daf-osm-data"
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_ebs_volume" "data_canonical" {
+  availability_zone = data.aws_subnet.public.availability_zone
+  encrypted         = true
+  iops              = var.data_iops
+  size              = var.data_volume_size_gib
+  throughput        = var.data_throughput_mibps
+  type              = "gp3"
+
+  tags = {
+    Name = "daf-osm-data-canonical"
   }
 
   lifecycle {

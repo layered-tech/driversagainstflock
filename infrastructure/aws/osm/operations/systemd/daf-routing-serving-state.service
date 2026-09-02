@@ -1,0 +1,14 @@
+[Unit]
+Description=Record privacy-safe DAF GraphHopper service state changes
+After=graphhopper.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/daf-osm/bin/publish-routing-serving-state.sh
+User=root
+Group=root
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/log/daf-routing /var/lib/daf-routing-logs
