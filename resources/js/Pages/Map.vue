@@ -120,6 +120,7 @@ const MARKER_LOADING_STAGES = [
     { key: 'ready', label: 'Camera markers ready' },
 ];
 const CURRENT_LOCATION_WAYPOINT_ID = 'current-location';
+const CURRENT_LOCATION_WAYPOINT_LABEL = 'Your location';
 const initialZipCode = initialZipCodeFromUrl();
 const initialSelectedMarker = initialSelectedMarkerFromUrl();
 const INITIAL_DIRECTION_WAYPOINTS = [
@@ -128,7 +129,7 @@ const INITIAL_DIRECTION_WAYPOINTS = [
         id: CURRENT_LOCATION_WAYPOINT_ID,
         place: null,
         usesCurrentLocation: true,
-        value: 'Your location',
+        value: CURRENT_LOCATION_WAYPOINT_LABEL,
     },
     {
         coordinate: null,
@@ -368,8 +369,7 @@ const directionWaypointRows = computed(() => {
 
         return {
             id: waypoint.id,
-            canRemove:
-                index > 0 && !isDestination && !waypoint.usesCurrentLocation,
+            canRemove: index > 0 && !isDestination,
             isActive: activeDirectionWaypointId.value === waypoint.id,
             isDestination,
             isOrigin: index === 0,
@@ -407,9 +407,41 @@ const zipCodeSearchSuggestion = computed(() => {
     };
 });
 
+const currentLocationSearchSuggestion = computed(() => {
+    if (activeMode.value !== 'directions') {
+        return null;
+    }
+
+    const activeWaypoint = directionWaypoints.value.find(
+        (waypoint) => waypoint.id === activeDirectionWaypointId.value,
+    );
+
+    if (!activeWaypoint || activeWaypoint.usesCurrentLocation) {
+        return null;
+    }
+
+    if (
+        directionWaypoints.value.some(
+            (waypoint) => waypoint.usesCurrentLocation,
+        )
+    ) {
+        return null;
+    }
+
+    return {
+        id: activeWaypoint.id,
+        key: `current-location-${activeWaypoint.id}`,
+        sublabel: currentPosition.value
+            ? 'Use your device location'
+            : 'Uses the map center until location is available',
+        title: CURRENT_LOCATION_WAYPOINT_LABEL,
+    };
+});
+
 const searchPanelIsVisible = computed(
     () =>
         Boolean(zipCodeSearchSuggestion.value) ||
+        Boolean(currentLocationSearchSuggestion.value) ||
         searchIsLoading.value ||
         searchError.value ||
         searchResults.value.length > 0,
@@ -1392,7 +1424,7 @@ function addDirectionStop() {
 
 async function removeDirectionWaypoint(id) {
     directionWaypoints.value = directionWaypoints.value.filter(
-        (waypoint) => waypoint.id !== id || waypoint.usesCurrentLocation,
+        (waypoint) => waypoint.id !== id,
     );
     searchResults.value = [];
     clearLoadedDirectionsRoute();
@@ -1403,11 +1435,12 @@ async function removeDirectionWaypoint(id) {
 function updateDirectionWaypoint(id, value) {
     activeDirectionWaypointId.value = id;
     directionWaypoints.value = directionWaypoints.value.map((waypoint) =>
-        waypoint.id === id && !waypoint.usesCurrentLocation
+        waypoint.id === id
             ? {
                   ...waypoint,
                   coordinate: null,
                   place: null,
+                  usesCurrentLocation: false,
                   value,
               }
             : waypoint,
@@ -1460,15 +1493,49 @@ function activateDirectionWaypointSearch(id) {
 
 function setDirectionWaypointResult(id, result, coordinate) {
     directionWaypoints.value = directionWaypoints.value.map((waypoint) =>
-        waypoint.id === id && !waypoint.usesCurrentLocation
+        waypoint.id === id
             ? {
                   ...waypoint,
                   coordinate,
                   place: result,
+                  usesCurrentLocation: false,
                   value: getPlaceDisplayName(result),
               }
             : waypoint,
     );
+}
+
+async function useCurrentLocationForDirectionWaypoint(id) {
+    if (searchDebounceTimer) {
+        window.clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = null;
+    }
+
+    directionWaypoints.value = directionWaypoints.value.map((waypoint) =>
+        waypoint.id === id
+            ? {
+                  ...waypoint,
+                  coordinate: null,
+                  place: null,
+                  usesCurrentLocation: true,
+                  value: CURRENT_LOCATION_WAYPOINT_LABEL,
+              }
+            : waypoint,
+    );
+    searchResults.value = [];
+    searchError.value = '';
+    searchIsLoading.value = false;
+    clearLoadedDirectionsRoute();
+    syncDestinationSource();
+    await maybeLoadDirectionsRoute();
+}
+
+function focusDirectionWaypoint(waypoint, event) {
+    activateDirectionWaypointSearch(waypoint.id);
+
+    if (waypoint.usesCurrentLocation) {
+        event.target.select();
+    }
 }
 
 async function startDirectionWaypointDrag(id, event) {
@@ -3720,11 +3787,10 @@ function degreesToRadians(degrees) {
                                         : 'border-transparent bg-daf-surface-alt',
                                 ]"
                                 :placeholder="waypoint.placeholder"
-                                :readonly="waypoint.usesCurrentLocation"
                                 type="text"
                                 :value="waypoint.value"
                                 @focus="
-                                    activateDirectionWaypointSearch(waypoint.id)
+                                    focusDirectionWaypoint(waypoint, $event)
                                 "
                                 @input="
                                     updateDirectionWaypoint(
@@ -3770,6 +3836,47 @@ function degreesToRadians(degrees) {
                     <div
                         class="max-h-[324px] overflow-y-auto p-1.5 [scrollbar-gutter:stable]"
                     >
+                        <button
+                            v-if="currentLocationSearchSuggestion"
+                            :key="currentLocationSearchSuggestion.key"
+                            class="daf-pressable flex w-full items-center gap-[11px] rounded-dafSm px-2.5 py-2 text-left hover:bg-daf-surface-alt"
+                            type="button"
+                            @click="
+                                useCurrentLocationForDirectionWaypoint(
+                                    currentLocationSearchSuggestion.id,
+                                )
+                            "
+                        >
+                            <span
+                                class="flex size-[34px] shrink-0 items-center justify-center rounded-dafSm bg-[var(--brand-soft)] text-daf-text-brand"
+                            >
+                                <DafIcon name="crosshair" size="18" />
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span
+                                    class="block truncate text-daf-body font-medium text-daf-text-primary"
+                                >
+                                    {{ currentLocationSearchSuggestion.title }}
+                                </span>
+                                <span
+                                    class="block truncate text-daf-body-sm text-daf-text-tertiary"
+                                >
+                                    {{
+                                        currentLocationSearchSuggestion.sublabel
+                                    }}
+                                </span>
+                            </span>
+                        </button>
+                        <div
+                            v-if="
+                                currentLocationSearchSuggestion &&
+                                (zipCodeSearchSuggestion ||
+                                    searchIsLoading ||
+                                    searchError ||
+                                    displayedSearchResults.length)
+                            "
+                            class="my-1 border-t border-daf-border-glass"
+                        />
                         <button
                             v-if="zipCodeSearchSuggestion"
                             :key="zipCodeSearchSuggestion.key"
