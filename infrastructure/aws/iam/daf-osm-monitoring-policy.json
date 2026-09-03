@@ -36,7 +36,11 @@
                 "cloudwatch:TagResource",
                 "cloudwatch:UntagResource"
             ],
-            "Resource": "arn:aws:cloudwatch:us-east-1:326364278889:alarm:daf-osm-*"
+            "Resource": [
+                "arn:aws:cloudwatch:us-east-1:326364278889:alarm:daf-infrastructure-shared-host-*",
+                "arn:aws:cloudwatch:us-east-1:326364278889:alarm:daf-infrastructure-osm-*",
+                "arn:aws:cloudwatch:us-east-1:326364278889:alarm:daf-infrastructure-postgresql-*"
+            ]
         },
         {
             "Sid": "ManageOsmDashboard",
@@ -46,7 +50,7 @@
                 "cloudwatch:GetDashboard",
                 "cloudwatch:PutDashboard"
             ],
-            "Resource": "arn:aws:cloudwatch::326364278889:dashboard/daf-osm"
+            "Resource": "arn:aws:cloudwatch::326364278889:dashboard/daf-infrastructure"
         },
         {
             "Sid": "ListOsmDashboards",

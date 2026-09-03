@@ -60,29 +60,29 @@ if migration.index("migration_complete=true") < migration.index("pg_isready"):
 
 storage = (root / "storage.tf").read_text()
 compute = (root / "compute.tf").read_text()
-moved = (root / "moved.tf").read_text()
-for resource in ("data_legacy", "data_canonical"):
-    start = storage.index(f'resource "aws_ebs_volume" "{resource}"')
-    end = storage.find('\nresource "', start + 1)
-    block = storage[start:] if end < 0 else storage[start:end]
-    if "prevent_destroy = true" not in block:
-        raise SystemExit(f"{resource} is not protected from destruction")
-for contract in (
-    "from = aws_ebs_volume.data",
-    "to   = aws_ebs_volume.data_legacy",
-    "from = aws_volume_attachment.data",
-    "to   = aws_volume_attachment.data_legacy[0]",
-):
-    if contract not in moved:
-        raise SystemExit("OSM moved blocks are incomplete")
-if 'resource "aws_volume_attachment" "data_migration"' not in compute:
-    raise SystemExit("canonical OSM migration attachment is missing")
-if "count = var.attach_data_legacy_volume ? 1 : 0" not in compute:
-    raise SystemExit("legacy OSM data attachment must be independently removable")
-if "stop_instance_before_detaching = false" not in compute:
-    raise SystemExit("legacy OSM data detachment must not stop the shared host")
+canonical_start = storage.index('resource "aws_ebs_volume" "data_canonical"')
+canonical = storage[canonical_start:]
+if "prevent_destroy = true" not in canonical:
+    raise SystemExit("canonical OSM data volume is not protected from destruction")
+if "data_legacy" in storage:
+    raise SystemExit("retired legacy OSM data volume remains configured")
+if 'resource "aws_volume_attachment" "data"' not in compute:
+    raise SystemExit("canonical OSM data attachment is missing")
+if 'resource "aws_volume_attachment" "data_migration"' in compute:
+    raise SystemExit("migration-named OSM data attachment remains configured")
+if "stop_instance_before_detaching = true" not in compute:
+    raise SystemExit("canonical OSM data attachment lacks safe detach behavior")
 if "count = var.attach_graph_volume_to_shared_host ? 1 : 0" not in compute:
-    raise SystemExit("shared graph attachment must remain opt-in")
+    raise SystemExit("shared graph attachment must remain conditionally managed")
+variables = (root / "variables.tf").read_text()
+if "attach_data_legacy_volume" in variables or "data_migration_device" in variables:
+    raise SystemExit("OSM root retains migration-only data-volume variables")
+if 'default     = "/dev/sdh"' not in variables:
+    raise SystemExit("canonical OSM data device is not preserved")
+shared_attachment = variables[variables.index('variable "attach_graph_volume_to_shared_host"'):]
+shared_attachment = shared_attachment[:shared_attachment.index("\n}")]
+if "default     = true" not in shared_attachment:
+    raise SystemExit("shared graph attachment must be enabled after cutover")
 
 collect_list = cloudwatch["logs"]["logs_collected"]["files"]["collect_list"]
 log_pairs = {(entry["file_path"], entry["log_group_name"]) for entry in collect_list}
@@ -101,6 +101,11 @@ for contract in (
     '-c "file:${AGENT_CONFIG}"',
     "traffic=stopped cloudwatch=combined",
     "systemctl disable --now",
+    "SuccessExitStatus=143",
+    'mountpoint --quiet "${GRAPH_MOUNT}"',
+    'chown -R root:graphhopper "${graph_release_directory}/graph-cache"',
+    'chown graphhopper:graphhopper "${graph_release_directory}/graph-cache/gh.lock"',
+    "import.osm.ignored_highways: footway,construction,cycleway,path,steps",
 ):
     if contract not in installer:
         raise SystemExit(f"shared-host installer is missing {contract}")

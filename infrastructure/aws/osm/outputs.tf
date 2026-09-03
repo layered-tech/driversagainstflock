@@ -8,6 +8,11 @@ output "backup_bucket_name" {
   value       = aws_s3_bucket.backups.id
 }
 
+output "cloudwatch_dashboard_name" {
+  description = "Unified CloudWatch dashboard for the shared host, OSM, GraphHopper, and graph builder."
+  value       = aws_cloudwatch_dashboard.unified.dashboard_name
+}
+
 output "data_volume_id" {
   description = "Protected encrypted EBS volume containing PostgreSQL, osm2pgsql state, retained history, and working data."
   value       = aws_ebs_volume.data_canonical.id

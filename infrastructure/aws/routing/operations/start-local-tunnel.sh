@@ -34,17 +34,17 @@ instance_ids="$({
         --profile "${AWS_PROFILE_NAME}" \
         --region "${AWS_REGION_NAME}" \
         --filters \
-            'Name=tag:Project,Values=daf-routing' \
-            'Name=tag:Name,Values=daf-routing-serving' \
+            'Name=tag:Project,Values=daf-osm' \
+            'Name=tag:Name,Values=daf-osm-database' \
             'Name=instance-state-name,Values=running' \
         --query 'Reservations[].Instances[].InstanceId' \
         --output text
-} 2>&1)" || fail "Unable to find the GraphHopper serving instance: ${instance_ids}"
+} 2>&1)" || fail "Unable to find the shared OSM and GraphHopper instance: ${instance_ids}"
 
 read -r -a instance_id_list <<< "${instance_ids}"
 
 if [[ "${#instance_id_list[@]}" -ne 1 || ! "${instance_id_list[0]}" =~ ^i-[a-zA-Z0-9]+$ ]]; then
-    fail "Expected one running GraphHopper serving instance, found: ${instance_ids:-none}"
+    fail "Expected one running shared OSM and GraphHopper instance, found: ${instance_ids:-none}"
 fi
 
 readonly INSTANCE_ID="${instance_id_list[0]}"

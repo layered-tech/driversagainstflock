@@ -202,7 +202,7 @@
                 "cloudwatch:TagResource",
                 "cloudwatch:UntagResource"
             ],
-            "Resource": "arn:aws:cloudwatch:us-east-1:326364278889:alarm:daf-routing-*"
+            "Resource": "arn:aws:cloudwatch:us-east-1:326364278889:alarm:daf-infrastructure-routing-*"
         },
         {
             "Sid": "ManageRoutingDashboard",

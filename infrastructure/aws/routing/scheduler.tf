@@ -126,7 +126,7 @@ data "aws_iam_policy_document" "builder_automation" {
     effect  = "Allow"
     actions = ["ssm:SendCommand"]
     resources = [
-      "arn:aws:ec2:${var.aws_region}:${var.aws_account_id}:instance/${aws_instance.serving.id}",
+      "arn:aws:ec2:${var.aws_region}:${var.aws_account_id}:instance/${var.shared_serving_instance_id}",
       "arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript",
     ]
   }
@@ -190,7 +190,11 @@ resource "aws_scheduler_schedule" "graph_build" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "graph_build_scheduler_dlq" {
-  alarm_name          = "daf-routing-graph-build-scheduler-failures"
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  alarm_name          = "daf-infrastructure-routing-graph-build-scheduler-failures"
   alarm_description   = "EventBridge Scheduler exhausted retries for a graph build launch"
   namespace           = "AWS/SQS"
   metric_name         = "ApproximateNumberOfMessagesVisible"
@@ -208,6 +212,6 @@ resource "aws_cloudwatch_metric_alarm" "graph_build_scheduler_dlq" {
   }
 
   tags = {
-    Name = "daf-routing-graph-build-scheduler-failures"
+    Name = "daf-infrastructure-routing-graph-build-scheduler-failures"
   }
 }

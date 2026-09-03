@@ -139,7 +139,7 @@
             "Effect": "Allow",
             "Action": "ssm:SendCommand",
             "Resource": [
-                "arn:aws:ec2:us-east-1:326364278889:instance/i-048e46c69284d112a",
+                "arn:aws:ec2:us-east-1:326364278889:instance/i-096fe74bac4f594b3",
                 "arn:aws:ssm:us-east-1::document/AWS-RunShellScript"
             ]
         },

@@ -9,12 +9,6 @@ variable "alert_email" {
   }
 }
 
-variable "attach_data_legacy_volume" {
-  description = "Whether the protected legacy OSM data volume remains attached to the database host."
-  type        = bool
-  default     = false
-}
-
 variable "amazon_linux_arm64_parameter_name" {
   description = "Public SSM parameter resolving the approved Amazon Linux 2023 ARM64 AMI."
   type        = string
@@ -53,7 +47,7 @@ variable "backup_prefix" {
 variable "attach_graph_volume_to_shared_host" {
   description = "Whether to attach the routing-owned canonical graph volume to the shared OSM host."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "bootstrap_artifact_key" {
@@ -68,9 +62,9 @@ variable "bootstrap_artifact_key" {
 }
 
 variable "data_device" {
-  description = "Requested Linux device name for the separately attached persistent OSM data volume."
+  description = "Requested Linux device name for the canonical persistent OSM data volume."
   type        = string
-  default     = "/dev/sdg"
+  default     = "/dev/sdh"
 
   validation {
     condition     = startswith(var.data_device, "/dev/")
@@ -89,17 +83,6 @@ variable "data_iops" {
   }
 }
 
-variable "data_migration_device" {
-  description = "Temporary device name for the canonical OSM data volume during migration."
-  type        = string
-  default     = "/dev/sdh"
-
-  validation {
-    condition     = startswith(var.data_migration_device, "/dev/") && var.data_migration_device != var.data_device
-    error_message = "data_migration_device must be a distinct absolute device path under /dev."
-  }
-}
-
 variable "data_mount_path" {
   description = "Persistent mount point containing PostgreSQL, osm2pgsql state, retained history, and working data."
   type        = string
@@ -108,18 +91,6 @@ variable "data_mount_path" {
   validation {
     condition     = startswith(var.data_mount_path, "/") && var.data_mount_path != "/"
     error_message = "data_mount_path must be an absolute path other than root."
-  }
-}
-
-variable "data_snapshot_id" {
-  description = "Optional encrypted seed snapshot used to initialize the persistent OSM data volume."
-  type        = string
-  default     = null
-  nullable    = true
-
-  validation {
-    condition     = var.data_snapshot_id == null || can(regex("^snap-[0-9a-f]+$", var.data_snapshot_id))
-    error_message = "data_snapshot_id must be null or a valid EBS snapshot ID."
   }
 }
 
@@ -141,7 +112,7 @@ variable "data_volume_size_gib" {
 
   validation {
     condition     = var.data_volume_size_gib == 256
-    error_message = "data_volume_size_gib must remain 256 GiB during the consolidation migration."
+    error_message = "data_volume_size_gib must remain the reviewed 256 GiB size."
   }
 }
 
@@ -192,7 +163,7 @@ variable "graph_device" {
   validation {
     condition = (
       startswith(var.graph_device, "/dev/") &&
-      !contains([var.data_device, var.data_migration_device], var.graph_device)
+      var.graph_device != var.data_device
     )
     error_message = "graph_device must be a distinct absolute device path under /dev."
   }

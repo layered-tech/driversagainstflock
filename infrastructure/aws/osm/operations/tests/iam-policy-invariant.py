@@ -19,8 +19,14 @@ POLICY_PATHS = {
 }
 PUBLIC_HOSTED_ZONE_ARN = "arn:aws:route53:::hostedzone/Z06275341CPJ6OSABH1X6"
 ROUTING_PRIVATE_HOSTED_ZONE_ID = "Z056780730J8BLDZLRB99"
-OSM_DASHBOARD_ARN = "arn:aws:cloudwatch::326364278889:dashboard/daf-osm"
-OSM_ALARM_ARN = "arn:aws:cloudwatch:us-east-1:326364278889:alarm:daf-osm-*"
+UNIFIED_DASHBOARD_ARN = (
+    "arn:aws:cloudwatch::326364278889:dashboard/daf-infrastructure"
+)
+UNIFIED_OSM_ALARM_ARNS = {
+    "arn:aws:cloudwatch:us-east-1:326364278889:alarm:daf-infrastructure-shared-host-*",
+    "arn:aws:cloudwatch:us-east-1:326364278889:alarm:daf-infrastructure-osm-*",
+    "arn:aws:cloudwatch:us-east-1:326364278889:alarm:daf-infrastructure-postgresql-*",
+}
 OSM_TOPIC_ARN = "arn:aws:sns:us-east-1:326364278889:daf-osm-*"
 ROUTING_GRAPH_BUCKET_ARN = "arn:aws:s3:::daf-routing-graphs-326364278889-us-east-1"
 ROUTING_LOG_GROUP_ARN = (
@@ -127,8 +133,8 @@ def main() -> int:
 
     dashboard = statement_by_sid(policies["monitoring"], "ManageOsmDashboard")
     require(
-        dashboard["Resource"] == OSM_DASHBOARD_ARN,
-        "Dashboard mutations must target only the daf-osm dashboard",
+        dashboard["Resource"] == UNIFIED_DASHBOARD_ARN,
+        "Dashboard mutations must target only the unified dashboard",
     )
     dashboard_list = statement_by_sid(policies["monitoring"], "ListOsmDashboards")
     require(
@@ -139,12 +145,12 @@ def main() -> int:
 
     alarms = statement_by_sid(policies["monitoring"], "ManageOsmAlarms")
     require(
-        alarms["Resource"] == OSM_ALARM_ARN,
-        "Alarm operations must remain scoped to daf-osm alarms",
+        set(alarms["Resource"]) == UNIFIED_OSM_ALARM_ARNS,
+        "Alarm operations must remain scoped to unified shared-host and OSM alarms",
     )
     require(
         "cloudwatch:DescribeAlarmHistory" in alarms["Action"],
-        "The operator must be able to audit daf-osm alarm history",
+        "The operator must be able to audit unified alarm history",
     )
 
     subscriptions = statement_by_sid(policies["monitoring"], "ManageOsmSubscriptions")

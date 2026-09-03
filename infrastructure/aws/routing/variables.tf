@@ -17,7 +17,7 @@ variable "aws_region" {
 }
 
 variable "alert_email" {
-  description = "Email endpoint for the one-time SNS confirmation and routing budget alerts."
+  description = "Email endpoint for routing infrastructure alerts."
   type        = string
   sensitive   = true
 
@@ -25,12 +25,6 @@ variable "alert_email" {
     condition     = can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.alert_email))
     error_message = "alert_email must be a valid email address."
   }
-}
-
-variable "attach_graph_legacy_volume" {
-  description = "Whether the protected legacy graph volume remains attached to the routing host."
-  type        = bool
-  default     = false
 }
 
 variable "vpc_id" {
@@ -75,16 +69,15 @@ variable "private_subnet_cidr" {
   default     = "10.0.2.0/24"
 }
 
-variable "serving_private_ip" {
-  description = "Stable private address assigned to the serving ENI."
+variable "shared_serving_instance_id" {
+  description = "Shared OSM and GraphHopper instance targeted by graph deployment automation."
   type        = string
-  default     = "10.0.2.10"
-}
+  default     = "i-096fe74bac4f594b3"
 
-variable "serving_instance_type" {
-  description = "GraphHopper serving instance size."
-  type        = string
-  default     = "r7g.large"
+  validation {
+    condition     = var.shared_serving_instance_id == "i-096fe74bac4f594b3"
+    error_message = "shared_serving_instance_id must target the reviewed shared OSM and GraphHopper host."
+  }
 }
 
 variable "builder_instance_type" {
@@ -100,6 +93,6 @@ variable "graph_volume_size_gib" {
 
   validation {
     condition     = var.graph_volume_size_gib == 64
-    error_message = "graph_volume_size_gib must remain 64 GiB during the consolidation migration."
+    error_message = "graph_volume_size_gib must remain the reviewed 64 GiB size."
   }
 }

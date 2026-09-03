@@ -91,18 +91,8 @@ resource "aws_instance" "database" {
   }
 }
 
-resource "aws_volume_attachment" "data_legacy" {
-  count = var.attach_data_legacy_volume ? 1 : 0
-
+resource "aws_volume_attachment" "data" {
   device_name                    = var.data_device
-  volume_id                      = aws_ebs_volume.data_legacy.id
-  instance_id                    = aws_instance.database.id
-  force_detach                   = false
-  stop_instance_before_detaching = false
-}
-
-resource "aws_volume_attachment" "data_migration" {
-  device_name                    = var.data_migration_device
   volume_id                      = aws_ebs_volume.data_canonical.id
   instance_id                    = aws_instance.database.id
   force_detach                   = false

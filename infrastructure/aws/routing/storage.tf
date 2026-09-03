@@ -99,23 +99,6 @@ resource "aws_s3_bucket_policy" "graphs" {
   depends_on = [aws_s3_bucket_public_access_block.graphs]
 }
 
-resource "aws_ebs_volume" "graph_legacy" {
-  availability_zone = data.aws_subnet.public.availability_zone
-  size              = 128
-  type              = "gp3"
-  iops              = 3000
-  throughput        = 250
-  encrypted         = true
-
-  lifecycle {
-    prevent_destroy = true
-  }
-
-  tags = {
-    Name = "daf-routing-graphs"
-  }
-}
-
 resource "aws_ebs_volume" "graph_canonical" {
   availability_zone = data.aws_subnet.public.availability_zone
   encrypted         = true

@@ -20,5 +20,5 @@ resource "aws_route53_record" "graphhopper" {
   name    = local.graphhopper_dns_name
   type    = "A"
   ttl     = 60
-  records = [var.serving_private_ip]
+  records = [local.graphhopper_private_ip]
 }

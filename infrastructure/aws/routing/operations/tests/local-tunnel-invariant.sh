@@ -48,8 +48,8 @@ GRAPHHOPPER_TUNNEL_LOCAL_PORT=28080 \
     "${TUNNEL_SCRIPT}" > "${OUTPUT_LOG}"
 
 grep -qF '"graphhopper:tunnel": "./infrastructure/aws/routing/operations/start-local-tunnel.sh"' "${PACKAGE_JSON}"
-grep -qxF 'Name=tag:Project,Values=daf-routing' "${DISCOVERY_LOG}"
-grep -qxF 'Name=tag:Name,Values=daf-routing-serving' "${DISCOVERY_LOG}"
+grep -qxF 'Name=tag:Project,Values=daf-osm' "${DISCOVERY_LOG}"
+grep -qxF 'Name=tag:Name,Values=daf-osm-database' "${DISCOVERY_LOG}"
 grep -qxF 'Name=instance-state-name,Values=running' "${DISCOVERY_LOG}"
 grep -qxF 'ssm' "${COMMAND_LOG}"
 grep -qxF 'start-session' "${COMMAND_LOG}"

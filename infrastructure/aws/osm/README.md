@@ -88,24 +88,20 @@ validation contract.
 Every Terraform-owned resource is tagged with `Project=daf-osm`,
 `Environment=production`, and `ManagedBy=terraform`.
 
-The `daf-osm` CloudWatch dashboard contains instance, EBS, PostgreSQL, current
-replication, history replication, publication parity, and backup health. Alarms
-publish to `daf-osm-alerts`.
+The `daf-infrastructure` CloudWatch dashboard contains shared-host, EBS,
+PostgreSQL, replication, publication parity, backup, GraphHopper, and graph
+builder health. Alarms publish to the existing OSM and routing alert topics.
 
 The stack creates:
 
-- A `$300` monthly budget filtered to `Project=daf-osm`.
-- Actual-spend alerts at `$150` and `$250`.
+- A `$150` monthly budget covering `Project=daf-osm` and `Project=daf-routing`.
+- Actual-spend alerts at `$75` and `$125`.
 - A forecast alert at 100 percent of budget.
 - A project-filtered Cost Anomaly Detection monitor with an immediate alert for
   anomalies of at least `$10` and 20 percent impact.
 
-The shared NAT gateway remains tagged to `daf-routing`, so its per-byte data
-processing is not included in the `Project=daf-osm` budget. EC2 network metrics
-show OSM traffic, but AWS cannot assign a shared NAT gateway's billing line to
-the originating project tag. The approval summary must call out that unallocated
-incremental cost. A dedicated OSM NAT gateway would provide stricter allocation
-but add a fixed monthly charge and requires a separate design approval.
+The shared NAT gateway remains tagged to `daf-routing`, so its fixed and
+per-byte costs are included alongside OSM resources in the unified budget.
 
 ## Approval protocol
 
@@ -720,14 +716,15 @@ reached steady state, including the application cutover at
 - Shared-feed, current, and history lag stayed below 171 seconds. PostgreSQL
   remained healthy; current parity, cursor divergence, and retained-spool
   values are zero.
-- All 17 `daf-osm-*` alarms are currently `OK`, with no state transitions since
-  application cutover. Pre-cutover alarm transitions were limited to bootstrap
-  telemetry startup and brief minute-update parity, spool, and cursor windows.
+- All 17 alarms then named `daf-osm-*` were `OK`, with no state transitions
+  since application cutover. Pre-cutover alarm transitions were limited to
+  bootstrap telemetry startup and brief minute-update parity, spool, and cursor
+  windows.
 - The newest verified backup was 1,155 seconds old at audit time. The four
   retained dumps total about 175.5 MB and range from 42.6 MB to 46.5 MB. The
   35-day lifecycle configuration remains enabled.
-- The project budget reports $7.469 actual spend against $300; AWS has not yet
-  produced a forecast for this new stack.
+- Before Phase 7 budget unification, the OSM-only budget reported $7.469 actual
+  spend against $300; AWS had not yet produced a forecast for the new stack.
 - The data host has empty work and local-backup directories. Its downloaded
   bootstrap state is 4 KiB, and old extracted runtime artifacts total only
   4.44 MB. Those artifacts are not worth a destructive production cleanup.
@@ -743,14 +740,14 @@ of steady-state metrics and scheduled backups are available.
 
 The audit initially found that the operator could inspect current alarm state
 but not alarm history. The reviewed `DafOsmMonitoring` policy added scoped
-`cloudwatch:DescribeAlarmHistory` permission and was published as live default
-version `v2` on 2026-08-28. It has one attachment, the new permission remains
-scoped to `daf-osm-*`, and all exact alarm-history reads now pass. The IAM
-approval gate is complete. The Terraform throughput change remained a separate
-approval gate.
+`cloudwatch:DescribeAlarmHistory` permission in `v2` on 2026-08-28. Phase 7
+policy version `v3`, published on 2026-09-02, scopes alarm management to the
+unified shared-host, OSM, and PostgreSQL names and dashboard management to
+`daf-infrastructure`. It has one attachment, and exact alarm-history reads
+remain supported.
 
 The reviewed monitoring policy file SHA-256 is
-`c78c4aa15fb2105d44ae2ad19d0f504127d94d8c4b8640553d3b116513ceaaf1`.
+`dbea9550992718d548988ce31c0b924cc8605dcb9a31bd81fa694cc2d23a4f39`.
 The saved Terraform plan SHA-256 is
 `2463638123d0025a6f6ecd0be391e856f32e64c72a1e62f322cb805a3e3547ac`.
 That plan contains zero creates, one in-place update, zero replacements, and
@@ -785,5 +782,5 @@ The normal healthy state is:
 - History lag is under one hour after bootstrap.
 - Publication parity mismatch is zero.
 - A successful backup is less than 25 hours old.
-- All `daf-osm-*` alarms are `OK`.
+- All `daf-infrastructure-*` alarms are `OK`.
 - The current and forecast spend remain below the approved thresholds.

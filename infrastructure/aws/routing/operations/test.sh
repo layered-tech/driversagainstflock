@@ -29,6 +29,7 @@ readonly BUILD_STATUS="${OPERATIONS_DIR}/graph-status.sh"
 readonly BUILDER_USER_DATA="${OPERATIONS_DIR}/builder-user-data.sh"
 readonly COMPUTE_TERRAFORM="${OPERATIONS_DIR}/../compute.tf"
 readonly MONITORING_TERRAFORM="${OPERATIONS_DIR}/../monitoring.tf"
+readonly UNIFIED_DASHBOARD_TERRAFORM="${OPERATIONS_DIR}/../../osm/unified-dashboard.tf"
 readonly PARAMETERS_TERRAFORM="${OPERATIONS_DIR}/../parameters.tf"
 readonly VARIABLES_TERRAFORM="${OPERATIONS_DIR}/../variables.tf"
 readonly DEPLOY_SCRIPT="${OPERATIONS_DIR}/serving/v1.0.8/deploy-graph.sh"
@@ -37,6 +38,7 @@ readonly MIGRATE_VOLUME_SCRIPT="${OPERATIONS_DIR}/serving/v1.0.9/migrate-graph-v
 readonly SERVING_METRICS_SCRIPT="${OPERATIONS_DIR}/serving/v1.0.10/install-serving-metrics.sh"
 readonly CLOUDWATCH_LOGS_SCRIPT="${OPERATIONS_DIR}/logging/v1.0.0/install-cloudwatch-logs.sh"
 readonly LOCAL_TUNNEL_TEST="${OPERATIONS_DIR}/tests/local-tunnel-invariant.sh"
+readonly SHARED_HOST_CUTOVER_TEST="${OPERATIONS_DIR}/tests/shared-host-cutover-invariant.sh"
 readonly VOLUME_MIGRATION_TEST="${OPERATIONS_DIR}/tests/volume-migration-invariant.sh"
 
 grep -qF 'readonly DEFAULT_PBF_NAME="us-260811.osm.pbf"' "${BUILD_SCRIPT}"
@@ -82,7 +84,7 @@ grep -qF 'Refresh every 15 seconds' "${BUILD_STATUS}"
 grep -qF 'readonly STATUS_INTERVAL_SECONDS=15' "${BUILD_STATUS}"
 grep -qF 'Artifact: %s' "${BUILD_STATUS}"
 grep -Eq 'update_default_version[[:space:]]*=[[:space:]]*true' "${COMPUTE_TERRAFORM}"
-grep -qF 'MetricName=\"BuilderCpuUsed\"' "${MONITORING_TERRAFORM}"
+grep -qF 'MetricName=\"BuilderCpuUsed\"' "${UNIFIED_DASHBOARD_TERRAFORM}"
 grep -qF 'ignore_changes = [value]' "${PARAMETERS_TERRAFORM}"
 grep -qF 'default     = "r8g.4xlarge"' "${VARIABLES_TERRAFORM}"
 grep -qF 'default     = 64' "${VARIABLES_TERRAFORM}"
@@ -104,8 +106,8 @@ grep -qF 'OnUnitActiveSec=60s' "${SERVING_METRICS_SCRIPT}"
 grep -qF 'RequiresMountsFor=/var/lib/graphhopper' "${SERVING_METRICS_SCRIPT}"
 grep -qF 'ReadWritePaths=/run/daf-routing-serving-metrics' "${SERVING_METRICS_SCRIPT}"
 grep -qF 'RuntimeDirectory=daf-routing-serving-metrics' "${SERVING_METRICS_SCRIPT}"
-grep -qF '"ServingGraphVolumeUsedPercent"' "${MONITORING_TERRAFORM}"
-grep -qF '"ServingMemoryUsedPercent"' "${MONITORING_TERRAFORM}"
+grep -qF '"ServingGraphVolumeUsedPercent"' "${UNIFIED_DASHBOARD_TERRAFORM}"
+grep -qF '"ServingMemoryUsedPercent"' "${UNIFIED_DASHBOARD_TERRAFORM}"
 grep -qF 'readonly OPERATION_VERSION="1.0.0"' "${CLOUDWATCH_LOGS_SCRIPT}"
 grep -qF 'dnf install -y amazon-cloudwatch-agent jq' "${CLOUDWATCH_LOGS_SCRIPT}"
 grep -qF 'if [[ ! -e "${LOG_FILE}" ]]' "${CLOUDWATCH_LOGS_SCRIPT}"
@@ -125,9 +127,10 @@ if rg -n 'journalctl|access.log|graphhopper.log|import.log|server.log|request_ur
     echo "CloudWatch logging must collect only curated event files" >&2
     exit 1
 fi
-grep -qF 'title  = "Serving instance health"' "${MONITORING_TERRAFORM}"
+grep -qF 'dashboard_name = "daf-infrastructure"' "${UNIFIED_DASHBOARD_TERRAFORM}"
 
 "${LOCAL_TUNNEL_TEST}"
+"${SHARED_HOST_CUTOVER_TEST}"
 "${VOLUME_MIGRATION_TEST}"
 
 dry_run_output="$("${BUILD_LAUNCHER}" \

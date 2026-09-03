@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-readonly OPERATION_VERSION="1.0.0"
+readonly OPERATION_VERSION="1.0.3"
 readonly GRAPHHOPPER_VERSION="11.0"
 readonly GRAPHHOPPER_SHA256="b59c024afe172ec6ec85b6327006c3138ec58c7d0bcd26253d0e42853f613def"
 readonly GRAPHHOPPER_URL="https://repo1.maven.org/maven2/com/graphhopper/graphhopper-web/${GRAPHHOPPER_VERSION}/graphhopper-web-${GRAPHHOPPER_VERSION}.jar"
@@ -43,6 +43,22 @@ install -d -o root -g root -m 0755 \
     "${GRAPH_MOUNT}"
 install -d -o root -g graphhopper -m 0750 /var/log/graphhopper
 install -d -o root -g root -m 0750 "${LOG_DIRECTORY}" /var/lib/daf-routing-logs
+
+if mountpoint --quiet "${GRAPH_MOUNT}" && [[ -d "${GRAPH_MOUNT}/releases" ]]; then
+    chown root:graphhopper "${GRAPH_MOUNT}/releases"
+
+    for graph_release_directory in "${GRAPH_MOUNT}"/releases/*-us-v*; do
+        [[ -d "${graph_release_directory}/graph-cache" ]] || continue
+
+        chown root:graphhopper "${graph_release_directory}"
+        chown -R root:graphhopper "${graph_release_directory}/graph-cache"
+
+        if [[ -f "${graph_release_directory}/graph-cache/gh.lock" ]]; then
+            chown graphhopper:graphhopper "${graph_release_directory}/graph-cache/gh.lock"
+        fi
+    done
+fi
+
 if [[ ! -e "${LOG_FILE}" ]]; then
     install -o root -g root -m 0640 /dev/null "${LOG_FILE}"
 else
@@ -79,6 +95,7 @@ graphhopper:
   routing.max_visited_nodes: 2147483647
   routing.timeout_ms: 300000
   routing.non_ch.max_waypoint_distance: 6000000
+  import.osm.ignored_highways: footway,construction,cycleway,path,steps
   graph.dataaccess.default_type: MMAP_RO
 
 server:
@@ -221,6 +238,7 @@ WorkingDirectory=/var/lib/graphhopper
 ExecStart=/usr/bin/java -Xms4g -Xmx8g -XX:+UseZGC -Dfile.encoding=UTF-8 -jar /opt/graphhopper/graphhopper-web.jar server /etc/graphhopper/config.yml
 Restart=on-failure
 RestartSec=10s
+SuccessExitStatus=143
 TimeoutStopSec=60s
 NoNewPrivileges=yes
 PrivateTmp=yes

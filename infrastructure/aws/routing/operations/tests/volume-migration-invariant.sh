@@ -21,27 +21,18 @@ import sys
 root = Path(sys.argv[1])
 storage = (root / "storage.tf").read_text()
 compute = (root / "compute.tf").read_text()
-moved = (root / "moved.tf").read_text()
 
-for resource in ("graph_legacy", "graph_canonical"):
-    start = storage.index(f'resource "aws_ebs_volume" "{resource}"')
-    end = storage.find('\nresource "', start + 1)
-    block = storage[start:] if end < 0 else storage[start:end]
-    if "prevent_destroy = true" not in block:
-        raise SystemExit(f"{resource} is not protected from destruction")
-
-required = (
-    "from = aws_ebs_volume.graphs",
-    "to   = aws_ebs_volume.graph_legacy",
-    "from = aws_volume_attachment.graphs",
-    "to   = aws_volume_attachment.graph_legacy[0]",
-)
-if any(contract not in moved for contract in required):
-    raise SystemExit("routing moved-block chain is incomplete")
-if 'resource "aws_volume_attachment" "graph_migration"' not in compute:
-    raise SystemExit("canonical graph migration attachment is missing")
-if "count = var.attach_graph_legacy_volume ? 1 : 0" not in compute:
-    raise SystemExit("legacy graph attachment cannot be disabled after migration")
+canonical_start = storage.index('resource "aws_ebs_volume" "graph_canonical"')
+canonical = storage[canonical_start:]
+if "prevent_destroy = true" not in canonical:
+    raise SystemExit("canonical graph volume is not protected from destruction")
+if "graph_legacy" in storage:
+    raise SystemExit("retired legacy graph volume remains configured")
+if 'resource "aws_volume_attachment"' in compute:
+    raise SystemExit("routing root retains a legacy serving-host volume attachment")
+variables = (root / "variables.tf").read_text()
+if "attach_graph_legacy_volume" in variables or "attach_graph_volume_to_routing_host" in variables:
+    raise SystemExit("routing root retains migration-only attachment variables")
 if "throughput        = 125" not in storage:
     raise SystemExit("canonical graph volume throughput is not 125 MiB/s")
 PYTHON

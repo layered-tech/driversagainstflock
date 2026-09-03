@@ -106,32 +106,6 @@ data "aws_iam_policy_document" "builder" {
   }
 }
 
-resource "aws_iam_role" "serving" {
-  name                 = "daf-routing-serving"
-  description          = "GraphHopper serving instance workload role"
-  assume_role_policy   = data.aws_iam_policy_document.ec2_assume_role.json
-  permissions_boundary = "arn:aws:iam::${var.aws_account_id}:policy/DafRoutingWorkloadBoundary"
-
-  tags = {
-    Name = "daf-routing-serving"
-  }
-}
-
-resource "aws_iam_role_policy" "serving" {
-  name   = "daf-routing-serving"
-  role   = aws_iam_role.serving.id
-  policy = data.aws_iam_policy_document.serving.json
-}
-
-resource "aws_iam_instance_profile" "serving" {
-  name = "daf-routing-serving"
-  role = aws_iam_role.serving.name
-
-  tags = {
-    Name = "daf-routing-serving"
-  }
-}
-
 resource "aws_iam_role" "builder" {
   name                 = "daf-routing-builder"
   description          = "On-demand GraphHopper graph builder workload role"

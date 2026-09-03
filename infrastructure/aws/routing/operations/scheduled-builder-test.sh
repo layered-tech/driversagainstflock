@@ -13,6 +13,7 @@ readonly LOGGING="${OPERATIONS_DIR}/logging/v1.0.0/install-cloudwatch-logs.sh"
 readonly DEPLOY="${OPERATIONS_DIR}/serving/v1.1.0/deploy-graph.sh"
 readonly STATUS="${OPERATIONS_DIR}/graph-status.sh"
 readonly SCHEDULER_OPERATOR_POLICY="${IAM_DIR}/daf-routing-graph-build-scheduler-operator-policy.json"
+readonly ROUTING_SERVICES_POLICY="${IAM_DIR}/daf-routing-services-policy.json"
 readonly BUILD_SHA256="$(shasum -a 256 "${BUILD}" | awk '{print $1}')"
 readonly DEPLOY_SHA256="$(shasum -a 256 "${DEPLOY}" | awk '{print $1}')"
 readonly LOGGING_SHA256="$(shasum -a 256 "${LOGGING}" | awk '{print $1}')"
@@ -113,7 +114,10 @@ grep -qF 'permissions_boundary = "arn:aws:iam::${var.aws_account_id}:policy/DafR
 grep -qF 'graph_build_schedule_group_arn = "arn:aws:scheduler:${var.aws_region}:${var.aws_account_id}:schedule-group/default"' "${ROUTING_DIR}/scheduler.tf"
 grep -qF 'values   = [local.graph_build_schedule_group_arn]' "${ROUTING_DIR}/scheduler.tf"
 grep -qF 'instance_initiated_shutdown_behavior = "terminate"' "${ROUTING_DIR}/compute.tf"
-grep -qF 'ignore_changes = [ami]' "${ROUTING_DIR}/compute.tf"
+if grep -qF 'resource "aws_instance" "serving"' "${ROUTING_DIR}/compute.tf"; then
+    echo "Retired persistent serving instance remains configured" >&2
+    exit 1
+fi
 grep -qF 'volume_size           = 768' "${ROUTING_DIR}/compute.tf"
 grep -qF 'delete_on_termination = true' "${ROUTING_DIR}/compute.tf"
 grep -qF 'source_hash            = filesha256' "${ROUTING_DIR}/operations.tf"
@@ -134,11 +138,15 @@ jq -e '.Statement[] | select(.Sid == "ManageRoutingOperationObjectTags")
     | (.Action | sort) == ["s3:GetObjectTagging", "s3:PutObjectTagging"]
     and .Resource == "arn:aws:s3:::daf-routing-graphs-326364278889-us-east-1/operations/*"' \
     "${SCHEDULER_OPERATOR_POLICY}" >/dev/null
+jq -e '.Statement[] | select(.Sid == "ManageRoutingAlarms")
+    | .Resource == "arn:aws:cloudwatch:us-east-1:326364278889:alarm:daf-infrastructure-routing-*"' \
+    "${ROUTING_SERVICES_POLICY}" >/dev/null
 jq -e '.Statement[] | select(.Sid == "LaunchReviewedBuilderTemplate")
     | .Condition.Bool["ec2:IsLaunchTemplateResource"] == "true"' \
     "${IAM_DIR}/daf-routing-workload-boundary.json" >/dev/null
 jq -e '.Statement[] | select(.Sid == "RunReviewedServingOperation")
-    | (.Resource | index("arn:aws:ec2:us-east-1:326364278889:instance/i-048e46c69284d112a")) != null' \
+    | (.Resource | index("arn:aws:ec2:us-east-1:326364278889:instance/i-096fe74bac4f594b3")) != null
+    and (.Resource | index("arn:aws:ec2:us-east-1:326364278889:instance/i-048e46c69284d112a")) == null' \
     "${IAM_DIR}/daf-routing-workload-boundary.json" >/dev/null
 
 status_output="$({
