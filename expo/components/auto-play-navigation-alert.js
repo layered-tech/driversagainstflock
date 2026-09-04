@@ -1,4 +1,7 @@
-import { getDrivingAlertsPresentation } from './map/driving-alerts.js';
+import {
+    getDrivingAlertsPresentation,
+    getUpcomingAlertId,
+} from './map/driving-alerts.js';
 
 export const AUTO_PLAY_NAVIGATION_ALERT_ACTION_TITLE = 'OK';
 export const AUTO_PLAY_NAVIGATION_ALERT_ICON_COLOR = '#ffdf92';
@@ -21,6 +24,10 @@ export const AUTO_PLAY_NAVIGATION_ALERT_TITLE_WITHOUT_DISTANCE = 'Ahead';
 export const AUTO_PLAY_NAVIGATION_ALERT_FALLBACK_DURATION_MS = 10000;
 export const AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_DURATION_MS = 5000;
 export const AUTO_PLAY_NAVIGATION_ALERT_MAXIMUM_DURATION_MS = 300000;
+
+// A follow-up announced the instant a banner is dismissed reads as the same
+// banner being kept. Leaving the slot empty for a beat makes the swap visible.
+export const AUTO_PLAY_NAVIGATION_ALERT_FOLLOW_UP_DELAY_MS = 800;
 
 // ~3 mph. Below this the driver is crawling or stopped and the computed
 // time-to-pass balloons past anything worth leaving on screen.
@@ -130,11 +137,21 @@ export function getAutoPlayNavigationAlertDurationMs({
     );
 }
 
+/**
+ * The car banner has room for one alert, so a dismissed alert has to step
+ * aside for the next upcoming one instead of holding the slot until the driver
+ * passes it. Dismissed keys are excluded here and pruned once they stop being
+ * upcoming, which also keeps a dismissed alert from being announced again.
+ */
 export function getAutoPlayNavigationAlertContent({
     currentSpeedMps,
+    dismissedAlertKeys = null,
     upcomingAlerts,
 } = {}) {
-    const presentation = getDrivingAlertsPresentation(upcomingAlerts);
+    const presentation = getDrivingAlertsPresentation(
+        upcomingAlerts,
+        dismissedAlertKeys,
+    );
 
     if (!presentation) {
         return null;
@@ -199,6 +216,7 @@ function navigationAlertTextChanged(state, content) {
  */
 export function getAutoPlayNavigationAlertTransition({
     content,
+    followUpDelayMs = AUTO_PLAY_NAVIGATION_ALERT_FOLLOW_UP_DELAY_MS,
     nextAlertId,
     now = Date.now(),
     state = null,
@@ -223,6 +241,15 @@ export function getAutoPlayNavigationAlertTransition({
         // recording it as shown, and it gets re-derived and announced on the
         // next pass once the banner clears.
         if (alertIsOnScreen && content.priorityRank < state.priorityRank) {
+            return { action: 'none', state };
+        }
+
+        if (
+            state &&
+            !alertIsOnScreen &&
+            Number.isFinite(state.dismissedAt) &&
+            now - state.dismissedAt < followUpDelayMs
+        ) {
             return { action: 'none', state };
         }
 
@@ -258,10 +285,64 @@ export function getAutoPlayNavigationAlertTransition({
     return { action: 'none', state };
 }
 
-export function getAutoPlayNavigationAlertDismissedState(state, alertId) {
+export function getAutoPlayNavigationAlertDismissedState(
+    state,
+    alertId,
+    now = Date.now(),
+) {
     if (!state || state.alertId !== alertId || !state.isVisible) {
         return state;
     }
 
-    return { ...state, isVisible: false };
+    return { ...state, dismissedAt: now, isVisible: false };
+}
+
+/**
+ * Records the alert behind a dismissed host banner so the next announcement
+ * pass moves on to the following upcoming alert. Dismissals reported for an
+ * alert the host already replaced leave the set untouched.
+ */
+export function getDismissedAutoPlayNavigationAlertKeys({
+    alertId,
+    dismissedAlertKeys,
+    state,
+}) {
+    const currentKeys = dismissedAlertKeys ?? new Set();
+
+    if (
+        !state ||
+        state.alertId !== alertId ||
+        !state.alertKey ||
+        currentKeys.has(state.alertKey)
+    ) {
+        return currentKeys;
+    }
+
+    return new Set([...currentKeys, state.alertKey]);
+}
+
+/**
+ * Forgets dismissed alerts that are no longer upcoming, so the same reader can
+ * be announced again on a later approach.
+ */
+export function pruneDismissedAutoPlayNavigationAlertKeys(
+    dismissedAlertKeys,
+    upcomingAlerts,
+) {
+    if (!dismissedAlertKeys?.size) {
+        return dismissedAlertKeys ?? new Set();
+    }
+
+    const upcomingAlertKeys = new Set(
+        (Array.isArray(upcomingAlerts) ? upcomingAlerts : []).map(
+            (alert, index) => getUpcomingAlertId(alert, index),
+        ),
+    );
+    const retainedKeys = [...dismissedAlertKeys].filter((alertKey) =>
+        upcomingAlertKeys.has(alertKey),
+    );
+
+    return retainedKeys.length === dismissedAlertKeys.size
+        ? dismissedAlertKeys
+        : new Set(retainedKeys);
 }

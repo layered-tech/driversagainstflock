@@ -4,6 +4,7 @@ import { describe, test } from 'node:test';
 import {
     AUTO_PLAY_NAVIGATION_ALERT_ACTION_TITLE,
     AUTO_PLAY_NAVIGATION_ALERT_FALLBACK_DURATION_MS,
+    AUTO_PLAY_NAVIGATION_ALERT_FOLLOW_UP_DELAY_MS,
     AUTO_PLAY_NAVIGATION_ALERT_ICON_COLOR,
     AUTO_PLAY_NAVIGATION_ALERT_MAXIMUM_DURATION_MS,
     AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_DURATION_MS,
@@ -13,6 +14,8 @@ import {
     getAutoPlayNavigationAlertDismissedState,
     getAutoPlayNavigationAlertDurationMs,
     getAutoPlayNavigationAlertTransition,
+    getDismissedAutoPlayNavigationAlertKeys,
+    pruneDismissedAutoPlayNavigationAlertKeys,
 } from '../../auto-play-navigation-alert.js';
 
 // 20 m/s ≈ 45 mph, so time-to-pass stays inside the duration clamps.
@@ -108,6 +111,31 @@ describe('car navigation alert content', () => {
 
         assert.equal(content.subtitle, 'Police - on your route');
         assert.deepEqual(content.distance, { unit: 'miles', value: 0.2 });
+    });
+
+    test('moves on to the next upcoming alert once the closest one is dismissed', () => {
+        const nearbyPoliceAlert = { ...policeAlert, distanceMeters: 520 };
+
+        assert.equal(
+            makeContent([alprAlert, nearbyPoliceAlert]).alertKey,
+            'flock-reader',
+        );
+        assert.equal(
+            getAutoPlayNavigationAlertContent({
+                currentSpeedMps: CRUISING_SPEED_MPS,
+                dismissedAlertKeys: new Set(['flock-reader']),
+                upcomingAlerts: [alprAlert, nearbyPoliceAlert],
+            }).alertKey,
+            'waze-police',
+        );
+        assert.equal(
+            getAutoPlayNavigationAlertContent({
+                currentSpeedMps: CRUISING_SPEED_MPS,
+                dismissedAlertKeys: new Set(['flock-reader', 'waze-police']),
+                upcomingAlerts: [alprAlert, nearbyPoliceAlert],
+            }),
+            null,
+        );
     });
 
     test('hands the host a distance placeholder it can format itself', () => {
@@ -300,9 +328,24 @@ describe('car navigation alert transitions', () => {
         );
     });
 
-    test('releases the held police report when the driver dismisses the banner', () => {
-        const state = getAutoPlayNavigationAlertDismissedState(shown(), 7);
-        const result = transition(policeContent, { nextAlertId: 8, state });
+    test('releases the held police report a beat after the driver dismisses the banner', () => {
+        const state = getAutoPlayNavigationAlertDismissedState(shown(), 7, NOW);
+
+        // Announcing instantly would look like the ALPR banner never left.
+        assert.deepEqual(
+            transition(policeContent, {
+                nextAlertId: 8,
+                now: NOW + AUTO_PLAY_NAVIGATION_ALERT_FOLLOW_UP_DELAY_MS - 1,
+                state,
+            }),
+            { action: 'none', state },
+        );
+
+        const result = transition(policeContent, {
+            nextAlertId: 8,
+            now: NOW + AUTO_PLAY_NAVIGATION_ALERT_FOLLOW_UP_DELAY_MS,
+            state,
+        });
 
         assert.equal(result.action, 'show');
         assert.equal(result.alertId, 8);
@@ -324,7 +367,7 @@ describe('car navigation alert transitions', () => {
     });
 
     test('announces an alert once even after the host times the banner out', () => {
-        const state = getAutoPlayNavigationAlertDismissedState(shown(), 7);
+        const state = getAutoPlayNavigationAlertDismissedState(shown(), 7, NOW);
 
         assert.equal(state.isVisible, false);
         assert.deepEqual(
@@ -358,7 +401,11 @@ describe('car navigation alert transitions', () => {
         assert.deepEqual(
             transition(null, {
                 nextAlertId: 8,
-                state: getAutoPlayNavigationAlertDismissedState(shown(), 7),
+                state: getAutoPlayNavigationAlertDismissedState(
+                    shown(),
+                    7,
+                    NOW,
+                ),
             }),
             { action: 'none', alertId: 7, state: null },
         );
@@ -375,7 +422,156 @@ describe('car navigation alert transitions', () => {
     });
 });
 
+describe('car navigation alert dismissals', () => {
+    const visibleAlprState = {
+        alertId: 7,
+        alertKey: 'flock-reader',
+        isVisible: true,
+    };
+
+    test('remembers the dismissed alert behind the host banner', () => {
+        const dismissedAlertKeys = getDismissedAutoPlayNavigationAlertKeys({
+            alertId: 7,
+            dismissedAlertKeys: new Set(),
+            state: visibleAlprState,
+        });
+
+        assert.deepEqual([...dismissedAlertKeys], ['flock-reader']);
+        assert.deepEqual(
+            [
+                ...getDismissedAutoPlayNavigationAlertKeys({
+                    alertId: 7,
+                    dismissedAlertKeys,
+                    state: { ...visibleAlprState, isVisible: false },
+                }),
+            ],
+            ['flock-reader'],
+        );
+    });
+
+    test('ignores dismissals for a replaced alert or an empty banner', () => {
+        const dismissedAlertKeys = new Set(['waze-police']);
+
+        assert.equal(
+            getDismissedAutoPlayNavigationAlertKeys({
+                alertId: 999,
+                dismissedAlertKeys,
+                state: visibleAlprState,
+            }),
+            dismissedAlertKeys,
+        );
+        assert.equal(
+            getDismissedAutoPlayNavigationAlertKeys({
+                alertId: 7,
+                dismissedAlertKeys,
+                state: null,
+            }),
+            dismissedAlertKeys,
+        );
+        assert.deepEqual(
+            [
+                ...getDismissedAutoPlayNavigationAlertKeys({
+                    alertId: 7,
+                    dismissedAlertKeys: null,
+                    state: visibleAlprState,
+                }),
+            ],
+            ['flock-reader'],
+        );
+    });
+
+    test('forgets a dismissal once that alert is no longer upcoming', () => {
+        const dismissedAlertKeys = new Set(['flock-reader', 'waze-police']);
+
+        assert.equal(
+            pruneDismissedAutoPlayNavigationAlertKeys(dismissedAlertKeys, [
+                alprAlert,
+                policeAlert,
+            ]),
+            dismissedAlertKeys,
+        );
+        assert.deepEqual(
+            [
+                ...pruneDismissedAutoPlayNavigationAlertKeys(
+                    dismissedAlertKeys,
+                    [policeAlert],
+                ),
+            ],
+            ['waze-police'],
+        );
+        assert.equal(
+            pruneDismissedAutoPlayNavigationAlertKeys(dismissedAlertKeys, [])
+                .size,
+            0,
+        );
+        assert.equal(
+            pruneDismissedAutoPlayNavigationAlertKeys(null, []).size,
+            0,
+        );
+    });
+
+    test('announces the follow-up alert right after the driver dismisses the first', () => {
+        const NOW = 1780000000000;
+        const nearbyPoliceAlert = { ...policeAlert, distanceMeters: 520 };
+        const upcomingAlerts = [alprAlert, nearbyPoliceAlert];
+        const shownAlpr = getAutoPlayNavigationAlertTransition({
+            content: makeContent(upcomingAlerts),
+            nextAlertId: 7,
+            now: NOW,
+            state: null,
+        });
+        const dismissedAlertKeys = getDismissedAutoPlayNavigationAlertKeys({
+            alertId: 7,
+            dismissedAlertKeys: new Set(),
+            state: shownAlpr.state,
+        });
+        const dismissedState = getAutoPlayNavigationAlertDismissedState(
+            shownAlpr.state,
+            7,
+            NOW,
+        );
+        const followUpContent = getAutoPlayNavigationAlertContent({
+            currentSpeedMps: CRUISING_SPEED_MPS,
+            dismissedAlertKeys,
+            upcomingAlerts,
+        });
+        const heldFollowUp = getAutoPlayNavigationAlertTransition({
+            content: followUpContent,
+            nextAlertId: 8,
+            now: NOW + 200,
+            state: dismissedState,
+        });
+        const followUp = getAutoPlayNavigationAlertTransition({
+            content: followUpContent,
+            nextAlertId: 8,
+            now: NOW + AUTO_PLAY_NAVIGATION_ALERT_FOLLOW_UP_DELAY_MS,
+            state: dismissedState,
+        });
+
+        assert.equal(shownAlpr.state.alertKey, 'flock-reader');
+        assert.equal(heldFollowUp.action, 'none');
+        assert.equal(followUp.action, 'show');
+        assert.equal(followUp.alertId, 8);
+        assert.equal(followUp.state.alertKey, 'waze-police');
+    });
+});
+
 describe('car navigation alert wiring', () => {
+    test('excludes dismissed alerts from the announcement pass and prunes them', () => {
+        assert.match(
+            announcerSource,
+            /dismissedAlertKeysRef\.current =\s*pruneDismissedAutoPlayNavigationAlertKeys\(/,
+        );
+        assert.match(
+            announcerSource,
+            /getAutoPlayNavigationAlertContent\(\{[\s\S]*?dismissedAlertKeys: dismissedAlertKeysRef\.current,/,
+        );
+        assert.match(
+            announcerSource,
+            /handleAlertDismissed = useCallback\(\(alertId\) => \{[\s\S]*?getDismissedAutoPlayNavigationAlertKeys\(/,
+        );
+    });
+
     test('drives the host banner instead of drawing an alert card on the map', () => {
         assert.doesNotMatch(mapStatusOverlaySource, /UpcomingAlert/);
         assert.doesNotMatch(
@@ -437,12 +633,17 @@ describe('car navigation alert wiring', () => {
         assert.match(mapSurfaceSource, /enabled:\s*rendersAppOverlays &&/);
     });
 
-    test('re-runs the announcement pass as soon as a banner is dismissed', () => {
+    test('re-runs the announcement pass once the follow-up pause has elapsed', () => {
         // Without this a held alert waits on the next location update, because
-        // the dismissal only mutates a ref.
+        // the dismissal only mutates a ref. The nudge is timed to the pause so
+        // the swap does not look like the old banner being kept.
         assert.match(
             announcerSource,
-            /setDismissalRevision\(\(revision\) => revision \+ 1\)/,
+            /followUpTimerRef\.current = setTimeout\(\(\) => \{[\s\S]*?setDismissalRevision\(\(revision\) => revision \+ 1\);[\s\S]*?\}, AUTO_PLAY_NAVIGATION_ALERT_FOLLOW_UP_DELAY_MS\)/,
+        );
+        assert.match(
+            announcerSource,
+            /useEffect\(\(\) => \(\) => clearTimeout\(followUpTimerRef\.current\), \[\]\)/,
         );
         assert.match(
             announcerSource,

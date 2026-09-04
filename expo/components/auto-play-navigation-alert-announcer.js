@@ -2,10 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import {
     AUTO_PLAY_NAVIGATION_ALERT_ACTION_TITLE,
+    AUTO_PLAY_NAVIGATION_ALERT_FOLLOW_UP_DELAY_MS,
     AUTO_PLAY_NAVIGATION_ALERT_ICON_COLOR,
     getAutoPlayNavigationAlertContent,
     getAutoPlayNavigationAlertDismissedState,
     getAutoPlayNavigationAlertTransition,
+    getDismissedAutoPlayNavigationAlertKeys,
+    pruneDismissedAutoPlayNavigationAlertKeys,
 } from './auto-play-navigation-alert';
 
 const AUTO_PLAY_IS_SUPPORTED =
@@ -53,24 +56,43 @@ export function useAutoPlayNavigationAlerts({
 }) {
     const mapTemplate = useAutoPlayMapTemplate();
     const alertStateRef = useRef(null);
+    const dismissedAlertKeysRef = useRef(new Set());
+    const followUpTimerRef = useRef(null);
     const currentSpeedMpsRef = useRef(currentSpeedMps);
     const [dismissalRevision, setDismissalRevision] = useState(0);
     const handleAlertDismissed = useCallback((alertId) => {
+        const nextDismissedAlertKeys = getDismissedAutoPlayNavigationAlertKeys({
+            alertId,
+            dismissedAlertKeys: dismissedAlertKeysRef.current,
+            state: alertStateRef.current,
+        });
         const nextState = getAutoPlayNavigationAlertDismissedState(
             alertStateRef.current,
             alertId,
+            Date.now(),
         );
 
-        if (nextState === alertStateRef.current) {
+        if (
+            nextState === alertStateRef.current &&
+            nextDismissedAlertKeys === dismissedAlertKeysRef.current
+        ) {
             return;
         }
 
+        dismissedAlertKeysRef.current = nextDismissedAlertKeys;
         alertStateRef.current = nextState;
         // The dismissal only mutates a ref, so nudge the effect to run again and
-        // give a held lower-priority alert its turn now rather than whenever the
-        // next location update happens to change `upcomingAlerts`.
-        setDismissalRevision((revision) => revision + 1);
+        // give the next alert its turn rather than waiting for the next location
+        // update to change `upcomingAlerts`. The nudge waits out the follow-up
+        // pause, and the transition holds any earlier pass until it has elapsed.
+        clearTimeout(followUpTimerRef.current);
+        followUpTimerRef.current = setTimeout(() => {
+            followUpTimerRef.current = null;
+            setDismissalRevision((revision) => revision + 1);
+        }, AUTO_PLAY_NAVIGATION_ALERT_FOLLOW_UP_DELAY_MS);
     }, []);
+
+    useEffect(() => () => clearTimeout(followUpTimerRef.current), []);
 
     // Speed only feeds the banner duration, which is read once per
     // announcement. Keeping it in a ref stops every GPS tick from re-running
@@ -80,13 +102,25 @@ export function useAutoPlayNavigationAlerts({
     useEffect(() => {
         if (!mapTemplate) {
             alertStateRef.current = null;
+            dismissedAlertKeysRef.current = new Set();
+            clearTimeout(followUpTimerRef.current);
+            followUpTimerRef.current = null;
 
             return;
         }
 
+        // A dismissed banner stands aside for the next upcoming alert, and the
+        // dismissal is forgotten once that alert is no longer ahead.
+        dismissedAlertKeysRef.current =
+            pruneDismissedAutoPlayNavigationAlertKeys(
+                dismissedAlertKeysRef.current,
+                upcomingAlerts,
+            );
+
         const content = enabled
             ? getAutoPlayNavigationAlertContent({
                   currentSpeedMps: currentSpeedMpsRef.current,
+                  dismissedAlertKeys: dismissedAlertKeysRef.current,
                   upcomingAlerts,
               })
             : null;
