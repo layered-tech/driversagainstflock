@@ -1,7 +1,9 @@
+import { syncAndroidAutoHostLifecycle } from './android-auto-host-lifecycle';
 import {
     AndroidAutoClusterSurface,
     AndroidAutoMapSurface,
 } from './android-auto-map-surface';
+import { addAutoPlaySessionStateListener } from './auto-play-session-state';
 
 // Android Auto extension of the platform-agnostic auto-play core.
 export const autoPlayPlatform = {
@@ -64,5 +66,9 @@ export const autoPlayPlatform = {
         );
         // "Hey Google, navigate to…" style OS voice events only fire on Android.
         autoPlayModule.HybridAutoPlay.addListenerVoiceInput(onVoiceNavigation);
+        // Android pauses the React host together with the phone activity, which
+        // freezes the car surface once the phone locks. Keep the host resumed for
+        // as long as a car session is connected.
+        addAutoPlaySessionStateListener(syncAndroidAutoHostLifecycle);
     },
 };
