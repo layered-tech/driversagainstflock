@@ -400,6 +400,7 @@ function updateRoadLookAhead(matchedLocation) {
                   graph: roadGraph,
                   matchedLocation,
                   maximumDistanceMeters: ROAD_LOOK_AHEAD_DISTANCE_METERS,
+                  previousLookAhead: lastRoadLookAhead,
               })
             : null;
     const predictionDurationMs = Date.now() - predictionStartedAt;
