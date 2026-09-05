@@ -93,6 +93,7 @@ import { formatSearchResultDistance } from './map/search-formatters';
 import {
     addSharedRoutingStateListener,
     getDirectionsRouteGeometrySyncKey,
+    getDirectionsRouteSyncKey,
     getSharedRoutingState,
     hydrateSharedRoutingStateAsync,
     setSharedRoutingState,
