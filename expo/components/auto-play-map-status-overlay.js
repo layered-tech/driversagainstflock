@@ -1,20 +1,11 @@
-import { useMemo } from 'react';
-import {
-    ActivityIndicator,
-    Platform,
-    Text,
-    useColorScheme,
-    View,
-} from 'react-native';
+import { ActivityIndicator, Text, useColorScheme, View } from 'react-native';
 import {
     getAutoPlayCurrentRoadPillLayout,
     getAutoPlaySpeedLimitBadgeSize,
     getAutoPlaySpeedLimitOverlayLayout,
     getAutoPlayTopRightStatusOverlayLayout,
 } from './auto-play-map-status-layout';
-import { Icon } from './design-system/icon';
 import { dafSemanticColors } from './design-system/tokens';
-import { getDrivingAlertsPresentation } from './map/driving-alerts';
 import { DrivingLocationRoadStack } from './map/driving-location-road-stack';
 import { MarkerLoadingIndicator } from './map/marker-loading-indicator';
 import { AUTO_PLAY_NAVIGATION_PUCK_SIZE } from './map/navigation-puck-layout';
@@ -25,7 +16,6 @@ import {
     useRouteSpeedLimit,
 } from './map/speed-limit';
 import { AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE } from './map/speed-limit-layout';
-import { UpcomingAlertDistanceTrack } from './map/upcoming-alert-distance-track';
 
 function AutoPlayRouteLoadingCard({ isDarkMode, routeLoading }) {
     const destinationLabel = String(routeLoading.destinationLabel ?? '').trim();
@@ -98,174 +88,16 @@ function AutoPlaySingleResultCountdownCard({ countdown, isDarkMode }) {
     );
 }
 
-function AutoPlayAlertIcon({ alertPresentation, compact = false, isDarkMode }) {
-    const backgroundClassName =
-        alertPresentation.type === 'police'
-            ? isDarkMode
-                ? 'bg-daf-azure/20'
-                : 'bg-daf-azure/15'
-            : isDarkMode
-              ? 'bg-daf-alert/20'
-              : 'bg-daf-alert/15';
-
-    return (
-        <View
-            className={`${compact ? 'h-6 w-6' : 'h-8 w-8'} items-center justify-center rounded-dafSm ${backgroundClassName}`}
-        >
-            <Icon
-                color={alertPresentation.accentColor}
-                name={alertPresentation.icon}
-                size={compact ? 15 : 18}
-            />
-        </View>
-    );
-}
-
-function AutoPlayAlertSource({ alertPresentation, isDarkMode }) {
-    return (
-        <Text
-            className={`ios:text-[10px] ios:leading-3 text-[11px] leading-[13px] ${isDarkMode ? 'text-neutral-400' : 'text-daf-text-tertiary'}`}
-            numberOfLines={1}
-        >
-            {alertPresentation.subtitle}
-        </Text>
-    );
-}
-
-function AutoPlaySingleUpcomingAlert({ isDarkMode, presentation }) {
-    const alertPresentation = presentation.alerts[0];
-
-    return (
-        <View
-            className={`${isDarkMode ? 'border-daf-border-dark bg-daf-surface-dark' : 'border-daf-border bg-daf-surface-card'} relative w-[250px] gap-1.5 overflow-hidden rounded-dafMd border px-2.5 pb-2.5 pt-2.5 shadow-[0px_4px_18px_rgba(11,14,18,0.18)]`}
-            testID="auto-play-upcoming-alert"
-        >
-            <View className="flex-row items-center gap-2">
-                <AutoPlayAlertIcon
-                    alertPresentation={alertPresentation}
-                    isDarkMode={isDarkMode}
-                />
-                <View className="min-w-0 flex-1">
-                    <Text
-                        className={`ios:text-[13px] ios:leading-[15px] text-[14px] font-semibold leading-4 ${isDarkMode ? 'text-white' : 'text-daf-text-primary'}`}
-                        numberOfLines={1}
-                    >
-                        {alertPresentation.title}
-                    </Text>
-                    <AutoPlayAlertSource
-                        alertPresentation={alertPresentation}
-                        isDarkMode={isDarkMode}
-                    />
-                </View>
-                <Text
-                    className="font-dafMono ios:text-[12px] ios:leading-[12px] text-[18px] font-extrabold leading-[18px]"
-                    numberOfLines={1}
-                    style={{ color: alertPresentation.accentColor }}
-                >
-                    {alertPresentation.distance}
-                </Text>
-            </View>
-            <View>
-                <UpcomingAlertDistanceTrack
-                    accentColor={alertPresentation.accentColor}
-                    compact
-                    isDarkMode={isDarkMode}
-                    progress={alertPresentation.approachProgress}
-                    testID="auto-play-upcoming-alert-track"
-                />
-            </View>
-        </View>
-    );
-}
-
-function AutoPlayCombinedAlertColumn({
-    alertPresentation,
-    isDarkMode,
-    testID,
-}) {
-    return (
-        <View
-            className={`${alertPresentation.type === 'police' ? 'pr-3.5' : 'pl-3.5 pr-2.5'} min-w-0 flex-1 gap-1.5 pb-2.5 pt-2.5 ${alertPresentation.type === 'police' ? 'pl-2.5' : ''}`}
-            testID={testID}
-        >
-            <View
-                className={`min-w-0 flex-row items-center gap-1.5 ${alertPresentation.type === 'alpr' ? 'pr-5' : ''}`}
-            >
-                <AutoPlayAlertIcon
-                    alertPresentation={alertPresentation}
-                    compact
-                    isDarkMode={isDarkMode}
-                />
-                <Text
-                    className={`ios:text-[11px] ios:leading-[13px] min-w-0 flex-1 text-xs font-semibold leading-[14px] ${isDarkMode ? 'text-white' : 'text-daf-text-primary'}`}
-                    numberOfLines={1}
-                >
-                    {alertPresentation.title}
-                </Text>
-            </View>
-            <Text
-                className="font-dafMono ios:text-[12px] ios:leading-[12px] text-[17px] font-extrabold leading-[17px]"
-                numberOfLines={1}
-                style={{ color: alertPresentation.accentColor }}
-            >
-                {alertPresentation.distance}
-            </Text>
-            <UpcomingAlertDistanceTrack
-                accentColor={alertPresentation.accentColor}
-                compact
-                isDarkMode={isDarkMode}
-                progress={alertPresentation.approachProgress}
-                testID={`${testID}-track`}
-            />
-            <AutoPlayAlertSource
-                alertPresentation={alertPresentation}
-                isDarkMode={isDarkMode}
-            />
-        </View>
-    );
-}
-
-function AutoPlayCombinedUpcomingAlerts({ isDarkMode, presentation }) {
-    const [policeAlert, alprAlert] = presentation.alerts;
-
-    return (
-        <View
-            className={`${isDarkMode ? 'border-daf-border-dark bg-daf-surface-dark' : 'border-daf-border bg-daf-surface-card'} relative w-[250px] flex-row overflow-hidden rounded-dafMd border shadow-[0px_4px_18px_rgba(11,14,18,0.18)]`}
-            testID="auto-play-upcoming-alert"
-        >
-            <View
-                className={`${isDarkMode ? 'bg-daf-border-dark' : 'bg-daf-border'} absolute left-1/2 top-[-25%] h-[150%] w-px rotate-[11deg]`}
-                pointerEvents="none"
-            />
-            <AutoPlayCombinedAlertColumn
-                alertPresentation={policeAlert}
-                isDarkMode={isDarkMode}
-                testID="auto-play-upcoming-alert-police"
-            />
-            <AutoPlayCombinedAlertColumn
-                alertPresentation={alprAlert}
-                isDarkMode={isDarkMode}
-                testID="auto-play-upcoming-alert-alpr"
-            />
-        </View>
-    );
-}
-
 export function AutoPlayTopRightStatusOverlay({
     isDarkMode,
     mapControlLayoutInsets,
     routeLoading,
     singleResultCountdown,
-    upcomingAlerts,
 }) {
     const systemColorScheme = useColorScheme();
     const resolvedIsDarkMode = isDarkMode ?? systemColorScheme === 'dark';
-    const presentation = useMemo(
-        () => getDrivingAlertsPresentation(upcomingAlerts),
-        [upcomingAlerts],
-    );
 
-    if (!presentation && !routeLoading && !singleResultCountdown) {
+    if (!routeLoading && !singleResultCountdown) {
         return null;
     }
 
@@ -280,17 +112,6 @@ export function AutoPlayTopRightStatusOverlay({
             style={layout.positionStyle}
             testID="auto-play-top-right-status-overlay"
         >
-            {presentation?.variant === 'combined' ? (
-                <AutoPlayCombinedUpcomingAlerts
-                    isDarkMode={resolvedIsDarkMode}
-                    presentation={presentation}
-                />
-            ) : presentation ? (
-                <AutoPlaySingleUpcomingAlert
-                    isDarkMode={resolvedIsDarkMode}
-                    presentation={presentation}
-                />
-            ) : null}
             {singleResultCountdown ? (
                 <AutoPlaySingleResultCountdownCard
                     countdown={singleResultCountdown}
@@ -307,6 +128,19 @@ export function AutoPlayTopRightStatusOverlay({
     );
 }
 
+/**
+ * Draws the app-owned map chrome and, just as importantly, the invisible puck
+ * slot the follow camera measures its anchor from.
+ *
+ * `statusChromeIsVisible` is what a host-owned secondary surface (the CarPlay
+ * Dashboard, either instrument cluster) turns off. Those surfaces still follow
+ * the driver, so they still need the measured anchor — without it the camera
+ * falls back to centring the puck in the viewport.
+ *
+ * `rendersSpeedLimit` arrives already resolved by the surface, so the speed
+ * badge can outlive the rest of the chrome: the CarPlay Dashboard keeps it
+ * while leaving the road pill and loading indicator off.
+ */
 export function AutoPlayMapStatusOverlay({
     activeDirectionsRoute,
     currentRoadPill,
@@ -320,19 +154,22 @@ export function AutoPlayMapStatusOverlay({
     presentation,
     rendersSpeedLimit = true,
     speedLimitBadge,
+    statusChromeIsVisible = true,
     userLocation,
     viewportMetrics,
 }) {
     const systemColorScheme = useColorScheme();
     const resolvedIsDarkMode = isDarkMode ?? systemColorScheme === 'dark';
     const routeIsActive = Boolean(activeDirectionsRoute);
+    const speedLimitIsRendered = Boolean(rendersSpeedLimit);
     const speedLimit = useRouteSpeedLimit({
         routeIsActive:
-            rendersSpeedLimit && (routeIsActive || freeDriveIsActive),
+            speedLimitIsRendered && (routeIsActive || freeDriveIsActive),
         userLocation,
     });
     const speedLimitIsVisible = Boolean(
         drivingStatusIsVisible &&
+        speedLimitIsRendered &&
         Number.isFinite(Number(speedLimit?.speedLimitMph)),
     );
     const currentSpeedMps = getRouteCurrentSpeedMps(userLocation);
@@ -340,14 +177,18 @@ export function AutoPlayMapStatusOverlay({
     const currentSpeedIsVisible = Boolean(
         drivingStatusIsVisible && Number.isFinite(Number(currentSpeedMps)),
     );
+    // Both car hosts leave the map canvas to the app, so the speed dial stands
+    // in for the badge wherever the road has no mapped limit. The handset keeps
+    // the badge hidden there because its dial shares the row with the maneuver
+    // card, which the car hosts draw in their own chrome instead.
     const currentSpeedWithoutLimitIsVisible = Boolean(
-        rendersSpeedLimit &&
-        Platform.OS === 'android' &&
-        drivingStatusIsVisible &&
-        currentSpeedMph > 0,
+        speedLimitIsRendered && drivingStatusIsVisible && currentSpeedMph > 0,
     );
-    const markerLoadingIsVisible =
-        mapPreferencesAreLoaded && markerLoader.renderMarkerLoadingIndicator;
+    const markerLoadingIsVisible = Boolean(
+        statusChromeIsVisible &&
+        mapPreferencesAreLoaded &&
+        markerLoader.renderMarkerLoadingIndicator,
+    );
     const speedStatusIsVisible =
         speedLimitIsVisible || currentSpeedWithoutLimitIsVisible;
     const speedLimitBadgeSize = getAutoPlaySpeedLimitBadgeSize({
@@ -360,7 +201,7 @@ export function AutoPlayMapStatusOverlay({
         size: speedLimitBadgeSize,
     });
     const currentRoadPillLayout =
-        rendersSpeedLimit &&
+        speedLimitIsRendered &&
         speedStatusIsVisible &&
         currentRoadPill?.reserveSpeedLimitSpace
             ? getAutoPlayCurrentRoadPillLayout({
@@ -381,6 +222,7 @@ export function AutoPlayMapStatusOverlay({
                     <View className="flex-1" pointerEvents="none" />
                     <DrivingLocationRoadStack
                         currentRoadPillIsDarkMode={resolvedIsDarkMode}
+                        currentRoadPillIsVisible={statusChromeIsVisible}
                         currentRoadPillTestID="android-auto-current-road-pill"
                         currentRoadPillStyle={
                             currentRoadPillLayout?.maximumWidth === undefined
@@ -391,7 +233,7 @@ export function AutoPlayMapStatusOverlay({
                                   }
                         }
                         currentRoadPillTextStyle={
-                            rendersSpeedLimit
+                            speedLimitIsRendered
                                 ? (currentRoadPill?.speedLimitAdjacentTextStyle ??
                                   currentRoadPill?.textStyle)
                                 : currentRoadPill?.textStyle

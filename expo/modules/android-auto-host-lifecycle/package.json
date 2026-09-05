@@ -1,0 +1,7 @@
+{
+    "name": "daf-android-auto-host-lifecycle",
+    "version": "1.0.0",
+    "description": "Keeps the React host resumed while Android Auto is connected for Drivers Against Flock",
+    "license": "MIT",
+    "private": true
+}

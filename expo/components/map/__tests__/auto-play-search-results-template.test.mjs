@@ -52,19 +52,29 @@ test('Android Auto presents submitted place results with the host map', () => {
 });
 
 test('Android Auto searches only after explicit submission', () => {
-    assert.match(androidPlatformSource, /supportsSearchAutocomplete:\s*false/);
+    assert.doesNotMatch(autoPlaySource, /supportsSearchAutocomplete/);
+    assert.doesNotMatch(autoPlaySource, /schedulePlaceAutocomplete/);
+    assert.doesNotMatch(autoPlaySource, /runPlaceAutocomplete/);
+    assert.doesNotMatch(autoPlaySource, /createPlaceSearchSessionToken/);
+    assert.doesNotMatch(autoPlaySource, /createAutoPlaySearchCallbackState/);
+    assert.doesNotMatch(autoPlaySource, /SEARCH_DEBOUNCE_MS/);
+    assert.doesNotMatch(autoPlaySource, /\bsearchPlaces\b/);
     assert.match(
         autoPlaySource,
-        /onSearchTextChanged: \(searchText\) => \{[\s\S]*?supportsSearchAutocomplete === false\) \{\s*return;\s*\}[\s\S]*?schedulePlaceAutocomplete/,
-    );
-    assert.match(
-        autoPlaySource,
-        /const runSubmittedSearch[\s\S]*?handleSearchTextSubmitted[\s\S]*?runPlaceTextSearch\(/,
+        /const runSubmittedSearch[\s\S]*?return runPlaceTextSearch\(/,
     );
     assert.match(
         autoPlaySource,
         /onSearchTextSubmitted: \(searchText\) => \{\s*return runSubmittedSearch\(searchText\);\s*\}/,
     );
+});
+
+test('Auto Play omits the unreachable header driving-mode toggle', () => {
+    assert.doesNotMatch(autoPlaySource, /usesHeaderDrivingModeButton/);
+    assert.doesNotMatch(autoPlaySource, /getRootHeaderDrivingModeButtonImage/);
+    assert.doesNotMatch(autoPlaySource, /toggleAutoPlayDrivingMode/);
+    assert.doesNotMatch(autoPlaySource, /handleRootHeaderDrivingModePress/);
+    assert.match(autoPlaySource, /function setAutoPlayDrivingModeIsActive/);
 });
 
 test('Android Auto publishes submitted results before opening its map-backed list', () => {
@@ -113,7 +123,7 @@ test('voice searches visibly count down before advancing a sole result', () => {
     );
     assert.match(
         autoPlaySource,
-        /function schedulePlaceAutocomplete[\s\S]*?clearAutoPlaySingleResultCountdown\(\)[\s\S]*?abortSearchRequest\(\)/,
+        /async function runPlaceTextSearch[\s\S]*?clearAutoPlaySingleResultCountdown\(\)[\s\S]*?abortSearchRequest\(\)/,
     );
 
     const countdownStart = autoPlaySource.indexOf(
@@ -163,7 +173,7 @@ test('Android Auto supplies submitted result markers and frames them on its map'
     );
     assert.match(
         autoPlayMapSurfaceSource,
-        /rendersDrivingStatus && !searchResultsMapIsActive[\s\S]*?<AutoPlayMapStatusOverlay/,
+        /<AutoPlayMapStatusOverlay[\s\S]*?statusChromeIsVisible=\{\s*rendersAppOverlays && !searchResultsMapIsActive\s*\}/,
     );
     assert.match(
         mapScreenContextSource,

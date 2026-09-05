@@ -24,7 +24,6 @@ const DEFAULT_ARTIFACTS =
 const ANDROID_AUTO_SETTINGS =
     'com.google.android.projection.gearhead/.companion.settings.DefaultSettingsActivity';
 const UI_DUMP_PATH = '/sdcard/android-auto-e2e-ui.xml';
-const SESSION_WAKE_LOCK = 'AutoPlay:AndroidAutoSession';
 const HEAD_UNIT_PORT = 5277;
 const DEVELOPMENT_CLIENT_LAUNCH_TIMEOUTS = [45000, 120000];
 export const DEFAULT_MAP_CROP = Object.freeze({
@@ -91,13 +90,6 @@ export function findNodeBounds(xml, label) {
     }
 
     return null;
-}
-
-export function currentAutoPlayWakeLockIsHeld(powerDump) {
-    return new RegExp(
-        `^\\s+PARTIAL_WAKE_LOCK\\s+.*'${SESSION_WAKE_LOCK}'`,
-        'm',
-    ).test(String(powerDump ?? ''));
 }
 
 export function childProcessIsRunning(child) {
@@ -748,20 +740,10 @@ export class Runner {
         this.ensureHeadUnitForward();
     }
 
-    powerDump() {
-        return this.adb(['shell', 'dumpsys', 'power'], {
-            logOutput: false,
-        }).stdout;
-    }
-
     displayDump() {
         return this.adb(['shell', 'dumpsys', 'display'], {
             logOutput: false,
         }).stdout;
-    }
-
-    wakeLockHeld() {
-        return currentAutoPlayWakeLockIsHeld(this.powerDump());
     }
 
     serviceRunning() {
@@ -804,11 +786,10 @@ export class Runner {
 
                 return (
                     childProcessIsRunning(this.dhuProcess) &&
-                    this.serviceRunning() &&
-                    this.wakeLockHeld()
+                    this.serviceRunning()
                 );
             },
-            'Android Auto service and session wake lock',
+            'Android Auto service',
             45000,
         );
     }
@@ -856,9 +837,9 @@ export class Runner {
                     throw new Error('Managed DHU stopped unexpectedly.');
                 }
 
-                return this.serviceRunning() && this.wakeLockHeld();
+                return this.serviceRunning();
             },
-            'Android Auto service and session wake lock after DHU connects',
+            'Android Auto service after DHU connects',
             45000,
         );
         await this.waitForMetroMarker(
@@ -1287,13 +1268,6 @@ export class Runner {
                     15000,
                 );
                 break;
-            case 'assertWakeLock':
-                await this.waitFor(
-                    () => this.wakeLockHeld() === step.held,
-                    `Android Auto wake lock held=${step.held}`,
-                    15000,
-                );
-                break;
             case 'deepLink':
                 await this.dispatchDeepLink(step.requestType, step.query);
                 break;
@@ -1577,8 +1551,8 @@ export class Runner {
                 });
                 await attempt('verify car session stopped', () =>
                     this.waitFor(
-                        () => !this.serviceRunning() && !this.wakeLockHeld(),
-                        'Android Auto service and session wake lock to stop',
+                        () => !this.serviceRunning(),
+                        'Android Auto service to stop',
                         15000,
                     ),
                 );

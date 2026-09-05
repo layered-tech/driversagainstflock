@@ -129,6 +129,21 @@ test('automotive recenter returns route overview to 3D follow', () => {
         mapSurfaceSource,
         /previousDrivingMapViewMode\s*===\s*DRIVING_MAP_VIEW_ROUTE_OVERVIEW[\s\S]*?drivingMapViewMode\s*===\s*DRIVING_MAP_VIEW_PERSPECTIVE[\s\S]*?controller\.handleDrivingRecenterPress\(\)/,
     );
+
+    const locationTrackingHandler = mapSurfaceSource.slice(
+        mapSurfaceSource.indexOf(
+            'const handleLocationTrackingPress = useCallback',
+        ),
+        mapSurfaceSource.indexOf(
+            'const handleDrivingRecenterPress = useCallback',
+        ),
+    );
+
+    assert.doesNotMatch(locationTrackingHandler, /activeLocationMode\.stop/);
+    assert.match(
+        mapSurfaceSource,
+        /handleLocationTrackingPress:[\s\S]*?isDrivingMode\s*\? controller\.handleDrivingRecenterPress\s*:\s*controller\.handleLocationTrackingPress/,
+    );
 });
 
 test('automotive route mode hides speed status and the current road pill', () => {

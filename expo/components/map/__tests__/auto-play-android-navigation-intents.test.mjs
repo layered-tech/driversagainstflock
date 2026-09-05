@@ -1,6 +1,21 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const autoPlayPackageRoot = process.env.AUTO_PLAY_PACKAGE_ROOT
+    ? resolve(process.env.AUTO_PLAY_PACKAGE_ROOT)
+    : fileURLToPath(
+          new URL(
+              '../../../node_modules/@iternio/react-native-auto-play/',
+              import.meta.url,
+          ),
+      );
+
+function readAutoPlayPackageSource(relativePath) {
+    return readFileSync(join(autoPlayPackageRoot, relativePath), 'utf8');
+}
 
 const autoPlaySource = readFileSync(
     new URL('../../auto-play.js', import.meta.url),
@@ -18,64 +33,29 @@ const sentrySource = readFileSync(
     new URL('../../../lib/sentry.js', import.meta.url),
     'utf8',
 );
-const androidAutoSessionSource = readFileSync(
-    new URL(
-        '../../../node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoSession.kt',
-        import.meta.url,
-    ),
-    'utf8',
+const androidAutoSessionSource = readAutoPlayPackageSource(
+    'android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoSession.kt',
 );
-const hybridAutoPlaySource = readFileSync(
-    new URL(
-        '../../../node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridAutoPlay.kt',
-        import.meta.url,
-    ),
-    'utf8',
+const hybridAutoPlaySource = readAutoPlayPackageSource(
+    'android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridAutoPlay.kt',
 );
-const autoPlayNitroSpecSource = readFileSync(
-    new URL(
-        '../../../node_modules/@iternio/react-native-auto-play/src/specs/AutoPlay.nitro.ts',
-        import.meta.url,
-    ),
-    'utf8',
+const autoPlayNitroSpecSource = readAutoPlayPackageSource(
+    'src/specs/AutoPlay.nitro.ts',
 );
-const generatedAutoPlaySpecSource = readFileSync(
-    new URL(
-        '../../../node_modules/@iternio/react-native-auto-play/nitrogen/generated/android/kotlin/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridAutoPlaySpec.kt',
-        import.meta.url,
-    ),
-    'utf8',
+const generatedAutoPlaySpecSource = readAutoPlayPackageSource(
+    'nitrogen/generated/android/kotlin/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridAutoPlaySpec.kt',
 );
-const androidAutoManifestSource = readFileSync(
-    new URL(
-        '../../../node_modules/@iternio/react-native-auto-play/android/src/main/AndroidManifest.xml',
-        import.meta.url,
-    ),
-    'utf8',
+const androidAutoManifestSource = readAutoPlayPackageSource(
+    'android/src/main/AndroidManifest.xml',
 );
-const hybridSearchTemplateSource = readFileSync(
-    new URL(
-        '../../../node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridSearchTemplate.kt',
-        import.meta.url,
-    ),
-    'utf8',
+const hybridSearchTemplateSource = readAutoPlayPackageSource(
+    'android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridSearchTemplate.kt',
 );
-const androidSearchTemplateSource = readFileSync(
-    new URL(
-        '../../../node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/SearchTemplate.kt',
-        import.meta.url,
-    ),
-    'utf8',
-);
-const autoPlayPatch = readFileSync(
-    new URL(
-        '../../../patches/@iternio+react-native-auto-play+0.4.7.patch',
-        import.meta.url,
-    ),
-    'utf8',
+const androidSearchTemplateSource = readAutoPlayPackageSource(
+    'android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/SearchTemplate.kt',
 );
 
-test('Android Auto handles voice navigation on initial and later session intents', () => {
+test('Android Auto handles host navigation on initial and later session intents', () => {
     assert.match(
         androidAutoSessionSource,
         /override fun onCreateScreen\(intent: Intent\)[\s\S]*?HybridAutoPlay\.emit\(EventName\.DIDCONNECT\)[\s\S]*?handleNavigationIntent\(intent\)/,
@@ -86,14 +66,14 @@ test('Android Auto handles voice navigation on initial and later session intents
     );
 });
 
-test('Android Auto advertises distinct geo search and navigation actions', () => {
+test('Android Auto keeps only its car service contract in the library manifest', () => {
     assert.match(
         androidAutoManifestSource,
-        /<action android:name="androidx\.car\.app\.action\.NAVIGATE" \/>[\s\S]*?<data android:scheme="geo" \/>/,
+        /<service[\s\S]*?<action android:name="androidx\.car\.app\.CarAppService" \/>[\s\S]*?<category android:name="androidx\.car\.app\.category\.NAVIGATION" \/>[\s\S]*?<category android:name="androidx\.car\.app\.category\.FEATURE_CLUSTER" \/>[\s\S]*?<\/service>/,
     );
-    assert.match(
+    assert.doesNotMatch(
         androidAutoManifestSource,
-        /<action android:name="android\.intent\.action\.VIEW" \/>[\s\S]*?<data android:scheme="geo" \/>/,
+        /androidx\.car\.app\.action\.NAVIGATE|android\.intent\.action\.VIEW|<data android:scheme="geo"/,
     );
 });
 
@@ -257,6 +237,17 @@ test('Android Auto in-app voice search remains on the SearchTemplate callback', 
     assert.doesNotMatch(androidSearchTemplateSource, /handleNavigationIntent/);
 });
 
+test('Android Auto presents errors with its information template', () => {
+    assert.match(
+        androidPlatformSource,
+        /createErrorTemplate\(\{[\s\S]*?InformationTemplate[\s\S]*?new InformationTemplate\(\{[\s\S]*?android: \[searchAction\][\s\S]*?headerActions[\s\S]*?detailedText: message/,
+    );
+    assert.match(
+        autoPlaySource,
+        /function showAutoPlayError[\s\S]*?autoPlayPlatform\.createErrorTemplate\(\{[\s\S]*?autoPlayModule,[\s\S]*?message: makeAutoText\(message\)[\s\S]*?searchAction/,
+    );
+});
+
 test('JS waits for the root map before consuming a replayed voice intent', () => {
     assert.match(
         autoPlaySource,
@@ -308,7 +299,11 @@ test('JS shows search results and starts only navigation voice requests', () => 
     );
     assert.match(
         autoPlaySource,
-        /onSearchTextChanged: \(searchText\) => \{\s*if \(!requestIsCurrent\(\)\) \{\s*return;/,
+        /onSearchTextChanged: \(\) => \{\},[\s\S]*?onSearchTextSubmitted: \(searchText\) =>/,
+    );
+    assert.doesNotMatch(
+        autoPlaySource,
+        /runPlaceAutocomplete|schedulePlaceAutocomplete/,
     );
     assert.match(
         autoPlaySource,
@@ -328,7 +323,7 @@ test('JS shows search results and starts only navigation voice requests', () => 
     );
     assert.match(
         autoPlaySource,
-        /function startAutoPlayNavigation[\s\S]*?rootMapTemplate\.startNavigation\(makeTripConfig\(route\)\)[\s\S]*?setSharedRoutingState\(\{\s*directionsRoute: route,\s*drivingModeIsActive: true/,
+        /function startAutoPlayNavigation[\s\S]*?const tripConfig = makeTripConfig\(route\)[\s\S]*?rootMapTemplate\.startNavigation\(tripConfig\)[\s\S]*?setSharedRoutingState\(\{\s*directionsRoute: route,\s*drivingModeIsActive: true/,
     );
 });
 
@@ -403,21 +398,4 @@ test('car root setup retries stalls before replaying deferred work', () => {
         autoPlaySource,
         /function handleAutoPlayDisconnect[\s\S]*?lastDeferredSharedNavigationStartKey = null/,
     );
-});
-
-test('the dependency patch contains only source changes', () => {
-    assert.match(autoPlayPatch, /AndroidAutoSession\.kt/);
-    assert.match(autoPlayPatch, /AndroidManifest\.xml/);
-    assert.match(autoPlayPatch, /HybridAutoPlay\.kt/);
-    assert.match(autoPlayPatch, /AutoPlay\.nitro\.ts/);
-    assert.match(autoPlayPatch, /requestType/);
-    assert.match(autoPlayPatch, /android\.intent\.action\.VIEW/);
-    assert.match(autoPlayPatch, /^\+.*NavigationRejectionReason/m);
-    assert.match(autoPlayPatch, /^-.*Failed to parse navigation intent/m);
-    assert.doesNotMatch(
-        autoPlayPatch,
-        /^\+.*Failed to parse navigation intent/m,
-    );
-    assert.doesNotMatch(autoPlayPatch, /android\/\.cxx|android\/build\//);
-    assert.doesNotMatch(autoPlayPatch, /GIT binary patch/);
 });

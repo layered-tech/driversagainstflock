@@ -1,18 +1,22 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const autoPlayPackageRoot = process.env.AUTO_PLAY_PACKAGE_ROOT
+    ? resolve(process.env.AUTO_PLAY_PACKAGE_ROOT)
+    : fileURLToPath(
+          new URL(
+              '../../../node_modules/@iternio/react-native-auto-play/',
+              import.meta.url,
+          ),
+      );
 
 const virtualRendererSource = readFileSync(
-    new URL(
-        '../../../node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/VirtualRenderer.kt',
-        import.meta.url,
-    ),
-    'utf8',
-);
-const autoPlayPatch = readFileSync(
-    new URL(
-        '../../../patches/@iternio+react-native-auto-play+0.4.7.patch',
-        import.meta.url,
+    join(
+        autoPlayPackageRoot,
+        'android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/VirtualRenderer.kt',
     ),
     'utf8',
 );
@@ -38,16 +42,27 @@ test('Android Auto starts Fabric with exact automotive dimensions', () => {
 test('Android Auto stops the direct Fabric surface during teardown', () => {
     assert.match(
         virtualRendererSource,
-        /private fun stop\(\)[\s\S]*?reactSurfaceId\?\.let[\s\S]*?uiManager\?\.stopSurface\(it\)/,
+        /private fun stop\(\)[\s\S]*?stopReactSurface\(\)/,
+    );
+    assert.match(
+        virtualRendererSource,
+        /@MainThread[\s\S]*?private fun stopReactSurface\(\)[\s\S]*?reactSurfaceId\?\.let[\s\S]*?uiManager\?\.stopSurface\(it\)/,
     );
 });
 
-test('the tracked AutoPlay patch leaves the working renderer intact', () => {
-    assert.doesNotMatch(
-        autoPlayPatch,
-        /^diff --git .*\/VirtualRenderer\.kt .*\/VirtualRenderer\.kt$/m,
+test('Android Auto restores shared Fabric lifecycle ownership after the last car surface', () => {
+    assert.match(
+        virtualRendererSource,
+        /private fun acquireFabricLifecycle[\s\S]*?surfaceCount \+= 1[\s\S]*?removeLifecycleEventListener\(fabricUiManager\)[\s\S]*?fabricUiManager\.onHostResume\(\)/,
     );
-    assert.doesNotMatch(autoPlayPatch, /reactHost\.createSurface/);
+    assert.match(
+        virtualRendererSource,
+        /private fun releaseFabricLifecycle[\s\S]*?surfaceCount -= 1[\s\S]*?surfaceCount > 0[\s\S]*?addLifecycleEventListener\(fabricUiManager\)[\s\S]*?LifecycleState\.RESUMED[\s\S]*?fabricUiManager\.onHostPause\(\)/,
+    );
+    assert.match(
+        virtualRendererSource,
+        /stopReactSurface[\s\S]*?releaseFabricLifecycle\(lifecycleManager\)/,
+    );
 });
 
 test('Android Auto retries the initial marker load when the map becomes ready', () => {

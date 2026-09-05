@@ -7,6 +7,20 @@ const DEFAULT_OPTIONS = Object.freeze({
     beamWidth: 8,
     maximumDistanceMeters: 1000,
     maximumEdges: 24,
+    // At a junction with one obviously straight continuation, follow it and
+    // ignore the alternatives regardless of way names, priorities or speed
+    // limits. Alerts on upcoming turns can be missed, but the forward horizon
+    // stops depending on those near-tie factors. A continuation is obvious when
+    // it bends at most the maximum delta and every other branch bends at least
+    // the ambiguity margin further. Set the maximum delta to 0 to score every
+    // branch instead.
+    obviousForwardAmbiguityMarginDegrees: 30,
+    obviousForwardMaximumHeadingDeltaDegrees: 30,
+    // Score hysteresis for the previously predicted path. A competing path has
+    // to beat the retained continuation by this much before the most-probable
+    // path switches, which keeps upcoming alerts from flickering at near-tie
+    // forks and while the horizon end sweeps across distant junctions.
+    previousPathScoreMargin: 2,
     sameWayBonus: 1.25,
     turnPenaltyFactor: 2,
 });
@@ -41,6 +55,68 @@ function getPathTransitionCost(previousEdge, nextEdge, options) {
     return cost;
 }
 
+function isLinkEdge(edge) {
+    return (
+        typeof edge?.roadClass === 'string' && edge.roadClass.endsWith('_link')
+    );
+}
+
+function getObviousForwardEdge(previousEdge, edges, options) {
+    if (
+        edges.length < 2 ||
+        !(options.obviousForwardMaximumHeadingDeltaDegrees > 0)
+    ) {
+        return null;
+    }
+
+    const rankedEdges = edges
+        .map((edge) => ({
+            edge,
+            headingDelta:
+                getRoadHeadingDeltaDegrees(
+                    previousEdge.bearing,
+                    edge.bearing,
+                ) ?? 180,
+        }))
+        .sort((first, second) => first.headingDelta - second.headingDelta);
+    const nearlyStraightEdges = rankedEdges.filter(
+        (entry) =>
+            entry.headingDelta <=
+            options.obviousForwardMaximumHeadingDeltaDegrees,
+    );
+
+    if (!nearlyStraightEdges.length) {
+        return null;
+    }
+
+    // Slip lanes and ramps only ever lead onto another road, so they are turns
+    // even when they peel off at a shallow angle. Ignore them whenever a through
+    // road is also nearly straight.
+    const throughEdges = nearlyStraightEdges.some(
+        (entry) => !isLinkEdge(entry.edge),
+    )
+        ? nearlyStraightEdges.filter((entry) => !isLinkEdge(entry.edge))
+        : nearlyStraightEdges;
+    const [straightest, runnerUp] = throughEdges;
+    const nextBend =
+        runnerUp ??
+        rankedEdges.find(
+            (entry) =>
+                entry.headingDelta >
+                options.obviousForwardMaximumHeadingDeltaDegrees,
+        );
+
+    if (
+        nextBend &&
+        nextBend.headingDelta - straightest.headingDelta <
+            options.obviousForwardAmbiguityMarginDegrees
+    ) {
+        return null;
+    }
+
+    return straightest.edge;
+}
+
 function appendCoordinate(coordinates, coordinate) {
     const previousCoordinate = coordinates.at(-1);
 
@@ -53,7 +129,47 @@ function appendCoordinate(coordinates, coordinate) {
     }
 }
 
-function appendEdgeToPath(path, edge, maximumDistanceMeters, score) {
+function getPreviousPathEdgeIds(previousLookAhead) {
+    const primaryPath = previousLookAhead?.primaryPath;
+    const edgeIds = Array.isArray(primaryPath?.edgeIds)
+        ? primaryPath.edgeIds
+        : Array.isArray(primaryPath?.segments)
+          ? primaryPath.segments.map((segment) => segment?.edgeId)
+          : [];
+
+    return edgeIds.filter(
+        (edgeId) => typeof edgeId === 'string' && edgeId.length > 0,
+    );
+}
+
+/**
+ * Returns the edges the previous prediction expected after the matched edge, or
+ * null when the vehicle is no longer on that prediction and nothing can be kept.
+ */
+function getExpectedContinuationEdgeIds(previousLookAhead, matchedEdgeId) {
+    const previousEdgeIds = getPreviousPathEdgeIds(previousLookAhead);
+    const matchedIndex = previousEdgeIds.indexOf(matchedEdgeId);
+
+    return matchedIndex === -1 ? null : previousEdgeIds.slice(matchedIndex + 1);
+}
+
+function pathFollowsExpectedContinuation(path, edge, expectedEdgeIds) {
+    if (!path.followsPreviousPath) {
+        return false;
+    }
+
+    const expectedEdgeId = expectedEdgeIds?.[path.edgeIds.length - 1];
+
+    return expectedEdgeId === undefined || expectedEdgeId === edge.id;
+}
+
+function appendEdgeToPath(
+    path,
+    edge,
+    maximumDistanceMeters,
+    score,
+    expectedEdgeIds,
+) {
     const remainingDistance = maximumDistanceMeters - path.distanceMeters;
     const usedDistance = Math.min(edge.lengthMeters, remainingDistance);
     const endFraction = usedDistance / edge.lengthMeters;
@@ -70,6 +186,11 @@ function appendEdgeToPath(path, edge, maximumDistanceMeters, score) {
         coordinates,
         distanceMeters: path.distanceMeters + usedDistance,
         edgeIds: [...path.edgeIds, edge.id],
+        followsPreviousPath: pathFollowsExpectedContinuation(
+            path,
+            edge,
+            expectedEdgeIds,
+        ),
         lastEdge: edge,
         score,
         segments: [
@@ -107,9 +228,50 @@ function getPathProbability(paths, selectedPath, maximumDistanceMeters) {
     return totalWeight > 0 ? weights[selectedIndex] / totalWeight : 0;
 }
 
+function keepBestPreviousPathCandidate(activePaths, expandedPaths) {
+    if (activePaths.some((path) => path.followsPreviousPath)) {
+        return activePaths;
+    }
+
+    const bestPreviousPathCandidate = expandedPaths.find(
+        (path) => path.followsPreviousPath,
+    );
+
+    return bestPreviousPathCandidate
+        ? [...activePaths, bestPreviousPathCandidate]
+        : activePaths;
+}
+
+function selectPrimaryPath(completedPaths, options) {
+    const bestPath = completedPaths[0];
+
+    if (!bestPath || bestPath.followsPreviousPath) {
+        return { primaryPath: bestPath, retainedPreviousPath: false };
+    }
+
+    const previousPathCandidate = completedPaths.find(
+        (path) => path.followsPreviousPath,
+    );
+
+    if (
+        !previousPathCandidate ||
+        getCompletedPathScore(
+            previousPathCandidate,
+            options.maximumDistanceMeters,
+        ) -
+            getCompletedPathScore(bestPath, options.maximumDistanceMeters) >
+            options.previousPathScoreMargin
+    ) {
+        return { primaryPath: bestPath, retainedPreviousPath: false };
+    }
+
+    return { primaryPath: previousPathCandidate, retainedPreviousPath: true };
+}
+
 export function predictRoadLookAhead({
     graph,
     matchedLocation,
+    previousLookAhead = null,
     ...configuredOptions
 }) {
     const options = {
@@ -148,10 +310,15 @@ export function predictRoadLookAhead({
                   matchedEdge.end,
                   matchedEdgeEndFraction,
               );
+    const expectedEdgeIds =
+        options.previousPathScoreMargin > 0
+            ? getExpectedContinuationEdgeIds(previousLookAhead, matchedEdge.id)
+            : null;
     const initialPath = {
         coordinates: [matchedCoordinate, matchedEdgeEndCoordinate],
         distanceMeters: usedMatchedEdgeDistance,
         edgeIds: [matchedEdge.id],
+        followsPreviousPath: expectedEdgeIds !== null,
         lastEdge: matchedEdge,
         score: 0,
         segments: [
@@ -187,7 +354,16 @@ export function predictRoadLookAhead({
                 continue;
             }
 
-            availableEdges.forEach((edge) => {
+            const obviousForwardEdge = getObviousForwardEdge(
+                path.lastEdge,
+                availableEdges,
+                options,
+            );
+            const expandableEdges = obviousForwardEdge
+                ? [obviousForwardEdge]
+                : availableEdges;
+
+            expandableEdges.forEach((edge) => {
                 expandedPaths.push(
                     appendEdgeToPath(
                         path,
@@ -195,6 +371,7 @@ export function predictRoadLookAhead({
                         options.maximumDistanceMeters,
                         path.score +
                             getPathTransitionCost(path.lastEdge, edge, options),
+                        expectedEdgeIds,
                     ),
                 );
             });
@@ -209,7 +386,12 @@ export function predictRoadLookAhead({
                 getCompletedPathScore(first, options.maximumDistanceMeters) -
                 getCompletedPathScore(second, options.maximumDistanceMeters),
         );
-        activePaths = expandedPaths.slice(0, options.beamWidth);
+        // The retained continuation must survive pruning so the hysteresis
+        // below can compare it against the best-scoring alternative.
+        activePaths = keepBestPreviousPathCandidate(
+            expandedPaths.slice(0, options.beamWidth),
+            expandedPaths,
+        );
     }
 
     activePaths.forEach((path) => {
@@ -223,7 +405,10 @@ export function predictRoadLookAhead({
             getCompletedPathScore(second, options.maximumDistanceMeters),
     );
 
-    const primaryPath = completedPaths[0];
+    const { primaryPath, retainedPreviousPath } = selectPrimaryPath(
+        completedPaths,
+        options,
+    );
 
     if (!primaryPath || primaryPath.coordinates.length < 2) {
         return null;
@@ -238,12 +423,14 @@ export function predictRoadLookAhead({
     return {
         primaryPath: {
             coordinates: primaryPath.coordinates,
+            edgeIds: primaryPath.edgeIds,
             probability,
             segments: primaryPath.segments.map((segment) => ({
                 ...segment,
                 probability,
             })),
         },
+        retainedPreviousPath,
         source: 'road-look-ahead',
         updatedAt: matchedLocation?.timestamp ?? Date.now(),
     };

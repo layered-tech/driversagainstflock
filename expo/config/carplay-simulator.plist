@@ -15,7 +15,7 @@
 	<key>hasWheelBump</key>
 	<false/>
 	<key>height</key>
-	<integer>800</integer>
+	<integer>720</integer>
 	<key>protocols</key>
 	<array/>
 	<key>scale</key>
@@ -23,6 +23,6 @@
 	<key>stark</key>
 	<true/>
 	<key>width</key>
-	<integer>1080</integer>
+	<integer>1280</integer>
 </dict>
 </plist>

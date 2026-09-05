@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
     autoPlaySearchRequestIsCurrent,
-    createAutoPlaySearchCallbackState,
+    getAutoPlayAppOverlayVisibility,
     getAutoPlayDrivingStatusVisibility,
     getAutoPlayHeaderButtonVisibility,
     getAutoPlayMapButtonAppearanceKey,
@@ -15,77 +15,89 @@ import {
     getAutoPlaySearchLoadingCopy,
     getAutoPlaySearchResultsFitKey,
     getAutoPlaySearchResultsMapIsActive,
+    getAutoPlaySpeedLimitVisibility,
     getAutoPlayTripEstimateValues,
     makeAutoPlayTripSelectorTrips,
     makeAutoPlayTripSteps,
 } from '../../auto-play-template-state.js';
 
 describe('Auto Play template state', () => {
-    test('shows driving status on root and opted-in secondary map surfaces', () => {
+    test('lets a car host own navigation overlays without changing map content', () => {
+        assert.equal(
+            getAutoPlayAppOverlayVisibility({
+                hostOwnsNavigationUI: true,
+                rendersDrivingStatus: true,
+            }),
+            false,
+        );
+        assert.equal(
+            getAutoPlayAppOverlayVisibility({
+                hostOwnsNavigationUI: false,
+                rendersDrivingStatus: true,
+            }),
+            true,
+        );
+    });
+
+    test('keeps app driving status on the root map surface only', () => {
         assert.deepEqual(
             getAutoPlayDrivingStatusVisibility({
                 isRootMapSurface: true,
-                showDrivingStatus: false,
-                showDrivingStatusOnSecondarySurfaces: false,
             }),
             {
                 rendersDrivingStatus: true,
                 rendersSpeedLimit: true,
-                secondaryDrivingStatusIsVisible: false,
             },
         );
         assert.deepEqual(
             getAutoPlayDrivingStatusVisibility({
                 isRootMapSurface: false,
-                showDrivingStatus: false,
-                showDrivingStatusOnSecondarySurfaces: true,
-            }),
-            {
-                rendersDrivingStatus: true,
-                rendersSpeedLimit: true,
-                secondaryDrivingStatusIsVisible: true,
-            },
-        );
-        assert.deepEqual(
-            getAutoPlayDrivingStatusVisibility({
-                isRootMapSurface: false,
-                showDrivingStatus: false,
-                showDrivingStatusOnSecondarySurfaces: false,
             }),
             {
                 rendersDrivingStatus: false,
                 rendersSpeedLimit: false,
-                secondaryDrivingStatusIsVisible: false,
+            },
+        );
+        // The CarPlay Dashboard is the one secondary surface that keeps the
+        // speed badge: the host draws its maneuver card, the app owns the map.
+        assert.deepEqual(
+            getAutoPlayDrivingStatusVisibility({
+                isDashboardMapSurface: true,
+                isRootMapSurface: false,
+            }),
+            {
+                rendersDrivingStatus: false,
+                rendersSpeedLimit: true,
             },
         );
     });
 
-    test('hides only the configured secondary-surface speed limit', () => {
-        assert.deepEqual(
-            getAutoPlayDrivingStatusVisibility({
-                isRootMapSurface: false,
-                showDrivingStatus: false,
-                showDrivingStatusOnSecondarySurfaces: true,
-                showSpeedLimitOnSecondarySurfaces: false,
-            }),
-            {
-                rendersDrivingStatus: true,
-                rendersSpeedLimit: false,
-                secondaryDrivingStatusIsVisible: true,
-            },
-        );
-        assert.deepEqual(
-            getAutoPlayDrivingStatusVisibility({
-                isRootMapSurface: true,
-                showDrivingStatus: false,
-                showDrivingStatusOnSecondarySurfaces: true,
-                showSpeedLimitOnSecondarySurfaces: false,
-            }),
-            {
-                rendersDrivingStatus: true,
+    test('resolves the speed badge independently of the rest of the chrome', () => {
+        assert.equal(
+            getAutoPlaySpeedLimitVisibility({
+                hostOwnsNavigationUI: false,
                 rendersSpeedLimit: true,
-                secondaryDrivingStatusIsVisible: false,
-            },
+                searchResultsMapIsActive: false,
+            }),
+            true,
+        );
+        assert.equal(
+            getAutoPlaySpeedLimitVisibility({
+                hostOwnsNavigationUI: true,
+                rendersSpeedLimit: true,
+            }),
+            false,
+        );
+        assert.equal(
+            getAutoPlaySpeedLimitVisibility({
+                rendersSpeedLimit: true,
+                searchResultsMapIsActive: true,
+            }),
+            false,
+        );
+        assert.equal(
+            getAutoPlaySpeedLimitVisibility({ rendersSpeedLimit: false }),
+            false,
         );
     });
 
@@ -146,93 +158,10 @@ describe('Auto Play template state', () => {
         );
     });
 
-    test('keeps late voice text changes from replacing a submitted query', () => {
-        const callbackState = createAutoPlaySearchCallbackState();
-
-        assert.deepEqual(callbackState.handleSearchTextChanged('coffee'), {
-            ignored: false,
-            searchText: 'coffee',
-        });
-        const submission =
-            callbackState.handleSearchTextSubmitted('coffee near me');
-
-        assert.deepEqual(submission, {
-            searchText: 'coffee near me',
-            submissionToken: 1,
-        });
-        assert.deepEqual(callbackState.handleSearchTextChanged(''), {
-            ignored: true,
-            searchText: '',
-        });
-        assert.deepEqual(callbackState.handleSearchTextChanged('coffee'), {
-            ignored: true,
-            searchText: 'coffee',
-        });
-        callbackState.handleSearchTextSubmissionCompleted(
-            submission.submissionToken,
-        );
-        assert.deepEqual(callbackState.handleSearchTextChanged('coffee'), {
-            ignored: false,
-            searchText: 'coffee',
-        });
-    });
-
-    test('keeps the newest submitted query guarded when an older search finishes', () => {
-        const callbackState = createAutoPlaySearchCallbackState();
-
-        const olderSubmission =
-            callbackState.handleSearchTextSubmitted('coffee');
-        const newerSubmission = callbackState.handleSearchTextSubmitted('gas');
-        callbackState.handleSearchTextSubmissionCompleted(
-            olderSubmission.submissionToken,
-        );
-
-        assert.deepEqual(callbackState.handleSearchTextChanged(''), {
-            ignored: true,
-            searchText: '',
-        });
-
-        callbackState.handleSearchTextSubmissionCompleted(
-            newerSubmission.submissionToken,
-        );
-
-        assert.deepEqual(callbackState.handleSearchTextChanged(''), {
-            ignored: false,
-            searchText: '',
-        });
-    });
-
-    test('keeps an identical newer submission guarded when the older one finishes', () => {
-        const callbackState = createAutoPlaySearchCallbackState();
-        const olderSubmission =
-            callbackState.handleSearchTextSubmitted('coffee');
-        const newerSubmission =
-            callbackState.handleSearchTextSubmitted('coffee');
-
-        callbackState.handleSearchTextSubmissionCompleted(
-            olderSubmission.submissionToken,
-        );
-
-        assert.deepEqual(callbackState.handleSearchTextChanged(''), {
-            ignored: true,
-            searchText: '',
-        });
-
-        callbackState.handleSearchTextSubmissionCompleted(
-            newerSubmission.submissionToken,
-        );
-
-        assert.deepEqual(callbackState.handleSearchTextChanged(''), {
-            ignored: false,
-            searchText: '',
-        });
-    });
-
     test('keeps Android Auto pan in map chrome instead of a driving header action', () => {
         assert.deepEqual(
             getAutoPlayHeaderButtonVisibility({
                 hasActiveNavigation: false,
-                usesHeaderDrivingModeButton: false,
                 usesHeaderExitNavigationButton: false,
             }),
             {
@@ -246,7 +175,6 @@ describe('Auto Play template state', () => {
         assert.deepEqual(
             getAutoPlayHeaderButtonVisibility({
                 hasActiveNavigation: false,
-                usesHeaderDrivingModeButton: false,
                 usesHeaderExitNavigationButton: true,
             }),
             {
@@ -257,7 +185,6 @@ describe('Auto Play template state', () => {
         assert.deepEqual(
             getAutoPlayHeaderButtonVisibility({
                 hasActiveNavigation: true,
-                usesHeaderDrivingModeButton: false,
                 usesHeaderExitNavigationButton: true,
             }),
             {

@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { Dimensions, View } from 'react-native';
 import { getAutoPlayAlertSurfaceVisibility } from './auto-play-alert-surface-visibility';
+import { getAutoPlayCompassNorthDirection } from './auto-play-compass-images';
 import {
     autoPlayCameraDebugStateUpdatesAreEnabled,
     AutoPlayDebugOverlays,
@@ -27,14 +28,17 @@ import {
     getAutoPlayBoundsFitPadding,
     getAutoPlayViewportMetrics,
 } from './auto-play-map-viewport';
+import { useAutoPlayNavigationAlerts } from './auto-play-navigation-alert-announcer';
 import { setAutoPlayState, useAutoPlayState } from './auto-play-state';
 import {
+    getAutoPlayAppOverlayVisibility,
     getAutoPlayDrivingStatusVisibility,
     getAutoPlayMapContentVisibility,
     getAutoPlayNavigationPuckRefreshKey,
     getAutoPlayRoutePreviewFitKey,
     getAutoPlaySearchResultsFitKey,
     getAutoPlaySearchResultsMapIsActive,
+    getAutoPlaySpeedLimitVisibility,
 } from './auto-play-template-state';
 import { useFollowLocationMode } from './map-follow-location-mode';
 import {
@@ -90,6 +94,7 @@ import {
     normalizeDirectionDegrees,
 } from './map/geo';
 import {
+    isRoadMatchedLocationUpdate,
     locationUpdateIsStale,
     shouldAcceptLocationUpdate,
 } from './map/location-watch-options';
@@ -101,6 +106,7 @@ import {
 } from './map/map-screen-context';
 import { resolveMarkerLoadBounds } from './map/marker-load-bounds';
 import { getNavigationPuckSize } from './map/navigation-puck-layout';
+import { getRouteCurrentSpeedMps } from './map/speed-limit';
 import { getSubmittedSearchResultsBounds } from './map/submitted-search-results-bounds';
 import { useDeferredCameraDebugState } from './map/use-deferred-camera-debug-state';
 import {
@@ -130,17 +136,18 @@ const AUTO_PLAY_ZOOM_BUTTON_ANIMATION_DURATION_MS =
     LOCATION_CAMERA_USER_INTERACTION_ANIMATION_DURATION_MS;
 const AUTO_PLAY_ROUTE_PREVIEW_CAMERA_FIT_DURATION_MS = 900;
 const AUTO_PLAY_ROOT_MODULE_ID = 'AutoPlayRoot';
+const AUTO_PLAY_CARPLAY_DASHBOARD_MODULE_ID = 'CarPlayDashboard';
 const DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG = {
     applyWindowScaleToMapGestures: false,
     currentRoadPill: null,
+    hostOwnsNavigationUI: false,
     ornamentSafeAreaLeftScale: 1,
-    showDrivingStatusOnSecondarySurfaces: false,
-    showSpeedLimitOnSecondarySurfaces: true,
     speedLimitBadge: null,
     usesHostColorSchemeForAutomaticMapPreset: false,
 };
 
 const DEFAULT_AUTOPLAY_MAP_BUTTON_APPEARANCE = {
+    compassNorthDirection: 0,
     drivingMapViewMode: DRIVING_MAP_VIEW_PERSPECTIVE,
     isDarkMapLayer: false,
     mapLightPreset: null,
@@ -428,6 +435,7 @@ function useAutoPlayMapController({
     mapBrowsingContextIsActive = false,
     mapPreferencesAreLoaded,
     markersAreVisible = true,
+    onCompassNorthDirectionChange,
     scheduleSharedMarkerLoad,
     setUserLocation,
     userLocation,
@@ -436,6 +444,7 @@ function useAutoPlayMapController({
 }) {
     const cameraRef = useRef(null);
     const currentCompassHeadingRef = useRef(null);
+    const compassNorthDirectionRef = useRef(0);
     const currentCourseHeadingRef = useRef(null);
     const currentZoomRef = useRef(DEFAULT_ZOOM_LEVEL);
     const isMapReadyRef = useRef(false);
@@ -451,7 +460,6 @@ function useAutoPlayMapController({
     const locationPuckCameraFollowReleaseRef = useRef(async () => false);
     const mapBrowsingContextIsActiveRef = useRef(mapBrowsingContextIsActive);
     const manualMapGestureGenerationRef = useRef(0);
-    const followAutoStartIsSuppressedRef = useRef(false);
     const pendingCameraStopRef = useRef(null);
     const previousDrivingModeRef = useRef(isDrivingMode);
     const previousMarkersAreVisibleRef = useRef(markersAreVisible);
@@ -710,10 +718,6 @@ function useAutoPlayMapController({
         }
 
         if (isDrivingMode) {
-            if (followAutoStartIsSuppressedRef.current) {
-                return;
-            }
-
             followLocationMode.start(userLocation);
             return;
         }
@@ -774,10 +778,6 @@ function useAutoPlayMapController({
         }
 
         if (isDrivingMode) {
-            // A new driving session starts with the normal automatic-follow
-            // behavior even if the user turned it off in the prior session.
-            followAutoStartIsSuppressedRef.current = false;
-
             if (locationAccessGranted && userLocationRef.current) {
                 followLocationMode.start(userLocationRef.current);
             }
@@ -805,10 +805,26 @@ function useAutoPlayMapController({
         (state) => {
             const previousZoomLevel = currentZoomRef.current;
             const nextZoomLevel = state?.properties?.zoom;
+            const nextCameraHeading =
+                state?.properties?.heading ?? state?.properties?.bearing;
             const nextCameraDebugState = cameraDebugStateUpdatesEnabled
                 ? getCameraDebugState(state)
                 : null;
             let zoomLevelChanged = false;
+
+            if (Number.isFinite(Number(nextCameraHeading))) {
+                const nextCompassNorthDirection =
+                    getAutoPlayCompassNorthDirection(nextCameraHeading);
+
+                if (
+                    nextCompassNorthDirection !==
+                    compassNorthDirectionRef.current
+                ) {
+                    compassNorthDirectionRef.current =
+                        nextCompassNorthDirection;
+                    onCompassNorthDirectionChange?.(nextCompassNorthDirection);
+                }
+            }
 
             if (nextCameraDebugState) {
                 setPendingCameraDebugState(
@@ -863,6 +879,7 @@ function useAutoPlayMapController({
             cameraDebugStateUpdatesEnabled,
             followLocationMode,
             isDrivingMode,
+            onCompassNorthDirectionChange,
             scheduleMarkerLoad,
             setPendingCameraDebugState,
             setTrackingMode,
@@ -964,8 +981,7 @@ function useAutoPlayMapController({
             if (
                 isDrivingMode &&
                 !mapBrowsingContextIsActiveRef.current &&
-                currentTrackingMode !== LOCATION_TRACKING_FOLLOW &&
-                !followAutoStartIsSuppressedRef.current
+                currentTrackingMode !== LOCATION_TRACKING_FOLLOW
             ) {
                 followLocationMode.start(nextLocationWithHeading);
                 return;
@@ -1188,7 +1204,6 @@ function useAutoPlayMapController({
             return;
         }
 
-        followAutoStartIsSuppressedRef.current = false;
         activeLocationMode.start(currentLocation, { isUserInitiated: true });
     }, [
         activeLocationMode,
@@ -1200,21 +1215,8 @@ function useAutoPlayMapController({
     ]);
 
     const handleLocationTrackingPress = useCallback(async () => {
-        if (activeLocationMode.isActive(locationTrackingMode)) {
-            if (isDrivingMode) {
-                followAutoStartIsSuppressedRef.current = true;
-            }
-            activeLocationMode.stop();
-            return;
-        }
-
         await handleLocationRecenterPress();
-    }, [
-        activeLocationMode,
-        handleLocationRecenterPress,
-        isDrivingMode,
-        locationTrackingMode,
-    ]);
+    }, [handleLocationRecenterPress]);
 
     const handleDrivingRecenterPress = useCallback(async () => {
         if (!locationAccessGranted && !(await refreshLocationPermission())) {
@@ -1477,16 +1479,15 @@ export function AutoPlayMapSurfaceContent({
     colorScheme,
     id,
     platformConfig,
-    showDrivingStatus = false,
     windowInfo,
 }) {
     const {
         applyWindowScaleToMapGestures,
         currentRoadPill,
         hideCompassDuringNavigation,
+        hideMapboxCompass,
+        hostOwnsNavigationUI,
         ornamentSafeAreaLeftScale,
-        showDrivingStatusOnSecondarySurfaces,
-        showSpeedLimitOnSecondarySurfaces,
         speedLimitBadge,
         usesHostColorSchemeForAutomaticMapPreset,
     } = {
@@ -1495,15 +1496,15 @@ export function AutoPlayMapSurfaceContent({
     };
     const autoPlayState = useAutoPlayState();
     const isRootMapSurface = !id || id === AUTO_PLAY_ROOT_MODULE_ID;
-    const {
+    const isDashboardMapSurface = id === AUTO_PLAY_CARPLAY_DASHBOARD_MODULE_ID;
+    const { rendersDrivingStatus, rendersSpeedLimit } =
+        getAutoPlayDrivingStatusVisibility({
+            isDashboardMapSurface,
+            isRootMapSurface,
+        });
+    const rendersAppOverlays = getAutoPlayAppOverlayVisibility({
+        hostOwnsNavigationUI,
         rendersDrivingStatus,
-        rendersSpeedLimit,
-        secondaryDrivingStatusIsVisible,
-    } = getAutoPlayDrivingStatusVisibility({
-        isRootMapSurface,
-        showDrivingStatus,
-        showDrivingStatusOnSecondarySurfaces,
-        showSpeedLimitOnSecondarySurfaces,
     });
     const fittedDirectionsRouteKeyRef = useRef('');
     const fittedDrivingRouteOverviewKeyRef = useRef('');
@@ -1514,9 +1515,11 @@ export function AutoPlayMapSurfaceContent({
     const [followViewportAnchorY, setFollowViewportAnchorY] =
         useState(undefined);
     const [appliedMapLightPreset, setAppliedMapLightPreset] = useState(null);
+    const [compassNorthDirection, setCompassNorthDirection] = useState(0);
     const mapPreferences = useMapPreferencesState();
     const mockWazePoliceAlertsEnabled = useMockWazePoliceAlertsEnabled();
     const alertSurfaceVisibility = getAutoPlayAlertSurfaceVisibility({
+        isDashboardMapSurface,
         isRootMapSurface,
         policeAlertsVisible:
             mapPreferences.policeAlertsVisible || mockWazePoliceAlertsEnabled,
@@ -1544,6 +1547,12 @@ export function AutoPlayMapSurfaceContent({
         routePreviewIsActive,
         submittedSearchQuery: autoPlayState.submittedSearchQuery,
         submittedSearchResults,
+    });
+    const speedLimitIsRendered = getAutoPlaySpeedLimitVisibility({
+        hostOwnsNavigationUI,
+        rendersSpeedLimit,
+        searchResultsMapIsActive:
+            rendersDrivingStatus && searchResultsMapIsActive,
     });
     const mapBrowsingContextIsActive = Boolean(
         isRootMapSurface && (routePreviewIsActive || searchResultsMapIsActive),
@@ -1642,6 +1651,7 @@ export function AutoPlayMapSurfaceContent({
         mapBrowsingContextIsActive,
         mapPreferencesAreLoaded: mapPreferences.mapPreferencesAreLoaded,
         markersAreVisible: alertSurfaceVisibility.surveillanceMarkersVisible,
+        onCompassNorthDirectionChange: setCompassNorthDirection,
         scheduleSharedMarkerLoad: markerLoader.scheduleMarkerLoad,
         setUserLocation: mapPreferences.setUserLocation,
         userLocation: mapPreferences.userLocation,
@@ -1708,7 +1718,7 @@ export function AutoPlayMapSurfaceContent({
     const electronicHorizon = useElectronicHorizon({
         enabled:
             alertSurfaceVisibility.upcomingAlertsVisible &&
-            rendersDrivingStatus &&
+            rendersAppOverlays &&
             isDrivingMode &&
             !activeDirectionsRoute &&
             !searchResultsMapIsActive,
@@ -1731,11 +1741,24 @@ export function AutoPlayMapSurfaceContent({
         electronicHorizon,
         enabled:
             alertSurfaceVisibility.upcomingAlertsVisible &&
-            rendersDrivingStatus &&
+            rendersAppOverlays &&
             isDrivingMode &&
             !searchResultsMapIsActive,
         policeAlerts: policeAlertsLoader.policeAlerts,
         userLocation: mapPreferences.userLocation,
+    });
+
+    // ALPR and police warnings ride the car host's own navigation alert banner
+    // rather than an app-drawn card, so they are suppressed whenever another
+    // template owns the screen and the host would refuse the alert.
+    useAutoPlayNavigationAlerts({
+        currentSpeedMps: getRouteCurrentSpeedMps(mapPreferences.userLocation),
+        enabled:
+            rendersAppOverlays &&
+            alertSurfaceVisibility.upcomingAlertsVisible &&
+            !routePreviewIsActive &&
+            !searchResultsMapIsActive,
+        upcomingAlerts,
     });
     const directionsRouteFeatureCollection = useMemo(
         () => makeDirectionsRouteFeatureCollection(displayedDirectionsRoute),
@@ -1804,6 +1827,7 @@ export function AutoPlayMapSurfaceContent({
         electronicHorizonDebugFeatureCollection,
         directionsWaypointMarkers,
         hideCompassDuringNavigation: Boolean(
+            hideMapboxCompass ||
             (hideCompassDuringNavigation && activeDirectionsRoute) ||
             !mapContentVisibility.compassIsVisible,
         ),
@@ -1859,7 +1883,7 @@ export function AutoPlayMapSurfaceContent({
             handleLocationTrackingPress:
                 drivingMapViewMode === DRIVING_MAP_VIEW_ROUTE_OVERVIEW
                     ? handleDrivingMapViewPress
-                    : controller.drivingRecenterIsVisible
+                    : isDrivingMode
                       ? controller.handleDrivingRecenterPress
                       : controller.handleLocationTrackingPress,
             handlePan: controller.handlePan,
@@ -1871,7 +1895,6 @@ export function AutoPlayMapSurfaceContent({
             handleZoomOutPress: () => controller.handleZoomPress(-ZOOM_STEP),
         });
     }, [
-        controller.drivingRecenterIsVisible,
         controller.handleDrivingRecenterPress,
         controller.handleLocationTrackingPress,
         controller.handlePan,
@@ -1880,6 +1903,7 @@ export function AutoPlayMapSurfaceContent({
         controller.handleZoomPress,
         drivingMapViewMode,
         handleDrivingMapViewPress,
+        isDrivingMode,
         isRootMapSurface,
     ]);
 
@@ -1889,6 +1913,7 @@ export function AutoPlayMapSurfaceContent({
         }
 
         notifyAutoPlayMapButtonAppearance({
+            compassNorthDirection,
             drivingMapViewMode,
             isDarkMapLayer: presentation.isDarkMapLayer,
             mapLightPreset: appliedMapLightPreset,
@@ -1900,6 +1925,7 @@ export function AutoPlayMapSurfaceContent({
         });
     }, [
         appliedMapLightPreset,
+        compassNorthDirection,
         controller.drivingRecenterIsVisible,
         controller.locationTrackingMode,
         drivingMapViewMode,
@@ -2149,6 +2175,12 @@ export function AutoPlayMapSurfaceContent({
         viewportMetrics.key,
     ]);
 
+    // Secondary surfaces do not run their own location watch, so free-drive
+    // speed limits there follow whether the shared location was road matched.
+    const freeDriveIsActive = isRootMapSurface
+        ? controller.roadMatchedLocationWatchEnabled
+        : isRoadMatchedLocationUpdate(mapPreferences.userLocation);
+
     return (
         <MapScreenProviders {...autoPlayContextValues}>
             <View
@@ -2161,33 +2193,34 @@ export function AutoPlayMapSurfaceContent({
                 }}
             >
                 <MapCanvas />
-                {rendersDrivingStatus && !searchResultsMapIsActive ? (
-                    <AutoPlayMapStatusOverlay
-                        activeDirectionsRoute={activeDirectionsRoute}
-                        currentRoadPill={currentRoadPill}
-                        drivingStatusIsVisible={
-                            mapContentVisibility.drivingStatusIsVisible &&
-                            shouldShowDrivingMapStatus(drivingMapViewMode)
-                        }
-                        freeDriveIsActive={
-                            controller.roadMatchedLocationWatchEnabled ||
-                            secondaryDrivingStatusIsVisible
-                        }
-                        isDarkMode={presentation.isDarkMapLayer}
-                        markerLoader={markerLoader}
-                        mapPreferencesAreLoaded={
-                            mapPreferences.mapPreferencesAreLoaded
-                        }
-                        onLocationAnchorLayout={handleLocationAnchorLayout}
-                        navigationPuckSize={navigationPuckSize}
-                        presentation={presentation}
-                        rendersSpeedLimit={rendersSpeedLimit}
-                        speedLimitBadge={speedLimitBadge}
-                        userLocation={mapPreferences.userLocation}
-                        viewportMetrics={viewportMetrics}
-                    />
-                ) : null}
-                {rendersDrivingStatus ? (
+                {/* Always mounted: a host-owned surface hides the chrome but
+                    still follows the driver, and the follow camera reads its
+                    anchor off this overlay's puck slot. */}
+                <AutoPlayMapStatusOverlay
+                    activeDirectionsRoute={activeDirectionsRoute}
+                    currentRoadPill={currentRoadPill}
+                    drivingStatusIsVisible={
+                        mapContentVisibility.drivingStatusIsVisible &&
+                        shouldShowDrivingMapStatus(drivingMapViewMode)
+                    }
+                    freeDriveIsActive={freeDriveIsActive}
+                    isDarkMode={presentation.isDarkMapLayer}
+                    markerLoader={markerLoader}
+                    mapPreferencesAreLoaded={
+                        mapPreferences.mapPreferencesAreLoaded
+                    }
+                    onLocationAnchorLayout={handleLocationAnchorLayout}
+                    navigationPuckSize={navigationPuckSize}
+                    presentation={presentation}
+                    rendersSpeedLimit={speedLimitIsRendered}
+                    speedLimitBadge={speedLimitBadge}
+                    statusChromeIsVisible={
+                        rendersAppOverlays && !searchResultsMapIsActive
+                    }
+                    userLocation={mapPreferences.userLocation}
+                    viewportMetrics={viewportMetrics}
+                />
+                {rendersAppOverlays ? (
                     <AutoPlayTopRightStatusOverlay
                         isDarkMode={presentation.isDarkMapLayer}
                         mapControlLayoutInsets={
@@ -2196,12 +2229,6 @@ export function AutoPlayMapSurfaceContent({
                         routeLoading={autoPlayState.routeLoading}
                         singleResultCountdown={
                             autoPlayState.singleResultCountdown
-                        }
-                        upcomingAlerts={
-                            alertSurfaceVisibility.upcomingAlertsVisible &&
-                            !searchResultsMapIsActive
-                                ? upcomingAlerts
-                                : []
                         }
                     />
                 ) : null}

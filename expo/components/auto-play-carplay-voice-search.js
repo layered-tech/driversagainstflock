@@ -1,19 +1,13 @@
 const DEFAULT_SILENCE_THRESHOLD_MS = 1500;
 const DEFAULT_MAX_DURATION_MS = 10000;
-const DEFAULT_STARTUP_TIMEOUT_MS = 3000;
-const DEFAULT_STOP_TIMEOUT_MS = 2000;
 
 export function createCarPlayVoiceSearchController({
-    clearTimeoutFn = clearTimeout,
-    getHybridAutoPlay,
+    getHybridVoice,
+    isVoiceInputCanceledError = () => false,
     maxDurationMs = DEFAULT_MAX_DURATION_MS,
     onVoiceNavigation,
-    setTimeoutFn = setTimeout,
     silenceThresholdMs = DEFAULT_SILENCE_THRESHOLD_MS,
-    startupTimeoutMs = DEFAULT_STARTUP_TIMEOUT_MS,
-    stopTimeoutMs = DEFAULT_STOP_TIMEOUT_MS,
 }) {
-    let appInitiatedCancel = false;
     let generation = 0;
     let pendingSearch = null;
 
@@ -29,20 +23,12 @@ export function createCarPlayVoiceSearchController({
         const activeSearch = pendingSearch;
         pendingSearch = null;
 
-        if (activeSearch.startupTimeout !== null) {
-            clearTimeoutFn(activeSearch.startupTimeout);
-        }
-
-        if (activeSearch.stopFallbackTimeout !== null) {
-            clearTimeoutFn(activeSearch.stopFallbackTimeout);
-        }
-
         return activeSearch;
     };
 
-    const stopNativeVoiceInput = (HybridAutoPlay) => {
+    const stopNativeVoiceInput = (HybridVoice) => {
         try {
-            HybridAutoPlay?.stopVoiceInput();
+            HybridVoice?.stopVoiceInput();
         } catch {}
     };
 
@@ -52,19 +38,18 @@ export function createCarPlayVoiceSearchController({
         activeSearch?.[callbackName]?.();
     };
 
-    const requestPermissionsForNextAttempt = (HybridAutoPlay) => {
+    const requestPermissionsForNextAttempt = (HybridVoice) => {
         try {
-            Promise.resolve(
-                HybridAutoPlay.requestVoiceInputPermission?.(),
-            ).catch(() => {});
+            Promise.resolve(HybridVoice.requestVoiceInputPermission?.()).catch(
+                () => {},
+            );
         } catch {}
     };
 
     const cancel = () => {
-        appInitiatedCancel = true;
         generation += 1;
         clearPendingSearch();
-        stopNativeVoiceInput(getHybridAutoPlay());
+        stopNativeVoiceInput(getHybridVoice());
     };
 
     const start = ({
@@ -73,9 +58,9 @@ export function createCarPlayVoiceSearchController({
         onNoMatch = onFallback,
         onUnavailable = onFallback,
     }) => {
-        const HybridAutoPlay = getHybridAutoPlay();
+        const HybridVoice = getHybridVoice();
 
-        if (!HybridAutoPlay) {
+        if (!HybridVoice) {
             return false;
         }
 
@@ -83,20 +68,13 @@ export function createCarPlayVoiceSearchController({
             return true;
         }
 
-        cancel();
-
         const searchGeneration = generation + 1;
         generation = searchGeneration;
-        appInitiatedCancel = false;
         pendingSearch = {
             generation: searchGeneration,
             onCancelled,
-            onFallback,
             onNoMatch,
             onUnavailable,
-            startupTimeout: null,
-            stopFallbackTimeout: null,
-            unavailableAfterStop: false,
         };
 
         Promise.resolve()
@@ -104,8 +82,7 @@ export function createCarPlayVoiceSearchController({
                 let permissionIsGranted = false;
 
                 try {
-                    permissionIsGranted =
-                        HybridAutoPlay.hasVoiceInputPermission();
+                    permissionIsGranted = HybridVoice.hasVoiceInputPermission();
                 } catch {
                     permissionIsGranted = false;
                 }
@@ -116,91 +93,49 @@ export function createCarPlayVoiceSearchController({
 
                 if (!permissionIsGranted) {
                     finishSearch(searchGeneration, 'onUnavailable');
-                    requestPermissionsForNextAttempt(HybridAutoPlay);
+                    requestPermissionsForNextAttempt(HybridVoice);
                     return;
                 }
 
-                pendingSearch.startupTimeout = setTimeoutFn(() => {
-                    const activeSearch = pendingSearch;
-
-                    if (activeSearch?.generation !== searchGeneration) {
-                        return;
-                    }
-
-                    activeSearch.startupTimeout = null;
-                    activeSearch.unavailableAfterStop = true;
-                    stopNativeVoiceInput(HybridAutoPlay);
-                    activeSearch.stopFallbackTimeout = setTimeoutFn(() => {
-                        finishSearch(searchGeneration, 'onUnavailable');
-                    }, stopTimeoutMs);
-                }, startupTimeoutMs);
-
-                await HybridAutoPlay.startVoiceInput(
-                    silenceThresholdMs,
+                const result = await HybridVoice.startVoiceInput({
+                    listeningText: 'Where would you like to go?',
                     maxDurationMs,
-                    'Where would you like to go?',
-                );
+                    preferSpeechToText: true,
+                    silenceThresholdMs,
+                });
 
-                finishSearch(searchGeneration, 'onUnavailable');
+                if (pendingSearch?.generation !== searchGeneration) {
+                    return;
+                }
+
+                const query = String(result?.transcription ?? '').trim();
+
+                if (!query) {
+                    finishSearch(searchGeneration, 'onNoMatch');
+                    return;
+                }
+
+                clearPendingSearch(searchGeneration);
+                onVoiceNavigation(undefined, query, 'search');
             })
-            .catch(() => {
-                finishSearch(searchGeneration, 'onUnavailable');
+            .catch((error) => {
+                if (pendingSearch?.generation !== searchGeneration) {
+                    return;
+                }
+
+                finishSearch(
+                    searchGeneration,
+                    isVoiceInputCanceledError(error)
+                        ? 'onCancelled'
+                        : 'onUnavailable',
+                );
             });
 
         return true;
     };
 
-    const handleNativeEvent = (coordinates, query, requestType) => {
-        const activeSearch = pendingSearch;
-
-        if (!activeSearch) {
-            return;
-        }
-
-        if (requestType === 'searchListening') {
-            if (activeSearch.startupTimeout !== null) {
-                clearTimeoutFn(activeSearch.startupTimeout);
-                activeSearch.startupTimeout = null;
-            }
-            return;
-        }
-
-        if (requestType === 'searchNoMatch') {
-            finishSearch(activeSearch.generation, 'onNoMatch');
-            return;
-        }
-
-        if (requestType === 'searchError') {
-            finishSearch(activeSearch.generation, 'onUnavailable');
-            return;
-        }
-
-        if (requestType === 'searchCancelled') {
-            if (activeSearch.unavailableAfterStop) {
-                finishSearch(activeSearch.generation, 'onUnavailable');
-            } else if (appInitiatedCancel) {
-                clearPendingSearch(activeSearch.generation);
-            } else {
-                // The CPVoiceControlTemplate disappeared without any app-side
-                // stop: user cancel, Siri, or a system modal took it down.
-                finishSearch(activeSearch.generation, 'onCancelled');
-            }
-            return;
-        }
-
-        const trimmedQuery = String(query ?? '').trim();
-
-        if (requestType !== 'search' || !trimmedQuery) {
-            return;
-        }
-
-        clearPendingSearch(activeSearch.generation);
-        onVoiceNavigation(coordinates, trimmedQuery, requestType);
-    };
-
     return {
         cancel,
-        handleNativeEvent,
         start,
     };
 }

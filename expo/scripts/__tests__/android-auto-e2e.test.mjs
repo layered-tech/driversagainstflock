@@ -4,7 +4,6 @@ import { describe, test } from 'node:test';
 import {
     builtInDisplayHasState,
     childProcessIsRunning,
-    currentAutoPlayWakeLockIsHeld,
     DEFAULT_MAP_CROP,
     envFileHasNonEmptyValue,
     findNodeBounds,
@@ -419,21 +418,6 @@ describe('Android Auto E2E helpers', () => {
         );
     });
 
-    test('ignores historical wake-lock events', () => {
-        assert.equal(
-            currentAutoPlayWakeLockIsHeld(
-                "  PARTIAL_WAKE_LOCK 'AutoPlay:AndroidAutoSession' ACQ=-2m",
-            ),
-            true,
-        );
-        assert.equal(
-            currentAutoPlayWakeLockIsHeld(
-                '  08-05 20:56 - ACQ AutoPlay:AndroidAutoSession (partial)',
-            ),
-            false,
-        );
-    });
-
     test('distinguishes running children from signal-terminated children', () => {
         assert.equal(
             childProcessIsRunning({ exitCode: null, signalCode: null }),
@@ -629,7 +613,6 @@ describe('Android Auto E2E helpers', () => {
         runner.dhuProcess = { exitCode: null, signalCode: null };
         runner.dhuProcessError = null;
         runner.serviceRunning = () => true;
-        runner.wakeLockHeld = () => true;
         runner.waitFor = async (predicate) =>
             assert.equal(await predicate(), true);
         runner.waitForMetroMarker = async (...args) => markers.push(args);

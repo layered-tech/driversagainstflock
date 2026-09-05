@@ -14,6 +14,7 @@ import { ContributeProvider } from '../components/contribute/contribute-state';
 import { Icon } from '../components/design-system/icon';
 import { SharedMapStateProvider } from '../components/map/shared-map-state';
 import { AppDrawerContent } from '../components/root/app-drawer-content';
+import { AndroidGeoIntentHandler } from '../components/root/android-geo-intent-handler';
 import { AuthCallbackHandler } from '../components/root/auth-callback-handler';
 import { DebugDrawer } from '../components/root/debug-drawer';
 import { E2EMapApiMockHandler } from '../components/root/e2e-map-api-mock-handler';
@@ -68,6 +69,7 @@ function RootLayout() {
                         <E2EMapApiMockHandler />
                         <SystemBars />
                         <SharedMapStateProvider>
+                            <AndroidGeoIntentHandler />
                             <ContributeProvider>
                                 <View style={{ flex: 1 }}>
                                     <Drawer

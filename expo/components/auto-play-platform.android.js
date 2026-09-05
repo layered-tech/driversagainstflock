@@ -1,8 +1,38 @@
-import { AndroidAutoMapSurface } from './android-auto-map-surface';
+import { syncAndroidAutoHostLifecycle } from './android-auto-host-lifecycle';
+import {
+    AndroidAutoClusterSurface,
+    AndroidAutoMapSurface,
+} from './android-auto-map-surface';
+import { addAutoPlaySessionStateListener } from './auto-play-session-state';
 
 // Android Auto extension of the platform-agnostic auto-play core.
 export const autoPlayPlatform = {
+    ClusterSurface: AndroidAutoClusterSurface,
     MapSurface: AndroidAutoMapSurface,
+    createErrorTemplate({
+        autoPlayModule,
+        headerActions,
+        message,
+        searchAction,
+        title,
+    }) {
+        const { InformationTemplate } = autoPlayModule;
+
+        return new InformationTemplate({
+            actions: {
+                android: [searchAction],
+            },
+            headerActions,
+            items: [
+                {
+                    detailedText: message,
+                    title,
+                    type: 'text',
+                },
+            ],
+            title,
+        });
+    },
     logAction(action, payload = {}) {
         if (typeof __DEV__ === 'undefined' || !__DEV__) {
             return;
@@ -11,13 +41,10 @@ export const autoPlayPlatform = {
         console.log(`[Android Auto] ${action}`, payload);
     },
     showsSearchResultsOnMap: true,
-    supportsSearchAutocomplete: false,
     maneuverCardAppearance: 'dark',
     maneuverCardIconColor: '#ffffff',
-    // Android Auto owns the pan affordance in the map action strip. Keeping the
-    // old driving-mode toggle in the header made it look like the required pan
-    // action had been replaced even though the host may hide PAN on touch units.
-    usesHeaderDrivingModeButton: false,
+    usesSearchOnlyRootHeaderAction: true,
+    usesDrivingMapViewButtonForDebugging: true,
 
     // MapTemplate callbacks that only exist on Android Auto: double-tap zoom
     // and the Play Store AUTO_DRIVE simulation handshake.
@@ -39,5 +66,9 @@ export const autoPlayPlatform = {
         );
         // "Hey Google, navigate to…" style OS voice events only fire on Android.
         autoPlayModule.HybridAutoPlay.addListenerVoiceInput(onVoiceNavigation);
+        // Android pauses the React host together with the phone activity, which
+        // freezes the car surface once the phone locks. Keep the host resumed for
+        // as long as a car session is connected.
+        addAutoPlaySessionStateListener(syncAndroidAutoHostLifecycle);
     },
 };
