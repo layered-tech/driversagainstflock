@@ -70,7 +70,35 @@ test('CarPlay reapplies Dashboard shortcuts after its scene connects', () => {
 test('CarPlay consumes Dashboard Nitro promises without hiding failures', () => {
     assert.match(
         iosPlatformSource,
-        /Promise\.resolve\(\s*CarPlayDashboard\.setButtons\([\s\S]*?\.catch\(\(error\) => \{[\s\S]*?console\.warn\([\s\S]*?error/,
+        /return CarPlayDashboard\.setButtons\(\[[\s\S]*?\]\)\.catch\(\(error\) => \{[\s\S]*?console\.warn\([\s\S]*?error/,
+    );
+    assert.doesNotMatch(
+        iosPlatformSource,
+        /Promise\.resolve\(\s*CarPlayDashboard\.setButtons/,
+    );
+
+    // The fork's JS Dashboard wrapper must hand the Nitro promise back rather
+    // than swallowing it, otherwise the `.catch` above never sees a failure.
+    const dashboardSceneSources = [
+        'src/scenes/CarPlayDashboardScene.ts',
+        'lib/scenes/CarPlayDashboardScene.js',
+    ].map((file) => readFileSync(join(autoPlayPackageRoot, file), 'utf8'));
+    for (const source of dashboardSceneSources) {
+        assert.match(
+            source,
+            /setButtons\(buttons[^{]*\{[\s\S]*?return Promise\.resolve\(\);[\s\S]*?return HybridCarPlayDashboard\.setButtons\(/,
+        );
+        assert.match(
+            source,
+            /HybridCarPlayDashboard\.initRootView\(\)\.catch\(\(error\) => \{[\s\S]*?console\.warn\('CarPlayDashboard\.initRootView failed', error\)/,
+        );
+    }
+    assert.match(
+        readFileSync(
+            join(autoPlayPackageRoot, 'lib/scenes/CarPlayDashboardScene.d.ts'),
+            'utf8',
+        ),
+        /setButtons\(buttons: Array<CarPlayDashboardButton>\): Promise<void>;/,
     );
 });
 
