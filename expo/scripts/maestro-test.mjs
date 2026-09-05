@@ -406,6 +406,16 @@ function tailFile(file, lineCount = 60) {
     return readFileSync(file, 'utf8').split('\n').slice(-lineCount).join('\n');
 }
 
+export function createManagedMetroExitMessage({ flowName, logTail, metroLog }) {
+    return [
+        `Managed Metro exited while running ${flowName}. The development client falls back to its launcher screen without Metro, so the remaining flows cannot pass.`,
+        `Metro log: ${metroLog}`,
+        logTail,
+    ]
+        .filter(Boolean)
+        .join('\n');
+}
+
 export class MaestroTestRunner {
     constructor({
         args = process.argv.slice(2),
@@ -800,11 +810,15 @@ export class MaestroTestRunner {
                 `Running ${flowName} (attempt ${attempt}/${maximumAttempts})`,
             );
 
+            this.assertManagedMetroIsRunning(flowName);
+
             const status = this.runMaestroFlow(flow);
 
             if (status === 0) {
                 return;
             }
+
+            this.assertManagedMetroIsRunning(flowName);
 
             if (attempt < maximumAttempts) {
                 this.report(`Retrying failed Maestro flow: ${flowName}`);
@@ -814,6 +828,24 @@ export class MaestroTestRunner {
                 );
             }
         }
+    }
+
+    assertManagedMetroIsRunning(flowName) {
+        if (
+            !this.manageMetro ||
+            !this.metroProcess ||
+            processIsRunning(this.metroProcess)
+        ) {
+            return;
+        }
+
+        throw new Error(
+            createManagedMetroExitMessage({
+                flowName,
+                logTail: tailFile(this.metroLog),
+                metroLog: this.metroLog,
+            }),
+        );
     }
 
     async stopMetro() {

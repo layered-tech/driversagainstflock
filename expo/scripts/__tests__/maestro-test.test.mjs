@@ -11,6 +11,7 @@ import {
     createAndroidDevClientLaunchArgs,
     createExpoDevClientUrl,
     createExpoStartArgs,
+    createManagedMetroExitMessage,
     createMetroNodeOptions,
     parseAdbDevices,
     parseBootedIosSimulators,
@@ -571,5 +572,37 @@ R58M offline
         assert.equal(source.match(/- swipe:/g)?.length, 3);
         assert.equal(source.match(/timeout: 1000(?:\s|$)/g)?.length, 3);
         assert.doesNotMatch(source, /- assertNotVisible:/);
+    });
+});
+
+describe('Managed Metro crash reporting', () => {
+    test('names the flow, the Metro log, and the log tail', () => {
+        const message = createManagedMetroExitMessage({
+            flowName: '.maestro/node-location-editor.yml',
+            logTail:
+                "TypeError: Cannot read properties of undefined (reading 'addedFiles')",
+            metroLog: '/builds/maestro/metro-android.log',
+        });
+
+        assert.match(
+            message,
+            /Managed Metro exited while running \.maestro\/node-location-editor\.yml/,
+        );
+        assert.match(message, /launcher screen/);
+        assert.match(
+            message,
+            /Metro log: \/builds\/maestro\/metro-android\.log/,
+        );
+        assert.match(message, /addedFiles/);
+    });
+
+    test('omits an empty log tail', () => {
+        const message = createManagedMetroExitMessage({
+            flowName: 'flow.yml',
+            logTail: '',
+            metroLog: '/builds/metro.log',
+        });
+
+        assert.equal(message.split('\n').length, 2);
     });
 });

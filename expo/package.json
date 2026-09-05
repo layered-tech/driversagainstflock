@@ -67,7 +67,7 @@
         "expo-system-ui": "~57.0.2",
         "expo-task-manager": "~57.0.8",
         "expo-web-browser": "~57.0.2",
-        "nativewind": "^4.2.3",
+        "nativewind": "^4.2.6",
         "react": "19.2.3",
         "react-dom": "19.2.3",
         "react-native": "0.86.2",
