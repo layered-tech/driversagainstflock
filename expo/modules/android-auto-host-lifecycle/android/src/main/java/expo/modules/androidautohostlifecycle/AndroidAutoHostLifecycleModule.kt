@@ -38,6 +38,7 @@ class AndroidAutoHostLifecycleModule : Module() {
 
     private var observedApplication: Application? = null
     private var observedReactContext: ReactContext? = null
+    private val resumeHostRunnable = Runnable { resumeHostForCarSession() }
 
     private val reactHost: ReactHost?
         get() = (observedReactContext?.applicationContext as? ReactApplication)?.reactHost
@@ -52,10 +53,14 @@ class AndroidAutoHostLifecycleModule : Module() {
 
             // React Native finishes its own pause transition after notifying
             // listeners, so resume the host on the next main-thread turn.
-            UiThreadUtil.runOnUiThread { resumeHostForCarSession() }
+            hostActivityIsPaused = true
+            scheduleHostResumeForCarSession()
         }
 
-        override fun onHostDestroy() = Unit
+        override fun onHostDestroy() {
+            hostActivityIsPaused = true
+            scheduleHostResumeForCarSession()
+        }
     }
 
     private val activityLifecycleCallbacks = object : Application.ActivityLifecycleCallbacks {
@@ -73,7 +78,8 @@ class AndroidAutoHostLifecycleModule : Module() {
 
         override fun onActivityDestroyed(activity: Activity) {
             if (activity is ReactActivity) {
-                hostActivityIsPaused = false
+                hostActivityIsPaused = true
+                scheduleHostResumeForCarSession()
             }
         }
 
@@ -95,13 +101,15 @@ class AndroidAutoHostLifecycleModule : Module() {
 
             observedReactContext = reactContext
             observedApplication = application
-            hostActivityIsPaused = reactContext.currentActivity != null &&
+            hostActivityIsPaused = reactContext.currentActivity == null ||
                 reactContext.lifecycleState != LifecycleState.RESUMED
             reactContext.addLifecycleEventListener(hostLifecycleListener)
             application?.registerActivityLifecycleCallbacks(activityLifecycleCallbacks)
         }
 
         OnDestroy {
+            carSessionIsConnected = false
+            UiThreadUtil.removeOnUiThread(resumeHostRunnable)
             observedReactContext?.removeLifecycleEventListener(hostLifecycleListener)
             observedApplication?.unregisterActivityLifecycleCallbacks(activityLifecycleCallbacks)
             observedReactContext = null
@@ -119,16 +127,23 @@ class AndroidAutoHostLifecycleModule : Module() {
         }.runOnQueue(Queues.MAIN)
     }
 
+    private fun scheduleHostResumeForCarSession() {
+        if (isApplyingHostLifecycle || !carSessionIsConnected) {
+            return
+        }
+
+        UiThreadUtil.removeOnUiThread(resumeHostRunnable)
+        UiThreadUtil.runOnUiThread(resumeHostRunnable)
+    }
+
     private fun resumeHostForCarSession() {
         if (!carSessionIsConnected || !hostActivityIsPaused) {
             return
         }
 
         val host = reactHost ?: return
-        val activity = observedReactContext?.currentActivity ?: return
-
-        if (activity.isFinishing || activity.isDestroyed) {
-            return
+        val activity = observedReactContext?.currentActivity?.takeUnless {
+            it.isFinishing || it.isDestroyed
         }
 
         if (host.lifecycleState == LifecycleState.RESUMED) {
@@ -136,6 +151,7 @@ class AndroidAutoHostLifecycleModule : Module() {
         }
 
         applyHostLifecycle {
+            // ReactHost supports a null Activity for a car-only runtime.
             host.onHostResume(activity, activity as? DefaultHardwareBackBtnHandler)
         }
     }

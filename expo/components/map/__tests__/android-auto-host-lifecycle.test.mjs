@@ -208,18 +208,45 @@ describe('Android Auto host lifecycle native module', () => {
         );
         assert.match(
             hostLifecycleModuleSource,
-            /override fun onActivityDestroyed\(activity: Activity\) \{[\s\S]*?hostActivityIsPaused = false/,
+            /override fun onActivityDestroyed\(activity: Activity\) \{[\s\S]*?hostActivityIsPaused = true[\s\S]*?scheduleHostResumeForCarSession\(\)/,
         );
     });
 
     test('resumes the host after React Native pauses it during a car session', () => {
         assert.match(
             hostLifecycleModuleSource,
-            /override fun onHostPause\(\) \{[\s\S]*?if \(isApplyingHostLifecycle \|\| !carSessionIsConnected\)[\s\S]*?UiThreadUtil\.runOnUiThread \{ resumeHostForCarSession\(\) \}/,
+            /override fun onHostPause\(\) \{[\s\S]*?if \(isApplyingHostLifecycle \|\| !carSessionIsConnected\)[\s\S]*?hostActivityIsPaused = true[\s\S]*?scheduleHostResumeForCarSession\(\)/,
         );
         assert.match(
             hostLifecycleModuleSource,
-            /private fun resumeHostForCarSession\(\) \{[\s\S]*?if \(!carSessionIsConnected \|\| !hostActivityIsPaused\)[\s\S]*?activity\.isFinishing \|\| activity\.isDestroyed[\s\S]*?host\.lifecycleState == LifecycleState\.RESUMED[\s\S]*?host\.onHostResume\(activity, activity as\? DefaultHardwareBackBtnHandler\)/,
+            /private fun resumeHostForCarSession\(\) \{[\s\S]*?if \(!carSessionIsConnected \|\| !hostActivityIsPaused\)[\s\S]*?host\.lifecycleState == LifecycleState\.RESUMED[\s\S]*?host\.onHostResume\(activity, activity as\? DefaultHardwareBackBtnHandler\)/,
+        );
+    });
+
+    test('supports cold car starts and activity destruction without opening the phone', () => {
+        assert.match(
+            hostLifecycleModuleSource,
+            /hostActivityIsPaused = reactContext\.currentActivity == null \|\|/,
+        );
+        assert.doesNotMatch(
+            hostLifecycleModuleSource,
+            /currentActivity \?: return|startActivity|FLAG_TURN_SCREEN_ON|WakeLock/,
+        );
+        assert.match(
+            hostLifecycleModuleSource,
+            /val activity = observedReactContext\?\.currentActivity\?\.takeUnless \{[\s\S]*?it\.isFinishing \|\| it\.isDestroyed/,
+        );
+        assert.match(
+            hostLifecycleModuleSource,
+            /override fun onHostDestroy\(\) \{[\s\S]*?hostActivityIsPaused = true[\s\S]*?scheduleHostResumeForCarSession\(\)/,
+        );
+        assert.match(
+            hostLifecycleModuleSource,
+            /UiThreadUtil\.runOnUiThread\(resumeHostRunnable\)/,
+        );
+        assert.match(
+            hostLifecycleModuleSource,
+            /OnDestroy \{\s*carSessionIsConnected = false\s*UiThreadUtil\.removeOnUiThread\(resumeHostRunnable\)/,
         );
     });
 

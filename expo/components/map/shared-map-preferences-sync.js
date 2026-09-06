@@ -6,6 +6,7 @@ import {
     getAllDebugOverlayVisibility,
     getDebugOverlayVisibilityKey,
 } from './debug-overlays';
+import { locationUpdateIsStale } from './location-watch-options';
 import { getSharedMapLocationKey } from './shared-map-location-key';
 
 const DEFAULT_SHARED_MAP_PREFERENCES_STATE = {
@@ -91,11 +92,33 @@ export function getSharedMapPreferencesState() {
     return sharedMapPreferencesState;
 }
 
+export function getSharedMapUserLocation() {
+    return sharedMapPreferencesState.userLocation;
+}
+
+export function setSharedMapUserLocation(locationOrUpdater) {
+    const userLocation =
+        typeof locationOrUpdater === 'function'
+            ? locationOrUpdater(getSharedMapUserLocation())
+            : locationOrUpdater;
+
+    setSharedMapPreferencesState({ userLocation });
+}
+
 export function setSharedMapPreferencesState(nextState) {
     const normalizedState = {
         ...sharedMapPreferencesState,
         ...nextState,
     };
+
+    if (
+        locationUpdateIsStale({
+            currentLocation: sharedMapPreferencesState.userLocation,
+            nextLocation: normalizedState.userLocation,
+        })
+    ) {
+        normalizedState.userLocation = sharedMapPreferencesState.userLocation;
+    }
 
     if (
         mapPreferencesStatesAreEqual(sharedMapPreferencesState, normalizedState)

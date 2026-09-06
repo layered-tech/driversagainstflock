@@ -1,5 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+    useSyncExternalStore,
+} from 'react';
 import { AppState } from 'react-native';
 import {
     getStoredAdvancedRouteSettings,
@@ -36,7 +42,9 @@ import { createMapPreferencesPersistenceScheduler } from './map-preferences-pers
 import {
     addSharedMapPreferencesStateListener,
     getSharedMapPreferencesState,
+    getSharedMapUserLocation,
     setSharedMapPreferencesState,
+    setSharedMapUserLocation,
 } from './shared-map-preferences-sync';
 
 const mapPreferencesPersistenceScheduler =
@@ -105,9 +113,12 @@ export function useMapPreferencesState() {
         x: sharedMapPreferences.mapDebugControlOffset?.x ?? 0,
         y: sharedMapPreferences.mapDebugControlOffset?.y ?? 0,
     });
-    const [userLocation, setUserLocation] = useState(
-        sharedMapPreferences.userLocation,
+    const userLocation = useSyncExternalStore(
+        addSharedMapPreferencesStateListener,
+        getSharedMapUserLocation,
+        getSharedMapUserLocation,
     );
+    const setUserLocation = setSharedMapUserLocation;
     const applySharedMapPreferences = useCallback(
         (preferences) => {
             if (!preferences?.mapPreferencesAreLoaded) {
@@ -170,7 +181,6 @@ export function useMapPreferencesState() {
                     ? currentOffset
                     : nextMapDebugControlOffset,
             );
-            setUserLocation(preferences.userLocation ?? null);
         },
         [defaultMapLightPresetPreference, defaultMapStyleURL],
     );
@@ -267,7 +277,10 @@ export function useMapPreferencesState() {
                     setInitialCameraSettings(
                         getInitialCameraSettings(storedUserLocation),
                     );
-                    setUserLocation(storedUserLocation);
+                    setUserLocation(
+                        (currentLocation) =>
+                            currentLocation ?? storedUserLocation,
+                    );
                 }
             } catch {
                 // Map preferences are a convenience; invalid storage should not block the map.
@@ -331,7 +344,6 @@ export function useMapPreferencesState() {
             cameraConesVisible,
             preferPrivateRoutes,
             policeAlertsVisible,
-            userLocation,
         });
     }, [
         advancedRouteSettings,
@@ -348,7 +360,6 @@ export function useMapPreferencesState() {
         cameraConesVisible,
         preferPrivateRoutes,
         policeAlertsVisible,
-        userLocation,
     ]);
 
     useEffect(() => {
