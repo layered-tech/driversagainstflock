@@ -32,14 +32,11 @@ function getDrivingProviderLocation(location, fallbackHeading) {
         return null;
     }
 
-    const isMoving = location?.isMoving === true;
     const courseHeading = normalizeOptionalHeading(
         location?.courseHeading ?? location?.heading,
     );
     const compassHeading = normalizeOptionalHeading(location?.compassHeading);
-    const heading = isMoving
-        ? (courseHeading ?? compassHeading)
-        : (compassHeading ?? courseHeading);
+    const heading = courseHeading ?? compassHeading;
     const resolvedFallbackHeading = normalizeOptionalHeading(fallbackHeading);
     const recordedAt = getFiniteNumber(location?.recordedAt);
 

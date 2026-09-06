@@ -159,7 +159,11 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(
             drivingLocationProviderSource,
-            /const heading = isMoving[\s\S]*?courseHeading \?\? compassHeading[\s\S]*?compassHeading \?\? courseHeading/,
+            /const heading = courseHeading \?\? compassHeading/,
+        );
+        assert.match(
+            mapLocationControllerSource,
+            /getLocationWithDrivingMotionState\(\{[^}]*previousLocation/s,
         );
         assert.match(
             drivingLocationProviderSource,

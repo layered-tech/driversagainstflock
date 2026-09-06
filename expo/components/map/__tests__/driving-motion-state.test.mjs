@@ -54,6 +54,56 @@ describe('driving motion state', () => {
         );
     });
 
+    for (const heading of [0, 45, 135, 225, 315, 359]) {
+        test(`holds the last travel heading of ${heading} degrees through a stop`, () => {
+            let previousLocation = getLocationWithDrivingMotionState({
+                compassHeading: null,
+                courseHeading: heading,
+                motionState: { isMoving: true, speed: 8 },
+                nextLocation: { latitude: 30, longitude: -97 },
+            });
+
+            for (const compassHeading of [180, 270, 45, null]) {
+                const location = getLocationWithDrivingMotionState({
+                    compassHeading,
+                    courseHeading: null,
+                    motionState: { isMoving: false, speed: 0 },
+                    nextLocation: { latitude: 30, longitude: -97 },
+                    previousLocation,
+                });
+
+                assert.equal(location.heading, heading);
+                assert.equal(location.courseHeading, undefined);
+                assert.equal(location.isMoving, false);
+                previousLocation = location;
+            }
+
+            const resumedHeading = (heading + 90) % 360;
+            const resumedLocation = getLocationWithDrivingMotionState({
+                compassHeading: 180,
+                courseHeading: resumedHeading,
+                motionState: { isMoving: true, speed: 8 },
+                nextLocation: { latitude: 30.0001, longitude: -97 },
+                previousLocation,
+            });
+
+            assert.equal(resumedLocation.heading, resumedHeading);
+            assert.equal(resumedLocation.courseHeading, resumedHeading);
+        });
+    }
+
+    test('leaves the initial stopped direction available to the compass', () => {
+        const location = getLocationWithDrivingMotionState({
+            compassHeading: 135,
+            courseHeading: null,
+            motionState: { isMoving: false, speed: 0 },
+            nextLocation: { latitude: 30, longitude: -97 },
+        });
+
+        assert.equal(location.heading, undefined);
+        assert.equal(location.compassHeading, 135);
+    });
+
     test('uses derived movement when an e2e provider reports zero speed', () => {
         const motionState = resolveDrivingMotionState({
             derivedMotion: {

@@ -746,6 +746,7 @@ export function useMapLocationController({
                 courseHeading: currentCourseHeadingRef.current,
                 motionState,
                 nextLocation,
+                previousLocation,
             });
 
             userLocationRef.current = nextLocationWithHeading;

@@ -3,8 +3,10 @@ export function getLocationWithDrivingMotionState({
     courseHeading,
     motionState,
     nextLocation,
+    previousLocation,
 }) {
     const activeCourseHeading = motionState.isMoving ? courseHeading : null;
+    const heading = activeCourseHeading ?? previousLocation?.heading ?? null;
 
     return {
         ...nextLocation,
@@ -13,9 +15,9 @@ export function getLocationWithDrivingMotionState({
         ...(activeCourseHeading !== null
             ? {
                   courseHeading: activeCourseHeading,
-                  heading: activeCourseHeading,
               }
             : {}),
+        ...(heading !== null ? { heading } : {}),
         ...(compassHeading !== null ? { compassHeading } : {}),
     };
 }
