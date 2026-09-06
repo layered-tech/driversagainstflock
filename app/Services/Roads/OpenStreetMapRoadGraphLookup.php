@@ -179,7 +179,7 @@ class OpenStreetMapRoadGraphLookup
         );
         $cellCoverageMeters = (int) ceil(($gridMeters / sqrt(2)) * 1.02);
         $cacheKey = sprintf(
-            'road-corridor:v7:%d:%d:%d:%d',
+            'road-corridor:v8:%d:%d:%d:%d',
             $gridMeters,
             $latitudeCell,
             $longitudeCell,
@@ -329,6 +329,7 @@ class OpenStreetMapRoadGraphLookup
             'name' => $this->stringValue($tags['name'] ?? null),
             'ref' => $this->stringValue($tags['ref'] ?? null),
             'road_class' => $roadClass,
+            'is_roundabout' => strtolower(trim((string) ($tags['junction'] ?? ''))) === 'roundabout',
             'tunnel' => $this->isTruthyOsmValue($tags['tunnel'] ?? null),
             'layer' => $this->layer($tags['layer'] ?? null),
             'maxspeed' => $maxspeed,

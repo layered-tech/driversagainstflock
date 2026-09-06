@@ -11,9 +11,9 @@ import { getDirections } from './api';
 import { DEBUG_OVERLAY_DIRECTIONS_GEOMETRY } from './debug-overlays';
 import {
     createCurrentLocationDirectionsWaypoint,
+    createDirectionsRouteProgressTracker,
     getActiveDirectionsManeuver,
     getDirectionsRouteBounds,
-    getDirectionsRouteProgress,
     getDirectionsWaypointApiCoord,
     getDirectionsWaypointCoordinate,
     getNextDirectionsManeuver,
@@ -110,6 +110,9 @@ export function DrivingGuidanceOverlay({
     const rerouteAbortControllerRef = useRef(null);
     const lastRerouteAtRef = useRef(0);
     const [rerouteIsLoading, setRerouteIsLoading] = useState(false);
+    const [routeProgressTracker] = useState(
+        createDirectionsRouteProgressTracker,
+    );
     const {
         debugOverlayVisibility,
         directionsRoute,
@@ -123,8 +126,8 @@ export function DrivingGuidanceOverlay({
     const e2eDrivingAlertsFixture = useE2EDrivingAlertsFixture();
     const routeOption = getSelectedDirectionsRouteOption(directionsRoute);
     const routeProgress = useMemo(
-        () => getDirectionsRouteProgress(directionsRoute, userLocation),
-        [directionsRoute, userLocation],
+        () => routeProgressTracker.update(directionsRoute, userLocation),
+        [directionsRoute, routeProgressTracker, userLocation],
     );
     const routeDeviationDistance = getActiveRouteDeviationDistanceMeters({
         routeProgress,

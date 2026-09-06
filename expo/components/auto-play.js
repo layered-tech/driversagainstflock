@@ -50,6 +50,7 @@ import { e2eMapApiMocksCanBeEnabled } from './map/api-mocks';
 import { PLACE_SEARCH_MIN_QUERY_LENGTH } from './map/constants';
 import {
     createCurrentLocationDirectionsWaypoint,
+    createDirectionsRouteProgressTracker,
     createPlaceDirectionsWaypoint,
     DIRECTIONS_ROUTE_FASTEST,
     DIRECTIONS_ROUTE_PRIVATE,
@@ -218,6 +219,7 @@ let singleResultCountdownRequestSequence = 0;
 let routePreviewIsVisible = false;
 let routePreviewRequestSequence = 0;
 let activeNavigationRoute = null;
+const navigationProgressTracker = createDirectionsRouteProgressTracker();
 let autoPlayHostNavigationIsActive = false;
 let lastNavigationGuidanceLocation = null;
 let lastNavigationGuidanceUpdatedAt = 0;
@@ -2060,7 +2062,7 @@ function updateNavigationGuidance(userLocation) {
 
     const routeGeneration = navigationRouteGeneration;
     const routeOption = getSelectedDirectionsRouteOption(activeNavigationRoute);
-    const routeProgress = getDirectionsRouteProgress(
+    const routeProgress = navigationProgressTracker.update(
         activeNavigationRoute,
         userLocation,
     );
@@ -2819,6 +2821,7 @@ async function stopAutoPlayNavigation({
     const locationUpdatesStopped = stopNavigationLocationUpdates();
     autoPlayHostNavigationIsActive = false;
     activeNavigationRoute = null;
+    navigationProgressTracker.reset();
     activeNavigationDestination = null;
     routePreviewIsVisible = false;
     lastNavigationGuidanceLocation = null;
@@ -3758,6 +3761,7 @@ function clearAutoPlayNavigationRuntime() {
     void stopNavigationLocationUpdates();
     autoPlayHostNavigationIsActive = false;
     activeNavigationRoute = null;
+    navigationProgressTracker.reset();
     activeNavigationDestination = null;
     lastNavigationGuidanceLocation = null;
     routePreviewIsVisible = false;

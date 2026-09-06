@@ -1,3 +1,7 @@
+import {
+    ACTIVE_ROUTE_DEVIATION_THRESHOLD_METERS,
+    getActiveRouteDeviationDistanceMeters,
+} from './active-route-deviation';
 import { EMPTY_FEATURE_COLLECTION } from './constants';
 import { getStoredNumber, normalizeLongitude } from './geo';
 import { shouldKeepCurrentManeuverActive } from './navigation-advancement';
@@ -819,10 +823,18 @@ function getCumulativeRouteDistances(coordinates) {
     return distances;
 }
 
-function getClosestRoutePosition(projectionPath, userCoordinate) {
+function getClosestRoutePosition(
+    projectionPath,
+    userCoordinate,
+    previousProgress,
+) {
     const projection = projectCoordinateOntoRoute(
         projectionPath,
         userCoordinate,
+        {
+            previousDistanceAlongRouteMeters:
+                previousProgress?.alongRouteDistance,
+        },
     );
 
     if (projection) {
@@ -939,7 +951,11 @@ function getUpcomingManeuver(maneuvers, progressDistance) {
     );
 }
 
-export function getDirectionsRouteProgress(route, userLocation) {
+export function getDirectionsRouteProgress(
+    route,
+    userLocation,
+    previousProgress = null,
+) {
     const { coordinates, projectionPath } = getRouteProgressData(route);
 
     if (coordinates.length < 2) {
@@ -952,7 +968,84 @@ export function getDirectionsRouteProgress(route, userLocation) {
         return null;
     }
 
-    return getClosestRoutePosition(projectionPath, userCoordinate);
+    return getClosestRoutePosition(
+        projectionPath,
+        userCoordinate,
+        previousProgress,
+    );
+}
+
+export function createDirectionsRouteProgressTracker() {
+    let coordinates = null;
+    let requestedAt = null;
+    let previousProgress = null;
+    let latestProgress = null;
+    let latestRecordedAt = null;
+
+    function reset() {
+        coordinates = null;
+        requestedAt = null;
+        previousProgress = null;
+        latestProgress = null;
+        latestRecordedAt = null;
+    }
+
+    function update(route, userLocation) {
+        const nextCoordinates =
+            getSelectedDirectionsRouteOption(route)?.coordinates ?? null;
+        const nextRequestedAt = route?.requestedAt ?? null;
+
+        if (
+            coordinates !== nextCoordinates ||
+            requestedAt !== nextRequestedAt
+        ) {
+            reset();
+            coordinates = nextCoordinates;
+            requestedAt = nextRequestedAt;
+        }
+
+        if (!userLocation) {
+            return null;
+        }
+
+        const recordedAt = getStoredNumber(
+            userLocation.recordedAt ?? userLocation.timestamp,
+        );
+
+        if (
+            recordedAt !== null &&
+            latestRecordedAt !== null &&
+            recordedAt < latestRecordedAt
+        ) {
+            return latestProgress;
+        }
+
+        const progress = getDirectionsRouteProgress(
+            route,
+            userLocation,
+            userLocation.roadMatch?.isTeleport ? null : previousProgress,
+        );
+
+        if (!progress) {
+            return null;
+        }
+
+        latestProgress = progress;
+        latestRecordedAt = recordedAt;
+
+        if (
+            getActiveRouteDeviationDistanceMeters({
+                routeProgress: progress,
+                userLocation,
+            }) <= ACTIVE_ROUTE_DEVIATION_THRESHOLD_METERS
+        ) {
+            previousProgress = progress;
+        }
+
+        return progress;
+    }
+
+    return { reset, update };
 }
 
 export function getRemainingDirectionsStopWaypoints(route, routeProgress) {
@@ -1018,7 +1111,7 @@ export function getActiveDirectionsManeuver(
             );
         }
 
-        if (shouldHoldRoundaboutManeuver(currentManeuver)) {
+        if (shouldHoldRoundaboutManeuver(currentManeuver, userLocation)) {
             return decorateActiveManeuver(currentManeuver, 0);
         }
 

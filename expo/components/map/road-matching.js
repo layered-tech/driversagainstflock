@@ -604,6 +604,7 @@ function makeMatchedResult({
             edgeMatchProbability,
             fraction: candidate.fraction,
             isOffRoad: false,
+            isRoundabout: segment.isRoundabout,
             isTeleport,
             layer: segment.layer,
             osmWayId: segment.osmWayId,

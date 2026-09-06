@@ -161,6 +161,7 @@ it('returns normalized drivable ways around the requested location', function ()
                     'name' => 'Southwest Main Street',
                     'ref' => 'US 26',
                     'road_class' => 'primary',
+                    'is_roundabout' => false,
                     'tunnel' => true,
                     'layer' => -1,
                     'maxspeed' => '35 mph',
@@ -182,6 +183,7 @@ it('returns normalized drivable ways around the requested location', function ()
                     'name' => null,
                     'ref' => null,
                     'road_class' => 'secondary',
+                    'is_roundabout' => false,
                     'tunnel' => false,
                     'layer' => 0,
                     'maxspeed' => '80',
@@ -329,8 +331,11 @@ it('applies implied road direction defaults and caches identical lookups', funct
     $this->getJson($uri)
         ->assertOk()
         ->assertJsonPath('result.ways.0.direction', 'both')
+        ->assertJsonPath('result.ways.0.is_roundabout', false)
         ->assertJsonPath('result.ways.1.direction', 'forward')
-        ->assertJsonPath('result.ways.2.direction', 'both');
+        ->assertJsonPath('result.ways.1.is_roundabout', false)
+        ->assertJsonPath('result.ways.2.direction', 'both')
+        ->assertJsonPath('result.ways.2.is_roundabout', true);
 
     $this->getJson($uri)->assertOk();
 

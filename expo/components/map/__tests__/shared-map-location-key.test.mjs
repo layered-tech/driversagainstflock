@@ -10,6 +10,19 @@ const baseLocation = {
 };
 
 describe('shared map location metadata', () => {
+    test('publishes roundabout metadata updates at the same GPS fix', () => {
+        const inside = { ...baseLocation, roadMatch: { isRoundabout: true } };
+        const outside = { ...baseLocation, roadMatch: { isRoundabout: false } };
+        assert.notEqual(
+            getSharedMapLocationKey(inside),
+            getSharedMapLocationKey(outside),
+        );
+        assert.notEqual(
+            getSharedMapLocationKey(baseLocation),
+            getSharedMapLocationKey(outside),
+        );
+    });
+
     test('changes when road and speed-limit data arrives at the same GPS fix', () => {
         const matchedLocation = {
             ...baseLocation,

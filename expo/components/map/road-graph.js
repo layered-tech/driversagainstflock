@@ -292,6 +292,8 @@ function createDirectedSegment({
         end,
         id: `${way.id}:${index}:${direction}`,
         index,
+        isRoundabout:
+            typeof way.isRoundabout === 'boolean' ? way.isRoundabout : null,
         layer: getFiniteNumber(way.layer) ?? 0,
         lengthMeters,
         osmWayId:

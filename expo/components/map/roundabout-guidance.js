@@ -10,6 +10,10 @@ export function getRoundaboutExitNumber(maneuver) {
     return Number.isInteger(exitNumber) && exitNumber >= 1 ? exitNumber : null;
 }
 
-export function shouldHoldRoundaboutManeuver(maneuver) {
-    return Number(maneuver?.type) === 7;
+export function shouldHoldRoundaboutManeuver(maneuver, userLocation) {
+    const roadMatch = userLocation?.roadMatch;
+    const isOnExitRoad =
+        roadMatch?.isOffRoad === false && roadMatch?.isRoundabout === false;
+
+    return Number(maneuver?.type) === 7 && !isOnExitRoad;
 }

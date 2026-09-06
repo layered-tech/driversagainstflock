@@ -96,6 +96,6 @@ test('mobile and route progress retain the numbered roundabout badge', () => {
     );
     assert.match(
         directionsSource,
-        /shouldHoldRoundaboutManeuver\(currentManeuver\)/,
+        /shouldHoldRoundaboutManeuver\(currentManeuver, userLocation\)/,
     );
 });

@@ -106,6 +106,48 @@ describe('directed road graph', () => {
 });
 
 describe('stateful road matcher', () => {
+    test('reports roundabout membership on the circle and the exit road', () => {
+        const graph = createDirectedRoadGraph([
+            {
+                id: 'roundabout',
+                coordinates: [
+                    fixtureCoordinate(0, 0),
+                    fixtureCoordinate(100, 0),
+                ],
+                nodeIds: ['entrance', 'exit'],
+                isRoundabout: true,
+                oneWay: true,
+            },
+            {
+                id: 'exit-road',
+                coordinates: [
+                    fixtureCoordinate(100, 0),
+                    fixtureCoordinate(200, 0),
+                ],
+                nodeIds: ['exit', 'after-exit'],
+                isRoundabout: false,
+                oneWay: true,
+            },
+        ]);
+        const matcher = createRoadMatcher(graph);
+        const inside = matcher.update(
+            makeFixtureObservation({ x: 50, y: 0, timestamp: 1000 }),
+        );
+        const outside = matcher.update(
+            makeFixtureObservation({ x: 150, y: 0, timestamp: 6000 }),
+        );
+        assert.equal(inside.roadMatch.isRoundabout, true);
+        assert.equal(outside.roadMatch.isRoundabout, false);
+    });
+
+    test('keeps roundabout membership unknown for older road data', () => {
+        const matcher = createRoadMatcher(createRoadMatchingFixtureGraph());
+        const result = matcher.update(
+            makeFixtureObservation({ x: 50, y: 0, timestamp: 1000 }),
+        );
+        assert.equal(result.roadMatch.isRoundabout, null);
+    });
+
     test('prefers the active route over a closer parallel road until the raw fix moves off route', () => {
         const graph = createDirectedRoadGraph([
             {

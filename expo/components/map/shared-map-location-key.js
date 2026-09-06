@@ -24,6 +24,7 @@ export function getSharedMapLocationKey(location) {
         location.roadMatch?.edgeId,
         location.roadMatch?.wayId,
         location.roadMatch?.isOffRoad,
+        location.roadMatch?.isRoundabout,
         roadContext?.primaryText,
         roadContext?.isOffRoad,
         roadComponents.join('|'),
