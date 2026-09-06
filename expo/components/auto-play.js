@@ -455,6 +455,8 @@ function getLocationFromPosition(position) {
     return {
         latitude,
         longitude,
+        recordedAt: position.timestamp,
+        roadMatch: position.roadMatch,
     };
 }
 

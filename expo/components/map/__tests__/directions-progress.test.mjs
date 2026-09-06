@@ -51,6 +51,18 @@ function loadMapModule(url) {
 
 const directions = loadMapModule(new URL('../directions.js', import.meta.url));
 
+const autoPlaySource = readFileSync(
+    new URL('../../auto-play.js', import.meta.url),
+    'utf8',
+);
+const autoPlayLocationFunctions = autoPlaySource.match(
+    /^function (?:getFiniteNumber|getLocationFromPosition)\([^]*?^}/gm,
+);
+assert.equal(autoPlayLocationFunctions?.length, 2);
+const getAutoPlayLocationFromPosition = new Function(
+    `${autoPlayLocationFunctions.join('\n')}\nreturn getLocationFromPosition;`,
+)();
+
 function locationAt(coordinate, recordedAt, isRoundabout) {
     return {
         latitude: coordinate[1],
@@ -112,6 +124,86 @@ describe('driving maneuver sequences', () => {
             directions.getActiveDirectionsManeuver(route, afterExit).stepIndex,
             2,
         );
+    });
+
+    test('automotive guidance advances with the phone after leaving a roundabout', () => {
+        const route = makeRoute(coordinates, maneuvers);
+        const phoneTracker = directions.createDirectionsRouteProgressTracker();
+        const carTracker = directions.createDirectionsRouteProgressTracker();
+
+        for (const [index, isRoundabout, expectedType] of [
+            [2, true, 7],
+            [5, false, 1],
+        ]) {
+            const phoneLocation = locationAt(
+                coordinates[index],
+                index * 1000,
+                isRoundabout,
+            );
+            const carLocation = getAutoPlayLocationFromPosition({
+                coords: {
+                    latitude: phoneLocation.latitude,
+                    longitude: phoneLocation.longitude,
+                },
+                roadMatch: phoneLocation.roadMatch,
+                timestamp: phoneLocation.recordedAt,
+            });
+            const phoneProgress = phoneTracker.update(route, phoneLocation);
+            const carProgress = carTracker.update(route, carLocation);
+            const phoneManeuver = directions.getActiveDirectionsManeuver(
+                route,
+                phoneLocation,
+                phoneProgress,
+            );
+            const carManeuver = directions.getActiveDirectionsManeuver(
+                route,
+                carLocation,
+                carProgress,
+            );
+
+            assert.equal(phoneManeuver.type, expectedType);
+            assert.deepEqual(carManeuver, phoneManeuver);
+            assert.deepEqual(
+                directions.getNextDirectionsManeuver(
+                    route,
+                    carLocation,
+                    carProgress,
+                ),
+                directions.getNextDirectionsManeuver(
+                    route,
+                    phoneLocation,
+                    phoneProgress,
+                ),
+            );
+        }
+    });
+
+    test('automotive locations preserve fix time and road-match context without inventing an exit', () => {
+        for (const roadMatch of [
+            undefined,
+            { isOffRoad: true, isRoundabout: false },
+            { isOffRoad: false, isRoundabout: null, isTeleport: true },
+        ]) {
+            const carLocation = getAutoPlayLocationFromPosition({
+                coords: {
+                    latitude: coordinates[2][1],
+                    longitude: coordinates[2][0],
+                },
+                roadMatch,
+                timestamp: 1000,
+            });
+
+            assert.equal(carLocation.recordedAt, 1000);
+            assert.deepEqual(carLocation.roadMatch, roadMatch);
+            assert.equal(
+                directions.getActiveDirectionsManeuver(
+                    makeRoute(coordinates, maneuvers),
+                    carLocation,
+                ).type,
+                7,
+            );
+        }
+        assert.equal(getAutoPlayLocationFromPosition(null), null);
     });
 
     test('carries API roundabout metadata through road matching into live guidance', async (context) => {
