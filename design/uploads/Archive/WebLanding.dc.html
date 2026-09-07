@@ -2,21 +2,21 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta content="width=device-width, initial-scale=1" name="viewport">
 <script src="./support.js"></script>
 </head>
 <body>
 <x-dc>
 <!-- page name="Web — Landing" description="Privacy-first marketing landing: map preview, the John Doe story, how-it-works, Android Auto, app download." -->
 <helmet>
-  <link rel="stylesheet" href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css">
-  <link rel="stylesheet" href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css">
-  <link rel="stylesheet" href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css">
-  <link rel="stylesheet" href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css">
-  <link rel="stylesheet" href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css">
-  <link rel="stylesheet" href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css">
-  <link rel="stylesheet" href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css">
-  <script src="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js"></script>
+  <link href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css" rel="stylesheet">
+  <link href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css" rel="stylesheet">
+  <link href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css" rel="stylesheet">
+  <link href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css" rel="stylesheet">
+  <link href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css" rel="stylesheet">
+  <link href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css" rel="stylesheet">
+  <link href="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css" rel="stylesheet">
+  <script src="_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js"></script>
   <style>
     *{ box-sizing:border-box; }
     html{ scroll-behavior:smooth; }
@@ -70,28 +70,28 @@
   </style>
 </helmet>
 
-<div data-theme="{{ theme }}" data-screen-label="Web — Landing" style="font-family:var(--font-ui); color:var(--text-primary); background:var(--surface-page); min-height:100vh; -webkit-font-smoothing:antialiased;">
+<div data-screen-label="Web — Landing" data-theme="{{ theme }}" style="font-family:var(--font-ui); color:var(--text-primary); background:var(--surface-page); min-height:100vh; -webkit-font-smoothing:antialiased;">
 
   <!-- ===================== HEADER ===================== -->
-  <x-import component-from-global-scope="DesignSystem_c71fad.SiteHeader" logo-src="assets/logo-mark.png" variant="marketing" logo-href="#top" links="{{ navLinks }}" cta="{{ headerCta }}" hint-size="100%,68px"></x-import>
+  <x-import component-from-global-scope="DesignSystem_c71fad.SiteHeader" cta="{{ headerCta }}" hint-size="100%,68px" links="{{ navLinks }}" logo-href="#top" logo-src="assets/logo-mark.png" variant="marketing"></x-import>
 
   <!-- ===================== HERO ===================== -->
   <section id="top" style="border-bottom:1px solid var(--border);">
     <!-- SPLIT LAYOUT -->
-    <sc-if value="{{ heroSplit }}" hint-placeholder-val="{{ true }}">
+    <sc-if hint-placeholder-val="{{ true }}" value="{{ heroSplit }}">
       <div style="max-width:var(--width-content); margin:0 auto; padding:80px 24px 88px; display:grid; grid-template-columns:1.05fr 1fr; gap:56px; align-items:center;">
         <div>
           <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand); font-weight:var(--fw-bold); margin-bottom:18px;">Privacy-first navigation</div>
           <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-display-lg); line-height:var(--lh-display-lg); letter-spacing:var(--ls-display); margin:0 0 20px; text-wrap:balance;">See what's watching the road. Then drive around it.</h1>
           <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); max-width:46ch; margin:0 0 28px;">Drivers Against Flock maps the license-plate readers and roadside cameras along your route — then offers a quieter way through. The fastest way, or the one with fewer little boxes on poles.</p>
           <div style="display:flex; gap:10px; max-width:440px; margin-bottom:16px;">
-            <div style="flex:1;"><x-import component-from-global-scope="DesignSystem_c71fad.Input" tone="light" size="lg" placeholder="Enter your ZIP code" hint-size="100%,52px"></x-import></div>
-            <a href="WebFullMap.dc.html" style="text-decoration:none;"><x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="lg" hint-size="auto,52px">Check my area</x-import></a>
+            <div style="flex:1;"><x-import component-from-global-scope="DesignSystem_c71fad.Input" hint-size="100%,52px" placeholder="Enter your ZIP code" size="lg" tone="light"></x-import></div>
+            <a href="WebFullMap.dc.html" style="text-decoration:none;"><x-import component-from-global-scope="DesignSystem_c71fad.Button" hint-size="auto,52px" size="lg" variant="primary">Check my area</x-import></a>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="ghost" hint-size="auto,24px">Free, always</x-import>
-            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="ghost" hint-size="auto,24px">No login</x-import>
-            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="ghost" hint-size="auto,24px">No tracking, ever</x-import>
+            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" hint-size="auto,24px" tone="ghost">Free, always</x-import>
+            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" hint-size="auto,24px" tone="ghost">No login</x-import>
+            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" hint-size="auto,24px" tone="ghost">No tracking, ever</x-import>
           </div>
         </div>
         <div id="preview">{{ heroMapCard }}</div>
@@ -99,14 +99,14 @@
     </sc-if>
 
     <!-- CENTERED LAYOUT -->
-    <sc-if value="{{ heroCentered }}" hint-placeholder-val="{{ true }}">
+    <sc-if hint-placeholder-val="{{ true }}" value="{{ heroCentered }}">
       <div style="max-width:980px; margin:0 auto; padding:76px 24px 0; text-align:center;">
         <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand); font-weight:var(--fw-bold); margin-bottom:18px;">Privacy-first navigation</div>
         <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-display-xl); line-height:var(--lh-display-xl); letter-spacing:var(--ls-display); margin:0 0 22px; text-wrap:balance;">These devices are everywhere. Now you can see them.</h1>
         <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); max-width:60ch; margin:0 auto 30px;">Drivers Against Flock maps the license-plate readers and roadside cameras along your route — then offers a quieter way through. The fastest way, or the one with fewer little boxes on poles.</p>
         <div style="display:flex; gap:10px; max-width:480px; margin:0 auto 36px;">
-          <div style="flex:1;"><x-import component-from-global-scope="DesignSystem_c71fad.Input" tone="light" size="lg" placeholder="Enter your ZIP code" hint-size="100%,52px"></x-import></div>
-          <a href="WebFullMap.dc.html" style="text-decoration:none;"><x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="primary" size="lg" hint-size="auto,52px">Check my area</x-import></a>
+          <div style="flex:1;"><x-import component-from-global-scope="DesignSystem_c71fad.Input" hint-size="100%,52px" placeholder="Enter your ZIP code" size="lg" tone="light"></x-import></div>
+          <a href="WebFullMap.dc.html" style="text-decoration:none;"><x-import component-from-global-scope="DesignSystem_c71fad.Button" hint-size="auto,52px" size="lg" variant="primary">Check my area</x-import></a>
         </div>
       </div>
       <div id="preview" style="max-width:var(--width-content); margin:0 auto; padding:0 24px 80px;">{{ heroMapCard }}</div>
@@ -126,7 +126,7 @@
 
         <!-- MAP -->
         <div style="position:relative; border-radius:var(--radius-xl); overflow:hidden; border:1px solid var(--border); min-height:520px; box-shadow:var(--shadow-card);">
-          <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
+          <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
           {{ johnDoeOverlay }}
           <!-- tracking chip -->
           <div style="position:absolute; left:14px; top:14px; z-index:7; display:flex; align-items:center; gap:9px; padding:9px 13px; background:var(--surface-glass-2); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-radius:var(--radius-md); box-shadow:var(--shadow-float);">
@@ -148,7 +148,7 @@
           <!-- timer control -->
           <div style="display:flex; flex-direction:column; gap:9px; padding:14px 16px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg);">
             <div style="display:flex; align-items:center; gap:12px;">
-              <button onClick="{{ togglePlay }}" aria-label="Pause or resume auto-cycle" style="display:inline-flex; align-items:center; justify-content:center; gap:7px; height:36px; padding:0 14px; border:1px solid var(--border-strong); background:var(--surface-card-alt); color:var(--text-primary); border-radius:var(--radius-md); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:pointer; flex:0 0 auto;">{{ playPauseIcon }}<span>{{ playPauseLabel }}</span></button>
+              <button aria-label="Pause or resume auto-cycle" onClick="{{ togglePlay }}" style="display:inline-flex; align-items:center; justify-content:center; gap:7px; height:36px; padding:0 14px; border:1px solid var(--border-strong); background:var(--surface-card-alt); color:var(--text-primary); border-radius:var(--radius-md); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:pointer; flex:0 0 auto;">{{ playPauseIcon }}<span>{{ playPauseLabel }}</span></button>
               <div style="flex:1; height:6px; border-radius:999px; background:var(--surface-card-alt); overflow:hidden;">{{ progressFill }}</div>
               <span style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap; min-width:52px; text-align:right;">{{ countdownLabel }}</span>
             </div>
@@ -156,8 +156,8 @@
           </div>
 
           <!-- pattern cards -->
-          <sc-for list="{{ patterns }}" as="p" hint-placeholder-count="4">
-            <sc-if value="{{ p.isActive }}" hint-placeholder-val="{{ false }}">
+          <sc-for as="p" hint-placeholder-count="4" list="{{ patterns }}">
+            <sc-if hint-placeholder-val="{{ false }}" value="{{ p.isActive }}">
               <div onClick="{{ p.onSelect }}" style="cursor:pointer; position:relative; padding:18px 18px 18px 22px; background:var(--surface-card); border:1.5px solid var(--alert-500); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); overflow:hidden;">
                 <span style="position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--alert-500);"></span>
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
@@ -168,13 +168,13 @@
                 <div style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); margin-bottom:11px;">{{ p.when }}</div>
                 <p style="font-size:var(--fs-body-sm); line-height:1.5; color:var(--text-secondary); margin:0 0 13px;">{{ p.desc }}</p>
                 <div style="display:flex; flex-wrap:wrap; gap:6px;">
-                  <sc-for list="{{ p.camChips }}" as="c" hint-placeholder-count="3">
+                  <sc-for as="c" hint-placeholder-count="3" list="{{ p.camChips }}">
                     <span style="display:inline-flex; align-items:center; gap:5px; font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-secondary); background:var(--surface-card-alt); border:1px solid var(--border); padding:3px 8px; border-radius:999px;"><span style="width:6px; height:6px; border-radius:50%; background:var(--alert-500); flex:0 0 auto;"></span>{{ c }}</span>
                   </sc-for>
                 </div>
               </div>
             </sc-if>
-            <sc-if value="{{ p.isInactive }}" hint-placeholder-val="{{ true }}">
+            <sc-if hint-placeholder-val="{{ true }}" value="{{ p.isInactive }}">
               <div onClick="{{ p.onSelect }}" style="cursor:pointer; display:flex; align-items:center; gap:12px; padding:14px 16px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); opacity:0.7;">
                 <span style="font-family:var(--font-mono); font-size:var(--fs-caption); font-weight:var(--fw-bold); color:var(--text-tertiary); flex:0 0 auto;">{{ p.num }}</span>
                 <div style="flex:1; min-width:0;">
@@ -199,7 +199,7 @@
         <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); margin:0;">You don't have to do anything wrong — or anything at all — to end up in the dataset. Here's the chain, in plain terms.</p>
       </div>
       <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:20px;">
-        <sc-for list="{{ steps }}" as="s" hint-placeholder-count="4">
+        <sc-for as="s" hint-placeholder-count="4" list="{{ steps }}">
           <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:26px 24px 28px; display:flex; flex-direction:column; height:100%;">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;">
               <div style="display:inline-flex; align-items:center; justify-content:center; width:52px; height:52px; border-radius:var(--radius-md); background:var(--brand-soft); color:var(--text-brand);">{{ s.icon }}</div>
@@ -223,32 +223,32 @@
           <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); max-width:46ch; margin:0 0 28px;">Turn-by-turn navigation that knows where the cameras are. Free, no account, nothing to cancel.</p>
           <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
             <a href="#apps" style="text-decoration:none; display:flex; align-items:center; gap:11px; padding:11px 18px; background:var(--surface-inverse); color:var(--text-inverse); border-radius:var(--radius-md); min-width:204px;">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.03 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"></path></svg>
+              <svg fill="currentColor" height="22" viewBox="0 0 24 24" width="22"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.03 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"></path></svg>
               <span style="display:flex; flex-direction:column; line-height:1.15; white-space:nowrap;"><span style="font-size:11px; opacity:0.7;">Download on</span><span style="font-size:16px; font-weight:var(--fw-bold);">the App Store</span></span>
             </a>
             <a href="#apps" style="text-decoration:none; display:flex; align-items:center; gap:11px; padding:11px 18px; background:var(--surface-inverse); color:var(--text-inverse); border-radius:var(--radius-md); min-width:204px;">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M22.018 13.298l-3.919 2.218-3.515-3.493 3.543-3.521 3.891 2.202a1.49 1.49 0 0 1 0 2.594zM1.337.924a1.486 1.486 0 0 0-.112.568v21.017c0 .217.045.419.124.6l11.155-11.087L1.337.924zm12.207 10.065l3.258-3.238L3.45.195a1.466 1.466 0 0 0-.946-.179l11.04 10.973zm0 2.067l-11 10.933c.298.036.612-.016.906-.183l13.324-7.54-3.23-3.21z"></path></svg>
+              <svg fill="currentColor" height="22" viewBox="0 0 24 24" width="22"><path d="M22.018 13.298l-3.919 2.218-3.515-3.493 3.543-3.521 3.891 2.202a1.49 1.49 0 0 1 0 2.594zM1.337.924a1.486 1.486 0 0 0-.112.568v21.017c0 .217.045.419.124.6l11.155-11.087L1.337.924zm12.207 10.065l3.258-3.238L3.45.195a1.466 1.466 0 0 0-.946-.179l11.04 10.973zm0 2.067l-11 10.933c.298.036.612-.016.906-.183l13.324-7.54-3.23-3.21z"></path></svg>
               <span style="display:flex; flex-direction:column; line-height:1.15; white-space:nowrap;"><span style="font-size:11px; opacity:0.7;">Get it on</span><span style="font-size:16px; font-weight:var(--fw-bold);">Google Play</span></span>
             </a>
           </div>
           <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:18px; font-size:var(--fs-body-sm); color:var(--text-secondary);">
             <a href="#apps" style="display:inline-flex; align-items:center; gap:7px; color:var(--text-primary); font-weight:var(--fw-semibold); text-decoration:none;">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M4 21h16"></path></svg>
+              <svg fill="none" height="15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" viewBox="0 0 24 24" width="15"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M4 21h16"></path></svg>
               Download the APK directly
             </a>
             <span>— no Google Play account needed. Verify the SHA-256 checksum before installing.</span>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="brand" hint-size="auto,24px">Android Auto — available now</x-import>
-            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="neutral" hint-size="auto,24px">CarPlay — in testing</x-import>
+            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" hint-size="auto,24px" tone="brand">Android Auto — available now</x-import>
+            <x-import component-from-global-scope="DesignSystem_c71fad.Badge" hint-size="auto,24px" tone="neutral">CarPlay — in testing</x-import>
           </div>
         </div>
         <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-2xl); padding:32px;">
           <div style="font-family:var(--font-display); font-weight:600; font-size:var(--fs-h3); margin-bottom:20px;">Our promise</div>
           <div style="display:flex; flex-direction:column; gap:16px;">
-            <sc-for list="{{ promises }}" as="p" hint-placeholder-count="4">
+            <sc-for as="p" hint-placeholder-count="4" list="{{ promises }}">
               <div style="display:flex; gap:12px; align-items:flex-start;">
-                <span style="color:var(--brand); flex:0 0 auto; margin-top:1px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+                <span style="color:var(--brand); flex:0 0 auto; margin-top:1px;"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" viewBox="0 0 24 24" width="20"><path d="M20 6 9 17l-5-5"></path></svg></span>
                 <div><div style="font-size:var(--fs-body); font-weight:var(--fw-semibold);">{{ p.title }}</div><div style="font-size:var(--fs-body-sm); color:var(--text-secondary);">{{ p.body }}</div></div>
               </div>
             </sc-for>
@@ -274,7 +274,7 @@
           <!-- left rail: maneuver + trip -->
           <div style="position:relative; z-index:5; width:38%; min-width:300px; background:var(--surface-card); border-right:1px solid var(--border); display:flex; flex-direction:column; padding:26px 24px;">
             <div style="display:flex; align-items:center; gap:18px; margin-bottom:8px;">
-              <span style="display:inline-flex; align-items:center; justify-content:center; width:60px; height:60px; border-radius:var(--radius-md); background:var(--brand); color:#fff; flex:0 0 auto;"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M9 18l6-6-6-6"></path></svg></span>
+              <span style="display:inline-flex; align-items:center; justify-content:center; width:60px; height:60px; border-radius:var(--radius-md); background:var(--brand); color:#fff; flex:0 0 auto;"><svg fill="none" height="34" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" style="display:block;" viewBox="0 0 24 24" width="34"><path d="M9 18l6-6-6-6"></path></svg></span>
               <div style="font-family:var(--font-mono); font-weight:800; font-size:34px; color:var(--text-primary); line-height:1;">0.3<span style="font-size:18px; font-weight:600; color:var(--text-secondary); margin-left:4px;">mi</span></div>
             </div>
             <div style="font-family:var(--font-display); font-weight:700; font-size:26px; letter-spacing:var(--ls-heading); line-height:1.15; color:var(--text-primary);">Turn right onto<br>Market St</div>
@@ -283,8 +283,8 @@
             <div style="flex:1;"></div>
 
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
-              <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="brand" hint-size="auto,26px">Private route</x-import>
-              <x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="neutral" hint-size="auto,26px">0 cameras ahead</x-import>
+              <x-import component-from-global-scope="DesignSystem_c71fad.Badge" hint-size="auto,26px" tone="brand">Private route</x-import>
+              <x-import component-from-global-scope="DesignSystem_c71fad.Badge" hint-size="auto,26px" tone="neutral">0 cameras ahead</x-import>
             </div>
             <div style="display:flex; align-items:baseline; gap:12px; padding-top:16px; border-top:1px solid var(--border);">
               <span style="font-family:var(--font-mono); font-weight:800; font-size:30px; color:var(--text-brand); line-height:1;">12 min</span>
@@ -294,15 +294,15 @@
 
           <!-- map area -->
           <div style="position:relative; flex:1;">
-            <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible; z-index:2; pointer-events:none;">
-              <path d="M50 92 C 50 74, 54 60, 48 46 S 40 26, 56 10" fill="none" stroke="var(--route-private-casing)" stroke-width="13" vector-effect="non-scaling-stroke" stroke-linecap="round"></path>
-              <path d="M50 92 C 50 74, 54 60, 48 46 S 40 26, 56 10" fill="none" stroke="var(--route-private)" stroke-width="8" vector-effect="non-scaling-stroke" stroke-linecap="round"></path>
+            <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
+            <svg preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible; z-index:2; pointer-events:none;" viewBox="0 0 100 100">
+              <path d="M50 92 C 50 74, 54 60, 48 46 S 40 26, 56 10" fill="none" stroke="var(--route-private-casing)" stroke-linecap="round" stroke-width="13" vector-effect="non-scaling-stroke"></path>
+              <path d="M50 92 C 50 74, 54 60, 48 46 S 40 26, 56 10" fill="none" stroke="var(--route-private)" stroke-linecap="round" stroke-width="8" vector-effect="non-scaling-stroke"></path>
             </svg>
-            <div style="position:absolute; left:50%; bottom:14%; transform:translate(-50%,50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="user" heading="0" hint-size="64px,64px"></x-import></div>
-            <div style="position:absolute; left:12px; bottom:12px; z-index:6;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" limit="35" current="{{ n32 }}" size="{{ n62 }}" hint-size="62px,86px"></x-import></div>
+            <div style="position:absolute; left:50%; bottom:14%; transform:translate(-50%,50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="0" hint-size="64px,64px" variant="user"></x-import></div>
+            <div style="position:absolute; left:12px; bottom:12px; z-index:6;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" current="{{ n32 }}" hint-size="62px,86px" limit="35" size="{{ n62 }}"></x-import></div>
             <div style="position:absolute; right:12px; bottom:12px; z-index:6; display:flex; flex-direction:column; gap:10px;">
-              <span style="display:inline-flex; align-items:center; justify-content:center; width:50px; height:50px; border-radius:var(--radius-sm); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); box-shadow:var(--shadow-float); color:var(--text-primary);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="2" x2="5" y1="12" y2="12"></line><line x1="19" x2="22" y1="12" y2="12"></line><line x1="12" x2="12" y1="2" y2="5"></line><line x1="12" x2="12" y1="19" y2="22"></line><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="1"></circle></svg></span>
+              <span style="display:inline-flex; align-items:center; justify-content:center; width:50px; height:50px; border-radius:var(--radius-sm); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); box-shadow:var(--shadow-float); color:var(--text-primary);"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="22"><line x1="2" x2="5" y1="12" y2="12"></line><line x1="19" x2="22" y1="12" y2="12"></line><line x1="12" x2="12" y1="2" y2="5"></line><line x1="12" x2="12" y1="19" y2="22"></line><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="1"></circle></svg></span>
             </div>
           </div>
         </div>
@@ -310,7 +310,7 @@
 
       <!-- feature row -->
       <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:20px; margin-top:32px;">
-        <sc-for list="{{ autoFeatures }}" as="f" hint-placeholder-count="3">
+        <sc-for as="f" hint-placeholder-count="3" list="{{ autoFeatures }}">
           <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:24px;">
             <div style="display:inline-flex; align-items:center; justify-content:center; width:46px; height:46px; border-radius:var(--radius-md); background:var(--brand-soft); color:var(--text-brand); margin-bottom:14px;">{{ f.icon }}</div>
             <h3 style="font-family:var(--font-display); font-weight:600; font-size:var(--fs-h3); letter-spacing:var(--ls-heading); margin:0 0 6px;">{{ f.title }}</h3>
@@ -331,11 +331,11 @@
       </div>
 
       <div style="display:flex; flex-direction:column; gap:12px;">
-        <sc-for list="{{ faqs }}" as="f" hint-placeholder-count="6">
+        <sc-for as="f" hint-placeholder-count="6" list="{{ faqs }}">
           <div class="daf-faq-item" data-open="{{ f.openAttr }}">
-            <button class="daf-faq-q" onClick="{{ f.onToggle }}" aria-expanded="{{ f.expanded }}">
+            <button aria-expanded="{{ f.expanded }}" class="daf-faq-q" onClick="{{ f.onToggle }}">
               <span style="font-family:var(--font-display); font-weight:600; font-size:var(--fs-h3); letter-spacing:var(--ls-heading); line-height:1.3;">{{ f.q }}</span>
-              <span class="daf-faq-chev"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m6 9 6 6 6-6"></path></svg></span>
+              <span class="daf-faq-chev"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="22"><path d="m6 9 6 6 6-6"></path></svg></span>
             </button>
             <div class="daf-faq-ans">
               <div>
@@ -353,7 +353,7 @@
     <div style="max-width:var(--width-content); margin:0 auto; padding:36px 24px;">
       <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
         <div style="flex:1 1 200px; display:flex; align-items:center; gap:10px;">
-          <img src="assets/logo-mark.png" alt="DAF" style="width:28px; height:28px; object-fit:contain; border-radius:var(--radius-xs);">
+          <img alt="DAF" src="assets/logo-mark.png" style="width:28px; height:28px; object-fit:contain; border-radius:var(--radius-xs);">
           <span style="font-family:var(--font-display); font-weight:700; font-size:15px;">Drivers Against Flock</span>
         </div>
         <div style="flex:0 1 auto; text-align:center; font-size:var(--fs-body-sm); color:var(--text-tertiary); max-width:42ch;">Camera data from OpenStreetMap contributors. We don't keep your trips. We don't sell them, either.</div>
@@ -367,7 +367,7 @@
         <div style="flex:1 1 200px; font-size:var(--fs-caption); color:var(--text-tertiary);">© 2026 LayeredTech, LLC. All rights reserved.</div>
         <div style="flex:0 1 auto; text-align:center; font-size:var(--fs-body-sm); color:var(--text-secondary);"><a href="mailto:driversagainstflock@proton.me" style="color:inherit; text-decoration:none;">driversagainstflock@proton.me</a></div>
         <div style="flex:1 1 200px; display:flex; justify-content:flex-end; align-items:center; gap:22px; font-size:var(--fs-body-sm); color:var(--text-secondary);">
-          <a href="https://github.com/driversagainstflock" aria-label="GitHub" style="display:inline-flex; align-items:center; color:inherit;"><svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path></svg></a>
+          <a aria-label="GitHub" href="https://github.com/driversagainstflock" style="display:inline-flex; align-items:center; color:inherit;"><svg aria-hidden="true" fill="currentColor" height="18" viewBox="0 0 16 16" width="18"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path></svg></a>
           <a href="PrivacyPolicy.dc.html" style="text-decoration:none;">Privacy Policy</a>
           <a href="TermsOfUse.dc.html" style="text-decoration:none;">Terms of Use</a>
         </div>
@@ -377,7 +377,7 @@
 
 </div>
 </x-dc>
-<script data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:3200},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;heroLayout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;split&quot;,&quot;centered&quot;],&quot;default&quot;:&quot;split&quot;,&quot;tsType&quot;:&quot;'split' | 'centered'&quot;}}" type="text/x-dc">
+<script data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:3200},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;heroLayout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;split&quot;,&quot;centered&quot;],&quot;default&quot;:&quot;split&quot;,&quot;tsType&quot;:&quot;'split' | 'centered'&quot;}}" type="text/x-dc">
 class Component extends DCLogic {
   state = { active: 0, playing: true, progress: 0, faqOpen: 0 };
 

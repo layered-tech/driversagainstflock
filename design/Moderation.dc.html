@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1" name="viewport">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- page name="Web — Moderation" description="ALPR moderation dashboard: recent OpenStreetMap changesets touching surveillance nodes, sortable and filterable, paginated at 200 rows." -->
+<helmet>
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css" rel="stylesheet">
+  <script src="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js"></script>
+  <style>
+    *{ box-sizing:border-box; }
+    body{ margin:0; background:var(--surface-page); }
+    a{ color:var(--text-brand); }
+    a:hover{ color:var(--brand); }
+    .flt-input{ height:40px; border-radius:var(--radius-pill); border:1px solid var(--border);
+      background:var(--surface-card); color:var(--text-primary); padding:0 16px 0 38px;
+      font-family:var(--font-mono); font-size:13px; letter-spacing:var(--ls-mono); outline:none; width:100%;
+      transition:border-color 160ms; }
+    .flt-input::placeholder{ color:var(--text-tertiary); font-family:var(--font-ui); letter-spacing:0; }
+    .flt-input:focus{ border-color:var(--brand); }
+    .flt-select{ height:40px; border-radius:var(--radius-pill); border:1px solid var(--border); background:var(--surface-card); color:var(--text-primary); padding:0 12px; font-family:var(--font-ui); font-size:13px; outline:none; cursor:pointer; min-width:0; width:100%; }
+    .flt-select:focus{ border-color:var(--brand); }
+    .node-grid{ display:grid; gap:10px; grid-template-columns:96px minmax(150px,1.4fr) 78px 72px minmax(96px,1fr) minmax(104px,1.1fr) 72px 128px 36px; align-items:center; }
+    .ed-grid{ display:grid; gap:10px; grid-template-columns:minmax(180px,1.3fr) 92px 148px 86px 74px 64px 104px 88px; align-items:center; }
+    .kpi-grid{ display:grid; gap:12px; grid-template-columns:repeat(6, minmax(0,1fr)); }
+    @media (max-width:1150px){ .kpi-grid{ grid-template-columns:repeat(3, minmax(0,1fr)); } }
+    @media (max-width:640px){ .kpi-grid{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
+    .pf-grid{ display:grid; gap:16px; grid-template-columns:minmax(0,1.5fr) minmax(300px,380px); align-items:start; }
+    @media (max-width:1180px){ .pf-grid{ grid-template-columns:1fr; } }
+    .lnk-btn{ font-family:var(--font-ui); font-size:11px; font-weight:600; color:var(--text-brand); background:none; border:none; padding:0; cursor:pointer; white-space:nowrap; }
+    .lnk-btn:hover{ text-decoration:underline; }
+    .wa-grid{ display:grid; gap:10px; grid-template-columns:minmax(160px,1.4fr) minmax(130px,1fr) 90px 110px 80px 84px 170px 36px; align-items:center; }
+    .mod-grid{ display:grid; gap:10px; grid-template-columns:92px minmax(104px,1.1fr) 140px 96px minmax(76px,1fr) 64px 36px; }
+    @media (max-width:960px){ .mod-grid{ grid-template-columns:92px minmax(104px,1.1fr) 140px 96px 64px 36px; } .mod-grid > *:nth-child(5){ display:none !important; } }
+    .det-grid{ display:grid; gap:22px; grid-template-columns:minmax(0,1.25fr) minmax(320px,420px); align-items:start; }
+    @media (max-width:1180px){ .det-grid{ grid-template-columns:1fr; } }
+  </style>
+</helmet>
+
+<div data-screen-label="Web — Moderation" data-theme="{{ theme }}" style="font-family:var(--font-ui); color:var(--text-primary); background:var(--surface-page); min-height:100vh; -webkit-font-smoothing:antialiased;">
+
+  <!-- ===================== ADMIN TOP BAR ===================== -->
+  <div style="position:sticky; top:0; z-index:7; height:57px; display:flex; align-items:center; gap:12px; padding:0 20px; background:var(--surface-card); border-bottom:1px solid var(--border);">
+    <img alt="DAF" src="assets/logo-mark.png" style="width:26px; height:26px; object-fit:contain;">
+    <div style="font-family:var(--font-display); font-size:15px; font-weight:700; letter-spacing:var(--ls-display);">DAF Moderation</div>
+    <span style="font-family:var(--font-mono); font-size:10px; font-weight:700; letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--amber-600); background:var(--amber-100); border-radius:var(--radius-pill); padding:3px 9px;">Internal</span>
+    <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+      <div style="text-align:right;">
+        <div style="font-size:var(--fs-caption); font-weight:var(--fw-semibold); color:var(--text-primary); white-space:nowrap;">Maya Ortiz</div>
+        <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-tertiary); letter-spacing:var(--ls-mono); white-space:nowrap;">moderator</div>
+      </div>
+      <span style="display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; background:var(--brand-soft); color:var(--text-brand); font-weight:var(--fw-bold); font-size:12px;">MO</span>
+    </div>
+  </div>
+
+  <div style="display:grid; grid-template-columns:212px minmax(0,1fr); align-items:start;">
+    <!-- ===================== SIDEBAR ===================== -->
+    <nav style="position:sticky; top:57px; min-height:calc(100vh - 57px); border-right:1px solid var(--border); padding:18px 12px; display:flex; flex-direction:column; gap:2px;">
+      <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); padding:0 12px 8px;">Review</div>
+      <button onClick="{{ showChangesets }}" style="display:flex; align-items:center; padding:9px 12px; border-radius:var(--radius-sm); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); color:{{ csColor }}; background:{{ csBg }}; border:none; cursor:pointer; font-family:var(--font-ui); text-align:left; width:100%;">Changesets</button>
+      <button onClick="{{ showNodes }}" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px; border-radius:var(--radius-sm); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); color:{{ ndColor }}; background:{{ ndBg }}; border:none; cursor:pointer; font-family:var(--font-ui); text-align:left; width:100%;">ALPR nodes<span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--alert-600); background:var(--alert-100); border-radius:var(--radius-pill); padding:1px 8px;">{{ nodeOpenCount }}</span></button>
+      <button onClick="{{ showEditors }}" style="display:flex; align-items:center; padding:9px 12px; border-radius:var(--radius-sm); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); color:{{ edColor }}; background:{{ edBg }}; border:none; cursor:pointer; font-family:var(--font-ui); text-align:left; width:100%;">Editors</button>
+      <button onClick="{{ showAreas }}" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px; border-radius:var(--radius-sm); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); color:{{ waColor }}; background:{{ waBg }}; border:none; cursor:pointer; font-family:var(--font-ui); text-align:left; width:100%;">Areas<span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--text-tertiary); background:color-mix(in oklab, var(--text-primary) 8%, transparent); border-radius:var(--radius-pill); padding:1px 8px;">{{ waCount }}</span></button>
+      <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); padding:0 12px 8px; margin-top:18px;">System</div>
+      <a href="#" style="display:flex; align-items:center; padding:9px 12px; border-radius:var(--radius-sm); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-secondary); text-decoration:none;" style-hover="background:color-mix(in oklab, var(--text-primary) 6%, transparent); color:var(--text-primary);">Audit log</a>
+    </nav>
+
+    <main style="min-width:0;">
+    <sc-if hint-placeholder-val="{{ false }}" value="{{ isChangesets }}">
+    <div style="padding:22px 24px 0;">
+      <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h1); line-height:var(--lh-h1); letter-spacing:var(--ls-display); margin:0 0 6px;">Changesets</h1>
+      <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0 0 8px; max-width:70ch;">Every OpenStreetMap edit that touches a surveillance node, as it lands.</p>
+    </div>
+
+  <!-- ===================== FILTERS + COLUMN HEADER (sticky) ===================== -->
+  <div style="position:sticky; top:57px; z-index:6; background:color-mix(in oklab, var(--surface-page) 92%, transparent); backdrop-filter:blur(12px); border-bottom:1px solid var(--border);">
+    <div style="padding:14px 24px 0;">
+      <div style="display:flex; flex-direction:column; gap:10px; padding-bottom:14px;">
+        <div style="display:flex; gap:18px; row-gap:10px; flex-wrap:wrap; align-items:center;">
+          <sc-for as="g" hint-placeholder-count="2" list="{{ csGroups }}">
+            <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+              <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-right:3px;">{{ g.name }}</span>
+              <sc-for as="ch" hint-placeholder-count="3" list="{{ g.chips }}">
+                <button onClick="{{ ch.onClick }}" style="height:28px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid {{ ch.bd }}; background:{{ ch.bg }}; color:{{ ch.fg }}; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap;">{{ ch.label }}</button>
+              </sc-for>
+            </div>
+          </sc-for>
+          <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+            <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-right:3px;">Location</span>
+            <sc-for as="t" hint-placeholder-count="0" list="{{ areaTokens }}">
+              <button onClick="{{ t.onRemove }}" style="height:28px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid var(--brand); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;" title="Remove">{{ t.label }}<span style="font-weight:700;">×</span></button>
+            </sc-for>
+            <div style="position:relative;">
+              <input class="flt-input" onBlur="{{ onCfAreaBlur }}" onChange="{{ onCfAreaText }}" onFocus="{{ onCfAreaFocus }}" onKeyDown="{{ onCfAreaKey }}" placeholder="Search locations…" style="height:28px; width:170px; padding:0 12px; font-size:12px;" value="{{ cfAreaText }}">
+              <sc-if hint-placeholder-val="{{ false }}" value="{{ showAreaSug }}">
+                <div style="position:absolute; top:32px; left:0; z-index:20; min-width:200px; max-height:260px; overflow:auto; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-float); padding:4px; display:flex; flex-direction:column;">
+                  <sc-for as="o" hint-placeholder-count="3" list="{{ areaSuggestions }}">
+                    <button onMouseDown="{{ o.onPick }}" style="display:flex; text-align:left; background:none; border:none; border-radius:var(--radius-xs); padding:7px 10px; font-family:var(--font-ui); font-size:13px; color:var(--text-primary); cursor:pointer;" style-hover="background:var(--brand-soft); color:var(--text-brand);">{{ o.label }}</button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div style="position:relative; flex:0 1 240px; min-width:180px;">
+            <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-tertiary); font-family:var(--font-mono); font-size:13px;">#</span>
+            <input class="flt-input" onChange="{{ onFChangeset }}" placeholder="Changeset ID" value="{{ fChangeset }}">
+          </div>
+          <div style="position:relative; flex:0 1 240px; min-width:180px;">
+            <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-tertiary); font-family:var(--font-mono); font-size:13px;">@</span>
+            <input class="flt-input" onChange="{{ onFUser }}" placeholder="User or UID" value="{{ fUser }}">
+          </div>
+          <select class="flt-select" onChange="{{ onCfWin }}" style="flex:0 1 150px; width:auto;" value="{{ cfWin }}"><sc-for as="o" hint-placeholder-count="3" list="{{ winOpts }}"><option value="{{ o }}">{{ o }}</option></sc-for></select>
+          <sc-if hint-placeholder-val="{{ false }}" value="{{ filtersActive }}">
+            <button onClick="{{ onClearFilters }}" style="height:40px; padding:0 16px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:pointer;" style-hover="border-color:var(--brand); color:var(--text-brand);">Clear</button>
+          </sc-if>
+          <div style="margin-left:auto; font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); letter-spacing:var(--ls-mono); white-space:nowrap;">{{ countLabel }}</div>
+        </div>
+      </div>
+      <div class="mod-grid" style="padding:0 12px 10px; align-items:center;">
+        <sc-for as="c" hint-placeholder-count="6" list="{{ cols }}">
+          <div style="display:flex; justify-content:{{ c.just }}; min-width:0;">
+            <sc-if hint-placeholder-val="{{ false }}" value="{{ c.isChanges }}">
+              <span style="display:flex; gap:6px;">
+                <sc-for as="sub" hint-placeholder-count="3" list="{{ c.subs }}">
+                  <button onClick="{{ sub.onClick }}" style="min-width:42px; display:flex; align-items:center; justify-content:center; gap:2px; cursor:pointer; background:none; border:none; padding:0; font-family:var(--font-mono); font-size:var(--fs-label); font-weight:var(--fw-bold); color:{{ sub.color }};" title="{{ sub.title }}">{{ sub.label }}<span style="font-size:11px;">{{ sub.arrow }}</span></button>
+                </sc-for>
+              </span>
+            </sc-if>
+            <sc-if hint-placeholder-val="{{ true }}" value="{{ c.notChanges }}">
+              <button onClick="{{ c.onClick }}" style="display:flex; align-items:center; gap:5px; cursor:{{ c.cursor }}; background:none; border:none; padding:0; font-family:var(--font-ui); font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:{{ c.color }}; min-width:0;" title="{{ c.title }}">
+                <span>{{ c.label }}</span><span style="font-family:var(--font-mono); font-size:11px;">{{ c.arrow }}</span>
+              </button>
+            </sc-if>
+          </div>
+        </sc-for>
+        <div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TABLE ===================== -->
+  <section>
+    <div style="padding:16px 24px 24px;">
+      <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); overflow:hidden;">
+        <sc-for as="r" hint-placeholder-count="10" list="{{ rows }}">
+          <div class="mod-grid" style="padding:{{ rowPad }}; align-items:center; border-bottom:1px solid var(--border); transition:background 120ms;" style-hover="background:color-mix(in oklab, var(--brand) 4%, var(--surface-card));">
+            <div style="min-width:0;">
+              <div style="font-family:var(--font-mono); font-size:13px; letter-spacing:var(--ls-mono); color:var(--text-primary); font-weight:600;">#{{ r.id }}</div>
+              <div style="display:flex; gap:10px; margin-top:3px;">
+                <button class="lnk-btn" onClick="{{ r.goCsNodes }}">ALPR nodes</button>
+              </div>
+            </div>
+            <div style="min-width:0;">
+              <button onClick="{{ r.goEditor }}" style="display:block; width:100%; text-align:left; background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" style-hover="color:var(--text-brand);" title="Open editor profile">{{ r.user }}</button>
+              <div style="display:flex; gap:10px; margin-top:3px;">
+                <button class="lnk-btn" onClick="{{ r.goNodes }}">ALPR nodes</button>
+                <button class="lnk-btn" onClick="{{ r.goEditor }}">Profile</button>
+              </div>
+            </div>
+            <div style="display:flex; gap:6px; font-family:var(--font-mono); font-size:12.5px; font-weight:700; letter-spacing:var(--ls-mono);">
+              <span style="min-width:42px; text-align:center; padding:3px 0; border-radius:var(--radius-xs); color:{{ r.addFg }}; background:{{ r.addBg }};">{{ r.addT }}</span>
+              <span style="min-width:42px; text-align:center; padding:3px 0; border-radius:var(--radius-xs); color:{{ r.modFg }}; background:{{ r.modBg }};">{{ r.modT }}</span>
+              <span style="min-width:42px; text-align:center; padding:3px 0; border-radius:var(--radius-xs); color:{{ r.delFg }}; background:{{ r.delBg }};">{{ r.delT }}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:7px; font-size:var(--fs-caption); font-weight:var(--fw-semibold); color:var(--text-secondary); white-space:nowrap;">
+              <span style="width:7px; height:7px; border-radius:50%; background:{{ r.statusColor }}; flex:none;"></span>{{ r.status }}
+            </div>
+            <div style="font-size:var(--fs-body-sm); color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ r.area }}</div>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-tertiary); letter-spacing:var(--ls-mono); text-align:right;" title="{{ r.absTime }}">{{ r.time }}</div>
+            <button onClick="{{ r.onToggle }}" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center; justify-self:end; border:none; background:none; cursor:pointer; color:{{ r.chevColor }}; border-radius:var(--radius-xs); padding:0;" style-hover="background:color-mix(in oklab, var(--text-primary) 8%, transparent); color:var(--text-primary);" title="Details"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" style="transition:transform 180ms; transform:{{ r.chevRot }};" viewBox="0 0 24 24" width="16"><path d="M6 9l6 6 6-6"></path></svg></button>
+          </div>
+          <sc-if hint-placeholder-val="{{ false }}" value="{{ r.isOpen }}">
+            <div class="det-grid" style="padding:18px 20px 22px; border-bottom:1px solid var(--border); background:color-mix(in oklab, var(--brand) 3%, var(--surface-page));">
+              <div style="min-width:0; display:flex; flex-direction:column; gap:16px;">
+                <div>
+                  <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:5px;">Changeset comment</div>
+                  <div style="font-size:var(--fs-body-sm); line-height:1.55; color:var(--text-primary); max-width:62ch;">{{ r.comment }}</div>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:12px 20px;">
+                  <sc-for as="d" hint-placeholder-count="6" list="{{ r.detail }}">
+                    <div style="min-width:0;">
+                      <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:3px;">{{ d.k }}</div>
+                      <div style="font-family:var(--font-mono); font-size:12.5px; letter-spacing:var(--ls-mono); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ d.v }}">{{ d.v }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div><a href="{{ r.osmHref }}" style="display:inline-flex; align-items:center; height:32px; padding:0 14px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); text-decoration:none;" style-hover="background:color-mix(in oklab, var(--brand) 22%, transparent);" target="_blank">Open changeset in OSM ↗</a></div>
+              </div>
+              <div style="position:relative; height:252px; border-radius:var(--radius-md); overflow:hidden; border:1px solid var(--border); background:var(--map-land);">
+                <svg preserveAspectRatio="xMidYMid slice" style="position:absolute; inset:0; width:100%; height:100%; display:block;" viewBox="0 0 400 252">
+                  <rect fill="var(--map-land)" height="252" width="400"></rect>
+                  <rect fill="var(--map-land-alt)" height="112" rx="8" width="150" x="118" y="58"></rect>
+                  <path d="M400 -10 L400 92 C 348 88, 318 52, 322 -10 Z" fill="var(--map-water)"></path>
+                  <ellipse cx="66" cy="208" fill="var(--map-park)" rx="72" ry="46"></ellipse>
+                  <g stroke="var(--map-road-minor)" stroke-linecap="round" stroke-width="3"><line x1="55" x2="55" y1="-10" y2="262"></line><line x1="130" x2="130" y1="-10" y2="262"></line><line x1="210" x2="210" y1="-10" y2="262"></line><line x1="290" x2="290" y1="-10" y2="262"></line><line x1="355" x2="355" y1="-10" y2="262"></line><line x1="-10" x2="410" y1="52" y2="52"></line><line x1="-10" x2="410" y1="118" y2="118"></line><line x1="-10" x2="410" y1="188" y2="188"></line></g>
+                  <g fill="none" stroke="var(--map-road)" stroke-linecap="round" stroke-width="7"><path d="M170 -10 C 182 80, 158 170, 172 262"></path><path d="M-10 142 C 120 120, 280 162, 410 134"></path></g>
+                </svg>
+                <div style="position:absolute; border:1.5px dashed var(--alert-500); border-radius:6px; opacity:0.65; left:{{ r.bbL }}; top:{{ r.bbT }}; width:{{ r.bbW }}; height:{{ r.bbH }};"></div>
+                <sc-for as="m" hint-placeholder-count="3" list="{{ r.mapDots }}">
+                  <span style="position:absolute; width:9px; height:9px; margin:-4px 0 0 -4px; border-radius:50%; background:var(--alert-500); box-shadow:0 0 0 3px color-mix(in oklab, var(--alert-500) 25%, transparent), 0 0 12px color-mix(in oklab, var(--alert-500) 70%, transparent); left:{{ m.left }}; top:{{ m.top }};"></span>
+                </sc-for>
+                <span style="position:absolute; left:10px; top:10px; display:inline-flex; align-items:center; height:26px; padding:0 11px; border-radius:var(--radius-pill); background:var(--surface-glass); backdrop-filter:blur(16px); border:1px solid var(--border-glass); box-shadow:var(--shadow-float); font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--text-primary); white-space:nowrap;">{{ r.mapLabel }}</span>
+              </div>
+            </div>
+          </sc-if>
+        </sc-for>
+        <sc-if hint-placeholder-val="{{ false }}" value="{{ isEmpty }}">
+          <div style="padding:72px 24px; text-align:center;">
+            <div style="font-family:var(--font-display); font-size:var(--fs-h3); font-weight:600; margin-bottom:8px;">No changesets match</div>
+            <div style="font-size:var(--fs-body); color:var(--text-secondary); margin-bottom:20px;">Loosen the filters — the map's still out there.</div>
+            <button onClick="{{ onClearFilters }}" style="height:40px; padding:0 20px; border-radius:var(--radius-pill); border:1px solid var(--brand); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); cursor:pointer;">Clear filters</button>
+          </div>
+        </sc-if>
+      </div>
+
+      <!-- pagination -->
+      <sc-if hint-placeholder-val="{{ true }}" value="{{ showPager }}">
+        <div style="display:flex; align-items:center; gap:8px; padding:16px 4px 40px; flex-wrap:wrap;">
+          <div style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); letter-spacing:var(--ls-mono); margin-right:auto;">{{ showingLabel }}</div>
+          <button onClick="{{ onPrev }}" style="height:36px; padding:0 14px; border-radius:var(--radius-pill); border:1px solid var(--border); background:var(--surface-card); color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:{{ prevCursor }}; opacity:{{ prevOpacity }};" style-hover="border-color:var(--brand);">← Prev</button>
+          <sc-for as="p" hint-placeholder-count="3" list="{{ pageBtns }}">
+            <button onClick="{{ p.onClick }}" style="height:36px; min-width:36px; padding:0 8px; border-radius:var(--radius-pill); border:1px solid {{ p.border }}; background:{{ p.bg }}; color:{{ p.color }}; font-family:var(--font-mono); font-size:13px; font-weight:700; cursor:pointer;">{{ p.label }}</button>
+          </sc-for>
+          <button onClick="{{ onNext }}" style="height:36px; padding:0 14px; border-radius:var(--radius-pill); border:1px solid var(--border); background:var(--surface-card); color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:{{ nextCursor }}; opacity:{{ nextOpacity }};" style-hover="border-color:var(--brand);">Next →</button>
+        </div>
+      </sc-if>
+    </div>
+  </section>
+    </sc-if>
+
+    <!-- ===================== ALPR NODES VIEW ===================== -->
+    <sc-if hint-placeholder-val="{{ true }}" value="{{ isNodes }}">
+    <div style="padding:22px 24px 0;">
+      <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h1); line-height:var(--lh-h1); letter-spacing:var(--ls-display); margin:0 0 6px;">ALPR nodes</h1>
+      <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0 0 8px; max-width:70ch;">Nodes flagged by moderation rules. Dismiss the flag, or adjust the node upstream.</p>
+    </div>
+    <div style="position:sticky; top:57px; z-index:6; background:color-mix(in oklab, var(--surface-page) 92%, transparent); backdrop-filter:blur(12px); border-bottom:1px solid var(--border);">
+      <div style="padding:12px 24px 14px; display:flex; flex-direction:column; gap:10px;">
+        <div style="display:flex; gap:18px; row-gap:10px; flex-wrap:wrap; align-items:center;">
+          <sc-for as="g" hint-placeholder-count="4" list="{{ nGroups }}">
+            <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+              <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-right:3px;">{{ g.name }}</span>
+              <sc-for as="ch" hint-placeholder-count="3" list="{{ g.chips }}">
+                <button onClick="{{ ch.onClick }}" style="height:28px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid {{ ch.bd }}; background:{{ ch.bg }}; color:{{ ch.fg }}; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap;">{{ ch.label }}</button>
+              </sc-for>
+            </div>
+          </sc-for>
+          <div style="display:flex; align-items:center; gap:5px;">
+            <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-right:3px;">Direction</span>
+            <input class="flt-input" onChange="{{ onNfDirFrom }}" placeholder="0°" style="height:28px; width:58px; padding:0 8px; font-size:12px; text-align:center;" value="{{ nfDirFrom }}">
+            <span style="color:var(--text-tertiary); font-size:12px;">–</span>
+            <input class="flt-input" onChange="{{ onNfDirTo }}" placeholder="359°" style="height:28px; width:58px; padding:0 8px; font-size:12px; text-align:center;" value="{{ nfDirTo }}">
+            <button onClick="{{ onToggleMissing }}" style="height:28px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid {{ mzBd }}; background:{{ mzBg }}; color:{{ mzFg }}; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap;">Missing</button>
+          </div>
+          <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+            <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-right:3px;">Location</span>
+            <sc-for as="t" hint-placeholder-count="0" list="{{ nAreaTokens }}">
+              <button onClick="{{ t.onRemove }}" style="height:28px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid var(--brand); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;" title="Remove">{{ t.label }}<span style="font-weight:700;">×</span></button>
+            </sc-for>
+            <div style="position:relative;">
+              <input class="flt-input" onBlur="{{ onNfAreaBlur }}" onChange="{{ onNfAreaText }}" onFocus="{{ onNfAreaFocus }}" onKeyDown="{{ onNfAreaKey }}" placeholder="Search locations…" style="height:28px; width:150px; padding:0 12px; font-size:12px;" value="{{ nfAreaText }}">
+              <sc-if hint-placeholder-val="{{ false }}" value="{{ showNAreaSug }}">
+                <div style="position:absolute; top:32px; left:0; z-index:20; min-width:200px; max-height:260px; overflow:auto; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-float); padding:4px; display:flex; flex-direction:column;">
+                  <sc-for as="o" hint-placeholder-count="3" list="{{ nAreaSuggestions }}">
+                    <button onMouseDown="{{ o.onPick }}" style="display:flex; text-align:left; background:none; border:none; border-radius:var(--radius-xs); padding:7px 10px; font-family:var(--font-ui); font-size:13px; color:var(--text-primary); cursor:pointer;" style-hover="background:var(--brand-soft); color:var(--text-brand);">{{ o.label }}</button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+            <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-right:3px;">Operator</span>
+            <sc-for as="t" hint-placeholder-count="0" list="{{ opTokens }}">
+              <button onClick="{{ t.onRemove }}" style="height:28px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid var(--brand); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;" title="Remove">{{ t.label }}<span style="font-weight:700;">×</span></button>
+            </sc-for>
+            <div style="position:relative;">
+              <input class="flt-input" onBlur="{{ onNfOpBlur }}" onChange="{{ onNfOpText }}" onFocus="{{ onNfOpFocus }}" onKeyDown="{{ onNfOpKey }}" placeholder="Search operators…" style="height:28px; width:170px; padding:0 12px; font-size:12px;" value="{{ nfOpText }}">
+              <sc-if hint-placeholder-val="{{ false }}" value="{{ showOpSug }}">
+                <div style="position:absolute; top:32px; left:0; z-index:20; min-width:200px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-float); padding:4px; display:flex; flex-direction:column;">
+                  <sc-for as="o" hint-placeholder-count="3" list="{{ opSuggestions }}">
+                    <button onMouseDown="{{ o.onPick }}" style="display:flex; text-align:left; background:none; border:none; border-radius:var(--radius-xs); padding:7px 10px; font-family:var(--font-ui); font-size:13px; color:var(--text-primary); cursor:pointer;" style-hover="background:var(--brand-soft); color:var(--text-brand);">{{ o.label }}</button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div style="position:relative; flex:0 1 220px; min-width:170px;">
+            <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-tertiary); font-family:var(--font-mono); font-size:13px;">#</span>
+            <input class="flt-input" onChange="{{ onNfCs }}" placeholder="Changeset ID" value="{{ nfCs }}">
+          </div>
+          <div style="position:relative; flex:0 1 220px; min-width:170px;">
+            <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-tertiary); font-family:var(--font-mono); font-size:13px;">@</span>
+            <input class="flt-input" onChange="{{ onNfUser }}" placeholder="Changed by — user or UID" value="{{ nfUser }}">
+          </div>
+          <select class="flt-select" onChange="{{ onNfWin }}" style="flex:0 1 150px; width:auto;" value="{{ nfWin }}"><sc-for as="o" hint-placeholder-count="3" list="{{ winOpts }}"><option value="{{ o }}">{{ o }}</option></sc-for></select>
+          <sc-if hint-placeholder-val="{{ false }}" value="{{ nFiltersActive }}">
+            <button onClick="{{ onNClear }}" style="height:40px; padding:0 16px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:pointer;" style-hover="border-color:var(--brand); color:var(--text-brand);">Clear</button>
+          </sc-if>
+          <div style="margin-left:auto; font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); letter-spacing:var(--ls-mono); white-space:nowrap;">{{ nCountLabel }}</div>
+        </div>
+      </div>
+    </div>
+    <section>
+      <div style="padding:16px 24px 24px;">
+        <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); overflow:auto;">
+          <div style="min-width:980px;">
+            <div class="node-grid" style="padding:12px 12px 10px; border-bottom:1px solid var(--border);">
+              <sc-for as="c" hint-placeholder-count="8" list="{{ nCols }}">
+                <button onClick="{{ c.onClick }}" style="display:flex; align-items:center; gap:5px; justify-content:{{ c.just }}; cursor:{{ c.cursor }}; background:none; border:none; padding:0; font-family:var(--font-ui); font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:{{ c.color }}; min-width:0;" title="{{ c.title }}"><span>{{ c.label }}</span><span style="font-family:var(--font-mono); font-size:11px;">{{ c.arrow }}</span></button>
+              </sc-for>
+              <div></div>
+            </div>
+            <sc-for as="n" hint-placeholder-count="10" list="{{ nRows }}">
+              <div class="node-grid" style="padding:{{ rowPad }}; border-bottom:1px solid var(--border); transition:background 120ms;" style-hover="background:color-mix(in oklab, var(--brand) 4%, var(--surface-card));">
+                <div style="font-family:var(--font-mono); font-size:12.5px; letter-spacing:var(--ls-mono); color:var(--text-primary); font-weight:600;">{{ n.nid }}</div>
+                <div style="display:flex; flex-wrap:wrap; gap:4px; min-width:0;">
+                  <sc-for as="rc" hint-placeholder-count="1" list="{{ n.ruleChips }}">
+                    <span style="font-size:11px; font-weight:var(--fw-semibold); color:var(--text-secondary); border:1px solid var(--border); border-radius:var(--radius-xs); padding:2px 7px; white-space:nowrap;">{{ rc }}</span>
+                  </sc-for>
+                </div>
+                <div><span style="font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); border-radius:var(--radius-pill); padding:3px 9px; color:{{ n.sevFg }}; background:{{ n.sevBg }};">{{ n.severity }}</span></div>
+                <div style="font-family:var(--font-mono); font-size:12.5px; letter-spacing:var(--ls-mono); color:{{ n.dirColor }};">{{ n.dirT }}</div>
+                <div style="font-size:var(--fs-body-sm); color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ n.operator }}</div>
+                <div style="min-width:0;">
+                  <button onClick="{{ n.goEditor }}" style="display:block; width:100%; text-align:left; background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" style-hover="color:var(--text-brand);" title="Open editor profile">{{ n.user }}</button>
+                  <div style="display:flex; gap:10px; margin-top:3px;">
+                    <button class="lnk-btn" onClick="{{ n.goEdits }}">Changesets</button>
+                    <button class="lnk-btn" onClick="{{ n.goEditor }}">Profile</button>
+                  </div>
+                </div>
+                <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-tertiary); letter-spacing:var(--ls-mono);" title="{{ n.absTime }}">{{ n.time }}</div>
+                <div style="display:flex; gap:6px;">
+                  <button onClick="{{ n.onDismiss }}" style="height:30px; padding:0 12px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer;" style-hover="border-color:var(--alert-500); color:var(--alert-600);">Dismiss</button>
+                  <a href="{{ n.adjustHref }}" style="height:30px; display:inline-flex; align-items:center; padding:0 12px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); text-decoration:none;" style-hover="background:color-mix(in oklab, var(--brand) 22%, transparent);" target="_blank">Adjust</a>
+                </div>
+                <button onClick="{{ n.onToggle }}" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center; justify-self:end; border:none; background:none; cursor:pointer; color:{{ n.chevColor }}; border-radius:var(--radius-xs); padding:0;" style-hover="background:color-mix(in oklab, var(--text-primary) 8%, transparent); color:var(--text-primary);" title="Details"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" style="transition:transform 180ms; transform:{{ n.chevRot }};" viewBox="0 0 24 24" width="16"><path d="M6 9l6 6 6-6"></path></svg></button>
+              </div>
+              <sc-if hint-placeholder-val="{{ false }}" value="{{ n.isOpen }}">
+                <div class="det-grid" style="padding:18px 20px 22px; border-bottom:1px solid var(--border); background:color-mix(in oklab, var(--brand) 3%, var(--surface-page));">
+                  <div style="min-width:0; display:flex; flex-direction:column; gap:16px;">
+                    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:12px 20px;">
+                      <sc-for as="d" hint-placeholder-count="6" list="{{ n.detail }}">
+                        <div style="min-width:0;">
+                          <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:3px;">{{ d.k }}</div>
+                          <div style="font-family:var(--font-mono); font-size:12.5px; letter-spacing:var(--ls-mono); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ d.v }}">{{ d.v }}</div>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <div>
+                      <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:6px;">OSM tags</div>
+                      <div style="display:flex; flex-direction:column; gap:4px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; max-width:420px;">
+                        <sc-for as="tg" hint-placeholder-count="6" list="{{ n.tags }}">
+                          <div style="display:flex; gap:6px; font-family:var(--font-mono); font-size:12px; letter-spacing:var(--ls-mono);"><span style="color:var(--text-tertiary);">{{ tg.k }}</span><span style="color:var(--text-tertiary);">=</span><span style="color:{{ tg.color }}; font-weight:600;">{{ tg.v }}</span></div>
+                        </sc-for>
+                      </div>
+                    </div>
+                    <div><a href="{{ n.viewHref }}" style="display:inline-flex; align-items:center; height:32px; padding:0 14px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); text-decoration:none;" style-hover="background:color-mix(in oklab, var(--brand) 22%, transparent);" target="_blank">Open node in OSM ↗</a></div>
+                  </div>
+                  <div style="position:relative; height:252px; border-radius:var(--radius-md); overflow:hidden; border:1px solid var(--border); background:var(--map-land);">
+                    <svg preserveAspectRatio="xMidYMid slice" style="position:absolute; inset:0; width:100%; height:100%; display:block;" viewBox="0 0 400 252">
+                      <rect fill="var(--map-land)" height="252" width="400"></rect>
+                      <rect fill="var(--map-land-alt)" height="112" rx="8" width="150" x="118" y="58"></rect>
+                      <path d="M400 -10 L400 92 C 348 88, 318 52, 322 -10 Z" fill="var(--map-water)"></path>
+                      <ellipse cx="66" cy="208" fill="var(--map-park)" rx="72" ry="46"></ellipse>
+                      <g stroke="var(--map-road-minor)" stroke-linecap="round" stroke-width="3"><line x1="55" x2="55" y1="-10" y2="262"></line><line x1="130" x2="130" y1="-10" y2="262"></line><line x1="210" x2="210" y1="-10" y2="262"></line><line x1="290" x2="290" y1="-10" y2="262"></line><line x1="355" x2="355" y1="-10" y2="262"></line><line x1="-10" x2="410" y1="52" y2="52"></line><line x1="-10" x2="410" y1="118" y2="118"></line><line x1="-10" x2="410" y1="188" y2="188"></line></g>
+                      <g fill="none" stroke="var(--map-road)" stroke-linecap="round" stroke-width="7"><path d="M170 -10 C 182 80, 158 170, 172 262"></path><path d="M-10 142 C 120 120, 280 162, 410 134"></path></g>
+                    </svg>
+                    <sc-if hint-placeholder-val="{{ false }}" value="{{ n.hasCone }}">
+                      <div style="position:absolute; left:50%; top:50%; width:190px; height:190px; margin:-95px 0 0 -95px; border-radius:50%; background:conic-gradient(from {{ n.coneFrom }}, color-mix(in oklab, var(--alert-500) 36%, transparent) 0deg 40deg, transparent 40deg); -webkit-mask-image:radial-gradient(circle, black 0%, rgba(0,0,0,0.45) 40%, transparent 68%); mask-image:radial-gradient(circle, black 0%, rgba(0,0,0,0.45) 40%, transparent 68%);"></div>
+                    </sc-if>
+                    <sc-if hint-placeholder-val="{{ false }}" value="{{ n.noDir }}">
+                      <div style="position:absolute; left:50%; top:50%; width:66px; height:66px; margin:-33px 0 0 -33px; border-radius:50%; border:1.5px dashed var(--alert-500); opacity:0.55;"></div>
+                    </sc-if>
+                    <span style="position:absolute; left:50%; top:50%; width:11px; height:11px; margin:-5.5px 0 0 -5.5px; border-radius:50%; background:var(--alert-500); box-shadow:0 0 0 3px color-mix(in oklab, var(--alert-500) 25%, transparent), 0 0 12px color-mix(in oklab, var(--alert-500) 70%, transparent);"></span>
+                    <span style="position:absolute; left:10px; top:10px; display:inline-flex; align-items:center; height:26px; padding:0 11px; border-radius:var(--radius-pill); background:var(--surface-glass); backdrop-filter:blur(16px); border:1px solid var(--border-glass); box-shadow:var(--shadow-float); font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--text-primary); white-space:nowrap;">{{ n.mapLabel }}</span>
+                  </div>
+                </div>
+              </sc-if>
+            </sc-for>
+            <sc-if hint-placeholder-val="{{ false }}" value="{{ isNEmpty }}">
+              <div style="padding:72px 24px; text-align:center;">
+                <div style="font-family:var(--font-display); font-size:var(--fs-h3); font-weight:600; margin-bottom:8px;">No flagged nodes match</div>
+                <div style="font-size:var(--fs-body); color:var(--text-secondary); margin-bottom:20px;">Loosen the filters, or enjoy the quiet.</div>
+                <button onClick="{{ onNClear }}" style="height:40px; padding:0 20px; border-radius:var(--radius-pill); border:1px solid var(--brand); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); cursor:pointer;">Clear filters</button>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+        <sc-if hint-placeholder-val="{{ false }}" value="{{ nShowPager }}">
+          <div style="display:flex; align-items:center; gap:8px; padding:16px 4px 40px; flex-wrap:wrap;">
+            <div style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); letter-spacing:var(--ls-mono); margin-right:auto;">{{ nShowingLabel }}</div>
+            <button onClick="{{ onNPrev }}" style="height:36px; padding:0 14px; border-radius:var(--radius-pill); border:1px solid var(--border); background:var(--surface-card); color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:{{ nPrevCursor }}; opacity:{{ nPrevOpacity }};" style-hover="border-color:var(--brand);">← Prev</button>
+            <sc-for as="p" hint-placeholder-count="2" list="{{ nPageBtns }}">
+              <button onClick="{{ p.onClick }}" style="height:36px; min-width:36px; padding:0 8px; border-radius:var(--radius-pill); border:1px solid {{ p.border }}; background:{{ p.bg }}; color:{{ p.color }}; font-family:var(--font-mono); font-size:13px; font-weight:700; cursor:pointer;">{{ p.label }}</button>
+            </sc-for>
+            <button onClick="{{ onNNext }}" style="height:36px; padding:0 14px; border-radius:var(--radius-pill); border:1px solid var(--border); background:var(--surface-card); color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:{{ nNextCursor }}; opacity:{{ nNextOpacity }};" style-hover="border-color:var(--brand);">Next →</button>
+          </div>
+        </sc-if>
+      </div>
+    </section>
+    </sc-if>
+
+    <!-- ===================== EDITORS VIEW ===================== -->
+    <sc-if hint-placeholder-val="{{ false }}" value="{{ isEditors }}">
+    <div style="padding:22px 24px 0;">
+      <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h1); line-height:var(--lh-h1); letter-spacing:var(--ls-display); margin:0 0 6px;">Editors</h1>
+      <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0 0 8px; max-width:70ch;">Everyone who has touched an ALPR node, with their track record.</p>
+    </div>
+    <div style="position:sticky; top:57px; z-index:6; background:color-mix(in oklab, var(--surface-page) 92%, transparent); backdrop-filter:blur(12px); border-bottom:1px solid var(--border);">
+      <div style="padding:12px 24px 14px; display:flex; flex-direction:column; gap:10px;">
+        <div style="display:flex; gap:18px; row-gap:10px; flex-wrap:wrap; align-items:center;">
+          <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+            <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-right:3px;">Status</span>
+            <sc-for as="ch" hint-placeholder-count="4" list="{{ eStatusChips }}">
+              <button onClick="{{ ch.onClick }}" style="height:28px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid {{ ch.bd }}; background:{{ ch.bg }}; color:{{ ch.fg }}; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap;">{{ ch.label }}</button>
+            </sc-for>
+          </div>
+          <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+            <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-right:3px;">Active in</span>
+            <sc-for as="t" hint-placeholder-count="0" list="{{ eAreaTokens }}">
+              <button onClick="{{ t.onRemove }}" style="height:28px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid var(--brand); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;" title="Remove">{{ t.label }}<span style="font-weight:700;">×</span></button>
+            </sc-for>
+            <div style="position:relative;">
+              <input class="flt-input" onBlur="{{ onEfAreaBlur }}" onChange="{{ onEfAreaText }}" onFocus="{{ onEfAreaFocus }}" onKeyDown="{{ onEfAreaKey }}" placeholder="Search locations…" style="height:28px; width:170px; padding:0 12px; font-size:12px;" value="{{ efAreaText }}">
+              <sc-if hint-placeholder-val="{{ false }}" value="{{ showEAreaSug }}">
+                <div style="position:absolute; top:32px; left:0; z-index:20; min-width:200px; max-height:260px; overflow:auto; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-float); padding:4px; display:flex; flex-direction:column;">
+                  <sc-for as="o" hint-placeholder-count="3" list="{{ eAreaSuggestions }}">
+                    <button onMouseDown="{{ o.onPick }}" style="display:flex; text-align:left; background:none; border:none; border-radius:var(--radius-xs); padding:7px 10px; font-family:var(--font-ui); font-size:13px; color:var(--text-primary); cursor:pointer;" style-hover="background:var(--brand-soft); color:var(--text-brand);">{{ o.label }}</button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div style="position:relative; flex:0 1 240px; min-width:180px;">
+            <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-tertiary); font-family:var(--font-mono); font-size:13px;">@</span>
+            <input class="flt-input" onChange="{{ onEfUser }}" placeholder="User or UID" value="{{ efUser }}">
+          </div>
+          <select class="flt-select" onChange="{{ onEfWin }}" style="flex:0 1 170px; width:auto;" value="{{ efWin }}"><sc-for as="o" hint-placeholder-count="3" list="{{ eWinOpts }}"><option value="{{ o }}">{{ o }}</option></sc-for></select>
+          <sc-if hint-placeholder-val="{{ false }}" value="{{ eFiltersActive }}">
+            <button onClick="{{ onEClear }}" style="height:40px; padding:0 16px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:pointer;" style-hover="border-color:var(--brand); color:var(--text-brand);">Clear</button>
+          </sc-if>
+          <div style="margin-left:auto; font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); letter-spacing:var(--ls-mono); white-space:nowrap;">{{ eCountLabel }}</div>
+        </div>
+      </div>
+    </div>
+    <section>
+      <div style="padding:16px 24px 24px;">
+        <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); overflow:auto;">
+          <div style="min-width:1020px;">
+            <div class="ed-grid" style="padding:12px 12px 10px; border-bottom:1px solid var(--border);">
+              <sc-for as="c" hint-placeholder-count="8" list="{{ eCols }}">
+                <div style="display:flex; justify-content:{{ c.just }}; min-width:0;">
+                  <sc-if hint-placeholder-val="{{ false }}" value="{{ c.isChanges }}">
+                    <span style="display:flex; gap:6px;">
+                      <sc-for as="sub" hint-placeholder-count="3" list="{{ c.subs }}">
+                        <button onClick="{{ sub.onClick }}" style="min-width:42px; display:flex; align-items:center; justify-content:center; gap:2px; cursor:pointer; background:none; border:none; padding:0; font-family:var(--font-mono); font-size:var(--fs-label); font-weight:var(--fw-bold); color:{{ sub.color }};" title="{{ sub.title }}">{{ sub.label }}<span style="font-size:11px;">{{ sub.arrow }}</span></button>
+                      </sc-for>
+                    </span>
+                  </sc-if>
+                  <sc-if hint-placeholder-val="{{ true }}" value="{{ c.notChanges }}">
+                    <button onClick="{{ c.onClick }}" style="display:flex; align-items:center; gap:5px; cursor:{{ c.cursor }}; background:none; border:none; padding:0; font-family:var(--font-ui); font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:{{ c.color }}; min-width:0;" title="{{ c.title }}"><span>{{ c.label }}</span><span style="font-family:var(--font-mono); font-size:11px;">{{ c.arrow }}</span></button>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+            <sc-for as="e" hint-placeholder-count="10" list="{{ eRows }}">
+              <div class="ed-grid" style="padding:{{ rowPad }}; border-bottom:1px solid var(--border); transition:background 120ms;" style-hover="background:color-mix(in oklab, var(--brand) 4%, var(--surface-card));">
+                <div style="min-width:0;">
+                  <button onClick="{{ e.onProfile }}" style="display:block; width:100%; text-align:left; background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" style-hover="color:var(--text-brand);" title="Open editor profile">{{ e.user }} <span style="font-family:var(--font-mono); font-size:11px; font-weight:400; color:var(--text-tertiary); letter-spacing:var(--ls-mono);">uid {{ e.uid }}</span></button>
+                  <div style="display:flex; gap:10px; margin-top:3px;">
+                    <button class="lnk-btn" onClick="{{ e.onProfile }}">Profile</button>
+                    <button class="lnk-btn" onClick="{{ e.onViewEdits }}">Changesets</button>
+                    <button class="lnk-btn" onClick="{{ e.onViewFlags }}">ALPR nodes</button>
+                  </div>
+                </div>
+                <div style="font-family:var(--font-mono); font-size:13px; letter-spacing:var(--ls-mono); color:var(--text-primary); font-weight:600;">{{ e.cs }}</div>
+                <div style="display:flex; gap:6px; font-family:var(--font-mono); font-size:12.5px; font-weight:700; letter-spacing:var(--ls-mono);">
+                  <span style="min-width:42px; text-align:center; padding:3px 0; border-radius:var(--radius-xs); color:{{ e.addFg }}; background:{{ e.addBg }};">{{ e.addT }}</span>
+                  <span style="min-width:42px; text-align:center; padding:3px 0; border-radius:var(--radius-xs); color:{{ e.modFg }}; background:{{ e.modBg }};">{{ e.modT }}</span>
+                  <span style="min-width:42px; text-align:center; padding:3px 0; border-radius:var(--radius-xs); color:{{ e.delFg }}; background:{{ e.delBg }};">{{ e.delT }}</span>
+                </div>
+                <div style="font-family:var(--font-mono); font-size:13px; letter-spacing:var(--ls-mono); font-weight:700; color:{{ e.flagColor }};">{{ e.flagT }}</div>
+                <div style="font-family:var(--font-mono); font-size:13px; letter-spacing:var(--ls-mono); font-weight:700; color:{{ e.survColor }};">{{ e.survT }}</div>
+                <div style="font-family:var(--font-mono); font-size:13px; letter-spacing:var(--ls-mono); color:var(--text-secondary);">{{ e.areaCount }}</div>
+                <div style="display:flex; align-items:center; gap:7px; font-size:var(--fs-caption); font-weight:var(--fw-semibold); color:var(--text-secondary); white-space:nowrap;">
+                  <span style="width:7px; height:7px; border-radius:50%; background:{{ e.statusColor }}; flex:none;"></span>{{ e.status }}
+                </div>
+                <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-tertiary); letter-spacing:var(--ls-mono);">{{ e.lastT }}</div>
+              </div>
+            </sc-for>
+            <sc-if hint-placeholder-val="{{ false }}" value="{{ isEEmpty }}">
+              <div style="padding:72px 24px; text-align:center;">
+                <div style="font-family:var(--font-display); font-size:var(--fs-h3); font-weight:600; margin-bottom:8px;">No editors match</div>
+                <div style="font-size:var(--fs-body); color:var(--text-secondary); margin-bottom:20px;">Loosen the filters — everyone's somewhere.</div>
+                <button onClick="{{ onEClear }}" style="height:40px; padding:0 20px; border-radius:var(--radius-pill); border:1px solid var(--brand); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); cursor:pointer;">Clear filters</button>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </section>
+    </sc-if>
+
+    <!-- ===================== EDITOR PROFILE VIEW ===================== -->
+    <sc-if hint-placeholder-val="{{ false }}" value="{{ isProfile }}">
+    <div data-screen-label="Editor profile" style="padding:20px 24px 44px;">
+      <button onClick="{{ backToEditors }}" style="display:inline-flex; align-items:center; gap:6px; background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-secondary);" style-hover="color:var(--text-brand);">← Editors</button>
+      <div style="display:flex; align-items:center; gap:14px; margin:16px 0 0; flex-wrap:wrap;">
+        <span style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:50%; background:var(--brand-soft); color:var(--text-brand); font-weight:var(--fw-bold); font-size:16px; flex:none;">{{ pInitials }}</span>
+        <div style="min-width:0; flex:1 1 260px;">
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h2); line-height:var(--lh-h2); letter-spacing:var(--ls-display); margin:0;">{{ pName }}</h1>
+            <span style="font-family:var(--font-mono); font-size:12px; color:var(--text-tertiary); letter-spacing:var(--ls-mono);">{{ pUid }}</span>
+            <span style="display:inline-flex; align-items:center; gap:6px; height:24px; padding:0 10px; border-radius:var(--radius-pill); border:1px solid var(--border); font-size:11px; font-weight:var(--fw-bold); color:var(--text-secondary);"><span style="width:7px; height:7px; border-radius:50%; background:{{ pStatusColor }}; flex:none;"></span>{{ pStatus }}</span>
+          </div>
+          <div style="font-size:var(--fs-caption); color:var(--text-secondary); margin-top:4px;">{{ pMeta }}</div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button onClick="{{ goPCs }}" style="height:34px; padding:0 14px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer;" style-hover="border-color:var(--brand); color:var(--text-brand);">Changesets</button>
+          <button onClick="{{ goPNodes }}" style="height:34px; padding:0 14px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer;" style-hover="border-color:var(--brand); color:var(--text-brand);">Flagged nodes</button>
+          <a href="{{ pOsmHref }}" style="height:34px; display:inline-flex; align-items:center; padding:0 14px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); text-decoration:none;" style-hover="background:color-mix(in oklab, var(--brand) 22%, transparent);" target="_blank">OSM profile ↗</a>
+        </div>
+      </div>
+      <div class="kpi-grid" style="margin:20px 0 18px;">
+        <sc-for as="k" hint-placeholder-count="6" list="{{ pKpis }}">
+          <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-card); padding:14px 16px; min-width:0;">
+            <div style="font-family:var(--font-mono); font-size:24px; font-weight:700; letter-spacing:var(--ls-mono); color:{{ k.c }};">{{ k.v }}</div>
+            <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-top:5px;">{{ k.l }}</div>
+            <div style="font-size:11px; color:var(--text-tertiary); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ k.s }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div class="pf-grid">
+        <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); min-width:0;">
+          <div style="padding:14px 18px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <div style="font-family:var(--font-display); font-size:15px; font-weight:700; letter-spacing:var(--ls-display); margin-right:8px;">Timeline</div>
+            <sc-for as="ch" hint-placeholder-count="3" list="{{ pTlChips }}">
+              <button onClick="{{ ch.onClick }}" style="height:26px; padding:0 10px; border-radius:var(--radius-pill); border:1px solid {{ ch.bd }}; background:{{ ch.bg }}; color:{{ ch.fg }}; font-family:var(--font-ui); font-size:11.5px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap;">{{ ch.label }}</button>
+            </sc-for>
+            <span style="margin-left:auto; font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); letter-spacing:var(--ls-mono); white-space:nowrap;">{{ pTlLabel }}</span>
+          </div>
+          <div style="padding:18px 18px 4px;">
+            <sc-for as="t" hint-placeholder-count="5" list="{{ pTimeline }}">
+              <div style="display:flex; gap:14px;">
+                <div style="display:flex; flex-direction:column; align-items:center; width:12px; flex:none;">
+                  <span style="width:11px; height:11px; border-radius:50%; background:{{ t.dot }}; box-shadow:0 0 0 3px {{ t.halo }}; margin-top:4px; flex:none;"></span>
+                  <span style="width:2px; flex:1; background:{{ t.line }}; margin-top:6px; border-radius:1px;"></span>
+                </div>
+                <div style="flex:1; min-width:0; padding-bottom:20px;">
+                  <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;">
+                    <span style="font-family:var(--font-mono); font-size:13px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--text-primary);">#{{ t.id }}</span>
+                    <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:var(--fw-semibold); color:var(--text-secondary);"><span style="width:6px; height:6px; border-radius:50%; background:{{ t.statusColor }}; flex:none;"></span>{{ t.status }}</span>
+                    <span style="margin-left:auto; font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); letter-spacing:var(--ls-mono); white-space:nowrap;">{{ t.absTime }}</span>
+                  </div>
+                  <div style="font-size:var(--fs-body-sm); line-height:1.5; color:var(--text-primary); margin-top:4px;">{{ t.comment }}</div>
+                  <div style="display:flex; align-items:center; gap:6px; margin-top:7px; flex-wrap:wrap; font-family:var(--font-mono); font-size:11.5px; font-weight:700; letter-spacing:var(--ls-mono);">
+                    <span style="min-width:38px; text-align:center; padding:2px 6px; border-radius:var(--radius-xs); color:{{ t.addFg }}; background:{{ t.addBg }};">{{ t.addT }}</span>
+                    <span style="min-width:38px; text-align:center; padding:2px 6px; border-radius:var(--radius-xs); color:{{ t.modFg }}; background:{{ t.modBg }};">{{ t.modT }}</span>
+                    <span style="min-width:38px; text-align:center; padding:2px 6px; border-radius:var(--radius-xs); color:{{ t.delFg }}; background:{{ t.delBg }};">{{ t.delT }}</span>
+                    <span style="font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); color:var(--text-secondary); margin-left:4px;">{{ t.area }}</span>
+                    <a href="{{ t.osmHref }}" style="margin-left:auto; font-family:var(--font-ui); font-size:11px; font-weight:600; color:var(--text-brand); text-decoration:none;" style-hover="text-decoration:underline;" target="_blank">OSM ↗</a>
+                  </div>
+                  <sc-if hint-placeholder-val="{{ false }}" value="{{ t.isRev }}">
+                    <div style="margin-top:10px; border:1px solid color-mix(in oklab, var(--alert-500) 30%, transparent); background:color-mix(in oklab, var(--alert-500) 6%, var(--surface-card)); border-radius:var(--radius-sm); padding:9px 12px;">
+                      <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12px; color:var(--text-secondary);">
+                        <span style="font-family:var(--font-mono); font-size:12px; font-weight:700; color:var(--alert-600); letter-spacing:var(--ls-mono);">↩ Reverted {{ t.revAfter }} later</span>
+                        <span>by</span>
+                        <button class="lnk-btn" onClick="{{ t.onRevBy }}" style="font-size:12px;">{{ t.revBy }}</button>
+                        <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); letter-spacing:var(--ls-mono);">in {{ t.revCs }}</span>
+                        <span style="margin-left:auto; font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); letter-spacing:var(--ls-mono); white-space:nowrap;">{{ t.revTime }}</span>
+                      </div>
+                      <div style="font-size:12px; color:var(--text-secondary); margin-top:3px;">{{ t.revReason }}</div>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if hint-placeholder-val="{{ false }}" value="{{ pTlEmpty }}">
+              <div style="padding:36px 0 40px; text-align:center; color:var(--text-tertiary); font-size:var(--fs-body-sm);">{{ pTlEmptyMsg }}</div>
+            </sc-if>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:16px; min-width:0;">
+          <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:16px 18px;">
+            <div style="font-family:var(--font-display); font-size:15px; font-weight:700; letter-spacing:var(--ls-display);">Edit survival</div>
+            <div style="font-size:var(--fs-caption); color:var(--text-secondary); margin-top:2px;">How their changesets have held up on OSM.</div>
+            <div style="display:flex; align-items:baseline; gap:8px; margin-top:14px;">
+              <span style="font-family:var(--font-display); font-size:38px; font-weight:700; letter-spacing:var(--ls-display); line-height:1; color:{{ pSurvColor }};">{{ pSurv }}</span>
+              <span style="font-size:var(--fs-caption); color:var(--text-tertiary);">still standing</span>
+            </div>
+            <div style="display:flex; height:10px; border-radius:var(--radius-pill); overflow:hidden; background:color-mix(in oklab, var(--text-primary) 7%, transparent); margin:12px 0;">
+              <span style="width:{{ pIntactW }}; background:var(--brand);"></span>
+              <span style="width:{{ pEditedW }}; background:var(--amber-500);"></span>
+              <span style="width:{{ pRevW }}; background:var(--alert-500);"></span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:7px;">
+              <sc-for as="sg" hint-placeholder-count="3" list="{{ pSegs }}">
+                <div style="display:flex; align-items:center; gap:8px; font-size:12.5px;">
+                  <span style="width:9px; height:9px; border-radius:3px; background:{{ sg.c }}; flex:none;"></span>
+                  <span style="color:var(--text-secondary); font-weight:var(--fw-semibold);">{{ sg.label }}</span>
+                  <span style="margin-left:auto; font-family:var(--font-mono); font-size:12.5px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--text-primary);">{{ sg.n }}</span>
+                  <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); letter-spacing:var(--ls-mono); width:36px; text-align:right;">{{ sg.pct }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="border-top:1px solid var(--border); margin-top:14px; padding-top:12px; display:flex; flex-direction:column; gap:9px;">
+              <sc-for as="sr" hint-placeholder-count="5" list="{{ pSurvRows }}">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); white-space:nowrap;">{{ sr.k }}</span>
+                  <span style="margin-left:auto; font-family:var(--font-mono); font-size:12.5px; font-weight:600; letter-spacing:var(--ls-mono); color:var(--text-primary); text-align:right; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ sr.v }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:16px 18px;">
+            <div style="font-family:var(--font-display); font-size:15px; font-weight:700; letter-spacing:var(--ls-display);">Activity</div>
+            <div style="font-size:var(--fs-caption); color:var(--text-secondary); margin-top:2px;">Changesets per week, reverted in red.</div>
+            <div style="display:flex; align-items:flex-end; gap:5px; height:92px; margin-top:14px;">
+              <sc-for as="w" hint-placeholder-count="12" list="{{ pWeeks }}">
+                <div style="flex:1; display:flex; flex-direction:column; justify-content:flex-end; gap:1px; height:100%; min-width:0;" title="{{ w.tip }}">
+                  <span style="display:block; height:{{ w.revH }}; background:var(--alert-500); border-radius:2px;"></span>
+                  <span style="display:block; height:{{ w.keptH }}; background:{{ w.keptBg }}; border-radius:2px;"></span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:10px; color:var(--text-tertiary); letter-spacing:var(--ls-mono); margin-top:6px;"><span>12 w ago</span><span>this week</span></div>
+          </div>
+          <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:16px 18px;">
+            <div style="font-family:var(--font-display); font-size:15px; font-weight:700; letter-spacing:var(--ls-display);">Where they map</div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:12px;">
+              <sc-for as="pa" hint-placeholder-count="5" list="{{ pAreas }}">
+                <button onClick="{{ pa.onClick }}" style="height:28px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer; display:inline-flex; align-items:center; gap:6px;" style-hover="border-color:var(--brand); color:var(--text-brand);" title="View their changesets here">{{ pa.label }}<span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--text-tertiary);">{{ pa.count }}</span></button>
+              </sc-for>
+              <sc-if hint-placeholder-val="{{ false }}" value="{{ pNoAreas }}">
+                <span style="font-size:var(--fs-body-sm); color:var(--text-tertiary);">No changeset activity yet.</span>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ===================== WATCHED AREAS VIEW ===================== -->
+    <sc-if hint-placeholder-val="{{ false }}" value="{{ isAreas }}">
+    <div style="padding:22px 24px 0;">
+      <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h1); line-height:var(--lh-h1); letter-spacing:var(--ls-display); margin:0 0 6px;">Areas</h1>
+      <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0 0 16px; max-width:70ch;">Moderators define their own areas — a ZIP code, a city or county, a bounding box, or a boundary drawn on the map. Subscribe to one and its ALPR activity surfaces on your dashboard.</p>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:16px;">
+        <input class="flt-input" onChange="{{ onWaFilter }}" placeholder="Filter areas…" style="width:240px;" value="{{ waFilter }}">
+        <button onClick="{{ onWaOpenModal }}" style="height:40px; padding:0 18px; border-radius:var(--radius-pill); border:none; background:var(--brand); color:#fff; font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); cursor:pointer; flex:none; white-space:nowrap;" style-hover="filter:brightness(1.05);">Create area</button>
+        <div style="margin-left:auto; font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); letter-spacing:var(--ls-mono); white-space:nowrap;">{{ waCountLabel }}</div>
+      </div>
+    </div>
+    <section>
+      <div style="padding:0 24px 24px;">
+        <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); overflow:auto;">
+          <div style="min-width:920px;">
+            <div class="wa-grid" style="padding:12px 12px 10px; border-bottom:1px solid var(--border);">
+              <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">Area</div>
+              <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">Watchers</div>
+              <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">Open flags</div>
+              <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">Edits · 7 d</div>
+              <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">Flagged</div>
+              <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">Created</div>
+              <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">Actions</div>
+              <div></div>
+            </div>
+            <sc-for as="w" hint-placeholder-count="4" list="{{ waRows }}">
+              <div class="wa-grid" style="padding:{{ rowPad }}; border-bottom:1px solid var(--border); transition:background 120ms;" style-hover="background:color-mix(in oklab, var(--brand) 4%, var(--surface-card));">
+                <div style="min-width:0;">
+                  <div style="display:flex; align-items:center; gap:7px; min-width:0;">
+                    <span style="font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ w.area }}</span>
+                    <span style="flex:none; font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-secondary); border:1px solid var(--border); border-radius:var(--radius-pill); padding:2px 7px;">{{ w.kindT }}</span>
+                  </div>
+                  <sc-if hint-placeholder-val="{{ false }}" value="{{ w.hasDef }}">
+                    <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:var(--ls-mono); color:var(--text-tertiary); margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ w.def }}">{{ w.def }}</div>
+                  </sc-if>
+                  <div style="display:flex; gap:10px; margin-top:3px;">
+                    <button class="lnk-btn" onClick="{{ w.goCs }}">Changesets</button>
+                    <button class="lnk-btn" onClick="{{ w.goNodes }}">ALPR nodes</button>
+                    <button class="lnk-btn" onClick="{{ w.goEditors }}">Editors</button>
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:7px; min-width:0;">
+                  <span style="font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:{{ w.watcherColor }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ w.watcher }}</span>
+                  <sc-if hint-placeholder-val="{{ false }}" value="{{ w.isYou }}">
+                    <span style="font-family:var(--font-mono); font-size:10px; font-weight:700; color:var(--text-brand); background:var(--brand-soft); border-radius:var(--radius-pill); padding:1px 7px;">you</span>
+                  </sc-if>
+                </div>
+                <div style="font-family:var(--font-mono); font-size:13px; font-weight:700; letter-spacing:var(--ls-mono); color:{{ w.flagColor }};">{{ w.openFlags }}</div>
+                <div style="font-family:var(--font-mono); font-size:13px; letter-spacing:var(--ls-mono); color:var(--text-secondary);">{{ w.cs7 }}</div>
+                <div style="font-family:var(--font-mono); font-size:13px; letter-spacing:var(--ls-mono); color:{{ w.flaggedColor }};">{{ w.flaggedCs }}</div>
+                <div style="min-width:0;">
+                  <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-tertiary); letter-spacing:var(--ls-mono);">{{ w.createdT }}</div>
+                  <div style="font-size:11px; color:var(--text-tertiary); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">by {{ w.createdByT }}</div>
+                </div>
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <sc-if hint-placeholder-val="{{ false }}" value="{{ w.confirming }}">
+                    <span style="font-size:12px; font-weight:var(--fw-semibold); color:var(--alert-600); white-space:nowrap;">Remove?</span>
+                    <button onClick="{{ w.onRemoveYes }}" style="height:30px; padding:0 12px; border-radius:var(--radius-pill); border:none; background:var(--alert-500); color:#fff; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); cursor:pointer; white-space:nowrap;" style-hover="filter:brightness(1.05);">Yes, remove</button>
+                    <button onClick="{{ w.onRemoveNo }}" style="height:30px; padding:0 12px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer;" style-hover="color:var(--text-primary); border-color:var(--text-tertiary);">Keep</button>
+                  </sc-if>
+                  <sc-if hint-placeholder-val="{{ true }}" value="{{ w.notConfirming }}">
+                  <sc-if hint-placeholder-val="{{ false }}" value="{{ w.canSubscribe }}">
+                    <button onClick="{{ w.onSubscribe }}" style="height:30px; padding:0 12px; border-radius:var(--radius-pill); border:none; background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); cursor:pointer;" style-hover="background:color-mix(in oklab, var(--brand) 22%, transparent);">Subscribe</button>
+                  </sc-if>
+                  <sc-if hint-placeholder-val="{{ false }}" value="{{ w.isYou }}">
+                    <button onClick="{{ w.onUnsubscribe }}" style="height:30px; padding:0 12px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer;" style-hover="border-color:var(--amber-500); color:var(--amber-600);">Unsubscribe</button>
+                  </sc-if>
+                  <button onClick="{{ w.onRemove }}" style="height:30px; padding:0 12px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer;" style-hover="border-color:var(--alert-500); color:var(--alert-600);">Remove</button>
+                  </sc-if>
+                </div>
+                <button onClick="{{ w.onToggle }}" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center; justify-self:end; border:none; background:none; cursor:pointer; color:{{ w.chevColor }}; border-radius:var(--radius-xs); padding:0;" style-hover="background:color-mix(in oklab, var(--text-primary) 8%, transparent); color:var(--text-primary);" title="Details"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" style="transition:transform 180ms; transform:{{ w.chevRot }};" viewBox="0 0 24 24" width="16"><path d="M6 9l6 6 6-6"></path></svg></button>
+              </div>
+              <sc-if hint-placeholder-val="{{ false }}" value="{{ w.isOpen }}">
+                <div class="det-grid" style="padding:18px 20px 22px; border-bottom:1px solid var(--border); background:color-mix(in oklab, var(--brand) 3%, var(--surface-page));">
+                  <div style="min-width:0; display:flex; flex-direction:column; gap:16px;">
+                    <div>
+                      <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:6px;">Watchers</div>
+                      <sc-if hint-placeholder-val="{{ false }}" value="{{ w.hasWatchers }}">
+                        <div style="display:flex; flex-direction:column; gap:6px;">
+                          <sc-for as="wp" hint-placeholder-count="2" list="{{ w.watcherList }}">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                              <span style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--brand-soft); color:var(--text-brand); font-weight:var(--fw-bold); font-size:10px; flex:none;">{{ wp.initials }}</span>
+                              <span style="font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary);">{{ wp.name }}</span>
+                              <sc-if hint-placeholder-val="{{ false }}" value="{{ wp.isYou }}"><span style="font-family:var(--font-mono); font-size:10px; font-weight:700; color:var(--text-brand); background:var(--brand-soft); border-radius:var(--radius-pill); padding:1px 7px;">you</span></sc-if>
+                            </div>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                      <sc-if hint-placeholder-val="{{ false }}" value="{{ w.noWatchers }}"><div style="font-size:var(--fs-body-sm); color:var(--text-tertiary);">No watchers yet.</div></sc-if>
+                    </div>
+                    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:12px 20px;">
+                      <sc-for as="d" hint-placeholder-count="5" list="{{ w.detail }}">
+                        <div style="min-width:0;">
+                          <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:3px;">{{ d.k }}</div>
+                          <div style="font-family:var(--font-mono); font-size:12.5px; letter-spacing:var(--ls-mono); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ d.v }}">{{ d.v }}</div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <div style="position:relative; height:252px; border-radius:var(--radius-md); overflow:hidden; border:1px solid var(--border); background:var(--map-land);">
+                    <svg preserveAspectRatio="xMidYMid slice" style="position:absolute; inset:0; width:100%; height:100%; display:block;" viewBox="0 0 400 252">
+                      <rect fill="var(--map-land)" height="252" width="400"></rect>
+                      <rect fill="var(--map-land-alt)" height="112" rx="8" width="150" x="118" y="58"></rect>
+                      <path d="M400 -10 L400 92 C 348 88, 318 52, 322 -10 Z" fill="var(--map-water)"></path>
+                      <ellipse cx="66" cy="208" fill="var(--map-park)" rx="72" ry="46"></ellipse>
+                      <g stroke="var(--map-road-minor)" stroke-linecap="round" stroke-width="3"><line x1="55" x2="55" y1="-10" y2="262"></line><line x1="130" x2="130" y1="-10" y2="262"></line><line x1="210" x2="210" y1="-10" y2="262"></line><line x1="290" x2="290" y1="-10" y2="262"></line><line x1="355" x2="355" y1="-10" y2="262"></line><line x1="-10" x2="410" y1="52" y2="52"></line><line x1="-10" x2="410" y1="118" y2="118"></line><line x1="-10" x2="410" y1="188" y2="188"></line></g>
+                      <g fill="none" stroke="var(--map-road)" stroke-linecap="round" stroke-width="7"><path d="M170 -10 C 182 80, 158 170, 172 262"></path><path d="M-10 142 C 120 120, 280 162, 410 134"></path></g>
+                    </svg>
+                    <svg preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; display:block;" viewBox="0 0 400 252"><path d="{{ w.boundsD }}" fill="color-mix(in oklab, var(--brand) 8%, transparent)" stroke="var(--brand)" stroke-dasharray="7 5" stroke-linejoin="round" stroke-width="2"></path></svg>
+                    <sc-for as="m" hint-placeholder-count="3" list="{{ w.mapDots }}">
+                      <span style="position:absolute; width:9px; height:9px; margin:-4px 0 0 -4px; border-radius:50%; background:var(--alert-500); box-shadow:0 0 0 3px color-mix(in oklab, var(--alert-500) 25%, transparent), 0 0 12px color-mix(in oklab, var(--alert-500) 70%, transparent); left:{{ m.left }}; top:{{ m.top }};"></span>
+                    </sc-for>
+                    <span style="position:absolute; left:10px; top:10px; display:inline-flex; align-items:center; height:26px; padding:0 11px; border-radius:var(--radius-pill); background:var(--surface-glass); backdrop-filter:blur(16px); border:1px solid var(--border-glass); box-shadow:var(--shadow-float); font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--text-primary); white-space:nowrap;">{{ w.mapLabel }}</span>
+                  </div>
+                </div>
+              </sc-if>
+            </sc-for>
+            <sc-if hint-placeholder-val="{{ false }}" value="{{ isWaEmpty }}">
+              <div style="padding:72px 24px; text-align:center;">
+                <div style="font-family:var(--font-display); font-size:var(--fs-h3); font-weight:600; margin-bottom:8px;">{{ waEmptyTitle }}</div>
+                <div style="font-size:var(--fs-body); color:var(--text-secondary);">{{ waEmptyMsg }}</div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </section>
+    <sc-if hint-placeholder-val="{{ false }}" value="{{ waModalOpen }}">
+      <div onClick="{{ onWaCloseModal }}" style="position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; padding:24px; background:color-mix(in oklab, var(--ink-950) 45%, transparent); backdrop-filter:blur(3px);">
+        <div onClick="{{ waStop }}" style="width:440px; max-width:100%; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-2xl); box-shadow:var(--shadow-sheet); padding:22px 22px 20px;">
+          <div style="font-family:var(--font-display); font-size:18px; font-weight:700; letter-spacing:var(--ls-display); margin-bottom:4px;">Create area</div>
+          <sc-if hint-placeholder-val="{{ true }}" value="{{ waStepForm }}">
+          <div style="font-size:var(--fs-body-sm); line-height:1.5; color:var(--text-secondary); margin-bottom:16px;">Define it by ZIP, city or county, bounding box — or draw the boundary yourself.</div>
+          <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:6px;">Defined by</div>
+          <div style="display:flex; flex-wrap:wrap; gap:2px; padding:3px; border:1px solid var(--border); border-radius:var(--radius-pill); margin-bottom:14px;">
+            <sc-for as="k" hint-placeholder-count="4" list="{{ waKinds }}">
+              <button onClick="{{ k.onClick }}" style="flex:1; height:30px; padding:0 10px; border-radius:var(--radius-pill); border:none; background:{{ k.bg }}; color:{{ k.fg }}; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); cursor:pointer; white-space:nowrap;" style-hover="color:var(--text-brand);">{{ k.label }}</button>
+            </sc-for>
+          </div>
+          <sc-if hint-placeholder-val="{{ false }}" value="{{ waNeedsName }}">
+            <div style="margin-bottom:12px;">
+              <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:6px;">Name</div>
+              <input class="flt-input" onChange="{{ onWaName }}" onKeyDown="{{ onWaKey }}" placeholder="Name this area…" style="width:100%;" value="{{ waName }}">
+            </div>
+          </sc-if>
+          <sc-if hint-placeholder-val="{{ false }}" value="{{ waShowDef }}">
+            <div style="margin-bottom:12px;">
+              <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:6px;">{{ waDefLabel }}</div>
+              <input class="flt-input" onChange="{{ onWaText }}" onKeyDown="{{ onWaKey }}" placeholder="{{ waDefPlaceholder }}" style="width:100%;" value="{{ waText }}">
+            </div>
+          </sc-if>
+          <sc-if hint-placeholder-val="{{ false }}" value="{{ waIsDrawn }}">
+            <div style="display:flex; align-items:center; gap:10px; padding:12px; border:1px dashed var(--border); border-radius:var(--radius-md); margin-bottom:12px; background:var(--surface-page);">
+              <svg fill="none" height="26" style="flex:none;" viewBox="0 0 34 26" width="34"><path d="M6 6 L16 3 L28 7 L30 16 L22 23 L9 21 L4 13 Z" fill="color-mix(in oklab, var(--brand) 10%, transparent)" stroke="var(--brand)" stroke-dasharray="3.5 2.6" stroke-linejoin="round" stroke-width="1.6"></path></svg>
+              <span style="font-size:var(--fs-caption); line-height:1.5; color:var(--text-secondary);">The map opens next — trace the boundary and it saves when you close the loop.</span>
+            </div>
+          </sc-if>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:18px;">
+            <button onClick="{{ onWaCloseModal }}" style="height:36px; padding:0 16px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer;" style-hover="color:var(--text-primary); border-color:var(--text-tertiary);">Cancel</button>
+            <button onClick="{{ onWaAdd }}" style="height:36px; padding:0 18px; border-radius:var(--radius-pill); border:none; background:var(--brand); color:#fff; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); cursor:pointer; white-space:nowrap;" style-hover="filter:brightness(1.05);">{{ waCreateLabel }}</button>
+          </div>
+          </sc-if>
+          <sc-if hint-placeholder-val="{{ false }}" value="{{ waStepDraw }}">
+          <div style="font-size:var(--fs-body-sm); line-height:1.5; color:var(--text-secondary); margin-bottom:14px;">Click the map to drop boundary points — three or more close the loop.</div>
+          <div onClick="{{ onWaMapClick }}" style="position:relative; width:100%; aspect-ratio:400/252; border-radius:var(--radius-md); overflow:hidden; border:1px solid var(--border); background:var(--map-land); cursor:crosshair;">
+            <svg preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:none;" viewBox="0 0 400 252">
+              <rect fill="var(--map-land)" height="252" width="400"></rect>
+              <rect fill="var(--map-land-alt)" height="112" rx="8" width="150" x="118" y="58"></rect>
+              <path d="M400 -10 L400 92 C 348 88, 318 52, 322 -10 Z" fill="var(--map-water)"></path>
+              <ellipse cx="66" cy="208" fill="var(--map-park)" rx="72" ry="46"></ellipse>
+              <g stroke="var(--map-road-minor)" stroke-linecap="round" stroke-width="3"><line x1="55" x2="55" y1="-10" y2="262"></line><line x1="130" x2="130" y1="-10" y2="262"></line><line x1="210" x2="210" y1="-10" y2="262"></line><line x1="290" x2="290" y1="-10" y2="262"></line><line x1="355" x2="355" y1="-10" y2="262"></line><line x1="-10" x2="410" y1="52" y2="52"></line><line x1="-10" x2="410" y1="118" y2="118"></line><line x1="-10" x2="410" y1="188" y2="188"></line></g>
+              <g fill="none" stroke="var(--map-road)" stroke-linecap="round" stroke-width="7"><path d="M170 -10 C 182 80, 158 170, 172 262"></path><path d="M-10 142 C 120 120, 280 162, 410 134"></path></g>
+              <path d="{{ waDrawD }}" fill="color-mix(in oklab, var(--brand) 10%, transparent)" stroke="var(--brand)" stroke-dasharray="7 5" stroke-linejoin="round" stroke-width="2"></path>
+            </svg>
+            <sc-for as="p" hint-placeholder-count="0" list="{{ waDrawDots }}">
+              <span style="position:absolute; width:9px; height:9px; margin:-4px 0 0 -4px; border-radius:50%; background:var(--brand); border:2px solid #fff; box-shadow:var(--shadow-marker); left:{{ p.left }}; top:{{ p.top }}; pointer-events:none;"></span>
+            </sc-for>
+            <span style="position:absolute; left:10px; top:10px; display:inline-flex; align-items:center; height:26px; padding:0 11px; border-radius:var(--radius-pill); background:var(--surface-glass); backdrop-filter:blur(16px); border:1px solid var(--border-glass); box-shadow:var(--shadow-float); font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--text-primary); white-space:nowrap; pointer-events:none;">{{ waDrawCount }}</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; margin-top:16px;">
+            <button onClick="{{ onWaBack }}" style="height:36px; padding:0 16px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer;" style-hover="color:var(--text-primary); border-color:var(--text-tertiary);">Back</button>
+            <div style="margin-left:auto; display:flex; gap:8px;">
+              <button onClick="{{ onWaUndo }}" style="height:36px; padding:0 16px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer;" style-hover="color:var(--text-primary); border-color:var(--text-tertiary);">Undo point</button>
+              <button onClick="{{ onWaSaveDrawn }}" style="height:36px; padding:0 18px; border-radius:var(--radius-pill); border:none; background:var(--brand); color:#fff; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); cursor:pointer; white-space:nowrap; opacity:{{ waSaveOp }};" style-hover="filter:brightness(1.05);">Save area</button>
+            </div>
+          </div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+    </sc-if>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;comfortable&quot;,&quot;compact&quot;],&quot;default&quot;:&quot;comfortable&quot;,&quot;tsType&quot;:&quot;'comfortable' | 'compact'&quot;,&quot;section&quot;:&quot;Table&quot;}}" type="text/x-dc">
+class Component extends DCLogic {
+  state = {
+    view: 'nodes',
+    sortKey: 'time', sortDir: 'desc', fChangeset: '', fUser: '', page: 0,
+    cfStatuses: [], cfKinds: [], cfAreas: [], cfAreaText: '', cfAreaOpen: false, cfWin: 'Any time',
+    nfRules: [], nfSevs: [], nfDirFrom: '', nfDirTo: '', nfDirMissing: false,
+    nfOpTokens: [], nfOpText: '', nfAreas: [], nfAreaText: '', nfAreaOpen: false, nfUser: '', nfCs: '', nfWin: 'Any time',
+    nSortKey: 'detected', nSortDir: 'desc', nPage: 0, dismissed: {},
+    efStatuses: [], efAreas: [], efAreaText: '', efAreaOpen: false, efUser: '', efWin: 'Any activity',
+    eSortKey: 'cs', eSortDir: 'desc',
+    watched: [
+      { id: 1, area: 'Austin metro', kind: 'bbox', def: '30.098,-97.928 → 30.516,-97.568', loc: 'Austin, TX', createdBy: 'Devin Park', watchers: ['you', 'Devin Park'], created: Date.now() - 42 * 86400000 },
+      { id: 2, area: 'Maricopa County, AZ', kind: 'county', def: null, loc: 'Phoenix, AZ', createdBy: 'Devin Park', watchers: ['Devin Park', 'Priya Raman'], created: Date.now() - 31 * 86400000 },
+      { id: 3, area: 'ZIP 80204', kind: 'zip', def: '80204 · Denver, CO', loc: 'Denver, CO', createdBy: 'you', watchers: [], created: Date.now() - 9 * 86400000 },
+      { id: 4, area: 'Midtown sweep', kind: 'drawn', def: 'Drawn boundary · 14 points', loc: 'Memphis, TN', createdBy: 'Priya Raman', watchers: ['Priya Raman'], created: Date.now() - 5 * 86400000 },
+    ],
+    waText: '', waName: '', waKind: 'zip', waNextId: 5, waModalOpen: false, waFilter: '', waStep: 'form', waDrawPts: [], waConfirmId: null,
+    expKey: null,
+    profileUid: null, tlFilter: 'All',
+  };
+
+  gen() {
+    let s = 1337;
+    const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+    const ri = (a, b) => a + Math.floor(rnd() * (b - a + 1));
+    const pick = (a) => a[Math.floor(rnd() * a.length)];
+    const users = [
+      ['plate_awareness', 14203311], ['mapper_atx', 9284511], ['SurveilWatch', 15733208],
+      ['gridfinder', 6120944], ['deflock_dan', 16044182], ['osm_carla', 4381207],
+      ['NodeAudit', 12977055], ['bikelane_bob', 3559812], ['camerawatch_pdx', 15211903],
+      ['tx_surveys', 8834271], ['quietroutes', 13402856], ['jmapper88', 7719340],
+      ['alpr_tracker', 16233017], ['streetlevel_sam', 5127763], ['desertmapper', 10904415],
+      ['CivicLens', 14672289], ['roadnode', 2988431], ['watchthewatchers', 15987224],
+      ['gis_gwen', 6543110], ['metroaudit', 11278533], ['flatland_fixer', 9461877],
+      ['penny_osm', 13750942], ['nightsurvey', 16107738], ['corridor_counts', 8215690],
+      ['MapIntegrity', 12490377], ['lone_star_lens', 7092185],
+    ];
+    const areas = ['Austin, TX', 'Houston, TX', 'Phoenix, AZ', 'San Diego, CA', 'Denver, CO', 'Atlanta, GA', 'Nashville, TN', 'Columbus, OH', 'Tampa, FL', 'Sacramento, CA', 'Tucson, AZ', 'Charlotte, NC', 'Boise, ID', 'Memphis, TN', 'Oakland, CA', 'Tulsa, OK', 'Reno, NV', 'El Paso, TX', 'Fort Worth, TX', 'Spokane, WA', 'Albuquerque, NM', 'Louisville, KY', 'Fresno, CA', 'Omaha, NE'];
+    const roads = ['FM 620', 'Lamar Blvd', 'Peachtree St', 'Van Buren St', 'Colfax Ave', 'Broadway', 'MLK Jr Blvd', 'Route 9', 'Speedway Blvd', '5th Ave', 'Airport Rd', 'Mission Gorge Rd', 'Shelby Dr', 'Central Ave'];
+    const addC = ['Add Flock ALPR on {r}', 'Survey: new ALPR cameras, {r} corridor', 'Add camera:type=ALPR at {r} intersection', 'Import: city contract ALPR sites', 'Add surveillance nodes from field survey, {r}'];
+    const modC = ['Fix direction tag on ALPR node', 'Retag man_made=surveillance, add operator', 'Update operator to Flock Safety', 'Correct camera:mount and direction, {r}', 'Add surveillance:zone=traffic to existing nodes'];
+    const delC = ['Remove decommissioned ALPR, {r}', 'Node not found on resurvey — removing', 'Duplicate surveillance node cleanup'];
+    const mixC = ['Resurvey {r}: adjust positions, remove one dead unit', 'Corridor sweep {r}: adds + retags', 'Reconcile imported sites with field notes'];
+    const rows = [];
+    let id = 164178204;
+    let t = Date.now() - ri(2, 25) * 60000;
+    for (let i = 0; i < 618; i++) {
+      const roll = rnd();
+      let added = 0, modified = 0, deleted = 0, tpl;
+      if (roll < 0.52) { added = ri(1, 8); tpl = pick(addC); if (rnd() < 0.15) added = ri(9, 24); }
+      else if (roll < 0.78) { modified = ri(1, 9); tpl = pick(modC); }
+      else if (roll < 0.9) { added = ri(1, 5); modified = ri(1, 4); deleted = rnd() < 0.5 ? ri(1, 2) : 0; tpl = pick(mixC); }
+      else { deleted = ri(1, 5); tpl = pick(delC); }
+      const u = pick(users);
+      const flagged = deleted >= 3 || added >= 12 || rnd() < 0.05;
+      const status = flagged ? 'Flagged' : (rnd() < 0.28 ? 'Reviewed' : 'Needs review');
+      rows.push({
+        id, user: u[0], uid: u[1], ts: t, added, modified, deleted,
+        total: added + modified + deleted,
+        area: pick(areas),
+        comment: tpl.split('{r}').join(pick(roads)),
+        status,
+      });
+      t -= ri(4, 92) * 60000;
+      id -= ri(35, 2400);
+    }
+    return rows;
+  }
+
+  genNodes() {
+    let s = 20260828;
+    const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+    const ri = (a, b) => a + Math.floor(rnd() * (b - a + 1));
+    const pick = (a) => a[Math.floor(rnd() * a.length)];
+    const users = [['plate_awareness', 14203311], ['mapper_atx', 9284511], ['SurveilWatch', 15733208], ['gridfinder', 6120944], ['deflock_dan', 16044182], ['osm_carla', 4381207], ['NodeAudit', 12977055], ['camerawatch_pdx', 15211903], ['tx_surveys', 8834271], ['quietroutes', 13402856], ['alpr_tracker', 16233017], ['streetlevel_sam', 5127763], ['CivicLens', 14672289], ['watchthewatchers', 15987224], ['metroaudit', 11278533], ['nightsurvey', 16107738], ['newbie4021', 17204518], ['fastedits_99', 17093321]];
+    const RULES = [['Deleted by new user', 'High'], ['Duplicate node', 'High'], ['Moved >50 m', 'Medium'], ['Operator mismatch', 'Medium'], ['Missing direction', 'Medium'], ['No operator tag', 'Low'], ['Untagged camera type', 'Low']];
+    const ops = ['Flock Safety', 'Motorola Solutions', 'Vigilant', 'City of Austin', 'Axon'];
+    const rank = { High: 0, Medium: 1, Low: 2 };
+    const rows = [];
+    let nid = 12034559102;
+    const now = Date.now();
+    for (let i = 0; i < 420; i++) {
+      const count = rnd() < 0.68 ? 1 : (rnd() < 0.75 ? 2 : 3);
+      const rules = [];
+      while (rules.length < count) { const r = pick(RULES); if (!rules.some(x => x[0] === r[0])) rules.push(r); }
+      const names = rules.map(r => r[0]);
+      const severity = rules.reduce((m, r) => rank[r[1]] < rank[m] ? r[1] : m, 'Low');
+      const u = pick(users);
+      rows.push({
+        nid, rules: names, severity,
+        area: pick(['Austin, TX', 'Houston, TX', 'Phoenix, AZ', 'San Diego, CA', 'Denver, CO', 'Atlanta, GA', 'Nashville, TN', 'Columbus, OH', 'Tampa, FL', 'Sacramento, CA', 'Tucson, AZ', 'Charlotte, NC', 'Boise, ID', 'Memphis, TN', 'Oakland, CA', 'Tulsa, OK', 'Reno, NV', 'El Paso, TX', 'Fort Worth, TX', 'Spokane, WA', 'Albuquerque, NM', 'Louisville, KY', 'Fresno, CA', 'Omaha, NE']),
+        dirDeg: names.includes('Missing direction') ? null : ri(0, 359),
+        operator: names.includes('No operator tag') ? 'Unknown' : pick(ops),
+        user: u[0], uid: u[1],
+        ts: now - ri(5, 43200) * 60000,
+      });
+      nid -= ri(1200, 220000);
+    }
+    this.RULE_NAMES = RULES.map(r => r[0]);
+    this.SEV_RANK = rank;
+    return rows;
+  }
+
+  renderVals() {
+    if (!this.all) this.all = this.gen();
+    const theme = this.props.theme ?? 'light';
+    const density = this.props.density ?? 'comfortable';
+    const { sortKey, sortDir, fChangeset, fUser, cfStatuses, cfKinds, cfAreas, cfAreaText, cfWin } = this.state;
+    const now = Date.now();
+
+    const fc = fChangeset.replace(/\D/g, '');
+    const fu = fUser.trim().toLowerCase();
+    const csWinMs = { 'Last 24 h': 86400000, 'Last 7 d': 604800000, 'Last 30 d': 2592000000 }[cfWin];
+    const filtered = this.all.filter(r =>
+      (!fc || String(r.id).includes(fc)) &&
+      (!fu || r.user.toLowerCase().includes(fu) || String(r.uid).includes(fu)) &&
+      (!cfStatuses.length || cfStatuses.includes(r.status)) &&
+      (!cfKinds.length || cfKinds.some(k => k === 'Adds' ? r.added > 0 : k === 'Updates' ? r.modified > 0 : r.deleted > 0)) &&
+      (!cfAreas.length || cfAreas.includes(r.area)) &&
+      (!csWinMs || now - r.ts < csWinMs));
+
+    const statusRank = { 'Flagged': 0, 'Needs review': 1, 'Reviewed': 2 };
+    const keyFns = {
+      id: r => r.id, user: r => r.user.toLowerCase(),
+      added: r => r.added, modified: r => r.modified, deleted: r => r.deleted,
+      status: r => statusRank[r.status], area: r => r.area, time: r => r.ts,
+    };
+    const kf = keyFns[sortKey] || keyFns.time;
+    const sorted = filtered.slice().sort((a, b) => {
+      const x = kf(a), y = kf(b);
+      const c = x < y ? -1 : x > y ? 1 : b.ts - a.ts;
+      return sortDir === 'asc' ? c : -c;
+    });
+
+    const pages = Math.max(1, Math.ceil(sorted.length / 200));
+    const page = Math.min(this.state.page, pages - 1);
+    const slice = sorted.slice(page * 200, page * 200 + 200);
+
+    const rel = ts => {
+      const m = Math.max(1, Math.round((now - ts) / 60000));
+      if (m < 60) return m + 'm ago';
+      const h = Math.round(m / 60);
+      if (h < 24) return h + 'h ago';
+      return Math.round(h / 24) + 'd ago';
+    };
+    const abs = ts => new Date(ts).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const statusColors = { 'Flagged': 'var(--alert-500)', 'Needs review': 'var(--azure-500)', 'Reviewed': 'var(--brand)' };
+    const dim = 'var(--text-tertiary)';
+    const cell = (n, sign, fg, bg) => n > 0
+      ? { t: sign + n, fg, bg }
+      : { t: '·', fg: dim, bg: 'transparent' };
+    const expKey = this.state.expKey;
+    const toggleExp = k => this.setState(s2 => ({ expKey: s2.expKey === k ? null : k }));
+    const chev = o => ({ chevRot: o ? 'rotate(180deg)' : 'rotate(0deg)', chevColor: o ? 'var(--text-brand)' : 'var(--text-tertiary)' });
+    const hpos = (seed, salt) => { let x = (seed ^ (salt * 374761393)) >>> 0; x = (x * 2654435761) >>> 0; x = ((x >>> 13) ^ x) >>> 0; return (x % 1000) / 1000; };
+    const AREA_COORDS = { 'Austin, TX': [30.267, -97.743], 'Houston, TX': [29.760, -95.370], 'Phoenix, AZ': [33.448, -112.074], 'San Diego, CA': [32.716, -117.161], 'Denver, CO': [39.739, -104.990], 'Atlanta, GA': [33.749, -84.388], 'Nashville, TN': [36.163, -86.781], 'Columbus, OH': [39.961, -82.999], 'Tampa, FL': [27.951, -82.457], 'Sacramento, CA': [38.582, -121.494], 'Tucson, AZ': [32.222, -110.975], 'Charlotte, NC': [35.227, -80.843], 'Boise, ID': [43.615, -116.202], 'Memphis, TN': [35.149, -90.049], 'Oakland, CA': [37.804, -122.271], 'Tulsa, OK': [36.154, -95.993], 'Reno, NV': [39.530, -119.814], 'El Paso, TX': [31.759, -106.487], 'Fort Worth, TX': [32.755, -97.331], 'Spokane, WA': [47.658, -117.426], 'Albuquerque, NM': [35.084, -106.651], 'Louisville, KY': [38.253, -85.758], 'Fresno, CA': [36.738, -119.785], 'Omaha, NE': [41.257, -95.934] };
+
+    if (!this.revertsByCs) {
+      const revUsers = [['osm_carla', 4381207], ['NodeAudit', 12977055], ['MapIntegrity', 12490377], ['metroaudit', 11278533], ['gis_gwen', 6543110], ['penny_osm', 13750942]];
+      const reasons = ['Not found on resurvey — restored from imagery', 'Unsourced import, no license note', 'Duplicate of existing surveillance nodes', 'Mass delete without survey — restored', 'Disputed removal, reverted pending discussion', 'Position moved without evidence', 'Reverted after community forum discussion'];
+      const rv = {}, eo = {};
+      this.all.forEach(r => {
+        const p = Math.min(0.88, (0.03 + hpos(r.uid, 7) * 0.24) * (r.status === 'Flagged' ? 3.4 : 1) * (r.deleted >= 3 ? 1.4 : 1));
+        if (hpos(r.id, 53) < p) {
+          const delay = Math.round((25 + Math.pow(hpos(r.id, 57), 1.7) * 20160) * 60000);
+          if (r.ts + delay < now) {
+            let wi = Math.floor(hpos(r.id, 61) * revUsers.length);
+            if (revUsers[wi][0] === r.user) wi = (wi + 1) % revUsers.length;
+            rv[r.id] = { by: revUsers[wi][0], byUid: revUsers[wi][1], ts: r.ts + delay, delay, csId: r.id + 900 + Math.floor(hpos(r.id, 63) * 60000), reason: reasons[Math.floor(hpos(r.id, 65) * reasons.length)] };
+          }
+        } else if (hpos(r.id, 67) < 0.15) eo[r.id] = true;
+      });
+      this.revertsByCs = rv; this.editedByOthers = eo;
+      const rb = {};
+      this.all.forEach(r => { if (rv[r.id]) rb[r.uid] = (rb[r.uid] || 0) + 1; });
+      this.revByUid = rb;
+    }
+    const openProfile = uid => this.setState({ view: 'editor', profileUid: uid, tlFilter: 'All' });
+
+    const rows = slice.map(r => {
+      const a = cell(r.added, '+', 'var(--green-700, #0E8A4C)', 'var(--brand-soft)');
+      const m = cell(r.modified, '~', 'var(--amber-600)', 'var(--amber-100)');
+      const d = cell(r.deleted, '−', 'var(--alert-600)', 'var(--alert-100)');
+      const isOpen = expKey === 'cs:' + r.id;
+      let det = null;
+      if (isOpen) {
+        const nCount = Math.min(14, Math.max(1, r.total));
+        const pts = Array.from({ length: nCount }, (_, i) => ({
+          x: 14 + hpos(r.id, i * 2 + 1) * 72,
+          y: 16 + hpos(r.id, i * 2 + 2) * 66,
+        }));
+        const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+        const x0 = Math.max(2, Math.min.apply(null, xs) - 6), x1 = Math.min(98, Math.max.apply(null, xs) + 6);
+        const y0 = Math.max(3, Math.min.apply(null, ys) - 8), y1 = Math.min(97, Math.max.apply(null, ys) + 8);
+        const cc = AREA_COORDS[r.area] || [39.5, -98.35];
+        const j = k => (hpos(r.id, k) - 0.5) * 0.14;
+        const latA = cc[0] + j(31), lonA = cc[1] + j(37);
+        const editors = ['iD 2.30.4', 'JOSM/1.5 (19230)', 'StreetComplete 60.1', 'Rapid 2.5.2'];
+        const sources = ['survey', 'local knowledge', 'survey; imagery', 'field notes'];
+        const dur = (5 + Math.round(hpos(r.id, 41) * 50)) * 60000;
+        det = {
+          detail: [
+            { k: 'Created', v: abs(r.ts - dur) },
+            { k: 'Closed', v: abs(r.ts) },
+            { k: 'Editor', v: editors[Math.floor(hpos(r.id, 43) * editors.length)] },
+            { k: 'Source', v: sources[Math.floor(hpos(r.id, 47) * sources.length)] },
+            { k: 'Nodes touched', v: String(r.total) },
+            { k: 'Bounding box', v: latA.toFixed(3) + ', ' + lonA.toFixed(3) + ' → ' + (latA + 0.061).toFixed(3) + ', ' + (lonA + 0.084).toFixed(3) },
+          ],
+          mapDots: pts.map(p => ({ left: p.x.toFixed(1) + '%', top: p.y.toFixed(1) + '%' })),
+          bbL: x0.toFixed(1) + '%', bbT: y0.toFixed(1) + '%', bbW: (x1 - x0).toFixed(1) + '%', bbH: (y1 - y0).toFixed(1) + '%',
+          mapLabel: nCount + (nCount === 1 ? ' ALPR node · ' : ' ALPR nodes · ') + r.area,
+          osmHref: 'https://www.openstreetmap.org/changeset/' + r.id,
+        };
+      }
+      return {
+        ...r,
+        ...(det || {}),
+        isOpen, ...chev(isOpen),
+        onToggle: () => toggleExp('cs:' + r.id),
+        addT: a.t, addFg: a.fg, addBg: a.bg,
+        modT: m.t, modFg: m.fg, modBg: m.bg,
+        delT: d.t, delFg: d.fg, delBg: d.bg,
+        statusColor: statusColors[r.status],
+        time: rel(r.ts), absTime: abs(r.ts),
+        goNodes: () => this.setState({ view: 'nodes', nfUser: r.user, nPage: 0 }),
+        goEditor: () => openProfile(r.uid),
+        goCsNodes: () => this.setState({ view: 'nodes', nfCs: String(r.id), nPage: 0 }),
+      };
+    });
+
+    const defaultDir = { user: 'asc', area: 'asc', status: 'asc' };
+    const sortBy = key => this.setState(s => ({
+      sortKey: key,
+      sortDir: s.sortKey === key ? (s.sortDir === 'asc' ? 'desc' : 'asc') : (defaultDir[key] || 'desc'),
+    }));
+    const colDefs = [
+      { key: 'id', label: 'Changeset' }, { key: 'user', label: 'User' },
+      { changes: true }, { key: 'status', label: 'Status' },
+      { key: 'area', label: 'Location' },
+      { key: 'time', label: 'Time', just: 'flex-end' },
+    ];
+    const subDefs = [['added', '+'], ['modified', '~'], ['deleted', '−']];
+    const cols = colDefs.map(c => {
+      if (c.changes) return {
+        isChanges: true, notChanges: false, just: 'flex-start',
+        subs: subDefs.map(([key, glyph]) => {
+          const active = key === sortKey;
+          return {
+            label: glyph,
+            arrow: active ? (sortDir === 'asc' ? '↑' : '↓') : '',
+            color: active ? 'var(--text-brand)' : 'var(--text-tertiary)',
+            title: 'Sort by ' + key,
+            onClick: () => sortBy(key),
+          };
+        }),
+      };
+      const active = c.key === sortKey;
+      return {
+        label: c.label,
+        isChanges: false, notChanges: true,
+        just: c.just || 'flex-start',
+        cursor: 'pointer',
+        color: active ? 'var(--text-brand)' : 'var(--text-tertiary)',
+        arrow: active ? (sortDir === 'asc' ? '↑' : '↓') : '↕',
+        title: 'Sort by ' + c.label.toLowerCase(),
+        onClick: () => sortBy(c.key),
+      };
+    });
+
+    const day = 86400000;
+    const last24 = this.all.filter(r => now - r.ts < day).length;
+    const week = this.all.filter(r => now - r.ts < 7 * day);
+    const addedW = week.reduce((n, r) => n + r.added, 0);
+    const removedW = week.reduce((n, r) => n + r.deleted, 0);
+    const flaggedOpen = this.all.filter(r => r.status === 'Flagged').length;
+    const stats = [
+      { value: String(last24), label: 'changesets · 24 h', color: 'var(--text-primary)' },
+      { value: '+' + addedW, label: 'nodes added · 7 d', color: 'var(--text-brand)' },
+      { value: '−' + removedW, label: 'nodes removed · 7 d', color: 'var(--alert-600)' },
+      { value: String(flaggedOpen), label: 'flagged for review', color: 'var(--amber-600)' },
+    ];
+
+    const filtersActive = !!(fc || fu || cfStatuses.length || cfKinds.length || cfAreas.length || cfWin !== 'Any time');
+    const from = sorted.length ? page * 200 + 1 : 0;
+    const to = Math.min(sorted.length, (page + 1) * 200);
+    const go = p => this.setState({ page: p });
+    const pageBtns = Array.from({ length: pages }, (_, i) => ({
+      label: String(i + 1),
+      onClick: () => go(i),
+      bg: i === page ? 'var(--brand)' : 'var(--surface-card)',
+      color: i === page ? '#fff' : 'var(--text-secondary)',
+      border: i === page ? 'var(--brand)' : 'var(--border)',
+    }));
+
+    // ---------- ALPR nodes view ----------
+    if (!this.nodes) this.nodes = this.genNodes();
+    if (!this.nodesLinked) {
+      const byUser = {};
+      this.all.forEach(r => { (byUser[r.uid] = byUser[r.uid] || []).push(r.id); });
+      this.nodes.forEach((n, i) => { const l = byUser[n.uid]; n.cs = l ? l[i % l.length] : null; });
+      this.nodesLinked = true;
+    }
+    const { view, nfRules, nfSevs, nfDirFrom, nfDirTo, nfDirMissing, nfOpTokens, nfOpText, nfAreas, nfAreaText, nfUser, nfCs, nfWin, nSortKey, nSortDir, dismissed } = this.state;
+    const open = this.nodes.filter(n => !dismissed[n.nid]);
+    const OCT = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    const octant = d => OCT[Math.round(d / 45) % 8];
+    const winMs = { 'Last 24 h': day, 'Last 7 d': 7 * day, 'Last 30 d': 30 * day }[nfWin];
+    const nfu = nfUser.trim().toLowerCase();
+    const nfcs = nfCs.replace(/\D/g, '');
+    const df = parseInt(nfDirFrom, 10), dt = parseInt(nfDirTo, 10);
+    const hasRange = !isNaN(df) || !isNaN(dt);
+    const dirPass = n => {
+      if (!hasRange && !nfDirMissing) return true;
+      if (n.dirDeg == null) return nfDirMissing;
+      if (!hasRange) return false;
+      const lo = isNaN(df) ? 0 : df, hi = isNaN(dt) ? 359 : dt;
+      return lo <= hi ? (n.dirDeg >= lo && n.dirDeg <= hi) : (n.dirDeg >= lo || n.dirDeg <= hi);
+    };
+    const nFiltered = open.filter(n =>
+      (!nfRules.length || n.rules.some(r => nfRules.includes(r))) &&
+      (!nfSevs.length || nfSevs.includes(n.severity)) &&
+      dirPass(n) &&
+      (!nfOpTokens.length || nfOpTokens.includes(n.operator)) &&
+      (!nfAreas.length || nfAreas.includes(n.area)) &&
+      (!nfcs || (n.cs != null && String(n.cs).includes(nfcs))) &&
+      (!nfu || n.user.toLowerCase().includes(nfu) || String(n.uid).includes(nfu)) &&
+      (!winMs || now - n.ts < winMs));
+
+    const nKeyFns = {
+      nid: n => n.nid,
+      severity: n => this.SEV_RANK[n.severity],
+      dir: n => n.dirDeg == null ? 999 : n.dirDeg,
+      operator: n => n.operator.toLowerCase(),
+      user: n => n.user.toLowerCase(),
+      detected: n => n.ts,
+    };
+    const nkf = nKeyFns[nSortKey] || nKeyFns.detected;
+    const nSorted = nFiltered.slice().sort((a, b) => {
+      const x = nkf(a), y = nkf(b);
+      const c = x < y ? -1 : x > y ? 1 : b.ts - a.ts;
+      return nSortDir === 'asc' ? c : -c;
+    });
+    const nPages = Math.max(1, Math.ceil(nSorted.length / 200));
+    const nPage = Math.min(this.state.nPage, nPages - 1);
+    const nSlice = nSorted.slice(nPage * 200, nPage * 200 + 200);
+
+    const sevColors = {
+      High: ['var(--alert-600)', 'var(--alert-100)'],
+      Medium: ['var(--amber-600)', 'var(--amber-100)'],
+      Low: ['var(--azure-600, #1D6FE0)', 'color-mix(in oklab, var(--azure-500) 14%, transparent)'],
+    };
+    const nRows = nSlice.map(n => {
+      const isOpen = expKey === 'nd:' + n.nid;
+      let det = null;
+      if (isOpen) {
+        const cc = AREA_COORDS[n.area] || [39.5, -98.35];
+        const lat = (cc[0] + (hpos(n.nid, 3) - 0.5) * 0.2).toFixed(5);
+        const lon = (cc[1] + (hpos(n.nid, 9) - 0.5) * 0.2).toFixed(5);
+        const miss = 'var(--alert-600)', ok = 'var(--text-primary)';
+        det = {
+          detail: [
+            { k: 'Coordinates', v: lat + ', ' + lon },
+            { k: 'Location', v: n.area },
+            { k: 'Last changeset', v: n.cs != null ? '#' + n.cs : '—' },
+            { k: 'Changed by', v: n.user + ' · uid ' + n.uid },
+            { k: 'Detected', v: abs(n.ts) },
+            { k: 'Rules', v: n.rules.join(' · ') },
+          ],
+          tags: [
+            { k: 'man_made', v: 'surveillance', color: ok },
+            { k: 'surveillance', v: 'public', color: ok },
+            { k: 'surveillance:type', v: 'ALPR', color: ok },
+            { k: 'camera:mount', v: 'pole', color: ok },
+            { k: 'operator', v: n.operator === 'Unknown' ? '(missing)' : n.operator, color: n.operator === 'Unknown' ? miss : ok },
+            { k: 'direction', v: n.dirDeg == null ? '(missing)' : String(n.dirDeg), color: n.dirDeg == null ? miss : ok },
+          ],
+          hasCone: n.dirDeg != null,
+          noDir: n.dirDeg == null,
+          coneFrom: ((n.dirDeg || 0) - 20) + 'deg',
+          mapLabel: (n.dirDeg == null ? 'No direction' : 'Facing ' + n.dirDeg + '° ' + octant(n.dirDeg)) + ' · ' + n.operator,
+          viewHref: 'https://www.openstreetmap.org/node/' + n.nid,
+        };
+      }
+      return {
+      nid: String(n.nid),
+      ...(det || {}),
+      isOpen, ...chev(isOpen),
+      onToggle: () => toggleExp('nd:' + n.nid),
+      ruleChips: n.rules,
+      severity: n.severity,
+      sevFg: sevColors[n.severity][0], sevBg: sevColors[n.severity][1],
+      dirT: n.dirDeg == null ? '—' : n.dirDeg + '° ' + octant(n.dirDeg),
+      dirColor: n.dirDeg == null ? 'var(--text-tertiary)' : 'var(--text-primary)',
+      operator: n.operator, user: n.user, uid: n.uid,
+      time: rel(n.ts), absTime: abs(n.ts),
+      goEdits: () => this.setState({ view: 'changesets', fUser: n.user, page: 0 }),
+      goEditor: () => openProfile(n.uid),
+      onDismiss: () => this.setState(s2 => ({ dismissed: { ...s2.dismissed, [n.nid]: true } })),
+      adjustHref: 'https://www.openstreetmap.org/edit?node=' + n.nid,
+      };
+    });
+
+    const nSortBy = key => this.setState(s2 => ({
+      nSortKey: key,
+      nSortDir: s2.nSortKey === key ? (s2.nSortDir === 'asc' ? 'desc' : 'asc') : (key === 'operator' || key === 'user' || key === 'severity' ? 'asc' : 'desc'),
+    }));
+    const nColDefs = [
+      { key: 'nid', label: 'Node' }, { key: null, label: 'Rules' },
+      { key: 'severity', label: 'Severity' }, { key: 'dir', label: 'Direction' },
+      { key: 'operator', label: 'Operator' }, { key: 'user', label: 'Changed by' },
+      { key: 'detected', label: 'Detected' }, { key: null, label: 'Actions' },
+    ];
+    const nCols = nColDefs.map(c => {
+      const active = c.key && c.key === nSortKey;
+      return {
+        label: c.label, just: 'flex-start',
+        cursor: c.key ? 'pointer' : 'default',
+        color: active ? 'var(--text-brand)' : 'var(--text-tertiary)',
+        arrow: active ? (nSortDir === 'asc' ? '↑' : '↓') : (c.key ? '↕' : ''),
+        title: c.key ? 'Sort by ' + c.label.toLowerCase() : '',
+        onClick: c.key ? () => nSortBy(c.key) : () => {},
+      };
+    });
+
+    const toggle = (stateKey, val, pageKey) => this.setState(s2 => {
+      const arr = s2[stateKey];
+      return { [stateKey]: arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val], [pageKey || 'nPage']: 0 };
+    });
+    const mkChips = (stateKey, vals, selectedArr, pageKey) => vals.map(v => {
+      const sel = selectedArr.includes(v);
+      return {
+        label: v,
+        fg: sel ? 'var(--text-brand)' : 'var(--text-secondary)',
+        bg: sel ? 'var(--brand-soft)' : 'transparent',
+        bd: sel ? 'var(--brand)' : 'var(--border)',
+        onClick: () => toggle(stateKey, v, pageKey),
+      };
+    });
+    const csGroups = [
+      { name: 'Status', chips: mkChips('cfStatuses', ['Needs review', 'Reviewed', 'Flagged'], cfStatuses, 'page') },
+      { name: 'Changes', chips: mkChips('cfKinds', ['Adds', 'Updates', 'Deletes'], cfKinds, 'page') },
+    ];
+    if (!this.allAreas) this.allAreas = [...new Set(this.all.map(r => r.area))].sort();
+    const addArea = a => this.setState(s2 => ({
+      cfAreas: s2.cfAreas.includes(a) ? s2.cfAreas : [...s2.cfAreas, a],
+      cfAreaText: '', page: 0,
+    }));
+    const areaQuery = cfAreaText.trim().toLowerCase();
+    const areaSuggestions = this.allAreas
+      .filter(a => !cfAreas.includes(a) && a.toLowerCase().includes(areaQuery))
+      .map(a => ({ label: a, onPick: () => addArea(a) }));
+    const areaTokens = cfAreas.map(a => ({
+      label: a,
+      onRemove: () => this.setState(s2 => ({ cfAreas: s2.cfAreas.filter(x => x !== a), page: 0 })),
+    }));
+    const nGroups = [
+      { name: 'Rule', chips: mkChips('nfRules', this.RULE_NAMES, nfRules) },
+      { name: 'Severity', chips: mkChips('nfSevs', ['High', 'Medium', 'Low'], nfSevs) },
+    ];
+    const cleanDeg = v => v.replace(/[^\d]/g, '').slice(0, 3);
+    if (!this.allOps) this.allOps = [...new Set(this.nodes.map(n => n.operator))].sort();
+    const addOp = o => this.setState(s2 => ({
+      nfOpTokens: s2.nfOpTokens.includes(o) ? s2.nfOpTokens : [...s2.nfOpTokens, o],
+      nfOpText: '', nPage: 0,
+    }));
+    const opQuery = nfOpText.trim().toLowerCase();
+    const opSuggestions = this.allOps
+      .filter(o => !nfOpTokens.includes(o) && o.toLowerCase().includes(opQuery))
+      .map(o => ({ label: o, onPick: () => addOp(o) }));
+    const opTokens = nfOpTokens.map(t => ({
+      label: t,
+      onRemove: () => this.setState(s2 => ({ nfOpTokens: s2.nfOpTokens.filter(x => x !== t), nPage: 0 })),
+    }));
+    if (!this.allAreasN) this.allAreasN = [...new Set(this.nodes.map(n => n.area))].sort();
+    const addNArea = a => this.setState(s2 => ({
+      nfAreas: s2.nfAreas.includes(a) ? s2.nfAreas : [...s2.nfAreas, a],
+      nfAreaText: '', nPage: 0,
+    }));
+    const nAreaQuery = nfAreaText.trim().toLowerCase();
+    const nAreaSuggestions = this.allAreasN
+      .filter(a => !nfAreas.includes(a) && a.toLowerCase().includes(nAreaQuery))
+      .map(a => ({ label: a, onPick: () => addNArea(a) }));
+    const nAreaTokens = nfAreas.map(a => ({
+      label: a,
+      onRemove: () => this.setState(s2 => ({ nfAreas: s2.nfAreas.filter(x => x !== a), nPage: 0 })),
+    }));
+
+    const nFiltersActive = !!(nfRules.length || nfSevs.length || hasRange || nfDirMissing || nfOpTokens.length || nfAreas.length || nfu || nfcs || nfWin !== 'Any time');
+    const nFrom = nSorted.length ? nPage * 200 + 1 : 0;
+    const nTo = Math.min(nSorted.length, (nPage + 1) * 200);
+    const nGo = p => this.setState({ nPage: p });
+    const nPageBtns = Array.from({ length: nPages }, (_, i) => ({
+      label: String(i + 1),
+      onClick: () => nGo(i),
+      bg: i === nPage ? 'var(--brand)' : 'var(--surface-card)',
+      color: i === nPage ? '#fff' : 'var(--text-secondary)',
+      border: i === nPage ? 'var(--brand)' : 'var(--border)',
+    }));
+    // ---------- Editors view ----------
+    if (!this.editorBase) {
+      const map = {};
+      this.all.forEach(r => {
+        const e = map[r.uid] || (map[r.uid] = { user: r.user, uid: r.uid, cs: 0, added: 0, modified: 0, deleted: 0, flaggedCs: 0, areas: new Set(), last: 0 });
+        e.cs++; e.added += r.added; e.modified += r.modified; e.deleted += r.deleted;
+        if (r.status === 'Flagged') e.flaggedCs++;
+        e.areas.add(r.area); e.last = Math.max(e.last, r.ts);
+      });
+      this.nodes.forEach(n => {
+        const e = map[n.uid] || (map[n.uid] = { user: n.user, uid: n.uid, cs: 0, added: 0, modified: 0, deleted: 0, flaggedCs: 0, areas: new Set(), last: 0 });
+        e.last = Math.max(e.last, n.ts);
+      });
+      this.editorBase = Object.values(map);
+    }
+    const { efStatuses, efAreas, efAreaText, efUser, efWin, eSortKey, eSortDir } = this.state;
+    const flagsByUid = {};
+    open.forEach(n => { flagsByUid[n.uid] = (flagsByUid[n.uid] || 0) + 1; });
+    const editors = this.editorBase.map(e => {
+      const nodeFlags = flagsByUid[e.uid] || 0;
+      const reverted = this.revByUid[e.uid] || 0;
+      const status = e.cs < 5 ? 'New'
+        : (e.flaggedCs >= 6 || nodeFlags >= 35 || (e.cs >= 8 && reverted / e.cs > 0.3)) ? 'Watch'
+        : (e.cs >= 20 && e.flaggedCs <= 2) ? 'Trusted' : 'Neutral';
+      return { ...e, nodeFlags, reverted, status, areaCount: e.areas.size };
+    });
+
+    const eWinMs = { 'Active in last 24 h': 86400000, 'Active in last 7 d': 604800000, 'Active in last 30 d': 2592000000 }[efWin];
+    const efu = efUser.trim().toLowerCase();
+    const eFiltered = editors.filter(e =>
+      (!efStatuses.length || efStatuses.includes(e.status)) &&
+      (!efAreas.length || efAreas.some(a => e.areas.has(a))) &&
+      (!efu || e.user.toLowerCase().includes(efu) || String(e.uid).includes(efu)) &&
+      (!eWinMs || now - e.last < eWinMs));
+
+    const eStatusRank = { Watch: 0, New: 1, Neutral: 2, Trusted: 3 };
+    const eKeyFns = {
+      user: e => e.user.toLowerCase(), cs: e => e.cs,
+      added: e => e.added, modified: e => e.modified, deleted: e => e.deleted,
+      nflags: e => e.nodeFlags, areas: e => e.areaCount,
+      survival: e => e.cs ? (e.cs - e.reverted) / e.cs : 2,
+      status: e => eStatusRank[e.status], last: e => e.last,
+    };
+    const ekf = eKeyFns[eSortKey] || eKeyFns.cs;
+    const eSorted = eFiltered.slice().sort((a, b) => {
+      const x = ekf(a), y = ekf(b);
+      const c = x < y ? -1 : x > y ? 1 : b.last - a.last;
+      return eSortDir === 'asc' ? c : -c;
+    });
+
+    const eStatusColors = { Watch: 'var(--amber-500)', New: 'var(--violet-500)', Neutral: 'var(--text-tertiary)', Trusted: 'var(--brand)' };
+    const eRows = eSorted.map(e => {
+      const a = cell(e.added, '+', 'var(--green-700, #0E8A4C)', 'var(--brand-soft)');
+      const m = cell(e.modified, '~', 'var(--amber-600)', 'var(--amber-100)');
+      const d2 = cell(e.deleted, '−', 'var(--alert-600)', 'var(--alert-100)');
+      return {
+        user: e.user, uid: e.uid, cs: String(e.cs),
+        addT: a.t, addFg: a.fg, addBg: a.bg,
+        modT: m.t, modFg: m.fg, modBg: m.bg,
+        delT: d2.t, delFg: d2.fg, delBg: d2.bg,
+        flagT: e.nodeFlags > 0 ? String(e.nodeFlags) : '·',
+        flagColor: e.nodeFlags >= 8 ? 'var(--alert-600)' : e.nodeFlags >= 3 ? 'var(--amber-600)' : 'var(--text-tertiary)',
+        survT: e.cs ? Math.round((e.cs - e.reverted) / e.cs * 100) + '%' : '—',
+        survColor: !e.cs ? 'var(--text-tertiary)' : (e.cs - e.reverted) / e.cs >= 0.88 ? 'var(--text-secondary)' : (e.cs - e.reverted) / e.cs >= 0.7 ? 'var(--amber-600)' : 'var(--alert-600)',
+        onProfile: () => openProfile(e.uid),
+        areaCount: String(e.areaCount),
+        status: e.status, statusColor: eStatusColors[e.status],
+        lastT: e.last ? rel(e.last) : '—',
+        onViewEdits: () => this.setState({ view: 'changesets', fUser: e.user, page: 0 }),
+        onViewFlags: () => this.setState({ view: 'nodes', nfUser: e.user, nPage: 0 }),
+      };
+    });
+
+    const eSortBy = key => this.setState(s2 => ({
+      eSortKey: key,
+      eSortDir: s2.eSortKey === key ? (s2.eSortDir === 'asc' ? 'desc' : 'asc') : (key === 'user' || key === 'status' || key === 'survival' ? 'asc' : 'desc'),
+    }));
+    const eColDefs = [
+      { key: 'user', label: 'Editor' }, { key: 'cs', label: 'Changesets' },
+      { changes: true }, { key: 'nflags', label: 'Flags' },
+      { key: 'survival', label: 'Survival' },
+      { key: 'areas', label: 'Locations' }, { key: 'status', label: 'Status' },
+      { key: 'last', label: 'Last active' },
+    ];
+    const eCols = eColDefs.map(c => {
+      if (c.changes) return {
+        isChanges: true, notChanges: false, just: 'flex-start',
+        subs: subDefs.map(([key, glyph]) => {
+          const active = key === eSortKey;
+          return {
+            label: glyph,
+            arrow: active ? (eSortDir === 'asc' ? '↑' : '↓') : '',
+            color: active ? 'var(--text-brand)' : 'var(--text-tertiary)',
+            title: 'Sort by ' + key,
+            onClick: () => eSortBy(key),
+          };
+        }),
+      };
+      const active = c.key && c.key === eSortKey;
+      return {
+        label: c.label, isChanges: false, notChanges: true, just: 'flex-start',
+        cursor: c.key ? 'pointer' : 'default',
+        color: active ? 'var(--text-brand)' : 'var(--text-tertiary)',
+        arrow: active ? (eSortDir === 'asc' ? '↑' : '↓') : (c.key ? '↕' : ''),
+        title: c.key ? 'Sort by ' + c.label.toLowerCase() : '',
+        onClick: c.key ? () => eSortBy(c.key) : () => {},
+      };
+    });
+
+    const eStatusChips = mkChips('efStatuses', ['Trusted', 'Neutral', 'New', 'Watch'], efStatuses, 'page');
+    const addEArea = a => this.setState(s2 => ({
+      efAreas: s2.efAreas.includes(a) ? s2.efAreas : [...s2.efAreas, a],
+      efAreaText: '',
+    }));
+    const eAreaQuery = efAreaText.trim().toLowerCase();
+    const eAreaSuggestions = this.allAreas
+      .filter(a => !efAreas.includes(a) && a.toLowerCase().includes(eAreaQuery))
+      .map(a => ({ label: a, onPick: () => addEArea(a) }));
+    const eAreaTokens = efAreas.map(a => ({
+      label: a,
+      onRemove: () => this.setState(s2 => ({ efAreas: s2.efAreas.filter(x => x !== a) })),
+    }));
+    const eFiltersActive = !!(efStatuses.length || efAreas.length || efu || efWin !== 'Any activity');
+
+    // ---------- Editor profile ----------
+    const isProfileView = view === 'editor';
+    const pe = this.state.profileUid != null ? editors.find(x => x.uid === this.state.profileUid) : null;
+    let pv = {};
+    if (pe) {
+      const mine = this.all.filter(r => r.uid === pe.uid).sort((a, b) => b.ts - a.ts);
+      const revs = mine.filter(r => this.revertsByCs[r.id]);
+      const editedO = mine.filter(r => !this.revertsByCs[r.id] && this.editedByOthers[r.id]);
+      const intact = mine.length - revs.length - editedO.length;
+      const survPct = mine.length ? Math.round((mine.length - revs.length) / mine.length * 100) : null;
+      const fmtDur = ms => { const h = ms / 3600000; if (h < 1) return Math.max(1, Math.round(ms / 60000)) + ' min'; if (h < 48) return (h < 10 ? h.toFixed(1) : String(Math.round(h))) + ' h'; const dd = ms / day; return (dd < 10 ? dd.toFixed(1) : String(Math.round(dd))) + ' d'; };
+      const fmtDate = ts => new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const delays = revs.map(r => this.revertsByCs[r.id].delay).sort((a, b) => a - b);
+      const median = delays.length ? delays[Math.floor(delays.length / 2)] : null;
+      const byRev = {}; let lastRevTs = 0;
+      revs.forEach(r => { const v = this.revertsByCs[r.id]; byRev[v.by] = (byRev[v.by] || 0) + 1; if (v.ts > lastRevTs) lastRevTs = v.ts; });
+      const topRev = Object.entries(byRev).sort((a, b) => b[1] - a[1])[0];
+      const performed = Object.values(this.revertsByCs).filter(v => v.byUid === pe.uid).length;
+      const revNodes = revs.reduce((n2, r) => n2 + r.total, 0);
+      const first = mine.length ? mine[mine.length - 1].ts : null;
+      const pct = n2 => mine.length ? Math.round(n2 / mine.length * 100) : 0;
+      pv.pName = pe.user;
+      pv.pUid = 'uid ' + pe.uid;
+      pv.pInitials = pe.user.split(/[_\s.\-]+/).filter(Boolean).map(x => x[0]).join('').slice(0, 2).toUpperCase();
+      pv.pStatus = pe.status;
+      pv.pStatusColor = eStatusColors[pe.status];
+      pv.pMeta = (first ? 'First seen ' + fmtDate(first) : 'No changesets on record') + ' · Last active ' + (pe.last ? rel(pe.last) : '—') + ' · ' + pe.areaCount + (pe.areaCount === 1 ? ' area' : ' areas');
+      pv.pOsmHref = 'https://www.openstreetmap.org/user/' + encodeURIComponent(pe.user);
+      pv.goPCs = () => this.setState({ view: 'changesets', fUser: pe.user, page: 0 });
+      pv.goPNodes = () => this.setState({ view: 'nodes', nfUser: pe.user, nPage: 0 });
+      pv.pKpis = [
+        { v: String(pe.cs), l: 'changesets', s: first ? 'since ' + fmtDate(first) : '—', c: 'var(--text-primary)' },
+        { v: '+' + pe.added, l: 'nodes created', s: 'added to the map', c: 'var(--green-700, #0E8A4C)' },
+        { v: '~' + pe.modified, l: 'nodes edited', s: 'retagged or moved', c: 'var(--amber-600)' },
+        { v: '−' + pe.deleted, l: 'nodes deleted', s: 'removed from the map', c: 'var(--alert-600)' },
+        { v: String(revs.length), l: 'reverted', s: survPct == null ? '—' : (100 - survPct) + '% of changesets', c: revs.length ? 'var(--alert-600)' : 'var(--text-primary)' },
+        { v: String(pe.nodeFlags), l: 'open flags', s: 'on nodes they touched', c: pe.nodeFlags >= 8 ? 'var(--alert-600)' : pe.nodeFlags >= 3 ? 'var(--amber-600)' : 'var(--text-primary)' },
+      ];
+      pv.pSurv = survPct == null ? '—' : survPct + '%';
+      pv.pSurvColor = survPct == null ? 'var(--text-tertiary)' : survPct >= 88 ? 'var(--brand)' : survPct >= 70 ? 'var(--amber-600)' : 'var(--alert-600)';
+      pv.pIntactW = pct(intact) + '%';
+      pv.pEditedW = pct(editedO.length) + '%';
+      pv.pRevW = pct(revs.length) + '%';
+      pv.pSegs = [
+        { label: 'Intact', n: String(intact), pct: pct(intact) + '%', c: 'var(--brand)' },
+        { label: 'Edited by others', n: String(editedO.length), pct: pct(editedO.length) + '%', c: 'var(--amber-500)' },
+        { label: 'Reverted', n: String(revs.length), pct: pct(revs.length) + '%', c: 'var(--alert-500)' },
+      ];
+      pv.pSurvRows = [
+        { k: 'Median time to revert', v: median ? fmtDur(median) : '—' },
+        { k: 'Most reverted by', v: topRev ? topRev[0] + ' · ' + topRev[1] + '×' : '—' },
+        { k: 'Last revert', v: lastRevTs ? rel(lastRevTs) : '—' },
+        { k: 'Nodes in reverted sets', v: String(revNodes) },
+        { k: 'Reverts performed', v: String(performed) },
+      ];
+      const wk = 7 * day;
+      const wArr = Array.from({ length: 12 }, (_, i) => {
+        const lo = now - (12 - i) * wk, hi = now - (11 - i) * wk;
+        const inW = mine.filter(r => r.ts >= lo && r.ts < hi);
+        return { total: inW.length, rev: inW.filter(r => this.revertsByCs[r.id]).length };
+      });
+      const wMax = Math.max(1, ...wArr.map(w => w.total));
+      pv.pWeeks = wArr.map(w => {
+        const kept = w.total - w.rev;
+        return {
+          keptH: w.total === 0 ? '2px' : kept === 0 ? '0px' : Math.max(2, Math.round(kept / wMax * 84)) + 'px',
+          keptBg: w.total === 0 ? 'color-mix(in oklab, var(--text-primary) 8%, transparent)' : 'color-mix(in oklab, var(--brand) 55%, transparent)',
+          revH: w.rev === 0 ? '0px' : Math.max(2, Math.round(w.rev / wMax * 84)) + 'px',
+          tip: w.total + (w.total === 1 ? ' changeset · ' : ' changesets · ') + w.rev + ' reverted',
+        };
+      });
+      const flaggedMine = mine.filter(r => r.status === 'Flagged');
+      const tlF = this.state.tlFilter || 'All';
+      const tItems = tlF === 'Reverted' ? revs : tlF === 'Flagged' ? flaggedMine : mine;
+      pv.pTlChips = [['All', mine.length], ['Reverted', revs.length], ['Flagged', flaggedMine.length]].map(p2 => {
+        const sel = tlF === p2[0];
+        return { label: p2[0] + ' · ' + p2[1], fg: sel ? 'var(--text-brand)' : 'var(--text-secondary)', bg: sel ? 'var(--brand-soft)' : 'transparent', bd: sel ? 'var(--brand)' : 'var(--border)', onClick: () => this.setState({ tlFilter: p2[0] }) };
+      });
+      pv.pTlLabel = mine.length + ' changesets · ' + revs.length + ' reverted';
+      pv.pTimeline = tItems.map((r, i) => {
+        const v = this.revertsByCs[r.id];
+        const a = cell(r.added, '+', 'var(--green-700, #0E8A4C)', 'var(--brand-soft)');
+        const m = cell(r.modified, '~', 'var(--amber-600)', 'var(--amber-100)');
+        const d2 = cell(r.deleted, '−', 'var(--alert-600)', 'var(--alert-100)');
+        const dotC = v ? 'var(--alert-500)' : r.status === 'Flagged' ? 'var(--amber-500)' : 'var(--brand)';
+        return {
+          id: String(r.id), comment: r.comment, area: r.area, status: r.status, statusColor: statusColors[r.status],
+          absTime: abs(r.ts),
+          addT: a.t, addFg: a.fg, addBg: a.bg, modT: m.t, modFg: m.fg, modBg: m.bg, delT: d2.t, delFg: d2.fg, delBg: d2.bg,
+          dot: dotC, halo: 'color-mix(in oklab, ' + dotC + ' 18%, transparent)',
+          line: i === tItems.length - 1 ? 'transparent' : 'var(--border)',
+          isRev: !!v,
+          revBy: v ? v.by : '', revCs: v ? '#' + v.csId : '', revAfter: v ? fmtDur(v.delay) : '', revTime: v ? abs(v.ts) : '', revReason: v ? v.reason : '',
+          onRevBy: v ? () => openProfile(v.byUid) : () => {},
+          osmHref: 'https://www.openstreetmap.org/changeset/' + r.id,
+        };
+      });
+      pv.pTlEmpty = tItems.length === 0;
+      pv.pTlEmptyMsg = mine.length === 0 ? 'No changesets on record for this editor.' : 'Nothing under this filter.';
+      const areaCounts = {};
+      mine.forEach(r => { areaCounts[r.area] = (areaCounts[r.area] || 0) + 1; });
+      pv.pAreas = Object.entries(areaCounts).sort((x, y) => y[1] - x[1]).map(p2 => ({ label: p2[0], count: String(p2[1]), onClick: () => this.setState({ view: 'changesets', fUser: pe.user, cfAreas: [p2[0]], page: 0 }) }));
+      pv.pNoAreas = pv.pAreas.length === 0;
+    }
+
+    // ---------- Watched areas view ----------
+    const { watched, waText, waName, waKind, waFilter, waModalOpen, waStep, waDrawPts, waConfirmId } = this.state;
+    const WA_KIND_META = {
+      zip: { chip: 'ZIP', name: 'ZIP code', bounds: 'M96 62 L188 46 L262 64 L330 54 L352 122 L318 198 L226 216 L138 198 L84 162 L70 104 Z' },
+      county: { chip: 'County', name: 'City / county', bounds: 'M62 54 L200 40 L338 58 L352 120 L340 200 L204 218 L72 196 L54 118 Z' },
+      bbox: { chip: 'BBox', name: 'Bounding box', bounds: 'M72 52 H336 V204 H72 Z' },
+      drawn: { chip: 'Drawn', name: 'Drawn boundary', bounds: 'M92 74 L186 40 L294 62 L350 132 L308 210 L184 224 L100 190 L62 122 Z' },
+    };
+    const waQ = this.state.waFilter.trim().toLowerCase();
+    const waShown = waQ ? watched.filter(w => w.area.toLowerCase().includes(waQ) || (w.def || '').toLowerCase().includes(waQ)) : watched;
+    const waRows = waShown.map(w => {
+      const meta = WA_KIND_META[w.kind] || WA_KIND_META.drawn;
+      const openFlags = open.filter(n => n.area === w.loc).length;
+      const cs7 = this.all.filter(r => r.area === w.loc && now - r.ts < 604800000).length;
+      const flaggedCs = this.all.filter(r => r.area === w.loc && r.status === 'Flagged').length;
+      const isYou = w.watchers.includes('you');
+      const patch = fn => this.setState(s2 => ({ watched: fn(s2.watched) }));
+      const names = w.watchers.map(x => x === 'you' ? 'Maya Ortiz' : x);
+      const isOpen = expKey === 'wa:' + w.id;
+      let det = null;
+      if (isOpen) {
+        const areaNodes = open.filter(n => n.area === w.loc);
+        const sev = { High: 0, Medium: 0, Low: 0 };
+        const opCount = {};
+        areaNodes.forEach(n => { sev[n.severity]++; if (n.operator !== 'Unknown') opCount[n.operator] = (opCount[n.operator] || 0) + 1; });
+        const topOp = Object.entries(opCount).sort((x, y) => y[1] - x[1])[0];
+        det = {
+          watcherList: names.map(nm => ({ name: nm, isYou: nm === 'Maya Ortiz', initials: nm.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase() })),
+          hasWatchers: names.length > 0,
+          noWatchers: names.length === 0,
+          boundsD: w.bounds || meta.bounds,
+          detail: [
+            { k: 'Defined as', v: w.def || meta.name + ' · ' + w.area },
+            { k: 'Created by', v: (w.createdBy === 'you' ? 'Maya Ortiz' : w.createdBy) + ' · ' + abs(w.created) },
+            { k: 'Open flags', v: areaNodes.length + ' · ' + sev.High + ' high / ' + sev.Medium + ' med / ' + sev.Low + ' low' },
+            { k: 'Edits · 7 d', v: String(cs7) },
+            { k: 'Flagged changesets', v: String(flaggedCs) },
+            { k: 'Top operator', v: topOp ? topOp[0] + ' (' + topOp[1] + ')' : '—' },
+          ],
+          mapDots: areaNodes.slice(0, 26).map(n => ({ left: (10 + hpos(n.nid, 11) * 80).toFixed(1) + '%', top: (12 + hpos(n.nid, 17) * 74).toFixed(1) + '%' })),
+          mapLabel: areaNodes.length + ' open flags · ' + w.area,
+        };
+      }
+      return {
+        ...(det || {}),
+        isOpen, ...chev(isOpen),
+        onToggle: () => toggleExp('wa:' + w.id),
+        area: w.area,
+        kindT: meta.chip,
+        hasDef: !!w.def,
+        def: w.def || '',
+        createdByT: w.createdBy,
+        watcher: names.length ? names.join(', ') : 'No watchers',
+        watcherColor: names.length ? 'var(--text-primary)' : 'var(--text-tertiary)',
+        isYou,
+        openFlags: String(openFlags),
+        flagColor: openFlags >= 25 ? 'var(--alert-600)' : openFlags >= 15 ? 'var(--amber-600)' : 'var(--text-secondary)',
+        cs7: String(cs7),
+        flaggedCs: String(flaggedCs),
+        flaggedColor: flaggedCs > 0 ? 'var(--amber-600)' : 'var(--text-tertiary)',
+        createdT: rel(w.created),
+        canSubscribe: !isYou,
+        goCs: () => this.setState({ view: 'changesets', cfAreas: w.loc ? [w.loc] : [], page: 0 }),
+        goNodes: () => this.setState({ view: 'nodes', nfAreas: w.loc ? [w.loc] : [], nPage: 0 }),
+        goEditors: () => this.setState({ view: 'editors', efAreas: w.loc ? [w.loc] : [] }),
+        onSubscribe: () => patch(ws => ws.map(x => x.id === w.id ? { ...x, watchers: ['you', ...x.watchers] } : x)),
+        onUnsubscribe: () => patch(ws => ws.map(x => x.id === w.id ? { ...x, watchers: x.watchers.filter(n => n !== 'you') } : x)),
+        confirming: waConfirmId === w.id,
+        notConfirming: waConfirmId !== w.id,
+        onRemove: () => this.setState({ waConfirmId: w.id }),
+        onRemoveYes: () => this.setState(s2 => ({ watched: s2.watched.filter(x => x.id !== w.id), waConfirmId: null })),
+        onRemoveNo: () => this.setState({ waConfirmId: null }),
+      };
+    });
+    const waCreate = () => {
+      const t = waText.trim(), nm = waName.trim();
+      let entry = null;
+      if (waKind === 'zip') {
+        const z = t.replace(/\D/g, '').slice(0, 5);
+        if (z.length !== 5) return;
+        entry = { area: 'ZIP ' + z, def: null };
+      } else if (waKind === 'county') {
+        if (!t) return;
+        entry = { area: t, def: null };
+      } else if (waKind === 'bbox') {
+        if (!t) return;
+        entry = { area: nm || 'Bounding box', def: t };
+      } else {
+        this.setState({ waStep: 'draw' });
+        return;
+      }
+      if (watched.some(x => x.area.toLowerCase() === entry.area.toLowerCase())) return;
+      this.setState(s2 => ({
+        watched: [{ id: s2.waNextId, kind: waKind, loc: null, createdBy: 'you', watchers: ['you'], created: Date.now(), ...entry }, ...s2.watched],
+        waNextId: s2.waNextId + 1, waText: '', waName: '', waModalOpen: false,
+      }));
+    };
+    const waDrawD = waDrawPts.length ? 'M' + waDrawPts.map(p2 => p2[0] + ' ' + p2[1]).join(' L') + (waDrawPts.length >= 3 ? ' Z' : '') : '';
+    const waSaveDrawn = () => {
+      if (waDrawPts.length < 3) return;
+      const nm = waName.trim();
+      const entry = { area: nm || 'Drawn boundary', def: 'Drawn boundary · ' + waDrawPts.length + ' points', bounds: waDrawD };
+      if (watched.some(x => x.area.toLowerCase() === entry.area.toLowerCase())) return;
+      this.setState(s2 => ({
+        watched: [{ id: s2.waNextId, kind: 'drawn', loc: null, createdBy: 'you', watchers: ['you'], created: Date.now(), ...entry }, ...s2.watched],
+        waNextId: s2.waNextId + 1, waText: '', waName: '', waModalOpen: false, waStep: 'form', waDrawPts: [],
+      }));
+    };
+    const subscribedCount = watched.filter(w => w.watchers.includes('you')).length;
+
+    const csActive = view === 'changesets';
+    const edActive = view === 'editors';
+    const waActive = view === 'areas';
+
+    return {
+      isAreas: waActive,
+      showAreas: () => this.setState({ view: 'areas' }),
+      waColor: waActive ? 'var(--text-brand)' : 'var(--text-secondary)',
+      waBg: waActive ? 'var(--brand-soft)' : 'transparent',
+      waCount: String(watched.length),
+      waRows, waText, waName, waFilter, waModalOpen,
+      onWaFilter: e => this.setState({ waFilter: e.target.value }),
+      onWaOpenModal: () => this.setState({ waModalOpen: true, waText: '', waName: '', waStep: 'form', waDrawPts: [] }),
+      waStepForm: waStep === 'form',
+      waStepDraw: waStep === 'draw',
+      onWaBack: () => this.setState({ waStep: 'form' }),
+      onWaMapClick: e => {
+        const r = e.currentTarget.getBoundingClientRect();
+        const x = +((e.clientX - r.left) / r.width * 400).toFixed(1);
+        const y = +((e.clientY - r.top) / r.height * 252).toFixed(1);
+        this.setState(s2 => ({ waDrawPts: [...s2.waDrawPts, [x, y]] }));
+      },
+      onWaUndo: () => this.setState(s2 => ({ waDrawPts: s2.waDrawPts.slice(0, -1) })),
+      onWaSaveDrawn: waSaveDrawn,
+      waDrawD,
+      waDrawDots: waDrawPts.map(p2 => ({ left: (p2[0] / 4).toFixed(1) + '%', top: (p2[1] / 2.52).toFixed(1) + '%' })),
+      waDrawCount: waDrawPts.length + (waDrawPts.length === 1 ? ' point' : ' points'),
+      waSaveOp: waDrawPts.length >= 3 ? '1' : '0.55',
+      onWaCloseModal: () => this.setState({ waModalOpen: false }),
+      waStop: e => e.stopPropagation(),
+      isWaEmpty: waRows.length === 0,
+      waEmptyTitle: watched.length ? 'No matching areas' : 'No areas yet',
+      waEmptyMsg: watched.length ? 'Nothing matches that filter.' : "Create one — the cameras aren't going to watch themselves.",
+      waCountLabel: watched.length + ' areas · ' + subscribedCount + ' subscribed',
+      waKinds: [['zip', 'ZIP code'], ['county', 'City / county'], ['bbox', 'Bounding box'], ['drawn', 'Draw on map']].map(p2 => ({
+        label: p2[1],
+        bg: waKind === p2[0] ? 'var(--brand-soft)' : 'transparent',
+        fg: waKind === p2[0] ? 'var(--text-brand)' : 'var(--text-secondary)',
+        onClick: () => this.setState({ waKind: p2[0], waText: '' }),
+      })),
+      waShowDef: waKind !== 'drawn',
+      waIsDrawn: waKind === 'drawn',
+      waNeedsName: waKind === 'bbox' || waKind === 'drawn',
+      waDefLabel: waKind === 'zip' ? 'ZIP code' : waKind === 'county' ? 'City or county' : 'Bounds — S, W → N, E',
+      waDefPlaceholder: waKind === 'zip' ? 'e.g. 78704' : waKind === 'county' ? 'e.g. Travis County, TX' : 'e.g. 30.09, -97.92 → 30.51, -97.56',
+      waCreateLabel: waKind === 'drawn' ? 'Draw on map' : 'Create area',
+      onWaText: e => this.setState({ waText: e.target.value }),
+      onWaName: e => this.setState({ waName: e.target.value }),
+      onWaKey: e => {
+        if (e.key === 'Escape') { this.setState({ waModalOpen: false }); return; }
+        if (e.key === 'Enter') waCreate();
+      },
+      onWaAdd: waCreate,
+      isEditors: edActive || (isProfileView && !pe),
+      showEditors: () => this.setState({ view: 'editors' }),
+      edColor: (edActive || isProfileView) ? 'var(--text-brand)' : 'var(--text-secondary)',
+      edBg: (edActive || isProfileView) ? 'var(--brand-soft)' : 'transparent',
+      eStatusChips, eAreaTokens, eAreaSuggestions, efAreaText, efUser, efWin,
+      eWinOpts: ['Any activity', 'Active in last 24 h', 'Active in last 7 d', 'Active in last 30 d'],
+      onEfAreaText: e => this.setState({ efAreaText: e.target.value, efAreaOpen: true }),
+      onEfAreaFocus: () => this.setState({ efAreaOpen: true }),
+      onEfAreaBlur: () => this.setState({ efAreaOpen: false }),
+      onEfAreaKey: e => {
+        if (e.key === 'Escape') { this.setState({ efAreaOpen: false }); return; }
+        if (e.key !== 'Enter' || !eAreaSuggestions.length) return;
+        eAreaSuggestions[0].onPick();
+      },
+      showEAreaSug: !!this.state.efAreaOpen && eAreaSuggestions.length > 0,
+      onEfUser: e => this.setState({ efUser: e.target.value }),
+      onEfWin: e => this.setState({ efWin: e.target.value }),
+      onEClear: () => this.setState({ efStatuses: [], efAreas: [], efAreaText: '', efUser: '', efWin: 'Any activity' }),
+      eFiltersActive,
+      eCountLabel: eFiltersActive ? eSorted.length + ' of ' + editors.length + ' editors' : editors.length + ' editors',
+      eCols, eRows,
+      isEEmpty: eRows.length === 0,
+      isProfile: isProfileView && !!pe,
+      backToEditors: () => this.setState({ view: 'editors' }),
+      ...pv,
+      theme,
+      isChangesets: csActive,
+      isNodes: view === 'nodes',
+      showChangesets: () => this.setState({ view: 'changesets' }),
+      showNodes: () => this.setState({ view: 'nodes' }),
+      csColor: csActive ? 'var(--text-brand)' : 'var(--text-secondary)',
+      csBg: csActive ? 'var(--brand-soft)' : 'transparent',
+      ndColor: view === 'nodes' ? 'var(--text-brand)' : 'var(--text-secondary)',
+      ndBg: view === 'nodes' ? 'var(--brand-soft)' : 'transparent',
+      nodeOpenCount: String(open.length),
+      nGroups, nCols, nRows,
+      isNEmpty: nRows.length === 0,
+      nfUser, nfCs, nfWin, nfDirFrom, nfDirTo, nfOpText, opTokens,
+      onNfCs: e => this.setState({ nfCs: e.target.value, nPage: 0 }),
+      onNfDirFrom: e => this.setState({ nfDirFrom: cleanDeg(e.target.value), nPage: 0 }),
+      onNfDirTo: e => this.setState({ nfDirTo: cleanDeg(e.target.value), nPage: 0 }),
+      onToggleMissing: () => this.setState(s2 => ({ nfDirMissing: !s2.nfDirMissing, nPage: 0 })),
+      mzFg: nfDirMissing ? 'var(--text-brand)' : 'var(--text-secondary)',
+      mzBg: nfDirMissing ? 'var(--brand-soft)' : 'transparent',
+      mzBd: nfDirMissing ? 'var(--brand)' : 'var(--border)',
+      onNfOpText: e => this.setState({ nfOpText: e.target.value, nfOpOpen: true }),
+      onNfOpFocus: () => this.setState({ nfOpOpen: true }),
+      onNfOpBlur: () => this.setState({ nfOpOpen: false }),
+      onNfOpKey: e => {
+        if (e.key === 'Escape') { this.setState({ nfOpOpen: false }); return; }
+        if (e.key !== 'Enter' || !opSuggestions.length) return;
+        opSuggestions[0].onPick();
+      },
+      opSuggestions,
+      showOpSug: !!this.state.nfOpOpen && opSuggestions.length > 0,
+      winOpts: ['Any time', 'Last 24 h', 'Last 7 d', 'Last 30 d'],
+      onNfUser: e => this.setState({ nfUser: e.target.value, nPage: 0 }),
+      onNfWin: e => this.setState({ nfWin: e.target.value, nPage: 0 }),
+      onNClear: () => this.setState({ nfRules: [], nfSevs: [], nfDirFrom: '', nfDirTo: '', nfDirMissing: false, nfOpTokens: [], nfOpText: '', nfAreas: [], nfAreaText: '', nfUser: '', nfCs: '', nfWin: 'Any time', nPage: 0 }),
+      nAreaTokens, nAreaSuggestions, nfAreaText,
+      onNfAreaText: e => this.setState({ nfAreaText: e.target.value, nfAreaOpen: true }),
+      onNfAreaFocus: () => this.setState({ nfAreaOpen: true }),
+      onNfAreaBlur: () => this.setState({ nfAreaOpen: false }),
+      onNfAreaKey: e => {
+        if (e.key === 'Escape') { this.setState({ nfAreaOpen: false }); return; }
+        if (e.key !== 'Enter' || !nAreaSuggestions.length) return;
+        nAreaSuggestions[0].onPick();
+      },
+      showNAreaSug: !!this.state.nfAreaOpen && nAreaSuggestions.length > 0,
+      nFiltersActive,
+      nCountLabel: nFiltersActive ? nSorted.length + ' of ' + open.length + ' flagged nodes' : open.length + ' flagged nodes',
+      nShowPager: nSorted.length > 0,
+      nShowingLabel: 'Showing ' + nFrom + '–' + nTo + ' of ' + nSorted.length,
+      onNPrev: () => nPage > 0 && nGo(nPage - 1),
+      onNNext: () => nPage < nPages - 1 && nGo(nPage + 1),
+      nPrevCursor: nPage > 0 ? 'pointer' : 'default',
+      nPrevOpacity: nPage > 0 ? '1' : '0.4',
+      nNextCursor: nPage < nPages - 1 ? 'pointer' : 'default',
+      nNextOpacity: nPage < nPages - 1 ? '1' : '0.4',
+      nPageBtns,
+      rowPad: density === 'compact' ? '7px 12px' : '12px 12px',
+      stats, cols, rows,
+      isEmpty: rows.length === 0,
+      fChangeset, fUser,
+      onFChangeset: e => this.setState({ fChangeset: e.target.value, page: 0 }),
+      onFUser: e => this.setState({ fUser: e.target.value, page: 0 }),
+      onClearFilters: () => this.setState({ fChangeset: '', fUser: '', cfStatuses: [], cfKinds: [], cfAreas: [], cfAreaText: '', cfWin: 'Any time', page: 0 }),
+      csGroups, areaTokens, areaSuggestions, cfAreaText, cfWin,
+      onCfAreaText: e => this.setState({ cfAreaText: e.target.value, cfAreaOpen: true }),
+      onCfAreaFocus: () => this.setState({ cfAreaOpen: true }),
+      onCfAreaBlur: () => this.setState({ cfAreaOpen: false }),
+      onCfAreaKey: e => {
+        if (e.key === 'Escape') { this.setState({ cfAreaOpen: false }); return; }
+        if (e.key !== 'Enter' || !areaSuggestions.length) return;
+        areaSuggestions[0].onPick();
+      },
+      showAreaSug: !!this.state.cfAreaOpen && areaSuggestions.length > 0,
+      onCfWin: e => this.setState({ cfWin: e.target.value, page: 0 }),
+      filtersActive,
+      countLabel: filtersActive ? sorted.length + ' of ' + this.all.length + ' changesets' : this.all.length + ' changesets',
+      showPager: sorted.length > 0,
+      showingLabel: 'Showing ' + from + '–' + to + ' of ' + sorted.length,
+      onPrev: () => page > 0 && go(page - 1),
+      onNext: () => page < pages - 1 && go(page + 1),
+      prevCursor: page > 0 ? 'pointer' : 'default',
+      prevOpacity: page > 0 ? '1' : '0.4',
+      nextCursor: page < pages - 1 ? 'pointer' : 'default',
+      nextOpacity: page < pages - 1 ? '1' : '0.4',
+      pageBtns,
+      flaggedCount: String(flaggedOpen),
+    };
+  }
+}
+</script>
+</body>
+</html>
