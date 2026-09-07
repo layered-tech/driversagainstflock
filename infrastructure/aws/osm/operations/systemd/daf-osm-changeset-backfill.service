@@ -1,0 +1,24 @@
+[Unit]
+Description=Backfill missing tracked OSM changesets from retained dump
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=osm_ingest
+Group=osm_ingest
+EnvironmentFile=/etc/daf-osm/daf-osm.env
+RuntimeDirectory=daf-osm
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/bin/flock --nonblock /run/daf-osm/global-changeset-backfill.lock /opt/daf-osm/bin/changeset-backfill.sh
+TimeoutStartSec=infinity
+Nice=15
+IOSchedulingClass=idle
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+StandardOutput=append:/var/log/daf-osm/changeset-backfill.log
+StandardError=append:/var/log/daf-osm/changeset-backfill.log

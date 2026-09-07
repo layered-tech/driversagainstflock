@@ -10,6 +10,10 @@ exec 7> /run/daf-osm/global-current.lock
 flock --exclusive 7
 exec 6> /run/daf-osm/global-history.lock
 flock --exclusive 6
+exec 5> /run/daf-osm/global-changeset.lock
+flock --exclusive 5
+exec 4> /run/daf-osm/global-changeset-backfill.lock
+flock --exclusive 4
 
 /opt/daf-osm/bin/validate-core.sh
 
@@ -60,6 +64,10 @@ shared_sequence="$(state_sequence "${OSM_STATE_PATH}/global-replication.state")"
 current_sequence="$(state_sequence "${OSM_STATE_PATH}/global-current-replication.state")"
 history_sequence="$(state_sequence "${OSM_STATE_PATH}/global-history-replication.state")"
 validated_at="$(date --utc +%s)"
+changeset_sequence=0
+if [[ -f "${OSM_STATE_PATH}/global-changeset-bootstrap.complete" ]]; then
+    changeset_sequence="$(state_sequence "${OSM_STATE_PATH}/global-changeset-replication.state")"
+fi
 [[ "${current_sequence}" =~ ^[0-9]+$ ]] || die 'Validated current sequence is invalid'
 [[ "${history_sequence}" =~ ^[0-9]+$ ]] || die 'Validated history sequence is invalid'
 [[ "${shared_sequence}" =~ ^[0-9]+$ ]] || die 'Validated shared feed sequence is invalid'
@@ -70,13 +78,15 @@ write_pipeline_state last_successful_validation_shared_sequence "${shared_sequen
 write_pipeline_state last_successful_validation_unix_time "${validated_at}"
 write_pipeline_state last_successful_validation_current_sequence "${current_sequence}"
 write_pipeline_state last_successful_validation_history_sequence "${history_sequence}"
+write_pipeline_state last_successful_validation_changeset_sequence "${changeset_sequence}"
 
 marker_path="${OSM_STATE_PATH}/global-validation.complete"
 marker_partial="${marker_path}.partial"
-printf 'shared_sequence=%s\ncurrent_sequence=%s\nhistory_sequence=%s\ncompleted_at_unix=%s\n' \
+printf 'shared_sequence=%s\ncurrent_sequence=%s\nhistory_sequence=%s\nchangeset_sequence=%s\ncompleted_at_unix=%s\n' \
     "${shared_sequence}" \
     "${current_sequence}" \
     "${history_sequence}" \
+    "${changeset_sequence}" \
     "${validated_at}" \
     > "${marker_partial}"
 chmod 0640 "${marker_partial}"

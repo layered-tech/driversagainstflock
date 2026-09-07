@@ -1,0 +1,22 @@
+[Unit]
+Description=Activate OSM changeset replication and backfill timers
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+EnvironmentFile=/etc/daf-osm/daf-osm.env
+RuntimeDirectory=daf-osm
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
+ExecStart=/opt/daf-osm/bin/activate-changeset-feed.sh
+TimeoutStartSec=10min
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+StandardOutput=append:/var/log/daf-osm/changeset-activate.log
+StandardError=append:/var/log/daf-osm/changeset-activate.log

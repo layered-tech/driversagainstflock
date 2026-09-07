@@ -29,6 +29,15 @@ IFS=$'\t' read -r \
     history_sequence \
     last_successful_replication \
     history_bootstrap_complete \
+    changeset_consumer_lag_seconds \
+    changeset_sequence \
+    changeset_count \
+    changeset_comment_count \
+    changeset_feed_count \
+    changeset_feed_comment_count \
+    changesets_missing_metadata \
+    changeset_bootstrap_complete \
+    changeset_dump_age_seconds \
     <<< "$(psql_osm --tuples-only --no-align --field-separator=$'\t' --command="
 SELECT
     COALESCE((
@@ -57,7 +66,20 @@ SELECT
     COALESCE((SELECT state_value::bigint FROM osm_pipeline.state WHERE state_key = 'current_applied_sequence'), 0),
     COALESCE((SELECT state_value::bigint FROM osm_pipeline.state WHERE state_key = 'history_applied_sequence'), 0),
     COALESCE((SELECT state_value::bigint FROM osm_pipeline.state WHERE state_key = 'last_successful_replication_unix_time'), 0),
-    COALESCE((SELECT state_value::integer FROM osm_pipeline.state WHERE state_key = 'history_bootstrap_complete'), 0)
+    COALESCE((SELECT state_value::integer FROM osm_pipeline.state WHERE state_key = 'history_bootstrap_complete'), 0),
+    COALESCE((SELECT greatest(0, extract(epoch FROM clock_timestamp() - state_value::timestamptz))::bigint FROM osm_pipeline.state WHERE state_key = 'changeset_source_timestamp'), ${UNKNOWN_AGE_SECONDS}),
+    COALESCE((SELECT state_value::bigint FROM osm_pipeline.state WHERE state_key = 'changeset_applied_sequence'), 0),
+    (SELECT count(*) FROM osm_history.changesets),
+    (SELECT count(*) FROM osm_history.changeset_comments),
+    (SELECT count(*) FROM osm_pipeline.feed_changesets),
+    (SELECT count(*) FROM osm_pipeline.feed_changeset_comments),
+    (SELECT count(*) FROM (
+        SELECT changeset_id FROM osm_current.alpr_nodes WHERE changeset_id IS NOT NULL
+        UNION
+        SELECT changeset_id FROM osm_history.alpr_node_versions WHERE changeset_id IS NOT NULL
+    ) tracked LEFT JOIN osm_history.changesets changesets ON changesets.osm_changeset_id = tracked.changeset_id WHERE changesets.id IS NULL),
+    COALESCE((SELECT state_value::integer FROM osm_pipeline.state WHERE state_key = 'changeset_bootstrap_complete'), 0),
+    COALESCE((SELECT greatest(0, extract(epoch FROM clock_timestamp() - state_value::timestamptz))::bigint FROM osm_pipeline.state WHERE state_key = 'changeset_dump_timestamp'), ${UNKNOWN_AGE_SECONDS})
 ")"
 
 stage_relation="$(psql_osm --tuples-only --no-align \
@@ -97,6 +119,15 @@ for numeric_value in \
     "${history_sequence}" \
     "${last_successful_replication}" \
     "${history_bootstrap_complete}" \
+    "${changeset_consumer_lag_seconds}" \
+    "${changeset_sequence}" \
+    "${changeset_count}" \
+    "${changeset_comment_count}" \
+    "${changeset_feed_count}" \
+    "${changeset_feed_comment_count}" \
+    "${changesets_missing_metadata}" \
+    "${changeset_bootstrap_complete}" \
+    "${changeset_dump_age_seconds}" \
     "${publication_parity_mismatch}" \
     "${current_cursor_divergence}" \
     "${history_cursor_divergence}" \
@@ -118,6 +149,15 @@ metric_data="$(jq --compact-output --null-input \
     --argjson history_sequence "${history_sequence}" \
     --argjson last_successful_replication "${last_successful_replication}" \
     --argjson history_bootstrap_complete "${history_bootstrap_complete}" \
+    --argjson changeset_consumer_lag_seconds "${changeset_consumer_lag_seconds}" \
+    --argjson changeset_sequence "${changeset_sequence}" \
+    --argjson changeset_count "${changeset_count}" \
+    --argjson changeset_comment_count "${changeset_comment_count}" \
+    --argjson changeset_feed_count "${changeset_feed_count}" \
+    --argjson changeset_feed_comment_count "${changeset_feed_comment_count}" \
+    --argjson changesets_missing_metadata "${changesets_missing_metadata}" \
+    --argjson changeset_bootstrap_complete "${changeset_bootstrap_complete}" \
+    --argjson changeset_dump_age_seconds "${changeset_dump_age_seconds}" \
     --argjson publication_parity_mismatch "${publication_parity_mismatch}" \
     --argjson current_cursor_divergence "${current_cursor_divergence}" \
     --argjson history_cursor_divergence "${history_cursor_divergence}" \
@@ -146,6 +186,15 @@ metric_data="$(jq --compact-output --null-input \
         metric("CurrentConsumerCursorDivergence"; $current_cursor_divergence; "Count"),
         metric("HistoryConsumerCursorDivergence"; $history_cursor_divergence; "Count"),
         metric("SharedFeedRetainedBatchCount"; $retained_spool_batches; "Count")
+        ,metric("ChangesetConsumerLagSeconds"; $changeset_consumer_lag_seconds; "Seconds")
+        ,metric("ChangesetConsumerSequence"; $changeset_sequence; "Count")
+        ,metric("ChangesetCount"; $changeset_count; "Count")
+        ,metric("ChangesetDiscussionCommentCount"; $changeset_comment_count; "Count")
+        ,metric("ChangesetFeedRetainedCount"; $changeset_feed_count; "Count")
+        ,metric("ChangesetFeedDiscussionCommentCount"; $changeset_feed_comment_count; "Count")
+        ,metric("ChangesetsMissingMetadata"; $changesets_missing_metadata; "Count")
+        ,metric("ChangesetBootstrapComplete"; $changeset_bootstrap_complete; "None")
+        ,metric("ChangesetDumpAgeSeconds"; $changeset_dump_age_seconds; "Seconds")
     ]
     ')"
 

@@ -38,6 +38,14 @@ The stack does not retain OSM ways, relations, road segments, nearest-road
 results, or derived road distances. Ways and relations are not imported even as
 temporary PostgreSQL rows.
 
+The independent changeset stream adds complete metadata and every available
+discussion comment for changesets associated with a retained ALPR node
+lifecycle. Its short-lived pipeline buffer retains worldwide changesets seen
+after the active weekly snapshot so later-tracked nodes can promote metadata
+without rewinding the node feed. Published ALPR created, modified, deleted, and
+touched counts are derived from retained node versions; OSM's all-element
+`num_changes` is exposed separately and is never used as the touched count.
+
 ## Sources
 
 | Purpose                                                                            | Source                                                                                                                              |
@@ -49,6 +57,8 @@ temporary PostgreSQL rows.
 | Full public node history                                                           | Release-aligned immutable object under `https://osm-planet-us-west-2.s3.dualstack.us-west-2.amazonaws.com/planet-full-history/pbf/` |
 | Global minute diffs for history through Phase 7 and both consumers after Phase 7.5 | `https://planet.openstreetmap.org/replication/minute/`                                                                              |
 | Node-history backfill                                                              | `https://api.openstreetmap.org/api/0.6/node/{id}/history`                                                                           |
+| Weekly changeset metadata and discussions                                          | Immutable release resolved from `https://planet.openstreetmap.org/planet/discussions-latest.osm.bz2`                                |
+| Independent changeset minute replication                                           | `https://planet.openstreetmap.org/replication/changesets/`                                                                          |
 
 Through Phase 7, the region polygon is used only to decide whether an
 exact-tagged node has been in North America. Once a node qualifies, every
@@ -102,6 +112,30 @@ The stack creates:
 
 The shared NAT gateway remains tagged to `daf-routing`, so its fixed and
 per-byte costs are included alongside OSM resources in the unified budget.
+
+## Changeset stream operations
+
+The changeset rollout is independent from the shared node replication cursor.
+Local implementation and offline verification do not use AWS credentials or a
+production database. Deployment then installs the schema and inactive units,
+bootstraps a checksum-pinned discussion dump, activates the update and daily
+02:00 UTC backfill timers, and applies the four changeset alarms only after the
+consumer catches up.
+
+The retained discussion dump is approximately 8.95 GB compressed, about 3.5
+percentage points of the current 256 GiB data volume. A refresh needs enough
+free space for both old and new dumps. Run the manual
+`daf-osm-changeset-refresh.service`; it pauses both timers, retains feed rows
+observed after the new snapshot, preserves the live changeset cursor, and only
+removes the old dump after checksum, import, completeness, and validation gates
+pass.
+
+Operational checks include `global-changeset.complete`, database/file cursor
+parity, empty stages, retained dump checksum, missing tracked metadata, parent
+and comment counts, feed retention, discussion ordering, stale open changeset
+reporting, consumer lag, and backfill failures. Backups record the independent
+changeset sequence and all four parent/comment counts without adding it to the
+node-cursor convergence rule.
 
 ## Approval protocol
 
