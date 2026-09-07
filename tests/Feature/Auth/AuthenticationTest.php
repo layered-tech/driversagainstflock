@@ -13,16 +13,9 @@ test('login screen can be rendered', function () {
     );
 });
 
-test('users can authenticate using the login screen', function () {
-    $user = User::factory()->create();
-
-    $response = $this->post('/login', [
-        'email' => $user->email,
-        'password' => 'password',
-    ]);
-
-    $this->assertAuthenticated();
-    $response->assertRedirect(route('home', absolute: false));
+test('password sign in is not available on the web', function () {
+    $this->post('/login', ['email' => 'test@example.com', 'password' => 'password'])->assertStatus(405);
+    $this->assertGuest();
 });
 
 test('authenticated users are redirected away from guest screens to home', function () {

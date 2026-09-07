@@ -5,7 +5,11 @@ use App\Http\Controllers\Api\MarkersController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\DownloadAndroidApkController;
 use App\Http\Controllers\HotlistController;
+use App\Http\Controllers\ModerationController;
+use App\Http\Controllers\ModerationReviewController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\WatchedAreaController;
+use App\Http\Middleware\EnsureOsmModerator;
 use App\Support\SearchMetadata;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
@@ -85,3 +89,16 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+Route::middleware(['auth', EnsureOsmModerator::class])->prefix('moderation')->name('moderation.')->group(function (): void {
+    Route::get('/', [ModerationController::class, 'index'])->name('index');
+    Route::get('/changesets/{changeset}', [ModerationController::class, 'changeset'])->whereNumber('changeset')->name('changesets.show');
+    Route::patch('/changesets/{changeset}/review', [ModerationReviewController::class, 'changeset'])->whereNumber('changeset')->name('changesets.review');
+    Route::patch('/nodes/{node}/review', [ModerationReviewController::class, 'node'])->whereNumber('node')->name('nodes.review');
+    Route::get('/areas/search', [WatchedAreaController::class, 'search'])->middleware('throttle:30,1')->name('areas.search');
+    Route::post('/areas', [WatchedAreaController::class, 'store'])->name('areas.store');
+    Route::get('/areas/{area}', [ModerationController::class, 'area'])->name('areas.show');
+    Route::delete('/areas/{area}', [WatchedAreaController::class, 'destroy'])->name('areas.destroy');
+    Route::post('/areas/{area}/subscription', [WatchedAreaController::class, 'subscribe'])->name('areas.subscribe');
+    Route::delete('/areas/{area}/subscription', [WatchedAreaController::class, 'unsubscribe'])->name('areas.unsubscribe');
+});
