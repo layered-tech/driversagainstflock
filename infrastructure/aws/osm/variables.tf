@@ -64,7 +64,7 @@ variable "bootstrap_artifact_key" {
 variable "data_device" {
   description = "Requested Linux device name for the canonical persistent OSM data volume."
   type        = string
-  default     = "/dev/sdh"
+  default     = "/dev/sdj"
 
   validation {
     condition     = startswith(var.data_device, "/dev/")
@@ -108,11 +108,11 @@ variable "data_throughput_mibps" {
 variable "data_volume_size_gib" {
   description = "Canonical OSM data volume size in GiB for the consolidated host."
   type        = number
-  default     = 256
+  default     = 64
 
   validation {
-    condition     = var.data_volume_size_gib == 256
-    error_message = "data_volume_size_gib must remain the reviewed 256 GiB size."
+    condition     = var.data_volume_size_gib == 64
+    error_message = "data_volume_size_gib must remain the reviewed 64 GiB rightsized capacity."
   }
 }
 

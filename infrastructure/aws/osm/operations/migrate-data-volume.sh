@@ -2,18 +2,25 @@
 
 set -euo pipefail
 
-readonly OPERATION_VERSION="1.0.0"
+readonly OPERATION_VERSION="2.0.0"
 readonly DATA_MOUNT="/var/lib/daf-osm"
 readonly STAGING_MOUNT="/mnt/daf-osm-data-canonical"
 readonly FSTAB_BACKUP="/etc/fstab.daf-osm-volume-migration"
+readonly FSTAB_PENDING="/etc/fstab.daf-osm-volume-migration.pending"
 readonly DATABASE_NAME="${DAF_OSM_DATABASE_NAME:-daf_osm}"
+readonly MINIMUM_REPLACEMENT_SIZE_BYTES=$((64 * 1024 * 1024 * 1024))
+readonly MINIMUM_REFRESH_RESERVE_BYTES=$((16 * 1024 * 1024 * 1024))
 readonly -a RUNTIME_TIMERS=(
     daf-osm-global-update.timer
+    daf-osm-changeset-update.timer
+    daf-osm-changeset-backfill.timer
     daf-osm-backup.timer
     daf-osm-metrics.timer
 )
 readonly -a RUNTIME_SERVICES=(
     daf-osm-global-update.service
+    daf-osm-changeset-update.service
+    daf-osm-changeset-backfill.service
     daf-osm-backup.service
     daf-osm-metrics.service
 )
@@ -23,13 +30,14 @@ if [[ "${EUID}" -ne 0 ]]; then
     exit 1
 fi
 
-if [[ "${1:-}" != "--old-volume-id" || ! "${2:-}" =~ ^vol-[0-9a-f]{17}$ || "${3:-}" != "--new-volume-id" || ! "${4:-}" =~ ^vol-[0-9a-f]{17}$ ]]; then
-    echo "ERROR usage: migrate-data-volume.sh --old-volume-id vol-XXXXXXXXXXXXXXXXX --new-volume-id vol-XXXXXXXXXXXXXXXXX" >&2
+if [[ "${1:-}" != "--mode" || ! "${2:-}" =~ ^(rightsize|rollback)$ || "${3:-}" != "--old-volume-id" || ! "${4:-}" =~ ^vol-[0-9a-f]{17}$ || "${5:-}" != "--new-volume-id" || ! "${6:-}" =~ ^vol-[0-9a-f]{17}$ ]]; then
+    echo "ERROR usage: migrate-data-volume.sh --mode rightsize|rollback --old-volume-id vol-XXXXXXXXXXXXXXXXX --new-volume-id vol-XXXXXXXXXXXXXXXXX" >&2
     exit 1
 fi
 
-readonly OLD_VOLUME_ID="$2"
-readonly NEW_VOLUME_ID="$4"
+readonly MIGRATION_MODE="$2"
+readonly OLD_VOLUME_ID="$4"
+readonly NEW_VOLUME_ID="$6"
 readonly SCRIPT_MOUNT_TARGET="$(findmnt -nro TARGET -T "${BASH_SOURCE[0]}")"
 
 if [[ "${SCRIPT_MOUNT_TARGET}" == "${DATA_MOUNT}" ]]; then
@@ -73,9 +81,20 @@ if [[ "$(readlink -f "${MOUNTED_DATA_DEVICE}")" != "$(readlink -f "${OLD_DEVICE}
 fi
 
 readonly NEW_DEVICE_SIZE="$(blockdev --getsize64 "${NEW_DEVICE}")"
+readonly OLD_DEVICE_SIZE="$(blockdev --getsize64 "${OLD_DEVICE}")"
 
-if (( NEW_DEVICE_SIZE < 256 * 1024 * 1024 * 1024 )); then
-    echo "ERROR replacement OSM data volume is smaller than 256 GiB" >&2
+if (( NEW_DEVICE_SIZE < MINIMUM_REPLACEMENT_SIZE_BYTES )); then
+    echo "ERROR replacement OSM data volume is smaller than 64 GiB" >&2
+    exit 1
+fi
+
+if [[ "${MIGRATION_MODE}" == "rightsize" ]] && (( NEW_DEVICE_SIZE >= OLD_DEVICE_SIZE )); then
+    echo "ERROR replacement OSM data volume does not reduce provisioned capacity" >&2
+    exit 1
+fi
+
+if [[ "${MIGRATION_MODE}" == "rollback" ]] && (( NEW_DEVICE_SIZE <= OLD_DEVICE_SIZE )); then
+    echo "ERROR rollback OSM data volume does not restore greater provisioned capacity" >&2
     exit 1
 fi
 
@@ -92,6 +111,15 @@ fi
 
 install -d -o root -g root -m 0755 "${STAGING_MOUNT}"
 mount "${NEW_DEVICE}" "${STAGING_MOUNT}"
+
+readonly SOURCE_USED_BYTES="$(df --block-size=1 --output=used "${DATA_MOUNT}" | tail --lines=1 | tr -d ' ')"
+readonly NEW_FILESYSTEM_SIZE_BYTES="$(df --block-size=1 --output=size "${STAGING_MOUNT}" | tail --lines=1 | tr -d ' ')"
+
+if (( SOURCE_USED_BYTES + MINIMUM_REFRESH_RESERVE_BYTES > NEW_FILESYSTEM_SIZE_BYTES )); then
+    umount "${STAGING_MOUNT}"
+    echo "ERROR replacement OSM data volume cannot retain 16 GiB of refresh headroom after migration" >&2
+    exit 1
+fi
 
 declare -a timers_to_restart=()
 for timer in "${RUNTIME_TIMERS[@]}"; do
@@ -129,6 +157,8 @@ rollback() {
         mountpoint --quiet "${STAGING_MOUNT}" && umount "${STAGING_MOUNT}" || true
     fi
 
+    rm --force -- "${FSTAB_PENDING}"
+
     if [[ "${runtime_stopped}" == "true" ]]; then
         restart_runtime >/dev/null 2>&1 || true
     fi
@@ -141,8 +171,22 @@ trap rollback EXIT
 
 systemctl stop "${RUNTIME_TIMERS[@]}"
 systemctl stop "${RUNTIME_SERVICES[@]}"
-systemctl stop postgresql.service
 runtime_stopped=true
+
+exec 9> /run/daf-osm/backup.lock
+flock --exclusive 9
+exec 8> /run/daf-osm/global.lock
+flock --exclusive 8
+exec 7> /run/daf-osm/global-current.lock
+flock --exclusive 7
+exec 6> /run/daf-osm/global-history.lock
+flock --exclusive 6
+exec 5> /run/daf-osm/global-changeset.lock
+flock --exclusive 5
+exec 4> /run/daf-osm/global-changeset-backfill.lock
+flock --exclusive 4
+
+systemctl stop postgresql.service
 
 rsync -aHAX --numeric-ids --delete --one-file-system "${DATA_MOUNT}/" "${STAGING_MOUNT}/"
 sync
@@ -165,15 +209,18 @@ readonly NEW_UUID="$(blkid -s UUID -o value "${NEW_DEVICE}")"
 cp -a /etc/fstab "${FSTAB_BACKUP}"
 awk -v data_mount="${DATA_MOUNT}" -v new_uuid="${NEW_UUID}" '
     $2 == data_mount {
-        print "UUID=" new_uuid, data_mount, "xfs defaults,nofail,nodev,nosuid 0 2"
+    print "UUID=" new_uuid, data_mount, "xfs defaults,nofail,nodev,nosuid,x-systemd.device-timeout=5min 0 2"
         replaced = 1
         next
     }
     { print }
     END { if (!replaced) exit 1 }
-' "${FSTAB_BACKUP}" > /etc/fstab
+' "${FSTAB_BACKUP}" > "${FSTAB_PENDING}"
 
 cutover_started=true
+chown root:root "${FSTAB_PENDING}"
+chmod 0644 "${FSTAB_PENDING}"
+mv --force "${FSTAB_PENDING}" /etc/fstab
 umount "${STAGING_MOUNT}"
 umount "${DATA_MOUNT}"
 mount "${DATA_MOUNT}"
@@ -188,11 +235,17 @@ if [[ "$(findmnt -nro OPTIONS "${DATA_MOUNT}")" != *nodev* || "$(findmnt -nro OP
     exit 1
 fi
 
-restart_runtime
+systemctl start postgresql.service
 
 if ! pg_isready --quiet --timeout=5 || ! runuser --user postgres -- psql --no-psqlrc --tuples-only --quiet --dbname="${DATABASE_NAME}" --command='SELECT 1' | grep -qF 1; then
     echo "ERROR PostgreSQL did not become ready on the replacement volume" >&2
     exit 1
+fi
+
+runuser --user osm_ingest -- /opt/daf-osm/bin/validate-core.sh
+
+if (( ${#timers_to_restart[@]} > 0 )); then
+    systemctl start "${timers_to_restart[@]}"
 fi
 
 if findmnt -rn -S "UUID=${OLD_UUID}" >/dev/null; then
@@ -202,4 +255,4 @@ fi
 
 migration_complete=true
 trap - EXIT
-echo "MIGRATE_OK operation=${OPERATION_VERSION} postgresql=healthy old_volume=detached-filesystem new_volume=active"
+echo "MIGRATE_OK operation=${OPERATION_VERSION} mode=${MIGRATION_MODE} postgresql=healthy old_volume=detached-filesystem new_volume=active"

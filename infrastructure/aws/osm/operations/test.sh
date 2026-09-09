@@ -10,6 +10,10 @@ done < <(find "${OPERATIONS_DIRECTORY}" -type f -name '*.sh' ! -path '*/test.sh'
 
 python3 -m json.tool "${OPERATIONS_DIRECTORY}/cloudwatch-agent.json" >/dev/null
 python3 "${OPERATIONS_DIRECTORY}/tests/iam-policy-invariant.py"
+bash "${OPERATIONS_DIRECTORY}/tests/changeset-import-invariant.sh"
+python3 "${OPERATIONS_DIRECTORY}/tests/changeset-state-invariant.py"
+bash "${OPERATIONS_DIRECTORY}/tests/changeset-stream-invariant.sh"
+bash "${OPERATIONS_DIRECTORY}/tests/changeset-refresh-invariant.sh"
 bash "${OPERATIONS_DIRECTORY}/tests/consolidation-phase1-invariant.sh"
 bash "${OPERATIONS_DIRECTORY}/tests/dashboard-period-invariant.sh"
 bash "${OPERATIONS_DIRECTORY}/tests/local-reader-tunnel-invariant.sh"

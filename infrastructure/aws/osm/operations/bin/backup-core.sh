@@ -65,15 +65,25 @@ IFS=$'\t' read -r \
     backup_shared_sequence \
     backup_current_sequence \
     backup_history_sequence \
+    backup_changeset_sequence \
     backup_pre_dump_current_count \
     backup_pre_dump_history_count \
+    backup_pre_dump_changeset_count \
+    backup_pre_dump_changeset_comment_count \
+    backup_pre_dump_feed_changeset_count \
+    backup_pre_dump_feed_changeset_comment_count \
     <<< "$(psql_osm --tuples-only --no-align --field-separator=$'\t' --command="
 SELECT
     COALESCE((SELECT state_value FROM osm_pipeline.state WHERE state_key = 'shared_feed_sequence'), '0'),
     COALESCE((SELECT state_value FROM osm_pipeline.state WHERE state_key = 'current_applied_sequence'), '0'),
     COALESCE((SELECT state_value FROM osm_pipeline.state WHERE state_key = 'history_applied_sequence'), '0'),
+    COALESCE((SELECT state_value FROM osm_pipeline.state WHERE state_key = 'changeset_applied_sequence'), '0'),
     (SELECT count(*) FROM osm_current.alpr_nodes),
-    (SELECT count(*) FROM osm_history.alpr_node_versions)
+    (SELECT count(*) FROM osm_history.alpr_node_versions),
+    (SELECT count(*) FROM osm_history.changesets),
+    (SELECT count(*) FROM osm_history.changeset_comments),
+    (SELECT count(*) FROM osm_pipeline.feed_changesets),
+    (SELECT count(*) FROM osm_pipeline.feed_changeset_comments)
 ")"
 [[ "${backup_shared_sequence}" =~ ^[0-9]+$ ]] \
     || die 'Pre-dump backup shared feed sequence is invalid'
@@ -81,6 +91,8 @@ SELECT
     || die 'Pre-dump backup current sequence is invalid'
 [[ "${backup_history_sequence}" =~ ^[0-9]+$ ]] \
     || die 'Pre-dump backup history sequence is invalid'
+[[ "${backup_changeset_sequence}" =~ ^[0-9]+$ ]] \
+    || die 'Pre-dump backup changeset sequence is invalid'
 [[ "${backup_shared_sequence}" == "${backup_current_sequence}" \
     && "${backup_shared_sequence}" == "${backup_history_sequence}" ]] \
     || die 'Pre-dump global cursors have not converged'
@@ -88,12 +100,25 @@ SELECT
     || die 'Pre-dump current ALPR node count is invalid'
 [[ "${backup_pre_dump_history_count}" =~ ^[0-9]+$ ]] \
     || die 'Pre-dump history event count is invalid'
+for changeset_count in \
+    "${backup_pre_dump_changeset_count}" \
+    "${backup_pre_dump_changeset_comment_count}" \
+    "${backup_pre_dump_feed_changeset_count}" \
+    "${backup_pre_dump_feed_changeset_comment_count}"; do
+    [[ "${changeset_count}" =~ ^[0-9]+$ ]] \
+        || die 'Pre-dump changeset count is invalid'
+done
 readonly \
     backup_shared_sequence \
     backup_current_sequence \
     backup_history_sequence \
+    backup_changeset_sequence \
     backup_pre_dump_current_count \
-    backup_pre_dump_history_count
+    backup_pre_dump_history_count \
+    backup_pre_dump_changeset_count \
+    backup_pre_dump_changeset_comment_count \
+    backup_pre_dump_feed_changeset_count \
+    backup_pre_dump_feed_changeset_comment_count
 
 log "Creating PostgreSQL backup ${backup_name}"
 pg_dump \
@@ -123,8 +148,13 @@ jq --null-input \
     --argjson shared_sequence "${backup_shared_sequence}" \
     --argjson current_sequence "${backup_current_sequence}" \
     --argjson history_sequence "${backup_history_sequence}" \
+    --argjson changeset_sequence "${backup_changeset_sequence}" \
     --argjson pre_dump_current_count "${backup_pre_dump_current_count}" \
     --argjson pre_dump_history_count "${backup_pre_dump_history_count}" \
+    --argjson pre_dump_changeset_count "${backup_pre_dump_changeset_count}" \
+    --argjson pre_dump_changeset_comment_count "${backup_pre_dump_changeset_comment_count}" \
+    --argjson pre_dump_feed_changeset_count "${backup_pre_dump_feed_changeset_count}" \
+    --argjson pre_dump_feed_changeset_comment_count "${backup_pre_dump_feed_changeset_comment_count}" \
     '{
         created_at: $created_at,
         database: $database,
@@ -134,8 +164,13 @@ jq --null-input \
         shared_replication_sequence: $shared_sequence,
         current_replication_sequence: $current_sequence,
         history_replication_sequence: $history_sequence,
+        changeset_replication_sequence: $changeset_sequence,
         pre_dump_current_alpr_node_count: $pre_dump_current_count,
-        pre_dump_history_event_count: $pre_dump_history_count
+        pre_dump_history_event_count: $pre_dump_history_count,
+        pre_dump_changeset_count: $pre_dump_changeset_count,
+        pre_dump_changeset_comment_count: $pre_dump_changeset_comment_count,
+        pre_dump_feed_changeset_count: $pre_dump_feed_changeset_count,
+        pre_dump_feed_changeset_comment_count: $pre_dump_feed_changeset_comment_count
     }' > "${manifest_path}"
 chmod 0600 "${manifest_path}"
 

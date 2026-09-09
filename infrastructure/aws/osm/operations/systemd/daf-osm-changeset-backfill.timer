@@ -1,0 +1,12 @@
+[Unit]
+Description=Backfill missing OSM changesets daily
+
+[Timer]
+OnCalendar=*-*-* 02:00:00 UTC
+AccuracySec=1min
+RandomizedDelaySec=5min
+Persistent=true
+Unit=daf-osm-changeset-backfill.service
+
+[Install]
+WantedBy=timers.target

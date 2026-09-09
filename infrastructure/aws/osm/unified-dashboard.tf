@@ -41,6 +41,10 @@ resource "aws_cloudwatch_dashboard" "unified" {
             aws_cloudwatch_metric_alarm.backup_freshness.arn,
             aws_cloudwatch_metric_alarm.backup_failure.arn,
             aws_cloudwatch_metric_alarm.publication_parity.arn,
+            aws_cloudwatch_metric_alarm.changeset_consumer_stale.arn,
+            aws_cloudwatch_metric_alarm.changeset_consumer_failure.arn,
+            aws_cloudwatch_metric_alarm.changeset_metadata_missing.arn,
+            aws_cloudwatch_metric_alarm.changeset_backfill_failure.arn,
             "arn:aws:cloudwatch:${var.aws_region}:${var.aws_account_id}:alarm:daf-infrastructure-routing-graph-build-scheduler-failures",
           ]
           title = "DAF unified alarms"
@@ -140,9 +144,11 @@ resource "aws_cloudwatch_dashboard" "unified" {
             ["DAF/OSM", "SharedFeedSourceLagSeconds", "InstanceId", aws_instance.database.id, { label = "Shared source lag (seconds)" }],
             ["DAF/OSM", "CurrentConsumerLagSeconds", "InstanceId", aws_instance.database.id, { label = "Current lag (seconds)" }],
             ["DAF/OSM", "HistoryConsumerLagSeconds", "InstanceId", aws_instance.database.id, { label = "History lag (seconds)" }],
+            ["DAF/OSM", "ChangesetConsumerLagSeconds", "InstanceId", aws_instance.database.id, { label = "Changeset lag (seconds)" }],
             ["DAF/OSM", "SharedFeedFailures", "InstanceId", aws_instance.database.id, { label = "Feed failures", stat = "Sum", yAxis = "right" }],
             ["DAF/OSM", "CurrentConsumerFailures", "InstanceId", aws_instance.database.id, { label = "Current failures", stat = "Sum", yAxis = "right" }],
             ["DAF/OSM", "HistoryConsumerFailures", "InstanceId", aws_instance.database.id, { label = "History failures", stat = "Sum", yAxis = "right" }],
+            ["DAF/OSM", "ChangesetConsumerFailures", "InstanceId", aws_instance.database.id, { label = "Changeset failures", stat = "Sum", yAxis = "right" }],
           ]
           period = 60
           region = var.aws_region
@@ -164,9 +170,12 @@ resource "aws_cloudwatch_dashboard" "unified" {
           metrics = [
             ["DAF/OSM", "CurrentAlprNodeCount", "InstanceId", aws_instance.database.id, { label = "Current ALPR nodes" }],
             ["DAF/OSM", "HistoryEventCount", "InstanceId", aws_instance.database.id, { label = "History events" }],
+            ["DAF/OSM", "ChangesetCount", "InstanceId", aws_instance.database.id, { label = "Published changesets" }],
+            ["DAF/OSM", "ChangesetDiscussionCommentCount", "InstanceId", aws_instance.database.id, { label = "Published discussion comments" }],
             ["DAF/OSM", "SharedFeedSequence", "InstanceId", aws_instance.database.id, { label = "Shared sequence", yAxis = "right" }],
             ["DAF/OSM", "CurrentConsumerSequence", "InstanceId", aws_instance.database.id, { label = "Current sequence", yAxis = "right" }],
             ["DAF/OSM", "HistoryConsumerSequence", "InstanceId", aws_instance.database.id, { label = "History sequence", yAxis = "right" }],
+            ["DAF/OSM", "ChangesetConsumerSequence", "InstanceId", aws_instance.database.id, { label = "Changeset sequence", yAxis = "right" }],
           ]
           period  = 60
           region  = var.aws_region
@@ -180,16 +189,21 @@ resource "aws_cloudwatch_dashboard" "unified" {
         type   = "metric"
         x      = 0
         y      = 28
-        width  = 12
+        width  = 24
         height = 6
         properties = {
           metrics = [
             ["DAF/OSM", "SharedFeedRetainedBatchCount", "InstanceId", aws_instance.database.id, { label = "Retained spool batches" }],
+            ["DAF/OSM", "SharedFeedOldestRetainedBatchAgeSeconds", "InstanceId", aws_instance.database.id, { label = "Oldest retained spool batch age (seconds)" }],
             ["DAF/OSM", "CurrentConsumerCursorDivergence", "InstanceId", aws_instance.database.id, { label = "Current cursor divergence" }],
             ["DAF/OSM", "HistoryConsumerCursorDivergence", "InstanceId", aws_instance.database.id, { label = "History cursor divergence" }],
             ["DAF/OSM", "BackupAgeSeconds", "InstanceId", aws_instance.database.id, { label = "Backup age (seconds)" }],
             ["DAF/OSM", "BackupFailures", "InstanceId", aws_instance.database.id, { label = "Backup failures", stat = "Sum", yAxis = "right" }],
             ["DAF/OSM", "PublicationParityMismatch", "InstanceId", aws_instance.database.id, { label = "Parity mismatches", stat = "Maximum", yAxis = "right" }],
+            ["DAF/OSM", "ChangesetsMissingMetadata", "InstanceId", aws_instance.database.id, { label = "Missing changeset metadata", stat = "Minimum" }],
+            ["DAF/OSM", "ChangesetFeedRetainedCount", "InstanceId", aws_instance.database.id, { label = "Retained changeset parents" }],
+            ["DAF/OSM", "ChangesetFeedDiscussionCommentCount", "InstanceId", aws_instance.database.id, { label = "Retained discussion comments" }],
+            ["DAF/OSM", "ChangesetBackfillFailures", "InstanceId", aws_instance.database.id, { label = "Backfill failures", stat = "Sum", yAxis = "right" }],
           ]
           period = 60
           region = var.aws_region
@@ -198,30 +212,6 @@ resource "aws_cloudwatch_dashboard" "unified" {
           view   = "timeSeries"
           legend = {
             position = "right"
-          }
-        }
-      },
-      {
-        type   = "metric"
-        x      = 12
-        y      = 28
-        width  = 12
-        height = 6
-        properties = {
-          metrics = [
-            ["DAF/Routing", "ServingMemoryUsedPercent", "InstanceId", aws_instance.database.id, { label = "Shared-host memory used (%)" }],
-            ["DAF/Routing", "ServingGraphVolumeUsedPercent", "InstanceId", aws_instance.database.id, { label = "Graph volume used (%)" }],
-          ]
-          period = 60
-          region = var.aws_region
-          stat   = "Average"
-          title  = "GraphHopper serving capacity"
-          view   = "timeSeries"
-          yAxis = {
-            left = {
-              min = 0
-              max = 100
-            }
           }
         }
       },

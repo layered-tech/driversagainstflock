@@ -1,0 +1,24 @@
+[Unit]
+Description=Refresh retained OSM changeset discussion dump
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+EnvironmentFile=/etc/daf-osm/daf-osm.env
+RuntimeDirectory=daf-osm
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
+ExecStart=/opt/daf-osm/bin/refresh-changesets.sh
+TimeoutStartSec=infinity
+Nice=15
+IOSchedulingClass=idle
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+StandardOutput=append:/var/log/daf-osm/changeset-refresh.log
+StandardError=append:/var/log/daf-osm/changeset-refresh.log

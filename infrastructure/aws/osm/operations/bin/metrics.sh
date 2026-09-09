@@ -29,6 +29,15 @@ IFS=$'\t' read -r \
     history_sequence \
     last_successful_replication \
     history_bootstrap_complete \
+    changeset_consumer_lag_seconds \
+    changeset_sequence \
+    changeset_count \
+    changeset_comment_count \
+    changeset_feed_count \
+    changeset_feed_comment_count \
+    changesets_missing_metadata \
+    changeset_bootstrap_complete \
+    changeset_dump_age_seconds \
     <<< "$(psql_osm --tuples-only --no-align --field-separator=$'\t' --command="
 SELECT
     COALESCE((
@@ -57,33 +66,66 @@ SELECT
     COALESCE((SELECT state_value::bigint FROM osm_pipeline.state WHERE state_key = 'current_applied_sequence'), 0),
     COALESCE((SELECT state_value::bigint FROM osm_pipeline.state WHERE state_key = 'history_applied_sequence'), 0),
     COALESCE((SELECT state_value::bigint FROM osm_pipeline.state WHERE state_key = 'last_successful_replication_unix_time'), 0),
-    COALESCE((SELECT state_value::integer FROM osm_pipeline.state WHERE state_key = 'history_bootstrap_complete'), 0)
+    COALESCE((SELECT state_value::integer FROM osm_pipeline.state WHERE state_key = 'history_bootstrap_complete'), 0),
+    COALESCE((SELECT greatest(0, extract(epoch FROM clock_timestamp() - state_value::timestamptz))::bigint FROM osm_pipeline.state WHERE state_key = 'changeset_source_timestamp'), ${UNKNOWN_AGE_SECONDS}),
+    COALESCE((SELECT state_value::bigint FROM osm_pipeline.state WHERE state_key = 'changeset_applied_sequence'), 0),
+    (SELECT count(*) FROM osm_history.changesets),
+    (SELECT count(*) FROM osm_history.changeset_comments),
+    (SELECT count(*) FROM osm_pipeline.feed_changesets),
+    (SELECT count(*) FROM osm_pipeline.feed_changeset_comments),
+    (SELECT count(*) FROM (
+        SELECT changeset_id FROM osm_current.alpr_nodes WHERE changeset_id IS NOT NULL
+        UNION
+        SELECT changeset_id FROM osm_history.alpr_node_versions WHERE changeset_id IS NOT NULL
+    ) tracked LEFT JOIN osm_history.changesets changesets ON changesets.osm_changeset_id = tracked.changeset_id WHERE changesets.id IS NULL),
+    COALESCE((SELECT state_value::integer FROM osm_pipeline.state WHERE state_key = 'changeset_bootstrap_complete'), 0),
+    COALESCE((SELECT greatest(0, extract(epoch FROM clock_timestamp() - state_value::timestamptz))::bigint FROM osm_pipeline.state WHERE state_key = 'changeset_dump_timestamp'), ${UNKNOWN_AGE_SECONDS})
 ")"
 
-stage_relation="$(psql_osm --tuples-only --no-align \
-    --command="SELECT to_regclass('osm_ingest.alpr_nodes_stage')")"
-stage_count=0
-if [[ -n "${stage_relation}" ]]; then
-    stage_count="$(psql_osm --tuples-only --no-align \
-        --command='SELECT count(*) FROM osm_ingest.alpr_nodes_stage')"
+publication_parity_mismatch=''
+exec 9> /run/daf-osm/global.lock
+if flock --nonblock 9; then
+    stage_relation="$(psql_osm --tuples-only --no-align \
+        --command="SELECT to_regclass('osm_ingest.alpr_nodes_stage')")"
+    stage_count=0
+    synchronized_current_count="$(psql_osm --tuples-only --no-align \
+        --command='SELECT count(*) FROM osm_current.alpr_nodes')"
+    if [[ -n "${stage_relation}" ]]; then
+        IFS=$'\t' read -r stage_count synchronized_current_count <<< "$(
+            psql_osm --tuples-only --no-align --field-separator=$'\t' \
+                --command='SELECT (SELECT count(*) FROM osm_ingest.alpr_nodes_stage), (SELECT count(*) FROM osm_current.alpr_nodes)'
+        )"
+    fi
+    publication_parity_mismatch=$(( stage_count > synchronized_current_count \
+        ? stage_count - synchronized_current_count \
+        : synchronized_current_count - stage_count ))
+    flock --unlock 9
 fi
-publication_parity_mismatch=$(( stage_count > current_count \
-    ? stage_count - current_count \
-    : current_count - stage_count ))
 current_cursor_divergence=$(( shared_feed_sequence > current_sequence \
     ? shared_feed_sequence - current_sequence \
     : current_sequence - shared_feed_sequence ))
 history_cursor_divergence=$(( shared_feed_sequence > history_sequence \
     ? shared_feed_sequence - history_sequence \
     : history_sequence - shared_feed_sequence ))
-retained_spool_batches="$(find "${OSM_DATA_PATH}/global-replication-spool" \
+mapfile -t retained_spool_paths < <(find "${OSM_DATA_PATH}/global-replication-spool" \
     -xdev \
     -mindepth 1 \
     -maxdepth 1 \
     -type d \
     -name 'sequence-[0-9]*' \
-    -print \
-    | wc --lines)"
+    -print)
+retained_spool_batches="${#retained_spool_paths[@]}"
+oldest_retained_batch_age_seconds=0
+current_unix_time="$(date --utc +%s)"
+for retained_spool_path in "${retained_spool_paths[@]}"; do
+    retained_batch_unix_time="$(stat --format=%Y -- "${retained_spool_path}" 2>/dev/null)" || continue
+    retained_batch_age_seconds=$(( current_unix_time > retained_batch_unix_time \
+        ? current_unix_time - retained_batch_unix_time \
+        : 0 ))
+    if (( retained_batch_age_seconds > oldest_retained_batch_age_seconds )); then
+        oldest_retained_batch_age_seconds="${retained_batch_age_seconds}"
+    fi
+done
 
 for numeric_value in \
     "${shared_feed_lag_seconds}" \
@@ -97,12 +139,24 @@ for numeric_value in \
     "${history_sequence}" \
     "${last_successful_replication}" \
     "${history_bootstrap_complete}" \
-    "${publication_parity_mismatch}" \
+    "${changeset_consumer_lag_seconds}" \
+    "${changeset_sequence}" \
+    "${changeset_count}" \
+    "${changeset_comment_count}" \
+    "${changeset_feed_count}" \
+    "${changeset_feed_comment_count}" \
+    "${changesets_missing_metadata}" \
+    "${changeset_bootstrap_complete}" \
+    "${changeset_dump_age_seconds}" \
     "${current_cursor_divergence}" \
     "${history_cursor_divergence}" \
-    "${retained_spool_batches}"; do
+    "${retained_spool_batches}" \
+    "${oldest_retained_batch_age_seconds}"; do
     [[ "${numeric_value}" =~ ^[0-9]+$ ]] || die "Metric query returned non-numeric value: ${numeric_value}"
 done
+if [[ -n "${publication_parity_mismatch}" && ! "${publication_parity_mismatch}" =~ ^[0-9]+$ ]]; then
+    die "Parity metric query returned non-numeric value: ${publication_parity_mismatch}"
+fi
 
 metric_data="$(jq --compact-output --null-input \
     --arg instance_id "${INSTANCE_ID}" \
@@ -118,10 +172,20 @@ metric_data="$(jq --compact-output --null-input \
     --argjson history_sequence "${history_sequence}" \
     --argjson last_successful_replication "${last_successful_replication}" \
     --argjson history_bootstrap_complete "${history_bootstrap_complete}" \
-    --argjson publication_parity_mismatch "${publication_parity_mismatch}" \
+    --argjson changeset_consumer_lag_seconds "${changeset_consumer_lag_seconds}" \
+    --argjson changeset_sequence "${changeset_sequence}" \
+    --argjson changeset_count "${changeset_count}" \
+    --argjson changeset_comment_count "${changeset_comment_count}" \
+    --argjson changeset_feed_count "${changeset_feed_count}" \
+    --argjson changeset_feed_comment_count "${changeset_feed_comment_count}" \
+    --argjson changesets_missing_metadata "${changesets_missing_metadata}" \
+    --argjson changeset_bootstrap_complete "${changeset_bootstrap_complete}" \
+    --argjson changeset_dump_age_seconds "${changeset_dump_age_seconds}" \
+    --arg publication_parity_mismatch "${publication_parity_mismatch}" \
     --argjson current_cursor_divergence "${current_cursor_divergence}" \
     --argjson history_cursor_divergence "${history_cursor_divergence}" \
     --argjson retained_spool_batches "${retained_spool_batches}" \
+    --argjson oldest_retained_batch_age_seconds "${oldest_retained_batch_age_seconds}" \
     '
     def metric($name; $value; $unit): {
         MetricName: $name,
@@ -142,11 +206,24 @@ metric_data="$(jq --compact-output --null-input \
         metric("HistoryConsumerSequence"; $history_sequence; "Count"),
         metric("LastSuccessfulReplicationUnixTime"; $last_successful_replication; "Seconds"),
         metric("HistoryBootstrapComplete"; $history_bootstrap_complete; "None"),
-        metric("PublicationParityMismatch"; $publication_parity_mismatch; "Count"),
         metric("CurrentConsumerCursorDivergence"; $current_cursor_divergence; "Count"),
         metric("HistoryConsumerCursorDivergence"; $history_cursor_divergence; "Count"),
-        metric("SharedFeedRetainedBatchCount"; $retained_spool_batches; "Count")
-    ]
+        metric("SharedFeedRetainedBatchCount"; $retained_spool_batches; "Count"),
+        metric("SharedFeedOldestRetainedBatchAgeSeconds"; $oldest_retained_batch_age_seconds; "Seconds")
+        ,metric("ChangesetConsumerLagSeconds"; $changeset_consumer_lag_seconds; "Seconds")
+        ,metric("ChangesetConsumerSequence"; $changeset_sequence; "Count")
+        ,metric("ChangesetCount"; $changeset_count; "Count")
+        ,metric("ChangesetDiscussionCommentCount"; $changeset_comment_count; "Count")
+        ,metric("ChangesetFeedRetainedCount"; $changeset_feed_count; "Count")
+        ,metric("ChangesetFeedDiscussionCommentCount"; $changeset_feed_comment_count; "Count")
+        ,metric("ChangesetsMissingMetadata"; $changesets_missing_metadata; "Count")
+        ,metric("ChangesetBootstrapComplete"; $changeset_bootstrap_complete; "None")
+        ,metric("ChangesetDumpAgeSeconds"; $changeset_dump_age_seconds; "Seconds")
+    ] + (
+        if $publication_parity_mismatch == "" then []
+        else [metric("PublicationParityMismatch"; ($publication_parity_mismatch | tonumber); "Count")]
+        end
+    )
     ')"
 
 aws cloudwatch put-metric-data \

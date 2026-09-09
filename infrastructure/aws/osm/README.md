@@ -9,6 +9,9 @@ No command in this directory is permission to change AWS. Follow the approval
 gates in this runbook before every AWS operation, including remote-backend
 initialization and planning.
 
+The independent changeset metadata and discussion pipeline has its own
+design, rollout, validation, and refresh runbook in [`CHANGESETS.md`](CHANGESETS.md).
+
 ## Data scope
 
 Through Phase 7, the deployed database retains only the OSM node data required
@@ -38,6 +41,14 @@ The stack does not retain OSM ways, relations, road segments, nearest-road
 results, or derived road distances. Ways and relations are not imported even as
 temporary PostgreSQL rows.
 
+The independent changeset stream adds complete metadata and every available
+discussion comment for changesets associated with a retained ALPR node
+lifecycle. Its short-lived pipeline buffer retains worldwide changesets seen
+after the active weekly snapshot so later-tracked nodes can promote metadata
+without rewinding the node feed. Published ALPR created, modified, deleted, and
+touched counts are derived from retained node versions; OSM's all-element
+`num_changes` is exposed separately and is never used as the touched count.
+
 ## Sources
 
 | Purpose                                                                            | Source                                                                                                                              |
@@ -49,6 +60,8 @@ temporary PostgreSQL rows.
 | Full public node history                                                           | Release-aligned immutable object under `https://osm-planet-us-west-2.s3.dualstack.us-west-2.amazonaws.com/planet-full-history/pbf/` |
 | Global minute diffs for history through Phase 7 and both consumers after Phase 7.5 | `https://planet.openstreetmap.org/replication/minute/`                                                                              |
 | Node-history backfill                                                              | `https://api.openstreetmap.org/api/0.6/node/{id}/history`                                                                           |
+| Weekly changeset metadata and discussions                                          | Immutable release resolved from `https://planet.openstreetmap.org/planet/discussions-latest.osm.bz2`                                |
+| Independent changeset minute replication                                           | `https://planet.openstreetmap.org/replication/changesets/`                                                                          |
 
 Through Phase 7, the region polygon is used only to decide whether an
 exact-tagged node has been in North America. Once a node qualifies, every
@@ -102,6 +115,201 @@ The stack creates:
 
 The shared NAT gateway remains tagged to `daf-routing`, so its fixed and
 per-byte costs are included alongside OSM resources in the unified budget.
+
+## Changeset stream operations
+
+The changeset rollout is independent from the shared node replication cursor.
+Local implementation and offline verification do not use AWS credentials or a
+production database. Deployment then installs the schema and inactive units,
+bootstraps a checksum-pinned discussion dump, activates the update and daily
+02:00 UTC backfill timers, and applies the four changeset alarms only after the
+consumer catches up.
+
+The retained discussion dump is approximately 8.95 GB compressed, about 3.5
+percentage points of the current 256 GiB data volume. A refresh needs enough
+free space for both old and new dumps. Run the manual
+`daf-osm-changeset-refresh.service`; it pauses both timers, retains feed rows
+observed after the new snapshot, preserves the live changeset cursor, and only
+removes the old dump after checksum, import, completeness, and validation gates
+pass.
+
+Operational checks include `global-changeset.complete`, database/file cursor
+parity, empty stages, retained dump checksum, missing tracked metadata, parent
+and comment counts, feed retention, discussion ordering, stale open changeset
+reporting, consumer lag, and backfill failures. Backups record the independent
+changeset sequence and all four parent/comment counts without adding it to the
+node-cursor convergence rule.
+
+### Changeset Phase 9 steady-state reconciliation
+
+Phase 9 was reconciled on 2026-09-09. The owner waived the planned seven-day
+wait because the accumulated production utilization was sufficient. The clean
+metric window ran from 2026-09-08 05:00 UTC through 2026-09-09 15:38 UTC; the
+2026-09-07 worker saturation was excluded because it was caused by an
+operator-started excess worker count rather than the steady-state workload.
+
+- Peak five-minute average CPU was 73.55 percent, the highest CPU sample was
+  82.69 percent, and peak hourly average CPU was 63.58 percent. The highest
+  memory sample was 11.26 percent and peak hourly average memory was 10.17
+  percent.
+- Data-volume use peaked at 6.09 percent during the clean metric window. The
+  final host snapshot used 16,797,077,504 of 274,743,689,216 bytes (6.11
+  percent), leaving 257,946,611,712 bytes free.
+- The first post-stream backup was 121,297,950 bytes and the 2026-09-09 backup
+  was 135,071,505 bytes: 13,773,555 bytes of growth (11.36 percent) across two
+  days after the initial bootstrap increase. Backup age remained below 25
+  hours and no backup failure was observed.
+- Over the clean metric window, published changesets increased from 179,254 to
+  at least 179,966, published discussion comments increased from 2,599 to
+  2,608, retained feed parents increased from 481,534 to 559,486, and retained
+  feed comments increased from 6,207 to 7,042. The final snapshot contained
+  180,070 published changesets, 2,608 published comments, 571,282 retained feed
+  parents, and 7,185 retained feed comments.
+- Changeset lag stayed between 40 and 305 seconds in the clean window. At the
+  final snapshot it was 157 seconds; shared-feed, current, and history lag were
+  each 74 seconds. Database and file changeset cursors both held sequence
+  7,177,812, both staging tables were empty, and the update, backfill, and
+  backup timers were active.
+- Two approved manual backfills each completed successfully and promoted one
+  retained-dump record. After the second run, the two remaining missing IDs
+  (`188792029` and `188792034`) had arrived after the processed source cutoff
+  and were greater than the retained dump maximum ID (`188277418`). Missing
+  metadata at or before both the source and dump cutoffs was zero. The owner
+  accepted this repeat post-cutoff arrival pattern as passing ingestion churn.
+- All 22 unified dashboard alarms were `OK` in the final check. No changeset
+  consumer or backfill failure datapoints appeared in the clean metric window.
+
+The retained discussion dump was approximately 9.8 days old, below the
+approximately 45-day refresh trigger. No dump refresh was approved or run; a
+future refresh remains a separate approval-gated operation.
+
+### Data-volume rightsizing
+
+Status: complete on 2026-09-09. The rightsized 64 GiB volume is the protected
+canonical OSM data volume, and the 256 GiB legacy volume was permanently
+deleted after the operator explicitly waived the remaining rollback window.
+Terraform validation and the complete OSM operations invariant suite passed.
+The deterministic runtime artifact SHA-256 is
+`f4986ea1186b0be084ea48b36a15bf18766b591687eb2178783df3b23367fdfb`.
+Each remaining production phase below requires separate approval under the
+approval protocol.
+
+The approved read-only production plan completed on 2026-09-09. It contains
+two creates, two in-place updates, zero replacements, and zero destroys. The
+creates are the protected 64 GiB gp3 volume and its temporary `/dev/sdj`
+attachment. The updates publish runtime artifact
+`f4986ea1186b0be084ea48b36a15bf18766b591687eb2178783df3b23367fdfb`
+and lower the data-volume alarm from 85 to 70 percent. The current volume and
+attachment are state-address moves only. The saved plan SHA-256 is
+`8e77d61579247907b9753da4f4f679aed584d70184e04973d99b68bea20a9424`.
+
+That exact plan was applied on 2026-09-09: two resources were added, two were
+updated in place, and none were replaced or destroyed. The protected encrypted
+64 GiB gp3 volume is `vol-05a44dcbb7809f42d`, attached to
+`i-096fe74bac4f594b3` as `/dev/sdj` with 3,000 IOPS and 125 MiB/s. The active
+data output remains the protected 256 GiB `vol-0f28cb6d0f7ed35d9`. Artifact
+version `qEjsZPclBKnI0SWSdozbnqdvBGjow6D0` has the planned SHA-256, the
+70-percent alarm is `OK`, and a fresh Terraform plan reports no changes.
+
+The narrowly scoped runtime-install SSM command completed successfully on
+2026-09-09. It verified both the artifact and migration-script checksums before
+installing `/opt/daf-osm/bin/migrate-data-volume.sh`. The active filesystem
+remained the 256 GiB XFS volume, and PostgreSQL plus the global update,
+changeset update, changeset backfill, backup, and metrics timers all remained
+active. No data migration or mount change occurred in this phase.
+
+The approved cutover SSM command
+`46e27d8e-fc3d-45cd-9f6c-9c1e0b61f45f` then completed successfully in 5
+minutes 8 seconds. It mounted `vol-05a44dcbb7809f42d` at
+`/var/lib/daf-osm`, leaving `vol-0f28cb6d0f7ed35d9` attached but unmounted.
+The new XFS filesystem reported 15,258,578,944 bytes used and 53,393,788,928
+bytes available, or 23 percent use. PostgreSQL and all five timers were active.
+Both core and full validation passed with 180,111 changeset parents, 2,608
+available comments, one changeset open longer than 25 hours, 150,779 current
+nodes, and 247,209 public lifecycle versions at global sequence 7,279,888.
+
+The immediate post-cutover observation confirmed that both encrypted gp3
+volumes remained attached with `DeleteOnTermination=false`. All 21 exact-name
+CloudWatch alarm checks were `OK`. The operator policy intentionally denied a
+prefix-only alarm query evaluated against `alarm:*`; retrying with the exact
+Terraform-managed alarm names succeeded without broadening IAM. The latest
+complete backup set remained the 135,071,505-byte archive and its checksum and
+manifest uploaded at 2026-09-09 04:21 UTC. Because that backup predates the
+cutover, a successful post-migration backup is still required before the legacy
+volume retention window can close.
+
+The first post-migration backup completed successfully through SSM command
+`88badad0-9c8c-4320-91d4-5202006c2f06` at 2026-09-09 21:56:06 UTC. The
+142,049,506-byte archive, SHA-256 sidecar, and manifest were uploaded and
+remotely verified under `postgresql/20260909T215545Z/`; local backup files were
+removed afterward. Its shared, current, and history cursors all matched at
+7,279,907, and its changeset cursor was 7,177,903. This timestamp starts the
+required 48-hour healthy retention window, so the protected legacy volume must
+remain attached until at least 2026-09-11 21:56:06 UTC unless that rollback
+window is explicitly waived. On 2026-09-09, the operator explicitly waived the
+remaining window and requested removal of the legacy volume.
+
+The checksum-verified final Terraform plan applied with zero additions, two
+in-place updates, and two destroys. It detached and permanently deleted only
+`vol-0f28cb6d0f7ed35d9`, renamed `vol-05a44dcbb7809f42d` as the canonical OSM
+data volume, and moved its dashboard metrics to the active volume. Final SSM
+validation command `5b4416c9-55d2-490d-b1e9-daf0eac3ceae` succeeded with only
+the canonical 64 GiB OSM and GraphHopper volumes present. The OSM filesystem
+reported 15,243,681,792 bytes used and 53,408,686,080 bytes available, or 23
+percent use. PostgreSQL and all five timers were active; validation reported
+180,150 changeset parents, 2,608 available comments, one changeset open longer
+than 25 hours, 150,802 current nodes, and 247,248 public lifecycle versions at
+global sequence 7,279,933.
+
+The Phase 9 snapshot used 16,797,077,504 bytes on the 256 GiB volume. A 64 GiB
+gp3 volume would begin at approximately 24.4 percent use. Adding another dump
+the size of the 8,945,698,542-byte Phase 0 release during a refresh would raise
+projected use to approximately 37.4 percent before database growth. The
+migration also refuses a target that would leave less than 16 GiB free after
+copying the source filesystem.
+
+The rightsized volume retains the included 3,000 IOPS and 125 MiB/s gp3
+performance. At the us-east-1 gp3 storage rate of $0.08 per GiB-month, steady
+state falls from approximately $20.48 to $5.12 per month, saving approximately
+$15.36 per month before taxes and backup storage. Both volumes are billed only
+during the migration and rollback-retention window.
+
+The rollout is deliberately staged:
+
+1. Build and offline-validate the deterministic runtime artifact and Terraform
+   transition. The current 256 GiB resource and attachment move to protected
+   legacy addresses in state; this is an address move, not an AWS mutation. The
+   replacement uses a temporary `data_rightsized` address until cutover.
+2. Save and review a production Terraform plan. It may create only the new
+   encrypted 64 GiB gp3 volume and temporary attachment, update the approved
+   runtime artifact and 70-percent usage alarm, and include any already-reviewed
+   pending monitoring changes. It must not replace or destroy the database host,
+   network interface, old volume, graph volume, or either volume's data.
+3. Apply only the reviewed saved plan, install the checksum-verified runtime
+   artifact, and verify both protected volumes are attached while the 256 GiB
+   filesystem remains mounted at `/var/lib/daf-osm`.
+4. Run `/opt/daf-osm/bin/migrate-data-volume.sh --mode rightsize` through SSM
+   with the reviewed old and new volume IDs. The script preserves the active
+   timer set, stops all OSM writers, takes every pipeline lock, formats the new
+   XFS filesystem only when it has no filesystem signature, checks refresh
+   headroom, copies and dry-run-compares all data, swaps the UUID in `fstab`,
+   starts PostgreSQL, and runs the core production validation before restarting
+   timers.
+5. Observe database availability, all replication cursors and lag, missing
+   changeset metadata, backup success, volume use, and all alarms. Keep the old
+   volume attached but unmounted during this observation window.
+6. After separate approval, detach the old volume without deleting it. Retain
+   it for at least one successful post-migration backup and 48 healthy hours.
+7. After final destructive approval, remove the protected legacy resource and
+   delete the 256 GiB volume. Normalize the canonical attachment and remove the
+   temporary Terraform migration variables, output, and moved blocks.
+
+Any pre-validation failure automatically restores the original `fstab`, remounts
+the 256 GiB filesystem, starts PostgreSQL, and restores only the timers that were
+active before migration. During the retention window, an approved reverse copy
+uses the same command with `--mode rollback`, treating the mounted 64 GiB volume
+as the source and the 256 GiB volume as the target. No Terraform phase may
+delete the old volume until this rollback window is explicitly closed.
 
 ## Approval protocol
 

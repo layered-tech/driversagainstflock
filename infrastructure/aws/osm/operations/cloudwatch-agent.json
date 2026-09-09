@@ -23,6 +23,11 @@
             "log_stream_name": "{instance_id}/backup"
           },
           {
+            "file_path": "/var/log/daf-osm/changeset-*.log",
+            "log_group_name": "/daf-osm/runtime",
+            "log_stream_name": "{instance_id}/changesets"
+          },
+          {
             "file_path": "/var/log/daf-routing/serving-events.log",
             "log_group_name": "/daf-routing/serving",
             "log_stream_name": "{instance_id}",

@@ -14,7 +14,7 @@ output "cloudwatch_dashboard_name" {
 }
 
 output "data_volume_id" {
-  description = "Protected encrypted EBS volume containing PostgreSQL, osm2pgsql state, retained history, and working data."
+  description = "Active protected encrypted EBS volume containing PostgreSQL, osm2pgsql state, retained history, and working data."
   value       = aws_ebs_volume.data_canonical.id
 }
 

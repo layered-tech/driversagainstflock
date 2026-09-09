@@ -33,12 +33,16 @@ restore_runtime_lock_ownership()
         /run/daf-osm/backup.lock \
         /run/daf-osm/global.lock \
         /run/daf-osm/global-current.lock \
-        /run/daf-osm/global-history.lock
+        /run/daf-osm/global-history.lock \
+        /run/daf-osm/global-changeset.lock \
+        /run/daf-osm/global-changeset-backfill.lock
     chmod 0640 \
         /run/daf-osm/backup.lock \
         /run/daf-osm/global.lock \
         /run/daf-osm/global-current.lock \
-        /run/daf-osm/global-history.lock
+        /run/daf-osm/global-history.lock \
+        /run/daf-osm/global-changeset.lock \
+        /run/daf-osm/global-changeset-backfill.lock
 }
 
 if [[ -f "${PREPARED_MARKER}" ]]; then
@@ -52,11 +56,19 @@ systemctl disable --now \
     daf-osm-current-update.timer \
     daf-osm-history-update.timer \
     daf-osm-global-update.timer \
+    daf-osm-changeset-update.timer \
+    daf-osm-changeset-backfill.timer \
     daf-osm-metrics.timer \
     daf-osm-backup.timer \
     2>/dev/null || true
 
 systemctl stop daf-osm-metrics.service 2>/dev/null || true
+systemctl stop \
+    daf-osm-changeset-update.service \
+    daf-osm-changeset-backfill.service \
+    daf-osm-changeset-bootstrap.service \
+    daf-osm-changeset-refresh.service \
+    2>/dev/null || true
 install --directory --mode=0750 --owner=osm_ingest --group=osm_ingest /run/daf-osm
 exec 9> /run/daf-osm/backup.lock
 flock --exclusive 9
@@ -66,6 +78,10 @@ exec 7> /run/daf-osm/global-current.lock
 flock --exclusive 7
 exec 6> /run/daf-osm/global-history.lock
 flock --exclusive 6
+exec 5> /run/daf-osm/global-changeset.lock
+flock --exclusive 5
+exec 4> /run/daf-osm/global-changeset-backfill.lock
+flock --exclusive 4
 trap restore_runtime_lock_ownership EXIT
 
 preserve_phase_seven_state current-bootstrap.complete phase7-current-bootstrap.complete
@@ -74,6 +90,14 @@ preserve_phase_seven_state validation.complete phase7-validation.complete
 preserve_phase_seven_state \
     history-bootstrap-source-removed.complete \
     phase7-history-bootstrap-source-removed.complete
+if [[ -f "${OSM_STATE_PATH}/global-changeset-bootstrap.complete" ]]; then
+    preserve_phase_seven_state global-changeset-bootstrap.complete phase7-global-changeset-bootstrap.complete
+    preserve_phase_seven_state global-changeset-replication.state phase7-global-changeset-replication.state
+    preserve_phase_seven_state global-changeset-retained-dump.path phase7-global-changeset-retained-dump.path
+    if [[ -f "${OSM_STATE_PATH}/global-changeset.complete" ]]; then
+        preserve_phase_seven_state global-changeset.complete phase7-global-changeset.complete
+    fi
+fi
 
 if [[ -f "${PHASE_SEVEN_BACKUP_MARKER}" ]]; then
     rollback_backup_marker="${PHASE_SEVEN_BACKUP_MARKER}"
@@ -87,8 +111,12 @@ fi
 
 backup_current_sequence="$(state_value "${rollback_backup_marker}" current_sequence)"
 backup_history_sequence="$(state_value "${rollback_backup_marker}" history_sequence)"
+backup_changeset_sequence="$(state_value "${rollback_backup_marker}" changeset_sequence)"
+backup_changeset_sequence="${backup_changeset_sequence:-0}"
 [[ "${backup_current_sequence}" =~ ^[0-9]+$ && "${backup_history_sequence}" =~ ^[0-9]+$ ]] \
     || die 'Phase 7 verified-backup marker has invalid cursors'
+[[ "${backup_changeset_sequence}" =~ ^[0-9]+$ ]] \
+    || die 'Phase 7 verified-backup marker has an invalid changeset cursor'
 
 runuser --user postgres -- psql --no-psqlrc --set=ON_ERROR_STOP=1 \
     --username=postgres \
@@ -120,7 +148,12 @@ rm --force -- \
     "${OSM_STATE_PATH}/global-stack.complete" \
     "${OSM_STATE_PATH}/global-validation.complete" \
     "${OSM_STATE_PATH}/global-history-bootstrap-source-removed.complete" \
-    "${OSM_STATE_PATH}/global-history-bootstrap-source-removal.pending"
+    "${OSM_STATE_PATH}/global-history-bootstrap-source-removal.pending" \
+    "${OSM_STATE_PATH}/global-changeset-bootstrap.complete" \
+    "${OSM_STATE_PATH}/global-changeset.complete" \
+    "${OSM_STATE_PATH}/global-changeset-replication.state" \
+    "${OSM_STATE_PATH}/global-changeset-retained-dump.path" \
+    "${OSM_STATE_PATH}/global-changeset-refresh.pending"
 
 find "${OSM_DOWNLOAD_PATH}" \
     -xdev \
@@ -137,9 +170,10 @@ if [[ -e "${OSM_DATA_PATH}/global-replication-spool" ]]; then
 fi
 
 marker_partial="${PREPARED_MARKER}.partial"
-printf 'rollback_current_sequence=%s\nrollback_history_sequence=%s\nprepared_at=%s\n' \
+printf 'rollback_current_sequence=%s\nrollback_history_sequence=%s\nrollback_changeset_sequence=%s\nprepared_at=%s\n' \
     "${backup_current_sequence}" \
     "${backup_history_sequence}" \
+    "${backup_changeset_sequence}" \
     "$(date --utc +%Y-%m-%dT%H:%M:%SZ)" \
     > "${marker_partial}"
 chown osm_ingest:osm_ingest "${marker_partial}"

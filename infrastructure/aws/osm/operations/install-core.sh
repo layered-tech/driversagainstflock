@@ -56,6 +56,10 @@ acquire_replication_locks()
     flock 5
     exec 4> /run/daf-osm/global-history.lock
     flock 4
+    exec 3> /run/daf-osm/global-changeset.lock
+    flock 3
+    exec 2> /run/daf-osm/global-changeset-backfill.lock
+    flock 2
 }
 
 assert_supported_system_release()
@@ -296,6 +300,7 @@ build_osm_tools()
 install_runtime_files()
 {
     install --directory --mode=0755 /opt/daf-osm/bin /opt/daf-osm/database
+    install --mode=0755 "${OPERATIONS_SOURCE}/migrate-data-volume.sh" /opt/daf-osm/bin/
     install --mode=0755 "${OPERATIONS_SOURCE}"/bin/*.sh /opt/daf-osm/bin/
     install --mode=0755 "${OPERATIONS_SOURCE}"/bin/*.py /opt/daf-osm/bin/
     install --mode=0644 "${DATABASE_SOURCE}"/*.sql /opt/daf-osm/database/
@@ -338,14 +343,18 @@ create_service_user_and_paths()
         /run/daf-osm/history.lock \
         /run/daf-osm/global.lock \
         /run/daf-osm/global-current.lock \
-        /run/daf-osm/global-history.lock
+        /run/daf-osm/global-history.lock \
+        /run/daf-osm/global-changeset.lock \
+        /run/daf-osm/global-changeset-backfill.lock
     chmod 0640 \
         /run/daf-osm/backup.lock \
         /run/daf-osm/current.lock \
         /run/daf-osm/history.lock \
         /run/daf-osm/global.lock \
         /run/daf-osm/global-current.lock \
-        /run/daf-osm/global-history.lock
+        /run/daf-osm/global-history.lock \
+        /run/daf-osm/global-changeset.lock \
+        /run/daf-osm/global-changeset-backfill.lock
     install --directory --owner=osm_ingest --group=osm_ingest --mode=0750 /var/log/daf-osm
 }
 
@@ -519,6 +528,15 @@ enable_operations()
     else
         systemctl disable --now daf-osm-global-update.timer
     fi
+    if [[ -s "${SERVICE_DATA_PATH}/state/global-changeset.complete" ]]; then
+        systemctl enable \
+            daf-osm-changeset-update.timer \
+            daf-osm-changeset-backfill.timer
+    else
+        systemctl disable --now \
+            daf-osm-changeset-update.timer \
+            daf-osm-changeset-backfill.timer
+    fi
 
     /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
         -a fetch-config \
@@ -531,6 +549,11 @@ enable_operations()
         daf-osm-backup.timer
     if [[ -s "${SERVICE_DATA_PATH}/state/global-stack.complete" ]]; then
         systemctl restart daf-osm-global-update.timer
+    fi
+    if [[ -s "${SERVICE_DATA_PATH}/state/global-changeset.complete" ]]; then
+        systemctl restart \
+            daf-osm-changeset-update.timer \
+            daf-osm-changeset-backfill.timer
     fi
 }
 

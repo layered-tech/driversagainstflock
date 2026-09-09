@@ -179,14 +179,14 @@ resource "aws_cloudwatch_metric_alarm" "data_volume_usage" {
   }
 
   alarm_name          = "daf-infrastructure-osm-data-volume-high-usage"
-  alarm_description   = "The canonical PostgreSQL data volume has exceeded 85 percent usage for 15 minutes"
+  alarm_description   = "The canonical PostgreSQL data volume has exceeded 70 percent usage for 15 minutes"
   namespace           = "DAF/OSM"
   metric_name         = "DataVolumeUsedPercent"
   statistic           = "Maximum"
   period              = 300
   evaluation_periods  = 3
   datapoints_to_alarm = 3
-  threshold           = 85
+  threshold           = 70
   comparison_operator = "GreaterThanThreshold"
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.alerts.arn]
@@ -436,14 +436,14 @@ resource "aws_cloudwatch_metric_alarm" "retained_spool" {
   }
 
   alarm_name          = "daf-infrastructure-osm-shared-feed-spool-retained"
-  alarm_description   = "A shared global replication batch has remained uncommitted for 10 minutes"
+  alarm_description   = "The oldest shared global replication batch has remained uncommitted for more than 10 minutes"
   namespace           = "DAF/OSM"
-  metric_name         = "SharedFeedRetainedBatchCount"
+  metric_name         = "SharedFeedOldestRetainedBatchAgeSeconds"
   statistic           = "Maximum"
-  period              = 300
-  evaluation_periods  = 2
-  datapoints_to_alarm = 2
-  threshold           = 0
+  period              = 60
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  threshold           = 600
   comparison_operator = "GreaterThanThreshold"
   treat_missing_data  = "breaching"
   alarm_actions       = [aws_sns_topic.alerts.arn]
@@ -595,5 +595,117 @@ resource "aws_cloudwatch_metric_alarm" "publication_parity" {
 
   tags = merge(local.common_tags, {
     Name = "daf-infrastructure-osm-publication-parity-mismatch"
+  })
+}
+
+resource "aws_cloudwatch_metric_alarm" "changeset_consumer_stale" {
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  alarm_name          = "daf-infrastructure-osm-changeset-consumer-stale"
+  alarm_description   = "The OSM changeset consumer is more than one hour behind"
+  namespace           = "DAF/OSM"
+  metric_name         = "ChangesetConsumerLagSeconds"
+  statistic           = "Maximum"
+  period              = 300
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  threshold           = 3600
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "breaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    InstanceId = aws_instance.database.id
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "daf-infrastructure-osm-changeset-consumer-stale"
+  })
+}
+
+resource "aws_cloudwatch_metric_alarm" "changeset_consumer_failure" {
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  alarm_name          = "daf-infrastructure-osm-changeset-consumer-failure"
+  alarm_description   = "The OSM changeset consumer failed"
+  namespace           = "DAF/OSM"
+  metric_name         = "ChangesetConsumerFailures"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    InstanceId = aws_instance.database.id
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "daf-infrastructure-osm-changeset-consumer-failure"
+  })
+}
+
+resource "aws_cloudwatch_metric_alarm" "changeset_metadata_missing" {
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  alarm_name          = "daf-infrastructure-osm-changeset-metadata-missing"
+  alarm_description   = "Tracked OSM changesets have lacked metadata for 24 hours"
+  namespace           = "DAF/OSM"
+  metric_name         = "ChangesetsMissingMetadata"
+  statistic           = "Minimum"
+  period              = 3600
+  evaluation_periods  = 24
+  datapoints_to_alarm = 24
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    InstanceId = aws_instance.database.id
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "daf-infrastructure-osm-changeset-metadata-missing"
+  })
+}
+
+resource "aws_cloudwatch_metric_alarm" "changeset_backfill_failure" {
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  alarm_name          = "daf-infrastructure-osm-changeset-backfill-failure"
+  alarm_description   = "The OSM changeset metadata backfill failed"
+  namespace           = "DAF/OSM"
+  metric_name         = "ChangesetBackfillFailures"
+  statistic           = "Sum"
+  period              = 3600
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    InstanceId = aws_instance.database.id
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "daf-infrastructure-osm-changeset-backfill-failure"
   })
 }
