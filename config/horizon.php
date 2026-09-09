@@ -223,6 +223,20 @@ return [
             'timeout' => 660,
             'nice' => 0,
         ],
+
+        'supervisor-moderation' => [
+            'connection' => 'redis',
+            'queue' => ['moderation'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 3,
+            'timeout' => 60,
+            'nice' => 0,
+        ],
     ],
 
     'environments' => [
@@ -235,6 +249,11 @@ return [
             'supervisor-marker-files' => [
                 'maxProcesses' => 1,
             ],
+            'supervisor-moderation' => [
+                'maxProcesses' => 10,
+                'balanceMaxShift' => 2,
+                'balanceCooldown' => 3,
+            ],
         ],
 
         'staging' => [
@@ -246,6 +265,11 @@ return [
             'supervisor-marker-files' => [
                 'maxProcesses' => 1,
             ],
+            'supervisor-moderation' => [
+                'maxProcesses' => 10,
+                'balanceMaxShift' => 2,
+                'balanceCooldown' => 3,
+            ],
         ],
 
         'local' => [
@@ -254,6 +278,11 @@ return [
             ],
             'supervisor-marker-files' => [
                 'maxProcesses' => 1,
+            ],
+            'supervisor-moderation' => [
+                'maxProcesses' => 35,
+                'balanceMaxShift' => 3,
+                'balanceCooldown' => 3,
             ],
         ],
     ],

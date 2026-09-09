@@ -31,6 +31,7 @@
     .flt-select{ height:40px; border-radius:var(--radius-pill); border:1px solid var(--border); background:var(--surface-card); color:var(--text-primary); padding:0 12px; font-family:var(--font-ui); font-size:13px; outline:none; cursor:pointer; min-width:0; width:100%; }
     .flt-select:focus{ border-color:var(--brand); }
     .node-grid{ display:grid; gap:10px; grid-template-columns:96px minmax(150px,1.4fr) 78px 72px minmax(96px,1fr) minmax(104px,1.1fr) 72px 128px 36px; align-items:center; }
+    .all-grid{ display:grid; gap:10px; grid-template-columns:110px 88px minmax(120px,1fr) minmax(120px,1fr) minmax(130px,1.1fr) 90px 36px; align-items:center; }
     .ed-grid{ display:grid; gap:10px; grid-template-columns:minmax(180px,1.3fr) 92px 148px 86px 74px 64px 104px 88px; align-items:center; }
     .kpi-grid{ display:grid; gap:12px; grid-template-columns:repeat(6, minmax(0,1fr)); }
     @media (max-width:1150px){ .kpi-grid{ grid-template-columns:repeat(3, minmax(0,1fr)); } }
@@ -68,7 +69,8 @@
     <nav style="position:sticky; top:57px; min-height:calc(100vh - 57px); border-right:1px solid var(--border); padding:18px 12px; display:flex; flex-direction:column; gap:2px;">
       <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); padding:0 12px 8px;">Review</div>
       <button onClick="{{ showChangesets }}" style="display:flex; align-items:center; padding:9px 12px; border-radius:var(--radius-sm); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); color:{{ csColor }}; background:{{ csBg }}; border:none; cursor:pointer; font-family:var(--font-ui); text-align:left; width:100%;">Changesets</button>
-      <button onClick="{{ showNodes }}" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px; border-radius:var(--radius-sm); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); color:{{ ndColor }}; background:{{ ndBg }}; border:none; cursor:pointer; font-family:var(--font-ui); text-align:left; width:100%;">ALPR nodes<span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--alert-600); background:var(--alert-100); border-radius:var(--radius-pill); padding:1px 8px;">{{ nodeOpenCount }}</span></button>
+      <button onClick="{{ showNodes }}" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px; border-radius:var(--radius-sm); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); color:{{ ndColor }}; background:{{ ndBg }}; border:none; cursor:pointer; font-family:var(--font-ui); text-align:left; width:100%;">ALPR nodes<span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--text-tertiary); background:color-mix(in oklab, var(--text-primary) 8%, transparent); border-radius:var(--radius-pill); padding:1px 8px;">{{ nodeTotalCount }}</span></button>
+      <button onClick="{{ showFlagged }}" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px; border-radius:var(--radius-sm); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); color:{{ flColor }}; background:{{ flBg }}; border:none; cursor:pointer; font-family:var(--font-ui); text-align:left; width:100%;">Flagged<span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--alert-600); background:var(--alert-100); border-radius:var(--radius-pill); padding:1px 8px;">{{ nodeOpenCount }}</span></button>
       <button onClick="{{ showEditors }}" style="display:flex; align-items:center; padding:9px 12px; border-radius:var(--radius-sm); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); color:{{ edColor }}; background:{{ edBg }}; border:none; cursor:pointer; font-family:var(--font-ui); text-align:left; width:100%;">Editors</button>
       <button onClick="{{ showAreas }}" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px; border-radius:var(--radius-sm); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); color:{{ waColor }}; background:{{ waBg }}; border:none; cursor:pointer; font-family:var(--font-ui); text-align:left; width:100%;">Areas<span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--text-tertiary); background:color-mix(in oklab, var(--text-primary) 8%, transparent); border-radius:var(--radius-pill); padding:1px 8px;">{{ waCount }}</span></button>
       <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); padding:0 12px 8px; margin-top:18px;">System</div>
@@ -241,10 +243,171 @@
     </sc-if>
 
     <!-- ===================== ALPR NODES VIEW ===================== -->
-    <sc-if hint-placeholder-val="{{ true }}" value="{{ isNodes }}">
+    <sc-if data-screen-label="ALPR nodes" hint-placeholder-val="{{ true }}" value="{{ isNodes }}">
     <div style="padding:22px 24px 0;">
       <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h1); line-height:var(--lh-h1); letter-spacing:var(--ls-display); margin:0 0 6px;">ALPR nodes</h1>
-      <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0 0 8px; max-width:70ch;">Nodes flagged by moderation rules. Dismiss the flag, or adjust the node upstream.</p>
+      <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0 0 8px; max-width:70ch;">Every ALPR node on the map, as OpenStreetMap has it. Open a node for its full history.</p>
+    </div>
+    <div style="position:sticky; top:57px; z-index:6; background:color-mix(in oklab, var(--surface-page) 92%, transparent); backdrop-filter:blur(12px); border-bottom:1px solid var(--border);">
+      <div style="padding:12px 24px 14px; display:flex; flex-direction:column; gap:10px;">
+        <div style="display:flex; gap:18px; row-gap:10px; flex-wrap:wrap; align-items:center;">
+          <div style="display:flex; align-items:center; gap:5px;">
+            <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-right:3px;">Direction</span>
+            <input class="flt-input" onChange="{{ onAfDirFrom }}" placeholder="0°" style="height:28px; width:58px; padding:0 8px; font-size:12px; text-align:center;" value="{{ afDirFrom }}">
+            <span style="color:var(--text-tertiary); font-size:12px;">–</span>
+            <input class="flt-input" onChange="{{ onAfDirTo }}" placeholder="359°" style="height:28px; width:58px; padding:0 8px; font-size:12px; text-align:center;" value="{{ afDirTo }}">
+            <button onClick="{{ onAToggleMissing }}" style="height:28px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid {{ amzBd }}; background:{{ amzBg }}; color:{{ amzFg }}; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap;">Missing</button>
+          </div>
+          <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+            <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-right:3px;">Location</span>
+            <sc-for as="t" hint-placeholder-count="0" list="{{ aAreaTokens }}">
+              <button onClick="{{ t.onRemove }}" style="height:28px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid var(--brand); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;" title="Remove">{{ t.label }}<span style="font-weight:700;">×</span></button>
+            </sc-for>
+            <div style="position:relative;">
+              <input class="flt-input" onBlur="{{ onAfAreaBlur }}" onChange="{{ onAfAreaText }}" onFocus="{{ onAfAreaFocus }}" onKeyDown="{{ onAfAreaKey }}" placeholder="Search locations…" style="height:28px; width:150px; padding:0 12px; font-size:12px;" value="{{ afAreaText }}">
+              <sc-if hint-placeholder-val="{{ false }}" value="{{ showAAreaSug }}">
+                <div style="position:absolute; top:32px; left:0; z-index:20; min-width:200px; max-height:260px; overflow:auto; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-float); padding:4px; display:flex; flex-direction:column;">
+                  <sc-for as="o" hint-placeholder-count="3" list="{{ aAreaSuggestions }}">
+                    <button onMouseDown="{{ o.onPick }}" style="display:flex; text-align:left; background:none; border:none; border-radius:var(--radius-xs); padding:7px 10px; font-family:var(--font-ui); font-size:13px; color:var(--text-primary); cursor:pointer;" style-hover="background:var(--brand-soft); color:var(--text-brand);">{{ o.label }}</button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+            <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-right:3px;">Operator</span>
+            <sc-for as="t" hint-placeholder-count="0" list="{{ aOpTokens }}">
+              <button onClick="{{ t.onRemove }}" style="height:28px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid var(--brand); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;" title="Remove">{{ t.label }}<span style="font-weight:700;">×</span></button>
+            </sc-for>
+            <div style="position:relative;">
+              <input class="flt-input" onBlur="{{ onAfOpBlur }}" onChange="{{ onAfOpText }}" onFocus="{{ onAfOpFocus }}" onKeyDown="{{ onAfOpKey }}" placeholder="Search operators…" style="height:28px; width:170px; padding:0 12px; font-size:12px;" value="{{ afOpText }}">
+              <sc-if hint-placeholder-val="{{ false }}" value="{{ showAOpSug }}">
+                <div style="position:absolute; top:32px; left:0; z-index:20; min-width:200px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-float); padding:4px; display:flex; flex-direction:column;">
+                  <sc-for as="o" hint-placeholder-count="3" list="{{ aOpSuggestions }}">
+                    <button onMouseDown="{{ o.onPick }}" style="display:flex; text-align:left; background:none; border:none; border-radius:var(--radius-xs); padding:7px 10px; font-family:var(--font-ui); font-size:13px; color:var(--text-primary); cursor:pointer;" style-hover="background:var(--brand-soft); color:var(--text-brand);">{{ o.label }}</button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div style="position:relative; flex:0 1 220px; min-width:170px;">
+            <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-tertiary); font-family:var(--font-mono); font-size:13px;">#</span>
+            <input class="flt-input" onChange="{{ onAfCs }}" placeholder="Changeset ID" value="{{ afCs }}">
+          </div>
+          <div style="position:relative; flex:0 1 220px; min-width:170px;">
+            <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-tertiary); font-family:var(--font-mono); font-size:13px;">@</span>
+            <input class="flt-input" onChange="{{ onAfUser }}" placeholder="Changed by — user or UID" value="{{ afUser }}">
+          </div>
+          <select class="flt-select" onChange="{{ onAfWin }}" style="flex:0 1 150px; width:auto;" value="{{ afWin }}"><sc-for as="o" hint-placeholder-count="3" list="{{ winOpts }}"><option value="{{ o }}">{{ o }}</option></sc-for></select>
+          <sc-if hint-placeholder-val="{{ false }}" value="{{ aFiltersActive }}">
+            <button onClick="{{ onAClear }}" style="height:40px; padding:0 16px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:pointer;" style-hover="border-color:var(--brand); color:var(--text-brand);">Clear</button>
+          </sc-if>
+          <div style="margin-left:auto; font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); letter-spacing:var(--ls-mono); white-space:nowrap;">{{ aCountLabel }}</div>
+        </div>
+      </div>
+    </div>
+    <section>
+      <div style="padding:16px 24px 24px;">
+        <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); overflow:auto;">
+          <div style="min-width:880px;">
+            <div class="all-grid" style="padding:12px 12px 10px; border-bottom:1px solid var(--border);">
+              <sc-for as="c" hint-placeholder-count="6" list="{{ aCols }}">
+                <button onClick="{{ c.onClick }}" style="display:flex; align-items:center; gap:5px; justify-content:{{ c.just }}; cursor:{{ c.cursor }}; background:none; border:none; padding:0; font-family:var(--font-ui); font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:{{ c.color }}; min-width:0;" title="{{ c.title }}"><span>{{ c.label }}</span><span style="font-family:var(--font-mono); font-size:11px;">{{ c.arrow }}</span></button>
+              </sc-for>
+              <div></div>
+            </div>
+            <sc-for as="n" hint-placeholder-count="10" list="{{ aRows }}">
+              <div class="all-grid" style="padding:{{ rowPad }}; border-bottom:1px solid var(--border); transition:background 120ms;" style-hover="background:color-mix(in oklab, var(--brand) 4%, var(--surface-card));">
+                <button onClick="{{ n.goNode }}" style="display:block; text-align:left; background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-mono); font-size:12.5px; letter-spacing:var(--ls-mono); color:var(--text-primary); font-weight:600;" style-hover="color:var(--text-brand);" title="Open node history">{{ n.nid }}</button>
+                <div style="font-family:var(--font-mono); font-size:12.5px; letter-spacing:var(--ls-mono); color:{{ n.dirColor }};">{{ n.dirT }}</div>
+                <div style="font-size:var(--fs-body-sm); color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ n.operator }}</div>
+                <div style="font-size:var(--fs-body-sm); color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ n.area }}</div>
+                <div style="min-width:0;">
+                  <button onClick="{{ n.goEditor }}" style="display:block; width:100%; text-align:left; background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" style-hover="color:var(--text-brand);" title="Open editor profile">{{ n.user }}</button>
+                  <div style="display:flex; gap:10px; margin-top:3px;">
+                    <button class="lnk-btn" onClick="{{ n.goEdits }}">Changesets</button>
+                    <button class="lnk-btn" onClick="{{ n.goEditor }}">Profile</button>
+                  </div>
+                </div>
+                <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-tertiary); letter-spacing:var(--ls-mono);" title="{{ n.absTime }}">{{ n.time }}</div>
+                <button onClick="{{ n.onToggle }}" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center; justify-self:end; border:none; background:none; cursor:pointer; color:{{ n.chevColor }}; border-radius:var(--radius-xs); padding:0;" style-hover="background:color-mix(in oklab, var(--text-primary) 8%, transparent); color:var(--text-primary);" title="Details"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" style="transition:transform 180ms; transform:{{ n.chevRot }};" viewBox="0 0 24 24" width="16"><path d="M6 9l6 6 6-6"></path></svg></button>
+              </div>
+              <sc-if hint-placeholder-val="{{ false }}" value="{{ n.isOpen }}">
+                <div class="det-grid" style="padding:18px 20px 22px; border-bottom:1px solid var(--border); background:color-mix(in oklab, var(--brand) 3%, var(--surface-page));">
+                  <div style="min-width:0; display:flex; flex-direction:column; gap:16px;">
+                    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:12px 20px;">
+                      <sc-for as="d" hint-placeholder-count="6" list="{{ n.detail }}">
+                        <div style="min-width:0;">
+                          <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:3px;">{{ d.k }}</div>
+                          <div style="font-family:var(--font-mono); font-size:12.5px; letter-spacing:var(--ls-mono); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ d.v }}">{{ d.v }}</div>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <div>
+                      <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:6px;">OSM tags</div>
+                      <div style="display:flex; flex-direction:column; gap:4px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; max-width:420px;">
+                        <sc-for as="tg" hint-placeholder-count="6" list="{{ n.tags }}">
+                          <div style="display:flex; gap:6px; font-family:var(--font-mono); font-size:12px; letter-spacing:var(--ls-mono);"><span style="color:var(--text-tertiary);">{{ tg.k }}</span><span style="color:var(--text-tertiary);">=</span><span style="color:{{ tg.color }}; font-weight:600;">{{ tg.v }}</span></div>
+                        </sc-for>
+                      </div>
+                    </div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                      <button onClick="{{ n.goNode }}" style="display:inline-flex; align-items:center; height:32px; padding:0 14px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); border:none; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); cursor:pointer;" style-hover="background:color-mix(in oklab, var(--brand) 22%, transparent);">Node history</button>
+                      <a href="{{ n.viewHref }}" style="display:inline-flex; align-items:center; height:32px; padding:0 14px; border-radius:var(--radius-pill); border:1px solid var(--border); color:var(--text-secondary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); text-decoration:none;" style-hover="border-color:var(--brand); color:var(--text-brand);" target="_blank">Open in OSM ↗</a>
+                    </div>
+                  </div>
+                  <div style="position:relative; height:252px; border-radius:var(--radius-md); overflow:hidden; border:1px solid var(--border); background:var(--map-land);">
+                    <svg preserveAspectRatio="xMidYMid slice" style="position:absolute; inset:0; width:100%; height:100%; display:block;" viewBox="0 0 400 252">
+                      <rect fill="var(--map-land)" height="252" width="400"></rect>
+                      <rect fill="var(--map-land-alt)" height="112" rx="8" width="150" x="118" y="58"></rect>
+                      <path d="M400 -10 L400 92 C 348 88, 318 52, 322 -10 Z" fill="var(--map-water)"></path>
+                      <ellipse cx="66" cy="208" fill="var(--map-park)" rx="72" ry="46"></ellipse>
+                      <g stroke="var(--map-road-minor)" stroke-linecap="round" stroke-width="3"><line x1="55" x2="55" y1="-10" y2="262"></line><line x1="130" x2="130" y1="-10" y2="262"></line><line x1="210" x2="210" y1="-10" y2="262"></line><line x1="290" x2="290" y1="-10" y2="262"></line><line x1="355" x2="355" y1="-10" y2="262"></line><line x1="-10" x2="410" y1="52" y2="52"></line><line x1="-10" x2="410" y1="118" y2="118"></line><line x1="-10" x2="410" y1="188" y2="188"></line></g>
+                      <g fill="none" stroke="var(--map-road)" stroke-linecap="round" stroke-width="7"><path d="M170 -10 C 182 80, 158 170, 172 262"></path><path d="M-10 142 C 120 120, 280 162, 410 134"></path></g>
+                    </svg>
+                    <sc-if hint-placeholder-val="{{ false }}" value="{{ n.hasCone }}">
+                      <div style="position:absolute; left:50%; top:50%; width:190px; height:190px; margin:-95px 0 0 -95px; border-radius:50%; background:conic-gradient(from {{ n.coneFrom }}, color-mix(in oklab, var(--alert-500) 36%, transparent) 0deg 40deg, transparent 40deg); -webkit-mask-image:radial-gradient(circle, black 0%, rgba(0,0,0,0.45) 40%, transparent 68%); mask-image:radial-gradient(circle, black 0%, rgba(0,0,0,0.45) 40%, transparent 68%);"></div>
+                    </sc-if>
+                    <sc-if hint-placeholder-val="{{ false }}" value="{{ n.noDir }}">
+                      <div style="position:absolute; left:50%; top:50%; width:66px; height:66px; margin:-33px 0 0 -33px; border-radius:50%; border:1.5px dashed var(--alert-500); opacity:0.55;"></div>
+                    </sc-if>
+                    <span style="position:absolute; left:50%; top:50%; width:11px; height:11px; margin:-5.5px 0 0 -5.5px; border-radius:50%; background:var(--alert-500); box-shadow:0 0 0 3px color-mix(in oklab, var(--alert-500) 25%, transparent), 0 0 12px color-mix(in oklab, var(--alert-500) 70%, transparent);"></span>
+                    <span style="position:absolute; left:10px; top:10px; display:inline-flex; align-items:center; height:26px; padding:0 11px; border-radius:var(--radius-pill); background:var(--surface-glass); backdrop-filter:blur(16px); border:1px solid var(--border-glass); box-shadow:var(--shadow-float); font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--text-primary); white-space:nowrap;">{{ n.mapLabel }}</span>
+                  </div>
+                </div>
+              </sc-if>
+            </sc-for>
+            <sc-if hint-placeholder-val="{{ false }}" value="{{ isAEmpty }}">
+              <div style="padding:72px 24px; text-align:center;">
+                <div style="font-family:var(--font-display); font-size:var(--fs-h3); font-weight:600; margin-bottom:8px;">No nodes match</div>
+                <div style="font-size:var(--fs-body); color:var(--text-secondary); margin-bottom:20px;">Loosen the filters to see more of the map.</div>
+                <button onClick="{{ onAClear }}" style="height:40px; padding:0 20px; border-radius:var(--radius-pill); border:1px solid var(--brand); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); cursor:pointer;">Clear filters</button>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+        <sc-if hint-placeholder-val="{{ false }}" value="{{ aShowPager }}">
+          <div style="display:flex; align-items:center; gap:8px; padding:16px 4px 40px; flex-wrap:wrap;">
+            <div style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); letter-spacing:var(--ls-mono); margin-right:auto;">{{ aShowingLabel }}</div>
+            <button onClick="{{ onAPrev }}" style="height:36px; padding:0 14px; border-radius:var(--radius-pill); border:1px solid var(--border); background:var(--surface-card); color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:{{ aPrevCursor }}; opacity:{{ aPrevOpacity }};" style-hover="border-color:var(--brand);">← Prev</button>
+            <sc-for as="p" hint-placeholder-count="2" list="{{ aPageBtns }}">
+              <button onClick="{{ p.onClick }}" style="height:36px; min-width:36px; padding:0 8px; border-radius:var(--radius-pill); border:1px solid {{ p.border }}; background:{{ p.bg }}; color:{{ p.color }}; font-family:var(--font-mono); font-size:13px; font-weight:700; cursor:pointer;">{{ p.label }}</button>
+            </sc-for>
+            <button onClick="{{ onANext }}" style="height:36px; padding:0 14px; border-radius:var(--radius-pill); border:1px solid var(--border); background:var(--surface-card); color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:{{ aNextCursor }}; opacity:{{ aNextOpacity }};" style-hover="border-color:var(--brand);">Next →</button>
+          </div>
+        </sc-if>
+      </div>
+    </section>
+    </sc-if>
+
+
+    <!-- ===================== FLAGGED NODES VIEW ===================== -->
+    <sc-if hint-placeholder-val="{{ false }}" value="{{ isFlagged }}">
+    <div style="padding:22px 24px 0;">
+      <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h1); line-height:var(--lh-h1); letter-spacing:var(--ls-display); margin:0 0 6px;">Flagged nodes</h1>
+      <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0 0 8px; max-width:70ch;">Nodes tripped by the active moderation rules, waiting for review. Dismiss the flag, or adjust the node upstream.</p>
     </div>
     <div style="position:sticky; top:57px; z-index:6; background:color-mix(in oklab, var(--surface-page) 92%, transparent); backdrop-filter:blur(12px); border-bottom:1px solid var(--border);">
       <div style="padding:12px 24px 14px; display:flex; flex-direction:column; gap:10px;">
@@ -326,7 +489,7 @@
             </div>
             <sc-for as="n" hint-placeholder-count="10" list="{{ nRows }}">
               <div class="node-grid" style="padding:{{ rowPad }}; border-bottom:1px solid var(--border); transition:background 120ms;" style-hover="background:color-mix(in oklab, var(--brand) 4%, var(--surface-card));">
-                <div style="font-family:var(--font-mono); font-size:12.5px; letter-spacing:var(--ls-mono); color:var(--text-primary); font-weight:600;">{{ n.nid }}</div>
+                <button onClick="{{ n.goNode }}" style="display:block; text-align:left; background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-mono); font-size:12.5px; letter-spacing:var(--ls-mono); color:var(--text-primary); font-weight:600;" style-hover="color:var(--text-brand);" title="Open node history">{{ n.nid }}</button>
                 <div style="display:flex; flex-wrap:wrap; gap:4px; min-width:0;">
                   <sc-for as="rc" hint-placeholder-count="1" list="{{ n.ruleChips }}">
                     <span style="font-size:11px; font-weight:var(--fw-semibold); color:var(--text-secondary); border:1px solid var(--border); border-radius:var(--radius-xs); padding:2px 7px; white-space:nowrap;">{{ rc }}</span>
@@ -368,7 +531,10 @@
                         </sc-for>
                       </div>
                     </div>
-                    <div><a href="{{ n.viewHref }}" style="display:inline-flex; align-items:center; height:32px; padding:0 14px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); text-decoration:none;" style-hover="background:color-mix(in oklab, var(--brand) 22%, transparent);" target="_blank">Open node in OSM ↗</a></div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                      <button onClick="{{ n.goNode }}" style="display:inline-flex; align-items:center; height:32px; padding:0 14px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); border:none; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); cursor:pointer;" style-hover="background:color-mix(in oklab, var(--brand) 22%, transparent);">Node history</button>
+                      <a href="{{ n.viewHref }}" style="display:inline-flex; align-items:center; height:32px; padding:0 14px; border-radius:var(--radius-pill); border:1px solid var(--border); color:var(--text-secondary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); text-decoration:none;" style-hover="border-color:var(--brand); color:var(--text-brand);" target="_blank">Open in OSM ↗</a>
+                    </div>
                   </div>
                   <div style="position:relative; height:252px; border-radius:var(--radius-md); overflow:hidden; border:1px solid var(--border); background:var(--map-land);">
                     <svg preserveAspectRatio="xMidYMid slice" style="position:absolute; inset:0; width:100%; height:100%; display:block;" viewBox="0 0 400 252">
@@ -412,6 +578,153 @@
         </sc-if>
       </div>
     </section>
+    </sc-if>
+
+    <!-- ===================== NODE DETAIL VIEW ===================== -->
+    <sc-if hint-placeholder-val="{{ false }}" value="{{ isNode }}">
+    <div data-screen-label="ALPR node detail" style="padding:20px 24px 44px;">
+      <button onClick="{{ backToNodes }}" style="display:inline-flex; align-items:center; gap:6px; background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-secondary);" style-hover="color:var(--text-brand);">{{ ndBackLabel }}</button>
+      <div style="display:flex; align-items:center; gap:14px; margin:16px 0 0; flex-wrap:wrap;">
+        <span style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:50%; background:var(--alert-100); flex:none;"><span style="width:12px; height:12px; border-radius:50%; background:var(--alert-500); box-shadow:0 0 0 3px color-mix(in oklab, var(--alert-500) 25%, transparent), 0 0 12px color-mix(in oklab, var(--alert-500) 70%, transparent);"></span></span>
+        <div style="min-width:0; flex:1 1 260px;">
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h2); line-height:var(--lh-h2); letter-spacing:var(--ls-display); margin:0;">Node</h1>
+            <span style="font-family:var(--font-mono); font-weight:700; font-size:var(--fs-h2); line-height:var(--lh-h2); letter-spacing:var(--ls-mono); color:var(--text-primary);">{{ ndId }}</span>
+            <sc-if hint-placeholder-val="{{ false }}" value="{{ ndHasRules }}">
+              <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); border-radius:var(--radius-pill); padding:3px 9px; color:{{ ndSevFg }}; background:{{ ndSevBg }};">{{ ndSeverity }}</span>
+            </sc-if>
+            <sc-for as="rc" hint-placeholder-count="2" list="{{ ndRules }}">
+              <span style="font-size:11px; font-weight:var(--fw-semibold); color:var(--text-secondary); border:1px solid var(--border); border-radius:var(--radius-xs); padding:2px 7px; white-space:nowrap;">{{ rc }}</span>
+            </sc-for>
+          </div>
+          <div style="font-size:var(--fs-caption); color:var(--text-secondary); margin-top:4px;">{{ ndMeta }}</div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button onClick="{{ ndGoCs }}" style="height:34px; padding:0 14px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer;" style-hover="border-color:var(--brand); color:var(--text-brand);">Last changeset</button>
+          <sc-if hint-placeholder-val="{{ false }}" value="{{ ndIsOpen }}">
+            <button onClick="{{ ndDismiss }}" style="height:34px; padding:0 14px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer;" style-hover="border-color:var(--alert-500); color:var(--alert-600);">Dismiss flag</button>
+          </sc-if>
+          <sc-if hint-placeholder-val="{{ false }}" value="{{ ndDismissed }}">
+            <span style="height:34px; display:inline-flex; align-items:center; gap:6px; padding:0 14px; border-radius:var(--radius-pill); border:1px solid var(--border); color:var(--text-tertiary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold);"><span style="width:7px; height:7px; border-radius:50%; background:var(--text-tertiary);"></span>Dismissed</span>
+          </sc-if>
+          <a href="{{ ndAdjustHref }}" style="height:34px; display:inline-flex; align-items:center; padding:0 14px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); text-decoration:none;" style-hover="background:color-mix(in oklab, var(--brand) 22%, transparent);" target="_blank">Adjust in OSM ↗</a>
+        </div>
+      </div>
+      <div class="kpi-grid" style="margin:20px 0 18px;">
+        <sc-for as="k" hint-placeholder-count="6" list="{{ ndKpis }}">
+          <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-card); padding:14px 16px; min-width:0;">
+            <div style="font-family:var(--font-mono); font-size:24px; font-weight:700; letter-spacing:var(--ls-mono); color:{{ k.c }};">{{ k.v }}</div>
+            <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-top:5px;">{{ k.l }}</div>
+            <div style="font-size:11px; color:var(--text-tertiary); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ k.s }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div class="pf-grid">
+        <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); min-width:0;">
+          <div style="padding:14px 18px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <div style="font-family:var(--font-display); font-size:15px; font-weight:700; letter-spacing:var(--ls-display); margin-right:8px;">History</div>
+            <sc-for as="ch" hint-placeholder-count="4" list="{{ ndTlChips }}">
+              <button onClick="{{ ch.onClick }}" style="height:26px; padding:0 10px; border-radius:var(--radius-pill); border:1px solid {{ ch.bd }}; background:{{ ch.bg }}; color:{{ ch.fg }}; font-family:var(--font-ui); font-size:11.5px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap;">{{ ch.label }}</button>
+            </sc-for>
+            <span style="margin-left:auto; font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); letter-spacing:var(--ls-mono); white-space:nowrap;">{{ ndTlLabel }}</span>
+          </div>
+          <div style="padding:18px 18px 4px;">
+            <sc-for as="t" hint-placeholder-count="5" list="{{ ndTimeline }}">
+              <div style="display:flex; gap:14px;">
+                <div style="display:flex; flex-direction:column; align-items:center; width:12px; flex:none;">
+                  <span style="width:11px; height:11px; border-radius:50%; background:{{ t.dot }}; box-shadow:0 0 0 3px {{ t.halo }}; margin-top:4px; flex:none;"></span>
+                  <span style="width:2px; flex:1; background:{{ t.line }}; margin-top:6px; border-radius:1px;"></span>
+                </div>
+                <div style="flex:1; min-width:0; padding-bottom:20px;">
+                  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <span style="font-family:var(--font-mono); font-size:13px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--text-primary); min-width:24px;">{{ t.ver }}</span>
+                    <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); border-radius:var(--radius-pill); padding:2px 9px; color:{{ t.kindFg }}; background:{{ t.kindBg }};">{{ t.kind }}</span>
+                    <span style="font-size:12px; color:var(--text-secondary);">by</span>
+                    <button class="lnk-btn" onClick="{{ t.onUser }}" style="font-size:12.5px; color:var(--text-primary);">{{ t.user }}</button>
+                    <sc-if hint-placeholder-val="{{ true }}" value="{{ t.hasCs }}">
+                      <a href="{{ t.csHref }}" style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); letter-spacing:var(--ls-mono); text-decoration:none;" style-hover="color:var(--text-brand); text-decoration:underline;" target="_blank">{{ t.cs }}</a>
+                    </sc-if>
+                    <span style="margin-left:auto; font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); letter-spacing:var(--ls-mono); white-space:nowrap;">{{ t.absTime }}</span>
+                  </div>
+                  <div style="font-size:var(--fs-body-sm); line-height:1.5; color:var(--text-primary); margin-top:5px;">{{ t.comment }}</div>
+                  <sc-if hint-placeholder-val="{{ true }}" value="{{ t.hasChanges }}">
+                    <div style="display:flex; flex-direction:column; gap:3px; margin-top:8px; background:color-mix(in oklab, var(--text-primary) 3%, var(--surface-card)); border:1px solid var(--border); border-radius:var(--radius-sm); padding:9px 12px; font-family:var(--font-mono); font-size:12px; letter-spacing:var(--ls-mono);">
+                      <sc-for as="c" hint-placeholder-count="2" list="{{ t.changes }}">
+                        <div style="display:flex; gap:8px; min-width:0;"><span style="width:12px; flex:none; font-weight:700; color:{{ c.fg }};">{{ c.sign }}</span><span style="color:var(--text-tertiary); flex:none;">{{ c.k }}</span><span style="color:var(--text-tertiary); flex:none;">=</span><span style="color:var(--text-primary); font-weight:600; min-width:0; overflow-wrap:anywhere;">{{ c.v }}</span></div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if hint-placeholder-val="{{ false }}" value="{{ t.isFlag }}">
+                    <div style="margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                      <sc-for as="rc" hint-placeholder-count="1" list="{{ t.rules }}">
+                        <span style="font-size:11px; font-weight:var(--fw-semibold); color:var(--alert-600); border:1px solid color-mix(in oklab, var(--alert-500) 40%, transparent); background:color-mix(in oklab, var(--alert-500) 6%, var(--surface-card)); border-radius:var(--radius-xs); padding:2px 7px; white-space:nowrap;">{{ rc }}</span>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if hint-placeholder-val="{{ false }}" value="{{ ndTlEmpty }}">
+              <div style="padding:36px 0 40px; text-align:center; color:var(--text-tertiary); font-size:var(--fs-body-sm);">Nothing under this filter.</div>
+            </sc-if>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:16px; min-width:0;">
+          <div style="position:relative; height:232px; border-radius:var(--radius-lg); overflow:hidden; border:1px solid var(--border); background:var(--map-land); box-shadow:var(--shadow-card);">
+            <svg preserveAspectRatio="xMidYMid slice" style="position:absolute; inset:0; width:100%; height:100%; display:block;" viewBox="0 0 400 252">
+              <rect fill="var(--map-land)" height="252" width="400"></rect>
+              <rect fill="var(--map-land-alt)" height="112" rx="8" width="150" x="118" y="58"></rect>
+              <path d="M400 -10 L400 92 C 348 88, 318 52, 322 -10 Z" fill="var(--map-water)"></path>
+              <ellipse cx="66" cy="208" fill="var(--map-park)" rx="72" ry="46"></ellipse>
+              <g stroke="var(--map-road-minor)" stroke-linecap="round" stroke-width="3"><line x1="55" x2="55" y1="-10" y2="262"></line><line x1="130" x2="130" y1="-10" y2="262"></line><line x1="210" x2="210" y1="-10" y2="262"></line><line x1="290" x2="290" y1="-10" y2="262"></line><line x1="355" x2="355" y1="-10" y2="262"></line><line x1="-10" x2="410" y1="52" y2="52"></line><line x1="-10" x2="410" y1="118" y2="118"></line><line x1="-10" x2="410" y1="188" y2="188"></line></g>
+              <g fill="none" stroke="var(--map-road)" stroke-linecap="round" stroke-width="7"><path d="M170 -10 C 182 80, 158 170, 172 262"></path><path d="M-10 142 C 120 120, 280 162, 410 134"></path></g>
+              <sc-if hint-placeholder-val="{{ false }}" value="{{ ndHasPath }}">
+                <path d="{{ ndPathD }}" fill="none" stroke="var(--amber-500)" stroke-dasharray="4 3" stroke-linecap="round" stroke-width="1.5"></path>
+                <sc-for as="pp" hint-placeholder-count="1" list="{{ ndPathPts }}">
+                  <circle cx="{{ pp.x }}" cy="{{ pp.y }}" fill="var(--map-land)" r="3.5" stroke="var(--amber-500)" stroke-width="1.5"></circle>
+                </sc-for>
+              </sc-if>
+            </svg>
+            <sc-if hint-placeholder-val="{{ false }}" value="{{ ndHasCone }}">
+              <div style="position:absolute; left:50%; top:50%; width:190px; height:190px; margin:-95px 0 0 -95px; border-radius:50%; background:conic-gradient(from {{ ndConeFrom }}, color-mix(in oklab, var(--alert-500) 36%, transparent) 0deg 40deg, transparent 40deg); -webkit-mask-image:radial-gradient(circle, black 0%, rgba(0,0,0,0.45) 40%, transparent 68%); mask-image:radial-gradient(circle, black 0%, rgba(0,0,0,0.45) 40%, transparent 68%);"></div>
+            </sc-if>
+            <sc-if hint-placeholder-val="{{ false }}" value="{{ ndNoDir }}">
+              <div style="position:absolute; left:50%; top:50%; width:66px; height:66px; margin:-33px 0 0 -33px; border-radius:50%; border:1.5px dashed var(--alert-500); opacity:0.55;"></div>
+            </sc-if>
+            <span style="position:absolute; left:50%; top:50%; width:11px; height:11px; margin:-5.5px 0 0 -5.5px; border-radius:50%; background:var(--alert-500); box-shadow:0 0 0 3px color-mix(in oklab, var(--alert-500) 25%, transparent), 0 0 12px color-mix(in oklab, var(--alert-500) 70%, transparent);"></span>
+            <span style="position:absolute; left:10px; top:10px; display:inline-flex; align-items:center; height:26px; padding:0 11px; border-radius:var(--radius-pill); background:var(--surface-glass); backdrop-filter:blur(16px); border:1px solid var(--border-glass); box-shadow:var(--shadow-float); font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--text-primary); white-space:nowrap;">{{ ndMapLabel }}</span>
+            <span style="position:absolute; left:10px; bottom:10px; display:inline-flex; align-items:center; height:24px; padding:0 10px; border-radius:var(--radius-pill); background:var(--surface-glass); backdrop-filter:blur(16px); border:1px solid var(--border-glass); font-family:var(--font-mono); font-size:11px; letter-spacing:var(--ls-mono); color:var(--text-secondary); white-space:nowrap;">{{ ndCoords }}</span>
+          </div>
+          <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:16px 18px;">
+            <div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;">
+              <div style="font-family:var(--font-display); font-size:15px; font-weight:700; letter-spacing:var(--ls-display);">Tags</div>
+              <span style="margin-left:auto; font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); letter-spacing:var(--ls-mono);">{{ ndTagsNote }}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; margin-top:12px; font-family:var(--font-mono); font-size:12px; letter-spacing:var(--ls-mono);">
+              <sc-for as="tg" hint-placeholder-count="6" list="{{ ndTags }}">
+                <div style="display:flex; gap:6px; min-width:0;"><span style="color:var(--text-tertiary);">{{ tg.k }}</span><span style="color:var(--text-tertiary);">=</span><span style="color:{{ tg.color }}; font-weight:600; min-width:0; overflow-wrap:anywhere;">{{ tg.v }}</span></div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:16px 18px;">
+            <div style="font-family:var(--font-display); font-size:15px; font-weight:700; letter-spacing:var(--ls-display);">Who touched it</div>
+            <div style="font-size:var(--fs-caption); color:var(--text-secondary); margin-top:2px;">Every editor across this node's versions.</div>
+            <div style="display:flex; flex-direction:column; gap:10px; margin-top:14px;">
+              <sc-for as="ne" hint-placeholder-count="3" list="{{ ndEditors }}">
+                <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                  <span style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:50%; background:var(--brand-soft); color:var(--text-brand); font-weight:var(--fw-bold); font-size:11px; flex:none;">{{ ne.initials }}</span>
+                  <div style="min-width:0; flex:1;">
+                    <button onClick="{{ ne.onClick }}" style="display:block; width:100%; text-align:left; background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" style-hover="color:var(--text-brand);" title="Open editor profile">{{ ne.name }}</button>
+                    <div style="font-size:11px; color:var(--text-tertiary); margin-top:1px;">{{ ne.sub }}</div>
+                  </div>
+                  <span style="font-family:var(--font-mono); font-size:12px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--text-secondary); white-space:nowrap;">{{ ne.vers }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     </sc-if>
 
     <!-- ===================== EDITORS VIEW ===================== -->
@@ -486,7 +799,7 @@
                   <div style="display:flex; gap:10px; margin-top:3px;">
                     <button class="lnk-btn" onClick="{{ e.onProfile }}">Profile</button>
                     <button class="lnk-btn" onClick="{{ e.onViewEdits }}">Changesets</button>
-                    <button class="lnk-btn" onClick="{{ e.onViewFlags }}">ALPR nodes</button>
+                    <button class="lnk-btn" onClick="{{ e.onViewFlags }}">Flags</button>
                   </div>
                 </div>
                 <div style="font-family:var(--font-mono); font-size:13px; letter-spacing:var(--ls-mono); color:var(--text-primary); font-weight:600;">{{ e.cs }}</div>
@@ -861,6 +1174,8 @@ class Component extends DCLogic {
     nfRules: [], nfSevs: [], nfDirFrom: '', nfDirTo: '', nfDirMissing: false,
     nfOpTokens: [], nfOpText: '', nfAreas: [], nfAreaText: '', nfAreaOpen: false, nfUser: '', nfCs: '', nfWin: 'Any time',
     nSortKey: 'detected', nSortDir: 'desc', nPage: 0, dismissed: {},
+    afDirFrom: '', afDirTo: '', afDirMissing: false, afOpTokens: [], afOpText: '', afOpOpen: false, afAreas: [], afAreaText: '', afAreaOpen: false, afUser: '', afCs: '', afWin: 'Any time',
+    aSortKey: 'detected', aSortDir: 'desc', aPage: 0, nodeFrom: 'nodes',
     efStatuses: [], efAreas: [], efAreaText: '', efAreaOpen: false, efUser: '', efWin: 'Any activity',
     eSortKey: 'cs', eSortDir: 'desc',
     watched: [
@@ -872,6 +1187,7 @@ class Component extends DCLogic {
     waText: '', waName: '', waKind: 'zip', waNextId: 5, waModalOpen: false, waFilter: '', waStep: 'form', waDrawPts: [], waConfirmId: null,
     expKey: null,
     profileUid: null, tlFilter: 'All',
+    nodeId: null, ntlFilter: 'All',
   };
 
   gen() {
@@ -934,25 +1250,27 @@ class Component extends DCLogic {
     const rows = [];
     let nid = 12034559102;
     const now = Date.now();
-    for (let i = 0; i < 420; i++) {
-      const count = rnd() < 0.68 ? 1 : (rnd() < 0.75 ? 2 : 3);
+    for (let i = 0; i < 1400; i++) {
+      const isFlag = rnd() < 0.3;
+      const count = !isFlag ? 0 : rnd() < 0.68 ? 1 : (rnd() < 0.75 ? 2 : 3);
       const rules = [];
       while (rules.length < count) { const r = pick(RULES); if (!rules.some(x => x[0] === r[0])) rules.push(r); }
       const names = rules.map(r => r[0]);
-      const severity = rules.reduce((m, r) => rank[r[1]] < rank[m] ? r[1] : m, 'Low');
+      const severity = names.length ? rules.reduce((m, r) => rank[r[1]] < rank[m] ? r[1] : m, 'Low') : null;
       const u = pick(users);
       rows.push({
         nid, rules: names, severity,
         area: pick(['Austin, TX', 'Houston, TX', 'Phoenix, AZ', 'San Diego, CA', 'Denver, CO', 'Atlanta, GA', 'Nashville, TN', 'Columbus, OH', 'Tampa, FL', 'Sacramento, CA', 'Tucson, AZ', 'Charlotte, NC', 'Boise, ID', 'Memphis, TN', 'Oakland, CA', 'Tulsa, OK', 'Reno, NV', 'El Paso, TX', 'Fort Worth, TX', 'Spokane, WA', 'Albuquerque, NM', 'Louisville, KY', 'Fresno, CA', 'Omaha, NE']),
-        dirDeg: names.includes('Missing direction') ? null : ri(0, 359),
-        operator: names.includes('No operator tag') ? 'Unknown' : pick(ops),
+        dirDeg: names.includes('Missing direction') || (!names.length && rnd() < 0.08) ? null : ri(0, 359),
+        operator: names.includes('No operator tag') || (!names.length && rnd() < 0.06) ? 'Unknown' : pick(ops),
         user: u[0], uid: u[1],
         ts: now - ri(5, 43200) * 60000,
       });
-      nid -= ri(1200, 220000);
+      nid -= ri(400, 66000);
     }
     this.RULE_NAMES = RULES.map(r => r[0]);
     this.SEV_RANK = rank;
+    this.NODE_USERS = users; this.NODE_OPS = ops;
     return rows;
   }
 
@@ -1078,9 +1396,9 @@ class Component extends DCLogic {
         delT: d.t, delFg: d.fg, delBg: d.bg,
         statusColor: statusColors[r.status],
         time: rel(r.ts), absTime: abs(r.ts),
-        goNodes: () => this.setState({ view: 'nodes', nfUser: r.user, nPage: 0 }),
+        goNodes: () => this.setState({ view: 'nodes', afUser: r.user, aPage: 0 }),
         goEditor: () => openProfile(r.uid),
-        goCsNodes: () => this.setState({ view: 'nodes', nfCs: String(r.id), nPage: 0 }),
+        goCsNodes: () => this.setState({ view: 'nodes', afCs: String(r.id), aPage: 0 }),
       };
     });
 
@@ -1157,7 +1475,7 @@ class Component extends DCLogic {
       this.nodesLinked = true;
     }
     const { view, nfRules, nfSevs, nfDirFrom, nfDirTo, nfDirMissing, nfOpTokens, nfOpText, nfAreas, nfAreaText, nfUser, nfCs, nfWin, nSortKey, nSortDir, dismissed } = this.state;
-    const open = this.nodes.filter(n => !dismissed[n.nid]);
+    const open = this.nodes.filter(n => n.rules.length && !dismissed[n.nid]);
     const OCT = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
     const octant = d => OCT[Math.round(d / 45) % 8];
     const winMs = { 'Last 24 h': day, 'Last 7 d': 7 * day, 'Last 30 d': 30 * day }[nfWin];
@@ -1204,6 +1522,7 @@ class Component extends DCLogic {
       High: ['var(--alert-600)', 'var(--alert-100)'],
       Medium: ['var(--amber-600)', 'var(--amber-100)'],
       Low: ['var(--azure-600, #1D6FE0)', 'color-mix(in oklab, var(--azure-500) 14%, transparent)'],
+      null: ['var(--text-tertiary)', 'transparent'],
     };
     const nRows = nSlice.map(n => {
       const isOpen = expKey === 'nd:' + n.nid;
@@ -1220,7 +1539,7 @@ class Component extends DCLogic {
             { k: 'Last changeset', v: n.cs != null ? '#' + n.cs : '—' },
             { k: 'Changed by', v: n.user + ' · uid ' + n.uid },
             { k: 'Detected', v: abs(n.ts) },
-            { k: 'Rules', v: n.rules.join(' · ') },
+            { k: 'Rules', v: n.rules.length ? n.rules.join(' · ') : 'None tripped' },
           ],
           tags: [
             { k: 'man_made', v: 'surveillance', color: ok },
@@ -1251,6 +1570,7 @@ class Component extends DCLogic {
       time: rel(n.ts), absTime: abs(n.ts),
       goEdits: () => this.setState({ view: 'changesets', fUser: n.user, page: 0 }),
       goEditor: () => openProfile(n.uid),
+      goNode: () => this.setState({ view: 'node', nodeId: n.nid, ntlFilter: 'All', nodeFrom: 'flagged' }),
       onDismiss: () => this.setState(s2 => ({ dismissed: { ...s2.dismissed, [n.nid]: true } })),
       adjustHref: 'https://www.openstreetmap.org/edit?node=' + n.nid,
       };
@@ -1352,6 +1672,313 @@ class Component extends DCLogic {
       color: i === nPage ? '#fff' : 'var(--text-secondary)',
       border: i === nPage ? 'var(--brand)' : 'var(--border)',
     }));
+    // ---------- All ALPR nodes (data table) ----------
+    const { afDirFrom, afDirTo, afDirMissing, afOpTokens, afOpText, afAreas, afAreaText, afUser, afCs, afWin, aSortKey, aSortDir } = this.state;
+    const aWinMs = { 'Last 24 h': day, 'Last 7 d': 7 * day, 'Last 30 d': 30 * day }[afWin];
+    const afu = afUser.trim().toLowerCase();
+    const afcs = afCs.replace(/\D/g, '');
+    const adf = parseInt(afDirFrom, 10), adt = parseInt(afDirTo, 10);
+    const aHasRange = !isNaN(adf) || !isNaN(adt);
+    const aDirPass = n => {
+      if (!aHasRange && !afDirMissing) return true;
+      if (n.dirDeg == null) return afDirMissing;
+      if (!aHasRange) return false;
+      const lo = isNaN(adf) ? 0 : adf, hi = isNaN(adt) ? 359 : adt;
+      return lo <= hi ? (n.dirDeg >= lo && n.dirDeg <= hi) : (n.dirDeg >= lo || n.dirDeg <= hi);
+    };
+    const aFiltered = this.nodes.filter(n =>
+      aDirPass(n) &&
+      (!afOpTokens.length || afOpTokens.includes(n.operator)) &&
+      (!afAreas.length || afAreas.includes(n.area)) &&
+      (!afcs || (n.cs != null && String(n.cs).includes(afcs))) &&
+      (!afu || n.user.toLowerCase().includes(afu) || String(n.uid).includes(afu)) &&
+      (!aWinMs || now - n.ts < aWinMs));
+    const aKeyFns = { nid: n => n.nid, dir: n => n.dirDeg == null ? 999 : n.dirDeg, operator: n => n.operator.toLowerCase(), area: n => n.area.toLowerCase(), user: n => n.user.toLowerCase(), detected: n => n.ts };
+    const akf = aKeyFns[aSortKey] || aKeyFns.detected;
+    const aSorted = aFiltered.slice().sort((a, b) => {
+      const x = akf(a), y = akf(b);
+      const c = x < y ? -1 : x > y ? 1 : b.ts - a.ts;
+      return aSortDir === 'asc' ? c : -c;
+    });
+    const aPages = Math.max(1, Math.ceil(aSorted.length / 200));
+    const aPage = Math.min(this.state.aPage, aPages - 1);
+    const aSlice = aSorted.slice(aPage * 200, aPage * 200 + 200);
+    const aRows = aSlice.map(n => {
+      const isOpen = expKey === 'an:' + n.nid;
+      let det = null;
+      if (isOpen) {
+        const cc = AREA_COORDS[n.area] || [39.5, -98.35];
+        const lat = (cc[0] + (hpos(n.nid, 3) - 0.5) * 0.2).toFixed(5);
+        const lon = (cc[1] + (hpos(n.nid, 9) - 0.5) * 0.2).toFixed(5);
+        const miss = 'var(--alert-600)', ok = 'var(--text-primary)';
+        det = {
+          detail: [
+            { k: 'Coordinates', v: lat + ', ' + lon },
+            { k: 'Location', v: n.area },
+            { k: 'Last changeset', v: n.cs != null ? '#' + n.cs : '—' },
+            { k: 'Changed by', v: n.user + ' · uid ' + n.uid },
+            { k: 'Last change', v: abs(n.ts) },
+            { k: 'Open flags', v: n.rules.length && !dismissed[n.nid] ? n.rules.join(' · ') : 'None' },
+          ],
+          tags: [
+            { k: 'man_made', v: 'surveillance', color: ok },
+            { k: 'surveillance', v: 'public', color: ok },
+            { k: 'surveillance:type', v: 'ALPR', color: ok },
+            { k: 'camera:mount', v: 'pole', color: ok },
+            { k: 'operator', v: n.operator === 'Unknown' ? '(missing)' : n.operator, color: n.operator === 'Unknown' ? miss : ok },
+            { k: 'direction', v: n.dirDeg == null ? '(missing)' : String(n.dirDeg), color: n.dirDeg == null ? miss : ok },
+          ],
+          hasCone: n.dirDeg != null, noDir: n.dirDeg == null,
+          coneFrom: ((n.dirDeg || 0) - 20) + 'deg',
+          mapLabel: (n.dirDeg == null ? 'No direction' : 'Facing ' + n.dirDeg + '° ' + octant(n.dirDeg)) + ' · ' + n.operator,
+          viewHref: 'https://www.openstreetmap.org/node/' + n.nid,
+        };
+      }
+      return {
+        nid: String(n.nid), ...(det || {}), isOpen, ...chev(isOpen),
+        onToggle: () => toggleExp('an:' + n.nid),
+        dirT: n.dirDeg == null ? '—' : n.dirDeg + '° ' + octant(n.dirDeg),
+        dirColor: n.dirDeg == null ? 'var(--text-tertiary)' : 'var(--text-primary)',
+        operator: n.operator, area: n.area, user: n.user, uid: n.uid,
+        time: rel(n.ts), absTime: abs(n.ts),
+        goEdits: () => this.setState({ view: 'changesets', fUser: n.user, page: 0 }),
+        goEditor: () => openProfile(n.uid),
+        goNode: () => this.setState({ view: 'node', nodeId: n.nid, ntlFilter: 'All', nodeFrom: 'nodes' }),
+      };
+    });
+    const aSortBy = key => this.setState(s2 => ({ aSortKey: key, aSortDir: s2.aSortKey === key ? (s2.aSortDir === 'asc' ? 'desc' : 'asc') : (key === 'operator' || key === 'user' || key === 'area' ? 'asc' : 'desc') }));
+    const aCols = [
+      { key: 'nid', label: 'Node' }, { key: 'dir', label: 'Direction' }, { key: 'operator', label: 'Operator' },
+      { key: 'area', label: 'Location' }, { key: 'user', label: 'Changed by' }, { key: 'detected', label: 'Last change' },
+    ].map(c => {
+      const active = c.key === aSortKey;
+      return { label: c.label, just: 'flex-start', cursor: 'pointer', color: active ? 'var(--text-brand)' : 'var(--text-tertiary)', arrow: active ? (aSortDir === 'asc' ? '↑' : '↓') : '↕', title: 'Sort by ' + c.label.toLowerCase(), onClick: () => aSortBy(c.key) };
+    });
+    const addAOp = o => this.setState(s2 => ({ afOpTokens: s2.afOpTokens.includes(o) ? s2.afOpTokens : [...s2.afOpTokens, o], afOpText: '', aPage: 0 }));
+    const aOpQuery = afOpText.trim().toLowerCase();
+    const aOpSuggestions = this.allOps.filter(o => !afOpTokens.includes(o) && o.toLowerCase().includes(aOpQuery)).map(o => ({ label: o, onPick: () => addAOp(o) }));
+    const aOpTokens = afOpTokens.map(t => ({ label: t, onRemove: () => this.setState(s2 => ({ afOpTokens: s2.afOpTokens.filter(x => x !== t), aPage: 0 })) }));
+    const addAArea = a => this.setState(s2 => ({ afAreas: s2.afAreas.includes(a) ? s2.afAreas : [...s2.afAreas, a], afAreaText: '', aPage: 0 }));
+    const aAreaQuery = afAreaText.trim().toLowerCase();
+    const aAreaSuggestions = this.allAreasN.filter(a => !afAreas.includes(a) && a.toLowerCase().includes(aAreaQuery)).map(a => ({ label: a, onPick: () => addAArea(a) }));
+    const aAreaTokens = afAreas.map(a => ({ label: a, onRemove: () => this.setState(s2 => ({ afAreas: s2.afAreas.filter(x => x !== a), aPage: 0 })) }));
+    const aFiltersActive = !!(aHasRange || afDirMissing || afOpTokens.length || afAreas.length || afu || afcs || afWin !== 'Any time');
+    const aFrom = aSorted.length ? aPage * 200 + 1 : 0;
+    const aTo = Math.min(aSorted.length, (aPage + 1) * 200);
+    const aGo = p => this.setState({ aPage: p });
+    const aPageBtns = Array.from({ length: aPages }, (_, i) => ({ label: String(i + 1), onClick: () => aGo(i), bg: i === aPage ? 'var(--brand)' : 'var(--surface-card)', color: i === aPage ? '#fff' : 'var(--text-secondary)', border: i === aPage ? 'var(--brand)' : 'var(--border)' }));
+    const av = {
+      aCols, aRows, isAEmpty: aRows.length === 0,
+      afUser, afCs, afWin, afDirFrom, afDirTo, afOpText, aOpTokens, aOpSuggestions, aAreaTokens, aAreaSuggestions, afAreaText,
+      onAfCs: e => this.setState({ afCs: e.target.value, aPage: 0 }),
+      onAfDirFrom: e => this.setState({ afDirFrom: cleanDeg(e.target.value), aPage: 0 }),
+      onAfDirTo: e => this.setState({ afDirTo: cleanDeg(e.target.value), aPage: 0 }),
+      onAToggleMissing: () => this.setState(s2 => ({ afDirMissing: !s2.afDirMissing, aPage: 0 })),
+      amzFg: afDirMissing ? 'var(--text-brand)' : 'var(--text-secondary)',
+      amzBg: afDirMissing ? 'var(--brand-soft)' : 'transparent',
+      amzBd: afDirMissing ? 'var(--brand)' : 'var(--border)',
+      onAfOpText: e => this.setState({ afOpText: e.target.value, afOpOpen: true }),
+      onAfOpFocus: () => this.setState({ afOpOpen: true }),
+      onAfOpBlur: () => this.setState({ afOpOpen: false }),
+      onAfOpKey: e => { if (e.key === 'Escape') { this.setState({ afOpOpen: false }); return; } if (e.key !== 'Enter' || !aOpSuggestions.length) return; aOpSuggestions[0].onPick(); },
+      showAOpSug: !!this.state.afOpOpen && aOpSuggestions.length > 0,
+      onAfAreaText: e => this.setState({ afAreaText: e.target.value, afAreaOpen: true }),
+      onAfAreaFocus: () => this.setState({ afAreaOpen: true }),
+      onAfAreaBlur: () => this.setState({ afAreaOpen: false }),
+      onAfAreaKey: e => { if (e.key === 'Escape') { this.setState({ afAreaOpen: false }); return; } if (e.key !== 'Enter' || !aAreaSuggestions.length) return; aAreaSuggestions[0].onPick(); },
+      showAAreaSug: !!this.state.afAreaOpen && aAreaSuggestions.length > 0,
+      onAfUser: e => this.setState({ afUser: e.target.value, aPage: 0 }),
+      onAfWin: e => this.setState({ afWin: e.target.value, aPage: 0 }),
+      onAClear: () => this.setState({ afDirFrom: '', afDirTo: '', afDirMissing: false, afOpTokens: [], afOpText: '', afAreas: [], afAreaText: '', afUser: '', afCs: '', afWin: 'Any time', aPage: 0 }),
+      aFiltersActive,
+      aCountLabel: aFiltersActive ? aSorted.length + ' of ' + this.nodes.length + ' nodes' : this.nodes.length + ' nodes',
+      aShowPager: aSorted.length > 0,
+      aShowingLabel: 'Showing ' + aFrom + '–' + aTo + ' of ' + aSorted.length,
+      onAPrev: () => aPage > 0 && aGo(aPage - 1),
+      onANext: () => aPage < aPages - 1 && aGo(aPage + 1),
+      aPrevCursor: aPage > 0 ? 'pointer' : 'default', aPrevOpacity: aPage > 0 ? '1' : '0.4',
+      aNextCursor: aPage < aPages - 1 ? 'pointer' : 'default', aNextOpacity: aPage < aPages - 1 ? '1' : '0.4',
+      aPageBtns,
+      nodeTotalCount: this.nodes.length.toLocaleString(),
+    };
+    // ---------- Node detail ----------
+    const isNodeView = view === 'node';
+    const nd = this.state.nodeId != null ? this.nodes.find(x => x.nid === this.state.nodeId) : null;
+    let ndv = {};
+    if (nd) {
+      const h = salt => hpos(nd.nid, salt);
+      const users = this.NODE_USERS, ops = this.NODE_OPS;
+      const fmtDate = ts => new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const cc = AREA_COORDS[nd.area] || [39.5, -98.35];
+      const lat0 = cc[0] + (h(3) - 0.5) * 0.2, lon0 = cc[1] + (h(9) - 0.5) * 0.2;
+      const fpos = p => p[0].toFixed(5) + ', ' + p[1].toFixed(5);
+      const dist = (a, b) => Math.sqrt(Math.pow((a[0] - b[0]) * 111000, 2) + Math.pow((a[1] - b[1]) * 111000 * Math.cos(a[0] * Math.PI / 180), 2));
+      const GREEN = 'var(--green-700, #0E8A4C)', AMBER = 'var(--amber-600)', RED = 'var(--alert-600)';
+      if (!this.histCache || this.histCache.nid !== nd.nid) {
+        const nv = 2 + Math.floor(h(101) * 5);
+        const span = (30 + h(103) * 700) * day;
+        const first = nd.ts - span;
+        const lastKind = nd.rules.includes('Deleted by new user') ? 'Deleted' : nd.rules.includes('Moved >50 m') ? 'Moved' : 'Retagged';
+        const target = { man_made: 'surveillance', surveillance: 'public', 'surveillance:type': 'ALPR', 'camera:mount': 'pole' };
+        if (nd.operator !== 'Unknown') target.operator = nd.operator;
+        if (nd.dirDeg != null) target.direction = String(nd.dirDeg);
+        let state = { man_made: 'surveillance', surveillance: 'public', 'surveillance:type': h(160) < 0.5 ? 'camera' : 'ALPR' };
+        if (h(161) < 0.6) state.operator = nd.operator !== 'Unknown' ? nd.operator : ops[Math.floor(h(163) * ops.length)];
+        if (h(162) < 0.5) state.direction = String(Math.floor(h(164) * 360));
+        const COMMENTS = {
+          Created: ['Added ALPR camera from survey', 'New Flock camera at intersection, surveyed on foot', 'Mapping surveillance cameras along corridor', 'Camera spotted while driving, confirmed on foot'],
+          Retagged: ['Fixed surveillance tagging', 'Added operator from sign on pole', 'Corrected camera type after resurvey', 'Tag cleanup — surveillance nodes', 'Added direction from street-level imagery'],
+          Moved: ['Repositioned to actual pole location', 'Moved to correct side of the road', 'Aligned with imagery', 'Node was on the wrong pole — fixed'],
+          Deleted: ['Camera no longer there', 'Removed — not found', 'Cleanup', 'delete'],
+        };
+        const cmt = (kind, v) => COMMENTS[kind][Math.floor(h(170 + v) * COMMENTS[kind].length)];
+        const totalOff = (lastKind === 'Moved' ? 80 + h(104) * 140 : 6 + h(104) * 25) / 111000;
+        const ang = h(106) * Math.PI * 2;
+        let pos = [lat0 + Math.cos(ang) * totalOff, lon0 + Math.sin(ang) * totalOff];
+        const positions = [pos.slice()];
+        const diffTags = (a, b, out) => {
+          Object.keys(b).forEach(k => { if (!(k in a)) out.push({ sign: '+', k, v: b[k], fg: GREEN }); else if (a[k] !== b[k]) out.push({ sign: '~', k, v: a[k] + ' → ' + b[k], fg: AMBER }); });
+          Object.keys(a).forEach(k => { if (!(k in b)) out.push({ sign: '−', k, v: a[k], fg: RED }); });
+        };
+        const base = nd.cs || 178234567;
+        const versions = [];
+        let liveTags = state;
+        for (let v = 1; v <= nv; v++) {
+          const last = v === nv;
+          const ts = last ? nd.ts : v === 1 ? first : first + ((v - 1) / (nv - 1)) * span * (0.82 + h(120 + v) * 0.12);
+          const u = last ? [nd.user, nd.uid] : users[Math.floor(h(110 + v) * users.length)];
+          const cs = last ? base : base - (nv - v) * (20000 + Math.floor(h(130 + v) * 180000));
+          const kind = v === 1 ? 'Created' : last ? lastKind : h(150 + v) < 0.3 ? 'Moved' : 'Retagged';
+          const changes = [];
+          let next = { ...state }, moveM = 0;
+          if (kind === 'Created') {
+            Object.entries(state).forEach(([k, val]) => changes.push({ sign: '+', k, v: val, fg: GREEN }));
+            changes.push({ sign: '+', k: 'position', v: fpos(pos), fg: GREEN });
+          } else if (kind === 'Deleted') {
+            liveTags = state;
+            Object.entries(state).forEach(([k, val]) => changes.push({ sign: '−', k, v: val, fg: RED }));
+            changes.push({ sign: '−', k: 'position', v: fpos(pos), fg: RED });
+            next = {};
+          } else {
+            if (kind === 'Moved') {
+              const np = last ? [lat0, lon0] : [pos[0] + (h(182 + v) - 0.5) * 0.00028, pos[1] + (h(184 + v) - 0.5) * 0.00028];
+              moveM = dist(pos, np);
+              changes.push({ sign: '~', k: 'position', v: fpos(pos) + ' → ' + fpos(np) + ' (' + Math.round(moveM) + ' m)', fg: AMBER });
+              pos = np; positions.push(pos.slice());
+            }
+            if (last) {
+              next = { ...target };
+            } else if (kind === 'Retagged') {
+              const opts = [];
+              if (next['surveillance:type'] !== 'ALPR') opts.push(() => { next['surveillance:type'] = 'ALPR'; });
+              if (!next['camera:mount']) opts.push(() => { next['camera:mount'] = 'pole'; });
+              if (!next.operator) opts.push(() => { next.operator = ops[Math.floor(h(190 + v) * ops.length)]; });
+              else if (h(191 + v) < 0.3) opts.push(() => { next.operator = ops[Math.floor(h(192 + v) * ops.length)]; });
+              if (!next.direction) opts.push(() => { next.direction = String(Math.floor(h(193 + v) * 360)); });
+              else if (h(194 + v) < 0.4) opts.push(() => { next.direction = String(Math.floor(h(195 + v) * 360)); });
+              if (!next.note && h(196 + v) < 0.25) opts.push(() => { next.note = 'Flock camera, solar panel on pole'; });
+              const nCh = Math.min(opts.length, 1 + Math.floor(h(197 + v) * 2));
+              const st = Math.floor(h(198 + v) * Math.max(1, opts.length));
+              for (let i = 0; i < nCh; i++) opts[(st + i) % opts.length]();
+            }
+            diffTags(state, next, changes);
+            if (!changes.length) {
+              const np = last ? [lat0, lon0] : [pos[0] + (h(186 + v) - 0.5) * 0.00006, pos[1] + (h(188 + v) - 0.5) * 0.00006];
+              moveM = dist(pos, np);
+              changes.push({ sign: '~', k: 'position', v: fpos(pos) + ' → ' + fpos(np) + ' (' + Math.max(1, Math.round(moveM)) + ' m)', fg: AMBER });
+              pos = np; positions.push(pos.slice());
+            } else if (last && kind !== 'Moved' && dist(pos, [lat0, lon0]) > 0.5) {
+              pos = [lat0, lon0]; positions.push(pos.slice());
+            }
+          }
+          if (kind !== 'Deleted') liveTags = next;
+          state = next;
+          versions.push({ v, ts, user: u[0], uid: u[1], cs, kind, comment: cmt(kind, v), changes, moveM, tagCount: changes.filter(c => c.k !== 'position').length });
+        }
+        this.histCache = { nid: nd.nid, versions, tags: state, liveTags, deleted: lastKind === 'Deleted', first, nv, positions };
+      }
+      const hc = this.histCache;
+      const ndDismissed = !!dismissed[nd.nid];
+      const KIND = {
+        Created: ['var(--brand)', GREEN, 'var(--brand-soft)'],
+        Retagged: ['var(--azure-500)', 'var(--azure-600, #1D6FE0)', 'color-mix(in oklab, var(--azure-500) 14%, transparent)'],
+        Moved: ['var(--amber-500)', AMBER, 'var(--amber-100)'],
+        Deleted: ['var(--alert-500)', RED, 'var(--alert-100)'],
+        Flagged: ['var(--alert-500)', RED, 'var(--alert-100)'],
+        Dismissed: ['var(--text-tertiary)', 'var(--text-secondary)', 'color-mix(in oklab, var(--text-primary) 7%, transparent)'],
+      };
+      const flagEv = { ev: true, kind: 'Flagged', ts: nd.ts + 3 * 60000, user: 'DAF rules', comment: nd.rules.length + (nd.rules.length === 1 ? ' rule tripped' : ' rules tripped') + ' on v' + hc.nv + ' — ' + String(nd.severity).toLowerCase() + ' severity.', rules: nd.rules };
+      const dismissEv = ndDismissed ? { ev: true, kind: 'Dismissed', ts: now, user: 'Maya Ortiz', comment: 'Flag dismissed — no action needed.', rules: [] } : null;
+      const allItems = [...hc.versions, ...(nd.rules.length ? [flagEv] : []), ...(dismissEv && nd.rules.length ? [dismissEv] : [])].sort((a, b) => b.ts - a.ts);
+      const tlF = this.state.ntlFilter || 'All';
+      const tagsItems = hc.versions.filter(x => x.tagCount > 0), moveItems = hc.versions.filter(x => x.moveM > 0), flagItems = allItems.filter(x => x.ev);
+      const tItems = tlF === 'Tags' ? tagsItems : tlF === 'Moves' ? moveItems : tlF === 'Flags' ? flagItems : allItems;
+      const distinct = {}; hc.versions.forEach(x => { const e = distinct[x.uid] = distinct[x.uid] || { name: x.user, uid: x.uid, n: 0, last: 0, lastTs: 0 }; e.n++; e.last = Math.max(e.last, x.v); e.lastTs = Math.max(e.lastTs, x.ts); });
+      const edList = Object.values(distinct).sort((a, b) => b.last - a.last);
+      const totalMoved = moveItems.reduce((s2, x) => s2 + x.moveM, 0);
+      const tagEdits = hc.versions.filter(x => x.kind !== 'Created').reduce((s2, x) => s2 + x.tagCount, 0);
+      const ageD = Math.max(1, Math.round((now - hc.first) / day));
+      const sevC = sevColors[nd.severity];
+      ndv.ndId = String(nd.nid);
+      ndv.ndSeverity = nd.severity; ndv.ndSevFg = sevC[0]; ndv.ndSevBg = sevC[1];
+      ndv.ndRules = nd.rules; ndv.ndHasRules = nd.rules.length > 0;
+      ndv.ndBackLabel = this.state.nodeFrom === 'flagged' ? '← Flagged nodes' : '← ALPR nodes';
+      ndv.ndMeta = nd.area + ' · ' + nd.operator + ' · ' + (nd.dirDeg == null ? 'No direction' : 'Facing ' + nd.dirDeg + '° ' + octant(nd.dirDeg)) + ' · first mapped ' + fmtDate(hc.first) + ' · last change ' + rel(nd.ts);
+      ndv.ndIsOpen = nd.rules.length > 0 && !ndDismissed; ndv.ndDismissed = nd.rules.length > 0 && ndDismissed;
+      ndv.ndDismiss = () => this.setState(s2 => ({ dismissed: { ...s2.dismissed, [nd.nid]: true } }));
+      ndv.ndAdjustHref = 'https://www.openstreetmap.org/edit?node=' + nd.nid;
+      ndv.ndGoCs = () => this.setState({ view: 'changesets', fChangeset: nd.cs != null ? String(nd.cs) : '', page: 0 });
+      ndv.ndKpis = [
+        { v: 'v' + hc.nv, l: 'versions', s: 'since ' + fmtDate(hc.first), c: 'var(--text-primary)' },
+        { v: String(edList.length), l: 'editors', s: edList.length === 1 ? 'one pair of hands' : 'last: ' + nd.user, c: 'var(--text-primary)' },
+        { v: '~' + tagEdits, l: 'tag edits', s: 'after creation', c: tagEdits ? AMBER : 'var(--text-primary)' },
+        { v: String(moveItems.length), l: 'moves', s: moveItems.length ? Math.round(totalMoved) + ' m total' : 'never moved', c: totalMoved > 50 ? RED : moveItems.length ? AMBER : 'var(--text-primary)' },
+        { v: String(ageD) + 'd', l: 'on the map', s: hc.deleted ? 'deleted in v' + hc.nv : 'still standing', c: hc.deleted ? RED : 'var(--text-primary)' },
+        { v: String(ndDismissed ? 0 : nd.rules.length), l: 'open flags', s: !nd.rules.length ? 'no rules tripped' : ndDismissed ? 'dismissed' : nd.severity + ' severity', c: !nd.rules.length || ndDismissed ? 'var(--text-tertiary)' : sevC[0] },
+      ];
+      ndv.ndTlChips = [['All', allItems.length], ['Tags', tagsItems.length], ['Moves', moveItems.length], ['Flags', flagItems.length]].map(p2 => {
+        const sel = tlF === p2[0];
+        return { label: p2[0] + ' · ' + p2[1], fg: sel ? 'var(--text-brand)' : 'var(--text-secondary)', bg: sel ? 'var(--brand-soft)' : 'transparent', bd: sel ? 'var(--brand)' : 'var(--border)', onClick: () => this.setState({ ntlFilter: p2[0] }) };
+      });
+      ndv.ndTlLabel = hc.nv + ' versions · ' + edList.length + (edList.length === 1 ? ' editor' : ' editors');
+      ndv.ndTimeline = tItems.map((x, i) => {
+        const k = KIND[x.kind];
+        return {
+          ver: x.ev ? '' : 'v' + x.v, kind: x.kind, kindFg: k[1], kindBg: k[2],
+          user: x.user, onUser: x.ev ? () => {} : () => openProfile(x.uid),
+          hasCs: !x.ev, cs: x.ev ? '' : '#' + x.cs, csHref: x.ev ? '' : 'https://www.openstreetmap.org/changeset/' + x.cs,
+          absTime: abs(x.ts), comment: x.comment,
+          hasChanges: !x.ev && x.changes.length > 0, changes: x.changes || [],
+          isFlag: x.kind === 'Flagged', rules: x.rules || [],
+          dot: k[0], halo: 'color-mix(in oklab, ' + k[0] + ' 18%, transparent)',
+          line: i === tItems.length - 1 ? 'transparent' : 'var(--border)',
+        };
+      });
+      ndv.ndTlEmpty = tItems.length === 0;
+      ndv.ndHasCone = nd.dirDeg != null && !hc.deleted;
+      ndv.ndNoDir = nd.dirDeg == null && !hc.deleted;
+      ndv.ndConeFrom = ((nd.dirDeg || 0) - 20) + 'deg';
+      ndv.ndMapLabel = hc.deleted ? 'Deleted in v' + hc.nv + ' · last known position' : (nd.dirDeg == null ? 'No direction' : 'Facing ' + nd.dirDeg + '° ' + octant(nd.dirDeg)) + ' · ' + nd.operator;
+      ndv.ndCoords = lat0.toFixed(5) + ', ' + lon0.toFixed(5);
+      const pts = hc.positions.length > 1 ? hc.positions : [];
+      const maxM = Math.max(1, ...pts.map(p => dist(p, [lat0, lon0])));
+      const scale = (200 / Math.max(60, maxM * 2.4)) * 111000;
+      const proj = p => ({ x: (200 + (p[1] - lon0) * Math.cos(lat0 * Math.PI / 180) * scale).toFixed(1), y: (126 - (p[0] - lat0) * scale).toFixed(1) });
+      ndv.ndHasPath = pts.length > 1 && !hc.deleted;
+      ndv.ndPathPts = pts.slice(0, -1).map(proj);
+      ndv.ndPathD = pts.length > 1 ? pts.map((p, i) => (i ? 'L' : 'M') + proj(p).x + ' ' + proj(p).y).join(' ') : '';
+      const shownTags = hc.deleted ? hc.liveTags : hc.tags;
+      const miss = RED, ok = 'var(--text-primary)';
+      ndv.ndTags = Object.entries(shownTags).map(([k, v]) => ({ k, v, color: hc.deleted ? 'var(--text-tertiary)' : ok }));
+      if (!hc.deleted) { if (!shownTags.operator) ndv.ndTags.push({ k: 'operator', v: '(missing)', color: miss }); if (!shownTags.direction) ndv.ndTags.push({ k: 'direction', v: '(missing)', color: miss }); }
+      ndv.ndTagsNote = hc.deleted ? 'deleted in v' + hc.nv + ' · as of v' + (hc.nv - 1) : 'as of v' + hc.nv;
+      ndv.ndEditors = edList.map(e => ({
+        initials: e.name.split(/[_\s.\-]+/).filter(Boolean).map(x => x[0]).join('').slice(0, 2).toUpperCase(),
+        name: e.name, sub: 'last v' + e.last + ' · ' + rel(e.lastTs), vers: e.n + (e.n === 1 ? ' version' : ' versions'),
+        onClick: () => openProfile(e.uid),
+      }));
+    }
+
     // ---------- Editors view ----------
     if (!this.editorBase) {
       const map = {};
@@ -1421,7 +2048,7 @@ class Component extends DCLogic {
         status: e.status, statusColor: eStatusColors[e.status],
         lastT: e.last ? rel(e.last) : '—',
         onViewEdits: () => this.setState({ view: 'changesets', fUser: e.user, page: 0 }),
-        onViewFlags: () => this.setState({ view: 'nodes', nfUser: e.user, nPage: 0 }),
+        onViewFlags: () => this.setState({ view: 'flagged', nfUser: e.user, nPage: 0 }),
       };
     });
 
@@ -1505,7 +2132,7 @@ class Component extends DCLogic {
       pv.pMeta = (first ? 'First seen ' + fmtDate(first) : 'No changesets on record') + ' · Last active ' + (pe.last ? rel(pe.last) : '—') + ' · ' + pe.areaCount + (pe.areaCount === 1 ? ' area' : ' areas');
       pv.pOsmHref = 'https://www.openstreetmap.org/user/' + encodeURIComponent(pe.user);
       pv.goPCs = () => this.setState({ view: 'changesets', fUser: pe.user, page: 0 });
-      pv.goPNodes = () => this.setState({ view: 'nodes', nfUser: pe.user, nPage: 0 });
+      pv.goPNodes = () => this.setState({ view: 'nodes', afUser: pe.user, aPage: 0 });
       pv.pKpis = [
         { v: String(pe.cs), l: 'changesets', s: first ? 'since ' + fmtDate(first) : '—', c: 'var(--text-primary)' },
         { v: '+' + pe.added, l: 'nodes created', s: 'added to the map', c: 'var(--green-700, #0E8A4C)' },
@@ -1644,7 +2271,7 @@ class Component extends DCLogic {
         createdT: rel(w.created),
         canSubscribe: !isYou,
         goCs: () => this.setState({ view: 'changesets', cfAreas: w.loc ? [w.loc] : [], page: 0 }),
-        goNodes: () => this.setState({ view: 'nodes', nfAreas: w.loc ? [w.loc] : [], nPage: 0 }),
+        goNodes: () => this.setState({ view: 'nodes', afAreas: w.loc ? [w.loc] : [], aPage: 0 }),
         goEditors: () => this.setState({ view: 'editors', efAreas: w.loc ? [w.loc] : [] }),
         onSubscribe: () => patch(ws => ws.map(x => x.id === w.id ? { ...x, watchers: ['you', ...x.watchers] } : x)),
         onUnsubscribe: () => patch(ws => ws.map(x => x.id === w.id ? { ...x, watchers: x.watchers.filter(n => n !== 'you') } : x)),
@@ -1771,13 +2398,20 @@ class Component extends DCLogic {
       ...pv,
       theme,
       isChangesets: csActive,
-      isNodes: view === 'nodes',
+      isNodes: view === 'nodes' || (isNodeView && !nd),
+      isFlagged: view === 'flagged',
+      isNode: isNodeView && !!nd,
+      backToNodes: () => this.setState({ view: this.state.nodeFrom === 'flagged' ? 'flagged' : 'nodes' }),
+      ...ndv, ...av,
       showChangesets: () => this.setState({ view: 'changesets' }),
       showNodes: () => this.setState({ view: 'nodes' }),
+      showFlagged: () => this.setState({ view: 'flagged' }),
       csColor: csActive ? 'var(--text-brand)' : 'var(--text-secondary)',
       csBg: csActive ? 'var(--brand-soft)' : 'transparent',
-      ndColor: view === 'nodes' ? 'var(--text-brand)' : 'var(--text-secondary)',
-      ndBg: view === 'nodes' ? 'var(--brand-soft)' : 'transparent',
+      ndColor: (view === 'nodes' || (isNodeView && this.state.nodeFrom !== 'flagged')) ? 'var(--text-brand)' : 'var(--text-secondary)',
+      ndBg: (view === 'nodes' || (isNodeView && this.state.nodeFrom !== 'flagged')) ? 'var(--brand-soft)' : 'transparent',
+      flColor: (view === 'flagged' || (isNodeView && this.state.nodeFrom === 'flagged')) ? 'var(--text-brand)' : 'var(--text-secondary)',
+      flBg: (view === 'flagged' || (isNodeView && this.state.nodeFrom === 'flagged')) ? 'var(--brand-soft)' : 'transparent',
       nodeOpenCount: String(open.length),
       nGroups, nCols, nRows,
       isNEmpty: nRows.length === 0,
