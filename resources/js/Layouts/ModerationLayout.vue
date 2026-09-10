@@ -190,15 +190,12 @@ const links = [
     width: 164px;
 }
 .moderation-page .mod-table-changesets th:nth-child(4) {
-    width: 120px;
-}
-.moderation-page .mod-table-changesets th:nth-child(5) {
     width: 15%;
 }
-.moderation-page .mod-table-changesets th:nth-child(6) {
+.moderation-page .mod-table-changesets th:nth-child(5) {
     width: 88px;
 }
-.moderation-page .mod-table-changesets th:nth-child(7) {
+.moderation-page .mod-table-changesets th:nth-child(6) {
     width: 48px;
 }
 .moderation-page .mod-table-nodes,
@@ -215,11 +212,11 @@ const links = [
     min-width: 650px;
 }
 @media (max-width: 960px) {
-    .moderation-page .mod-table-changesets th:nth-child(5),
+    .moderation-page .mod-table-changesets th:nth-child(4),
     .moderation-page
         .mod-table-changesets
         tr:not(:has(td[colspan]))
-        td:nth-child(5) {
+        td:nth-child(4) {
         display: none;
     }
 }

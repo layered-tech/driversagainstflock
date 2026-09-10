@@ -5,7 +5,9 @@ import {
     changesetNodes,
     drawnGeometry,
     filterQuery,
+    localTime,
     locationLabel,
+    moderationDetailNodes,
     moderationNodeFeatures,
     moderationNodeRecordId,
     nodeChangeColors,
@@ -13,6 +15,13 @@ import {
     nodeVersionHistory,
     relativeTime,
 } from '../moderation.js';
+
+test('local timestamps use the browser timezone', () => {
+    assert.equal(
+        localTime('2026-09-10T07:16:45Z'),
+        'Sep 10, 2026, 3:16 AM EDT',
+    );
+});
 
 test('moderation map nodes carry counter-matched change kinds and selectable IDs', () => {
     const features = moderationNodeFeatures([
@@ -53,6 +62,16 @@ test('moderation map nodes carry counter-matched change kinds and selectable IDs
     });
     assert.equal(moderationNodeRecordId(features[1]), 2);
     assert.equal(moderationNodeRecordId({ properties: {} }), null);
+});
+
+test('area details expose their nodes to the expanded map', () => {
+    const nodes = [{ id: 123, latitude: 30.1, longitude: -97.7 }];
+
+    assert.deepEqual(moderationDetailNodes('areas', { nodes }), nodes);
+    assert.deepEqual(
+        moderationDetailNodes('changesets', { versions: { data: nodes } }),
+        nodes,
+    );
 });
 
 test('changeset maps use node versions returned by the detail endpoint', () => {

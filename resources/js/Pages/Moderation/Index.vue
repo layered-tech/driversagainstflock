@@ -11,7 +11,9 @@ import {
     absoluteTime,
     changesetNodes,
     filterQuery,
+    localTime,
     locationLabel,
+    moderationDetailNodes,
     relativeTime,
 } from '@/moderation';
 import {
@@ -21,7 +23,15 @@ import {
     ComboboxOptions,
 } from '@headlessui/vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { computed, inject, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import {
+    computed,
+    inject,
+    onBeforeUnmount,
+    onMounted,
+    reactive,
+    ref,
+    watch,
+} from 'vue';
 
 const route = inject('route');
 const props = defineProps({
@@ -37,6 +47,7 @@ const props = defineProps({
     osmUrl: String,
 });
 const page = usePage();
+const isClient = ref(false);
 const state = reactive({});
 const loading = ref(false);
 const areaSearch = ref('');
@@ -65,6 +76,9 @@ const dismissingFlag = ref(null);
 const review = useForm({ revision: '', status: '' });
 let timer;
 const requests = new Map();
+onMounted(() => {
+    isClient.value = true;
+});
 const title = computed(
     () =>
         ({
@@ -119,7 +133,6 @@ const columns = computed(
                 ['id', 'Changeset'],
                 ['osm_user', 'Editor'],
                 ['changes', '+ / ~ / −'],
-                ['status', 'Status'],
                 [null, 'Location'],
                 ['changed_at', 'Time'],
                 [null, ''],
@@ -128,7 +141,6 @@ const columns = computed(
                 ['id', 'Changeset'],
                 ['osm_user', 'Editor'],
                 ['changes', '+ / ~ / −'],
-                ['status', 'Status'],
                 [null, 'Location'],
                 ['changed_at', 'Time'],
                 [null, ''],
@@ -344,13 +356,6 @@ function areaAction(row, action) {
         },
     );
 }
-function statusClass(value) {
-    return {
-        Reviewed: 'text-daf-text-brand',
-        Flagged: 'text-[var(--alert-600)]',
-        'Needs review': 'text-[var(--azure-500)]',
-    }[value];
-}
 onBeforeUnmount(() => {
     clearTimeout(timer);
     for (const request of requests.values()) request.abort();
@@ -422,10 +427,10 @@ onBeforeUnmount(() => {
                 </p>
             </div>
             <p
-                v-if="source.calculated_at && view !== 'profile'"
+                v-if="isClient && source.calculated_at && view !== 'profile'"
                 class="px-6 py-2 text-xs text-daf-text-tertiary"
             >
-                Calculated {{ absoluteTime(source.calculated_at) }}
+                Last calculated {{ localTime(source.calculated_at) }}
             </p>
             <p
                 v-if="page.props.errors?.flag"
@@ -881,18 +886,6 @@ onBeforeUnmount(() => {
                                             </div>
                                         </td>
                                         <td><ChangeCounts :row="row" /></td>
-                                        <td>
-                                            <span
-                                                class="inline-flex items-center gap-[7px] whitespace-nowrap text-xs font-semibold text-daf-text-secondary"
-                                                ><span
-                                                    :class="
-                                                        statusClass(row.status)
-                                                    "
-                                                    aria-hidden="true"
-                                                    >●</span
-                                                >{{ row.status }}</span
-                                            >
-                                        </td>
                                         <td
                                             class="max-w-[160px] truncate text-xs text-daf-text-secondary"
                                         >
@@ -2104,7 +2097,8 @@ onBeforeUnmount(() => {
                                                     :nodes="
                                                         isNodes
                                                             ? [row]
-                                                            : changesetNodes(
+                                                            : moderationDetailNodes(
+                                                                  view,
                                                                   details[
                                                                       rowKey(
                                                                           row,
