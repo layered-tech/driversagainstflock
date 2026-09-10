@@ -175,6 +175,11 @@ test('compiled moderation renders source-backed rows and escapes upstream text',
     assert.ok(changes.body.includes('&lt;script&gt;'));
     assert.ok(!changes.body.includes('<script>alert(1)</script>'));
     assert.ok(!changes.body.includes('aria-label="OSM node ID"'));
+    const changesetTableHead = changes.body.match(
+        /<table[^>]*mod-table-changesets[^>]*>.*?<thead>(.*?)<\/thead>/s,
+    )?.[1];
+    assert.ok(changesetTableHead);
+    assert.doesNotMatch(changesetTableHead, />Status</);
     await preview('changesets', changes);
 });
 
@@ -446,11 +451,13 @@ test('summary refresh shows persisted rows and queue progress', async () => {
         },
         source: {
             state: 'refreshing',
+            calculated_at: '2026-09-10T07:16:45Z',
             summary_progress: { completed: 3, total: 10, failed: 0 },
         },
     });
     assert.match(output.body, /Cached mapper/);
     assert.match(output.body, /Refreshing 3\/10 summaries/);
+    assert.doesNotMatch(output.body, /Last calculated|CDT/);
 });
 
 test('summary refresh failures keep stale rows visible with an explicit status', async () => {

@@ -15,6 +15,10 @@ export function changesetNodes(details) {
     return details?.versions?.data ?? [];
 }
 
+export function moderationDetailNodes(view, details) {
+    return view === 'areas' ? (details?.nodes ?? []) : changesetNodes(details);
+}
+
 export const nodeChangeColors = Object.freeze({
     added: '#1FBF6B',
     edited: '#FFB02E',
@@ -300,6 +304,21 @@ export function absoluteTime(value) {
               hour: 'numeric',
               minute: '2-digit',
               timeZone: 'UTC',
+              timeZoneName: 'short',
+          }).format(date);
+}
+
+export function localTime(value) {
+    if (!value) return '—';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+        ? '—'
+        : new Intl.DateTimeFormat('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
               timeZoneName: 'short',
           }).format(date);
 }
