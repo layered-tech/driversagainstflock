@@ -1,10 +1,10 @@
 <script setup>
+import { useModerationTime } from '@/useModerationTime';
 import ChangeCounts from '@/Components/Moderation/ChangeCounts.vue';
 import DafIcon from '@/Components/Daf/DafIcon.vue';
 import ModerationMap from '@/Components/Moderation/ModerationMap.vue';
 import NodeLink from '@/Components/Moderation/NodeLink.vue';
 import {
-    absoluteTime,
     changesetNodes,
     locationLabel,
     nodeChangeKind,
@@ -13,6 +13,7 @@ import {
 import { Link } from '@inertiajs/vue3';
 import { computed, inject, onBeforeUnmount, reactive, ref, watch } from 'vue';
 
+const { absoluteTime } = useModerationTime();
 const props = defineProps({
     profile: Object,
     records: Object,

@@ -1,15 +1,13 @@
 <script setup>
+import { useModerationTime } from '@/useModerationTime';
 import ModerationMap from '@/Components/Moderation/ModerationMap.vue';
+import NodeLink from '@/Components/Moderation/NodeLink.vue';
 import ModerationLayout from '@/Layouts/ModerationLayout.vue';
-import {
-    absoluteTime,
-    locationLabel,
-    nodeProfileSummary,
-    relativeTime,
-} from '@/moderation';
+import { locationLabel, nodeProfileSummary, relativeTime } from '@/moderation';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, inject, ref } from 'vue';
 
+const { absoluteTime, localDate } = useModerationTime();
 const props = defineProps({
     from: { type: String, default: 'nodes' },
     node: Object,
@@ -100,12 +98,7 @@ const mapNodes = computed(() =>
 );
 const firstMappedDate = computed(() =>
     summary.value.first_mapped_at
-        ? new Intl.DateTimeFormat('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-              timeZone: 'UTC',
-          }).format(new Date(summary.value.first_mapped_at))
+        ? localDate(summary.value.first_mapped_at)
         : 'Unknown',
 );
 const daysOnMap = computed(() => {
@@ -244,9 +237,11 @@ const dismissFlag = (flag) =>
                             >
                                 Node
                             </h1>
-                            <span
+                            <NodeLink
+                                :from="from"
+                                :node-id="node.id"
                                 class="font-mono text-daf-h2 font-bold tracking-[var(--ls-mono)]"
-                                >{{ node.id }}</span
+                                >{{ node.id }}</NodeLink
                             >
                             <span
                                 v-if="severity"

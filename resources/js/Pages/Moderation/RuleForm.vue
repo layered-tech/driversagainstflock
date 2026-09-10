@@ -1,10 +1,11 @@
 <script setup>
+import { useModerationTime } from '@/useModerationTime';
 import NodeLink from '@/Components/Moderation/NodeLink.vue';
 import ModerationLayout from '@/Layouts/ModerationLayout.vue';
-import { absoluteTime } from '@/moderation';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { inject, ref, watch } from 'vue';
 
+const { absoluteTime } = useModerationTime();
 const props = defineProps({ rule: Object, areas: Array, versions: Array });
 const route = inject('route');
 const defaults = (type) =>

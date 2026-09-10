@@ -292,34 +292,43 @@ export function drawnGeometry(points) {
         throw new Error('Add at least three points to draw a boundary.');
     return { type: 'Polygon', coordinates: [[...points, points[0]]] };
 }
-export function absoluteTime(value) {
-    if (!value) return '—';
-    const date = new Date(value);
-    return Number.isNaN(date.getTime())
-        ? '—'
-        : new Intl.DateTimeFormat('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit',
-              timeZone: 'UTC',
-              timeZoneName: 'short',
-          }).format(date);
+function moderationDate(value) {
+    // Database timestamps without an offset represent UTC, not browser local time.
+    const normalized =
+        typeof value === 'string'
+            ? value
+                  .trim()
+                  .replace(' ', 'T')
+                  .replace(/(T.*[+-]\d{2})$/, '$1:00')
+            : value;
+    return new Date(
+        typeof normalized === 'string' &&
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(normalized)
+            ? `${normalized}Z`
+            : normalized,
+    );
 }
 
-export function localTime(value) {
+export function absoluteTime(value) {
+    return localTime(value);
+}
+
+export function localTime(value, dateOnly = false) {
     if (!value) return '—';
-    const date = new Date(value);
+    const date = moderationDate(value);
     return Number.isNaN(date.getTime())
         ? '—'
-        : new Intl.DateTimeFormat('en-US', {
+        : new Intl.DateTimeFormat(undefined, {
               month: 'short',
               day: 'numeric',
               year: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit',
-              timeZoneName: 'short',
+              ...(dateOnly
+                  ? {}
+                  : {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        timeZoneName: 'short',
+                    }),
           }).format(date);
 }
 export function locationLabel(row) {
@@ -333,7 +342,7 @@ export function locationLabel(row) {
 
 export function relativeTime(value, now = Date.now()) {
     if (!value) return '—';
-    const timestamp = new Date(value).getTime();
+    const timestamp = moderationDate(value).getTime();
     if (!Number.isFinite(timestamp)) return '—';
     const elapsed = Math.max(0, now - timestamp);
     if (elapsed < 60_000) return 'now';
