@@ -1,8 +1,9 @@
+import { router } from '@inertiajs/vue3';
 import { renderToString } from '@vue/server-renderer';
 import assert from 'node:assert/strict';
 import process from 'node:process';
 import test from 'node:test';
-import { createRenderer, createSSRApp, h, nextTick } from 'vue';
+import { createRenderer, createSSRApp, h, nextTick, reactive } from 'vue';
 import {
     absoluteTime,
     boundsGeometry,
@@ -19,6 +20,7 @@ import {
     nodeVersionHistory,
     relativeTime,
 } from '../moderation.js';
+import { useModerationListing } from '../useModerationListing.js';
 import { useModerationTime } from '../useModerationTime.js';
 
 test('timestamps use the viewer timezone across daylight saving and date rollover', () => {
@@ -311,3 +313,76 @@ test('localized dates wait for mounting and reactively replace the SSR placehold
         else process.env.TZ = previous;
     }
 });
+
+for (const view of [
+    'nodes',
+    'flagged',
+    'changesets',
+    'editors',
+    'areas',
+    'audit',
+    'profile',
+]) {
+    test(`${view} filter changes and clearing stay on the dedicated route`, async () => {
+        const originalGet = router.get;
+        const visits = [];
+        router.get = (url, query, options) =>
+            visits.push({ url, query, options });
+        const props = reactive({
+            filters: { uid: 123, page: 2, user: 'mapper' },
+            areas: [],
+        });
+        let listing;
+        const renderer = createRenderer({
+            createElement: () => ({}),
+            parentNode: () => null,
+            nextSibling: () => null,
+            setElementText: () => {},
+            insert: () => {},
+            remove: () => {},
+            patchProp: () => {},
+        });
+        const app = renderer.createApp({
+            setup() {
+                listing = useModerationListing(props, view);
+                return () => h('div');
+            },
+        });
+        app.provide('route', (name, parameters) => ({ name, parameters }));
+        try {
+            app.mount({});
+            listing.apply({ operator: 'City' });
+            listing.sort('id');
+            listing.toggle('kinds', 'added');
+            listing.clear();
+            assert.equal(visits.length, 4);
+            for (const visit of visits) {
+                assert.deepEqual(visit.url, {
+                    name:
+                        view === 'profile'
+                            ? 'moderation.editors.show'
+                            : `moderation.${view}.index`,
+                    parameters: view === 'profile' ? { uid: 123 } : {},
+                });
+                assert.ok(!('view' in visit.query));
+                assert.equal(visit.query.page, 1);
+                assert.equal(visit.options.preserveState, true);
+            }
+            assert.equal(visits[0].query.operator, 'City');
+            assert.equal(visits[1].query.sort, 'id');
+            assert.deepEqual(visits[2].query.kinds, ['added']);
+            assert.deepEqual(
+                visits[3].query,
+                view === 'profile' ? { page: 1 } : { uid: 123, page: 1 },
+            );
+            props.filters = { uid: 123, page: 3, user: 'another_mapper' };
+            await nextTick();
+            assert.equal(listing.state.page, 3);
+            assert.equal(listing.state.user, 'another_mapper');
+            assert.equal(listing.state.operator, undefined);
+        } finally {
+            app.unmount();
+            router.get = originalGet;
+        }
+    });
+}

@@ -25,7 +25,7 @@ class WatchedAreaController extends Controller
             $this->audit($request, $area, 'area.created');
         });
 
-        return to_route('moderation.index', ['view' => 'areas']);
+        return to_route('moderation.areas.index');
     }
 
     private function audit(Request $request, WatchedArea $area, string $action): void

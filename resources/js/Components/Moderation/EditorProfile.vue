@@ -80,11 +80,10 @@ const maxWeek = computed(() =>
 );
 const flagged = computed(() => props.filters.statuses?.includes('Flagged'));
 function listing(view) {
-    return route('moderation.index', { view, uid: props.profile.osm_uid });
+    return route(`moderation.${view}.index`, { uid: props.profile.osm_uid });
 }
 function timeline(onlyFlagged = false, reverted = false) {
-    return route('moderation.index', {
-        view: 'profile',
+    return route('moderation.editors.show', {
         uid: props.profile.osm_uid,
         ...(onlyFlagged ? { statuses: ['Flagged'] } : {}),
         ...(reverted ? { outcome: 'reverted' } : {}),
@@ -151,7 +150,7 @@ onBeforeUnmount(resetDetails);
 <template>
     <section aria-label="Editor profile" class="px-4 pb-11 pt-5 sm:px-6">
         <Link
-            :href="route('moderation.index', { view: 'editors' })"
+            :href="route('moderation.editors.index')"
             class="text-daf-body-sm font-semibold text-daf-text-secondary hover:text-daf-text-brand"
             >← Editors</Link
         >
@@ -310,8 +309,7 @@ onBeforeUnmount(resetDetails);
                             <div class="flex flex-wrap items-baseline gap-2.5">
                                 <Link
                                     :href="
-                                        route('moderation.index', {
-                                            view: 'changesets',
+                                        route('moderation.changesets.index', {
                                             changeset: row.id,
                                         })
                                     "
@@ -340,13 +338,6 @@ onBeforeUnmount(resetDetails);
                                 <span
                                     class="text-xs font-semibold text-daf-text-secondary"
                                     >{{ locationLabel(row) }}</span
-                                >
-                                <a
-                                    :href="`${osmUrl}/changeset/${row.id}`"
-                                    class="mod-link ml-auto"
-                                    rel="noopener noreferrer"
-                                    target="_blank"
-                                    >OSM ↗</a
                                 >
                                 <button
                                     :aria-expanded="expanded === row.id"
@@ -625,12 +616,20 @@ onBeforeUnmount(resetDetails);
                                             event.later_osm_uid
                                         }}
                                         in
-                                        <a
-                                            :href="`${osmUrl}/changeset/${event.later_changeset_id}`"
+                                        <Link
+                                            :href="
+                                                route(
+                                                    'moderation.changesets.index',
+                                                    {
+                                                        changeset:
+                                                            event.later_changeset_id,
+                                                    },
+                                                )
+                                            "
                                             class="underline"
-                                            rel="noopener noreferrer"
-                                            target="_blank"
-                                            >#{{ event.later_changeset_id }}</a
+                                            >#{{
+                                                event.later_changeset_id
+                                            }}</Link
                                         >
                                         · {{ absoluteTime(event.occurred_at)
                                         }}{{
@@ -874,8 +873,7 @@ onBeforeUnmount(resetDetails);
                         >
                             <Link
                                 :href="
-                                    route('moderation.index', {
-                                        view: 'changesets',
+                                    route('moderation.changesets.index', {
                                         uid: profile.osm_uid,
                                         area: area.id,
                                     })

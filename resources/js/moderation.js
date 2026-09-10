@@ -350,3 +350,11 @@ export function relativeTime(value, now = Date.now()) {
     if (elapsed < 86_400_000) return `${Math.floor(elapsed / 3_600_000)}h ago`;
     return `${Math.floor(elapsed / 86_400_000)}d ago`;
 }
+
+export function moderationPageRoute(route, view, parameters = {}) {
+    const name =
+        view === 'profile'
+            ? 'moderation.editors.show'
+            : `moderation.${view}.index`;
+    return route(name, parameters);
+}

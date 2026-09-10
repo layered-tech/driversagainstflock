@@ -15,17 +15,68 @@ use App\Services\OpenStreetMap\ModerationSummaries;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ModerationController extends Controller
 {
-    public function index(ModerationIndexRequest $request, ModerationReader $reader, ModerationSummaries $summaries): Response
+    public function index(ModerationIndexRequest $request): RedirectResponse
+    {
+        $navigation = $request->validate([
+            'view' => ['sometimes', Rule::in(['changesets', 'nodes', 'flagged', 'editors', 'profile', 'areas', 'audit'])],
+            'uid' => ['required_if:view,profile', 'nullable', 'integer', 'min:1'],
+        ]);
+        $view = $navigation['view'] ?? 'nodes';
+        $route = $view === 'profile' ? 'moderation.editors.show' : 'moderation.'.$view.'.index';
+
+        return to_route($route, $request->validated());
+    }
+
+    public function nodes(ModerationIndexRequest $request, ModerationReader $reader, ModerationSummaries $summaries): Response
+    {
+        return $this->listing($request, $reader, $summaries, 'nodes', 'Moderation/Nodes');
+    }
+
+    public function changesets(ModerationIndexRequest $request, ModerationReader $reader, ModerationSummaries $summaries): Response
+    {
+        return $this->listing($request, $reader, $summaries, 'changesets', 'Moderation/Changesets');
+    }
+
+    public function flagged(ModerationIndexRequest $request, ModerationReader $reader, ModerationSummaries $summaries): Response
+    {
+        return $this->listing($request, $reader, $summaries, 'flagged', 'Moderation/Flagged');
+    }
+
+    public function editors(ModerationIndexRequest $request, ModerationReader $reader, ModerationSummaries $summaries): Response
+    {
+        return $this->listing($request, $reader, $summaries, 'editors', 'Moderation/Editors');
+    }
+
+    public function areas(ModerationIndexRequest $request, ModerationReader $reader, ModerationSummaries $summaries): Response
+    {
+        return $this->listing($request, $reader, $summaries, 'areas', 'Moderation/Areas');
+    }
+
+    public function audit(ModerationIndexRequest $request, ModerationReader $reader, ModerationSummaries $summaries): Response
+    {
+        return $this->listing($request, $reader, $summaries, 'audit', 'Moderation/Audit');
+    }
+
+    public function profile(ModerationIndexRequest $request, ModerationReader $reader, ModerationSummaries $summaries, int $uid): Response
+    {
+        return $this->listing($request, $reader, $summaries, 'profile', 'Moderation/Profile', $uid);
+    }
+
+    private function listing(ModerationIndexRequest $request, ModerationReader $reader, ModerationSummaries $summaries, string $view, string $component, ?int $uid = null): Response
     {
         $filters = $request->validated();
-        $view = $filters['view'] ?? 'nodes';
+        if ($uid !== null) {
+            $filters['uid'] = $uid;
+        }
         $profile = null;
         $weeks = [];
         $areas = WatchedArea::orderBy('name')->get(['id', 'name']);
@@ -35,15 +86,15 @@ class ModerationController extends Controller
         if ($view === 'areas') {
             $records = WatchedArea::with(['creator:id,name', 'watchers:id,name'])
                 ->when($filters['search'] ?? null, fn ($query, string $search) => $query->whereLike('name', '%'.$search.'%'))
-                ->latest()->simplePaginate(200)->withQueryString();
+                ->latest()->simplePaginate(200)->appends($request->safe()->except($uid !== null ? ['uid'] : []));
         } elseif ($view === 'audit') {
-            $records = ModerationActivity::latest('id')->simplePaginate(200)->withQueryString();
+            $records = ModerationActivity::latest('id')->simplePaginate(200)->appends($request->safe()->except($uid !== null ? ['uid'] : []));
         }
         try {
             if ($view === 'editors') {
                 $records = $this->editorRecords($request, $filters, $source);
             } else {
-                $reader->query()->getConnection()->transaction(function () use ($reader, $summaries, $filters, $view, &$counts, &$source, &$records, &$profile, &$weeks): void {
+                $reader->query()->getConnection()->transaction(function () use ($request, $uid, $reader, $summaries, $filters, $view, &$counts, &$source, &$records, &$profile, &$weeks): void {
                     if ($view === 'areas') {
                         $records->through(function (WatchedArea $area) use ($summaries): array {
                             $result = $summaries->area($area);
@@ -52,7 +103,7 @@ class ModerationController extends Controller
                         });
                     }
                     if (! in_array($view, ['areas', 'audit', 'editors'], true)) {
-                        $query = $reader->listing($view, $filters);
+                        $query = $reader->listing($view, $filters, forPagination: true);
                         if (($filters['outcome'] ?? null) === 'reverted') {
                             $query->whereIn('id', ModerationContribution::where('status', 'reverted')->distinct()->pluck('changeset_id')->all());
                         }
@@ -67,7 +118,7 @@ class ModerationController extends Controller
                         }
                         $order = $filters['order'] ?? 'desc';
                         $query->orderBy($sort, $order);
-                        $records = $query->orderByDesc('id')->simplePaginate(200)->withQueryString()->through($reader->normalize(...));
+                        $records = $reader->paginateListing($query->orderByDesc('id'), $view)->appends($request->safe()->except($uid !== null ? ['uid'] : []))->through($reader->normalize(...));
                         if ($view === 'profile') {
                             $result = $summaries->editor((int) $filters['uid']);
                             $profile = $result['data'];
@@ -93,8 +144,8 @@ class ModerationController extends Controller
             $source['state'] = 'unavailable';
         }
 
-        return Inertia::render('Moderation/Index', [
-            'view' => $view, 'filters' => $filters, 'records' => $records, 'profile' => $profile, 'weeks' => $weeks,
+        return Inertia::render($component, [
+            'filters' => $filters, 'records' => $records, 'profile' => $profile, 'weeks' => $weeks,
             'areas' => $areas, 'counts' => $counts,
             'source' => $source,
             ...($view === 'flagged' ? ['ruleOptions' => ModerationRule::where('enabled', true)->orderBy('name')->get(['id', 'name'])] : []),
@@ -133,7 +184,7 @@ class ModerationController extends Controller
         };
         $order = $filters['order'] ?? 'desc';
         $records = $query->orderByRaw($sort.' '.$order.' NULLS LAST')->orderByDesc('osm_uid')
-            ->simplePaginate(200)->withQueryString()->through(fn (ModerationEditorSummary $summary): array => [
+            ->simplePaginate(200)->appends($request->validated())->through(fn (ModerationEditorSummary $summary): array => [
                 ...$summary->toArray(),
                 'id' => $summary->osm_uid,
                 'area_count' => $summary->areas_count,

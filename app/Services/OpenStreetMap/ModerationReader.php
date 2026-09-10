@@ -11,6 +11,7 @@ use App\Models\OsmNodeVersion;
 use App\Models\WatchedArea;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\DB;
 
 class ModerationReader
@@ -68,24 +69,32 @@ class ModerationReader
         return DB::connection((new OsmNode)->getConnectionName())->query();
     }
 
-    public function nodes(): Builder
+    public function nodes(bool $withPrevious = true, bool $withReviews = true): Builder
     {
         $latest = OsmNodeVersion::query()->selectRaw('DISTINCT ON (node_id) *')->orderBy('node_id')->orderByDesc('osm_version');
         $previous = OsmNodeVersion::query()->select(['tags', 'latitude', 'longitude', 'osm_version', 'osm_user', 'osm_uid'])
             ->whereColumn('node_id', 'latest.node_id')->whereColumn('osm_version', '<', 'latest.osm_version')->orderByDesc('osm_version')->limit(1);
-        $base = $this->query()->fromSub($latest, 'latest')->leftJoinLateral($previous, 'previous')
+        $base = $this->query()->fromSub($latest, 'latest')
             ->selectRaw("latest.node_id as id, latest.node_id as osm_node_id, latest.osm_version, latest.changeset_id as osm_changeset_id,
                 latest.osm_uid, latest.osm_user, latest.osm_updated_at as changed_at, latest.visible,
-                COALESCE(latest.latitude, previous.latitude) as latitude, COALESCE(latest.longitude, previous.longitude) as longitude,
-                ((latest.latitude IS NULL OR latest.longitude IS NULL) AND previous.latitude IS NOT NULL AND previous.longitude IS NOT NULL) as location_is_historical,
                 latest.tags, latest.tags->>'operator' as operator,
-                CASE WHEN previous.osm_version IS NOT NULL THEN jsonb_build_object('tags',previous.tags,'osm_version',previous.osm_version,'latitude',previous.latitude,'longitude',previous.longitude,'osm_user',previous.osm_user) END as previous,
                 md5(concat_ws('|', latest.node_id, latest.osm_version, latest.tags::text, latest.visible, latest.latitude, latest.longitude)) as revision,
                 CASE WHEN trim(COALESCE(latest.tags->>'camera:direction',latest.tags->>'direction','')) ~ '^[0-9]+(\\.[0-9]+)?$'
                     THEN CASE WHEN COALESCE(latest.tags->>'camera:direction',latest.tags->>'direction')::numeric BETWEEN 0 AND 360
                     THEN round(COALESCE(latest.tags->>'camera:direction',latest.tags->>'direction')::numeric)::int % 360 END
                     ELSE CASE upper(COALESCE(latest.tags->>'camera:direction',latest.tags->>'direction')) WHEN 'N' THEN 0 WHEN 'NE' THEN 45 WHEN 'E' THEN 90 WHEN 'SE' THEN 135 WHEN 'S' THEN 180 WHEN 'SW' THEN 225 WHEN 'W' THEN 270 WHEN 'NW' THEN 315 END END as direction");
+        if ($withPrevious) {
+            $base->leftJoinLateral($previous, 'previous')
+                ->selectRaw("COALESCE(latest.latitude, previous.latitude) as latitude, COALESCE(latest.longitude, previous.longitude) as longitude,
+                    ((latest.latitude IS NULL OR latest.longitude IS NULL) AND previous.latitude IS NOT NULL AND previous.longitude IS NOT NULL) as location_is_historical,
+                    CASE WHEN previous.osm_version IS NOT NULL THEN jsonb_build_object('tags',previous.tags,'osm_version',previous.osm_version,'latitude',previous.latitude,'longitude',previous.longitude,'osm_user',previous.osm_user) END as previous");
+        } else {
+            $base->addSelect(['latest.latitude', 'latest.longitude'])->selectRaw('false as location_is_historical, NULL::jsonb as previous');
+        }
         $query = $this->query()->fromSub($base, 'source');
+        if (! $withReviews) {
+            return $query->select('source.*');
+        }
         $this->reviews($query, 'node');
 
         return $query->select('source.*')->selectRaw("COALESCE(review.status, 'Needs review') as status");
@@ -124,7 +133,7 @@ class ModerationReader
         ];
     }
 
-    public function changesets(): Builder
+    public function changesets(bool $withReviews = true): Builder
     {
         $source = OsmChangeset::query()->select([
             'osm_changeset_id as id', 'osm_changeset_id', 'osm_uid', 'osm_user',
@@ -137,6 +146,9 @@ class ModerationReader
             ->selectRaw("tags->>'comment' as comment, CASE WHEN min_lon IS NOT NULL THEN jsonb_build_array(min_lon,min_lat,max_lon,max_lat) END as bounds")
             ->selectRaw("md5(concat_ws('|', osm_changeset_id, tags::text, open, alpr_nodes_created, alpr_nodes_modified, alpr_nodes_deleted)) as revision");
         $query = $this->query()->fromSub($source, 'source');
+        if (! $withReviews) {
+            return $query->select('source.*');
+        }
         $this->reviews($query, 'changeset');
 
         return $query->select('source.*')->selectRaw("COALESCE(review.status, 'Needs review') as status");
@@ -171,10 +183,12 @@ class ModerationReader
     }
 
     /** @param array<string, mixed> $filters */
-    public function listing(string $view, array $filters): Builder
+    public function listing(string $view, array $filters, bool $forPagination = false): Builder
     {
+        $withReviews = ! $forPagination || ! empty($filters['statuses']) || ($filters['sort'] ?? null) === 'status';
+        $withPrevious = ! $forPagination || ! empty($filters['area']);
         $query = match ($view) {
-            'nodes', 'flagged' => $this->query()->fromSub($this->nodes(), 'records'), 'editors' => $this->query()->fromSub($this->editors(), 'records'), default => $this->query()->fromSub($this->changesets(), 'records')
+            'nodes', 'flagged' => $this->query()->fromSub($this->nodes($withPrevious, $withReviews), 'records'), 'editors' => $this->query()->fromSub($this->editors(), 'records'), default => $this->query()->fromSub($this->changesets($withReviews), 'records')
         };
         if ($view === 'flagged') {
             $flags = ModerationFlag::active()
@@ -242,6 +256,36 @@ class ModerationReader
         }
 
         return $query;
+    }
+
+    /**
+     * Select the page before enriching its records, in a single database snapshot.
+     *
+     * @return Paginator<int, object>
+     */
+    public function paginateListing(Builder $query, string $view, int $perPage = 200, ?int $page = null): Paginator
+    {
+        $page = max(1, $page ?? Paginator::resolveCurrentPage());
+        $orders = $query->orders ?? [];
+        $columns = array_unique(['id', ...array_column($orders, 'column')]);
+        $candidates = (clone $query)->select($columns)->offset(($page - 1) * $perPage)->limit($perPage + 1);
+        $isNode = in_array($view, ['nodes', 'flagged'], true);
+        $details = $isNode ? $this->nodes(withReviews: false) : $this->changesets(withReviews: false);
+        $details->whereColumn('source.id', 'page.id')->limit(1);
+        $enriched = $this->query()->fromSub($candidates, 'page')->joinLateral($details, 'source')->select('source.*')->limit($perPage + 1);
+        foreach ($orders as $order) {
+            $enriched->orderBy('page.'.$order['column'], $order['direction']);
+        }
+        $records = $this->query()->fromSub($enriched, 'source')->select('source.*');
+        $this->reviews($records, $isNode ? 'node' : 'changeset');
+        $records->selectRaw("COALESCE(review.status, 'Needs review') as status");
+        foreach ($orders as $order) {
+            $records->orderBy($order['column'], $order['direction']);
+        }
+
+        return new Paginator($records->get(), $perPage, $page, [
+            'path' => Paginator::resolveCurrentPath(), 'pageName' => 'page',
+        ]);
     }
 
     public function editors(): Builder
