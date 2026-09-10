@@ -93,6 +93,13 @@ require __DIR__.'/auth.php';
 
 Route::middleware(['auth', EnsureOsmModerator::class])->prefix('moderation')->name('moderation.')->group(function (): void {
     Route::get('/', [ModerationController::class, 'index'])->name('index');
+    Route::get('/nodes', [ModerationController::class, 'nodes'])->name('nodes.index');
+    Route::get('/changesets', [ModerationController::class, 'changesets'])->name('changesets.index');
+    Route::get('/flagged', [ModerationController::class, 'flagged'])->name('flagged.index');
+    Route::get('/editors', [ModerationController::class, 'editors'])->name('editors.index');
+    Route::get('/areas', [ModerationController::class, 'areas'])->name('areas.index');
+    Route::get('/audit', [ModerationController::class, 'audit'])->name('audit.index');
+    Route::get('/editors/{uid}', [ModerationController::class, 'profile'])->where('uid', '[1-9][0-9]*')->name('editors.show');
     Route::get('/rules', [ModerationRuleController::class, 'index'])->name('rules.index');
     Route::get('/rules/create', [ModerationRuleController::class, 'create'])->name('rules.create');
     Route::post('/rules/preview', [ModerationRuleController::class, 'preview'])->middleware('throttle:10,1')->name('rules.preview');

@@ -148,17 +148,17 @@ test('flagged lists only active rule matches and keeps all nodes in the ALPR tab
     $manualChangeset = $reader->changesets()->first();
     $this->patch('/moderation/changesets/100/review', ['revision' => $manualChangeset->revision, 'status' => 'Flagged'])->assertRedirect();
 
-    $this->get('/moderation?view=flagged')->assertInertia(fn (Assert $page) => $page
-        ->where('view', 'flagged')->where('source.state', 'ready')
+    $this->get('/moderation/flagged')->assertInertia(fn (Assert $page) => $page
+        ->component('Moderation/Flagged')->where('source.state', 'ready')
         ->has('records.data', 1)->where('records.data.0.id', 200)
         ->has('records.data.0.flags', 1)->where('records.data.0.flags.0.rule.name', $rule->name)
         ->has('ruleOptions', 1)->where('ruleOptions.0.id', $rule->id));
-    $this->get('/moderation?view=nodes')->assertInertia(fn (Assert $page) => $page->has('records.data', 5));
+    $this->get('/moderation/nodes')->assertInertia(fn (Assert $page) => $page->has('records.data', 5));
 
     $flag = ModerationFlag::where('node_id', 200)->first();
-    $this->from('/moderation?view=flagged')->patch('/moderation/flags/'.$flag->id.'/dismiss', ['evidence_hash' => $flag->evidence_hash])->assertRedirect('/moderation?view=flagged');
-    $this->get('/moderation?view=flagged')->assertInertia(fn (Assert $page) => $page->has('records.data', 0));
-    $this->get('/moderation?view=nodes&osm_id=200')->assertInertia(fn (Assert $page) => $page->has('records.data', 1)->has('records.data.0.flags', 0));
+    $this->from('/moderation/flagged')->patch('/moderation/flags/'.$flag->id.'/dismiss', ['evidence_hash' => $flag->evidence_hash])->assertRedirect('/moderation/flagged');
+    $this->get('/moderation/flagged')->assertInertia(fn (Assert $page) => $page->has('records.data', 0));
+    $this->get('/moderation/nodes?osm_id=200')->assertInertia(fn (Assert $page) => $page->has('records.data', 1)->has('records.data.0.flags', 0));
 });
 
 test('flagged filters combine rule severity and existing node filters including related nodes', function () {
@@ -174,12 +174,12 @@ test('flagged filters combine rule severity and existing node filters including 
         $evaluator->evaluate($duplicate, $reader->normalize($node));
         $evaluator->evaluate($missing, $reader->normalize($node));
     }
-    $this->get('/moderation?view=flagged&rules[]='.$duplicate->id.'&severities[]=High')->assertInertia(fn (Assert $page) => $page->has('records.data', 2));
-    $this->get('/moderation?view=flagged&rules[]='.$duplicate->id.'&severities[]=Low')->assertInertia(fn (Assert $page) => $page->has('records.data', 0));
-    $this->get('/moderation?view=flagged&rules[]='.$duplicate->id.'&osm_id=201&missing_direction=1')->assertInertia(fn (Assert $page) => $page->has('records.data', 1)->where('records.data.0.id', 201)->has('records.data.0.flags', 2));
-    $this->get('/moderation?view=flagged&operator=City&direction_from=340&direction_to=10&user=123&changeset=100&window=24h')->assertInertia(fn (Assert $page) => $page->has('records.data', 1)->where('records.data.0.id', 200));
-    $this->get('/moderation?view=flagged&rules[]=invalid')->assertSessionHasErrors('rules.0');
-    $this->get('/moderation?view=flagged&severities[]=Critical')->assertSessionHasErrors('severities.0');
+    $this->get('/moderation/flagged?rules[]='.$duplicate->id.'&severities[]=High')->assertInertia(fn (Assert $page) => $page->has('records.data', 2));
+    $this->get('/moderation/flagged?rules[]='.$duplicate->id.'&severities[]=Low')->assertInertia(fn (Assert $page) => $page->has('records.data', 0));
+    $this->get('/moderation/flagged?rules[]='.$duplicate->id.'&osm_id=201&missing_direction=1')->assertInertia(fn (Assert $page) => $page->has('records.data', 1)->where('records.data.0.id', 201)->has('records.data.0.flags', 2));
+    $this->get('/moderation/flagged?operator=City&direction_from=340&direction_to=10&user=123&changeset=100&window=24h')->assertInertia(fn (Assert $page) => $page->has('records.data', 1)->where('records.data.0.id', 200));
+    $this->get('/moderation/flagged?rules[]=invalid')->assertSessionHasErrors('rules.0');
+    $this->get('/moderation/flagged?severities[]=Critical')->assertSessionHasErrors('severities.0');
     $this->get('/moderation/nodes/201?from=flagged')->assertInertia(fn (Assert $page) => $page->where('from', 'flagged')->where('node.id', 201));
     $this->get('/moderation/nodes/201?from=invalid')->assertInertia(fn (Assert $page) => $page->where('from', 'nodes'));
 });
@@ -194,9 +194,9 @@ test('flagged paginates matching nodes before applying the page limit', function
     foreach ($reader->nodes()->where('source.id', '<', 401)->get() as $node) {
         app(ModerationRuleEvaluator::class)->evaluate($rule, $reader->normalize($node));
     }
-    $this->get('/moderation?view=flagged&sort=id&order=desc')->assertInertia(fn (Assert $page) => $page
+    $this->get('/moderation/flagged?sort=id&order=desc')->assertInertia(fn (Assert $page) => $page
         ->has('records.data', 200)->where('records.data.0.id', 400)
-        ->where('records.next_page_url', fn ($url) => str_contains($url, 'view=flagged') && str_contains($url, 'page=2')));
-    $this->get('/moderation?view=flagged&sort=id&order=desc&page=2')->assertInertia(fn (Assert $page) => $page
+        ->where('records.next_page_url', fn ($url) => str_contains($url, '/moderation/flagged?') && ! str_contains($url, 'view=') && str_contains($url, 'page=2')));
+    $this->get('/moderation/flagged?sort=id&order=desc&page=2')->assertInertia(fn (Assert $page) => $page
         ->has('records.data', 1)->where('records.data.0.id', 200));
 });

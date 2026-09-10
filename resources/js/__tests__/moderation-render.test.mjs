@@ -20,16 +20,19 @@ const components = {
             ),
         )
     ),
-    'Moderation/Index': await import(
-        pathToFileURL(
-            resolve(
-                assets,
-                files.find((file) => /^Index-.*\.js$/.test(file)),
-            ),
-        )
-    ),
 };
-for (const name of ['Node', 'Rules', 'RuleForm']) {
+for (const name of [
+    'Node',
+    'Rules',
+    'RuleForm',
+    'Nodes',
+    'Flagged',
+    'Changesets',
+    'Editors',
+    'Areas',
+    'Audit',
+    'Profile',
+]) {
     components[`Moderation/${name}`] = await import(
         pathToFileURL(
             resolve(
@@ -60,8 +63,19 @@ function route(name, args = {}) {
         return `/moderation/nodes/show/${args.node}?from=${args.from}`;
     if (name === 'logout') return '/logout';
     if (name === 'login.osm') return '/login/openstreetmap';
-    if (name === 'moderation.index')
-        return `/moderation?${new URLSearchParams(args)}`;
+    if (name === 'moderation.editors.show') {
+        const { uid, ...query } = args;
+        const search = new URLSearchParams(query).toString();
+        return `/moderation/editors/${uid}${search ? `?${search}` : ''}`;
+    }
+    if (
+        /^moderation\.(nodes|flagged|changesets|editors|areas|audit)\.index$/.test(
+            name,
+        )
+    ) {
+        const search = new URLSearchParams(args).toString();
+        return `/moderation/${name.split('.')[1]}${search ? `?${search}` : ''}`;
+    }
     return `/moderation/${name.split('.').slice(1).join('/')}/${typeof args === 'number' ? args : ''}`;
 }
 async function render(component, props) {
@@ -77,6 +91,10 @@ async function render(component, props) {
             return app;
         },
     });
+}
+async function renderListing({ view = 'nodes', ...props }) {
+    const name = view[0].toUpperCase() + view.slice(1);
+    return render(`Moderation/${name}`, props);
 }
 async function preview(name, output, theme = 'light') {
     if (!process.env.MODERATION_PREVIEW_DIR) return;
@@ -129,7 +147,7 @@ test('compiled moderation renders source-backed rows and escapes upstream text',
         latitude: 30.27,
         longitude: -97.74,
     }));
-    const output = await render('Moderation/Index', {
+    const output = await renderListing({
         ...base,
         records: { ...base.records, data: nodes, total: nodes.length },
     });
@@ -148,7 +166,7 @@ test('compiled moderation renders source-backed rows and escapes upstream text',
     assert.ok(output.body.includes('270°'));
     await preview('nodes', output);
     await preview('nodes', output, 'dark');
-    const changes = await render('Moderation/Index', {
+    const changes = await renderListing({
         ...base,
         view: 'changesets',
         records: {
@@ -172,9 +190,23 @@ test('compiled moderation renders source-backed rows and escapes upstream text',
             ],
         },
     });
+    assert.ok(
+        changes.body.includes(
+            'href="/moderation/changesets?changeset=164178204"',
+        ),
+    );
     assert.ok(changes.body.includes('&lt;script&gt;'));
     assert.ok(!changes.body.includes('<script>alert(1)</script>'));
     assert.ok(!changes.body.includes('aria-label="OSM node ID"'));
+    const changesetFilters = changes.body.match(
+        /<form\b[^>]*>(.*?)<\/form>/s,
+    )?.[1];
+    assert.ok(changesetFilters);
+    assert.doesNotMatch(
+        changesetFilters,
+        />Status<|Needs review|Reviewed|Flagged/,
+    );
+    assert.match(changesetFilters, />Changes</);
     const changesetTableHead = changes.body.match(
         /<table[^>]*mod-table-changesets[^>]*>.*?<thead>(.*?)<\/thead>/s,
     )?.[1];
@@ -229,11 +261,15 @@ test('compiled ALPR node profile renders history, tags, editors, and honest flag
     assert.ok(output.body.includes('History'));
     assert.ok(output.body.includes('Tags'));
     assert.ok(output.body.includes('Who touched it'));
+    assert.ok(
+        output.body.includes('href="/moderation/changesets?changeset=100"'),
+    );
+    assert.ok(!output.body.includes('openstreetmap.org/changeset/'));
     assert.ok(output.body.includes('Added surveyed camera'));
     assert.ok(output.body.includes('(missing)'));
 });
-test('activity node IDs link to node details without linking other subject IDs', async () => {
-    const output = await render('Moderation/Index', {
+test('activity node and changeset IDs link to their moderation destinations', async () => {
+    const output = await renderListing({
         ...base,
         view: 'audit',
         records: {
@@ -253,12 +289,16 @@ test('activity node IDs link to node details without linking other subject IDs',
         output.body.replace(/<!--.*?-->/gs, ''),
         /<a\b[^>]*href="\/moderation\/nodes\/show\/200"[^>]*>\s*node #200\s*<\/a>/,
     );
+    assert.match(
+        output.body.replace(/<!--.*?-->/gs, ''),
+        /<a\b[^>]*href="\/moderation\/changesets\?changeset=201"[^>]*>\s*changeset #201\s*<\/a>/,
+    );
     for (const id of [201, 202, 203]) {
         assert.ok(!output.body.includes(`/moderation/nodes/show/${id}`));
     }
 });
 test('unavailable source shows recovery state without claiming an empty review queue', async () => {
-    const output = await render('Moderation/Index', {
+    const output = await renderListing({
         ...base,
         source: { state: 'unavailable' },
     });
@@ -268,21 +308,21 @@ test('unavailable source shows recovery state without claiming an empty review q
 });
 
 test('pagination renders next and previous links without aggregate totals', async () => {
-    const output = await render('Moderation/Index', {
+    const output = await renderListing({
         ...base,
         records: {
             data: [],
             current_page: 2,
             from: 201,
             to: 400,
-            prev_page_url: '/moderation?page=1',
-            next_page_url: '/moderation?page=3',
+            prev_page_url: '/moderation/nodes?page=1',
+            next_page_url: '/moderation/nodes?page=3',
         },
     });
     assert.ok(output.body.includes('Showing 201–400'));
     assert.ok(output.body.includes('Page 2'));
-    assert.ok(output.body.includes('/moderation?page=1'));
-    assert.ok(output.body.includes('/moderation?page=3'));
+    assert.ok(output.body.includes('/moderation/nodes?page=1'));
+    assert.ok(output.body.includes('/moderation/nodes?page=3'));
     assert.ok(!output.body.includes('undefined'));
 });
 
@@ -315,9 +355,9 @@ test('editor profile follows the design timeline and shows missing outcomes as u
         })),
         from: 1,
         to: 3,
-        next_page_url: '/moderation?view=profile&uid=123&page=2',
+        next_page_url: '/moderation/editors/123?page=2',
     };
-    const output = await render('Moderation/Index', {
+    const output = await renderListing({
         ...base,
         view: 'profile',
         filters: { uid: 123 },
@@ -349,6 +389,11 @@ test('editor profile follows the design timeline and shows missing outcomes as u
     assert.ok(!output.body.includes('Flagged nodes'));
     for (const record of records.data) {
         assert.ok(
+            output.body.includes(
+                `href="/moderation/changesets?changeset=${record.id}"`,
+            ),
+        );
+        assert.ok(
             output.body.includes(`Details for changeset ${record.id}`),
             `timeline disclosure for changeset ${record.id}`,
         );
@@ -358,12 +403,10 @@ test('editor profile follows the design timeline and shows missing outcomes as u
     assert.ok(output.body.includes('&lt;script&gt;'));
     assert.ok(output.body.includes('outcome=reverted'));
     assert.ok(output.body.includes('Timeline pagination'));
-    assert.ok(
-        output.body.includes('view=profile&amp;uid=123&amp;statuses=Flagged'),
-    );
+    assert.ok(output.body.includes('/moderation/editors/123?statuses=Flagged'));
     await preview('profile', output);
     await preview('profile', output, 'dark');
-    const editors = await render('Moderation/Index', {
+    const editors = await renderListing({
         ...base,
         view: 'editors',
         records: { data: [profile] },
@@ -381,7 +424,7 @@ test('editor profile follows the design timeline and shows missing outcomes as u
 });
 
 test('areas retain their design and distinguish missing rule counts from zero', async () => {
-    const output = await render('Moderation/Index', {
+    const output = await renderListing({
         ...base,
         view: 'areas',
         records: {
@@ -421,7 +464,7 @@ test('Rules screens render typed settings and stored outcomes populate profile p
     });
     assert.ok(form.body.includes('Required tags'));
     assert.ok(form.body.includes('Preview rule'));
-    const editor = await render('Moderation/Index', {
+    const editor = await renderListing({
         ...base,
         view: 'profile',
         profile: {
@@ -449,7 +492,7 @@ test('Rules screens render typed settings and stored outcomes populate profile p
 });
 
 test('summary refresh does not claim an OSM outage or empty editor results', async () => {
-    const output = await render('Moderation/Index', {
+    const output = await renderListing({
         ...base,
         view: 'editors',
         source: { state: 'refreshing' },
@@ -463,7 +506,7 @@ test('summary refresh does not claim an OSM outage or empty editor results', asy
 });
 
 test('summary refresh shows persisted rows and queue progress', async () => {
-    const output = await render('Moderation/Index', {
+    const output = await renderListing({
         ...base,
         view: 'editors',
         records: {
@@ -496,7 +539,7 @@ test('summary refresh shows persisted rows and queue progress', async () => {
 });
 
 test('summary refresh failures keep stale rows visible with an explicit status', async () => {
-    const output = await render('Moderation/Index', {
+    const output = await renderListing({
         ...base,
         view: 'editors',
         records: {
@@ -543,7 +586,7 @@ test('flagged table renders rule evidence and its own filters while ALPR keeps i
         ],
     };
     for (const view of ['nodes', 'flagged']) {
-        const output = await render('Moderation/Index', {
+        const output = await renderListing({
             ...base,
             view,
             filters: { rules: ['5'], severities: ['High'], area: '1' },
@@ -553,7 +596,7 @@ test('flagged table renders rule evidence and its own filters while ALPR keeps i
         });
         const header = output.body.match(/<thead>(.*?)<\/thead>/s)[1];
         assert.equal(header.includes('Severity'), view === 'flagged');
-        assert.ok(output.body.includes('view=flagged'));
+        assert.ok(output.body.includes('href="/moderation/flagged"'));
         assert.ok(output.body.includes('aria-label="Remove location Austin"'));
         assert.ok(output.body.includes('placeholder="Search locations…"'));
         assert.ok(output.body.includes('aria-label="OSM node ID"'));
@@ -587,9 +630,46 @@ test('empty tables distinguish all ALPR nodes from the flagged queue', async () 
         ['nodes', 'No ALPR nodes match'],
         ['flagged', 'No flagged nodes match'],
     ]) {
-        const output = await render('Moderation/Index', { ...base, view });
+        const output = await renderListing({ ...base, view });
         assert.ok(output.body.includes(label));
         if (view === 'flagged')
             assert.ok(output.body.includes('No active rules'));
+    }
+});
+
+test('each moderation page renders canonical navigation without view selectors', async () => {
+    for (const view of [
+        'nodes',
+        'flagged',
+        'changesets',
+        'editors',
+        'areas',
+        'audit',
+        'profile',
+    ]) {
+        const output = await renderListing({
+            ...base,
+            view,
+            filters: view === 'profile' ? { uid: 123 } : {},
+        });
+        for (const target of [
+            'nodes',
+            'flagged',
+            'changesets',
+            'editors',
+            'areas',
+            'audit',
+        ]) {
+            assert.ok(
+                output.body.includes(`href="/moderation/${target}"`),
+                `${view} links to ${target}`,
+            );
+        }
+        assert.doesNotMatch(output.body, /[?&](?:amp;)?view=/);
+        const active = view === 'profile' ? 'editors' : view;
+        assert.match(
+            output.body,
+            new RegExp(`aria-current="page"[^>]*href="/moderation/${active}"`),
+        );
     }
 });

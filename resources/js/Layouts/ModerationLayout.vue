@@ -99,7 +99,7 @@ const links = [
                             ? 'bg-[var(--brand-soft)] text-daf-text-brand'
                             : 'text-daf-text-secondary hover:bg-[var(--brand-soft)]',
                     ]"
-                    :href="route('moderation.index', { view: item.view })"
+                    :href="route(`moderation.${item.view}.index`)"
                 >
                     {{ item.label
                     }}<span
@@ -126,7 +126,7 @@ const links = [
                 >
                 <Link
                     :aria-current="view === 'audit' ? 'page' : undefined"
-                    :href="route('moderation.index', { view: 'audit' })"
+                    :href="route('moderation.audit.index')"
                     class="whitespace-nowrap rounded-dafSm px-3 py-[9px] text-daf-body-sm font-semibold text-daf-text-secondary hover:bg-[var(--brand-soft)]"
                     >Audit log</Link
                 >

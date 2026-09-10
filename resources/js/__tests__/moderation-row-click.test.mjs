@@ -6,7 +6,7 @@ import { URL } from 'node:url';
 import * as Vue from 'vue';
 
 const source = await readFile(
-    new URL('../Pages/Moderation/Index.vue', import.meta.url),
+    new URL('../Components/Moderation/ModerationListing.vue', import.meta.url),
     'utf8',
 );
 const opening = source.match(
@@ -34,7 +34,7 @@ for (const view of [
     'flagged',
     'areas',
     'editors',
-    'activity',
+    'audit',
 ]) {
     test(`${view} rows toggle only when expandable and clicked outside controls`, () => {
         let expanded = false;
@@ -66,7 +66,7 @@ for (const view of [
                 },
             });
         click('td');
-        assert.equal(expanded, !['editors', 'activity'].includes(view));
+        assert.equal(expanded, !['editors', 'audit'].includes(view));
         click('span');
         assert.equal(expanded, false);
         for (const tag of [

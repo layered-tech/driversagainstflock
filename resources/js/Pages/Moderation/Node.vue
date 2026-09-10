@@ -186,8 +186,7 @@ const initials = (name) =>
         .toUpperCase();
 const editorHref = (editor) =>
     editor.osm_uid
-        ? route('moderation.index', {
-              view: 'profile',
+        ? route('moderation.editors.show', {
               uid: editor.osm_uid,
           })
         : null;
@@ -206,7 +205,7 @@ const dismissFlag = (flag) =>
         </Head>
         <section class="px-4 pb-11 pt-5 sm:px-6">
             <Link
-                :href="route('moderation.index', { view: from })"
+                :href="route(`moderation.${from}.index`)"
                 class="inline-flex text-sm font-semibold text-daf-text-secondary hover:text-daf-text-brand"
             >
                 ← {{ from === 'flagged' ? 'Flagged nodes' : 'ALPR nodes' }}
@@ -281,8 +280,7 @@ const dismissFlag = (flag) =>
                         <Link
                             v-if="node.osm_changeset_id"
                             :href="
-                                route('moderation.index', {
-                                    view: 'changesets',
+                                route('moderation.changesets.index', {
                                     changeset: node.osm_changeset_id,
                                 })
                             "
@@ -504,18 +502,21 @@ const dismissFlag = (flag) =>
                                                 class="text-[12.5px] text-daf-text-secondary"
                                                 >Unknown editor</span
                                             >
-                                            <a
+                                            <Link
                                                 :href="
-                                                    osmUrl +
-                                                    '/changeset/' +
-                                                    item.version.changeset_id
+                                                    route(
+                                                        'moderation.changesets.index',
+                                                        {
+                                                            changeset:
+                                                                item.version
+                                                                    .changeset_id,
+                                                        },
+                                                    )
                                                 "
                                                 class="font-mono text-[11px] tracking-[var(--ls-mono)] text-daf-text-tertiary hover:text-daf-text-brand hover:underline"
-                                                rel="noopener noreferrer"
-                                                target="_blank"
                                                 >#{{
                                                     item.version.changeset_id
-                                                }}</a
+                                                }}</Link
                                             >
                                         </template>
                                         <span

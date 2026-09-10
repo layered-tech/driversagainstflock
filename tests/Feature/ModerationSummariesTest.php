@@ -51,7 +51,7 @@ test('summaries deduplicate reverted changesets and exclude incomplete contribut
     $summary = app(ModerationSummaries::class)->editor(123)['data'];
     expect($summary['survival']['reverted'])->toBe(1)->and($summary['survival']['percent'])->toBe(0.0)->and($summary['revert_stats']['affected_nodes'])->toBe(2);
     $this->moderator();
-    $this->get('/moderation?view=profile&uid=123&outcome=reverted')->assertInertia(fn (Assert $page) => $page->has('records.data', 1)->has('records.data.0.outcomes', 2));
+    $this->get('/moderation/editors/123?outcome=reverted')->assertInertia(fn (Assert $page) => $page->has('records.data', 1)->has('records.data.0.outcomes', 2));
 });
 
 test('area membership uses both sides of moves and deletion location without bbox inference', function () {
@@ -78,8 +78,8 @@ test('editor sorting covers the complete dataset before pagination', function ()
     ModerationEditorSummary::insert(collect(range(1, 201))->map(fn (int $uid): array => [
         'osm_uid' => $uid, 'name' => 'mapper'.$uid, 'added' => $uid, 'calculated_at' => $now, 'created_at' => $now, 'updated_at' => $now,
     ])->all());
-    $this->get('/moderation?view=editors&sort=added&order=desc')->assertInertia(fn (Assert $page) => $page->has('records.data', 200)->where('records.data.0.osm_uid', 201)->where('records.data.199.osm_uid', 2));
-    $this->get('/moderation?view=editors&sort=added&order=desc&page=2')->assertInertia(fn (Assert $page) => $page->has('records.data', 1)->where('records.data.0.osm_uid', 1));
+    $this->get('/moderation/editors?sort=added&order=desc')->assertInertia(fn (Assert $page) => $page->has('records.data', 200)->where('records.data.0.osm_uid', 201)->where('records.data.199.osm_uid', 2));
+    $this->get('/moderation/editors?sort=added&order=desc&page=2')->assertInertia(fn (Assert $page) => $page->has('records.data', 1)->where('records.data.0.osm_uid', 1));
 });
 
 test('every editor sort is applied before persisted rows are paginated', function () {
@@ -105,7 +105,7 @@ test('every editor sort is applied before persisted rows are paginated', functio
     $lastSummary->update(['areas_count' => 1]);
 
     foreach (['name', 'changesets_count', 'added', 'modified', 'deleted', 'flags_count', 'survival', 'area_count', 'last_active'] as $sort) {
-        $this->get('/moderation?view=editors&sort='.$sort.'&order=desc')->assertInertia(fn (Assert $page) => $page->where('records.data.0.osm_uid', 201));
+        $this->get('/moderation/editors?sort='.$sort.'&order=desc')->assertInertia(fn (Assert $page) => $page->where('records.data.0.osm_uid', 201));
     }
 });
 
@@ -124,7 +124,7 @@ test('editor filters are applied to the complete persisted dataset before pagina
     ModerationEditorSummary::where('osm_uid', 201)->firstOrFail()->areas()->attach($area, ['refresh_token' => 'current']);
 
     foreach (['user=Target', 'user=201', 'window=24h', 'area='.$area->id] as $filter) {
-        $this->get('/moderation?view=editors&'.$filter)->assertInertia(fn (Assert $page) => $page
+        $this->get('/moderation/editors?'.$filter)->assertInertia(fn (Assert $page) => $page
             ->has('records.data', 1)
             ->where('records.data.0.osm_uid', 201));
     }
@@ -235,7 +235,7 @@ test('editors page reads persisted rows without querying the OSM connection', fu
     $connection = DB::connection(config('osm.reader.connection'));
     $connection->enableQueryLog();
 
-    $this->get('/moderation?view=editors')->assertInertia(fn (Assert $page) => $page
+    $this->get('/moderation/editors')->assertInertia(fn (Assert $page) => $page
         ->where('records.data.0.name', 'Cached mapper')
         ->where('records.data.0.tracked_changesets', 5));
 

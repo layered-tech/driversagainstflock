@@ -17,7 +17,7 @@ function watchedAreaInput(): array
     return ['name' => 'Austin metro', 'kind' => 'bbox', 'definition' => '30,-98 → 31,-97', 'geometry' => ['type' => 'Polygon', 'coordinates' => [[[-98, 30], [-97, 30], [-97, 31], [-98, 31], [-98, 30]]]]];
 }
 test('moderators create geographic areas and subscribe automatically', function () {
-    $this->post('/moderation/areas', watchedAreaInput())->assertRedirect(route('moderation.index', ['view' => 'areas']));
+    $this->post('/moderation/areas', watchedAreaInput())->assertRedirect(route('moderation.areas.index'));
     $area = WatchedArea::firstOrFail();
     expect($area->bounds)->toBe([-98, 30, -97, 31])->and($area->watchers->pluck('id')->all())->toBe([auth()->id()]);
     $this->assertDatabaseHas('moderation_activities', ['action' => 'area.created']);
@@ -64,5 +64,5 @@ test('areas list includes live activity totals in bulk', function () {
     $area = WatchedArea::factory()->create();
     $this->sourceChangeset();
     $this->sourceNode();
-    $this->get('/moderation?view=areas')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page->where('records.data.0.id', $area->id)->where('records.data.0.open_flags', null)->where('records.data.0.changesets_7d', 1)->where('records.data.0.flagged_changesets', 0));
+    $this->get('/moderation/areas')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page->where('records.data.0.id', $area->id)->where('records.data.0.open_flags', null)->where('records.data.0.changesets_7d', 1)->where('records.data.0.flagged_changesets', 0));
 });
