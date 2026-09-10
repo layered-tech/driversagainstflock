@@ -221,12 +221,41 @@ test('compiled ALPR node profile renders history, tags, editors, and honest flag
 
     assert.ok(output.body.includes('Node'));
     assert.ok(output.body.includes('200'));
+    assert.match(
+        output.body.replace(/<!--.*?-->/gs, ''),
+        /<a\b[^>]*href="\/moderation\/nodes\/show\/200"[^>]*>\s*200\s*<\/a>/,
+    );
     assert.ok(output.body.includes('No open flags'));
     assert.ok(output.body.includes('History'));
     assert.ok(output.body.includes('Tags'));
     assert.ok(output.body.includes('Who touched it'));
     assert.ok(output.body.includes('Added surveyed camera'));
     assert.ok(output.body.includes('(missing)'));
+});
+test('activity node IDs link to node details without linking other subject IDs', async () => {
+    const output = await render('Moderation/Index', {
+        ...base,
+        view: 'audit',
+        records: {
+            ...base.records,
+            data: ['node', 'changeset', 'rule', 'flag'].map((type, index) => ({
+                id: index + 1,
+                actor: 'Moderator',
+                action: `${type}.updated`,
+                subject_type: type,
+                subject_id: 200 + index,
+                created_at: '2026-09-01T12:00:00Z',
+                details: { from: 'Needs review', to: 'Reviewed' },
+            })),
+        },
+    });
+    assert.match(
+        output.body.replace(/<!--.*?-->/gs, ''),
+        /<a\b[^>]*href="\/moderation\/nodes\/show\/200"[^>]*>\s*node #200\s*<\/a>/,
+    );
+    for (const id of [201, 202, 203]) {
+        assert.ok(!output.body.includes(`/moderation/nodes/show/${id}`));
+    }
 });
 test('unavailable source shows recovery state without claiming an empty review queue', async () => {
     const output = await render('Moderation/Index', {
@@ -342,6 +371,12 @@ test('editor profile follows the design timeline and shows missing outcomes as u
     for (const label of ['Survival', 'Areas', 'Last active', 'Profile'])
         assert.ok(editors.body.includes(label));
     assert.ok(!editors.body.includes('Watch means'));
+    const header = editors.body.match(/<thead>(.*?)<\/thead>/s)[1];
+    assert.doesNotMatch(header, />Status</);
+    assert.equal((header.match(/<th\b/g) || []).length, 7);
+    const body = editors.body.match(/<tbody>(.*?)<\/tbody>/s)[1];
+    assert.equal((body.match(/<td\b/g) || []).length, 7);
+    assert.ok(!editors.body.includes('Editor status is not configured'));
     await preview('editors', editors);
 });
 

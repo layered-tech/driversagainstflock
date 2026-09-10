@@ -280,7 +280,7 @@ return [
                 'maxProcesses' => 1,
             ],
             'supervisor-moderation' => [
-                'maxProcesses' => 20,
+                'maxProcesses' => 5,
                 'balanceMaxShift' => 3,
                 'balanceCooldown' => 3,
             ],

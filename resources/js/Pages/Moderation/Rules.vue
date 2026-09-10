@@ -1,10 +1,11 @@
 <script setup>
+import { useModerationTime } from '@/useModerationTime';
 import ModerationLayout from '@/Layouts/ModerationLayout.vue';
-import { absoluteTime } from '@/moderation';
 import { Head, Link } from '@inertiajs/vue3';
 import { inject } from 'vue';
 
 defineProps({ rules: Array, processes: Array });
+const { absoluteTime } = useModerationTime();
 const route = inject('route');
 const types = {
     missing_tags: 'Missing tags',

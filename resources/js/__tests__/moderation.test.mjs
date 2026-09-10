@@ -1,6 +1,10 @@
+import { renderToString } from '@vue/server-renderer';
 import assert from 'node:assert/strict';
+import process from 'node:process';
 import test from 'node:test';
+import { createRenderer, createSSRApp, h, nextTick } from 'vue';
 import {
+    absoluteTime,
     boundsGeometry,
     changesetNodes,
     drawnGeometry,
@@ -15,12 +19,72 @@ import {
     nodeVersionHistory,
     relativeTime,
 } from '../moderation.js';
+import { useModerationTime } from '../useModerationTime.js';
 
-test('local timestamps use the browser timezone', () => {
-    assert.equal(
-        localTime('2026-09-10T07:16:45Z'),
-        'Sep 10, 2026, 3:16 AM EDT',
-    );
+test('timestamps use the viewer timezone across daylight saving and date rollover', () => {
+    const previous = process.env.TZ;
+    try {
+        for (const [zone, input, expected] of [
+            [
+                'America/Chicago',
+                '2026-09-10T02:15:00Z',
+                'Sep 9, 2026, 9:15 PM CDT',
+            ],
+            [
+                'America/Chicago',
+                '2026-01-10T02:15:00Z',
+                'Jan 9, 2026, 8:15 PM CST',
+            ],
+            [
+                'Asia/Kolkata',
+                '2026-09-10T02:15:00Z',
+                'Sep 10, 2026, 7:45 AM GMT+5:30',
+            ],
+            ['UTC', '2026-09-10T02:15:00Z', 'Sep 10, 2026, 2:15 AM UTC'],
+            [
+                'America/Chicago',
+                '2026-09-10 02:15:00+00',
+                'Sep 9, 2026, 9:15 PM CDT',
+            ],
+            [
+                'America/Chicago',
+                '2026-09-10 02:15:00.123456+00',
+                'Sep 9, 2026, 9:15 PM CDT',
+            ],
+            [
+                'America/Chicago',
+                '2026-09-09 21:15:00-05',
+                'Sep 9, 2026, 9:15 PM CDT',
+            ],
+            [
+                'America/Chicago',
+                '2026-09-10 07:45:00+05:30',
+                'Sep 9, 2026, 9:15 PM CDT',
+            ],
+
+            [
+                'America/Chicago',
+                '2026-09-10T04:15:00+02:00',
+                'Sep 9, 2026, 9:15 PM CDT',
+            ],
+            [
+                'America/Chicago',
+                '2026-09-10 02:15:00',
+                'Sep 9, 2026, 9:15 PM CDT',
+            ],
+        ]) {
+            process.env.TZ = zone;
+            assert.equal(absoluteTime(input), expected);
+            assert.equal(localTime(input), expected);
+        }
+        for (const value of [null, undefined, '', 'invalid']) {
+            assert.equal(localTime(value), '—');
+            assert.equal(absoluteTime(value), '—');
+        }
+    } finally {
+        if (previous === undefined) delete process.env.TZ;
+        else process.env.TZ = previous;
+    }
 });
 
 test('moderation map nodes carry counter-matched change kinds and selectable IDs', () => {
@@ -203,6 +267,47 @@ test('table times are compact and invalid timestamps stay unavailable', () => {
     assert.equal(relativeTime('2026-09-07T11:55:00Z', now), '5m ago');
     assert.equal(relativeTime('2026-09-07T09:00:00Z', now), '3h ago');
     assert.equal(relativeTime('2026-09-04T12:00:00Z', now), '3d ago');
+    assert.equal(relativeTime('2026-09-07 11:55:00+00', now), '5m ago');
     assert.equal(relativeTime(null, now), '—');
     assert.equal(relativeTime('invalid', now), '—');
+});
+
+test('localized dates wait for mounting and reactively replace the SSR placeholder', async () => {
+    const previous = process.env.TZ;
+    process.env.TZ = 'America/Chicago';
+    try {
+        const timestamp = '2026-09-10 02:15:00+00';
+        let output;
+        const component = {
+            setup() {
+                const { absoluteTime, localDate } = useModerationTime();
+                return () => {
+                    output = `${absoluteTime(timestamp)} | ${localDate(timestamp)}`;
+                    return h('time', output);
+                };
+            },
+        };
+        assert.equal(
+            await renderToString(createSSRApp(component)),
+            '<time>— | —</time>',
+        );
+        const renderer = createRenderer({
+            createElement: () => ({}),
+            parentNode: () => null,
+            nextSibling: () => null,
+            setElementText: () => {},
+            insert: () => {},
+            remove: () => {},
+            patchProp: () => {},
+        });
+        const app = renderer.createApp(component);
+        app.mount({});
+        assert.equal(output, '— | —');
+        await nextTick();
+        assert.equal(output, 'Sep 9, 2026, 9:15 PM CDT | Sep 9, 2026');
+        app.unmount();
+    } finally {
+        if (previous === undefined) delete process.env.TZ;
+        else process.env.TZ = previous;
+    }
 });

@@ -1,4 +1,5 @@
 <script setup>
+import { useModerationTime } from '@/useModerationTime';
 import DafButton from '@/Components/Daf/DafButton.vue';
 import DafIcon from '@/Components/Daf/DafIcon.vue';
 import AreaDialog from '@/Components/Moderation/AreaDialog.vue';
@@ -8,10 +9,8 @@ import ModerationMap from '@/Components/Moderation/ModerationMap.vue';
 import NodeLink from '@/Components/Moderation/NodeLink.vue';
 import ModerationLayout from '@/Layouts/ModerationLayout.vue';
 import {
-    absoluteTime,
     changesetNodes,
     filterQuery,
-    localTime,
     locationLabel,
     moderationDetailNodes,
     relativeTime,
@@ -33,6 +32,7 @@ import {
     watch,
 } from 'vue';
 
+const { absoluteTime, localTime } = useModerationTime();
 const route = inject('route');
 const props = defineProps({
     view: String,
@@ -153,7 +153,6 @@ const columns = computed(
                 ['survival', 'Survival'],
                 ['area_count', 'Areas'],
                 ['last_active', 'Last active'],
-                [null, 'Status'],
             ],
             areas: [
                 [null, 'Area'],
@@ -814,6 +813,15 @@ onBeforeUnmount(() => {
                             >
                                 <tr
                                     class="border-b border-daf-border hover:bg-[color-mix(in_oklab,var(--brand)_4%,var(--surface-card))]"
+                                    @click="
+                                        (isChangesets ||
+                                            isNodes ||
+                                            view === 'areas') &&
+                                        !$event.target.closest(
+                                            'a, button, input, select, textarea, summary, label, [role=button]',
+                                        ) &&
+                                        expand(row)
+                                    "
                                 >
                                     <template v-if="isChangesets"
                                         ><td
@@ -1249,12 +1257,6 @@ onBeforeUnmount(() => {
                                                 }}</time
                                             >
                                         </td>
-                                        <td
-                                            class="text-xs text-daf-text-tertiary"
-                                            title="Editor status is not configured"
-                                        >
-                                            —
-                                        </td>
                                     </template>
                                     <template v-else-if="view === 'areas'"
                                         ><td>
@@ -1412,9 +1414,21 @@ onBeforeUnmount(() => {
                                             }}
                                         </td>
                                         <td class="font-mono text-xs">
-                                            {{ row.subject_type }} #{{
-                                                row.subject_id
-                                            }}
+                                            <NodeLink
+                                                v-if="
+                                                    row.subject_type === 'node'
+                                                "
+                                                :node-id="row.subject_id"
+                                                class="mod-link"
+                                                >{{ row.subject_type }} #{{
+                                                    row.subject_id
+                                                }}</NodeLink
+                                            >
+                                            <template v-else>
+                                                {{ row.subject_type }} #{{
+                                                    row.subject_id
+                                                }}
+                                            </template>
                                         </td>
                                         <td
                                             class="text-xs text-daf-text-secondary"

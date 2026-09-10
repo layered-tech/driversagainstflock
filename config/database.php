@@ -85,6 +85,7 @@ return [
 
         'pgsql' => [
             'driver' => 'pgsql',
+            'timezone' => 'UTC',
             'url' => env('DB_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '5432'),
@@ -100,6 +101,7 @@ return [
 
         'osm' => [
             'driver' => 'pgsql',
+            'timezone' => 'UTC',
             'host' => env('OSM_READER_HOST', 'database.daf-osm.internal'),
             'port' => env('OSM_READER_PORT', '5432'),
             'database' => env('OSM_READER_DATABASE', 'daf_osm'),
