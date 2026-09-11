@@ -34,8 +34,22 @@ tags:
 - travel:
     points:
       - '30.26698404060037, -97.74466013819383'
-      - '30.26698404060037, -97.74414009212921'
-    speed: 12
+      - '30.26698404060037, -97.74419209212921'
+    # Maestro 1.40.3 double-converts radians while timing travel. This
+    # compensated value delivers the route at roughly 10 m/s on Android.
+    speed: 0.2
+# Stop more than the watcher's 3 m distance interval before the proof point.
+# Android also needs one full foreground-delivery cadence after Maestro's
+# final travel step before the exact point is injected.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: '__e2e-foreground-location-delivery-delay__'
+          timeout: 1500
+          optional: true
 - setLocation:
     latitude: 30.26698404060037
     longitude: -97.74414009212921

@@ -47,6 +47,10 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perHour(200)->perDay(500)->by($request->ip());
         });
 
+        RateLimiter::for('gas-prices', function (Request $request) {
+            return Limit::perMinute(60)->by($request->ip());
+        });
+
         RateLimiter::for('hotlist', function (Request $request) {
             if ($user = $request->user('sanctum') ?? $request->user()) {
                 return Limit::perMinute(100)->by($user->id);

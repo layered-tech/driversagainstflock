@@ -7,6 +7,7 @@ import {
 } from '@react-native-firebase/analytics';
 
 import { getFirebaseApp } from './firebase';
+import { isPrivateScorecardPath } from './privacy-routes';
 
 const ANALYTICS_DISABLED_VALUE = '0';
 
@@ -107,6 +108,10 @@ export async function logAnalyticsEvent(name, params) {
 }
 
 export async function logAnalyticsScreenView(pathname) {
+    if (isPrivateScorecardPath(pathname)) {
+        return;
+    }
+
     const screenName = getAnalyticsScreenName(pathname);
 
     try {

@@ -15,11 +15,11 @@ class ElectronicHorizonAlprController extends Controller
         ElectronicHorizonAlprLookup $lookup,
     ): JsonResponse {
         try {
+            $result = $lookup->findWithCoverage($request->coordinates());
+
             return response()->json([
                 'ok' => true,
-                'result' => [
-                    'nodes' => $lookup->find($request->coordinates()),
-                ],
+                'result' => $result,
             ]);
         } catch (DirectionsException $exception) {
             return response()->json([

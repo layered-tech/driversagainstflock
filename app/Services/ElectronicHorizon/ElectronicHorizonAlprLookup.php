@@ -17,6 +17,15 @@ class ElectronicHorizonAlprLookup
      */
     public function find(array $coordinates): array
     {
+        return $this->findWithCoverage($coordinates)['nodes'];
+    }
+
+    /**
+     * @param  array<int, array{0: float, 1: float}>  $coordinates
+     * @return array{coverage_complete: bool, nodes: array<int, array{camera_direction: string|null, coordinate: array{0: float, 1: float}, direction: string|null, id: string, osm_id: int, tags: array<string, mixed>}>}
+     */
+    public function findWithCoverage(array $coordinates): array
+    {
         $this->ensurePathLengthIsAllowed($coordinates);
 
         return Cache::remember(
@@ -28,11 +37,11 @@ class ElectronicHorizonAlprLookup
 
     /**
      * @param  array<int, array{0: float, 1: float}>  $coordinates
-     * @return array<int, array{camera_direction: string|null, coordinate: array{0: float, 1: float}, direction: string|null, id: string, osm_id: int, tags: array<string, mixed>}>
+     * @return array{coverage_complete: bool, nodes: array<int, array{camera_direction: string|null, coordinate: array{0: float, 1: float}, direction: string|null, id: string, osm_id: int, tags: array<string, mixed>}>}
      */
     private function findUncached(array $coordinates): array
     {
-        return OsmNode::query()
+        $nodes = OsmNode::query()
             ->select([
                 'id',
                 'osm_id',
@@ -50,17 +59,22 @@ class ElectronicHorizonAlprLookup
                 (float) config('electronic-horizon.alpr_path_buffer_meters'),
             )
             ->orderBy('id')
-            ->limit((int) config('electronic-horizon.alpr_maximum_results'))
-            ->get()
-            ->map(fn (OsmNode $node): array => [
-                'camera_direction' => $node->camera_direction,
-                'coordinate' => [(float) $node->longitude, (float) $node->latitude],
-                'direction' => $node->direction,
-                'id' => 'osm-node-'.$node->id,
-                'osm_id' => (int) $node->osm_id,
-                'tags' => $node->tags ?? [],
-            ])
-            ->all();
+            ->get();
+
+        return [
+            'coverage_complete' => true,
+            'nodes' => $nodes
+                ->map(fn (OsmNode $node): array => [
+                    'camera_direction' => $node->camera_direction,
+                    'coordinate' => [(float) $node->longitude, (float) $node->latitude],
+                    'direction' => $node->direction,
+                    'id' => 'osm-node-'.$node->id,
+                    'osm_id' => (int) $node->osm_id,
+                    'tags' => $node->tags ?? [],
+                ])
+                ->values()
+                ->all(),
+        ];
     }
 
     /**

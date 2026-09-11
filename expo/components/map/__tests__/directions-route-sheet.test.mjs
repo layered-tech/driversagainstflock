@@ -22,6 +22,10 @@ const mapPreferencesSource = readFileSync(
     new URL('../use-map-preferences-state.js', import.meta.url),
     'utf8',
 );
+const routeOptionCardSource = readFileSync(
+    new URL('../route-option-card.js', import.meta.url),
+    'utf8',
+);
 
 test('presents the directions sheet after the route renders', () => {
     const routeSheetPresentationEffectCount = [
@@ -128,5 +132,44 @@ test('persists advanced settings and reuses them for later route requests', () =
     assert.match(
         directionsApiSource,
         /route: \{[\s\S]*?advancedRouteSettings: normalizedAdvancedRouteSettings/,
+    );
+});
+
+test('offers the selected route as selectable GPX or KML export text', () => {
+    const mapScreenSource = readFileSync(
+        new URL('../../map-screen.js', import.meta.url),
+        'utf8',
+    );
+    const drivingGuidanceSource = readFileSync(
+        new URL('../driving-guidance-cards.js', import.meta.url),
+        'utf8',
+    );
+
+    assert.match(
+        directionsRouteSheetSource,
+        /routeExportIsAvailable \? \([\s\S]*?testID="directions-route-export-button"[\s\S]*?Export route/,
+    );
+    assert.match(
+        drivingGuidanceSource,
+        /routeExportIsAvailable \? \([\s\S]*?testID="driving-route-export-button"[\s\S]*?Export route/,
+    );
+    assert.match(
+        mapScreenSource,
+        /<RouteExportModal[\s\S]*?route=\{directionsRoute\}/,
+    );
+    assert.match(
+        mapScreenSource,
+        /const routeExportIsAvailable =[\s\S]*?SHOW_MAP_DEBUG_CONTROLS && debugOverlayIsVisible/,
+    );
+});
+
+test('uses the scorecard start-time count for camera avoidance copy', () => {
+    assert.match(
+        directionsRouteSheetSource,
+        /getAvoidableRouteCameraCount\(\s*directionsRoute,\s*DIRECTIONS_ROUTE_PRIVATE,\s*\)/,
+    );
+    assert.match(
+        routeOptionCardSource,
+        /testID=\{`directions-route-option-\$\{routeOption\.routeKey\}-camera-count`\}/,
     );
 });

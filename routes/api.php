@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\PoliceAlertsController;
 use App\Http\Controllers\Api\V1\PublishedOsmNodeSyncController;
 use App\Http\Controllers\Api\V1\RoadCorridorController;
 use App\Http\Controllers\Api\V1\SpeedLimitController;
+use App\Http\Controllers\Api\V1\StateGasPricesController;
 use App\Http\Controllers\HotlistController;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -38,6 +39,9 @@ Route::group(['middleware' => ['throttle:directions']], function (Router $route)
     $route->post('directions', DirectionsController::class);
     $route->post('v1/directions', V1DirectionsController::class);
 });
+
+Route::get('v1/fuel-prices/state-averages', StateGasPricesController::class)
+    ->middleware('throttle:gas-prices');
 
 Route::group(['middleware' => ['throttle:hotlist']], function (Router $route) {
     $route->get('v1/hotlist', [HotlistController::class, 'json']);

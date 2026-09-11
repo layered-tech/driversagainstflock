@@ -59,6 +59,103 @@ test('it counts unique points of interest near a route', function () {
         ->and($geometry->countPoisAlongRoute($pois, $route, 250))->toBe(1);
 });
 
+test('it returns stable direction aware route camera candidates in route order', function () {
+    $geometry = new GeometryService;
+    $route = [
+        [0.0002, -0.001],
+        [0.0002, 0.001],
+        [0.002, 0.001],
+    ];
+
+    $candidates = $geometry->routeCameraCandidates([
+        new PointOfInterest(11, 0.0, 0.0, [new DirectionRange(90.0, 90.0)]),
+        new PointOfInterest(12, 0.0015, 0.001, [null]),
+        new PointOfInterest(13, -0.0002, 0.0, [new DirectionRange(270.0, 270.0)]),
+    ], $route, 50, 45, 8);
+
+    expect($candidates)->toHaveCount(2)
+        ->and($candidates[0]['osm_id'])->toBe(11)
+        ->and($candidates[0]['direction_known'])->toBeTrue()
+        ->and($candidates[0]['directions'][0])->toBe([
+            'start' => 90.0,
+            'end' => 90.0,
+            'is_range' => false,
+        ])
+        ->and($candidates[0]['route_progress_fraction'])->toBeGreaterThan(0.2)
+        ->and($candidates[0]['route_progress_fraction'])->toBeLessThan(0.5)
+        ->and($candidates[1]['osm_id'])->toBe(12)
+        ->and($candidates[1]['direction_known'])->toBeFalse()
+        ->and($candidates[1]['directions'])->toBe([])
+        ->and($candidates[1]['route_progress_fraction'])->toBeGreaterThan($candidates[0]['route_progress_fraction']);
+});
+
+test('it does not count a route that passes behind a directional camera', function () {
+    $geometry = new GeometryService;
+
+    $candidates = $geometry->routeCameraCandidates([
+        new PointOfInterest(21, 0.0, 0.0, [new DirectionRange(90.0, 90.0)]),
+    ], [
+        [-0.0002, -0.001],
+        [-0.0002, 0.001],
+    ], 50, 45, 8);
+
+    expect($candidates)->toBe([]);
+});
+
+test('it returns every nearby camera for local monitoring with structured directions', function () {
+    $geometry = new GeometryService;
+
+    $nodes = $geometry->routeMonitoringCameraNodes([
+        new PointOfInterest(31, 0.0, 0.0, [new DirectionRange(270.0, 270.0)], [
+            'name' => 'Westbound reader',
+            'operator' => 'City agency',
+            'serial_number' => 'private-detail',
+        ]),
+        new PointOfInterest(null, -0.0002, 0.0005, [null]),
+        new PointOfInterest(32, 0.01, 0.01, [null]),
+    ], [
+        [0.0002, -0.001],
+        [0.0002, 0.001],
+    ], 50);
+
+    expect($nodes)->toHaveCount(2)
+        ->and($nodes[0])->toBe([
+            'osm_id' => 31,
+            'coordinate' => [0.0, 0.0],
+            'direction_known' => true,
+            'directions' => [[
+                'start' => 270.0,
+                'end' => 270.0,
+                'is_range' => false,
+            ]],
+            'name' => 'Westbound reader',
+            'operator' => 'City agency',
+        ])
+        ->and($nodes[1]['osm_id'])->toBeNull()
+        ->and($nodes[1]['direction_known'])->toBeFalse()
+        ->and($nodes[1]['directions'])->toBe([]);
+});
+
+test('it keeps cameras without stable ids out of scored route candidates', function () {
+    $geometry = new GeometryService;
+    $route = [
+        [0.0002, -0.001],
+        [0.0002, 0.001],
+    ];
+    $pois = [
+        new PointOfInterest(null, 0.0, 0.0, [null]),
+        new PointOfInterest(41, 0.0001, 0.0005, [null]),
+    ];
+
+    $intersections = $geometry->routeCameraIntersections($pois, $route, 50, 45, 8);
+    $candidates = $geometry->routeCameraCandidates($pois, $route, 50, 45, 8);
+
+    expect($intersections)->toHaveCount(2)
+        ->and($intersections[0]['osm_id'])->toBeNull()
+        ->and($candidates)->toHaveCount(1)
+        ->and($candidates[0]['osm_id'])->toBe(41);
+});
+
 test('it clears endpoint-blocking polygons from the exclusion zone', function () {
     $geometry = new GeometryService;
     $zone = [
