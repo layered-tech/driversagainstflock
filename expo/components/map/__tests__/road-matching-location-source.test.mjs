@@ -96,6 +96,7 @@ function createRoadMatchingSessionHarness({
     getRoadCoordinateDistanceMeters = () => 0,
     getRoadCorridor = async () => [],
     predictRoadLookAhead = () => null,
+    publishAcceptedDeviceLocation = () => {},
     routingState = {
         directionsRoute: null,
         drivingModeIsActive: false,
@@ -184,6 +185,9 @@ function createRoadMatchingSessionHarness({
         sourceType: 'module',
     }).code;
     const mockedModules = {
+        './accepted-device-location': {
+            publishAcceptedDeviceLocation,
+        },
         '../auto-play-session-state': {
             addAutoPlaySessionStateListener(listener) {
                 autoPlaySessionStateListeners.add(listener);
@@ -470,6 +474,48 @@ describe('road matching location source integration', () => {
         );
     });
 
+    test('exposes direct persistent retainers to phone location source selection', async () => {
+        const harness = createRoadMatchingSessionHarness();
+        const regularSessionHandle =
+            await harness.roadMatchingSession.retainRoadMatchingSessionAsync();
+
+        assert.equal(
+            harness.roadMatchingSession.getPersistentRoadMatchingWatchIsActive(),
+            false,
+        );
+
+        harness.backgroundTaskStart.resolve();
+        const persistentSessionHandle =
+            await harness.roadMatchingSession.retainRoadMatchingSessionAsync({
+                persistent: true,
+            });
+
+        assert.equal(
+            harness.roadMatchingSession.getPersistentRoadMatchingWatchIsActive(),
+            true,
+        );
+
+        persistentSessionHandle.remove();
+        assert.equal(
+            harness.roadMatchingSession.getPersistentRoadMatchingWatchIsActive(),
+            false,
+        );
+        regularSessionHandle.remove();
+
+        assert.match(
+            deviceLocationSource,
+            /function subscribeToPersistentRoadMatchingWatchActivity\(listener\)[\s\S]*?addRoadMatchingSessionStateListener\(listener\)/,
+        );
+        assert.match(
+            deviceLocationSource,
+            /function usePersistentRoadMatchingWatchIsActive\(\)[\s\S]*?useSyncExternalStore\([\s\S]*?subscribeToPersistentRoadMatchingWatchActivity[\s\S]*?getPersistentRoadMatchingWatchIsActive/,
+        );
+        assert.doesNotMatch(
+            deviceLocationSource,
+            /persistentRoadMatchingWatchCount/,
+        );
+    });
+
     test('reconciles retained sources without invalidating persistent work on app state transitions', () => {
         const appStateListenerStart = roadMatchingSessionSource.indexOf(
             "AppState.addEventListener('change'",
@@ -598,7 +644,11 @@ describe('road matching location source integration', () => {
     });
 
     test('publishes background-task fixes while the car owns foreground location', async () => {
-        const harness = createRoadMatchingSessionHarness();
+        const acceptedLocationSettlement = createDeferred();
+        const harness = createRoadMatchingSessionHarness({
+            publishAcceptedDeviceLocation: () =>
+                acceptedLocationSettlement.promise,
+        });
         const sessionHandle =
             await harness.roadMatchingSession.retainRoadMatchingSessionAsync({
                 persistent: true,
@@ -612,12 +662,29 @@ describe('road matching location source integration', () => {
         );
         harness.transitionAutoPlayConnection(true);
 
-        await harness.backgroundLocationTask.callback({
+        let backgroundTaskSettled = false;
+        const backgroundTask = harness.backgroundLocationTask.callback({
             data: {
                 locations: [makeLocation(41, -87, 100)],
             },
             error: null,
         });
+
+        void backgroundTask.then(() => {
+            backgroundTaskSettled = true;
+        });
+        await waitFor(
+            () =>
+                harness.roadMatchingSession.getRoadMatchingSessionDiagnostics()
+                    .lastUpdateSource === 'expo-background-location-task',
+        );
+
+        assert.equal(backgroundTaskSettled, false);
+
+        acceptedLocationSettlement.resolve();
+        await backgroundTask;
+
+        assert.equal(backgroundTaskSettled, true);
 
         const diagnostics =
             harness.roadMatchingSession.getRoadMatchingSessionDiagnostics();

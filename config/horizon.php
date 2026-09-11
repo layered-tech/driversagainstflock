@@ -97,7 +97,7 @@ return [
     */
 
     'waits' => [
-        'redis:default' => 60,
+        'redis:'.env('REDIS_QUEUE', 'default') => 60,
     ],
 
     /*
@@ -199,7 +199,7 @@ return [
     'defaults' => [
         'supervisor-1' => [
             'connection' => 'redis',
-            'queue' => ['default'],
+            'queue' => [env('REDIS_QUEUE', 'default')],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'maxProcesses' => 1,

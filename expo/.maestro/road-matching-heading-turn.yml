@@ -48,8 +48,9 @@ tags:
           id: 'driving-recenter-button'
 - extendedWaitUntil:
     visible:
-      id: 'e2e-native-puck-heading-lock-proof'
       text: 'true'
+      childOf:
+        id: 'e2e-native-puck-heading-lock-proof'
     timeout: 60000
 - copyTextFrom:
     id: 'e2e-native-puck-heading-lock-proof'
@@ -68,8 +69,9 @@ tags:
     timeout: 60000
 - extendedWaitUntil:
     visible:
-      id: 'e2e-native-puck-heading-turn-proof'
       text: 'true'
+      childOf:
+        id: 'e2e-native-puck-heading-turn-proof'
     timeout: 60000
 - copyTextFrom:
     id: 'e2e-road-matching-edge-id'
@@ -85,7 +87,7 @@ tags:
 - assertTrue: ${Math.abs(Number(maestro.copiedText)) <= 0.5}
 - copyTextFrom:
     id: 'e2e-native-puck-effective-heading'
-- assertTrue: ${Math.abs(Number(maestro.copiedText)) <= 0.5}
+- assertTrue: ${Math.abs(Number(maestro.copiedText)) <= 0.5 || Math.abs(Number(maestro.copiedText) - 360) <= 0.5}
 - copyTextFrom:
     id: 'e2e-native-puck-max-heading-correction'
 - assertTrue: ${Number(maestro.copiedText) > 45}

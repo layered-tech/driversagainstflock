@@ -30,6 +30,10 @@ function privateCacheUsesSecureStore() {
     );
 }
 
+export function privateCacheStorageIsEncrypted() {
+    return privateCacheUsesSecureStore();
+}
+
 function normalizeStorageKey(storageKey) {
     if (typeof storageKey !== 'string' || !storageKey) {
         throw new TypeError(
@@ -159,9 +163,8 @@ async function deleteSecureCacheValue(storageKey) {
     const manifestKey = getSecureStorageKey(storageKey);
     const manifest = await readSecureManifest(manifestKey);
 
-    await SecureStore.deleteItemAsync(manifestKey, SECURE_STORE_OPTIONS);
-
     if (!manifest) {
+        await SecureStore.deleteItemAsync(manifestKey, SECURE_STORE_OPTIONS);
         return;
     }
 
@@ -171,6 +174,8 @@ async function deleteSecureCacheValue(storageKey) {
             SECURE_STORE_OPTIONS,
         );
     }
+
+    await SecureStore.deleteItemAsync(manifestKey, SECURE_STORE_OPTIONS);
 }
 
 async function writeSecureCacheValue(storageKey, value) {

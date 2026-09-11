@@ -41,6 +41,7 @@ describe('Mobile help and legal design', () => {
     test('groups the drawer into primary and help/legal destinations', () => {
         assert.deepEqual(PRIMARY_DRAWER_ITEMS, [
             { icon: 'map', label: 'Map', routeName: 'index' },
+            { icon: 'gauge', label: 'Scorecard', routeName: 'scorecard' },
             { icon: 'flame', label: 'Hotlist', routeName: 'hotlist' },
         ]);
         assert.deepEqual(
@@ -63,6 +64,7 @@ describe('Mobile help and legal design', () => {
         assert.match(drawerSource, /className="items-center px-\[22px\] pt-3"/);
         assert.match(drawerSource, /label="Your Edits"/);
         assert.match(drawerSource, /label="Logout"/);
+        assert.doesNotMatch(drawerSource, /confirmedReadCount/);
         assert.ok(
             drawerSource.indexOf('label="Your Edits"') <
                 drawerSource.indexOf('label="Logout"'),

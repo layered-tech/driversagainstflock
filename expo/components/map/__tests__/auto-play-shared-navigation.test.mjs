@@ -43,6 +43,17 @@ const route = {
 };
 const getRouteSyncKey = (candidateRoute) =>
     candidateRoute?.selectedRouteKey ?? '';
+const getGeometryRouteSyncKey = (candidateRoute) => {
+    const selectedRouteOption = candidateRoute?.routeOptions?.find(
+        (routeOption) =>
+            routeOption.routeKey === candidateRoute?.selectedRouteKey,
+    );
+
+    return JSON.stringify([
+        candidateRoute?.selectedRouteKey ?? '',
+        selectedRouteOption?.coordinates ?? [],
+    ]);
+};
 
 function createDeferred() {
     let resolve;
@@ -119,6 +130,105 @@ describe('shared phone and car navigation contract', () => {
                 },
             }).action,
             'none',
+        );
+    });
+
+    test('does not restart host navigation for camera-only route enrichment', () => {
+        const enrichedRoute = {
+            ...route,
+            routeOptions: route.routeOptions.map((routeOption) => ({
+                ...routeOption,
+                cameraCandidates: [
+                    {
+                        coordinate: [-86.95, 41.05],
+                        osmId: 'camera-1',
+                    },
+                ],
+                cameraCoverageComplete: true,
+                nodeCount: 1,
+            })),
+        };
+
+        assert.equal(
+            getAutoPlaySharedNavigationAction({
+                activeNavigationRoute: route,
+                getRouteSyncKey: getGeometryRouteSyncKey,
+                rootMapTemplateIsReady: true,
+                routingState: {
+                    directionsRoute: enrichedRoute,
+                    drivingModeIsActive: true,
+                },
+            }).action,
+            'none',
+        );
+        assert.match(
+            autoPlaySource,
+            /getRouteSyncKey: getDirectionsRouteGeometrySyncKey/,
+        );
+    });
+
+    test('publishes auto-drive fixes to the shared accepted-location stream', () => {
+        assert.match(
+            autoPlaySource,
+            /function startAutoDriveNavigationSimulation[\s\S]*?onLocation: \(position\) => \{[\s\S]*?publishAcceptedDeviceLocation\(position\)/,
+        );
+    });
+
+    test('holds one generation-safe persistent road-matching owner for the car connection', () => {
+        assert.match(
+            autoPlaySource,
+            /function retainAutoPlayConnectionRoadMatchingSession\(connectionGeneration\)[\s\S]*?retainRoadMatchingSessionAsync\(\{\s*persistent: true,[\s\S]*?connectionGeneration !==[\s\S]*?autoPlayConnectionRoadMatchingGeneration[\s\S]*?sessionHandle\.remove\(\)/,
+        );
+        assert.match(
+            autoPlaySource,
+            /async function handleAutoPlayConnect\(\)[\s\S]*?setAutoPlaySessionConnected\(true\)[\s\S]*?retainAutoPlayConnectionRoadMatchingSession\(connectionGeneration\)/,
+        );
+        assert.match(
+            autoPlaySource,
+            /function handleAutoPlayDisconnect\(\)[\s\S]*?releaseAutoPlayConnectionRoadMatchingSession\(\)[\s\S]*?setAutoPlaySessionConnected\(Boolean\(clusterIsConnected\)\)/,
+        );
+    });
+
+    test('publishes guided state before automotive location updates and rolls it back on failure', () => {
+        const navigationStartSource = autoPlaySource.slice(
+            autoPlaySource.indexOf('function startAutoPlayNavigation('),
+            autoPlaySource.indexOf(
+                'function handleRootHeaderPrimaryLocationPress',
+            ),
+        );
+        const rollbackStartIndex = navigationStartSource.indexOf(
+            'const rollbackNavigationStart =',
+        );
+        const guidedStateIndex = navigationStartSource.indexOf(
+            'directionsRoute: route,',
+        );
+        const liveLocationIndex = navigationStartSource.indexOf(
+            'startNavigationLocationUpdates(route)',
+        );
+        const simulatedLocationIndex = navigationStartSource.indexOf(
+            'startAutoDriveNavigationSimulation(route)',
+        );
+        const asyncCatchIndex = navigationStartSource.indexOf(
+            'void navigationLocationStartup.catch',
+        );
+        const catchIndex = navigationStartSource.indexOf('} catch (error) {');
+
+        assert.notEqual(guidedStateIndex, -1);
+        assert.notEqual(liveLocationIndex, -1);
+        assert.notEqual(simulatedLocationIndex, -1);
+        assert.notEqual(asyncCatchIndex, -1);
+        assert.notEqual(catchIndex, -1);
+        assert.notEqual(rollbackStartIndex, -1);
+        assert.ok(guidedStateIndex < liveLocationIndex);
+        assert.ok(guidedStateIndex < simulatedLocationIndex);
+        assert.ok(asyncCatchIndex > liveLocationIndex);
+        assert.match(
+            navigationStartSource,
+            /const rollbackNavigationStart =[\s\S]*?startupGeneration !== navigationLocationUpdateGeneration[\s\S]*?stopAutoPlayNavigation\(\{\s*notifyTemplate: false,\s*publishSharedState,\s*\}\)/,
+        );
+        assert.match(
+            navigationStartSource.slice(asyncCatchIndex, catchIndex + 80),
+            /\.catch\(\(error\) => \{[\s\S]*?rollbackNavigationStart\(error, startupGeneration\)[\s\S]*?\} catch \(error\) \{\s*rollbackNavigationStart\(error\)/,
         );
     });
 

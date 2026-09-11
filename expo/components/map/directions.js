@@ -377,6 +377,98 @@ function normalizeDirectionsManeuver(maneuver, index) {
     };
 }
 
+function normalizeCameraDirection(direction) {
+    const start = getStoredNumber(direction?.start);
+    const end = getStoredNumber(direction?.end);
+
+    if (start === null || end === null) {
+        return null;
+    }
+
+    return {
+        end,
+        isRange: direction?.is_range === true || direction?.isRange === true,
+        start,
+    };
+}
+
+function normalizeRouteCameraNode(candidate) {
+    const coordinate = normalizeRouteCoordinate(candidate?.coordinate);
+    const progressFraction = getStoredNumber(
+        candidate?.route_progress_fraction ?? candidate?.routeProgressFraction,
+    );
+    const progressMeters = getStoredNumber(
+        candidate?.route_progress_meters ?? candidate?.routeProgressMeters,
+    );
+    const osmId = candidate?.osm_id ?? candidate?.osmId ?? null;
+
+    if (!coordinate) {
+        return null;
+    }
+
+    const directions = Array.isArray(candidate?.directions)
+        ? candidate.directions.map(normalizeCameraDirection).filter(Boolean)
+        : [];
+
+    return {
+        coordinate,
+        directionKnown:
+            candidate?.direction_known === true ||
+            candidate?.directionKnown === true ||
+            directions.length > 0,
+        directions,
+        label:
+            typeof (candidate?.label ?? candidate?.name) === 'string'
+                ? (candidate.label ?? candidate.name).trim() || null
+                : null,
+        operator:
+            typeof candidate?.operator === 'string'
+                ? candidate.operator.trim() || null
+                : null,
+        osmId:
+            osmId === null || osmId === undefined || String(osmId).trim() === ''
+                ? null
+                : String(osmId),
+        routeProgressFraction:
+            progressFraction === null
+                ? null
+                : Math.min(1, Math.max(0, progressFraction)),
+        routeProgressMeters:
+            progressMeters === null ? null : Math.max(0, progressMeters),
+    };
+}
+
+function mergeRouteMonitoringCameraNodes(cameraNodes) {
+    const stableCamerasById = new Map();
+    const camerasWithoutStableIds = [];
+
+    for (const cameraNode of cameraNodes) {
+        if (!cameraNode) {
+            continue;
+        }
+
+        if (!cameraNode.osmId) {
+            camerasWithoutStableIds.push(cameraNode);
+            continue;
+        }
+
+        const existingCamera = stableCamerasById.get(cameraNode.osmId);
+
+        stableCamerasById.set(cameraNode.osmId, {
+            ...existingCamera,
+            ...cameraNode,
+            directions:
+                cameraNode.directions.length > 0
+                    ? cameraNode.directions
+                    : (existingCamera?.directions ?? []),
+            label: cameraNode.label ?? existingCamera?.label ?? null,
+            operator: cameraNode.operator ?? existingCamera?.operator ?? null,
+        });
+    }
+
+    return [...stableCamerasById.values(), ...camerasWithoutStableIds];
+}
+
 export function normalizeDirectionsRoute(route, routeKey) {
     const coordinates = Array.isArray(route?.coordinates)
         ? route.coordinates.map(normalizeRouteCoordinate).filter(Boolean)
@@ -389,15 +481,65 @@ export function normalizeDirectionsRoute(route, routeKey) {
     const resolvedRouteKey =
         routeKey || route?.routeKey || route?.key || DIRECTIONS_ROUTE_PRIVATE;
 
+    const rawCameraCandidates = Array.isArray(route?.camera_candidates)
+        ? route.camera_candidates
+        : Array.isArray(route?.cameraCandidates)
+          ? route.cameraCandidates
+          : [];
+    const normalizedCameraCandidates = rawCameraCandidates
+        .map(normalizeRouteCameraNode)
+        .filter(Boolean);
+    const rawMonitoringCameraNodes = Array.isArray(
+        route?.monitoring_camera_nodes,
+    )
+        ? route.monitoring_camera_nodes
+        : Array.isArray(route?.monitoringCameraNodes)
+          ? route.monitoringCameraNodes
+          : [];
+    const normalizedMonitoringCameraNodes = rawMonitoringCameraNodes
+        .map(normalizeRouteCameraNode)
+        .filter(Boolean);
+    const monitoringCameraNodes = mergeRouteMonitoringCameraNodes([
+        ...normalizedCameraCandidates,
+        ...normalizedMonitoringCameraNodes,
+    ]);
+    const cameraContractShapeIsComplete =
+        normalizedCameraCandidates.length === rawCameraCandidates.length &&
+        normalizedMonitoringCameraNodes.length ===
+            rawMonitoringCameraNodes.length;
+    const cameraCandidatesHaveStableIds = normalizedCameraCandidates.every(
+        (camera) => camera.osmId !== null,
+    );
+    const cameraDirectionsAreUsable = monitoringCameraNodes.every(
+        (camera) =>
+            camera.directionKnown !== true || camera.directions.length > 0,
+    );
+
     return {
+        avoidanceSearchComplete:
+            route?.avoidance_search_complete === true ||
+            route?.avoidanceSearchComplete === true,
+        cameraCandidates: normalizedCameraCandidates.filter(
+            (candidate) => candidate.osmId !== null,
+        ),
+        cameraCoverageComplete:
+            cameraContractShapeIsComplete &&
+            cameraCandidatesHaveStableIds &&
+            cameraDirectionsAreUsable &&
+            (route?.camera_coverage_complete === true ||
+                route?.cameraCoverageComplete === true),
         coordinates,
         distance: getStoredNumber(route?.distance),
         duration: getStoredNumber(route?.duration),
         maneuvers: Array.isArray(route?.maneuvers)
             ? route.maneuvers.map(normalizeDirectionsManeuver).filter(Boolean)
             : [],
+        monitoringCameraNodes,
         nodeCount: getStoredNumber(
             route?.node_count ?? route?.fastest_route_node_count,
+        ),
+        scoredNodeCount: getStoredNumber(
+            route?.scored_node_count ?? route?.scoredNodeCount,
         ),
         routeKey: resolvedRouteKey,
         routeLabel: ROUTE_LABELS[resolvedRouteKey] || 'Route',
@@ -492,11 +634,15 @@ export function selectDirectionsRoute(route, routeKey) {
     return {
         ...route,
         bounds: getRouteBoundsFromCoordinates(selectedRoute.coordinates),
+        cameraCandidates: selectedRoute.cameraCandidates,
+        cameraCoverageComplete: selectedRoute.cameraCoverageComplete,
         coordinates: selectedRoute.coordinates,
         distance: selectedRoute.distance,
         duration: selectedRoute.duration,
         maneuvers: selectedRoute.maneuvers,
+        monitoringCameraNodes: selectedRoute.monitoringCameraNodes,
         nodeCount: selectedRoute.nodeCount,
+        scoredNodeCount: selectedRoute.scoredNodeCount,
         routeKey: selectedRoute.routeKey,
         routeLabel: selectedRoute.routeLabel,
         selectedRouteKey: selectedRoute.routeKey,
@@ -534,6 +680,9 @@ export function normalizeDirectionsRouteResponse(result) {
 
     return selectDirectionsRoute(
         {
+            avoidanceSearchComplete:
+                result?.avoidance_search_complete === true ||
+                result?.avoidanceSearchComplete === true,
             fastestRouteNodeCount:
                 fastestRouteNodeCount ?? direct?.nodeCount ?? 0,
             routes: {

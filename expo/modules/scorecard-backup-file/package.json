@@ -1,0 +1,7 @@
+{
+    "name": "daf-scorecard-backup-file",
+    "version": "1.0.0",
+    "description": "Private scorecard backup document import and export for Drivers Against Flock",
+    "license": "MIT",
+    "private": true
+}

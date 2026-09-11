@@ -126,6 +126,7 @@ export function RouteOptionCard({
                                     : 'text-daf-alert'
                             }`}
                             numberOfLines={1}
+                            testID={`directions-route-option-${routeOption.routeKey}-camera-count`}
                         >
                             {cameraLabel}
                         </Text>
