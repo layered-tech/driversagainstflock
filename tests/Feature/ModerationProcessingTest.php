@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\DrainModerationSummaries;
 use App\Jobs\ProcessModeration;
 use App\Models\ModerationContribution;
 use App\Models\ModerationEditorArea;
@@ -257,6 +258,105 @@ test('summary commands queue only missing or dirty editors unless rebuilding', f
     Queue::assertPushedTimes(ProcessModeration::class, 1);
     Queue::assertPushed(ProcessModeration::class, fn (ProcessModeration $job): bool => $job->kind === 'summary-editor' && $job->target === 456);
     expect(ModerationEditorSummary::where('osm_uid', 456)->first())->dirty_at->not->toBeNull();
+});
+
+test('full summary passes consume dirty rows even when their source changeset is no longer eligible', function () {
+    Queue::fake();
+    $this->sourceChangeset(attributes: ['alpr_nodes_touched' => 0]);
+    ModerationEditorSummary::create(['osm_uid' => 123, 'dirty_at' => now()]);
+
+    $this->artisan('moderation:process summaries')->assertSuccessful();
+
+    Queue::assertPushed(ProcessModeration::class, fn (ProcessModeration $job): bool => $job->kind === 'summary-editor' && $job->target === 123);
+    Queue::pushed(ProcessModeration::class)->sole()->handle(app(ModerationProcessing::class));
+    expect(ModerationEditorSummary::where('osm_uid', 123)->exists())->toBeFalse();
+});
+
+test('completed summary invalidators request a final summary drain', function () {
+    Queue::fake();
+    ModerationEditorSummary::create(['osm_uid' => 123, 'dirty_at' => now()]);
+    $process = ModerationProcess::create([
+        'name' => 'outcomes',
+        'state' => 'running',
+        'run_number' => 1,
+        'total_jobs' => 1,
+        'pending_jobs' => 1,
+    ]);
+
+    app(ModerationProcessing::class)->markJobComplete($process->id, $process->run_number);
+
+    Queue::assertPushedOn('moderation', DrainModerationSummaries::class);
+});
+
+test('scoped processing does not start an unrelated summary drain', function () {
+    Queue::fake();
+    ModerationEditorSummary::create(['osm_uid' => 123, 'dirty_at' => now()]);
+    $process = ModerationProcess::create([
+        'name' => 'outcomes:node:200',
+        'state' => 'running',
+        'run_number' => 1,
+        'total_jobs' => 1,
+        'pending_jobs' => 1,
+    ]);
+
+    app(ModerationProcessing::class)->markJobComplete($process->id, $process->run_number);
+
+    Queue::assertNotPushed(DrainModerationSummaries::class);
+});
+
+test('summary drains wait for upstream processing to settle', function () {
+    ModerationEditorSummary::create(['osm_uid' => 123, 'dirty_at' => now()]);
+    ModerationProcess::create([
+        'name' => 'profiles',
+        'state' => 'running',
+        'run_number' => 1,
+        'total_jobs' => 1,
+        'pending_jobs' => 1,
+    ]);
+    $job = (new DrainModerationSummaries)->withFakeQueueInteractions();
+
+    $job->handle(app(ModerationProcessing::class));
+
+    $job->assertReleased(delay: 60);
+    expect(ModerationProcess::count())->toBe(1);
+});
+
+test('summary drains queue the existing summary processor after upstream work settles', function () {
+    Queue::fake();
+    $this->sourceChangeset();
+    ModerationEditorSummary::create(['osm_uid' => 123, 'dirty_at' => now()]);
+    ModerationProcess::create([
+        'name' => 'outcomes:node:200',
+        'state' => 'running',
+        'run_number' => 1,
+        'total_jobs' => 1,
+        'pending_jobs' => 1,
+    ]);
+    $job = (new DrainModerationSummaries)->withFakeQueueInteractions();
+
+    $job->handle(app(ModerationProcessing::class));
+
+    $job->assertNotReleased();
+    Queue::assertPushed(ProcessModeration::class, fn (ProcessModeration $queued): bool => $queued->kind === 'summary-editor' && $queued->target === 123);
+    expect(ModerationProcess::where('name', 'summaries')->sole())
+        ->state->toBe('queued')
+        ->pending_jobs->toBe(1);
+});
+
+test('completed full summary passes drain invalidations left during the pass', function () {
+    Queue::fake();
+    ModerationEditorSummary::create(['osm_uid' => 123, 'dirty_at' => now()]);
+    $process = ModerationProcess::create([
+        'name' => 'summaries',
+        'state' => 'running',
+        'run_number' => 1,
+        'total_jobs' => 1,
+        'pending_jobs' => 1,
+    ]);
+
+    app(ModerationProcessing::class)->markJobComplete($process->id, $process->run_number);
+
+    Queue::assertPushedOn('moderation', DrainModerationSummaries::class);
 });
 
 test('summary rebuild queues every editor and stamps its generation', function () {

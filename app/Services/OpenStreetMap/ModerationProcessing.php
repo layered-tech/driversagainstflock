@@ -2,6 +2,7 @@
 
 namespace App\Services\OpenStreetMap;
 
+use App\Jobs\DrainModerationSummaries;
 use App\Jobs\ProcessModeration;
 use App\Models\ModerationContribution;
 use App\Models\ModerationEditorSummary;
@@ -208,6 +209,45 @@ class ModerationProcessing
         if (str_starts_with($process->name, 'rule:') && $process->run_number === 1 && app(ModerationSummaries::class)->rulesReady()) {
             app(ModerationEditorSummaries::class)->markAllEditorsDirty();
         }
+        if ($this->shouldRequestSummaryDrain($process)) {
+            $this->requestSummaryDrain();
+        }
+    }
+
+    public function summariesNeedRefresh(): bool
+    {
+        return ModerationEditorSummary::whereNotNull('dirty_at')->exists()
+            || WatchedArea::whereNotNull('summary_dirty_at')->exists();
+    }
+
+    public function hasRunningSummaryInvalidators(): bool
+    {
+        return ModerationProcess::query()
+            ->where(function (Builder $query): void {
+                $query->where('name', 'outcomes')
+                    ->orWhere('name', 'profiles')
+                    ->orWhere('name', 'like', 'rule:%');
+            })
+            ->where(function (Builder $query): void {
+                $query->whereIn('state', ['dispatching', 'queued', 'running'])
+                    ->orWhere('pending_jobs', '>', 0);
+            })
+            ->exists();
+    }
+
+    private function shouldRequestSummaryDrain(ModerationProcess $process): bool
+    {
+        return in_array($process->name, ['outcomes', 'profiles', 'summaries', 'summaries:rebuild'], true)
+            || str_starts_with($process->name, 'rule:');
+    }
+
+    private function requestSummaryDrain(): void
+    {
+        if (! $this->summariesNeedRefresh()) {
+            return;
+        }
+
+        DrainModerationSummaries::dispatch();
     }
 
     private function nodeQuery(?int $user = null): Builder
@@ -355,13 +395,19 @@ class ModerationProcessing
         $jobs = 0;
         $scoped = $user !== null || $limit !== null;
         $generation = $rebuild && ! $scoped ? $process->run_number : null;
+        if (! $rebuild && ! $scoped) {
+            ModerationEditorSummary::query()->whereNotNull('dirty_at')->select(['id', 'osm_uid'])->orderBy('id')
+                ->chunkById($this->chunkSize(), function (Collection $summaries) use ($process, $execute, &$jobs): void {
+                    $jobs += $this->push($process, $this->summaryEditorJobs($process, $summaries->pluck('osm_uid'), null), $execute);
+                });
+        }
         OsmChangeset::query()->whereNotNull('osm_uid')->where('alpr_nodes_touched', '>', 0)
             ->when($user !== null, fn (Builder $query): Builder => $query->where('osm_uid', $user))
             ->select('osm_uid')->distinct()->orderBy('osm_uid')
-            ->chunkById($this->chunkSize(), function (Collection $rows) use ($process, $rebuild, $user, $limit, $generation, $execute, &$jobs): bool {
+            ->chunkById($this->chunkSize(), function (Collection $rows) use ($process, $rebuild, $scoped, $user, $limit, $generation, $execute, &$jobs): bool {
                 $uids = $rows->pluck('osm_uid')->map(fn (mixed $uid): int => (int) $uid)->unique()->values();
                 $existing = ModerationEditorSummary::whereIntegerInRaw('osm_uid', $uids)->get(['osm_uid', 'dirty_at'])->keyBy('osm_uid');
-                $uids = $uids->filter(fn (int $uid): bool => $rebuild || $user !== null || ! $existing->has($uid) || $existing[$uid]->dirty_at !== null)->values();
+                $uids = $uids->filter(fn (int $uid): bool => $rebuild || $user !== null || ! $existing->has($uid) || ($scoped && $existing[$uid]->dirty_at !== null))->values();
                 if ($limit !== null) {
                     $uids = $uids->take($limit - $jobs);
                 }
@@ -376,14 +422,7 @@ class ModerationProcessing
                 if ($generation !== null) {
                     ModerationEditorSummary::whereIntegerInRaw('osm_uid', $uids)->update(['rebuild_run' => $generation]);
                 }
-                $queued = $uids->map(fn (int $uid): ProcessModeration => new ProcessModeration(
-                    'summary-editor',
-                    $uid,
-                    ruleVersion: $generation,
-                    processId: $process->id,
-                    runNumber: $process->run_number,
-                ))->all();
-                $jobs += $this->push($process, $queued, $execute);
+                $jobs += $this->push($process, $this->summaryEditorJobs($process, $uids, $generation), $execute);
 
                 return $limit === null || $jobs < $limit;
             }, column: 'osm_uid', alias: 'osm_uid');
@@ -401,6 +440,18 @@ class ModerationProcessing
         ))->all());
 
         return $jobs;
+    }
+
+    /** @return list<ProcessModeration> */
+    private function summaryEditorJobs(ModerationProcess $process, Collection $uids, ?int $generation): array
+    {
+        return $uids->map(fn (mixed $uid): ProcessModeration => new ProcessModeration(
+            'summary-editor',
+            (int) $uid,
+            ruleVersion: $generation,
+            processId: $process->id,
+            runNumber: $process->run_number,
+        ))->all();
     }
 
     private function dispatchWarmJobs(ModerationProcess $process): int
