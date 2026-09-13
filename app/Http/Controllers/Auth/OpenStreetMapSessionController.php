@@ -82,7 +82,7 @@ class OpenStreetMapSessionController extends Controller
             $user->password = Str::random(64);
         }
         $user->save();
-        Auth::guard('web')->login($user);
+        Auth::guard('web')->login($user, remember: true);
         $request->session()->regenerate();
         $request->session()->put('osm_authenticated_uid', (string) $uid);
 
