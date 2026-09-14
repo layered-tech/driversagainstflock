@@ -79,6 +79,24 @@ const maxWeek = computed(() =>
     Math.max(1, ...props.weeks.map((week) => Number(week.total))),
 );
 const flagged = computed(() => props.filters.statuses?.includes('Flagged'));
+const activityWeekFormatter = new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+});
+function activityWeekLabel(value) {
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime())
+        ? 'Unknown week'
+        : activityWeekFormatter.format(date);
+}
+function changesetCountLabel(value) {
+    const count = Number(value);
+
+    return `${count.toLocaleString()} ${count === 1 ? 'changeset' : 'changesets'}`;
+}
 function listing(view) {
     return route(`moderation.${view}.index`, { uid: props.profile.osm_uid });
 }
@@ -821,29 +839,71 @@ onBeforeUnmount(resetDetails);
                     </p>
                     <div
                         aria-label="Weekly changeset activity"
-                        class="mt-3.5 flex h-[92px] items-end gap-[5px]"
+                        class="mt-3.5 flex h-[92px] gap-[5px]"
                     >
                         <div
-                            v-for="week in weeks"
+                            v-for="(week, index) in weeks"
                             :key="week.week"
+                            :aria-describedby="`activity-week-${profile.osm_uid}-${index}`"
+                            :aria-label="`Week of ${activityWeekLabel(week.week)}`"
                             :class="[
-                                'relative min-w-0 flex-1 overflow-hidden rounded-sm',
-                                Number(week.total)
-                                    ? 'bg-[color-mix(in_oklab,var(--brand)_55%,transparent)]'
-                                    : 'bg-daf-surface-alt',
+                                'group relative h-full min-w-0 flex-1 cursor-default hover:z-20 focus:z-20 focus-visible:outline-none',
                             ]"
                             :style="{
-                                height: `${Math.max(2, (Number(week.total) / maxWeek) * 84)}px`,
+                                '--activity-bar-height': `${Math.max(2, (Number(week.total) / maxWeek) * 84)}px`,
                             }"
-                            :title="`${absoluteTime(week.week)} · ${week.total} changesets · ${week.reverted ?? 'unknown'} reverted`"
+                            role="img"
+                            tabindex="0"
                         >
                             <span
-                                v-if="week.reverted"
+                                :class="[
+                                    'absolute inset-x-0 bottom-0 block overflow-hidden rounded-sm transition duration-150 ease-out group-hover:-translate-y-0.5 group-hover:shadow-[0_4px_10px_color-mix(in_oklab,var(--brand)_24%,transparent)] group-hover:brightness-110 group-focus-visible:-translate-y-0.5 group-focus-visible:ring-2 group-focus-visible:ring-daf-brand group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-daf-surface-card',
+                                    Number(week.total)
+                                        ? 'bg-[color-mix(in_oklab,var(--brand)_55%,transparent)]'
+                                        : 'bg-daf-surface-alt',
+                                ]"
                                 :style="{
-                                    height: `${(week.reverted / week.total) * 100}%`,
+                                    height: 'var(--activity-bar-height)',
                                 }"
-                                class="absolute inset-x-0 bottom-0 bg-[var(--alert-500)]"
-                            />
+                            >
+                                <span
+                                    v-if="week.reverted"
+                                    :style="{
+                                        height: `${(week.reverted / week.total) * 100}%`,
+                                    }"
+                                    class="absolute inset-x-0 bottom-0 bg-[var(--alert-500)]"
+                                />
+                            </span>
+                            <span
+                                :id="`activity-week-${profile.osm_uid}-${index}`"
+                                :class="[
+                                    'pointer-events-none invisible absolute bottom-[calc(var(--activity-bar-height)+0.5rem)] z-30 w-max min-w-[112px] rounded-dafSm bg-[var(--surface-inverse)] px-2.5 py-2 text-left text-[10px] leading-4 text-[var(--surface-page)] opacity-0 shadow-dafFloat transition-opacity duration-150 group-hover:visible group-hover:opacity-100 group-focus:visible group-focus:opacity-100',
+                                    index === 0
+                                        ? 'left-0'
+                                        : index === weeks.length - 1
+                                          ? 'right-0'
+                                          : 'left-1/2 -translate-x-1/2',
+                                ]"
+                                role="tooltip"
+                            >
+                                <span class="block whitespace-nowrap opacity-75"
+                                    >Week of
+                                    {{ activityWeekLabel(week.week) }}</span
+                                >
+                                <span
+                                    class="block whitespace-nowrap font-mono text-xs font-bold"
+                                    >{{ changesetCountLabel(week.total) }}</span
+                                >
+                                <span
+                                    class="block whitespace-nowrap opacity-75"
+                                >
+                                    {{
+                                        week.reverted == null
+                                            ? 'Reverted: unknown'
+                                            : `${Number(week.reverted).toLocaleString()} reverted`
+                                    }}
+                                </span>
+                            </span>
                         </div>
                     </div>
                     <div
