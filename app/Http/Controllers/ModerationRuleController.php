@@ -91,15 +91,9 @@ class ModerationRuleController extends Controller
     {
         $rule = new ModerationRule([...$request->safe()->except(['version']), 'version' => 1, 'enabled' => false]);
         try {
-            $query = $reader->nodes()->where('source.visible', true)->whereRaw("source.tags->>'surveillance:type' = 'ALPR'");
-            if ($rule->area_ids) {
-                $areas = WatchedArea::whereIn('id', $rule->area_ids)->get();
-                $query->where(function ($query) use ($areas): void {
-                    foreach ($areas as $area) {
-                        $query->orWhereRaw('ST_Covers(ST_SetSRID(ST_GeomFromGeoJSON(?),4326), ST_SetSRID(ST_MakePoint(source.longitude,source.latitude),4326))', [json_encode($area->geometry, JSON_THROW_ON_ERROR)]);
-                    }
-                });
-            }
+            $query = $reader->nodesWithinAreas($rule->area_ids ?: null)
+                ->where('source.visible', true)
+                ->whereRaw("source.tags->>'surveillance:type' = 'ALPR'");
             $nodes = $query->orderBy('source.id')->limit(26)->get();
             $deadline = microtime(true) + 10;
             $results = $nodes->take(25)->map(function ($node) use ($reader, $evaluator, $rule, $deadline): array {
