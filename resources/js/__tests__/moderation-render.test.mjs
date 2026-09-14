@@ -366,6 +366,7 @@ test('editor profile follows the design timeline and shows missing outcomes as u
         weeks: Array.from({ length: 12 }, (_, index) => ({
             week: new Date(Date.UTC(2026, 5, 22 + index * 7)).toISOString(),
             total: index % 4,
+            reverted: index % 3 === 0 ? null : index % 4 > 1 ? 1 : 0,
         })),
     });
     for (const label of [
@@ -404,6 +405,17 @@ test('editor profile follows the design timeline and shows missing outcomes as u
     assert.ok(output.body.includes('outcome=reverted'));
     assert.ok(output.body.includes('Timeline pagination'));
     assert.ok(output.body.includes('/moderation/editors/123?statuses=Flagged'));
+    assert.equal((output.body.match(/role="tooltip"/g) || []).length, 12);
+    assert.equal((output.body.match(/tabindex="0"/g) || []).length, 12);
+    for (const count of [0, 1, 2, 3]) {
+        assert.ok(
+            output.body.includes(
+                `${count} ${count === 1 ? 'changeset' : 'changesets'}`,
+            ),
+        );
+    }
+    assert.ok(output.body.includes('Reverted: unknown'));
+    assert.ok(output.body.includes('1 reverted'));
     await preview('profile', output);
     await preview('profile', output, 'dark');
     const editors = await renderListing({
