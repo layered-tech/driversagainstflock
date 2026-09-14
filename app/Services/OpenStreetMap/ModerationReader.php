@@ -100,6 +100,47 @@ class ModerationReader
         return $query->select('source.*')->selectRaw("COALESCE(review.status, 'Needs review') as status");
     }
 
+    /**
+     * @param  list<int>|null  $areaIds
+     */
+    public function nodesWithinAreas(?array $areaIds = null): Builder
+    {
+        $geometries = WatchedArea::query()
+            ->when($areaIds !== null, fn ($query) => $query->whereIntegerInRaw('id', $areaIds))
+            ->get(['geometry'])
+            ->pluck('geometry')
+            ->values()
+            ->all();
+        $query = $this->nodes(withPrevious: false, withReviews: false);
+        if ($geometries === []) {
+            return $query->whereRaw('false');
+        }
+
+        return $query->whereRaw(
+            'EXISTS (SELECT 1 FROM jsonb_array_elements(?::jsonb) AS areas(geometry) WHERE ST_Covers(ST_SetSRID(ST_GeomFromGeoJSON(areas.geometry),4326), ST_SetSRID(ST_MakePoint(source.longitude,source.latitude),4326)))',
+            [json_encode($geometries, JSON_THROW_ON_ERROR)],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $node
+     * @param  list<int>|null  $areaIds
+     */
+    public function nodeIsWithinArea(array $node, ?array $areaIds = null): bool
+    {
+        if ($node['longitude'] === null || $node['latitude'] === null) {
+            return false;
+        }
+
+        return WatchedArea::query()
+            ->when($areaIds !== null, fn ($query) => $query->whereIntegerInRaw('id', $areaIds))
+            ->whereRaw(
+                'ST_Covers(ST_SetSRID(ST_GeomFromGeoJSON(geometry::text),4326), ST_SetSRID(ST_MakePoint(?,?),4326))',
+                [$node['longitude'], $node['latitude']],
+            )
+            ->exists();
+    }
+
     private function reviews(Builder $query, string $type): void
     {
         $reviews = ModerationReview::where('subject_type', $type)->get(['subject_id', 'revision', 'status'])->toJson();

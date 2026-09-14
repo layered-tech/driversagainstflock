@@ -2,6 +2,7 @@
 
 use App\Models\ModerationFlag;
 use App\Models\ModerationRule;
+use App\Models\WatchedArea;
 use App\Services\OpenStreetMap\ModerationReader;
 use App\Services\OpenStreetMap\ModerationRoadLookup;
 use App\Services\OpenStreetMap\ModerationRuleEvaluator;
@@ -13,6 +14,7 @@ use Tests\CreatesModerationSource;
 uses(CreatesModerationSource::class);
 beforeEach(function (): void {
     $this->createModerationSource();
+    WatchedArea::factory()->create();
     Cache::flush();
     $this->ruleData = ['name' => 'Require operator', 'description' => '', 'type' => 'missing_tags', 'severity' => 'Medium', 'enabled' => true,
         'settings' => ['keys' => ['operator'], 'blank_is_missing' => true], 'conditions' => [], 'exceptions' => [], 'area_ids' => []];
@@ -41,6 +43,28 @@ test('preview creates no flags and rejects executable or invalid settings', func
     $this->assertDatabaseCount('moderation_evaluations', 0);
     $this->postJson('/moderation/rules/preview', [...$this->ruleData, 'settings' => ['expression' => 'exec()']])->assertUnprocessable();
     $this->postJson('/moderation/rules/preview', [...$this->ruleData, 'type' => 'road_distance', 'settings' => ['distance_meters' => -1, 'road_types' => ['.*']]])->assertUnprocessable();
+});
+
+test('preview only samples nodes within an area', function () {
+    $this->moderator();
+    $this->sourceNode(200);
+    $this->sourceNode(201, attributes: ['latitude' => 32.0, 'longitude' => -100.0]);
+
+    $this->postJson('/moderation/rules/preview', $this->ruleData)
+        ->assertOk()
+        ->assertJsonCount(1, 'results')
+        ->assertJsonPath('results.0.node_id', 200);
+});
+
+test('rules do not apply outside an area', function () {
+    $rule = ModerationRule::factory()->create([...$this->ruleData, 'version' => 1]);
+    $this->sourceNode(200, attributes: ['latitude' => 32.0, 'longitude' => -100.0]);
+    $reader = app(ModerationReader::class);
+
+    $result = app(ModerationRuleEvaluator::class)->evaluate($rule, $reader->normalize($reader->nodes()->first()));
+
+    expect($result['state'])->toBe('clear')
+        ->and(ModerationFlag::count())->toBe(0);
 });
 
 test('dismissals survive identical evidence and clear nodes resolve flags', function () {

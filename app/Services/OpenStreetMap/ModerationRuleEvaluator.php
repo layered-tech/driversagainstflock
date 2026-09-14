@@ -5,7 +5,6 @@ namespace App\Services\OpenStreetMap;
 use App\Models\ModerationEvaluation;
 use App\Models\ModerationFlag;
 use App\Models\ModerationRule;
-use App\Models\WatchedArea;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -112,17 +111,8 @@ class ModerationRuleEvaluator
                 return false;
             }
         }
-        if ($rule->area_ids) {
-            if ($node['longitude'] === null || $node['latitude'] === null) {
-                throw new \RuntimeException('Node coordinates are missing.');
-            }
 
-            return WatchedArea::whereIn('id', $rule->area_ids)->get()->contains(function ($area) use ($node): bool {
-                return (bool) DB::selectOne('SELECT ST_Covers(ST_SetSRID(ST_GeomFromGeoJSON(?),4326), ST_SetSRID(ST_MakePoint(?,?),4326)) as covered', [json_encode($area->geometry, JSON_THROW_ON_ERROR), $node['longitude'], $node['latitude']])->covered;
-            });
-        }
-
-        return true;
+        return $this->reader->nodeIsWithinArea($node, $rule->area_ids ?: null);
     }
 
     private function condition(array $tags, array $condition): bool

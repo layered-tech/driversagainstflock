@@ -23,6 +23,8 @@ use Throwable;
 
 class ModerationProcessing
 {
+    public function __construct(private ModerationReader $reader) {}
+
     /**
      * @param  Closure(ProcessModeration): void|null  $execute
      * @return array{jobs: int, nodes?: int, processes: int, skipped: list<string>}
@@ -111,7 +113,9 @@ class ModerationProcessing
             return ['jobs' => 0, 'nodes' => 0, 'processes' => 1, 'skipped' => []];
         }
 
-        $query = $this->nodeQuery($user)->when($node !== null, fn (Builder $query): Builder => $query->where('node_id', $node));
+        $query = $this->nodeQuery($user)
+            ->whereIn('node_id', $this->reader->nodesWithinAreas()->select('source.id'))
+            ->when($node !== null, fn (Builder $query): Builder => $query->where('node_id', $node));
         if ($limit !== null) {
             $selected = (clone $query)->limit($limit)->get()->pluck('node_id');
             $query->whereIntegerInRaw('node_id', $selected);

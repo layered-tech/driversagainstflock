@@ -176,6 +176,7 @@ test('queued jobs cannot clear a dispatch failure after finishing', function () 
 
 test('rules fan out one independent job per rule and node', function () {
     Queue::fake();
+    WatchedArea::factory()->create();
     $rule = ModerationRule::factory()->create([
         'name' => 'Operator',
         'type' => 'missing_tags',
@@ -549,6 +550,7 @@ test('summary scopes and full rebuilds exclude each other while jobs are pending
 
 test('rules apply every enabled rule to the same limited distinct nodes', function () {
     config(['moderation.processing.dispatch_chunk_size' => 1]);
+    WatchedArea::factory()->create();
     $rules = ModerationRule::factory()->count(2)->create(['enabled' => true]);
     ModerationRule::factory()->create(['enabled' => false]);
     foreach ([203, 200, 202, 201] as $node) {
@@ -569,6 +571,7 @@ test('rules apply every enabled rule to the same limited distinct nodes', functi
 });
 
 test('rule and editor filters select only the editors tracked nodes', function () {
+    WatchedArea::factory()->create();
     $rule = ModerationRule::factory()->create(['enabled' => true]);
     ModerationRule::factory()->create(['enabled' => true]);
     $this->sourceNode(199, 1, ['osm_uid' => 456]);
@@ -583,6 +586,7 @@ test('rule and editor filters select only the editors tracked nodes', function (
 });
 
 test('a synchronous selected rule persists flags without establishing global readiness', function () {
+    WatchedArea::factory()->create();
     $rule = ModerationRule::factory()->create(['enabled' => true]);
     $this->sourceNode();
     $this->sourceNode(201);
@@ -602,6 +606,7 @@ test('a synchronous selected rule persists flags without establishing global rea
 });
 
 test('scoped rule completion never invalidates all editors even when full rules are ready', function () {
+    WatchedArea::factory()->create();
     $rule = ModerationRule::factory()->create(['enabled' => true]);
     $full = ModerationProcess::create(['name' => 'rule:'.$rule->id.':1', 'state' => 'complete', 'last_success_at' => now(), 'run_number' => 4]);
     $this->sourceNode();
@@ -612,6 +617,19 @@ test('scoped rule completion never invalidates all editors even when full rules 
 
     expect($unrelated->fresh()->dirty_at)->toBeNull()
         ->and($full->fresh()->getAttributes())->toBe($before);
+});
+
+test('rule processing only queues nodes within an area', function () {
+    WatchedArea::factory()->create();
+    $rule = ModerationRule::factory()->create(['enabled' => true]);
+    $this->sourceNode(200);
+    $this->sourceNode(201, attributes: ['latitude' => 32.0, 'longitude' => -100.0]);
+    Queue::fake();
+
+    $this->artisan('moderation:process rules')->assertSuccessful();
+
+    expect(Queue::pushed(ProcessModeration::class)->pluck('target')->all())->toBe([200])
+        ->and(ModerationProcess::where('name', 'rule:'.$rule->id.':1')->sole()->total_jobs)->toBe(1);
 });
 
 test('limited rules without enabled rules do not establish full readiness', function () {
