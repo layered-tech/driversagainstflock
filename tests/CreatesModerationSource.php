@@ -62,7 +62,7 @@ trait CreatesModerationSource
         $user->osm_uid = 123;
         $user->save();
         config(['moderation.approved_osm_ids' => ['123']]);
-        $this->actingAs($user)->withSession(['osm_authenticated_uid' => '123']);
+        $this->actingAs($user);
 
         return $user;
     }

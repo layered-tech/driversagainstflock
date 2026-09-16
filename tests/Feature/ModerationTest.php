@@ -3,6 +3,7 @@
 use App\Models\User;
 use App\Services\OpenStreetMap\ModerationReader;
 use App\Services\OpenStreetMap\ModerationSummaries;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\CreatesModerationSource;
@@ -11,7 +12,7 @@ uses(CreatesModerationSource::class);
 beforeEach(function (): void {
     $this->createModerationSource();
 });
-test('moderation requires a verified approved OSM session on every endpoint', function () {
+test('moderation requires an authenticated approved OSM user on every endpoint', function () {
     $this->get('/moderation')->assertRedirect('/login');
     $this->get('/moderation/nodes/200')->assertRedirect('/login');
     $user = User::factory()->create(['email' => 'pfeifer.christopher@gmail.com']);
@@ -129,10 +130,31 @@ test('node dismissals are persistent and idempotent', function () {
     $this->assertDatabaseCount('moderation_activities', 1);
 });
 
-test('OSM approval alone is insufficient without a verified OSM login session', function () {
-    $user = $this->moderator();
-    $this->withSession(['osm_authenticated_uid' => '999'])->get('/moderation')->assertForbidden();
-    $this->withSession(['osm_authenticated_uid' => null])->patch('/moderation/changesets/100/review')->assertForbidden();
+test('authentication alone is insufficient without an approved OSM identity', function () {
+    $user = User::factory()->create(['osm_uid' => 999]);
+    config(['moderation.approved_osm_ids' => ['123']]);
+
+    $this->actingAs($user)->get('/moderation')->assertForbidden();
+    $this->patch('/moderation/changesets/100/review')->assertForbidden();
+});
+
+test('remembered approved OSM moderators remain authorized after their session expires', function () {
+    $user = User::factory()->create(['osm_uid' => 123]);
+    config(['moderation.approved_osm_ids' => ['123']]);
+
+    $guard = Auth::guard('web');
+    $guard->login($user, remember: true);
+    $recallerName = $guard->getRecallerName();
+    $recallerValue = app('cookie')->queued($recallerName)->getValue();
+
+    $this->flushSession();
+    Auth::forgetGuards();
+
+    $this->withCookie($recallerName, $recallerValue)
+        ->get('/moderation')
+        ->assertRedirect(route('moderation.nodes.index'));
+
+    expect(Auth::guard('web')->viaRemember())->toBeTrue();
 });
 
 test('loading moderation nodes and changesets does not run aggregate queries', function (string $view) {
@@ -176,13 +198,14 @@ test('missing persisted summaries show a refreshing state without synchronous ca
     $this->get('/moderation/editors')->assertInertia(fn (Assert $page) => $page->where('source.state', 'refreshing')->has('records.data', 0));
 });
 
-test('moderation pages have dedicated routes and components protected by the OSM session', function (string $path, string $component) {
+test('moderation pages have dedicated routes and components protected by an approved OSM identity', function (string $path, string $component) {
     $this->get($path)->assertRedirect('/login');
     $this->moderator();
     $this->sourceChangeset();
     $this->get($path)->assertInertia(fn (Assert $page) => $page
         ->component('Moderation/'.$component)->missing('filters.view'));
-    $this->withSession(['osm_authenticated_uid' => null])->get($path)->assertForbidden();
+    config(['moderation.approved_osm_ids' => []]);
+    $this->get($path)->assertForbidden();
 })->with([
     ['/moderation/nodes', 'Nodes'],
     ['/moderation/changesets', 'Changesets'],
