@@ -12,7 +12,6 @@ class EnsureOsmModerator
     {
         $user = $request->user();
         abort_unless($user && $user->osm_uid
-            && (string) $request->session()->get('osm_authenticated_uid') === (string) $user->osm_uid
             && in_array((string) $user->osm_uid, config('moderation.approved_osm_ids', []), true), 403);
 
         return $next($request);

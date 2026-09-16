@@ -84,7 +84,6 @@ class OpenStreetMapSessionController extends Controller
         $user->save();
         Auth::guard('web')->login($user, remember: true);
         $request->session()->regenerate();
-        $request->session()->put('osm_authenticated_uid', (string) $uid);
 
         return to_route('moderation.index');
     }

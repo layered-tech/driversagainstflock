@@ -3,6 +3,7 @@
 use App\Models\User;
 use Illuminate\Routing\Middleware\ThrottleRequestsWithRedis;
 use Illuminate\Support\Env;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Telescope\Telescope;
@@ -64,7 +65,9 @@ test('approved OSM identity creates an authenticated moderator session without e
     $other = User::factory()->create(['name' => 'mapper']);
     Http::fake(['*/oauth2/token' => Http::response(['access_token' => 'private-token']), '*/user/details.json' => Http::response(['user' => ['id' => 123, 'display_name' => 'mapper']])]);
     $response = $this->withSession(['osm_oauth' => osmCallbackState()])->get(route('login.osm.callback', ['state' => str_repeat('s', 64), 'code' => 'oauth-code']));
-    $response->assertRedirect(route('moderation.index'))->assertSessionHas('osm_authenticated_uid', '123')->assertSessionMissing('osm_oauth');
+    $response->assertRedirect(route('moderation.index'))
+        ->assertCookie(Auth::guard('web')->getRecallerName())
+        ->assertSessionMissing('osm_oauth');
     $this->assertAuthenticated();
     expect(auth()->id())->not->toBe($other->id)->and(auth()->user()->osm_uid)->toBe(123)->and(auth()->user()->email)->toBeNull();
     Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/oauth2/token') && $request['code_verifier'] === str_repeat('v', 96));
