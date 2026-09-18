@@ -2,6 +2,10 @@ export const DEFAULT_AVOID_BUFFER_METERS = 50;
 export const MIN_AVOID_BUFFER_METERS = 25;
 export const MAX_AVOID_BUFFER_METERS = 1000;
 export const AVOID_BUFFER_STEP_METERS = 25;
+export const AVOIDANCE_MODE_OPTIONS = [
+    { value: 'directional', label: 'Directional cones' },
+    { value: 'circular', label: 'Circular radius' },
+];
 
 export function normalizeAvoidBufferMeters(value) {
     const numericValue = Number(value);
@@ -27,6 +31,8 @@ export function normalizeAdvancedRouteSettings(settings = {}) {
         avoidBufferMeters: normalizeAvoidBufferMeters(
             settings?.avoidBufferMeters,
         ),
+        avoidanceMode:
+            settings?.avoidanceMode === 'circular' ? 'circular' : 'directional',
     };
 }
 
@@ -44,6 +50,7 @@ export function getAdvancedRouteSettingsKey(settings) {
     return [
         normalizedSettings.allowAlprNearStartDestination ? '1' : '0',
         normalizedSettings.avoidBufferMeters,
+        normalizedSettings.avoidanceMode,
     ].join(':');
 }
 
@@ -54,5 +61,6 @@ export function getAdvancedRouteSettingsRequestPayload(settings) {
         allow_alpr_near_start_destination:
             normalizedSettings.allowAlprNearStartDestination,
         avoid_buffer: normalizedSettings.avoidBufferMeters,
+        avoidance_mode: normalizedSettings.avoidanceMode,
     };
 }

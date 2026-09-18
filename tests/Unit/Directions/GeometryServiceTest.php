@@ -201,3 +201,42 @@ test('it clears polygons inside endpoint buffers even when endpoints are outside
 
     expect($cleared)->toBe(['type' => 'MultiPolygon', 'coordinates' => []]);
 });
+
+test('circular avoidance creates one radius polygon per camera regardless of directions', function () {
+    $geometry = new GeometryService;
+    $pois = [
+        new PointOfInterest(1, -88.2, 43.1, [new DirectionRange(90.0, 90.0)]),
+        new PointOfInterest(2, -88.3, 43.2, [new DirectionRange(0.0, 90.0), new DirectionRange(180.0, 270.0)]),
+        new PointOfInterest(3, -88.4, 43.3, [null]),
+        new PointOfInterest(4, -88.5, 43.4, []),
+    ];
+
+    $zone = $geometry->exclusionZone($pois, 275, 45, 8, 'circular');
+
+    expect($zone['coordinates'])->toHaveCount(4);
+
+    foreach ($zone['coordinates'] as $index => $polygon) {
+        $ring = $polygon[0];
+        expect($ring)->toHaveCount(33)
+            ->and($ring[0])->toBe($ring[32]);
+
+        foreach ($ring as [$longitude, $latitude]) {
+            $distance = $geometry->distanceMeters(
+                ['longitude' => $pois[$index]->longitude, 'latitude' => $pois[$index]->latitude],
+                ['longitude' => $longitude, 'latitude' => $latitude],
+            );
+            expect(abs($distance - 275))->toBeLessThan(0.001);
+        }
+    }
+});
+
+test('explicit directional avoidance preserves the default geometry', function () {
+    $geometry = new GeometryService;
+    $pois = [
+        new PointOfInterest(1, -88.2, 43.1, [new DirectionRange(90.0, 90.0), new DirectionRange(270.0, 270.0)]),
+        new PointOfInterest(2, -88.3, 43.2, [null]),
+    ];
+
+    expect($geometry->exclusionZone($pois, 250, 45, 8, 'directional'))
+        ->toBe($geometry->exclusionZone($pois, 250, 45, 8));
+});

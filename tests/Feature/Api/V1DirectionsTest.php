@@ -896,3 +896,92 @@ it('logs when directions returns an upstream failure', function () {
             && $context['error'] === 'OpenRouteService timed out.')
         ->once();
 });
+
+it('rejects unsupported avoidance modes before contacting providers', function (mixed $mode) {
+    Http::fake();
+
+    $this->postJson('/api/v1/directions', directionsRequestPayload(['avoidance_mode' => $mode]))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('avoidance_mode');
+
+    Http::assertNothingSent();
+})->with(['invalid' => ['triangle'], 'empty' => [''], 'null' => [null], 'array' => [[]]]);
+
+it('sends the selected avoidance geometry to the provider and debug output', function (?string $mode, string $provider) {
+    config(['directions.provider' => $provider]);
+    $coordinates = [[-122.676, 45.523], [-122.66, 45.52], [-122.658, 45.512]];
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::response([
+            'elements' => [[
+                'id' => 120,
+                'lat' => 45.52,
+                'lon' => -122.66,
+                'tags' => ['surveillance:type' => 'ALPR', 'camera:direction' => 'E;W'],
+            ]],
+        ]),
+        'https://api.heigit.org/*' => Http::response(orsDirectionsResponse($coordinates)),
+        'http://graphhopper.test:8080/route' => Http::response(graphHopperDirectionsResponse($coordinates)),
+    ]);
+    $payload = directionsRequestPayload([
+        'allow_alpr_near_start_destination' => false,
+        'show_zone' => true,
+    ]);
+    if ($mode !== null) {
+        $payload['avoidance_mode'] = $mode;
+    }
+
+    $response = $this->postJson('/api/v1/directions', $payload)->assertOk();
+    $zone = $response->json('result.exclusion_zone.geometry');
+    $ring = $zone['coordinates'][0][0];
+
+    expect($zone['coordinates'])->toHaveCount($mode === 'circular' ? 1 : 2)
+        ->and($response->json('result.debug_geometry.features.3.geometry'))->toBe($zone)
+        ->and($response->json('result.debug_geometry.features.3.properties.avoidanceMode'))->toBe($mode ?? 'directional');
+    if ($mode === 'circular') {
+        expect($ring)->toHaveCount(33)
+            ->and($ring[0])->not->toBe([-122.66, 45.52]);
+    } else {
+        expect($ring[0])->toBe([-122.66, 45.52]);
+    }
+
+    $requests = collect(Http::recorded())
+        ->filter(fn (array $record): bool => str_contains($record[0]->url(), $provider === 'graphhopper' ? 'graphhopper.test' : 'openrouteservice'))
+        ->values();
+    expect($requests)->toHaveCount(2);
+    $body = $requests[1][0]->data();
+    if ($provider === 'graphhopper') {
+        expect(array_column($body['custom_model']['areas']['features'], 'geometry'))->toEqual(
+            array_map(fn (array $polygon): array => ['type' => 'Polygon', 'coordinates' => $polygon], $zone['coordinates']),
+        );
+    } else {
+        expect($body['options']['avoid_polygons'])->toEqual($zone);
+    }
+})->with([null, 'directional', 'circular'])->with(['openrouteservice', 'graphhopper']);
+
+it('clears start destination and waypoint cameras in either avoidance mode', function (string $mode) {
+    $coordinates = [[-122.676, 45.523], [-122.667, 45.5175], [-122.658, 45.512]];
+    $elements = array_map(fn (array $coordinate, int $index): array => [
+        'id' => 130 + $index,
+        'lat' => $coordinate[1],
+        'lon' => $coordinate[0],
+        'tags' => ['surveillance:type' => 'ALPR', 'camera:direction' => 'E'],
+    ], $coordinates, array_keys($coordinates));
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::response(['elements' => $elements]),
+        'https://api.heigit.org/*' => Http::response(orsDirectionsResponse($coordinates)),
+    ]);
+
+    $this->postJson('/api/v1/directions', directionsRequestPayload([
+        'avoidance_mode' => $mode,
+        'avoid_buffer' => 50,
+        'waypoints' => [['longitude' => -122.667, 'latitude' => 45.5175]],
+        'show_zone' => true,
+    ]))->assertOk()
+        ->assertJsonCount(0, 'result.exclusion_zone.geometry.coordinates')
+        ->assertJsonCount(0, 'result.debug_geometry.features.3.geometry.coordinates')
+        ->assertJsonCount(3, 'result.debug_geometry.features.2.geometry.coordinates');
+
+    $requests = collect(Http::recorded())
+        ->filter(fn (array $record): bool => str_contains($record[0]->url(), 'openrouteservice'));
+    expect($requests)->toHaveCount(1);
+})->with(['directional', 'circular']);

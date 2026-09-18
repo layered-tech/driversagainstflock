@@ -10,6 +10,7 @@ import {
 import { getAvoidableRouteCameraCount } from '../scorecard/scorecard-engine';
 import {
     AVOID_BUFFER_STEP_METERS,
+    AVOIDANCE_MODE_OPTIONS,
     getAdvancedRouteSettings,
     MAX_AVOID_BUFFER_METERS,
     MIN_AVOID_BUFFER_METERS,
@@ -64,15 +65,20 @@ export function DirectionsRouteSheet() {
     const [avoidBufferInput, setAvoidBufferInput] = useState(
         String(appliedAdvancedSettings.avoidBufferMeters),
     );
+    const [avoidanceMode, setAvoidanceMode] = useState(
+        appliedAdvancedSettings.avoidanceMode,
+    );
 
     useEffect(() => {
         setAllowAlprNearStartDestination(
             appliedAdvancedSettings.allowAlprNearStartDestination,
         );
         setAvoidBufferInput(String(appliedAdvancedSettings.avoidBufferMeters));
+        setAvoidanceMode(appliedAdvancedSettings.avoidanceMode);
     }, [
         appliedAdvancedSettings.allowAlprNearStartDestination,
         appliedAdvancedSettings.avoidBufferMeters,
+        appliedAdvancedSettings.avoidanceMode,
     ]);
 
     useEffect(() => {
@@ -154,6 +160,7 @@ export function DirectionsRouteSheet() {
         const settings = normalizeAdvancedRouteSettings({
             allowAlprNearStartDestination,
             avoidBufferMeters: avoidBufferInput,
+            avoidanceMode,
         });
 
         setAvoidBufferInput(String(settings.avoidBufferMeters));
@@ -268,6 +275,59 @@ export function DirectionsRouteSheet() {
 
                             {advancedSettingsOpen ? (
                                 <View className="dark:border-daf-border-dark gap-3 border-t border-daf-border px-3 py-3">
+                                    <View className="gap-2">
+                                        <Text className="text-[14px] font-medium text-daf-text-primary dark:text-white">
+                                            ALPR avoidance shape
+                                        </Text>
+                                        <View
+                                            className="flex-row gap-2"
+                                            testID="directions-route-avoidance-options"
+                                        >
+                                            {AVOIDANCE_MODE_OPTIONS.map(
+                                                (option) => (
+                                                    <Pressable
+                                                        key={option.value}
+                                                        accessibilityLabel={
+                                                            option.label
+                                                        }
+                                                        accessibilityRole="radio"
+                                                        accessibilityState={{
+                                                            checked:
+                                                                avoidanceMode ===
+                                                                option.value,
+                                                            disabled:
+                                                                directionsRouteIsLoading,
+                                                        }}
+                                                        className={`min-h-11 min-w-0 flex-1 items-center justify-center rounded-dafSm border px-3 py-2 focus:border-daf-brand ${
+                                                            avoidanceMode ===
+                                                            option.value
+                                                                ? 'border-daf-brand bg-daf-surface-alt dark:bg-daf-surface-inverse'
+                                                                : 'dark:border-daf-border-dark border-daf-border'
+                                                        }`}
+                                                        disabled={
+                                                            directionsRouteIsLoading
+                                                        }
+                                                        onPress={() =>
+                                                            setAvoidanceMode(
+                                                                option.value,
+                                                            )
+                                                        }
+                                                        testID={`directions-route-avoidance-${option.value}`}
+                                                    >
+                                                        <Text className="text-center text-[14px] font-medium text-daf-text-primary dark:text-white">
+                                                            {option.label}
+                                                        </Text>
+                                                    </Pressable>
+                                                ),
+                                            )}
+                                        </View>
+                                        <Text className="text-xs text-daf-text-secondary dark:text-neutral-300">
+                                            Directional cones use camera
+                                            direction when known. Circular
+                                            radius avoids every camera in all
+                                            directions.
+                                        </Text>
+                                    </View>
                                     <View className="min-h-11 flex-row items-center gap-3">
                                         <Text className="min-w-0 flex-1 text-[14px] font-medium leading-5 text-daf-text-primary dark:text-white">
                                             Allow ALPR near start & destination

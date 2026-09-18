@@ -34,6 +34,7 @@ class DirectionsRequest extends FormRequest
             'profile.*.tags' => ['required_with:profile', 'array'],
             'profile.*.tags.*' => ['string'],
             'avoid_buffer' => ['nullable', 'integer', 'min:1', 'max:5000'],
+            'avoidance_mode' => ['sometimes', 'required', 'string', 'in:directional,circular'],
             'allow_alpr_near_start_destination' => ['nullable', 'boolean'],
             'continue_straight' => ['nullable', 'boolean'],
             'show_zone' => ['nullable', 'boolean'],
@@ -49,6 +50,7 @@ class DirectionsRequest extends FormRequest
         $validated['profile'] ??= [];
         $validated['waypoints'] ??= [];
         $validated['avoid_buffer'] ??= config('directions.avoid_buffer_meters');
+        $validated['avoidance_mode'] ??= 'directional';
         $validated['allow_alpr_near_start_destination'] = $this->nullableBoolean(
             $validated,
             'allow_alpr_near_start_destination',

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { describe, test } from 'node:test';
+import { getAdvancedRouteSettingsKey } from '../advanced-route-settings.js';
 import {
     createBackgroundRoutingStateResolver,
     parsePersistedSharedRoutingState,
@@ -59,6 +60,7 @@ function createSharedRoutingStateHarness({
         sourceType: 'module',
     }).code;
     const mockedModules = {
+        './advanced-route-settings': { getAdvancedRouteSettingsKey },
         '../../lib/private-cache-storage': {
             getPrivateCacheItem: readPersistedState,
             setPrivateCacheItem: async (key, value) => {
@@ -553,4 +555,29 @@ describe('shared routing state persistence integration', () => {
             /function syncAutoPlayNavigationFromSharedRoutingState[\s\S]*?getAutoPlaySharedNavigationAction\(\{[\s\S]*?rootMapTemplateIsReady/,
         );
     });
+});
+
+test('publishes a changed avoidance mode even with identical route geometry and timestamp', () => {
+    const { sharedRoutingState } = createSharedRoutingStateHarness({
+        readPersistedState: async () => null,
+    });
+    const route = {
+        requestedAt: 1000,
+        advancedRouteSettings: { avoidanceMode: 'directional' },
+    };
+    const circularRoute = {
+        ...route,
+        advancedRouteSettings: { avoidanceMode: 'circular' },
+    };
+    assert.notEqual(
+        sharedRoutingState.getDirectionsRouteSyncKey(route),
+        sharedRoutingState.getDirectionsRouteSyncKey(circularRoute),
+    );
+    assert.equal(
+        sharedRoutingState.routingStatesAreEqual(
+            { directionsRoute: route },
+            { directionsRoute: circularRoute },
+        ),
+        false,
+    );
 });

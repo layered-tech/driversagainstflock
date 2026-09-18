@@ -15,10 +15,12 @@ describe('advanced route settings', () => {
         assert.deepEqual(normalizeAdvancedRouteSettings(), {
             allowAlprNearStartDestination: true,
             avoidBufferMeters: DEFAULT_AVOID_BUFFER_METERS,
+            avoidanceMode: 'directional',
         });
         assert.deepEqual(getAdvancedRouteSettings(null), {
             allowAlprNearStartDestination: true,
             avoidBufferMeters: DEFAULT_AVOID_BUFFER_METERS,
+            avoidanceMode: 'directional',
         });
     });
 
@@ -37,6 +39,7 @@ describe('advanced route settings', () => {
             {
                 allow_alpr_near_start_destination: false,
                 avoid_buffer: 275,
+                avoidance_mode: 'directional',
             },
         );
     });
@@ -50,9 +53,45 @@ describe('advanced route settings', () => {
         });
 
         assert.deepEqual(storedSettings, {
+            avoidanceMode: 'directional',
             allowAlprNearStartDestination: false,
             avoidBufferMeters: 275,
         });
-        assert.equal(getAdvancedRouteSettingsKey(storedSettings), '0:275');
+        assert.equal(
+            getAdvancedRouteSettingsKey(storedSettings),
+            '0:275:directional',
+        );
     });
+});
+
+test('retains circular mode through persistence normalization and API payloads', () => {
+    const settings = normalizeAdvancedRouteSettings({
+        avoidanceMode: 'circular',
+        avoidBufferMeters: 125,
+    });
+    const persisted = JSON.parse(
+        JSON.stringify({ advancedRouteSettings: settings }),
+    );
+    const restored = getStoredAdvancedRouteSettings(persisted);
+    assert.deepEqual(restored, settings);
+    assert.equal(
+        getAdvancedRouteSettingsRequestPayload(restored).avoidance_mode,
+        'circular',
+    );
+    assert.notEqual(
+        getAdvancedRouteSettingsKey(restored),
+        getAdvancedRouteSettingsKey({
+            ...restored,
+            avoidanceMode: 'directional',
+        }),
+    );
+});
+
+test('older or malformed stored modes fall back to directional cones', () => {
+    for (const avoidanceMode of [undefined, null, '', 'triangle', {}, []]) {
+        assert.equal(
+            normalizeAdvancedRouteSettings({ avoidanceMode }).avoidanceMode,
+            'directional',
+        );
+    }
 });

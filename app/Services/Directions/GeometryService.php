@@ -85,11 +85,17 @@ class GeometryService
      * @param  array<int, PointOfInterest>  $pois
      * @return array{type: string, coordinates: array<int, mixed>}
      */
-    public function exclusionZone(array $pois, float $avoidBufferMeters, float $coneAngleDegrees, int $coneSegments): array
+    public function exclusionZone(array $pois, float $avoidBufferMeters, float $coneAngleDegrees, int $coneSegments, string $avoidanceMode = 'directional'): array
     {
         $polygons = [];
 
         foreach ($pois as $poi) {
+            if ($avoidanceMode === 'circular') {
+                $polygons[] = [$this->circleRing($poi->longitude, $poi->latitude, $avoidBufferMeters)];
+
+                continue;
+            }
+
             foreach ($poi->directions ?: [null] as $direction) {
                 $polygons[] = $direction instanceof DirectionRange
                     ? [$this->coneRing($poi, $direction, $avoidBufferMeters, $coneAngleDegrees, $coneSegments)]

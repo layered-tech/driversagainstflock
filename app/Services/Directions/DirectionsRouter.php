@@ -57,6 +57,7 @@ class DirectionsRouter
         $routeControlCoordinates = [$start, ...$waypoints, $end];
         $profiles = $payload['profile'] ?? [];
         $avoidBuffer = (float) ($payload['avoid_buffer'] ?? config('directions.avoid_buffer_meters'));
+        $avoidanceMode = $payload['avoidance_mode'] ?? 'directional';
         $scorecardCameraRange = (float) config('directions.scorecard_camera_range_meters');
         $allowEndpointAlpr = (bool) ($payload['allow_alpr_near_start_destination'] ?? true);
         $endpointBuffer = $allowEndpointAlpr ? $avoidBuffer * 2 : 0.0;
@@ -70,6 +71,7 @@ class DirectionsRouter
             'waypoint_count' => count($waypoints),
             'profile_count' => count($profiles),
             'avoid_buffer_meters' => $avoidBuffer,
+            'avoidance_mode' => $avoidanceMode,
             'allow_alpr_near_start_destination' => $allowEndpointAlpr,
             'continue_straight' => $continueStraight,
             'show_zone' => $showZone,
@@ -215,7 +217,8 @@ class DirectionsRouter
                 array_values($avoidedPois),
                 $avoidBuffer,
                 (float) config('directions.cone_angle_degrees'),
-                (int) config('directions.cone_segments')
+                (int) config('directions.cone_segments'),
+                $avoidanceMode,
             );
 
             if ($allowEndpointAlpr) {
@@ -325,6 +328,7 @@ class DirectionsRouter
                         $endpointBuffer,
                         $allowEndpointAlpr,
                         $lastZone,
+                        $avoidanceMode,
                     )
                     : null,
             ],
@@ -432,6 +436,7 @@ class DirectionsRouter
         float $endpointBuffer,
         bool $allowEndpointAlpr,
         array $zone,
+        string $avoidanceMode,
     ): array {
         $features = [
             [
@@ -492,6 +497,7 @@ class DirectionsRouter
             'properties' => [
                 'avoidBufferMeters' => $avoidBuffer,
                 'debugRole' => 'avoid_polygons',
+                'avoidanceMode' => $avoidanceMode,
                 'polygonCount' => count($zone['coordinates'] ?? []),
             ],
         ];

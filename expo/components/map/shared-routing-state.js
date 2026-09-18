@@ -2,6 +2,7 @@ import {
     getPrivateCacheItem,
     setPrivateCacheItem,
 } from '../../lib/private-cache-storage';
+import { getAdvancedRouteSettingsKey } from './advanced-route-settings';
 import { BACKGROUND_ALERT_STORAGE_TIMEOUT_MS } from './background-alert-budget';
 import { getSelectedDirectionsRouteOption } from './directions';
 import { createMapPreferencesPersistenceScheduler } from './map-preferences-persistence';
@@ -199,6 +200,7 @@ export function getDirectionsRouteSyncKey(route) {
     return [
         getDirectionsRouteGeometrySyncKey(route),
         getRouteCameraContractSyncKey(route, routeOption),
+        getAdvancedRouteSettingsKey(route.advancedRouteSettings),
     ].join('|');
 }
 

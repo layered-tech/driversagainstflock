@@ -226,6 +226,7 @@ const directionsLoadingElapsedSeconds = ref(0);
 const directionsError = ref('');
 const directionsNotice = ref('');
 const avoidBufferMeters = ref(DEFAULT_AVOID_BUFFER_METERS);
+const avoidanceMode = ref('directional');
 const allowAlprNearStartDestination = ref(true);
 const advancedSettingsOpen = ref(false);
 const routePanelIsCollapsed = ref(false);
@@ -253,6 +254,7 @@ let markerSplashTimeoutId = null;
 let systemThemeMediaQuery = null;
 let directionsLoadingStartedAt = null;
 let directionsLoadingTimer = null;
+let directionsRequestId = 0;
 let unclusteredMarkerConeSignature = null;
 
 const mapHeaderLinks = [
@@ -1677,6 +1679,7 @@ async function getDirections() {
     const startCoordinate = coordinates[0];
     const endCoordinate = coordinates[coordinates.length - 1];
     const waypointCoordinates = coordinates.slice(1, -1);
+    const requestId = ++directionsRequestId;
 
     routePanelIsCollapsed.value = false;
     directionsIsLoading.value = true;
@@ -1686,6 +1689,7 @@ async function getDirections() {
     try {
         const response = await axios.post('/api/v1/directions', {
             avoid_buffer: avoidBufferMeters.value,
+            avoidance_mode: avoidanceMode.value,
             allow_alpr_near_start_destination:
                 allowAlprNearStartDestination.value,
             continue_straight: true,
@@ -1704,6 +1708,10 @@ async function getDirections() {
                 longitude: coordinate[0],
             })),
         });
+        if (requestId !== directionsRequestId) {
+            return;
+        }
+
         const normalizedRoute = normalizeDirectionsRouteResponse(
             response.data?.result ?? response.data,
         );
@@ -1714,12 +1722,18 @@ async function getDirections() {
         updateRouteLayerStyles();
         fitMapToSelectedRoute();
     } catch {
+        if (requestId !== directionsRequestId) {
+            return;
+        }
+
         directionsRoute.value = null;
         syncRouteSources();
         directionsError.value = 'Directions are temporarily unavailable.';
     } finally {
-        directionsIsLoading.value = false;
-        stopDirectionsLoadingTimer();
+        if (requestId === directionsRequestId) {
+            directionsIsLoading.value = false;
+            stopDirectionsLoadingTimer();
+        }
     }
 }
 
@@ -1798,6 +1812,9 @@ function clearDirections() {
 }
 
 function clearLoadedDirectionsRoute() {
+    directionsRequestId++;
+    directionsIsLoading.value = false;
+    stopDirectionsLoadingTimer();
     directionsRoute.value = null;
     directionsError.value = '';
     directionsNotice.value = '';
@@ -4294,6 +4311,39 @@ function degreesToRadians(degrees) {
                                         v-if="advancedSettingsOpen"
                                         class="pt-3"
                                     >
+                                        <div class="mb-4">
+                                            <label
+                                                class="mb-2 block text-daf-body-sm font-semibold text-daf-text-primary"
+                                                for="alpr-avoidance-mode"
+                                            >
+                                                ALPR avoidance shape
+                                            </label>
+                                            <select
+                                                id="alpr-avoidance-mode"
+                                                v-model="avoidanceMode"
+                                                aria-describedby="alpr-avoidance-mode-help"
+                                                class="w-full rounded-dafSm border border-daf-border bg-daf-surface-alt px-3 py-2 text-daf-body-sm text-daf-text-primary focus:border-daf-focus focus:ring-daf-focus"
+                                                @change="
+                                                    maybeLoadDirectionsRoute
+                                                "
+                                            >
+                                                <option value="directional">
+                                                    Directional cones
+                                                </option>
+                                                <option value="circular">
+                                                    Circular radius
+                                                </option>
+                                            </select>
+                                            <p
+                                                id="alpr-avoidance-mode-help"
+                                                class="mt-2 text-daf-caption text-daf-text-secondary"
+                                            >
+                                                Directional cones use camera
+                                                direction when known. Circular
+                                                radius avoids every camera in
+                                                all directions.
+                                            </p>
+                                        </div>
                                         <div
                                             class="mb-4 flex items-center justify-between gap-3 rounded-dafSm border border-daf-border-glass bg-daf-surface-alt px-3 py-3"
                                         >
