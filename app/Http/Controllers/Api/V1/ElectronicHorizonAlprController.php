@@ -15,7 +15,7 @@ class ElectronicHorizonAlprController extends Controller
         ElectronicHorizonAlprLookup $lookup,
     ): JsonResponse {
         try {
-            $result = $lookup->findWithCoverage($request->coordinates());
+            $result = $lookup->findWithCoverage($request->coordinates(), $request->boolean('presence'));
 
             return response()->json([
                 'ok' => true,

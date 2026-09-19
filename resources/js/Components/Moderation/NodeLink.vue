@@ -3,6 +3,7 @@ import { Link } from '@inertiajs/vue3';
 import { inject } from 'vue';
 
 defineProps({
+    filters: { type: Object, default: () => ({}) },
     from: { type: String, default: 'nodes' },
     nodeId: { type: [Number, String], required: true },
 });
@@ -15,7 +16,9 @@ const route = inject('route');
         :href="
             route(
                 'moderation.nodes.show',
-                from === 'flagged' ? { node: nodeId, from } : nodeId,
+                from === 'nodes' && !Object.keys(filters).length
+                    ? nodeId
+                    : { node: nodeId, from, ...filters },
             )
         "
     >

@@ -99,6 +99,11 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(45)->by($request->ip());
         });
 
+        RateLimiter::for('alpr-presence-reports', function (Request $request): array {
+            return [Limit::perMinute(30)->by('ip:'.$request->ip()),
+                Limit::perHour(60)->by('reporter:'.hash('sha256', (string) $request->input('reporter_id', '')))];
+        });
+
         RateLimiter::for('osm-node-sync', function (Request $request) {
             return Limit::perMinute(10)->by($request->ip());
         });

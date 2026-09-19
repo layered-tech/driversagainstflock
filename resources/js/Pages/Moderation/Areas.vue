@@ -26,6 +26,7 @@ const columns = [
     [null, 'Area'],
     [null, 'Watchers'],
     [null, 'Open flags'],
+    [null, 'Not there reports'],
     [null, 'Edits · 7 d'],
     [null, 'Flagged'],
     [null, 'Created'],
@@ -78,6 +79,24 @@ const columns = [
             </td>
             <td class="font-mono">
                 {{ details[rowKey(row)]?.open_flags ?? row.open_flags ?? '—' }}
+            </td>
+            <td>
+                <Link
+                    :href="
+                        query('flagged', {
+                            area: row.id,
+                            flag_source: 'alpr_presence',
+                        })
+                    "
+                    class="mod-link"
+                >
+                    Not there reports ·
+                    {{
+                        details[rowKey(row)]?.open_reported_nodes ??
+                        row.open_reported_nodes ??
+                        '—'
+                    }}
+                </Link>
             </td>
             <td class="font-mono">
                 {{
@@ -186,6 +205,23 @@ const columns = [
                         }}
                     </dd></template
                 >
+                <dt>Not there reports</dt>
+                <dd>
+                    <Link
+                        :href="
+                            query('flagged', {
+                                area: row.id,
+                                flag_source: 'alpr_presence',
+                            })
+                        "
+                        class="mod-link"
+                        >{{
+                            details[rowKey(row)]?.open_reported_nodes ??
+                            row.open_reported_nodes ??
+                            '—'
+                        }}</Link
+                    >
+                </dd>
                 <dt>Open flags</dt>
                 <dd>
                     {{ details[rowKey(row)]?.open_flags ?? '—' }}

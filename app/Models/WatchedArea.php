@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Jobs\ReconcileAlprPresenceReports;
 use App\Services\OpenStreetMap\ModerationEditorSummaries;
 use App\Services\OpenStreetMap\ModerationSummaryCache;
 use Database\Factories\WatchedAreaFactory;
@@ -22,6 +23,7 @@ class WatchedArea extends Model
     {
         static::saved(function (WatchedArea $area): void {
             DB::afterCommit(function () use ($area): void {
+                ReconcileAlprPresenceReports::dispatch();
                 static::whereKey($area)->update(['summary_dirty_at' => now()]);
                 app(ModerationSummaryCache::class)->invalidate();
             });

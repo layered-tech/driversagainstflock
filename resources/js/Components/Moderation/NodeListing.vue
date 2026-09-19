@@ -1,4 +1,5 @@
 <script setup>
+import FlagLabel from '@/Components/Moderation/FlagLabel.vue';
 import ModerationListing from '@/Components/Moderation/ModerationListing.vue';
 import DafIcon from '@/Components/Daf/DafIcon.vue';
 import NodeLink from '@/Components/Moderation/NodeLink.vue';
@@ -11,6 +12,7 @@ const props = defineProps({
 });
 const {
     view,
+    state,
     expanded,
     dismissingFlag,
     query,
@@ -28,6 +30,7 @@ const {
             ><td class="font-mono text-xs font-semibold">
                 <NodeLink
                     :from="view"
+                    :filters="state"
                     :node-id="row.id"
                     class="hover:text-daf-text-brand hover:underline"
                     >{{ row.id }}</NodeLink
@@ -39,21 +42,34 @@ const {
                 </div>
                 <details v-if="row.flags?.length" class="mt-2 text-xs">
                     <summary class="cursor-pointer text-[var(--alert-600)]">
-                        {{ row.flags.length }} rule violations
+                        {{ row.flags.length }} flags
                     </summary>
                     <div
                         v-for="flag in row.flags"
                         :key="flag.id"
                         class="mt-2 max-w-sm space-y-2"
                     >
-                        <Link
-                            :href="route('moderation.rules.edit', flag.rule_id)"
-                            class="mod-link"
-                            >{{ flag.rule.name }}</Link
-                        ><span>
+                        <FlagLabel :flag="flag" class="mod-link" />
+                        <span v-if="flag.rule">
                             · {{ flag.rule.severity
                             }}{{ flag.stale ? ' · Stale' : '' }}</span
                         >
+                        <div v-if="flag.source === 'alpr_presence'">
+                            Unverified user report ·
+                            {{ flag.evidence.report_count }} Not there reports
+                            <div>
+                                First occurrence:
+                                {{
+                                    absoluteTime(flag.evidence.first_report_at)
+                                }}
+                            </div>
+                            <div>
+                                Latest occurrence:
+                                {{
+                                    absoluteTime(flag.evidence.latest_report_at)
+                                }}
+                            </div>
+                        </div>
                         <pre class="whitespace-pre-wrap break-all">{{
                             JSON.stringify(flag.evidence, null, 2)
                         }}</pre>
@@ -70,21 +86,21 @@ const {
             </td>
             <td v-if="view === 'flagged'">
                 <div class="flex min-w-[150px] flex-wrap gap-1">
-                    <Link
+                    <FlagLabel
                         v-for="flag in row.flags"
                         :key="flag.id"
-                        :href="route('moderation.rules.edit', flag.rule_id)"
-                        class="rounded-dafXs border border-daf-border px-[7px] py-0.5 text-[11px] font-semibold text-daf-text-secondary hover:text-daf-text-brand"
-                    >
-                        {{ flag.rule.name }}{{ flag.stale ? ' · Stale' : '' }}
-                    </Link>
+                        :flag="flag"
+                        class="rounded-dafXs border border-daf-border px-[7px] py-0.5 text-[11px] font-semibold text-daf-text-secondary"
+                    />
                 </div>
             </td>
             <td v-if="view === 'flagged'">
                 <span
                     v-for="severity in [
                         ...new Set(
-                            (row.flags || []).map((flag) => flag.rule.severity),
+                            (row.flags || [])
+                                .map((flag) => flag.rule?.severity)
+                                .filter(Boolean),
                         ),
                     ]"
                     :key="severity"
@@ -137,18 +153,36 @@ const {
                 class="whitespace-nowrap font-mono text-xs text-daf-text-tertiary"
             >
                 <time
-                    :datetime="row.changed_at"
-                    :title="absoluteTime(row.changed_at)"
-                    >{{ relativeTime(row.changed_at) }}</time
+                    :datetime="
+                        state.flag_source === 'alpr_presence'
+                            ? row.reported_at
+                            : row.changed_at
+                    "
+                    :title="
+                        absoluteTime(
+                            state.flag_source === 'alpr_presence'
+                                ? row.reported_at
+                                : row.changed_at,
+                        )
+                    "
+                    >{{
+                        relativeTime(
+                            state.flag_source === 'alpr_presence'
+                                ? row.reported_at
+                                : row.changed_at,
+                        )
+                    }}</time
                 >
             </td>
             <td>
                 <div class="flex flex-wrap items-center gap-3">
                     <template v-if="view === 'flagged'">
                         <button
-                            v-for="flag in row.flags"
+                            v-for="flag in (row.flags || []).filter(
+                                (flag) => flag.status === 'open',
+                            )"
                             :key="flag.id"
-                            :aria-label="`Dismiss ${flag.rule.name} for node ${row.id}`"
+                            :aria-label="`Dismiss ${flag.source === 'alpr_presence' ? 'Driver reported missing' : flag.rule?.name} for node ${row.id}`"
                             :disabled="dismissingFlag !== null"
                             class="mod-button !h-[30px] !px-3"
                             @click="dismissFlag(flag)"
@@ -156,7 +190,7 @@ const {
                             {{
                                 row.flags.length === 1
                                     ? 'Dismiss'
-                                    : `Dismiss ${flag.rule.name}`
+                                    : `Dismiss ${flag.source === 'alpr_presence' ? 'Driver reported missing' : flag.rule?.name}`
                             }}
                         </button>
                     </template>

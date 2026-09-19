@@ -1,4 +1,5 @@
 <script setup>
+import FlagLabel from '@/Components/Moderation/FlagLabel.vue';
 import { useModerationTime } from '@/useModerationTime';
 import ModerationMap from '@/Components/Moderation/ModerationMap.vue';
 import NodeLink from '@/Components/Moderation/NodeLink.vue';
@@ -9,6 +10,9 @@ import { computed, inject, ref } from 'vue';
 
 const { absoluteTime, localDate } = useModerationTime();
 const props = defineProps({
+    reports: { type: Object, default: () => ({ data: [] }) },
+    reportReviews: { type: Object, default: () => ({ data: [] }) },
+    listingFilters: { type: Object, default: () => ({}) },
     from: { type: String, default: 'nodes' },
     node: Object,
     versions: Array,
@@ -205,7 +209,7 @@ const dismissFlag = (flag) =>
         </Head>
         <section class="px-4 pb-11 pt-5 sm:px-6">
             <Link
-                :href="route(`moderation.${from}.index`)"
+                :href="route(`moderation.${from}.index`, listingFilters)"
                 class="inline-flex text-sm font-semibold text-daf-text-secondary hover:text-daf-text-brand"
             >
                 ← {{ from === 'flagged' ? 'Flagged nodes' : 'ALPR nodes' }}
@@ -220,7 +224,112 @@ const dismissFlag = (flag) =>
                 try again shortly.
             </div>
 
-            <template v-else>
+            <section
+                v-if="reports.data.length"
+                aria-label="Not there reports"
+                class="mt-5 rounded-dafMd border border-daf-border bg-daf-surface-card p-4"
+            >
+                <h2 class="mod-subheading">Not there reports</h2>
+                <p class="mt-2 text-sm">
+                    Unverified user report. These observations do not establish
+                    that a camera is missing or reflect on its OSM editor.
+                </p>
+                <p
+                    v-if="node.current_unavailable || node.visible === false"
+                    class="mt-2 text-sm"
+                >
+                    Current node deleted or unavailable. Historical observations
+                    are retained.
+                </p>
+                <ol class="mt-4 space-y-4">
+                    <li
+                        v-for="report in reports.data"
+                        :key="report.id"
+                        class="border-b border-daf-border pb-3 text-sm"
+                    >
+                        <strong
+                            >{{
+                                report.platform === 'android_auto'
+                                    ? 'Android Auto'
+                                    : 'CarPlay'
+                            }}
+                            · Not there</strong
+                        >
+                        <div>
+                            Passed: {{ absoluteTime(report.passed_at) }} ·
+                            Occurred: {{ absoluteTime(report.occurred_at) }} ·
+                            Submitted: {{ absoluteTime(report.submitted_at) }} ·
+                            Received: {{ absoluteTime(report.received_at) }}
+                        </div>
+                        <div>
+                            Reporter:
+                            {{
+                                report.user_id
+                                    ? 'Authenticated account #' + report.user_id
+                                    : 'Unverified app identity'
+                            }}
+                        </div>
+                        <div>
+                            Client-observed version:
+                            {{ report.observed?.version ?? 'Unknown' }} ·
+                            Location:
+                            {{ report.observed?.latitude ?? 'Unknown' }},
+                            {{ report.observed?.longitude ?? 'Unknown' }}
+                        </div>
+                        <div v-if="report.observed?.street">
+                            Client-observed street: {{ report.observed.street }}
+                        </div>
+                        <div>
+                            Server node snapshot: v{{
+                                report.server_node_version
+                            }}
+                            · {{ report.server_latitude ?? 'Unknown' }},
+                            {{ report.server_longitude ?? 'Unknown' }}
+                        </div>
+                    </li>
+                </ol>
+                <nav aria-label="Report history pages" class="mt-3 flex gap-4">
+                    <Link
+                        v-if="reports.prev_page_url"
+                        :href="reports.prev_page_url"
+                        class="mod-link"
+                        >Previous reports</Link
+                    >
+                    <Link
+                        v-if="reports.next_page_url"
+                        :href="reports.next_page_url"
+                        class="mod-link"
+                        >More reports</Link
+                    >
+                </nav>
+                <h3 class="mod-label mt-4">Review history</h3>
+                <p v-if="!reportReviews.data.length" class="text-sm">
+                    No reviews recorded.
+                </p>
+                <p
+                    v-for="review in reportReviews.data"
+                    :key="review.id"
+                    class="text-sm"
+                >
+                    {{ review.actor }} dismissed this driver-report flag ·
+                    {{ absoluteTime(review.created_at) }}
+                </p>
+                <nav aria-label="Review history pages" class="mt-3 flex gap-4">
+                    <Link
+                        v-if="reportReviews.prev_page_url"
+                        :href="reportReviews.prev_page_url"
+                        class="mod-link"
+                        >Previous reviews</Link
+                    >
+                    <Link
+                        v-if="reportReviews.next_page_url"
+                        :href="reportReviews.next_page_url"
+                        class="mod-link"
+                        >More reviews</Link
+                    >
+                </nav>
+            </section>
+            <template v-if="source.state !== 'unavailable'">
                 <header class="mt-4 flex flex-wrap items-center gap-3.5">
                     <span
                         class="flex size-12 shrink-0 items-center justify-center rounded-full bg-[var(--alert-100)]"
@@ -255,16 +364,12 @@ const dismissFlag = (flag) =>
                                 class="rounded-dafPill bg-daf-surface-alt px-[9px] py-[3px] font-mono text-[11px] font-bold text-daf-text-tertiary"
                                 >No open flags</span
                             >
-                            <Link
+                            <FlagLabel
                                 v-for="flag in activeFlags"
                                 :key="flag.id"
-                                :href="
-                                    route('moderation.rules.edit', flag.rule_id)
-                                "
-                                class="rounded-dafXs border border-daf-border px-[7px] py-0.5 text-[11px] font-semibold text-daf-text-secondary hover:border-daf-brand hover:text-daf-text-brand"
-                            >
-                                {{ flag.rule.name }}
-                            </Link>
+                                :flag="flag"
+                                class="mod-chip"
+                            />
                         </div>
                         <p
                             class="mt-1 text-daf-caption text-daf-text-secondary"
@@ -306,7 +411,12 @@ const dismissFlag = (flag) =>
                                     type="button"
                                     @click="dismissFlag(flag)"
                                 >
-                                    Dismiss {{ flag.rule.name }}
+                                    Dismiss
+                                    {{
+                                        flag.source === 'alpr_presence'
+                                            ? 'Driver reported missing'
+                                            : flag.rule?.name
+                                    }}
                                 </button>
                             </div>
                         </details>
@@ -532,9 +642,17 @@ const dismissFlag = (flag) =>
                                                 ? item.version.comment ||
                                                   'No changeset comment available.'
                                                 : item.kind === 'Flagged'
-                                                  ? item.flag.rule.name +
+                                                  ? (item.flag.source ===
+                                                    'alpr_presence'
+                                                        ? 'Driver reported missing'
+                                                        : item.flag.rule
+                                                              ?.name) +
                                                     ' flagged this node.'
-                                                  : item.flag.rule.name +
+                                                  : (item.flag.source ===
+                                                    'alpr_presence'
+                                                        ? 'Driver reported missing'
+                                                        : item.flag.rule
+                                                              ?.name) +
                                                     ' was dismissed.'
                                         }}
                                     </p>
@@ -574,16 +692,10 @@ const dismissFlag = (flag) =>
                                         v-if="item.type === 'flag'"
                                         class="mt-2 flex flex-wrap items-center gap-2"
                                     >
-                                        <Link
-                                            :href="
-                                                route(
-                                                    'moderation.rules.edit',
-                                                    item.flag.rule_id,
-                                                )
-                                            "
-                                            class="rounded-dafXs border border-[color-mix(in_oklab,var(--alert-500)_40%,transparent)] bg-[color-mix(in_oklab,var(--alert-500)_6%,var(--surface-card))] px-[7px] py-0.5 text-[11px] font-semibold text-[var(--alert-600)]"
-                                            >{{ item.flag.rule.name }}</Link
-                                        >
+                                        <FlagLabel
+                                            :flag="item.flag"
+                                            class="mod-chip"
+                                        />
                                     </div>
                                 </div>
                             </div>

@@ -22,25 +22,26 @@ class ElectronicHorizonAlprLookup
 
     /**
      * @param  array<int, array{0: float, 1: float}>  $coordinates
-     * @return array{coverage_complete: bool, nodes: array<int, array{camera_direction: string|null, coordinate: array{0: float, 1: float}, direction: string|null, id: string, osm_id: int, tags: array<string, mixed>}>}
+     * @return array{coverage_complete: bool, coverage_radius_meters: float, nodes: array<int, array{camera_direction: string|null, coordinate: array{0: float, 1: float}, direction: string|null, id: string, osm_id: int, tags: array<string, mixed>}>}
      */
-    public function findWithCoverage(array $coordinates): array
+    public function findWithCoverage(array $coordinates, bool $presence = false): array
     {
         $this->ensurePathLengthIsAllowed($coordinates);
 
         return Cache::remember(
-            $this->cacheKey($coordinates),
+            $this->cacheKey($coordinates).($presence ? ':presence:750:v2' : ''),
             now()->addSeconds((int) config('electronic-horizon.alpr_cache_seconds')),
-            fn (): array => $this->findUncached($coordinates),
+            fn (): array => $this->findUncached($coordinates, $presence),
         );
     }
 
     /**
      * @param  array<int, array{0: float, 1: float}>  $coordinates
-     * @return array{coverage_complete: bool, nodes: array<int, array{camera_direction: string|null, coordinate: array{0: float, 1: float}, direction: string|null, id: string, osm_id: int, tags: array<string, mixed>}>}
+     * @return array{coverage_complete: bool, coverage_radius_meters: float, nodes: array<int, array{camera_direction: string|null, coordinate: array{0: float, 1: float}, direction: string|null, id: string, osm_id: int, tags: array<string, mixed>}>}
      */
-    private function findUncached(array $coordinates): array
+    private function findUncached(array $coordinates, bool $presence): array
     {
+        $radius = $presence ? 750.0 : (float) config('electronic-horizon.alpr_path_buffer_meters');
         $nodes = OsmNode::query()
             ->select([
                 'id',
@@ -56,13 +57,14 @@ class ElectronicHorizonAlprLookup
             ]])
             ->nearRoute(
                 $coordinates,
-                (float) config('electronic-horizon.alpr_path_buffer_meters'),
+                $radius,
             )
             ->orderBy('id')
             ->get();
 
         return [
             'coverage_complete' => true,
+            'coverage_radius_meters' => $radius,
             'nodes' => $nodes
                 ->map(fn (OsmNode $node): array => [
                     'camera_direction' => $node->camera_direction,

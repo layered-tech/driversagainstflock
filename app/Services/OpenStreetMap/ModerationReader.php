@@ -2,6 +2,7 @@
 
 namespace App\Services\OpenStreetMap;
 
+use App\Models\AlprPresenceReport;
 use App\Models\ModerationFlag;
 use App\Models\ModerationReview;
 use App\Models\OsmChangeset;
@@ -20,7 +21,7 @@ class ModerationReader
     public function nodeDetail(int $id): array
     {
         $node = $this->query()->fromSub($this->nodes(), 'records')->where('id', $id)->first();
-        abort_unless($node, 404);
+        abort_unless($node || AlprPresenceReport::where('osm_node_id', $id)->exists(), 404);
 
         $versions = OsmNodeVersion::query()
             ->where('node_id', $id)
@@ -58,7 +59,7 @@ class ModerationReader
             ->toArray();
 
         return [
-            'node' => $this->normalize($node),
+            'node' => $node ? $this->normalize($node) : ['id' => $id, 'visible' => false, 'current_unavailable' => true],
             'versions' => $normalizedVersions,
             'flags' => $flags,
         ];
@@ -232,12 +233,17 @@ class ModerationReader
             'nodes', 'flagged' => $this->query()->fromSub($this->nodes($withPrevious, $withReviews), 'records'), 'editors' => $this->query()->fromSub($this->editors(), 'records'), default => $this->query()->fromSub($this->changesets($withReviews), 'records')
         };
         if ($view === 'flagged') {
-            $flags = ModerationFlag::active()
-                ->when($filters['rules'] ?? [], fn ($query, array $rules) => $query->whereIn('rule_id', $rules))
-                ->when($filters['severities'] ?? [], fn ($query, array $severities) => $query->whereHas('rule', fn ($rule) => $rule->whereIn('severity', $severities)))
-                ->get(['node_id', 'related_node_id']);
+            $flags = ModerationFlag::forListing($filters)->get(['node_id', 'related_node_id', 'source', 'evidence']);
             $nodeIds = $flags->flatMap(fn (ModerationFlag $flag): array => [$flag->node_id, $flag->related_node_id])->filter()->unique()->values();
             $query->whereIntegerInRaw('id', $nodeIds);
+            $reports = $flags->where('source', 'alpr_presence')->map(fn ($flag): array => [
+                'node_id' => $flag->node_id, 'reported_at' => $flag->evidence['latest_received_at'],
+            ])->values()->toJson();
+            $query->leftJoin(DB::raw('jsonb_to_recordset(?::jsonb) as reports(node_id bigint, reported_at timestamptz)'), 'reports.node_id', '=', 'records.id')
+                ->addBinding($reports, 'join')->select('records.*', 'reports.reported_at');
+        }
+        if (array_key_exists('area_ids', $filters) && in_array($view, ['nodes', 'flagged'], true)) {
+            $query->whereIn('id', $this->nodesWithinAreas($filters['area_ids'])->select('source.id'));
         }
         $timeColumn = $view === 'editors' ? 'last_active' : 'changed_at';
         $userColumn = $view === 'editors' ? 'name' : 'osm_user';
@@ -314,6 +320,9 @@ class ModerationReader
         $details = $isNode ? $this->nodes(withReviews: false) : $this->changesets(withReviews: false);
         $details->whereColumn('source.id', 'page.id')->limit(1);
         $enriched = $this->query()->fromSub($candidates, 'page')->joinLateral($details, 'source')->select('source.*')->limit($perPage + 1);
+        if (in_array('reported_at', $columns, true)) {
+            $enriched->addSelect('page.reported_at');
+        }
         foreach ($orders as $order) {
             $enriched->orderBy('page.'.$order['column'], $order['direction']);
         }

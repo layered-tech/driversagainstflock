@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ModerationIndexRequest;
+use App\Models\AlprPresenceReport;
 use App\Models\ModerationActivity;
 use App\Models\ModerationContribution;
 use App\Models\ModerationEditorSummary;
@@ -16,7 +17,6 @@ use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -77,6 +77,10 @@ class ModerationController extends Controller
         if ($uid !== null) {
             $filters['uid'] = $uid;
         }
+        if (($filters['area_scope'] ?? null) === 'my') {
+            $filters['area_ids'] = WatchedArea::where('user_id', $request->user()->id)
+                ->orWhereHas('watchers', fn ($query) => $query->where('users.id', $request->user()->id))->pluck('id')->all();
+        }
         $profile = null;
         $weeks = [];
         $areas = WatchedArea::orderBy('name')->get(['id', 'name']);
@@ -85,6 +89,7 @@ class ModerationController extends Controller
         $records = new Paginator([], 200, $request->integer('page', 1), ['path' => $request->url()]);
         if ($view === 'areas') {
             $records = WatchedArea::with(['creator:id,name', 'watchers:id,name'])
+                ->when(isset($filters['area_ids']), fn ($query) => $query->whereIn('id', $filters['area_ids']))
                 ->when($filters['search'] ?? null, fn ($query, string $search) => $query->whereLike('name', '%'.$search.'%'))
                 ->latest()->simplePaginate(200)->appends($request->safe()->except($uid !== null ? ['uid'] : []));
         } elseif ($view === 'audit') {
@@ -108,13 +113,13 @@ class ModerationController extends Controller
                             $query->whereIn('id', ModerationContribution::where('status', 'reverted')->distinct()->pluck('changeset_id')->all());
                         }
                         $sorts = match ($view) {
-                            'nodes', 'flagged' => ['id', 'changed_at', 'osm_user', 'direction', 'operator'],
+                            'nodes', 'flagged' => ['reported_at', 'id', 'changed_at', 'osm_user', 'direction', 'operator'],
                             'editors' => ['name', 'tracked_changesets', 'last_active', 'added', 'modified', 'deleted'],
                             default => ['id', 'changed_at', 'osm_user', 'added', 'modified', 'deleted', 'total', 'status'],
                         };
                         $sort = ($filters['sort'] ?? null) === 'changesets_count' ? 'tracked_changesets' : ($filters['sort'] ?? '');
                         if (! in_array($sort, $sorts, true)) {
-                            $sort = $view === 'editors' ? 'tracked_changesets' : 'changed_at';
+                            $sort = ($view === 'flagged' && ($filters['flag_source'] ?? null) === 'alpr_presence') ? 'reported_at' : ($view === 'editors' ? 'tracked_changesets' : 'changed_at');
                         }
                         $order = $filters['order'] ?? 'desc';
                         $query->orderBy($sort, $order);
@@ -131,7 +136,7 @@ class ModerationController extends Controller
                         }
                         if (in_array($view, ['nodes', 'flagged'], true)) {
                             $ids = $records->getCollection()->pluck('id');
-                            $flags = ModerationFlag::active()->with('rule:id,name,severity')->where(fn ($query) => $query->whereIn('node_id', $ids)->orWhereIn('related_node_id', $ids))->get();
+                            $flags = ModerationFlag::forListing($view === 'flagged' ? array_intersect_key($filters, array_flip(['flag_source', 'report_state'])) : [])->with('rule:id,name,severity')->where(fn ($query) => $query->whereIn('node_id', $ids)->orWhereIn('related_node_id', $ids))->get();
                             $records->through(fn (array $row): array => [...$row, 'flags' => $flags->filter(fn ($flag) => $flag->node_id === $row['id'] || $flag->related_node_id === $row['id'])->values()->toArray()]);
                         }
                     }
@@ -145,7 +150,7 @@ class ModerationController extends Controller
         }
 
         return Inertia::render($component, [
-            'filters' => $filters, 'records' => $records, 'profile' => $profile, 'weeks' => $weeks,
+            'filters' => array_diff_key($filters, ['area_ids' => true]), 'records' => $records, 'profile' => $profile, 'weeks' => $weeks,
             'areas' => $areas, 'counts' => $counts,
             'source' => $source,
             ...($view === 'flagged' ? ['ruleOptions' => ModerationRule::where('enabled', true)->orderBy('name')->get(['id', 'name'])] : []),
@@ -232,7 +237,7 @@ class ModerationController extends Controller
         }
     }
 
-    public function node(int $node, Request $request, ModerationReader $reader): Response
+    public function node(int $node, ModerationIndexRequest $request, ModerationReader $reader): Response
     {
         try {
             $detail = $reader->query()->getConnection()->transaction(
@@ -245,7 +250,13 @@ class ModerationController extends Controller
             $source = ['state' => 'unavailable'];
         }
 
+        $reports = AlprPresenceReport::where('osm_node_id', $node)->orderByDesc('occurred_at')->orderByDesc('id')->paginate(25, ['*'], 'reports_page')->withQueryString();
+        $flagIds = ModerationFlag::where('source', 'alpr_presence')->where('node_id', $node)->pluck('id');
+        $reportReviews = ModerationActivity::where('subject_type', 'flag')->whereIn('subject_id', $flagIds)->latest('id')->paginate(25, ['*'], 'reviews_page')->withQueryString();
+
         return Inertia::render('Moderation/Node', [
+            'reports' => $reports, 'reportReviews' => $reportReviews,
+            'listingFilters' => $request->safe()->except(['reports_page', 'page']),
             ...$detail,
             'from' => $request->query('from') === 'flagged' ? 'flagged' : 'nodes',
             'counts' => ['nodes' => null, 'areas' => WatchedArea::count()],

@@ -76,6 +76,27 @@ const {
                 @submit.prevent="apply()"
             >
                 <div
+                    v-if="['flagged', 'nodes', 'areas'].includes(view)"
+                    class="flex gap-2"
+                >
+                    <button
+                        :aria-pressed="state.area_scope !== 'my' && !state.area"
+                        class="mod-chip"
+                        type="button"
+                        @click="apply({ area_scope: '', area: '' })"
+                    >
+                        All Areas
+                    </button>
+                    <button
+                        :aria-pressed="state.area_scope === 'my'"
+                        class="mod-chip"
+                        type="button"
+                        @click="apply({ area_scope: 'my', area: '' })"
+                    >
+                        My Areas
+                    </button>
+                </div>
+                <div
                     v-if="view !== 'areas'"
                     class="flex flex-wrap items-center gap-x-[18px] gap-y-2.5"
                 >
@@ -109,6 +130,75 @@ const {
                         </button>
                     </div>
                     <template v-if="view === 'flagged'">
+                        <label class="mod-label"
+                            >Source
+                            <select
+                                :value="state.flag_source || 'all'"
+                                aria-label="Flag source"
+                                class="mod-input"
+                                @change="
+                                    apply({
+                                        flag_source: $event.target.value,
+                                        rules: [],
+                                        severities: [],
+                                        window: '',
+                                        sort: '',
+                                        report_state: '',
+                                        report_window: '',
+                                    })
+                                "
+                            >
+                                <option value="all">All</option>
+                                <option value="rule">Rule flags</option>
+                                <option value="alpr_presence">
+                                    Driver reports
+                                </option>
+                            </select>
+                        </label>
+                        <template v-if="state.flag_source === 'alpr_presence'">
+                            <label class="mod-label"
+                                >Review state
+                                <select
+                                    :value="state.report_state || 'open'"
+                                    aria-label="Report review state"
+                                    class="mod-input"
+                                    @change="
+                                        apply({
+                                            report_state: $event.target.value,
+                                        })
+                                    "
+                                >
+                                    <option value="open">Open</option>
+                                    <option value="dismissed">Dismissed</option>
+                                    <option value="all">All</option>
+                                </select>
+                            </label>
+                            <label class="mod-label"
+                                >Report received
+                                <select
+                                    :value="state.report_window || ''"
+                                    aria-label="Report received window"
+                                    class="mod-input"
+                                    @change="
+                                        apply({
+                                            report_window: $event.target.value,
+                                        })
+                                    "
+                                >
+                                    <option value="">Any report time</option>
+                                    <option value="24h">Last 24 h</option>
+                                    <option value="7d">Last 7 d</option>
+                                    <option value="30d">Last 30 d</option>
+                                </select>
+                            </label>
+                        </template>
+                    </template>
+                    <template
+                        v-if="
+                            view === 'flagged' &&
+                            state.flag_source !== 'alpr_presence'
+                        "
+                    >
                         <div class="flex flex-wrap items-center gap-[5px]">
                             <span class="mod-label mr-1">Rule</span>
                             <button
@@ -307,11 +397,11 @@ const {
                         />
                         <select
                             v-model="state.window"
-                            aria-label="Time window"
+                            aria-label="Node edit time window"
                             class="mod-input !w-[150px]"
                             @change="apply()"
                         >
-                            <option value="">Any time</option>
+                            <option value="">Any edit time</option>
                             <option value="24h">Last 24 h</option>
                             <option value="7d">Last 7 d</option>
                             <option value="30d">Last 30 d</option>

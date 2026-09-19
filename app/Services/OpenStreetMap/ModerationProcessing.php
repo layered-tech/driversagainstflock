@@ -4,6 +4,7 @@ namespace App\Services\OpenStreetMap;
 
 use App\Jobs\DrainModerationSummaries;
 use App\Jobs\ProcessModeration;
+use App\Models\AlprPresenceReport;
 use App\Models\ModerationContribution;
 use App\Models\ModerationEditorSummary;
 use App\Models\ModerationProcess;
@@ -486,6 +487,9 @@ class ModerationProcessing
     {
         if ($kind === 'outcome' && $target !== null) {
             app(ModerationOutcomeProcessor::class)->process($target);
+            if (AlprPresenceReport::where('osm_node_id', $target)->exists()) {
+                app(AlprPresenceReports::class)->reconcile($target);
+            }
 
             return;
         }

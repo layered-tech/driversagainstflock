@@ -42,7 +42,7 @@ export function useModerationListing(props, view) {
     );
     function selectArea(id) {
         areaSearch.value = '';
-        apply({ area: id });
+        apply({ area: id, area_scope: '' });
     }
 
     const expanded = ref(null);
@@ -77,7 +77,7 @@ export function useModerationListing(props, view) {
             'Every OpenStreetMap edit that touches a surveillance node, as it lands.',
         nodes: 'Every ALPR node on the map, as OpenStreetMap has it. Open a node for its full history.',
         flagged:
-            'Nodes tripped by the active moderation rules, waiting for review. Dismiss the flag, or adjust the node upstream.',
+            'Rule flags and unverified driver reports, available for review.',
         editors:
             'The people editing the surveillance map, and the edits they leave behind.',
         areas: 'Shared boundaries. Subscribe to keep the places you care about close.',

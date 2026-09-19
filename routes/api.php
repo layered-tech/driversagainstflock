@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\PlaceController;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\V1\AlprPresenceReportController;
 use App\Http\Controllers\Api\V1\DirectionsController as V1DirectionsController;
 use App\Http\Controllers\Api\V1\ElectronicHorizonAlprController;
 use App\Http\Controllers\Api\V1\PoliceAlertsController;
@@ -62,6 +63,9 @@ Route::group(['middleware' => ['throttle:police-alerts']], function (Router $rou
 Route::group(['middleware' => ['throttle:electronic-horizon']], function (Router $route) {
     $route->post('v1/electronic-horizon/alpr', ElectronicHorizonAlprController::class);
 });
+
+Route::post('v1/alpr-presence-reports', AlprPresenceReportController::class)
+    ->middleware('throttle:alpr-presence-reports');
 
 Route::post('v1/osm/published-nodes', PublishedOsmNodeSyncController::class)
     ->middleware('throttle:osm-node-sync');

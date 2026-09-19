@@ -9,14 +9,21 @@ const props = defineProps(moderationListingProps);
 const listing = useModerationListing(props, 'flagged');
 const columns = [
     ['id', 'Node'],
-    [null, 'Rules'],
+    [null, 'Source'],
     [null, 'Severity'],
     [null, 'Changeset'],
     ['direction', 'Direction'],
     ['operator', 'Operator'],
     ['osm_user', 'Editor'],
     [null, 'Location'],
-    ['changed_at', 'Updated'],
+    [
+        props.filters?.flag_source === 'alpr_presence'
+            ? 'reported_at'
+            : 'changed_at',
+        props.filters?.flag_source === 'alpr_presence'
+            ? 'Report received'
+            : 'Node updated',
+    ],
     [null, 'Actions'],
     [null, ''],
 ];

@@ -18,6 +18,7 @@ class ElectronicHorizonAlprRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'presence' => ['sometimes', 'boolean'],
             'coordinates' => ['required', 'array', 'min:2', 'max:5000'],
             'coordinates.*' => ['required', 'array', 'size:2'],
             'coordinates.*.0' => ['required', 'numeric', 'between:-180,180'],

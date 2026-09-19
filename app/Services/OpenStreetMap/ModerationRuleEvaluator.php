@@ -134,12 +134,12 @@ class ModerationRuleEvaluator
             if (! $current?->enabled || $current->version !== $rule->version) {
                 return [];
             }
-            $before = ModerationFlag::where('rule_id', $rule->id)->where(fn ($query) => $query->where('node_id', $node['id'])->orWhere('related_node_id', $node['id']))
+            $before = ModerationFlag::where('source', 'rule')->where('rule_id', $rule->id)->where(fn ($query) => $query->where('node_id', $node['id'])->orWhere('related_node_id', $node['id']))
                 ->where('status', 'open')->get(['id', 'node_id', 'related_node_id', 'evidence_hash']);
             ModerationEvaluation::updateOrCreate(['rule_id' => $rule->id, 'node_id' => $node['id']], [
                 'rule_version' => $rule->version, 'node_version' => $node['osm_version'], 'state' => $result['state'], 'error' => $result['error'], 'evaluated_at' => now(),
             ]);
-            $existing = ModerationFlag::where('rule_id', $rule->id)->where(fn ($q) => $q->where('node_id', $node['id'])->orWhere('related_node_id', $node['id']));
+            $existing = ModerationFlag::where('source', 'rule')->where('rule_id', $rule->id)->where(fn ($q) => $q->where('node_id', $node['id'])->orWhere('related_node_id', $node['id']));
             if ($result['state'] === 'not_evaluated') {
                 $existing->update(['stale' => true]);
 
@@ -154,7 +154,7 @@ class ModerationRuleEvaluator
                 $relevantEvidence = $match;
                 unset($relevantEvidence['node_versions']);
                 $hash = hash('sha256', json_encode([$rule->version, $relevantEvidence], JSON_THROW_ON_ERROR));
-                $flag = ModerationFlag::firstOrNew(['rule_id' => $rule->id, 'node_id' => $nodeId, 'related_node_id' => $related]);
+                $flag = ModerationFlag::firstOrNew(['source' => 'rule', 'rule_id' => $rule->id, 'node_id' => $nodeId, 'related_node_id' => $related]);
                 $dismissed = $flag->status === 'dismissed' && $flag->evidence_hash === $hash;
                 $flag->fill(['rule_version' => $rule->version, 'node_version' => $match['node_versions'][$nodeId] ?? $node['osm_version'], 'status' => $dismissed ? 'dismissed' : 'open',
                     'evidence' => $match, 'evidence_hash' => $hash, 'evaluated_at' => now(), 'stale' => false,
@@ -163,7 +163,7 @@ class ModerationRuleEvaluator
                 $ids[] = $flag->id;
             }
             $existing->whereNotIn('id', $ids)->update(['status' => 'resolved', 'stale' => false, 'evaluated_at' => now()]);
-            $after = ModerationFlag::where('rule_id', $rule->id)->where(fn ($query) => $query->where('node_id', $node['id'])->orWhere('related_node_id', $node['id']))
+            $after = ModerationFlag::where('source', 'rule')->where('rule_id', $rule->id)->where(fn ($query) => $query->where('node_id', $node['id'])->orWhere('related_node_id', $node['id']))
                 ->where('status', 'open')->get(['id', 'node_id', 'related_node_id', 'evidence_hash']);
             $signature = fn ($flags): array => $flags->map(fn (ModerationFlag $flag): array => [$flag->id, $flag->evidence_hash])->sort()->values()->all();
             if ($signature($before) === $signature($after)) {

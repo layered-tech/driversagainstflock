@@ -89,7 +89,7 @@ class ModerationSummaries
             return null;
         }
         $nodes = OsmNodeVersion::where('osm_uid', $uid)->distinct()->pluck('node_id');
-        $flags = ModerationFlag::active()->where(fn ($q) => $q->whereIntegerInRaw('node_id', $nodes)->orWhereIntegerInRaw('related_node_id', $nodes))->get();
+        $flags = ModerationFlag::where('source', 'rule')->active()->where(fn ($q) => $q->whereIntegerInRaw('node_id', $nodes)->orWhereIntegerInRaw('related_node_id', $nodes))->get();
 
         return $flags->flatMap(fn ($flag) => [$flag->node_id, $flag->related_node_id])->filter()->unique()->intersect($nodes)->count();
     }
@@ -106,12 +106,12 @@ class ModerationSummaries
 
     public function area(WatchedArea $area): array
     {
-        return $this->cache->remember('area', ['id' => $area->id, 'geometry' => $area->geometry], function () use ($area): array {
+        $summary = $this->cache->remember('area', ['id' => $area->id, 'geometry' => $area->geometry, 'driver_reports' => true], function () use ($area): array {
             $sets = $this->reader->listing('changesets', ['area' => $area->id])->get(['id', 'osm_uid', 'total', 'changed_at', 'status']);
             $ids = $sets->pluck('id');
             $states = $this->states($sets, ModerationContribution::whereIntegerInRaw('changeset_id', $ids)->get());
             $nodes = $this->reader->listing('nodes', ['area' => $area->id])->pluck('id');
-            $flags = ModerationFlag::active()->where(fn ($q) => $q->whereIntegerInRaw('node_id', $nodes)->orWhereIntegerInRaw('related_node_id', $nodes))->get();
+            $flags = ModerationFlag::active()->where('source', 'rule')->where(fn ($q) => $q->whereIntegerInRaw('node_id', $nodes)->orWhereIntegerInRaw('related_node_id', $nodes))->get();
             $flaggedNodes = $flags->flatMap(fn ($flag) => [$flag->node_id, $flag->related_node_id])->filter()->unique()->intersect($nodes);
 
             return [
@@ -120,11 +120,22 @@ class ModerationSummaries
                 'affected_nodes' => $this->reader->locatedVersions($area)->distinct()->count('node_id'),
                 'flagged_changesets' => $sets->where('status', 'Flagged')->count(),
                 'reverted_changesets' => $sets->isNotEmpty() && ! array_filter($states, fn ($state) => $state !== 'unknown') ? null : count(array_filter($states, fn ($state) => $state === 'reverted')),
+                '_rule_node_ids' => $flaggedNodes->values()->all(),
                 'open_flags' => $this->rulesReady() ? $flaggedNodes->count() : null,
-                'open_violations' => $this->rulesReady() ? $flags->count() : null,
+                'open_violations' => $this->rulesReady() ? $flags->where('source', 'rule')->count() : null,
                 'nodes' => $this->reader->listing('nodes', ['area' => $area->id])->limit(100)->get(['id', 'latitude', 'longitude'])->map(fn ($node) => (array) $node)->all(),
             ];
         });
+        $nodeIds = $this->reader->nodesWithinAreas([$area->id])->where('source.visible', true)->pluck('source.id');
+        $reportedNodes = ModerationFlag::where('source', 'alpr_presence')->where('status', 'open')
+            ->whereIntegerInRaw('node_id', $nodeIds)->distinct()->pluck('node_id');
+        $summary['data']['open_reported_nodes'] = $reportedNodes->count();
+        if ($summary['data']['open_flags'] !== null) {
+            $summary['data']['open_flags'] = $reportedNodes->merge($summary['data']['_rule_node_ids'] ?? [])->unique()->count();
+        }
+        unset($summary['data']['_rule_node_ids']);
+
+        return $summary;
     }
 
     public function timeline(Collection $records): Collection

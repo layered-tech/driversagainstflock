@@ -591,6 +591,7 @@ test('flagged table renders rule evidence and its own filters while ALPR keeps i
                 id: 1,
                 rule_id: 5,
                 evidence_hash: 'abc',
+                status: 'open',
                 stale: true,
                 evidence: {},
                 rule: { name: 'Require mount', severity: 'High' },
@@ -684,4 +685,100 @@ test('each moderation page renders canonical navigation without view selectors',
             new RegExp(`aria-current="page"[^>]*href="/moderation/${active}"`),
         );
     }
+});
+
+test('driver report queues render source, review filters and evidence without a rule link or severity', async () => {
+    const output = await renderListing({
+        ...base,
+        view: 'flagged',
+        filters: {
+            flag_source: 'alpr_presence',
+            report_state: 'dismissed',
+            area_scope: 'my',
+        },
+        records: {
+            ...base.records,
+            data: [
+                {
+                    id: 200,
+                    osm_version: 2,
+                    latitude: 30.5,
+                    longitude: -97.5,
+                    reported_at: '2026-09-18T12:00:00Z',
+                    changed_at: '2020-01-01T00:00:00Z',
+                    flags: [
+                        {
+                            id: 1,
+                            source: 'alpr_presence',
+                            status: 'dismissed',
+                            rule: null,
+                            evidence_hash: 'report-hash',
+                            evidence: {
+                                report_count: 27,
+                                first_report_at: '2026-09-17T00:00:00Z',
+                                latest_report_at: '2026-09-18T12:00:00Z',
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+    });
+    assert.match(output.body, /Driver reported missing/);
+    assert.match(output.body, /Unverified user report/);
+    assert.match(output.body, /27 Not there reports/);
+    assert.match(output.body, /aria-label="Report review state"/);
+    assert.match(output.body, /My Areas/);
+    assert.doesNotMatch(
+        output.body,
+        /Dismiss Driver reported missing for node/,
+    );
+    assert.doesNotMatch(output.body, /rules\/edit\/(?:null|undefined)/);
+});
+
+test('node report history survives unavailable source data and includes independent pagination', async () => {
+    const output = await render('Moderation/Node', {
+        ...base,
+        node: { id: 200, current_unavailable: true },
+        versions: [],
+        flags: [],
+        source: { state: 'unavailable' },
+        from: 'flagged',
+        listingFilters: { flag_source: 'alpr_presence', area_scope: 'my' },
+        reports: {
+            data: [
+                {
+                    id: 1,
+                    platform: 'android_auto',
+                    occurred_at: '2026-09-18T12:00:00Z',
+                    received_at: '2026-09-18T12:01:00Z',
+                    observed: { version: 2, latitude: 30, longitude: -97 },
+                    server_node_version: 3,
+                    server_latitude: 30.1,
+                    server_longitude: -97.1,
+                    user_id: null,
+                },
+            ],
+            next_page_url:
+                '/moderation/nodes/200?reports_page=2&flag_source=alpr_presence',
+        },
+        reportReviews: {
+            data: [
+                { id: 4, actor: 'Maya', created_at: '2026-09-18T12:05:00Z' },
+            ],
+            next_page_url: '/moderation/nodes/200?reviews_page=2',
+        },
+    });
+    for (const text of [
+        'Not there reports',
+        'Unverified user report',
+        'Unverified app identity',
+        'Client-observed version',
+        'Server node snapshot',
+        'Maya dismissed',
+        'More reports',
+        'More reviews',
+    ])
+        assert.ok(output.body.includes(text), text);
+    assert.match(output.body, /flag_source=alpr_presence&amp;area_scope=my/);
 });

@@ -122,10 +122,12 @@ class ModerationRuleController extends Controller
                 return;
             }
             $flag->update(['status' => 'dismissed', 'dismissed_by' => $request->user()->id, 'dismissed_at' => now()]);
-            ModerationActivity::create(['user_id' => $request->user()->id, 'actor' => $request->user()->name, 'action' => 'flag.dismissed', 'subject_type' => 'flag', 'subject_id' => $flag->id, 'details' => ['name' => $flag->rule->name, 'evidence_hash' => $flag->evidence_hash]]);
+            ModerationActivity::create(['user_id' => $request->user()->id, 'actor' => $request->user()->name, 'action' => 'flag.dismissed', 'subject_type' => 'flag', 'subject_id' => $flag->id, 'details' => ['name' => $flag->source === 'alpr_presence' ? 'Driver reported missing' : $flag->rule->name, 'evidence_hash' => $flag->evidence_hash]]);
             DB::afterCommit(function () use ($flag): void {
                 app(ModerationSummaryCache::class)->invalidate();
-                app(ModerationEditorSummaries::class)->markEditorsForNodesDirty([$flag->node_id, $flag->related_node_id]);
+                if ($flag->source === 'rule') {
+                    app(ModerationEditorSummaries::class)->markEditorsForNodesDirty([$flag->node_id, $flag->related_node_id]);
+                }
             });
         });
 
