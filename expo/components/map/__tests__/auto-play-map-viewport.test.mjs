@@ -87,14 +87,14 @@ describe('Auto Play map viewport geometry', () => {
             /<AutoPlayMapStatusOverlay[\s\S]*?onLocationAnchorLayout=\{handleLocationAnchorLayout\}[\s\S]*?statusChromeIsVisible=\{\s*rendersAppOverlays && !searchResultsMapIsActive\s*\}/,
         );
         // The puck slot rides `drivingStatusIsVisible`; only the pill drawn
-        // beneath it answers to the chrome flag.
+        // beneath it answers to the chrome and confirmation visibility flags.
         assert.match(
             mapStatusOverlaySource,
             /drivingStatusIsVisible \? \([\s\S]*?onLocationAnchorLayout=\{onLocationAnchorLayout\}/,
         );
         assert.match(
             mapStatusOverlaySource,
-            /currentRoadPillIsVisible=\{statusChromeIsVisible\}/,
+            /currentRoadPillIsVisible=\{\s*statusChromeIsVisible && !confirmationIsActive\s*\}/,
         );
     });
 
