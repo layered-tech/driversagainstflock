@@ -52,8 +52,110 @@ const AUTO_PLAY_NAVIGATION_ALERT_PRIORITY_RANKS = {
 };
 
 const METERS_PER_MILE = 1609.344;
+const EARTH_RADIUS_METERS = 6371008.8;
+export const AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_RANGE_METERS =
+    METERS_PER_MILE * 0.5;
+export const AUTO_PLAY_NAVIGATION_ALERT_MAXIMUM_RANGE_METERS =
+    METERS_PER_MILE * 2;
 const FEET_PER_METER = 3.28084;
 const FEET_DISTANCE_MAXIMUM_METERS = 161;
+
+function getCoordinateNumber(value) {
+    if (
+        value === null ||
+        value === undefined ||
+        (typeof value === 'string' && !value.trim())
+    ) {
+        return null;
+    }
+
+    const number = Number(value);
+
+    return Number.isFinite(number) ? number : null;
+}
+
+function getValidCoordinate(coordinate) {
+    if (!Array.isArray(coordinate) || coordinate.length < 2) {
+        return null;
+    }
+
+    const longitude = getCoordinateNumber(coordinate[0]);
+    const latitude = getCoordinateNumber(coordinate[1]);
+
+    if (
+        longitude === null ||
+        latitude === null ||
+        longitude < -180 ||
+        longitude > 180 ||
+        latitude < -90 ||
+        latitude > 90
+    ) {
+        return null;
+    }
+
+    return [longitude, latitude];
+}
+
+function getUserLocationCoordinate(userLocation) {
+    return getValidCoordinate([
+        userLocation?.longitude,
+        userLocation?.latitude,
+    ]);
+}
+
+function degreesToRadians(value) {
+    return (value * Math.PI) / 180;
+}
+
+function getCoordinateDistanceMeters(fromCoordinate, toCoordinate) {
+    if (!fromCoordinate || !toCoordinate) {
+        return null;
+    }
+
+    const [fromLongitude, fromLatitude] = fromCoordinate;
+    const [toLongitude, toLatitude] = toCoordinate;
+    const fromLatitudeRadians = degreesToRadians(fromLatitude);
+    const toLatitudeRadians = degreesToRadians(toLatitude);
+    const latitudeDelta = degreesToRadians(toLatitude - fromLatitude);
+    const longitudeDelta = degreesToRadians(toLongitude - fromLongitude);
+    const haversine =
+        Math.sin(latitudeDelta / 2) ** 2 +
+        Math.cos(fromLatitudeRadians) *
+            Math.cos(toLatitudeRadians) *
+            Math.sin(longitudeDelta / 2) ** 2;
+    const clampedHaversine = Math.min(1, Math.max(0, haversine));
+
+    return (
+        EARTH_RADIUS_METERS *
+        2 *
+        Math.atan2(Math.sqrt(clampedHaversine), Math.sqrt(1 - clampedHaversine))
+    );
+}
+
+export function getAutoPlayNavigationAlertEligibleAlerts({
+    upcomingAlerts,
+    userLocation,
+} = {}) {
+    const userCoordinate = getUserLocationCoordinate(userLocation);
+
+    if (!userCoordinate || !Array.isArray(upcomingAlerts)) {
+        return [];
+    }
+
+    return upcomingAlerts.filter((alert) => {
+        const alertCoordinate = getValidCoordinate(alert?.coordinate);
+        const distanceMeters = getCoordinateDistanceMeters(
+            userCoordinate,
+            alertCoordinate,
+        );
+
+        return (
+            Number.isFinite(distanceMeters) &&
+            distanceMeters >= AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_RANGE_METERS &&
+            distanceMeters <= AUTO_PLAY_NAVIGATION_ALERT_MAXIMUM_RANGE_METERS
+        );
+    });
+}
 
 export function createAutoPlayNavigationAlertSuppressionController(
     onChange = () => {},
@@ -188,9 +290,14 @@ export function getAutoPlayNavigationAlertContent({
     currentSpeedMps,
     dismissedAlertKeys = null,
     upcomingAlerts,
+    userLocation,
 } = {}) {
-    const presentation = getDrivingAlertsPresentation(
+    const eligibleAlerts = getAutoPlayNavigationAlertEligibleAlerts({
         upcomingAlerts,
+        userLocation,
+    });
+    const presentation = getDrivingAlertsPresentation(
+        eligibleAlerts,
         dismissedAlertKeys,
     );
 

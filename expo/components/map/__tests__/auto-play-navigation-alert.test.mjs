@@ -7,7 +7,9 @@ import {
     AUTO_PLAY_NAVIGATION_ALERT_FOLLOW_UP_DELAY_MS,
     AUTO_PLAY_NAVIGATION_ALERT_ICON_COLOR,
     AUTO_PLAY_NAVIGATION_ALERT_MAXIMUM_DURATION_MS,
+    AUTO_PLAY_NAVIGATION_ALERT_MAXIMUM_RANGE_METERS,
     AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_DURATION_MS,
+    AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_RANGE_METERS,
     AUTO_PLAY_NAVIGATION_ALERT_TITLE,
     AUTO_PLAY_NAVIGATION_ALERT_TITLE_WITHOUT_DISTANCE,
     createAutoPlayNavigationAlertSuppressionController,
@@ -18,17 +20,31 @@ import {
     getDismissedAutoPlayNavigationAlertKeys,
     pruneDismissedAutoPlayNavigationAlertKeys,
 } from '../../auto-play-navigation-alert.js';
+import {
+    ELECTRONIC_HORIZON_ALERT_MAXIMUM_DISTANCE_METERS,
+    ELECTRONIC_HORIZON_ALERT_PATH_LENGTH_METERS,
+    getUpcomingElectronicHorizonAlerts,
+} from '../electronic-horizon.js';
 
 // 20 m/s ≈ 45 mph, so time-to-pass stays inside the duration clamps.
 const CRUISING_SPEED_MPS = 20;
+const EARTH_RADIUS_METERS = 6371008.8;
+const vehicleLocation = { latitude: 0, longitude: 0 };
+
+const coordinateAtDistance = (distanceMeters) => [
+    0,
+    ((distanceMeters / EARTH_RADIUS_METERS) * 180) / Math.PI,
+];
 
 const policeAlert = {
+    coordinate: coordinateAtDistance(1609.344),
     distanceMeters: 1609.344,
     id: 'waze-police',
     source: { publishedAt: '2026-07-12T11:56:00.000Z' },
     type: 'police',
 };
 const alprAlert = {
+    coordinate: coordinateAtDistance(1609.344),
     distanceMeters: 483,
     id: 'flock-reader',
     source: { tags: { manufacturer: 'Flock Safety' } },
@@ -36,7 +52,11 @@ const alprAlert = {
 };
 
 const makeContent = (upcomingAlerts, currentSpeedMps = CRUISING_SPEED_MPS) =>
-    getAutoPlayNavigationAlertContent({ currentSpeedMps, upcomingAlerts });
+    getAutoPlayNavigationAlertContent({
+        currentSpeedMps,
+        upcomingAlerts,
+        userLocation: vehicleLocation,
+    });
 
 const announcerSource = readFileSync(
     new URL('../../auto-play-navigation-alert-announcer.js', import.meta.url),
@@ -130,6 +150,7 @@ describe('car navigation alert content', () => {
                 currentSpeedMps: CRUISING_SPEED_MPS,
                 dismissedAlertKeys: new Set(['flock-reader']),
                 upcomingAlerts: [alprAlert, nearbyPoliceAlert],
+                userLocation: vehicleLocation,
             }).alertKey,
             'waze-police',
         );
@@ -138,6 +159,7 @@ describe('car navigation alert content', () => {
                 currentSpeedMps: CRUISING_SPEED_MPS,
                 dismissedAlertKeys: new Set(['flock-reader', 'waze-police']),
                 upcomingAlerts: [alprAlert, nearbyPoliceAlert],
+                userLocation: vehicleLocation,
             }),
             null,
         );
@@ -174,6 +196,141 @@ describe('car navigation alert content', () => {
         assert.equal(
             content.title,
             AUTO_PLAY_NAVIGATION_ALERT_TITLE_WITHOUT_DISTANCE,
+        );
+    });
+
+    test('uses inclusive unrounded geographic boundaries', () => {
+        for (const distanceMeters of [
+            AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_RANGE_METERS,
+            AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_RANGE_METERS + 0.001,
+            AUTO_PLAY_NAVIGATION_ALERT_MAXIMUM_RANGE_METERS - 0.001,
+            AUTO_PLAY_NAVIGATION_ALERT_MAXIMUM_RANGE_METERS,
+        ]) {
+            assert.equal(
+                makeContent([
+                    {
+                        ...alprAlert,
+                        coordinate: coordinateAtDistance(distanceMeters),
+                    },
+                ])?.alertKey,
+                'flock-reader',
+                `${distanceMeters} meters should be eligible`,
+            );
+        }
+
+        for (const distanceMeters of [
+            AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_RANGE_METERS - 0.001,
+            AUTO_PLAY_NAVIGATION_ALERT_MAXIMUM_RANGE_METERS + 0.001,
+        ]) {
+            assert.equal(
+                makeContent([
+                    {
+                        ...alprAlert,
+                        coordinate: coordinateAtDistance(distanceMeters),
+                    },
+                ]),
+                null,
+                `${distanceMeters} meters should be ineligible`,
+            );
+        }
+    });
+
+    test('filters by geographic radius before choosing the closest alert', () => {
+        const content = makeContent([
+            {
+                ...alprAlert,
+                coordinate: coordinateAtDistance(500),
+                distanceMeters: 100,
+                id: 'closest-but-too-near',
+            },
+            {
+                ...alprAlert,
+                coordinate: coordinateAtDistance(1609.344),
+                distanceMeters: 1000,
+                id: 'eligible-alternative',
+            },
+        ]);
+
+        assert.equal(content.alertKey, 'eligible-alternative');
+    });
+
+    test('rejects missing and non-finite vehicle or node coordinates', () => {
+        for (const invalidAlert of [
+            { ...alprAlert, coordinate: undefined },
+            { ...alprAlert, coordinate: [Number.NaN, 0] },
+            { ...alprAlert, coordinate: [0, Number.POSITIVE_INFINITY] },
+        ]) {
+            assert.equal(makeContent([invalidAlert]), null);
+        }
+
+        assert.equal(
+            getAutoPlayNavigationAlertContent({
+                currentSpeedMps: CRUISING_SPEED_MPS,
+                upcomingAlerts: [alprAlert],
+                userLocation: null,
+            }),
+            null,
+        );
+    });
+
+    test('uses vehicle-to-node distance instead of along-route distance', () => {
+        assert.equal(
+            makeContent([
+                {
+                    ...alprAlert,
+                    coordinate: coordinateAtDistance(1609.344),
+                    distanceMeters: 4000,
+                    id: 'curved-route-alert',
+                },
+            ])?.alertKey,
+            'curved-route-alert',
+        );
+        assert.equal(
+            makeContent([
+                {
+                    ...alprAlert,
+                    coordinate: coordinateAtDistance(3500),
+                    distanceMeters: 1000,
+                },
+            ]),
+            null,
+        );
+    });
+
+    test('retains an on-route alert beyond two path miles when its geographic radius is eligible', () => {
+        const curvedRoute = [
+            [0, 0],
+            [0, 0.025],
+            [coordinateAtDistance(1609.344)[1], 0],
+        ];
+        const alprNodes = [
+            {
+                coordinate: curvedRoute.at(-1),
+                id: 'curved-route-reader',
+            },
+        ];
+
+        assert.deepEqual(
+            getUpcomingElectronicHorizonAlerts({
+                alprNodes,
+                pathCoordinates: curvedRoute,
+            }),
+            [],
+        );
+        const automotiveAlerts = getUpcomingElectronicHorizonAlerts({
+            alprNodes,
+            maximumPathDistanceMeters:
+                ELECTRONIC_HORIZON_ALERT_PATH_LENGTH_METERS,
+            pathCoordinates: curvedRoute,
+        });
+
+        assert.ok(
+            automotiveAlerts[0].distanceMeters >
+                ELECTRONIC_HORIZON_ALERT_MAXIMUM_DISTANCE_METERS,
+        );
+        assert.equal(
+            makeContent(automotiveAlerts)?.alertKey,
+            'curved-route-reader',
         );
     });
 });
@@ -280,6 +437,41 @@ describe('car navigation alert transitions', () => {
         assert.equal(result.action, 'update');
         assert.equal(result.alertId, 7);
         assert.deepEqual(result.state.distance, { unit: 'feet', value: 350 });
+    });
+
+    test('dismisses the visible banner when vehicle movement leaves either range boundary', () => {
+        const alert = {
+            ...alprAlert,
+            coordinate: coordinateAtDistance(1609.344),
+        };
+        const initialContent = makeContent([alert]);
+
+        for (const userLocation of [
+            {
+                latitude: coordinateAtDistance(1000)[1],
+                longitude: 0,
+            },
+            {
+                latitude: coordinateAtDistance(-2000)[1],
+                longitude: 0,
+            },
+        ]) {
+            const content = getAutoPlayNavigationAlertContent({
+                currentSpeedMps: CRUISING_SPEED_MPS,
+                upcomingAlerts: [alert],
+                userLocation,
+            });
+
+            assert.equal(content, null);
+            assert.deepEqual(
+                transition(content, { state: shown(initialContent) }),
+                {
+                    action: 'dismiss',
+                    alertId: 7,
+                    state: null,
+                },
+            );
+        }
     });
 
     test('suppression blocks ALPR and police shows without recording them', () => {
@@ -582,6 +774,7 @@ describe('car navigation alert dismissals', () => {
             currentSpeedMps: CRUISING_SPEED_MPS,
             dismissedAlertKeys,
             upcomingAlerts,
+            userLocation: vehicleLocation,
         });
         const heldFollowUp = getAutoPlayNavigationAlertTransition({
             content: followUpContent,
@@ -628,7 +821,11 @@ describe('car navigation alert wiring', () => {
         );
         assert.match(
             mapSurfaceSource,
-            /useAutoPlayNavigationAlerts\(\{[\s\S]*?currentSpeedMps: getRouteCurrentSpeedMps\(\s*mapPreferences\.userLocation,?\s*\),[\s\S]*?enabled:[\s\S]*?alertSurfaceVisibility\.upcomingAlertsVisible[\s\S]*?!routePreviewIsActive[\s\S]*?!searchResultsMapIsActive,[\s\S]*?upcomingAlerts,\s*\}\);/,
+            /useAutoPlayNavigationAlerts\(\{[\s\S]*?currentSpeedMps: getRouteCurrentSpeedMps\(\s*mapPreferences\.userLocation,?\s*\),[\s\S]*?enabled:[\s\S]*?alertSurfaceVisibility\.upcomingAlertsVisible[\s\S]*?!routePreviewIsActive[\s\S]*?!searchResultsMapIsActive,[\s\S]*?upcomingAlerts,[\s\S]*?userLocation: mapPreferences\.userLocation,[\s\S]*?\}\);/,
+        );
+        assert.match(
+            mapSurfaceSource,
+            /useUpcomingElectronicHorizonAlerts\(\{[\s\S]*?maximumPathDistanceMeters:\s*ELECTRONIC_HORIZON_ALERT_PATH_LENGTH_METERS,/,
         );
     });
 
@@ -695,7 +892,7 @@ describe('car navigation alert wiring', () => {
         );
         assert.match(
             announcerSource,
-            /\}, \[\s*dismissalRevision,\s*enabled,\s*handleAlertDismissed,\s*mapTemplate,\s*suppressionRevision,\s*upcomingAlerts,\s*\]\);/,
+            /\}, \[\s*dismissalRevision,\s*enabled,\s*handleAlertDismissed,\s*mapTemplate,\s*suppressionRevision,\s*upcomingAlerts,\s*userLocation,\s*\]\);/,
         );
     });
 
@@ -722,7 +919,7 @@ describe('car navigation alert wiring', () => {
         );
         assert.match(
             mapSurfaceSource,
-            /warningBusy:\s*upcomingAlerts\.length > 0 &&[\s\S]*?!navigationAlerts\.isSuppressed/,
+            /warningBusy:\s*navigationAlerts\.hasEligibleAlert &&[\s\S]*?!navigationAlerts\.isSuppressed/,
         );
         assert.match(presencePromptSource, /suppression:\s*suppressAlerts\(\)/);
         assert.match(

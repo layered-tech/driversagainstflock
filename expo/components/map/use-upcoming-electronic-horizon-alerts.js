@@ -62,6 +62,7 @@ export function useUpcomingElectronicHorizonAlerts({
     directionsRoute,
     electronicHorizon,
     enabled = true,
+    maximumPathDistanceMeters,
     policeAlerts,
     userLocation,
 } = {}) {
@@ -166,6 +167,7 @@ export function useUpcomingElectronicHorizonAlerts({
         const upcomingAlerts = getUpcomingElectronicHorizonAlerts({
             alprNodes,
             electronicHorizon,
+            maximumPathDistanceMeters,
             pathCoordinates: coordinates,
             policeAlerts,
         });
@@ -174,7 +176,13 @@ export function useUpcomingElectronicHorizonAlerts({
             durationMs: Math.max(0, Date.now() - startedAt),
             upcomingAlerts,
         };
-    }, [alprNodes, coordinates, electronicHorizon, policeAlerts]);
+    }, [
+        alprNodes,
+        coordinates,
+        electronicHorizon,
+        maximumPathDistanceMeters,
+        policeAlerts,
+    ]);
 
     useEffect(() => {
         recordMapPerformanceSignpost('alerts.compute.completed', {

@@ -85,6 +85,7 @@ import {
     shouldShowDrivingMapStatus,
 } from './map/driving-map-view';
 import { getDrivingMotionState } from './map/driving-motion-state';
+import { ELECTRONIC_HORIZON_ALERT_PATH_LENGTH_METERS } from './map/electronic-horizon';
 import { makeElectronicHorizonDebugFeatureCollection } from './map/electronic-horizon-debug';
 import {
     clampZoomLevel,
@@ -1844,6 +1845,9 @@ export function AutoPlayMapSurfaceContent({
             rendersAppOverlays &&
             isDrivingMode &&
             !searchResultsMapIsActive,
+        // A curved road can exceed two path miles while its node remains
+        // inside the automotive banner's two-mile geographic radius.
+        maximumPathDistanceMeters: ELECTRONIC_HORIZON_ALERT_PATH_LENGTH_METERS,
         policeAlerts: policeAlertsLoader.policeAlerts,
         userLocation: mapPreferences.userLocation,
     });
@@ -1859,6 +1863,7 @@ export function AutoPlayMapSurfaceContent({
             !routePreviewIsActive &&
             !searchResultsMapIsActive,
         upcomingAlerts,
+        userLocation: mapPreferences.userLocation,
     });
     const presenceNode = useAutoPlayAlprPresence({
         markerLoader,
@@ -1870,7 +1875,7 @@ export function AutoPlayMapSurfaceContent({
             drivingMapViewMode !== DRIVING_MAP_VIEW_PERSPECTIVE,
         ),
         warningBusy:
-            upcomingAlerts.length > 0 && !navigationAlerts.isSuppressed,
+            navigationAlerts.hasEligibleAlert && !navigationAlerts.isSuppressed,
         suppressAlerts: navigationAlerts.acquireSuppression,
         location: mapPreferences.userLocation,
         route: activeDirectionsRoute,

@@ -7,6 +7,7 @@ import {
     createAutoPlayNavigationAlertSuppressionController,
     getAutoPlayNavigationAlertContent,
     getAutoPlayNavigationAlertDismissedState,
+    getAutoPlayNavigationAlertEligibleAlerts,
     getAutoPlayNavigationAlertTransition,
     getDismissedAutoPlayNavigationAlertKeys,
     pruneDismissedAutoPlayNavigationAlertKeys,
@@ -54,6 +55,7 @@ export function useAutoPlayNavigationAlerts({
     currentSpeedMps,
     enabled,
     upcomingAlerts,
+    userLocation,
 }) {
     const mapTemplate = useAutoPlayMapTemplate();
     const alertStateRef = useRef(null);
@@ -161,6 +163,7 @@ export function useAutoPlayNavigationAlerts({
                   currentSpeedMps: currentSpeedMpsRef.current,
                   dismissedAlertKeys: dismissedAlertKeysRef.current,
                   upcomingAlerts,
+                  userLocation,
               })
             : null;
         const transition = getAutoPlayNavigationAlertTransition({
@@ -218,10 +221,17 @@ export function useAutoPlayNavigationAlerts({
         mapTemplate,
         suppressionRevision,
         upcomingAlerts,
+        userLocation,
     ]);
 
     return {
         acquireSuppression,
+        hasEligibleAlert:
+            enabled &&
+            getAutoPlayNavigationAlertEligibleAlerts({
+                upcomingAlerts,
+                userLocation,
+            }).length > 0,
         isSuppressed: suppressionControllerRef.current.active,
     };
 }

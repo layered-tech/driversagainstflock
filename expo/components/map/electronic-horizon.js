@@ -462,6 +462,7 @@ function getPoliceSubtitle(alert) {
 function makeUpcomingAlert({
     coordinate,
     id,
+    maximumPathDistanceMeters,
     pathProjection,
     pathBufferMeters,
     type,
@@ -482,8 +483,7 @@ function makeUpcomingAlert({
         !position ||
         position.distanceFromPathMeters > pathBufferMeters ||
         position.distanceAheadMeters < 0 ||
-        position.distanceAheadMeters >
-            ELECTRONIC_HORIZON_ALERT_MAXIMUM_DISTANCE_METERS
+        position.distanceAheadMeters > maximumPathDistanceMeters
     ) {
         return null;
     }
@@ -503,6 +503,7 @@ function makeUpcomingAlert({
 export function getUpcomingElectronicHorizonAlerts({
     alprNodes = [],
     electronicHorizon,
+    maximumPathDistanceMeters = ELECTRONIC_HORIZON_ALERT_MAXIMUM_DISTANCE_METERS,
     pathCoordinates,
     policeAlerts = [],
 } = {}) {
@@ -530,6 +531,7 @@ export function getUpcomingElectronicHorizonAlerts({
                               node?.osm_id ??
                               `alpr-${index}`,
                       ),
+                      maximumPathDistanceMeters,
                       pathBufferMeters:
                           ELECTRONIC_HORIZON_ALPR_ALERT_PATH_BUFFER_METERS,
                       pathProjection,
@@ -547,6 +549,7 @@ export function getUpcomingElectronicHorizonAlerts({
                   makeUpcomingAlert({
                       coordinate: alert?.coordinate,
                       id: String(alert?.id ?? `police-${index}`),
+                      maximumPathDistanceMeters,
                       pathBufferMeters:
                           ELECTRONIC_HORIZON_POLICE_ALERT_PATH_BUFFER_METERS,
                       pathProjection,
