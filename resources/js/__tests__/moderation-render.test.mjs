@@ -782,3 +782,33 @@ test('node report history survives unavailable source data and includes independ
         assert.ok(output.body.includes(text), text);
     assert.match(output.body, /flag_source=alpr_presence&amp;area_scope=my/);
 });
+
+test('area report counts link to that area driver-report queue', async () => {
+    const output = await renderListing({
+        ...base,
+        view: 'areas',
+        records: {
+            ...base.records,
+            data: [
+                {
+                    id: 7,
+                    name: 'Downtown',
+                    kind: 'bbox',
+                    definition: '30,-98 → 31,-97',
+                    watchers: [],
+                    open_flags: null,
+                    open_reported_nodes: 3,
+                    changesets_7d: 0,
+                    flagged_changesets: 0,
+                    created_at: '2026-09-18T12:00:00Z',
+                },
+            ],
+        },
+    });
+
+    assert.match(output.body, /Not there reports ·[\s\S]*?3/);
+    assert.match(
+        output.body,
+        /href="\/moderation\/flagged\?area=7&amp;flag_source=alpr_presence"/,
+    );
+});

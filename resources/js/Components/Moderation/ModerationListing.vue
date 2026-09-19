@@ -522,7 +522,21 @@ const {
                                 :key="rowKey(row)"
                             >
                                 <tr
-                                    class="border-b border-daf-border hover:bg-[color-mix(in_oklab,var(--brand)_4%,var(--surface-card))]"
+                                    :aria-expanded="
+                                        isChangesets ||
+                                        isNodes ||
+                                        view === 'areas'
+                                            ? expanded === rowKey(row)
+                                            : undefined
+                                    "
+                                    :tabindex="
+                                        isChangesets ||
+                                        isNodes ||
+                                        view === 'areas'
+                                            ? 0
+                                            : undefined
+                                    "
+                                    class="border-b border-daf-border hover:bg-[color-mix(in_oklab,var(--brand)_4%,var(--surface-card))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--brand)]"
                                     @click="
                                         (isChangesets ||
                                             isNodes ||
@@ -530,6 +544,18 @@ const {
                                         !$event.target.closest(
                                             'a, button, input, select, textarea, summary, label, [role=button]',
                                         ) &&
+                                        expand(row)
+                                    "
+                                    @keydown.enter.self.prevent="
+                                        (isChangesets ||
+                                            isNodes ||
+                                            view === 'areas') &&
+                                        expand(row)
+                                    "
+                                    @keydown.space.self.prevent="
+                                        (isChangesets ||
+                                            isNodes ||
+                                            view === 'areas') &&
                                         expand(row)
                                     "
                                 >

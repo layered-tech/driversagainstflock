@@ -9,9 +9,16 @@ const source = await readFile(
     new URL('../Components/Moderation/ModerationListing.vue', import.meta.url),
     'utf8',
 );
-const opening = source.match(
-    /<tr\s+class="border-b border-daf-border hover:[\s\S]*?>/,
-)[0];
+const rowClass =
+    'class="border-b border-daf-border hover:bg-[color-mix(in_oklab,var(--brand)_4%,var(--surface-card))]';
+const classOffset = source.indexOf(rowClass);
+const openingOffset = source.lastIndexOf('<tr', classOffset);
+const openingTerminator = '\n                                >';
+const openingEnd = source.indexOf(openingTerminator, classOffset);
+const opening = source.slice(
+    openingOffset,
+    openingEnd + openingTerminator.length,
+);
 const { code, errors } = compileTemplate({
     source: `${opening}</tr>`,
     filename: 'ModerationRow.vue',
@@ -39,12 +46,15 @@ for (const view of [
     test(`${view} rows toggle only when expandable and clicked outside controls`, () => {
         let expanded = false;
         const row = { id: 123 };
+        const expandable = !['editors', 'audit'].includes(view);
         const vnode = render(
             {
                 view,
                 row,
                 isChangesets: view === 'changesets',
                 isNodes: ['nodes', 'flagged'].includes(view),
+                expanded: null,
+                rowKey: (value) => `${view}:${value.id}`,
                 expand(value) {
                     assert.equal(value, row);
                     expanded = !expanded;
@@ -66,7 +76,7 @@ for (const view of [
                 },
             });
         click('td');
-        assert.equal(expanded, !['editors', 'audit'].includes(view));
+        assert.equal(expanded, expandable);
         click('span');
         assert.equal(expanded, false);
         for (const tag of [
@@ -81,5 +91,37 @@ for (const view of [
             click(tag);
             assert.equal(expanded, false, `${tag} must keep its own action`);
         }
+
+        assert.equal(vnode.props.tabindex, expandable ? 0 : undefined);
+        assert.equal(
+            vnode.props['aria-expanded'],
+            expandable ? false : undefined,
+        );
+        assert.match(
+            vnode.props.class,
+            /focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-\[var\(--brand\)\]/,
+        );
+
+        const keydown = (key, nested = false) => {
+            const currentTarget = {};
+            const event = {
+                key,
+                target: nested ? {} : currentTarget,
+                currentTarget,
+                preventDefault() {},
+                stopPropagation() {},
+            };
+            for (const handler of [vnode.props.onKeydown]
+                .flat()
+                .filter(Boolean)) {
+                handler(event);
+            }
+        };
+        keydown('Enter');
+        assert.equal(expanded, expandable);
+        keydown(' ');
+        assert.equal(expanded, false);
+        keydown('Enter', true);
+        assert.equal(expanded, false);
     });
 }
