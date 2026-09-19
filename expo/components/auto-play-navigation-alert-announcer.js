@@ -7,11 +7,12 @@ import {
     createAutoPlayNavigationAlertSuppressionController,
     getAutoPlayNavigationAlertContent,
     getAutoPlayNavigationAlertDismissedState,
-    getAutoPlayNavigationAlertEligibleAlerts,
     getAutoPlayNavigationAlertTransition,
-    getDismissedAutoPlayNavigationAlertKeys,
-    pruneDismissedAutoPlayNavigationAlertKeys,
 } from './auto-play-navigation-alert';
+import {
+    presenceCoordinator,
+    startPresenceRuntime,
+} from './map/alpr-presence-runtime';
 
 const AUTO_PLAY_IS_SUPPORTED =
     Platform.OS === 'android' || Platform.OS === 'ios';
@@ -34,6 +35,10 @@ function makeAutoPlayNavigationAlertTitle(content) {
     return content.distance
         ? { distance: content.distance, text: content.title }
         : { text: content.title };
+}
+
+function getActiveAutoPlayNavigationAlertKey(state, now = Date.now()) {
+    return state?.isVisible && now < state.expiresAt ? state.alertKey : null;
 }
 
 function useAutoPlayMapTemplate() {
@@ -59,10 +64,11 @@ export function useAutoPlayNavigationAlerts({
 }) {
     const mapTemplate = useAutoPlayMapTemplate();
     const alertStateRef = useRef(null);
-    const dismissedAlertKeysRef = useRef(new Set());
     const followUpTimerRef = useRef(null);
+    const pendingPresentationRef = useRef(null);
     const currentSpeedMpsRef = useRef(currentSpeedMps);
     const [dismissalRevision, setDismissalRevision] = useState(0);
+    const [historyRevision, setHistoryRevision] = useState(0);
     const [suppressionRevision, setSuppressionRevision] = useState(0);
     const suppressionControllerRef = useRef(null);
     if (!suppressionControllerRef.current) {
@@ -72,25 +78,14 @@ export function useAutoPlayNavigationAlerts({
             );
     }
     const handleAlertDismissed = useCallback((alertId) => {
-        const nextDismissedAlertKeys = getDismissedAutoPlayNavigationAlertKeys({
-            alertId,
-            dismissedAlertKeys: dismissedAlertKeysRef.current,
-            state: alertStateRef.current,
-        });
         const nextState = getAutoPlayNavigationAlertDismissedState(
             alertStateRef.current,
             alertId,
             Date.now(),
         );
 
-        if (
-            nextState === alertStateRef.current &&
-            nextDismissedAlertKeys === dismissedAlertKeysRef.current
-        ) {
-            return;
-        }
+        if (nextState === alertStateRef.current) return;
 
-        dismissedAlertKeysRef.current = nextDismissedAlertKeys;
         alertStateRef.current = nextState;
         // The dismissal only mutates a ref, so nudge the effect to run again and
         // give the next alert its turn rather than waiting for the next location
@@ -102,18 +97,71 @@ export function useAutoPlayNavigationAlerts({
             setDismissalRevision((revision) => revision + 1);
         }, AUTO_PLAY_NAVIGATION_ALERT_FOLLOW_UP_DELAY_MS);
     }, []);
+    const acceptPendingPresentation = useCallback((presentation) => {
+        if (presentation.status === 'accepted') return true;
+        if (
+            presentation.status !== 'pending' ||
+            pendingPresentationRef.current !== presentation
+        ) {
+            return false;
+        }
+
+        presentation.status = 'accepted';
+        pendingPresentationRef.current = null;
+        clearTimeout(presentation.timeoutId);
+        return presentation.claim.commit();
+    }, []);
+    const releasePendingPresentation = useCallback(
+        (presentation = pendingPresentationRef.current) => {
+            if (
+                !presentation ||
+                presentation.status !== 'pending' ||
+                pendingPresentationRef.current !== presentation
+            ) {
+                return false;
+            }
+
+            presentation.status = 'refused';
+            pendingPresentationRef.current = null;
+            clearTimeout(presentation.timeoutId);
+            return presentation.claim.release();
+        },
+        [],
+    );
+
+    useEffect(() => {
+        let active = true;
+        startPresenceRuntime();
+        const unsubscribe = presenceCoordinator.subscribe(() => {
+            if (active) {
+                setHistoryRevision((revision) => revision + 1);
+            }
+        });
+        void presenceCoordinator.hydrate().then(() => {
+            if (active) {
+                setHistoryRevision((revision) => revision + 1);
+            }
+        });
+
+        return () => {
+            active = false;
+            unsubscribe();
+        };
+    }, []);
 
     useEffect(
         () => () => {
             clearTimeout(followUpTimerRef.current);
+            releasePendingPresentation();
             suppressionControllerRef.current.reset({ notify: false });
         },
-        [],
+        [releasePendingPresentation],
     );
 
     const clearCurrentAlert = useCallback(() => {
         clearTimeout(followUpTimerRef.current);
         followUpTimerRef.current = null;
+        releasePendingPresentation();
         const transition = getAutoPlayNavigationAlertTransition({
             content: null,
             nextAlertId: nextAutoPlayNavigationAlertId,
@@ -128,7 +176,7 @@ export function useAutoPlayNavigationAlerts({
         } catch {
             // A stale or disconnected host has no upcoming banner to clear.
         }
-    }, [mapTemplate]);
+    }, [mapTemplate, releasePendingPresentation]);
     const acquireSuppression = useCallback(
         () => suppressionControllerRef.current.acquire(clearCurrentAlert),
         [clearCurrentAlert],
@@ -142,7 +190,7 @@ export function useAutoPlayNavigationAlerts({
     useEffect(() => {
         if (!mapTemplate) {
             alertStateRef.current = null;
-            dismissedAlertKeysRef.current = new Set();
+            releasePendingPresentation();
             clearTimeout(followUpTimerRef.current);
             followUpTimerRef.current = null;
             suppressionControllerRef.current.reset();
@@ -150,18 +198,15 @@ export function useAutoPlayNavigationAlerts({
             return;
         }
 
-        // A dismissed banner stands aside for the next upcoming alert, and the
-        // dismissal is forgotten once that alert is no longer ahead.
-        dismissedAlertKeysRef.current =
-            pruneDismissedAutoPlayNavigationAlertKeys(
-                dismissedAlertKeysRef.current,
-                upcomingAlerts,
-            );
+        const currentAlertKey = getActiveAutoPlayNavigationAlertKey(
+            alertStateRef.current,
+        );
 
         const content = enabled
             ? getAutoPlayNavigationAlertContent({
+                  alertHistory: presenceCoordinator.automotiveAlertHistory,
                   currentSpeedMps: currentSpeedMpsRef.current,
-                  dismissedAlertKeys: dismissedAlertKeysRef.current,
+                  currentAlertKey,
                   upcomingAlerts,
                   userLocation,
               })
@@ -181,6 +226,37 @@ export function useAutoPlayNavigationAlerts({
 
         if (transition.action === 'show') {
             nextAutoPlayNavigationAlertId = transition.alertId + 1;
+            releasePendingPresentation();
+        } else if (transition.action === 'dismiss') {
+            releasePendingPresentation();
+        }
+
+        const historyClaim =
+            transition.action === 'show'
+                ? presenceCoordinator.claimAutomotiveAlert(content.historyEntry)
+                : null;
+
+        if (transition.action === 'show' && !historyClaim) {
+            alertStateRef.current = null;
+            return;
+        }
+
+        const presentation = historyClaim
+            ? {
+                  claim: historyClaim,
+                  status: 'pending',
+                  timeoutId: null,
+              }
+            : null;
+
+        if (presentation) {
+            pendingPresentationRef.current = presentation;
+            presentation.timeoutId = setTimeout(() => {
+                if (!releasePendingPresentation(presentation)) return;
+                if (alertStateRef.current?.alertId === transition.alertId) {
+                    alertStateRef.current = null;
+                }
+            }, 1000);
         }
 
         try {
@@ -189,8 +265,18 @@ export function useAutoPlayNavigationAlerts({
                     durationMs: content.durationMs,
                     id: transition.alertId,
                     image: AUTO_PLAY_NAVIGATION_ALERT_IMAGE,
-                    onDidDismiss: () =>
-                        handleAlertDismissed(transition.alertId),
+                    onDidDismiss: () => {
+                        releasePendingPresentation(presentation);
+                        handleAlertDismissed(transition.alertId);
+                    },
+                    onWillShow: () => {
+                        if (acceptPendingPresentation(presentation)) return;
+                        try {
+                            mapTemplate.dismissAlert(transition.alertId);
+                        } catch {
+                            // A late host callback may arrive after disconnect.
+                        }
+                    },
                     primaryAction: {
                         onPress: () => handleAlertDismissed(transition.alertId),
                         title: AUTO_PLAY_NAVIGATION_ALERT_ACTION_TITLE,
@@ -209,6 +295,7 @@ export function useAutoPlayNavigationAlerts({
                 mapTemplate.dismissAlert(transition.alertId);
             }
         } catch {
+            releasePendingPresentation(presentation);
             // The host refuses alerts while a non-navigation template owns the
             // screen. Drop the announcement and let the next approach retry
             // rather than tearing the map surface down.
@@ -217,8 +304,11 @@ export function useAutoPlayNavigationAlerts({
     }, [
         dismissalRevision,
         enabled,
+        acceptPendingPresentation,
         handleAlertDismissed,
+        historyRevision,
         mapTemplate,
+        releasePendingPresentation,
         suppressionRevision,
         upcomingAlerts,
         userLocation,
@@ -228,10 +318,17 @@ export function useAutoPlayNavigationAlerts({
         acquireSuppression,
         hasEligibleAlert:
             enabled &&
-            getAutoPlayNavigationAlertEligibleAlerts({
-                upcomingAlerts,
-                userLocation,
-            }).length > 0,
+            Boolean(
+                getAutoPlayNavigationAlertContent({
+                    alertHistory: presenceCoordinator.automotiveAlertHistory,
+                    currentAlertKey: getActiveAutoPlayNavigationAlertKey(
+                        alertStateRef.current,
+                    ),
+                    currentSpeedMps: currentSpeedMpsRef.current,
+                    upcomingAlerts,
+                    userLocation,
+                }),
+            ),
         isSuppressed: suppressionControllerRef.current.active,
     };
 }

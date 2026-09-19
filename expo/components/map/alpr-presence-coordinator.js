@@ -1,4 +1,15 @@
-import { canStartPresencePrompt, createPresenceState, parsePresenceState, PRESENCE_POLICY, recordPresencePrompt, updatePresenceDrive } from './alpr-presence-policy.js';
+import {
+    canStartPresencePrompt,
+    createPresenceState,
+    parsePresenceState,
+    PRESENCE_POLICY,
+    recordPresencePrompt,
+    updatePresenceDrive,
+} from './alpr-presence-policy.js';
+import {
+    automotiveAlertHistoryAllowsEntry,
+    recordAutomotiveAlertHistoryEntry,
+} from './automotive-alert-policy.js';
 
 /** One durable budget/outbox independent of Scorecard, component, route and car connection. */
 export function createPresenceCoordinator({
@@ -14,7 +25,20 @@ export function createPresenceCoordinator({
         hydration = null,
         writes = Promise.resolve(),
         flushing = false,
-        limitsGeneration = 0;
+        limitsGeneration = 0,
+        volatileAutomotiveAlertHistory = null;
+    const listeners = new Set();
+    const pendingAutomotiveAlerts = new Map();
+    function publish() {
+        for (const listener of listeners) listener();
+    }
+    function getCommittedAutomotiveAlertHistory() {
+        if (!state || failed) return null;
+
+        return volatileAutomotiveAlertHistory?.driveId === state.drive.id
+            ? volatileAutomotiveAlertHistory
+            : state.automotiveAlertHistory;
+    }
     function mutate(change) {
         const operation = writes.then(async () => {
             if (!state || failed)
@@ -23,17 +47,42 @@ export function createPresenceCoordinator({
             if (next === state) return state;
             await save(JSON.stringify(next));
             state = next;
+            publish();
             return next;
         });
         writes = operation.catch(() => {
             failed = true;
             notify('Presence storage unavailable');
+            publish();
         });
         return operation;
     }
     return {
         get state() {
             return failed ? null : state;
+        },
+        get automotiveAlertHistory() {
+            const current = this.state;
+
+            if (!current) return null;
+
+            let history = getCommittedAutomotiveAlertHistory();
+
+            for (const pending of pendingAutomotiveAlerts.values()) {
+                if (pending.driveId === current.drive.id) {
+                    history = recordAutomotiveAlertHistoryEntry(
+                        history,
+                        pending.entry,
+                    );
+                }
+            }
+
+            return history;
+        },
+        subscribe(listener) {
+            listeners.add(listener);
+
+            return () => listeners.delete(listener);
         },
         async hydrate() {
             if (!hydration)
@@ -51,6 +100,8 @@ export function createPresenceCoordinator({
                         failed = true;
                         state = null;
                         notify('Presence storage unavailable');
+                    } finally {
+                        publish();
                     }
                 })();
             await hydration;
@@ -81,6 +132,75 @@ export function createPresenceCoordinator({
                 };
             });
             notify('Cooldowns and drive budget reset');
+        },
+        claimAutomotiveAlert(entry) {
+            const current = this.state;
+
+            if (
+                !current ||
+                !automotiveAlertHistoryAllowsEntry(
+                    this.automotiveAlertHistory,
+                    entry,
+                )
+            ) {
+                return null;
+            }
+
+            const token = Symbol('automotive-alert-claim');
+            const driveId = current.drive.id;
+            let settled = false;
+            pendingAutomotiveAlerts.set(token, { driveId, entry });
+
+            return {
+                commit: () => {
+                    if (settled) return false;
+                    settled = true;
+                    pendingAutomotiveAlerts.delete(token);
+
+                    if (this.state?.drive.id !== driveId) {
+                        return false;
+                    }
+
+                    return this.recordAutomotiveAlertShown(entry);
+                },
+                release: () => {
+                    if (settled) return false;
+                    settled = true;
+                    pendingAutomotiveAlerts.delete(token);
+                    return true;
+                },
+            };
+        },
+        recordAutomotiveAlertShown(entry) {
+            const current = this.state;
+
+            if (!current) return false;
+
+            const driveId = current.drive.id;
+            const history = getCommittedAutomotiveAlertHistory();
+            const nextHistory = recordAutomotiveAlertHistoryEntry(
+                history,
+                entry,
+            );
+
+            if (nextHistory === history) return false;
+
+            volatileAutomotiveAlertHistory = nextHistory;
+            publish();
+            void mutate((latest) =>
+                latest.drive.id === driveId
+                    ? {
+                          ...latest,
+                          automotiveAlertHistory:
+                              recordAutomotiveAlertHistoryEntry(
+                                  latest.automotiveAlertHistory,
+                                  entry,
+                              ),
+                      }
+                    : latest,
+            ).catch(() => {});
+
+            return true;
         },
         async reserve(encounter) {
             await this.hydrate();

@@ -8,11 +8,13 @@ import {
     getPresenceFocus,
     getPresenceMotionPath,
     parsePresenceState,
+    PRESENCE_POLICY,
     presenceGuardsHold,
     recordPresencePrompt,
     updatePresenceDrive,
 } from '../alpr-presence-policy.js';
 import { createPresencePrompt } from '../alpr-presence-prompt.js';
+import { getAutomotiveAlertHistoryEntry } from '../automotive-alert-policy.js';
 
 const node = {
     id: 'osm-node-8',
@@ -264,6 +266,12 @@ test('timing and budget boundaries count repeated nodes and preserve cooldown ac
         false,
     );
     assert.equal(parsePresenceState(JSON.stringify(state)).drive.count, 15);
+    const legacyState = structuredClone(state);
+    delete legacyState.automotiveAlertHistory;
+    assert.deepEqual(
+        parsePresenceState(JSON.stringify(legacyState)).automotiveAlertHistory,
+        { driveId: state.drive.id, entries: [] },
+    );
     state = updatePresenceDrive(state, {
         connected: true,
         driving: true,
@@ -760,6 +768,78 @@ test('simultaneous car surfaces reserve one budget slot without poisoning encryp
     assert.equal(runtime.state.drive.count, 1);
     await runtime.presented(results.find(Boolean));
     assert.equal(runtime.state.drive.count, 1);
+});
+test('automotive alert history survives remounts, coordinates surfaces, and resets with a new drive', async () => {
+    let stored = null;
+    let time = 107000;
+    const makeCoordinator = () =>
+        createPresenceCoordinator({
+            load: async () => stored,
+            save: async (value) => {
+                stored = value;
+            },
+            randomId: () => 'h'.repeat(32),
+            now: () => time,
+            send: async () => {},
+        });
+    const alpr = {
+        coordinate: [-97, 30],
+        id: 'reader-1',
+        type: 'alpr',
+    };
+    const alprEntry = getAutomotiveAlertHistoryEntry(alpr);
+    const laterAlprEntry = getAutomotiveAlertHistoryEntry({
+        ...alpr,
+        coordinate: [-96.996, 30],
+        id: 'reader-2',
+    });
+    const coordinator = makeCoordinator();
+    await coordinator.hydrate();
+
+    const refusedClaim = coordinator.claimAutomotiveAlert(alprEntry);
+    assert.ok(refusedClaim);
+    assert.equal(
+        coordinator.claimAutomotiveAlert(alprEntry),
+        null,
+        'a pending surface owns the alert attempt',
+    );
+    assert.equal(refusedClaim.release(), true);
+    assert.ok(
+        coordinator.claimAutomotiveAlert(alprEntry)?.release(),
+        'a refused host leaves the alert eligible',
+    );
+
+    const acceptedClaim = coordinator.claimAutomotiveAlert(alprEntry);
+    const unacceptedClaim = coordinator.claimAutomotiveAlert(laterAlprEntry);
+    assert.ok(unacceptedClaim);
+    assert.equal(acceptedClaim.commit(), true);
+    assert.equal(unacceptedClaim.release(), true);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(coordinator.automotiveAlertHistory.entries, [alprEntry]);
+
+    const restarted = makeCoordinator();
+    await restarted.hydrate();
+    assert.equal(restarted.claimAutomotiveAlert(alprEntry), null);
+    assert.ok(
+        restarted.claimAutomotiveAlert(laterAlprEntry)?.release(),
+        'an unaccepted concurrent alert was not recorded',
+    );
+    assert.ok(
+        restarted
+            .claimAutomotiveAlert(
+                getAutomotiveAlertHistoryEntry({ ...alpr, type: 'police' }),
+            )
+            ?.release(),
+        'mixed alert types remain distinct',
+    );
+
+    await restarted.activity(true, false);
+    time += 1000;
+    await restarted.activity(false, false);
+    time += PRESENCE_POLICY.driveEndMs;
+    await restarted.activity(true, false);
+    assert.deepEqual(restarted.automotiveAlertHistory.entries, []);
+    assert.ok(restarted.claimAutomotiveAlert(alprEntry)?.release());
 });
 test('a failed encrypted write suppresses future prompts without resetting the budget', async () => {
     let fail = false;

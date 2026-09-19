@@ -1,3 +1,7 @@
+import {
+    createAutomotiveAlertHistory,
+    normalizeAutomotiveAlertHistory,
+} from './automotive-alert-policy.js';
 import { getDrivingMapViewFollowConfiguration } from './driving-map-view.js';
 import {
     createRouteProjectionPath,
@@ -403,11 +407,14 @@ export function getPresenceFocus(
 }
 
 export function createPresenceState(reporterId, now) {
+    const driveId = `${reporterId}:${now}`;
+
     return {
         version: 1,
         reporterId,
+        automotiveAlertHistory: createAutomotiveAlertHistory(driveId),
         drive: {
-            id: `${reporterId}:${now}`,
+            id: driveId,
             count: 0,
             lastActivityAt: now,
             disconnectedAt: now,
@@ -458,10 +465,20 @@ export function parsePresenceState(value) {
         )
     )
         throw new Error('Invalid presence state');
-    return state;
+    return {
+        ...state,
+        automotiveAlertHistory: normalizeAutomotiveAlertHistory(
+            state.automotiveAlertHistory,
+            state.drive.id,
+        ),
+    };
 }
 export function updatePresenceDrive(state, { connected, driving, now }) {
     const drive = { ...state.drive };
+    let automotiveAlertHistory = normalizeAutomotiveAlertHistory(
+        state.automotiveAlertHistory,
+        drive.id,
+    );
     if (
         !drive.connected &&
         drive.disconnectedAt !== null &&
@@ -470,12 +487,13 @@ export function updatePresenceDrive(state, { connected, driving, now }) {
     ) {
         drive.count = 0;
         drive.id = `${state.reporterId}:${now}`;
+        automotiveAlertHistory = createAutomotiveAlertHistory(drive.id);
     }
     if (!connected && drive.connected) drive.disconnectedAt = now;
     if (connected) drive.disconnectedAt = null;
     if (driving || connected) drive.lastActivityAt = now;
     drive.connected = connected;
-    return { ...state, drive };
+    return { ...state, automotiveAlertHistory, drive };
 }
 export function canStartPresencePrompt(state, encounter, now) {
     return Boolean(
