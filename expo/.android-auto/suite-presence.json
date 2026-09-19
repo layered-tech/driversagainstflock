@@ -1,0 +1,98 @@
+{
+    "name": "CHR-7 presence smoke",
+    "appId": "com.anonymous.drivefree.dev",
+    "serviceComponent": "com.anonymous.drivefree.dev/com.margelo.nitro.swe.iternio.reactnativeautoplay.AndroidAutoService",
+    "display": {
+        "width": 1280,
+        "height": 720
+    },
+    "metro": {
+        "host": "10.0.2.2",
+        "port": 8091
+    },
+    "location": {
+        "latitude": 30.2672,
+        "longitude": -97.7431
+    },
+    "tests": [
+        {
+            "name": "connects and renders the Mapbox map",
+            "steps": [
+                {
+                    "type": "dhu",
+                    "command": "tap 400 300"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 2500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "connected-map"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "connected-map",
+                    "contains": ["Congress Avenue", "SPEED", "LIMIT"]
+                },
+                {
+                    "type": "assertService",
+                    "running": true
+                }
+            ]
+        },
+        {
+            "name": "recently passed confirmation expires and restores map",
+            "steps": [
+                {
+                    "type": "deepLink",
+                    "requestType": "presence",
+                    "query": "start"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 11500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "presence-visible"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "presence-visible",
+                    "contains": [
+                        "Camera you just passed",
+                        "Still there",
+                        "Dismiss",
+                        "Not there"
+                    ]
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 21000
+                },
+                {
+                    "type": "screenshot",
+                    "name": "presence-expired"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "presence-expired",
+                    "notContains": ["Camera you just passed"]
+                }
+            ]
+        },
+        {
+            "name": "disconnect",
+            "steps": [
+                {
+                    "type": "disconnect"
+                },
+                {
+                    "type": "assertService",
+                    "running": false
+                }
+            ]
+        }
+    ]
+}

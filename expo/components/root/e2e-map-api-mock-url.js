@@ -9,6 +9,7 @@ function getDeepLinkPath(url) {
 
 const E2E_DRIVING_ALERT_FIXTURES = new Set(['alpr', 'combined', 'police']);
 const E2E_AUTO_PLAY_REQUEST_TYPES = new Set([
+    'presence',
     'directions',
     'navigation',
     'search',

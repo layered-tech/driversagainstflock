@@ -3560,6 +3560,11 @@ function handleVoiceNavigationWhenReady(
 }
 
 export function dispatchAutoPlayE2ECommand({ query, requestType } = {}) {
+    if (e2eMapApiMocksCanBeEnabled() && requestType === 'presence') {
+        return require('./map/alpr-presence-e2e').startPresenceE2EScenario(
+            query,
+        );
+    }
     const normalizedQuery = String(query ?? '').trim();
 
     if (

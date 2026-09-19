@@ -320,3 +320,28 @@ export function removePrivateCacheItem(storageKey) {
         await AsyncStorage.removeItem(normalizedStorageKey);
     });
 }
+
+/** New durable limits must distinguish missing data from damaged encrypted data. */
+export async function getPrivateCacheItemStrict(storageKey) {
+    if (!privateCacheUsesSecureStore())
+        throw new Error('Encrypted storage unavailable');
+    const manifestKey = getSecureStorageKey(normalizeStorageKey(storageKey));
+    const raw = await SecureStore.getItemAsync(
+        manifestKey,
+        SECURE_STORE_OPTIONS,
+    );
+    if (raw === null) return null;
+    const manifest = parseManifest(raw);
+    if (!manifest) throw new Error('Invalid encrypted manifest');
+    const chunks = [];
+    for (let index = 0; index < manifest.chunks; index += 1) {
+        const chunk = await SecureStore.getItemAsync(
+            getSecureChunkKey(manifestKey, manifest.generation, index),
+            SECURE_STORE_OPTIONS,
+        );
+        if (typeof chunk !== 'string')
+            throw new Error('Incomplete encrypted state');
+        chunks.push(chunk);
+    }
+    return chunks.join('');
+}

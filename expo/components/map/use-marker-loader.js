@@ -72,6 +72,7 @@ export function useMarkerLoader() {
     const pendingMarkerLoadRequestBoundsRef = useRef(null);
     const [markerLoadError, setMarkerLoadError] = useState('');
     const [markerPoints, setMarkerPoints] = useState([]);
+    const [markerCoverage, setMarkerCoverage] = useState(null);
     const [markersAreLoading, setMarkersAreLoading] = useState(false);
     const [
         markerLoadingIndicatorIsVisible,
@@ -270,6 +271,10 @@ export function useMarkerLoader() {
                         markerRequestIdRef.current === requestId
                     ) {
                         setMarkerPoints(nextMarkerPoints);
+                        setMarkerCoverage({
+                            bounds: requestBounds,
+                            loadedAt: Date.now(),
+                        });
                         lastLoadedMarkerBoundsKeyRef.current = boundsKey;
                         lastLoadedMarkerRequestBoundsRef.current =
                             requestBounds;
@@ -305,6 +310,10 @@ export function useMarkerLoader() {
                     markerRequestIdRef.current === requestId
                 ) {
                     setMarkerPoints(nextMarkerPoints);
+                    setMarkerCoverage({
+                        bounds: requestBounds,
+                        loadedAt: Date.now(),
+                    });
                     lastLoadedMarkerBoundsKeyRef.current = boundsKey;
                     lastLoadedMarkerRequestBoundsRef.current = requestBounds;
                 }
@@ -420,6 +429,8 @@ export function useMarkerLoader() {
         markerLoadError,
         markerLoadingIndicatorIsVisible,
         markerPoints,
+        markerCoverage,
+        markersAreLoading,
         renderMarkerLoadingIndicator,
         scheduleMarkerLoad,
         upsertMarkerPoints,

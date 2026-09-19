@@ -159,3 +159,37 @@ describe('private cache storage', () => {
         );
     });
 });
+
+test('strict private hydration rejects corrupt or incomplete encrypted values', async () => {
+    const h = createPrivateCacheStorageHarness();
+    assert.equal(
+        await h.privateCacheStorage.getPrivateCacheItemStrict('presence'),
+        null,
+    );
+    await h.privateCacheStorage.setPrivateCacheItem(
+        'presence',
+        'private limits',
+    );
+    assert.equal(
+        await h.privateCacheStorage.getPrivateCacheItemStrict('presence'),
+        'private limits',
+    );
+    const manifest = [...h.secureStorage.keys()].find((key) => {
+        try {
+            return JSON.parse(h.secureStorage.get(key)).chunks;
+        } catch {
+            return false;
+        }
+    });
+    const chunk = [...h.secureStorage.keys()].find((key) => key !== manifest);
+    h.secureStorage.delete(chunk);
+    await assert.rejects(
+        h.privateCacheStorage.getPrivateCacheItemStrict('presence'),
+        /Incomplete/,
+    );
+    h.secureStorage.set(manifest, 'broken');
+    await assert.rejects(
+        h.privateCacheStorage.getPrivateCacheItemStrict('presence'),
+        /Invalid/,
+    );
+});

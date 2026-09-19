@@ -492,7 +492,7 @@ function renderMarkerPointLayers({
     ];
 }
 
-export const MapCanvas = memo(function MapCanvas() {
+export const MapCanvas = memo(function MapCanvas({ children } = {}) {
     const {
         handleCameraChanged,
         handleMapLoaded,
@@ -1637,6 +1637,7 @@ export const MapCanvas = memo(function MapCanvas() {
                 </Mapbox.MarkerView>
             ) : null}
             <ContributeDraftPinMarkers />
+            {children}
         </NativeWindMapView>
     );
 });

@@ -3,6 +3,7 @@ import './global.css';
 
 import { LogBox } from 'react-native';
 import registerAutoPlay from './components/auto-play';
+import { startPresenceRuntime } from './components/map/alpr-presence-runtime';
 import './components/map/road-matching-session';
 import { initializeScorecardRuntime } from './components/scorecard/scorecard-runtime-instance';
 
@@ -11,6 +12,7 @@ LogBox.ignoreLogs([
 ]);
 
 void initializeScorecardRuntime();
+startPresenceRuntime();
 
 require('expo-router/entry');
 

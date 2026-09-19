@@ -72,7 +72,12 @@ async function readElectronicHorizonAlprResponse(response) {
             nodeCount: nodes.length,
         });
 
-        return { coverageComplete, nodes };
+        const radius = getStoredNumber(data?.result?.coverage_radius_meters);
+        return {
+            coverageComplete,
+            nodes,
+            coverageRadiusMeters: radius > 0 ? radius : null,
+        };
     } finally {
         endMapPerformanceSignpost(
             'alpr.response.decode',
@@ -84,6 +89,7 @@ async function readElectronicHorizonAlprResponse(response) {
 
 export async function getElectronicHorizonAlprNodes({
     coordinates,
+    presence = false,
     signal,
 } = {}) {
     const normalizedCoordinates =
@@ -119,6 +125,7 @@ export async function getElectronicHorizonAlprNodes({
                 {
                     body: JSON.stringify({
                         coordinates: normalizedCoordinates,
+                        ...(presence ? { presence: true } : {}),
                     }),
                     headers: {
                         Accept: 'application/json',

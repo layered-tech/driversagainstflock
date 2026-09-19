@@ -25,8 +25,10 @@ import {
     formatAndroidAutoPerformanceTrace,
     getAndroidAutoPerformanceTraceAsync,
 } from '../android-auto-performance-trace';
+import { AlprPresenceDebugPane } from '../map/alpr-presence-debug-pane';
 import { SHOW_MAP_DEBUG_CONTROLS } from '../map/config';
 import {
+    DEBUG_OVERLAY_ALPR_PRESENCE,
     DEBUG_OVERLAY_ANDROID_AUTO_LOCATION,
     DEBUG_OVERLAY_CAMERA,
     DEBUG_OVERLAY_CAMERA_FOCUS,
@@ -44,6 +46,12 @@ const DEBUG_DRAWER_MAX_WIDTH = 420;
 const DEBUG_DRAWER_MIN_WIDTH = 300;
 
 const DEBUG_DRAWER_ITEMS = [
+    {
+        icon: faCamera,
+        key: DEBUG_OVERLAY_ALPR_PRESENCE,
+        label: 'ALPR Confirmation',
+        testID: 'debug-drawer-alpr-presence-toggle',
+    },
     {
         icon: faMobileScreen,
         key: DEBUG_OVERLAY_SAFE_AREA,
@@ -231,6 +239,7 @@ export function DebugDrawer({ onClose, visible }) {
                             }}
                         />
                     ))}
+                    <AlprPresenceDebugPane />
                     <View className="gap-2 rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
                         <View className="gap-1">
                             <Text className="text-sm font-semibold text-neutral-950 dark:text-white">

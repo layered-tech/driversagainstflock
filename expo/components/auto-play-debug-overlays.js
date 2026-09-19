@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
 import { View } from 'react-native';
+import { AlprPresenceDebugPane } from './map/alpr-presence-debug-pane';
 import { CameraDebugOverlay } from './map/camera-debug-overlay';
 import { CameraFocusDebugOverlay } from './map/camera-focus-debug-overlay';
 import {
+    DEBUG_OVERLAY_ALPR_PRESENCE,
     DEBUG_OVERLAY_ANDROID_AUTO_LOCATION,
     DEBUG_OVERLAY_CAMERA,
     DEBUG_OVERLAY_CAMERA_FOCUS,
@@ -42,6 +44,9 @@ export function AutoPlayDebugOverlays({
     const carLocationDebugOverlayIsVisible =
         debugOverlaysAreVisible &&
         debugOverlayVisibility?.[DEBUG_OVERLAY_ANDROID_AUTO_LOCATION] === true;
+    const presenceDebugIsVisible =
+        debugOverlaysAreVisible &&
+        debugOverlayVisibility?.[DEBUG_OVERLAY_ALPR_PRESENCE] === true;
     const cameraFocusDebugState = useMemo(() => {
         const followPadding = controller.nativeCameraFollowProps?.padding;
 
@@ -86,7 +91,9 @@ export function AutoPlayDebugOverlays({
                     windowWidth={viewportMetrics.width}
                 />
             ) : null}
-            {cameraDebugOverlayIsVisible || carLocationDebugOverlayIsVisible ? (
+            {cameraDebugOverlayIsVisible ||
+            carLocationDebugOverlayIsVisible ||
+            presenceDebugIsVisible ? (
                 <View
                     className="absolute z-[70] items-start gap-[8px]"
                     pointerEvents="none"
@@ -95,6 +102,9 @@ export function AutoPlayDebugOverlays({
                         top: presentation.mapControlLayoutInsets.top,
                     }}
                 >
+                    {presenceDebugIsVisible ? (
+                        <AlprPresenceDebugPane compact />
+                    ) : null}
                     {cameraDebugOverlayIsVisible ? (
                         <CameraDebugOverlay
                             cameraState={controller.currentCameraDebugState}

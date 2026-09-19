@@ -1029,11 +1029,13 @@ export class Runner {
         const remote = `am start -a android.intent.action.VIEW -d "${url}" ${this.suite.appId}`;
         this.adb(['shell', remote]);
         const marker =
-            requestType === 'search'
-                ? '[Android Auto] place-search-completed'
-                : requestType === 'directions'
-                  ? '[Android Auto] route-choices-presented'
-                  : '[Android Auto] navigation-start-requested';
+            requestType === 'presence'
+                ? '[E2E] presence-drive-started'
+                : requestType === 'search'
+                  ? '[Android Auto] place-search-completed'
+                  : requestType === 'directions'
+                    ? '[Android Auto] route-choices-presented'
+                    : '[Android Auto] navigation-start-requested';
         await this.waitForMetroMarker(marker, outputStart, 60000);
 
         if (requestType === 'directions') {

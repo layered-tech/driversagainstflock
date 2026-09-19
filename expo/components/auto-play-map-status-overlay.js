@@ -142,6 +142,7 @@ export function AutoPlayTopRightStatusOverlay({
  * while leaving the road pill and loading indicator off.
  */
 export function AutoPlayMapStatusOverlay({
+    confirmationIsActive = false,
     activeDirectionsRoute,
     currentRoadPill,
     drivingStatusIsVisible = true,
@@ -190,7 +191,8 @@ export function AutoPlayMapStatusOverlay({
         markerLoader.renderMarkerLoadingIndicator,
     );
     const speedStatusIsVisible =
-        speedLimitIsVisible || currentSpeedWithoutLimitIsVisible;
+        !confirmationIsActive &&
+        (speedLimitIsVisible || currentSpeedWithoutLimitIsVisible);
     const speedLimitBadgeSize = getAutoPlaySpeedLimitBadgeSize({
         portraitSize: speedLimitBadge?.portraitSize,
         size: AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE,
@@ -222,7 +224,9 @@ export function AutoPlayMapStatusOverlay({
                     <View className="flex-1" pointerEvents="none" />
                     <DrivingLocationRoadStack
                         currentRoadPillIsDarkMode={resolvedIsDarkMode}
-                        currentRoadPillIsVisible={statusChromeIsVisible}
+                        currentRoadPillIsVisible={
+                            statusChromeIsVisible && !confirmationIsActive
+                        }
                         currentRoadPillTestID="android-auto-current-road-pill"
                         currentRoadPillStyle={
                             currentRoadPillLayout?.maximumWidth === undefined
