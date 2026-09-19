@@ -79,6 +79,9 @@
         "react-native-svg": "15.15.4",
         "react-native-worklets": "0.10.1"
     },
+    "overrides": {
+        "expo-modules-jsi": "57.0.5"
+    },
     "private": true,
     "devDependencies": {
         "babel-preset-expo": "^57.0.5",
