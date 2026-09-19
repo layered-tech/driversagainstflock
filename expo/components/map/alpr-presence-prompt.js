@@ -16,6 +16,7 @@ export function createPresencePrompt({
     camera,
     highlight,
     platform,
+    suppressAlerts = () => ({ release: () => false }),
     now = Date.now,
     trace = () => {},
 }) {
@@ -38,21 +39,37 @@ export function createPresencePrompt({
             }
             if (previous.reservation && !previous.reservation.consumed)
                 void coordinator.refused(previous.reservation).catch(() => {});
+            previous.suppression?.release();
         }
     };
-    const stillValid = (prompt) =>
-        !stopped &&
-        active === prompt &&
-        presenceGuardsHold(getContext(), prompt.encounter, now());
+    const stillValid = (prompt) => {
+        const context = getContext();
+        return (
+            !stopped &&
+            active === prompt &&
+            presenceGuardsHold(
+                { ...context, warningBusy: false },
+                prompt.encounter,
+                now(),
+            )
+        );
+    };
     const show = async (encounter) => {
-        const prompt = {
-            encounter,
-            id: nextAlertId++,
-            requestedAt: now(),
-            shownAt: null,
-            reservation: null,
-            focus: null,
-        };
+        let prompt;
+        try {
+            prompt = {
+                encounter,
+                id: nextAlertId++,
+                requestedAt: now(),
+                shownAt: null,
+                reservation: null,
+                focus: null,
+                suppression: suppressAlerts(),
+            };
+        } catch (error) {
+            trace(`suppress-alerts-failed:${error.message}`);
+            return;
+        }
         active = prompt;
         trace('reserve');
         try {
@@ -200,10 +217,6 @@ export function createPresencePrompt({
             if (encounter && !active) {
                 candidate = encounter;
                 trace('pass-detected');
-            }
-            if (context.warningBusy && active) {
-                clear();
-                return;
             }
             if (active) {
                 const remaining =

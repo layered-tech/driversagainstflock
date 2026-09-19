@@ -4,6 +4,7 @@ import {
     AUTO_PLAY_NAVIGATION_ALERT_ACTION_TITLE,
     AUTO_PLAY_NAVIGATION_ALERT_FOLLOW_UP_DELAY_MS,
     AUTO_PLAY_NAVIGATION_ALERT_ICON_COLOR,
+    createAutoPlayNavigationAlertSuppressionController,
     getAutoPlayNavigationAlertContent,
     getAutoPlayNavigationAlertDismissedState,
     getAutoPlayNavigationAlertTransition,
@@ -60,6 +61,14 @@ export function useAutoPlayNavigationAlerts({
     const followUpTimerRef = useRef(null);
     const currentSpeedMpsRef = useRef(currentSpeedMps);
     const [dismissalRevision, setDismissalRevision] = useState(0);
+    const [suppressionRevision, setSuppressionRevision] = useState(0);
+    const suppressionControllerRef = useRef(null);
+    if (!suppressionControllerRef.current) {
+        suppressionControllerRef.current =
+            createAutoPlayNavigationAlertSuppressionController(() =>
+                setSuppressionRevision((revision) => revision + 1),
+            );
+    }
     const handleAlertDismissed = useCallback((alertId) => {
         const nextDismissedAlertKeys = getDismissedAutoPlayNavigationAlertKeys({
             alertId,
@@ -92,7 +101,36 @@ export function useAutoPlayNavigationAlerts({
         }, AUTO_PLAY_NAVIGATION_ALERT_FOLLOW_UP_DELAY_MS);
     }, []);
 
-    useEffect(() => () => clearTimeout(followUpTimerRef.current), []);
+    useEffect(
+        () => () => {
+            clearTimeout(followUpTimerRef.current);
+            suppressionControllerRef.current.reset({ notify: false });
+        },
+        [],
+    );
+
+    const clearCurrentAlert = useCallback(() => {
+        clearTimeout(followUpTimerRef.current);
+        followUpTimerRef.current = null;
+        const transition = getAutoPlayNavigationAlertTransition({
+            content: null,
+            nextAlertId: nextAutoPlayNavigationAlertId,
+            state: alertStateRef.current,
+            suppressed: true,
+        });
+        alertStateRef.current = transition.state;
+
+        if (transition.action !== 'dismiss' || !mapTemplate) return;
+        try {
+            mapTemplate.dismissAlert(transition.alertId);
+        } catch {
+            // A stale or disconnected host has no upcoming banner to clear.
+        }
+    }, [mapTemplate]);
+    const acquireSuppression = useCallback(
+        () => suppressionControllerRef.current.acquire(clearCurrentAlert),
+        [clearCurrentAlert],
+    );
 
     // Speed only feeds the banner duration, which is read once per
     // announcement. Keeping it in a ref stops every GPS tick from re-running
@@ -105,6 +143,7 @@ export function useAutoPlayNavigationAlerts({
             dismissedAlertKeysRef.current = new Set();
             clearTimeout(followUpTimerRef.current);
             followUpTimerRef.current = null;
+            suppressionControllerRef.current.reset();
 
             return;
         }
@@ -128,6 +167,7 @@ export function useAutoPlayNavigationAlerts({
             content,
             nextAlertId: nextAutoPlayNavigationAlertId,
             state: alertStateRef.current,
+            suppressed: suppressionControllerRef.current.active,
         });
 
         alertStateRef.current = transition.state;
@@ -176,6 +216,12 @@ export function useAutoPlayNavigationAlerts({
         enabled,
         handleAlertDismissed,
         mapTemplate,
+        suppressionRevision,
         upcomingAlerts,
     ]);
+
+    return {
+        acquireSuppression,
+        isSuppressed: suppressionControllerRef.current.active,
+    };
 }

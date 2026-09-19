@@ -10,6 +10,7 @@ import {
     AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_DURATION_MS,
     AUTO_PLAY_NAVIGATION_ALERT_TITLE,
     AUTO_PLAY_NAVIGATION_ALERT_TITLE_WITHOUT_DISTANCE,
+    createAutoPlayNavigationAlertSuppressionController,
     getAutoPlayNavigationAlertContent,
     getAutoPlayNavigationAlertDismissedState,
     getAutoPlayNavigationAlertDurationMs,
@@ -47,6 +48,10 @@ const mapStatusOverlaySource = readFileSync(
 );
 const mapSurfaceSource = readFileSync(
     new URL('../../auto-play-map-surface-content.js', import.meta.url),
+    'utf8',
+);
+const presencePromptSource = readFileSync(
+    new URL('../../map/alpr-presence-prompt.js', import.meta.url),
     'utf8',
 );
 const carPlaySurfaceSource = readFileSync(
@@ -234,13 +239,14 @@ describe('car navigation alert transitions', () => {
     const ALPR_DURATION_MS = alprContent.durationMs;
     const transition = (
         content,
-        { nextAlertId = 7, now = NOW, state = null } = {},
+        { nextAlertId = 7, now = NOW, state = null, suppressed = false } = {},
     ) =>
         getAutoPlayNavigationAlertTransition({
             content,
             nextAlertId,
             now,
             state,
+            suppressed,
         });
     const shown = (content = alprContent) => transition(content).state;
 
@@ -274,6 +280,27 @@ describe('car navigation alert transitions', () => {
         assert.equal(result.action, 'update');
         assert.equal(result.alertId, 7);
         assert.deepEqual(result.state.distance, { unit: 'feet', value: 350 });
+    });
+
+    test('suppression blocks ALPR and police shows without recording them', () => {
+        for (const content of [alprContent, policeContent]) {
+            assert.deepEqual(transition(content, { suppressed: true }), {
+                action: 'none',
+                state: null,
+            });
+        }
+    });
+
+    test('suppression clears both alert types instead of updating them', () => {
+        for (const content of [alprContent, policeContent]) {
+            assert.deepEqual(
+                transition(
+                    { ...content, subtitle: `${content.subtitle} updated` },
+                    { state: shown(content), suppressed: true },
+                ),
+                { action: 'dismiss', alertId: 7, state: null },
+            );
+        }
     });
 
     test('ignores approach that does not move the rendered distance', () => {
@@ -419,6 +446,27 @@ describe('car navigation alert transitions', () => {
             }),
             { action: 'none', alertId: 7, state: null },
         );
+    });
+});
+
+describe('car navigation alert suppression ownership', () => {
+    test('clears synchronously and only the current attempt can release', () => {
+        const changes = [];
+        const clears = [];
+        const controller = createAutoPlayNavigationAlertSuppressionController(
+            () => changes.push(controller.active),
+        );
+        const first = controller.acquire(() => clears.push('first'));
+        const second = controller.acquire(() => clears.push('second'));
+
+        assert.deepEqual(clears, ['first', 'second']);
+        assert.equal(controller.active, true);
+        assert.equal(first.release(), false);
+        assert.equal(controller.active, true);
+        assert.equal(second.release(), true);
+        assert.equal(second.release(), false);
+        assert.equal(controller.active, false);
+        assert.deepEqual(changes, [true, true, false]);
     });
 });
 
@@ -643,11 +691,43 @@ describe('car navigation alert wiring', () => {
         );
         assert.match(
             announcerSource,
-            /useEffect\(\(\) => \(\) => clearTimeout\(followUpTimerRef\.current\), \[\]\)/,
+            /useEffect\([\s\S]*?clearTimeout\(followUpTimerRef\.current\);[\s\S]*?suppressionControllerRef\.current\.reset\(\{ notify: false \}\);[\s\S]*?\[\],/,
         );
         assert.match(
             announcerSource,
-            /\}, \[\s*dismissalRevision,\s*enabled,\s*handleAlertDismissed,\s*mapTemplate,\s*upcomingAlerts,\s*\]\);/,
+            /\}, \[\s*dismissalRevision,\s*enabled,\s*handleAlertDismissed,\s*mapTemplate,\s*suppressionRevision,\s*upcomingAlerts,\s*\]\);/,
+        );
+    });
+
+    test('hands attempt-scoped suppression from the announcer to confirmation', () => {
+        assert.match(
+            announcerSource,
+            /createAutoPlayNavigationAlertSuppressionController/,
+        );
+        assert.match(
+            announcerSource,
+            /suppressed:\s*suppressionControllerRef\.current\.active/,
+        );
+        assert.match(
+            announcerSource,
+            /return \{[\s\S]*?acquireSuppression,[\s\S]*?isSuppressed:/,
+        );
+        assert.match(
+            mapSurfaceSource,
+            /const navigationAlerts = useAutoPlayNavigationAlerts\(/,
+        );
+        assert.match(
+            mapSurfaceSource,
+            /suppressAlerts:\s*navigationAlerts\.acquireSuppression/,
+        );
+        assert.match(
+            mapSurfaceSource,
+            /warningBusy:\s*upcomingAlerts\.length > 0 &&[\s\S]*?!navigationAlerts\.isSuppressed/,
+        );
+        assert.match(presencePromptSource, /suppression:\s*suppressAlerts\(\)/);
+        assert.match(
+            presencePromptSource,
+            /previous\.suppression\?\.release\(\)/,
         );
     });
 });

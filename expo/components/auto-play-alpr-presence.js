@@ -45,6 +45,7 @@ export function useAutoPlayAlprPresence({
     warningBusy,
     location,
     route,
+    suppressAlerts,
     viewport,
     controller,
 }) {
@@ -110,6 +111,7 @@ export function useAutoPlayAlprPresence({
             host: mapTemplate,
             highlight: setNode,
             platform: Platform.OS === 'android' ? 'android_auto' : 'carplay',
+            suppressAlerts,
             camera: {
                 focus: (...args) => controller.focusPresenceCamera(...args),
                 restore: (manual) => controller.restorePresenceCamera(manual),
@@ -156,6 +158,7 @@ export function useAutoPlayAlprPresence({
     }, [
         enabled,
         mapTemplate,
+        suppressAlerts,
         controller.focusPresenceCamera,
         controller.getPresenceNavigationCamera,
         controller.restorePresenceCamera,

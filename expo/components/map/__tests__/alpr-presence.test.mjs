@@ -406,7 +406,12 @@ test('failed hydration and writes suppress prompting and refused alerts do not c
     assert.equal(runtime.state.lastPromptAt, null);
 });
 
-function promptHarness({ refuse = false, cameraDelay = false } = {}) {
+function promptHarness({
+    refuse = false,
+    cameraDelay = false,
+    reservationDelay = false,
+    reservationFailure = false,
+} = {}) {
     let time = 100000,
         saved = null,
         context = {
@@ -421,7 +426,6 @@ function promptHarness({ refuse = false, cameraDelay = false } = {}) {
             nodes: [node],
             coverageComplete: true,
             navigationActive: true,
-            navigationActive: true,
             maneuverSeconds: 90,
             viewport,
             location: location(-97.0004, 100000),
@@ -430,11 +434,24 @@ function promptHarness({ refuse = false, cameraDelay = false } = {}) {
         frames = [],
         restores = [],
         highlights = [],
-        sent = [];
-    let release;
+        sent = [],
+        suppressionEvents = [];
+    let release,
+        releaseReservation,
+        saveCalls = 0,
+        suppressionSequence = 0;
+    const reservationGate = reservationDelay
+        ? new Promise((resolve) => {
+              releaseReservation = resolve;
+          })
+        : null;
     const coordinator = createPresenceCoordinator({
         load: async () => saved,
         save: async (v) => {
+            if (reservationGate) await reservationGate;
+            saveCalls += 1;
+            if (reservationFailure && saveCalls > 1)
+                throw new Error('reservation failed');
             saved = v;
         },
         randomId: () => 'a'.repeat(32),
@@ -468,6 +485,19 @@ function promptHarness({ refuse = false, cameraDelay = false } = {}) {
             restore: (manual) => restores.push(manual),
         },
         highlight: (value) => highlights.push(value),
+        suppressAlerts: () => {
+            const id = ++suppressionSequence;
+            let released = false;
+            suppressionEvents.push(`acquire:${id}`);
+            return {
+                release: () => {
+                    if (released) return false;
+                    released = true;
+                    suppressionEvents.push(`release:${id}`);
+                    return true;
+                },
+            };
+        },
     });
     const step = async (x, next, changes = {}) => {
         time = next;
@@ -490,11 +520,37 @@ function promptHarness({ refuse = false, cameraDelay = false } = {}) {
         restores,
         highlights,
         sent,
+        suppressionEvents,
         step,
         start,
         release: () => release?.(),
+        releaseReservation: () => releaseReservation?.(),
     };
 }
+test('approach tracking stays ownerless and async presentation setup owns suppression', async () => {
+    const h = promptHarness({ reservationDelay: true });
+    await h.step(-97.0004, 100000);
+    await h.step(-97.0001, 102000);
+    await h.step(-96.9998, 104000, { warningBusy: false });
+    await h.step(-96.9996, 106000);
+    assert.deepEqual(h.suppressionEvents, []);
+    await h.step(-96.9995, 107000);
+    assert.deepEqual(h.suppressionEvents, ['acquire:1']);
+    assert.equal(h.shown.length, 0);
+
+    h.releaseReservation();
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.shown.length, 1);
+    h.shown[0].primaryAction.onPress();
+    assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
+});
+test('reservation failure releases alert suppression', async () => {
+    const h = promptHarness({ reservationFailure: true });
+    await h.start();
+    assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
+    assert.equal(h.shown.length, 0);
+});
 test('prompt start ignores former speed and road-context gates', async () => {
     for (const [name, transformLocation] of formerEligibilityGates) {
         const h = promptHarness();
@@ -546,6 +602,15 @@ test('upcoming warnings do not create passes; a separate prompt starts after pas
     assert.equal(h.highlights.at(-1), null);
     assert.equal(h.sent.length, 0);
     assert.equal(h.restores.at(-1), false);
+    assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
+});
+test('upcoming candidates cannot cancel or displace an active confirmation', async () => {
+    const h = promptHarness();
+    await h.start();
+    await h.step(-96.9994, 108000, { warningBusy: true });
+    assert.equal(h.prompt.ownsCamera, true);
+    assert.equal(h.shown.length, 1);
+    assert.deepEqual(h.suppressionEvents, ['acquire:1']);
 });
 test('native refusal expires locally without focus or budget and its late callback is inert', async () => {
     const h = promptHarness({ refuse: true });
@@ -553,6 +618,7 @@ test('native refusal expires locally without focus or budget and its late callba
     assert.equal(h.frames.length, 0);
     await h.step(-96.9994, 108000);
     assert.equal(h.coordinator.state.drive.count, 0);
+    assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
     await h.shown[0].onWillShow();
     assert.equal(h.frames.length, 0);
     assert.equal(h.sent.length, 0);
@@ -566,6 +632,7 @@ test('manual pan invalidates asynchronous focus and does not restore follow over
     assert.equal(h.frames.length, 0);
     assert.equal(h.restores.at(-1), true);
     assert.equal(h.coordinator.state.drive.count, 1);
+    assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
     h.shown[0].secondaryAction.onPress();
     assert.equal(h.sent.length, 0);
 });
@@ -579,11 +646,11 @@ test('dismissal is not a positive vote, explicit negative closes independently a
         assert.equal(h.prompt.ownsCamera, false);
         assert.equal(h.sent.length, action === 'secondaryAction' ? 1 : 0);
         assert.equal(h.coordinator.state.drive.count, 1);
+        assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
     }
 });
-test('navigation warnings, stale GPS, viewport changes, lost certainty and disconnect permanently preempt', async () => {
+test('navigation demands, stale GPS, viewport changes, lost certainty and disconnect permanently preempt', async () => {
     for (const change of [
-        { warningBusy: true },
         { connected: false },
         { visible: false },
         { blocked: true },
@@ -601,6 +668,7 @@ test('navigation warnings, stale GPS, viewport changes, lost certainty and disco
         },
         { maneuverSeconds: 20 },
         { coverageComplete: false },
+        { routeKey: 'route-2' },
         { viewport: { ...viewport, visibleHeight: 100 } },
     ]) {
         const h = promptHarness();
@@ -613,14 +681,25 @@ test('navigation warnings, stale GPS, viewport changes, lost certainty and disco
             visible: true,
             blocked: false,
             navigationActive: true,
-            navigationActive: true,
             maneuverSeconds: 90,
             coverageComplete: true,
+            routeKey: 'route-1',
             viewport,
         });
         assert.equal(h.shown.length, 1);
         assert.equal(h.coordinator.state.drive.count, 1);
+        assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
     }
+});
+
+test('tracker cancellation releases suppression and makes late actions inert', async () => {
+    const h = promptHarness();
+    await h.start();
+    h.prompt.stop();
+    assert.equal(h.prompt.ownsCamera, false);
+    assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
+    h.shown[0].secondaryAction.onPress();
+    assert.equal(h.sent.length, 0);
 });
 
 test('pending eligibility is retried through fifteen seconds and a late start retains its full display window', async () => {

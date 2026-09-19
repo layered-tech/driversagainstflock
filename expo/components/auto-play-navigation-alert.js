@@ -55,6 +55,47 @@ const METERS_PER_MILE = 1609.344;
 const FEET_PER_METER = 3.28084;
 const FEET_DISTANCE_MAXIMUM_METERS = 161;
 
+export function createAutoPlayNavigationAlertSuppressionController(
+    onChange = () => {},
+) {
+    let owner = null;
+
+    return {
+        get active() {
+            return owner !== null;
+        },
+        acquire(clearCurrentAlert = () => {}) {
+            const token = Symbol('auto-play-navigation-alert-suppression');
+            let released = false;
+
+            owner = token;
+            try {
+                clearCurrentAlert();
+            } catch (error) {
+                if (owner === token) owner = null;
+                throw error;
+            }
+            onChange();
+
+            return {
+                release() {
+                    if (released || owner !== token) return false;
+                    released = true;
+                    owner = null;
+                    onChange();
+                    return true;
+                },
+            };
+        },
+        reset({ notify = true } = {}) {
+            if (owner === null) return false;
+            owner = null;
+            if (notify) onChange();
+            return true;
+        },
+    };
+}
+
 function getNavigationAlertDistanceForSort(alertPresentation) {
     const distance = Number(alertPresentation?.alert?.distanceMeters);
 
@@ -212,6 +253,7 @@ function navigationAlertTextChanged(state, content) {
  * @param {number} options.nextAlertId
  * @param {number} [options.now]
  * @param {{alertId: number, alertKey: string, distance: object|null, expiresAt: number, isVisible: boolean, priorityRank: number, subtitle: string, title: string}|null} [options.state]
+ * @param {boolean} [options.suppressed]
  * @returns {{action: 'none'|'show'|'update'|'dismiss', alertId?: number, state: object|null}}
  */
 export function getAutoPlayNavigationAlertTransition({
@@ -220,8 +262,19 @@ export function getAutoPlayNavigationAlertTransition({
     nextAlertId,
     now = Date.now(),
     state = null,
+    suppressed = false,
 }) {
     const alertIsOnScreen = navigationAlertIsOnScreen(state, now);
+
+    if (suppressed) {
+        if (!state) return { action: 'none', state: null };
+
+        return {
+            action: alertIsOnScreen ? 'dismiss' : 'none',
+            alertId: state.alertId,
+            state: null,
+        };
+    }
 
     if (!content) {
         if (!state) {

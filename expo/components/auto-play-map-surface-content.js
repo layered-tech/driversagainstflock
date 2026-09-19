@@ -1851,7 +1851,7 @@ export function AutoPlayMapSurfaceContent({
     // ALPR and police warnings ride the car host's own navigation alert banner
     // rather than an app-drawn card, so they are suppressed whenever another
     // template owns the screen and the host would refuse the alert.
-    useAutoPlayNavigationAlerts({
+    const navigationAlerts = useAutoPlayNavigationAlerts({
         currentSpeedMps: getRouteCurrentSpeedMps(mapPreferences.userLocation),
         enabled:
             rendersAppOverlays &&
@@ -1869,7 +1869,9 @@ export function AutoPlayMapSurfaceContent({
             autoPlayState.routeLoading ||
             drivingMapViewMode !== DRIVING_MAP_VIEW_PERSPECTIVE,
         ),
-        warningBusy: upcomingAlerts.length > 0,
+        warningBusy:
+            upcomingAlerts.length > 0 && !navigationAlerts.isSuppressed,
+        suppressAlerts: navigationAlerts.acquireSuppression,
         location: mapPreferences.userLocation,
         route: activeDirectionsRoute,
         viewport: viewportMetrics,
