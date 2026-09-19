@@ -1030,7 +1030,9 @@ export class Runner {
         this.adb(['shell', remote]);
         const marker =
             requestType === 'presence'
-                ? '[E2E] presence-drive-started'
+                ? query === 'reset'
+                    ? '[E2E] presence-limits-reset'
+                    : '[E2E] presence-drive-started'
                 : requestType === 'search'
                   ? '[Android Auto] place-search-completed'
                   : requestType === 'directions'

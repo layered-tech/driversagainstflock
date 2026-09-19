@@ -83,6 +83,146 @@
             ]
         },
         {
+            "name": "native negative action queues one report and restores map",
+            "steps": [
+                {
+                    "type": "deepLink",
+                    "requestType": "presence",
+                    "query": "reset"
+                },
+                {
+                    "type": "deepLink",
+                    "requestType": "presence",
+                    "query": "start"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 11500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "presence-before-report"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "presence-before-report",
+                    "contains": ["Camera you just passed", "Not there"]
+                },
+                {
+                    "type": "dhu",
+                    "command": "tap 275 225",
+                    "waitForMetro": "[ALPR presence] Report queued"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 800
+                },
+                {
+                    "type": "screenshot",
+                    "name": "presence-reported"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "presence-reported",
+                    "notContains": ["Camera you just passed"]
+                }
+            ]
+        },
+        {
+            "name": "former speed and road gates do not block native confirmation",
+            "steps": [
+                {
+                    "type": "deepLink",
+                    "requestType": "presence",
+                    "query": "reset"
+                },
+                {
+                    "type": "deepLink",
+                    "requestType": "presence",
+                    "query": "former-eligibility"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 11500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "presence-former-gates"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "presence-former-gates",
+                    "contains": ["Camera you just passed", "Still there"]
+                },
+                {
+                    "type": "dhu",
+                    "command": "tap 275 154",
+                    "waitForMetro": "[E2E] presence:native-dismissed:user"
+                }
+            ]
+        },
+        {
+            "name": "active navigation permits a clear maneuver window",
+            "steps": [
+                {
+                    "type": "deepLink",
+                    "requestType": "presence",
+                    "query": "reset"
+                },
+                {
+                    "type": "deepLink",
+                    "requestType": "presence",
+                    "query": "navigation"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 11500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "presence-navigation-clear"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "presence-navigation-clear",
+                    "contains": ["Camera you just passed", "Not there"]
+                },
+                {
+                    "type": "dhu",
+                    "command": "tap 275 154",
+                    "waitForMetro": "[E2E] presence:native-dismissed:user"
+                }
+            ]
+        },
+        {
+            "name": "active navigation blocks confirmation near a maneuver",
+            "steps": [
+                {
+                    "type": "deepLink",
+                    "requestType": "presence",
+                    "query": "reset"
+                },
+                {
+                    "type": "deepLink",
+                    "requestType": "presence",
+                    "query": "navigation-near-maneuver"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 20000
+                },
+                {
+                    "type": "screenshot",
+                    "name": "presence-navigation-blocked"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "presence-navigation-blocked",
+                    "notContains": ["Camera you just passed"]
+                }
+            ]
+        },
+        {
             "name": "disconnect",
             "steps": [
                 {

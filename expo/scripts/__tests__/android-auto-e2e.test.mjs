@@ -358,6 +358,58 @@ describe('Android Auto E2E helpers', () => {
             );
         }
     });
+
+    test('covers CHR-21 native presence actions and navigation guards', () => {
+        const presenceSuite = JSON.parse(
+            readFileSync(
+                new URL(
+                    '../../.android-auto/suite-presence.json',
+                    import.meta.url,
+                ),
+                'utf8',
+            ),
+        );
+        const reportTest = presenceSuite.tests.find(({ name }) =>
+            name.includes('native negative action'),
+        );
+        const scenarioCommands = presenceSuite.tests.flatMap(({ steps }) =>
+            steps
+                .filter(
+                    ({ requestType, type }) =>
+                        type === 'deepLink' && requestType === 'presence',
+                )
+                .map(({ query }) => query),
+        );
+
+        assert.ok(reportTest);
+        assert.deepEqual(
+            reportTest.steps.find(({ type }) => type === 'dhu'),
+            {
+                type: 'dhu',
+                command: 'tap 275 225',
+                waitForMetro: '[ALPR presence] Report queued',
+            },
+        );
+        assert.ok(scenarioCommands.includes('former-eligibility'));
+        assert.ok(scenarioCommands.includes('navigation'));
+        assert.ok(scenarioCommands.includes('navigation-near-maneuver'));
+        assert.equal(
+            scenarioCommands.filter((command) => command === 'reset').length,
+            4,
+        );
+
+        const presenceScenarioSource = readFileSync(
+            new URL(
+                '../../components/map/alpr-presence-e2e.js',
+                import.meta.url,
+            ),
+            'utf8',
+        );
+
+        assert.match(presenceScenarioSource, /\.resetLimits\(\)/);
+        assert.match(presenceScenarioSource, /\[E2E\] presence-limits-reset/);
+        assert.match(presenceScenarioSource, /\[E2E\] presence-reset-failed:/);
+    });
     test('crosses a global camera route-free and checks the phone Scorecard', () => {
         const suite = JSON.parse(
             readFileSync(

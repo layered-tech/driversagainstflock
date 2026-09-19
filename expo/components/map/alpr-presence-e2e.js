@@ -2,6 +2,7 @@ import {
     startAutoDriveSimulation,
     stopAutoDriveSimulation,
 } from '../auto-play-drive-simulation';
+import { presenceCoordinator } from './alpr-presence-runtime';
 import { e2eMapApiMocksCanBeEnabled } from './api-mocks';
 
 let fixture = null;
@@ -10,11 +11,24 @@ export function getPresenceE2EFixture() {
 }
 export function startPresenceE2EScenario(command) {
     if (!e2eMapApiMocksCanBeEnabled()) return false;
+    if (command === 'reset') {
+        fixture = null;
+        stopAutoDriveSimulation();
+        void presenceCoordinator
+            .resetLimits()
+            .then(() => console.info('[E2E] presence-limits-reset'))
+            .catch((error) =>
+                console.info(`[E2E] presence-reset-failed:${error.message}`),
+            );
+        return true;
+    }
     if (command === 'stop') {
         fixture = null;
         stopAutoDriveSimulation();
         return true;
     }
+    const navigationActive = command.startsWith('navigation');
+    const formerEligibilityGates = command === 'former-eligibility';
     const coordinates = [
         [-97.7431, 30.2672],
         [-97.7431, 30.2742],
@@ -22,7 +36,8 @@ export function startPresenceE2EScenario(command) {
     fixture = {
         coordinates,
         routeKey: 'presence-e2e',
-        maneuverSeconds: 90,
+        navigationActive,
+        maneuverSeconds: command === 'navigation-near-maneuver' ? 20 : 90,
         coverageComplete: true,
         coverageCenter: null,
         nodes: [
@@ -42,12 +57,15 @@ export function startPresenceE2EScenario(command) {
         onLocation: (position) => {
             fixture.location = {
                 ...position.coords,
+                ...(formerEligibilityGates ? { speed: 0 } : {}),
                 recordedAt: position.timestamp,
                 roadMatch: {
-                    isOffRoad: false,
-                    isTeleport: false,
+                    isOffRoad: formerEligibilityGates,
+                    isTeleport: formerEligibilityGates,
                     wayId: 'presence-e2e-road',
-                    roadClass: 'residential',
+                    roadClass: formerEligibilityGates
+                        ? 'motorway'
+                        : 'residential',
                     edgeMatchProbability: 0.99,
                 },
             };
@@ -56,6 +74,6 @@ export function startPresenceE2EScenario(command) {
             fixture = null;
         },
     });
-    console.info('[E2E] presence-drive-started');
+    console.info(`[E2E] presence-drive-started:${command}`);
     return true;
 }
