@@ -1,15 +1,5 @@
-import {
-    canStartPresencePrompt,
-    createPresenceState,
-    parsePresenceState,
-    PRESENCE_POLICY,
-    recordPresencePrompt,
-    updatePresenceDrive,
-} from './alpr-presence-policy.js';
-import {
-    automotiveAlertHistoryAllowsEntry,
-    recordAutomotiveAlertHistoryEntry,
-} from './automotive-alert-policy.js';
+import { canStartPresencePrompt, createPresenceState, parsePresenceState, PRESENCE_POLICY, recordPresencePrompt, updatePresenceDrive } from './alpr-presence-policy.js';
+import { automotiveAlertHistoryAllowsEntry, recordAutomotiveAlertHistoryEntry } from './automotive-alert-policy.js';
 
 /** One durable budget/outbox independent of Scorecard, component, route and car connection. */
 export function createPresenceCoordinator({
@@ -26,6 +16,8 @@ export function createPresenceCoordinator({
         writes = Promise.resolve(),
         flushing = false,
         limitsGeneration = 0,
+        pendingPresenceReservation = null,
+        presentedReservations = [],
         volatileAutomotiveAlertHistory = null;
     const listeners = new Set();
     const pendingAutomotiveAlerts = new Map();
@@ -124,6 +116,7 @@ export function createPresenceCoordinator({
             await this.hydrate();
             await mutate((current) => {
                 limitsGeneration += 1;
+                pendingPresenceReservation = null;
                 return {
                     ...current,
                     drive: { ...current.drive, count: 0 },
@@ -209,69 +202,112 @@ export function createPresenceCoordinator({
                 state.outbox.length >= PRESENCE_POLICY.maximumOutbox
             )
                 return null;
-            let reservation = null;
-            await mutate((current) => {
-                const startedAt = now();
-                if (
-                    !canStartPresencePrompt(current, encounter, startedAt) ||
-                    current.outbox.length >= PRESENCE_POLICY.maximumOutbox
-                )
-                    return current;
-                reservation = {
-                    eventKey: randomId(),
-                    limitsGeneration,
-                    encounter,
-                    startedAt,
-                    before: {
-                        drive: { ...current.drive },
-                        lastPromptAt: current.lastPromptAt,
-                        nodeTimes: { ...current.nodeTimes },
-                    },
-                    consumed: false,
-                    answered: false,
-                };
-                return recordPresencePrompt(current, encounter, startedAt);
-            });
+            if (pendingPresenceReservation) return null;
+            const reservation = {
+                eventKey: randomId(),
+                limitsGeneration,
+                driveId: state.drive.id,
+                encounter,
+                startedAt: null,
+                before: null,
+                consumed: false,
+                refused: false,
+                answered: false,
+            };
+            pendingPresenceReservation = reservation;
             return reservation;
         },
 
         async presented(reservation) {
-            if (reservation.consumed) return;
+            if (
+                reservation.consumed ||
+                reservation.refused ||
+                pendingPresenceReservation !== reservation
+            )
+                return;
             reservation.consumed = true;
             notify('Confirmation shown');
             const start = now();
             reservation.startedAt = start;
-            await mutate((current) =>
-                reservation.limitsGeneration !== limitsGeneration
-                    ? current
-                    : {
-                          ...current,
-                          lastPromptAt: start,
-                          nodeTimes: {
-                              ...current.nodeTimes,
-                              [reservation.encounter.osmNodeId]: start,
-                          },
-                      },
-            );
+            try {
+                await mutate((current) => {
+                    if (
+                        reservation.limitsGeneration !== limitsGeneration ||
+                        reservation.driveId !== current.drive.id
+                    )
+                        return current;
+                    reservation.before = {
+                        drive: { ...current.drive },
+                        lastPromptAt: current.lastPromptAt,
+                        nodeTimes: { ...current.nodeTimes },
+                    };
+                    presentedReservations = presentedReservations.filter(
+                        (entry) =>
+                            entry.limitsGeneration === limitsGeneration &&
+                            entry.driveId === current.drive.id,
+                    );
+                    presentedReservations.push(reservation);
+                    return recordPresencePrompt(
+                        current,
+                        reservation.encounter,
+                        start,
+                    );
+                });
+            } finally {
+                if (pendingPresenceReservation === reservation)
+                    pendingPresenceReservation = null;
+            }
         },
         async refused(reservation, nativeRefusal = false) {
-            if (reservation.consumed && !nativeRefusal) return;
-            await mutate((current) =>
-                reservation.limitsGeneration !== limitsGeneration
-                    ? current
-                    : {
-                          ...current,
-                          drive: {
-                              ...current.drive,
-                              count: reservation.before.drive.count,
-                          },
-                          lastPromptAt: reservation.before.lastPromptAt,
-                          nodeTimes: reservation.before.nodeTimes,
-                      },
-            );
+            if (reservation.refused || (reservation.consumed && !nativeRefusal))
+                return;
+            reservation.refused = true;
+            if (pendingPresenceReservation === reservation)
+                pendingPresenceReservation = null;
+            if (!reservation.consumed) return;
+            await mutate((current) => {
+                if (
+                    reservation.limitsGeneration !== limitsGeneration ||
+                    reservation.driveId !== current.drive.id ||
+                    !reservation.before
+                )
+                    return current;
+                const accepted = presentedReservations.filter(
+                    (entry) => !entry.refused,
+                );
+                const nodeId = reservation.encounter.osmNodeId;
+                const firstForNode = presentedReservations.find(
+                    (entry) => entry.encounter.osmNodeId === nodeId,
+                );
+                const latestForNode = accepted.findLast(
+                    (entry) => entry.encounter.osmNodeId === nodeId,
+                );
+                const nodeTime =
+                    latestForNode?.startedAt ??
+                    firstForNode.before.nodeTimes[nodeId];
+                const nodeTimes = { ...current.nodeTimes };
+                if (nodeTime === undefined) delete nodeTimes[nodeId];
+                else nodeTimes[nodeId] = nodeTime;
+                return {
+                    ...current,
+                    drive: {
+                        ...current.drive,
+                        count: Math.max(0, current.drive.count - 1),
+                    },
+                    lastPromptAt:
+                        accepted.at(-1)?.startedAt ??
+                        presentedReservations[0].before.lastPromptAt,
+                    nodeTimes,
+                };
+            });
         },
         async reportMissing(reservation, platform) {
-            if (!reservation.consumed || reservation.answered) return false;
+            if (
+                !reservation.consumed ||
+                reservation.refused ||
+                reservation.answered
+            )
+                return false;
             reservation.answered = true;
             const occurredAt = new Date(now()).toISOString();
             const { encounter } = reservation;

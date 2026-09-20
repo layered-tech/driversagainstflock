@@ -255,7 +255,7 @@ test('debug capture is opt-in, sampled, bounded and retained after disabling', (
         false,
     );
 });
-test('detector diagnostics retain sample-gap and approach information', () => {
+test('detector diagnostics retain approaches across GPS update gaps', () => {
     const detector = createPresencePassDetector();
     detector.update({ ...context, routeKey: 'free', now });
     assert.equal(detector.inspect().trackedApproaches, 1);
@@ -269,8 +269,8 @@ test('detector diagnostics retain sample-gap and approach information', () => {
         },
         now: now + 5000,
     });
-    assert.equal(detector.inspect().sampleGapMs, 5000);
-    assert.match(detector.inspect().reason, /GPS gap/);
+    assert.equal(detector.inspect().trackedApproaches, 1);
+    assert.match(detector.inspect().reason, /Tracking approach/);
 });
 test('pane captures snapshots and provides a guarded cooldown and budget reset with success and failure feedback', async () => {
     const require = createRequire(import.meta.url);
@@ -417,4 +417,79 @@ test('free-drive diagnostics mark maneuver clearance inapplicable and contain no
     assert.equal(snapshot.path.maneuverSeconds, null);
     assert.equal(snapshot.path.source, 'GPS movement');
     assert.doesNotMatch(JSON.stringify(snapshot), /horizon/i);
+});
+
+test('timestamp availability and age do not produce confirmation blockers', () => {
+    for (const recordedAt of [undefined, 1, now + 5000, 'invalid']) {
+        const snapshot = sample({
+            location: { ...context.location, recordedAt },
+        });
+        assert.deepEqual(snapshot.blockers, []);
+    }
+});
+
+test('free-driving diagnostics allow continued turns while the camera remains behind', () => {
+    const encounter = {
+        node: context.nodes[0],
+        osmNodeId: context.nodes[0].osm_id,
+        passMethod: 'gps-plane',
+        passedHeading: 0,
+        passedAt: now - 4000,
+        routeKey: 'free',
+    };
+    const snapshot = buildPresenceDebugSnapshot(
+        {
+            context: {
+                ...context,
+                navigationActive: false,
+                routeKey: 'free',
+                location: {
+                    ...context.location,
+                    longitude: -96.9995,
+                    heading: 90,
+                },
+            },
+            encounter,
+            phase: 'pending',
+        },
+        state,
+        now,
+    );
+    assert.ok(
+        !snapshot.blockers.includes('Heading changed more than 30 degrees'),
+    );
+    assert.ok(
+        !snapshot.blockers.includes(
+            'Camera is ahead of current travel direction',
+        ),
+    );
+});
+
+test('render visibility is not a confirmation blocker', () => {
+    assert.ok(
+        !sample({ visible: false }).blockers.includes('Car map not visible'),
+    );
+});
+
+test('structured close snapshots survive subsequent events and JSON export', () => {
+    const store = createPresenceDebugStore();
+    store.setEnabled(true);
+    const details = {
+        shownForMs: 900,
+        snapshot: {
+            phase: 'showing',
+            targetNodeId: 123,
+            blockers: ['Route changed'],
+        },
+    };
+    store.event('confirmation-closed:guard-failed', now, details);
+    store.event('native-dismissed:user', now + 30);
+    const exported = JSON.parse(
+        formatPresenceDebugSnapshot(store.getSnapshot()),
+    );
+    assert.deepEqual(exported.events[0].details, details);
+    assert.equal(exported.events[1].event, 'native-dismissed:user');
+    store.setEnabled(false);
+    store.event('confirmation-closed:guard-failed', now + 60, details);
+    assert.equal(store.getSnapshot().events.length, 2);
 });

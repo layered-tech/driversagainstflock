@@ -1,3 +1,4 @@
+import { buildPresenceDebugSnapshot } from './alpr-presence-debug.js';
 import {
     canStartPresencePrompt,
     createPresencePassDetector,
@@ -25,9 +26,47 @@ export function createPresencePrompt({
     let candidate = null,
         active = null,
         stopped = false;
-    const clear = (manual = false) => {
-        candidate = null;
+    const clear = (manual = false, reason) => {
         const previous = active;
+        if (previous) {
+            const time = now();
+            previous.closeReason = reason;
+            try {
+                trace(`confirmation-closed:${reason}`, {
+                    shownForMs:
+                        previous.shownAt === null
+                            ? null
+                            : time - previous.shownAt,
+                    snapshot: buildPresenceDebugSnapshot(
+                        {
+                            context: {
+                                ...getContext(),
+                                presenceFocus: previous.focus,
+                            },
+                            encounter: previous.encounter,
+                            phase:
+                                previous.shownAt === null
+                                    ? 'presenting'
+                                    : 'showing',
+                            pass: detector.inspect(),
+                            remainingMs:
+                                previous.shownAt === null
+                                    ? PRESENCE_POLICY.durationMs
+                                    : Math.max(
+                                          0,
+                                          PRESENCE_POLICY.durationMs -
+                                              (time - previous.shownAt),
+                                      ),
+                        },
+                        coordinator.state,
+                        time,
+                    ),
+                });
+            } catch {
+                // Diagnostics must never prevent alert and camera cleanup.
+            }
+        }
+        candidate = null;
         active = null;
         highlight(null);
         if (previous) {
@@ -60,7 +99,7 @@ export function createPresencePrompt({
             prompt = {
                 encounter,
                 id: nextAlertId++,
-                requestedAt: now(),
+                requestedAt: null,
                 shownAt: null,
                 reservation: null,
                 focus: null,
@@ -79,11 +118,20 @@ export function createPresencePrompt({
                 !stillValid(prompt) ||
                 now() - encounter.passedAt > PRESENCE_POLICY.latestMs
             ) {
-                if (active === prompt) clear();
+                if (active === prompt)
+                    clear(
+                        false,
+                        !prompt.reservation
+                            ? 'reservation-unavailable'
+                            : !stillValid(prompt)
+                              ? 'guard-failed'
+                              : 'pass-expired',
+                    );
                 else if (prompt.reservation)
                     await coordinator.refused(prompt.reservation);
                 return;
             }
+            prompt.requestedAt = now();
             trace('request-native-alert');
             host.showAlert({
                 id: prompt.id,
@@ -96,7 +144,7 @@ export function createPresencePrompt({
                 primaryAction: {
                     title: 'Still there? / Dismiss',
                     onPress: () => {
-                        if (active === prompt) clear();
+                        if (active === prompt) clear(false, 'dismiss-action');
                     },
                 },
                 secondaryAction: {
@@ -108,7 +156,7 @@ export function createPresencePrompt({
                             !stillValid(prompt)
                         )
                             return;
-                        clear();
+                        clear(false, 'report-missing-action');
                         // Persist/upload independently of banner and camera teardown.
                         void coordinator
                             .reportMissing(prompt.reservation, platform)
@@ -116,11 +164,18 @@ export function createPresencePrompt({
                     },
                 },
                 onWillShow: async () => {
+                    if (prompt.shownAt !== null) return;
                     if (
                         !stillValid(prompt) ||
-                        now() - encounter.passedAt > PRESENCE_POLICY.latestMs
+                        now() - prompt.requestedAt >= 10000
                     ) {
-                        if (active === prompt) clear();
+                        if (active === prompt)
+                            clear(
+                                false,
+                                !stillValid(prompt)
+                                    ? 'guard-failed'
+                                    : 'presentation-expired',
+                            );
                         else {
                             try {
                                 host.dismissAlert(prompt.id);
@@ -141,17 +196,25 @@ export function createPresencePrompt({
                                 stillValid(prompt),
                             ))
                         ) {
-                            if (active === prompt) clear();
+                            if (active === prompt)
+                                clear(
+                                    false,
+                                    !focus
+                                        ? 'focus-invalid'
+                                        : 'camera-focus-failed',
+                                );
                             return;
                         }
                         if (stillValid(prompt)) highlight(encounter.node);
                     } catch {
-                        if (active === prompt) clear();
+                        if (active === prompt)
+                            clear(false, 'presentation-or-camera-error');
                     }
                 },
                 onDidDismiss: (reason) => {
-                    trace(`native-dismissed:${reason}`);
-                    if (active !== prompt) return;
+                    trace(`native-dismissed:${reason}`, {
+                        appCloseReason: prompt.closeReason ?? null,
+                    });
                     // The Android bridge reserves SYSTEM for a refused/failed presentation.
                     if (
                         platform === 'android_auto' &&
@@ -162,12 +225,13 @@ export function createPresencePrompt({
                             .refused(prompt.reservation, true)
                             .catch(() => {});
                     }
-                    clear();
+                    if (active === prompt)
+                        clear(false, `native-dismissed:${reason}`);
                 },
             });
         } catch (error) {
             trace(`show-failed:${error.message}`);
-            if (active === prompt) clear();
+            if (active === prompt) clear(false, 'show-error');
         }
     };
     return {
@@ -205,11 +269,10 @@ export function createPresencePrompt({
             if (
                 !context.enabled ||
                 !context.connected ||
-                !context.visible ||
                 context.blocked ||
                 context.manual
             ) {
-                clear(context.manual);
+                clear(context.manual, 'context-unavailable');
                 detector.reset();
                 return;
             }
@@ -223,18 +286,24 @@ export function createPresencePrompt({
                     active.shownAt === null
                         ? PRESENCE_POLICY.durationMs
                         : PRESENCE_POLICY.durationMs - (time - active.shownAt);
-                if (
-                    !stillValid(active) ||
-                    remaining <= 0 ||
-                    !getPresenceFocus(
-                        active.encounter,
-                        { ...context, presenceFocus: active.focus },
-                        remaining,
-                    ) ||
-                    (active.shownAt === null &&
-                        time - active.requestedAt >= 1000)
-                )
-                    clear();
+                const closeReason = !stillValid(active)
+                    ? 'guard-failed'
+                    : remaining <= 0
+                      ? 'duration-expired'
+                      : !getPresenceFocus(
+                              active.encounter,
+                              { ...context, presenceFocus: active.focus },
+                              remaining,
+                          )
+                        ? 'focus-invalid'
+                        : active.shownAt === null &&
+                            (active.requestedAt === null
+                                ? time - active.encounter.passedAt >
+                                  PRESENCE_POLICY.latestMs
+                                : time - active.requestedAt >= 10000)
+                          ? 'presentation-expired'
+                          : null;
+                if (closeReason) clear(false, closeReason);
                 return;
             }
             if (!candidate) return;
@@ -256,12 +325,12 @@ export function createPresencePrompt({
             void show(ready);
         },
         interrupt(manual = false) {
-            clear(manual);
+            clear(manual, manual ? 'manual-interruption' : 'interruption');
             detector.reset();
         },
         stop() {
             stopped = true;
-            clear();
+            clear(false, 'tracker-stopped');
             detector.reset();
         },
     };

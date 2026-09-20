@@ -18,7 +18,6 @@ export const PRESENCE_POLICY = Object.freeze({
     driveEndMs: 1800000,
     isolationMeters: 150,
     maneuverSeconds: 30,
-    maximumGapMs: 3000,
     maximumAccuracyMeters: 10,
     maximumVehiclePathOffsetMeters: 10,
     minimumProgressSampleMeters: 1,
@@ -35,6 +34,45 @@ export function presenceDistance(a, b) {
     const latitude = radians((a[1] + b[1]) / 2);
     return Math.hypot((a[0] - b[0]) * Math.cos(latitude), a[1] - b[1]) * 111195;
 }
+/** Signed distance ahead of the vehicle's current left/right plane. */
+export function presenceAheadMeters(location, coordinate) {
+    const vehicle = presenceCoordinate(location);
+    const longitudeDelta = ((coordinate[0] - vehicle[0] + 540) % 360) - 180;
+    const east = longitudeDelta * 111195 * Math.cos(radians(vehicle[1]));
+    const north = (coordinate[1] - vehicle[1]) * 111195;
+    return (
+        east * Math.sin(radians(location.heading)) +
+        north * Math.cos(radians(location.heading))
+    );
+}
+
+function updatePresencePlaneCrossing(approach, location) {
+    const coordinate = presenceCoordinate(location);
+    const ahead = presenceAheadMeters(
+        location,
+        presenceCoordinate(approach.node),
+    );
+    const movement = -presenceAheadMeters(location, approach.lastCoordinate);
+    const minimumMovement = Math.max(
+        PRESENCE_POLICY.minimumProgressSampleMeters,
+        location.accuracy,
+        approach.lastAccuracy,
+    );
+    if (ahead > -PRESENCE_POLICY.minimumPassProgressMeters)
+        approach.behindSamples = 0;
+    if (presenceDistance(coordinate, approach.lastCoordinate) < minimumMovement)
+        return approach.behindSamples >= 2;
+    approach.lastCoordinate = coordinate;
+    approach.lastAccuracy = location.accuracy;
+    if (movement < minimumMovement) {
+        approach.behindSamples = 0;
+        return false;
+    }
+    if (ahead <= -PRESENCE_POLICY.minimumPassProgressMeters)
+        approach.behindSamples++;
+    return approach.behindSamples >= 2;
+}
+
 /** Local travel axis from the GPS course, independent of any predicted road path. */
 export function getPresenceMotionPath(location) {
     const coordinate = presenceCoordinate(location);
@@ -59,18 +97,15 @@ export function canonicalPresenceNodeId(node) {
     const id = Number(node?.osm_id);
     return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
-export function presenceLocationIsReliable(location, now) {
-    const age = now - Number(location?.recordedAt ?? location?.timestamp);
+export function presenceLocationIsReliable(location) {
     return Boolean(
         location &&
-            Number.isFinite(location.latitude) &&
-            Number.isFinite(location.longitude) &&
-            Number.isFinite(location.accuracy) &&
-            location.accuracy >= 0 &&
-            location.accuracy <= PRESENCE_POLICY.maximumAccuracyMeters &&
-            age >= 0 &&
-            age <= PRESENCE_POLICY.maximumGapMs &&
-            Number.isFinite(location.heading),
+        Number.isFinite(location.latitude) &&
+        Number.isFinite(location.longitude) &&
+        Number.isFinite(location.accuracy) &&
+        location.accuracy >= 0 &&
+        location.accuracy <= PRESENCE_POLICY.maximumAccuracyMeters &&
+        Number.isFinite(location.heading),
     );
 }
 export function presenceNodeIsIsolated(node, nodes, coverageComplete) {
@@ -100,22 +135,18 @@ export function presenceNodeIsIsolated(node, nodes, coverageComplete) {
 /** Keeps the traveled path independently of the disappearing upcoming warning. */
 export function createPresencePassDetector() {
     let approaches = new Map();
-    let previous = null;
     let routeIdentity = null;
     let lastReason = 'Waiting for a reliable approach';
-    let sampleGapMs = null;
     return {
         inspect() {
             return {
                 reason: lastReason,
                 trackedApproaches: approaches.size,
-                sampleGapMs,
             };
         },
         reset() {
             lastReason = 'Pass tracking reset';
             approaches.clear();
-            previous = null;
             routeIdentity = null;
         },
         update({
@@ -124,61 +155,73 @@ export function createPresencePassDetector() {
             coverageComplete,
             coordinates,
             routeKey,
+            navigationActive,
             now,
         }) {
-            const time = Number(location?.recordedAt ?? location?.timestamp);
-            if (previous && time === previous.time) return null;
-            if (!presenceLocationIsReliable(location, now)) {
+            if (!presenceLocationIsReliable(location)) {
                 this.reset();
                 lastReason = 'Location reliability rejected';
                 return null;
             }
-            const identityChanged = previous && routeIdentity !== routeKey;
-            const delta = previous ? time - previous.time : 0;
-            sampleGapMs = delta;
+            const identityChanged =
+                routeIdentity !== null && routeIdentity !== routeKey;
             lastReason = 'No qualifying approach';
-            if (
-                identityChanged ||
-                (previous &&
-                    (delta <= 0 || delta > PRESENCE_POLICY.maximumGapMs))
-            ) {
+            if (identityChanged) {
                 approaches.clear();
-                lastReason = 'Route change or GPS gap';
+                lastReason = 'Route changed';
             }
             routeIdentity = routeKey;
             const coordinate = presenceCoordinate(location);
             let encounter = null;
             for (const [id, approach] of approaches) {
-                const projection = projectCoordinateOntoRoute(
-                    approach.path,
-                    coordinate,
-                );
-                const progress = projection?.distanceAlongRouteMeters;
                 if (
-                    !projection ||
-                    projection.distanceFromRouteMeters >
-                        PRESENCE_POLICY.maximumVehiclePathOffsetMeters ||
-                    progress < approach.lastProgress - 2 ||
-                    now - approach.startedAt > 60000
+                    now - approach.startedAt > 60000 ||
+                    (approach.passMethod === 'gps-plane' &&
+                        presenceDistance(
+                            coordinate,
+                            presenceCoordinate(approach.node),
+                        ) > 150)
                 ) {
                     approaches.delete(id);
-                    lastReason = 'Tracked approach lost road/path continuity';
+                    lastReason =
+                        'Tracked approach expired or camera is no longer nearby';
                     continue;
                 }
-                if (
-                    progress - approach.lastProgress >=
-                    PRESENCE_POLICY.minimumProgressSampleMeters
-                ) {
-                    approach.progressSamples++;
-                    approach.lastProgress = progress;
+                let passed;
+                if (approach.passMethod === 'gps-plane') {
+                    passed = updatePresencePlaneCrossing(approach, location);
+                } else {
+                    const projection = projectCoordinateOntoRoute(
+                        approach.path,
+                        coordinate,
+                    );
+                    const progress = projection?.distanceAlongRouteMeters;
+                    if (
+                        !projection ||
+                        projection.distanceFromRouteMeters >
+                            PRESENCE_POLICY.maximumVehiclePathOffsetMeters ||
+                        progress < approach.lastProgress - 2
+                    ) {
+                        approaches.delete(id);
+                        lastReason =
+                            'Tracked approach lost road/path continuity';
+                        continue;
+                    }
+                    if (
+                        progress - approach.lastProgress >=
+                        PRESENCE_POLICY.minimumProgressSampleMeters
+                    ) {
+                        approach.progressSamples++;
+                        approach.lastProgress = progress;
+                    }
+                    passed =
+                        progress >=
+                            approach.targetProgress +
+                                PRESENCE_POLICY.minimumPassProgressMeters &&
+                        approach.progressSamples >= 2;
                 }
-                if (
-                    progress >=
-                        approach.targetProgress +
-                            PRESENCE_POLICY.minimumPassProgressMeters &&
-                    approach.progressSamples >= 2
-                ) {
-                    approach.passedAt ??= time;
+                if (passed) {
+                    approach.passedAt ??= now;
                     approach.passedHeading ??= location.heading;
                     if (now - approach.passedAt > PRESENCE_POLICY.latestMs) {
                         approaches.delete(id);
@@ -229,8 +272,13 @@ export function createPresencePassDetector() {
                             presenceCoordinate(node),
                         );
                         const ahead =
-                            target?.distanceAlongRouteMeters -
-                            vehicle.distanceAlongRouteMeters;
+                            navigationActive === false
+                                ? presenceAheadMeters(
+                                      location,
+                                      presenceCoordinate(node),
+                                  )
+                                : target?.distanceAlongRouteMeters -
+                                  vehicle.distanceAlongRouteMeters;
                         if (
                             !target ||
                             ahead < 20 ||
@@ -243,6 +291,13 @@ export function createPresencePassDetector() {
                             continue;
                         approaches.set(id, {
                             node: { ...node },
+                            passMethod:
+                                navigationActive === false
+                                    ? 'gps-plane'
+                                    : 'route',
+                            lastCoordinate: coordinate,
+                            lastAccuracy: location.accuracy,
+                            behindSamples: 0,
                             path,
                             targetProgress: target.distanceAlongRouteMeters,
                             lastProgress: vehicle.distanceAlongRouteMeters,
@@ -263,34 +318,36 @@ export function createPresencePassDetector() {
                 )
                     ? 'Passed camera; waiting for inventory coverage and isolation'
                     : 'Tracking approach; waiting to pass by 12 meters';
-            previous = { time };
             return encounter;
         },
     };
 }
 
-export function presenceGuardsHold(context, encounter, now) {
+export function presenceGuardsHold(context, encounter) {
     return Boolean(
         context.enabled &&
-            context.connected &&
-            context.visible &&
-            !context.blocked &&
-            !context.warningBusy &&
-            !context.manual &&
-            context.routeKey === encounter.routeKey &&
-            presenceLocationIsReliable(context.location, now) &&
-            Math.cos(
-                radians(context.location.heading - encounter.passedHeading),
-            ) >= Math.cos(radians(30)) &&
-            (context.navigationActive !== true ||
-                (Number.isFinite(context.maneuverSeconds) &&
-                    context.maneuverSeconds >=
-                        PRESENCE_POLICY.maneuverSeconds)) &&
-            presenceNodeIsIsolated(
-                encounter.node,
-                context.nodes,
-                context.coverageComplete,
-            ),
+        context.connected &&
+        !context.blocked &&
+        !context.warningBusy &&
+        !context.manual &&
+        context.routeKey === encounter.routeKey &&
+        presenceLocationIsReliable(context.location) &&
+        (encounter.passMethod === 'gps-plane'
+            ? presenceAheadMeters(
+                  context.location,
+                  presenceCoordinate(encounter.node),
+              ) <= 0
+            : Math.cos(
+                  radians(context.location.heading - encounter.passedHeading),
+              ) >= Math.cos(radians(30))) &&
+        (context.navigationActive !== true ||
+            (Number.isFinite(context.maneuverSeconds) &&
+                context.maneuverSeconds >= PRESENCE_POLICY.maneuverSeconds)) &&
+        presenceNodeIsIsolated(
+            encounter.node,
+            context.nodes,
+            context.coverageComplete,
+        ),
     );
 }
 
@@ -312,13 +369,19 @@ export function inspectPresenceFocus(
             reason: 'Car map viewport unavailable or too small',
         };
     const vehicle = presenceCoordinate(location);
-    const projection = projectCoordinateOntoRoute(encounter.path, vehicle);
-    if (
-        !projection ||
-        projection.distanceFromRouteMeters >
-            PRESENCE_POLICY.maximumVehiclePathOffsetMeters
-    )
-        return { focus: null, reason: 'Vehicle left the tracked road path' };
+    // Free-driving geometry is a past GPS tangent, not the road ahead.
+    if (context.navigationActive === true) {
+        const projection = projectCoordinateOntoRoute(encounter.path, vehicle);
+        if (
+            !projection ||
+            projection.distanceFromRouteMeters >
+                PRESENCE_POLICY.maximumVehiclePathOffsetMeters
+        )
+            return {
+                focus: null,
+                reason: 'Vehicle left the tracked road path',
+            };
+    }
     const camera = presenceCoordinate(encounter.node);
     const angle = radians(context.presenceFocus?.heading ?? location.heading);
     const scale = 111195 * Math.cos(radians(vehicle[1]));
@@ -498,14 +561,14 @@ export function updatePresenceDrive(state, { connected, driving, now }) {
 export function canStartPresencePrompt(state, encounter, now) {
     return Boolean(
         state &&
-            state.drive.count < PRESENCE_POLICY.sessionLimit &&
-            (state.lastPromptAt === null ||
-                now - state.lastPromptAt >= PRESENCE_POLICY.spacingMs) &&
-            (state.nodeTimes[encounter.osmNodeId] === undefined ||
-                now - state.nodeTimes[encounter.osmNodeId] >=
-                    PRESENCE_POLICY.nodeCooldownMs) &&
-            now - encounter.passedAt >= PRESENCE_POLICY.earliestMs &&
-            now - encounter.passedAt <= PRESENCE_POLICY.latestMs,
+        state.drive.count < PRESENCE_POLICY.sessionLimit &&
+        (state.lastPromptAt === null ||
+            now - state.lastPromptAt >= PRESENCE_POLICY.spacingMs) &&
+        (state.nodeTimes[encounter.osmNodeId] === undefined ||
+            now - state.nodeTimes[encounter.osmNodeId] >=
+                PRESENCE_POLICY.nodeCooldownMs) &&
+        now - encounter.passedAt >= PRESENCE_POLICY.earliestMs &&
+        now - encounter.passedAt <= PRESENCE_POLICY.latestMs,
     );
 }
 export function recordPresencePrompt(state, encounter, now) {

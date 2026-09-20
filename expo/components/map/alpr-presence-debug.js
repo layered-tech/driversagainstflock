@@ -2,6 +2,7 @@ import {
     canonicalPresenceNodeId,
     inspectPresenceFocus,
     PRESENCE_POLICY,
+    presenceAheadMeters,
     presenceCoordinate,
     presenceDistance,
     presenceLocationIsReliable,
@@ -72,12 +73,11 @@ export function buildPresenceDebugSnapshot(
     const blockers = [];
     if (!context.enabled) blockers.push('Root driving map not ready');
     if (!context.connected) blockers.push('Car disconnected');
-    if (!context.visible) blockers.push('Car map not visible');
     if (context.blocked)
         blockers.push('Search, preview, route loading or map overview');
     if (context.manual) blockers.push('Manual map control');
     if (context.warningBusy) blockers.push('Upcoming warning has priority');
-    if (!presenceLocationIsReliable(location, now)) {
+    if (!presenceLocationIsReliable(location)) {
         if (!location) blockers.push('Location unavailable');
         else {
             if (
@@ -85,12 +85,6 @@ export function buildPresenceDebugSnapshot(
                 !Number.isFinite(location.longitude)
             )
                 blockers.push('Location coordinates unavailable');
-            if (
-                !Number.isFinite(age) ||
-                age < 0 ||
-                age > PRESENCE_POLICY.maximumGapMs
-            )
-                blockers.push('Location stale or timestamp unavailable');
             if (
                 !Number.isFinite(location.accuracy) ||
                 location.accuracy < 0 ||
@@ -139,7 +133,15 @@ export function buildPresenceDebugSnapshot(
         if (frame.reason) blockers.push(frame.reason);
         if (context.routeKey !== encounter.routeKey)
             blockers.push('Route changed');
-        if (
+        if (encounter.passMethod === 'gps-plane') {
+            if (
+                presenceAheadMeters(
+                    location,
+                    presenceCoordinate(encounter.node),
+                ) > 0
+            )
+                blockers.push('Camera is ahead of current travel direction');
+        } else if (
             Math.cos(
                 ((location?.heading - encounter.passedHeading) * Math.PI) / 180,
             ) < Math.cos(Math.PI / 6)
@@ -252,8 +254,15 @@ export function createPresenceDebugStore() {
     let lastDecision = '';
     const listeners = new Set();
     const emit = () => listeners.forEach((listener) => listener());
-    const append = (event, at) =>
-        [...value.events, { at: new Date(at).toISOString(), event }].slice(-60);
+    const append = (event, at, details) =>
+        [
+            ...value.events,
+            {
+                at: new Date(at).toISOString(),
+                event,
+                ...(details ? { details } : {}),
+            },
+        ].slice(-60);
     return {
         getSnapshot: () => value,
         subscribe(listener) {
@@ -285,18 +294,18 @@ export function createPresenceDebugStore() {
                 decision === lastDecision
                     ? value.events
                     : append(
-                          `Node ${nodeId} · ${latest.phase}: ${latest.blockers.join('; ') || latest.pass?.reason || 'Eligible'} | road=${latest.location.confidence ?? '?'} GPS=${latest.location.accuracyMeters ?? '?'}m gap=${latest.pass?.sampleGapMs ?? '?'}ms clearance=${latest.path.maneuverSeconds ?? '?'}s camera-offset=${target?.pathOffsetMeters ?? '?'}m`,
+                          `Node ${nodeId} · ${latest.phase}: ${latest.blockers.join('; ') || latest.pass?.reason || 'Eligible'} | road=${latest.location.confidence ?? '?'} GPS=${latest.location.accuracyMeters ?? '?'}m clearance=${latest.path.maneuverSeconds ?? '?'}s camera-offset=${target?.pathOffsetMeters ?? '?'}m`,
                           now,
                       );
             lastDecision = decision;
             value = { ...value, latest, events };
             emit();
         },
-        event(event, now = Date.now()) {
+        event(event, now = Date.now(), details) {
             if (!value.enabled) return;
             value = {
                 ...value,
-                events: append(String(event).slice(0, 300), now),
+                events: append(String(event).slice(0, 300), now, details),
             };
             emit();
         },

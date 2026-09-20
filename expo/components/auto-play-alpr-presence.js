@@ -103,8 +103,8 @@ export function useAutoPlayAlprPresence({
         if (!enabled || !mapTemplate) return;
         const prompt = createPresencePrompt({
             coordinator: presenceCoordinator,
-            trace: (event) => {
-                presenceDebugStore.event(event);
+            trace: (event, details) => {
+                presenceDebugStore.event(event, Date.now(), details);
                 if (getPresenceE2EFixture())
                     console.info(`[E2E] presence:${event}`);
             },
@@ -123,7 +123,6 @@ export function useAutoPlayAlprPresence({
                     ...current,
                     navigationCamera: controller.getPresenceNavigationCamera(),
                     connected: session.isConnected,
-                    visible: session.renderState === 'didAppear',
                     ...inventory.current?.getContext(),
                     ...getPresenceE2EFixture(),
                 };

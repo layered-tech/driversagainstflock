@@ -91,9 +91,19 @@ export function AutoPlayDebugOverlays({
                     windowWidth={viewportMetrics.width}
                 />
             ) : null}
-            {cameraDebugOverlayIsVisible ||
-            carLocationDebugOverlayIsVisible ||
-            presenceDebugIsVisible ? (
+            {presenceDebugIsVisible ? (
+                <View
+                    className="absolute z-[70] items-end"
+                    pointerEvents="none"
+                    style={{
+                        right: presentation.mapControlLayoutInsets.right,
+                        top: presentation.mapControlLayoutInsets.top,
+                    }}
+                >
+                    <AlprPresenceDebugPane compact />
+                </View>
+            ) : null}
+            {cameraDebugOverlayIsVisible || carLocationDebugOverlayIsVisible ? (
                 <View
                     className="absolute z-[70] items-start gap-[8px]"
                     pointerEvents="none"
@@ -102,9 +112,6 @@ export function AutoPlayDebugOverlays({
                         top: presentation.mapControlLayoutInsets.top,
                     }}
                 >
-                    {presenceDebugIsVisible ? (
-                        <AlprPresenceDebugPane compact />
-                    ) : null}
                     {cameraDebugOverlayIsVisible ? (
                         <CameraDebugOverlay
                             cameraState={controller.currentCameraDebugState}

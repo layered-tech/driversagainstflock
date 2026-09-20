@@ -42,6 +42,14 @@ const location = (x, time) => ({
     },
 });
 const formerEligibilityGates = [
+    ['missing timestamp', (value) => ({ ...value, recordedAt: undefined })],
+    ['old repeated timestamp', (value) => ({ ...value, recordedAt: 1 })],
+    ['future timestamp', (value) => ({ ...value, recordedAt: 999999 })],
+    ['invalid timestamp', (value) => ({ ...value, recordedAt: 'invalid' })],
+    [
+        'backward timestamp',
+        (value, index) => ({ ...value, recordedAt: 100000 - index * 1000 }),
+    ],
     ['reported stopped speed', (value) => ({ ...value, speed: 0 })],
     ['reported high speed', (value) => ({ ...value, speed: 40 })],
     ['unavailable speed', (value) => ({ ...value, speed: undefined })],
@@ -108,11 +116,11 @@ function pass(transformLocation = (value) => value) {
     assert.equal(detector.update(sample(-97.0001, 102000, 1)), null);
     return detector.update(sample(-96.9998, 104000, 2));
 }
-test('a pass requires fresh accurate positional progress and retains the canonical identity', () => {
+test('a pass requires accurate positional progress and retains the canonical identity', () => {
     const encounter = pass();
     assert.equal(encounter.osmNodeId, 987654321);
     assert.equal(encounter.passedAt, 104000);
-    for (const change of [{ accuracy: 50 }, { recordedAt: 1 }]) {
+    for (const change of [{ accuracy: 50 }]) {
         const detector = createPresencePassDetector();
         const initial = {
             location: location(-97.0004, 100000),
@@ -138,15 +146,14 @@ test('a pass requires fresh accurate positional progress and retains the canonic
         );
     }
 });
-test('former speed and road-context gates do not block a positional pass', () => {
+test('former timestamp, speed and road-context gates do not block a positional pass', () => {
     for (const [name, transformLocation] of formerEligibilityGates) {
         assert.equal(pass(transformLocation)?.osmNodeId, node.osm_id, name);
     }
 });
-test('disappearance, a GPS gap, reroute, nearby point, parallel path and reversal are not passes', () => {
+test('disappearance, reroute, nearby point, parallel path and reversal are not passes', () => {
     for (const overrides of [
         { nodes: [] },
-        { now: 110000, location: location(-96.9998, 110000) },
         { routeKey: 'new' },
         { location: location(-97.0003, 102000) },
         {
@@ -417,6 +424,8 @@ test('failed hydration and writes suppress prompting and refused alerts do not c
 function promptHarness({
     refuse = false,
     cameraDelay = false,
+    cameraFailure = false,
+    traceFailure = false,
     reservationDelay = false,
     reservationFailure = false,
 } = {}) {
@@ -443,7 +452,8 @@ function promptHarness({
         restores = [],
         highlights = [],
         sent = [],
-        suppressionEvents = [];
+        suppressionEvents = [],
+        traces = [];
     let release,
         releaseReservation,
         saveCalls = 0,
@@ -473,6 +483,11 @@ function promptHarness({
         getContext: () => context,
         now: () => time,
         platform: 'android_auto',
+        trace: (event, details) => {
+            if (traceFailure && event.startsWith('confirmation-closed:'))
+                throw new Error('debug unavailable');
+            traces.push({ event, details });
+        },
         host: {
             showAlert: (config) => {
                 shown.push(config);
@@ -482,6 +497,9 @@ function promptHarness({
         },
         camera: {
             focus: async (frame, shouldApply) => {
+                if (cameraFailure === 'throw')
+                    throw new Error('camera unavailable');
+                if (cameraFailure) return false;
                 if (cameraDelay)
                     await new Promise((resolve) => {
                         release = resolve;
@@ -529,6 +547,7 @@ function promptHarness({
         highlights,
         sent,
         suppressionEvents,
+        traces,
         step,
         start,
         release: () => release?.(),
@@ -553,13 +572,14 @@ test('approach tracking stays ownerless and async presentation setup owns suppre
     h.shown[0].primaryAction.onPress();
     assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
 });
-test('reservation failure releases alert suppression', async () => {
+test('presentation persistence failure releases alert suppression', async () => {
     const h = promptHarness({ reservationFailure: true });
     await h.start();
     assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
-    assert.equal(h.shown.length, 0);
+    assert.equal(h.shown.length, 1);
+    assert.equal(h.coordinator.state, null);
 });
-test('prompt start ignores former speed and road-context gates', async () => {
+test('prompt start ignores former timestamp, speed and road-context gates', async () => {
     for (const [name, transformLocation] of formerEligibilityGates) {
         const h = promptHarness();
         for (const [index, [x, time]] of [
@@ -578,7 +598,7 @@ test('prompt start ignores former speed and road-context gates', async () => {
         assert.equal(h.prompt.ownsCamera, true, name);
     }
 });
-test('active prompt continuation ignores former speed and road-context gates', async () => {
+test('active prompt continuation ignores former timestamp, speed and road-context gates', async () => {
     for (const [name, transformLocation] of formerEligibilityGates) {
         const h = promptHarness();
         await h.start();
@@ -620,11 +640,15 @@ test('upcoming candidates cannot cancel or displace an active confirmation', asy
     assert.equal(h.shown.length, 1);
     assert.deepEqual(h.suppressionEvents, ['acquire:1']);
 });
-test('native refusal expires locally without focus or budget and its late callback is inert', async () => {
+test('native acknowledgement waits ten seconds before expiring and ignores late callbacks', async () => {
     const h = promptHarness({ refuse: true });
     await h.start();
     assert.equal(h.frames.length, 0);
-    await h.step(-96.9994, 108000);
+    await h.step(-96.9994, 116999);
+    assert.equal(h.prompt.inspect().phase, 'presenting');
+    assert.deepEqual(h.suppressionEvents, ['acquire:1']);
+    await h.step(-96.9994, 117000);
+    assert.equal(h.prompt.inspect().phase, 'observing');
     assert.equal(h.coordinator.state.drive.count, 0);
     assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
     await h.shown[0].onWillShow();
@@ -657,17 +681,10 @@ test('dismissal is not a positive vote, explicit negative closes independently a
         assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
     }
 });
-test('navigation demands, stale GPS, viewport changes, lost certainty and disconnect permanently preempt', async () => {
+test('navigation demands, viewport changes, lost certainty and disconnect permanently preempt', async () => {
     for (const change of [
         { connected: false },
-        { visible: false },
         { blocked: true },
-        {
-            location: {
-                ...location(-96.9994, 108000),
-                recordedAt: 100000,
-            },
-        },
         {
             location: {
                 ...location(-96.9994, 108000),
@@ -765,7 +782,7 @@ test('simultaneous car surfaces reserve one budget slot without poisoning encryp
         runtime.reserve(pass()),
     ]);
     assert.equal(results.filter(Boolean).length, 1);
-    assert.equal(runtime.state.drive.count, 1);
+    assert.equal(runtime.state.drive.count, 0);
     await runtime.presented(results.find(Boolean));
     assert.equal(runtime.state.drive.count, 1);
 });
@@ -854,7 +871,8 @@ test('a failed encrypted write suppresses future prompts without resetting the b
     });
     await runtime.hydrate();
     fail = true;
-    await assert.rejects(runtime.reserve(pass()), /locked/);
+    const reservation = await runtime.reserve(pass());
+    await assert.rejects(runtime.presented(reservation), /locked/);
     assert.equal(runtime.state, null);
     assert.equal(await runtime.reserve(pass()), null);
 });
@@ -1055,4 +1073,444 @@ test('GPS course detects a roadside pass in every direction without predicted ro
         }
         assert.equal(encounter?.osmNodeId, target.osm_id, `heading ${heading}`);
     }
+});
+
+test('GPS update gaps preserve positional approach tracking', () => {
+    const detector = createPresencePassDetector();
+    const update = (x, now) =>
+        detector.update({
+            location: location(x, now),
+            now,
+            coordinates,
+            nodes: [node],
+            coverageComplete: true,
+            routeKey: 'route-1',
+        });
+    assert.equal(update(-97.0004, 100000), null);
+    assert.equal(update(-97.0001, 110000), null);
+    const encounter = update(-96.9998, 120000);
+    assert.equal(encounter?.osmNodeId, node.osm_id);
+    assert.equal(encounter.passedAt, 120000);
+});
+
+test('unshown reservations never persist cooldowns or spend the drive budget', async () => {
+    let stored;
+    const coordinator = createPresenceCoordinator({
+        load: async () => null,
+        save: async (value) => {
+            stored = value;
+        },
+        randomId: () => 'r'.repeat(32),
+        now: () => 107000,
+    });
+    const reservation = await coordinator.reserve(pass());
+    assert.ok(reservation);
+    assert.equal(coordinator.state.drive.count, 0);
+    assert.equal(parsePresenceState(stored).lastPromptAt, null);
+    assert.deepEqual(parsePresenceState(stored).nodeTimes, {});
+    assert.equal(await coordinator.reserve(pass()), null);
+    await coordinator.refused(reservation);
+    await coordinator.presented(reservation);
+    assert.equal(coordinator.state.drive.count, 0);
+    assert.ok(await coordinator.reserve(pass()));
+});
+
+test('slow reservation setup does not start the native acknowledgement timeout', async () => {
+    const h = promptHarness({ reservationDelay: true });
+    await h.start();
+    await h.step(-96.9994, 108500);
+    assert.equal(h.prompt.inspect().phase, 'presenting');
+    h.releaseReservation();
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.shown.length, 1);
+    assert.equal(h.coordinator.state.drive.count, 1);
+});
+
+test('slow setup gives native acknowledgement its own full timeout window', async () => {
+    const h = promptHarness({ reservationDelay: true, refuse: true });
+    await h.start();
+    await h.step(-96.9994, 108500);
+    h.releaseReservation();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.shown.length, 1);
+    assert.equal(h.coordinator.state.drive.count, 0);
+    await h.step(-96.99935, 109000);
+    assert.equal(h.prompt.inspect().phase, 'presenting');
+    await h.shown[0].onWillShow();
+    assert.equal(h.prompt.inspect().phase, 'showing');
+    assert.equal(h.coordinator.state.drive.count, 1);
+    assert.equal(h.coordinator.state.lastPromptAt, 109000);
+});
+
+test('cancelled or expired setup cannot show late or consume limits', async () => {
+    for (const cancel of ['interrupt', 'deadline']) {
+        const h = promptHarness({ reservationDelay: true });
+        await h.start();
+        if (cancel === 'interrupt') h.prompt.interrupt();
+        else await h.step(-96.9994, 120000);
+        h.releaseReservation();
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(h.shown.length, 0, cancel);
+        assert.equal(h.coordinator.state.drive.count, 0, cancel);
+        assert.equal(h.coordinator.state.lastPromptAt, null, cancel);
+        assert.deepEqual(h.coordinator.state.nodeTimes, {}, cancel);
+        assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
+    }
+});
+
+test('late display acknowledgement gets its full wait and display duration', async () => {
+    const h = promptHarness({ refuse: true });
+    await h.step(-97.0004, 100000, { maneuverSeconds: 20 });
+    await h.start();
+    await h.step(-96.9994, 118000, { maneuverSeconds: 90 });
+    await h.step(-96.9994, 127999);
+    assert.equal(h.prompt.inspect().phase, 'presenting');
+    await h.shown[0].onWillShow();
+    await h.step(-96.9994, 147998);
+    assert.equal(h.prompt.inspect().phase, 'showing');
+    await h.step(-96.9994, 147999);
+    assert.equal(h.prompt.inspect().phase, 'observing');
+});
+
+test('late native rejection refunds a locally cancelled prompt once', async () => {
+    const h = promptHarness();
+    await h.start();
+    h.prompt.interrupt();
+    h.shown[0].onDidDismiss('system');
+    h.shown[0].onDidDismiss('system');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.coordinator.state.drive.count, 0);
+    assert.equal(h.coordinator.state.lastPromptAt, null);
+    assert.deepEqual(h.coordinator.state.nodeTimes, {});
+});
+
+test('free-driving bends preserve pending and visible confirmation while route departures cancel', async () => {
+    for (const navigationActive of [false, true]) {
+        const h = promptHarness({ refuse: true });
+        await h.step(-97.0004, 100000, { navigationActive });
+        await h.start();
+        const bend = {
+            ...location(-96.998, 112000),
+            latitude: 30.00014,
+            heading: 85,
+        };
+        await h.step(-96.998, 112000, { location: bend });
+        assert.equal(
+            h.prompt.inspect().phase,
+            navigationActive ? 'observing' : 'presenting',
+        );
+        await h.shown[0].onWillShow();
+        assert.equal(
+            h.prompt.inspect().phase,
+            navigationActive ? 'observing' : 'showing',
+        );
+        await h.step(-96.997, 114000, {
+            location: { ...bend, longitude: -96.997, latitude: 30.0002 },
+        });
+        assert.equal(
+            h.prompt.inspect().phase,
+            navigationActive ? 'observing' : 'showing',
+        );
+    }
+});
+
+test('out-of-order native refunds preserve newer prompts and never restore refused cooldowns', async () => {
+    let time = 107000;
+    const coordinator = createPresenceCoordinator({
+        load: async () => null,
+        save: async () => {},
+        randomId: () => 'r'.repeat(32),
+        now: () => time,
+    });
+    const first = await coordinator.reserve(pass());
+    await coordinator.presented(first);
+    time += PRESENCE_POLICY.nodeCooldownMs;
+    const second = await coordinator.reserve({
+        ...pass(),
+        passedAt: time - 3000,
+    });
+    await coordinator.presented(second);
+    await coordinator.refused(first, true);
+    assert.equal(coordinator.state.drive.count, 1);
+    assert.equal(coordinator.state.lastPromptAt, time);
+    assert.equal(coordinator.state.nodeTimes[node.osm_id], time);
+    await coordinator.refused(second, true);
+    assert.equal(coordinator.state.drive.count, 0);
+    assert.equal(coordinator.state.lastPromptAt, null);
+    assert.deepEqual(coordinator.state.nodeTimes, {});
+});
+
+test('acknowledgement timeout rejects a late response without needing a timer tick', async () => {
+    const h = promptHarness({ refuse: true });
+    await h.start();
+    // Advance the clock without running the prompt watchdog.
+    const originalTick = h.prompt.tick;
+    h.prompt.tick = () => {};
+    await h.step(-96.9994, 117000);
+    h.prompt.tick = originalTick;
+    await h.shown[0].onWillShow();
+    assert.equal(h.prompt.inspect().phase, 'observing');
+    assert.equal(h.coordinator.state.drive.count, 0);
+});
+
+test('repeated display callbacks never restart or cancel an acknowledged prompt', async () => {
+    const h = promptHarness();
+    await h.start();
+    await h.step(-96.9994, 118000);
+    await h.shown[0].onWillShow();
+    assert.equal(h.prompt.inspect().phase, 'showing');
+    assert.equal(h.prompt.inspect().remainingMs, 9000);
+    assert.equal(h.coordinator.state.drive.count, 1);
+    assert.equal(h.frames.length, 1);
+});
+
+test('free-driving ramp approach follows GPS course through the bend before the pass', () => {
+    const detector = createPresencePassDetector();
+    const update = (east, north, heading, now) => {
+        const sample = {
+            ...location(
+                node.longitude + east / (111195 * Math.cos(Math.PI / 6)),
+                now,
+            ),
+            latitude: node.latitude + north / 111195,
+            heading,
+        };
+        return detector.update({
+            location: sample,
+            coordinates: getPresenceMotionPath(sample),
+            navigationActive: false,
+            now,
+            nodes: [node],
+            coverageComplete: true,
+            routeKey: 'free',
+        });
+    };
+    assert.equal(update(-100, -50, 60, 100000), null);
+    assert.equal(update(-50, -10, 75, 102000), null);
+    assert.equal(update(-10, 0, 90, 104000), null);
+    assert.equal(detector.inspect().trackedApproaches, 1);
+    assert.equal(update(20, 0, 90, 106000), null);
+    const encounter = update(30, 0, 90, 108000);
+    assert.equal(encounter?.osmNodeId, node.osm_id);
+    assert.equal(encounter.passedAt, 108000);
+});
+
+test('free-driving course changes without forward movement cannot manufacture a pass', () => {
+    const detector = createPresencePassDetector();
+    const update = (x, heading, now) => {
+        const sample = { ...location(x, now), heading };
+        return detector.update({
+            location: sample,
+            coordinates: getPresenceMotionPath(sample),
+            navigationActive: false,
+            now,
+            nodes: [node],
+            coverageComplete: true,
+            routeKey: 'free',
+        });
+    };
+    assert.equal(update(-97.001, 90, 100000), null);
+    assert.equal(update(-97.0007, 90, 102000), null);
+    assert.equal(update(-97.0004, 90, 104000), null);
+    assert.equal(update(-97.0004, 270, 106000), null);
+    assert.equal(update(-97.0007, 270, 108000), null);
+});
+
+function freeDrivingSamples() {
+    const detector = createPresencePassDetector();
+    return (east, north, heading, now) => {
+        const sample = {
+            ...location(
+                node.longitude + east / (111195 * Math.cos(Math.PI / 6)),
+                now,
+            ),
+            latitude: node.latitude + north / 111195,
+            heading,
+        };
+        return detector.update({
+            location: sample,
+            coordinates: getPresenceMotionPath(sample),
+            navigationActive: false,
+            now,
+            nodes: [node],
+            coverageComplete: true,
+            routeKey: 'free',
+        });
+    };
+}
+
+test('a right turn can pass a nearby opposite-corner camera without crossing its original travel axis', () => {
+    const update = freeDrivingSamples();
+    assert.equal(update(-25, -90, 0, 100000), null);
+    assert.equal(update(-25, -50, 0, 102000), null);
+    assert.equal(update(-20, -25, 45, 104000), null);
+    assert.equal(update(15, -25, 90, 106000), null);
+    const encounter = update(30, -25, 90, 108000);
+    assert.equal(encounter?.osmNodeId, node.osm_id);
+});
+
+test('free-driving pass needs two moving behind-plane samples, not repeated GPS or jitter', () => {
+    const update = freeDrivingSamples();
+    assert.equal(update(-80, 0, 90, 100000), null);
+    assert.equal(update(-30, 0, 90, 102000), null);
+    assert.equal(update(15, 0, 90, 104000), null);
+    assert.equal(update(15, 0, 90, 106000), null);
+    assert.equal(update(16, 0, 90, 108000), null);
+    assert.equal(update(14, 0, 90, 110000), null);
+    assert.equal(update(25, 0, 90, 112000)?.osmNodeId, node.osm_id);
+});
+
+test('a camera first seen behind or too far away cannot establish a free-driving pass', () => {
+    for (const north of [0, 200]) {
+        const update = freeDrivingSamples();
+        for (const [index, east] of (north === 0
+            ? [20, 40, 60]
+            : [-80, -30, 15, 25]
+        ).entries())
+            assert.equal(update(east, north, 90, 100000 + index * 2000), null);
+    }
+});
+
+test('intersection plane crossing opens confirmation and allows continuing the turn', async () => {
+    const h = promptHarness();
+    const step = async (east, north, heading, time) => {
+        const sample = {
+            ...location(
+                node.longitude + east / (111195 * Math.cos(Math.PI / 6)),
+                time,
+            ),
+            latitude: node.latitude + north / 111195,
+            heading,
+        };
+        await h.step(sample.longitude, time, {
+            location: sample,
+            coordinates: getPresenceMotionPath(sample),
+            navigationActive: false,
+            warningBusy: false,
+        });
+    };
+    await step(-25, -90, 0, 100000);
+    await step(-25, -50, 0, 102000);
+    await step(-20, -25, 45, 104000);
+    await step(15, -25, 90, 106000);
+    await step(30, -25, 90, 108000);
+    assert.equal(h.prompt.inspect().phase, 'pending');
+    await step(50, -40, 135, 111000);
+    assert.equal(h.shown.length, 1);
+    assert.equal(h.prompt.inspect().phase, 'showing');
+    assert.equal(h.coordinator.state.drive.count, 1);
+});
+
+test('render visibility does not reset approach tracking or close confirmation', async () => {
+    const h = promptHarness();
+    await h.step(-97.0004, 100000, { visible: false });
+    await h.start();
+    assert.equal(h.shown.length, 1);
+    assert.equal(h.prompt.inspect().phase, 'showing');
+    await h.step(-96.9994, 108000, { visible: true });
+    await h.step(-96.9993, 109000, { visible: false });
+    assert.equal(h.prompt.inspect().phase, 'showing');
+    assert.equal(h.coordinator.state.drive.count, 1);
+});
+
+test('close diagnostics retain the active encounter and guard failure before cleanup', async () => {
+    const h = promptHarness();
+    await h.start();
+    await h.step(-96.9994, 108000, { routeKey: 'route-2' });
+    const closed = h.traces.find(
+        ({ event }) => event === 'confirmation-closed:guard-failed',
+    );
+    assert.ok(closed);
+    assert.equal(closed.details.snapshot.phase, 'showing');
+    assert.equal(closed.details.snapshot.targetNodeId, node.osm_id);
+    assert.ok(closed.details.snapshot.blockers.includes('Route changed'));
+    assert.equal(closed.details.shownForMs, 1000);
+    assert.equal(h.prompt.inspect().encounter, null);
+    h.shown[0].onDidDismiss('user');
+    assert.equal(
+        h.traces.filter(({ event }) => event.startsWith('confirmation-closed:'))
+            .length,
+        1,
+    );
+    assert.equal(h.traces.at(-1).event, 'native-dismissed:user');
+    assert.equal(h.traces.at(-1).details.appCloseReason, 'guard-failed');
+    const exported = JSON.stringify(closed.details);
+    for (const field of [
+        'latitude',
+        'longitude',
+        'coordinates',
+        'reporterId',
+        'routeKey',
+    ]) {
+        assert.equal(exported.includes(`"${field}"`), false);
+    }
+});
+
+test('close diagnostics distinguish interruptions, actions, native dismissal and expiration', async () => {
+    for (const [reason, close] of [
+        ['manual-interruption', (h) => h.prompt.interrupt(true)],
+        ['interruption', (h) => h.prompt.interrupt()],
+        ['tracker-stopped', (h) => h.prompt.stop()],
+        ['dismiss-action', (h) => h.shown[0].primaryAction.onPress()],
+        ['report-missing-action', (h) => h.shown[0].secondaryAction.onPress()],
+        ['native-dismissed:user', (h) => h.shown[0].onDidDismiss('user')],
+        ['duration-expired', (h) => h.step(-96.9994, 127000)],
+        [
+            'context-unavailable',
+            (h) => h.step(-96.9994, 108000, { connected: false }),
+        ],
+        [
+            'focus-invalid',
+            (h) =>
+                h.step(-96.9994, 108000, {
+                    viewport: { ...viewport, visibleHeight: 100 },
+                }),
+        ],
+    ]) {
+        const h = promptHarness();
+        await h.start();
+        await close(h);
+        const closed = h.traces.find(
+            ({ event }) => event === `confirmation-closed:${reason}`,
+        );
+        assert.ok(closed, reason);
+        assert.equal(closed.details.snapshot.targetNodeId, node.osm_id);
+    }
+    const h = promptHarness({ refuse: true });
+    await h.start();
+    await h.step(-96.9994, 117000);
+    const closed = h.traces.find(
+        ({ event }) => event === 'confirmation-closed:presentation-expired',
+    );
+    assert.ok(closed);
+    assert.equal(closed.details.shownForMs, null);
+    assert.equal(closed.details.snapshot.phase, 'presenting');
+});
+
+test('camera focus failures include the presentation snapshot', async () => {
+    for (const [cameraFailure, reason] of [
+        [true, 'camera-focus-failed'],
+        ['throw', 'presentation-or-camera-error'],
+    ]) {
+        const h = promptHarness({ cameraFailure });
+        await h.start();
+        const closed = h.traces.find(
+            ({ event }) => event === `confirmation-closed:${reason}`,
+        );
+        assert.ok(closed);
+        assert.equal(closed.details.snapshot.phase, 'showing');
+        assert.equal(closed.details.snapshot.targetNodeId, node.osm_id);
+        assert.equal(closed.details.shownForMs, 0);
+        assert.equal(h.prompt.ownsCamera, false);
+    }
+});
+
+test('diagnostic failures cannot prevent dismissal and camera restoration', async () => {
+    const h = promptHarness({ traceFailure: true });
+    await h.start();
+    h.prompt.interrupt(true);
+    assert.equal(h.prompt.ownsCamera, false);
+    assert.equal(h.restores.at(-1), true);
+    assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
 });

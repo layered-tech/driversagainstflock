@@ -89,7 +89,7 @@ test('one shared map load covers the pass and full confirmation without separate
             dismissAlert: () => {},
         },
     });
-    for (let second = 0; second <= 32; second++) {
+    for (let second = 0; second <= 33; second++) {
         time = 100000 + second * 1000;
         location = locationAt(-200 + second * 23.63, time);
         location.roadMatch.edgeMatchProbability = [0.72, 0.98, 0.83][
@@ -125,7 +125,7 @@ test('one shared map load covers the pass and full confirmation without separate
         );
         prompt.tick();
         await new Promise((resolve) => setImmediate(resolve));
-        if (second >= 12 && second < 32)
+        if (second >= 13 && second < 33)
             assert.equal(prompt.inspect().phase, 'showing');
     }
     assert.equal(shown.length, 1);
