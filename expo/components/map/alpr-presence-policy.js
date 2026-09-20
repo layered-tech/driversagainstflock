@@ -4,7 +4,7 @@ import {
 } from './automotive-alert-policy.js';
 import { getDrivingMapViewFollowConfiguration } from './driving-map-view.js';
 import {
-    createRouteProjectionPath,
+    getRouteProjectionPath,
     projectCoordinateOntoRoute,
 } from './route-projection.js';
 
@@ -248,7 +248,7 @@ export function createPresencePassDetector() {
                 }
             }
             if (!identityChanged && coordinates?.length >= 2) {
-                const path = createRouteProjectionPath(coordinates);
+                const path = getRouteProjectionPath(coordinates);
                 const vehicle = projectCoordinateOntoRoute(path, coordinate);
                 if (
                     vehicle &&
@@ -257,9 +257,12 @@ export function createPresencePassDetector() {
                 ) {
                     for (const node of nodes) {
                         const id = canonicalPresenceNodeId(node);
+                        const nodeCoordinate = presenceCoordinate(node);
                         if (
                             !id ||
                             approaches.has(id) ||
+                            presenceDistance(coordinate, nodeCoordinate) >
+                                150 ||
                             !presenceNodeIsIsolated(
                                 node,
                                 nodes,
@@ -269,26 +272,14 @@ export function createPresencePassDetector() {
                             continue;
                         const target = projectCoordinateOntoRoute(
                             path,
-                            presenceCoordinate(node),
+                            nodeCoordinate,
                         );
                         const ahead =
                             navigationActive === false
-                                ? presenceAheadMeters(
-                                      location,
-                                      presenceCoordinate(node),
-                                  )
+                                ? presenceAheadMeters(location, nodeCoordinate)
                                 : target?.distanceAlongRouteMeters -
                                   vehicle.distanceAlongRouteMeters;
-                        if (
-                            !target ||
-                            ahead < 20 ||
-                            ahead > 150 ||
-                            presenceDistance(
-                                coordinate,
-                                presenceCoordinate(node),
-                            ) > 150
-                        )
-                            continue;
+                        if (!target || ahead < 20 || ahead > 150) continue;
                         approaches.set(id, {
                             node: { ...node },
                             passMethod:

@@ -42,6 +42,7 @@ function createLocationHandler(relativePath) {
         locationTrackingModeRef: { current: 'follow' },
         LOCATION_TRACKING_FOLLOW: 'follow',
         mapBrowsingContextIsActiveRef: { current: false },
+        presenceCameraOwnerRef: { current: null },
         lockOnLocationMode: { handleLocationUpdate: () => false },
         followLocationMode: {
             handleLocationUpdate: (_mode, location) => {

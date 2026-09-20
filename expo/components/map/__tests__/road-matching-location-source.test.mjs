@@ -463,6 +463,70 @@ describe('road matching location source policy', () => {
 });
 
 describe('road matching location source integration', () => {
+    test('matches the latest fix once when several updates await one road graph', async () => {
+        const corridor = createDeferred();
+        const matchedLocations = [];
+        const deliveredLocations = [];
+        let lookAheadPredictionCount = 0;
+        const harness = createRoadMatchingSessionHarness({
+            createDirectedRoadGraph: createUsableRoadGraph,
+            createRoadMatcherWithHistory: () => ({
+                update(location) {
+                    matchedLocations.push(location);
+
+                    return makeMatchedLocation(location);
+                },
+            }),
+            getRoadCorridor: () => corridor.promise,
+            predictRoadLookAhead() {
+                lookAheadPredictionCount += 1;
+
+                return { primaryPath: { segments: [] } };
+            },
+        });
+        const listener =
+            harness.roadMatchingSession.addRoadMatchedLocationListener(
+                (location) => deliveredLocations.push(location),
+            );
+        const sessionHandle =
+            await harness.roadMatchingSession.retainRoadMatchingSessionAsync();
+
+        try {
+            await waitFor(
+                () => harness.foregroundLocationCallbacks.length === 1,
+            );
+            const locations = Array.from({ length: 10 }, (_, index) =>
+                makeLocation(41, -87 + index / 10000, (index + 1) * 1000),
+            );
+
+            for (const location of locations) {
+                harness.foregroundLocationCallbacks[0](location);
+            }
+
+            assert.equal(harness.roadCorridorRequests.length, 1);
+            assert.equal(deliveredLocations.length, locations.length);
+            corridor.resolve([{ id: 'way-1' }]);
+            await waitFor(() => matchedLocations.length > 0);
+
+            assert.deepEqual(matchedLocations, [locations.at(-1)]);
+            assert.equal(lookAheadPredictionCount, 1);
+            assert.equal(deliveredLocations.length, locations.length + 1);
+
+            const nextLocation = makeLocation(41, -86.999, 11000);
+            harness.foregroundLocationCallbacks[0](nextLocation);
+            await waitFor(() => matchedLocations.length > 1);
+
+            assert.deepEqual(matchedLocations, [
+                locations.at(-1),
+                nextLocation,
+            ]);
+            assert.equal(lookAheadPredictionCount, 2);
+        } finally {
+            listener.remove();
+            sessionHandle.remove();
+        }
+    });
+
     test('does not let a delayed cached match rewind a live fix', () => {
         assert.match(
             deviceLocationSource,

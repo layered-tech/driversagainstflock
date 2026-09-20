@@ -30,6 +30,61 @@ import {
 
 export { roadMatchingLocationIsSupported } from './road-matching-session';
 
+const headingListeners = new Set();
+let sharedHeadingWatch = null;
+
+function retainSharedHeadingWatch(listener) {
+    headingListeners.add(listener);
+
+    if (!sharedHeadingWatch) {
+        const watch = { subscription: null };
+
+        sharedHeadingWatch = watch;
+        Location.watchHeadingAsync((heading) => {
+            if (sharedHeadingWatch !== watch || headingListeners.size === 0) {
+                return;
+            }
+
+            const nextHeading = getLocationCompassHeading(heading);
+
+            if (nextHeading === null) {
+                return;
+            }
+
+            headingListeners.forEach((headingListener) => {
+                try {
+                    headingListener(nextHeading);
+                } catch {}
+            });
+        })
+            .then((subscription) => {
+                if (headingListeners.size === 0) {
+                    sharedHeadingWatch = null;
+                    subscription.remove();
+                    return;
+                }
+
+                watch.subscription = subscription;
+            })
+            .catch(() => {
+                if (sharedHeadingWatch === watch) {
+                    sharedHeadingWatch = null;
+                }
+            });
+    }
+
+    return () => {
+        headingListeners.delete(listener);
+
+        if (headingListeners.size === 0 && sharedHeadingWatch?.subscription) {
+            const subscription = sharedHeadingWatch.subscription;
+
+            sharedHeadingWatch = null;
+            subscription.remove();
+        }
+    };
+}
+
 function subscribeToPersistentRoadMatchingWatchActivity(listener) {
     const subscription = addRoadMatchingSessionStateListener(listener);
 
@@ -143,8 +198,18 @@ export function useLocationWatch({
     locationAccessGranted,
     setLocationError,
 }) {
+    const handleUserLocationUpdateRef = useRef(handleUserLocationUpdate);
+    const handleUserLocationUpdateIsAvailable =
+        typeof handleUserLocationUpdate === 'function';
+
+    handleUserLocationUpdateRef.current = handleUserLocationUpdate;
+
     useEffect(() => {
-        if (!enabled || !locationAccessGranted || !handleUserLocationUpdate) {
+        if (
+            !enabled ||
+            !locationAccessGranted ||
+            !handleUserLocationUpdateIsAvailable
+        ) {
             return undefined;
         }
         let isActive = true;
@@ -159,7 +224,7 @@ export function useLocationWatch({
             (location) => {
                 if (isActive) {
                     publishAcceptedDeviceLocation(location);
-                    handleUserLocationUpdate(location);
+                    handleUserLocationUpdateRef.current?.(location);
                 }
             },
         )
@@ -172,7 +237,7 @@ export function useLocationWatch({
                 nextSubscription.remove();
             })
             .catch(() => {
-                if (isMountedRef.current) {
+                if (isActive && isMountedRef.current) {
                     setLocationError(
                         'Your current location is not available yet.',
                     );
@@ -185,7 +250,7 @@ export function useLocationWatch({
         };
     }, [
         enabled,
-        handleUserLocationUpdate,
+        handleUserLocationUpdateIsAvailable,
         isDrivingMode,
         isLocationTrackingActive,
         isMountedRef,
@@ -284,40 +349,25 @@ export function useHeadingWatch({
     isDrivingMode,
     locationAccessGranted,
 }) {
+    const handleHeadingUpdateRef = useRef(handleHeadingUpdate);
+    const handleHeadingUpdateIsAvailable =
+        typeof handleHeadingUpdate === 'function';
+
+    handleHeadingUpdateRef.current = handleHeadingUpdate;
+
     useEffect(() => {
-        if (!locationAccessGranted || !isDrivingMode || !handleHeadingUpdate) {
+        if (
+            !locationAccessGranted ||
+            !isDrivingMode ||
+            !handleHeadingUpdateIsAvailable
+        ) {
             return undefined;
         }
 
-        let isActive = true;
-        let subscription = null;
-
-        Location.watchHeadingAsync((heading) => {
-            if (!isActive) {
-                return;
-            }
-
-            const nextHeading = getLocationCompassHeading(heading);
-
-            if (nextHeading !== null) {
-                handleHeadingUpdate(nextHeading);
-            }
-        })
-            .then((nextSubscription) => {
-                if (isActive) {
-                    subscription = nextSubscription;
-                    return;
-                }
-
-                nextSubscription.remove();
-            })
-            .catch(() => {});
-
-        return () => {
-            isActive = false;
-            subscription?.remove();
-        };
-    }, [handleHeadingUpdate, isDrivingMode, locationAccessGranted]);
+        return retainSharedHeadingWatch((heading) => {
+            handleHeadingUpdateRef.current?.(heading);
+        });
+    }, [handleHeadingUpdateIsAvailable, isDrivingMode, locationAccessGranted]);
 
     return null;
 }

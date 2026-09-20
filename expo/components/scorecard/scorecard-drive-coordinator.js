@@ -1,4 +1,7 @@
-import { processScorecardExposureSegment } from './exposure-detection.js';
+import {
+    prepareScorecardExposureCameraCatalog,
+    processScorecardExposureSegment,
+} from './exposure-detection.js';
 import { getScorecardMonitoringCameraKey } from './scorecard-engine.js';
 import {
     getScorecardCoordinateDistanceMeters,
@@ -85,6 +88,37 @@ export function getScorecardDriveCameraCatalog(
     return [...cameras.values()];
 }
 
+export function createScorecardCameraCatalogResolver() {
+    let previousMonitoringCameras;
+    let previousSupplementalNodes;
+    let cameraCatalog;
+
+    return (activeSession, supplementalNodes) => {
+        const monitoringCameras =
+            activeSession?.mode === 'guided'
+                ? activeSession.monitoringCameras
+                : null;
+
+        if (
+            !cameraCatalog ||
+            monitoringCameras !== previousMonitoringCameras ||
+            supplementalNodes !== previousSupplementalNodes
+        ) {
+            cameraCatalog = prepareScorecardExposureCameraCatalog(
+                getScorecardDriveCameraCatalog(
+                    activeSession,
+                    supplementalNodes,
+                ),
+                cameraCatalog,
+            );
+            previousMonitoringCameras = monitoringCameras;
+            previousSupplementalNodes = supplementalNodes;
+        }
+
+        return cameraCatalog;
+    };
+}
+
 export function updateScorecardRawLocationAnchor(
     previousLocation,
     currentLocation,
@@ -102,6 +136,7 @@ export function updateScorecardRawLocationAnchor(
 
 export function processScorecardRawLocationFix({
     activeSession,
+    cameraCatalog,
     currentLocation,
     detectorState = { cameras: {} },
     previousLocation,
@@ -117,9 +152,12 @@ export function processScorecardRawLocationFix({
     }
 
     const exposureResult = processScorecardExposureSegment({
+        cameraCatalog,
         currentLocation,
         detectorState,
-        nodes: getScorecardDriveCameraCatalog(activeSession, supplementalNodes),
+        nodes: cameraCatalog
+            ? []
+            : getScorecardDriveCameraCatalog(activeSession, supplementalNodes),
         previousLocation,
     });
 

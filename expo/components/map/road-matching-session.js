@@ -74,6 +74,7 @@ let graphCenter = null;
 let lastGraphRequestFailure = null;
 let lastBackgroundDelivery = null;
 let lastBackgroundDeliveryAppState = null;
+let lastAppliedRoadGraph = null;
 let lastRawLocation = null;
 let lastRawLocationAppState = null;
 let lastRawLocationRecordedAt = null;
@@ -423,7 +424,14 @@ function updateRoadLookAhead(matchedLocation) {
 }
 
 function applyRawLocation(location) {
+    // Every fix awaiting a shared corridor request resumes when it resolves.
+    // Enrich the latest fix once per graph before notifying every consumer.
+    if (lastRawLocation === location && lastAppliedRoadGraph === roadGraph) {
+        return;
+    }
+
     lastRawLocation = location;
+    lastAppliedRoadGraph = roadGraph;
 
     const matcherStartedAt = Date.now();
     const matchedLocation =
@@ -1205,6 +1213,7 @@ function abortPendingRoadGraphWork() {
 function clearReleasedRoadMatchingSessionState() {
     lastBackgroundDelivery = null;
     lastBackgroundDeliveryAppState = null;
+    lastAppliedRoadGraph = null;
     lastRawLocation = null;
     lastRawLocationAppState = null;
     lastRawLocationRecordedAt = null;

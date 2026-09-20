@@ -1,5 +1,6 @@
 import { updateScorecardArrivalDetection } from './arrival-detection.js';
 import {
+    createScorecardCameraCatalogResolver,
     processScorecardRawLocationFix,
     updateScorecardRawLocationAnchor,
 } from './scorecard-drive-coordinator.js';
@@ -77,6 +78,7 @@ export function createScorecardRuntime({
     segmentIndicatesDriving = () => false,
 } = {}) {
     const listeners = new Set();
+    const resolveCameraCatalog = createScorecardCameraCatalogResolver();
     let scorecardState = createEmptyScorecardState();
     let isHydrated = false;
     let persistedRevision = 0;
@@ -580,6 +582,10 @@ export function createScorecardRuntime({
         const previousLocation = previousRawLocation;
         const result = processScorecardRawLocationFix({
             activeSession,
+            cameraCatalog: resolveCameraCatalog(
+                activeSession,
+                supplementalNodes,
+            ),
             currentLocation: location,
             detectorState,
             previousLocation,
@@ -652,6 +658,7 @@ export function createScorecardRuntime({
         const previousLocation = previousRawLocation;
         const result = processScorecardRawLocationFix({
             activeSession: { mode: 'free' },
+            cameraCatalog: resolveCameraCatalog(null, supplementalNodes),
             currentLocation: location,
             detectorState,
             previousLocation,

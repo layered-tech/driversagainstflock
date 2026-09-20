@@ -9,7 +9,7 @@ import {
     presenceNodeIsIsolated,
 } from './alpr-presence-policy.js';
 import {
-    createRouteProjectionPath,
+    getRouteProjectionPath,
     projectCoordinateOntoRoute,
 } from './route-projection.js';
 
@@ -31,7 +31,7 @@ export function buildPresenceDebugSnapshot(
     const location = context.location;
     const age = now - Number(location?.recordedAt ?? location?.timestamp);
     const match = location?.roadMatch;
-    const path = createRouteProjectionPath(context.coordinates ?? []);
+    const path = getRouteProjectionPath(context.coordinates ?? []);
     const vehicle = projectCoordinateOntoRoute(
         path,
         presenceCoordinate(location),

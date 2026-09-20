@@ -155,6 +155,46 @@ function createRuntimeHarness({
 }
 
 describe('scorecard process runtime', () => {
+    test('reuses the camera source between accepted location fixes', async () => {
+        const { runtime } = createRuntimeHarness();
+        let directionReads = 0;
+        const cameraNode = {
+            coordinate: [1, 1],
+            get direction() {
+                directionReads += 1;
+                return '0';
+            },
+            osmId: 'distant-camera',
+        };
+
+        await runtime.hydrate();
+        runtime.setRoutingState({
+            directionsRoute: route(),
+            drivingModeIsActive: true,
+        });
+        runtime.setSupplementalNodes([cameraNode]);
+        runtime.handleAcceptedLocation(
+            location(0, -0.002, 1_000, { speed: 3 }),
+        );
+        const initialReads = directionReads;
+
+        for (let index = 1; index <= 10; index += 1) {
+            runtime.handleAcceptedLocation(
+                location(0, -0.002 + index * 0.00002, 1_000 + index * 1_000, {
+                    speed: 3,
+                }),
+            );
+        }
+
+        assert.ok(initialReads > 0);
+        assert.equal(directionReads, initialReads);
+        runtime.setSupplementalNodes([{ ...cameraNode, direction: '180' }]);
+        runtime.handleAcceptedLocation(
+            location(0, -0.0017, 12_000, { speed: 3 }),
+        );
+        await runtime.waitForIdle();
+    });
+
     test('starts phone Free Drive immediately but ignores passive phone movement', async () => {
         const passiveHarness = createRuntimeHarness();
 

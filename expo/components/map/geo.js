@@ -39,6 +39,7 @@ const FLOCK_ALPR_WIKIDATA_TAG_NAMES = [
     'manufacturer:wikidata',
 ];
 const EARTH_RADIUS_METERS = 6371008.8;
+const markerFeatureCollectionCache = new WeakMap();
 
 export function hasPreciseLocation(permission) {
     if (!permission?.granted) {
@@ -381,6 +382,16 @@ export function markerShowsAlprSymbol(marker) {
 }
 
 export function makeMarkerFeatureCollection(markers) {
+    if (!Array.isArray(markers)) {
+        return EMPTY_FEATURE_COLLECTION;
+    }
+
+    const cached = markerFeatureCollectionCache.get(markers);
+
+    if (cached) {
+        return cached;
+    }
+
     const features = markers
         .map((marker, index) => {
             const coordinate = getMarkerCoordinate(marker);
@@ -416,10 +427,14 @@ export function makeMarkerFeatureCollection(markers) {
         })
         .filter(Boolean);
 
-    return features.length
+    const collection = features.length
         ? {
               type: 'FeatureCollection',
               features,
           }
         : EMPTY_FEATURE_COLLECTION;
+
+    markerFeatureCollectionCache.set(markers, collection);
+
+    return collection;
 }

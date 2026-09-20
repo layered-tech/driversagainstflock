@@ -10,6 +10,8 @@ import { buildApiURL } from './config';
 import { EMPTY_FEATURE_COLLECTION } from './constants';
 import { getStoredNumber, normalizeLongitude } from './geo';
 
+const policeAlertFeatureCollectionCache = new WeakMap();
+
 export function normalizeWazePoliceAlert(alert, index) {
     const latitude = getStoredNumber(alert?.latitude);
     const longitude = getStoredNumber(alert?.longitude);
@@ -138,6 +140,12 @@ export function makeWazePoliceAlertFeatureCollection(policeAlerts) {
         return EMPTY_FEATURE_COLLECTION;
     }
 
+    const cached = policeAlertFeatureCollectionCache.get(policeAlerts);
+
+    if (cached) {
+        return cached;
+    }
+
     const features = policeAlerts
         .map((policeAlert) => {
             if (!Array.isArray(policeAlert?.coordinate)) {
@@ -163,10 +171,14 @@ export function makeWazePoliceAlertFeatureCollection(policeAlerts) {
         })
         .filter(Boolean);
 
-    return features.length
+    const collection = features.length
         ? {
               type: 'FeatureCollection',
               features,
           }
         : EMPTY_FEATURE_COLLECTION;
+
+    policeAlertFeatureCollectionCache.set(policeAlerts, collection);
+
+    return collection;
 }

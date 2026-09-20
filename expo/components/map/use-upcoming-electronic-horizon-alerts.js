@@ -23,6 +23,16 @@ import { recordMapPerformanceSignpost } from './map-performance-signposts';
 import { usePersistentRoadMatchingWatchIsActive } from './use-device-location';
 
 const ELECTRONIC_HORIZON_ALPR_STALE_CHECK_INTERVAL_MS = 15 * 1000;
+const EMPTY_ALERT_PATH_STATE = Object.freeze({
+    coordinates: Object.freeze([]),
+    coordinatePathStateKey: '',
+    pathSource: 'none',
+    pathStateKey: '',
+});
+const EMPTY_ALERT_COMPUTATION = Object.freeze({
+    durationMs: 0,
+    upcomingAlerts: Object.freeze([]),
+});
 
 function getElectronicHorizonAlertPathState({
     electronicHorizon,
@@ -46,6 +56,8 @@ function getElectronicHorizonAlertPathState({
 
     return {
         coordinates,
+        coordinatePathStateKey:
+            getElectronicHorizonAlprCoordinatePathStateKey(coordinates),
         pathSource,
         pathStateKey: getElectronicHorizonAlprPathStateKey({
             coordinates,
@@ -68,14 +80,24 @@ export function useUpcomingElectronicHorizonAlerts({
 } = {}) {
     const selectedDirectionsRouteOption =
         getSelectedDirectionsRouteOption(directionsRoute);
-    const { coordinates, pathSource, pathStateKey } =
-        getElectronicHorizonAlertPathState({
-            electronicHorizon,
-            routeOption: selectedDirectionsRouteOption,
-            userLocation,
-        });
-    const coordinatePathStateKey =
-        getElectronicHorizonAlprCoordinatePathStateKey(coordinates);
+    const { coordinates, coordinatePathStateKey, pathSource, pathStateKey } =
+        useMemo(
+            () =>
+                enabled
+                    ? getElectronicHorizonAlertPathState({
+                          electronicHorizon,
+                          routeOption: selectedDirectionsRouteOption,
+                          userLocation,
+                      })
+                    : EMPTY_ALERT_PATH_STATE,
+            [
+                electronicHorizon,
+                enabled,
+                selectedDirectionsRouteOption,
+                userLocation?.latitude,
+                userLocation?.longitude,
+            ],
+        );
     const alertPathStateRef = useRef({ coordinates, pathStateKey });
     const persistentRoadMatchingWatchIsActive =
         usePersistentRoadMatchingWatchIsActive();
@@ -163,6 +185,10 @@ export function useUpcomingElectronicHorizonAlerts({
     }, [enabled, refreshAlprNodesIfStale]);
 
     const upcomingAlertComputation = useMemo(() => {
+        if (!enabled) {
+            return EMPTY_ALERT_COMPUTATION;
+        }
+
         const startedAt = Date.now();
         const upcomingAlerts = getUpcomingElectronicHorizonAlerts({
             alprNodes,
@@ -180,18 +206,23 @@ export function useUpcomingElectronicHorizonAlerts({
         alprNodes,
         coordinates,
         electronicHorizon,
+        enabled,
         maximumPathDistanceMeters,
         policeAlerts,
     ]);
 
     useEffect(() => {
+        if (!enabled) {
+            return;
+        }
+
         recordMapPerformanceSignpost('alerts.compute.completed', {
             alprNodeCount: alprNodes.length,
             durationMs: upcomingAlertComputation.durationMs,
             pathSource,
             upcomingAlertCount: upcomingAlertComputation.upcomingAlerts.length,
         });
-    }, [alprNodes.length, pathSource, upcomingAlertComputation]);
+    }, [alprNodes.length, enabled, pathSource, upcomingAlertComputation]);
 
     return {
         pathSource,

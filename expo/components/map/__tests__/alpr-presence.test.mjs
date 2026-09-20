@@ -27,6 +27,39 @@ const coordinates = [
     [-97.002, 30],
     [-96.99, 30],
 ];
+
+test('rejects distant inventory before pairwise isolation and route projections', () => {
+    let coordinateReads = 0;
+    const nodes = Array.from({ length: 200 }, (_, index) => ({
+        osm_id: index + 1,
+        latitude: 31,
+        get longitude() {
+            coordinateReads += 1;
+            return -97 + index * 0.002;
+        },
+    }));
+    const detector = createPresencePassDetector();
+    detector.update({
+        coordinates,
+        coverageComplete: true,
+        location: {
+            latitude: 30,
+            longitude: -97.001,
+            heading: 90,
+            accuracy: 4,
+        },
+        navigationActive: true,
+        nodes,
+        now: 1000,
+        routeKey: 'route',
+    });
+
+    assert.equal(detector.inspect().trackedApproaches, 0);
+    assert.ok(
+        coordinateReads <= nodes.length * 2,
+        `${coordinateReads} coordinate reads`,
+    );
+});
 const location = (x, time) => ({
     longitude: x,
     latitude: 30,

@@ -40,6 +40,48 @@ const matchedFix = {
     },
 };
 
+test('settings consumers do not reprocess unchanged preferences on GPS or compass updates', () => {
+    const store = loadStore();
+    const settingsUpdates = [];
+    const locationUpdates = [];
+    const removeSettingsListener = store.addSharedMapSettingsStateListener(
+        (preferences) => settingsUpdates.push(preferences),
+    );
+    store.addSharedMapPreferencesStateListener(() => {
+        locationUpdates.push(store.getSharedMapUserLocation());
+    });
+
+    store.setSharedMapPreferencesState({ mapPreferencesAreLoaded: true });
+
+    for (let index = 1; index <= 10; index += 1) {
+        store.setSharedMapUserLocation({ ...fix, recordedAt: index * 1000 });
+    }
+
+    const latestLocation = store.getSharedMapUserLocation();
+    store.setSharedMapUserLocation({
+        ...latestLocation,
+        compassHeading: 90,
+        compassHeadingRecordedAt: 11000,
+    });
+
+    assert.equal(settingsUpdates.length, 1);
+    assert.equal(locationUpdates.length, 12);
+    store.setSharedMapPreferencesState({ mapTrafficEnabled: true });
+    assert.equal(settingsUpdates.length, 2);
+    assert.equal(settingsUpdates.at(-1).mapTrafficEnabled, true);
+    assert.equal(settingsUpdates.at(-1).userLocation.compassHeading, 90);
+
+    store.setSharedMapPreferencesState({
+        advancedRouteSettings: {
+            ...store.getSharedMapPreferencesState().advancedRouteSettings,
+        },
+    });
+    assert.equal(settingsUpdates.length, 2);
+    removeSettingsListener();
+    store.setSharedMapPreferencesState({ mapTrafficEnabled: false });
+    assert.equal(settingsUpdates.length, 2);
+});
+
 test('a delayed surface cannot replace a newer road match with an older GPS fix', () => {
     const store = loadStore();
     store.setSharedMapPreferencesState({ userLocation: matchedFix });
@@ -108,6 +150,10 @@ test('every map surface subscribes directly and never echoes rendered locations'
     assert.match(
         source,
         /useSyncExternalStore\(\s*addSharedMapPreferencesStateListener,\s*getSharedMapUserLocation,\s*getSharedMapUserLocation/,
+    );
+    assert.match(
+        source,
+        /addSharedMapSettingsStateListener\(applySharedMapPreferences\)/,
     );
     const publication = source.match(
         /setSharedMapPreferencesState\(\{[\s\S]*?\}\);/,

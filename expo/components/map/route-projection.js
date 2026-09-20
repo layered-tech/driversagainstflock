@@ -4,9 +4,14 @@ const DEFAULT_MAXIMUM_BACKWARD_DISTANCE_METERS = 25;
 const ROUTE_PROJECTION_INDEX_CELL_SIZE_DEGREES = 0.02;
 const METERS_PER_DEGREE_LATITUDE = (EARTH_RADIUS_METERS * Math.PI) / 180;
 const ROUTE_PROJECTION_INDEX_MAXIMUM_CELL_COUNT = 20000;
+const routeProjectionPathCache = new WeakMap();
 
 function getFiniteNumber(value) {
-    if (value === null || value === undefined || value === '') {
+    if (
+        value === null ||
+        value === undefined ||
+        (typeof value === 'string' && value.trim() === '')
+    ) {
         return null;
     }
 
@@ -44,7 +49,7 @@ export function normalizeRouteProjectionCoordinate(value) {
         return null;
     }
 
-    return [normalizeLongitude(longitude), latitude];
+    return [longitude, latitude];
 }
 
 function degreesToRadians(value) {
@@ -261,6 +266,23 @@ export function createRouteProjectionPath(rawCoordinates) {
     };
 }
 
+/** Published route coordinates are immutable; replacing the array prepares a new path. */
+export function getRouteProjectionPath(rawCoordinates) {
+    if (!Array.isArray(rawCoordinates)) {
+        return createRouteProjectionPath(rawCoordinates);
+    }
+
+    let path = routeProjectionPathCache.get(rawCoordinates);
+
+    if (!path) {
+        path = createRouteProjectionPath(rawCoordinates);
+        routeProjectionPathCache.set(rawCoordinates, path);
+        routeProjectionPathCache.set(path.coordinates, path);
+    }
+
+    return path;
+}
+
 function projectCoordinateOntoSegment(segment, target, allowNegativeStart) {
     const { start, end } = segment;
     const originLatitudeRadians = degreesToRadians(
@@ -377,7 +399,7 @@ export function projectCoordinateOntoRoute(
     } = {},
 ) {
     const path = Array.isArray(pathOrCoordinates)
-        ? createRouteProjectionPath(pathOrCoordinates)
+        ? getRouteProjectionPath(pathOrCoordinates)
         : pathOrCoordinates;
     const target = normalizeRouteProjectionCoordinate(rawTarget);
 

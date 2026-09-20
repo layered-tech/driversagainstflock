@@ -41,6 +41,7 @@ import {
 import { createMapPreferencesPersistenceScheduler } from './map-preferences-persistence';
 import {
     addSharedMapPreferencesStateListener,
+    addSharedMapSettingsStateListener,
     getSharedMapPreferencesState,
     getSharedMapUserLocation,
     setSharedMapPreferencesState,
@@ -98,21 +99,22 @@ export function useMapPreferencesState() {
         sharedMapPreferences.preferPrivateRoutes === true,
     );
     const [advancedRouteSettings, setAdvancedRouteSettingsState] = useState(
-        getStoredAdvancedRouteSettings(sharedMapPreferences),
+        () => getStoredAdvancedRouteSettings(sharedMapPreferences),
     );
     const [policeAlertsVisible, setPoliceAlertsVisible] = useState(
         sharedMapPreferences.policeAlertsVisible === true,
     );
     const [debugOverlayVisibility, setDebugOverlayVisibilityState] = useState(
-        getDebugOverlayVisibilityWithDefaults(
-            sharedMapPreferences.debugOverlayVisibility,
-            sharedMapPreferences.debugOverlayIsVisible === true,
-        ),
+        () =>
+            getDebugOverlayVisibilityWithDefaults(
+                sharedMapPreferences.debugOverlayVisibility,
+                sharedMapPreferences.debugOverlayIsVisible === true,
+            ),
     );
-    const [mapDebugControlOffset, setMapDebugControlOffset] = useState({
+    const [mapDebugControlOffset, setMapDebugControlOffset] = useState(() => ({
         x: sharedMapPreferences.mapDebugControlOffset?.x ?? 0,
         y: sharedMapPreferences.mapDebugControlOffset?.y ?? 0,
-    });
+    }));
     const userLocation = useSyncExternalStore(
         addSharedMapPreferencesStateListener,
         getSharedMapUserLocation,
@@ -299,7 +301,7 @@ export function useMapPreferencesState() {
     }, [applySharedMapPreferences]);
 
     useEffect(
-        () => addSharedMapPreferencesStateListener(applySharedMapPreferences),
+        () => addSharedMapSettingsStateListener(applySharedMapPreferences),
         [applySharedMapPreferences],
     );
 

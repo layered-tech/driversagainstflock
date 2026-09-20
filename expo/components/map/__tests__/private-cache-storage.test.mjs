@@ -15,6 +15,7 @@ function createPrivateCacheStorageHarness({ legacyEntries = {} } = {}) {
     const legacyStorage = new Map(Object.entries(legacyEntries));
     const secureStorage = new Map();
     let secureDeleteFailure = null;
+    let encodingCalls = 0;
     const module = { exports: {} };
     const transformedSource = transformSync(privateCacheStorageSource, {
         babelrc: false,
@@ -52,11 +53,20 @@ function createPrivateCacheStorageHarness({ legacyEntries = {} } = {}) {
         },
     };
 
-    new Function('require', 'module', 'exports', transformedSource)(
-        (specifier) => mockedModules[specifier],
-        module,
-        module.exports,
-    );
+    new Function(
+        'require',
+        'module',
+        'exports',
+        'globalThis',
+        transformedSource,
+    )((specifier) => mockedModules[specifier], module, module.exports, {
+        TextEncoder: class extends TextEncoder {
+            encode(value) {
+                encodingCalls += 1;
+                return super.encode(value);
+            }
+        },
+    });
 
     return {
         failNextSecureDelete(predicate) {
@@ -65,10 +75,31 @@ function createPrivateCacheStorageHarness({ legacyEntries = {} } = {}) {
         legacyStorage,
         privateCacheStorage: module.exports,
         secureStorage,
+        getEncodingCalls: () => encodingCalls,
     };
 }
 
 describe('private cache storage', () => {
+    test('chunks Unicode safely without allocating an encoder result per character', async () => {
+        const harness = createPrivateCacheStorageHarness();
+        const value = `${'a'.repeat(1799)}😀é中${'x'.repeat(1798)}\ud800${'🚘'.repeat(1000)}`;
+
+        await harness.privateCacheStorage.setPrivateCacheItem('unicode', value);
+
+        assert.equal(
+            await harness.privateCacheStorage.getPrivateCacheItem('unicode'),
+            value,
+        );
+        const chunks = [...harness.secureStorage.entries()]
+            .filter(([key]) => /\.\d+$/.test(key))
+            .map(([, chunk]) => chunk);
+        assert.ok(chunks.length > 1);
+        assert.ok(
+            chunks.every((chunk) => Buffer.byteLength(chunk, 'utf8') <= 1800),
+        );
+        assert.equal(chunks.join(''), value);
+        assert.ok(harness.getEncodingCalls() <= 1);
+    });
     test('round trips large route values through chunked secure storage', async () => {
         const harness = createPrivateCacheStorageHarness();
         const storageKey = 'driversagainstflock.sharedRoutingState.v1';

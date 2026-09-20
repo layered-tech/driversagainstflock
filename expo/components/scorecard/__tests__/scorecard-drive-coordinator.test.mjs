@@ -2,9 +2,14 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
 import {
+    createScorecardCameraCatalogResolver,
     processScorecardRawLocationFix,
     updateScorecardRawLocationAnchor,
 } from '../scorecard-drive-coordinator.js';
+import {
+    createEmptyScorecardState,
+    normalizeScorecardState,
+} from '../scorecard-engine.js';
 
 const location = (longitude, latitude, timestamp) => ({
     coords: { accuracy: 5, latitude, longitude },
@@ -12,6 +17,123 @@ const location = (longitude, latitude, timestamp) => ({
 });
 
 describe('scorecard raw location coordinator', () => {
+    test('retains prepared geometry when runtime normalization clones a guided session', () => {
+        const resolveCatalog = createScorecardCameraCatalogResolver();
+        const supplementalNodes = [];
+        const initial = normalizeScorecardState(
+            {
+                ...createEmptyScorecardState(),
+                activeSession: {
+                    id: 'guided-drive',
+                    mode: 'guided',
+                    startedAt: 1_000,
+                    monitoringCameras: [
+                        {
+                            coordinate: [0, 0],
+                            directions: [{ start: 0, end: 0, isRange: false }],
+                            osmId: 'guided-camera',
+                        },
+                    ],
+                },
+            },
+            2_000,
+        );
+        const firstCatalog = resolveCatalog(
+            initial.activeSession,
+            supplementalNodes,
+        );
+        const committed = normalizeScorecardState(
+            {
+                ...initial,
+                activeSession: {
+                    ...initial.activeSession,
+                    completedDistanceMeters: 500,
+                },
+            },
+            3_000,
+        );
+        const nextCatalog = resolveCatalog(
+            committed.activeSession,
+            supplementalNodes,
+        );
+
+        assert.notEqual(
+            initial.activeSession.monitoringCameras,
+            committed.activeSession.monitoringCameras,
+        );
+        assert.equal(firstCatalog[0].rings, nextCatalog[0].rings);
+        const changedCatalog = resolveCatalog(
+            {
+                ...committed.activeSession,
+                monitoringCameras: [
+                    {
+                        ...committed.activeSession.monitoringCameras[0],
+                        coordinate: [1, 1],
+                    },
+                ],
+            },
+            supplementalNodes,
+        );
+        assert.notEqual(nextCatalog[0].rings, changedCatalog[0].rings);
+    });
+
+    test('prepares one camera catalog for unchanged sources and refreshes replacement records', () => {
+        const resolveCatalog = createScorecardCameraCatalogResolver();
+        const supplementalNodes = [
+            { coordinate: [0, 0], direction: '0', osmId: 'shared-camera' },
+        ];
+        const session = { id: 'free-drive', mode: 'free' };
+        const firstCatalog = resolveCatalog(session, supplementalNodes);
+
+        assert.equal(
+            resolveCatalog({ ...session }, supplementalNodes),
+            firstCatalog,
+        );
+        const crossing = {
+            activeSession: session,
+            currentLocation: location(0, 0.0002, 2_000),
+            previousLocation: location(0, -0.0001, 1_000),
+        };
+        const first = processScorecardRawLocationFix({
+            ...crossing,
+            cameraCatalog: firstCatalog,
+        });
+
+        assert.equal(first.exposures.length, 1);
+        const movedCatalog = resolveCatalog(session, [
+            { ...supplementalNodes[0], coordinate: [1, 1] },
+        ]);
+        assert.notEqual(movedCatalog, firstCatalog);
+        assert.deepEqual(
+            processScorecardRawLocationFix({
+                ...crossing,
+                cameraCatalog: movedCatalog,
+            }).exposures,
+            [],
+        );
+
+        const guided = {
+            ...session,
+            mode: 'guided',
+            monitoringCameras: [{ ...supplementalNodes[0], direction: '180' }],
+        };
+        const guidedCatalog = resolveCatalog(guided, supplementalNodes);
+        assert.notEqual(guidedCatalog, firstCatalog);
+        assert.equal(guidedCatalog.length, 1);
+        assert.equal(guidedCatalog[0].directionRanges[0].start, 180);
+        assert.equal(
+            resolveCatalog(
+                { ...guided, completedDistanceMeters: 500 },
+                supplementalNodes,
+            ),
+            guidedCatalog,
+        );
+        assert.notEqual(
+            resolveCatalog(session, supplementalNodes),
+            guidedCatalog,
+        );
+    });
+
     test('uses the guided route snapshot when supplemental camera loading is empty', () => {
         const activeSession = {
             id: 'drive-1',
