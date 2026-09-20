@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { createPresenceCameraDiagnostics } from '../alpr-presence-debug.js';
 import { getLocationPuckCameraFollowFallbackProps } from '../location-puck-camera-follow-lifecycle.js';
 
 const source = readFileSync(
@@ -27,6 +28,9 @@ function harness() {
         manualMapGestureGenerationRef: { current: 0 },
         presenceCameraOwnerRef: { current: false },
         presenceCameraFocusRef: { current: null },
+        presenceCameraDiagnosticsRef: {
+            current: createPresenceCameraDiagnostics(),
+        },
         viewportMetricsRef: { current: { cameraPadding: undefined } },
         presenceCameraReleaseRef: { current: null },
         presenceCameraCommitRef: { current: null },

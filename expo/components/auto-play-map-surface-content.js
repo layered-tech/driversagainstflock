@@ -58,6 +58,7 @@ import {
     mergeCameraPadding,
 } from './map-location-mode-shared';
 import { useLockOnLocationMode } from './map-lock-on-location-mode';
+import { createPresenceCameraDiagnostics } from './map/alpr-presence-debug';
 import { useMockWazePoliceAlertsEnabled } from './map/api-mocks';
 import { getBoundsFitCameraStop } from './map/camera-state';
 import { SHOW_MAP_DEBUG_CONTROLS } from './map/config';
@@ -468,6 +469,18 @@ function useAutoPlayMapController({
     const pendingCameraStopRef = useRef(null);
     const presenceInterruptRef = useRef(null);
     const presenceCameraOwnerRef = useRef(false);
+    const presenceCameraDiagnosticsRef = useRef(null);
+    if (!presenceCameraDiagnosticsRef.current) {
+        presenceCameraDiagnosticsRef.current =
+            createPresenceCameraDiagnostics();
+    }
+    const getPresenceCameraDiagnostics = useCallback(
+        () => ({
+            locked: presenceCameraOwnerRef.current,
+            ...presenceCameraDiagnosticsRef.current.getSnapshot(),
+        }),
+        [],
+    );
     const presenceCameraFocusRef = useRef(null);
     const presenceCameraReleaseRef = useRef(null);
     const presenceCameraCommitRef = useRef(null);
@@ -670,6 +683,7 @@ function useAutoPlayMapController({
             ...(padding ? { padding } : {}),
         };
         presenceCameraFocusRef.current = focus;
+        presenceCameraDiagnosticsRef.current.reset(focus);
         cameraRef.current?.setCamera(focus);
         return true;
     }, []);
@@ -954,6 +968,12 @@ function useAutoPlayMapController({
 
     const handleCameraChanged = useCallback(
         (state) => {
+            if (
+                presenceCameraOwnerRef.current &&
+                presenceCameraFocusRef.current
+            ) {
+                presenceCameraDiagnosticsRef.current.record(state);
+            }
             const previousZoomLevel = currentZoomRef.current;
             const nextZoomLevel = state?.properties?.zoom;
             const nextCameraHeading =
@@ -1624,6 +1644,7 @@ function useAutoPlayMapController({
     return {
         cameraRef,
         currentCameraDebugState,
+        getPresenceCameraDiagnostics,
         presenceCameraIsLocked,
         presenceInterruptRef,
         focusPresenceCamera,

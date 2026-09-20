@@ -122,6 +122,8 @@ export function useAutoPlayAlprPresence({
                 return {
                     ...current,
                     navigationCamera: controller.getPresenceNavigationCamera(),
+                    cameraDiagnostics:
+                        controller.getPresenceCameraDiagnostics(),
                     connected: session.isConnected,
                     ...inventory.current?.getContext(),
                     ...getPresenceE2EFixture(),
@@ -160,6 +162,7 @@ export function useAutoPlayAlprPresence({
         suppressAlerts,
         controller.focusPresenceCamera,
         controller.getPresenceNavigationCamera,
+        controller.getPresenceCameraDiagnostics,
         controller.restorePresenceCamera,
         controller.presenceInterruptRef,
     ]);

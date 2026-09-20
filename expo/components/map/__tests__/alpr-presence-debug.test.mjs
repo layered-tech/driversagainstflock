@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 import {
     buildPresenceDebugSnapshot,
+    createPresenceCameraDiagnostics,
     createPresenceDebugStore,
     formatPresenceDebugSnapshot,
     presenceDebugStore,
@@ -59,6 +60,43 @@ const sample = (changes = {}, limits = state) =>
         limits,
         now,
     );
+
+test('camera diagnostics retain evidence of bouncing even after returning to the node', () => {
+    const diagnostics = createPresenceCameraDiagnostics();
+    const focus = { centerCoordinate: [-97, 30], zoomLevel: 17, pitch: 55 };
+    const frame = (center, zoom = 17) => ({
+        properties: { center, zoom, pitch: 55 },
+    });
+    assert.equal(diagnostics.getSnapshot(), null);
+    diagnostics.record(frame([-97, 30]));
+    assert.equal(diagnostics.getSnapshot(), null);
+    diagnostics.reset(focus);
+    diagnostics.record(frame([-97, 30]));
+    for (let i = 0; i < 10; i++) {
+        diagnostics.record(frame([-97, 30.001], 18.5));
+        diagnostics.record(frame([-97, 30]));
+    }
+    const snapshot = diagnostics.getSnapshot();
+    assert.equal(snapshot.samples, 21);
+    assert.equal(snapshot.offTargetSamples, 10);
+    assert.equal(snapshot.centerOffsetMeters, 0);
+    assert.ok(snapshot.maximumCenterOffsetMeters > 100);
+    assert.equal(snapshot.zoomDelta, 0);
+    assert.equal(snapshot.maximumZoomDelta, 1.5);
+    diagnostics.record({ properties: {} });
+    assert.deepEqual(diagnostics.getSnapshot(), snapshot);
+    const exported = sample({
+        cameraDiagnostics: { locked: true, ...snapshot },
+    });
+    assert.equal(exported.camera.maximumZoomDelta, 1.5);
+    assert.doesNotMatch(
+        JSON.stringify(exported.camera),
+        /-97|30\.001|centerCoordinate/,
+    );
+    diagnostics.reset(focus);
+    assert.equal(diagnostics.getSnapshot().samples, 0);
+    assert.equal(diagnostics.getSnapshot().maximumCenterOffsetMeters, null);
+});
 
 test('diagnostics retain confidence as information and distinguish unknown isolation', () => {
     const snapshot = sample({

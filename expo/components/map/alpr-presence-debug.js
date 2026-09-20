@@ -16,6 +16,61 @@ import {
 const rounded = (value) =>
     Number.isFinite(value) ? Math.round(value * 100) / 100 : null;
 
+/** Exports aggregate camera movement without coordinates or frame history. */
+export function createPresenceCameraDiagnostics() {
+    let focus = null;
+    let snapshot = null;
+    return {
+        reset(nextFocus) {
+            focus = nextFocus;
+            snapshot = {
+                samples: 0,
+                offTargetSamples: 0,
+                centerOffsetMeters: null,
+                maximumCenterOffsetMeters: null,
+                zoomDelta: null,
+                maximumZoomDelta: null,
+                pitchDelta: null,
+            };
+        },
+        record(state) {
+            if (!focus) return;
+            const camera = state?.properties;
+            const center = camera?.center;
+            if (
+                !Array.isArray(center) ||
+                center.length !== 2 ||
+                !center.every(Number.isFinite)
+            )
+                return;
+            const offset = presenceDistance(center, focus.centerCoordinate);
+            if (!Number.isFinite(offset)) return;
+            const zoomDelta = Number.isFinite(camera?.zoom)
+                ? Math.abs(camera.zoom - focus.zoomLevel)
+                : null;
+            snapshot = {
+                samples: snapshot.samples + 1,
+                offTargetSamples:
+                    snapshot.offTargetSamples + (offset > 5 ? 1 : 0),
+                centerOffsetMeters: rounded(offset),
+                maximumCenterOffsetMeters: rounded(
+                    Math.max(snapshot.maximumCenterOffsetMeters ?? 0, offset),
+                ),
+                zoomDelta: rounded(zoomDelta),
+                maximumZoomDelta: Number.isFinite(zoomDelta)
+                    ? rounded(
+                          Math.max(snapshot.maximumZoomDelta ?? 0, zoomDelta),
+                      )
+                    : snapshot.maximumZoomDelta,
+                pitchDelta: Number.isFinite(camera?.pitch)
+                    ? rounded(Math.abs(camera.pitch - focus.pitch))
+                    : null,
+            };
+        },
+        getSnapshot: () => snapshot,
+    };
+}
+
 /** Deliberately excludes coordinates, route geometry, reporter identity and report payloads. */
 export function buildPresenceDebugSnapshot(
     {
@@ -172,6 +227,7 @@ export function buildPresenceDebugSnapshot(
             : null,
         blockers,
         pass,
+        camera: context.cameraDiagnostics ?? null,
         location: {
             ageMs: rounded(age),
             accuracyMeters: rounded(location?.accuracy),
