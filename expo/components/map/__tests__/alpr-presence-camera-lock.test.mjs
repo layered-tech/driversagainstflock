@@ -24,6 +24,7 @@ function harness() {
             current: { setCamera: (camera) => events.push(['camera', camera]) },
         },
         presenceCameraGenerationRef: { current: 0 },
+        manualMapGestureGenerationRef: { current: 0 },
         presenceCameraOwnerRef: { current: false },
         presenceCameraFocusRef: { current: null },
         viewportMetricsRef: { current: { cameraPadding: undefined } },
@@ -50,16 +51,17 @@ function harness() {
     };
     const values = {
         ...refs,
+        cameraUpdatesAreAllowed: () => !refs.presenceCameraOwnerRef.current,
         useCallback: (callback) => callback,
         useEffect: (callback) => effects.push(callback),
         viewportMetrics: { key: 'initial' },
-        setPresenceCameraIsLocked: (value) => {
-            locked = value;
+        setPresenceCameraLockGeneration: (value) => {
+            locked = value !== null;
         },
     };
     const api = new Function(
         ...Object.keys(values),
-        `${callbacks}\nreturn { focusPresenceCamera, restorePresenceCamera };`,
+        `${source.slice(source.indexOf('    const getCameraUpdateGuard = useCallback('), source.indexOf('    const presenceFollowModeRef ='))}\n${callbacks}\nreturn { focusPresenceCamera, restorePresenceCamera, getCameraUpdateGuard };`,
     )(...Object.values(values));
     return {
         ...api,
@@ -271,4 +273,122 @@ test('confirmation centers in the latest safe area after release and subsequent 
     const eventCount = h.events.length;
     h.updateViewport(padding);
     assert.equal(h.events.length, eventCount);
+});
+
+test('a bounds fit started before confirmation cannot overwrite it after native release', async () => {
+    const h = harness();
+    let releaseFit;
+    const camera = { centerCoordinate: [-88.1, 43.1] };
+    const values = {
+        ...h.refs,
+        useCallback: (callback) => callback,
+        AUTO_PLAY_ROUTE_PREVIEW_CAMERA_FIT_DURATION_MS: 500,
+        getCameraPadding: (padding) => padding,
+        getViewportCameraPadding: () => ({}),
+        mergeCameraPadding: (padding) => padding,
+        getBoundsFitCameraStop: () => ({ zoomLevel: 12 }),
+        isDrivingMode: true,
+        followLocationMode: h.refs.presenceFollowModeRef.current,
+        setTrackingMode: () => {},
+        markerLoadsEnabledRef: { current: true },
+        currentZoomRef: { current: 17 },
+        getCameraUpdateGuard: h.getCameraUpdateGuard,
+    };
+    const fitSource = source.slice(
+        source.indexOf('    const fitCameraToBounds = useCallback('),
+        source.indexOf('    const pauseFollowForManualMapGesture'),
+    );
+    const fit = new Function(
+        ...Object.keys(values),
+        `${fitSource}\nreturn fitCameraToBounds;`,
+    )(...Object.values(values));
+    const originalRelease = h.refs.locationPuckCameraFollowReleaseRef.current;
+    h.refs.locationPuckCameraFollowReleaseRef.current = () =>
+        new Promise((resolve) => {
+            releaseFit = resolve;
+        });
+    const fitting = fit({});
+    h.refs.locationPuckCameraFollowReleaseRef.current = originalRelease;
+    const focusing = h.focusPresenceCamera(camera, () => true);
+    h.commit();
+    await settle();
+    h.release();
+    assert.equal(await focusing, true);
+    releaseFit(true);
+    assert.equal(await fitting, false);
+    assert.deepEqual(
+        h.events.filter(([type]) => type === 'camera'),
+        [['camera', camera]],
+    );
+});
+
+for (const finishAfterDismissal of [false, true]) {
+    test(`location hydration cannot restore an obsolete owner (dismissed: ${finishAfterDismissal})`, async () => {
+        const h = harness();
+        let finishLocation;
+        const started = [];
+        const values = {
+            ...h.refs,
+            getCameraUpdateGuard: h.getCameraUpdateGuard,
+            Location: {
+                getForegroundPermissionsAsync: async () => ({ granted: true }),
+            },
+            hasPreciseLocation: () => true,
+            isActive: true,
+            setLocationAccessGranted: () => {},
+            setLocationError: () => {},
+            locationUpdatesEnabledRef: { current: true },
+            findCurrentLocation: () =>
+                new Promise((resolve) => {
+                    finishLocation = resolve;
+                }),
+            isDrivingModeRef: { current: true },
+            mapBrowsingContextIsActiveRef: { current: false },
+            followLocationMode: { start: (value) => started.push(value) },
+            lockOnLocationMode: { start: (value) => started.push(value) },
+        };
+        const hydrationSource = source.slice(
+            source.indexOf('        async function hydrateLocationAccess()'),
+            source.indexOf('        hydrateLocationAccess();'),
+        );
+        const hydrate = new Function(
+            ...Object.keys(values),
+            `${hydrationSource}\nreturn hydrateLocationAccess;`,
+        )(...Object.values(values));
+        const hydrating = hydrate();
+        await settle();
+        const focusing = h.focusPresenceCamera({}, () => true);
+        h.commit();
+        await settle();
+        h.release();
+        assert.equal(await focusing, true);
+        if (finishAfterDismissal) h.restorePresenceCamera(true);
+        finishLocation({ latitude: 43, longitude: -88 });
+        await hydrating;
+        assert.deepEqual(started, []);
+    });
+}
+
+test('replacement confirmation and unmount cancel obsolete focus requests', async () => {
+    const h = harness();
+    const first = h.focusPresenceCamera({ zoomLevel: 14 }, () => true);
+    h.restorePresenceCamera(true);
+    const second = h.focusPresenceCamera({ zoomLevel: 17 }, () => true);
+    h.commit();
+    await settle();
+    h.release();
+    assert.equal(await first, false);
+    assert.equal(await second, true);
+    assert.deepEqual(
+        h.events.filter(([type]) => type === 'camera'),
+        [['camera', { zoomLevel: 17 }]],
+    );
+    h.restorePresenceCamera(true);
+    const third = h.focusPresenceCamera({}, () => true);
+    h.commit();
+    await settle();
+    h.refs.isMountedRef.current = false;
+    h.release();
+    assert.equal(await third, false);
+    assert.equal(h.events.filter(([type]) => type === 'camera').length, 1);
 });

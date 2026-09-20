@@ -783,6 +783,7 @@ export function useAutoPlayMapScreenContextValues({
             locationPuckCameraFollowReleaseRef:
                 controller.locationPuckCameraFollowReleaseRef,
             nativeCameraFollowProps: controller.nativeCameraFollowProps,
+            cameraUpdatesAreAllowed: controller.cameraUpdatesAreAllowed,
             navigationPuckSize,
             navigationPuckRefreshKey,
             navigationPuckVariant: 'auto-play',
@@ -808,6 +809,7 @@ export function useAutoPlayMapScreenContextValues({
             controller.markerShapeSourceRef,
             controller.locationPuckCameraFollowReleaseRef,
             controller.nativeCameraFollowProps,
+            controller.cameraUpdatesAreAllowed,
             directionsDebugFeatureCollection,
             directionsRouteFeatureCollection,
             electronicHorizonDebugFeatureCollection,

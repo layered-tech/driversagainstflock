@@ -191,6 +191,7 @@ export function getLocationPuckCameraControllerKey({
 
 export function createLocationPuckCameraFollowLifecycle({
     configureCameraFollow,
+    canFollow = () => true,
     onStatusChange = () => {},
     verifyCameraFollow = async () => true,
     waitForCameraCommit = waitForNativeCameraCommit,
@@ -241,8 +242,13 @@ export function createLocationPuckCameraFollowLifecycle({
         }
     }
 
-    async function configureAndVerifyCameraFollow(mapView, followProps) {
+    async function configureAndVerifyCameraFollow(
+        mapView,
+        followProps,
+        isCurrent,
+    ) {
         for (let attempt = 0; attempt < 2; attempt += 1) {
+            if (!isCurrent()) return false;
             let wasConfigured = false;
 
             try {
@@ -279,6 +285,8 @@ export function createLocationPuckCameraFollowLifecycle({
         mapViewRef,
     }) {
         const enabled = followProps?.enabled === true;
+
+        if (enabled && !canFollow()) return Promise.resolve(false);
         const mapView = captureMapView(mapViewRef);
         const requestKey = getFollowRequestKey(followProps, attachmentKey);
         const requestedMapView = mapView?.current ?? null;
@@ -327,7 +335,6 @@ export function createLocationPuckCameraFollowLifecycle({
                 const mapViewToDisable =
                     configuredMapView ?? mapView ?? lastRequestedMapViewCapture;
 
-                configuredMapView = null;
                 failedAttachmentKey = null;
                 failedMapView = null;
 
@@ -335,7 +342,15 @@ export function createLocationPuckCameraFollowLifecycle({
                     setStatus('clearing');
                 }
 
-                await disableCameraFollow(mapViewToDisable);
+                const wasReleased =
+                    !mapViewToDisable ||
+                    (await disableCameraFollow(mapViewToDisable));
+                if (!wasReleased) {
+                    configuredMapView = mapViewToDisable;
+                    lastRequestKey = null;
+                    return false;
+                }
+                configuredMapView = null;
 
                 if (operationGeneration === generation) {
                     setStatus('inactive');
@@ -344,7 +359,8 @@ export function createLocationPuckCameraFollowLifecycle({
                 return true;
             }
 
-            if (operationGeneration !== generation) {
+            if (operationGeneration !== generation || !canFollow()) {
+                if (operationGeneration === generation) lastRequestKey = null;
                 return false;
             }
 
@@ -367,6 +383,10 @@ export function createLocationPuckCameraFollowLifecycle({
             const wasConfigured = await configureAndVerifyCameraFollow(
                 mapView,
                 followProps,
+                () =>
+                    !invalidated &&
+                    operationGeneration === generation &&
+                    canFollow(),
             );
 
             // A native implementation can partially enter follow before
@@ -445,7 +465,7 @@ export function createLocationPuckCameraFollowLifecycle({
                 configuredMapView === null &&
                 !lastRequestedFollowIsEnabled
             ) {
-                return operationQueue;
+                return operationQueue.then(() => configuredMapView === null);
             }
 
             const nextReleasePromise = request({

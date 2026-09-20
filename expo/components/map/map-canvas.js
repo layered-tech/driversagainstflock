@@ -500,6 +500,7 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
         handleMarkerSourcePress,
         handleSubmittedSearchResultPress,
         cameraRef,
+        cameraUpdatesAreAllowed,
         directionsDebugFeatureCollection,
         directionsRouteFeatureCollection,
         electronicHorizonDebugFeatureCollection,
@@ -750,6 +751,8 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
     const locationPuckLifecycleRef = useRef(null);
     const locationPuckCameraFallbackReleaseGateRef = useRef(null);
     const locationPuckCameraFollowLifecycleRef = useRef(null);
+    const cameraUpdatesAreAllowedRef = useRef(cameraUpdatesAreAllowed);
+    cameraUpdatesAreAllowedRef.current = cameraUpdatesAreAllowed;
 
     if (locationPuckLifecycleRef.current === null) {
         locationPuckLifecycleRef.current = createLocationPuck3DLifecycle({
@@ -763,6 +766,8 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
         locationPuckCameraFollowLifecycleRef.current =
             createLocationPuckCameraFollowLifecycle({
                 configureCameraFollow: setLocationPuckCameraFollowAsync,
+                canFollow: () =>
+                    cameraUpdatesAreAllowedRef.current?.() !== false,
                 onStatusChange: setLocationPuckCameraFollowStatus,
                 verifyCameraFollow: isLocationPuckCameraFollowActiveAsync,
                 waitForCameraCommit: () =>
@@ -862,17 +867,19 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
                 return false;
             }
 
-            const [, fallbackCameraWasReleased] = await Promise.all([
-                locationPuckCameraFollowLifecycle.release({
-                    attachmentKey: locationPuckMapLoadEpoch,
-                    mapViewRef,
-                }),
-                locationPuckCameraFallbackReleaseGate.release({
-                    fallbackCameraIsFollowing: mapboxFallbackCameraIsFollowing,
-                }),
-            ]);
+            const [nativeCameraWasReleased, fallbackCameraWasReleased] =
+                await Promise.all([
+                    locationPuckCameraFollowLifecycle.release({
+                        attachmentKey: locationPuckMapLoadEpoch,
+                        mapViewRef,
+                    }),
+                    locationPuckCameraFallbackReleaseGate.release({
+                        fallbackCameraIsFollowing:
+                            mapboxFallbackCameraIsFollowing,
+                    }),
+                ]);
 
-            return fallbackCameraWasReleased;
+            return nativeCameraWasReleased && fallbackCameraWasReleased;
         },
         [
             locationPuckCameraFallbackReleaseGate,
