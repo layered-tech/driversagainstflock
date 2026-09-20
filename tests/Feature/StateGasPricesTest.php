@@ -4,7 +4,7 @@ use App\Services\FuelPrices\AaaStateGasPriceService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
-function aaaStatePricePage(float $regularPrice = 3.456): string
+function aaaStatePricePage(float $regularPrice = 3.456, ?string $excludedState = null): string
 {
     $states = [
         'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado',
@@ -18,6 +18,7 @@ function aaaStatePricePage(float $regularPrice = 3.456): string
         'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming',
     ];
     $rows = collect($states)
+        ->reject(fn (string $state): bool => $state === $excludedState)
         ->map(fn (string $state): string => sprintf(
             '<tr><td>%s</td><td>$%0.3f</td><td>$4.100</td></tr>',
             $state,
@@ -59,6 +60,19 @@ it('serves and caches all aaa regular state prices without receiving a location'
     Http::assertSentCount(1);
     Http::assertSent(fn ($request): bool => $request->url() === 'https://gasprices.aaa.com/state-gas-price-averages/'
         && $request->data() === []);
+});
+
+it('serves aaa prices when a state is absent from the response', function () {
+    Http::fake([
+        'https://gasprices.aaa.com/*' => Http::response(aaaStatePricePage(excludedState: 'Wyoming'), 200),
+    ]);
+
+    $this->getJson('/api/v1/fuel-prices/state-averages')
+        ->assertOk()
+        ->assertJsonPath('ok', true)
+        ->assertJsonPath('data.prices.CA', 3.456)
+        ->assertJsonMissingPath('data.prices.WY')
+        ->assertJsonCount(50, 'data.prices');
 });
 
 it('returns unavailable instead of a partial or national fallback', function () {
