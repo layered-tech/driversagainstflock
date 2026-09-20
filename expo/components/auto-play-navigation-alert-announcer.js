@@ -13,6 +13,14 @@ import {
     presenceCoordinator,
     startPresenceRuntime,
 } from './map/alpr-presence-runtime';
+import {
+    buildUpcomingAlertDebugSnapshot,
+    upcomingAlertDebugStore,
+} from './map/upcoming-alert-debug';
+import {
+    addUpcomingAlertDebugResetListener,
+    startUpcomingAlertDebug,
+} from './map/upcoming-alert-debug-runtime';
 
 const AUTO_PLAY_IS_SUPPORTED =
     Platform.OS === 'android' || Platform.OS === 'ios';
@@ -58,11 +66,21 @@ function useAutoPlayMapTemplate() {
  */
 export function useAutoPlayNavigationAlerts({
     currentSpeedMps,
+    debugOwner = false,
+    debugContext = {},
     enabled,
     upcomingAlerts,
     userLocation,
 }) {
     const mapTemplate = useAutoPlayMapTemplate();
+    const debugContextRef = useRef(debugContext);
+    debugContextRef.current = debugContext;
+    const debugEvent = useCallback(
+        (event, alertId = null) => {
+            if (debugOwner) upcomingAlertDebugStore.event(event, alertId);
+        },
+        [debugOwner],
+    );
     const alertStateRef = useRef(null);
     const followUpTimerRef = useRef(null);
     const pendingPresentationRef = useRef(null);
@@ -97,20 +115,27 @@ export function useAutoPlayNavigationAlerts({
             setDismissalRevision((revision) => revision + 1);
         }, AUTO_PLAY_NAVIGATION_ALERT_FOLLOW_UP_DELAY_MS);
     }, []);
-    const acceptPendingPresentation = useCallback((presentation) => {
-        if (presentation.status === 'accepted') return true;
-        if (
-            presentation.status !== 'pending' ||
-            pendingPresentationRef.current !== presentation
-        ) {
-            return false;
-        }
+    const acceptPendingPresentation = useCallback(
+        (presentation) => {
+            if (presentation.status === 'accepted') return true;
+            if (
+                presentation.status !== 'pending' ||
+                pendingPresentationRef.current !== presentation
+            ) {
+                return false;
+            }
 
-        presentation.status = 'accepted';
-        pendingPresentationRef.current = null;
-        clearTimeout(presentation.timeoutId);
-        return presentation.claim.commit();
-    }, []);
+            presentation.status = 'accepted';
+            debugEvent(
+                'Host onWillShow callback; visibility not verified',
+                presentation.alertId,
+            );
+            pendingPresentationRef.current = null;
+            clearTimeout(presentation.timeoutId);
+            return presentation.claim.commit();
+        },
+        [debugEvent],
+    );
     const releasePendingPresentation = useCallback(
         (presentation = pendingPresentationRef.current) => {
             if (
@@ -128,6 +153,18 @@ export function useAutoPlayNavigationAlerts({
         },
         [],
     );
+
+    useEffect(() => {
+        if (!debugOwner) return;
+        startUpcomingAlertDebug();
+        let enabled = upcomingAlertDebugStore.getSnapshot().enabled;
+        return upcomingAlertDebugStore.subscribe(() => {
+            const next = upcomingAlertDebugStore.getSnapshot().enabled;
+            if (next === enabled) return;
+            enabled = next;
+            setHistoryRevision((revision) => revision + 1);
+        });
+    }, [debugOwner]);
 
     useEffect(() => {
         let active = true;
@@ -177,6 +214,10 @@ export function useAutoPlayNavigationAlerts({
             // A stale or disconnected host has no upcoming banner to clear.
         }
     }, [mapTemplate, releasePendingPresentation]);
+    useEffect(
+        () => addUpcomingAlertDebugResetListener(clearCurrentAlert),
+        [clearCurrentAlert],
+    );
     const acquireSuppression = useCallback(
         () => suppressionControllerRef.current.acquire(clearCurrentAlert),
         [clearCurrentAlert],
@@ -189,6 +230,18 @@ export function useAutoPlayNavigationAlerts({
 
     useEffect(() => {
         if (!mapTemplate) {
+            if (debugOwner)
+                upcomingAlertDebugStore.record(() =>
+                    buildUpcomingAlertDebugSnapshot({
+                        ...debugContextRef.current,
+                        enabled,
+                        hasTemplate: false,
+                        upcomingAlerts,
+                        userLocation,
+                        alertHistory:
+                            presenceCoordinator.automotiveAlertHistory,
+                    }),
+                );
             alertStateRef.current = null;
             releasePendingPresentation();
             clearTimeout(followUpTimerRef.current);
@@ -218,6 +271,21 @@ export function useAutoPlayNavigationAlerts({
             suppressed: suppressionControllerRef.current.active,
         });
 
+        if (debugOwner)
+            upcomingAlertDebugStore.record(() =>
+                buildUpcomingAlertDebugSnapshot({
+                    ...debugContextRef.current,
+                    enabled,
+                    hasTemplate: true,
+                    suppressed: suppressionControllerRef.current.active,
+                    upcomingAlerts,
+                    userLocation,
+                    alertHistory: presenceCoordinator.automotiveAlertHistory,
+                    currentAlertKey,
+                    content,
+                    transition,
+                }),
+            );
         alertStateRef.current = transition.state;
 
         if (transition.action === 'none') {
@@ -237,12 +305,14 @@ export function useAutoPlayNavigationAlerts({
                 : null;
 
         if (transition.action === 'show' && !historyClaim) {
+            debugEvent('Warning history claim refused', transition.alertId);
             alertStateRef.current = null;
             return;
         }
 
         const presentation = historyClaim
             ? {
+                  alertId: transition.alertId,
                   claim: historyClaim,
                   status: 'pending',
                   timeoutId: null,
@@ -253,6 +323,10 @@ export function useAutoPlayNavigationAlerts({
             pendingPresentationRef.current = presentation;
             presentation.timeoutId = setTimeout(() => {
                 if (!releasePendingPresentation(presentation)) return;
+                debugEvent(
+                    'No host callback within 1 second; claim released',
+                    transition.alertId,
+                );
                 if (alertStateRef.current?.alertId === transition.alertId) {
                     alertStateRef.current = null;
                 }
@@ -261,12 +335,17 @@ export function useAutoPlayNavigationAlerts({
 
         try {
             if (transition.action === 'show') {
+                debugEvent('Submitting banner to host', transition.alertId);
                 mapTemplate.showAlert({
                     durationMs: content.durationMs,
                     id: transition.alertId,
                     image: AUTO_PLAY_NAVIGATION_ALERT_IMAGE,
-                    onDidDismiss: () => {
+                    onDidDismiss: (reason) => {
                         releasePendingPresentation(presentation);
+                        debugEvent(
+                            `Host dismissed banner: ${['timeout', 'user', 'system'].includes(reason) ? reason : 'unknown'}`,
+                            transition.alertId,
+                        );
                         handleAlertDismissed(transition.alertId);
                     },
                     onWillShow: () => {
@@ -296,6 +375,7 @@ export function useAutoPlayNavigationAlerts({
             }
         } catch {
             releasePendingPresentation(presentation);
+            debugEvent('Host call threw; claim released', transition.alertId);
             // The host refuses alerts while a non-navigation template owns the
             // screen. Drop the announcement and let the next approach retry
             // rather than tearing the map surface down.
@@ -303,6 +383,8 @@ export function useAutoPlayNavigationAlerts({
         }
     }, [
         dismissalRevision,
+        debugOwner,
+        debugEvent,
         enabled,
         acceptPendingPresentation,
         handleAlertDismissed,

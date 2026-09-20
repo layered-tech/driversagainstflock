@@ -9,9 +9,11 @@ import {
     DEBUG_OVERLAY_CAMERA,
     DEBUG_OVERLAY_CAMERA_FOCUS,
     DEBUG_OVERLAY_SAFE_AREA,
+    DEBUG_OVERLAY_UPCOMING_ALERTS,
 } from './map/debug-overlays';
 import { LocationDebugOverlay } from './map/location-debug-overlay';
 import { SafeAreaDebugOverlay } from './map/safe-area-debug-overlay';
+import { UpcomingAlertDebugPane } from './map/upcoming-alert-debug-pane';
 
 export function autoPlayCameraDebugStateUpdatesAreEnabled({
     debugOverlayVisibility,
@@ -44,6 +46,9 @@ export function AutoPlayDebugOverlays({
     const carLocationDebugOverlayIsVisible =
         debugOverlaysAreVisible &&
         debugOverlayVisibility?.[DEBUG_OVERLAY_ANDROID_AUTO_LOCATION] === true;
+    const upcomingDebugIsVisible =
+        debugOverlaysAreVisible &&
+        debugOverlayVisibility?.[DEBUG_OVERLAY_UPCOMING_ALERTS] === true;
     const presenceDebugIsVisible =
         debugOverlaysAreVisible &&
         debugOverlayVisibility?.[DEBUG_OVERLAY_ALPR_PRESENCE] === true;
@@ -91,16 +96,21 @@ export function AutoPlayDebugOverlays({
                     windowWidth={viewportMetrics.width}
                 />
             ) : null}
-            {presenceDebugIsVisible ? (
+            {presenceDebugIsVisible || upcomingDebugIsVisible ? (
                 <View
-                    className="absolute z-[70] items-end"
+                    className="absolute z-[70] items-end gap-2"
                     pointerEvents="none"
                     style={{
                         right: presentation.mapControlLayoutInsets.right,
                         top: presentation.mapControlLayoutInsets.top,
                     }}
                 >
-                    <AlprPresenceDebugPane compact />
+                    {presenceDebugIsVisible ? (
+                        <AlprPresenceDebugPane compact />
+                    ) : null}
+                    {upcomingDebugIsVisible ? (
+                        <UpcomingAlertDebugPane compact />
+                    ) : null}
                 </View>
             ) : null}
             {cameraDebugOverlayIsVisible || carLocationDebugOverlayIsVisible ? (

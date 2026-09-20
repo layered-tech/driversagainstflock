@@ -932,7 +932,7 @@ describe('car navigation alert wiring', () => {
         );
         assert.match(
             announcerSource,
-            /onDidDismiss: \(\) => \{\s*releasePendingPresentation\(presentation\);/,
+            /onDidDismiss: \(reason\) => \{\s*releasePendingPresentation\(presentation\);/,
         );
         assert.match(
             announcerSource,
@@ -1024,7 +1024,7 @@ describe('car navigation alert wiring', () => {
         );
         assert.match(
             announcerSource,
-            /\}, \[\s*dismissalRevision,\s*enabled,\s*acceptPendingPresentation,\s*handleAlertDismissed,\s*historyRevision,\s*mapTemplate,\s*releasePendingPresentation,\s*suppressionRevision,\s*upcomingAlerts,\s*userLocation,\s*\]\);/,
+            /\}, \[\s*dismissalRevision,\s*debugOwner,\s*debugEvent,\s*enabled,\s*acceptPendingPresentation,\s*handleAlertDismissed,\s*historyRevision,\s*mapTemplate,\s*releasePendingPresentation,\s*suppressionRevision,\s*upcomingAlerts,\s*userLocation,\s*\]\);/,
         );
     });
 

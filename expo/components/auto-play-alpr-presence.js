@@ -169,7 +169,22 @@ export function useAutoPlayAlprPresence({
     return node;
 }
 
+const PRESENCE_PULSE_HALF_CYCLE_MS = 900;
+
 export function AutoPlayPresenceHighlight({ node }) {
+    const [expanded, setExpanded] = useState(false);
+    const nodeId = node?.osm_id ?? null;
+
+    useEffect(() => {
+        setExpanded(false);
+        if (nodeId === null) return;
+
+        const timer = setInterval(() => {
+            setExpanded((value) => !value);
+        }, PRESENCE_PULSE_HALF_CYCLE_MS);
+        return () => clearInterval(timer);
+    }, [nodeId]);
+
     if (!node) return null;
     return (
         <Mapbox.ShapeSource
@@ -186,12 +201,19 @@ export function AutoPlayPresenceHighlight({ node }) {
             <Mapbox.CircleLayer
                 id="passed-alpr-confirmation-ring"
                 style={{
-                    circleRadius: 24,
-                    circleColor: '#ffffff',
-                    circleOpacity: 0.15,
-                    circleStrokeColor: '#ffbc42',
-                    circleStrokeWidth: 5,
-                    circlePitchAlignment: 'map',
+                    circleRadius: expanded ? 32 : 16,
+                    circleColor: '#4da6ff',
+                    circleOpacity: expanded ? 0.08 : 0.3,
+                    circleRadiusTransition: {
+                        duration: PRESENCE_PULSE_HALF_CYCLE_MS,
+                        delay: 0,
+                    },
+                    circleOpacityTransition: {
+                        duration: PRESENCE_PULSE_HALF_CYCLE_MS,
+                        delay: 0,
+                    },
+                    circlePitchAlignment: 'viewport',
+                    circlePitchScale: 'viewport',
                 }}
             />
         </Mapbox.ShapeSource>

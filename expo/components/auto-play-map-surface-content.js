@@ -468,6 +468,7 @@ function useAutoPlayMapController({
     const pendingCameraStopRef = useRef(null);
     const presenceInterruptRef = useRef(null);
     const presenceCameraOwnerRef = useRef(false);
+    const presenceCameraFocusRef = useRef(null);
     const presenceCameraReleaseRef = useRef(null);
     const presenceCameraCommitRef = useRef(null);
     const [presenceCameraIsLocked, setPresenceCameraIsLocked] = useState(false);
@@ -638,13 +639,33 @@ function useAutoPlayMapController({
             !presenceCameraOwnerRef.current
         )
             return false;
-        cameraRef.current?.setCamera(camera);
+        const padding = viewportMetricsRef.current?.cameraPadding;
+        const focus = {
+            ...camera,
+            ...(padding ? { padding } : {}),
+        };
+        presenceCameraFocusRef.current = focus;
+        cameraRef.current?.setCamera(focus);
         return true;
     }, []);
+    useEffect(() => {
+        const focus = presenceCameraFocusRef.current;
+        if (!presenceCameraOwnerRef.current || !focus || !isMapReadyRef.current)
+            return;
+
+        const updatedFocus = {
+            ...focus,
+            animationDuration: 0,
+            padding: viewportMetricsRef.current.cameraPadding,
+        };
+        presenceCameraFocusRef.current = updatedFocus;
+        cameraRef.current?.setCamera(updatedFocus);
+    }, [viewportMetrics.key]);
     const restorePresenceCamera = useCallback((manual = false) => {
         presenceCameraGenerationRef.current += 1;
         if (!presenceCameraOwnerRef.current) return;
         presenceCameraOwnerRef.current = false;
+        presenceCameraFocusRef.current = null;
         presenceCameraCommitRef.current?.(false);
         presenceCameraCommitRef.current = null;
         setPresenceCameraIsLocked(false);
@@ -1837,7 +1858,12 @@ export function AutoPlayMapSurfaceContent({
             ),
         [policeAlertsLoader.policeAlerts],
     );
-    const { upcomingAlerts } = useUpcomingElectronicHorizonAlerts({
+    const {
+        upcomingAlerts,
+        alprNodes: upcomingAlprNodes,
+        pathSource: upcomingPathSource,
+        pathPointCount: upcomingPathPointCount,
+    } = useUpcomingElectronicHorizonAlerts({
         directionsRoute: activeDirectionsRoute,
         electronicHorizon,
         enabled:
@@ -1856,6 +1882,20 @@ export function AutoPlayMapSurfaceContent({
     // rather than an app-drawn card, so they are suppressed whenever another
     // template owns the screen and the host would refuse the alert.
     const navigationAlerts = useAutoPlayNavigationAlerts({
+        debugOwner: isRootMapSurface,
+        debugContext: {
+            pathSource: upcomingPathSource,
+            pathPointCount: upcomingPathPointCount,
+            alprNodeCount: upcomingAlprNodes.length,
+            blockers: [
+                !rendersAppOverlays && 'Car surface overlays disabled',
+                !alertSurfaceVisibility.upcomingAlertsVisible &&
+                    'Upcoming alerts hidden on this surface',
+                !isDrivingMode && 'Driving mode inactive',
+                routePreviewIsActive && 'Route preview active',
+                searchResultsMapIsActive && 'Search results active',
+            ].filter(Boolean),
+        },
         currentSpeedMps: getRouteCurrentSpeedMps(mapPreferences.userLocation),
         enabled:
             rendersAppOverlays &&

@@ -5,6 +5,7 @@ export const DEBUG_OVERLAY_NETWORK = 'network';
 export const DEBUG_OVERLAY_DIRECTIONS_GEOMETRY = 'directionsGeometry';
 export const DEBUG_OVERLAY_ANDROID_AUTO_LOCATION = 'androidAutoLocation';
 export const DEBUG_OVERLAY_ELECTRONIC_HORIZON = 'electronicHorizon';
+export const DEBUG_OVERLAY_UPCOMING_ALERTS = 'upcomingAlerts';
 export const DEBUG_OVERLAY_ALPR_PRESENCE = 'alprPresence';
 export const DEBUG_OVERLAY_WAZE = 'waze';
 
@@ -18,6 +19,7 @@ export const DEBUG_OVERLAY_KEYS = [
     DEBUG_OVERLAY_ELECTRONIC_HORIZON,
     DEBUG_OVERLAY_WAZE,
     DEBUG_OVERLAY_ALPR_PRESENCE,
+    DEBUG_OVERLAY_UPCOMING_ALERTS,
 ];
 
 export function getAllDebugOverlayVisibility(isVisible) {

@@ -194,6 +194,8 @@ export function useUpcomingElectronicHorizonAlerts({
     }, [alprNodes.length, pathSource, upcomingAlertComputation]);
 
     return {
+        pathSource,
+        pathPointCount: coordinates.length,
         alprCoverageComplete,
         alprNodes,
         upcomingAlerts: upcomingAlertComputation.upcomingAlerts,

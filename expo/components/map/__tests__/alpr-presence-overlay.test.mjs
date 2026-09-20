@@ -123,7 +123,26 @@ test('confirmation hides road and speed status, preserves the puck anchor, then 
     );
 });
 
-test('confirmation highlight renders the real node coordinates and disappears when cleared', () => {
+test('confirmation highlight pulses on a schedule only while a node is shown', (t) => {
+    t.mock.timers.enable({ apis: ['setInterval'] });
+    let expanded = false;
+    let previousNodeId;
+    let cleanup;
+    const react = {
+        useState: () => [
+            expanded,
+            (value) => {
+                expanded =
+                    typeof value === 'function' ? value(expanded) : value;
+            },
+        ],
+        useEffect: (effect, [nodeId]) => {
+            if (nodeId === previousNodeId) return;
+            cleanup?.();
+            previousNodeId = nodeId;
+            cleanup = effect();
+        },
+    };
     const { code } = require('@babel/core').transformSync(
         readFileSync(
             new URL('../../auto-play-alpr-presence.js', import.meta.url),
@@ -143,6 +162,7 @@ test('confirmation highlight renders the real node coordinates and disappears wh
     );
     const exports = {};
     new Function('require', 'exports', code)((name) => {
+        if (name === 'react') return react;
         if (name === './map/alpr-presence-policy') return presencePolicy;
         if (name === '@rnmapbox/maps')
             return { ShapeSource: 'ShapeSource', CircleLayer: 'CircleLayer' };
@@ -162,5 +182,33 @@ test('confirmation highlight renders the real node coordinates and disappears wh
         coordinates: [node.longitude, node.latitude],
     });
     assert.equal(highlight.props.children.type, 'CircleLayer');
+    const initialStyle = highlight.props.children.props.style;
+    assert.equal(initialStyle.circleColor, '#4da6ff');
+    assert.equal(initialStyle.circleStrokeColor, undefined);
+    assert.equal(initialStyle.circlePitchAlignment, 'viewport');
+    assert.equal(initialStyle.circlePitchScale, 'viewport');
+    const halfCycle = initialStyle.circleRadiusTransition.duration;
+    assert.equal(halfCycle, 900);
+    assert.equal(initialStyle.circleOpacityTransition.duration, halfCycle);
+    t.mock.timers.tick(halfCycle);
+    const expandedHighlight = exports.AutoPlayPresenceHighlight({ node });
+    const expandedStyle = expandedHighlight.props.children.props.style;
+    assert.ok(expandedStyle.circleRadius > initialStyle.circleRadius);
+    assert.ok(expandedStyle.circleOpacity < initialStyle.circleOpacity);
+    assert.deepEqual(
+        expandedHighlight.props.shape.geometry,
+        highlight.props.shape.geometry,
+    );
+    t.mock.timers.tick(halfCycle);
+    assert.deepEqual(
+        exports.AutoPlayPresenceHighlight({ node }).props.children.props.style,
+        initialStyle,
+    );
     assert.equal(exports.AutoPlayPresenceHighlight({ node: null }), null);
+    t.mock.timers.tick(halfCycle);
+    assert.equal(expanded, false, 'closing confirmation cancels the timer');
+    exports.AutoPlayPresenceHighlight({ node });
+    cleanup();
+    t.mock.timers.tick(halfCycle);
+    assert.equal(expanded, false, 'unmounting cancels the timer');
 });

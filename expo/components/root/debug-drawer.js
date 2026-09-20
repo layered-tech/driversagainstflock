@@ -36,9 +36,11 @@ import {
     DEBUG_OVERLAY_ELECTRONIC_HORIZON,
     DEBUG_OVERLAY_NETWORK,
     DEBUG_OVERLAY_SAFE_AREA,
+    DEBUG_OVERLAY_UPCOMING_ALERTS,
     DEBUG_OVERLAY_WAZE,
 } from '../map/debug-overlays';
 import { useSharedMapState } from '../map/shared-map-state';
+import { UpcomingAlertDebugPane } from '../map/upcoming-alert-debug-pane';
 import { DebugDrawerToggleRow } from './debug-drawer-toggle-row';
 
 const DEBUG_DRAWER_ANIMATION_MS = 180;
@@ -46,6 +48,12 @@ const DEBUG_DRAWER_MAX_WIDTH = 420;
 const DEBUG_DRAWER_MIN_WIDTH = 300;
 
 const DEBUG_DRAWER_ITEMS = [
+    {
+        icon: faCamera,
+        key: DEBUG_OVERLAY_UPCOMING_ALERTS,
+        label: 'Upcoming Alerts',
+        testID: 'debug-drawer-upcoming-alerts-toggle',
+    },
     {
         icon: faCamera,
         key: DEBUG_OVERLAY_ALPR_PRESENCE,
@@ -240,6 +248,7 @@ export function DebugDrawer({ onClose, visible }) {
                         />
                     ))}
                     <AlprPresenceDebugPane />
+                    <UpcomingAlertDebugPane />
                     <View className="gap-2 rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
                         <View className="gap-1">
                             <Text className="text-sm font-semibold text-neutral-950 dark:text-white">

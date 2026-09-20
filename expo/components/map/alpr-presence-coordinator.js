@@ -1,5 +1,5 @@
 import { canStartPresencePrompt, createPresenceState, parsePresenceState, PRESENCE_POLICY, recordPresencePrompt, updatePresenceDrive } from './alpr-presence-policy.js';
-import { automotiveAlertHistoryAllowsEntry, recordAutomotiveAlertHistoryEntry } from './automotive-alert-policy.js';
+import { automotiveAlertHistoryAllowsEntry, createAutomotiveAlertHistory, recordAutomotiveAlertHistoryEntry } from './automotive-alert-policy.js';
 
 /** One durable budget/outbox independent of Scorecard, component, route and car connection. */
 export function createPresenceCoordinator({
@@ -19,6 +19,8 @@ export function createPresenceCoordinator({
         pendingPresenceReservation = null,
         presentedReservations = [],
         volatileAutomotiveAlertHistory = null;
+    let automotiveHistoryGeneration = 0;
+    let automotiveHistoryResetting = false;
     const listeners = new Set();
     const pendingAutomotiveAlerts = new Map();
     function publish() {
@@ -126,11 +128,32 @@ export function createPresenceCoordinator({
             });
             notify('Cooldowns and drive budget reset');
         },
+        async resetAutomotiveAlertHistory() {
+            await this.hydrate();
+            if (automotiveHistoryResetting)
+                throw new Error('Warning reset already in progress');
+            automotiveHistoryResetting = true;
+            automotiveHistoryGeneration += 1;
+            pendingAutomotiveAlerts.clear();
+            try {
+                await mutate((current) => ({
+                    ...current,
+                    automotiveAlertHistory: createAutomotiveAlertHistory(
+                        current.drive.id,
+                    ),
+                }));
+                volatileAutomotiveAlertHistory = null;
+            } finally {
+                automotiveHistoryResetting = false;
+                publish();
+            }
+        },
         claimAutomotiveAlert(entry) {
             const current = this.state;
 
             if (
                 !current ||
+                automotiveHistoryResetting ||
                 !automotiveAlertHistoryAllowsEntry(
                     this.automotiveAlertHistory,
                     entry,
@@ -139,6 +162,7 @@ export function createPresenceCoordinator({
                 return null;
             }
 
+            const generation = automotiveHistoryGeneration;
             const token = Symbol('automotive-alert-claim');
             const driveId = current.drive.id;
             let settled = false;
@@ -150,7 +174,10 @@ export function createPresenceCoordinator({
                     settled = true;
                     pendingAutomotiveAlerts.delete(token);
 
-                    if (this.state?.drive.id !== driveId) {
+                    if (
+                        this.state?.drive.id !== driveId ||
+                        generation !== automotiveHistoryGeneration
+                    ) {
                         return false;
                     }
 
@@ -167,7 +194,7 @@ export function createPresenceCoordinator({
         recordAutomotiveAlertShown(entry) {
             const current = this.state;
 
-            if (!current) return false;
+            if (!current || automotiveHistoryResetting) return false;
 
             const driveId = current.drive.id;
             const history = getCommittedAutomotiveAlertHistory();

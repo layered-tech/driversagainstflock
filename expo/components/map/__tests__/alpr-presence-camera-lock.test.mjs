@@ -14,6 +14,7 @@ const callbacks = source.slice(
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 function harness() {
     const events = [];
+    const effects = [];
     let locked = false;
     let release;
     const refs = {
@@ -24,6 +25,8 @@ function harness() {
         },
         presenceCameraGenerationRef: { current: 0 },
         presenceCameraOwnerRef: { current: false },
+        presenceCameraFocusRef: { current: null },
+        viewportMetricsRef: { current: { cameraPadding: undefined } },
         presenceCameraReleaseRef: { current: null },
         presenceCameraCommitRef: { current: null },
         pendingCameraStopRef: { current: { camera: 'old' } },
@@ -48,6 +51,8 @@ function harness() {
     const values = {
         ...refs,
         useCallback: (callback) => callback,
+        useEffect: (callback) => effects.push(callback),
+        viewportMetrics: { key: 'initial' },
         setPresenceCameraIsLocked: (value) => {
             locked = value;
         },
@@ -60,6 +65,10 @@ function harness() {
         ...api,
         refs,
         events,
+        updateViewport: (padding) => {
+            refs.viewportMetricsRef.current = { cameraPadding: padding };
+            effects.forEach((effect) => effect());
+        },
         get locked() {
             return locked;
         },
@@ -219,4 +228,47 @@ test('GPS fixes update the puck but cannot start following or change zoom while 
         heading: 90,
     });
     assert.deepEqual(writes, ['lock-on', 'speed zoom']);
+});
+
+test('confirmation centers in the latest safe area after release and subsequent host inset changes', async () => {
+    const h = harness();
+    const camera = {
+        centerCoordinate: [-88, 43],
+        pitch: 55,
+        zoomLevel: 17,
+        heading: 90,
+        padding: {
+            paddingTop: 0,
+            paddingLeft: 0,
+            paddingRight: 0,
+            paddingBottom: 0,
+        },
+    };
+    const pending = h.focusPresenceCamera(camera, () => true);
+    h.commit();
+    await settle();
+    const padding = {
+        paddingTop: 100,
+        paddingLeft: 300,
+        paddingRight: 20,
+        paddingBottom: 40,
+    };
+    h.updateViewport(padding);
+    assert.equal(
+        h.events.some(([type]) => type === 'camera'),
+        false,
+    );
+    h.release();
+    assert.equal(await pending, true);
+    assert.deepEqual(h.events.at(-1), ['camera', { ...camera, padding }]);
+    const updatedPadding = { ...padding, paddingTop: 180 };
+    h.updateViewport(updatedPadding);
+    assert.deepEqual(h.events.at(-1), [
+        'camera',
+        { ...camera, padding: updatedPadding, animationDuration: 0 },
+    ]);
+    h.restorePresenceCamera(true);
+    const eventCount = h.events.length;
+    h.updateViewport(padding);
+    assert.equal(h.events.length, eventCount);
 });
