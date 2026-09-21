@@ -8,7 +8,11 @@ import {
 } from './directions';
 
 const MANEUVER_LOCATION_MAX_AGE_MS = 10000;
-const MANEUVER_CLOSE_ZOOM = 18.5;
+const METERS_PER_SECOND_PER_MPH = 0.44704;
+const MANEUVER_CLOSE_ZOOM_LEVELS = [
+    { minSpeedMph: 40, zoomLevel: 16.5 },
+    { minSpeedMph: 0, zoomLevel: 18.5 },
+];
 const MANEUVER_ZOOM_CHANGE_PER_SECOND = 0.4;
 
 export function getManeuverZoomTarget({ speedZoom, speed, maneuver }) {
@@ -27,10 +31,18 @@ export function getManeuverZoomTarget({ speedZoom, speed, maneuver }) {
         return speedZoom;
     }
 
+    const speedMetersPerSecond = Number.isFinite(speed)
+        ? Math.max(0, speed)
+        : 0;
+    const speedMph = speedMetersPerSecond / METERS_PER_SECOND_PER_MPH;
+    const closeZoom = MANEUVER_CLOSE_ZOOM_LEVELS.find(
+        ({ minSpeedMph }) => speedMph >= minSpeedMph,
+    ).zoomLevel;
+
     // Start roughly 20 seconds ahead, bounded for slow and highway driving.
     const approachDistance = Math.min(
         600,
-        Math.max(150, (Number.isFinite(speed) ? Math.max(0, speed) : 0) * 20),
+        Math.max(150, speedMetersPerSecond * 20),
     );
     const proximity = Math.min(
         1,
@@ -38,7 +50,7 @@ export function getManeuverZoomTarget({ speedZoom, speed, maneuver }) {
     );
     const blend = proximity * proximity * (3 - 2 * proximity);
 
-    return speedZoom + Math.max(0, MANEUVER_CLOSE_ZOOM - speedZoom) * blend;
+    return speedZoom + (closeZoom - speedZoom) * blend;
 }
 
 export function createManeuverFollowZoomController() {
@@ -105,7 +117,7 @@ export function createManeuverFollowZoomController() {
             speed: location?.speed,
             maneuver,
         });
-        isTransitioning = isTransitioning || target > speedZoom;
+        isTransitioning = isTransitioning || target !== speedZoom;
         let zoom = target;
 
         if (!force && isTransitioning) {

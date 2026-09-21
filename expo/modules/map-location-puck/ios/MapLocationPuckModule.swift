@@ -11,6 +11,7 @@ private let locationPuckModelLayer = "puck-model-layer"
 private let locationPuckModelSource = "puck-model-source"
 private let locationPuckIndicatorLayer = "puck"
 private let cameraFollowTransitionTimeoutMilliseconds = 1_000
+private let cameraFollowZoomDurationSeconds = 0.75
 private let locationPuckHeadingCorrectionDurationMilliseconds = 250
 private let nonZeroHeadingCorrectionEpsilon = 0.0001
 private let headingCorrectionUpdateEpsilonDegrees = 0.25
@@ -143,6 +144,10 @@ private final class OwnedLocationProviderState {
 }
 
 public final class MapLocationPuckModule: Module {
+  private let cameraFollowZoomTimers = NSMapTable<MapView, Timer>(
+    keyOptions: .weakMemory,
+    valueOptions: .strongMemory
+  )
   private let cameraFollowStates = NSMapTable<MapView, FollowPuckViewportState>(
     keyOptions: .weakMemory,
     valueOptions: .strongMemory
@@ -310,6 +315,9 @@ public final class MapLocationPuckModule: Module {
     paddingBottom: Double,
     paddingRight: Double
   ) async -> Bool {
+    cameraFollowZoomTimers.object(forKey: mapView)?.invalidate()
+    cameraFollowZoomTimers.removeObject(forKey: mapView)
+
     guard enabled else {
       clearCameraFollowState(on: mapView)
       return true
@@ -334,6 +342,14 @@ public final class MapLocationPuckModule: Module {
     let followState = cameraFollowStates.object(forKey: mapView)
       ?? mapView.viewport.makeFollowPuckViewportState(options: options)
 
+    if
+      case .state(let activeState) = mapView.viewport.status,
+      activeState === followState
+    {
+      smoothCameraFollowZoom(on: mapView, followState: followState, options: options)
+      return true
+    }
+
     followState.options = options
     cameraFollowStates.setObject(followState, forKey: mapView)
     let ownsViewport = await transitionImmediately(
@@ -353,6 +369,60 @@ public final class MapLocationPuckModule: Module {
     }
 
     return ownsViewport
+  }
+
+  @MainActor
+  private func smoothCameraFollowZoom(
+    on mapView: MapView,
+    followState: FollowPuckViewportState,
+    options: FollowPuckViewportStateOptions
+  ) {
+    let startZoom = mapView.mapboxMap.cameraState.zoom
+
+    guard let targetZoom = options.zoom, targetZoom.isFinite, startZoom.isFinite,
+      abs(targetZoom - startZoom) > 0.0001
+    else {
+      followState.options = options
+      return
+    }
+
+    var startingOptions = options
+    startingOptions.zoom = startZoom
+    followState.options = startingOptions
+    let startedAt = ProcessInfo.processInfo.systemUptime
+
+    // Ease only the viewport's zoom. Mapbox continues to derive the center and
+    // bearing from the rendered puck, including between location updates.
+    let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) {
+      [weak self, weak mapView, weak followState] timer in
+      MainActor.assumeIsolated {
+        guard let self, let mapView, let followState,
+          self.cameraFollowZoomTimers.object(forKey: mapView) === timer,
+          self.cameraFollowStates.object(forKey: mapView) === followState,
+          self.liveLocationProviderIsOwned(on: mapView),
+          self.viewportOwnsCameraFollowState(mapView.viewport, followState: followState)
+        else {
+          timer.invalidate()
+          return
+        }
+
+        let progress = min(1, max(0,
+          (ProcessInfo.processInfo.systemUptime - startedAt) / cameraFollowZoomDurationSeconds
+        ))
+        let easedProgress = progress * progress * (3 - 2 * progress)
+        var frameOptions = followState.options
+        frameOptions.zoom = startZoom + (targetZoom - startZoom) * CGFloat(easedProgress)
+        followState.options = frameOptions
+
+        if progress >= 1 {
+          timer.invalidate()
+          self.cameraFollowZoomTimers.removeObject(forKey: mapView)
+        }
+      }
+    }
+
+    cameraFollowZoomTimers.setObject(timer, forKey: mapView)
+    RunLoop.main.add(timer, forMode: .common)
   }
 
   @MainActor
@@ -399,6 +469,9 @@ public final class MapLocationPuckModule: Module {
 
   @MainActor
   private func clearCameraFollowState(on mapView: MapView) {
+    cameraFollowZoomTimers.object(forKey: mapView)?.invalidate()
+    cameraFollowZoomTimers.removeObject(forKey: mapView)
+
     guard let removedState = cameraFollowStates.object(forKey: mapView) else {
       return
     }

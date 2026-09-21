@@ -201,6 +201,7 @@ test('confirmation highlight pulses on a schedule only while a node is shown', (
     assert.equal(highlight.props.children.type, 'CircleLayer');
     const initialStyle = highlight.props.children.props.style;
     assert.equal(initialStyle.circleColor, '#4da6ff');
+    assert.equal(initialStyle.circleEmissiveStrength, 1);
     assert.equal(initialStyle.circleStrokeColor, undefined);
     assert.equal(initialStyle.circlePitchAlignment, 'viewport');
     assert.equal(initialStyle.circlePitchScale, 'viewport');
@@ -210,6 +211,7 @@ test('confirmation highlight pulses on a schedule only while a node is shown', (
     t.mock.timers.tick(halfCycle);
     const expandedHighlight = exports.AutoPlayPresenceHighlight({ node });
     const expandedStyle = expandedHighlight.props.children.props.style;
+    assert.equal(expandedStyle.circleEmissiveStrength, 1);
     assert.ok(expandedStyle.circleRadius > initialStyle.circleRadius);
     assert.ok(expandedStyle.circleOpacity < initialStyle.circleOpacity);
     assert.deepEqual(

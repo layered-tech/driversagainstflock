@@ -41,6 +41,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 private const val LOCATION_PROVIDER_TIMEOUT_MS = 1_000L
 private const val CAMERA_FOLLOW_TRANSITION_TIMEOUT_MS = 1_000L
+private const val CAMERA_FOLLOW_ZOOM_DURATION_MS = 750L
 private const val LOCATION_PUCK_DEFAULT_ANIMATION_DURATION_MS = 1_000L
 private const val LOCATION_PUCK_MINIMUM_ANIMATION_DURATION_MS = 250L
 private const val LOCATION_PUCK_MAXIMUM_ANIMATION_DURATION_MS = 1_200L
@@ -177,6 +178,7 @@ private fun ByteArray.sha256(): String {
 
 @OptIn(MapboxExperimental::class)
 class MapLocationPuckModule : Module() {
+    private val cameraFollowZoomAnimators = WeakHashMap<RNMBXMapView, ValueAnimator>()
     private val cameraFollowStates = WeakHashMap<RNMBXMapView, FollowPuckViewportState>()
     private val locationProviderStates =
         WeakHashMap<RNMBXMapView, SharedLocationPuckProviderState>()
@@ -275,11 +277,67 @@ class MapLocationPuckModule : Module() {
     }
 
     private fun clearCameraFollowState(mapView: RNMBXMapView) {
+        cameraFollowZoomAnimators.remove(mapView)?.cancel()
         val removedState = cameraFollowStates.remove(mapView) ?: return
 
         if (viewportOwnsCameraFollowState(mapView, removedState)) {
             mapView.mapView.viewport.idle()
         }
+    }
+
+    private fun smoothCameraFollowZoom(
+        mapView: RNMBXMapView,
+        followState: FollowPuckViewportState,
+        options: FollowPuckViewportStateOptions,
+    ) {
+        val startZoom = mapView.getMapboxMap().cameraState.zoom
+        val targetZoom = options.zoom
+
+        if (targetZoom == null || !targetZoom.isFinite() || !startZoom.isFinite() ||
+            kotlin.math.abs(targetZoom - startZoom) <= 0.0001
+        ) {
+            followState.options = options
+            return
+        }
+
+        followState.options = options.toBuilder().zoom(startZoom).build()
+        val mapViewReference = WeakReference(mapView)
+        val followStateReference = WeakReference(followState)
+        val moduleReference = WeakReference(this)
+        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = CAMERA_FOLLOW_ZOOM_DURATION_MS
+            interpolator = LinearInterpolator()
+            addUpdateListener { animation ->
+                val module = moduleReference.get()
+                val currentMapView = mapViewReference.get()
+                val followState = followStateReference.get()
+
+                if (module == null || currentMapView == null || followState == null ||
+                    module.cameraFollowZoomAnimators[currentMapView] !== animation ||
+                    module.cameraFollowStates[currentMapView] !== followState ||
+                    !module.liveLocationProviderIsOwned(currentMapView) ||
+                    !module.viewportOwnsCameraFollowState(currentMapView, followState)
+                ) {
+                    animation.cancel()
+                    return@addUpdateListener
+                }
+
+                // Update the follow state's zoom, leaving puck position and bearing
+                // under Mapbox's control on every frame.
+                val progress = (animation.animatedValue as Float).toDouble()
+                val easedProgress = progress * progress * (3.0 - 2.0 * progress)
+                followState.options = followState.options.toBuilder()
+                    .zoom(startZoom + (targetZoom - startZoom) * easedProgress)
+                    .build()
+
+                if (progress >= 1.0) {
+                    module.cameraFollowZoomAnimators.remove(currentMapView)
+                }
+            }
+        }
+
+        cameraFollowZoomAnimators[mapView] = animator
+        animator.start()
     }
 
     private fun normalizedHeading(heading: Double): Double {
@@ -544,6 +602,7 @@ class MapLocationPuckModule : Module() {
             ->
             val mapView = requireMapView(viewTag)
             val viewport = mapView.mapView.viewport
+            cameraFollowZoomAnimators.remove(mapView)?.cancel()
 
             if (!enabled) {
                 clearCameraFollowState(mapView)
@@ -573,6 +632,12 @@ class MapLocationPuckModule : Module() {
             val options = optionsBuilder.build()
             val followState = cameraFollowStates[mapView]
                 ?: viewport.makeFollowPuckViewportState(options)
+
+            val status = viewport.status
+            if (status is ViewportStatus.State && status.state === followState) {
+                smoothCameraFollowZoom(mapView, followState, options)
+                return@Coroutine true
+            }
 
             followState.options = options
             cameraFollowStates[mapView] = followState

@@ -218,6 +218,7 @@ export function AutoPlayPresenceHighlight({ node }) {
                 style={{
                     circleRadius: expanded ? 32 : 16,
                     circleColor: '#4da6ff',
+                    circleEmissiveStrength: 1,
                     circleOpacity: expanded ? 0.08 : 0.3,
                     circleRadiusTransition: {
                         duration: PRESENCE_PULSE_HALF_CYCLE_MS,

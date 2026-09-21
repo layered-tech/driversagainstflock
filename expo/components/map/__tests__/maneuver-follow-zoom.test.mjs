@@ -80,8 +80,8 @@ test('progressively closes in on decisions and preserves speed zoom away from th
         }),
     );
     assert.equal(targets[0], 13.75);
-    assert.equal(targets.at(-1), 18.5);
-    assert.equal(targets.at(-2), 18.5);
+    assert.equal(targets.at(-1), 16.5);
+    assert.equal(targets.at(-2), 16.5);
     assert.ok(
         targets[1] > targets[0] &&
             targets[2] > targets[1] &&
@@ -93,8 +93,85 @@ test('progressively closes in on decisions and preserves speed zoom away from th
             speed: 0,
             maneuver: { type: 1, distanceToManeuver: 0 },
         }),
-        19,
+        18.5,
     );
+});
+
+test('maneuver zoom targets use the speed band below, at and above 40 mph', () => {
+    for (const [speedMph, expectedZoom] of [
+        [0, 18.5],
+        [25, 18.5],
+        [39.99, 18.5],
+        [40, 16.5],
+        [40.01, 16.5],
+        [65, 16.5],
+    ]) {
+        for (const distanceToManeuver of [25, 0]) {
+            assert.equal(
+                getManeuverZoomTarget({
+                    speedZoom: 16.75,
+                    speed: speedMph * 0.44704,
+                    maneuver: { type: 1, distanceToManeuver },
+                }),
+                expectedZoom,
+                `${speedMph} mph, ${distanceToManeuver} meters`,
+            );
+        }
+        assert.equal(
+            getManeuverZoomTarget({
+                speedZoom: 16.75,
+                speed: speedMph * 0.44704,
+                maneuver: { type: 1, distanceToManeuver: 700 },
+            }),
+            16.75,
+        );
+    }
+});
+
+test('changing speed bands smoothly updates the maneuver zoom target', () => {
+    const controller = createManeuverFollowZoomController();
+    const update = (speedMph, second, force = false) =>
+        controller.update({
+            route,
+            location: {
+                ...location(0.0199, 0, epoch + second * 1000),
+                speed: speedMph * 0.44704,
+            },
+            speedZoom: 16,
+            now: epoch + second * 1000,
+            force,
+        });
+    let previous = update(35, 0, true);
+    assert.equal(previous, 18.5);
+    for (let second = 1; second <= 6; second++) {
+        const zoom = update(45, second);
+        assert.ok(zoom <= previous && previous - zoom <= 0.400001);
+        previous = zoom;
+    }
+    assert.equal(previous, 16.5);
+    for (let second = 7; second <= 13; second++) {
+        const zoom = update(35, second);
+        assert.ok(zoom >= previous && zoom - previous <= 0.400001);
+        previous = zoom;
+    }
+    assert.equal(previous, 18.5);
+});
+
+test('a maneuver eases down to its cap when normal follow zoom is closer', () => {
+    const controller = createManeuverFollowZoomController();
+    const update = (longitude, elapsed) =>
+        controller.update({
+            route,
+            location: {
+                ...location(longitude, 0, epoch + elapsed),
+                speed: 40 * 0.44704,
+            },
+            speedZoom: 16.75,
+            now: epoch + elapsed,
+        });
+    assert.equal(update(0.01, 0), 16.75);
+    assert.equal(update(0.0199, 100), 16.71);
+    assert.equal(update(0.0199, 1100), 16.5);
 });
 
 test('invalid, continue and departure maneuvers leave speed zoom unchanged', () => {
@@ -152,7 +229,7 @@ test('GPS route replay approaches a turn, advances to the next maneuver and reco
     }
     assert.equal(samples[0], 13.75);
     assert.ok(samples[20] > samples[10]);
-    assert.ok(samples[27] > 18.4);
+    assert.ok(samples[27] > 16.4);
     assert.ok(samples[29] < samples[27]);
     assert.equal(samples.at(-1), 13.75);
 });
@@ -217,9 +294,9 @@ test('cancellation, stale data and rerouting release the close view without a ju
                 now: epoch,
                 force: true,
             }),
-            18.5,
+            16.5,
         );
-        let previous = 18.5;
+        let previous = 16.5;
         for (let second = 1; second <= 15; second++) {
             const zoom = controller.update({
                 route,
@@ -314,22 +391,22 @@ test('shared follow hook applies maneuver zoom and respects manual zoom, panning
         now = epoch + second * 1000;
         hook.handleLocationUpdate('follow', location(0.0199, 0, now));
     }
-    assert.equal(currentZoomRef.current, 18.5);
+    assert.equal(currentZoomRef.current, 16.5);
     hook.handleZoomLevelChange('follow', 16);
     now += 1000;
     hook.handleLocationUpdate('follow', location(0.0199, 0, now));
     assert.equal(currentZoomRef.current, 16);
     hook.recenter(location(0.0199, 0, now));
-    assert.equal(currentZoomRef.current, 18.5);
+    assert.equal(currentZoomRef.current, 16.5);
     allowed = false;
     now += 1000;
     hook.handleLocationUpdate('follow', location(0.01, 0, now));
-    assert.equal(currentZoomRef.current, 18.5);
+    assert.equal(currentZoomRef.current, 16.5);
     allowed = true;
     hook.pauseUntilRecenter();
     now += 1000;
     hook.handleLocationUpdate('follow', location(0.01, 0, now));
-    assert.equal(currentZoomRef.current, 18.5);
+    assert.equal(currentZoomRef.current, 16.5);
 });
 
 test('phone and automotive map surfaces pass only the active navigation route to shared follow', () => {
@@ -407,7 +484,7 @@ test('a nearby second turn retains a close view after the first turn', () => {
             speedZoom: 13.75,
             now: epoch + 1000,
         }),
-        18.5,
+        16.5,
     );
 });
 
@@ -444,7 +521,7 @@ test('roundabout guidance keeps the close view until exiting', () => {
             now: epoch,
             force: true,
         }),
-        18.5,
+        16.5,
     );
     const outside = {
         ...location(...coordinates[5], epoch + 1000),
@@ -457,6 +534,6 @@ test('roundabout guidance keeps the close view until exiting', () => {
             speedZoom: 13.75,
             now: epoch + 1000,
         }),
-        18.1,
+        16.1,
     );
 });
