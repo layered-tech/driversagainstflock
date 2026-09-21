@@ -253,7 +253,20 @@ class DirectionsRouter
                 'avoid_polygon_count' => count($zone['coordinates'] ?? []),
             ]);
 
-            $currentRoute = $provider->route($routeControlCoordinates, $zone, $continueStraight);
+            try {
+                $currentRoute = $provider->route($routeControlCoordinates, $zone, $continueStraight);
+            } catch (GraphHopperException $exception) {
+                throw $exception;
+            } catch (DirectionsException $exception) {
+                Log::warning('Directions ideal route failed; retaining the last successful route.', [
+                    'provider' => $provider->name(),
+                    'attempt' => $attempt + 1,
+                    'status' => $exception->status,
+                    'elapsed_ms' => $this->elapsedMilliseconds($idealRouteStartedAt),
+                ]);
+
+                break;
+            }
 
             Log::info('Directions ideal route loaded.', [
                 'attempt' => $attempt + 1,

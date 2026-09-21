@@ -278,16 +278,16 @@ test('timing and budget boundaries count repeated nodes and preserve cooldown ac
     assert.equal(
         canStartPresencePrompt(
             state,
-            { ...e, passedAt: 220000, osmNodeId: 2 },
-            222999,
+            { ...e, passedAt: 114000, osmNodeId: 2 },
+            117999,
         ),
         false,
     );
     assert.equal(
         canStartPresencePrompt(
             state,
-            { ...e, passedAt: 220000, osmNodeId: 2 },
-            223000,
+            { ...e, passedAt: 114000, osmNodeId: 2 },
+            118000,
         ),
         true,
     );
@@ -361,6 +361,7 @@ test('focus preserves heading and rejects a second camera in the actual viewport
     assert.ok(focus);
     assert.equal(focus.heading, 90);
     assert.equal(focus.pitch, 55);
+    assert.equal(focus.zoomLevel, 17);
     assert.deepEqual(focus.centerCoordinate, [node.longitude, node.latitude]);
     assert.deepEqual(focus.padding, viewport.cameraPadding);
     assert.equal(
@@ -384,6 +385,31 @@ test('focus preserves heading and rejects a second camera in the actual viewport
             ],
         }),
         null,
+    );
+});
+test('confirmation checks other cameras against zoom 17 instead of the driving zoom', () => {
+    const encounter = pass();
+    const context = {
+        location: location(-96.9995, 107000),
+        navigationActive: true,
+        navigationCamera: { pitch: 55, zoomLevel: 15 },
+        viewport,
+        nodes: [node, { osm_id: 9, latitude: 30.006, longitude: -97 }],
+    };
+
+    const focus = getPresenceFocus(encounter, context);
+    assert.ok(
+        focus,
+        'a distant camera outside the event frame does not block it',
+    );
+    assert.equal(focus.zoomLevel, 17);
+    assert.equal(
+        getPresenceFocus(encounter, {
+            ...context,
+            nodes: [node, { osm_id: 9, latitude: 30.0001, longitude: -97 }],
+        }),
+        null,
+        'a camera inside the event frame still blocks it',
     );
 });
 test('outbox reports only explicit negatives once and retries the same event', async () => {
@@ -945,7 +971,7 @@ test('confirmation applies one node-centered camera with navigation pitch and fi
     const frame = h.frames[0];
     assert.deepEqual(frame.centerCoordinate, [node.longitude, node.latitude]);
     assert.equal(frame.pitch, 55);
-    assert.equal(frame.zoomLevel, 16.7);
+    assert.equal(frame.zoomLevel, 17);
     for (let i = 1; i <= 19; i++) {
         await h.step(-96.9995 + i * 0.0001, 107000 + i * 1000, {
             navigationCamera: { pitch: 54 + i / 10, zoomLevel: 16 + i / 10 },
@@ -1086,11 +1112,11 @@ test('GPS course detects a roadside pass in every direction without predicted ro
                 ...location(0, time),
                 latitude:
                     target.latitude +
-                    (Math.cos(radians) * distance + Math.sin(radians) * 26.46) /
+                    (Math.cos(radians) * distance + Math.sin(radians) * 10) /
                         111195,
                 longitude:
                     target.longitude +
-                    (Math.sin(radians) * distance - Math.cos(radians) * 26.46) /
+                    (Math.sin(radians) * distance - Math.cos(radians) * 10) /
                         (111195 * Math.cos((target.latitude * Math.PI) / 180)),
                 heading,
                 speed: 25,
@@ -1148,10 +1174,10 @@ test('unshown reservations never persist cooldowns or spend the drive budget', a
     assert.ok(await coordinator.reserve(pass()));
 });
 
-test('slow reservation setup does not start the native acknowledgement timeout', async () => {
+test('slow reservation setup survives leaving the approach range without starting the native acknowledgement timeout', async () => {
     const h = promptHarness({ reservationDelay: true });
     await h.start();
-    await h.step(-96.9994, 108500);
+    await h.step(-96.9983, 108500);
     assert.equal(h.prompt.inspect().phase, 'presenting');
     h.releaseReservation();
     await new Promise((resolve) => setImmediate(resolve));
@@ -1224,11 +1250,11 @@ test('free-driving bends preserve pending and visible confirmation while route d
         await h.step(-97.0004, 100000, { navigationActive });
         await h.start();
         const bend = {
-            ...location(-96.998, 112000),
+            ...location(-96.999, 112000),
             latitude: 30.00014,
             heading: 85,
         };
-        await h.step(-96.998, 112000, { location: bend });
+        await h.step(-96.999, 112000, { location: bend });
         assert.equal(
             h.prompt.inspect().phase,
             navigationActive ? 'observing' : 'presenting',
@@ -1373,14 +1399,13 @@ function freeDrivingSamples() {
     };
 }
 
-test('a right turn can pass a nearby opposite-corner camera without crossing its original travel axis', () => {
+test('a right turn within the left-side limit confirms an opposite-corner camera', () => {
     const update = freeDrivingSamples();
     assert.equal(update(-25, -90, 0, 100000), null);
     assert.equal(update(-25, -50, 0, 102000), null);
     assert.equal(update(-20, -25, 45, 104000), null);
     assert.equal(update(15, -25, 90, 106000), null);
-    const encounter = update(30, -25, 90, 108000);
-    assert.equal(encounter?.osmNodeId, node.osm_id);
+    assert.equal(update(30, -25, 90, 108000)?.osmNodeId, node.osm_id);
 });
 
 test('free-driving pass needs two moving behind-plane samples, not repeated GPS or jitter', () => {
@@ -1425,9 +1450,9 @@ test('intersection plane crossing opens confirmation and allows continuing the t
     };
     await step(-25, -90, 0, 100000);
     await step(-25, -50, 0, 102000);
-    await step(-20, -25, 45, 104000);
-    await step(15, -25, 90, 106000);
-    await step(30, -25, 90, 108000);
+    await step(-10, -10, 45, 104000);
+    await step(15, -10, 90, 106000);
+    await step(30, -10, 90, 108000);
     assert.equal(h.prompt.inspect().phase, 'pending');
     await step(50, -40, 135, 111000);
     assert.equal(h.shown.length, 1);
@@ -1547,3 +1572,54 @@ test('diagnostic failures cannot prevent dismissal and camera restoration', asyn
     assert.equal(h.restores.at(-1), true);
     assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
 });
+
+test('unshown confirmation survives the approach distance but expires after the pass window', async () => {
+    const h = promptHarness();
+    await h.step(-97.0004, 100000, { maneuverSeconds: 20 });
+    await h.start();
+    assert.equal(h.prompt.inspect().phase, 'pending');
+    await h.step(-96.9983, 108000);
+    assert.equal(h.prompt.inspect().phase, 'pending');
+    await h.step(-96.9983, 120000);
+    assert.equal(h.prompt.inspect().phase, 'observing');
+    assert.equal(h.shown.length, 0);
+    await h.step(-96.9995, 121000, { maneuverSeconds: 90 });
+    assert.equal(h.shown.length, 0);
+});
+
+for (const distanceAtRequest of [140, 163]) {
+    test(`free-driving confirmation survives leaving 150 m with native request at ${distanceAtRequest} m`, async () => {
+        const h = promptHarness({ refuse: true });
+        const longitude = (meters) =>
+            node.longitude + meters / (111195 * Math.cos(Math.PI / 6));
+        await h.step(longitude(-40), 100000, {
+            navigationActive: false,
+            routeKey: 'free',
+            warningBusy: false,
+        });
+        await h.step(longitude(-10), 102000);
+        await h.step(longitude(20), 104000);
+        await h.step(longitude(75), 106000);
+        const encounter = h.prompt.inspect().encounter;
+        assert.equal(h.prompt.inspect().phase, 'pending');
+        assert.equal(encounter.passMethod, 'gps-plane');
+        assert.equal(encounter.passedAt, 106000);
+        await h.step(longitude(140), 108999);
+        assert.equal(h.prompt.inspect().encounter, encounter);
+        assert.equal(h.shown.length, 0);
+
+        await h.step(longitude(distanceAtRequest), 109185);
+        assert.equal(h.shown.length, 1);
+        assert.equal(h.prompt.inspect().phase, 'presenting');
+        await h.step(longitude(190), 110185);
+        await h.shown[0].onWillShow();
+        assert.equal(h.prompt.inspect().phase, 'showing');
+        assert.equal(h.prompt.inspect().encounter, encounter);
+        assert.equal(h.prompt.ownsCamera, true);
+        assert.equal(h.coordinator.state.drive.count, 1);
+        assert.equal(
+            h.traces.filter(({ event }) => event === 'pass-detected').length,
+            1,
+        );
+    });
+}

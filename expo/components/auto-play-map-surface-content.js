@@ -10,6 +10,7 @@ import {
 import { Dimensions, View } from 'react-native';
 import { getAutoPlayAlertSurfaceVisibility } from './auto-play-alert-surface-visibility';
 import {
+    AutoPlayPresenceDebugGeometry,
     AutoPlayPresenceHighlight,
     useAutoPlayAlprPresence,
 } from './auto-play-alpr-presence';
@@ -64,6 +65,7 @@ import { getBoundsFitCameraStop } from './map/camera-state';
 import { SHOW_MAP_DEBUG_CONTROLS } from './map/config';
 import { DEFAULT_ZOOM_LEVEL, ZOOM_STEP } from './map/constants';
 import {
+    DEBUG_OVERLAY_ALPR_PRESENCE,
     DEBUG_OVERLAY_DIRECTIONS_GEOMETRY,
     DEBUG_OVERLAY_ELECTRONIC_HORIZON,
 } from './map/debug-overlays';
@@ -1987,23 +1989,28 @@ export function AutoPlayMapSurfaceContent({
         upcomingAlerts,
         userLocation: mapPreferences.userLocation,
     });
-    const presenceNode = useAutoPlayAlprPresence({
-        markerLoader,
-        enabled: isRootMapSurface && isDrivingMode && controller.isMapReady,
-        blocked: Boolean(
-            routePreviewIsActive ||
-            searchResultsMapIsActive ||
-            autoPlayState.routeLoading ||
-            drivingMapViewMode !== DRIVING_MAP_VIEW_PERSPECTIVE,
-        ),
-        warningBusy:
-            navigationAlerts.hasEligibleAlert && !navigationAlerts.isSuppressed,
-        suppressAlerts: navigationAlerts.acquireSuppression,
-        location: mapPreferences.userLocation,
-        route: activeDirectionsRoute,
-        viewport: viewportMetrics,
-        controller,
-    });
+    const { node: presenceNode, debugGeometry: presenceDebugGeometry } =
+        useAutoPlayAlprPresence({
+            debugEnabled:
+                debugOverlaysAreVisible &&
+                debugOverlayVisibility?.[DEBUG_OVERLAY_ALPR_PRESENCE] === true,
+            markerLoader,
+            enabled: isRootMapSurface && isDrivingMode && controller.isMapReady,
+            blocked: Boolean(
+                routePreviewIsActive ||
+                searchResultsMapIsActive ||
+                autoPlayState.routeLoading ||
+                drivingMapViewMode !== DRIVING_MAP_VIEW_PERSPECTIVE,
+            ),
+            warningBusy:
+                navigationAlerts.hasEligibleAlert &&
+                !navigationAlerts.isSuppressed,
+            suppressAlerts: navigationAlerts.acquireSuppression,
+            location: mapPreferences.userLocation,
+            route: activeDirectionsRoute,
+            viewport: viewportMetrics,
+            controller,
+        });
     const directionsRouteFeatureCollection = useMemo(
         () => makeDirectionsRouteFeatureCollection(displayedDirectionsRoute),
         [displayedDirectionsRoute],
@@ -2438,6 +2445,9 @@ export function AutoPlayMapSurfaceContent({
             >
                 <MapCanvas>
                     <AutoPlayPresenceHighlight node={presenceNode} />
+                    <AutoPlayPresenceDebugGeometry
+                        shape={presenceDebugGeometry}
+                    />
                 </MapCanvas>
                 {/* Always mounted: a host-owned surface hides the chrome but
                     still follows the driver, and the follow camera reads its

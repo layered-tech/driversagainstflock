@@ -235,7 +235,7 @@ export function createPresencePrompt({
         }
     };
     return {
-        inspect() {
+        inspect(includeGeometry = false) {
             return {
                 context: { ...getContext(), presenceFocus: active?.focus },
                 encounter: active?.encounter ?? candidate,
@@ -248,7 +248,7 @@ export function createPresencePrompt({
                       : candidate
                         ? 'pending'
                         : 'observing',
-                pass: detector.inspect(),
+                pass: detector.inspect(includeGeometry),
                 remainingMs:
                     active?.shownAt != null
                         ? Math.max(

@@ -17,7 +17,7 @@ const camera = {
     coordinate: [-88.2445066, 43.1099621],
     tags: {},
 };
-const roadLatitude = camera.coordinate[1] - 26.46 / 111195;
+const roadLatitude = camera.coordinate[1] - 10 / 111195;
 const metersPerDegree = 111195 * Math.cos((roadLatitude * Math.PI) / 180);
 function locationAt(meters, time) {
     return {

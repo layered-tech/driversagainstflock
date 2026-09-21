@@ -167,7 +167,9 @@ export function buildPresenceDebugSnapshot(
             state.lastPromptAt !== null &&
             now - state.lastPromptAt < PRESENCE_POLICY.spacingMs
         )
-            blockers.push('Global 120-second cooldown');
+            blockers.push(
+                `Global ${PRESENCE_POLICY.spacingMs / 1000}-second cooldown`,
+            );
         if (
             encounter &&
             now - (state.nodeTimes[encounter.osmNodeId] ?? -Infinity) <

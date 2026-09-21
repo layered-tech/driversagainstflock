@@ -165,10 +165,27 @@ test('confirmation highlight pulses on a schedule only while a node is shown', (
         if (name === 'react') return react;
         if (name === './map/alpr-presence-policy') return presencePolicy;
         if (name === '@rnmapbox/maps')
-            return { ShapeSource: 'ShapeSource', CircleLayer: 'CircleLayer' };
+            return {
+                ShapeSource: 'ShapeSource',
+                CircleLayer: 'CircleLayer',
+                FillLayer: 'FillLayer',
+                LineLayer: 'LineLayer',
+                SymbolLayer: 'SymbolLayer',
+            };
         if (name === 'react/jsx-runtime') return mocks[name];
         return {};
     }, exports);
+    assert.equal(exports.AutoPlayPresenceDebugGeometry({ shape: null }), null);
+    const debugShape = { type: 'FeatureCollection', features: [] };
+    const debugLayer = exports.AutoPlayPresenceDebugGeometry({
+        shape: debugShape,
+    });
+    assert.equal(debugLayer.type, 'ShapeSource');
+    assert.equal(debugLayer.props.shape, debugShape);
+    assert.deepEqual(
+        debugLayer.props.children.map((layer) => layer.type),
+        ['FillLayer', 'LineLayer', 'LineLayer', 'CircleLayer'],
+    );
     assert.equal(exports.AutoPlayPresenceHighlight({ node: null }), null);
     const node = {
         osm_id: 12634608635,

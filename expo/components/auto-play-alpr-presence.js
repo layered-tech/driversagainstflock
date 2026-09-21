@@ -9,6 +9,7 @@ import {
     buildPresenceDebugSnapshot,
     presenceDebugStore,
 } from './map/alpr-presence-debug';
+import { buildPresenceDebugGeometry } from './map/alpr-presence-debug-geometry';
 import { getPresenceE2EFixture } from './map/alpr-presence-e2e';
 import { createPresenceInventory } from './map/alpr-presence-inventory';
 import {
@@ -40,6 +41,7 @@ function maneuverClearance(route, location) {
 
 export function useAutoPlayAlprPresence({
     markerLoader,
+    debugEnabled,
     enabled,
     blocked,
     warningBusy,
@@ -51,6 +53,7 @@ export function useAutoPlayAlprPresence({
 }) {
     const mapTemplate = usePresenceMapTemplate();
     const [node, setNode] = useState(null);
+    const [debugGeometry, setDebugGeometry] = useState(null);
     const latest = useRef(null);
     const machine = useRef(null);
     const inventory = useRef(null);
@@ -70,6 +73,7 @@ export function useAutoPlayAlprPresence({
         : getPresenceMotionPath(location);
     latest.current = {
         markerLoader,
+        debugEnabled,
         enabled,
         blocked,
         warningBusy,
@@ -135,6 +139,11 @@ export function useAutoPlayAlprPresence({
             prompt.interrupt(manual);
         const tick = () => {
             prompt.tick();
+            setDebugGeometry(
+                latest.current.debugEnabled
+                    ? buildPresenceDebugGeometry(prompt.inspect(true), true)
+                    : null,
+            );
             const now = Date.now();
             presenceDebugStore.record(
                 () =>
@@ -169,7 +178,10 @@ export function useAutoPlayAlprPresence({
     useLayoutEffect(() => {
         machine.current?.tick();
     });
-    return node;
+    return {
+        node,
+        debugGeometry: enabled && debugEnabled ? debugGeometry : null,
+    };
 }
 
 const PRESENCE_PULSE_HALF_CYCLE_MS = 900;
@@ -217,6 +229,39 @@ export function AutoPlayPresenceHighlight({ node }) {
                     },
                     circlePitchAlignment: 'viewport',
                     circlePitchScale: 'viewport',
+                }}
+            />
+        </Mapbox.ShapeSource>
+    );
+}
+
+export function AutoPlayPresenceDebugGeometry({ shape }) {
+    if (!shape) return null;
+    return (
+        <Mapbox.ShapeSource id="alpr-presence-debug" shape={shape}>
+            <Mapbox.FillLayer
+                id="alpr-presence-debug-radius-fill"
+                filter={['==', ['get', 'kind'], 'radius']}
+                style={{ fillColor: '#38bdf8', fillOpacity: 0.12 }}
+            />
+            <Mapbox.LineLayer
+                id="alpr-presence-debug-radius"
+                filter={['==', ['get', 'kind'], 'radius']}
+                style={{ lineColor: '#38bdf8', lineWidth: 2 }}
+            />
+            <Mapbox.LineLayer
+                id="alpr-presence-debug-tracks"
+                filter={['==', ['get', 'kind'], 'track']}
+                style={{ lineColor: ['get', 'color'], lineWidth: 3 }}
+            />
+            <Mapbox.CircleLayer
+                id="alpr-presence-debug-targets"
+                filter={['==', ['get', 'kind'], 'target']}
+                style={{
+                    circleColor: ['get', 'color'],
+                    circleRadius: 7,
+                    circleStrokeColor: '#ffffff',
+                    circleStrokeWidth: 2,
                 }}
             />
         </Mapbox.ShapeSource>

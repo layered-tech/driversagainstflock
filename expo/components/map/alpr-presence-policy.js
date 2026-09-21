@@ -13,10 +13,14 @@ export const PRESENCE_POLICY = Object.freeze({
     latestMs: 15000,
     durationMs: 20000,
     sessionLimit: 15,
-    spacingMs: 120000,
+    spacingMs: 15000,
     nodeCooldownMs: 300000,
     driveEndMs: 1800000,
     isolationMeters: 150,
+    trackingDistanceMeters: 150,
+    forwardPassDistanceMeters: 30,
+    leftPassDistanceMeters: 40,
+    rightPassDistanceMeters: 20,
     maneuverSeconds: 30,
     maximumAccuracyMeters: 10,
     maximumVehiclePathOffsetMeters: 10,
@@ -34,6 +38,15 @@ export function presenceDistance(a, b) {
     const latitude = radians((a[1] + b[1]) / 2);
     return Math.hypot((a[0] - b[0]) * Math.cos(latitude), a[1] - b[1]) * 111195;
 }
+export function presenceNodeIsWithinTrackingRange(location, node) {
+    return (
+        presenceDistance(
+            presenceCoordinate(location),
+            presenceCoordinate(node),
+        ) <= PRESENCE_POLICY.trackingDistanceMeters
+    );
+}
+
 /** Signed distance ahead of the vehicle's current left/right plane. */
 export function presenceAheadMeters(location, coordinate) {
     const vehicle = presenceCoordinate(location);
@@ -44,6 +57,50 @@ export function presenceAheadMeters(location, coordinate) {
         east * Math.sin(radians(location.heading)) +
         north * Math.cos(radians(location.heading))
     );
+}
+
+/** Sweeps the heading-relative confirmation area along an observed GPS segment. */
+export function presenceSegmentIsWithinRange(start, location, target) {
+    const heading = radians(location.heading);
+    const relative = (origin) => {
+        const east =
+            (((target[0] - origin[0] + 540) % 360) - 180) *
+            111195 *
+            Math.cos(radians(location.latitude));
+        const north = (target[1] - origin[1]) * 111195;
+        return [
+            east * Math.sin(heading) + north * Math.cos(heading),
+            east * Math.cos(heading) - north * Math.sin(heading),
+        ];
+    };
+    const a = relative(start);
+    const b = relative(presenceCoordinate(location));
+    const delta = [b[0] - a[0], b[1] - a[1]];
+    return [
+        [PRESENCE_POLICY.leftPassDistanceMeters, -1],
+        [PRESENCE_POLICY.rightPassDistanceMeters, 1],
+    ].some(([width, side]) => {
+        const length = PRESENCE_POLICY.forwardPassDistanceMeters;
+        const denominator = (delta[0] / length) ** 2 + (delta[1] / width) ** 2;
+        const minimum =
+            denominator > 0
+                ? -(
+                      (a[0] * delta[0]) / length ** 2 +
+                      (a[1] * delta[1]) / width ** 2
+                  ) / denominator
+                : 0;
+        const candidates = [0, 1, Math.max(0, Math.min(1, minimum))];
+        if (delta[1] !== 0)
+            candidates.push(Math.max(0, Math.min(1, -a[1] / delta[1])));
+        return candidates.some((t) => {
+            const forward = a[0] + delta[0] * t;
+            const right = a[1] + delta[1] * t;
+            return (
+                right * side >= -1e-9 &&
+                (forward / length) ** 2 + (right / width) ** 2 <= 1
+            );
+        });
+    });
 }
 
 function updatePresencePlaneCrossing(approach, location) {
@@ -138,10 +195,13 @@ export function createPresencePassDetector() {
     let routeIdentity = null;
     let lastReason = 'Waiting for a reliable approach';
     return {
-        inspect() {
+        inspect(includeGeometry = false) {
             return {
                 reason: lastReason,
                 trackedApproaches: approaches.size,
+                ...(includeGeometry
+                    ? { approaches: [...approaches.values()] }
+                    : {}),
             };
         },
         reset() {
@@ -176,17 +236,35 @@ export function createPresencePassDetector() {
             for (const [id, approach] of approaches) {
                 if (
                     now - approach.startedAt > 60000 ||
-                    (approach.passMethod === 'gps-plane' &&
-                        presenceDistance(
-                            coordinate,
-                            presenceCoordinate(approach.node),
-                        ) > 150)
+                    !presenceNodeIsWithinTrackingRange(location, approach.node)
                 ) {
                     approaches.delete(id);
                     lastReason =
                         'Tracked approach expired or camera is no longer nearby';
                     continue;
                 }
+                const movementPath = getRouteProjectionPath([
+                    approach.sampleCoordinate,
+                    coordinate,
+                ]);
+                const proximity = projectCoordinateOntoRoute(
+                    movementPath,
+                    presenceCoordinate(approach.node),
+                );
+                approach.closestDistanceMeters = Math.min(
+                    approach.closestDistanceMeters,
+                    proximity?.distanceFromRouteMeters ?? Infinity,
+                    presenceDistance(
+                        coordinate,
+                        presenceCoordinate(approach.node),
+                    ),
+                );
+                approach.withinPassRange ||= presenceSegmentIsWithinRange(
+                    approach.sampleCoordinate,
+                    location,
+                    presenceCoordinate(approach.node),
+                );
+                approach.sampleCoordinate = coordinate;
                 let passed;
                 if (approach.passMethod === 'gps-plane') {
                     passed = updatePresencePlaneCrossing(approach, location);
@@ -220,7 +298,7 @@ export function createPresencePassDetector() {
                                 PRESENCE_POLICY.minimumPassProgressMeters &&
                         approach.progressSamples >= 2;
                 }
-                if (passed) {
+                if (passed && approach.withinPassRange) {
                     approach.passedAt ??= now;
                     approach.passedHeading ??= location.heading;
                     if (now - approach.passedAt > PRESENCE_POLICY.latestMs) {
@@ -262,7 +340,7 @@ export function createPresencePassDetector() {
                             !id ||
                             approaches.has(id) ||
                             presenceDistance(coordinate, nodeCoordinate) >
-                                150 ||
+                                PRESENCE_POLICY.trackingDistanceMeters ||
                             !presenceNodeIsIsolated(
                                 node,
                                 nodes,
@@ -279,13 +357,28 @@ export function createPresencePassDetector() {
                                 ? presenceAheadMeters(location, nodeCoordinate)
                                 : target?.distanceAlongRouteMeters -
                                   vehicle.distanceAlongRouteMeters;
-                        if (!target || ahead < 20 || ahead > 150) continue;
+                        if (
+                            !target ||
+                            ahead < 20 ||
+                            ahead > PRESENCE_POLICY.trackingDistanceMeters
+                        )
+                            continue;
                         approaches.set(id, {
                             node: { ...node },
                             passMethod:
                                 navigationActive === false
                                     ? 'gps-plane'
                                     : 'route',
+                            withinPassRange: presenceSegmentIsWithinRange(
+                                coordinate,
+                                location,
+                                nodeCoordinate,
+                            ),
+                            sampleCoordinate: coordinate,
+                            closestDistanceMeters: presenceDistance(
+                                coordinate,
+                                nodeCoordinate,
+                            ),
                             lastCoordinate: coordinate,
                             lastAccuracy: location.accuracy,
                             behindSamples: 0,
@@ -386,8 +479,7 @@ export function inspectPresenceFocus(
     };
     const savedFocus = context.presenceFocus;
     const navigationCamera = context.navigationCamera;
-    const zoomLevel =
-        savedFocus?.zoomLevel ?? navigationCamera?.zoomLevel ?? 17;
+    const zoomLevel = 17;
     const pitch =
         savedFocus?.pitch ??
         navigationCamera?.pitch ??
