@@ -14,6 +14,7 @@ import {
     getFollowCameraPadding,
 } from './map/follow-camera-padding';
 import { getFollowZoomUpdate } from './map/follow-zoom-update';
+import { createManeuverFollowZoomController } from './map/maneuver-follow-zoom';
 
 const LOCATION_FOLLOW_CAMERA_PITCH = 55;
 const METERS_PER_SECOND_PER_MPH = 0.44704;
@@ -82,6 +83,7 @@ export function useFollowLocationMode({
     locationTrackingMode,
     locationTrackingModeRef,
     markerLoadsEnabledRef,
+    navigationRoute = null,
     setTrackingMode,
     userLocationRef,
     viewportHeight,
@@ -92,6 +94,11 @@ export function useFollowLocationMode({
             ? viewportHeight
             : windowHeight;
     const insets = useSafeAreaInsets();
+    const [maneuverZoomController] = useState(
+        createManeuverFollowZoomController,
+    );
+    const navigationRouteRef = useRef(navigationRoute);
+    navigationRouteRef.current = navigationRoute;
     const recenterReasonRef = useRef(null);
     const recenterIsNeededRef = useRef(false);
     const nativeFollowZoomLevelRef = useRef(LOCATION_ZOOM_LEVEL);
@@ -163,7 +170,19 @@ export function useFollowLocationMode({
         ) => {
             const recordedAt = Number(location?.recordedAt);
             const now = Number.isFinite(recordedAt) ? recordedAt : Date.now();
-            const nextZoomLevel = getFollowZoomLevel(location);
+            const speedZoom = getFollowZoomLevel(location);
+            const nextZoomLevel = followSpeedZoomEnabled
+                ? clampZoomLevel(
+                      maneuverZoomController.update({
+                          route: isDrivingMode
+                              ? navigationRouteRef.current
+                              : null,
+                          location,
+                          speedZoom,
+                          force,
+                      }),
+                  )
+                : speedZoom;
             const zoomUpdate = getFollowZoomUpdate({
                 currentZoomLevel: nativeFollowZoomLevelRef.current,
                 force,
@@ -189,9 +208,12 @@ export function useFollowLocationMode({
             return nextZoomLevel;
         },
         [
+            clampZoomLevel,
             currentZoomRef,
             followSpeedZoomEnabled,
             getFollowZoomLevel,
+            isDrivingMode,
+            maneuverZoomController,
             setNativeFollowZoomLevel,
         ],
     );

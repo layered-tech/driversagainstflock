@@ -434,6 +434,7 @@ function getPointCoordinate(point) {
 }
 
 function useAutoPlayMapController({
+    navigationRoute = null,
     cameraDebugStateUpdatesEnabled = false,
     drivingMapViewMode = DRIVING_MAP_VIEW_PERSPECTIVE,
     initialCameraSettings,
@@ -624,6 +625,7 @@ function useAutoPlayMapController({
             !presenceCameraIsLocked &&
             drivingMapViewMode !== DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
         followSpeedZoomEnabled: true,
+        navigationRoute,
         followViewportAnchorY,
         isDrivingMode,
         locationTrackingMode,
@@ -1844,6 +1846,7 @@ export function AutoPlayMapSurfaceContent({
         );
     }, []);
     const controller = useAutoPlayMapController({
+        navigationRoute: activeDirectionsRoute,
         cameraDebugStateUpdatesEnabled:
             autoPlayCameraDebugStateUpdatesAreEnabled({
                 debugOverlayVisibility,

@@ -23,7 +23,7 @@ function loadHook(filename, hookName, events) {
             useMemo: (fn) => fn(),
             useRef: (value) => ({ current: value }),
             useState: (value) => [
-                value,
+                typeof value === 'function' ? value() : value,
                 (next) => events.push(['state', next]),
             ],
             useEffect: () => {},
@@ -45,6 +45,11 @@ function loadHook(filename, hookName, events) {
         },
         './map/follow-camera-padding': { getFollowCameraPadding: () => ({}) },
         './map/follow-zoom-update': { getFollowZoomUpdate },
+        './map/maneuver-follow-zoom': {
+            createManeuverFollowZoomController: () => ({
+                update: ({ speedZoom }) => speedZoom,
+            }),
+        },
     };
     const exports = {};
     new Function('require', 'exports', code)((name) => {
