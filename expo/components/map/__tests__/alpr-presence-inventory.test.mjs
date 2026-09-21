@@ -195,6 +195,7 @@ test('map marker updates preserve canonical identity and tags without duplicatin
     assert.equal(inventory.getContext().retainedNodeCount, 1);
     const next = {
         ...marker,
+        properties: { ...marker.properties, osm_version: 8 },
         location: [camera.coordinate[0], camera.coordinate[1] + 0.0001],
     };
     map = {
@@ -208,6 +209,7 @@ test('map marker updates preserve canonical identity and tags without duplicatin
     const context = inventory.getContext();
     assert.equal(context.nodes.length, 1);
     assert.equal(context.nodes[0].latitude, next.location[1]);
+    assert.equal(context.nodes[0].osm_version, 8);
     assert.equal(context.retainedNodeCount, 0);
     assert.equal(context.nodes[0].tags['surveillance:type'], 'ALPR');
 });
@@ -289,4 +291,76 @@ test('the API client propagates verified coverage radius and preserves unknown o
             .coverageRadiusMeters,
         null,
     );
+});
+
+test('map camera versions survive retention and reach confirmation submissions on both platforms', async () => {
+    for (const platform of ['android_auto', 'carplay']) {
+        const location = locationAt(0, 100000);
+        let map = {
+            ...mapInventory(location, 100000),
+            markerPoints: [
+                {
+                    ...marker,
+                    properties: { ...marker.properties, osm_version: 7 },
+                },
+            ],
+        };
+        const inventory = createPresenceInventory({
+            now: () => 100000,
+            getLocation: () => location,
+            getMapInventory: () => map,
+        });
+        assert.equal(inventory.getContext().nodes[0].osm_version, 7);
+        map = { ...map, markerPoints: [] };
+        const node = inventory.getContext().nodes[0];
+        assert.equal(node.osm_version, 7);
+        const sent = [];
+        const coordinator = createPresenceCoordinator({
+            now: () => 100000,
+            load: async () => null,
+            save: async () => {},
+            randomId: () => 'a'.repeat(32),
+            send: async (payload) => {
+                sent.push(payload);
+            },
+        });
+        const reservation = await coordinator.reserve({
+            osmNodeId: node.osm_id,
+            node,
+            passedAt: 96000,
+        });
+        assert.ok(reservation);
+        await coordinator.presented(reservation);
+        await coordinator.reportMissing(reservation, platform);
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(sent.length, 1);
+        assert.equal(sent[0].observed.version, 7);
+        assert.equal(sent[0].osm_node_id, camera.osmId);
+        assert.equal(sent[0].platform, platform);
+        inventory.dispose();
+    }
+});
+
+test('older markers and invalid OSM versions remain unknown without rejecting the camera', () => {
+    for (const version of [undefined, null, 0, -1, 1.5, true, 'unknown']) {
+        const inventory = createPresenceInventory({
+            getLocation: () => locationAt(0, 100000),
+            getMapInventory: () => ({
+                ...mapInventory(locationAt(0, 100000), 100000),
+                markerPoints: [
+                    {
+                        ...marker,
+                        properties: {
+                            ...marker.properties,
+                            osm_version: version,
+                        },
+                    },
+                ],
+            }),
+        });
+        const node = inventory.getContext().nodes[0];
+        assert.equal(node.osm_id, camera.osmId);
+        assert.equal(node.osm_version, null);
+        inventory.dispose();
+    }
 });

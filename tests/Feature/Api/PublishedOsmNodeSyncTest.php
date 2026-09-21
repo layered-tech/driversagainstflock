@@ -1,8 +1,10 @@
 <?php
 
 use App\Models\OsmNode;
+use App\Repositories\MapRepository;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use MatanYadaev\EloquentSpatial\Objects\Point;
 
 const PUBLISHED_OSM_CHANGESET_ID = 171224908;
 const PUBLISHED_OSM_NODE_ONE = 12100881;
@@ -89,6 +91,8 @@ it('returns canonical published node points without writing the reader source', 
 
     expect(OsmNode::query()->exists())->toBeFalse()
         ->and($pointsByOsmId)->toHaveCount(2)
+        ->and($pointsByOsmId[PUBLISHED_OSM_NODE_ONE]['properties']['osm_version'])->toBe(1)
+        ->and($pointsByOsmId[PUBLISHED_OSM_NODE_TWO]['properties']['osm_version'])->toBe(3)
         ->and($pointsByOsmId[PUBLISHED_OSM_NODE_ONE]['location'])->toBe([
             -122.4074189,
             37.7832121,
@@ -240,4 +244,19 @@ it('returns a bad gateway response when OpenStreetMap cannot load the published 
     ])->assertStatus(502);
 
     expect(OsmNode::query()->exists())->toBeFalse();
+});
+
+it('preserves the source version in queried and streamed map markers', function () {
+    $node = OsmNode::create([
+        'osm_id' => PUBLISHED_OSM_NODE_ONE, 'osm_version' => 7,
+        'latitude' => 37.78, 'longitude' => -122.40,
+        'location' => new Point(37.78, -122.40, 4326),
+        'tags' => ['surveillance:type' => 'ALPR'],
+    ]);
+    $repository = app(MapRepository::class);
+    $points = $repository->getPoints(-123, 37, -122, 38)['points'];
+    expect($points)->toHaveCount(1)
+        ->and($points[0]['properties']['osm_id'])->toBe($node->osm_id)
+        ->and($points[0]['properties']['osm_version'])->toBe(7)
+        ->and(collect($repository->lazyMarkerFilePoints())->first()['properties']['osm_version'])->toBe(7);
 });

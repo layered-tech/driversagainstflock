@@ -9,6 +9,7 @@ uses(TestCase::class);
 test('it surfaces OSM node tags without deriving ALPR rendering decisions', function () {
     $node = new OsmNode([
         'osm_id' => 9000,
+        'osm_version' => 7,
         'latitude' => 43.1,
         'longitude' => -88.2,
         'direction' => '180',
@@ -21,7 +22,8 @@ test('it surfaces OSM node tags without deriving ALPR rendering decisions', func
 
     $transformed = (new MapRepository)->transformOsmNode($node);
 
-    expect($transformed['properties']['osm_nodes'])->toHaveCount(1)
+    expect($transformed['properties']['osm_version'])->toBe(7)
+        ->and($transformed['properties']['osm_nodes'])->toHaveCount(1)
         ->and($transformed['properties']['osm_nodes'][0]['node_id'])->toBe(9000)
         ->and($transformed['properties']['osm_nodes'][0]['tags']['brand:wikidata'])->toBe('Q108485435')
         ->and($transformed['properties']['osm_nodes'][0]['tags']['manufacturer:wikidata'])->toBe('Q108485435')
@@ -46,7 +48,8 @@ test('it preserves semicolon-delimited OSM node directions', function () {
 
     $transformed = (new MapRepository)->transformOsmNode($node);
 
-    expect($transformed['properties']['direction'])->toBe('90;270')
+    expect($transformed['properties']['osm_version'])->toBeNull()
+        ->and($transformed['properties']['direction'])->toBe('90;270')
         ->and($transformed['properties']['bearing'])->toBeNull()
         ->and($transformed['properties']['heading'])->toBeNull();
 });

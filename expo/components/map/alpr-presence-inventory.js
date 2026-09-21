@@ -12,6 +12,7 @@ function cameraNode(marker) {
     const tags = properties?.osm_nodes?.[0]?.tags ?? {};
     const coordinate = marker?.location ?? marker?.geometry?.coordinates;
     const id = Number(properties?.osm_id);
+    const version = properties?.osm_version;
     if (
         !Number.isSafeInteger(id) ||
         id <= 0 ||
@@ -24,6 +25,8 @@ function cameraNode(marker) {
         return null;
     return {
         osm_id: id,
+        osm_version:
+            Number.isSafeInteger(version) && version > 0 ? version : null,
         longitude: coordinate[0],
         latitude: coordinate[1],
         tags,

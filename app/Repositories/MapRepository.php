@@ -40,6 +40,7 @@ class MapRepository
             'properties' => [
                 'id' => 'osm-node-'.$node->id,
                 'osm_id' => $node->osm_id,
+                'osm_version' => $node->osm_version,
                 'bearing' => $heading,
                 'direction' => $direction,
                 'icon' => 'falcon-sr',
@@ -89,6 +90,7 @@ class MapRepository
             ->select([
                 'id',
                 'osm_id',
+                'osm_version',
                 'latitude',
                 'longitude',
                 'direction',
