@@ -117,10 +117,14 @@ class ModerationReader
             return $query->whereRaw('false');
         }
 
-        return $query->whereRaw(
-            'EXISTS (SELECT 1 FROM jsonb_array_elements(?::jsonb) AS areas(geometry) WHERE ST_Covers(ST_SetSRID(ST_GeomFromGeoJSON(areas.geometry),4326), ST_SetSRID(ST_MakePoint(source.longitude,source.latitude),4326)))',
-            [json_encode($geometries, JSON_THROW_ON_ERROR)],
-        );
+        return $query->where(function (Builder $query) use ($geometries): void {
+            foreach ($geometries as $geometry) {
+                $query->orWhereRaw(
+                    'ST_Covers(ST_SetSRID(ST_GeomFromGeoJSON(?),4326), ST_SetSRID(ST_MakePoint(source.longitude,source.latitude),4326))',
+                    [json_encode($geometry, JSON_THROW_ON_ERROR)],
+                );
+            }
+        });
     }
 
     /**

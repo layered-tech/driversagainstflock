@@ -1,5 +1,6 @@
 <script setup>
 import NodeListing from '@/Components/Moderation/NodeListing.vue';
+import { computed } from 'vue';
 import {
     moderationListingProps,
     useModerationListing,
@@ -7,10 +8,9 @@ import {
 
 const props = defineProps(moderationListingProps);
 const listing = useModerationListing(props, 'flagged');
-const columns = [
+const columns = computed(() => [
     ['id', 'Node'],
-    [null, 'Source'],
-    [null, 'Severity'],
+    [null, 'What happened'],
     [null, 'Changeset'],
     ['direction', 'Direction'],
     ['operator', 'Operator'],
@@ -26,6 +26,6 @@ const columns = [
     ],
     [null, 'Actions'],
     [null, ''],
-];
+]);
 </script>
 <template><NodeListing :columns="columns" :listing="listing" /></template>

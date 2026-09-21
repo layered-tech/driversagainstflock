@@ -194,7 +194,9 @@ export function useModerationListing(props, view) {
                 url ||
                     (view === 'areas'
                         ? route('moderation.areas.show', row.id)
-                        : route('moderation.changesets.show', row.id)),
+                        : isNodes.value
+                          ? route('moderation.nodes.show', row.id)
+                          : route('moderation.changesets.show', row.id)),
                 {
                     headers: { Accept: 'application/json' },
                     signal: request.signal,
@@ -219,7 +221,7 @@ export function useModerationListing(props, view) {
         expanded.value = expanded.value === key ? null : key;
         if (
             expanded.value &&
-            (isChangesets.value || view === 'areas') &&
+            (isChangesets.value || isNodes.value || view === 'areas') &&
             !details[key]
         )
             loadDetails(row);

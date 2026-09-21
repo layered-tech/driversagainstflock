@@ -1,5 +1,6 @@
 <script setup>
 import FlagLabel from '@/Components/Moderation/FlagLabel.vue';
+import FlagDetails from '@/Components/Moderation/FlagDetails.vue';
 import { useModerationTime } from '@/useModerationTime';
 import ModerationMap from '@/Components/Moderation/ModerationMap.vue';
 import NodeLink from '@/Components/Moderation/NodeLink.vue';
@@ -224,111 +225,6 @@ const dismissFlag = (flag) =>
                 try again shortly.
             </div>
 
-            <section
-                v-if="reports.data.length"
-                aria-label="Not there reports"
-                class="mt-5 rounded-dafMd border border-daf-border bg-daf-surface-card p-4"
-            >
-                <h2 class="mod-subheading">Not there reports</h2>
-                <p class="mt-2 text-sm">
-                    Unverified user report. These observations do not establish
-                    that a camera is missing or reflect on its OSM editor.
-                </p>
-                <p
-                    v-if="node.current_unavailable || node.visible === false"
-                    class="mt-2 text-sm"
-                >
-                    Current node deleted or unavailable. Historical observations
-                    are retained.
-                </p>
-                <ol class="mt-4 space-y-4">
-                    <li
-                        v-for="report in reports.data"
-                        :key="report.id"
-                        class="border-b border-daf-border pb-3 text-sm"
-                    >
-                        <strong
-                            >{{
-                                report.platform === 'android_auto'
-                                    ? 'Android Auto'
-                                    : 'CarPlay'
-                            }}
-                            · Not there</strong
-                        >
-                        <div>
-                            Passed: {{ absoluteTime(report.passed_at) }} ·
-                            Occurred: {{ absoluteTime(report.occurred_at) }} ·
-                            Submitted: {{ absoluteTime(report.submitted_at) }} ·
-                            Received: {{ absoluteTime(report.received_at) }}
-                        </div>
-                        <div>
-                            Reporter:
-                            {{
-                                report.user_id
-                                    ? 'Authenticated account #' + report.user_id
-                                    : 'Unverified app identity'
-                            }}
-                        </div>
-                        <div>
-                            Client-observed version:
-                            {{ report.observed?.version ?? 'Unknown' }} ·
-                            Location:
-                            {{ report.observed?.latitude ?? 'Unknown' }},
-                            {{ report.observed?.longitude ?? 'Unknown' }}
-                        </div>
-                        <div v-if="report.observed?.street">
-                            Client-observed street: {{ report.observed.street }}
-                        </div>
-                        <div>
-                            Server node snapshot: v{{
-                                report.server_node_version
-                            }}
-                            · {{ report.server_latitude ?? 'Unknown' }},
-                            {{ report.server_longitude ?? 'Unknown' }}
-                        </div>
-                    </li>
-                </ol>
-                <nav aria-label="Report history pages" class="mt-3 flex gap-4">
-                    <Link
-                        v-if="reports.prev_page_url"
-                        :href="reports.prev_page_url"
-                        class="mod-link"
-                        >Previous reports</Link
-                    >
-                    <Link
-                        v-if="reports.next_page_url"
-                        :href="reports.next_page_url"
-                        class="mod-link"
-                        >More reports</Link
-                    >
-                </nav>
-                <h3 class="mod-label mt-4">Review history</h3>
-                <p v-if="!reportReviews.data.length" class="text-sm">
-                    No reviews recorded.
-                </p>
-                <p
-                    v-for="review in reportReviews.data"
-                    :key="review.id"
-                    class="text-sm"
-                >
-                    {{ review.actor }} dismissed this driver-report flag ·
-                    {{ absoluteTime(review.created_at) }}
-                </p>
-                <nav aria-label="Review history pages" class="mt-3 flex gap-4">
-                    <Link
-                        v-if="reportReviews.prev_page_url"
-                        :href="reportReviews.prev_page_url"
-                        class="mod-link"
-                        >Previous reviews</Link
-                    >
-                    <Link
-                        v-if="reportReviews.next_page_url"
-                        :href="reportReviews.next_page_url"
-                        class="mod-link"
-                        >More reviews</Link
-                    >
-                </nav>
-            </section>
             <template v-if="source.state !== 'unavailable'">
                 <header class="mt-4 flex flex-wrap items-center gap-3.5">
                     <span
@@ -392,34 +288,7 @@ const dismissFlag = (flag) =>
                             class="mod-button"
                             >Last changeset</Link
                         >
-                        <details v-if="activeFlags.length" class="relative">
-                            <summary class="mod-button cursor-pointer">
-                                Dismiss
-                                {{
-                                    activeFlags.length === 1
-                                        ? 'flag'
-                                        : activeFlags.length + ' flags'
-                                }}
-                            </summary>
-                            <div
-                                class="absolute right-0 z-20 mt-2 w-64 space-y-2 rounded-dafMd border border-daf-border bg-daf-surface-card p-3 shadow-dafFloat"
-                            >
-                                <button
-                                    v-for="flag in activeFlags"
-                                    :key="flag.id"
-                                    class="block w-full text-left text-xs font-semibold text-daf-text-secondary hover:text-[var(--alert-600)]"
-                                    type="button"
-                                    @click="dismissFlag(flag)"
-                                >
-                                    Dismiss
-                                    {{
-                                        flag.source === 'alpr_presence'
-                                            ? 'Driver reported missing'
-                                            : flag.rule?.name
-                                    }}
-                                </button>
-                            </div>
-                        </details>
+
                         <a
                             :href="osmUrl + '/edit?node=' + node.id"
                             class="inline-flex h-9 items-center rounded-dafPill bg-[var(--brand-soft)] px-4 text-xs font-bold text-daf-text-brand hover:bg-[color-mix(in_oklab,var(--brand)_22%,transparent)]"
@@ -840,6 +709,60 @@ const dismissFlag = (flag) =>
                     </aside>
                 </div>
             </template>
+            <section
+                aria-label="Flagged violations"
+                class="moderation-page mt-6 rounded-dafMd border border-daf-border bg-daf-surface-card p-5"
+            >
+                <h2 class="mod-subheading mb-5">Flagged violations</h2>
+                <FlagDetails
+                    :absolute-time="absoluteTime"
+                    :flags="flags"
+                    :node-id="node.id"
+                    :reports="reports"
+                    @dismiss="dismissFlag"
+                />
+                <p
+                    v-if="
+                        reports.data.length &&
+                        (node.current_unavailable || node.visible === false)
+                    "
+                    class="mt-3 text-sm text-daf-text-secondary"
+                >
+                    Current node deleted or unavailable. Historical observations
+                    are retained.
+                </p>
+                <div v-if="reports.data.length || reportReviews.data.length">
+                    <h3 class="mod-label mt-4">Review history</h3>
+                    <p v-if="!reportReviews.data.length" class="text-sm">
+                        No reviews recorded.
+                    </p>
+                    <p
+                        v-for="review in reportReviews.data"
+                        :key="review.id"
+                        class="text-sm"
+                    >
+                        {{ review.actor }} dismissed this driver-report flag ·
+                        {{ absoluteTime(review.created_at) }}
+                    </p>
+                    <nav
+                        aria-label="Review history pages"
+                        class="mt-3 flex gap-4"
+                    >
+                        <Link
+                            v-if="reportReviews.prev_page_url"
+                            :href="reportReviews.prev_page_url"
+                            class="mod-link"
+                            >Previous reviews</Link
+                        >
+                        <Link
+                            v-if="reportReviews.next_page_url"
+                            :href="reportReviews.next_page_url"
+                            class="mod-link"
+                            >More reviews</Link
+                        >
+                    </nav>
+                </div>
+            </section>
         </section>
     </ModerationLayout>
 </template>

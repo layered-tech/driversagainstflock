@@ -575,7 +575,7 @@ test('summary refresh failures keep stale rows visible with an explicit status',
     assert.match(output.body, /Stale mapper/);
 });
 
-test('flagged table renders rule evidence and its own filters while ALPR keeps its columns', async () => {
+test('flagged table summarizes rule evidence while actions live in the expanded row', async () => {
     const row = {
         id: 200,
         osm_uid: 123,
@@ -593,7 +593,7 @@ test('flagged table renders rule evidence and its own filters while ALPR keeps i
                 evidence_hash: 'abc',
                 status: 'open',
                 stale: true,
-                evidence: {},
+                evidence: { missing_tags: ['mount'] },
                 rule: { name: 'Require mount', severity: 'High' },
             },
         ],
@@ -608,7 +608,8 @@ test('flagged table renders rule evidence and its own filters while ALPR keeps i
             records: { ...base.records, data: [row] },
         });
         const header = output.body.match(/<thead>(.*?)<\/thead>/s)[1];
-        assert.equal(header.includes('Severity'), view === 'flagged');
+        assert.equal(header.includes('What happened'), view === 'flagged');
+        assert.ok(!header.includes('Severity'));
         assert.ok(output.body.includes('href="/moderation/flagged"'));
         assert.ok(output.body.includes('aria-label="Remove location Austin"'));
         assert.ok(output.body.includes('placeholder="Search locations…"'));
@@ -625,10 +626,14 @@ test('flagged table renders rule evidence and its own filters while ALPR keeps i
             assert.ok(
                 output.body.includes('/moderation/nodes/show/200?from=flagged'),
             );
-            assert.ok(output.body.includes('Require mount · Stale'));
+            assert.match(output.body, /Require mount/);
+            assert.doesNotMatch(
+                output.body,
+                /Missing tags: mount|1 rule match/,
+            );
             assert.ok(output.body.includes('1 flagged nodes on this page'));
             assert.ok(
-                output.body.includes(
+                !output.body.includes(
                     'aria-label="Dismiss Require mount for node 200"',
                 ),
             );
@@ -724,9 +729,9 @@ test('driver report queues render source, review filters and evidence without a 
             ],
         },
     });
-    assert.match(output.body, /Driver reported missing/);
-    assert.match(output.body, /Unverified user report/);
-    assert.match(output.body, /27 Not there reports/);
+    assert.match(output.body, /Last reported/);
+    assert.doesNotMatch(output.body, /Unverified user report/);
+    assert.match(output.body, /not-there.*?27/s);
     assert.match(output.body, /aria-label="Report review state"/);
     assert.match(output.body, /My Areas/);
     assert.doesNotMatch(
@@ -772,7 +777,6 @@ test('node report history survives unavailable source data and includes independ
     for (const text of [
         'Not there reports',
         'Unverified user report',
-        'Unverified app identity',
         'Client-observed version',
         'Server node snapshot',
         'Maya dismissed',
@@ -780,6 +784,10 @@ test('node report history survives unavailable source data and includes independ
         'More reviews',
     ])
         assert.ok(output.body.includes(text), text);
+    assert.doesNotMatch(
+        output.body,
+        /Reporter|Unverified app identity|Authenticated account/,
+    );
     assert.match(output.body, /flag_source=alpr_presence&amp;area_scope=my/);
 });
 
@@ -811,4 +819,38 @@ test('area report counts link to that area driver-report queue', async () => {
         output.body,
         /href="\/moderation\/flagged\?area=7&amp;flag_source=alpr_presence"/,
     );
+});
+
+test('node profiles keep rule flags visible without offering rule dismissal', async () => {
+    const ruleFlag = {
+        id: 1,
+        source: 'rule',
+        status: 'open',
+        rule_id: 5,
+        rule: { name: 'Require mount', enabled: true, severity: 'High' },
+        evidence: { missing_tags: ['mount'] },
+    };
+    const reportFlag = {
+        id: 2,
+        source: 'alpr_presence',
+        status: 'open',
+        rule: null,
+        evidence: { report_count: 2 },
+    };
+    for (const flags of [[ruleFlag], [ruleFlag, reportFlag]]) {
+        const output = await render('Moderation/Node', {
+            ...base,
+            node: { id: 200, tags: {}, visible: true },
+            versions: [],
+            flags,
+        });
+        assert.match(output.body, /Require mount/);
+        assert.doesNotMatch(output.body, /Dismiss\s+Require mount/);
+        if (flags.length === 1) assert.doesNotMatch(output.body, /Dismiss/);
+        else
+            assert.match(
+                output.body,
+                /aria-label="Dismiss Driver reported missing for node 200"/,
+            );
+    }
 });

@@ -237,7 +237,7 @@ class ModerationController extends Controller
         }
     }
 
-    public function node(int $node, ModerationIndexRequest $request, ModerationReader $reader): Response
+    public function node(int $node, ModerationIndexRequest $request, ModerationReader $reader): Response|JsonResponse
     {
         try {
             $detail = $reader->query()->getConnection()->transaction(
@@ -253,6 +253,10 @@ class ModerationController extends Controller
         $reports = AlprPresenceReport::where('osm_node_id', $node)->orderByDesc('occurred_at')->orderByDesc('id')->paginate(25, ['*'], 'reports_page')->withQueryString();
         $flagIds = ModerationFlag::where('source', 'alpr_presence')->where('node_id', $node)->pluck('id');
         $reportReviews = ModerationActivity::where('subject_type', 'flag')->whereIn('subject_id', $flagIds)->latest('id')->paginate(25, ['*'], 'reviews_page')->withQueryString();
+
+        if ($request->expectsJson()) {
+            return response()->json([...$detail, 'reports' => $reports, 'source' => $source]);
+        }
 
         return Inertia::render('Moderation/Node', [
             'reports' => $reports, 'reportReviews' => $reportReviews,

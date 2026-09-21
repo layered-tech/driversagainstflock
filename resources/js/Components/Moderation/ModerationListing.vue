@@ -598,6 +598,15 @@ const {
                                             v-else
                                             class="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,420px)]"
                                         >
+                                            <div
+                                                v-if="$slots['detail-top']"
+                                                class="min-w-0 xl:col-span-2"
+                                            >
+                                                <slot
+                                                    :row="row"
+                                                    name="detail-top"
+                                                />
+                                            </div>
                                             <div class="min-w-0">
                                                 <slot
                                                     :row="row"

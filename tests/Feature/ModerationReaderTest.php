@@ -13,6 +13,40 @@ uses(CreatesModerationSource::class);
 beforeEach(function (): void {
     $this->createModerationSource();
 });
+
+test('area node coverage avoids a per-node JSON geometry scan', function () {
+    $area = WatchedArea::factory()->create();
+    $this->sourceNode();
+    $query = app(ModerationReader::class)->nodesWithinAreas([$area->id])->select('source.id');
+    $plan = $query->getConnection()->select('EXPLAIN (FORMAT JSON) '.$query->toSql(), $query->getBindings());
+
+    expect(json_encode($plan, JSON_THROW_ON_ERROR))->not->toContain('jsonb_array_elements');
+    expect($query->pluck('source.id')->all())->toBe([200]);
+});
+
+test('area node coverage preserves boundaries overlaps latest locations and selected areas', function () {
+    $area = WatchedArea::factory()->create();
+    $overlap = WatchedArea::factory()->create();
+    $distant = WatchedArea::factory()->create(['geometry' => [
+        'type' => 'Polygon', 'coordinates' => [[[-91, 30], [-89, 30], [-89, 31], [-91, 31], [-91, 30]]],
+    ]]);
+    $this->sourceNode(200);
+    $this->sourceNode(201, attributes: ['longitude' => -98]);
+    $this->sourceNode(202);
+    $this->sourceNode(202, 2, ['longitude' => -90]);
+    $this->sourceNode(203, attributes: ['latitude' => null, 'longitude' => null]);
+    $this->sourceNode(204, attributes: ['visible' => false]);
+    $reader = app(ModerationReader::class);
+    $ids = fn (?array $areas) => $reader->nodesWithinAreas($areas)->where('source.visible', true)->orderBy('source.id')->pluck('source.id')->all();
+
+    expect($ids([$area->id, $overlap->id]))->toBe([200, 201])
+        ->and($ids([$area->id, $distant->id]))->toBe([200, 201, 202])
+        ->and($ids([$distant->id]))->toBe([202])
+        ->and($ids(null))->toBe([200, 201, 202])
+        ->and($ids([]))->toBe([])
+        ->and($ids([999999]))->toBe([]);
+});
+
 test('OSM models use the configured reader connection and published tables', function () {
     config(['osm.reader.connection' => 'source-reader']);
     foreach ([new OsmChangeset, new OsmChangesetComment, new OsmNodeVersion] as $model) {

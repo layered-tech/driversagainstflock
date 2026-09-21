@@ -1,5 +1,6 @@
 <script setup>
-import FlagLabel from '@/Components/Moderation/FlagLabel.vue';
+import FlagDetails from '@/Components/Moderation/FlagDetails.vue';
+import { flagTiming } from '@/moderationFlags';
 import ModerationListing from '@/Components/Moderation/ModerationListing.vue';
 import DafIcon from '@/Components/Daf/DafIcon.vue';
 import NodeLink from '@/Components/Moderation/NodeLink.vue';
@@ -15,12 +16,13 @@ const {
     state,
     expanded,
     dismissingFlag,
+    details,
+    loadDetails,
     query,
     osm,
     rowKey,
     expand,
     dismissFlag,
-    route,
     absoluteTime,
 } = props.listing;
 </script>
@@ -40,80 +42,55 @@ const {
                 >
                     v{{ row.osm_version }}
                 </div>
-                <details v-if="row.flags?.length" class="mt-2 text-xs">
-                    <summary class="cursor-pointer text-[var(--alert-600)]">
-                        {{ row.flags.length }} flags
-                    </summary>
+                <span
+                    v-if="view === 'nodes' && row.flags?.length"
+                    class="mt-2 block text-xs font-normal text-[var(--alert-600)]"
+                >
+                    {{ row.flags.length }}
+                    {{ row.flags.length === 1 ? 'flag' : 'flags' }} · expand for
+                    details
+                </span>
+            </td>
+            <td v-if="view === 'flagged'" class="min-w-[180px]">
+                <div class="divide-y divide-daf-border">
                     <div
                         v-for="flag in row.flags"
                         :key="flag.id"
-                        class="mt-2 max-w-sm space-y-2"
+                        class="flex flex-col items-start gap-1 py-2 first:pt-0 last:pb-0"
                     >
-                        <FlagLabel :flag="flag" class="mod-link" />
-                        <span v-if="flag.rule">
-                            · {{ flag.rule.severity
-                            }}{{ flag.stale ? ' · Stale' : '' }}</span
+                        <span class="mod-chip">
+                            {{
+                                flag.source === 'alpr_presence'
+                                    ? 'not-there'
+                                    : flag.rule?.name || 'Rule unavailable'
+                            }}
+                            <template
+                                v-if="
+                                    flag.source === 'alpr_presence' &&
+                                    flag.evidence?.report_count != null
+                                "
+                            >
+                                · {{ flag.evidence.report_count }}</template
+                            >
+                        </span>
+                        <span
+                            v-if="flagTiming(flag).at"
+                            class="text-[11px] text-daf-text-tertiary"
                         >
-                        <div v-if="flag.source === 'alpr_presence'">
-                            Unverified user report ·
-                            {{ flag.evidence.report_count }} Not there reports
-                            <div>
-                                First occurrence:
-                                {{
-                                    absoluteTime(flag.evidence.first_report_at)
-                                }}
-                            </div>
-                            <div>
-                                Latest occurrence:
-                                {{
-                                    absoluteTime(flag.evidence.latest_report_at)
-                                }}
-                            </div>
-                        </div>
-                        <pre class="whitespace-pre-wrap break-all">{{
-                            JSON.stringify(flag.evidence, null, 2)
-                        }}</pre>
-                        <button
-                            v-if="view === 'nodes'"
-                            :disabled="dismissingFlag !== null"
-                            class="mod-link"
-                            @click="dismissFlag(flag)"
-                        >
-                            Dismiss flag
-                        </button>
+                            {{
+                                flag.source === 'alpr_presence'
+                                    ? 'Last reported'
+                                    : 'Last checked'
+                            }}
+                            ·
+                            <time
+                                :datetime="flagTiming(flag).at"
+                                :title="absoluteTime(flagTiming(flag).at)"
+                                >{{ relativeTime(flagTiming(flag).at) }}</time
+                            >
+                        </span>
                     </div>
-                </details>
-            </td>
-            <td v-if="view === 'flagged'">
-                <div class="flex min-w-[150px] flex-wrap gap-1">
-                    <FlagLabel
-                        v-for="flag in row.flags"
-                        :key="flag.id"
-                        :flag="flag"
-                        class="rounded-dafXs border border-daf-border px-[7px] py-0.5 text-[11px] font-semibold text-daf-text-secondary"
-                    />
                 </div>
-            </td>
-            <td v-if="view === 'flagged'">
-                <span
-                    v-for="severity in [
-                        ...new Set(
-                            (row.flags || [])
-                                .map((flag) => flag.rule?.severity)
-                                .filter(Boolean),
-                        ),
-                    ]"
-                    :key="severity"
-                    :class="[
-                        'mod-chip',
-                        severity === 'High'
-                            ? '!border-[var(--alert-500)] bg-[var(--alert-100)] !text-[var(--alert-600)]'
-                            : severity === 'Medium'
-                              ? '!border-[var(--amber-500)] bg-[var(--amber-100)] !text-[var(--amber-600)]'
-                              : 'bg-daf-surface-alt',
-                    ]"
-                    >{{ severity }}</span
-                >
             </td>
             <td>
                 <Link
@@ -176,24 +153,6 @@ const {
             </td>
             <td>
                 <div class="flex flex-wrap items-center gap-3">
-                    <template v-if="view === 'flagged'">
-                        <button
-                            v-for="flag in (row.flags || []).filter(
-                                (flag) => flag.status === 'open',
-                            )"
-                            :key="flag.id"
-                            :aria-label="`Dismiss ${flag.source === 'alpr_presence' ? 'Driver reported missing' : flag.rule?.name} for node ${row.id}`"
-                            :disabled="dismissingFlag !== null"
-                            class="mod-button !h-[30px] !px-3"
-                            @click="dismissFlag(flag)"
-                        >
-                            {{
-                                row.flags.length === 1
-                                    ? 'Dismiss'
-                                    : `Dismiss ${flag.source === 'alpr_presence' ? 'Driver reported missing' : flag.rule?.name}`
-                            }}
-                        </button>
-                    </template>
                     <a
                         :href="osm(`/edit?editor=id&node=${row.id}`)"
                         class="mod-link"
@@ -207,6 +166,7 @@ const {
                 <button
                     :aria-expanded="expanded === rowKey(row)"
                     :aria-label="`Details for node ${row.id}`"
+                    :aria-controls="`node-details-${row.id}`"
                     class="mod-expand"
                     @click="expand(row)"
                 >
@@ -216,76 +176,97 @@ const {
                         name="chevron-down"
                     />
                 </button></td></template
-        ><template #detail="{ row }"
-            ><h2 class="mod-subheading">
-                <NodeLink
+        ><template #detail-top="{ row }">
+            <section
+                :id="`node-details-${row.id}`"
+                :aria-label="`Flagged violations for node ${row.id}`"
+            >
+                <FlagDetails
+                    :absolute-time="absoluteTime"
+                    :dismissing="dismissingFlag !== null"
+                    :flags="row.flags || []"
                     :node-id="row.id"
-                    class="hover:text-daf-text-brand hover:underline"
-                    >Node {{ row.id }}</NodeLink
-                >
-                · version
-                {{ row.osm_version }}
-            </h2>
-            <div class="my-3 flex gap-4">
-                <a
-                    :href="osm(`/node/${row.id}`)"
-                    class="mod-link"
-                    rel="noopener noreferrer"
-                    target="_blank"
-                    >View on OSM ↗</a
-                ><a
-                    :href="osm(`/node/${row.id}/history`)"
-                    class="mod-link"
-                    rel="noopener noreferrer"
-                    target="_blank"
-                    >History ↗</a
-                ><Link
-                    :href="
-                        query('changesets', {
-                            changeset: row.osm_changeset_id,
-                        })
-                    "
-                    class="mod-link"
-                    >Changeset #{{ row.osm_changeset_id }}</Link
-                >
-            </div>
-            <dl class="mod-details">
-                <dt>Location</dt>
-                <dd>
-                    {{ locationLabel(row) }}
-                </dd>
-                <dt>State</dt>
-                <dd>
-                    {{ row.visible ? 'Visible' : 'Deleted' }}
-                </dd>
-                <dt>Previous editor</dt>
-                <dd>
-                    {{ row.previous?.osm_user || 'No prior version available' }}
-                </dd>
-            </dl>
-            <h3 class="mod-label mt-5">Tags · previous → current</h3>
-            <dl class="mod-details mt-2">
-                <template
-                    v-for="key in [
-                        ...new Set([
-                            ...Object.keys(row.previous?.tags || {}),
-                            ...Object.keys(row.tags),
-                        ]),
-                    ]"
-                    :key="key"
-                    ><dt>{{ key }}</dt>
+                    :reports="details[rowKey(row)]?.reports"
+                    inline
+                    @dismiss="dismissFlag"
+                    @reports-page="loadDetails(row, $event)"
+                />
+            </section> </template
+        ><template #detail="{ row }">
+            <section :aria-label="`Node information for ${row.id}`">
+                <h2 class="mod-subheading">
+                    <NodeLink
+                        :node-id="row.id"
+                        class="hover:text-daf-text-brand hover:underline"
+                        >Node {{ row.id }}</NodeLink
+                    >
+                    · version
+                    {{ row.osm_version }}
+                </h2>
+                <div class="my-3 flex gap-4">
+                    <a
+                        :href="osm(`/node/${row.id}`)"
+                        class="mod-link"
+                        rel="noopener noreferrer"
+                        target="_blank"
+                        >View on OSM ↗</a
+                    ><a
+                        :href="osm(`/node/${row.id}/history`)"
+                        class="mod-link"
+                        rel="noopener noreferrer"
+                        target="_blank"
+                        >History ↗</a
+                    ><Link
+                        :href="
+                            query('changesets', {
+                                changeset: row.osm_changeset_id,
+                            })
+                        "
+                        class="mod-link"
+                        >Changeset #{{ row.osm_changeset_id }}</Link
+                    >
+                </div>
+                <dl class="mod-details">
+                    <dt>Location</dt>
                     <dd>
-                        <span
-                            v-if="
-                                row.previous &&
-                                row.previous.tags[key] !== row.tags[key]
-                            "
-                            class="text-[var(--alert-600)]"
-                            >{{ row.previous.tags[key] || '—' }} → </span
-                        >{{ row.tags[key] || '—' }}
-                    </dd></template
-                >
-            </dl></template
+                        {{ locationLabel(row) }}
+                    </dd>
+                    <dt>State</dt>
+                    <dd>
+                        {{ row.visible ? 'Visible' : 'Deleted' }}
+                    </dd>
+                    <dt>Previous editor</dt>
+                    <dd>
+                        {{
+                            row.previous?.osm_user ||
+                            'No prior version available'
+                        }}
+                    </dd>
+                </dl>
+                <h3 class="mod-label mt-5">Tags · previous → current</h3>
+                <dl class="mod-details mt-2">
+                    <template
+                        v-for="key in [
+                            ...new Set([
+                                ...Object.keys(row.previous?.tags || {}),
+                                ...Object.keys(row.tags || {}),
+                            ]),
+                        ]"
+                        :key="key"
+                        ><dt>{{ key }}</dt>
+                        <dd>
+                            <span
+                                v-if="
+                                    row.previous &&
+                                    row.previous.tags[key] !== row.tags[key]
+                                "
+                                class="text-[var(--alert-600)]"
+                                >{{ row.previous.tags[key] || '—' }} → </span
+                            >{{ row.tags[key] || '—' }}
+                        </dd></template
+                    >
+                </dl>
+            </section></template
         ></ModerationListing
     >
 </template>

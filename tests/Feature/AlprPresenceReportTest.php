@@ -391,3 +391,24 @@ test('newly received offline evidence appears in received-time filters', functio
     $this->get('/moderation/flagged?flag_source=alpr_presence&report_window=24h')
         ->assertInertia(fn ($page) => $page->has('records.data', 1));
 });
+
+test('expanded node details return individual reports with pagination and no private identity keys', function () {
+    WatchedArea::factory()->create();
+    for ($index = 0; $index < 26; $index++) {
+        app(AlprPresenceReports::class)->accept([...$this->payload, 'event_key' => 'details-report-'.$index]);
+    }
+    $this->moderator();
+    $response = $this->getJson('/moderation/nodes/987654321');
+    $response->assertOk()->assertJsonPath('reports.total', 26)->assertJsonCount(25, 'reports.data')
+        ->assertJsonPath('reports.data.0.response', 'not_there')
+        ->assertJsonPath('flags.0.evidence.report_count', 26)
+        ->assertJsonMissingPath('reports.data.0.reporter_key')
+        ->assertJsonMissingPath('reports.data.0.event_key')
+        ->assertJsonMissingPath('reports.data.0.payload_hash');
+    $this->getJson($response->json('reports.next_page_url'))->assertOk()->assertJsonCount(1, 'reports.data');
+});
+
+test('individual report details require moderator access', function () {
+    $this->getJson('/moderation/nodes/987654321')->assertUnauthorized();
+    $this->actingAs(User::factory()->create())->getJson('/moderation/nodes/987654321')->assertForbidden();
+});
