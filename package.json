@@ -15,7 +15,7 @@
         "build:android:staging-apk": "cd expo && APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- ./scripts/eas-local-build.sh -p android --profile staging-apk --no-wait",
         "build:android:production": "cd expo && APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p android --profile production --non-interactive --no-wait",
         "build:android:production-apk": "cd expo && APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p android --profile production-apk --non-interactive --no-wait",
-        "build:ios:staging": "cd expo && APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- ./scripts/eas-local-build.sh -p ios --profile production --no-wait --non-interactive",
+        "build:ios:staging": "cd expo && APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- ./scripts/eas-local-build.sh -p ios --profile staging-ios --no-wait --non-interactive",
         "build:ios:production": "cd expo && APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p ios --profile production --no-wait --non-interactive",
         "android:no-bundler": "cd expo && EXPO_OFFLINE=${EXPO_OFFLINE:-1} npx expo run:android --no-bundler --device",
         "android:auto": "cd expo && adb forward tcp:5277 tcp:5277 && \"$ANDROID_HOME/extras/google/auto/desktop-head-unit\" -c ./config/android-auto-dhu.ini",

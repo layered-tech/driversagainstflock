@@ -38,6 +38,10 @@
                 "buildType": "app-bundle"
             }
         },
+        "staging-ios": {
+            "extends": "staging",
+            "distribution": "store"
+        },
         "staging-apk": {
             "extends": "staging",
             "android": {
