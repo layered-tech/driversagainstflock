@@ -481,6 +481,7 @@ test('failed hydration and writes suppress prompting and refused alerts do not c
 });
 
 function promptHarness({
+    platform = 'android_auto',
     refuse = false,
     cameraDelay = false,
     cameraFailure = false,
@@ -507,6 +508,7 @@ function promptHarness({
             location: location(-97.0004, 100000),
         };
     const shown = [],
+        dismissed = [],
         frames = [],
         restores = [],
         highlights = [],
@@ -541,7 +543,7 @@ function promptHarness({
         coordinator,
         getContext: () => context,
         now: () => time,
-        platform: 'android_auto',
+        platform,
         trace: (event, details) => {
             if (traceFailure && event.startsWith('confirmation-closed:'))
                 throw new Error('debug unavailable');
@@ -552,7 +554,7 @@ function promptHarness({
                 shown.push(config);
                 if (!refuse) void config.onWillShow();
             },
-            dismissAlert: () => {},
+            dismissAlert: (id) => dismissed.push(id),
         },
         camera: {
             focus: async (frame, shouldApply) => {
@@ -601,6 +603,7 @@ function promptHarness({
         prompt,
         coordinator,
         shown,
+        dismissed,
         frames,
         restores,
         highlights,
@@ -613,6 +616,68 @@ function promptHarness({
         releaseReservation: () => releaseReservation?.(),
     };
 }
+
+for (const platform of ['android_auto', 'carplay']) {
+    test(`${platform} thanks a Not there report after native dismissal and Ok closes only the follow-up`, async () => {
+        const h = promptHarness({ platform });
+        await h.start();
+        const original = h.shown[0];
+        original.secondaryAction.onPress();
+        original.secondaryAction.onPress();
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(h.prompt.ownsCamera, false);
+        assert.equal(h.restores.at(-1), false);
+        assert.equal(h.sent.length, 1);
+        assert.equal(h.shown.length, 1);
+        original.onDidDismiss('user');
+        assert.equal(
+            h.shown.length,
+            1,
+            'wait until the native dismissal callback returns',
+        );
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(h.shown.length, 2);
+        const thanks = h.shown[1];
+        assert.equal(thanks.title.text, 'Thanks!');
+        assert.equal(thanks.primaryAction.title, 'Ok');
+        assert.equal(thanks.secondaryAction, undefined);
+        assert.notEqual(thanks.id, original.id);
+        assert.equal(h.frames.length, 1);
+        thanks.primaryAction.onPress();
+        assert.equal(h.dismissed.at(-1), thanks.id);
+        assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
+    });
+}
+
+test('late report completion cannot show Thanks after the car disconnects', async () => {
+    const h = promptHarness();
+    await h.start();
+    let finish;
+    h.coordinator.reportMissing = () =>
+        new Promise((resolve) => {
+            finish = resolve;
+        });
+    h.shown[0].secondaryAction.onPress();
+    h.shown[0].onDidDismiss('user');
+    await h.step(-96.9994, 108000, { connected: false });
+    finish(true);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.shown.length, 1);
+    assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
+});
+
+test('failed report persistence does not show a success acknowledgement', async () => {
+    const h = promptHarness();
+    await h.start();
+    h.coordinator.reportMissing = async () => {
+        throw new Error('storage unavailable');
+    };
+    h.shown[0].secondaryAction.onPress();
+    h.shown[0].onDidDismiss('user');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.shown.length, 1);
+    assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
+});
 test('approach tracking stays ownerless and async presentation setup owns suppression', async () => {
     const h = promptHarness({ reservationDelay: true });
     await h.step(-97.0004, 100000);
@@ -737,8 +802,31 @@ test('dismissal is not a positive vote, explicit negative closes independently a
         assert.equal(h.prompt.ownsCamera, false);
         assert.equal(h.sent.length, action === 'secondaryAction' ? 1 : 0);
         assert.equal(h.coordinator.state.drive.count, 1);
+        if (action === 'secondaryAction') {
+            h.shown[0].onDidDismiss('user');
+            await new Promise((resolve) => setImmediate(resolve));
+            h.shown[1].primaryAction.onPress();
+        } else {
+            assert.equal(h.shown.length, 1);
+        }
         assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
     }
+});
+
+test('the Thanks watchdog releases suppression and late original callbacks cannot show it again', async () => {
+    const h = promptHarness();
+    await h.start();
+    h.shown[0].secondaryAction.onPress();
+    h.shown[0].onDidDismiss('user');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.shown.length, 2);
+    const thanks = h.shown[1];
+    await h.step(-96.9994, 112000);
+    assert.equal(h.dismissed.at(-1), thanks.id);
+    assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
+    h.shown[0].onDidDismiss('user');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.shown.length, 2);
 });
 test('navigation demands, viewport changes, lost certainty and disconnect permanently preempt', async () => {
     for (const change of [

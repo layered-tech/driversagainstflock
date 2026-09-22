@@ -1,5 +1,6 @@
 import * as Location from 'expo-location';
 import { Platform } from 'react-native';
+import { instrumentClusterEnabled } from '../car-display-config';
 import { createAutoPlayArrivalDetector } from './auto-play-arrival-state';
 import { getAutoPlayCompassNeedleImage } from './auto-play-compass-images';
 import {
@@ -2644,6 +2645,7 @@ function syncAutoPlayNavigationFromSharedRoutingState(
 ) {
     if (!rootMapTemplate) {
         const clusterIsConnected =
+            instrumentClusterEnabled &&
             Platform.OS === 'android' &&
             loadAutoPlayModule().AutoPlayCluster.hasConnectedSessions?.();
 
@@ -3864,7 +3866,9 @@ function clearAutoPlayNavigationRuntime() {
 function handleAutoPlayDisconnect() {
     const { AutoPlayCluster } = loadAutoPlayModule();
     const clusterIsConnected =
-        Platform.OS === 'android' && AutoPlayCluster.hasConnectedSessions?.();
+        instrumentClusterEnabled &&
+        Platform.OS === 'android' &&
+        AutoPlayCluster.hasConnectedSessions?.();
 
     autoPlayConnectionGeneration += 1;
     releaseAutoPlayConnectionRoadMatchingSession();
@@ -3901,6 +3905,7 @@ function handleAutoPlayDisconnect() {
 }
 
 function handleAutoPlayClusterConnectionStateChanged(isConnected) {
+    if (!instrumentClusterEnabled) return;
     const clusterConnectionGeneration = ++autoPlayClusterConnectionGeneration;
     const { AutoPlayCluster } = loadAutoPlayModule();
 
@@ -3967,10 +3972,12 @@ export default function registerAutoPlay() {
     sharedRoutingStateUnsubscribe = addSharedRoutingStateListener(
         syncAutoPlayNavigationFromSharedRoutingState,
     );
-    AutoPlayCluster.setComponent(
-        autoPlayPlatform.ClusterSurface ?? autoPlayPlatform.MapSurface,
-    ).catch(() => {});
-    if (Platform.OS === 'android') {
+    if (instrumentClusterEnabled) {
+        AutoPlayCluster.setComponent(
+            autoPlayPlatform.ClusterSurface ?? autoPlayPlatform.MapSurface,
+        ).catch(() => {});
+    }
+    if (instrumentClusterEnabled && Platform.OS === 'android') {
         AutoPlayCluster.setNavigationCallbacks?.({
             onAutoDriveEnabled: handleAutoDriveEnabled,
             onStopNavigation: () => {

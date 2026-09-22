@@ -1,4 +1,5 @@
 const { createRequire } = require('module');
+const { instrumentClusterEnabled } = require('../car-display-config');
 
 function requireConfigPlugins() {
     try {
@@ -14,6 +15,10 @@ const PLUGIN_NAME = 'with-android-auto';
 const ANDROID_NAME = 'android:name';
 const NAVIGATE_ACTION = 'androidx.car.app.action.NAVIGATE';
 const VIEW_ACTION = 'android.intent.action.VIEW';
+const CAR_SERVICE =
+    'com.margelo.nitro.swe.iternio.reactnativeautoplay.AndroidAutoService';
+const CAR_SERVICE_ACTION = 'androidx.car.app.CarAppService';
+const CLUSTER_CATEGORY = 'androidx.car.app.category.FEATURE_CLUSTER';
 
 function getElementNames(elements) {
     return (Array.isArray(elements) ? elements : [])
@@ -75,8 +80,7 @@ function ensureMainActivityGeoIntentFilter(activity, actionName) {
 
 function removeMainActivityGeoIntentFilter(activity, actionName) {
     activity['intent-filter'] = (activity['intent-filter'] ?? []).filter(
-        (intentFilter) =>
-            !isGeoIntentFilterForAction(intentFilter, actionName),
+        (intentFilter) => !isGeoIntentFilterForAction(intentFilter, actionName),
     );
 }
 
@@ -95,6 +99,57 @@ function applyAndroidAutoManifest(androidManifest) {
 
     removeMainActivityGeoIntentFilter(mainActivity, NAVIGATE_ACTION);
     ensureMainActivityGeoIntentFilter(mainActivity, VIEW_ACTION);
+
+    if (!instrumentClusterEnabled) {
+        androidManifest.manifest.$ ??= {};
+        androidManifest.manifest.$['xmlns:tools'] =
+            'http://schemas.android.com/tools';
+        application.service ??= [];
+        let carService = application.service.find(
+            (service) => service.$?.[ANDROID_NAME] === CAR_SERVICE,
+        );
+        if (!carService) {
+            carService = { $: { [ANDROID_NAME]: CAR_SERVICE } };
+            application.service.push(carService);
+        }
+        const filters = (carService['intent-filter'] ?? [])
+            .filter((filter) => filter.$?.['tools:node'] !== 'removeAll')
+            .map((filter) => ({
+                ...filter,
+                ...(filter.category
+                    ? {
+                          category: filter.category.filter(
+                              (category) =>
+                                  category.$?.[ANDROID_NAME] !==
+                                  CLUSTER_CATEGORY,
+                          ),
+                      }
+                    : {}),
+            }));
+        if (
+            !filters.some((filter) =>
+                getIntentFilterActions(filter).includes(CAR_SERVICE_ACTION),
+            )
+        ) {
+            filters.push({
+                action: [{ $: { [ANDROID_NAME]: CAR_SERVICE_ACTION } }],
+                category: [
+                    {
+                        $: {
+                            [ANDROID_NAME]:
+                                'androidx.car.app.category.NAVIGATION',
+                        },
+                    },
+                ],
+            });
+        }
+        // Intent filters do not merge by name. Replace the library's filters
+        // so its FEATURE_CLUSTER declaration cannot survive manifest merging.
+        carService['intent-filter'] = [
+            { $: { 'tools:node': 'removeAll' } },
+            ...filters,
+        ];
+    }
 
     return androidManifest;
 }

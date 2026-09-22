@@ -1,4 +1,5 @@
 const { createRequire } = require("module");
+const { instrumentClusterEnabled } = require("../car-display-config");
 
 function requireConfigPlugins() {
     try {
@@ -53,7 +54,7 @@ const GET_ROOT_VIEW_FOR_AUTOPLAY = `
 // the phone app working once multiple scenes are enabled.
 const SCENE_MANIFEST = {
     CPSupportsDashboardNavigationScene: true,
-    CPSupportsInstrumentClusterNavigationScene: true,
+    CPSupportsInstrumentClusterNavigationScene: instrumentClusterEnabled,
     UIApplicationSupportsMultipleScenes: true,
     UISceneConfigurations: {
         CPTemplateApplicationDashboardSceneSessionRoleApplication: [
@@ -159,10 +160,14 @@ function mergeCarPlaySceneManifest(existingManifest) {
         );
     });
 
+    if (!instrumentClusterEnabled) {
+        delete mergedConfigurations.CPTemplateApplicationInstrumentClusterSceneSessionRoleApplication;
+    }
+
     return {
         ...manifest,
         CPSupportsDashboardNavigationScene: true,
-        CPSupportsInstrumentClusterNavigationScene: true,
+        CPSupportsInstrumentClusterNavigationScene: instrumentClusterEnabled,
         UIApplicationSupportsMultipleScenes: true,
         UISceneConfigurations: mergedConfigurations,
     };
@@ -242,9 +247,10 @@ function withCarPlayAutoPlay(config) {
             );
         }
 
-        appDelegateConfig.modResults.contents = addAutoPlayRootViewToAppDelegate(
-            appDelegateConfig.modResults.contents,
-        );
+        appDelegateConfig.modResults.contents =
+            addAutoPlayRootViewToAppDelegate(
+                appDelegateConfig.modResults.contents,
+            );
 
         return appDelegateConfig;
     });

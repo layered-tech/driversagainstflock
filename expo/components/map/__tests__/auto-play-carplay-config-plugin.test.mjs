@@ -60,7 +60,7 @@ describe('CarPlay Auto Play config plugin', () => {
         assert.equal(mergedManifest.CPSupportsDashboardNavigationScene, true);
         assert.equal(
             mergedManifest.CPSupportsInstrumentClusterNavigationScene,
-            true,
+            false,
         );
         assert.deepEqual(
             mergedManifest.UISceneConfigurations.CustomSceneSessionRole,
@@ -83,6 +83,34 @@ describe('CarPlay Auto Play config plugin', () => {
                 .CPTemplateApplicationSceneSessionRoleApplication[0]
                 .UISceneDelegateClassName,
             'HeadUnitSceneDelegate',
+        );
+    });
+
+    test('removes a previously enabled cluster scene but retains Dashboard and head-unit scenes', () => {
+        const manifest = mergeCarPlaySceneManifest({
+            CPSupportsInstrumentClusterNavigationScene: true,
+            UISceneConfigurations: {
+                CPTemplateApplicationInstrumentClusterSceneSessionRoleApplication:
+                    [{ UISceneDelegateClassName: 'ClusterSceneDelegate' }],
+            },
+        });
+        assert.equal(
+            manifest.CPSupportsInstrumentClusterNavigationScene,
+            false,
+        );
+        assert.equal(
+            manifest.UISceneConfigurations
+                .CPTemplateApplicationInstrumentClusterSceneSessionRoleApplication,
+            undefined,
+        );
+        assert.equal(manifest.CPSupportsDashboardNavigationScene, true);
+        assert.ok(
+            manifest.UISceneConfigurations
+                .CPTemplateApplicationDashboardSceneSessionRoleApplication,
+        );
+        assert.ok(
+            manifest.UISceneConfigurations
+                .CPTemplateApplicationSceneSessionRoleApplication,
         );
     });
 

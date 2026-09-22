@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { describe, test } from 'node:test';
 
@@ -54,6 +55,71 @@ function getActions(component) {
 }
 
 describe('Android Auto config plugin', () => {
+    test('the disabled setting gates component and navigation callback registration on both platforms', () => {
+        const {
+            instrumentClusterEnabled,
+        } = require('../../../car-display-config.js');
+        assert.equal(instrumentClusterEnabled, false);
+        const source = readFileSync(
+            new URL('../../auto-play.js', import.meta.url),
+            'utf8',
+        );
+        const start = source.indexOf(
+            '    if (instrumentClusterEnabled) {',
+            source.indexOf('export default function registerAutoPlay'),
+        );
+        const end = source.indexOf(
+            '    autoPlayPlatform.registerPlatformListeners',
+            start,
+        );
+        assert.ok(start >= 0 && end > start);
+        for (const OS of ['android', 'ios']) {
+            const setup = new Function(
+                'instrumentClusterEnabled',
+                'AutoPlayCluster',
+                'Platform',
+                source.slice(start, end),
+            );
+            const forbidden = () =>
+                assert.fail('cluster registered while disabled');
+            setup(
+                instrumentClusterEnabled,
+                {
+                    setComponent: forbidden,
+                    setNavigationCallbacks: forbidden,
+                    addConnectionStateListener: forbidden,
+                },
+                { OS },
+            );
+        }
+    });
+    test('replaces inherited car filters without advertising an instrument cluster', () => {
+        const manifest = applyAndroidAutoManifest(makeManifest());
+        const service = manifest.manifest.application[0].service.find((entry) =>
+            entry.$[ANDROID_NAME].endsWith('.AndroidAutoService'),
+        );
+        assert.ok(service);
+        assert.equal(
+            manifest.manifest.$['xmlns:tools'],
+            'http://schemas.android.com/tools',
+        );
+        assert.ok(
+            service['intent-filter'].some(
+                (filter) => filter.$?.['tools:node'] === 'removeAll',
+            ),
+        );
+        const carFilter = service['intent-filter'].find((filter) =>
+            filter.action?.some(
+                (action) =>
+                    action.$[ANDROID_NAME] === 'androidx.car.app.CarAppService',
+            ),
+        );
+        assert.deepEqual(
+            carFilter.category.map((category) => category.$[ANDROID_NAME]),
+            ['androidx.car.app.category.NAVIGATION'],
+        );
+        assert.doesNotMatch(JSON.stringify(service), /FEATURE_CLUSTER/);
+    });
     test('keeps phone geo ownership on ACTION_VIEW only', () => {
         const inputManifest = makeManifest();
         inputManifest.manifest.application[0].activity[0]['intent-filter'].push(

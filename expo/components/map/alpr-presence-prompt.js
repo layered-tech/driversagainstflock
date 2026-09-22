@@ -8,6 +8,8 @@ import {
 } from './alpr-presence-policy.js';
 
 let nextAlertId = 1000000;
+const THANKS_ALERT_DURATION_MS = 5000;
+const THANKS_PRESENTATION_TIMEOUT_MS = 10000;
 
 /** Owns one encounter through native presentation, interruption and asynchronous camera release. */
 export function createPresencePrompt({
@@ -25,7 +27,66 @@ export function createPresencePrompt({
     void coordinator.hydrate();
     let candidate = null,
         active = null,
+        followUp = null,
         stopped = false;
+
+    const clearFollowUp = (dismiss = true) => {
+        const previous = followUp;
+        followUp = null;
+        if (!previous) return;
+        if (dismiss && previous.requestedAt !== null) {
+            try {
+                host.dismissAlert(previous.id);
+            } catch {
+                // The host may already have disconnected.
+            }
+        }
+        previous.suppression?.release();
+    };
+    const showFollowUpIfReady = () => {
+        const pending = followUp;
+        if (
+            !pending ||
+            pending.requestedAt !== null ||
+            !pending.reportQueued ||
+            !pending.originalDismissed
+        )
+            return;
+        const context = getContext();
+        if (
+            stopped ||
+            !context.enabled ||
+            !context.connected ||
+            context.blocked ||
+            context.manual
+        ) {
+            clearFollowUp();
+            return;
+        }
+        pending.requestedAt = now();
+        try {
+            host.showAlert({
+                id: pending.id,
+                durationMs: THANKS_ALERT_DURATION_MS,
+                priority: 'low',
+                title: { text: 'Thanks!' },
+                primaryAction: {
+                    title: 'Ok',
+                    onPress: () => {
+                        if (followUp === pending) clearFollowUp();
+                    },
+                },
+                onWillShow: () => {
+                    if (followUp === pending) pending.shownAt = now();
+                },
+                onDidDismiss: () => {
+                    if (followUp === pending) clearFollowUp(false);
+                },
+            });
+        } catch {
+            clearFollowUp();
+        }
+    };
     const clear = (manual = false, reason) => {
         const previous = active;
         if (previous) {
@@ -78,7 +139,8 @@ export function createPresencePrompt({
             }
             if (previous.reservation && !previous.reservation.consumed)
                 void coordinator.refused(previous.reservation).catch(() => {});
-            previous.suppression?.release();
+            if (followUp?.suppression !== previous.suppression)
+                previous.suppression?.release();
         }
     };
     const stillValid = (prompt) => {
@@ -156,11 +218,34 @@ export function createPresencePrompt({
                             !stillValid(prompt)
                         )
                             return;
+                        const acknowledgement = {
+                            id: nextAlertId++,
+                            originalId: prompt.id,
+                            originalDismissed: false,
+                            reportQueued: false,
+                            createdAt: now(),
+                            requestedAt: null,
+                            shownAt: null,
+                            suppression: prompt.suppression,
+                        };
+                        followUp = acknowledgement;
                         clear(false, 'report-missing-action');
                         // Persist/upload independently of banner and camera teardown.
                         void coordinator
                             .reportMissing(prompt.reservation, platform)
-                            .catch(() => {});
+                            .then((queued) => {
+                                if (followUp !== acknowledgement) return;
+                                if (!queued) {
+                                    clearFollowUp();
+                                    return;
+                                }
+                                acknowledgement.reportQueued = true;
+                                showFollowUpIfReady();
+                            })
+                            .catch(() => {
+                                if (followUp === acknowledgement)
+                                    clearFollowUp();
+                            });
                     },
                 },
                 onWillShow: async () => {
@@ -212,6 +297,12 @@ export function createPresencePrompt({
                     }
                 },
                 onDidDismiss: (reason) => {
+                    if (followUp?.originalId === prompt.id) {
+                        followUp.originalDismissed = true;
+                        // CarPlay clears its current-alert reference after this
+                        // callback returns. Present the replacement afterward.
+                        void Promise.resolve().then(showFollowUpIfReady);
+                    }
                     trace(`native-dismissed:${reason}`, {
                         appCloseReason: prompt.closeReason ?? null,
                     });
@@ -273,7 +364,17 @@ export function createPresencePrompt({
                 context.manual
             ) {
                 clear(context.manual, 'context-unavailable');
+                clearFollowUp();
                 detector.reset();
+                return;
+            }
+            if (followUp) {
+                const expired =
+                    followUp.shownAt === null
+                        ? time - followUp.createdAt >=
+                          THANKS_PRESENTATION_TIMEOUT_MS
+                        : time - followUp.shownAt >= THANKS_ALERT_DURATION_MS;
+                if (expired) clearFollowUp();
                 return;
             }
             const encounter = detector.update({ ...context, now: time });
@@ -326,11 +427,13 @@ export function createPresencePrompt({
         },
         interrupt(manual = false) {
             clear(manual, manual ? 'manual-interruption' : 'interruption');
+            clearFollowUp();
             detector.reset();
         },
         stop() {
             stopped = true;
             clear(false, 'tracker-stopped');
+            clearFollowUp();
             detector.reset();
         },
     };
