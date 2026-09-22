@@ -2,7 +2,7 @@
     "name": "Android Auto portrait end-to-end",
     "appId": "com.anonymous.drivefree.dev",
     "serviceComponent": "com.anonymous.drivefree.dev/com.margelo.nitro.swe.iternio.reactnativeautoplay.AndroidAutoService",
-    "dhuConfig": "config/android-auto-dhu-portrait.ini",
+    "dhuConfig": "config/android-auto-dhu-portrait-2.1.ini",
     "requiredMetroMarkers": ["[Auto Play] secondary-map-surface-mounted"],
     "display": {
         "width": 1920,

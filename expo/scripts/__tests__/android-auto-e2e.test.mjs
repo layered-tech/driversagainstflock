@@ -22,6 +22,43 @@ import {
 } from '../android-auto-e2e.mjs';
 
 describe('Android Auto E2E helpers', () => {
+    test('separates basic and map cluster configurations by DHU version', () => {
+        const readConfig = (name) =>
+            readFileSync(
+                new URL(`../../config/${name}`, import.meta.url),
+                'utf8',
+            );
+        const basic = readConfig('android-auto-dhu-portrait.ini');
+        const maps = readConfig('android-auto-dhu-portrait-2.1.ini');
+
+        assert.match(basic, /instrumentcluster = true/);
+        assert.doesNotMatch(basic, /\[display:/);
+        assert.match(maps, /\[display:cluster\]\ndisplaytype = cluster/);
+        assert.match(
+            maps,
+            /resolution = 1280x720\ndpi = 160\nmarginheight = 220\ncropmargins = true/,
+        );
+        for (const config of [basic, maps]) {
+            assert.match(
+                config,
+                /resolution = 1920x1080\ndpi = 160\nmarginwidth = 878\nnormalizedpi = true\ncropmargins = true/,
+            );
+        }
+        for (const path of ['../../package.json', '../../../package.json']) {
+            const { scripts } = JSON.parse(
+                readFileSync(new URL(path, import.meta.url), 'utf8'),
+            );
+            assert.match(
+                scripts['android:auto:portrait'],
+                /android-auto\.sh 2\.0 portrait$/,
+            );
+            assert.match(
+                scripts['android:auto:portrait:2.1'],
+                /android-auto\.sh 2\.1 portrait$/,
+            );
+        }
+    });
+
     test('finds semantic Android Auto menu nodes', () => {
         const xml = `
             <node text="" content-desc="More options" bounds="[1224,183][1344,327]" />
@@ -229,7 +266,7 @@ describe('Android Auto E2E helpers', () => {
         ]);
         assert.equal(
             portraitSuite.dhuConfig,
-            'config/android-auto-dhu-portrait.ini',
+            'config/android-auto-dhu-portrait-2.1.ini',
         );
         const portraitMapViewToggleTest = portraitSuite.tests.find(({ name }) =>
             name.includes('3D follow'),
