@@ -298,6 +298,17 @@ public final class MapLocationPuckModule: Module {
       return await self.isLocationPuckCameraFollowActive(on: mapView)
     }
 
+    AsyncFunction("isLocationPuckCameraIdle") {
+      (mapViewTag: Int) async throws -> Bool in
+      let mapView = try await self.resolveMapView(tag: mapViewTag)
+      return await MainActor.run {
+        if case .idle = mapView.viewport.status {
+          return true
+        }
+        return false
+      }
+    }
+
     AsyncFunction("getLocationPuckState") { (mapViewTag: Int) async throws -> [String: Any?] in
       let mapView = try await self.resolveMapView(tag: mapViewTag)
       return try await self.getLocationPuckState(from: mapView)

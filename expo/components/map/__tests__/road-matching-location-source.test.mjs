@@ -96,6 +96,7 @@ function createRoadMatchingSessionHarness({
     getRoadCoordinateDistanceMeters = () => 0,
     getRoadCorridor = async () => [],
     predictRoadLookAhead = () => null,
+    publishSharedRoadMatchedLocation = () => {},
     publishAcceptedDeviceLocation = () => {},
     routingState = {
         directionsRoute: null,
@@ -185,10 +186,14 @@ function createRoadMatchingSessionHarness({
         sourceType: 'module',
     }).code;
     const mockedModules = {
+        './shared-road-matched-location': { publishSharedRoadMatchedLocation },
         './accepted-device-location': {
             publishAcceptedDeviceLocation,
         },
         '../auto-play-session-state': {
+            getAutoPlaySessionState: () => ({
+                isConnected: autoPlaySessionIsConnected,
+            }),
             addAutoPlaySessionStateListener(listener) {
                 autoPlaySessionStateListeners.add(listener);
                 listener({ isConnected: autoPlaySessionIsConnected });
@@ -463,6 +468,39 @@ describe('road matching location source policy', () => {
 });
 
 describe('road matching location source integration', () => {
+    test('a car runtime publishes fixes with no phone or root map subscriber', async () => {
+        const sharedFixes = [];
+        const harness = createRoadMatchingSessionHarness({
+            publishSharedRoadMatchedLocation: (location) =>
+                sharedFixes.push(location),
+        });
+        harness.transitionAutoPlayConnection(true);
+        harness.backgroundTaskStart.resolve();
+        const handle =
+            await harness.roadMatchingSession.retainRoadMatchingSessionAsync({
+                persistent: true,
+            });
+        try {
+            await waitFor(
+                () => harness.foregroundLocationCallbacks.length === 1,
+            );
+            harness.foregroundLocationCallbacks[0](makeLocation(41, -87, 1000));
+            harness.foregroundLocationCallbacks[0](
+                makeLocation(41.001, -87, 2000),
+            );
+            assert.deepEqual(
+                sharedFixes.map((location) => location.timestamp),
+                [1000, 2000],
+            );
+            harness.transitionAutoPlayConnection(false);
+            harness.foregroundLocationCallbacks[0](
+                makeLocation(41.002, -87, 3000),
+            );
+            assert.equal(sharedFixes.length, 2);
+        } finally {
+            handle.remove();
+        }
+    });
     test('matches the latest fix once when several updates await one road graph', async () => {
         const corridor = createDeferred();
         const matchedLocations = [];

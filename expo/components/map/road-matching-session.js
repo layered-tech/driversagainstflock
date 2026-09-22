@@ -5,6 +5,7 @@ import { recordAndroidAutoPerformanceTrace } from '../android-auto-performance-t
 import {
     addAutoPlaySessionStateListener,
     autoPlaySessionOwnsForegroundLocation,
+    getAutoPlaySessionState,
 } from '../auto-play-session-state';
 import { publishAcceptedDeviceLocation } from './accepted-device-location';
 import { getRoadCorridor } from './api';
@@ -33,6 +34,7 @@ import {
     createRoadMatcherWithHistory,
     getRoadMatchingReplayObservations,
 } from './road-matching-history';
+import { publishSharedRoadMatchedLocation } from './shared-road-matched-location';
 import {
     addSharedRoutingStateListener,
     getSharedRoutingState,
@@ -468,6 +470,9 @@ function applyRawLocation(location) {
     );
     const locationListenerStartedAt = Date.now();
 
+    if (getAutoPlaySessionState().isConnected) {
+        publishSharedRoadMatchedLocation(nextLocation);
+    }
     emit(locationListeners, nextLocation);
 
     const locationListenerDurationMs = Date.now() - locationListenerStartedAt;

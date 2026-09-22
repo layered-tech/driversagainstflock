@@ -7,7 +7,7 @@ import {
     useRef,
     useState,
 } from 'react';
-import { Dimensions, View } from 'react-native';
+import { AppState, Dimensions, View } from 'react-native';
 import { getAutoPlayAlertSurfaceVisibility } from './auto-play-alert-surface-visibility';
 import {
     AutoPlayPresenceDebugGeometry,
@@ -1293,6 +1293,7 @@ function useAutoPlayMapController({
         async (event) => {
             presenceInterruptRef.current?.(true);
             const canApply = getCameraUpdateGuard();
+            const gestureGeneration = ++manualMapGestureGenerationRef.current;
             const feature = event?.features?.[0];
 
             if (
@@ -1313,7 +1314,11 @@ function useAutoPlayMapController({
                     await markerShapeSourceRef.current?.getClusterExpansionZoom(
                         feature,
                     );
-                if (!canApply()) return;
+                if (
+                    !canApply() ||
+                    gestureGeneration !== manualMapGestureGenerationRef.current
+                )
+                    return;
 
                 if (!Number.isFinite(expansionZoomLevel)) {
                     return;
@@ -1326,9 +1331,20 @@ function useAutoPlayMapController({
 
                 if (isDrivingMode) {
                     followLocationMode.pauseUntilRecenter();
+                    if (
+                        (await locationPuckCameraFollowReleaseRef.current?.()) !==
+                        true
+                    )
+                        return;
                 } else {
                     setTrackingMode(LOCATION_TRACKING_NONE);
                 }
+
+                if (
+                    !canApply() ||
+                    gestureGeneration !== manualMapGestureGenerationRef.current
+                )
+                    return;
 
                 const cameraStop = {
                     centerCoordinate: coordinate,
@@ -1369,10 +1385,31 @@ function useAutoPlayMapController({
 
         const hasAccess = hasPreciseLocation(permission);
 
+        if (!isMountedRef.current) return false;
         setLocationAccessGranted(hasAccess);
+        if (hasAccess) setLocationError('');
 
         return hasAccess;
-    }, []);
+    }, [setLocationError]);
+
+    const sharedRoadMatchedLocationIsAvailable =
+        isRoadMatchedLocationUpdate(userLocation);
+    useEffect(() => {
+        if (!locationAccessGranted && sharedRoadMatchedLocationIsAvailable) {
+            void refreshLocationPermission();
+        }
+    }, [
+        locationAccessGranted,
+        refreshLocationPermission,
+        sharedRoadMatchedLocationIsAvailable,
+    ]);
+
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', (state) => {
+            if (state === 'active') void refreshLocationPermission();
+        });
+        return () => subscription.remove();
+    }, [refreshLocationPermission]);
 
     const handleLocationRecenterPress = useCallback(async () => {
         presenceInterruptRef.current?.(true);
@@ -2429,11 +2466,11 @@ export function AutoPlayMapSurfaceContent({
         viewportMetrics.key,
     ]);
 
-    // Secondary surfaces do not run their own location watch, so free-drive
-    // speed limits there follow whether the shared location was road matched.
-    const freeDriveIsActive = isRootMapSurface
-        ? controller.roadMatchedLocationWatchEnabled
-        : isRoadMatchedLocationUpdate(mapPreferences.userLocation);
+    // All surfaces consume the shared fix, regardless of which screen owns
+    // the location watch or has already refreshed its permission state.
+    const freeDriveIsActive = isRoadMatchedLocationUpdate(
+        mapPreferences.userLocation,
+    );
 
     return (
         <MapScreenProviders {...autoPlayContextValues}>

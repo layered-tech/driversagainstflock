@@ -33,21 +33,21 @@ function getCameraPaddingValue(padding, key) {
 export function isLocationPuck3DSupported() {
     return Boolean(
         mapLocationPuckModule?.applyLocationPuck3D &&
-            mapLocationPuckModule?.clearLocationPuck3D,
+        mapLocationPuckModule?.clearLocationPuck3D,
     );
 }
 
 export function isLocationPuckCameraFollowSupported() {
     return Boolean(
         mapLocationPuckModule?.setLocationPuckCameraFollow &&
-            mapLocationPuckModule?.isLocationPuckCameraFollowActive,
+        mapLocationPuckModule?.isLocationPuckCameraFollowActive,
     );
 }
 
 export function isLocationPuckLocationProviderSupported() {
     return Boolean(
         mapLocationPuckModule?.setLocationPuckLocation &&
-            mapLocationPuckModule?.clearLocationPuckLocationProvider,
+        mapLocationPuckModule?.clearLocationPuckLocationProvider,
     );
 }
 
@@ -114,6 +114,19 @@ export async function isLocationPuckCameraFollowActiveAsync(mapView) {
     }
 
     return mapLocationPuckModule.isLocationPuckCameraFollowActive(mapViewTag);
+}
+
+export async function isLocationPuckCameraIdleAsync(mapView) {
+    const mapViewTag = getSupportedMapViewTag(mapView);
+
+    if (
+        mapViewTag === null ||
+        !mapLocationPuckModule?.isLocationPuckCameraIdle
+    ) {
+        return false;
+    }
+
+    return mapLocationPuckModule.isLocationPuckCameraIdle(mapViewTag);
 }
 
 export async function applyLocationPuck3DAsync(

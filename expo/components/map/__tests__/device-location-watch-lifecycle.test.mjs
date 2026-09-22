@@ -87,6 +87,7 @@ function createWatchHarness({ watchHeadingAsync, watchPositionAsync } = {}) {
         },
         './location-watch-options': { getLocationWatchOptions },
         './road-matching-session': {},
+        './shared-map-preferences-sync': {},
     };
 
     new Function('require', 'module', 'exports', transformedSource)(

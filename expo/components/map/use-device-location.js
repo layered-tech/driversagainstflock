@@ -18,6 +18,7 @@ import {
     getLocationUpdateRecordedAt,
     getLocationWatchOptions,
     isRoadMatchedLocationUpdate,
+    locationUpdateIsStale,
 } from './location-watch-options';
 import {
     addRoadMatchedLocationListener,
@@ -27,6 +28,7 @@ import {
     retainRoadMatchingSessionAsync,
     roadMatchingLocationIsSupported,
 } from './road-matching-session';
+import { getSharedMapUserLocation } from './shared-map-preferences-sync';
 
 export { roadMatchingLocationIsSupported } from './road-matching-session';
 
@@ -141,6 +143,17 @@ export function useCurrentLocation({
                 return null;
             }
 
+            const latestLocation = getSharedMapUserLocation();
+
+            if (
+                locationUpdateIsStale({
+                    currentLocation: latestLocation,
+                    nextLocation,
+                })
+            ) {
+                return latestLocation;
+            }
+
             const nextHeading = getLocationCourseHeading(position);
 
             if (nextHeading !== null) {
@@ -155,7 +168,6 @@ export function useCurrentLocation({
                 ...(currentCourseHeadingRef.current !== null
                     ? { heading: currentCourseHeadingRef.current }
                     : {}),
-                recordedAt: Date.now(),
             };
 
             if (!isRoadMatchedLocationUpdate(position)) {

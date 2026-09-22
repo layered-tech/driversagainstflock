@@ -159,7 +159,7 @@ test('CarPlay Dashboard keeps the speed badge while the host draws the rest', ()
     // follow the shared road-matched location instead of the controller flag.
     assert.match(
         autoPlayMapSurfaceContentSource,
-        /const freeDriveIsActive = isRootMapSurface\s*\? controller\.roadMatchedLocationWatchEnabled\s*: isRoadMatchedLocationUpdate\(mapPreferences\.userLocation\)/,
+        /const freeDriveIsActive = isRoadMatchedLocationUpdate\(\s*mapPreferences\.userLocation,?\s*\)/,
     );
     assert.match(
         autoPlayMapSurfaceContentSource,

@@ -51,11 +51,37 @@ export function waitForLocationPuckCameraFollowCommit({
     return waitForFrameCommit();
 }
 
+export async function waitForLocationPuckCameraFallbackCommit({
+    platform,
+    isCameraIdle,
+    waitForFrameCommit = waitForNativeCameraCommit,
+    waitForNextCheck = () => new Promise((resolve) => setTimeout(resolve, 20)),
+}) {
+    if (platform !== 'ios') {
+        await waitForFrameCommit();
+        return true;
+    }
+
+    // A visible CarPlay scene can keep native work running while handset
+    // animation frames are paused. Acknowledge the actual viewport handoff.
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+        try {
+            if (await isCameraIdle()) return true;
+        } catch {
+            return false;
+        }
+        await waitForNextCheck();
+    }
+
+    return false;
+}
+
 export function createLocationPuckCameraFallbackReleaseGate({
     waitForCameraCommit = waitForNativeCameraCommit,
 } = {}) {
     let invalidated = false;
     let pendingRelease = null;
+    let releaseNeedsVerification = false;
 
     function resolvePendingRelease(wasReleased = true) {
         const release = pendingRelease;
@@ -65,10 +91,11 @@ export function createLocationPuckCameraFallbackReleaseGate({
         }
 
         pendingRelease = null;
+        if (wasReleased) releaseNeedsVerification = false;
         release.resolve(wasReleased);
     }
 
-    return {
+    const gate = {
         handleCameraCommit({ fallbackCameraIsFollowing }) {
             const release = pendingRelease;
 
@@ -96,7 +123,7 @@ export function createLocationPuckCameraFallbackReleaseGate({
             Promise.resolve()
                 .then(() => waitForCameraCommit())
                 .catch(() => false)
-                .then(() => {
+                .then((wasCommitted) => {
                     if (
                         invalidated ||
                         pendingRelease !== release ||
@@ -106,7 +133,7 @@ export function createLocationPuckCameraFallbackReleaseGate({
                         return;
                     }
 
-                    resolvePendingRelease();
+                    resolvePendingRelease(wasCommitted !== false);
                 });
         },
         invalidate() {
@@ -133,7 +160,9 @@ export function createLocationPuckCameraFallbackReleaseGate({
                 return pendingRelease.promise;
             }
 
-            if (!fallbackCameraIsFollowing) {
+            if (fallbackCameraIsFollowing) releaseNeedsVerification = true;
+
+            if (!releaseNeedsVerification) {
                 return Promise.resolve(true);
             }
 
@@ -144,15 +173,21 @@ export function createLocationPuckCameraFallbackReleaseGate({
 
             pendingRelease = {
                 commitGeneration: 0,
-                fallbackCameraIsFollowing: true,
+                fallbackCameraIsFollowing: Boolean(fallbackCameraIsFollowing),
                 promise,
                 resolve: resolveRelease,
                 waitingForCameraCommit: false,
             };
 
+            if (!fallbackCameraIsFollowing) {
+                gate.handleCameraCommit({ fallbackCameraIsFollowing: false });
+            }
+
             return promise;
         },
     };
+
+    return gate;
 }
 
 export function getLocationPuckCameraFollowFallbackProps({

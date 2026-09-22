@@ -64,6 +64,7 @@ import {
     isLocationPuck3DSupported,
     isLocationPuckCameraFollowActiveAsync,
     isLocationPuckCameraFollowSupported,
+    isLocationPuckCameraIdleAsync,
     isLocationPuckLocationProviderSupported,
     setLocationPuckCameraFollowAsync,
 } from './location-puck-3d';
@@ -73,6 +74,7 @@ import {
     createLocationPuckCameraFollowLifecycle,
     getLocationPuckCameraControllerKey,
     getLocationPuckCameraFollowFallbackProps,
+    waitForLocationPuckCameraFallbackCommit,
     waitForLocationPuckCameraFollowCommit,
 } from './location-puck-camera-follow-lifecycle';
 import {
@@ -748,6 +750,18 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
         nativeFollowIsSupported: nativeLocationPuckCameraControllerIsEligible,
         nativeFollowStatus: locationPuckCameraFollowStatus,
     });
+    // Replacing only the Camera controller must leave the native MapView at
+    // its current position instead of replaying the surface's startup camera.
+    const cameraHasReportedPositionRef = useRef(false);
+    const handleMapCameraChanged = useCallback(
+        (state) => {
+            if (Array.isArray(state?.properties?.center)) {
+                cameraHasReportedPositionRef.current = true;
+            }
+            handleCameraChanged(state);
+        },
+        [handleCameraChanged],
+    );
     const locationPuckLifecycleRef = useRef(null);
     const locationPuckCameraFallbackReleaseGateRef = useRef(null);
     const locationPuckCameraFollowLifecycleRef = useRef(null);
@@ -779,7 +793,14 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
 
     if (locationPuckCameraFallbackReleaseGateRef.current === null) {
         locationPuckCameraFallbackReleaseGateRef.current =
-            createLocationPuckCameraFallbackReleaseGate();
+            createLocationPuckCameraFallbackReleaseGate({
+                waitForCameraCommit: () =>
+                    waitForLocationPuckCameraFallbackCommit({
+                        platform: Platform.OS,
+                        isCameraIdle: () =>
+                            isLocationPuckCameraIdleAsync(mapViewRef),
+                    }),
+            });
     }
 
     const locationPuckLifecycle = locationPuckLifecycleRef.current;
@@ -1027,7 +1048,7 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
             logoPosition={mapboxLogoPosition}
             compassEnabled={isDrivingMode && !hideCompassDuringNavigation}
             compassPosition={mapCompassPosition}
-            onCameraChanged={handleCameraChanged}
+            onCameraChanged={handleMapCameraChanged}
             onDidFinishLoadingMap={handleMapFinishedLoading}
             onDidFinishLoadingStyle={refreshLocationPuckAfterMapAttachment}
             onDidFinishRenderingFrameFully={
@@ -1058,7 +1079,11 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
                 {...mapboxCameraFollowFallbackProps}
                 key={mapboxCameraControllerKey}
                 ref={cameraRef}
-                defaultSettings={initialCameraSettings}
+                defaultSettings={
+                    cameraHasReportedPositionRef.current
+                        ? undefined
+                        : initialCameraSettings
+                }
                 maxZoomLevel={MAX_ZOOM_LEVEL}
                 minZoomLevel={MIN_ZOOM_LEVEL}
             />

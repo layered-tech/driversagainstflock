@@ -133,7 +133,7 @@ describe('Auto Play speed-limit layout', () => {
     test('keeps the current-speed dial in the full badge frame without a limit', () => {
         assert.match(
             mapStatusOverlaySource,
-            /getCurrentSpeedMph,[\s\S]*?const currentSpeedMps = getRouteCurrentSpeedMps\(userLocation\);[\s\S]*?const currentSpeedWithoutLimitIsVisible = Boolean\(\s*speedLimitIsRendered && drivingStatusIsVisible && currentSpeedMph > 0,\s*\);[\s\S]*?const speedStatusIsVisible =[\s\S]*?speedLimitIsVisible \|\| currentSpeedWithoutLimitIsVisible;/,
+            /getCurrentSpeedMph,[\s\S]*?const currentSpeedMps = getRouteCurrentSpeedMps\(userLocation\);[\s\S]*?const currentSpeedWithoutLimitIsVisible = Boolean\(\s*speedLimitIsRendered && drivingStatusIsVisible && currentSpeedMph > 0,\s*\);[\s\S]*?const speedStatusIsVisible =\s*!confirmationIsActive &&\s*\(speedLimitIsVisible \|\| currentSpeedWithoutLimitIsVisible\);/,
         );
         assert.match(
             mapStatusOverlaySource,
