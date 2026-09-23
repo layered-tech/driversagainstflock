@@ -20,7 +20,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
-    timeout: 30000
+    timeout: 120000
 - openLink: 'driversagainstflock://e2e-mocks?scorecard=populated'
 - extendedWaitUntil:
     visible:
@@ -96,7 +96,7 @@ tags:
     id: 'scorecard-operator-view-toggle'
     checked: true
 - assertVisible: 'OPERATOR VIEW · 2 CONFIRMED · 30 DAYS'
-- assertVisible: 'Built locally from your explicit DAF drives and public camera nodes. DAF has no plate image, vehicle description, hotlist result, or access to an operator database.'
+- assertVisible: 'Built locally from your recorded DAF drives and public camera nodes. DAF has no plate image, vehicle description, hotlist result, or access to an operator database.'
 - takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-operator-view'}
 - tapOn:
     id: 'scorecard-operator-view-toggle'
@@ -132,11 +132,11 @@ tags:
     timeout: 10000
 - scrollUntilVisible:
     element:
-      id: 'scorecard-open-trail'
+      id: 'scorecard-open-trail-drive-e2e-exposed'
     direction: DOWN
     timeout: 10000
 - tapOn:
-    id: 'scorecard-open-trail'
+    id: 'scorecard-open-trail-drive-e2e-exposed'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:

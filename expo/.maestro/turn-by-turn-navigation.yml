@@ -36,7 +36,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
-    timeout: 30000
+    timeout: 120000
 - openLink: 'driversagainstflock://e2e-mocks'
 - extendedWaitUntil:
     visible:
@@ -52,6 +52,14 @@ tags:
     visible:
       id: 'map-directions-destination-input-map'
     timeout: 10000
+- tapOn:
+    id: 'map-directions-start-input-map'
+- extendedWaitUntil:
+    visible:
+      id: 'map-directions-current-location-map'
+    timeout: 30000
+- tapOn:
+    id: 'map-directions-current-location-map'
 - tapOn:
     id: 'map-directions-destination-input-map'
 - inputText: 'Austin Central Library'

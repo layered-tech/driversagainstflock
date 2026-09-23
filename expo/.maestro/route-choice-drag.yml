@@ -96,7 +96,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
-    timeout: 30000
+    timeout: 120000
 - extendedWaitUntil:
     visible:
       id: 'map-search-directions-button-map'

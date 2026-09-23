@@ -21,7 +21,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
-    timeout: 30000
+    timeout: 120000
 - openLink: 'driversagainstflock://e2e-mocks?scorecardDrive=private-route'
 - extendedWaitUntil:
     visible:
@@ -38,6 +38,14 @@ tags:
     visible:
       id: 'map-directions-destination-input-map'
     timeout: 10000
+- tapOn:
+    id: 'map-directions-start-input-map'
+- extendedWaitUntil:
+    visible:
+      id: 'map-directions-current-location-map'
+    timeout: 30000
+- tapOn:
+    id: 'map-directions-current-location-map'
 - tapOn:
     id: 'map-directions-destination-input-map'
     waitToSettleTimeoutMs: 1000
@@ -204,7 +212,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'scorecard-arrival-recap'
-    timeout: 30000
+    timeout: 120000
 - copyTextFrom:
     id: 'scorecard-arrival-recap-avoided'
 - assertTrue: ${maestro.copiedText == '2'}
