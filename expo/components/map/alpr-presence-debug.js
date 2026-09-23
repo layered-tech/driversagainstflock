@@ -161,8 +161,6 @@ export function buildPresenceDebugSnapshot(
         blockers.push('Less than 30 seconds of confirmed maneuver clearance');
     if (!state) blockers.push('Encrypted limits unavailable');
     else if (phase !== 'showing' && phase !== 'presenting') {
-        if (state.drive.count >= PRESENCE_POLICY.sessionLimit)
-            blockers.push('15-prompt drive limit reached');
         if (
             state.lastPromptAt !== null &&
             now - state.lastPromptAt < PRESENCE_POLICY.spacingMs
@@ -175,7 +173,7 @@ export function buildPresenceDebugSnapshot(
             now - (state.nodeTimes[encounter.osmNodeId] ?? -Infinity) <
                 PRESENCE_POLICY.nodeCooldownMs
         )
-            blockers.push('Same-node 300-second cooldown');
+            blockers.push('Same-node 7-day cooldown');
         if (state.outbox.length >= PRESENCE_POLICY.maximumOutbox)
             blockers.push('Pending report queue full');
     }

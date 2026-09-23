@@ -1,3 +1,8 @@
+import {
+    getAutomotiveAlertKey,
+    getAutomotiveAlertsAllowedByHistory,
+} from './automotive-alert-policy.js';
+
 const METERS_PER_MILE = 1609.344;
 const UPCOMING_ALERT_WARNING_DISTANCE_METERS = METERS_PER_MILE * 2;
 const FEET_PER_METER = 3.28084;
@@ -190,6 +195,41 @@ export function getUpcomingAlertApproachProgress(distanceMeters) {
 export function getVisibleUpcomingAlerts(alerts, dismissedAlertIds) {
     return getVisibleUpcomingAlertEntries(alerts, dismissedAlertIds).map(
         ({ alert }) => alert,
+    );
+}
+
+export function getNextPhoneDrivingAlert(
+    alerts,
+    dismissedAlertIds,
+    history,
+    currentAlertKey = null,
+    now = Date.now(),
+) {
+    const eligible = getAutomotiveAlertsAllowedByHistory({
+        alerts,
+        currentAlertKey,
+        history,
+        now,
+    });
+    const visible = getVisibleUpcomingAlertEntries(eligible, dismissedAlertIds);
+    const current = visible.find(
+        ({ alert }) => getAutomotiveAlertKey(alert) === currentAlertKey,
+    );
+    if (current) {
+        return current.alert;
+    }
+
+    return (
+        visible.reduce((closest, candidate) => {
+            if (!closest) {
+                return candidate;
+            }
+
+            return getUpcomingAlertDistanceForSort(candidate.alert) <
+                getUpcomingAlertDistanceForSort(closest.alert)
+                ? candidate
+                : closest;
+        }, null)?.alert ?? null
     );
 }
 

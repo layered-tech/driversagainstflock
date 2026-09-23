@@ -263,7 +263,7 @@ test('stationary samples and one GPS jump alone cannot establish a pass', () => 
         null,
     );
 });
-test('timing and budget boundaries count repeated nodes and preserve cooldown across drives', () => {
+test('confirmations have a three-minute gap and a seven-day node cooldown without a drive cap', () => {
     let state = updatePresenceDrive(createPresenceState('a'.repeat(32), 0), {
         connected: true,
         driving: true,
@@ -275,42 +275,49 @@ test('timing and budget boundaries count repeated nodes and preserve cooldown ac
     assert.equal(canStartPresencePrompt(state, e, 115000), true);
     assert.equal(canStartPresencePrompt(state, e, 115001), false);
     state = recordPresencePrompt(state, e, 103000);
+    const nextAt = 103000 + PRESENCE_POLICY.spacingMs;
+    const nextNode = { osmNodeId: 2, passedAt: nextAt - 3000 };
+    assert.equal(canStartPresencePrompt(state, nextNode, nextAt - 1), false);
+    assert.equal(canStartPresencePrompt(state, nextNode, nextAt), true);
+    const sameNodeAt = 103000 + PRESENCE_POLICY.nodeCooldownMs;
     assert.equal(
         canStartPresencePrompt(
             state,
-            { ...e, passedAt: 114000, osmNodeId: 2 },
-            117999,
+            { osmNodeId: 1, passedAt: sameNodeAt - 4000 },
+            sameNodeAt - 1,
         ),
         false,
     );
     assert.equal(
         canStartPresencePrompt(
             state,
-            { ...e, passedAt: 114000, osmNodeId: 2 },
-            118000,
+            { osmNodeId: 1, passedAt: sameNodeAt - 4000 },
+            sameNodeAt,
         ),
         true,
     );
+    for (let i = 1; i < 20; i++)
+        state = recordPresencePrompt(
+            state,
+            { osmNodeId: i + 1 },
+            103000 + i * PRESENCE_POLICY.spacingMs,
+        );
+    const twentyFirstAt = 103000 + 20 * PRESENCE_POLICY.spacingMs;
+    assert.equal(state.drive.count, 20);
     assert.equal(
-        canStartPresencePrompt(state, { ...e, passedAt: 400000 }, 402999),
-        false,
-    );
-    assert.equal(
-        canStartPresencePrompt(state, { ...e, passedAt: 400000 }, 403000),
+        canStartPresencePrompt(
+            state,
+            { osmNodeId: 21, passedAt: twentyFirstAt - 3000 },
+            twentyFirstAt,
+        ),
         true,
     );
-    for (let i = 1; i < 15; i++)
-        state = recordPresencePrompt(state, e, 103000 + i * 300000);
-    assert.equal(
-        canStartPresencePrompt(state, { ...e, passedAt: 5000000 }, 5003000),
-        false,
-    );
-    assert.equal(parsePresenceState(JSON.stringify(state)).drive.count, 15);
+    assert.equal(parsePresenceState(JSON.stringify(state)).drive.count, 20);
     const legacyState = structuredClone(state);
     delete legacyState.automotiveAlertHistory;
     assert.deepEqual(
         parsePresenceState(JSON.stringify(legacyState)).automotiveAlertHistory,
-        { driveId: state.drive.id, entries: [] },
+        { driveId: state.drive.id, entries: [], lastShownAt: null },
     );
     state = updatePresenceDrive(state, {
         connected: true,
@@ -328,15 +335,24 @@ test('timing and budget boundaries count repeated nodes and preserve cooldown ac
             driving: false,
             now: 7800999,
         }).drive.count,
-        15,
+        20,
     );
+    const nextDrive = updatePresenceDrive(state, {
+        connected: true,
+        driving: false,
+        now: 7801000,
+        createDriveId: () => 'b'.repeat(32),
+    });
+    assert.equal(nextDrive.drive.count, 0);
+    const restarted = parsePresenceState(JSON.stringify(nextDrive));
+    assert.equal(restarted.nodeTimes[1], 103000);
     assert.equal(
-        updatePresenceDrive(state, {
-            connected: true,
-            driving: false,
-            now: 7801000,
-        }).drive.count,
-        0,
+        canStartPresencePrompt(
+            restarted,
+            { osmNodeId: 1, passedAt: 7797000 },
+            7801000,
+        ),
+        false,
     );
     assert.throws(() => parsePresenceState('{"version":1}'));
 });
@@ -364,6 +380,22 @@ test('focus preserves heading and rejects a second camera in the actual viewport
     assert.equal(focus.zoomLevel, 17);
     assert.deepEqual(focus.centerCoordinate, [node.longitude, node.latitude]);
     assert.deepEqual(focus.padding, viewport.cameraPadding);
+    assert.equal(
+        getPresenceFocus(encounter, {
+            ...context,
+            viewport: { ...viewport, visibleWidth: 192 },
+        }),
+        null,
+    );
+    assert.equal(
+        getPresenceFocus(encounter, {
+            ...context,
+            location: { ...context.location, latitude: 30.002 },
+            presenceFocus: focus,
+            viewport: { ...viewport, visibleWidth: 192 },
+        }),
+        null,
+    );
     assert.equal(
         presenceGuardsHold(
             { ...context, maneuverSeconds: 29.9 },
@@ -441,6 +473,7 @@ test('outbox reports only explicit negatives once and retries the same event', a
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(runtime.state.outbox.length, 1);
     assert.equal(sent[0].osm_node_id, 987654321);
+    assert.equal(Object.hasOwn(sent[0], 'reporter_id'), false);
     online = true;
     time += 60000;
     await runtime.flush();
@@ -647,7 +680,39 @@ for (const platform of ['android_auto', 'carplay']) {
         assert.equal(h.dismissed.at(-1), thanks.id);
         assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
     });
+
+    test(`${platform} accepts Not there when the host dismisses before delivering the action`, async () => {
+        const h = promptHarness({ platform });
+        await h.start();
+        const original = h.shown[0];
+        original.onDidDismiss('user');
+        assert.equal(h.sent.length, 0);
+        original.secondaryAction.onPress();
+        original.secondaryAction.onPress();
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(h.sent.length, 1);
+        assert.equal(h.shown.length, 2);
+        assert.equal(h.shown[1].title.text, 'Thanks!');
+        h.shown[1].primaryAction.onPress();
+        assert.deepEqual(h.suppressionEvents, [
+            'acquire:1',
+            'release:1',
+            'acquire:2',
+            'release:2',
+        ]);
+    });
 }
+
+test('a stale Not there action after user dismissal cannot submit a report', async () => {
+    const h = promptHarness();
+    await h.start();
+    const original = h.shown[0];
+    original.onDidDismiss('user');
+    await h.step(-96.9994, 110001);
+    original.secondaryAction.onPress();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.sent.length, 0);
+});
 
 test('late report completion cannot show Thanks after the car disconnects', async () => {
     const h = promptHarness();
@@ -779,7 +844,7 @@ test('native acknowledgement waits ten seconds before expiring and ignores late 
     assert.equal(h.frames.length, 0);
     assert.equal(h.sent.length, 0);
 });
-test('manual pan invalidates asynchronous focus and does not restore follow over the gesture', async () => {
+test('manual pan invalidates asynchronous focus while preserving the visible confirmation', async () => {
     const h = promptHarness({ cameraDelay: true });
     await h.start();
     h.prompt.interrupt(true);
@@ -788,9 +853,12 @@ test('manual pan invalidates asynchronous focus and does not restore follow over
     assert.equal(h.frames.length, 0);
     assert.equal(h.restores.at(-1), true);
     assert.equal(h.coordinator.state.drive.count, 1);
-    assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
+    assert.equal(h.prompt.inspect().phase, 'showing');
+    assert.deepEqual(h.suppressionEvents, ['acquire:1']);
     h.shown[0].secondaryAction.onPress();
-    assert.equal(h.sent.length, 0);
+    await new Promise((r) => setImmediate(r));
+    assert.equal(h.sent.length, 1);
+    assert.deepEqual(h.suppressionEvents, ['acquire:1']);
 });
 test('dismissal is not a positive vote, explicit negative closes independently and double taps do not duplicate', async () => {
     for (const action of ['primaryAction', 'secondaryAction']) {
@@ -828,7 +896,7 @@ test('the Thanks watchdog releases suppression and late original callbacks canno
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(h.shown.length, 2);
 });
-test('navigation demands, viewport changes, lost certainty and disconnect permanently preempt', async () => {
+test('navigation demands, lost certainty and disconnect permanently preempt', async () => {
     for (const change of [
         { connected: false },
         { blocked: true },
@@ -841,7 +909,6 @@ test('navigation demands, viewport changes, lost certainty and disconnect perman
         { maneuverSeconds: 20 },
         { coverageComplete: false },
         { routeKey: 'route-2' },
-        { viewport: { ...viewport, visibleHeight: 100 } },
     ]) {
         const h = promptHarness();
         await h.start();
@@ -860,6 +927,39 @@ test('navigation demands, viewport changes, lost certainty and disconnect perman
         });
         assert.equal(h.shown.length, 1);
         assert.equal(h.coordinator.state.drive.count, 1);
+        assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
+    }
+});
+
+test('guided confirmation survives a transient narrow route-guidance viewport', async () => {
+    for (const platform of ['android_auto', 'carplay']) {
+        const h = promptHarness({ platform });
+        await h.start();
+        assert.equal(h.prompt.inspect().phase, 'showing');
+        await h.step(-96.9994, 107250, {
+            viewport: { ...viewport, visibleWidth: 192 },
+        });
+        assert.equal(h.prompt.inspect().phase, 'showing', platform);
+        assert.deepEqual(h.dismissed, [], platform);
+        await h.step(-96.9993, 108000, { viewport });
+        assert.equal(h.prompt.inspect().phase, 'showing', platform);
+    }
+});
+
+test('manual map control releases confirmation camera without dismissing the visible event', async () => {
+    for (const platform of ['android_auto', 'carplay']) {
+        const h = promptHarness({ platform });
+        await h.start();
+        h.prompt.interrupt(true);
+        assert.equal(h.prompt.inspect().phase, 'showing', platform);
+        assert.equal(h.prompt.ownsCamera, false, platform);
+        assert.deepEqual(h.restores, [true], platform);
+        assert.deepEqual(h.dismissed, [], platform);
+        await h.step(-96.9994, 108000, { manual: true });
+        assert.equal(h.prompt.inspect().phase, 'showing', platform);
+        assert.deepEqual(h.dismissed, [], platform);
+        await h.step(-96.9993, 127000);
+        assert.equal(h.prompt.inspect().phase, 'observing', platform);
         assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
     }
 });
@@ -975,18 +1075,20 @@ test('automotive alert history survives remounts, coordinates surfaces, and rese
 
     const acceptedClaim = coordinator.claimAutomotiveAlert(alprEntry);
     const unacceptedClaim = coordinator.claimAutomotiveAlert(laterAlprEntry);
-    assert.ok(unacceptedClaim);
+    assert.equal(unacceptedClaim, null);
     assert.equal(acceptedClaim.commit(), true);
-    assert.equal(unacceptedClaim.release(), true);
     await new Promise((resolve) => setImmediate(resolve));
     assert.deepEqual(coordinator.automotiveAlertHistory.entries, [alprEntry]);
+    assert.equal(coordinator.automotiveAlertHistory.lastShownAt, time);
 
     const restarted = makeCoordinator();
     await restarted.hydrate();
     assert.equal(restarted.claimAutomotiveAlert(alprEntry), null);
+    assert.equal(restarted.claimAutomotiveAlert(laterAlprEntry), null);
+    time += 2 * 60 * 1000;
     assert.ok(
         restarted.claimAutomotiveAlert(laterAlprEntry)?.release(),
-        'an unaccepted concurrent alert was not recorded',
+        'a distinct alert is available after the two-minute gap',
     );
     assert.ok(
         restarted
@@ -1004,6 +1106,31 @@ test('automotive alert history survives remounts, coordinates surfaces, and rese
     await restarted.activity(true, false);
     assert.deepEqual(restarted.automotiveAlertHistory.entries, []);
     assert.ok(restarted.claimAutomotiveAlert(alprEntry)?.release());
+});
+
+test('warning claims notify phone observers when a car host refuses them', async () => {
+    const coordinator = createPresenceCoordinator({
+        load: async () => null,
+        save: async () => {},
+        randomId: () => 'h'.repeat(32),
+        now: () => 1000,
+    });
+    await coordinator.hydrate();
+    const entry = getAutomotiveAlertHistoryEntry({
+        coordinate: [-97, 30],
+        id: 'reader-1',
+        type: 'alpr',
+    });
+    const snapshots = [];
+    const unsubscribe = coordinator.subscribe(() => {
+        snapshots.push(coordinator.automotiveAlertHistory.entries.length);
+    });
+    const claim = coordinator.claimAutomotiveAlert(entry);
+    assert.ok(claim);
+    assert.equal(claim.release(), true);
+    assert.deepEqual(snapshots, [1, 0]);
+    assert.ok(coordinator.claimAutomotiveAlert(entry)?.release());
+    unsubscribe();
 });
 test('a failed encrypted write suppresses future prompts without resetting the budget', async () => {
     let fail = false;
@@ -1103,13 +1230,50 @@ test('debug reset persists drive, global and same-node limits while retaining qu
     assert.equal(after.drive.count, 0);
     assert.equal(after.lastPromptAt, null);
     assert.deepEqual(after.nodeTimes, {});
-    assert.equal(after.reporterId, before.reporterId);
+    assert.equal(Object.hasOwn(after, 'reporterId'), false);
     assert.deepEqual(after.drive, { ...before.drive, count: 0 });
     assert.deepEqual(after.outbox, before.outbox);
     assert.ok(
         await coordinator.reserve(pass()),
         'the same node is immediately eligible for another test',
     );
+});
+
+test('legacy presence storage drops reporter identity without losing queued reports', () => {
+    const oldReporterId = 'legacy-reporter-identity-1234567890';
+    const legacy = {
+        ...createPresenceState(`${oldReporterId}:1000`, 1000),
+        version: 1,
+        reporterId: oldReporterId,
+        outbox: [
+            {
+                payload: {
+                    osm_node_id: 987654321,
+                    response: 'not_there',
+                    platform: 'android_auto',
+                    reporter_id: oldReporterId,
+                    event_key: 'encounter-0123456789abcdef',
+                    passed_at: new Date(1000).toISOString(),
+                    occurred_at: new Date(2000).toISOString(),
+                    submitted_at: new Date(2000).toISOString(),
+                },
+                attempts: 1,
+                retryAt: 3000,
+            },
+        ],
+    };
+    const migrated = parsePresenceState(
+        JSON.stringify(legacy),
+        () => 'new-random-drive-0123456789abcdef',
+    );
+    assert.equal(migrated.version, 2);
+    assert.equal(migrated.outbox.length, 1);
+    assert.equal(
+        migrated.outbox[0].payload.event_key,
+        legacy.outbox[0].payload.event_key,
+    );
+    assert.equal(migrated.automotiveAlertHistory.driveId, migrated.drive.id);
+    assert.equal(JSON.stringify(migrated).includes(oldReporterId), false);
 });
 
 test('callbacks from before a reset cannot restore old cooldowns or overwrite a new budget', async () => {
@@ -1595,7 +1759,6 @@ test('close diagnostics retain the active encounter and guard failure before cle
 
 test('close diagnostics distinguish interruptions, actions, native dismissal and expiration', async () => {
     for (const [reason, close] of [
-        ['manual-interruption', (h) => h.prompt.interrupt(true)],
         ['interruption', (h) => h.prompt.interrupt()],
         ['tracker-stopped', (h) => h.prompt.stop()],
         ['dismiss-action', (h) => h.shown[0].primaryAction.onPress()],
@@ -1605,13 +1768,6 @@ test('close diagnostics distinguish interruptions, actions, native dismissal and
         [
             'context-unavailable',
             (h) => h.step(-96.9994, 108000, { connected: false }),
-        ],
-        [
-            'focus-invalid',
-            (h) =>
-                h.step(-96.9994, 108000, {
-                    viewport: { ...viewport, visibleHeight: 100 },
-                }),
         ],
     ]) {
         const h = promptHarness();
@@ -1655,9 +1811,9 @@ test('camera focus failures include the presentation snapshot', async () => {
 test('diagnostic failures cannot prevent dismissal and camera restoration', async () => {
     const h = promptHarness({ traceFailure: true });
     await h.start();
-    h.prompt.interrupt(true);
+    h.prompt.interrupt();
     assert.equal(h.prompt.ownsCamera, false);
-    assert.equal(h.restores.at(-1), true);
+    assert.equal(h.restores.at(-1), false);
     assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
 });
 

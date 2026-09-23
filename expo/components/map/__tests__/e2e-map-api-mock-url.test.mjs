@@ -98,6 +98,15 @@ describe('E2E map API mock links', () => {
 });
 
 describe('Android Auto E2E commands', () => {
+    test('parses a semantic driving map view command', () => {
+        assert.deepEqual(
+            getE2EAutoPlayCommandFromURL(
+                'driversagainstflock://e2e-mocks?autoPlayRequestType=map-view&query=toggle',
+            ),
+            { query: 'toggle', requestType: 'map-view' },
+        );
+    });
+
     test('parses deterministic search, directions, and navigation requests', () => {
         for (const requestType of ['search', 'directions', 'navigation']) {
             assert.deepEqual(

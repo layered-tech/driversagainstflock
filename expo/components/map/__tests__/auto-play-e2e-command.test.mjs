@@ -18,6 +18,13 @@ test('Android Auto E2E commands remain development-only and use the host request
     );
 });
 
+test('the E2E map view command uses the native control handler', () => {
+    assert.match(
+        autoPlaySource,
+        /dispatchAutoPlayE2ECommand[\s\S]*?requestType === 'map-view'[\s\S]*?handleRootHeaderDrivingMapViewPress\(\)/,
+    );
+});
+
 test('the runtime mock link enables deterministic APIs before dispatching the car command', () => {
     assert.match(
         e2eHandlerSource,

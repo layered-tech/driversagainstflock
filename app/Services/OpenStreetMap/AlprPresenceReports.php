@@ -14,10 +14,8 @@ class AlprPresenceReports
     public function __construct(private ModerationReader $reader, private ModerationSummaryCache $cache) {}
 
     /** @param array<string, mixed> $payload */
-    public function accept(array $payload, ?int $userId = null): AlprPresenceReport
+    public function accept(array $payload): AlprPresenceReport
     {
-        $reporterKey = hash_hmac('sha256', $payload['reporter_id'], config('app.key'));
-        unset($payload['reporter_id']);
         $payload['osm_node_id'] = (int) $payload['osm_node_id'];
         foreach (['passed_at', 'occurred_at', 'submitted_at'] as $key) {
             $payload[$key] = CarbonImmutable::parse($payload[$key])->utc()->toISOString();
@@ -29,9 +27,9 @@ class AlprPresenceReports
         ksort($payload);
         $hash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
 
-        return DB::transaction(function () use ($payload, $reporterKey, $hash, $userId): AlprPresenceReport {
-            DB::select('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', ['presence-event:'.$reporterKey.':'.$payload['event_key']]);
-            $existing = AlprPresenceReport::where('reporter_key', $reporterKey)->where('event_key', $payload['event_key'])->first();
+        return DB::transaction(function () use ($payload, $hash): AlprPresenceReport {
+            DB::select('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', ['presence-event:'.$payload['event_key']]);
+            $existing = AlprPresenceReport::where('event_key', $payload['event_key'])->first();
             if ($existing) {
                 abort_unless(hash_equals($existing->payload_hash, $hash), 409, 'This report key already belongs to different evidence.');
 
@@ -42,8 +40,8 @@ class AlprPresenceReports
             if (! $node || ! $node->visible || ($node->tags['surveillance:type'] ?? null) !== 'ALPR') {
                 throw ValidationException::withMessages(['osm_node_id' => 'A current ALPR node could not be verified.']);
             }
-            $report = AlprPresenceReport::create([...$payload, 'reporter_key' => $reporterKey, 'payload_hash' => $hash,
-                'user_id' => $userId, 'received_at' => now(), 'server_node_version' => $node->osm_version,
+            $report = AlprPresenceReport::create([...$payload, 'payload_hash' => $hash,
+                'received_at' => now(), 'server_node_version' => $node->osm_version,
                 'server_latitude' => $node->latitude, 'server_longitude' => $node->longitude]);
             $this->project($payload['osm_node_id'], $node);
             DB::afterCommit(fn () => $this->cache->invalidate());

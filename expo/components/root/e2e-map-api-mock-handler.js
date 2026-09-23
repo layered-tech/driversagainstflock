@@ -9,6 +9,7 @@ import {
 } from '../map/api-mocks';
 import { setE2EDrivingAlertsFixture } from '../map/e2e-driving-alert-fixture';
 import { getSharedElectronicHorizonAlprNodes } from '../map/electronic-horizon-alpr-store';
+import { invalidateRoadMatchingGraphForE2E } from '../map/road-matching-session';
 import {
     scorecardDriveE2ECameraInventoryIsReady,
     setScorecardDriveE2EScenario,
@@ -46,6 +47,7 @@ function applyE2EMocksFromURL(value) {
     setOSMApiMocksEnabled(true);
     setE2EDrivingAlertsFixture(drivingAlertsFixture);
     setScorecardDriveE2EScenario(scorecardDriveScenario);
+    if (scorecardDriveScenario) invalidateRoadMatchingGraphForE2E();
 
     if (
         scorecardDriveScenario &&

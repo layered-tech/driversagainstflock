@@ -13,7 +13,7 @@ class AlprPresenceReportController extends Controller
     public function __invoke(StoreAlprPresenceReportRequest $request, AlprPresenceReports $reports): JsonResponse
     {
         try {
-            $report = $reports->accept($request->validated(), $request->user('sanctum')?->id);
+            $report = $reports->accept($request->validated());
         } catch (QueryException $exception) {
             report($exception);
 

@@ -10,6 +10,7 @@ import {
 let nextAlertId = 1000000;
 const THANKS_ALERT_DURATION_MS = 5000;
 const THANKS_PRESENTATION_TIMEOUT_MS = 10000;
+const DISMISSED_ACTION_GRACE_MS = 2000;
 
 /** Owns one encounter through native presentation, interruption and asynchronous camera release. */
 export function createPresencePrompt({
@@ -131,7 +132,7 @@ export function createPresencePrompt({
         active = null;
         highlight(null);
         if (previous) {
-            camera.restore(manual);
+            camera.restore(manual || previous.manualCameraReleased);
             try {
                 host.dismissAlert(previous.id);
             } catch {
@@ -149,7 +150,13 @@ export function createPresencePrompt({
             !stopped &&
             active === prompt &&
             presenceGuardsHold(
-                { ...context, warningBusy: false },
+                {
+                    ...context,
+                    manual: prompt.manualCameraReleased
+                        ? false
+                        : context.manual,
+                    warningBusy: false,
+                },
                 prompt.encounter,
                 now(),
             )
@@ -163,6 +170,8 @@ export function createPresencePrompt({
                 id: nextAlertId++,
                 requestedAt: null,
                 shownAt: null,
+                manualCameraReleased: false,
+                dismissedByHostAt: null,
                 reservation: null,
                 focus: null,
                 suppression: suppressAlerts(),
@@ -206,30 +215,50 @@ export function createPresencePrompt({
                 primaryAction: {
                     title: 'Still there? / Dismiss',
                     onPress: () => {
+                        trace('native-primary-pressed');
                         if (active === prompt) clear(false, 'dismiss-action');
                     },
                 },
                 secondaryAction: {
                     title: 'Not there',
                     onPress: () => {
+                        trace('native-not-there-pressed');
+                        const isCurrent = active === prompt;
+                        const arrivedAfterHostDismissal =
+                            prompt.closeReason === 'native-dismissed:user' &&
+                            prompt.dismissedByHostAt !== null &&
+                            now() - prompt.dismissedByHostAt >= 0 &&
+                            now() - prompt.dismissedByHostAt <=
+                                DISMISSED_ACTION_GRACE_MS;
                         if (
-                            active !== prompt ||
                             prompt.shownAt === null ||
-                            !stillValid(prompt)
+                            !prompt.reservation?.consumed ||
+                            prompt.reservation.answered ||
+                            (isCurrent
+                                ? !stillValid(prompt)
+                                : !arrivedAfterHostDismissal)
                         )
                             return;
+                        let suppression = prompt.suppression;
+                        if (!isCurrent) {
+                            try {
+                                suppression = suppressAlerts();
+                            } catch {
+                                suppression = null;
+                            }
+                        }
                         const acknowledgement = {
                             id: nextAlertId++,
                             originalId: prompt.id,
-                            originalDismissed: false,
+                            originalDismissed: !isCurrent,
                             reportQueued: false,
                             createdAt: now(),
                             requestedAt: null,
                             shownAt: null,
-                            suppression: prompt.suppression,
+                            suppression,
                         };
                         followUp = acknowledgement;
-                        clear(false, 'report-missing-action');
+                        if (isCurrent) clear(false, 'report-missing-action');
                         // Persist/upload independently of banner and camera teardown.
                         void coordinator
                             .reportMissing(prompt.reservation, platform)
@@ -277,11 +306,17 @@ export function createPresencePrompt({
                         prompt.focus = focus;
                         if (
                             !focus ||
-                            !(await camera.focus(focus, () =>
-                                stillValid(prompt),
+                            !(await camera.focus(
+                                focus,
+                                () =>
+                                    stillValid(prompt) &&
+                                    !prompt.manualCameraReleased,
                             ))
                         ) {
-                            if (active === prompt)
+                            if (
+                                active === prompt &&
+                                !prompt.manualCameraReleased
+                            )
                                 clear(
                                     false,
                                     !focus
@@ -290,9 +325,10 @@ export function createPresencePrompt({
                                 );
                             return;
                         }
-                        if (stillValid(prompt)) highlight(encounter.node);
+                        if (stillValid(prompt) && !prompt.manualCameraReleased)
+                            highlight(encounter.node);
                     } catch {
-                        if (active === prompt)
+                        if (active === prompt && !prompt.manualCameraReleased)
                             clear(false, 'presentation-or-camera-error');
                     }
                 },
@@ -316,8 +352,11 @@ export function createPresencePrompt({
                             .refused(prompt.reservation, true)
                             .catch(() => {});
                     }
-                    if (active === prompt)
+                    if (active === prompt) {
+                        if (reason === 'user' && prompt.shownAt !== null)
+                            prompt.dismissedByHostAt = now();
                         clear(false, `native-dismissed:${reason}`);
+                    }
                 },
             });
         } catch (error) {
@@ -351,7 +390,11 @@ export function createPresencePrompt({
             };
         },
         get ownsCamera() {
-            return active?.shownAt !== null && active?.shownAt !== undefined;
+            return (
+                active?.shownAt !== null &&
+                active?.shownAt !== undefined &&
+                !active.manualCameraReleased
+            );
         },
         tick() {
             if (stopped) return;
@@ -361,7 +404,7 @@ export function createPresencePrompt({
                 !context.enabled ||
                 !context.connected ||
                 context.blocked ||
-                context.manual
+                (context.manual && !active?.manualCameraReleased)
             ) {
                 clear(context.manual, 'context-unavailable');
                 clearFollowUp();
@@ -391,7 +434,8 @@ export function createPresencePrompt({
                     ? 'guard-failed'
                     : remaining <= 0
                       ? 'duration-expired'
-                      : !getPresenceFocus(
+                      : !active.manualCameraReleased &&
+                          !getPresenceFocus(
                               active.encounter,
                               { ...context, presenceFocus: active.focus },
                               remaining,
@@ -426,6 +470,14 @@ export function createPresencePrompt({
             void show(ready);
         },
         interrupt(manual = false) {
+            if (manual && active?.shownAt != null) {
+                if (!active.manualCameraReleased) {
+                    active.manualCameraReleased = true;
+                    camera.restore(true);
+                    trace('confirmation-camera-released:manual-interaction');
+                }
+                return;
+            }
             clear(manual, manual ? 'manual-interruption' : 'interruption');
             clearFollowUp();
             detector.reset();

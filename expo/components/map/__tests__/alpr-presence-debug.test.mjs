@@ -248,9 +248,12 @@ test('snapshots identify limits and unknown data without exposing coordinates or
             lastPromptAt: now - 10000,
         },
     );
-    assert.ok(snapshot.blockers.includes('15-prompt drive limit reached'));
-    assert.equal(snapshot.limits.globalCooldownSeconds, 5);
-    assert.ok(snapshot.blockers.includes('Global 15-second cooldown'));
+    assert.equal(
+        snapshot.blockers.includes('15-prompt drive limit reached'),
+        false,
+    );
+    assert.equal(snapshot.limits.globalCooldownSeconds, 170);
+    assert.ok(snapshot.blockers.includes('Global 180-second cooldown'));
     const serialized = formatPresenceDebugSnapshot(snapshot);
     assert.doesNotMatch(
         serialized,

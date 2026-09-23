@@ -251,8 +251,10 @@ export function useAutoPlayNavigationAlerts({
             return;
         }
 
+        const now = Date.now();
         const currentAlertKey = getActiveAutoPlayNavigationAlertKey(
             alertStateRef.current,
+            now,
         );
 
         const content = enabled
@@ -260,6 +262,7 @@ export function useAutoPlayNavigationAlerts({
                   alertHistory: presenceCoordinator.automotiveAlertHistory,
                   currentSpeedMps: currentSpeedMpsRef.current,
                   currentAlertKey,
+                  now,
                   upcomingAlerts,
                   userLocation,
               })
@@ -267,6 +270,7 @@ export function useAutoPlayNavigationAlerts({
         const transition = getAutoPlayNavigationAlertTransition({
             content,
             nextAlertId: nextAutoPlayNavigationAlertId,
+            now,
             state: alertStateRef.current,
             suppressed: suppressionControllerRef.current.active,
         });

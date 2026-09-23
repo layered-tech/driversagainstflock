@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Concurrency;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\CreatesModerationSource;
@@ -33,7 +34,7 @@ beforeEach(function (): void {
     $this->sourceNode(987654321);
     $this->payload = [
         'osm_node_id' => 987654321, 'response' => 'not_there', 'platform' => 'android_auto',
-        'reporter_id' => '0123456789abcdef0123456789abcdef', 'event_key' => 'encounter-0123456789abcdef',
+        'event_key' => 'encounter-0123456789abcdef',
         'passed_at' => now()->subSeconds(10)->toISOString(), 'occurred_at' => now()->subSeconds(5)->toISOString(),
         'submitted_at' => now()->toISOString(), 'observed' => ['version' => 1, 'latitude' => 30.5, 'longitude' => -97.5],
     ];
@@ -46,11 +47,18 @@ test('a negative report promptly opens one area flag using canonical identity an
     $this->postJson('/api/v1/alpr-presence-reports', $this->payload)->assertCreated()->assertJsonPath('status', 'received');
     $report = AlprPresenceReport::firstOrFail();
     $flag = ModerationFlag::firstOrFail();
-    expect($report->osm_node_id)->toBe(987654321)->and($report->user_id)->toBeNull()
-        ->and($report->reporter_key)->not->toBe($this->payload['reporter_id'])
+    expect($report->osm_node_id)->toBe(987654321)
         ->and($report->server_longitude)->toBe(-97.5)->and($report->observed['longitude'])->toBe(12)
         ->and($flag->source)->toBe('alpr_presence')->and($flag->rule_id)->toBeNull()
         ->and($flag->evidence['report_count'])->toBe(1)->and(ModerationFlag::active()->count())->toBe(1);
+});
+
+test('reports reject identity fields and retain no reporter identity columns', function () {
+    $this->postJson('/api/v1/alpr-presence-reports', [...$this->payload, 'reporter_id' => '0123456789abcdef0123456789abcdef'])->assertUnprocessable();
+    $this->postJson('/api/v1/alpr-presence-reports', [...$this->payload, 'user_id' => 1])->assertUnprocessable();
+    expect(Schema::hasColumn('alpr_presence_reports', 'reporter_key'))->toBeFalse()
+        ->and(Schema::hasColumn('alpr_presence_reports', 'user_id'))->toBeFalse()
+        ->and(AlprPresenceReport::count())->toBe(0);
 });
 
 test('retries are idempotent and a reused key with different evidence is rejected', function () {
@@ -256,7 +264,7 @@ test('my areas includes creators who unsubscribed and report recency is independ
     $this->get('/moderation/flagged?flag_source=alpr_presence&area_scope=my&report_window=24h')->assertInertia(fn ($page) => $page
         ->has('records.data', 1)->where('records.data.0.id', 987654321)->where('records.data.0.flags.0.source', 'alpr_presence'));
     $this->get('/moderation/nodes/987654321?from=flagged&area_scope=my&flag_source=alpr_presence')->assertInertia(fn ($page) => $page
-        ->has('reports.data', 1)->missing('reports.data.0.reporter_key')->where('listingFilters.area_scope', 'my'));
+        ->has('reports.data', 1)->missing('reports.data.0.event_key')->where('listingFilters.area_scope', 'my'));
     $this->get('/moderation/areas')->assertInertia(fn ($page) => $page->where('records.data.0.open_reported_nodes', 1)->where('records.data.0.open_flags', null));
     $flag = ModerationFlag::first();
     $this->patch('/moderation/flags/'.$flag->id.'/dismiss', ['evidence_hash' => $flag->evidence_hash])->assertRedirect();
@@ -358,11 +366,11 @@ test('the public reporting route enforces its IP limit while retaining retry ide
     expect(AlprPresenceReport::count())->toBe(1);
 });
 
-test('backend authentication is attributed without accepting an OSM client identity', function () {
+test('backend authentication does not attribute a report', function () {
     $user = User::factory()->create();
     Sanctum::actingAs($user);
     $this->postJson('/api/v1/alpr-presence-reports', $this->payload)->assertCreated();
-    expect(AlprPresenceReport::first()->user_id)->toBe($user->id);
+    expect(AlprPresenceReport::first()->getAttributes())->not->toHaveKey('user_id');
 });
 
 test('node evidence is paginated and current report counts survive stale rule summaries', function () {
@@ -402,7 +410,6 @@ test('expanded node details return individual reports with pagination and no pri
     $response->assertOk()->assertJsonPath('reports.total', 26)->assertJsonCount(25, 'reports.data')
         ->assertJsonPath('reports.data.0.response', 'not_there')
         ->assertJsonPath('flags.0.evidence.report_count', 26)
-        ->assertJsonMissingPath('reports.data.0.reporter_key')
         ->assertJsonMissingPath('reports.data.0.event_key')
         ->assertJsonMissingPath('reports.data.0.payload_hash');
     $this->getJson($response->json('reports.next_page_url'))->assertOk()->assertJsonCount(1, 'reports.data');

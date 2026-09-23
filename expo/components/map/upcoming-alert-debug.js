@@ -47,12 +47,17 @@ export function buildUpcomingAlertDebugSnapshot(
                 alertHistory,
                 entry,
                 currentAlertKey,
+                now,
             )
         ) {
             blockers.push(
-                alertHistory
-                    ? 'Already recorded or same type within 150 m'
-                    : 'Warning history unavailable',
+                !alertHistory
+                    ? 'Warning history unavailable'
+                    : alertHistory.entries.some(
+                            (shown) => shown.alertKey === entry?.alertKey,
+                        )
+                      ? 'Already shown this drive'
+                      : 'Another warning shown within 2 minutes',
             );
         }
         return {

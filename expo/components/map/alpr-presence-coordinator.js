@@ -67,6 +67,7 @@ export function createPresenceCoordinator({
                     history = recordAutomotiveAlertHistoryEntry(
                         history,
                         pending.entry,
+                        pending.claimedAt,
                     );
                 }
             }
@@ -86,7 +87,7 @@ export function createPresenceCoordinator({
                         state =
                             value === null
                                 ? createPresenceState(randomId(), now())
-                                : parsePresenceState(value);
+                                : parsePresenceState(value, randomId, now());
                         // A killed process cannot establish when the cable was disconnected.
                         // Retain its budget until an observed disconnection establishes an end.
                         await save(JSON.stringify(state));
@@ -111,7 +112,12 @@ export function createPresenceCoordinator({
             )
                 return;
             await mutate((current) =>
-                updatePresenceDrive(current, { connected, driving, now: time }),
+                updatePresenceDrive(current, {
+                    connected,
+                    driving,
+                    now: time,
+                    createDriveId: randomId,
+                }),
             );
         },
         async resetLimits() {
@@ -157,6 +163,8 @@ export function createPresenceCoordinator({
                 !automotiveAlertHistoryAllowsEntry(
                     this.automotiveAlertHistory,
                     entry,
+                    null,
+                    now(),
                 )
             ) {
                 return null;
@@ -166,7 +174,12 @@ export function createPresenceCoordinator({
             const token = Symbol('automotive-alert-claim');
             const driveId = current.drive.id;
             let settled = false;
-            pendingAutomotiveAlerts.set(token, { driveId, entry });
+            pendingAutomotiveAlerts.set(token, {
+                claimedAt: now(),
+                driveId,
+                entry,
+            });
+            publish();
 
             return {
                 commit: () => {
@@ -178,15 +191,19 @@ export function createPresenceCoordinator({
                         this.state?.drive.id !== driveId ||
                         generation !== automotiveHistoryGeneration
                     ) {
+                        publish();
                         return false;
                     }
 
-                    return this.recordAutomotiveAlertShown(entry);
+                    const recorded = this.recordAutomotiveAlertShown(entry);
+                    if (!recorded) publish();
+                    return recorded;
                 },
                 release: () => {
                     if (settled) return false;
                     settled = true;
                     pendingAutomotiveAlerts.delete(token);
+                    publish();
                     return true;
                 },
             };
@@ -198,9 +215,11 @@ export function createPresenceCoordinator({
 
             const driveId = current.drive.id;
             const history = getCommittedAutomotiveAlertHistory();
+            const shownAt = now();
             const nextHistory = recordAutomotiveAlertHistoryEntry(
                 history,
                 entry,
+                shownAt,
             );
 
             if (nextHistory === history) return false;
@@ -215,6 +234,7 @@ export function createPresenceCoordinator({
                               recordAutomotiveAlertHistoryEntry(
                                   latest.automotiveAlertHistory,
                                   entry,
+                                  shownAt,
                               ),
                       }
                     : latest,
@@ -342,7 +362,6 @@ export function createPresenceCoordinator({
                 osm_node_id: encounter.osmNodeId,
                 response: 'not_there',
                 platform,
-                reporter_id: state.reporterId,
                 event_key: reservation.eventKey,
                 passed_at: new Date(encounter.passedAt).toISOString(),
                 occurred_at: occurredAt,

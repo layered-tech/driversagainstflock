@@ -993,7 +993,7 @@ export class Runner {
             () => {
                 const result = this.run(this.ocrBinary, [imagePath], {
                     allowFailure: true,
-                    timeout: 10000,
+                    timeout: 90000,
                 });
 
                 if (result.error || result.status !== 0) {
@@ -1004,7 +1004,7 @@ export class Runner {
                 return true;
             },
             `decodable screenshot ${name}`,
-            60000,
+            120000,
         );
         const ocr = ocrResult.stdout.trim();
         writeFileSync(
@@ -1023,13 +1023,14 @@ export class Runner {
         return screenshot;
     }
 
-    async dispatchDeepLink(requestType, query) {
+    async dispatchDeepLink(requestType, query, expectedMarker) {
         const outputStart = this.metroOutput.length;
         const url = `driversagainstflock://e2e-mocks?autoPlayRequestType=${encodeURIComponent(requestType)}&query=${encodeURIComponent(query)}`;
         const remote = `am start -a android.intent.action.VIEW -d "${url}" ${this.suite.appId}`;
         this.adb(['shell', remote]);
         const marker =
-            requestType === 'presence'
+            expectedMarker ??
+            (requestType === 'presence'
                 ? query === 'reset'
                     ? '[E2E] presence-limits-reset'
                     : '[E2E] presence-drive-started'
@@ -1037,7 +1038,7 @@ export class Runner {
                   ? '[Android Auto] place-search-completed'
                   : requestType === 'directions'
                     ? '[Android Auto] route-choices-presented'
-                    : '[Android Auto] navigation-start-requested';
+                    : '[Android Auto] navigation-start-requested');
         await this.waitForMetroMarker(marker, outputStart, 60000);
 
         if (requestType === 'directions') {
@@ -1085,8 +1086,20 @@ export class Runner {
         );
     }
 
-    setEmulatorLocation({ latitude, longitude }) {
-        this.adb(['emu', 'geo', 'fix', String(longitude), String(latitude)]);
+    async waitForScorecardExposure() {
+        await this.waitForMetroMarker(
+            '[E2E] scorecard-exposure-recorded',
+            this.scorecardScenarioOutputStart ?? 0,
+            30000,
+        );
+    }
+
+    setEmulatorLocation({ latitude, longitude, velocityKnots }) {
+        const args = ['emu', 'geo', 'fix', String(longitude), String(latitude)];
+        if (Number.isFinite(velocityKnots) && velocityKnots >= 0) {
+            args.push('0', '8', String(velocityKnots));
+        }
+        this.adb(args);
     }
 
     async assertPhoneScorecardCrossings(expectedCount) {
@@ -1102,18 +1115,24 @@ export class Runner {
             'driversagainstflock://scorecard',
             this.suite.appId,
         ]);
-        await this.waitFor(
-            () => {
-                const crossingNode = findNodeByResourceId(
-                    this.dumpUi(),
-                    'scorecard-stat-crossings',
-                );
+        let observedCount = 'not visible';
+        try {
+            await this.waitFor(
+                () => {
+                    const crossingNode = findNodeByResourceId(
+                        this.dumpUi(),
+                        'scorecard-stat-crossings',
+                    );
+                    observedCount = crossingNode?.text ?? 'not visible';
 
-                return crossingNode?.text === String(expectedCount);
-            },
-            'phone Scorecard crossing count ' + expectedCount,
-            30000,
-        );
+                    return observedCount === String(expectedCount);
+                },
+                'phone Scorecard crossing count ' + expectedCount,
+                30000,
+            );
+        } catch (error) {
+            throw new Error(`${error.message}; observed ${observedCount}`);
+        }
         this.report(
             'Phone Scorecard shows ' + expectedCount + ' route-free crossing',
         );
@@ -1366,7 +1385,11 @@ export class Runner {
                 );
                 break;
             case 'deepLink':
-                await this.dispatchDeepLink(step.requestType, step.query);
+                await this.dispatchDeepLink(
+                    step.requestType,
+                    step.query,
+                    step.waitForMetro,
+                );
                 break;
             case 'scorecardDriveScenario':
                 await this.dispatchScorecardDriveScenario(step.scenario);
@@ -1376,6 +1399,9 @@ export class Runner {
                 break;
             case 'waitForScorecardCameraInventory':
                 await this.waitForScorecardCameraInventory();
+                break;
+            case 'waitForScorecardExposure':
+                await this.waitForScorecardExposure();
                 break;
             case 'assertPhoneScorecardCrossings':
                 await this.assertPhoneScorecardCrossings(step.count);

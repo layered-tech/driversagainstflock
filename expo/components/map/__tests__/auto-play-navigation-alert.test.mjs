@@ -19,10 +19,11 @@ import {
     getAutoPlayNavigationAlertTransition,
 } from '../../auto-play-navigation-alert.js';
 import {
-    AUTOMOTIVE_ALERT_PROXIMITY_METERS,
+    AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
     createAutomotiveAlertHistory,
     getAutomotiveAlertHistoryEntry,
     getAutomotiveAlertsAllowedByHistory,
+    normalizeAutomotiveAlertHistory,
     recordAutomotiveAlertHistoryEntry,
 } from '../automotive-alert-policy.js';
 import {
@@ -67,6 +68,7 @@ const makeContent = (
     {
         alertHistory = emptyAlertHistory,
         currentAlertKey = null,
+        now = Date.now(),
         userLocation = vehicleLocation,
     } = {},
 ) =>
@@ -74,6 +76,7 @@ const makeContent = (
         alertHistory,
         currentAlertKey,
         currentSpeedMps,
+        now,
         upcomingAlerts,
         userLocation,
     });
@@ -173,6 +176,7 @@ describe('car navigation alert content', () => {
         const history = recordAutomotiveAlertHistoryEntry(
             emptyAlertHistory,
             getAutomotiveAlertHistoryEntry(alprAlert),
+            1000,
         );
 
         assert.equal(
@@ -182,6 +186,14 @@ describe('car navigation alert content', () => {
         assert.equal(
             makeContent([alprAlert, nearbyPoliceAlert], CRUISING_SPEED_MPS, {
                 alertHistory: history,
+                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS - 1,
+            }),
+            null,
+        );
+        assert.equal(
+            makeContent([alprAlert, nearbyPoliceAlert], CRUISING_SPEED_MPS, {
+                alertHistory: history,
+                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
             }).alertKey,
             'police:waze-police',
         );
@@ -732,66 +744,107 @@ describe('car navigation alert drive history', () => {
         );
     });
 
-    test('uses an inclusive 150-meter same-type proximity boundary', () => {
+    test('uses an inclusive two-minute gap across ALPR and police warnings', () => {
         const shown = { coordinate: [0, 0], id: 'shown', type: 'alpr' };
         const history = recordAutomotiveAlertHistoryEntry(
             emptyAlertHistory,
             getAutomotiveAlertHistoryEntry(shown),
+            1000,
         );
-        const atBoundary = {
-            coordinate: coordinateEastAtDistance(
-                AUTOMOTIVE_ALERT_PROXIMITY_METERS,
-            ),
-            id: 'at-boundary',
-            type: 'alpr',
-        };
-        const beyondBoundary = {
-            ...atBoundary,
-            coordinate: coordinateEastAtDistance(
-                AUTOMOTIVE_ALERT_PROXIMITY_METERS + 0.001,
-            ),
-            id: 'beyond-boundary',
-        };
+        const nextAlpr = { ...shown, id: 'next-alpr' };
+        const nextPolice = { ...shown, id: 'next-police', type: 'police' };
 
         assert.deepEqual(
             getAutomotiveAlertsAllowedByHistory({
-                alerts: [atBoundary],
+                alerts: [nextAlpr, nextPolice],
                 history,
+                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS - 1,
             }),
             [],
         );
         assert.deepEqual(
             getAutomotiveAlertsAllowedByHistory({
-                alerts: [beyondBoundary],
+                alerts: [nextAlpr, nextPolice],
                 history,
+                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
             }),
-            [beyondBoundary],
+            [nextAlpr, nextPolice],
         );
     });
 
-    test('groups against shown representatives without transitive chaining', () => {
+    test('distinct nearby ALPR nodes can alert after the gap but the same node cannot repeat', () => {
         const shown = { coordinate: [0, 0], id: 'shown', type: 'alpr' };
         const history = recordAutomotiveAlertHistoryEntry(
             emptyAlertHistory,
             getAutomotiveAlertHistoryEntry(shown),
+            1000,
         );
-        const suppressedNeighbor = {
+        const nearbyNode = {
             coordinate: coordinateEastAtDistance(149),
-            id: 'suppressed-neighbor',
-            type: 'alpr',
-        };
-        const nonTransitiveCandidate = {
-            coordinate: coordinateEastAtDistance(298),
-            id: 'non-transitive-candidate',
+            id: 'nearby-node',
             type: 'alpr',
         };
 
         assert.deepEqual(
             getAutomotiveAlertsAllowedByHistory({
-                alerts: [suppressedNeighbor, nonTransitiveCandidate],
+                alerts: [shown, nearbyNode],
                 history,
+                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
             }),
-            [nonTransitiveCandidate],
+            [nearbyNode],
+        );
+    });
+
+    test('warning history has no per-drive count cap', () => {
+        let history = emptyAlertHistory;
+        for (let index = 0; index < 20; index++) {
+            history = recordAutomotiveAlertHistoryEntry(
+                history,
+                getAutomotiveAlertHistoryEntry({
+                    coordinate: [0, 0],
+                    id: `reader-${index}`,
+                    type: 'alpr',
+                }),
+                1000 + index * AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+            );
+        }
+        const next = { coordinate: [0, 0], id: 'reader-20', type: 'alpr' };
+        assert.deepEqual(
+            getAutomotiveAlertsAllowedByHistory({
+                alerts: [next],
+                history,
+                now: 1000 + 20 * AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+            }),
+            [next],
+        );
+    });
+
+    test('older stored warning history starts a two-minute gap on migration', () => {
+        const legacyHistory = {
+            driveId: 'drive-1',
+            entries: [getAutomotiveAlertHistoryEntry(alprAlert)],
+        };
+        const history = normalizeAutomotiveAlertHistory(
+            legacyHistory,
+            'drive-1',
+            1000,
+        );
+        assert.equal(history.lastShownAt, 1000);
+        assert.deepEqual(
+            getAutomotiveAlertsAllowedByHistory({
+                alerts: [policeAlert],
+                history,
+                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS - 1,
+            }),
+            [],
+        );
+        assert.deepEqual(
+            getAutomotiveAlertsAllowedByHistory({
+                alerts: [policeAlert],
+                history,
+                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+            }),
+            [policeAlert],
         );
     });
 
@@ -799,6 +852,7 @@ describe('car navigation alert drive history', () => {
         const history = recordAutomotiveAlertHistoryEntry(
             emptyAlertHistory,
             getAutomotiveAlertHistoryEntry(alprAlert),
+            1000,
         );
         const colocatedPolice = {
             ...policeAlert,
@@ -809,15 +863,17 @@ describe('car navigation alert drive history', () => {
             getAutomotiveAlertsAllowedByHistory({
                 alerts: [colocatedPolice],
                 history,
+                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
             }),
             [colocatedPolice],
         );
     });
 
-    test('allows a genuinely new same-type report beyond the proximity group', () => {
+    test('allows a new police report after the gap', () => {
         const history = recordAutomotiveAlertHistoryEntry(
             emptyAlertHistory,
             getAutomotiveAlertHistoryEntry(policeAlert),
+            1000,
         );
         const newPoliceReport = {
             ...policeAlert,
@@ -829,7 +885,10 @@ describe('car navigation alert drive history', () => {
             makeContent(
                 [{ ...policeAlert }, newPoliceReport],
                 CRUISING_SPEED_MPS,
-                { alertHistory: history },
+                {
+                    alertHistory: history,
+                    now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+                },
             ).alertKey,
             'police:new-police-report',
         );
@@ -874,7 +933,7 @@ describe('car navigation alert drive history', () => {
         );
     });
 
-    test('announces a follow-up after the shown representative is recorded', () => {
+    test('announces a follow-up after the two-minute warning gap', () => {
         const NOW = 1780000000000;
         const nearbyPoliceAlert = { ...policeAlert, distanceMeters: 520 };
         const upcomingAlerts = [alprAlert, nearbyPoliceAlert];
@@ -887,33 +946,36 @@ describe('car navigation alert drive history', () => {
         const history = recordAutomotiveAlertHistoryEntry(
             emptyAlertHistory,
             getAutomotiveAlertHistoryEntry(alprAlert),
+            NOW,
         );
         const dismissedState = getAutoPlayNavigationAlertDismissedState(
             shownAlpr.state,
             7,
             NOW,
         );
-        const followUpContent = getAutoPlayNavigationAlertContent({
+        const earlyContent = getAutoPlayNavigationAlertContent({
             alertHistory: history,
             currentSpeedMps: CRUISING_SPEED_MPS,
+            now: NOW + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS - 1,
             upcomingAlerts,
             userLocation: vehicleLocation,
         });
-        const heldFollowUp = getAutoPlayNavigationAlertTransition({
-            content: followUpContent,
-            nextAlertId: 8,
-            now: NOW + 200,
-            state: dismissedState,
+        const followUpContent = getAutoPlayNavigationAlertContent({
+            alertHistory: history,
+            currentSpeedMps: CRUISING_SPEED_MPS,
+            now: NOW + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+            upcomingAlerts,
+            userLocation: vehicleLocation,
         });
         const followUp = getAutoPlayNavigationAlertTransition({
             content: followUpContent,
             nextAlertId: 8,
-            now: NOW + AUTO_PLAY_NAVIGATION_ALERT_FOLLOW_UP_DELAY_MS,
+            now: NOW + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
             state: dismissedState,
         });
 
         assert.equal(shownAlpr.state.alertKey, 'alpr:flock-reader');
-        assert.equal(heldFollowUp.action, 'none');
+        assert.equal(earlyContent, null);
         assert.equal(followUp.action, 'show');
         assert.equal(followUp.alertId, 8);
         assert.equal(followUp.state.alertKey, 'police:waze-police');

@@ -10,6 +10,7 @@ function getDeepLinkPath(url) {
 const E2E_DRIVING_ALERT_FIXTURES = new Set(['alpr', 'combined', 'police']);
 const E2E_AUTO_PLAY_REQUEST_TYPES = new Set([
     'presence',
+    'map-view',
     'directions',
     'navigation',
     'search',
@@ -72,7 +73,11 @@ export function getE2EAutoPlayCommandFromURL(value) {
         const requestType = url.searchParams.get('autoPlayRequestType');
         const query = String(url.searchParams.get('query') ?? '').trim();
 
-        if (!E2E_AUTO_PLAY_REQUEST_TYPES.has(requestType) || !query) {
+        if (
+            !E2E_AUTO_PLAY_REQUEST_TYPES.has(requestType) ||
+            !query ||
+            (requestType === 'map-view' && query !== 'toggle')
+        ) {
             return null;
         }
 

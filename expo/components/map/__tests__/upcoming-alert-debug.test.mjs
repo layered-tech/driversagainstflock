@@ -59,7 +59,10 @@ test('diagnostics report direct range, route range, history and missing data sep
         },
     });
     assert.equal(recorded.eligibleCount, 0);
-    assert.match(recorded.candidates[0].blockers[0], /Already recorded/);
+    assert.match(
+        recorded.candidates[0].blockers[0],
+        /Already shown this drive/,
+    );
     const missing = buildUpcomingAlertDebugSnapshot({
         ...input,
         enabled: false,

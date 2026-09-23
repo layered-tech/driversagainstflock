@@ -12,9 +12,8 @@ export const PRESENCE_POLICY = Object.freeze({
     earliestMs: 3000,
     latestMs: 15000,
     durationMs: 20000,
-    sessionLimit: 15,
-    spacingMs: 15000,
-    nodeCooldownMs: 300000,
+    spacingMs: 3 * 60 * 1000,
+    nodeCooldownMs: 7 * 24 * 60 * 60 * 1000,
     driveEndMs: 1800000,
     isolationMeters: 150,
     trackingDistanceMeters: 150,
@@ -443,15 +442,6 @@ export function inspectPresenceFocus(
 ) {
     const location = context.location;
     const viewport = context.viewport;
-    if (
-        !viewport ||
-        viewport.visibleWidth < 200 ||
-        viewport.visibleHeight < 180
-    )
-        return {
-            focus: null,
-            reason: 'Car map viewport unavailable or too small',
-        };
     const vehicle = presenceCoordinate(location);
     // Free-driving geometry is a past GPS tangent, not the road ahead.
     if (context.navigationActive === true) {
@@ -465,6 +455,19 @@ export function inspectPresenceFocus(
                 focus: null,
                 reason: 'Vehicle left the tracked road path',
             };
+    }
+    if (
+        !viewport ||
+        viewport.visibleWidth < 200 ||
+        viewport.visibleHeight < 180
+    ) {
+        if (context.presenceFocus) {
+            return { focus: context.presenceFocus, reason: null };
+        }
+        return {
+            focus: null,
+            reason: 'Car map viewport unavailable or too small',
+        };
     }
     const camera = presenceCoordinate(encounter.node);
     const angle = radians(context.presenceFocus?.heading ?? location.heading);
@@ -552,12 +555,9 @@ export function getPresenceFocus(
     return inspectPresenceFocus(encounter, context, remainingMs).focus;
 }
 
-export function createPresenceState(reporterId, now) {
-    const driveId = `${reporterId}:${now}`;
-
+export function createPresenceState(driveId, now) {
     return {
-        version: 1,
-        reporterId,
+        version: 2,
         automotiveAlertHistory: createAutomotiveAlertHistory(driveId),
         drive: {
             id: driveId,
@@ -571,14 +571,38 @@ export function createPresenceState(reporterId, now) {
         outbox: [],
     };
 }
-export function parsePresenceState(value) {
-    const state = JSON.parse(value);
+export function parsePresenceState(value, createDriveId, now = Date.now()) {
+    let state = JSON.parse(value);
+    if (state?.version === 1) {
+        if (
+            typeof createDriveId !== 'function' ||
+            typeof state.reporterId !== 'string' ||
+            state.reporterId.length < 32 ||
+            !Array.isArray(state.outbox)
+        )
+            throw new Error('Invalid presence state');
+        const { reporterId, ...legacy } = state;
+        const driveId = createDriveId();
+        state = {
+            ...legacy,
+            version: 2,
+            drive: { ...legacy.drive, id: driveId },
+            automotiveAlertHistory: legacy.automotiveAlertHistory
+                ? { ...legacy.automotiveAlertHistory, driveId }
+                : undefined,
+            outbox: legacy.outbox.map((item) => {
+                if (item?.payload?.reporter_id !== reporterId)
+                    throw new Error('Invalid presence state');
+                const { reporter_id, ...payload } = item.payload;
+                return { ...item, payload };
+            }),
+        };
+    }
     if (
-        state?.version !== 1 ||
-        typeof state.reporterId !== 'string' ||
-        state.reporterId.length < 32 ||
+        state?.version !== 2 ||
         !state.drive ||
         typeof state.drive.id !== 'string' ||
+        state.drive.id.length < 16 ||
         !Number.isInteger(state.drive.count) ||
         state.drive.count < 0 ||
         !Number.isFinite(state.drive.lastActivityAt) ||
@@ -602,7 +626,7 @@ export function parsePresenceState(value) {
                 ['android_auto', 'carplay'].includes(item.payload.platform) &&
                 Number.isSafeInteger(item.payload.osm_node_id) &&
                 item.payload.osm_node_id > 0 &&
-                item.payload.reporter_id === state.reporterId &&
+                !Object.hasOwn(item.payload, 'reporter_id') &&
                 typeof item.payload.event_key === 'string' &&
                 item.payload.event_key.length >= 16 &&
                 ['passed_at', 'occurred_at', 'submitted_at'].every((key) =>
@@ -616,14 +640,19 @@ export function parsePresenceState(value) {
         automotiveAlertHistory: normalizeAutomotiveAlertHistory(
             state.automotiveAlertHistory,
             state.drive.id,
+            now,
         ),
     };
 }
-export function updatePresenceDrive(state, { connected, driving, now }) {
+export function updatePresenceDrive(
+    state,
+    { connected, driving, now, createDriveId },
+) {
     const drive = { ...state.drive };
     let automotiveAlertHistory = normalizeAutomotiveAlertHistory(
         state.automotiveAlertHistory,
         drive.id,
+        now,
     );
     if (
         !drive.connected &&
@@ -632,7 +661,7 @@ export function updatePresenceDrive(state, { connected, driving, now }) {
             PRESENCE_POLICY.driveEndMs
     ) {
         drive.count = 0;
-        drive.id = `${state.reporterId}:${now}`;
+        drive.id = `${createDriveId()}:${now}`;
         automotiveAlertHistory = createAutomotiveAlertHistory(drive.id);
     }
     if (!connected && drive.connected) drive.disconnectedAt = now;
@@ -644,7 +673,6 @@ export function updatePresenceDrive(state, { connected, driving, now }) {
 export function canStartPresencePrompt(state, encounter, now) {
     return Boolean(
         state &&
-        state.drive.count < PRESENCE_POLICY.sessionLimit &&
         (state.lastPromptAt === null ||
             now - state.lastPromptAt >= PRESENCE_POLICY.spacingMs) &&
         (state.nodeTimes[encounter.osmNodeId] === undefined ||

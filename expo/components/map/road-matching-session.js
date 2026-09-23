@@ -1243,6 +1243,12 @@ export function getPersistentRoadMatchingWatchIsActive() {
     return activePersistentRetainerCount > 0;
 }
 
+export function invalidateRoadMatchingGraphForE2E() {
+    abortPendingRoadGraphWork();
+    graphCenter = null;
+    lastGraphRequestFailure = null;
+}
+
 export async function retainRoadMatchingSessionAsync({
     persistent = false,
 } = {}) {

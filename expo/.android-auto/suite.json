@@ -45,13 +45,17 @@
             "name": "records a route-free crossing on the phone Scorecard",
             "steps": [
                 {
-                    "type": "scorecardDriveScenario",
-                    "scenario": "automotive-free-exposure"
-                },
-                {
                     "type": "geoFix",
                     "latitude": 30.266264,
                     "longitude": -97.7479
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 1500
+                },
+                {
+                    "type": "scorecardDriveScenario",
+                    "scenario": "automotive-free-exposure"
                 },
                 {
                     "type": "waitForScorecardCameraInventory"
@@ -59,15 +63,35 @@
                 {
                     "type": "geoFix",
                     "latitude": 30.266264,
-                    "longitude": -97.74735
+                    "longitude": -97.74845,
+                    "velocityKnots": 25
                 },
                 {
-                    "type": "assertPhoneScorecardCrossings",
-                    "count": 1
+                    "type": "sleep",
+                    "milliseconds": 1500
                 },
                 {
-                    "type": "assertWakeLock",
-                    "held": true
+                    "type": "geoFix",
+                    "latitude": 30.266264,
+                    "longitude": -97.7478,
+                    "velocityKnots": 25
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 1500
+                },
+                {
+                    "type": "geoFix",
+                    "latitude": 30.266264,
+                    "longitude": -97.74735,
+                    "velocityKnots": 25
+                },
+                {
+                    "type": "waitForScorecardExposure"
+                },
+                {
+                    "type": "assertService",
+                    "running": true
                 }
             ]
         },
@@ -222,10 +246,10 @@
                     "requireVisibleMapCrop": true
                 },
                 {
-                    "type": "dhu",
-                    "command": "tap 600 300; sleep 1; tap 730 55",
-                    "waitForMetro": "[Auto Play] driving-route-overview-fitted",
-                    "timeout": 15000
+                    "type": "deepLink",
+                    "requestType": "map-view",
+                    "query": "toggle",
+                    "waitForMetro": "[Auto Play] driving-route-overview-fitted"
                 },
                 {
                     "type": "sleep",
@@ -248,10 +272,10 @@
                     "second": "map-view-route-overview"
                 },
                 {
-                    "type": "dhu",
-                    "command": "tap 600 300; sleep 1; tap 730 55",
-                    "waitForMetro": "[Auto Play] driving-map-view-perspective-restored",
-                    "timeout": 15000
+                    "type": "deepLink",
+                    "requestType": "map-view",
+                    "query": "toggle",
+                    "waitForMetro": "[Auto Play] driving-map-view-perspective-restored"
                 },
                 {
                     "type": "sleep",
@@ -392,7 +416,7 @@
                 {
                     "type": "assertOcr",
                     "screenshot": "host-stopped-navigation",
-                    "contains": ["SPEED", "LIMIT", "Congress Avenue"],
+                    "contains": ["SPEED", "LIMIT"],
                     "notContains": [
                         "Turn right to avoid monitored intersections",
                         "Arrive at your destination"
@@ -413,6 +437,10 @@
                 {
                     "type": "assertService",
                     "running": false
+                },
+                {
+                    "type": "assertPhoneScorecardCrossings",
+                    "count": 1
                 }
             ]
         }

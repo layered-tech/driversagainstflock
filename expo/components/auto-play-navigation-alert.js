@@ -239,6 +239,7 @@ export function getAutoPlayNavigationAlertContent({
     alertHistory,
     currentSpeedMps,
     currentAlertKey = null,
+    now = Date.now(),
     upcomingAlerts,
     userLocation,
 } = {}) {
@@ -260,6 +261,7 @@ export function getAutoPlayNavigationAlertContent({
         alerts: eligibleAlerts,
         currentAlertKey,
         history: alertHistory,
+        now,
     });
     const presentation = getDrivingAlertsPresentation(
         getNavigationAlertCandidatesInStableOrder(historyEligibleAlerts),

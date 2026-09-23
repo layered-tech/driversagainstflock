@@ -158,10 +158,17 @@ export function createScorecardRuntime({
         const committedAt = now();
         const nextState = normalizeScorecardState(updatedState, committedAt);
         const revision = stateRevision + 1;
+        const previousExposureCount = scorecardState.exposures.length;
 
         scorecardState = nextState;
         stateRevision = revision;
         publishSnapshot();
+        if (
+            process.env.EXPO_PUBLIC_E2E_MAP_API_MOCKS === '1' &&
+            nextState.exposures.length > previousExposureCount
+        ) {
+            console.info('[E2E] scorecard-exposure-recorded');
+        }
 
         persistCommittedState(nextState, committedAt, revision);
 

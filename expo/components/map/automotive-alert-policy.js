@@ -1,6 +1,6 @@
 export const AUTOMOTIVE_ALERT_MINIMUM_RANGE_METERS = 1609.344 * 0.5;
 export const AUTOMOTIVE_ALERT_MAXIMUM_RANGE_METERS = 1609.344 * 2;
-export const AUTOMOTIVE_ALERT_PROXIMITY_METERS = 150;
+export const AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS = 2 * 60 * 1000;
 
 const EARTH_RADIUS_METERS = 6371008.8;
 const AUTOMOTIVE_ALERT_TYPES = new Set(['alpr', 'police']);
@@ -101,10 +101,14 @@ export function getAutomotiveAlertHistoryEntry(alert) {
 }
 
 export function createAutomotiveAlertHistory(driveId) {
-    return { driveId, entries: [] };
+    return { driveId, entries: [], lastShownAt: null };
 }
 
-export function normalizeAutomotiveAlertHistory(value, driveId) {
+export function normalizeAutomotiveAlertHistory(
+    value,
+    driveId,
+    now = Date.now(),
+) {
     if (value === undefined || value === null) {
         return createAutomotiveAlertHistory(driveId);
     }
@@ -143,10 +147,24 @@ export function normalizeAutomotiveAlertHistory(value, driveId) {
         throw new Error('Invalid automotive alert history');
     }
 
-    return { driveId, entries };
+    const lastShownAt =
+        value.lastShownAt === undefined
+            ? entries.length > 0
+                ? now
+                : null
+            : value.lastShownAt;
+    if (!(lastShownAt === null || Number.isFinite(lastShownAt))) {
+        throw new Error('Invalid automotive alert history');
+    }
+
+    return { driveId, entries, lastShownAt };
 }
 
-export function recordAutomotiveAlertHistoryEntry(history, entry) {
+export function recordAutomotiveAlertHistoryEntry(
+    history,
+    entry,
+    shownAt = Date.now(),
+) {
     if (
         !entry ||
         history.entries.some(({ alertKey }) => alertKey === entry.alertKey)
@@ -154,13 +172,18 @@ export function recordAutomotiveAlertHistoryEntry(history, entry) {
         return history;
     }
 
-    return { ...history, entries: [...history.entries, entry] };
+    return {
+        ...history,
+        entries: [...history.entries, entry],
+        lastShownAt: shownAt,
+    };
 }
 
 export function automotiveAlertHistoryAllowsEntry(
     history,
     entry,
     currentAlertKey = null,
+    now = Date.now(),
 ) {
     if (!history || !entry) {
         return false;
@@ -170,14 +193,10 @@ export function automotiveAlertHistoryAllowsEntry(
         return true;
     }
 
-    return history.entries.every(
-        (shown) =>
-            shown.alertKey !== entry.alertKey &&
-            (shown.type !== entry.type ||
-                getAutomotiveAlertDistanceMeters(
-                    shown.coordinate,
-                    entry.coordinate,
-                ) > AUTOMOTIVE_ALERT_PROXIMITY_METERS),
+    return (
+        history.entries.every((shown) => shown.alertKey !== entry.alertKey) &&
+        (history.lastShownAt === null ||
+            now - history.lastShownAt >= AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS)
     );
 }
 
@@ -185,6 +204,7 @@ export function getAutomotiveAlertsAllowedByHistory({
     alerts,
     currentAlertKey = null,
     history,
+    now = Date.now(),
 }) {
     if (!Array.isArray(alerts) || !history) {
         return [];
@@ -201,6 +221,7 @@ export function getAutomotiveAlertsAllowedByHistory({
             history,
             entry,
             currentAlertKey,
+            now,
         );
     });
 }

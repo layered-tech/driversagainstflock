@@ -102,7 +102,7 @@ export function AboutLegalScreen() {
                         <AboutLegalRow
                             icon="shield-check"
                             onPress={() => router.navigate('/privacy-policy')}
-                            subtitle="Last updated August 2026"
+                            subtitle="Last updated September 2026"
                             title="Privacy Policy"
                         />
                         <AboutLegalRow

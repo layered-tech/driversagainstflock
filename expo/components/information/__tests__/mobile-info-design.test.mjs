@@ -124,7 +124,7 @@ describe('Mobile help and legal design', () => {
     test('builds concise legal metadata and jump lists from legal content', () => {
         assert.deepEqual(getLegalDocumentMetadata(privacyPage), {
             sectionCountLabel: '12 sections',
-            updatedLabel: 'Last updated August 2026',
+            updatedLabel: 'Last updated September 2026',
         });
         assert.deepEqual(getLegalDocumentMetadata(termsPage), {
             sectionCountLabel: '18 sections',

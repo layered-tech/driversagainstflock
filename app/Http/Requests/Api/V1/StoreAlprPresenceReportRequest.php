@@ -19,7 +19,7 @@ class StoreAlprPresenceReportRequest extends FormRequest
             'osm_node_id' => ['required', 'integer', 'min:1', 'max:9007199254740991'],
             'response' => ['required', Rule::in(['not_there'])],
             'platform' => ['required', Rule::in(['android_auto', 'carplay'])],
-            'reporter_id' => ['required', 'string', 'min:32', 'max:128', 'regex:/\A[A-Za-z0-9_-]+\z/'],
+            'reporter_id' => ['prohibited'],
             'event_key' => ['required', 'string', 'min:16', 'max:128', 'regex:/\A[A-Za-z0-9_-]+\z/'],
             'passed_at' => ['required', 'date', 'before_or_equal:occurred_at'],
             'occurred_at' => ['required', 'date', 'before_or_equal:submitted_at'],

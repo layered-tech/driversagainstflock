@@ -1,8 +1,24 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import {
+    addAutoPlaySessionStateListener,
+    getAutoPlaySessionState,
+} from '../auto-play-session-state';
 import { Icon } from '../design-system/icon';
 import { dafColors } from '../design-system/tokens';
-import { getDrivingAlertsPresentation } from './driving-alerts';
+import {
+    presenceCoordinator,
+    startPresenceRuntime,
+} from './alpr-presence-runtime';
+import {
+    AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+    getAutomotiveAlertHistoryEntry,
+    getAutomotiveAlertKey,
+} from './automotive-alert-policy';
+import {
+    getDrivingAlertsPresentation,
+    getNextPhoneDrivingAlert,
+} from './driving-alerts';
 import { UpcomingAlertDistanceTrack } from './upcoming-alert-distance-track';
 
 function AlertIcon({ alertPresentation, compact = false }) {
@@ -169,11 +185,44 @@ function CombinedDrivingAlertsCard({ onDismiss, presentation }) {
     );
 }
 
-export function DrivingAlertsOverlay({
-    alerts,
-    bottomInset = 0,
-    routeIsActive = false,
+function DrivingAlertCard({
+    bottomInset,
+    onDismiss,
+    onShown,
+    presentation,
+    routeIsActive,
 }) {
+    if (!presentation) {
+        return null;
+    }
+
+    const bottomPadding = routeIsActive
+        ? 12
+        : Math.max(Number(bottomInset) || 0, 12);
+
+    return (
+        <View
+            className="px-3"
+            onLayout={onShown}
+            pointerEvents="box-none"
+            style={{ paddingBottom: bottomPadding }}
+        >
+            {presentation.variant === 'combined' ? (
+                <CombinedDrivingAlertsCard
+                    onDismiss={onDismiss}
+                    presentation={presentation}
+                />
+            ) : (
+                <SingleDrivingAlertCard
+                    onDismiss={onDismiss}
+                    presentation={presentation}
+                />
+            )}
+        </View>
+    );
+}
+
+function FixtureDrivingAlertsOverlay({ alerts, bottomInset, routeIsActive }) {
     const [dismissedAlertIds, setDismissedAlertIds] = useState(() => new Set());
     const presentation = useMemo(
         () => getDrivingAlertsPresentation(alerts, dismissedAlertIds),
@@ -191,32 +240,156 @@ export function DrivingAlertsOverlay({
         });
     }, []);
 
-    if (!presentation) {
-        return null;
-    }
-
-    const bottomPadding = routeIsActive
-        ? 12
-        : Math.max(Number(bottomInset) || 0, 12);
-    const handleDismiss = () => dismissAlerts(presentation.dismissalAlertIds);
+    const handleDismiss = () => {
+        if (presentation) dismissAlerts(presentation.dismissalAlertIds);
+    };
 
     return (
-        <View
-            className="px-3"
-            pointerEvents="box-none"
-            style={{ paddingBottom: bottomPadding }}
-        >
-            {presentation.variant === 'combined' ? (
-                <CombinedDrivingAlertsCard
-                    onDismiss={handleDismiss}
-                    presentation={presentation}
-                />
-            ) : (
-                <SingleDrivingAlertCard
-                    onDismiss={handleDismiss}
-                    presentation={presentation}
-                />
-            )}
-        </View>
+        <DrivingAlertCard
+            bottomInset={bottomInset}
+            onDismiss={handleDismiss}
+            presentation={presentation}
+            routeIsActive={routeIsActive}
+        />
+    );
+}
+
+function GatedDrivingAlertsOverlay({ alerts, bottomInset, routeIsActive }) {
+    const [dismissedAlertIds, setDismissedAlertIds] = useState(() => new Set());
+    const [active, setActive] = useState(null);
+    const activeRef = useRef(active);
+    activeRef.current = active;
+    const [history, setHistory] = useState(null);
+    const [carConnected, setCarConnected] = useState(
+        getAutoPlaySessionState().isConnected,
+    );
+    const [timeRevision, setTimeRevision] = useState(0);
+
+    useEffect(() => {
+        let mounted = true;
+        startPresenceRuntime();
+        const updateHistory = () => {
+            if (mounted) setHistory(presenceCoordinator.automotiveAlertHistory);
+        };
+        const unsubscribeHistory = presenceCoordinator.subscribe(updateHistory);
+        const unsubscribeCar = addAutoPlaySessionStateListener((session) => {
+            if (mounted) setCarConnected(session.isConnected);
+        });
+        void presenceCoordinator.hydrate().then(updateHistory);
+
+        return () => {
+            mounted = false;
+            unsubscribeHistory();
+            unsubscribeCar();
+            activeRef.current?.claim.release();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (active || carConnected || history?.lastShownAt == null) return;
+        const remaining =
+            history.lastShownAt +
+            AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS -
+            Date.now();
+        if (remaining <= 0) return;
+        const timer = setTimeout(
+            () => setTimeRevision((revision) => revision + 1),
+            remaining,
+        );
+        return () => clearTimeout(timer);
+    }, [active, carConnected, history?.lastShownAt]);
+
+    const candidate = useMemo(
+        () =>
+            carConnected
+                ? null
+                : getNextPhoneDrivingAlert(
+                      alerts,
+                      dismissedAlertIds,
+                      history,
+                      active?.alertKey,
+                      Date.now(),
+                  ),
+        [
+            active?.alertKey,
+            alerts,
+            carConnected,
+            dismissedAlertIds,
+            history,
+            timeRevision,
+        ],
+    );
+    const candidateKey = getAutomotiveAlertKey(candidate);
+
+    useEffect(() => {
+        if (active?.alertKey === candidateKey) return;
+        if (active) {
+            active.claim.release();
+            setActive(null);
+            return;
+        }
+        if (!candidate || !candidateKey) return;
+        const entry = getAutomotiveAlertHistoryEntry(candidate);
+        const claim = presenceCoordinator.claimAutomotiveAlert(entry);
+        if (claim)
+            setActive({ alertKey: candidateKey, claim, recorded: false });
+    }, [active, candidate, candidateKey]);
+
+    const presentation =
+        active && active.alertKey === candidateKey
+            ? getDrivingAlertsPresentation([candidate], dismissedAlertIds)
+            : null;
+    const handleShown = () => {
+        const current = activeRef.current;
+        if (!current || current.recorded) return;
+        const committed = current.claim.commit();
+        if (!committed) current.claim.release();
+        setActive((latest) =>
+            latest === current
+                ? committed
+                    ? { ...current, recorded: true }
+                    : null
+                : latest,
+        );
+    };
+    const handleDismiss = () => {
+        const current = activeRef.current;
+        if (!current) return;
+        if (!current.recorded) current.claim.commit();
+        setDismissedAlertIds((ids) => {
+            const nextIds = new Set(ids);
+            presentation?.dismissalAlertIds.forEach((id) => nextIds.add(id));
+            return nextIds;
+        });
+        setActive(null);
+    };
+
+    return (
+        <DrivingAlertCard
+            bottomInset={bottomInset}
+            onDismiss={handleDismiss}
+            onShown={handleShown}
+            presentation={presentation}
+            routeIsActive={routeIsActive}
+        />
+    );
+}
+
+export function DrivingAlertsOverlay({
+    alerts,
+    bottomInset = 0,
+    routeIsActive = false,
+    unrestrictedFixture = false,
+}) {
+    const Overlay = unrestrictedFixture
+        ? FixtureDrivingAlertsOverlay
+        : GatedDrivingAlertsOverlay;
+
+    return (
+        <Overlay
+            alerts={alerts}
+            bottomInset={bottomInset}
+            routeIsActive={routeIsActive}
+        />
     );
 }

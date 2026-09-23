@@ -15,7 +15,7 @@ class AlprPresenceReport extends Model
 
     protected $guarded = [];
 
-    protected $hidden = ['reporter_key', 'event_key', 'payload_hash'];
+    protected $hidden = ['event_key', 'payload_hash'];
 
     protected static function booted(): void
     {

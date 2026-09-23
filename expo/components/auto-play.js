@@ -3567,6 +3567,14 @@ export function dispatchAutoPlayE2ECommand({ query, requestType } = {}) {
             query,
         );
     }
+    if (e2eMapApiMocksCanBeEnabled() && requestType === 'map-view') {
+        if (query !== 'toggle' || !activeNavigationRoute) {
+            return false;
+        }
+
+        handleRootHeaderDrivingMapViewPress();
+        return true;
+    }
     const normalizedQuery = String(query ?? '').trim();
 
     if (

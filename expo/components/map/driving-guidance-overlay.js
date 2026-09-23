@@ -415,6 +415,7 @@ export function DrivingGuidanceOverlay({
                     alerts={e2eDrivingAlertsFixture ?? upcomingAlerts}
                     bottomInset={insets.bottom}
                     routeIsActive={routeIsActive}
+                    unrestrictedFixture={e2eDrivingAlertsFixture !== null}
                 />
 
                 {routeIsActive ? (

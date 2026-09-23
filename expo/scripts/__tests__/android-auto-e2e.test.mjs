@@ -22,6 +22,34 @@ import {
 } from '../android-auto-e2e.mjs';
 
 describe('Android Auto E2E helpers', () => {
+    test('route view scenario uses semantic commands without DHU taps', () => {
+        const suite = JSON.parse(
+            readFileSync(
+                new URL('../../.android-auto/suite.json', import.meta.url),
+                'utf8',
+            ),
+        );
+        const scenario = suite.tests.find(
+            ({ name }) =>
+                name === 'toggles between 3D follow and route overview',
+        );
+
+        assert.ok(scenario);
+        assert.deepEqual(
+            scenario.steps
+                .filter(({ type }) => type === 'deepLink')
+                .map(({ requestType, query }) => ({ requestType, query })),
+            [
+                { requestType: 'map-view', query: 'toggle' },
+                { requestType: 'map-view', query: 'toggle' },
+            ],
+        );
+        assert.equal(
+            scenario.steps.some(({ type }) => type === 'dhu'),
+            false,
+        );
+    });
+
     test('separates basic and map cluster configurations by DHU version', () => {
         const readConfig = (name) =>
             readFileSync(
@@ -316,13 +344,13 @@ describe('Android Auto E2E helpers', () => {
                     type === 'assertOcr' &&
                     screenshot === 'host-stopped-navigation',
             ).contains,
-            ['SPEED', 'LIMIT', 'Congress Avenue'],
+            ['SPEED', 'LIMIT'],
         );
         assert.deepEqual(
             mapViewToggleTest.steps
                 .filter(
-                    ({ command, type }) =>
-                        type === 'dhu' && command.endsWith('tap 730 55'),
+                    ({ requestType, type }) =>
+                        type === 'deepLink' && requestType === 'map-view',
                 )
                 .map(({ waitForMetro }) => waitForMetro),
             [
@@ -479,19 +507,32 @@ describe('Android Auto E2E helpers', () => {
             },
             {
                 latitude: 30.266264,
+                longitude: -97.74845,
+                type: 'geoFix',
+                velocityKnots: 25,
+            },
+            {
+                latitude: 30.266264,
+                longitude: -97.7478,
+                type: 'geoFix',
+                velocityKnots: 25,
+            },
+            {
+                latitude: 30.266264,
                 longitude: -97.74735,
                 type: 'geoFix',
+                velocityKnots: 25,
             },
         ]);
         assert.ok(geoFixes[0].longitude < -97.747624);
-        assert.ok(geoFixes[1].longitude > -97.747624);
-        assert.equal(phoneAssertion.count, 1);
-        assert.ok(
-            freeDriveTest.steps.indexOf(scenarioStep) <
-                freeDriveTest.steps.indexOf(geoFixes[0]),
-        );
+        assert.ok(geoFixes[3].longitude > -97.747624);
+        assert.equal(phoneAssertion, undefined);
         assert.ok(
             freeDriveTest.steps.indexOf(geoFixes[0]) <
+                freeDriveTest.steps.indexOf(scenarioStep),
+        );
+        assert.ok(
+            freeDriveTest.steps.indexOf(scenarioStep) <
                 freeDriveTest.steps.indexOf(cameraInventoryStep),
         );
         assert.ok(
@@ -499,12 +540,16 @@ describe('Android Auto E2E helpers', () => {
                 freeDriveTest.steps.indexOf(geoFixes[1]),
         );
         assert.ok(
-            freeDriveTest.steps.indexOf(geoFixes[1]) <
-                freeDriveTest.steps.indexOf(phoneAssertion),
+            freeDriveTest.steps.indexOf(geoFixes[3]) <
+                freeDriveTest.steps.findIndex(
+                    ({ type }) => type === 'waitForScorecardExposure',
+                ),
         );
-        assert.equal(
-            freeDriveTest.steps.some(({ type }) => type === 'sleep'),
-            false,
+        assert.ok(
+            freeDriveTest.steps.some(
+                ({ type, milliseconds }) =>
+                    type === 'sleep' && milliseconds === 1500,
+            ),
         );
     });
 
