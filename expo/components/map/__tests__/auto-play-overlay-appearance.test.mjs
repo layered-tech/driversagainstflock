@@ -38,6 +38,10 @@ const mapPresentationSource = readFileSync(
 test('the Android Auto main map composites road and speed overlays', () => {
     assert.match(
         autoPlayMapSurfaceContentSource,
+        /import \{[^}]*\bPlatform\b[^}]*\} from 'react-native';/,
+    );
+    assert.match(
+        autoPlayMapSurfaceContentSource,
         /mapTextureViewIsRequired:\s*Platform\.OS === 'android' && isRootMapSurface/,
     );
     assert.match(

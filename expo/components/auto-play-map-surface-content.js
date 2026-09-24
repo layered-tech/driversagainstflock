@@ -7,7 +7,7 @@ import {
     useRef,
     useState,
 } from 'react';
-import { AppState, Dimensions, View } from 'react-native';
+import { AppState, Dimensions, Platform, View } from 'react-native';
 import { getAutoPlayAlertSurfaceVisibility } from './auto-play-alert-surface-visibility';
 import {
     AutoPlayPresenceDebugGeometry,
