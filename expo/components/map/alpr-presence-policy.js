@@ -21,7 +21,6 @@ export const PRESENCE_POLICY = Object.freeze({
     leftPassDistanceMeters: 40,
     rightPassDistanceMeters: 20,
     maneuverSeconds: 30,
-    maximumAccuracyMeters: 10,
     maximumVehiclePathOffsetMeters: 10,
     minimumProgressSampleMeters: 1,
     minimumPassProgressMeters: 12,
@@ -109,17 +108,12 @@ function updatePresencePlaneCrossing(approach, location) {
         presenceCoordinate(approach.node),
     );
     const movement = -presenceAheadMeters(location, approach.lastCoordinate);
-    const minimumMovement = Math.max(
-        PRESENCE_POLICY.minimumProgressSampleMeters,
-        location.accuracy,
-        approach.lastAccuracy,
-    );
+    const minimumMovement = PRESENCE_POLICY.minimumProgressSampleMeters;
     if (ahead > -PRESENCE_POLICY.minimumPassProgressMeters)
         approach.behindSamples = 0;
     if (presenceDistance(coordinate, approach.lastCoordinate) < minimumMovement)
         return approach.behindSamples >= 2;
     approach.lastCoordinate = coordinate;
-    approach.lastAccuracy = location.accuracy;
     if (movement < minimumMovement) {
         approach.behindSamples = 0;
         return false;
@@ -158,9 +152,6 @@ export function presenceLocationIsReliable(location) {
         location &&
         Number.isFinite(location.latitude) &&
         Number.isFinite(location.longitude) &&
-        Number.isFinite(location.accuracy) &&
-        location.accuracy >= 0 &&
-        location.accuracy <= PRESENCE_POLICY.maximumAccuracyMeters &&
         Number.isFinite(location.heading),
     );
 }
@@ -379,7 +370,6 @@ export function createPresencePassDetector() {
                                 nodeCoordinate,
                             ),
                             lastCoordinate: coordinate,
-                            lastAccuracy: location.accuracy,
                             behindSamples: 0,
                             path,
                             targetProgress: target.distanceAlongRouteMeters,

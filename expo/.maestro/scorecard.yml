@@ -86,7 +86,7 @@ tags:
 # Unknown-direction events remain visibly qualified while still counting as
 # game crossings. Operator view
 # never invents plate, vehicle, hotlist, or agency-sharing data.
-- assertVisible: 'Possible crossing · camera direction unknown'
+- assertVisible: 'ALPR camera · OSM 91003, Possible crossing · camera direction unknown'
 - assertVisible:
     id: 'scorecard-operator-view-toggle'
     checked: false
@@ -218,6 +218,11 @@ tags:
 - assertVisible: 'Delete encrypted scorecard history?'
 - tapOn: 'Delete'
 - assertVisible: 'No local exposure events'
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-badge-count'
+    direction: UP
+    timeout: 10000
 - assertVisible: '0 of 6'
 - scrollUntilVisible:
     element:

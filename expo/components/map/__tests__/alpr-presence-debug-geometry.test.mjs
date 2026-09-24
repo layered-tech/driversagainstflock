@@ -65,7 +65,7 @@ for (const navigationActive of [false, true]) {
     }
 }
 
-test('debug outline rotates with travel, reaches 20 m right and 40 m left, and hides when disabled or unreliable', () => {
+test('debug outline rotates with travel, reaches 20 m right and 40 m left, and ignores GPS accuracy', () => {
     for (const heading of [0, 45, 90, 180, 270]) {
         const location = directedFix(0, 0, heading);
         const inspection = { context: { location }, pass: { approaches: [] } };
@@ -95,7 +95,7 @@ test('debug outline rotates with travel, reaches 20 m right and 40 m left, and h
                 { context: { location: { ...location, accuracy: 50 } } },
                 true,
             ).features.length,
-            0,
+            shape.features.length,
         );
     }
 });

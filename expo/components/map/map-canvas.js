@@ -520,6 +520,7 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
         mapPreferencesAreLoaded,
         mapStyleURL,
         mapTrafficEnabled,
+        mapTextureViewIsRequired = false,
         surveillanceMarkersVisible,
         markerClustersEnabled,
         cameraConesVisible,
@@ -1058,6 +1059,7 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
             preferredFramesPerSecond={preferredFramesPerSecond}
             projection={mapLayerSlots.mapProjection}
             styleURL={mapStyleURL}
+            surfaceView={!mapTextureViewIsRequired}
         >
             <Mapbox.StyleImport
                 key={`${MAPBOX_STANDARD_STYLE_IMPORT_ID}-${mapStyleURL}-${mapLightPreset}`}

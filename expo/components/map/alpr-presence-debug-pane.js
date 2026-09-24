@@ -25,11 +25,11 @@ export function AlprPresenceDebugPane({ compact = false }) {
         try {
             await resetPresenceDebugLimits();
             setResetStatus(
-                'Cooldowns and drive budget reset. Queued reports kept.',
+                'Cooldowns and prompt count reset. Queued reports kept.',
             );
         } catch {
             setResetStatus(
-                'Reset failed. Cooldowns and budget were not reset.',
+                'Reset failed. Cooldowns and prompt count were not reset.',
             );
         } finally {
             resetInFlight.current = false;
@@ -90,16 +90,19 @@ export function AlprPresenceDebugPane({ compact = false }) {
                         {'\n'}Road confidence (diagnostic):{' '}
                         {latest.location.confidence ?? 'unknown'}
                         {'\n'}
-                        GPS: {latest.location.accuracyMeters ?? 'unknown'} m ·
-                        age {latest.location.ageMs ?? 'unknown'} ms{'\n'}
+                        GPS accuracy (diagnostic only):{' '}
+                        {latest.location.accuracyMeters ?? 'unknown'} m · age{' '}
+                        {latest.location.ageMs ?? 'unknown'} ms{'\n'}
                         Maneuver clearance:{' '}
                         {latest.path.navigationActive
                             ? `${latest.path.maneuverSeconds ?? 'unknown'} s / 30 s`
                             : 'Not applicable — no active route'}
                         {'\n'}Inventory: {latest.inventory.status} ·{' '}
-                        {latest.inventory.nodeCount} cameras{'\n'}Budget:{' '}
-                        {latest.limits.promptsThisDrive ?? 'unknown'} / 15 ·
-                        cooldown {latest.limits.globalCooldownSeconds} s
+                        {latest.inventory.nodeCount} cameras{'\n'}Prompts this
+                        drive: {latest.limits.promptsThisDrive ?? 'unknown'} ·
+                        global cooldown {latest.limits.globalCooldownSeconds} s
+                        {'\n'}Same-node minimum gap:{' '}
+                        {latest.limits.nodeCooldownDays} days
                     </Text>
                     {latest.blockers.map((reason) => (
                         <Text
@@ -113,7 +116,7 @@ export function AlprPresenceDebugPane({ compact = false }) {
             ) : null}
             <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Reset ALPR confirmation cooldowns and budget"
+                accessibilityLabel="Reset ALPR confirmation cooldowns and prompt count"
                 accessibilityState={{ disabled: resetting, busy: resetting }}
                 disabled={resetting}
                 className="items-center rounded-md bg-neutral-200 px-3 py-2 disabled:opacity-50 dark:bg-neutral-800"
@@ -121,11 +124,11 @@ export function AlprPresenceDebugPane({ compact = false }) {
                 testID="alpr-presence-debug-reset-limits"
             >
                 <Text className="text-sm font-semibold text-neutral-950 dark:text-white">
-                    {resetting ? 'Resetting…' : 'Reset cooldowns and budget'}
+                    {resetting ? 'Resetting…' : 'Reset cooldowns and count'}
                 </Text>
             </Pressable>
             <Text className="text-xs text-neutral-600 dark:text-neutral-400">
-                Resets the drive budget and both global and same-node cooldowns.
+                Resets the prompt count and both global and same-node cooldowns.
                 Queued reports are kept.
             </Text>
             {resetStatus ? (

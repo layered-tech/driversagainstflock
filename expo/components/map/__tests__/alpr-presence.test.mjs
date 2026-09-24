@@ -75,6 +75,11 @@ const location = (x, time) => ({
     },
 });
 const formerEligibilityGates = [
+    ['reported low GPS accuracy', (value) => ({ ...value, accuracy: 50 })],
+    [
+        'unavailable GPS accuracy',
+        (value) => ({ ...value, accuracy: undefined }),
+    ],
     ['missing timestamp', (value) => ({ ...value, recordedAt: undefined })],
     ['old repeated timestamp', (value) => ({ ...value, recordedAt: 1 })],
     ['future timestamp', (value) => ({ ...value, recordedAt: 999999 })],
@@ -149,37 +154,18 @@ function pass(transformLocation = (value) => value) {
     assert.equal(detector.update(sample(-97.0001, 102000, 1)), null);
     return detector.update(sample(-96.9998, 104000, 2));
 }
-test('a pass requires accurate positional progress and retains the canonical identity', () => {
+test('a pass requires positional progress and retains the canonical identity regardless of GPS accuracy', () => {
     const encounter = pass();
     assert.equal(encounter.osmNodeId, 987654321);
     assert.equal(encounter.passedAt, 104000);
-    for (const change of [{ accuracy: 50 }]) {
-        const detector = createPresencePassDetector();
-        const initial = {
-            location: location(-97.0004, 100000),
-            now: 100000,
-            coordinates,
-            nodes: [node],
-            coverageComplete: true,
-            routeKey: 'r',
-        };
-        detector.update(initial);
-        detector.update({
-            ...initial,
-            location: location(-97.0001, 102000),
-            now: 102000,
-        });
+    for (const accuracy of [50, undefined]) {
         assert.equal(
-            detector.update({
-                ...initial,
-                location: { ...location(-96.9998, 104000), ...change },
-                now: 104000,
-            }),
-            null,
+            pass((value) => ({ ...value, accuracy }))?.osmNodeId,
+            node.osm_id,
         );
     }
 });
-test('former timestamp, speed and road-context gates do not block a positional pass', () => {
+test('former accuracy, timestamp, speed and road-context gates do not block a positional pass', () => {
     for (const [name, transformLocation] of formerEligibilityGates) {
         assert.equal(pass(transformLocation)?.osmNodeId, node.osm_id, name);
     }
@@ -264,6 +250,7 @@ test('stationary samples and one GPS jump alone cannot establish a pass', () => 
     );
 });
 test('confirmations have a three-minute gap and a seven-day node cooldown without a drive cap', () => {
+    assert.equal(PRESENCE_POLICY.nodeCooldownMs, 7 * 24 * 60 * 60 * 1000);
     let state = updatePresenceDrive(createPresenceState('a'.repeat(32), 0), {
         connected: true,
         driving: true,
@@ -275,6 +262,14 @@ test('confirmations have a three-minute gap and a seven-day node cooldown withou
     assert.equal(canStartPresencePrompt(state, e, 115000), true);
     assert.equal(canStartPresencePrompt(state, e, 115001), false);
     state = recordPresencePrompt(state, e, 103000);
+    assert.equal(
+        canStartPresencePrompt(
+            state,
+            { osmNodeId: 1, passedAt: 103000 + 300000 - 4000 },
+            103000 + 300000,
+        ),
+        false,
+    );
     const nextAt = 103000 + PRESENCE_POLICY.spacingMs;
     const nextNode = { osmNodeId: 2, passedAt: nextAt - 3000 };
     assert.equal(canStartPresencePrompt(state, nextNode, nextAt - 1), false);
@@ -768,7 +763,7 @@ test('presentation persistence failure releases alert suppression', async () => 
     assert.equal(h.shown.length, 1);
     assert.equal(h.coordinator.state, null);
 });
-test('prompt start ignores former timestamp, speed and road-context gates', async () => {
+test('prompt start ignores former accuracy, timestamp, speed and road-context gates', async () => {
     for (const [name, transformLocation] of formerEligibilityGates) {
         const h = promptHarness();
         for (const [index, [x, time]] of [
@@ -787,7 +782,7 @@ test('prompt start ignores former timestamp, speed and road-context gates', asyn
         assert.equal(h.prompt.ownsCamera, true, name);
     }
 });
-test('active prompt continuation ignores former timestamp, speed and road-context gates', async () => {
+test('active prompt continuation ignores former accuracy, timestamp, speed and road-context gates', async () => {
     for (const [name, transformLocation] of formerEligibilityGates) {
         const h = promptHarness();
         await h.start();
@@ -900,12 +895,6 @@ test('navigation demands, lost certainty and disconnect permanently preempt', as
     for (const change of [
         { connected: false },
         { blocked: true },
-        {
-            location: {
-                ...location(-96.9994, 108000),
-                accuracy: 50,
-            },
-        },
         { maneuverSeconds: 20 },
         { coverageComplete: false },
         { routeKey: 'route-2' },
@@ -1669,6 +1658,31 @@ test('free-driving pass needs two moving behind-plane samples, not repeated GPS 
     assert.equal(update(16, 0, 90, 108000), null);
     assert.equal(update(14, 0, 90, 110000), null);
     assert.equal(update(25, 0, 90, 112000)?.osmNodeId, node.osm_id);
+});
+test('free-driving pass ignores reported and missing GPS accuracy', () => {
+    for (const accuracy of [50, undefined]) {
+        const detector = createPresencePassDetector();
+        let encounter = null;
+        for (const [index, east] of [-80, -30, 15, 25].entries()) {
+            const sample = {
+                ...location(
+                    node.longitude + east / (111195 * Math.cos(Math.PI / 6)),
+                    100000 + index * 2000,
+                ),
+                accuracy,
+            };
+            encounter = detector.update({
+                location: sample,
+                coordinates: getPresenceMotionPath(sample),
+                navigationActive: false,
+                now: 100000 + index * 2000,
+                nodes: [node],
+                coverageComplete: true,
+                routeKey: 'free',
+            });
+        }
+        assert.equal(encounter?.osmNodeId, node.osm_id);
+    }
 });
 
 test('a camera first seen behind or too far away cannot establish a free-driving pass', () => {

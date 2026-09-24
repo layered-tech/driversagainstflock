@@ -140,12 +140,6 @@ export function buildPresenceDebugSnapshot(
                 !Number.isFinite(location.longitude)
             )
                 blockers.push('Location coordinates unavailable');
-            if (
-                !Number.isFinite(location.accuracy) ||
-                location.accuracy < 0 ||
-                location.accuracy > PRESENCE_POLICY.maximumAccuracyMeters
-            )
-                blockers.push('GPS accuracy outside limit');
             if (!Number.isFinite(location.heading))
                 blockers.push('Heading unavailable');
         }
@@ -173,7 +167,9 @@ export function buildPresenceDebugSnapshot(
             now - (state.nodeTimes[encounter.osmNodeId] ?? -Infinity) <
                 PRESENCE_POLICY.nodeCooldownMs
         )
-            blockers.push('Same-node 7-day cooldown');
+            blockers.push(
+                `Same-node ${PRESENCE_POLICY.nodeCooldownMs / (24 * 60 * 60 * 1000)}-day cooldown`,
+            );
         if (state.outbox.length >= PRESENCE_POLICY.maximumOutbox)
             blockers.push('Pending report queue full');
     }
@@ -276,6 +272,8 @@ export function buildPresenceDebugSnapshot(
         limits: {
             available: Boolean(state),
             promptsThisDrive: state?.drive.count ?? null,
+            nodeCooldownDays:
+                PRESENCE_POLICY.nodeCooldownMs / (24 * 60 * 60 * 1000),
             globalCooldownSeconds:
                 state?.lastPromptAt == null
                     ? 0

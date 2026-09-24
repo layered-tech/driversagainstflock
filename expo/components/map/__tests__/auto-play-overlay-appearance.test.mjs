@@ -14,6 +14,18 @@ const drivingLocationRoadStackSource = readFileSync(
     new URL('../driving-location-road-stack.js', import.meta.url),
     'utf8',
 );
+const mapCanvasSource = readFileSync(
+    new URL('../map-canvas.js', import.meta.url),
+    'utf8',
+);
+const mapScreenContextSource = readFileSync(
+    new URL('../map-screen-context.js', import.meta.url),
+    'utf8',
+);
+const autoPlayMapSurfaceContentSource = readFileSync(
+    new URL('../../auto-play-map-surface-content.js', import.meta.url),
+    'utf8',
+);
 const upcomingAlertDistanceTrackSource = readFileSync(
     new URL('../upcoming-alert-distance-track.js', import.meta.url),
     'utf8',
@@ -22,6 +34,32 @@ const mapPresentationSource = readFileSync(
     new URL('../use-map-presentation.js', import.meta.url),
     'utf8',
 );
+
+test('the Android Auto main map composites road and speed overlays', () => {
+    assert.match(
+        autoPlayMapSurfaceContentSource,
+        /mapTextureViewIsRequired:\s*Platform\.OS === 'android' && isRootMapSurface/,
+    );
+    assert.match(
+        mapScreenContextSource,
+        /mapTextureViewIsRequired,[\s\S]*?navigationPuckVariant: 'auto-play'/,
+    );
+    const surfaceViewExpression = mapCanvasSource.match(
+        /<NativeWindMapView[\s\S]*?surfaceView=\{([^}]+)\}/,
+    )?.[1];
+
+    assert.ok(
+        surfaceViewExpression,
+        'MapCanvas must select a map render surface',
+    );
+    const useSurfaceView = new Function(
+        'mapTextureViewIsRequired',
+        `return (${surfaceViewExpression});`,
+    );
+
+    assert.equal(useSurfaceView(true), false);
+    assert.equal(useSurfaceView(false), true);
+});
 
 test('AutoPlay status cards use an explicit car appearance with a handset fallback', () => {
     assert.match(

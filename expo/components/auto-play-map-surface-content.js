@@ -2125,6 +2125,8 @@ export function AutoPlayMapSurfaceContent({
         initialCameraSettings,
         isDrivingMode,
         mapLightPreset,
+        // Keep the Android Auto status views in the map's render hierarchy.
+        mapTextureViewIsRequired: Platform.OS === 'android' && isRootMapSurface,
         mapPreferences,
         markerFeatureCollection,
         navigationPuckSize,

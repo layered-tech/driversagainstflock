@@ -114,7 +114,7 @@ test('diagnostics retain confidence as information and distinguish unknown isola
     assert.ok(!snapshot.blockers.includes('Road confidence below 0.95'));
     assert.ok(!snapshot.blockers.includes('Nearby cameras are not isolated'));
     assert.equal(snapshot.inventory.targets[0].isolated, null);
-    assert.ok(snapshot.blockers.includes('GPS accuracy outside limit'));
+    assert.ok(!snapshot.blockers.some((reason) => reason.includes('accuracy')));
     assert.ok(
         snapshot.blockers.includes(
             'Nearby camera coverage unavailable or stale',
@@ -267,6 +267,33 @@ test('snapshots identify limits and unknown data without exposing coordinates or
     assert.ok(unknown.blockers.includes('Location unavailable'));
     assert.ok(unknown.blockers.includes('Encrypted limits unavailable'));
 });
+test('same-node diagnostics show a seven-day cooldown', () => {
+    const nodeId = context.nodes[0].osm_id;
+    const snapshot = buildPresenceDebugSnapshot(
+        {
+            context: { ...context, routeKey: 'route' },
+            encounter: {
+                node: context.nodes[0],
+                osmNodeId: nodeId,
+                passedAt: now - 5000,
+                passedHeading: 90,
+                passMethod: 'route',
+                routeKey: 'route',
+                path: context.coordinates,
+            },
+            phase: 'pending',
+            pass: {
+                reason: 'Confident pass established',
+                trackedApproaches: 0,
+            },
+        },
+        { ...state, nodeTimes: { [nodeId]: now - 10000 } },
+        now,
+    );
+    assert.equal(snapshot.limits.nodeCooldownDays, 7);
+    assert.equal(snapshot.limits.nodeCooldownSeconds, 604790);
+    assert.ok(snapshot.blockers.includes('Same-node 7-day cooldown'));
+});
 test('debug capture is opt-in, sampled, bounded and retained after disabling', () => {
     const store = createPresenceDebugStore();
     let reads = 0;
@@ -314,7 +341,7 @@ test('detector diagnostics retain approaches across GPS update gaps', () => {
     assert.equal(detector.inspect().trackedApproaches, 1);
     assert.match(detector.inspect().reason, /Tracking approach/);
 });
-test('pane captures snapshots and provides a guarded cooldown and budget reset with success and failure feedback', async () => {
+test('pane captures snapshots and provides a guarded cooldown and count reset with success and failure feedback', async () => {
     const require = createRequire(import.meta.url);
     const babel = require('@babel/core');
     const source = readFileSync(
@@ -393,6 +420,14 @@ test('pane captures snapshots and provides a guarded cooldown and budget reset w
     presenceDebugStore.setEnabled(true);
     presenceDebugStore.record(() => sample(), now);
     let nodes = flatten(render());
+    const paneText = nodes
+        .filter((node) => node.type === 'Text')
+        .flatMap((node) => [node.props.children].flat(Infinity))
+        .join(' ');
+    assert.match(paneText, /Prompts this drive/);
+    assert.match(paneText, /Same-node minimum gap/);
+    assert.match(paneText, /7\s+days/);
+    assert.doesNotMatch(paneText, /Budget|budget|\/ 15/);
     nodes
         .find((n) => n.props.testID === 'alpr-presence-debug-capture')
         .props.onPress();
@@ -434,7 +469,7 @@ test('pane captures snapshots and provides a guarded cooldown and budget reset w
         flatten(render()).find(
             (n) => n.props.testID === 'alpr-presence-debug-reset-status',
         ).props.children;
-    assert.match(status(), /Cooldowns and drive budget reset/);
+    assert.match(status(), /Cooldowns and prompt count reset/);
     assert.match(status(), /Queued reports kept/);
     const failed = resetButton().props.onPress();
     failReset(new Error('storage unavailable'));

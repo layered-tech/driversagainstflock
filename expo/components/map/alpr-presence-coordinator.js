@@ -1,7 +1,7 @@
 import { canStartPresencePrompt, createPresenceState, parsePresenceState, PRESENCE_POLICY, recordPresencePrompt, updatePresenceDrive } from './alpr-presence-policy.js';
 import { automotiveAlertHistoryAllowsEntry, createAutomotiveAlertHistory, recordAutomotiveAlertHistoryEntry } from './automotive-alert-policy.js';
 
-/** One durable budget/outbox independent of Scorecard, component, route and car connection. */
+/** One durable prompt history/outbox independent of Scorecard, route and car connection. */
 export function createPresenceCoordinator({
     load,
     save,
@@ -132,7 +132,7 @@ export function createPresenceCoordinator({
                     nodeTimes: {},
                 };
             });
-            notify('Cooldowns and drive budget reset');
+            notify('Cooldowns and prompt count reset');
         },
         async resetAutomotiveAlertHistory() {
             await this.hydrate();
