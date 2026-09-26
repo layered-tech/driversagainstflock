@@ -503,6 +503,7 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
         handleSubmittedSearchResultPress,
         cameraRef,
         cameraUpdatesAreAllowed,
+        cameraIsLocked = false,
         directionsDebugFeatureCollection,
         directionsRouteFeatureCollection,
         electronicHorizonDebugFeatureCollection,
@@ -1047,7 +1048,13 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
             scaleBarEnabled={false}
             logoEnabled={mapboxBrandingIsVisible}
             logoPosition={mapboxLogoPosition}
-            compassEnabled={isDrivingMode && !hideCompassDuringNavigation}
+            scrollEnabled={!cameraIsLocked}
+            zoomEnabled={!cameraIsLocked}
+            rotateEnabled={!cameraIsLocked}
+            pitchEnabled={!cameraIsLocked}
+            compassEnabled={
+                isDrivingMode && !hideCompassDuringNavigation && !cameraIsLocked
+            }
             compassPosition={mapCompassPosition}
             onCameraChanged={handleMapCameraChanged}
             onDidFinishLoadingMap={handleMapFinishedLoading}

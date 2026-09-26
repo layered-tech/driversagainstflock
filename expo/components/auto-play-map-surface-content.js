@@ -691,19 +691,6 @@ function useAutoPlayMapController({
         cameraRef.current?.setCamera(focus);
         return true;
     }, []);
-    useEffect(() => {
-        const focus = presenceCameraFocusRef.current;
-        if (!presenceCameraOwnerRef.current || !focus || !isMapReadyRef.current)
-            return;
-
-        const updatedFocus = {
-            ...focus,
-            animationDuration: 0,
-            padding: viewportMetricsRef.current.cameraPadding,
-        };
-        presenceCameraFocusRef.current = updatedFocus;
-        cameraRef.current?.setCamera(updatedFocus);
-    }, [viewportMetrics.key]);
     const restorePresenceCamera = useCallback((manual = false) => {
         presenceCameraGenerationRef.current += 1;
         if (!presenceCameraOwnerRef.current) return;
@@ -1016,6 +1003,7 @@ function useAutoPlayMapController({
             }
 
             if (state?.gestures?.isGestureActive) {
+                if (presenceCameraOwnerRef.current) return;
                 presenceInterruptRef.current?.(true);
                 markerLoadsEnabledRef.current = true;
             }
@@ -1247,6 +1235,7 @@ function useAutoPlayMapController({
 
     const handleZoomPress = useCallback(
         (zoomDelta, center) => {
+            if (presenceCameraOwnerRef.current) return;
             presenceInterruptRef.current?.(true);
             const previousZoomLevel = currentZoomRef.current;
             const nextZoomLevel = clampZoomLevel(previousZoomLevel + zoomDelta);
@@ -1291,6 +1280,7 @@ function useAutoPlayMapController({
 
     const handleMarkerSourcePress = useCallback(
         async (event) => {
+            if (presenceCameraOwnerRef.current) return;
             presenceInterruptRef.current?.(true);
             const canApply = getCameraUpdateGuard();
             const gestureGeneration = ++manualMapGestureGenerationRef.current;
@@ -1412,6 +1402,7 @@ function useAutoPlayMapController({
     }, [refreshLocationPermission]);
 
     const handleLocationRecenterPress = useCallback(async () => {
+        if (presenceCameraOwnerRef.current) return false;
         presenceInterruptRef.current?.(true);
         const canApply = getCameraUpdateGuard();
         if (!locationAccessGranted && !(await refreshLocationPermission())) {
@@ -1445,6 +1436,7 @@ function useAutoPlayMapController({
     }, [handleLocationRecenterPress]);
 
     const handleDrivingRecenterPress = useCallback(async () => {
+        if (presenceCameraOwnerRef.current) return false;
         presenceInterruptRef.current?.(true);
         const canApply = getCameraUpdateGuard();
         if (!locationAccessGranted && !(await refreshLocationPermission())) {
@@ -1564,6 +1556,7 @@ function useAutoPlayMapController({
     );
 
     const pauseFollowForManualMapGesture = useCallback(async () => {
+        if (presenceCameraOwnerRef.current) return false;
         presenceInterruptRef.current?.(true);
         if (!isDrivingMode) {
             setTrackingMode(LOCATION_TRACKING_NONE);
@@ -1905,7 +1898,11 @@ export function AutoPlayMapSurfaceContent({
         viewportMetrics,
     });
     const handleDrivingMapViewPress = useCallback(() => {
-        if (!isRootMapSurface || !activeDirectionsRoute) {
+        if (
+            !isRootMapSurface ||
+            !activeDirectionsRoute ||
+            !controller.cameraUpdatesAreAllowed()
+        ) {
             return;
         }
 
@@ -1913,7 +1910,12 @@ export function AutoPlayMapSurfaceContent({
 
         setAutoPlayState({ drivingMapViewMode: nextMode });
         logAutoPlayMapSurfaceAction(`driving-map-view-${nextMode}-requested`);
-    }, [activeDirectionsRoute, drivingMapViewMode, isRootMapSurface]);
+    }, [
+        activeDirectionsRoute,
+        controller.cameraUpdatesAreAllowed,
+        drivingMapViewMode,
+        isRootMapSurface,
+    ]);
     useEffect(() => {
         const previousDrivingMapViewMode =
             previousDrivingMapViewModeRef.current;

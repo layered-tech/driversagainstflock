@@ -15,6 +15,29 @@ import { fileURLToPath } from 'node:url';
 
 const launcher = fileURLToPath(new URL('../android-auto.sh', import.meta.url));
 
+test('landscape DHU layouts place the driver controls on the right', () => {
+    for (const name of ['android-auto-dhu.ini', 'android-auto-dhu-2.1.ini']) {
+        const config = readFileSync(
+            new URL(`../../config/${name}`, import.meta.url),
+            'utf8',
+        );
+        const general = config
+            .slice(config.indexOf('[general]'))
+            .split(/\n\[/)[0];
+        assert.match(general, /^driverposition = right$/m);
+    }
+    for (const name of [
+        'android-auto-dhu-portrait.ini',
+        'android-auto-dhu-portrait-2.1.ini',
+    ]) {
+        const config = readFileSync(
+            new URL(`../../config/${name}`, import.meta.url),
+            'utf8',
+        );
+        assert.doesNotMatch(config, /^driverposition\s*=/m);
+    }
+});
+
 test('landscape configs use only the main display for both DHU versions', () => {
     const basic = readFileSync(
         new URL('../../config/android-auto-dhu.ini', import.meta.url),

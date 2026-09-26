@@ -236,7 +236,7 @@ test('GPS fixes update the puck but cannot start following or change zoom while 
     assert.deepEqual(writes, ['lock-on', 'speed zoom']);
 });
 
-test('confirmation centers in the latest safe area after release and subsequent host inset changes', async () => {
+test('confirmation freezes its framing after release despite subsequent host inset changes', async () => {
     const h = harness();
     const camera = {
         centerCoordinate: [-88, 43],
@@ -269,10 +269,10 @@ test('confirmation centers in the latest safe area after release and subsequent 
     assert.deepEqual(h.events.at(-1), ['camera', { ...camera, padding }]);
     const updatedPadding = { ...padding, paddingTop: 180 };
     h.updateViewport(updatedPadding);
-    assert.deepEqual(h.events.at(-1), [
-        'camera',
-        { ...camera, padding: updatedPadding, animationDuration: 0 },
-    ]);
+    assert.deepEqual(
+        h.events.filter(([type]) => type === 'camera'),
+        [['camera', { ...camera, padding }]],
+    );
     h.restorePresenceCamera(true);
     const eventCount = h.events.length;
     h.updateViewport(padding);
@@ -395,4 +395,110 @@ test('replacement confirmation and unmount cancel obsolete focus requests', asyn
     h.release();
     assert.equal(await third, false);
     assert.equal(h.events.filter(([type]) => type === 'camera').length, 1);
+});
+
+for (const [name, end, args] of [
+    ['handleZoomPress', 'handleMarkerSourcePress', [1]],
+    ['handleMarkerSourcePress', 'refreshLocationPermission', [{}]],
+    ['handleLocationRecenterPress', 'handleLocationTrackingPress', []],
+    ['handleDrivingRecenterPress', 'fitCameraToBounds', []],
+    ['pauseFollowForManualMapGesture', 'fitDrivingCameraToBounds', []],
+]) {
+    test(`${name} cannot release or move the confirmation camera`, async () => {
+        const section = source.slice(
+            source.indexOf(`    const ${name} = useCallback`),
+            source.indexOf(`    const ${end} = useCallback`),
+        );
+        // Evaluate the real callback without evaluating its dependency array.
+        const callbackSource = section.slice(
+            section.indexOf('useCallback(') + 12,
+        );
+        const dependencies = {
+            presenceCameraOwnerRef: { current: true },
+            cameraUpdatesAreAllowed: () => false,
+            presenceInterruptRef: {
+                current: () => assert.fail('released confirmation'),
+            },
+            getCameraUpdateGuard: () => () => false,
+        };
+        const callback = new Function(
+            ...Object.keys(dependencies),
+            `return (${callbackSource.slice(0, callbackSource.lastIndexOf('},') + 1)});`,
+        )(...Object.values(dependencies));
+        await callback(...args);
+    });
+}
+
+for (const [name, end, args] of [
+    ['handlePan', 'handleZoomGesture', [{ x: 30, y: 20 }]],
+    ['handleZoomGesture', 'isFollowing', [{ x: 200, y: 100 }, 2]],
+]) {
+    test(`${name} ignores gestures while locked and gestures queued before lock`, async () => {
+        for (const wasAlreadyLocked of [false, true]) {
+            let finishRelease;
+            const generation = { current: 1 };
+            const section = source.slice(
+                source.indexOf(`    const ${name} = useCallback`),
+                source.indexOf(`    const ${end} =`),
+            );
+            const callbackSource = section.slice(
+                section.indexOf('useCallback(') + 12,
+            );
+            const values = {
+                markerLoadsEnabledRef: { current: true },
+                manualMapGestureGenerationRef: generation,
+                pauseFollowForManualMapGesture: () =>
+                    wasAlreadyLocked
+                        ? Promise.resolve(false)
+                        : new Promise((resolve) => {
+                              finishRelease = resolve;
+                          }),
+                cameraRef: {
+                    current: {
+                        moveBy: () => assert.fail('panned locked camera'),
+                        scaleBy: () => assert.fail('zoomed locked camera'),
+                    },
+                },
+            };
+            const callback = new Function(
+                ...Object.keys(values),
+                `return (${callbackSource.slice(0, callbackSource.lastIndexOf('},') + 1)});`,
+            )(...Object.values(values));
+            const pending = callback(...args);
+            if (!wasAlreadyLocked) {
+                generation.current += 1;
+                finishRelease(true);
+            }
+            await pending;
+        }
+    });
+}
+
+test('native touch gestures and the compass cannot bypass the confirmation lock', () => {
+    const canvas = readFileSync(
+        new URL('../map-canvas.js', import.meta.url),
+        'utf8',
+    );
+    for (const prop of [
+        'scrollEnabled',
+        'zoomEnabled',
+        'rotateEnabled',
+        'pitchEnabled',
+        'compassEnabled',
+    ]) {
+        const expression = canvas.match(new RegExp(`${prop}=\\{([^}]+)\\}`))[1];
+        const enabled = new Function(
+            'cameraIsLocked',
+            'isDrivingMode',
+            'hideCompassDuringNavigation',
+            `return (${expression});`,
+        );
+        assert.equal(enabled(true, true, false), false, prop);
+        assert.equal(enabled(false, true, false), true, prop);
+    }
+    const context = readFileSync(
+        new URL('../map-screen-context.js', import.meta.url),
+        'utf8',
+    );
+    assert.match(context, /cameraIsLocked: controller\.presenceCameraIsLocked/);
 });

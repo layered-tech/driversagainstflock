@@ -839,14 +839,14 @@ test('native acknowledgement waits ten seconds before expiring and ignores late 
     assert.equal(h.frames.length, 0);
     assert.equal(h.sent.length, 0);
 });
-test('manual pan invalidates asynchronous focus while preserving the visible confirmation', async () => {
+test('manual pan cannot invalidate asynchronous confirmation focus', async () => {
     const h = promptHarness({ cameraDelay: true });
     await h.start();
     h.prompt.interrupt(true);
     h.release();
     await new Promise((r) => setImmediate(r));
-    assert.equal(h.frames.length, 0);
-    assert.equal(h.restores.at(-1), true);
+    assert.equal(h.frames.length, 1);
+    assert.deepEqual(h.restores, []);
     assert.equal(h.coordinator.state.drive.count, 1);
     assert.equal(h.prompt.inspect().phase, 'showing');
     assert.deepEqual(h.suppressionEvents, ['acquire:1']);
@@ -935,19 +935,19 @@ test('guided confirmation survives a transient narrow route-guidance viewport', 
     }
 });
 
-test('manual map control releases confirmation camera without dismissing the visible event', async () => {
+test('manual map control retains confirmation camera until the visible event ends', async () => {
     for (const platform of ['android_auto', 'carplay']) {
         const h = promptHarness({ platform });
         await h.start();
         h.prompt.interrupt(true);
         assert.equal(h.prompt.inspect().phase, 'showing', platform);
-        assert.equal(h.prompt.ownsCamera, false, platform);
-        assert.deepEqual(h.restores, [true], platform);
+        assert.equal(h.prompt.ownsCamera, true, platform);
+        assert.deepEqual(h.restores, [], platform);
         assert.deepEqual(h.dismissed, [], platform);
         await h.step(-96.9994, 108000, { manual: true });
         assert.equal(h.prompt.inspect().phase, 'showing', platform);
         assert.deepEqual(h.dismissed, [], platform);
-        await h.step(-96.9993, 127000);
+        await h.step(-96.9993, 127000, { manual: false });
         assert.equal(h.prompt.inspect().phase, 'observing', platform);
         assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
     }

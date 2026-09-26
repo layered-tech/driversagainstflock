@@ -132,7 +132,7 @@ export function createPresencePrompt({
         active = null;
         highlight(null);
         if (previous) {
-            camera.restore(manual || previous.manualCameraReleased);
+            camera.restore(manual);
             try {
                 host.dismissAlert(previous.id);
             } catch {
@@ -152,9 +152,7 @@ export function createPresencePrompt({
             presenceGuardsHold(
                 {
                     ...context,
-                    manual: prompt.manualCameraReleased
-                        ? false
-                        : context.manual,
+                    manual: prompt.shownAt !== null ? false : context.manual,
                     warningBusy: false,
                 },
                 prompt.encounter,
@@ -170,7 +168,6 @@ export function createPresencePrompt({
                 id: nextAlertId++,
                 requestedAt: null,
                 shownAt: null,
-                manualCameraReleased: false,
                 dismissedByHostAt: null,
                 reservation: null,
                 focus: null,
@@ -306,17 +303,11 @@ export function createPresencePrompt({
                         prompt.focus = focus;
                         if (
                             !focus ||
-                            !(await camera.focus(
-                                focus,
-                                () =>
-                                    stillValid(prompt) &&
-                                    !prompt.manualCameraReleased,
+                            !(await camera.focus(focus, () =>
+                                stillValid(prompt),
                             ))
                         ) {
-                            if (
-                                active === prompt &&
-                                !prompt.manualCameraReleased
-                            )
+                            if (active === prompt)
                                 clear(
                                     false,
                                     !focus
@@ -325,10 +316,9 @@ export function createPresencePrompt({
                                 );
                             return;
                         }
-                        if (stillValid(prompt) && !prompt.manualCameraReleased)
-                            highlight(encounter.node);
+                        if (stillValid(prompt)) highlight(encounter.node);
                     } catch {
-                        if (active === prompt && !prompt.manualCameraReleased)
+                        if (active === prompt)
                             clear(false, 'presentation-or-camera-error');
                     }
                 },
@@ -390,11 +380,7 @@ export function createPresencePrompt({
             };
         },
         get ownsCamera() {
-            return (
-                active?.shownAt !== null &&
-                active?.shownAt !== undefined &&
-                !active.manualCameraReleased
-            );
+            return active?.shownAt !== null && active?.shownAt !== undefined;
         },
         tick() {
             if (stopped) return;
@@ -404,7 +390,7 @@ export function createPresencePrompt({
                 !context.enabled ||
                 !context.connected ||
                 context.blocked ||
-                (context.manual && !active?.manualCameraReleased)
+                (context.manual && active?.shownAt == null)
             ) {
                 clear(context.manual, 'context-unavailable');
                 clearFollowUp();
@@ -434,8 +420,7 @@ export function createPresencePrompt({
                     ? 'guard-failed'
                     : remaining <= 0
                       ? 'duration-expired'
-                      : !active.manualCameraReleased &&
-                          !getPresenceFocus(
+                      : !getPresenceFocus(
                               active.encounter,
                               { ...context, presenceFocus: active.focus },
                               remaining,
@@ -470,14 +455,9 @@ export function createPresencePrompt({
             void show(ready);
         },
         interrupt(manual = false) {
-            if (manual && active?.shownAt != null) {
-                if (!active.manualCameraReleased) {
-                    active.manualCameraReleased = true;
-                    camera.restore(true);
-                    trace('confirmation-camera-released:manual-interaction');
-                }
-                return;
-            }
+            // Host gesture/recenter callbacks cannot give away a visible
+            // confirmation's camera. Its dismissal owns the handoff back.
+            if (manual && active?.shownAt != null) return;
             clear(manual, manual ? 'manual-interruption' : 'interruption');
             clearFollowUp();
             detector.reset();

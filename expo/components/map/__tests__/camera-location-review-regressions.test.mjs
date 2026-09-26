@@ -124,6 +124,7 @@ test('car cluster expansion waits for camera release and cancels after recenter'
             {
                 useCallback: (fn) => fn,
                 presenceInterruptRef: { current: null },
+                presenceCameraOwnerRef: { current: false },
                 getCameraUpdateGuard: () => () => true,
                 manualMapGestureGenerationRef: generation,
                 markerShapeSourceRef: {
