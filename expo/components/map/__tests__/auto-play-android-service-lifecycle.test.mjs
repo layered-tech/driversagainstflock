@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -34,13 +34,6 @@ const navigationManagerCoordinatorSource = readFileSync(
     ),
     'utf8',
 );
-const headlessTaskServiceSource = readFileSync(
-    join(
-        autoPlayPackageRoot,
-        'android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HeadlessTaskService.kt',
-    ),
-    'utf8',
-);
 const hybridAutoPlaySource = readFileSync(
     join(
         autoPlayPackageRoot,
@@ -53,10 +46,6 @@ const hybridClusterSource = readFileSync(
         autoPlayPackageRoot,
         'android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridCluster.kt',
     ),
-    'utf8',
-);
-const headlessJsTaskSource = readFileSync(
-    join(autoPlayPackageRoot, 'src/AutoPlayHeadlessJsTask.ts'),
     'utf8',
 );
 const clusterSceneSource = readFileSync(
@@ -80,10 +69,10 @@ const nonNavigationAutomotiveManifestSource = readFileSync(
 );
 
 const sessionLifecycleObserver = androidAutoServiceSource.match(
-    /private val sessionLifecycleObserver[\s\S]*?private val connection/,
+    /private val sessionLifecycleObserver[\s\S]*?private fun finishCarRuntime/,
 );
 
-test('Android Auto ref-counts foreground and headless ownership across every car session', () => {
+test('Android Auto ref-counts foreground ownership across every car session', () => {
     assert.ok(sessionLifecycleObserver);
     assert.match(
         androidAutoServiceSource,
@@ -95,7 +84,7 @@ test('Android Auto ref-counts foreground and headless ownership across every car
     );
     assert.match(
         sessionLifecycleObserver[0],
-        /override fun onCreate[\s\S]*?activeSessionOwners\.add\(owner\)[\s\S]*?activeSessionOwners\.size == 1[\s\S]*?startForeground\(\)[\s\S]*?bindingAccepted = try[\s\S]*?bindService/,
+        /override fun onCreate[\s\S]*?activeSessionOwners\.add\(owner\)[\s\S]*?activeSessionOwners\.size == 1[\s\S]*?startForeground\(\)/,
     );
     assert.match(
         sessionLifecycleObserver[0],
@@ -103,36 +92,33 @@ test('Android Auto ref-counts foreground and headless ownership across every car
     );
     assert.match(
         androidAutoServiceSource,
-        /private fun finishCarRuntime\(\)[\s\S]*?MapTemplate\.navigationEnded\(\)[\s\S]*?notifyAllCarSessionsDisconnected\(\)[\s\S]*?releaseHeadlessServiceBinding\(\)[\s\S]*?stopForeground\(STOP_FOREGROUND_REMOVE\)/,
+        /private fun finishCarRuntime\(\)[\s\S]*?MapTemplate\.navigationEnded\(\)[\s\S]*?stopForeground\(STOP_FOREGROUND_REMOVE\)/,
     );
-    assert.match(
+    assert.doesNotMatch(
         androidAutoServiceSource,
-        /headlessServiceBindingAccepted = bindingAccepted[\s\S]*?val shouldUnbind[\s\S]*?headlessServiceBindingAccepted = false[\s\S]*?unbindService\(connection\)/,
+        /HeadlessTaskService|bindService/,
     );
 });
 
-test('the headless JS task ends only after the final native car session', () => {
+test('Android Auto boots React without the retired headless timer service', () => {
+    assert.match(androidAutoServiceSource, /reactHost\?\.start\(\)/);
     assert.match(
         hybridAutoPlaySource,
         /isCarServiceRunning\(\)[\s\S]*?AndroidAutoService\.instance\?\.hasActiveSessions\(\) == true/,
     );
-    assert.match(
-        headlessTaskServiceSource,
-        /emitAllCarSessionsDisconnected[\s\S]*?ALL_CAR_SESSIONS_DISCONNECTED_EVENT/,
+    assert.equal(
+        existsSync(join(autoPlayPackageRoot, 'src/AutoPlayHeadlessJsTask.ts')),
+        false,
     );
-    assert.match(
-        headlessTaskServiceSource,
-        /fun notifyAllCarSessionsDisconnected\(\)[\s\S]*?instance\?\.emitAllCarSessionsDisconnected\(\)/,
+    assert.equal(
+        existsSync(
+            join(
+                autoPlayPackageRoot,
+                'android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HeadlessTaskService.kt',
+            ),
+        ),
+        false,
     );
-    assert.match(
-        headlessJsTaskSource,
-        /DeviceEventEmitter\.addListener\([\s\S]*?ALL_CAR_SESSIONS_DISCONNECTED_EVENT[\s\S]*?finishIfCarRuntimeStopped/,
-    );
-    assert.match(
-        headlessJsTaskSource,
-        /if \(isFinished \|\| hybridAutoPlay\.isCarServiceRunning\(\)\)/,
-    );
-    assert.doesNotMatch(headlessJsTaskSource, /addListener\('didDisconnect'/);
 });
 
 test('root teardown preserves navigation until the last cluster disconnects', () => {

@@ -52,7 +52,6 @@ test('CarPlay isolates every synchronous map-template mutation on the main actor
         'updateTravelEstimates',
         'updateManeuvers',
         'registerManeuvers',
-        'startNavigation',
         'stopNavigation',
         'setManeuverState',
     ]) {
@@ -68,7 +67,6 @@ test('Android Auto posts synchronous navigation mutations to the UI thread', () 
         'updateVisibleTravelEstimate',
         'updateTravelEstimates',
         'updateManeuvers',
-        'startNavigation',
         'stopNavigation',
     ]) {
         assert.match(
@@ -88,5 +86,16 @@ test('Android Auto implements the shared navigation-session API', () => {
     assert.match(
         androidHybridMapTemplateSource,
         /override fun stopNavigation\([\s\S]*?reason: NavigationStopReason[\s\S]*?UiThreadUtil\.runOnUiThread[\s\S]*?MapTemplate\.stopNavigation\(\)/,
+    );
+});
+
+test('native navigation start resolves only after the main-thread operation', () => {
+    assert.match(
+        iosHybridMapTemplateSource,
+        /func startNavigation[^}]+Promise<Void>[^}]+MainActor\.run[^}]+template\.startNavigation/,
+    );
+    assert.match(
+        androidHybridMapTemplateSource,
+        /override fun startNavigation[^}]+Promise<Unit>[^}]+Promise\.async[^}]+ThreadUtil\.postOnUiAndAwait[^}]+MapTemplate\.startNavigation[^}]+\}\.getOrThrow\(\)/,
     );
 });

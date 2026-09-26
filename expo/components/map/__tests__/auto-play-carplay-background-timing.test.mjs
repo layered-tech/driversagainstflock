@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -16,24 +16,6 @@ const autoPlayPackageRoot = process.env.AUTO_PLAY_PACKAGE_ROOT
       );
 const appConfig = require('../../../app.config.js');
 const packageJson = require('../../../package.json');
-const reactNativePatch = readFileSync(
-    new URL('../../../patches/react-native+0.86.2.patch', import.meta.url),
-    'utf8',
-);
-const reactNativeTimingHeader = readFileSync(
-    new URL(
-        '../../../node_modules/react-native/React/CoreModules/RCTTiming.h',
-        import.meta.url,
-    ),
-    'utf8',
-);
-const reactNativeTimingSource = readFileSync(
-    new URL(
-        '../../../node_modules/react-native/React/CoreModules/RCTTiming.mm',
-        import.meta.url,
-    ),
-    'utf8',
-);
 const autoPlayPodspecSource = readFileSync(
     join(autoPlayPackageRoot, 'ReactNativeAutoPlay.podspec'),
     'utf8',
@@ -51,7 +33,7 @@ const dynamicFrameworksCompatPlugin = readFileSync(
     'utf8',
 );
 
-test('iOS compiles the patched React Native source', () => {
+test('iOS retains its source-built React Native framework configuration', () => {
     const buildPropertiesPlugin = appConfig.plugins.find(
         (plugin) =>
             Array.isArray(plugin) && plugin[0] === 'expo-build-properties',
@@ -64,24 +46,38 @@ test('iOS compiles the patched React Native source', () => {
     );
 });
 
-test('React Native wakes background JavaScript timers in CarPlay run-loop modes', () => {
-    assert.doesNotMatch(reactNativePatch, /RCTTiming\.h/);
-    assert.match(
-        reactNativePatch,
-        /diff --git a\/node_modules\/react-native\/React\/CoreModules\/RCTTiming\.mm/,
+test('AutoPlay installs native timers before every other app import', () => {
+    const entry = readFileSync(
+        new URL('../../../index.js', import.meta.url),
+        'utf8',
     );
     assert.match(
-        reactNativePatch,
-        /^- {6}\[\[NSRunLoop currentRunLoop\] addTimer:_sleepTimer forMode:NSDefaultRunLoopMode\];$/m,
+        entry,
+        /^import '@iternio\/react-native-auto-play\/installTimers';/,
     );
-    assert.match(
-        reactNativePatch,
-        /^\+ {6}\[\[NSRunLoop currentRunLoop\] addTimer:_sleepTimer forMode:NSRunLoopCommonModes\];$/m,
+    assert.equal(
+        existsSync(
+            new URL(
+                '../../../patches/react-native+0.86.2.patch',
+                import.meta.url,
+            ),
+        ),
+        false,
     );
-    assert.match(reactNativeTimingHeader, /RCTFrameUpdateObserver/);
-    assert.match(reactNativeTimingSource, /NSTimer \*_sleepTimer;/);
-    assert.match(reactNativeTimingSource, /@synthesize paused = _paused;/);
-    assert.doesNotMatch(reactNativeTimingSource, /NSTimer \*_frameTimer;/);
+    const timingSource = readFileSync(
+        join(autoPlayPackageRoot, 'src/utils/AutoPlayTimers.ts'),
+        'utf8',
+    );
+    for (const name of [
+        'setTimeout',
+        'setInterval',
+        'clearTimeout',
+        'clearInterval',
+        'requestAnimationFrame',
+        'cancelAnimationFrame',
+    ]) {
+        assert.ok(timingSource.includes(`globalThis.${name} =`));
+    }
 });
 
 test('source-built rnmapbox links the split React Native frameworks', () => {

@@ -127,7 +127,7 @@ test('navigation setup failures cancel any native session that may have started'
     );
     assert.match(
         startNavigationSource,
-        /const tripConfig = makeTripConfig\(route\);\s*nativeNavigationMayBeActive = true;\s*rootMapTemplate\.startNavigation\(tripConfig\)/,
+        /const tripConfig = makeTripConfig\(route\);\s*nativeNavigationMayBeActive = true;\s*await rootMapTemplate\.startNavigation\(tripConfig\)/,
     );
     assert.match(
         startNavigationSource,

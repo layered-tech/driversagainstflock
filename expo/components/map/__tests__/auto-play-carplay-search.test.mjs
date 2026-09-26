@@ -178,7 +178,7 @@ test('CarPlay presents errors with an alert-compatible message template', () => 
         /createErrorTemplate\(\{[\s\S]*?MessageTemplate[\s\S]*?new MessageTemplate\(\{[\s\S]*?ios: \[searchAction\][\s\S]*?message: alertMessage/,
     );
     assert.doesNotMatch(iosPlatformSource, /InformationTemplate/);
-    assert.match(messageTemplateSource, /let template: CPAlertTemplate/);
+    assert.match(messageTemplateSource, /var template: CPAlertTemplate\?/);
     assert.match(
         autoPlaySource,
         /function showAutoPlayError[\s\S]*?alertMessage: makeAutoText\(`\$\{title\}\\n\$\{message\}`\)[\s\S]*?autoPlayModule/,
@@ -325,12 +325,15 @@ test('CarPlay pop-to-template retires only templates above its target', () => {
 
     assert.match(
         popToTemplateSource,
-        /let templates = interfaceController\.templates[\s\S]*?let targetIndex[\s\S]*?targetIndex < templates\.index\(before: templates\.endIndex\)[\s\S]*?templates\[\s*templates\.index\(after: targetIndex\)\.\.<templates\.endIndex\s*\]/,
+        /guard navigationStack\.contains\(where: \{ \$0\.id == templateId \}\)[\s\S]*?return \[\]/,
     );
-    assert.doesNotMatch(popToTemplateSource, /\[\(startIndex\)\.\.<endIndex\]/);
     assert.match(
         popToTemplateSource,
-        /interfaceController\.pop\([\s\S]*?RootModule\.withTemplateStore[\s\S]*?removeTemplates\(templateIds: templateIds\)/,
+        /while navigationStack\.last\?\.id != templateId[\s\S]*?popTopEntry\(animated: animated\)[\s\S]*?poppedIds\.append\(poppedId\)/,
+    );
+    assert.match(
+        autoPlayInterfaceControllerSource,
+        /case \.template\(let templateId\):[\s\S]*?removeTemplate\(templateId: templateId\)/,
     );
 });
 
@@ -395,7 +398,7 @@ test('CarPlay creates and stores every template on the main actor', () => {
         'addTemplate',
         'removeTemplate',
         'removeTemplates',
-        'purge',
+        'removeSearchTemplates',
         'disconnect',
     ]) {
         assert.match(

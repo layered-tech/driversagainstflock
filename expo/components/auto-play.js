@@ -2947,7 +2947,7 @@ function startClusterOwnedAutoPlayNavigation(route) {
     }
 }
 
-function startAutoPlayNavigation(
+async function startAutoPlayNavigation(
     route,
     { hostNavigationAlreadyStarted = false, publishSharedState = true } = {},
 ) {
@@ -3014,7 +3014,15 @@ function startAutoPlayNavigation(
             hideAutoPlayRoutePreview();
             const tripConfig = makeTripConfig(route);
             nativeNavigationMayBeActive = true;
-            rootMapTemplate.startNavigation(tripConfig);
+            await rootMapTemplate.startNavigation(tripConfig);
+
+            if (
+                activeNavigationRoute !== route ||
+                routeGeneration !== navigationRouteGeneration ||
+                !rootMapTemplateIsReady
+            ) {
+                return;
+            }
         } else {
             routePreviewIsVisible = false;
         }

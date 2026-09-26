@@ -1,3 +1,4 @@
+import '@iternio/react-native-auto-play/installTimers';
 import 'react-native-gesture-handler';
 import './global.css';
 
