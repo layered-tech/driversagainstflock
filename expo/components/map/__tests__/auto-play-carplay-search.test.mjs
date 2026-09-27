@@ -878,3 +878,20 @@ test('CarPlay preserves current results while resolving transient search callbac
         'transient callbacks must resolve with the currently visible results',
     );
 });
+
+test('CarPlay loading rows supply the upstream image and waypoint fields', () => {
+    const rowStart = searchTemplateSource.indexOf('NitroRow(');
+    const rowEnd = searchTemplateSource.indexOf('type: .default', rowStart);
+    assert.ok(rowStart >= 0 && rowEnd > rowStart);
+    const loadingRow = searchTemplateSource.slice(rowStart, rowEnd);
+    for (const field of [
+        'imageType',
+        'coordinate',
+        'distance',
+        'duration',
+        'travelEstimatesVisible',
+        'address',
+    ]) {
+        assert.match(loadingRow, new RegExp(`${field}: nil`));
+    }
+});

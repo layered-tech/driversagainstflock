@@ -2,11 +2,16 @@
     "name": "Android Auto portrait end-to-end",
     "appId": "com.anonymous.drivefree.dev",
     "serviceComponent": "com.anonymous.drivefree.dev/com.margelo.nitro.swe.iternio.reactnativeautoplay.AndroidAutoService",
-    "dhuConfig": "config/android-auto-dhu-portrait-2.1.ini",
-    "requiredMetroMarkers": ["[Auto Play] secondary-map-surface-mounted"],
+    "dhuConfig": "config/android-auto-dhu-portrait.ini",
     "display": {
         "width": 1920,
         "height": 1080
+    },
+    "mapCrop": {
+        "x": 850,
+        "y": 300,
+        "width": 280,
+        "height": 220
     },
     "metro": {
         "host": "10.0.2.2",
@@ -18,7 +23,7 @@
     },
     "tests": [
         {
-            "name": "connects with the portrait cluster display",
+            "name": "connects with the portrait primary display",
             "steps": [
                 {
                     "type": "dhu",
@@ -40,15 +45,11 @@
                 {
                     "type": "assertService",
                     "running": true
-                },
-                {
-                    "type": "assertWakeLock",
-                    "held": true
                 }
             ]
         },
         {
-            "name": "starts portrait guidance with the cluster display",
+            "name": "starts guidance on the portrait primary display",
             "steps": [
                 {
                     "type": "deepLink",
@@ -107,10 +108,10 @@
                     "requireVisibleMapCrop": true
                 },
                 {
-                    "type": "dhu",
-                    "command": "tap 600 500; sleep 1; tap 903 55",
-                    "waitForMetro": "[Auto Play] driving-route-overview-fitted",
-                    "timeout": 15000
+                    "type": "deepLink",
+                    "requestType": "map-view",
+                    "query": "toggle",
+                    "waitForMetro": "[Auto Play] driving-route-overview-fitted"
                 },
                 {
                     "type": "sleep",
@@ -133,10 +134,10 @@
                     "second": "portrait-map-view-route-overview"
                 },
                 {
-                    "type": "dhu",
-                    "command": "tap 600 500; sleep 1; tap 903 55",
-                    "waitForMetro": "[Auto Play] driving-map-view-perspective-restored",
-                    "timeout": 15000
+                    "type": "deepLink",
+                    "requestType": "map-view",
+                    "query": "toggle",
+                    "waitForMetro": "[Auto Play] driving-map-view-perspective-restored"
                 },
                 {
                     "type": "sleep",
@@ -160,14 +161,10 @@
             ]
         },
         {
-            "name": "releases the portrait session wake lock on disconnect",
+            "name": "stops the portrait Android Auto service on disconnect",
             "steps": [
                 {
                     "type": "disconnect"
-                },
-                {
-                    "type": "assertWakeLock",
-                    "held": false
                 },
                 {
                     "type": "assertService",

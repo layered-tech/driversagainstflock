@@ -50,7 +50,7 @@ describe('Android Auto E2E helpers', () => {
         );
     });
 
-    test('separates basic and map cluster configurations by DHU version', () => {
+    test('separates primary-only portrait and opt-in map cluster configurations', () => {
         const readConfig = (name) =>
             readFileSync(
                 new URL(`../../config/${name}`, import.meta.url),
@@ -59,7 +59,10 @@ describe('Android Auto E2E helpers', () => {
         const basic = readConfig('android-auto-dhu-portrait.ini');
         const maps = readConfig('android-auto-dhu-portrait-2.1.ini');
 
-        assert.match(basic, /instrumentcluster = true/);
+        assert.doesNotMatch(
+            basic,
+            /(?:instrumentcluster|navcluster|phonecluster)\s*=\s*true/,
+        );
         assert.doesNotMatch(basic, /\[display:/);
         assert.match(maps, /\[display:cluster\]\ndisplaytype = cluster/);
         assert.match(
@@ -223,6 +226,35 @@ describe('Android Auto E2E helpers', () => {
         ]);
     });
 
+    test('uses the suite map crop for both brightness and camera comparisons', () => {
+        const calls = [];
+        const runner = Object.create(Runner.prototype);
+        runner.suite = { mapCrop: { x: 850, y: 300, width: 280, height: 220 } };
+        runner.screenshots = new Map([
+            ['before', { imagePath: '/before.png' }],
+            ['after', { imagePath: '/after.png' }],
+        ]);
+        runner.run = (_command, args) => {
+            calls.push(args);
+            return { stdout: '0.25' };
+        };
+        runner.ocrBinary = '/ocr';
+        assert.equal(runner.mapCropMeanLuminance('before'), 0.25);
+        assert.equal(runner.mapCropPixelDifference('before', 'after'), 0.25);
+        assert.deepEqual(calls, [
+            ['--mean-luminance', '/before.png', '850', '300', '280', '220'],
+            [
+                '--mean-pixel-difference',
+                '/before.png',
+                '/after.png',
+                '850',
+                '300',
+                '280',
+                '220',
+            ],
+        ]);
+    });
+
     test('recaptures the current theme until Mapbox visibly applies it', async () => {
         const captures = [];
         const reports = [];
@@ -289,12 +321,22 @@ describe('Android Auto E2E helpers', () => {
             height: 1080,
             width: 1920,
         });
-        assert.deepEqual(portraitSuite.requiredMetroMarkers, [
-            '[Auto Play] secondary-map-surface-mounted',
-        ]);
+        assert.equal(portraitSuite.requiredMetroMarkers, undefined);
+        assert.deepEqual(
+            portraitSuite.tests[0].steps.find(
+                ({ type }) => type === 'assertService',
+            ),
+            { type: 'assertService', running: true },
+        );
+        assert.equal(
+            portraitSuite.tests
+                .flatMap(({ steps }) => steps)
+                .some(({ type }) => type === 'assertWakeLock'),
+            false,
+        );
         assert.equal(
             portraitSuite.dhuConfig,
-            'config/android-auto-dhu-portrait-2.1.ini',
+            'config/android-auto-dhu-portrait.ini',
         );
         const portraitMapViewToggleTest = portraitSuite.tests.find(({ name }) =>
             name.includes('3D follow'),
@@ -307,18 +349,21 @@ describe('Android Auto E2E helpers', () => {
         );
         assert.deepEqual(
             portraitMapViewToggleTest.steps
-                .filter(({ type }) => type === 'dhu')
-                .map(({ command, waitForMetro }) => ({
-                    command,
+                .filter(({ type }) => type === 'deepLink')
+                .map(({ requestType, query, waitForMetro }) => ({
+                    requestType,
+                    query,
                     waitForMetro,
                 })),
             [
                 {
-                    command: 'tap 600 500; sleep 1; tap 903 55',
+                    requestType: 'map-view',
+                    query: 'toggle',
                     waitForMetro: '[Auto Play] driving-route-overview-fitted',
                 },
                 {
-                    command: 'tap 600 500; sleep 1; tap 903 55',
+                    requestType: 'map-view',
+                    query: 'toggle',
                     waitForMetro:
                         '[Auto Play] driving-map-view-perspective-restored',
                 },

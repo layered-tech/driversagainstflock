@@ -1179,7 +1179,7 @@ export class Runner {
             throw new Error(`Screenshot was not captured: ${name}`);
         }
 
-        const { height, width, x, y } = DEFAULT_MAP_CROP;
+        const { height, width, x, y } = this.suite?.mapCrop ?? DEFAULT_MAP_CROP;
         const result = this.run(this.ocrBinary, [
             '--mean-luminance',
             screenshot.imagePath,
@@ -1209,7 +1209,7 @@ export class Runner {
             );
         }
 
-        const { height, width, x, y } = DEFAULT_MAP_CROP;
+        const { height, width, x, y } = this.suite?.mapCrop ?? DEFAULT_MAP_CROP;
         const result = this.run(this.ocrBinary, [
             '--mean-pixel-difference',
             first.imagePath,
