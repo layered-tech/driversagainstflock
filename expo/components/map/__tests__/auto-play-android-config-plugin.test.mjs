@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { describe, test } from 'node:test';
 
@@ -55,44 +54,6 @@ function getActions(component) {
 }
 
 describe('Android Auto config plugin', () => {
-    test('the disabled setting gates component and navigation callback registration on both platforms', () => {
-        const {
-            instrumentClusterEnabled,
-        } = require('../../../car-display-config.js');
-        assert.equal(instrumentClusterEnabled, false);
-        const source = readFileSync(
-            new URL('../../auto-play.js', import.meta.url),
-            'utf8',
-        );
-        const start = source.indexOf(
-            '    if (instrumentClusterEnabled) {',
-            source.indexOf('export default function registerAutoPlay'),
-        );
-        const end = source.indexOf(
-            '    autoPlayPlatform.registerPlatformListeners',
-            start,
-        );
-        assert.ok(start >= 0 && end > start);
-        for (const OS of ['android', 'ios']) {
-            const setup = new Function(
-                'instrumentClusterEnabled',
-                'AutoPlayCluster',
-                'Platform',
-                source.slice(start, end),
-            );
-            const forbidden = () =>
-                assert.fail('cluster registered while disabled');
-            setup(
-                instrumentClusterEnabled,
-                {
-                    setComponent: forbidden,
-                    setNavigationCallbacks: forbidden,
-                    addConnectionStateListener: forbidden,
-                },
-                { OS },
-            );
-        }
-    });
     test('replaces inherited car filters without advertising an instrument cluster', () => {
         const manifest = applyAndroidAutoManifest(makeManifest());
         const service = manifest.manifest.application[0].service.find((entry) =>

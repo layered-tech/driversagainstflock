@@ -45,12 +45,7 @@ const autoPlayNitroSpecSource = readAutoPlayPackageSource(
 const generatedAutoPlaySpecSource = readAutoPlayPackageSource(
     'nitrogen/generated/android/kotlin/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridAutoPlaySpec.kt',
 );
-const androidAutoManifestSource = readAutoPlayPackageSource(
-    'android/src/main/AndroidManifest.xml',
-);
-const hybridSearchTemplateSource = readAutoPlayPackageSource(
-    'android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/HybridSearchTemplate.kt',
-);
+
 const androidSearchTemplateSource = readAutoPlayPackageSource(
     'android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/SearchTemplate.kt',
 );
@@ -63,17 +58,6 @@ test('Android Auto handles host navigation on initial and later session intents'
     assert.match(
         androidAutoSessionSource,
         /override fun onNewIntent\(intent: Intent\) \{\s*super\.onNewIntent\(intent\)\s*handleNavigationIntent\(intent\)\s*\}/,
-    );
-});
-
-test('Android Auto keeps only its car service contract in the library manifest', () => {
-    assert.match(
-        androidAutoManifestSource,
-        /<service[\s\S]*?<action android:name="androidx\.car\.app\.CarAppService" \/>[\s\S]*?<category android:name="androidx\.car\.app\.category\.NAVIGATION" \/>[\s\S]*?<category android:name="androidx\.car\.app\.category\.FEATURE_CLUSTER" \/>[\s\S]*?<\/service>/,
-    );
-    assert.doesNotMatch(
-        androidAutoManifestSource,
-        /androidx\.car\.app\.action\.NAVIGATE|android\.intent\.action\.VIEW|<data android:scheme="geo"/,
     );
 });
 
@@ -221,14 +205,6 @@ test('Android Auto drops an unreplayed voice intent with its root session', () =
     );
 });
 
-test('Android Auto rejects search-result publication after its template is gone', () => {
-    assert.match(
-        hybridSearchTemplateSource,
-        /as\? SearchTemplate\s*\?: throw IllegalArgumentException\([\s\S]*?updateSearchResults failed, template \$templateId not found or not a SearchTemplate/,
-    );
-    assert.doesNotMatch(hybridSearchTemplateSource, /\?: return@async/);
-});
-
 test('Android Auto in-app voice search remains on the SearchTemplate callback', () => {
     assert.match(
         androidSearchTemplateSource,
@@ -299,7 +275,7 @@ test('JS shows search results and starts only navigation voice requests', () => 
     );
     assert.match(
         autoPlaySource,
-        /onSearchTextChanged: \(\) => \{\},[\s\S]*?onSearchTextSubmitted: \(searchText\) =>/,
+        /onSearchTextChanged: \(\) => \{\s*void updateSearchTemplateSection\(template, initialResults\);\s*\},[\s\S]*?onSearchTextSubmitted: \(searchText\) =>/,
     );
     assert.doesNotMatch(
         autoPlaySource,

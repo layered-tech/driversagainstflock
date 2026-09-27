@@ -291,33 +291,6 @@ describe('Auto Play current-road pill layout', () => {
         );
     });
 
-    test('uses a dedicated map-only surface on the Android Auto cluster', () => {
-        assert.match(
-            autoPlaySource,
-            /AutoPlayCluster\.setComponent\(\s*autoPlayPlatform\.ClusterSurface \?\? autoPlayPlatform\.MapSurface/,
-        );
-        assert.match(
-            androidAutoMapSurfaceSource,
-            /export const AndroidAutoClusterSurface = createAutoPlayMapSurface\(\{[\s\S]*?hostOwnsNavigationUI:\s*true/,
-        );
-        assert.match(
-            androidAutoPlatformSource,
-            /ClusterSurface:\s*AndroidAutoClusterSurface/,
-        );
-        assert.doesNotMatch(
-            androidAutoMapSurfaceSource,
-            /showDrivingStatusOnSecondarySurfaces|showSpeedLimitOnSecondarySurfaces/,
-        );
-        assert.doesNotMatch(
-            androidAutoPlatformSource,
-            /ClusterSurface:\s*AndroidAutoMapSurface/,
-        );
-        assert.doesNotMatch(
-            androidAutoPlatformSource,
-            /supportsSearchAutocomplete|usesHeaderDrivingModeButton/,
-        );
-    });
-
     test('keeps the root Android Auto status layout compact', () => {
         assert.match(
             androidAutoMapSurfaceSource,

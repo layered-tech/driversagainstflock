@@ -1,6 +1,4 @@
 import * as Location from 'expo-location';
-import { Platform } from 'react-native';
-import { instrumentClusterEnabled } from '../car-display-config';
 import { createAutoPlayArrivalDetector } from './auto-play-arrival-state';
 import { getAutoPlayCompassNeedleImage } from './auto-play-compass-images';
 import {
@@ -95,7 +93,6 @@ import { formatSearchResultDistance } from './map/search-formatters';
 import {
     addSharedRoutingStateListener,
     getDirectionsRouteGeometrySyncKey,
-    getDirectionsRouteSyncKey,
     getSharedRoutingState,
     hydrateSharedRoutingStateAsync,
     setSharedRoutingState,
@@ -200,8 +197,6 @@ const ROOT_MAP_CONTROL_BUTTON_IMAGE = {
 let autoPlayModule;
 let autoPlayRegistered = false;
 let autoPlayConnectionGeneration = 0;
-let autoPlayClusterConnectionGeneration = 0;
-let autoPlayNavigationRuntimeIsClusterOwned = false;
 let autoPlayConnectionRoadMatchingGeneration = 0;
 let autoPlayConnectionRoadMatchingHandle = null;
 let autoPlayConnectionRoadMatchingIsRequested = false;
@@ -1173,23 +1168,27 @@ function openSearchTemplate(
 
     cancelAutoPlaySearchWork();
     clearAutoPlaySubmittedSearchResults();
+    const initialResults = {
+        items: [
+            makeDisabledSearchRow(
+                'Search',
+                'Tap the search field, then use the keyboard or its microphone when available.',
+            ),
+        ],
+        type: 'default',
+    };
+
     template = new SearchTemplate({
         headerActions: getBackHeaderAction(dismissSearch),
         initialSearchText,
-        onSearchTextChanged: () => {},
+        onSearchTextChanged: () => {
+            void updateSearchTemplateSection(template, initialResults);
+        },
         onSearchTextSubmitted: (searchText) => {
             return runSubmittedSearch(searchText);
         },
         onPopped: dismissSearch,
-        results: {
-            items: [
-                makeDisabledSearchRow(
-                    'Search',
-                    'Tap the search field, then use the keyboard or its microphone when available.',
-                ),
-            ],
-            type: 'default',
-        },
+        results: initialResults,
         searchHint: 'Where to?',
         title: makeAutoText('Destination'),
     });
@@ -1981,14 +1980,6 @@ function makeAutoPlayRoutingManeuvers(
     return [currentRoutingManeuver, nextRoutingManeuver].filter(Boolean);
 }
 
-function makeAutoPlayRegisteredManeuvers(route) {
-    const routeOption = getSelectedDirectionsRouteOption(route);
-
-    return (routeOption?.maneuvers ?? [])
-        .map((maneuver) => makeAutoPlayRoutingManeuver(route, maneuver))
-        .filter(Boolean);
-}
-
 function getRemainingRouteValues(
     route,
     userLocation,
@@ -2107,11 +2098,7 @@ function updateNavigationGuidance(userLocation) {
         activeManeuver,
     );
 
-    const nativeNavigationTemplate =
-        rootMapTemplate ??
-        (Platform.OS === 'android' && autoPlayNavigationRuntimeIsClusterOwned
-            ? loadAutoPlayModule().AutoPlayCluster
-            : null);
+    const nativeNavigationTemplate = rootMapTemplate;
 
     if (nativeNavigationTemplate) {
         try {
@@ -2644,35 +2631,6 @@ function syncAutoPlayNavigationFromSharedRoutingState(
     routingState = getSharedRoutingState(),
 ) {
     if (!rootMapTemplate) {
-        const clusterIsConnected =
-            instrumentClusterEnabled &&
-            Platform.OS === 'android' &&
-            loadAutoPlayModule().AutoPlayCluster.hasConnectedSessions?.();
-
-        if (!clusterIsConnected) {
-            return;
-        }
-
-        const nextRoute =
-            routingState?.drivingModeIsActive && routingState?.directionsRoute
-                ? routingState.directionsRoute
-                : null;
-
-        if (nextRoute) {
-            if (
-                getDirectionsRouteSyncKey(nextRoute) !==
-                getDirectionsRouteSyncKey(activeNavigationRoute)
-            ) {
-                startClusterOwnedAutoPlayNavigation(nextRoute);
-            } else {
-                autoPlayNavigationRuntimeIsClusterOwned = true;
-            }
-        } else if (activeNavigationRoute) {
-            void stopAutoPlayNavigation({
-                publishSharedState: false,
-            });
-        }
-
         return;
     }
 
@@ -2816,12 +2774,8 @@ async function stopAutoPlayNavigation({
         return false;
     }
 
-    const navigationRuntimeWasClusterOwned =
-        autoPlayNavigationRuntimeIsClusterOwned;
-
     navigationRouteGeneration += 1;
     autoPlayArrivalDetector.reset();
-    autoPlayNavigationRuntimeIsClusterOwned = false;
     cancelAutoPlaySearchWork();
     stopAutoDriveSimulation();
     const locationUpdatesStopped = stopNavigationLocationUpdates();
@@ -2832,23 +2786,15 @@ async function stopAutoPlayNavigation({
     routePreviewIsVisible = false;
     lastNavigationGuidanceLocation = null;
 
-    if (
-        notifyTemplate &&
-        (rootMapTemplate || navigationRuntimeWasClusterOwned)
-    ) {
+    if (notifyTemplate && rootMapTemplate) {
         try {
-            const { AutoPlayCluster, NavigationStopReason } =
-                loadAutoPlayModule();
+            const { NavigationStopReason } = loadAutoPlayModule();
             const nativeStopReason =
                 navigationStopReason === 'arrived'
                     ? (NavigationStopReason?.Arrived ?? 0)
                     : (NavigationStopReason?.Cancelled ?? 1);
 
-            if (rootMapTemplate) {
-                rootMapTemplate.stopNavigation(nativeStopReason);
-            } else {
-                AutoPlayCluster.stopNavigation(nativeStopReason);
-            }
+            rootMapTemplate.stopNavigation(nativeStopReason);
         } catch {
             // The head unit may already have stopped this navigation session.
         }
@@ -2898,53 +2844,6 @@ function setActiveAutoPlayNavigationState(route, selectedRoute) {
     });
     updateRootMapButtons();
     updateRootTemplateHeaderActions();
-}
-
-function startClusterOwnedAutoPlayNavigation(route) {
-    const selectedRoute = getSelectedDirectionsRouteOption(route);
-
-    if (!selectedRoute) {
-        return false;
-    }
-
-    try {
-        const { AutoPlayCluster } = loadAutoPlayModule();
-
-        cancelAutoPlaySearchWork();
-        clearAutoPlaySubmittedSearchResults();
-        const routeGeneration = ++navigationRouteGeneration;
-        autoPlayArrivalDetector.beginRoute(routeGeneration);
-        autoPlayNavigationRuntimeIsClusterOwned = true;
-        autoPlayHostNavigationIsActive = false;
-        activeNavigationRoute = route;
-        activeNavigationDestination = route.destination;
-        routePreviewIsVisible = false;
-
-        AutoPlayCluster.startNavigation(makeTripConfig(route));
-        updateNavigationGuidance(null);
-
-        if (autoDriveIsEnabled) {
-            startAutoDriveNavigationSimulation(route, routeGeneration);
-        } else {
-            startNavigationLocationUpdates(route);
-        }
-
-        setActiveAutoPlayNavigationState(route, selectedRoute);
-
-        return true;
-    } catch (error) {
-        void stopAutoPlayNavigation({
-            notifyTemplate: false,
-            publishSharedState: false,
-        });
-        setAutoPlayState({
-            errorText:
-                error?.message || 'Cluster navigation could not be started.',
-            statusLabel: 'Navigation error',
-        });
-
-        return false;
-    }
 }
 
 async function startAutoPlayNavigation(
@@ -3028,9 +2927,6 @@ async function startAutoPlayNavigation(
         }
 
         autoPlayHostNavigationIsActive = true;
-        rootMapTemplate.registerManeuvers?.(
-            makeAutoPlayRegisteredManeuvers(route),
-        );
 
         if (publishSharedState) {
             setSharedRoutingState({
@@ -3055,7 +2951,6 @@ async function startAutoPlayNavigation(
 
         HybridAutoPlay.popToRootTemplate(false).catch(() => {});
 
-        autoPlayNavigationRuntimeIsClusterOwned = false;
         setActiveAutoPlayNavigationState(route, selectedRoute);
     } catch (error) {
         rollbackNavigationStart(error);
@@ -3613,29 +3508,6 @@ function replayPendingVoiceNavigation() {
     );
 }
 
-function reattachClusterOwnedNavigationToRoot() {
-    const routingState = getSharedRoutingState();
-    const route =
-        routingState?.drivingModeIsActive && routingState?.directionsRoute
-            ? routingState.directionsRoute
-            : null;
-
-    if (!route) {
-        syncAutoPlayNavigationFromSharedRoutingState(routingState);
-        return;
-    }
-
-    const hostNavigationAlreadyStarted =
-        autoPlayHostNavigationIsActive &&
-        getDirectionsRouteSyncKey(route) ===
-            getDirectionsRouteSyncKey(activeNavigationRoute);
-
-    startAutoPlayNavigation(route, {
-        hostNavigationAlreadyStarted,
-        publishSharedState: false,
-    });
-}
-
 function retainAutoPlayConnectionRoadMatchingSession(connectionGeneration) {
     autoPlayConnectionRoadMatchingIsRequested = true;
     autoPlayConnectionRoadMatchingGeneration = connectionGeneration;
@@ -3706,13 +3578,6 @@ async function handleAutoPlayConnect() {
     const connectionGeneration = ++autoPlayConnectionGeneration;
     const routingStateHydration = hydrateSharedRoutingStateAsync();
     const { MapTemplate } = loadAutoPlayModule();
-    const navigationRuntimeWasClusterOwned = Boolean(
-        Platform.OS === 'android' &&
-        autoPlayNavigationRuntimeIsClusterOwned &&
-        activeNavigationRoute,
-    );
-
-    autoPlayNavigationRuntimeIsClusterOwned = false;
     setAutoPlaySessionConnected(true);
     retainAutoPlayConnectionRoadMatchingSession(connectionGeneration);
 
@@ -3725,12 +3590,10 @@ async function handleAutoPlayConnect() {
     rootMapHeaderActionsRefreshIsDeferred = false;
     navigationGuidanceIsDeferredDuringPanning = false;
     deferredNavigationGuidanceLocation = null;
-    if (!navigationRuntimeWasClusterOwned) {
-        setAutoPlayState({
-            ...DEFAULT_AUTO_PLAY_STATE,
-            statusLabel: 'Connected',
-        });
-    }
+    setAutoPlayState({
+        ...DEFAULT_AUTO_PLAY_STATE,
+        statusLabel: 'Connected',
+    });
     const initialRootMapHeaderActions = getRootMapHeaderActions();
     const initialRootMapButtons = getRootMapButtons();
     lastAppliedHeaderActionsKey = getTemplateChromeKey(
@@ -3820,11 +3683,7 @@ async function handleAutoPlayConnect() {
 
                 rootMapTemplateIsReady = true;
                 updateRootTemplateHeaderActions();
-                if (navigationRuntimeWasClusterOwned) {
-                    reattachClusterOwnedNavigationToRoot();
-                } else {
-                    syncAutoPlayNavigationFromSharedRoutingState();
-                }
+                syncAutoPlayNavigationFromSharedRoutingState();
                 replayPendingVoiceNavigation();
             })
             .catch((error) => {
@@ -3866,7 +3725,6 @@ async function handleAutoPlayConnect() {
 function clearAutoPlayNavigationRuntime() {
     navigationRouteGeneration += 1;
     autoPlayArrivalDetector.reset();
-    autoPlayNavigationRuntimeIsClusterOwned = false;
     autoDriveIsEnabled = false;
     stopAutoDriveSimulation();
     void stopNavigationLocationUpdates();
@@ -3880,15 +3738,9 @@ function clearAutoPlayNavigationRuntime() {
 }
 
 function handleAutoPlayDisconnect() {
-    const { AutoPlayCluster } = loadAutoPlayModule();
-    const clusterIsConnected =
-        instrumentClusterEnabled &&
-        Platform.OS === 'android' &&
-        AutoPlayCluster.hasConnectedSessions?.();
-
     autoPlayConnectionGeneration += 1;
     releaseAutoPlayConnectionRoadMatchingSession();
-    setAutoPlaySessionConnected(Boolean(clusterIsConnected));
+    setAutoPlaySessionConnected(false);
     voiceNavigationRequestGeneration += 1;
     autoPlayPlatform?.cancelSearchVoiceInput?.();
     rootMapTemplate = null;
@@ -3907,52 +3759,7 @@ function handleAutoPlayDisconnect() {
     clearAutoPlaySubmittedSearchResults();
     routePreviewIsVisible = false;
 
-    if (clusterIsConnected) {
-        if (activeNavigationRoute) {
-            autoPlayNavigationRuntimeIsClusterOwned = true;
-        } else {
-            clearAutoPlayNavigationRuntime();
-            syncAutoPlayNavigationFromSharedRoutingState();
-        }
-        return;
-    }
-
     clearAutoPlayNavigationRuntime();
-}
-
-function handleAutoPlayClusterConnectionStateChanged(isConnected) {
-    if (!instrumentClusterEnabled) return;
-    const clusterConnectionGeneration = ++autoPlayClusterConnectionGeneration;
-    const { AutoPlayCluster } = loadAutoPlayModule();
-
-    setAutoPlaySessionConnected(Boolean(rootMapTemplate || isConnected));
-
-    if (isConnected) {
-        if (rootMapTemplate) {
-            return;
-        }
-
-        hydrateSharedRoutingStateAsync()
-            .then((routingState) => {
-                if (
-                    clusterConnectionGeneration !==
-                        autoPlayClusterConnectionGeneration ||
-                    rootMapTemplate ||
-                    !AutoPlayCluster.hasConnectedSessions?.()
-                ) {
-                    return;
-                }
-
-                syncAutoPlayNavigationFromSharedRoutingState(routingState);
-            })
-            .catch(() => {});
-
-        return;
-    }
-
-    if (!isConnected && autoPlayNavigationRuntimeIsClusterOwned) {
-        clearAutoPlayNavigationRuntime();
-    }
 }
 
 function handleAutoPlaySessionRenderState(renderState) {
@@ -3966,11 +3773,10 @@ export default function registerAutoPlay() {
 
     autoPlayRegistered = true;
 
-    let AutoPlayCluster;
     let HybridAutoPlay;
 
     try {
-        ({ AutoPlayCluster, HybridAutoPlay } = loadAutoPlayModule());
+        ({ HybridAutoPlay } = loadAutoPlayModule());
     } catch (error) {
         // A dev client built before the car screen pods were linked can still run
         // this JS bundle; skip car integration instead of crashing the phone app.
@@ -3988,23 +3794,6 @@ export default function registerAutoPlay() {
     sharedRoutingStateUnsubscribe = addSharedRoutingStateListener(
         syncAutoPlayNavigationFromSharedRoutingState,
     );
-    if (instrumentClusterEnabled) {
-        AutoPlayCluster.setComponent(
-            autoPlayPlatform.ClusterSurface ?? autoPlayPlatform.MapSurface,
-        ).catch(() => {});
-    }
-    if (instrumentClusterEnabled && Platform.OS === 'android') {
-        AutoPlayCluster.setNavigationCallbacks?.({
-            onAutoDriveEnabled: handleAutoDriveEnabled,
-            onStopNavigation: () => {
-                logAutoPlayPlatformAction('host-navigation-stopped');
-                void stopAutoPlayNavigation({ notifyTemplate: false });
-            },
-        });
-        AutoPlayCluster.addConnectionStateListener?.(
-            handleAutoPlayClusterConnectionStateChanged,
-        );
-    }
     autoPlayPlatform.registerPlatformListeners({
         autoPlayModule: loadAutoPlayModule(),
         makeGlyphImage,

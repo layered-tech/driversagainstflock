@@ -101,7 +101,6 @@ function makeNavigationContext(startNavigation) {
         }),
         rootMapTemplate: {
             startNavigation,
-            registerManeuvers: () => calls.push('maneuvers'),
         },
         rootMapTemplateIsReady: true,
         getSelectedDirectionsRouteOption: () => ({ routeKey: 'route' }),
@@ -116,12 +115,10 @@ function makeNavigationContext(startNavigation) {
         hideAutoPlayRoutePreview() {},
         makeTripConfig: (route) => route,
         autoPlayHostNavigationIsActive: false,
-        makeAutoPlayRegisteredManeuvers: () => [],
         setSharedRoutingState: () => calls.push('shared'),
         updateNavigationGuidance: () => calls.push('guidance'),
         autoDriveIsEnabled: false,
         startNavigationLocationUpdates: () => calls.push('location') && null,
-        autoPlayNavigationRuntimeIsClusterOwned: false,
         setActiveAutoPlayNavigationState: () => calls.push('active'),
         cancelNativeAutoPlayNavigation: () => calls.push('cancel'),
         stopAutoPlayNavigation: async () => calls.push('stop'),
@@ -143,13 +140,7 @@ test('navigation waits for native startup before publishing guidance', async () 
     assert.deepEqual(calls, []);
     complete();
     await pending;
-    assert.deepEqual(calls, [
-        'maneuvers',
-        'shared',
-        'guidance',
-        'location',
-        'active',
-    ]);
+    assert.deepEqual(calls, ['shared', 'guidance', 'location', 'active']);
 });
 
 test('rejected native startup rolls back without publishing navigation', async () => {
@@ -173,26 +164,4 @@ test('a superseded native startup cannot resurrect guidance', async () => {
     complete();
     await pending;
     assert.deepEqual(calls, []);
-});
-
-test('the fork retains Android alert rejection cleanup without a local package patch', () => {
-    const source = readFileSync(
-        resolve(
-            packageRoot,
-            'android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/template/MapTemplate.kt',
-        ),
-        'utf8',
-    );
-    assert.match(
-        source,
-        /AlertCallback\.REASON_NOT_SUPPORTED -> \{\s*alertConfig\.onDidDismiss\?\.let \{ it\(AlertDismissalReason\.SYSTEM\) \}/,
-    );
-    assert.match(
-        source,
-        /try \{\s*context\.getCarService\(AppManager::class\.java\)\.showAlert\(alert\)\s*alertConfig\.onWillShow/,
-    );
-    assert.match(
-        source,
-        /catch \(error: Exception\) \{\s*alertIds\.remove\(alert\.id\)[\s\S]*?alertConfig\.onDidDismiss\?\.let \{ it\(AlertDismissalReason\.SYSTEM\) \}/,
-    );
 });

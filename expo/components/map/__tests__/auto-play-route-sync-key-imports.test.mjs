@@ -77,7 +77,6 @@ describe('auto-play route sync key helpers', () => {
     const called = getCalledSyncKeyHelpers(autoPlaySource);
 
     test('auto-play.js calls sync key helpers', () => {
-        assert.ok(called.has('getDirectionsRouteSyncKey'));
         assert.ok(called.has('getDirectionsRouteGeometrySyncKey'));
     });
 
@@ -108,7 +107,6 @@ describe('auto-play route sync key helpers', () => {
             .map((specifier) => specifier.trim().split(/\s+as\s+/)[0])
             .filter(Boolean);
 
-        assert.ok(specifiers.includes('getDirectionsRouteSyncKey'));
         assert.ok(specifiers.includes('getDirectionsRouteGeometrySyncKey'));
 
         const exported = new Set(

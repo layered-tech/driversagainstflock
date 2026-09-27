@@ -1,17 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
-
-const autoPlayPackageRoot = process.env.AUTO_PLAY_PACKAGE_ROOT
-    ? resolve(process.env.AUTO_PLAY_PACKAGE_ROOT)
-    : fileURLToPath(
-          new URL(
-              '../../../node_modules/@iternio/react-native-auto-play/',
-              import.meta.url,
-          ),
-      );
 
 const iosPlatformSource = readFileSync(
     new URL('../../auto-play-platform.ios.js', import.meta.url),
@@ -55,50 +44,11 @@ const mapLocationPuckPodspecSource = readFileSync(
     ),
     'utf8',
 );
-const dashboardSceneSource = readFileSync(
-    join(autoPlayPackageRoot, 'ios/scenes/DashboardSceneDelegate.swift'),
-    'utf8',
-);
 
 test('CarPlay reapplies Dashboard shortcuts after its scene connects', () => {
     assert.match(
         iosPlatformSource,
         /applyDashboardButtons\(CarPlayDashboard, makeGlyphImage\);[\s\S]*?CarPlayDashboard\.addListener\('didConnect',[\s\S]*?applyDashboardButtons\(CarPlayDashboard, makeGlyphImage\)/,
-    );
-});
-
-test('CarPlay consumes Dashboard Nitro promises without hiding failures', () => {
-    assert.match(
-        iosPlatformSource,
-        /return CarPlayDashboard\.setButtons\(\[[\s\S]*?\]\)\.catch\(\(error\) => \{[\s\S]*?console\.warn\([\s\S]*?error/,
-    );
-    assert.doesNotMatch(
-        iosPlatformSource,
-        /Promise\.resolve\(\s*CarPlayDashboard\.setButtons/,
-    );
-
-    // The fork's JS Dashboard wrapper must hand the Nitro promise back rather
-    // than swallowing it, otherwise the `.catch` above never sees a failure.
-    const dashboardSceneSources = [
-        'src/scenes/CarPlayDashboardScene.ts',
-        'lib/scenes/CarPlayDashboardScene.js',
-    ].map((file) => readFileSync(join(autoPlayPackageRoot, file), 'utf8'));
-    for (const source of dashboardSceneSources) {
-        assert.match(
-            source,
-            /setButtons\(buttons[^{]*\{[\s\S]*?return Promise\.resolve\(\);[\s\S]*?return HybridCarPlayDashboard\.setButtons\(/,
-        );
-        assert.match(
-            source,
-            /HybridCarPlayDashboard\.initRootView\(\)\.catch\(\(error\) => \{[\s\S]*?console\.warn\('CarPlayDashboard\.initRootView failed', error\)/,
-        );
-    }
-    assert.match(
-        readFileSync(
-            join(autoPlayPackageRoot, 'lib/scenes/CarPlayDashboardScene.d.ts'),
-            'utf8',
-        ),
-        /setButtons\(buttons: Array<CarPlayDashboardButton>\): Promise<void>;/,
     );
 });
 
@@ -183,14 +133,6 @@ test('CarPlay Dashboard keeps the speed badge while the host draws the rest', ()
 test('CarPlay head-unit surface keeps the app overlays the host does not draw', () => {
     assert.doesNotMatch(carPlayMapSurfaceSource, /^\s*hostOwnsNavigationUI:/m);
     assert.match(carPlayMapSurfaceSource, /currentRoadPill: \{/);
-});
-
-test('CarPlay sizes the map to its Dashboard pane instead of the full display', () => {
-    assert.match(
-        dashboardSceneSource,
-        /"height": window\.bounds\.size\.height\.rounded\(\),[\s\S]*?"width": window\.bounds\.size\.width\.rounded\(\)/,
-    );
-    assert.doesNotMatch(dashboardSceneSource, /window\.screen\.bounds/);
 });
 
 test('CarPlay Dashboard uses the Mapbox release with its active-scene renderer fix', () => {

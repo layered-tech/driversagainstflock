@@ -185,7 +185,7 @@ describe('shared phone and car navigation contract', () => {
         );
         assert.match(
             autoPlaySource,
-            /function handleAutoPlayDisconnect\(\)[\s\S]*?releaseAutoPlayConnectionRoadMatchingSession\(\)[\s\S]*?setAutoPlaySessionConnected\(Boolean\(clusterIsConnected\)\)/,
+            /function handleAutoPlayDisconnect\(\)[\s\S]*?releaseAutoPlayConnectionRoadMatchingSession\(\)[\s\S]*?setAutoPlaySessionConnected\(false\)/,
         );
     });
 
@@ -362,10 +362,15 @@ describe('shared phone and car navigation contract', () => {
         );
 
         assert.doesNotMatch(disconnectSource, /setSharedRoutingState/);
-        assert.match(disconnectSource, /autoDriveIsEnabled = false/);
-        assert.match(disconnectSource, /stopAutoDriveSimulation\(\)/);
-        assert.match(disconnectSource, /stopNavigationLocationUpdates\(\)/);
-        assert.match(disconnectSource, /activeNavigationRoute = null/);
+        assert.match(disconnectSource, /clearAutoPlayNavigationRuntime\(\)/);
+        const cleanupSource = autoPlaySource.slice(
+            autoPlaySource.indexOf('function clearAutoPlayNavigationRuntime()'),
+            autoPlaySource.indexOf('function handleAutoPlayDisconnect()'),
+        );
+        assert.match(cleanupSource, /autoDriveIsEnabled = false/);
+        assert.match(cleanupSource, /stopAutoDriveSimulation\(\)/);
+        assert.match(cleanupSource, /stopNavigationLocationUpdates\(\)/);
+        assert.match(cleanupSource, /activeNavigationRoute = null/);
 
         const hostStopSource = autoPlaySource.slice(
             autoPlaySource.indexOf('onStopNavigation: () => {'),

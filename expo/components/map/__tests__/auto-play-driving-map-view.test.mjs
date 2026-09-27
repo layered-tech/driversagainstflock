@@ -42,7 +42,7 @@ test('Android Auto and CarPlay expose route mode in header actions', () => {
     );
     assert.match(
         headerActionsSource,
-        /android: \[[\s\S]*?drivingMapViewButton[\s\S]*?searchButton/,
+        /android:[\s\S]*?usesSearchOnlyRootHeaderAction === true[\s\S]*?\[searchButton\][\s\S]*?drivingMapViewButton/,
     );
     assert.match(
         headerActionsSource,
@@ -65,7 +65,10 @@ test('automotive map buttons remain pan, zoom, and recenter controls', () => {
     assert.match(mapButtonsSource, /onPress: handleRootZoomInPress/);
     assert.match(mapButtonsSource, /onPress: handleRootZoomOutPress/);
     assert.match(mapButtonsSource, /onPress: handleRootTrackingPress/);
-    assert.doesNotMatch(mapButtonsSource, /DrivingMapView/);
+    assert.match(
+        mapButtonsSource,
+        /usesDrivingMapViewButtonForDebugging === true/,
+    );
 });
 
 test('automotive route mode releases follow and fits the active route', () => {

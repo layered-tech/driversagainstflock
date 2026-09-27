@@ -33,10 +33,3 @@ const ANDROID_AUTO_SURFACE_PLATFORM_CONFIG = {
 export const AndroidAutoMapSurface = createAutoPlayMapSurface(
     ANDROID_AUTO_SURFACE_PLATFORM_CONFIG,
 );
-
-// The instrument cluster is a secondary display owned by the host. Keep it to
-// map and route rendering; status cards belong to the main NavigationTemplate.
-export const AndroidAutoClusterSurface = createAutoPlayMapSurface({
-    ...ANDROID_AUTO_SURFACE_PLATFORM_CONFIG,
-    hostOwnsNavigationUI: true,
-});
