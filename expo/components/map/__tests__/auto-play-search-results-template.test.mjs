@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
+import { createAutoPlaySearchCallbackState } from '../../auto-play-template-state.js';
 
 const autoPlaySource = readFileSync(
     new URL('../../auto-play.js', import.meta.url),
@@ -32,7 +33,10 @@ const mapCanvasSource = readFileSync(
     'utf8',
 );
 
-function createSavedSearchTemplateHarness(loadSavedLocations) {
+function createSavedSearchTemplateHarness(
+    loadSavedLocations,
+    runPlaceTextSearch,
+) {
     const functionStart = autoPlaySource.indexOf(
         'function openSearchTemplate(',
     );
@@ -66,7 +70,12 @@ function createSavedSearchTemplateHarness(loadSavedLocations) {
         createAutoPlaySearchTemplateLifecycle: () => ({
             waitForResultTemplatePushes() {},
         }),
+        createAutoPlaySearchCallbackState,
         getBackHeaderAction: (onPress) => ({ onPress }),
+        getAutoPlaySearchLoadingCopy: (query) => ({
+            detailedText: `Looking for ${query}.`,
+            title: 'Searching...',
+        }),
         handleSearchResultSelected: (...args) => selections.push(args),
         loadAutoPlayModule: () => ({ SearchTemplate }),
         loadSearchSavedLocations: () => loadSavedLocations,
@@ -81,7 +90,7 @@ function createSavedSearchTemplateHarness(loadSavedLocations) {
                 onPress: () => onPress(result),
                 title: { text: result.name },
             })),
-        runPlaceTextSearch() {},
+        runPlaceTextSearch: runPlaceTextSearch ?? (() => Promise.resolve()),
         setAutoPlayState() {},
         showAutoPlayError() {},
         updateSearchTemplateSection(_template, section) {
@@ -92,6 +101,51 @@ function createSavedSearchTemplateHarness(loadSavedLocations) {
 
     return { openSearchTemplate, selections, state, updates };
 }
+
+test('late search text callbacks keep the processing row visible', async () => {
+    let finishSearch;
+    const pendingSearch = new Promise((resolve) => {
+        finishSearch = resolve;
+    });
+    const harness = createSavedSearchTemplateHarness(
+        Promise.resolve({ places: [{ id: 'home', name: 'Home' }] }),
+        (template) => {
+            harness.updates.push({
+                items: [{ title: { text: 'Searching...' } }],
+            });
+            return pendingSearch;
+        },
+    );
+    const opened = harness.openSearchTemplate();
+    await opened.pushPromise;
+
+    const search =
+        harness.state.template.config.onSearchTextSubmitted('Austin');
+    assert.equal(harness.updates.at(-1).items[0].title.text, 'Searching...');
+
+    harness.state.template.config.onSearchTextChanged('');
+    assert.equal(harness.updates.at(-1).items[0].title.text, 'Searching...');
+
+    finishSearch();
+    await search;
+    harness.state.template.config.onSearchTextChanged('');
+    assert.equal(harness.updates.at(-1).items[0].title.text, 'Home');
+});
+
+test('an initial voice query opens with a processing row', async () => {
+    const harness = createSavedSearchTemplateHarness(
+        Promise.resolve({ places: [] }),
+    );
+    const opened = harness.openSearchTemplate('Austin');
+
+    assert.equal(
+        harness.state.template.config.results.items[0].title.text,
+        'Searching...',
+    );
+    harness.state.template.config.onSearchTextChanged('Austin');
+    assert.equal(harness.updates.length, 0);
+    await opened.pushPromise;
+});
 
 test('car search shows saved places before typing and selects through the route flow', async () => {
     const favorite = { id: 'favorite', name: 'Favorite place' };
@@ -178,7 +232,7 @@ test('Android Auto searches only after explicit submission', () => {
     assert.doesNotMatch(autoPlaySource, /schedulePlaceAutocomplete/);
     assert.doesNotMatch(autoPlaySource, /runPlaceAutocomplete/);
     assert.doesNotMatch(autoPlaySource, /createPlaceSearchSessionToken/);
-    assert.doesNotMatch(autoPlaySource, /createAutoPlaySearchCallbackState/);
+    assert.match(autoPlaySource, /createAutoPlaySearchCallbackState/);
     assert.doesNotMatch(autoPlaySource, /SEARCH_DEBOUNCE_MS/);
     assert.doesNotMatch(autoPlaySource, /\bsearchPlaces\b/);
     assert.match(

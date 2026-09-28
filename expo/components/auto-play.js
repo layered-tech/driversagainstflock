@@ -36,6 +36,7 @@ import {
 import {
     AUTO_PLAY_TRIP_PREVIEW_TEXT_CONFIGURATION,
     autoPlaySearchRequestIsCurrent,
+    createAutoPlaySearchCallbackState,
     getAutoPlayHeaderButtonVisibility,
     getAutoPlayMapButtonAppearanceKey,
     getAutoPlayPotentiallyAvoidedNodeCount,
@@ -1163,6 +1164,110 @@ function getBackHeaderAction(onBeforePop) {
     };
 }
 
+function openSavedDestinationsTemplate() {
+    const { ListTemplate } = loadAutoPlayModule();
+    let template;
+    let savedLocationsUnsubscribe = null;
+    let latestSavedLocations = null;
+    let isActive = true;
+    let savedLocationWasSelected = false;
+    const dismiss = () => {
+        isActive = false;
+        savedLocationsUnsubscribe?.();
+        savedLocationsUnsubscribe = null;
+    };
+    const showSavedLocations = (savedLocations) => {
+        if (!isActive || savedLocationWasSelected) {
+            return;
+        }
+
+        void updateSearchTemplateSection(template, {
+            items: makeInitialSavedSearchRows(savedLocations, (result) => {
+                if (!isActive) {
+                    return;
+                }
+
+                savedLocationWasSelected = true;
+                handleSearchResultSelected(result, { template });
+            }),
+            type: 'default',
+        });
+    };
+    const headerActions = getBackHeaderAction(dismiss);
+
+    template = new ListTemplate({
+        headerActions: {
+            ...headerActions,
+            ios: {
+                ...headerActions.ios,
+                leadingNavigationBarButtons: [
+                    {
+                        onPress: handleRootHeaderVoiceSearchPress,
+                        title: 'Voice search',
+                        type: 'text',
+                    },
+                    {
+                        onPress: () => openSearchTemplate(),
+                        title: 'Keyboard',
+                        type: 'text',
+                    },
+                ],
+            },
+        },
+        onPopped: dismiss,
+        sections: {
+            items: [
+                makeDisabledSearchRow(
+                    'Loading saved places',
+                    'Home, Work, favorites, and recents.',
+                ),
+            ],
+            type: 'default',
+        },
+        title: makeAutoText('Destinations'),
+    });
+
+    savedLocationsUnsubscribe = addSearchSavedLocationsListener(
+        (savedLocations) => {
+            latestSavedLocations = savedLocations;
+            showSavedLocations(savedLocations);
+        },
+    );
+    loadSearchSavedLocations()
+        .then((loadedLocations) => {
+            showSavedLocations(latestSavedLocations ?? loadedLocations);
+        })
+        .catch(() => {
+            if (!isActive || latestSavedLocations) {
+                return;
+            }
+
+            void updateSearchTemplateSection(template, {
+                items: [
+                    makeDisabledSearchRow(
+                        'Saved places unavailable',
+                        'Use Voice search or Keyboard.',
+                    ),
+                ],
+                type: 'default',
+            });
+        });
+
+    return {
+        pushPromise: template.push().catch((error) => {
+            dismiss();
+            logAutoPlayPlatformAction('saved-destinations-push-failed', {
+                message: error?.message || 'Unknown error',
+            });
+            showAutoPlayError(
+                'Search unavailable',
+                error?.message || 'Saved destinations could not be opened.',
+            );
+        }),
+        template,
+    };
+}
+
 function openSearchTemplate(
     initialSearchText = '',
     preferredStartLocation,
@@ -1170,6 +1275,7 @@ function openSearchTemplate(
 ) {
     const { SearchTemplate } = loadAutoPlayModule();
     const templateLifecycle = createAutoPlaySearchTemplateLifecycle();
+    const searchCallbackState = createAutoPlaySearchCallbackState();
     let templateWasPushed = false;
     let template;
     let savedLocationsUnsubscribe = null;
@@ -1179,6 +1285,7 @@ function openSearchTemplate(
     let savedLocationsLoadFailed = false;
     let savedLocationWasSelected = false;
     let searchTextValue = String(initialSearchText ?? '');
+    let initialVoiceSearchIsPending = Boolean(searchTextValue.trim());
     const emptyResults = {
         items: [
             makeDisabledSearchRow(
@@ -1188,6 +1295,18 @@ function openSearchTemplate(
         ],
         type: 'default',
     };
+    const initialLoadingCopy = getAutoPlaySearchLoadingCopy(initialSearchText);
+    const initialResults = String(initialSearchText ?? '').trim()
+        ? {
+              items: [
+                  makeDisabledSearchRow(
+                      initialLoadingCopy.title,
+                      initialLoadingCopy.detailedText,
+                  ),
+              ],
+              type: 'default',
+          }
+        : emptyResults;
     const refreshInitialResults = () => {
         if (
             !searchIsActive ||
@@ -1239,10 +1358,16 @@ function openSearchTemplate(
             return Promise.resolve();
         }
 
-        searchTextValue = String(searchText ?? '');
+        const { searchText: submittedSearchText, submissionToken } =
+            searchCallbackState.handleSearchTextSubmitted(searchText);
+        initialVoiceSearchIsPending = false;
+        searchTextValue = submittedSearchText;
         savedLocationWasSelected = false;
 
         if (!searchTextValue.trim()) {
+            searchCallbackState.handleSearchTextSubmissionCompleted(
+                submissionToken,
+            );
             cancelAutoPlaySearchWork();
             refreshInitialResults();
             return Promise.resolve();
@@ -1250,7 +1375,7 @@ function openSearchTemplate(
 
         return runPlaceTextSearch(
             template,
-            searchText,
+            submittedSearchText,
             preferredStartLocation,
             {
                 autoAdvanceSingleResult: shouldAutoAdvanceSingleResult,
@@ -1261,7 +1386,11 @@ function openSearchTemplate(
                 },
                 requestIsCurrent,
             },
-        );
+        ).finally(() => {
+            searchCallbackState.handleSearchTextSubmissionCompleted(
+                submissionToken,
+            );
+        });
     };
     const dismissSearch = () => {
         searchIsActive = false;
@@ -1287,7 +1416,18 @@ function openSearchTemplate(
                 return;
             }
 
-            searchTextValue = String(searchText ?? '');
+            if (initialVoiceSearchIsPending) {
+                return;
+            }
+
+            const searchChange =
+                searchCallbackState.handleSearchTextChanged(searchText);
+
+            if (searchChange.ignored) {
+                return;
+            }
+
+            searchTextValue = searchChange.searchText;
 
             if (!searchTextValue.trim()) {
                 cancelAutoPlaySearchWork();
@@ -1301,7 +1441,7 @@ function openSearchTemplate(
             return runSubmittedSearch(searchText);
         },
         onPopped: dismissSearch,
-        results: emptyResults,
+        results: initialResults,
         searchHint: 'Where to?',
         title: makeAutoText('Destination'),
     });
@@ -3116,6 +3256,11 @@ function handleRootHeaderPrimaryLocationPress(type) {
 }
 
 const handleRootHeaderSearchPress = () => {
+    if (autoPlayPlatform?.opensSavedDestinationsBeforeSearch === true) {
+        openSavedDestinationsTemplate();
+        return;
+    }
+
     openSearchTemplate();
 };
 const handleRootHeaderVoiceSearchPress = () => {

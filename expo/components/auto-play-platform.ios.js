@@ -38,6 +38,7 @@ export const autoPlayPlatform = {
     },
     presentsVoiceSearchResultsInList: true,
     publishesSearchTemplateResultsToMap: true,
+    opensSavedDestinationsBeforeSearch: true,
     usesHeaderExitNavigationButton: true,
 
     cancelSearchVoiceInput() {

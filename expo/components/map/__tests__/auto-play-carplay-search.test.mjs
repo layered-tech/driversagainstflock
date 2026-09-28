@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import vm from 'node:vm';
 
 import { createCarPlayVoiceSearchController } from '../../auto-play-carplay-voice-search.js';
 
@@ -17,10 +18,80 @@ const voiceSearchControllerSource = readFileSync(
     'utf8',
 );
 
+test('CarPlay opens saved destinations before starting voice input', async () => {
+    const functionStart = autoPlaySource.indexOf(
+        'function openSavedDestinationsTemplate(',
+    );
+    const functionEnd = autoPlaySource.indexOf(
+        'function openSearchTemplate(',
+        functionStart,
+    );
+    assert.ok(functionStart >= 0);
+    assert.ok(functionEnd > functionStart);
+
+    const selections = [];
+    const opened = [];
+    const saved = { places: [{ id: 'home', name: 'Home' }] };
+    class ListTemplate {
+        constructor(config) {
+            this.config = config;
+            opened.push(this);
+        }
+
+        push() {
+            return Promise.resolve();
+        }
+
+        updateSections(section) {
+            this.config.sections = section;
+            return Promise.resolve();
+        }
+    }
+    const openSavedDestinationsTemplate = vm.runInNewContext(
+        `(${autoPlaySource.slice(functionStart, functionEnd)})`,
+        {
+            addSearchSavedLocationsListener: () => () => {},
+            getBackHeaderAction: () => ({ ios: { backButton: {} } }),
+            handleRootHeaderVoiceSearchPress: () => opened.push('voice'),
+            handleSearchResultSelected: (...args) => selections.push(args),
+            loadAutoPlayModule: () => ({ ListTemplate }),
+            loadSearchSavedLocations: () => Promise.resolve(saved),
+            logAutoPlayPlatformAction() {},
+            makeAutoText: (text) => ({ text }),
+            makeDisabledSearchRow: (title) => ({ title: { text: title } }),
+            makeInitialSavedSearchRows: (locations, onPress) =>
+                locations.places.map((place) => ({
+                    onPress: () => onPress(place),
+                    title: { text: place.name },
+                })),
+            openSearchTemplate: () => opened.push('keyboard'),
+            updateSearchTemplateSection: (template, section) =>
+                template.updateSections(section),
+        },
+    );
+
+    const presentation = openSavedDestinationsTemplate();
+    await presentation.pushPromise;
+    await Promise.resolve();
+
+    assert.equal(opened[0].config.sections.items[0].title.text, 'Home');
+    assert.equal(selections.length, 0);
+    opened[0].config.headerActions.ios.leadingNavigationBarButtons[0].onPress();
+    assert.equal(opened[1], 'voice');
+    opened[0].config.headerActions.ios.leadingNavigationBarButtons[1].onPress();
+    assert.equal(opened[2], 'keyboard');
+    opened[0].config.sections.items[0].onPress();
+    assert.equal(selections[0][0].id, 'home');
+});
+
 test('CarPlay keeps keyboard Search and voice input as separate header actions', () => {
     assert.match(
+        iosPlatformSource,
+        /opensSavedDestinationsBeforeSearch:\s*true/,
+    );
+    assert.match(
         autoPlaySource,
-        /const handleRootHeaderSearchPress = \(\) => \{\s*openSearchTemplate\(\);\s*\};/,
+        /const handleRootHeaderSearchPress = \(\) => \{[\s\S]*?openSavedDestinationsTemplate\(\)/,
     );
     assert.match(
         autoPlaySource,
