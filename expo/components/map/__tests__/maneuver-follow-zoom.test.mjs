@@ -361,9 +361,42 @@ Object.assign(nativeModules, {
         LOCATION_ZOOM_LEVEL: 17,
     },
 });
-const { useFollowLocationMode } = loadMapModule(
+const { getFollowSpeedZoomLevel, useFollowLocationMode } = loadMapModule(
     new URL('../../map-follow-location-mode.js', import.meta.url),
 );
+
+test('speed-derived follow zoom changes only at bracket boundaries', () => {
+    const zoomAtMph = (speedMph) =>
+        getFollowSpeedZoomLevel(speedMph * 0.44704, (zoom) => zoom);
+
+    for (const [speedMph, zoomLevel] of [
+        [0, 18.5],
+        [25, 18.5],
+        [29.99, 18.5],
+        [30, 18.25],
+        [34.99, 18.25],
+        [35, 17.5],
+        [37, 17.5],
+        [39.99, 17.5],
+        [40, 16.75],
+        [44.99, 16.75],
+        [45, 16],
+        [49.99, 16],
+        [50, 15.25],
+        [54.99, 15.25],
+        [55, 14.5],
+        [64.99, 14.5],
+        [65, 13.75],
+        [80, 13.75],
+    ]) {
+        assert.equal(zoomAtMph(speedMph), zoomLevel, `${speedMph} mph`);
+    }
+
+    assert.equal(
+        getFollowSpeedZoomLevel(NaN, (zoom) => zoom),
+        18.5,
+    );
+});
 
 test('shared follow hook applies maneuver zoom and respects manual zoom, panning and camera ownership', (t) => {
     let now = epoch;

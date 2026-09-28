@@ -30,43 +30,26 @@ const LOCATION_FOLLOW_SPEED_ZOOM_LEVELS = [
     { speedMph: 65, zoomLevel: 13.75 },
 ];
 
-function getFollowSpeedZoomLevel(speed, clampZoomLevel) {
+export function getFollowSpeedZoomLevel(speed, clampZoomLevel) {
     const firstLevel = LOCATION_FOLLOW_SPEED_ZOOM_LEVELS[0];
-    const lastLevel =
-        LOCATION_FOLLOW_SPEED_ZOOM_LEVELS[
-            LOCATION_FOLLOW_SPEED_ZOOM_LEVELS.length - 1
-        ];
 
     if (!Number.isFinite(speed)) {
         return clampZoomLevel(firstLevel.zoomLevel);
     }
 
-    const speedMph = Math.max(0, speed / METERS_PER_SECOND_PER_MPH);
-
-    if (speedMph <= firstLevel.speedMph) {
-        return clampZoomLevel(firstLevel.zoomLevel);
-    }
-
     for (
-        let index = 1;
-        index < LOCATION_FOLLOW_SPEED_ZOOM_LEVELS.length;
-        index += 1
+        let index = LOCATION_FOLLOW_SPEED_ZOOM_LEVELS.length - 1;
+        index > 0;
+        index -= 1
     ) {
-        const previousLevel = LOCATION_FOLLOW_SPEED_ZOOM_LEVELS[index - 1];
-        const nextLevel = LOCATION_FOLLOW_SPEED_ZOOM_LEVELS[index];
+        const level = LOCATION_FOLLOW_SPEED_ZOOM_LEVELS[index];
 
-        if (speedMph <= nextLevel.speedMph) {
-            const speedRange = nextLevel.speedMph - previousLevel.speedMph;
-            const speedRatio = (speedMph - previousLevel.speedMph) / speedRange;
-            const zoomRange = nextLevel.zoomLevel - previousLevel.zoomLevel;
-
-            return clampZoomLevel(
-                previousLevel.zoomLevel + zoomRange * speedRatio,
-            );
+        if (speed >= level.speedMph * METERS_PER_SECOND_PER_MPH) {
+            return clampZoomLevel(level.zoomLevel);
         }
     }
 
-    return clampZoomLevel(lastLevel.zoomLevel);
+    return clampZoomLevel(firstLevel.zoomLevel);
 }
 
 export function useFollowLocationMode({

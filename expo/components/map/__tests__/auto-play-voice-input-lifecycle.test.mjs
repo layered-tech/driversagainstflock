@@ -17,14 +17,22 @@ const useVoiceInputSource = readFileSync(
     join(autoPlayPackageRoot, 'src/hooks/useVoiceInput.ts'),
     'utf8',
 );
+const androidPlatformSource = readFileSync(
+    new URL('../../auto-play-platform.android.js', import.meta.url),
+    'utf8',
+);
 
-test('useVoiceInput forwards the native request classification', () => {
+test('Android Auto uses the upstream two-argument voice callback', () => {
     assert.match(
         useVoiceInputSource,
-        /voiceInputResult[\s\S]*?requestType: string/,
+        /voiceInputResult[\s\S]*?coordinates: Location \| undefined;[\s\S]*?query: string \| undefined;/,
     );
     assert.match(
         useVoiceInputSource,
-        /addListenerVoiceInput\(\s*\(coordinates, query, requestType\) =>[\s\S]*?setVoiceInputResult\(\{ coordinates, query, requestType \}\)/,
+        /addListenerVoiceInput\(\(coordinates, query\) =>[\s\S]*?setVoiceInputResult\(\{ coordinates, query \}\)/,
+    );
+    assert.match(
+        androidPlatformSource,
+        /addListenerVoiceInput\(\s*\(coordinates, query\) => onVoiceNavigation\(coordinates, query\)/,
     );
 });

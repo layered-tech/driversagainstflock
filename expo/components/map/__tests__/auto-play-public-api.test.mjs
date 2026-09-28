@@ -15,7 +15,7 @@ const packageRoot = process.env.AUTO_PLAY_PACKAGE_ROOT
           import.meta.url,
       ).pathname;
 
-test('the public map API forwards arrival and cancellation to the native bridge', () => {
+test('the public map API uses the upstream stop method without a reason', () => {
     const calls = [];
     const source = readFileSync(
         resolve(packageRoot, 'lib/templates/MapTemplate.js'),
@@ -45,14 +45,9 @@ test('the public map API forwards arrival and cancellation to the native bridge'
     const { MapTemplate, NavigationStopReason } = context.exports;
     const template = Object.create(MapTemplate.prototype);
     template.id = 'test-map';
-    template.stopNavigation(NavigationStopReason.Arrived);
-    template.stopNavigation(NavigationStopReason.Cancelled);
+    assert.equal(NavigationStopReason, undefined);
     template.stopNavigation();
-    assert.deepEqual(calls, [
-        ['test-map', 0],
-        ['test-map', 1],
-        ['test-map', 1],
-    ]);
+    assert.deepEqual(calls, [['test-map']]);
 });
 
 test('Dashboard setup works with the upstream void-returning setButtons method', () => {
@@ -78,22 +73,31 @@ test('Dashboard setup works with the upstream void-returning setButtons method',
     assert.equal(buttons[0].titleVariants[0], 'Open map');
 });
 
-test('typing completes the upstream search callback through its public results API', () => {
+test('typing clears saved suggestions and clearing text restores them', () => {
     const source = readFileSync(
         new URL('../../auto-play.js', import.meta.url),
         'utf8',
     );
     const callback = source.match(
-        /onSearchTextChanged: (\(\) => \{[\s\S]*?\n\s*\}),/,
+        /onSearchTextChanged: (\(searchText\) => \{[\s\S]*?\n\s*\}),/,
     )[1];
     const template = {};
     const initialResults = { type: 'default', items: [] };
     const calls = [];
+    let initialResultsRefreshed = 0;
     const handler = vm.runInNewContext(`(${callback})`, {
+        cancelAutoPlaySearchWork() {},
+        emptyResults: initialResults,
+        refreshInitialResults() {
+            initialResultsRefreshed += 1;
+        },
+        savedLocationWasSelected: false,
+        searchTextValue: '',
         template,
-        initialResults,
         updateSearchTemplateSection: (...args) => calls.push(args),
     });
     handler('Austin');
     assert.deepEqual(calls, [[template, initialResults]]);
+    handler('');
+    assert.equal(initialResultsRefreshed, 1);
 });

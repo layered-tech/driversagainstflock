@@ -40,38 +40,31 @@ const mapTemplateWrapperSource = readAutoPlaySource(
     'src/templates/MapTemplate.ts',
 );
 
-test('CarPlay distinguishes arrival from cancellation', () => {
+test('CarPlay app stops through the upstream no-argument API', () => {
     assert.match(
         mapTemplateWrapperSource,
-        /enum NavigationStopReason[\s\S]*?Arrived = 0[\s\S]*?Cancelled = 1/,
-    );
-    assert.match(
-        mapTemplateWrapperSource,
-        /stopNavigation\(reason = NavigationStopReason\.Cancelled\)[\s\S]*?HybridMapTemplate\.stopNavigation\(this\.id, reason\)/,
+        /stopNavigation\(\)[\s\S]*?HybridMapTemplate\.stopNavigation\(this\.id\)/,
     );
     assert.match(
         hybridMapTemplateSource,
-        /func stopNavigation\([\s\S]*?reason: NavigationStopReason[\s\S]*?template\.stopNavigation\(reason: reason\)/,
+        /func stopNavigation\(templateId: String\)[\s\S]*?template\.stopNavigation\(\)/,
     );
     assert.match(
         mapTemplateSource,
-        /func stopNavigation\(reason: NavigationStopReason = \.cancelled\)[\s\S]*?case \.arrived:[\s\S]*?finishTrip\(\)[\s\S]*?case \.cancelled:[\s\S]*?cancelTrip\(\)/,
+        /func stopNavigation\(\)[\s\S]*?navigationSession\?\.finishTrip\(\)/,
     );
 
     assert.match(
         autoPlayAppSource,
-        /navigationStopReason === 'arrived'[\s\S]*?NavigationStopReason\?\.Arrived[\s\S]*?NavigationStopReason\?\.Cancelled[\s\S]*?rootMapTemplate\.stopNavigation\(nativeStopReason\)/,
+        /if \(notifyTemplate && rootMapTemplate\)[\s\S]*?rootMapTemplate\.stopNavigation\(\)/,
     );
-    assert.equal(
-        autoPlayAppSource.match(/navigationStopReason:\s*'arrived'/g)?.length,
-        2,
-    );
+    assert.equal(autoPlayAppSource.match(/statusLabel: 'Arrived'/g)?.length, 2);
 });
 
-test('navigation setup failures cancel any native session that may have started', () => {
+test('navigation setup failures stop any native session that may have started', () => {
     const cancelNativeNavigationSource = sourceBetween(
         autoPlayAppSource,
-        'function cancelNativeAutoPlayNavigation(',
+        'function stopNativeAutoPlayNavigation(',
         'async function stopAutoPlayNavigation(',
     );
     const startNavigationSource = sourceBetween(
@@ -82,7 +75,7 @@ test('navigation setup failures cancel any native session that may have started'
 
     assert.match(
         cancelNativeNavigationSource,
-        /mapTemplate\.stopNavigation\(NavigationStopReason\?\.Cancelled \?\? 1\)/,
+        /mapTemplate\.stopNavigation\(\)/,
     );
     assert.match(
         startNavigationSource,
@@ -94,7 +87,7 @@ test('navigation setup failures cancel any native session that may have started'
     );
     assert.match(
         startNavigationSource,
-        /const rollbackNavigationStart =[\s\S]*?if \(nativeNavigationMayBeActive\) \{\s*cancelNativeAutoPlayNavigation\(rootMapTemplate\);\s*\}[\s\S]*?catch \(error\) \{\s*rollbackNavigationStart\(error\);\s*\}/,
+        /const rollbackNavigationStart =[\s\S]*?if \(nativeNavigationMayBeActive\) \{\s*stopNativeAutoPlayNavigation\(rootMapTemplate\);\s*\}[\s\S]*?catch \(error\) \{\s*rollbackNavigationStart\(error\);\s*\}/,
     );
     assert.match(
         startNavigationSource,

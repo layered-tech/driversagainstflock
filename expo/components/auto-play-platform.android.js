@@ -58,7 +58,9 @@ export const autoPlayPlatform = {
             'AutoPlayRoot',
             onSessionRenderState,
         );
-        // "Hey Google, navigate to…" style OS voice events only fire on Android.
-        autoPlayModule.HybridAutoPlay.addListenerVoiceInput(onVoiceNavigation);
+        // Upstream reports only coordinates and query for Android Auto voice requests.
+        autoPlayModule.HybridAutoPlay.addListenerVoiceInput(
+            (coordinates, query) => onVoiceNavigation(coordinates, query),
+        );
     },
 };

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import vm from 'node:vm';
 
 const autoPlaySource = readFileSync(
     new URL('../../auto-play.js', import.meta.url),
@@ -30,6 +31,127 @@ const mapCanvasSource = readFileSync(
     new URL('../../map/map-canvas.js', import.meta.url),
     'utf8',
 );
+
+function createSavedSearchTemplateHarness(loadSavedLocations) {
+    const functionStart = autoPlaySource.indexOf(
+        'function openSearchTemplate(',
+    );
+    const functionEnd = autoPlaySource.indexOf(
+        'function openVoiceSearchResultsTemplate(',
+        functionStart,
+    );
+    const functionSource = autoPlaySource.slice(functionStart, functionEnd);
+    const updates = [];
+    const selections = [];
+    const state = { listener: null, template: null, unsubscribed: false };
+    class SearchTemplate {
+        constructor(config) {
+            this.config = config;
+            state.template = this;
+        }
+
+        push() {
+            return Promise.resolve();
+        }
+    }
+    const openSearchTemplate = vm.runInNewContext(`(${functionSource})`, {
+        addSearchSavedLocationsListener(listener) {
+            state.listener = listener;
+            return () => {
+                state.unsubscribed = true;
+            };
+        },
+        cancelAutoPlaySearchWork() {},
+        clearAutoPlaySubmittedSearchResults() {},
+        createAutoPlaySearchTemplateLifecycle: () => ({
+            waitForResultTemplatePushes() {},
+        }),
+        getBackHeaderAction: (onPress) => ({ onPress }),
+        handleSearchResultSelected: (...args) => selections.push(args),
+        loadAutoPlayModule: () => ({ SearchTemplate }),
+        loadSearchSavedLocations: () => loadSavedLocations,
+        logAutoPlayPlatformAction() {},
+        makeAutoText: (text) => ({ text }),
+        makeDisabledSearchRow: (title) => ({
+            enabled: false,
+            title: { text: title },
+        }),
+        makeInitialSavedSearchRows: (savedLocations, onPress) =>
+            savedLocations.places.map((result) => ({
+                onPress: () => onPress(result),
+                title: { text: result.name },
+            })),
+        runPlaceTextSearch() {},
+        setAutoPlayState() {},
+        showAutoPlayError() {},
+        updateSearchTemplateSection(_template, section) {
+            updates.push(section);
+            return Promise.resolve(true);
+        },
+    });
+
+    return { openSearchTemplate, selections, state, updates };
+}
+
+test('car search shows saved places before typing and selects through the route flow', async () => {
+    const favorite = { id: 'favorite', name: 'Favorite place' };
+    const harness = createSavedSearchTemplateHarness(
+        Promise.resolve({ places: [favorite] }),
+    );
+    const opened = harness.openSearchTemplate();
+    await opened.pushPromise;
+    await Promise.resolve();
+
+    assert.equal(harness.updates.at(-1).items[0].title.text, favorite.name);
+    harness.state.template.config.onSearchTextChanged('Austin');
+    assert.equal(harness.updates.at(-1).items[0].title.text, 'Search');
+    harness.state.template.config.onSearchTextChanged('');
+    assert.equal(harness.updates.at(-1).items[0].title.text, favorite.name);
+
+    harness.updates.at(-1).items[0].onPress();
+    assert.equal(harness.selections[0][0].id, favorite.id);
+    assert.equal(harness.selections[0][1].template, harness.state.template);
+    const updateCount = harness.updates.length;
+    harness.state.listener({ places: [{ id: 'new', name: 'New place' }] });
+    assert.equal(harness.updates.length, updateCount);
+
+    harness.state.template.config.onPopped();
+    assert.equal(harness.state.unsubscribed, true);
+});
+
+test('late saved-place hydration does not update a dismissed car search', async () => {
+    let finishLoading;
+    const harness = createSavedSearchTemplateHarness(
+        new Promise((resolve) => {
+            finishLoading = resolve;
+        }),
+    );
+    const opened = harness.openSearchTemplate();
+    await opened.pushPromise;
+    const updateCount = harness.updates.length;
+
+    harness.state.template.config.onPopped();
+    finishLoading({ places: [{ id: 'late', name: 'Late place' }] });
+    await Promise.resolve();
+    assert.equal(harness.updates.length, updateCount);
+    assert.equal(harness.state.unsubscribed, true);
+});
+
+test('car search stays usable when saved places cannot be loaded', async () => {
+    const harness = createSavedSearchTemplateHarness(
+        Promise.reject(new Error('Secure storage unavailable')),
+    );
+    const opened = harness.openSearchTemplate();
+    await opened.pushPromise;
+    await Promise.resolve();
+
+    assert.equal(
+        harness.updates.at(-1).items[0].title.text,
+        'Saved places unavailable',
+    );
+    harness.state.template.config.onSearchTextChanged('Austin');
+    assert.equal(harness.updates.at(-1).items[0].title.text, 'Search');
+});
 
 test('Android Auto presents submitted place results with the host map', () => {
     assert.match(androidPlatformSource, /showsSearchResultsOnMap:\s*true/);

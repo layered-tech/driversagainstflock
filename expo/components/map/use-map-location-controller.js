@@ -34,6 +34,10 @@ import {
     PLACE_RESULT_CAMERA_ANIMATION_DURATION_MS,
     PLACE_RESULT_ZOOM_LEVEL,
 } from './constants';
+import {
+    addDebugCameraZoomListener,
+    applyDebugCameraZoomLevel,
+} from './debug-camera-zoom';
 import { getLocationWithDrivingMotionState } from './driving-location-state';
 import {
     DRIVING_MAP_VIEW_PERSPECTIVE,
@@ -291,6 +295,20 @@ export function useMapLocationController({
         setTrackingMode,
         userLocationRef,
     });
+    useEffect(
+        () =>
+            addDebugCameraZoomListener((zoomLevel) =>
+                applyDebugCameraZoomLevel({
+                    cameraRef,
+                    currentZoomRef,
+                    followLocationMode,
+                    isMapReadyRef,
+                    locationTrackingModeRef,
+                    zoomLevel,
+                }),
+            ),
+        [followLocationMode],
+    );
     const scheduleMarkerLoad = useCallback(
         (bounds, delay, { manualPanIsStarting = false } = {}) => {
             if (

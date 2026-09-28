@@ -65,6 +65,10 @@ import { getBoundsFitCameraStop } from './map/camera-state';
 import { SHOW_MAP_DEBUG_CONTROLS } from './map/config';
 import { DEFAULT_ZOOM_LEVEL, ZOOM_STEP } from './map/constants';
 import {
+    addDebugCameraZoomListener,
+    applyDebugCameraZoomLevel,
+} from './map/debug-camera-zoom';
+import {
     DEBUG_OVERLAY_ALPR_PRESENCE,
     DEBUG_OVERLAY_DIRECTIONS_GEOMETRY,
     DEBUG_OVERLAY_ELECTRONIC_HORIZON,
@@ -652,6 +656,21 @@ function useAutoPlayMapController({
         userLocationRef,
         viewportHeight: viewportMetrics.height,
     });
+    useEffect(
+        () =>
+            addDebugCameraZoomListener((zoomLevel) =>
+                applyDebugCameraZoomLevel({
+                    cameraRef,
+                    cameraUpdatesAreAllowed,
+                    currentZoomRef,
+                    followLocationMode,
+                    isMapReadyRef,
+                    locationTrackingModeRef,
+                    zoomLevel,
+                }),
+            ),
+        [cameraUpdatesAreAllowed, followLocationMode],
+    );
     presenceFollowModeRef.current = followLocationMode;
     const getPresenceNavigationCamera = useCallback(
         () => ({

@@ -11,6 +11,7 @@ import {
     setAutoPlayMapButtonAppearanceListener,
     setAutoPlayMapColorScheme,
 } from './auto-play-map-surface';
+import { getAutoPlaySavedSearchResults } from './auto-play-saved-search-results';
 import { createAutoPlaySearchTemplateLifecycle } from './auto-play-search-template-lifecycle';
 import {
     setAutoPlaySessionConnected,
@@ -87,7 +88,11 @@ import {
 } from './map/road-matching-session';
 import {
     addPrimaryLocationsListener,
+    addRecentLocation,
+    addSearchSavedLocationsListener,
+    createSavedLocationFromPlace,
     loadPrimaryLocations,
+    loadSearchSavedLocations,
 } from './map/saved-locations';
 import { formatSearchResultDistance } from './map/search-formatters';
 import {
@@ -591,6 +596,39 @@ function makeSearchRows(results, query, onPress) {
             onPress(result);
         },
         title: makeAutoText(result.primaryText || result.label || 'Place'),
+        type: 'default',
+    }));
+}
+
+function makeInitialSavedSearchRows(savedLocations, onPress) {
+    const suggestions = getAutoPlaySavedSearchResults(savedLocations);
+
+    if (!suggestions.length) {
+        return [
+            makeDisabledSearchRow(
+                'No favorites or recents',
+                'Search for a destination.',
+            ),
+        ];
+    }
+
+    return suggestions.map(({ category, isPrimary = false, result }) => ({
+        detailedText: makeAutoText(
+            isPrimary
+                ? [
+                      result.primaryText !== category && result.primaryText,
+                      result.secondaryText,
+                  ]
+                      .filter(Boolean)
+                      .join(' - ')
+                : [category, result.secondaryText].filter(Boolean).join(' - '),
+        ),
+        onPress: () => onPress(result),
+        title: makeAutoText(
+            isPrimary
+                ? category
+                : result.primaryText || result.label || 'Place',
+        ),
         type: 'default',
     }));
 }
@@ -1134,11 +1172,79 @@ function openSearchTemplate(
     const templateLifecycle = createAutoPlaySearchTemplateLifecycle();
     let templateWasPushed = false;
     let template;
+    let savedLocationsUnsubscribe = null;
+    let savedLocations = null;
+    let searchIsActive = true;
+    let savedLocationsAreLoaded = false;
+    let savedLocationsLoadFailed = false;
+    let savedLocationWasSelected = false;
+    let searchTextValue = String(initialSearchText ?? '');
+    const emptyResults = {
+        items: [
+            makeDisabledSearchRow(
+                'Search',
+                'Tap the search field, then use the keyboard or its microphone when available.',
+            ),
+        ],
+        type: 'default',
+    };
+    const refreshInitialResults = () => {
+        if (
+            !searchIsActive ||
+            !templateWasPushed ||
+            !requestIsCurrent() ||
+            savedLocationWasSelected ||
+            searchTextValue.trim()
+        ) {
+            return;
+        }
+
+        const results = savedLocationsLoadFailed
+            ? {
+                  items: [
+                      makeDisabledSearchRow(
+                          'Saved places unavailable',
+                          'Search for a destination.',
+                      ),
+                  ],
+                  type: 'default',
+              }
+            : savedLocationsAreLoaded
+              ? {
+                    items: makeInitialSavedSearchRows(
+                        savedLocations,
+                        (result) => {
+                            if (!searchIsActive || !requestIsCurrent()) {
+                                return;
+                            }
+
+                            savedLocationWasSelected = true;
+                            handleSearchResultSelected(result, {
+                                preferredStartLocation,
+                                template,
+                            });
+                        },
+                    ),
+                    type: 'default',
+                }
+              : emptyResults;
+
+        void updateSearchTemplateSection(template, results);
+    };
     const runSubmittedSearch = (
         searchText,
         { shouldAutoAdvanceSingleResult = false } = {},
     ) => {
         if (!requestIsCurrent()) {
+            return Promise.resolve();
+        }
+
+        searchTextValue = String(searchText ?? '');
+        savedLocationWasSelected = false;
+
+        if (!searchTextValue.trim()) {
+            cancelAutoPlaySearchWork();
+            refreshInitialResults();
             return Promise.resolve();
         }
 
@@ -1158,6 +1264,10 @@ function openSearchTemplate(
         );
     };
     const dismissSearch = () => {
+        searchIsActive = false;
+        savedLocationsUnsubscribe?.();
+        savedLocationsUnsubscribe = null;
+
         if (!requestIsCurrent()) {
             return;
         }
@@ -1168,27 +1278,30 @@ function openSearchTemplate(
 
     cancelAutoPlaySearchWork();
     clearAutoPlaySubmittedSearchResults();
-    const initialResults = {
-        items: [
-            makeDisabledSearchRow(
-                'Search',
-                'Tap the search field, then use the keyboard or its microphone when available.',
-            ),
-        ],
-        type: 'default',
-    };
 
     template = new SearchTemplate({
         headerActions: getBackHeaderAction(dismissSearch),
         initialSearchText,
-        onSearchTextChanged: () => {
-            void updateSearchTemplateSection(template, initialResults);
+        onSearchTextChanged: (searchText) => {
+            if (savedLocationWasSelected) {
+                return;
+            }
+
+            searchTextValue = String(searchText ?? '');
+
+            if (!searchTextValue.trim()) {
+                cancelAutoPlaySearchWork();
+                refreshInitialResults();
+                return;
+            }
+
+            void updateSearchTemplateSection(template, emptyResults);
         },
         onSearchTextSubmitted: (searchText) => {
             return runSubmittedSearch(searchText);
         },
         onPopped: dismissSearch,
-        results: initialResults,
+        results: emptyResults,
         searchHint: 'Where to?',
         title: makeAutoText('Destination'),
     });
@@ -1198,6 +1311,29 @@ function openSearchTemplate(
         errorText: '',
         statusLabel: 'Search',
     });
+
+    savedLocationsUnsubscribe = addSearchSavedLocationsListener(
+        (updatedLocations) => {
+            savedLocations = updatedLocations;
+
+            if (!savedLocationsAreLoaded) {
+                return;
+            }
+
+            refreshInitialResults();
+        },
+    );
+    loadSearchSavedLocations()
+        .then((loadedLocations) => {
+            savedLocations ??= loadedLocations;
+            savedLocationsAreLoaded = true;
+            refreshInitialResults();
+        })
+        .catch(() => {
+            savedLocationsAreLoaded = true;
+            savedLocationsLoadFailed = true;
+            refreshInitialResults();
+        });
 
     const pushPromise = template
         .push()
@@ -1210,14 +1346,17 @@ function openSearchTemplate(
                 });
             }
 
+            refreshInitialResults();
+
             return undefined;
         })
         .catch((error) => {
+            dismissSearch();
+
             if (!requestIsCurrent()) {
                 return;
             }
 
-            dismissSearch();
             logAutoPlayPlatformAction('search-template-push-failed', {
                 message: error?.message || 'Unknown error',
             });
@@ -1595,6 +1734,12 @@ async function handleSearchResultSelected(
 
         if (!destinationWaypoint) {
             throw new Error('Destination location could not be loaded.');
+        }
+
+        const savedLocation = createSavedLocationFromPlace({ place, result });
+
+        if (savedLocation) {
+            void addRecentLocation(savedLocation).catch(() => {});
         }
 
         const startWaypoint = await getStartWaypoint(preferredStartLocation);
@@ -2154,7 +2299,6 @@ function updateNavigationGuidance(userLocation) {
                 statusLabel: 'Arrived',
             },
             expectedRouteGeneration: routeGeneration,
-            navigationStopReason: 'arrived',
         });
     }
 }
@@ -2729,7 +2873,6 @@ async function handleAutoDriveArrival(route, routeGeneration) {
             statusLabel: 'Arrived',
         },
         expectedRouteGeneration: routeGeneration,
-        navigationStopReason: 'arrived',
     });
 }
 
@@ -2749,21 +2892,18 @@ function handleAutoDriveEnabled() {
     }
 }
 
-function cancelNativeAutoPlayNavigation(mapTemplate) {
+function stopNativeAutoPlayNavigation(mapTemplate) {
     try {
-        const { NavigationStopReason } = loadAutoPlayModule();
-
-        mapTemplate.stopNavigation(NavigationStopReason?.Cancelled ?? 1);
+        mapTemplate.stopNavigation();
     } catch {
         // Starting the native session may have failed before there was anything
-        // for the host to cancel, or the host may already have ended it.
+        // for the host to stop, or the host may already have ended it.
     }
 }
 
 async function stopAutoPlayNavigation({
     completionState = null,
     expectedRouteGeneration = null,
-    navigationStopReason = 'cancelled',
     notifyTemplate = true,
     publishSharedState = true,
 } = {}) {
@@ -2788,13 +2928,7 @@ async function stopAutoPlayNavigation({
 
     if (notifyTemplate && rootMapTemplate) {
         try {
-            const { NavigationStopReason } = loadAutoPlayModule();
-            const nativeStopReason =
-                navigationStopReason === 'arrived'
-                    ? (NavigationStopReason?.Arrived ?? 0)
-                    : (NavigationStopReason?.Cancelled ?? 1);
-
-            rootMapTemplate.stopNavigation(nativeStopReason);
+            rootMapTemplate.stopNavigation();
         } catch {
             // The head unit may already have stopped this navigation session.
         }
@@ -2895,7 +3029,7 @@ async function startAutoPlayNavigation(
         }
 
         if (nativeNavigationMayBeActive) {
-            cancelNativeAutoPlayNavigation(rootMapTemplate);
+            stopNativeAutoPlayNavigation(rootMapTemplate);
         }
 
         void stopAutoPlayNavigation({
@@ -3253,7 +3387,7 @@ async function handleVoiceNavigation(
     });
     logAutoPlayPlatformAction('voice-request-classified', {
         hasDestinationCoordinates: Boolean(destinationLocation),
-        nativeRequestType: requestType ?? null,
+        requestType: requestType ?? null,
         query: searchQuery,
         resolvedRequestType,
     });

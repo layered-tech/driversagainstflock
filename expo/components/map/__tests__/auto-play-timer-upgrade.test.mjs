@@ -120,7 +120,7 @@ function makeNavigationContext(startNavigation) {
         autoDriveIsEnabled: false,
         startNavigationLocationUpdates: () => calls.push('location') && null,
         setActiveAutoPlayNavigationState: () => calls.push('active'),
-        cancelNativeAutoPlayNavigation: () => calls.push('cancel'),
+        stopNativeAutoPlayNavigation: () => calls.push('native-stop'),
         stopAutoPlayNavigation: async () => calls.push('stop'),
         showAutoPlayError: () => calls.push('error'),
     });
@@ -148,7 +148,7 @@ test('rejected native startup rolls back without publishing navigation', async (
         throw new Error('disconnected');
     });
     await context.startAutoPlayNavigation({ destination: {} });
-    assert.deepEqual(calls, ['cancel', 'stop', 'error']);
+    assert.deepEqual(calls, ['native-stop', 'stop', 'error']);
 });
 
 test('a superseded native startup cannot resurrect guidance', async () => {
