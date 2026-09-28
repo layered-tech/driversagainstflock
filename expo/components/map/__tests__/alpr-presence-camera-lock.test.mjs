@@ -18,6 +18,7 @@ function harness() {
     const effects = [];
     let locked = false;
     let release;
+    const viewportMetrics = { key: 'initial', cameraPadding: undefined };
     const refs = {
         isMapReadyRef: { current: true },
         isMountedRef: { current: true },
@@ -56,22 +57,24 @@ function harness() {
     const values = {
         ...refs,
         cameraUpdatesAreAllowed: () => !refs.presenceCameraOwnerRef.current,
+        Platform: { OS: 'android' },
         useCallback: (callback) => callback,
         useEffect: (callback) => effects.push(callback),
-        viewportMetrics: { key: 'initial' },
+        viewportMetrics,
         setPresenceCameraLockGeneration: (value) => {
             locked = value !== null;
         },
     };
     const api = new Function(
         ...Object.keys(values),
-        `${source.slice(source.indexOf('    const getCameraUpdateGuard = useCallback('), source.indexOf('    const presenceFollowModeRef ='))}\n${callbacks}\nreturn { focusPresenceCamera, restorePresenceCamera, getCameraUpdateGuard };`,
+        `${source.slice(source.indexOf('    const getCameraUpdateGuard = useCallback('), source.indexOf('    const presenceFollowModeRef ='))}\n${source.slice(source.indexOf('    useEffect(() => {\n        viewportMetricsRef.current = viewportMetrics;'), source.indexOf('    const getViewportCameraPadding = useCallback('))}\n${callbacks}\nreturn { focusPresenceCamera, restorePresenceCamera, getCameraUpdateGuard };`,
     )(...Object.values(values));
     return {
         ...api,
         refs,
         events,
         updateViewport: (padding) => {
+            viewportMetrics.cameraPadding = padding;
             refs.viewportMetricsRef.current = { cameraPadding: padding };
             effects.forEach((effect) => effect());
         },
@@ -236,7 +239,7 @@ test('GPS fixes update the puck but cannot start following or change zoom while 
     assert.deepEqual(writes, ['lock-on', 'speed zoom']);
 });
 
-test('confirmation freezes its framing after release despite subsequent host inset changes', async () => {
+test('Android Auto keeps the ALPR fixed while reframing for late host insets', async () => {
     const h = harness();
     const camera = {
         centerCoordinate: [-88, 43],
@@ -271,7 +274,10 @@ test('confirmation freezes its framing after release despite subsequent host ins
     h.updateViewport(updatedPadding);
     assert.deepEqual(
         h.events.filter(([type]) => type === 'camera'),
-        [['camera', { ...camera, padding }]],
+        [
+            ['camera', { ...camera, padding }],
+            ['camera', { ...camera, padding: updatedPadding }],
+        ],
     );
     h.restorePresenceCamera(true);
     const eventCount = h.events.length;

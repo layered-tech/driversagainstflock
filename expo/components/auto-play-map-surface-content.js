@@ -143,6 +143,7 @@ const AUTO_PLAY_ZOOM_ANIMATION_DURATION_MS =
 const AUTO_PLAY_ZOOM_BUTTON_ANIMATION_DURATION_MS =
     LOCATION_CAMERA_USER_INTERACTION_ANIMATION_DURATION_MS;
 const AUTO_PLAY_ROUTE_PREVIEW_CAMERA_FIT_DURATION_MS = 900;
+const AUTO_PLAY_ALPR_CONFIRMATION_ANDROID_PITCH = 25;
 const AUTO_PLAY_ROOT_MODULE_ID = 'AutoPlayRoot';
 const AUTO_PLAY_CARPLAY_DASHBOARD_MODULE_ID = 'CarPlayDashboard';
 const DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG = {
@@ -552,6 +553,22 @@ function useAutoPlayMapController({
 
     useEffect(() => {
         viewportMetricsRef.current = viewportMetrics;
+        const focus = presenceCameraFocusRef.current;
+
+        if (
+            Platform.OS !== 'android' ||
+            !presenceCameraOwnerRef.current ||
+            !focus
+        ) {
+            return;
+        }
+
+        const updatedFocus = {
+            ...focus,
+            padding: viewportMetrics.cameraPadding,
+        };
+        presenceCameraFocusRef.current = updatedFocus;
+        cameraRef.current?.setCamera(updatedFocus);
     }, [viewportMetrics]);
 
     const getViewportCameraPadding = useCallback(
@@ -639,8 +656,11 @@ function useAutoPlayMapController({
     const getPresenceNavigationCamera = useCallback(
         () => ({
             zoomLevel: currentZoomRef.current,
-            pitch: getDrivingMapViewFollowConfiguration(drivingMapViewMode)
-                .pitch,
+            pitch:
+                Platform.OS === 'android'
+                    ? AUTO_PLAY_ALPR_CONFIRMATION_ANDROID_PITCH
+                    : getDrivingMapViewFollowConfiguration(drivingMapViewMode)
+                          .pitch,
         }),
         [drivingMapViewMode],
     );
