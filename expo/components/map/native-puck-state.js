@@ -95,6 +95,7 @@ export function nativePuckStateProvesSnapping(puckState) {
         puckState?.providerOwnedByApp === true &&
         puckState?.providerAtSnappedCoordinate === true &&
         puckState?.providerAtRawCoordinate === false &&
+        puckState?.indicatorAtSnappedCoordinate === true &&
         puckState?.renderedAtSnappedCoordinate === true
     );
 }
