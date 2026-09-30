@@ -34,7 +34,7 @@ describe('scorecard drive pipeline wiring', () => {
         );
         assert.match(
             fallbackSource,
-            /publishAcceptedDeviceLocation\(location\);\s*handleUserLocationUpdate\(location\)/,
+            /publishAcceptedDeviceLocation\(location\);\s*handleUserLocationUpdateRef\.current\?\.\(location\)/,
         );
     });
 

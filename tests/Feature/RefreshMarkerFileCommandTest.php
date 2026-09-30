@@ -52,7 +52,7 @@ test('marker file queue timeout chain prevents duplicate execution', function ()
 
 test('marker file refresh job generates the cached payload', function () {
     $markerFileCache = Mockery::mock(MarkerFileCache::class);
-    $markerFileCache->shouldReceive('refresh')->once()->andReturn('/tmp/markers-v3.json');
+    $markerFileCache->shouldReceive('refresh')->once()->andReturn('/tmp/markers-v4.json');
 
     (new RefreshMarkerFile)->handle($markerFileCache);
 });

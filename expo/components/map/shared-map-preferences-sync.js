@@ -30,6 +30,7 @@ const DEFAULT_SHARED_MAP_PREFERENCES_STATE = {
 
 let sharedMapPreferencesState = DEFAULT_SHARED_MAP_PREFERENCES_STATE;
 const sharedMapPreferencesListeners = new Set();
+const sharedMapSettingsListeners = new Set();
 
 function getCameraSettingsKey(settings) {
     if (!settings) {
@@ -52,7 +53,7 @@ function getOffsetKey(offset) {
         .join(',');
 }
 
-function mapPreferencesStatesAreEqual(firstState, secondState) {
+function mapSettingsStatesAreEqual(firstState, secondState) {
     return (
         getAdvancedRouteSettingsKey(firstState?.advancedRouteSettings) ===
             getAdvancedRouteSettingsKey(secondState?.advancedRouteSettings) &&
@@ -82,9 +83,7 @@ function mapPreferencesStatesAreEqual(firstState, secondState) {
         getCameraSettingsKey(firstState?.initialCameraSettings) ===
             getCameraSettingsKey(secondState?.initialCameraSettings) &&
         getOffsetKey(firstState?.mapDebugControlOffset) ===
-            getOffsetKey(secondState?.mapDebugControlOffset) &&
-        getSharedMapLocationKey(firstState?.userLocation) ===
-            getSharedMapLocationKey(secondState?.userLocation)
+            getOffsetKey(secondState?.mapDebugControlOffset)
     );
 }
 
@@ -120,16 +119,31 @@ export function setSharedMapPreferencesState(nextState) {
         normalizedState.userLocation = sharedMapPreferencesState.userLocation;
     }
 
-    if (
-        mapPreferencesStatesAreEqual(sharedMapPreferencesState, normalizedState)
-    ) {
+    const settingsChanged =
+        Object.keys(nextState ?? {}).some((key) => key !== 'userLocation') &&
+        !mapSettingsStatesAreEqual(sharedMapPreferencesState, normalizedState);
+    const locationChanged =
+        getSharedMapLocationKey(sharedMapPreferencesState.userLocation) !==
+        getSharedMapLocationKey(normalizedState.userLocation);
+
+    if (!settingsChanged && !locationChanged) {
         return;
+    }
+
+    if (!locationChanged) {
+        normalizedState.userLocation = sharedMapPreferencesState.userLocation;
     }
 
     sharedMapPreferencesState = normalizedState;
     sharedMapPreferencesListeners.forEach((listener) =>
         listener(sharedMapPreferencesState),
     );
+
+    if (settingsChanged) {
+        sharedMapSettingsListeners.forEach((listener) =>
+            listener(sharedMapPreferencesState),
+        );
+    }
 }
 
 export function addSharedMapPreferencesStateListener(listener) {
@@ -137,5 +151,13 @@ export function addSharedMapPreferencesStateListener(listener) {
 
     return () => {
         sharedMapPreferencesListeners.delete(listener);
+    };
+}
+
+export function addSharedMapSettingsStateListener(listener) {
+    sharedMapSettingsListeners.add(listener);
+
+    return () => {
+        sharedMapSettingsListeners.delete(listener);
     };
 }

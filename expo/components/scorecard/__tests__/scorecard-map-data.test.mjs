@@ -5,6 +5,7 @@ import {
     getScorecardCoordinateDistanceMeters,
 } from '../scorecard-geo.js';
 import {
+    getScorecardExposureMapData,
     getScorecardMapBounds,
     getScorecardMapGeometryBounds,
     makeScorecardExposureConeCollection,
@@ -39,6 +40,51 @@ const exposures = [
 ];
 
 describe('scorecard exposure map data', () => {
+    test('prepares exposure coordinates once for all map layers and skips hidden cones', () => {
+        let coordinateReads = 0;
+        let directionReads = 0;
+        const cameraCoordinate = [-97.8, 30.2];
+        Object.defineProperty(cameraCoordinate, '0', {
+            get() {
+                coordinateReads += 1;
+                return -97.8;
+            },
+        });
+        const source = [
+            {
+                ...exposures[1],
+                cameraCoordinate,
+                cameraDirections: [
+                    {
+                        get start() {
+                            directionReads += 1;
+                            return 90;
+                        },
+                        end: 90,
+                        isRange: false,
+                    },
+                ],
+            },
+        ];
+        const data = getScorecardExposureMapData(source);
+
+        assert.equal(coordinateReads, 1);
+        assert.equal(directionReads, 0);
+        assert.equal(data.pointCollection.features.length, 1);
+        assert.equal(data.lineCollection.features.length, 1);
+        assert.deepEqual(data.coneCollection.features, []);
+        assert.ok(data.bounds);
+
+        const withCones = getScorecardExposureMapData(source, {
+            showCones: true,
+        });
+        assert.equal(withCones.coneCollection.features.length, 1);
+        assert.ok(directionReads > 0);
+        assert.deepEqual(withCones.pointCollection, data.pointCollection);
+        assert.deepEqual(withCones.lineCollection, data.lineCollection);
+        assert.deepEqual(withCones.bounds, data.bounds);
+    });
+
     test('maps real camera coordinates in chronological order', () => {
         const points = makeScorecardExposurePointCollection(exposures);
 

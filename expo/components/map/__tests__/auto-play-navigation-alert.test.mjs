@@ -7,35 +7,79 @@ import {
     AUTO_PLAY_NAVIGATION_ALERT_FOLLOW_UP_DELAY_MS,
     AUTO_PLAY_NAVIGATION_ALERT_ICON_COLOR,
     AUTO_PLAY_NAVIGATION_ALERT_MAXIMUM_DURATION_MS,
+    AUTO_PLAY_NAVIGATION_ALERT_MAXIMUM_RANGE_METERS,
     AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_DURATION_MS,
+    AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_RANGE_METERS,
     AUTO_PLAY_NAVIGATION_ALERT_TITLE,
     AUTO_PLAY_NAVIGATION_ALERT_TITLE_WITHOUT_DISTANCE,
+    createAutoPlayNavigationAlertSuppressionController,
     getAutoPlayNavigationAlertContent,
     getAutoPlayNavigationAlertDismissedState,
     getAutoPlayNavigationAlertDurationMs,
     getAutoPlayNavigationAlertTransition,
-    getDismissedAutoPlayNavigationAlertKeys,
-    pruneDismissedAutoPlayNavigationAlertKeys,
 } from '../../auto-play-navigation-alert.js';
+import {
+    AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+    createAutomotiveAlertHistory,
+    getAutomotiveAlertHistoryEntry,
+    getAutomotiveAlertsAllowedByHistory,
+    normalizeAutomotiveAlertHistory,
+    recordAutomotiveAlertHistoryEntry,
+} from '../automotive-alert-policy.js';
+import {
+    ELECTRONIC_HORIZON_ALERT_MAXIMUM_DISTANCE_METERS,
+    ELECTRONIC_HORIZON_ALERT_PATH_LENGTH_METERS,
+    getUpcomingElectronicHorizonAlerts,
+} from '../electronic-horizon.js';
 
 // 20 m/s ≈ 45 mph, so time-to-pass stays inside the duration clamps.
 const CRUISING_SPEED_MPS = 20;
+const EARTH_RADIUS_METERS = 6371008.8;
+const vehicleLocation = { latitude: 0, longitude: 0 };
+
+const coordinateAtDistance = (distanceMeters) => [
+    0,
+    ((distanceMeters / EARTH_RADIUS_METERS) * 180) / Math.PI,
+];
+const coordinateEastAtDistance = (distanceMeters) => [
+    ((distanceMeters / EARTH_RADIUS_METERS) * 180) / Math.PI,
+    0,
+];
 
 const policeAlert = {
+    coordinate: coordinateAtDistance(1609.344),
     distanceMeters: 1609.344,
     id: 'waze-police',
     source: { publishedAt: '2026-07-12T11:56:00.000Z' },
     type: 'police',
 };
 const alprAlert = {
+    coordinate: coordinateAtDistance(1609.344),
     distanceMeters: 483,
     id: 'flock-reader',
     source: { tags: { manufacturer: 'Flock Safety' } },
     type: 'alpr',
 };
+const emptyAlertHistory = createAutomotiveAlertHistory('drive-1');
 
-const makeContent = (upcomingAlerts, currentSpeedMps = CRUISING_SPEED_MPS) =>
-    getAutoPlayNavigationAlertContent({ currentSpeedMps, upcomingAlerts });
+const makeContent = (
+    upcomingAlerts,
+    currentSpeedMps = CRUISING_SPEED_MPS,
+    {
+        alertHistory = emptyAlertHistory,
+        currentAlertKey = null,
+        now = Date.now(),
+        userLocation = vehicleLocation,
+    } = {},
+) =>
+    getAutoPlayNavigationAlertContent({
+        alertHistory,
+        currentAlertKey,
+        currentSpeedMps,
+        now,
+        upcomingAlerts,
+        userLocation,
+    });
 
 const announcerSource = readFileSync(
     new URL('../../auto-play-navigation-alert-announcer.js', import.meta.url),
@@ -47,6 +91,10 @@ const mapStatusOverlaySource = readFileSync(
 );
 const mapSurfaceSource = readFileSync(
     new URL('../../auto-play-map-surface-content.js', import.meta.url),
+    'utf8',
+);
+const presencePromptSource = readFileSync(
+    new URL('../../map/alpr-presence-prompt.js', import.meta.url),
     'utf8',
 );
 const carPlaySurfaceSource = readFileSync(
@@ -71,9 +119,14 @@ describe('car navigation alert content', () => {
 
     test('announces a police report at medium priority', () => {
         assert.deepEqual(makeContent([policeAlert]), {
-            alertKey: 'waze-police',
+            alertKey: 'police:waze-police',
             distance: { unit: 'miles', value: 1 },
             durationMs: 80467,
+            historyEntry: {
+                alertKey: 'police:waze-police',
+                coordinate: policeAlert.coordinate,
+                type: 'police',
+            },
             priority: 'medium',
             priorityRank: 1,
             subtitle: 'Police - on your route',
@@ -84,9 +137,14 @@ describe('car navigation alert content', () => {
 
     test('announces an ALPR reader at high priority', () => {
         assert.deepEqual(makeContent([alprAlert]), {
-            alertKey: 'flock-reader',
+            alertKey: 'alpr:flock-reader',
             distance: { unit: 'miles', value: 0.3 },
             durationMs: 24150,
+            historyEntry: {
+                alertKey: 'alpr:flock-reader',
+                coordinate: alprAlert.coordinate,
+                type: 'alpr',
+            },
             priority: 'high',
             priorityRank: 2,
             subtitle: 'ALPR - on your route',
@@ -98,7 +156,7 @@ describe('car navigation alert content', () => {
     test('leads with the closest alert when both types are upcoming', () => {
         const content = makeContent([policeAlert, alprAlert]);
 
-        assert.equal(content.alertKey, 'flock-reader');
+        assert.equal(content.alertKey, 'alpr:flock-reader');
         assert.equal(content.subtitle, 'ALPR - on your route');
         assert.equal(content.priority, 'high');
     });
@@ -113,26 +171,35 @@ describe('car navigation alert content', () => {
         assert.deepEqual(content.distance, { unit: 'miles', value: 0.2 });
     });
 
-    test('moves on to the next upcoming alert once the closest one is dismissed', () => {
+    test('moves on to the next alert after the shown one enters drive history', () => {
         const nearbyPoliceAlert = { ...policeAlert, distanceMeters: 520 };
+        const history = recordAutomotiveAlertHistoryEntry(
+            emptyAlertHistory,
+            getAutomotiveAlertHistoryEntry(alprAlert),
+            1000,
+        );
 
         assert.equal(
             makeContent([alprAlert, nearbyPoliceAlert]).alertKey,
-            'flock-reader',
+            'alpr:flock-reader',
         );
         assert.equal(
-            getAutoPlayNavigationAlertContent({
-                currentSpeedMps: CRUISING_SPEED_MPS,
-                dismissedAlertKeys: new Set(['flock-reader']),
-                upcomingAlerts: [alprAlert, nearbyPoliceAlert],
+            makeContent([alprAlert, nearbyPoliceAlert], CRUISING_SPEED_MPS, {
+                alertHistory: history,
+                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS - 1,
+            }),
+            null,
+        );
+        assert.equal(
+            makeContent([alprAlert, nearbyPoliceAlert], CRUISING_SPEED_MPS, {
+                alertHistory: history,
+                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
             }).alertKey,
-            'waze-police',
+            'police:waze-police',
         );
         assert.equal(
-            getAutoPlayNavigationAlertContent({
-                currentSpeedMps: CRUISING_SPEED_MPS,
-                dismissedAlertKeys: new Set(['flock-reader', 'waze-police']),
-                upcomingAlerts: [alprAlert, nearbyPoliceAlert],
+            makeContent([alprAlert], CRUISING_SPEED_MPS, {
+                alertHistory: history,
             }),
             null,
         );
@@ -169,6 +236,141 @@ describe('car navigation alert content', () => {
         assert.equal(
             content.title,
             AUTO_PLAY_NAVIGATION_ALERT_TITLE_WITHOUT_DISTANCE,
+        );
+    });
+
+    test('uses inclusive unrounded geographic boundaries', () => {
+        for (const distanceMeters of [
+            AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_RANGE_METERS,
+            AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_RANGE_METERS + 0.001,
+            AUTO_PLAY_NAVIGATION_ALERT_MAXIMUM_RANGE_METERS - 0.001,
+            AUTO_PLAY_NAVIGATION_ALERT_MAXIMUM_RANGE_METERS,
+        ]) {
+            assert.equal(
+                makeContent([
+                    {
+                        ...alprAlert,
+                        coordinate: coordinateAtDistance(distanceMeters),
+                    },
+                ])?.alertKey,
+                'alpr:flock-reader',
+                `${distanceMeters} meters should be eligible`,
+            );
+        }
+
+        for (const distanceMeters of [
+            AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_RANGE_METERS - 0.001,
+            AUTO_PLAY_NAVIGATION_ALERT_MAXIMUM_RANGE_METERS + 0.001,
+        ]) {
+            assert.equal(
+                makeContent([
+                    {
+                        ...alprAlert,
+                        coordinate: coordinateAtDistance(distanceMeters),
+                    },
+                ]),
+                null,
+                `${distanceMeters} meters should be ineligible`,
+            );
+        }
+    });
+
+    test('filters by geographic radius before choosing the closest alert', () => {
+        const content = makeContent([
+            {
+                ...alprAlert,
+                coordinate: coordinateAtDistance(500),
+                distanceMeters: 100,
+                id: 'closest-but-too-near',
+            },
+            {
+                ...alprAlert,
+                coordinate: coordinateAtDistance(1609.344),
+                distanceMeters: 1000,
+                id: 'eligible-alternative',
+            },
+        ]);
+
+        assert.equal(content.alertKey, 'alpr:eligible-alternative');
+    });
+
+    test('rejects missing and non-finite vehicle or node coordinates', () => {
+        for (const invalidAlert of [
+            { ...alprAlert, coordinate: undefined },
+            { ...alprAlert, coordinate: [Number.NaN, 0] },
+            { ...alprAlert, coordinate: [0, Number.POSITIVE_INFINITY] },
+        ]) {
+            assert.equal(makeContent([invalidAlert]), null);
+        }
+
+        assert.equal(
+            getAutoPlayNavigationAlertContent({
+                currentSpeedMps: CRUISING_SPEED_MPS,
+                upcomingAlerts: [alprAlert],
+                userLocation: null,
+            }),
+            null,
+        );
+    });
+
+    test('uses vehicle-to-node distance instead of along-route distance', () => {
+        assert.equal(
+            makeContent([
+                {
+                    ...alprAlert,
+                    coordinate: coordinateAtDistance(1609.344),
+                    distanceMeters: 4000,
+                    id: 'curved-route-alert',
+                },
+            ])?.alertKey,
+            'alpr:curved-route-alert',
+        );
+        assert.equal(
+            makeContent([
+                {
+                    ...alprAlert,
+                    coordinate: coordinateAtDistance(3500),
+                    distanceMeters: 1000,
+                },
+            ]),
+            null,
+        );
+    });
+
+    test('retains an on-route alert beyond two path miles when its geographic radius is eligible', () => {
+        const curvedRoute = [
+            [0, 0],
+            [0, 0.025],
+            [coordinateAtDistance(1609.344)[1], 0],
+        ];
+        const alprNodes = [
+            {
+                coordinate: curvedRoute.at(-1),
+                id: 'curved-route-reader',
+            },
+        ];
+
+        assert.deepEqual(
+            getUpcomingElectronicHorizonAlerts({
+                alprNodes,
+                pathCoordinates: curvedRoute,
+            }),
+            [],
+        );
+        const automotiveAlerts = getUpcomingElectronicHorizonAlerts({
+            alprNodes,
+            maximumPathDistanceMeters:
+                ELECTRONIC_HORIZON_ALERT_PATH_LENGTH_METERS,
+            pathCoordinates: curvedRoute,
+        });
+
+        assert.ok(
+            automotiveAlerts[0].distanceMeters >
+                ELECTRONIC_HORIZON_ALERT_MAXIMUM_DISTANCE_METERS,
+        );
+        assert.equal(
+            makeContent(automotiveAlerts)?.alertKey,
+            'alpr:curved-route-reader',
         );
     });
 });
@@ -234,13 +436,14 @@ describe('car navigation alert transitions', () => {
     const ALPR_DURATION_MS = alprContent.durationMs;
     const transition = (
         content,
-        { nextAlertId = 7, now = NOW, state = null } = {},
+        { nextAlertId = 7, now = NOW, state = null, suppressed = false } = {},
     ) =>
         getAutoPlayNavigationAlertTransition({
             content,
             nextAlertId,
             now,
             state,
+            suppressed,
         });
     const shown = (content = alprContent) => transition(content).state;
 
@@ -254,7 +457,7 @@ describe('car navigation alert transitions', () => {
             alertId: 7,
             state: {
                 alertId: 7,
-                alertKey: 'flock-reader',
+                alertKey: 'alpr:flock-reader',
                 distance: { unit: 'miles', value: 0.3 },
                 expiresAt: NOW + ALPR_DURATION_MS,
                 isVisible: true,
@@ -274,6 +477,60 @@ describe('car navigation alert transitions', () => {
         assert.equal(result.action, 'update');
         assert.equal(result.alertId, 7);
         assert.deepEqual(result.state.distance, { unit: 'feet', value: 350 });
+    });
+
+    test('dismisses the visible banner when vehicle movement leaves either range boundary', () => {
+        const alert = {
+            ...alprAlert,
+            coordinate: coordinateAtDistance(1609.344),
+        };
+        const initialContent = makeContent([alert]);
+
+        for (const userLocation of [
+            {
+                latitude: coordinateAtDistance(1000)[1],
+                longitude: 0,
+            },
+            {
+                latitude: coordinateAtDistance(-2000)[1],
+                longitude: 0,
+            },
+        ]) {
+            const content = makeContent([alert], CRUISING_SPEED_MPS, {
+                userLocation,
+            });
+
+            assert.equal(content, null);
+            assert.deepEqual(
+                transition(content, { state: shown(initialContent) }),
+                {
+                    action: 'dismiss',
+                    alertId: 7,
+                    state: null,
+                },
+            );
+        }
+    });
+
+    test('suppression blocks ALPR and police shows without recording them', () => {
+        for (const content of [alprContent, policeContent]) {
+            assert.deepEqual(transition(content, { suppressed: true }), {
+                action: 'none',
+                state: null,
+            });
+        }
+    });
+
+    test('suppression clears both alert types instead of updating them', () => {
+        for (const content of [alprContent, policeContent]) {
+            assert.deepEqual(
+                transition(
+                    { ...content, subtitle: `${content.subtitle} updated` },
+                    { state: shown(content), suppressed: true },
+                ),
+                { action: 'dismiss', alertId: 7, state: null },
+            );
+        }
     });
 
     test('ignores approach that does not move the rendered distance', () => {
@@ -305,7 +562,7 @@ describe('car navigation alert transitions', () => {
 
         assert.equal(result.action, 'show');
         assert.equal(result.alertId, 8);
-        assert.equal(result.state.alertKey, 'flock-reader');
+        assert.equal(result.state.alertKey, 'alpr:flock-reader');
     });
 
     test('holds a police report the host would drop under a visible ALPR banner', () => {
@@ -349,7 +606,7 @@ describe('car navigation alert transitions', () => {
 
         assert.equal(result.action, 'show');
         assert.equal(result.alertId, 8);
-        assert.equal(result.state.alertKey, 'waze-police');
+        assert.equal(result.state.alertKey, 'police:waze-police');
         assert.equal(result.state.priorityRank, 1);
     });
 
@@ -363,7 +620,7 @@ describe('car navigation alert transitions', () => {
         });
 
         assert.equal(result.action, 'show');
-        assert.equal(result.state.alertKey, 'waze-police');
+        assert.equal(result.state.alertKey, 'police:waze-police');
     });
 
     test('announces an alert once even after the host times the banner out', () => {
@@ -422,95 +679,261 @@ describe('car navigation alert transitions', () => {
     });
 });
 
-describe('car navigation alert dismissals', () => {
-    const visibleAlprState = {
-        alertId: 7,
-        alertKey: 'flock-reader',
-        isVisible: true,
-    };
-
-    test('remembers the dismissed alert behind the host banner', () => {
-        const dismissedAlertKeys = getDismissedAutoPlayNavigationAlertKeys({
-            alertId: 7,
-            dismissedAlertKeys: new Set(),
-            state: visibleAlprState,
-        });
-
-        assert.deepEqual([...dismissedAlertKeys], ['flock-reader']);
-        assert.deepEqual(
-            [
-                ...getDismissedAutoPlayNavigationAlertKeys({
-                    alertId: 7,
-                    dismissedAlertKeys,
-                    state: { ...visibleAlprState, isVisible: false },
-                }),
-            ],
-            ['flock-reader'],
+describe('car navigation alert suppression ownership', () => {
+    test('clears synchronously and only the current attempt can release', () => {
+        const changes = [];
+        const clears = [];
+        const controller = createAutoPlayNavigationAlertSuppressionController(
+            () => changes.push(controller.active),
         );
-    });
+        const first = controller.acquire(() => clears.push('first'));
+        const second = controller.acquire(() => clears.push('second'));
 
-    test('ignores dismissals for a replaced alert or an empty banner', () => {
-        const dismissedAlertKeys = new Set(['waze-police']);
+        assert.deepEqual(clears, ['first', 'second']);
+        assert.equal(controller.active, true);
+        assert.equal(first.release(), false);
+        assert.equal(controller.active, true);
+        assert.equal(second.release(), true);
+        assert.equal(second.release(), false);
+        assert.equal(controller.active, false);
+        assert.deepEqual(changes, [true, true, false]);
+    });
+});
+
+describe('car navigation alert drive history', () => {
+    test('suppresses one node across disappearance, object churn, reroute, and range jitter', () => {
+        const history = recordAutomotiveAlertHistoryEntry(
+            emptyAlertHistory,
+            getAutomotiveAlertHistoryEntry(alprAlert),
+        );
+        const freshAlprObject = {
+            ...alprAlert,
+            coordinate: [...alprAlert.coordinate],
+            source: { tags: { manufacturer: 'Flock Safety' } },
+        };
 
         assert.equal(
-            getDismissedAutoPlayNavigationAlertKeys({
-                alertId: 999,
-                dismissedAlertKeys,
-                state: visibleAlprState,
+            makeContent([freshAlprObject], CRUISING_SPEED_MPS, {
+                alertHistory: history,
             }),
-            dismissedAlertKeys,
+            null,
         );
         assert.equal(
-            getDismissedAutoPlayNavigationAlertKeys({
-                alertId: 7,
-                dismissedAlertKeys,
-                state: null,
+            makeContent([], CRUISING_SPEED_MPS, { alertHistory: history }),
+            null,
+        );
+        assert.equal(
+            makeContent([freshAlprObject], CRUISING_SPEED_MPS, {
+                alertHistory: history,
+                userLocation: {
+                    latitude: coordinateAtDistance(-600)[1],
+                    longitude: 0,
+                },
             }),
-            dismissedAlertKeys,
+            null,
+        );
+        assert.equal(
+            makeContent([freshAlprObject], CRUISING_SPEED_MPS, {
+                alertHistory: history,
+                userLocation: {
+                    latitude: coordinateAtDistance(1600)[1],
+                    longitude: 0,
+                },
+            }),
+            null,
+        );
+    });
+
+    test('uses an inclusive two-minute gap across ALPR and police warnings', () => {
+        const shown = { coordinate: [0, 0], id: 'shown', type: 'alpr' };
+        const history = recordAutomotiveAlertHistoryEntry(
+            emptyAlertHistory,
+            getAutomotiveAlertHistoryEntry(shown),
+            1000,
+        );
+        const nextAlpr = { ...shown, id: 'next-alpr' };
+        const nextPolice = { ...shown, id: 'next-police', type: 'police' };
+
+        assert.deepEqual(
+            getAutomotiveAlertsAllowedByHistory({
+                alerts: [nextAlpr, nextPolice],
+                history,
+                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS - 1,
+            }),
+            [],
         );
         assert.deepEqual(
-            [
-                ...getDismissedAutoPlayNavigationAlertKeys({
-                    alertId: 7,
-                    dismissedAlertKeys: null,
-                    state: visibleAlprState,
+            getAutomotiveAlertsAllowedByHistory({
+                alerts: [nextAlpr, nextPolice],
+                history,
+                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+            }),
+            [nextAlpr, nextPolice],
+        );
+    });
+
+    test('distinct nearby ALPR nodes can alert after the gap but the same node cannot repeat', () => {
+        const shown = { coordinate: [0, 0], id: 'shown', type: 'alpr' };
+        const history = recordAutomotiveAlertHistoryEntry(
+            emptyAlertHistory,
+            getAutomotiveAlertHistoryEntry(shown),
+            1000,
+        );
+        const nearbyNode = {
+            coordinate: coordinateEastAtDistance(149),
+            id: 'nearby-node',
+            type: 'alpr',
+        };
+
+        assert.deepEqual(
+            getAutomotiveAlertsAllowedByHistory({
+                alerts: [shown, nearbyNode],
+                history,
+                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+            }),
+            [nearbyNode],
+        );
+    });
+
+    test('warning history has no per-drive count cap', () => {
+        let history = emptyAlertHistory;
+        for (let index = 0; index < 20; index++) {
+            history = recordAutomotiveAlertHistoryEntry(
+                history,
+                getAutomotiveAlertHistoryEntry({
+                    coordinate: [0, 0],
+                    id: `reader-${index}`,
+                    type: 'alpr',
                 }),
-            ],
-            ['flock-reader'],
+                1000 + index * AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+            );
+        }
+        const next = { coordinate: [0, 0], id: 'reader-20', type: 'alpr' };
+        assert.deepEqual(
+            getAutomotiveAlertsAllowedByHistory({
+                alerts: [next],
+                history,
+                now: 1000 + 20 * AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+            }),
+            [next],
         );
     });
 
-    test('forgets a dismissal once that alert is no longer upcoming', () => {
-        const dismissedAlertKeys = new Set(['flock-reader', 'waze-police']);
-
-        assert.equal(
-            pruneDismissedAutoPlayNavigationAlertKeys(dismissedAlertKeys, [
-                alprAlert,
-                policeAlert,
-            ]),
-            dismissedAlertKeys,
+    test('older stored warning history starts a two-minute gap on migration', () => {
+        const legacyHistory = {
+            driveId: 'drive-1',
+            entries: [getAutomotiveAlertHistoryEntry(alprAlert)],
+        };
+        const history = normalizeAutomotiveAlertHistory(
+            legacyHistory,
+            'drive-1',
+            1000,
+        );
+        assert.equal(history.lastShownAt, 1000);
+        assert.deepEqual(
+            getAutomotiveAlertsAllowedByHistory({
+                alerts: [policeAlert],
+                history,
+                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS - 1,
+            }),
+            [],
         );
         assert.deepEqual(
-            [
-                ...pruneDismissedAutoPlayNavigationAlertKeys(
-                    dismissedAlertKeys,
-                    [policeAlert],
-                ),
-            ],
-            ['waze-police'],
-        );
-        assert.equal(
-            pruneDismissedAutoPlayNavigationAlertKeys(dismissedAlertKeys, [])
-                .size,
-            0,
-        );
-        assert.equal(
-            pruneDismissedAutoPlayNavigationAlertKeys(null, []).size,
-            0,
+            getAutomotiveAlertsAllowedByHistory({
+                alerts: [policeAlert],
+                history,
+                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+            }),
+            [policeAlert],
         );
     });
 
-    test('announces the follow-up alert right after the driver dismisses the first', () => {
+    test('keeps ALPR and police history separate at the same coordinates', () => {
+        const history = recordAutomotiveAlertHistoryEntry(
+            emptyAlertHistory,
+            getAutomotiveAlertHistoryEntry(alprAlert),
+            1000,
+        );
+        const colocatedPolice = {
+            ...policeAlert,
+            coordinate: alprAlert.coordinate,
+        };
+
+        assert.deepEqual(
+            getAutomotiveAlertsAllowedByHistory({
+                alerts: [colocatedPolice],
+                history,
+                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+            }),
+            [colocatedPolice],
+        );
+    });
+
+    test('allows a new police report after the gap', () => {
+        const history = recordAutomotiveAlertHistoryEntry(
+            emptyAlertHistory,
+            getAutomotiveAlertHistoryEntry(policeAlert),
+            1000,
+        );
+        const newPoliceReport = {
+            ...policeAlert,
+            coordinate: coordinateEastAtDistance(1609.344),
+            id: 'new-police-report',
+        };
+
+        assert.equal(
+            makeContent(
+                [{ ...policeAlert }, newPoliceReport],
+                CRUISING_SPEED_MPS,
+                {
+                    alertHistory: history,
+                    now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+                },
+            ).alertKey,
+            'police:new-police-report',
+        );
+    });
+
+    test('chooses deterministically when equivalent candidates reorder', () => {
+        const first = {
+            ...alprAlert,
+            coordinate: coordinateAtDistance(1609.344),
+            distanceMeters: 1000,
+            id: 'alpha',
+        };
+        const second = {
+            ...alprAlert,
+            coordinate: coordinateEastAtDistance(1609.344),
+            distanceMeters: 1000,
+            id: 'bravo',
+        };
+
+        assert.equal(makeContent([first, second]).alertKey, 'alpr:alpha');
+        assert.equal(makeContent([second, first]).alertKey, 'alpr:alpha');
+    });
+
+    test('keeps a recorded visible alert eligible only for live updates', () => {
+        const history = recordAutomotiveAlertHistoryEntry(
+            emptyAlertHistory,
+            getAutomotiveAlertHistoryEntry(alprAlert),
+        );
+
+        assert.equal(
+            makeContent([alprAlert], CRUISING_SPEED_MPS, {
+                alertHistory: history,
+            }),
+            null,
+        );
+        assert.equal(
+            makeContent([alprAlert], CRUISING_SPEED_MPS, {
+                alertHistory: history,
+                currentAlertKey: 'alpr:flock-reader',
+            }).alertKey,
+            'alpr:flock-reader',
+        );
+    });
+
+    test('announces a follow-up after the two-minute warning gap', () => {
         const NOW = 1780000000000;
         const nearbyPoliceAlert = { ...policeAlert, distanceMeters: 520 };
         const upcomingAlerts = [alprAlert, nearbyPoliceAlert];
@@ -520,56 +943,68 @@ describe('car navigation alert dismissals', () => {
             now: NOW,
             state: null,
         });
-        const dismissedAlertKeys = getDismissedAutoPlayNavigationAlertKeys({
-            alertId: 7,
-            dismissedAlertKeys: new Set(),
-            state: shownAlpr.state,
-        });
+        const history = recordAutomotiveAlertHistoryEntry(
+            emptyAlertHistory,
+            getAutomotiveAlertHistoryEntry(alprAlert),
+            NOW,
+        );
         const dismissedState = getAutoPlayNavigationAlertDismissedState(
             shownAlpr.state,
             7,
             NOW,
         );
-        const followUpContent = getAutoPlayNavigationAlertContent({
+        const earlyContent = getAutoPlayNavigationAlertContent({
+            alertHistory: history,
             currentSpeedMps: CRUISING_SPEED_MPS,
-            dismissedAlertKeys,
+            now: NOW + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS - 1,
             upcomingAlerts,
+            userLocation: vehicleLocation,
         });
-        const heldFollowUp = getAutoPlayNavigationAlertTransition({
-            content: followUpContent,
-            nextAlertId: 8,
-            now: NOW + 200,
-            state: dismissedState,
+        const followUpContent = getAutoPlayNavigationAlertContent({
+            alertHistory: history,
+            currentSpeedMps: CRUISING_SPEED_MPS,
+            now: NOW + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+            upcomingAlerts,
+            userLocation: vehicleLocation,
         });
         const followUp = getAutoPlayNavigationAlertTransition({
             content: followUpContent,
             nextAlertId: 8,
-            now: NOW + AUTO_PLAY_NAVIGATION_ALERT_FOLLOW_UP_DELAY_MS,
+            now: NOW + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
             state: dismissedState,
         });
 
-        assert.equal(shownAlpr.state.alertKey, 'flock-reader');
-        assert.equal(heldFollowUp.action, 'none');
+        assert.equal(shownAlpr.state.alertKey, 'alpr:flock-reader');
+        assert.equal(earlyContent, null);
         assert.equal(followUp.action, 'show');
         assert.equal(followUp.alertId, 8);
-        assert.equal(followUp.state.alertKey, 'waze-police');
+        assert.equal(followUp.state.alertKey, 'police:waze-police');
     });
 });
 
 describe('car navigation alert wiring', () => {
-    test('excludes dismissed alerts from the announcement pass and prunes them', () => {
+    test('claims history before showing and commits only on host acceptance', () => {
         assert.match(
             announcerSource,
-            /dismissedAlertKeysRef\.current =\s*pruneDismissedAutoPlayNavigationAlertKeys\(/,
+            /presenceCoordinator\.claimAutomotiveAlert\(\s*content\.historyEntry,?\s*\)/,
         );
         assert.match(
             announcerSource,
-            /getAutoPlayNavigationAlertContent\(\{[\s\S]*?dismissedAlertKeys: dismissedAlertKeysRef\.current,/,
+            /onWillShow: \(\) => \{\s*if \(acceptPendingPresentation\(presentation\)\) return;/,
         );
         assert.match(
             announcerSource,
-            /handleAlertDismissed = useCallback\(\(alertId\) => \{[\s\S]*?getDismissedAutoPlayNavigationAlertKeys\(/,
+            /onDidDismiss: \(reason\) => \{\s*releasePendingPresentation\(presentation\);/,
         );
+        assert.match(
+            announcerSource,
+            /catch \{\s*releasePendingPresentation\(presentation\);/,
+        );
+        assert.match(
+            announcerSource,
+            /presentation\.timeoutId = setTimeout\(\(\) => \{\s*if \(!releasePendingPresentation\(presentation\)\) return;/,
+        );
+        assert.doesNotMatch(announcerSource, /dismissedAlertKeys/);
     });
 
     test('drives the host banner instead of drawing an alert card on the map', () => {
@@ -580,7 +1015,11 @@ describe('car navigation alert wiring', () => {
         );
         assert.match(
             mapSurfaceSource,
-            /useAutoPlayNavigationAlerts\(\{[\s\S]*?currentSpeedMps: getRouteCurrentSpeedMps\(\s*mapPreferences\.userLocation,?\s*\),[\s\S]*?enabled:[\s\S]*?alertSurfaceVisibility\.upcomingAlertsVisible[\s\S]*?!routePreviewIsActive[\s\S]*?!searchResultsMapIsActive,[\s\S]*?upcomingAlerts,\s*\}\);/,
+            /useAutoPlayNavigationAlerts\(\{[\s\S]*?currentSpeedMps: getRouteCurrentSpeedMps\(\s*mapPreferences\.userLocation,?\s*\),[\s\S]*?enabled:[\s\S]*?alertSurfaceVisibility\.upcomingAlertsVisible[\s\S]*?!routePreviewIsActive[\s\S]*?!searchResultsMapIsActive,[\s\S]*?upcomingAlerts,[\s\S]*?userLocation: mapPreferences\.userLocation,[\s\S]*?\}\);/,
+        );
+        assert.match(
+            mapSurfaceSource,
+            /useUpcomingElectronicHorizonAlerts\(\{[\s\S]*?maximumPathDistanceMeters:\s*ELECTRONIC_HORIZON_ALERT_PATH_LENGTH_METERS,/,
         );
     });
 
@@ -643,11 +1082,47 @@ describe('car navigation alert wiring', () => {
         );
         assert.match(
             announcerSource,
-            /useEffect\(\(\) => \(\) => clearTimeout\(followUpTimerRef\.current\), \[\]\)/,
+            /useEffect\([\s\S]*?clearTimeout\(followUpTimerRef\.current\);[\s\S]*?releasePendingPresentation\(\);[\s\S]*?suppressionControllerRef\.current\.reset\(\{ notify: false \}\);[\s\S]*?\[releasePendingPresentation\],/,
         );
         assert.match(
             announcerSource,
-            /\}, \[\s*dismissalRevision,\s*enabled,\s*handleAlertDismissed,\s*mapTemplate,\s*upcomingAlerts,\s*\]\);/,
+            /\}, \[\s*dismissalRevision,\s*debugOwner,\s*debugEvent,\s*enabled,\s*acceptPendingPresentation,\s*handleAlertDismissed,\s*historyRevision,\s*mapTemplate,\s*releasePendingPresentation,\s*suppressionRevision,\s*upcomingAlerts,\s*userLocation,\s*\]\);/,
+        );
+    });
+
+    test('hands attempt-scoped suppression from the announcer to confirmation', () => {
+        assert.match(
+            announcerSource,
+            /createAutoPlayNavigationAlertSuppressionController/,
+        );
+        assert.match(
+            announcerSource,
+            /suppressed:\s*suppressionControllerRef\.current\.active/,
+        );
+        assert.match(
+            announcerSource,
+            /const clearCurrentAlert = useCallback\(\(\) => \{[\s\S]*?releasePendingPresentation\(\);[\s\S]*?suppressed: true,/,
+        );
+        assert.match(
+            announcerSource,
+            /return \{[\s\S]*?acquireSuppression,[\s\S]*?isSuppressed:/,
+        );
+        assert.match(
+            mapSurfaceSource,
+            /const navigationAlerts = useAutoPlayNavigationAlerts\(/,
+        );
+        assert.match(
+            mapSurfaceSource,
+            /suppressAlerts:\s*navigationAlerts\.acquireSuppression/,
+        );
+        assert.match(
+            mapSurfaceSource,
+            /warningBusy:\s*navigationAlerts\.hasEligibleAlert &&[\s\S]*?!navigationAlerts\.isSuppressed/,
+        );
+        assert.match(presencePromptSource, /suppression:\s*suppressAlerts\(\)/);
+        assert.match(
+            presencePromptSource,
+            /previous\.suppression\?\.release\(\)/,
         );
     });
 });

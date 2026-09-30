@@ -46,6 +46,11 @@ describe('website information screens', () => {
         assert.match(privacyCopy, /guided navigation/);
         assert.match(privacyCopy, /phone-started free drive/);
         assert.match(privacyCopy, /Android Auto or CarPlay/);
+        assert.match(privacyCopy, /retains “Not there” reports indefinitely/);
+        assert.match(
+            privacyCopy,
+            /no account ID or persistent reporter identifier/,
+        );
         assert.match(
             privacyCopy,
             /Parked-only automotive connections are not saved/,
@@ -55,7 +60,7 @@ describe('website information screens', () => {
             /explicit DAF drives only|explicit guided or user-started free drive/,
         );
 
-        assert.equal(privacyPage.badgeLabels[0], 'Last updated August 2026');
+        assert.equal(privacyPage.badgeLabels[0], 'Last updated September 2026');
     });
 
     test('copy the landing-page FAQs and support details exactly', () => {

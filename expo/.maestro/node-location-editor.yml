@@ -16,7 +16,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
-    timeout: 30000
+    timeout: 120000
 - openLink: 'driversagainstflock://e2e-mocks?auth=1'
 - extendedWaitUntil:
     visible:

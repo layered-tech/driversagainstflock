@@ -1,5 +1,6 @@
 import { updateScorecardArrivalDetection } from './arrival-detection.js';
 import {
+    createScorecardCameraCatalogResolver,
     processScorecardRawLocationFix,
     updateScorecardRawLocationAnchor,
 } from './scorecard-drive-coordinator.js';
@@ -77,6 +78,7 @@ export function createScorecardRuntime({
     segmentIndicatesDriving = () => false,
 } = {}) {
     const listeners = new Set();
+    const resolveCameraCatalog = createScorecardCameraCatalogResolver();
     let scorecardState = createEmptyScorecardState();
     let isHydrated = false;
     let persistedRevision = 0;
@@ -156,10 +158,17 @@ export function createScorecardRuntime({
         const committedAt = now();
         const nextState = normalizeScorecardState(updatedState, committedAt);
         const revision = stateRevision + 1;
+        const previousExposureCount = scorecardState.exposures.length;
 
         scorecardState = nextState;
         stateRevision = revision;
         publishSnapshot();
+        if (
+            process.env.EXPO_PUBLIC_E2E_MAP_API_MOCKS === '1' &&
+            nextState.exposures.length > previousExposureCount
+        ) {
+            console.info('[E2E] scorecard-exposure-recorded');
+        }
 
         persistCommittedState(nextState, committedAt, revision);
 
@@ -580,6 +589,10 @@ export function createScorecardRuntime({
         const previousLocation = previousRawLocation;
         const result = processScorecardRawLocationFix({
             activeSession,
+            cameraCatalog: resolveCameraCatalog(
+                activeSession,
+                supplementalNodes,
+            ),
             currentLocation: location,
             detectorState,
             previousLocation,
@@ -652,6 +665,7 @@ export function createScorecardRuntime({
         const previousLocation = previousRawLocation;
         const result = processScorecardRawLocationFix({
             activeSession: { mode: 'free' },
+            cameraCatalog: resolveCameraCatalog(null, supplementalNodes),
             currentLocation: location,
             detectorState,
             previousLocation,

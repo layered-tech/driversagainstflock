@@ -17,6 +17,19 @@ const PLUGIN_VERSION = '1.0.0';
 
 const FIREBASE_TAG = 'dynamic-frameworks-firebase-static';
 const POSTINSTALL_TAG = 'dynamic-frameworks-clang-compat';
+const AUTOPLAY_LINK_TAG = 'dynamic-frameworks-autoplay-static';
+
+// AutoPlay references React linking symbols supplied by the final app.
+// Expo's forceStaticLinking option is ignored when React is built from source.
+const AUTOPLAY_LINK_BLOCK = `  if podfile_properties['ios.useFrameworks'] == 'dynamic' || ENV['USE_FRAMEWORKS'] == 'dynamic'
+    installer.pod_targets.each do |target|
+      if target.name == 'ReactNativeAutoPlay'
+        def target.build_type
+          Pod::BuildType.static_framework
+        end
+      end
+    end
+  end`;
 
 // MapboxMaps is a pure-Swift SPM package shared (via SPM) by @rnmapbox/maps and the Navigation SDK.
 // Under static linking it is archived into every consuming pod, producing thousands of duplicate
@@ -119,6 +132,13 @@ function withDynamicFrameworksCompat(config) {
             FIREBASE_TAG,
             FIREBASE_BLOCK,
             /prepare_react_native_project!.*\n/,
+        );
+
+        contents = insertGeneratedBlock(
+            contents,
+            AUTOPLAY_LINK_TAG,
+            AUTOPLAY_LINK_BLOCK,
+            /pre_install do \|installer\|.*\n/,
         );
 
         contents = insertGeneratedBlock(

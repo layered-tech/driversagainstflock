@@ -10,23 +10,11 @@ import {
     MAPBOX_STANDARD_STYLE_URL,
 } from '../map/config';
 import { NativeWindMapView } from '../map/native-components';
-import {
-    getScorecardMapExposures,
-    getScorecardMapGeometryBounds,
-    makeScorecardExposureConeCollection,
-    makeScorecardExposurePointCollection,
-    makeScorecardExposureTravelLineCollection,
-} from './scorecard-map-data';
+import { getScorecardExposureMapData } from './scorecard-map-data';
 
 const MAP_HORIZONTAL_INSET = 32;
 
-function getCameraSettings(exposures, height, lineCollection, width) {
-    const mappedExposures = getScorecardMapExposures(exposures);
-    const bounds = getScorecardMapGeometryBounds(
-        mappedExposures,
-        lineCollection,
-    );
-
+function getCameraSettings({ bounds, mappedExposures }, height, width) {
     if (bounds) {
         return getBoundsFitCameraStop({
             bounds,
@@ -56,33 +44,22 @@ export function ScorecardExposureMap({
 }) {
     const colorScheme = useColorScheme();
     const { width } = useWindowDimensions();
-    const mappedExposures = useMemo(
-        () => getScorecardMapExposures(exposures),
-        [exposures],
-    );
-    const pointCollection = useMemo(
-        () => makeScorecardExposurePointCollection(mappedExposures),
-        [mappedExposures],
-    );
-    const resolvedLineCollection = useMemo(
+    const mapData = useMemo(
         () =>
-            lineCollection ??
-            makeScorecardExposureTravelLineCollection(mappedExposures),
-        [lineCollection, mappedExposures],
+            getScorecardExposureMapData(exposures, {
+                lineCollection,
+                showCones,
+            }),
+        [exposures, lineCollection, showCones],
     );
-    const coneCollection = useMemo(
-        () => makeScorecardExposureConeCollection(mappedExposures),
-        [mappedExposures],
-    );
+    const {
+        coneCollection,
+        lineCollection: resolvedLineCollection,
+        pointCollection,
+    } = mapData;
     const cameraSettings = useMemo(
-        () =>
-            getCameraSettings(
-                mappedExposures,
-                height,
-                resolvedLineCollection,
-                width,
-            ),
-        [height, mappedExposures, resolvedLineCollection, width],
+        () => getCameraSettings(mapData, height, width),
+        [height, mapData, width],
     );
     const styleImportConfig = useMemo(
         () => ({

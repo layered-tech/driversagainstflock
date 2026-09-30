@@ -9,6 +9,8 @@ const GAS_PRICE_CACHE_FRESH_MS = 6 * 60 * 60 * 1000;
 const GAS_PRICE_CACHE_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 const GAS_PRICE_STORAGE_KEY = 'driversagainstflock.scorecardStateGasPrices.v1';
 const REQUEST_TIMEOUT_MS = 12 * 1000;
+let cachedSnapshotPromise = null;
+let pendingRequest = null;
 
 function normalizeGasPriceSnapshot(value) {
     const prices = value?.prices;
@@ -110,6 +112,40 @@ async function fetchGasPrices(now) {
     }
 }
 
+function getCachedGasPrices() {
+    if (!cachedSnapshotPromise) {
+        const hydration = readCachedGasPrices().then((snapshot) => {
+            if (!snapshot && cachedSnapshotPromise === hydration) {
+                cachedSnapshotPromise = null;
+            }
+
+            return snapshot;
+        });
+
+        cachedSnapshotPromise = hydration;
+    }
+
+    return cachedSnapshotPromise;
+}
+
+function refreshGasPrices(now) {
+    if (!pendingRequest) {
+        pendingRequest = fetchGasPrices(now)
+            .then((snapshot) => {
+                if (snapshot) {
+                    cachedSnapshotPromise = Promise.resolve(snapshot);
+                }
+
+                return snapshot;
+            })
+            .finally(() => {
+                pendingRequest = null;
+            });
+    }
+
+    return pendingRequest;
+}
+
 export async function getRegularGasPriceForState(stateCode, now = Date.now()) {
     if (
         !scorecardSecureStorageIsAvailable() ||
@@ -119,12 +155,12 @@ export async function getRegularGasPriceForState(stateCode, now = Date.now()) {
         return null;
     }
 
-    const cachedSnapshot = await readCachedGasPrices();
+    const cachedSnapshot = await getCachedGasPrices();
     const cacheAge = cachedSnapshot ? now - cachedSnapshot.cachedAt : Infinity;
     const snapshot =
         cacheAge >= 0 && cacheAge <= GAS_PRICE_CACHE_FRESH_MS
             ? cachedSnapshot
-            : ((await fetchGasPrices(now)) ??
+            : ((await refreshGasPrices(now)) ??
               (cacheAge >= 0 && cacheAge <= GAS_PRICE_CACHE_STALE_MS
                   ? cachedSnapshot
                   : null));

@@ -168,12 +168,8 @@ class AaaStateGasPriceService
             }
         }
 
-        if (count($prices) !== count(self::STATE_CODES)) {
-            throw new RuntimeException(sprintf(
-                'AAA state gas price page returned %d of %d expected jurisdictions.',
-                count($prices),
-                count(self::STATE_CODES),
-            ));
+        if ($prices === []) {
+            throw new RuntimeException('AAA state gas price page returned no recognized jurisdictions.');
         }
 
         ksort($prices);

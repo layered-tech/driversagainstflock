@@ -15,6 +15,39 @@ const primaryPath = [
 ];
 
 describe('Electronic Horizon geometry', () => {
+    test('reuses route preparation across location updates and notices a replacement route', () => {
+        let coordinateReads = 0;
+        const coordinates = Array.from({ length: 2000 }, (_, index) => ({
+            get longitude() {
+                coordinateReads += 1;
+                return -97.75 + index * 0.0001;
+            },
+            latitude: 30.2672,
+        }));
+        getDirectionsRouteCoordinatesAhead(coordinates, [-97.74, 30.2672], 500);
+        const initialReads = coordinateReads;
+
+        const next = getDirectionsRouteCoordinatesAhead(
+            coordinates,
+            [-97.739, 30.2672],
+            500,
+        );
+        getElectronicHorizonPathPosition(coordinates, [-97.739, 30.2672]);
+
+        assert.equal(coordinateReads, initialReads);
+        assert.ok(next.length < 100);
+        const replacement = [
+            [-96, 31],
+            [-95.99, 31],
+        ];
+        const updated = getDirectionsRouteCoordinatesAhead(
+            replacement,
+            [-96, 31],
+            500,
+        );
+        assert.ok(updated[0][0] > -97);
+    });
+
     test('normalizes only most-probable-path coordinates into the shared GeoJSON contract', () => {
         const horizon = normalizeElectronicHorizon({
             branches: [

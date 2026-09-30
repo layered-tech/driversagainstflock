@@ -133,7 +133,7 @@ describe('Auto Play speed-limit layout', () => {
     test('keeps the current-speed dial in the full badge frame without a limit', () => {
         assert.match(
             mapStatusOverlaySource,
-            /getCurrentSpeedMph,[\s\S]*?const currentSpeedMps = getRouteCurrentSpeedMps\(userLocation\);[\s\S]*?const currentSpeedWithoutLimitIsVisible = Boolean\(\s*speedLimitIsRendered && drivingStatusIsVisible && currentSpeedMph > 0,\s*\);[\s\S]*?const speedStatusIsVisible =[\s\S]*?speedLimitIsVisible \|\| currentSpeedWithoutLimitIsVisible;/,
+            /getCurrentSpeedMph,[\s\S]*?const currentSpeedMps = getRouteCurrentSpeedMps\(userLocation\);[\s\S]*?const currentSpeedWithoutLimitIsVisible = Boolean\(\s*speedLimitIsRendered && drivingStatusIsVisible && currentSpeedMph > 0,\s*\);[\s\S]*?const speedStatusIsVisible =\s*!confirmationIsActive &&\s*\(speedLimitIsVisible \|\| currentSpeedWithoutLimitIsVisible\);/,
         );
         assert.match(
             mapStatusOverlaySource,
@@ -288,33 +288,6 @@ describe('Auto Play current-road pill layout', () => {
         assert.match(
             currentRoadContextSource,
             /text-\[16px\][\s\S]*?leading-\[22px\][\s\S]*?ellipsizeMode="tail"[\s\S]*?style=\{textStyle\}/,
-        );
-    });
-
-    test('uses a dedicated map-only surface on the Android Auto cluster', () => {
-        assert.match(
-            autoPlaySource,
-            /AutoPlayCluster\.setComponent\(\s*autoPlayPlatform\.ClusterSurface \?\? autoPlayPlatform\.MapSurface/,
-        );
-        assert.match(
-            androidAutoMapSurfaceSource,
-            /export const AndroidAutoClusterSurface = createAutoPlayMapSurface\(\{[\s\S]*?hostOwnsNavigationUI:\s*true/,
-        );
-        assert.match(
-            androidAutoPlatformSource,
-            /ClusterSurface:\s*AndroidAutoClusterSurface/,
-        );
-        assert.doesNotMatch(
-            androidAutoMapSurfaceSource,
-            /showDrivingStatusOnSecondarySurfaces|showSpeedLimitOnSecondarySurfaces/,
-        );
-        assert.doesNotMatch(
-            androidAutoPlatformSource,
-            /ClusterSurface:\s*AndroidAutoMapSurface/,
-        );
-        assert.doesNotMatch(
-            androidAutoPlatformSource,
-            /supportsSearchAutocomplete|usesHeaderDrivingModeButton/,
         );
     });
 

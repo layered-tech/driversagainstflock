@@ -51,11 +51,37 @@ export function waitForLocationPuckCameraFollowCommit({
     return waitForFrameCommit();
 }
 
+export async function waitForLocationPuckCameraFallbackCommit({
+    platform,
+    isCameraIdle,
+    waitForFrameCommit = waitForNativeCameraCommit,
+    waitForNextCheck = () => new Promise((resolve) => setTimeout(resolve, 20)),
+}) {
+    if (platform !== 'ios') {
+        await waitForFrameCommit();
+        return true;
+    }
+
+    // A visible CarPlay scene can keep native work running while handset
+    // animation frames are paused. Acknowledge the actual viewport handoff.
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+        try {
+            if (await isCameraIdle()) return true;
+        } catch {
+            return false;
+        }
+        await waitForNextCheck();
+    }
+
+    return false;
+}
+
 export function createLocationPuckCameraFallbackReleaseGate({
     waitForCameraCommit = waitForNativeCameraCommit,
 } = {}) {
     let invalidated = false;
     let pendingRelease = null;
+    let releaseNeedsVerification = false;
 
     function resolvePendingRelease(wasReleased = true) {
         const release = pendingRelease;
@@ -65,10 +91,11 @@ export function createLocationPuckCameraFallbackReleaseGate({
         }
 
         pendingRelease = null;
+        if (wasReleased) releaseNeedsVerification = false;
         release.resolve(wasReleased);
     }
 
-    return {
+    const gate = {
         handleCameraCommit({ fallbackCameraIsFollowing }) {
             const release = pendingRelease;
 
@@ -96,7 +123,7 @@ export function createLocationPuckCameraFallbackReleaseGate({
             Promise.resolve()
                 .then(() => waitForCameraCommit())
                 .catch(() => false)
-                .then(() => {
+                .then((wasCommitted) => {
                     if (
                         invalidated ||
                         pendingRelease !== release ||
@@ -106,7 +133,7 @@ export function createLocationPuckCameraFallbackReleaseGate({
                         return;
                     }
 
-                    resolvePendingRelease();
+                    resolvePendingRelease(wasCommitted !== false);
                 });
         },
         invalidate() {
@@ -133,7 +160,9 @@ export function createLocationPuckCameraFallbackReleaseGate({
                 return pendingRelease.promise;
             }
 
-            if (!fallbackCameraIsFollowing) {
+            if (fallbackCameraIsFollowing) releaseNeedsVerification = true;
+
+            if (!releaseNeedsVerification) {
                 return Promise.resolve(true);
             }
 
@@ -144,15 +173,21 @@ export function createLocationPuckCameraFallbackReleaseGate({
 
             pendingRelease = {
                 commitGeneration: 0,
-                fallbackCameraIsFollowing: true,
+                fallbackCameraIsFollowing: Boolean(fallbackCameraIsFollowing),
                 promise,
                 resolve: resolveRelease,
                 waitingForCameraCommit: false,
             };
 
+            if (!fallbackCameraIsFollowing) {
+                gate.handleCameraCommit({ fallbackCameraIsFollowing: false });
+            }
+
             return promise;
         },
     };
+
+    return gate;
 }
 
 export function getLocationPuckCameraFollowFallbackProps({
@@ -191,6 +226,7 @@ export function getLocationPuckCameraControllerKey({
 
 export function createLocationPuckCameraFollowLifecycle({
     configureCameraFollow,
+    canFollow = () => true,
     onStatusChange = () => {},
     verifyCameraFollow = async () => true,
     waitForCameraCommit = waitForNativeCameraCommit,
@@ -241,8 +277,13 @@ export function createLocationPuckCameraFollowLifecycle({
         }
     }
 
-    async function configureAndVerifyCameraFollow(mapView, followProps) {
+    async function configureAndVerifyCameraFollow(
+        mapView,
+        followProps,
+        isCurrent,
+    ) {
         for (let attempt = 0; attempt < 2; attempt += 1) {
+            if (!isCurrent()) return false;
             let wasConfigured = false;
 
             try {
@@ -279,6 +320,8 @@ export function createLocationPuckCameraFollowLifecycle({
         mapViewRef,
     }) {
         const enabled = followProps?.enabled === true;
+
+        if (enabled && !canFollow()) return Promise.resolve(false);
         const mapView = captureMapView(mapViewRef);
         const requestKey = getFollowRequestKey(followProps, attachmentKey);
         const requestedMapView = mapView?.current ?? null;
@@ -327,7 +370,6 @@ export function createLocationPuckCameraFollowLifecycle({
                 const mapViewToDisable =
                     configuredMapView ?? mapView ?? lastRequestedMapViewCapture;
 
-                configuredMapView = null;
                 failedAttachmentKey = null;
                 failedMapView = null;
 
@@ -335,7 +377,15 @@ export function createLocationPuckCameraFollowLifecycle({
                     setStatus('clearing');
                 }
 
-                await disableCameraFollow(mapViewToDisable);
+                const wasReleased =
+                    !mapViewToDisable ||
+                    (await disableCameraFollow(mapViewToDisable));
+                if (!wasReleased) {
+                    configuredMapView = mapViewToDisable;
+                    lastRequestKey = null;
+                    return false;
+                }
+                configuredMapView = null;
 
                 if (operationGeneration === generation) {
                     setStatus('inactive');
@@ -344,7 +394,8 @@ export function createLocationPuckCameraFollowLifecycle({
                 return true;
             }
 
-            if (operationGeneration !== generation) {
+            if (operationGeneration !== generation || !canFollow()) {
+                if (operationGeneration === generation) lastRequestKey = null;
                 return false;
             }
 
@@ -367,6 +418,10 @@ export function createLocationPuckCameraFollowLifecycle({
             const wasConfigured = await configureAndVerifyCameraFollow(
                 mapView,
                 followProps,
+                () =>
+                    !invalidated &&
+                    operationGeneration === generation &&
+                    canFollow(),
             );
 
             // A native implementation can partially enter follow before
@@ -445,7 +500,7 @@ export function createLocationPuckCameraFollowLifecycle({
                 configuredMapView === null &&
                 !lastRequestedFollowIsEnabled
             ) {
-                return operationQueue;
+                return operationQueue.then(() => configuredMapView === null);
             }
 
             const nextReleasePromise = request({

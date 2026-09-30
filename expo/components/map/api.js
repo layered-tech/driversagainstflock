@@ -37,6 +37,8 @@ const GENERIC_ALPR_PROFILE = {
     },
 };
 
+const ROAD_CORRIDOR_RESPONSE_TIMEOUT_MS = 10000;
+
 export function getPlaceSearchLocationBias(location) {
     const latitude = getStoredNumber(location?.latitude);
     const longitude = getStoredNumber(location?.longitude);
@@ -265,6 +267,57 @@ function throwIfAborted(signal) {
     const error = new Error('Request aborted.');
     error.name = 'AbortError';
     throw error;
+}
+
+async function requestRoadCorridorWays(url, signal) {
+    throwIfAborted(signal);
+
+    const requestController = new AbortController();
+    const timeoutError = new Error('Road corridor request timed out.');
+    timeoutError.name = 'TimeoutError';
+    let timeoutId;
+    let timedOut = false;
+    let handleAbort;
+    const deadline = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+            timedOut = true;
+            requestController.abort();
+            reject(timeoutError);
+        }, ROAD_CORRIDOR_RESPONSE_TIMEOUT_MS);
+
+        handleAbort = () => {
+            requestController.abort();
+            const error = new Error('Request aborted.');
+            error.name = 'AbortError';
+            reject(error);
+        };
+        signal?.addEventListener('abort', handleAbort, { once: true });
+    });
+
+    try {
+        return await Promise.race([
+            fetch(url, {
+                headers: {
+                    Accept: 'application/json',
+                },
+                signal: requestController.signal,
+            }).then(readRoadCorridorResponse),
+            deadline,
+        ]);
+    } catch (error) {
+        if (signal?.aborted) {
+            throwIfAborted(signal);
+        }
+
+        if (timedOut) {
+            throw timeoutError;
+        }
+
+        throw error;
+    } finally {
+        clearTimeout(timeoutId);
+        signal?.removeEventListener('abort', handleAbort);
+    }
 }
 
 function normalizePlaceSearchSuggestions(suggestions) {
@@ -950,20 +1003,23 @@ export async function getRoadCorridor({
     }
 
     try {
-        const response = await fetch(
-            buildApiURL('v1/road-corridor', {
-                latitude,
-                longitude: normalizeLongitude(longitude),
-                radius_meters: radiusMeters,
-            }),
-            {
-                headers: {
-                    Accept: 'application/json',
-                },
-                signal,
-            },
-        );
-        const ways = await readRoadCorridorResponse(response);
+        const url = buildApiURL('v1/road-corridor', {
+            latitude,
+            longitude: normalizeLongitude(longitude),
+            radius_meters: radiusMeters,
+        });
+        let ways;
+
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+            try {
+                ways = await requestRoadCorridorWays(url, signal);
+                break;
+            } catch (error) {
+                if (error?.name !== 'TimeoutError' || attempt === 1) {
+                    throw error;
+                }
+            }
+        }
 
         addSentryBreadcrumb({
             category: 'map.road_matching',

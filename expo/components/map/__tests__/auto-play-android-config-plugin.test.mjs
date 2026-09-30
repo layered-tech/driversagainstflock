@@ -54,6 +54,33 @@ function getActions(component) {
 }
 
 describe('Android Auto config plugin', () => {
+    test('replaces inherited car filters without advertising an instrument cluster', () => {
+        const manifest = applyAndroidAutoManifest(makeManifest());
+        const service = manifest.manifest.application[0].service.find((entry) =>
+            entry.$[ANDROID_NAME].endsWith('.AndroidAutoService'),
+        );
+        assert.ok(service);
+        assert.equal(
+            manifest.manifest.$['xmlns:tools'],
+            'http://schemas.android.com/tools',
+        );
+        assert.ok(
+            service['intent-filter'].some(
+                (filter) => filter.$?.['tools:node'] === 'removeAll',
+            ),
+        );
+        const carFilter = service['intent-filter'].find((filter) =>
+            filter.action?.some(
+                (action) =>
+                    action.$[ANDROID_NAME] === 'androidx.car.app.CarAppService',
+            ),
+        );
+        assert.deepEqual(
+            carFilter.category.map((category) => category.$[ANDROID_NAME]),
+            ['androidx.car.app.category.NAVIGATION'],
+        );
+        assert.doesNotMatch(JSON.stringify(service), /FEATURE_CLUSTER/);
+    });
     test('keeps phone geo ownership on ACTION_VIEW only', () => {
         const inputManifest = makeManifest();
         inputManifest.manifest.application[0].activity[0]['intent-filter'].push(

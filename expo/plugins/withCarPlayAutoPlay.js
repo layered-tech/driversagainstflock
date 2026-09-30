@@ -1,11 +1,12 @@
-const { createRequire } = require("module");
+const { createRequire } = require('module');
+const { instrumentClusterEnabled } = require('../car-display-config');
 
 function requireConfigPlugins() {
     try {
-        return require("expo/config-plugins");
+        return require('expo/config-plugins');
     } catch {
         return createRequire(`${process.cwd()}/package.json`)(
-            "expo/config-plugins",
+            'expo/config-plugins',
         );
     }
 }
@@ -17,9 +18,10 @@ const {
     withInfoPlist,
 } = requireConfigPlugins();
 
-const PLUGIN_NAME = "with-carplay-auto-play";
-const PLUGIN_VERSION = "1.0.0";
-const APP_DELEGATE_TAG = "react-native-auto-play-root-view";
+const PLUGIN_NAME = 'with-carplay-auto-play';
+const PLUGIN_VERSION = '1.0.0';
+const APP_DELEGATE_TAG = 'react-native-auto-play-root-view';
+const WINDOW_SCENE_TAG = 'daf-expo-window-scene';
 
 // CarPlay scenes in @iternio/react-native-auto-play resolve React root views
 // through this app-delegate hook by reflection (selector
@@ -51,37 +53,103 @@ const GET_ROOT_VIEW_FOR_AUTOPLAY = `
 // Scene manifest from the react-native-auto-play iOS setup docs. The delegate
 // class names are provided by the library; the window application scene keeps
 // the phone app working once multiple scenes are enabled.
+// The package's phone scene keeps React Native scene state, while Expo's
+// development client needs its launch URL delivered to the app delegate.
+const EXPO_WINDOW_SCENE_DELEGATE = `
+@objc(DAFWindowApplicationSceneDelegate)
+class DAFWindowApplicationSceneDelegate: UIResponder, UIWindowSceneDelegate {
+  private let autoPlayDelegate: UIWindowSceneDelegate = {
+    guard let delegateClass = NSClassFromString("WindowApplicationSceneDelegate") as? NSObject.Type,
+      let delegate = delegateClass.init() as? UIWindowSceneDelegate else {
+      fatalError("AutoPlay phone window scene delegate is unavailable")
+    }
+    return delegate
+  }()
+
+  var window: UIWindow?
+
+  func scene(_ scene: UIScene, willConnectTo session: UISceneSession,
+             options connectionOptions: UIScene.ConnectionOptions) {
+    autoPlayDelegate.scene?(scene, willConnectTo: session, options: connectionOptions)
+    window = autoPlayDelegate.window ?? nil
+    for context in connectionOptions.urlContexts where context.url.host == "expo-development-client" {
+      _ = openExpoDevelopmentClient(context.url)
+    }
+  }
+
+  func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+    var remaining = Set<UIOpenURLContext>()
+    for context in URLContexts {
+      if context.url.host != "expo-development-client" || !openExpoDevelopmentClient(context.url) {
+        remaining.insert(context)
+      }
+    }
+    if !remaining.isEmpty {
+      autoPlayDelegate.scene?(scene, openURLContexts: remaining)
+    }
+  }
+
+  func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+    autoPlayDelegate.scene?(scene, continue: userActivity)
+  }
+
+  func sceneDidBecomeActive(_ scene: UIScene) {
+    autoPlayDelegate.sceneDidBecomeActive?(scene)
+  }
+
+  func sceneWillResignActive(_ scene: UIScene) {
+    autoPlayDelegate.sceneWillResignActive?(scene)
+  }
+
+  func sceneWillEnterForeground(_ scene: UIScene) {
+    autoPlayDelegate.sceneWillEnterForeground?(scene)
+  }
+
+  func sceneDidEnterBackground(_ scene: UIScene) {
+    autoPlayDelegate.sceneDidEnterBackground?(scene)
+  }
+
+  private func openExpoDevelopmentClient(_ url: URL) -> Bool {
+    UIApplication.shared.delegate?.application?(
+      UIApplication.shared,
+      open: url,
+      options: [:]
+    ) ?? false
+  }
+}
+`;
+
 const SCENE_MANIFEST = {
     CPSupportsDashboardNavigationScene: true,
-    CPSupportsInstrumentClusterNavigationScene: true,
+    CPSupportsInstrumentClusterNavigationScene: instrumentClusterEnabled,
     UIApplicationSupportsMultipleScenes: true,
     UISceneConfigurations: {
         CPTemplateApplicationDashboardSceneSessionRoleApplication: [
             {
-                UISceneClassName: "CPTemplateApplicationDashboardScene",
-                UISceneConfigurationName: "CarPlayDashboard",
-                UISceneDelegateClassName: "DashboardSceneDelegate",
+                UISceneClassName: 'CPTemplateApplicationDashboardScene',
+                UISceneConfigurationName: 'CarPlayDashboard',
+                UISceneDelegateClassName: 'DashboardSceneDelegate',
             },
         ],
         CPTemplateApplicationInstrumentClusterSceneSessionRoleApplication: [
             {
-                UISceneClassName: "CPTemplateApplicationInstrumentClusterScene",
-                UISceneConfigurationName: "CarPlayCluster",
-                UISceneDelegateClassName: "ClusterSceneDelegate",
+                UISceneClassName: 'CPTemplateApplicationInstrumentClusterScene',
+                UISceneConfigurationName: 'CarPlayCluster',
+                UISceneDelegateClassName: 'ClusterSceneDelegate',
             },
         ],
         CPTemplateApplicationSceneSessionRoleApplication: [
             {
-                UISceneClassName: "CPTemplateApplicationScene",
-                UISceneConfigurationName: "CarPlayHeadUnit",
-                UISceneDelegateClassName: "HeadUnitSceneDelegate",
+                UISceneClassName: 'CPTemplateApplicationScene',
+                UISceneConfigurationName: 'CarPlayHeadUnit',
+                UISceneDelegateClassName: 'HeadUnitSceneDelegate',
             },
         ],
         UIWindowSceneSessionRoleApplication: [
             {
-                UISceneClassName: "UIWindowScene",
-                UISceneConfigurationName: "WindowApplication",
-                UISceneDelegateClassName: "WindowApplicationSceneDelegate",
+                UISceneClassName: 'UIWindowScene',
+                UISceneConfigurationName: 'WindowApplication',
+                UISceneDelegateClassName: 'DAFWindowApplicationSceneDelegate',
             },
         ],
     },
@@ -92,12 +160,12 @@ function addGeneratedSwiftBlock(source, tag, block, anchor) {
     const footer = `  // @generated end ${tag}`;
     const pattern = new RegExp(
         `\\n?[^\\S\\n]*// @generated begin ${tag}[\\s\\S]*?// @generated end ${tag}\\n?`,
-        "m",
+        'm',
     );
-    const sanitizedSource = source.replace(pattern, "");
+    const sanitizedSource = source.replace(pattern, '');
     const anchorIndex = sanitizedSource.indexOf(anchor);
 
-    const anchorLineStart = sanitizedSource.lastIndexOf("\n", anchorIndex) + 1;
+    const anchorLineStart = sanitizedSource.lastIndexOf('\n', anchorIndex) + 1;
     const anchorPrefix = sanitizedSource.slice(anchorLineStart, anchorIndex);
 
     if (anchorIndex === -1 || !/^\s*(?:public\s+)?$/.test(anchorPrefix)) {
@@ -112,7 +180,7 @@ function addGeneratedSwiftBlock(source, tag, block, anchor) {
 }
 
 function isPlainObject(value) {
-    return value !== null && typeof value === "object" && !Array.isArray(value);
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 function mergeSceneConfigurationEntries(existingEntries, requiredEntries) {
@@ -159,10 +227,14 @@ function mergeCarPlaySceneManifest(existingManifest) {
         );
     });
 
+    if (!instrumentClusterEnabled) {
+        delete mergedConfigurations.CPTemplateApplicationInstrumentClusterSceneSessionRoleApplication;
+    }
+
     return {
         ...manifest,
         CPSupportsDashboardNavigationScene: true,
-        CPSupportsInstrumentClusterNavigationScene: true,
+        CPSupportsInstrumentClusterNavigationScene: instrumentClusterEnabled,
         UIApplicationSupportsMultipleScenes: true,
         UISceneConfigurations: mergedConfigurations,
     };
@@ -214,13 +286,24 @@ function addAutoPlayRootViewToAppDelegate(source) {
         source,
         APP_DELEGATE_TAG,
         GET_ROOT_VIEW_FOR_AUTOPLAY,
-        "class AppDelegate: ExpoAppDelegate {",
+        'class AppDelegate: ExpoAppDelegate {',
     );
+}
+
+function addExpoWindowSceneDelegateToAppDelegate(source) {
+    const header = `// @generated begin ${WINDOW_SCENE_TAG}`;
+    const footer = `// @generated end ${WINDOW_SCENE_TAG}`;
+    const pattern = new RegExp(
+        `\\n?// @generated begin ${WINDOW_SCENE_TAG}[\\s\\S]*?// @generated end ${WINDOW_SCENE_TAG}\\n?`,
+        'm',
+    );
+    const sanitizedSource = source.replace(pattern, '').trimEnd();
+    return `${sanitizedSource}\n\n${header}\n${EXPO_WINDOW_SCENE_DELEGATE.trim()}\n${footer}\n`;
 }
 
 function withCarPlayAutoPlay(config) {
     let nextConfig = withEntitlementsPlist(config, (entitlementsConfig) => {
-        entitlementsConfig.modResults["com.apple.developer.carplay-maps"] =
+        entitlementsConfig.modResults['com.apple.developer.carplay-maps'] =
             true;
 
         return entitlementsConfig;
@@ -236,15 +319,18 @@ function withCarPlayAutoPlay(config) {
     });
 
     return withAppDelegate(nextConfig, (appDelegateConfig) => {
-        if (appDelegateConfig.modResults.language !== "swift") {
+        if (appDelegateConfig.modResults.language !== 'swift') {
             throw new Error(
                 `${PLUGIN_NAME}: only Swift AppDelegate templates are supported`,
             );
         }
 
-        appDelegateConfig.modResults.contents = addAutoPlayRootViewToAppDelegate(
-            appDelegateConfig.modResults.contents,
-        );
+        appDelegateConfig.modResults.contents =
+            addExpoWindowSceneDelegateToAppDelegate(
+                addAutoPlayRootViewToAppDelegate(
+                    appDelegateConfig.modResults.contents,
+                ),
+            );
 
         return appDelegateConfig;
     });
@@ -258,6 +344,7 @@ const plugin = createRunOncePlugin(
 
 plugin.__testables = {
     addAutoPlayRootViewToAppDelegate,
+    addExpoWindowSceneDelegateToAppDelegate,
     applyCarPlayInfoPlist,
     mergeCarPlaySceneManifest,
 };

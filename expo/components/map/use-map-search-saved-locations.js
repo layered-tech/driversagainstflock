@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createEmptyPrimaryLocations } from './primary-locations';
 import {
     addRecentLocation,
+    addSearchSavedLocationsListener,
     loadSearchSavedLocations,
     savedLocationsMatch,
     savePrimaryLocation,
@@ -19,17 +20,20 @@ export function useMapSearchSavedLocations({ isMountedRef }) {
 
     useEffect(() => {
         let isActive = true;
+        const applySavedLocations = (savedLocations) => {
+            if (!isActive || !isMountedRef.current) {
+                return;
+            }
+
+            setFavoriteLocations(savedLocations.favoriteLocations);
+            setPrimaryLocations(savedLocations.primaryLocations);
+            setRecentLocations(savedLocations.recentLocations);
+        };
+        const unsubscribe =
+            addSearchSavedLocationsListener(applySavedLocations);
 
         loadSearchSavedLocations()
-            .then((savedLocations) => {
-                if (!isActive || !isMountedRef.current) {
-                    return;
-                }
-
-                setFavoriteLocations(savedLocations.favoriteLocations);
-                setPrimaryLocations(savedLocations.primaryLocations);
-                setRecentLocations(savedLocations.recentLocations);
-            })
+            .then(applySavedLocations)
             .catch(() => {})
             .finally(() => {
                 if (isActive && isMountedRef.current) {
@@ -39,6 +43,7 @@ export function useMapSearchSavedLocations({ isMountedRef }) {
 
         return () => {
             isActive = false;
+            unsubscribe();
         };
     }, [isMountedRef]);
 

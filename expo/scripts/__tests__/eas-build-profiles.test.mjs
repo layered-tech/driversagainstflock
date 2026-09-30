@@ -25,3 +25,21 @@ test('exposes a root package shortcut for the staging APK profile', () => {
         'cd expo && APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- ./scripts/eas-local-build.sh -p android --profile staging-apk --no-wait',
     );
 });
+
+test('iOS staging selects a profile with the staging runtime environment', () => {
+    const command = rootPackage.scripts['build:ios:staging'];
+    const profileName = command.match(/--profile\s+(\S+)/)?.[1];
+    const selectedProfile = easConfig.build[profileName];
+
+    assert.ok(
+        selectedProfile,
+        'the iOS staging command must select an existing profile',
+    );
+    const profile = {
+        ...easConfig.build[selectedProfile.extends],
+        ...selectedProfile,
+    };
+    assert.equal(profile.env.APP_ENV, 'staging');
+    assert.equal(profile.environment, 'preview');
+    assert.equal(profile.distribution, 'store');
+});

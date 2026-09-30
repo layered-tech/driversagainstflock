@@ -1,5 +1,5 @@
 import {
-    createRouteProjectionPath,
+    getRouteProjectionPath,
     interpolateRouteCoordinate,
     projectCoordinateOntoRoute,
 } from './route-projection.js';
@@ -340,22 +340,28 @@ export function getElectronicHorizonPrimaryCoordinates(horizon) {
     return normalizeElectronicHorizon(horizon)?.primaryPath.coordinates ?? [];
 }
 
-function trimPathCoordinatesToDistance(coordinates, maximumDistanceMeters) {
+function trimPathCoordinatesToDistance(
+    coordinates,
+    maximumDistanceMeters,
+    startCoordinate = coordinates[0],
+    nextCoordinateIndex = 1,
+) {
     if (coordinates.length < 2) {
         return coordinates;
     }
 
-    const maximumDistance = getStoredNumber(maximumDistanceMeters);
-
-    if (maximumDistance === null || maximumDistance <= 0) {
-        return coordinates;
-    }
-
-    const trimmedCoordinates = [coordinates[0]];
+    const requestedDistance = getStoredNumber(maximumDistanceMeters);
+    const maximumDistance =
+        requestedDistance > 0 ? requestedDistance : Infinity;
+    const trimmedCoordinates = [startCoordinate];
     let distanceBeforeSegmentMeters = 0;
 
-    for (let index = 1; index < coordinates.length; index += 1) {
-        const start = coordinates[index - 1];
+    for (
+        let index = nextCoordinateIndex;
+        index < coordinates.length;
+        index += 1
+    ) {
+        const start = trimmedCoordinates.at(-1);
         const end = coordinates[index];
         const segmentDistanceMeters = getCoordinateDistanceMeters(start, end);
 
@@ -397,40 +403,32 @@ export function getDirectionsRouteCoordinatesAhead(
     userLocation,
     maximumDistanceMeters = ELECTRONIC_HORIZON_ALERT_PATH_LENGTH_METERS,
 ) {
-    const route = normalizeElectronicHorizonCoordinates(routeCoordinates);
+    const projectionPath = getRouteProjectionPath(routeCoordinates);
+    const route = projectionPath.coordinates;
     const userCoordinate = normalizeElectronicHorizonCoordinate(userLocation);
 
     if (route.length < 2) {
         return [];
     }
 
-    const projectionPath = createRouteProjectionPath(route);
     const projection = projectCoordinateOntoRoute(
         projectionPath,
         userCoordinate,
         { allowNegativeDistanceBeforeStart: true },
     );
-    const coordinatesAhead = projection
-        ? [projection.coordinate, ...route.slice(projection.segmentIndex + 1)]
-        : route;
-    const uniqueCoordinatesAhead = coordinatesAhead.filter(
-        (coordinate, index) =>
-            index === 0 ||
-            coordinate[0] !== coordinatesAhead[index - 1][0] ||
-            coordinate[1] !== coordinatesAhead[index - 1][1],
-    );
-
     return trimPathCoordinatesToDistance(
-        uniqueCoordinatesAhead,
+        route,
         maximumDistanceMeters,
+        projection?.coordinate ?? route[0],
+        projection ? projection.segmentIndex + 1 : 1,
     );
 }
 
 export function getElectronicHorizonPathPosition(coordinates, coordinate) {
-    const path = normalizeElectronicHorizonCoordinates(coordinates);
+    const path = getRouteProjectionPath(coordinates);
     const target = normalizeElectronicHorizonCoordinate(coordinate);
 
-    return projectCoordinateOntoRoute(createRouteProjectionPath(path), target, {
+    return projectCoordinateOntoRoute(path, target, {
         allowNegativeDistanceBeforeStart: true,
     });
 }
@@ -462,6 +460,7 @@ function getPoliceSubtitle(alert) {
 function makeUpcomingAlert({
     coordinate,
     id,
+    maximumPathDistanceMeters,
     pathProjection,
     pathBufferMeters,
     type,
@@ -482,8 +481,7 @@ function makeUpcomingAlert({
         !position ||
         position.distanceFromPathMeters > pathBufferMeters ||
         position.distanceAheadMeters < 0 ||
-        position.distanceAheadMeters >
-            ELECTRONIC_HORIZON_ALERT_MAXIMUM_DISTANCE_METERS
+        position.distanceAheadMeters > maximumPathDistanceMeters
     ) {
         return null;
     }
@@ -503,21 +501,21 @@ function makeUpcomingAlert({
 export function getUpcomingElectronicHorizonAlerts({
     alprNodes = [],
     electronicHorizon,
+    maximumPathDistanceMeters = ELECTRONIC_HORIZON_ALERT_MAXIMUM_DISTANCE_METERS,
     pathCoordinates,
     policeAlerts = [],
 } = {}) {
-    const explicitPathCoordinates =
-        normalizeElectronicHorizonCoordinates(pathCoordinates);
-    const resolvedPathCoordinates =
-        explicitPathCoordinates.length >= 2
-            ? explicitPathCoordinates
-            : getElectronicHorizonPrimaryCoordinates(electronicHorizon);
+    const explicitPath = getRouteProjectionPath(pathCoordinates);
+    const pathProjection =
+        explicitPath.coordinates.length >= 2
+            ? explicitPath
+            : getRouteProjectionPath(
+                  getElectronicHorizonPrimaryCoordinates(electronicHorizon),
+              );
 
-    if (resolvedPathCoordinates.length < 2) {
+    if (pathProjection.coordinates.length < 2) {
         return [];
     }
-
-    const pathProjection = createRouteProjectionPath(resolvedPathCoordinates);
 
     const alprAlerts = Array.isArray(alprNodes)
         ? alprNodes
@@ -530,6 +528,7 @@ export function getUpcomingElectronicHorizonAlerts({
                               node?.osm_id ??
                               `alpr-${index}`,
                       ),
+                      maximumPathDistanceMeters,
                       pathBufferMeters:
                           ELECTRONIC_HORIZON_ALPR_ALERT_PATH_BUFFER_METERS,
                       pathProjection,
@@ -547,6 +546,7 @@ export function getUpcomingElectronicHorizonAlerts({
                   makeUpcomingAlert({
                       coordinate: alert?.coordinate,
                       id: String(alert?.id ?? `police-${index}`),
+                      maximumPathDistanceMeters,
                       pathBufferMeters:
                           ELECTRONIC_HORIZON_POLICE_ALERT_PATH_BUFFER_METERS,
                       pathProjection,

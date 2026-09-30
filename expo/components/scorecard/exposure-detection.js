@@ -343,7 +343,77 @@ function getSegmentDisposition(previousSample, currentSample) {
         : 'reject';
 }
 
+export function prepareScorecardExposureCameraCatalog(
+    nodes,
+    previousCatalog = [],
+) {
+    const catalog = [];
+    const previousCameras = new Map(
+        previousCatalog.map((camera) => [camera.cameraId, camera]),
+    );
+
+    for (const node of nodes) {
+        const coordinate = normalizeNodeCoordinate(node);
+        const osmId = node?.osmId ?? node?.osm_id ?? null;
+
+        if (!coordinate) {
+            continue;
+        }
+
+        const directionRanges = parseCameraDirectionRanges(
+            node.directions ??
+                node.cameraDirections ??
+                node.direction ??
+                node.cameraDirection,
+        );
+        const cameraId = getScorecardMonitoringCameraKey({
+            ...node,
+            coordinate,
+            directions: directionRanges,
+            osmId,
+        });
+
+        if (!cameraId) {
+            continue;
+        }
+
+        const previousCamera = previousCameras.get(cameraId);
+        const geometryIsUnchanged =
+            previousCamera &&
+            previousCamera.coordinate[0] === coordinate[0] &&
+            previousCamera.coordinate[1] === coordinate[1] &&
+            previousCamera.directionRanges.length === directionRanges.length &&
+            directionRanges.every((direction, index) => {
+                const previousDirection = previousCamera.directionRanges[index];
+
+                return (
+                    previousDirection.start === direction.start &&
+                    previousDirection.end === direction.end &&
+                    previousDirection.isRange === direction.isRange
+                );
+            });
+
+        catalog.push({
+            cameraId,
+            coordinate,
+            directionRanges,
+            node,
+            osmId,
+            rings: geometryIsUnchanged
+                ? previousCamera.rings
+                : directionRanges.length > 0
+                  ? directionRanges.map((direction) =>
+                        makeScorecardCameraConeRing(coordinate, direction),
+                    )
+                  : [makeCircleRing(coordinate)],
+        });
+    }
+
+    return catalog;
+}
+
 export function processScorecardExposureSegment({
+    cameraCatalog,
     currentLocation,
     detectorState = { cameras: {} },
     nodes = [],
@@ -394,37 +464,15 @@ export function processScorecardExposureSegment({
         currentSample.coordinate,
     );
 
-    for (const node of nodes) {
-        const coordinate = normalizeNodeCoordinate(node);
-        const osmId = node?.osmId ?? node?.osm_id ?? null;
-
-        if (!coordinate) {
-            continue;
-        }
-
-        const directionRanges = parseCameraDirectionRanges(
-            node.directions ??
-                node.cameraDirections ??
-                node.direction ??
-                node.cameraDirection,
-        );
-        const cameraId = getScorecardMonitoringCameraKey({
-            ...node,
-            coordinate,
-            directions: directionRanges,
-            osmId,
-        });
-
-        if (!cameraId) {
-            continue;
-        }
-
+    for (const {
+        cameraId,
+        coordinate,
+        directionRanges,
+        node,
+        osmId,
+        rings,
+    } of cameraCatalog ?? prepareScorecardExposureCameraCatalog(nodes)) {
         const directionKnown = directionRanges.length > 0;
-        const rings = directionKnown
-            ? directionRanges.map((direction) =>
-                  makeScorecardCameraConeRing(coordinate, direction),
-              )
-            : [makeCircleRing(coordinate)];
         const previousCameraState = cameraStates[cameraId] ?? {};
         const previousInside = rings.some((ring) =>
             pointIsInRing(previousSample.coordinate, ring),

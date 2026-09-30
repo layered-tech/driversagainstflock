@@ -9,7 +9,7 @@ use Throwable;
 
 class MarkerFileCache
 {
-    public const PAYLOAD_VERSION = 'v3';
+    public const PAYLOAD_VERSION = 'v4';
 
     private const DIRECTORY = 'app/markers';
 

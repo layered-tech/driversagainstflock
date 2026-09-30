@@ -9,13 +9,21 @@ import {
     faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    Fragment,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import {
     Animated,
     Easing,
     Pressable,
     ScrollView,
     Text,
+    TextInput,
     useColorScheme,
     useWindowDimensions,
     View,
@@ -25,8 +33,12 @@ import {
     formatAndroidAutoPerformanceTrace,
     getAndroidAutoPerformanceTraceAsync,
 } from '../android-auto-performance-trace';
+import { AlprPresenceDebugPane } from '../map/alpr-presence-debug-pane';
 import { SHOW_MAP_DEBUG_CONTROLS } from '../map/config';
+import { MAX_ZOOM_LEVEL, MIN_ZOOM_LEVEL } from '../map/constants';
+import { setDebugCameraZoomLevel } from '../map/debug-camera-zoom';
 import {
+    DEBUG_OVERLAY_ALPR_PRESENCE,
     DEBUG_OVERLAY_ANDROID_AUTO_LOCATION,
     DEBUG_OVERLAY_CAMERA,
     DEBUG_OVERLAY_CAMERA_FOCUS,
@@ -34,9 +46,11 @@ import {
     DEBUG_OVERLAY_ELECTRONIC_HORIZON,
     DEBUG_OVERLAY_NETWORK,
     DEBUG_OVERLAY_SAFE_AREA,
+    DEBUG_OVERLAY_UPCOMING_ALERTS,
     DEBUG_OVERLAY_WAZE,
 } from '../map/debug-overlays';
 import { useSharedMapState } from '../map/shared-map-state';
+import { UpcomingAlertDebugPane } from '../map/upcoming-alert-debug-pane';
 import { DebugDrawerToggleRow } from './debug-drawer-toggle-row';
 
 const DEBUG_DRAWER_ANIMATION_MS = 180;
@@ -44,6 +58,18 @@ const DEBUG_DRAWER_MAX_WIDTH = 420;
 const DEBUG_DRAWER_MIN_WIDTH = 300;
 
 const DEBUG_DRAWER_ITEMS = [
+    {
+        icon: faCamera,
+        key: DEBUG_OVERLAY_UPCOMING_ALERTS,
+        label: 'Upcoming Alerts',
+        testID: 'debug-drawer-upcoming-alerts-toggle',
+    },
+    {
+        icon: faCamera,
+        key: DEBUG_OVERLAY_ALPR_PRESENCE,
+        label: 'ALPR Confirmation',
+        testID: 'debug-drawer-alpr-presence-toggle',
+    },
     {
         icon: faMobileScreen,
         key: DEBUG_OVERLAY_SAFE_AREA,
@@ -107,6 +133,8 @@ export function DebugDrawer({ onClose, visible }) {
     const [shouldRender, setShouldRender] = useState(visible);
     const [androidAutoTraceText, setAndroidAutoTraceText] = useState('');
     const [androidAutoTraceStatus, setAndroidAutoTraceStatus] = useState('');
+    const [cameraZoomInput, setCameraZoomInput] = useState('');
+    const [cameraZoomError, setCameraZoomError] = useState('');
     const animationProgressRef = useRef(new Animated.Value(visible ? 1 : 0));
     const drawerWidth = useMemo(
         () =>
@@ -140,6 +168,25 @@ export function DebugDrawer({ onClose, visible }) {
                 : 'Connect Android Auto and drive before retrieving a trace.',
         );
     }, []);
+    const handleSetCameraZoom = useCallback(() => {
+        const trimmedZoom = cameraZoomInput.trim();
+        const zoomLevel = Number(trimmedZoom);
+
+        if (
+            !trimmedZoom ||
+            !Number.isFinite(zoomLevel) ||
+            zoomLevel < MIN_ZOOM_LEVEL ||
+            zoomLevel > MAX_ZOOM_LEVEL
+        ) {
+            setCameraZoomError(
+                `Enter a zoom level from ${MIN_ZOOM_LEVEL} to ${MAX_ZOOM_LEVEL}.`,
+            );
+            return;
+        }
+
+        setCameraZoomError('');
+        setDebugCameraZoomLevel(zoomLevel);
+    }, [cameraZoomInput]);
 
     useEffect(() => {
         if (visible) {
@@ -213,24 +260,76 @@ export function DebugDrawer({ onClose, visible }) {
                     }}
                 >
                     {DEBUG_DRAWER_ITEMS.map((item) => (
-                        <DebugDrawerToggleRow
-                            iconColor={iconColor}
-                            isDarkMode={isDarkMode}
-                            isEnabled={
-                                debugOverlayVisibility?.[item.key] === true
-                            }
-                            item={item}
-                            key={item.key}
-                            onValueChange={(isEnabled) => {
-                                if (mapPreferencesAreLoaded) {
-                                    setDebugOverlayVisibility(
-                                        item.key,
-                                        isEnabled,
-                                    );
+                        <Fragment key={item.key}>
+                            <DebugDrawerToggleRow
+                                iconColor={iconColor}
+                                isDarkMode={isDarkMode}
+                                isEnabled={
+                                    debugOverlayVisibility?.[item.key] === true
                                 }
-                            }}
-                        />
+                                item={item}
+                                onValueChange={(isEnabled) => {
+                                    if (mapPreferencesAreLoaded) {
+                                        setDebugOverlayVisibility(
+                                            item.key,
+                                            isEnabled,
+                                        );
+                                    }
+                                }}
+                            />
+                            {item.key === DEBUG_OVERLAY_CAMERA ? (
+                                <View className="gap-2 rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+                                    <Text className="text-sm font-semibold text-neutral-950 dark:text-white">
+                                        Set camera zoom
+                                    </Text>
+                                    <View className="flex-row items-center gap-2">
+                                        <TextInput
+                                            accessibilityLabel="Camera zoom level"
+                                            className="min-w-0 flex-1 rounded-md border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-950 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"
+                                            keyboardType="decimal-pad"
+                                            onChangeText={(value) => {
+                                                setCameraZoomInput(value);
+                                                setCameraZoomError('');
+                                            }}
+                                            onSubmitEditing={
+                                                handleSetCameraZoom
+                                            }
+                                            placeholder={`${MIN_ZOOM_LEVEL}–${MAX_ZOOM_LEVEL}`}
+                                            placeholderTextColor={
+                                                isDarkMode
+                                                    ? '#a3a3a3'
+                                                    : '#737373'
+                                            }
+                                            returnKeyType="done"
+                                            testID="debug-drawer-camera-zoom-input"
+                                            value={cameraZoomInput}
+                                        />
+                                        <Pressable
+                                            accessibilityLabel="Set camera zoom"
+                                            accessibilityRole="button"
+                                            className="rounded-md bg-blue-600 px-4 py-2"
+                                            onPress={handleSetCameraZoom}
+                                            testID="debug-drawer-set-camera-zoom"
+                                        >
+                                            <Text className="text-sm font-semibold text-white">
+                                                Set Zoom
+                                            </Text>
+                                        </Pressable>
+                                    </View>
+                                    {cameraZoomError ? (
+                                        <Text
+                                            className="text-xs text-red-600 dark:text-red-400"
+                                            testID="debug-drawer-camera-zoom-error"
+                                        >
+                                            {cameraZoomError}
+                                        </Text>
+                                    ) : null}
+                                </View>
+                            ) : null}
+                        </Fragment>
                     ))}
+                    <AlprPresenceDebugPane />
+                    <UpcomingAlertDebugPane />
                     <View className="gap-2 rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
                         <View className="gap-1">
                             <Text className="text-sm font-semibold text-neutral-950 dark:text-white">

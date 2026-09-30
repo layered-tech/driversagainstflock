@@ -493,7 +493,7 @@ describe('location puck camera follow lifecycle', () => {
         const lifecycle = createLocationPuckCameraFollowLifecycle({
             configureCameraFollow: async (_mapView, followProps) => {
                 calls.push(followProps.enabled);
-                return false;
+                return !followProps.enabled;
             },
             onStatusChange: (status) => statuses.push(status),
         });
@@ -972,4 +972,98 @@ describe('location puck camera follow lifecycle', () => {
 
         assert.deepEqual(calls, [true, false]);
     });
+});
+
+test('failed native release is not reported as an idle camera and can be retried', async () => {
+    let canDisable = false;
+    const calls = [];
+    const lifecycle = createLocationPuckCameraFollowLifecycle({
+        configureCameraFollow: async (_view, props) => {
+            calls.push(props.enabled);
+            return props.enabled || canDisable;
+        },
+        waitForCameraCommit: async () => {},
+    });
+    const mapViewRef = { current: {} };
+    await requestFollow(lifecycle, mapViewRef);
+    assert.equal(
+        await lifecycle.release({ attachmentKey: 1, mapViewRef }),
+        false,
+    );
+    assert.notEqual(lifecycle.getStatus(), 'inactive');
+    canDisable = true;
+    assert.equal(
+        await lifecycle.release({ attachmentKey: 1, mapViewRef }),
+        true,
+    );
+    assert.deepEqual(calls, [true, false, false]);
+});
+
+test('superseded native activation cannot retry after confirmation requests release', async () => {
+    let finishVerification;
+    const calls = [];
+    const lifecycle = createLocationPuckCameraFollowLifecycle({
+        configureCameraFollow: async (_view, props) => {
+            calls.push(props.enabled);
+            return true;
+        },
+        waitForCameraCommit: async () => {},
+        verifyCameraFollow: () =>
+            new Promise((resolve) => {
+                finishVerification = resolve;
+            }),
+    });
+    const mapViewRef = { current: {} };
+    const enabling = requestFollow(lifecycle, mapViewRef);
+    await new Promise((resolve) => setImmediate(resolve));
+    const releasing = lifecycle.release({ attachmentKey: 1, mapViewRef });
+    finishVerification(false);
+    await new Promise((resolve) => setImmediate(resolve));
+    // Release the old implementation's unwanted retry so the test never hangs.
+    finishVerification(true);
+    await Promise.all([enabling, releasing]);
+    assert.deepEqual(calls.filter(Boolean), [true]);
+});
+
+test('live ownership blocks stale native follow requests until confirmation releases', async () => {
+    let allowed = true;
+    const calls = [];
+    const lifecycle = createLocationPuckCameraFollowLifecycle({
+        canFollow: () => allowed,
+        configureCameraFollow: async (_view, props) => {
+            calls.push(props.enabled);
+            return true;
+        },
+        waitForCameraCommit: async () => {},
+    });
+    const mapViewRef = { current: {} };
+    await requestFollow(lifecycle, mapViewRef);
+    allowed = false;
+    await lifecycle.release({ attachmentKey: 1, mapViewRef });
+    await requestFollow(lifecycle, mapViewRef, { zoomLevel: 18 });
+    assert.deepEqual(calls, [true, false]);
+    allowed = true;
+    await requestFollow(lifecycle, mapViewRef, { zoomLevel: 18 });
+    assert.deepEqual(calls, [true, false, true]);
+});
+
+test('a queued native request blocked by a new owner can run again after release', async () => {
+    let allowed = true;
+    const calls = [];
+    const lifecycle = createLocationPuckCameraFollowLifecycle({
+        canFollow: () => allowed,
+        configureCameraFollow: async (_view, props) => {
+            calls.push(props.enabled);
+            return true;
+        },
+        waitForCameraCommit: async () => {},
+    });
+    const mapViewRef = { current: {} };
+    const pending = requestFollow(lifecycle, mapViewRef);
+    allowed = false;
+    assert.equal(await pending, false);
+    assert.deepEqual(calls, []);
+    allowed = true;
+    assert.equal(await requestFollow(lifecycle, mapViewRef), true);
+    assert.deepEqual(calls, [true]);
 });

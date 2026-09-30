@@ -22,6 +22,74 @@ import {
 } from '../android-auto-e2e.mjs';
 
 describe('Android Auto E2E helpers', () => {
+    test('route view scenario uses semantic commands without DHU taps', () => {
+        const suite = JSON.parse(
+            readFileSync(
+                new URL('../../.android-auto/suite.json', import.meta.url),
+                'utf8',
+            ),
+        );
+        const scenario = suite.tests.find(
+            ({ name }) =>
+                name === 'toggles between 3D follow and route overview',
+        );
+
+        assert.ok(scenario);
+        assert.deepEqual(
+            scenario.steps
+                .filter(({ type }) => type === 'deepLink')
+                .map(({ requestType, query }) => ({ requestType, query })),
+            [
+                { requestType: 'map-view', query: 'toggle' },
+                { requestType: 'map-view', query: 'toggle' },
+            ],
+        );
+        assert.equal(
+            scenario.steps.some(({ type }) => type === 'dhu'),
+            false,
+        );
+    });
+
+    test('separates primary-only portrait and opt-in map cluster configurations', () => {
+        const readConfig = (name) =>
+            readFileSync(
+                new URL(`../../config/${name}`, import.meta.url),
+                'utf8',
+            );
+        const basic = readConfig('android-auto-dhu-portrait.ini');
+        const maps = readConfig('android-auto-dhu-portrait-2.1.ini');
+
+        assert.doesNotMatch(
+            basic,
+            /(?:instrumentcluster|navcluster|phonecluster)\s*=\s*true/,
+        );
+        assert.doesNotMatch(basic, /\[display:/);
+        assert.match(maps, /\[display:cluster\]\ndisplaytype = cluster/);
+        assert.match(
+            maps,
+            /resolution = 1280x720\ndpi = 160\nmarginheight = 220\ncropmargins = true/,
+        );
+        for (const config of [basic, maps]) {
+            assert.match(
+                config,
+                /resolution = 1920x1080\ndpi = 160\nmarginwidth = 878\nnormalizedpi = true\ncropmargins = true/,
+            );
+        }
+        for (const path of ['../../package.json', '../../../package.json']) {
+            const { scripts } = JSON.parse(
+                readFileSync(new URL(path, import.meta.url), 'utf8'),
+            );
+            assert.match(
+                scripts['android:auto:portrait'],
+                /android-auto\.sh 2\.0 portrait$/,
+            );
+            assert.match(
+                scripts['android:auto:portrait:2.1'],
+                /android-auto\.sh 2\.1 portrait$/,
+            );
+        }
+    });
+
     test('finds semantic Android Auto menu nodes', () => {
         const xml = `
             <node text="" content-desc="More options" bounds="[1224,183][1344,327]" />
@@ -158,6 +226,35 @@ describe('Android Auto E2E helpers', () => {
         ]);
     });
 
+    test('uses the suite map crop for both brightness and camera comparisons', () => {
+        const calls = [];
+        const runner = Object.create(Runner.prototype);
+        runner.suite = { mapCrop: { x: 850, y: 300, width: 280, height: 220 } };
+        runner.screenshots = new Map([
+            ['before', { imagePath: '/before.png' }],
+            ['after', { imagePath: '/after.png' }],
+        ]);
+        runner.run = (_command, args) => {
+            calls.push(args);
+            return { stdout: '0.25' };
+        };
+        runner.ocrBinary = '/ocr';
+        assert.equal(runner.mapCropMeanLuminance('before'), 0.25);
+        assert.equal(runner.mapCropPixelDifference('before', 'after'), 0.25);
+        assert.deepEqual(calls, [
+            ['--mean-luminance', '/before.png', '850', '300', '280', '220'],
+            [
+                '--mean-pixel-difference',
+                '/before.png',
+                '/after.png',
+                '850',
+                '300',
+                '280',
+                '220',
+            ],
+        ]);
+    });
+
     test('recaptures the current theme until Mapbox visibly applies it', async () => {
         const captures = [];
         const reports = [];
@@ -224,9 +321,19 @@ describe('Android Auto E2E helpers', () => {
             height: 1080,
             width: 1920,
         });
-        assert.deepEqual(portraitSuite.requiredMetroMarkers, [
-            '[Auto Play] secondary-map-surface-mounted',
-        ]);
+        assert.equal(portraitSuite.requiredMetroMarkers, undefined);
+        assert.deepEqual(
+            portraitSuite.tests[0].steps.find(
+                ({ type }) => type === 'assertService',
+            ),
+            { type: 'assertService', running: true },
+        );
+        assert.equal(
+            portraitSuite.tests
+                .flatMap(({ steps }) => steps)
+                .some(({ type }) => type === 'assertWakeLock'),
+            false,
+        );
         assert.equal(
             portraitSuite.dhuConfig,
             'config/android-auto-dhu-portrait.ini',
@@ -242,18 +349,21 @@ describe('Android Auto E2E helpers', () => {
         );
         assert.deepEqual(
             portraitMapViewToggleTest.steps
-                .filter(({ type }) => type === 'dhu')
-                .map(({ command, waitForMetro }) => ({
-                    command,
+                .filter(({ type }) => type === 'deepLink')
+                .map(({ requestType, query, waitForMetro }) => ({
+                    requestType,
+                    query,
                     waitForMetro,
                 })),
             [
                 {
-                    command: 'tap 600 500; sleep 1; tap 903 55',
+                    requestType: 'map-view',
+                    query: 'toggle',
                     waitForMetro: '[Auto Play] driving-route-overview-fitted',
                 },
                 {
-                    command: 'tap 600 500; sleep 1; tap 903 55',
+                    requestType: 'map-view',
+                    query: 'toggle',
                     waitForMetro:
                         '[Auto Play] driving-map-view-perspective-restored',
                 },
@@ -279,13 +389,13 @@ describe('Android Auto E2E helpers', () => {
                     type === 'assertOcr' &&
                     screenshot === 'host-stopped-navigation',
             ).contains,
-            ['SPEED', 'LIMIT', 'Congress Avenue'],
+            ['SPEED', 'LIMIT'],
         );
         assert.deepEqual(
             mapViewToggleTest.steps
                 .filter(
-                    ({ command, type }) =>
-                        type === 'dhu' && command.endsWith('tap 730 55'),
+                    ({ requestType, type }) =>
+                        type === 'deepLink' && requestType === 'map-view',
                 )
                 .map(({ waitForMetro }) => waitForMetro),
             [
@@ -358,6 +468,58 @@ describe('Android Auto E2E helpers', () => {
             );
         }
     });
+
+    test('covers CHR-21 native presence actions and navigation guards', () => {
+        const presenceSuite = JSON.parse(
+            readFileSync(
+                new URL(
+                    '../../.android-auto/suite-presence.json',
+                    import.meta.url,
+                ),
+                'utf8',
+            ),
+        );
+        const reportTest = presenceSuite.tests.find(({ name }) =>
+            name.includes('native negative action'),
+        );
+        const scenarioCommands = presenceSuite.tests.flatMap(({ steps }) =>
+            steps
+                .filter(
+                    ({ requestType, type }) =>
+                        type === 'deepLink' && requestType === 'presence',
+                )
+                .map(({ query }) => query),
+        );
+
+        assert.ok(reportTest);
+        assert.deepEqual(
+            reportTest.steps.find(({ type }) => type === 'dhu'),
+            {
+                type: 'dhu',
+                command: 'tap 275 225',
+                waitForMetro: '[ALPR presence] Report queued',
+            },
+        );
+        assert.ok(scenarioCommands.includes('former-eligibility'));
+        assert.ok(scenarioCommands.includes('navigation'));
+        assert.ok(scenarioCommands.includes('navigation-near-maneuver'));
+        assert.equal(
+            scenarioCommands.filter((command) => command === 'reset').length,
+            4,
+        );
+
+        const presenceScenarioSource = readFileSync(
+            new URL(
+                '../../components/map/alpr-presence-e2e.js',
+                import.meta.url,
+            ),
+            'utf8',
+        );
+
+        assert.match(presenceScenarioSource, /\.resetLimits\(\)/);
+        assert.match(presenceScenarioSource, /\[E2E\] presence-limits-reset/);
+        assert.match(presenceScenarioSource, /\[E2E\] presence-reset-failed:/);
+    });
     test('crosses a global camera route-free and checks the phone Scorecard', () => {
         const suite = JSON.parse(
             readFileSync(
@@ -390,19 +552,32 @@ describe('Android Auto E2E helpers', () => {
             },
             {
                 latitude: 30.266264,
+                longitude: -97.74845,
+                type: 'geoFix',
+                velocityKnots: 25,
+            },
+            {
+                latitude: 30.266264,
+                longitude: -97.7478,
+                type: 'geoFix',
+                velocityKnots: 25,
+            },
+            {
+                latitude: 30.266264,
                 longitude: -97.74735,
                 type: 'geoFix',
+                velocityKnots: 25,
             },
         ]);
         assert.ok(geoFixes[0].longitude < -97.747624);
-        assert.ok(geoFixes[1].longitude > -97.747624);
-        assert.equal(phoneAssertion.count, 1);
-        assert.ok(
-            freeDriveTest.steps.indexOf(scenarioStep) <
-                freeDriveTest.steps.indexOf(geoFixes[0]),
-        );
+        assert.ok(geoFixes[3].longitude > -97.747624);
+        assert.equal(phoneAssertion, undefined);
         assert.ok(
             freeDriveTest.steps.indexOf(geoFixes[0]) <
+                freeDriveTest.steps.indexOf(scenarioStep),
+        );
+        assert.ok(
+            freeDriveTest.steps.indexOf(scenarioStep) <
                 freeDriveTest.steps.indexOf(cameraInventoryStep),
         );
         assert.ok(
@@ -410,12 +585,16 @@ describe('Android Auto E2E helpers', () => {
                 freeDriveTest.steps.indexOf(geoFixes[1]),
         );
         assert.ok(
-            freeDriveTest.steps.indexOf(geoFixes[1]) <
-                freeDriveTest.steps.indexOf(phoneAssertion),
+            freeDriveTest.steps.indexOf(geoFixes[3]) <
+                freeDriveTest.steps.findIndex(
+                    ({ type }) => type === 'waitForScorecardExposure',
+                ),
         );
-        assert.equal(
-            freeDriveTest.steps.some(({ type }) => type === 'sleep'),
-            false,
+        assert.ok(
+            freeDriveTest.steps.some(
+                ({ type, milliseconds }) =>
+                    type === 'sleep' && milliseconds === 1500,
+            ),
         );
     });
 

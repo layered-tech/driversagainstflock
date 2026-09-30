@@ -1,6 +1,6 @@
 {
     "name": "driversagainstflock",
-    "version": "2.8.6",
+    "version": "2.9.0",
     "main": "index.js",
     "expo": {
         "autolinking": {
@@ -24,7 +24,10 @@
         "build:ios:production": "APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p ios --profile production --no-wait",
         "sentry:upload-sourcemaps": "sentry-expo-upload-sourcemaps dist",
         "android": "expo run:android",
-        "android:auto": "adb forward tcp:5277 tcp:5277 && \"$ANDROID_HOME/extras/google/auto/desktop-head-unit\" -c ./config/android-auto-dhu.ini",
+        "android:auto": "bash ./scripts/android-auto.sh 2.0 landscape",
+        "android:auto:2.1": "bash ./scripts/android-auto.sh 2.1 landscape",
+        "android:auto:portrait": "bash ./scripts/android-auto.sh 2.0 portrait",
+        "android:auto:portrait:2.1": "bash ./scripts/android-auto.sh 2.1 portrait",
         "android:no-bundler": "expo run:android --no-bundler",
         "ios": "expo run:ios",
         "ios:no-bundler": "expo run:ios --no-bundler --device",
@@ -33,7 +36,7 @@
         "e2e": "./scripts/maestro-test.sh .maestro",
         "e2e:android": "MAESTRO_PLATFORM=android ./scripts/maestro-test.sh .maestro",
         "e2e:android-auto": "./scripts/android-auto-e2e.sh",
-        "e2e:android-auto:portrait": "./scripts/android-auto-e2e.sh ./.android-auto/suite-portrait.json",
+        "e2e:android-auto:portrait": "ANDROID_AUTO_E2E_DHU_BINARY=\"${ANDROID_AUTO_DHU_ROOT:-$HOME/Library/Android/dhu}/2.1/desktop-head-unit\" ./scripts/android-auto-e2e.sh ./.android-auto/suite-portrait.json",
         "e2e:ios": "MAESTRO_PLATFORM=ios ./scripts/maestro-test.sh .maestro",
         "e2e-reset": "./scripts/reset-android-location.sh",
         "test": "npm run test:unit",
@@ -44,7 +47,7 @@
         "@fortawesome/free-solid-svg-icons": "^7.2.0",
         "@fortawesome/react-native-fontawesome": "^1.0.0",
         "@gorhom/bottom-sheet": "^5.2.10",
-        "@iternio/react-native-auto-play": "git+https://github.com/layered-tech/react-native-auto-play.git#7f291a0a52e40a2844e33515ed32b1a2dfb469e2",
+        "@iternio/react-native-auto-play": "0.7.0",
         "@react-native-async-storage/async-storage": "2.2.0",
         "@react-native-firebase/analytics": "^24.1.0",
         "@react-native-firebase/app": "^24.1.0",
@@ -72,12 +75,15 @@
         "react-dom": "19.2.3",
         "react-native": "0.86.2",
         "react-native-gesture-handler": "~2.32.0",
-        "react-native-nitro-modules": "^0.35.7",
+        "react-native-nitro-modules": "0.37.1",
         "react-native-reanimated": "4.5.1",
         "react-native-safe-area-context": "~5.7.0",
         "react-native-screens": "~4.26.0",
         "react-native-svg": "15.15.4",
         "react-native-worklets": "0.10.1"
+    },
+    "overrides": {
+        "expo-modules-jsi": "57.0.5"
     },
     "private": true,
     "devDependencies": {

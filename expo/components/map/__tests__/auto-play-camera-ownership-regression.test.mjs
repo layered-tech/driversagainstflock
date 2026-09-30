@@ -140,7 +140,7 @@ test('the driving location control recenters without disabling follow', () => {
     const sharedLocationAutoStartSource = sourceBetween(
         mapSurfaceSource,
         'useEffect(() => {\n        if (\n            locationUpdatesEnabled ||',
-        'useEffect(() => {\n        if (!isMapReady || !pendingCameraStopRef.current)',
+        'const pendingCameraStop = pendingCameraStopRef.current;',
     );
     const drivingSessionSource = sourceBetween(
         mapSurfaceSource,

@@ -34,6 +34,10 @@ import {
     PLACE_RESULT_CAMERA_ANIMATION_DURATION_MS,
     PLACE_RESULT_ZOOM_LEVEL,
 } from './constants';
+import {
+    addDebugCameraZoomListener,
+    applyDebugCameraZoomLevel,
+} from './debug-camera-zoom';
 import { getLocationWithDrivingMotionState } from './driving-location-state';
 import {
     DRIVING_MAP_VIEW_PERSPECTIVE,
@@ -89,6 +93,7 @@ export function useMapLocationController({
     mapBearingUpdatesEnabled = false,
     mapPreferencesAreLoaded,
     markersAreVisible = true,
+    navigationRoute = null,
     scheduleSharedMarkerLoad,
     screenIsFocused = true,
     setUserLocation,
@@ -107,6 +112,7 @@ export function useMapLocationController({
     const locationTrackingModeRef = useRef(LOCATION_TRACKING_NONE);
     const markerLoadsEnabledRef = useRef(false);
     const mapPreferencesHydrationHasAppliedRef = useRef(false);
+    const manualCameraGenerationRef = useRef(0);
     const markerShapeSourceRef = useRef(null);
     const mapViewRef = useRef(null);
     const latestCameraSettingsRef = useRef(initialCameraSettings);
@@ -280,6 +286,7 @@ export function useMapLocationController({
         ...getDrivingMapViewFollowConfiguration(drivingMapViewMode),
         followIsEnabled: drivingMapViewMode !== DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
         followSpeedZoomEnabled: true,
+        navigationRoute,
         followViewportAnchorY: drivingCameraFollowViewportAnchorY,
         isDrivingMode,
         locationTrackingMode,
@@ -288,8 +295,20 @@ export function useMapLocationController({
         setTrackingMode,
         userLocationRef,
     });
-    const pauseDrivingFollowUntilRecenter =
-        followLocationMode.pauseUntilRecenter;
+    useEffect(
+        () =>
+            addDebugCameraZoomListener((zoomLevel) =>
+                applyDebugCameraZoomLevel({
+                    cameraRef,
+                    currentZoomRef,
+                    followLocationMode,
+                    isMapReadyRef,
+                    locationTrackingModeRef,
+                    zoomLevel,
+                }),
+            ),
+        [followLocationMode],
+    );
     const scheduleMarkerLoad = useCallback(
         (bounds, delay, { manualPanIsStarting = false } = {}) => {
             if (
@@ -399,6 +418,8 @@ export function useMapLocationController({
         const wasDrivingMode = previousDrivingModeRef.current;
 
         previousDrivingModeRef.current = isDrivingMode;
+        if (wasDrivingMode !== isDrivingMode)
+            manualCameraGenerationRef.current += 1;
 
         if (wasDrivingMode === isDrivingMode) {
             return;
@@ -441,6 +462,40 @@ export function useMapLocationController({
         setTrackingMode,
     ]);
 
+    const applyManualCameraMove = useCallback(
+        (apply, shouldApply = () => true) => {
+            const generation = ++manualCameraGenerationRef.current;
+            const canApply = () =>
+                isMountedRef.current &&
+                generation === manualCameraGenerationRef.current &&
+                shouldApply();
+            clearDrivingModeExitCameraRetry();
+
+            if (!isDrivingMode) {
+                setTrackingMode(LOCATION_TRACKING_NONE);
+                return canApply() ? apply() : false;
+            }
+
+            followLocationMode.pauseUntilRecenter();
+            return Promise.resolve()
+                .then(() =>
+                    canApply()
+                        ? locationPuckCameraFollowReleaseRef.current?.()
+                        : false,
+                )
+                .catch(() => false)
+                .then((released) =>
+                    released === true && canApply() ? apply() : false,
+                );
+        },
+        [
+            clearDrivingModeExitCameraRetry,
+            followLocationMode,
+            isDrivingMode,
+            setTrackingMode,
+        ],
+    );
+
     const moveCameraToPlace = useCallback(
         (place) => {
             const centerCoordinate = getPlaceCoordinate(place);
@@ -457,43 +512,37 @@ export function useMapLocationController({
                 animationMode: 'flyTo',
             };
 
-            markerLoadsEnabledRef.current = true;
-            currentZoomRef.current = nextZoomLevel;
-
-            if (isDrivingMode) {
-                followLocationMode.pauseUntilRecenter();
-            } else {
-                setTrackingMode(LOCATION_TRACKING_NONE);
-            }
-
             const resolvedCameraStop = isDrivingMode
                 ? cameraStop
                 : getFlatCameraStop(cameraStop, cameraFocusPadding);
             const retryAfterDrivingModeExit =
                 !isDrivingMode && consumeDrivingModeExitCameraRetry();
 
-            if (isMapReadyRef.current && cameraRef.current) {
-                cameraRef.current.setCamera(resolvedCameraStop);
-                if (retryAfterDrivingModeExit) {
-                    scheduleDrivingModeExitCameraRetry(resolvedCameraStop);
+            return applyManualCameraMove(() => {
+                markerLoadsEnabledRef.current = true;
+                currentZoomRef.current = nextZoomLevel;
+                if (isMapReadyRef.current && cameraRef.current) {
+                    cameraRef.current.setCamera(resolvedCameraStop);
+                    if (retryAfterDrivingModeExit) {
+                        scheduleDrivingModeExitCameraRetry(resolvedCameraStop);
+                    }
+                    return true;
                 }
+
+                pendingCameraStopRef.current = {
+                    camera: resolvedCameraStop,
+                    enableMarkerLoads: true,
+                };
+
                 return true;
-            }
-
-            pendingCameraStopRef.current = {
-                camera: resolvedCameraStop,
-                enableMarkerLoads: true,
-            };
-
-            return true;
+            });
         },
         [
+            applyManualCameraMove,
             consumeDrivingModeExitCameraRetry,
             cameraFocusPadding,
-            followLocationMode,
             isDrivingMode,
             scheduleDrivingModeExitCameraRetry,
-            setTrackingMode,
         ],
     );
 
@@ -523,37 +572,27 @@ export function useMapLocationController({
                 animationMode: 'flyTo',
             };
 
-            markerLoadsEnabledRef.current = true;
-            currentZoomRef.current = nextZoomLevel;
-
-            if (isDrivingMode) {
-                followLocationMode.pauseUntilRecenter();
-            } else {
-                setTrackingMode(LOCATION_TRACKING_NONE);
-            }
-
             const resolvedCameraStop = isDrivingMode
                 ? cameraStop
                 : getFlatCameraStop(cameraStop, cameraFocusPadding);
 
-            if (isMapReadyRef.current && cameraRef.current) {
-                cameraRef.current.setCamera(resolvedCameraStop);
+            return applyManualCameraMove(() => {
+                markerLoadsEnabledRef.current = true;
+                currentZoomRef.current = nextZoomLevel;
+                if (isMapReadyRef.current && cameraRef.current) {
+                    cameraRef.current.setCamera(resolvedCameraStop);
+                    return true;
+                }
+
+                pendingCameraStopRef.current = {
+                    camera: resolvedCameraStop,
+                    enableMarkerLoads: true,
+                };
+
                 return true;
-            }
-
-            pendingCameraStopRef.current = {
-                camera: resolvedCameraStop,
-                enableMarkerLoads: true,
-            };
-
-            return true;
+            });
         },
-        [
-            cameraFocusPadding,
-            followLocationMode,
-            isDrivingMode,
-            setTrackingMode,
-        ],
+        [applyManualCameraMove, cameraFocusPadding, isDrivingMode],
     );
 
     const handleCameraChanged = useCallback(
@@ -618,6 +657,7 @@ export function useMapLocationController({
             }
 
             if (state?.gestures?.isGestureActive) {
+                manualCameraGenerationRef.current += 1;
                 markerLoadsEnabledRef.current = true;
             }
 
@@ -896,26 +936,22 @@ export function useMapLocationController({
                 return;
             }
 
+            const generation = ++manualCameraGenerationRef.current;
+
             try {
                 const expansionZoomLevel =
                     await markerShapeSourceRef.current?.getClusterExpansionZoom(
                         feature,
                     );
 
-                if (!Number.isFinite(expansionZoomLevel)) {
+                if (
+                    generation !== manualCameraGenerationRef.current ||
+                    !Number.isFinite(expansionZoomLevel)
+                ) {
                     return;
                 }
 
                 const nextZoomLevel = clampZoomLevel(expansionZoomLevel);
-
-                markerLoadsEnabledRef.current = true;
-                currentZoomRef.current = nextZoomLevel;
-
-                if (isDrivingMode) {
-                    followLocationMode.pauseUntilRecenter();
-                } else {
-                    setTrackingMode(LOCATION_TRACKING_NONE);
-                }
 
                 const cameraStop = {
                     centerCoordinate: coordinate,
@@ -924,17 +960,25 @@ export function useMapLocationController({
                     animationMode: 'easeTo',
                 };
 
-                cameraRef.current?.setCamera(
-                    isDrivingMode ? cameraStop : getFlatCameraStop(cameraStop),
-                );
+                return await applyManualCameraMove(() => {
+                    markerLoadsEnabledRef.current = true;
+                    currentZoomRef.current = nextZoomLevel;
+                    cameraRef.current?.setCamera(
+                        isDrivingMode
+                            ? cameraStop
+                            : getFlatCameraStop(cameraStop),
+                    );
+                    return Boolean(cameraRef.current);
+                });
             } catch {
                 // Clusters are still useful without tap-to-expand if Mapbox cannot resolve this feature.
             }
         },
-        [followLocationMode, isDrivingMode, setTrackingMode],
+        [applyManualCameraMove, isDrivingMode],
     );
 
     const handleLocationTrackingPress = useCallback(async () => {
+        manualCameraGenerationRef.current += 1;
         if (activeLocationMode.isActive(locationTrackingMode)) {
             if (activeLocationMode.orientNorthUp?.(userLocation)) {
                 return;
@@ -966,6 +1010,7 @@ export function useMapLocationController({
     ]);
 
     const handleDrivingRecenterPress = useCallback(async () => {
+        manualCameraGenerationRef.current += 1;
         if (!locationAccessGranted) {
             bottomSheetRef.current?.present();
             return;
@@ -978,6 +1023,11 @@ export function useMapLocationController({
             return;
         }
 
+        void Promise.resolve(
+            locationPuckCameraFollowReleaseRef.current?.({
+                resumeFollow: true,
+            }),
+        ).catch(() => {});
         followLocationMode.recenter(currentLocation);
     }, [
         findCurrentLocation,
@@ -1000,26 +1050,14 @@ export function useMapLocationController({
                 return false;
             }
 
-            if (isDrivingMode) {
-                followLocationMode.pauseUntilRecenter();
-            } else {
-                setTrackingMode(LOCATION_TRACKING_NONE);
-            }
-
-            markerLoadsEnabledRef.current = true;
-            currentZoomRef.current = cameraStop.zoomLevel;
-
-            cameraRef.current?.setCamera(cameraStop);
-
-            return Boolean(cameraRef.current);
+            return applyManualCameraMove(() => {
+                markerLoadsEnabledRef.current = true;
+                currentZoomRef.current = cameraStop.zoomLevel;
+                cameraRef.current?.setCamera(cameraStop);
+                return Boolean(cameraRef.current);
+            });
         },
-        [
-            followLocationMode,
-            isDrivingMode,
-            setTrackingMode,
-            windowHeight,
-            windowWidth,
-        ],
+        [applyManualCameraMove, windowHeight, windowWidth],
     );
 
     const fitDrivingCameraToBounds = useCallback(
@@ -1047,30 +1085,15 @@ export function useMapLocationController({
                 return false;
             }
 
-            pauseDrivingFollowUntilRecenter();
-            markerLoadsEnabledRef.current = true;
-            currentZoomRef.current = cameraStop.zoomLevel;
-
-            try {
-                await locationPuckCameraFollowReleaseRef.current?.();
-            } catch {
-                // The declarative follow state is also disabled for overview mode.
-            }
-
-            if (!shouldApply() || !isMountedRef.current || !cameraRef.current) {
-                return false;
-            }
-
-            cameraRef.current.setCamera(cameraStop);
-
-            return true;
+            return applyManualCameraMove(() => {
+                if (!cameraRef.current) return false;
+                markerLoadsEnabledRef.current = true;
+                currentZoomRef.current = cameraStop.zoomLevel;
+                cameraRef.current.setCamera(cameraStop);
+                return true;
+            }, shouldApply);
         },
-        [
-            isDrivingMode,
-            pauseDrivingFollowUntilRecenter,
-            windowHeight,
-            windowWidth,
-        ],
+        [isDrivingMode, applyManualCameraMove, windowHeight, windowWidth],
     );
 
     const isFollowing = locationTrackingMode === LOCATION_TRACKING_FOLLOW;

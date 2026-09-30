@@ -5,7 +5,7 @@ import { CarPlayMapSurface } from './carplay-map-surface';
 let voiceSearchController;
 
 function applyDashboardButtons(CarPlayDashboard, makeGlyphImage) {
-    return CarPlayDashboard.setButtons([
+    CarPlayDashboard.setButtons([
         {
             image: makeGlyphImage('location'),
             launchHeadUnitScene: true,
@@ -13,20 +13,25 @@ function applyDashboardButtons(CarPlayDashboard, makeGlyphImage) {
             subtitleVariants: ['Find a destination'],
             titleVariants: ['Open map'],
         },
-    ]).catch((error) => {
-        console.warn('[CarPlay] Could not update Dashboard buttons', error);
-    });
+    ]);
 }
 
 // CarPlay extension of the platform-agnostic auto-play core.
 export const autoPlayPlatform = {
     MapSurface: CarPlayMapSurface,
     createErrorTemplate({ autoPlayModule, alertMessage, searchAction }) {
-        const { MessageTemplate } = autoPlayModule;
+        const { HybridAutoPlay, MessageTemplate } = autoPlayModule;
+        const recoverSearchAction = {
+            ...searchAction,
+            onPress: async () => {
+                await HybridAutoPlay.popTemplate();
+                searchAction.onPress();
+            },
+        };
 
         return new MessageTemplate({
             actions: {
-                ios: [searchAction],
+                ios: [recoverSearchAction],
             },
             message: alertMessage,
         });
@@ -40,6 +45,7 @@ export const autoPlayPlatform = {
     },
     presentsVoiceSearchResultsInList: true,
     publishesSearchTemplateResultsToMap: true,
+    opensSavedDestinationsBeforeSearch: true,
     usesHeaderExitNavigationButton: true,
 
     cancelSearchVoiceInput() {

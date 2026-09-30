@@ -1,9 +1,16 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
+    AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+    createAutomotiveAlertHistory,
+    getAutomotiveAlertHistoryEntry,
+    recordAutomotiveAlertHistoryEntry,
+} from '../automotive-alert-policy.js';
+import {
     formatUpcomingAlertAge,
     formatUpcomingAlertDistance,
     getDrivingAlertsPresentation,
+    getNextPhoneDrivingAlert,
     getUpcomingAlertApproachProgress,
     getVisibleUpcomingAlerts,
 } from '../driving-alerts.js';
@@ -264,5 +271,72 @@ describe('driving alert presentation', () => {
         assert.deepEqual(replacementPresentation.dismissalAlertIds, [
             'police-next',
         ]);
+    });
+
+    test('phone cards share the two-minute gap and once-per-drive alert history', () => {
+        const police = {
+            coordinate: [0, 0.01],
+            distanceMeters: 300,
+            id: 'police-1',
+            type: 'police',
+        };
+        const alpr = {
+            coordinate: [0, 0.02],
+            distanceMeters: 500,
+            id: 'alpr-1',
+            type: 'alpr',
+        };
+        const alerts = [alpr, police];
+        const empty = createAutomotiveAlertHistory('drive-1');
+        assert.equal(
+            getNextPhoneDrivingAlert(alerts, new Set(), empty, null, 1000),
+            police,
+        );
+
+        const history = recordAutomotiveAlertHistoryEntry(
+            empty,
+            getAutomotiveAlertHistoryEntry(police),
+            1000,
+        );
+        assert.equal(
+            getNextPhoneDrivingAlert(
+                alerts,
+                new Set(),
+                history,
+                null,
+                1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS - 1,
+            ),
+            null,
+        );
+        assert.equal(
+            getNextPhoneDrivingAlert(
+                alerts,
+                new Set(),
+                history,
+                null,
+                1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+            ),
+            alpr,
+        );
+        assert.equal(
+            getNextPhoneDrivingAlert(
+                alerts,
+                new Set(),
+                history,
+                'police:police-1',
+                1001,
+            ),
+            police,
+        );
+        assert.equal(
+            getNextPhoneDrivingAlert(
+                [police],
+                new Set(),
+                history,
+                null,
+                1000 + 2 * AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+            ),
+            null,
+        );
     });
 });

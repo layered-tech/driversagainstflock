@@ -153,11 +153,8 @@ describe('3D location puck lifecycle', () => {
         );
         assert.match(
             mapCanvasSource,
-            /onCameraChanged=\{handleCameraChanged\}/,
+            /onCameraChanged=\{handleMapCameraChanged\}/,
         );
-        assert.doesNotMatch(
-            mapCanvasSource,
-            /setNavigationPuck3DMapScale|handleMapCameraChanged/,
-        );
+        assert.doesNotMatch(mapCanvasSource, /setNavigationPuck3DMapScale/);
     });
 });

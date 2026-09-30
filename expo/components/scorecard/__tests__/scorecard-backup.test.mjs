@@ -48,7 +48,9 @@ function makeScorecardState() {
 }
 
 describe('scorecard backups', () => {
-    test('round trips the persisted scorecard whitelist in a versioned envelope', () => {
+    test('round trips the persisted scorecard whitelist in a versioned envelope', (context) => {
+        context.mock.timers.enable({ apis: ['Date'], now: EXPORTED_AT });
+
         const serializedBackup = createScorecardBackup(
             makeScorecardState(),
             EXPORTED_AT,

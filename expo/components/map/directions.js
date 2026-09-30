@@ -13,14 +13,13 @@ import {
 } from './place-formatters';
 import { shouldHoldRoundaboutManeuver } from './roundabout-guidance';
 import {
-    createRouteProjectionPath,
     getRemainingRouteWaypoints,
+    getRouteProjectionPath,
     projectCoordinateOntoRoute,
 } from './route-projection';
 
 const METERS_PER_MILE = 1609.344;
 const FEET_PER_METER = 3.28084;
-const EARTH_RADIUS_METERS = 6371008.8;
 const routeProgressDataCache = new WeakMap();
 export const DIRECTIONS_FIELD_START = 'start';
 export const DIRECTIONS_FIELD_STOP = 'stop';
@@ -921,57 +920,6 @@ function getStepWaypointIndex(step, fallbackIndex = 0) {
     return waypoint === null ? null : Math.max(0, Math.round(waypoint));
 }
 
-function getCoordinateDistanceMeters(firstCoordinate, secondCoordinate) {
-    if (!Array.isArray(firstCoordinate) || !Array.isArray(secondCoordinate)) {
-        return 0;
-    }
-
-    const firstLongitude = getStoredNumber(firstCoordinate[0]);
-    const firstLatitude = getStoredNumber(firstCoordinate[1]);
-    const secondLongitude = getStoredNumber(secondCoordinate[0]);
-    const secondLatitude = getStoredNumber(secondCoordinate[1]);
-
-    if (
-        firstLongitude === null ||
-        firstLatitude === null ||
-        secondLongitude === null ||
-        secondLatitude === null
-    ) {
-        return 0;
-    }
-
-    const firstLatitudeRadians = (firstLatitude * Math.PI) / 180;
-    const secondLatitudeRadians = (secondLatitude * Math.PI) / 180;
-    const latitudeDelta = ((secondLatitude - firstLatitude) * Math.PI) / 180;
-    const longitudeDelta = ((secondLongitude - firstLongitude) * Math.PI) / 180;
-    const haversine =
-        Math.sin(latitudeDelta / 2) ** 2 +
-        Math.cos(firstLatitudeRadians) *
-            Math.cos(secondLatitudeRadians) *
-            Math.sin(longitudeDelta / 2) ** 2;
-
-    return (
-        2 *
-        EARTH_RADIUS_METERS *
-        Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine))
-    );
-}
-
-function getCumulativeRouteDistances(coordinates) {
-    const distances = [0];
-
-    for (let index = 1; index < coordinates.length; index += 1) {
-        distances[index] =
-            distances[index - 1] +
-            getCoordinateDistanceMeters(
-                coordinates[index - 1],
-                coordinates[index],
-            );
-    }
-
-    return distances;
-}
-
 function getClosestRoutePosition(
     projectionPath,
     userCoordinate,
@@ -1059,8 +1007,8 @@ function getRouteProgressData(route) {
         return cachedData;
     }
 
-    const cumulativeDistances = getCumulativeRouteDistances(coordinates);
-    const projectionPath = createRouteProjectionPath(coordinates);
+    const projectionPath = getRouteProjectionPath(coordinates);
+    const { cumulativeDistances } = projectionPath;
     const progressData = {
         coordinates,
         cumulativeDistances,

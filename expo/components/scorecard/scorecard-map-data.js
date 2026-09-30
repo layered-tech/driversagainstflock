@@ -38,8 +38,10 @@ export function getScorecardMapExposures(exposures) {
 }
 
 export function makeScorecardExposurePointCollection(exposures) {
-    const mappedExposures = getScorecardMapExposures(exposures);
+    return makeExposurePointCollection(getScorecardMapExposures(exposures));
+}
 
+function makeExposurePointCollection(mappedExposures) {
     return {
         features: mappedExposures.map((exposure, index) => ({
             geometry: {
@@ -58,8 +60,14 @@ export function makeScorecardExposurePointCollection(exposures) {
 }
 
 export function makeScorecardExposureTravelLineCollection(exposures) {
+    return makeExposureTravelLineCollection(
+        getScorecardMapExposures(exposures),
+    );
+}
+
+function makeExposureTravelLineCollection(mappedExposures) {
     return {
-        features: getScorecardMapExposures(exposures).flatMap((exposure) => {
+        features: mappedExposures.flatMap((exposure) => {
             const travelHeading = exposure.travelHeading;
 
             if (!Number.isFinite(travelHeading)) {
@@ -95,8 +103,12 @@ export function makeScorecardExposureTravelLineCollection(exposures) {
 }
 
 export function makeScorecardExposureConeCollection(exposures) {
+    return makeExposureConeCollection(getScorecardMapExposures(exposures));
+}
+
+function makeExposureConeCollection(mappedExposures) {
     return {
-        features: getScorecardMapExposures(exposures).flatMap((exposure) =>
+        features: mappedExposures.flatMap((exposure) =>
             (exposure.cameraDirections ?? []).map((direction, index) => ({
                 geometry: {
                     coordinates: [
@@ -131,10 +143,15 @@ function getLineCollectionCoordinates(lineCollection) {
 }
 
 export function getScorecardMapGeometryBounds(exposures, lineCollection) {
+    return getMapGeometryBounds(
+        getScorecardMapExposures(exposures),
+        lineCollection,
+    );
+}
+
+function getMapGeometryBounds(mappedExposures, lineCollection) {
     const coordinates = [
-        ...getScorecardMapExposures(exposures).map(
-            (exposure) => exposure.cameraCoordinate,
-        ),
+        ...mappedExposures.map((exposure) => exposure.cameraCoordinate),
         ...getLineCollectionCoordinates(lineCollection),
     ];
 
@@ -153,4 +170,23 @@ export function getScorecardMapGeometryBounds(exposures, lineCollection) {
 
 export function getScorecardMapBounds(exposures) {
     return getScorecardMapGeometryBounds(exposures, null);
+}
+
+export function getScorecardExposureMapData(
+    exposures,
+    { lineCollection = null, showCones = false } = {},
+) {
+    const mappedExposures = getScorecardMapExposures(exposures);
+    const resolvedLineCollection =
+        lineCollection ?? makeExposureTravelLineCollection(mappedExposures);
+
+    return {
+        bounds: getMapGeometryBounds(mappedExposures, resolvedLineCollection),
+        coneCollection: showCones
+            ? makeExposureConeCollection(mappedExposures)
+            : { features: [], type: 'FeatureCollection' },
+        lineCollection: resolvedLineCollection,
+        mappedExposures,
+        pointCollection: makeExposurePointCollection(mappedExposures),
+    };
 }

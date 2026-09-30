@@ -1,0 +1,856 @@
+import { createInertiaApp } from '@inertiajs/vue3';
+import { renderToString } from '@vue/server-renderer';
+import assert from 'node:assert/strict';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import process from 'node:process';
+import test from 'node:test';
+import { fileURLToPath, pathToFileURL, URL, URLSearchParams } from 'node:url';
+import { createSSRApp, h } from 'vue';
+
+const root = fileURLToPath(new URL('../../../', import.meta.url));
+const assets = resolve(root, 'bootstrap/ssr/assets');
+const files = await readdir(assets);
+const components = {
+    'Auth/Login': await import(
+        pathToFileURL(
+            resolve(
+                assets,
+                files.find((file) => /^Login-.*\.js$/.test(file)),
+            ),
+        )
+    ),
+};
+for (const name of [
+    'Node',
+    'Rules',
+    'RuleForm',
+    'Nodes',
+    'Flagged',
+    'Changesets',
+    'Editors',
+    'Areas',
+    'Audit',
+    'Profile',
+]) {
+    components[`Moderation/${name}`] = await import(
+        pathToFileURL(
+            resolve(
+                assets,
+                files.find(
+                    (file) =>
+                        file.startsWith(`${name}-`) && file.endsWith('.js'),
+                ),
+            ),
+        )
+    );
+}
+const base = {
+    auth: { user: { id: 1, name: 'Maya Ortiz', osm_uid: 123 } },
+    errors: {},
+    view: 'nodes',
+    filters: {},
+    records: { data: [], total: 0, last_page: 1, current_page: 1 },
+    profile: null,
+    weeks: [],
+    areas: [],
+    counts: { nodes: 1, areas: 0 },
+    source: { state: 'ready', observed_at: '2026-09-01T12:00:00Z' },
+    osmUrl: 'https://www.openstreetmap.org',
+};
+function route(name, args = {}) {
+    if (name === 'moderation.nodes.show' && typeof args === 'object')
+        return `/moderation/nodes/show/${args.node}?from=${args.from}`;
+    if (name === 'logout') return '/logout';
+    if (name === 'login.osm') return '/login/openstreetmap';
+    if (name === 'moderation.editors.show') {
+        const { uid, ...query } = args;
+        const search = new URLSearchParams(query).toString();
+        return `/moderation/editors/${uid}${search ? `?${search}` : ''}`;
+    }
+    if (
+        /^moderation\.(nodes|flagged|changesets|editors|areas|audit)\.index$/.test(
+            name,
+        )
+    ) {
+        const search = new URLSearchParams(args).toString();
+        return `/moderation/${name.split('.')[1]}${search ? `?${search}` : ''}`;
+    }
+    return `/moderation/${name.split('.').slice(1).join('/')}/${typeof args === 'number' ? args : ''}`;
+}
+async function render(component, props) {
+    return createInertiaApp({
+        page: { component, props, url: '/moderation', version: 'test' },
+        resolve: (name) => components[name],
+        render: renderToString,
+        setup({ App, props, plugin }) {
+            const app = createSSRApp({ render: () => h(App, props) });
+            app.use(plugin);
+            app.provide('route', route);
+            app.config.globalProperties.route = route;
+            return app;
+        },
+    });
+}
+async function renderListing({ view = 'nodes', ...props }) {
+    const name = view[0].toUpperCase() + view.slice(1);
+    return render(`Moderation/${name}`, props);
+}
+async function preview(name, output, theme = 'light') {
+    if (!process.env.MODERATION_PREVIEW_DIR) return;
+    await mkdir(process.env.MODERATION_PREVIEW_DIR, { recursive: true });
+    const manifest = JSON.parse(
+        await readFile(resolve(root, 'public/build/manifest.json'), 'utf8'),
+    );
+    const css = [
+        ...new Set(Object.values(manifest).flatMap((entry) => entry.css || [])),
+    ];
+    const body = output.body.replaceAll(
+        'src="/build/',
+        `src="${pathToFileURL(resolve(root, 'public/build')).href}/`,
+    );
+    await writeFile(
+        resolve(process.env.MODERATION_PREVIEW_DIR, `${name}-${theme}.html`),
+        `<!doctype html><html data-theme="${theme}" class="${theme === 'dark' ? 'dark' : ''}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${output.head.join('')}${css.map((file) => `<link rel="stylesheet" href="${pathToFileURL(resolve(root, 'public/build', file)).href}">`).join('')}</head><body>${body}</body></html>`,
+    );
+}
+test('compiled login preserves the supplied design copy and all failure states', async () => {
+    for (const [state, expected] of [
+        ['idle', 'Continue with OpenStreetMap'],
+        ['denied', 'Sign-in cancelled.'],
+        ['error', 'OpenStreetMap didn&#39;t respond.'],
+        ['unapproved', 'This account isn&#39;t approved.'],
+    ]) {
+        const output = await render('Auth/Login', {
+            ...base,
+            auth: { user: null },
+            loginState: state,
+        });
+        assert.ok(output.body.includes(expected));
+        assert.ok(output.body.includes('max-w-[400px]'));
+        assert.ok(!output.body.includes('type="password"'));
+        await preview(`login-${state}`, output);
+        if (state === 'idle') await preview('login-idle', output, 'dark');
+    }
+});
+test('compiled moderation renders source-backed rows and escapes upstream text', async () => {
+    const nodes = Array.from({ length: 8 }, (_, index) => ({
+        id: 12034559102 + index,
+        osm_uid: 123,
+        osm_user: 'mapper_atx',
+        osm_version: 3,
+        osm_changeset_id: 164178204,
+        changed_at: '2026-09-01T12:00:00Z',
+        direction: index % 2 ? 270 : null,
+        operator: index % 2 ? 'Flock Safety' : null,
+        tags: {},
+        latitude: 30.27,
+        longitude: -97.74,
+    }));
+    const output = await renderListing({
+        ...base,
+        records: { ...base.records, data: nodes, total: nodes.length },
+    });
+    assert.ok(!output.body.includes('Dismiss'));
+    assert.ok(!output.body.includes('Severity'));
+    assert.ok(!output.body.includes('Missing direction'));
+    assert.ok(!output.body.includes('Moved &gt;50'));
+    assert.ok(output.body.includes('Changeset'));
+    assert.ok(output.body.includes('aria-label="OSM node ID"'));
+    assert.ok(output.body.includes('placeholder="#  OSM node ID"'));
+    assert.ok(output.body.includes('12034559102'));
+    assert.ok(
+        output.body.includes('/moderation/nodes/show/12034559102'),
+        'node ID links to the dedicated profile',
+    );
+    assert.ok(output.body.includes('270°'));
+    await preview('nodes', output);
+    await preview('nodes', output, 'dark');
+    const changes = await renderListing({
+        ...base,
+        view: 'changesets',
+        records: {
+            ...base.records,
+            total: 1,
+            data: [
+                {
+                    id: 164178204,
+                    osm_uid: 123,
+                    osm_user: 'mapper_atx',
+                    comment: '<script>alert(1)</script>',
+                    changed_at: '2026-09-01T12:00:00Z',
+                    added: 2,
+                    modified: 1,
+                    deleted: 0,
+                    total: 3,
+                    tags: {},
+                    bounds: [-98, 30, -97, 31],
+                    status: 'Needs review',
+                },
+            ],
+        },
+    });
+    assert.ok(
+        changes.body.includes(
+            'href="/moderation/changesets?changeset=164178204"',
+        ),
+    );
+    assert.ok(changes.body.includes('&lt;script&gt;'));
+    assert.ok(!changes.body.includes('<script>alert(1)</script>'));
+    assert.ok(!changes.body.includes('aria-label="OSM node ID"'));
+    const changesetFilters = changes.body.match(
+        /<form\b[^>]*>(.*?)<\/form>/s,
+    )?.[1];
+    assert.ok(changesetFilters);
+    assert.doesNotMatch(
+        changesetFilters,
+        />Status<|Needs review|Reviewed|Flagged/,
+    );
+    assert.match(changesetFilters, />Changes</);
+    const changesetTableHead = changes.body.match(
+        /<table[^>]*mod-table-changesets[^>]*>.*?<thead>(.*?)<\/thead>/s,
+    )?.[1];
+    assert.ok(changesetTableHead);
+    assert.doesNotMatch(changesetTableHead, />Status</);
+    await preview('changesets', changes);
+});
+
+test('compiled ALPR node profile renders history, tags, editors, and honest flag state', async () => {
+    const versions = [
+        {
+            id: 1,
+            node_id: 200,
+            osm_version: 1,
+            visible: true,
+            latitude: 30.5,
+            longitude: -97.5,
+            tags: { 'surveillance:type': 'ALPR' },
+            osm_uid: 123,
+            osm_user: 'mapper_atx',
+            osm_updated_at: '2026-09-01T12:00:00Z',
+            changeset_id: 100,
+            comment: 'Added surveyed camera',
+        },
+    ];
+    const output = await render('Moderation/Node', {
+        ...base,
+        node: {
+            id: 200,
+            osm_version: 1,
+            osm_changeset_id: 100,
+            osm_uid: 123,
+            osm_user: 'mapper_atx',
+            visible: true,
+            latitude: 30.5,
+            longitude: -97.5,
+            direction: null,
+            operator: null,
+            changed_at: '2026-09-01T12:00:00Z',
+        },
+        versions,
+        flags: [],
+    });
+
+    assert.ok(output.body.includes('Node'));
+    assert.ok(output.body.includes('200'));
+    assert.match(
+        output.body.replace(/<!--.*?-->/gs, ''),
+        /<a\b[^>]*href="\/moderation\/nodes\/show\/200"[^>]*>\s*200\s*<\/a>/,
+    );
+    assert.ok(output.body.includes('No open flags'));
+    assert.ok(output.body.includes('History'));
+    assert.ok(output.body.includes('Tags'));
+    assert.ok(output.body.includes('Who touched it'));
+    assert.ok(
+        output.body.includes('href="/moderation/changesets?changeset=100"'),
+    );
+    assert.ok(!output.body.includes('openstreetmap.org/changeset/'));
+    assert.ok(output.body.includes('Added surveyed camera'));
+    assert.ok(output.body.includes('(missing)'));
+});
+test('activity node and changeset IDs link to their moderation destinations', async () => {
+    const output = await renderListing({
+        ...base,
+        view: 'audit',
+        records: {
+            ...base.records,
+            data: ['node', 'changeset', 'rule', 'flag'].map((type, index) => ({
+                id: index + 1,
+                actor: 'Moderator',
+                action: `${type}.updated`,
+                subject_type: type,
+                subject_id: 200 + index,
+                created_at: '2026-09-01T12:00:00Z',
+                details: { from: 'Needs review', to: 'Reviewed' },
+            })),
+        },
+    });
+    assert.match(
+        output.body.replace(/<!--.*?-->/gs, ''),
+        /<a\b[^>]*href="\/moderation\/nodes\/show\/200"[^>]*>\s*node #200\s*<\/a>/,
+    );
+    assert.match(
+        output.body.replace(/<!--.*?-->/gs, ''),
+        /<a\b[^>]*href="\/moderation\/changesets\?changeset=201"[^>]*>\s*changeset #201\s*<\/a>/,
+    );
+    for (const id of [201, 202, 203]) {
+        assert.ok(!output.body.includes(`/moderation/nodes/show/${id}`));
+    }
+});
+test('unavailable source shows recovery state without claiming an empty review queue', async () => {
+    const output = await renderListing({
+        ...base,
+        source: { state: 'unavailable' },
+    });
+    assert.ok(output.body.includes('Waiting for OpenStreetMap data'));
+    assert.ok(output.body.includes('Try again'));
+    await preview('unavailable', output);
+});
+
+test('pagination renders next and previous links without aggregate totals', async () => {
+    const output = await renderListing({
+        ...base,
+        records: {
+            data: [],
+            current_page: 2,
+            from: 201,
+            to: 400,
+            prev_page_url: '/moderation/nodes?page=1',
+            next_page_url: '/moderation/nodes?page=3',
+        },
+    });
+    assert.ok(output.body.includes('Showing 201–400'));
+    assert.ok(output.body.includes('Page 2'));
+    assert.ok(output.body.includes('/moderation/nodes?page=1'));
+    assert.ok(output.body.includes('/moderation/nodes?page=3'));
+    assert.ok(!output.body.includes('undefined'));
+});
+
+test('editor profile follows the design timeline and shows missing outcomes as unavailable', async () => {
+    const profile = {
+        osm_uid: 123,
+        name: 'mapper_atx',
+        first_active: '2026-06-01T12:00:00Z',
+        last_active: '2026-09-01T12:00:00Z',
+        tracked_changesets: 3,
+        added: 18,
+        modified: 4,
+        deleted: 2,
+        flagged_changesets: 1,
+        flags_count: null,
+        status: null,
+    };
+    const records = {
+        data: Array.from({ length: 3 }, (_, index) => ({
+            id: 164178204 + index,
+            added: 6,
+            modified: index,
+            deleted: index,
+            comment: index
+                ? 'Survey: camera locations along the Austin corridor'
+                : '<script>alert(1)</script>',
+            changed_at: '2026-09-01T12:00:00Z',
+            status: index ? 'Needs review' : 'Flagged',
+            bounds: [-98, 30, -97, 31],
+        })),
+        from: 1,
+        to: 3,
+        next_page_url: '/moderation/editors/123?page=2',
+    };
+    const output = await renderListing({
+        ...base,
+        view: 'profile',
+        filters: { uid: 123 },
+        profile,
+        records,
+        weeks: Array.from({ length: 12 }, (_, index) => ({
+            week: new Date(Date.UTC(2026, 5, 22 + index * 7)).toISOString(),
+            total: index % 4,
+            reverted: index % 3 === 0 ? null : index % 4 > 1 ? 1 : 0,
+        })),
+    });
+    for (const label of [
+        'Timeline',
+        'Edit survival',
+        'Activity',
+        'Where they map',
+        'Median time to revert',
+        'Most reverted by',
+        'Last revert',
+        'Affected nodes',
+        'Reverts performed',
+        'Edited by others',
+        'Unavailable',
+        'Unknown',
+    ]) {
+        assert.ok(output.body.includes(label), label);
+    }
+    assert.ok(!output.body.includes('<table'));
+    assert.ok(!output.body.includes('100%'));
+    assert.ok(!output.body.includes('Flagged nodes'));
+    for (const record of records.data) {
+        assert.ok(
+            output.body.includes(
+                `href="/moderation/changesets?changeset=${record.id}"`,
+            ),
+        );
+        assert.ok(
+            output.body.includes(`Details for changeset ${record.id}`),
+            `timeline disclosure for changeset ${record.id}`,
+        );
+    }
+    assert.ok(!output.body.includes('Watch means'));
+    assert.ok(!output.body.includes('<script>alert(1)</script>'));
+    assert.ok(output.body.includes('&lt;script&gt;'));
+    assert.ok(output.body.includes('outcome=reverted'));
+    assert.ok(output.body.includes('Timeline pagination'));
+    assert.ok(output.body.includes('/moderation/editors/123?statuses=Flagged'));
+    assert.equal((output.body.match(/role="tooltip"/g) || []).length, 12);
+    assert.equal((output.body.match(/tabindex="0"/g) || []).length, 12);
+    for (const count of [0, 1, 2, 3]) {
+        assert.ok(
+            output.body.includes(
+                `${count} ${count === 1 ? 'changeset' : 'changesets'}`,
+            ),
+        );
+    }
+    assert.ok(output.body.includes('Reverted: unknown'));
+    assert.ok(output.body.includes('1 reverted'));
+    await preview('profile', output);
+    await preview('profile', output, 'dark');
+    const editors = await renderListing({
+        ...base,
+        view: 'editors',
+        records: { data: [profile] },
+    });
+    for (const label of ['Survival', 'Areas', 'Last active', 'Profile'])
+        assert.ok(editors.body.includes(label));
+    assert.ok(!editors.body.includes('Watch means'));
+    const header = editors.body.match(/<thead>(.*?)<\/thead>/s)[1];
+    assert.doesNotMatch(header, />Status</);
+    assert.equal((header.match(/<th\b/g) || []).length, 7);
+    const body = editors.body.match(/<tbody>(.*?)<\/tbody>/s)[1];
+    assert.equal((body.match(/<td\b/g) || []).length, 7);
+    assert.ok(!editors.body.includes('Editor status is not configured'));
+    await preview('editors', editors);
+});
+
+test('areas retain their design and distinguish missing rule counts from zero', async () => {
+    const output = await renderListing({
+        ...base,
+        view: 'areas',
+        records: {
+            data: [
+                {
+                    id: 1,
+                    name: 'Austin metro',
+                    kind: 'bbox',
+                    definition: '30, -98 → 31, -97',
+                    watchers: [],
+                    open_flags: null,
+                    changesets_7d: 12,
+                    flagged_changesets: 0,
+                    created_at: '2026-09-01T12:00:00Z',
+                },
+            ],
+        },
+    });
+    assert.ok(output.body.includes('Austin metro'));
+    assert.ok(output.body.includes('Subscribe'));
+    assert.ok(output.body.includes('12'));
+    assert.ok(output.body.includes('—'));
+    await preview('areas', output);
+});
+
+test('Rules screens render typed settings and stored outcomes populate profile panels', async () => {
+    const rules = await render('Moderation/Rules', {
+        ...base,
+        rules: [],
+        processes: [],
+    });
+    assert.ok(rules.body.includes('Create rule'));
+    const form = await render('Moderation/RuleForm', {
+        ...base,
+        rule: null,
+        versions: [],
+    });
+    assert.ok(form.body.includes('Required tags'));
+    assert.ok(form.body.includes('Preview rule'));
+    const editor = await renderListing({
+        ...base,
+        view: 'profile',
+        profile: {
+            osm_uid: 123,
+            name: 'mapper',
+            tracked_changesets: 2,
+            added: 2,
+            modified: 0,
+            deleted: 0,
+            survival: {
+                intact: 1,
+                edited: 0,
+                reverted: 1,
+                unknown: 0,
+                percent: 50,
+            },
+            revert_stats: { affected_nodes: 1, performed: 0 },
+            mapping_areas: [{ id: 1, name: 'Austin', count: 2 }],
+            calculated_at: '2026-09-07T00:00:00Z',
+        },
+    });
+    assert.ok(editor.body.includes('50%'));
+    assert.ok(editor.body.includes('Austin'));
+    assert.ok(editor.body.includes('Calculated'));
+});
+
+test('summary refresh does not claim an OSM outage or empty editor results', async () => {
+    const output = await renderListing({
+        ...base,
+        view: 'editors',
+        source: { state: 'refreshing' },
+    });
+    assert.match(output.body, /Summaries are still being calculated/);
+    assert.match(output.body, /Waiting for summaries/);
+    assert.doesNotMatch(
+        output.body,
+        /OpenStreetMap data is unavailable|No editors match/,
+    );
+});
+
+test('summary refresh shows persisted rows and queue progress', async () => {
+    const output = await renderListing({
+        ...base,
+        view: 'editors',
+        records: {
+            ...base.records,
+            data: [
+                {
+                    id: 123,
+                    osm_uid: 123,
+                    name: 'Cached mapper',
+                    tracked_changesets: 5,
+                    added: 2,
+                    modified: 1,
+                    deleted: 0,
+                    flags_count: null,
+                    survival: { percent: null, reverted: null },
+                    area_count: 0,
+                    last_active: '2026-09-01T12:00:00Z',
+                },
+            ],
+        },
+        source: {
+            state: 'refreshing',
+            calculated_at: '2026-09-10T07:16:45Z',
+            summary_progress: { completed: 3, total: 10, failed: 0 },
+        },
+    });
+    assert.match(output.body, /Cached mapper/);
+    assert.match(output.body, /Refreshing 3\/10 summaries/);
+    assert.doesNotMatch(output.body, /Last calculated|CDT/);
+});
+
+test('summary refresh failures keep stale rows visible with an explicit status', async () => {
+    const output = await renderListing({
+        ...base,
+        view: 'editors',
+        records: {
+            ...base.records,
+            data: [
+                {
+                    id: 123,
+                    osm_uid: 123,
+                    name: 'Stale mapper',
+                    survival: {},
+                },
+            ],
+        },
+        source: {
+            state: 'refreshing',
+            summary_progress: { completed: 9, total: 10, failed: 1 },
+        },
+    });
+    assert.match(output.body, /1 summary job failed/);
+    assert.match(output.body, /Stale calculated rows remain visible/);
+    assert.match(output.body, /Stale mapper/);
+});
+
+test('flagged table summarizes rule evidence while actions live in the expanded row', async () => {
+    const row = {
+        id: 200,
+        osm_uid: 123,
+        osm_user: 'mapper',
+        osm_version: 2,
+        osm_changeset_id: 100,
+        changed_at: '2026-09-01T12:00:00Z',
+        direction: 90,
+        operator: 'City',
+        tags: {},
+        flags: [
+            {
+                id: 1,
+                rule_id: 5,
+                evidence_hash: 'abc',
+                status: 'open',
+                stale: true,
+                evidence: { missing_tags: ['mount'] },
+                rule: { name: 'Require mount', severity: 'High' },
+            },
+        ],
+    };
+    for (const view of ['nodes', 'flagged']) {
+        const output = await renderListing({
+            ...base,
+            view,
+            filters: { rules: ['5'], severities: ['High'], area: '1' },
+            areas: [{ id: 1, name: 'Austin' }],
+            ruleOptions: [{ id: 5, name: 'Require mount' }],
+            records: { ...base.records, data: [row] },
+        });
+        const header = output.body.match(/<thead>(.*?)<\/thead>/s)[1];
+        assert.equal(header.includes('What happened'), view === 'flagged');
+        assert.ok(!header.includes('Severity'));
+        assert.ok(output.body.includes('href="/moderation/flagged"'));
+        assert.ok(output.body.includes('aria-label="Remove location Austin"'));
+        assert.ok(output.body.includes('placeholder="Search locations…"'));
+        assert.ok(output.body.includes('aria-label="OSM node ID"'));
+        assert.ok(
+            output.body.indexOf('aria-label="Direction from"') <
+                output.body.indexOf('aria-label="Watched area"'),
+        );
+        assert.ok(
+            output.body.indexOf('aria-label="Operator"') <
+                output.body.indexOf('aria-label="Changeset ID"'),
+        );
+        if (view === 'flagged') {
+            assert.ok(
+                output.body.includes('/moderation/nodes/show/200?from=flagged'),
+            );
+            assert.match(output.body, /Require mount/);
+            assert.doesNotMatch(
+                output.body,
+                /Missing tags: mount|1 rule match/,
+            );
+            assert.ok(output.body.includes('1 flagged nodes on this page'));
+            assert.ok(
+                !output.body.includes(
+                    'aria-label="Dismiss Require mount for node 200"',
+                ),
+            );
+        }
+        await preview(view + '-flags', output);
+        await preview(view + '-flags', output, 'dark');
+    }
+});
+
+test('empty tables distinguish all ALPR nodes from the flagged queue', async () => {
+    for (const [view, label] of [
+        ['nodes', 'No ALPR nodes match'],
+        ['flagged', 'No flagged nodes match'],
+    ]) {
+        const output = await renderListing({ ...base, view });
+        assert.ok(output.body.includes(label));
+        if (view === 'flagged')
+            assert.ok(output.body.includes('No active rules'));
+    }
+});
+
+test('each moderation page renders canonical navigation without view selectors', async () => {
+    for (const view of [
+        'nodes',
+        'flagged',
+        'changesets',
+        'editors',
+        'areas',
+        'audit',
+        'profile',
+    ]) {
+        const output = await renderListing({
+            ...base,
+            view,
+            filters: view === 'profile' ? { uid: 123 } : {},
+        });
+        for (const target of [
+            'nodes',
+            'flagged',
+            'changesets',
+            'editors',
+            'areas',
+            'audit',
+        ]) {
+            assert.ok(
+                output.body.includes(`href="/moderation/${target}"`),
+                `${view} links to ${target}`,
+            );
+        }
+        assert.doesNotMatch(output.body, /[?&](?:amp;)?view=/);
+        const active = view === 'profile' ? 'editors' : view;
+        assert.match(
+            output.body,
+            new RegExp(`aria-current="page"[^>]*href="/moderation/${active}"`),
+        );
+    }
+});
+
+test('driver report queues render source, review filters and evidence without a rule link or severity', async () => {
+    const output = await renderListing({
+        ...base,
+        view: 'flagged',
+        filters: {
+            flag_source: 'alpr_presence',
+            report_state: 'dismissed',
+            area_scope: 'my',
+        },
+        records: {
+            ...base.records,
+            data: [
+                {
+                    id: 200,
+                    osm_version: 2,
+                    latitude: 30.5,
+                    longitude: -97.5,
+                    reported_at: '2026-09-18T12:00:00Z',
+                    changed_at: '2020-01-01T00:00:00Z',
+                    flags: [
+                        {
+                            id: 1,
+                            source: 'alpr_presence',
+                            status: 'dismissed',
+                            rule: null,
+                            evidence_hash: 'report-hash',
+                            evidence: {
+                                report_count: 27,
+                                first_report_at: '2026-09-17T00:00:00Z',
+                                latest_report_at: '2026-09-18T12:00:00Z',
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+    });
+    assert.match(output.body, /Last reported/);
+    assert.doesNotMatch(output.body, /Unverified user report/);
+    assert.match(output.body, /not-there.*?27/s);
+    assert.match(output.body, /aria-label="Report review state"/);
+    assert.match(output.body, /My Areas/);
+    assert.doesNotMatch(
+        output.body,
+        /Dismiss Driver reported missing for node/,
+    );
+    assert.doesNotMatch(output.body, /rules\/edit\/(?:null|undefined)/);
+});
+
+test('node report history survives unavailable source data and includes independent pagination', async () => {
+    const output = await render('Moderation/Node', {
+        ...base,
+        node: { id: 200, current_unavailable: true },
+        versions: [],
+        flags: [],
+        source: { state: 'unavailable' },
+        from: 'flagged',
+        listingFilters: { flag_source: 'alpr_presence', area_scope: 'my' },
+        reports: {
+            data: [
+                {
+                    id: 1,
+                    platform: 'android_auto',
+                    occurred_at: '2026-09-18T12:00:00Z',
+                    received_at: '2026-09-18T12:01:00Z',
+                    observed: { version: 2, latitude: 30, longitude: -97 },
+                    server_node_version: 3,
+                    server_latitude: 30.1,
+                    server_longitude: -97.1,
+                    user_id: null,
+                },
+            ],
+            next_page_url:
+                '/moderation/nodes/200?reports_page=2&flag_source=alpr_presence',
+        },
+        reportReviews: {
+            data: [
+                { id: 4, actor: 'Maya', created_at: '2026-09-18T12:05:00Z' },
+            ],
+            next_page_url: '/moderation/nodes/200?reviews_page=2',
+        },
+    });
+    for (const text of [
+        'Not there reports',
+        'Unverified user report',
+        'Client-observed version',
+        'Server node snapshot',
+        'Maya dismissed',
+        'More reports',
+        'More reviews',
+    ])
+        assert.ok(output.body.includes(text), text);
+    assert.doesNotMatch(
+        output.body,
+        /Reporter|Unverified app identity|Authenticated account/,
+    );
+    assert.match(output.body, /flag_source=alpr_presence&amp;area_scope=my/);
+});
+
+test('area report counts link to that area driver-report queue', async () => {
+    const output = await renderListing({
+        ...base,
+        view: 'areas',
+        records: {
+            ...base.records,
+            data: [
+                {
+                    id: 7,
+                    name: 'Downtown',
+                    kind: 'bbox',
+                    definition: '30,-98 → 31,-97',
+                    watchers: [],
+                    open_flags: null,
+                    open_reported_nodes: 3,
+                    changesets_7d: 0,
+                    flagged_changesets: 0,
+                    created_at: '2026-09-18T12:00:00Z',
+                },
+            ],
+        },
+    });
+
+    assert.match(output.body, /Not there reports ·[\s\S]*?3/);
+    assert.match(
+        output.body,
+        /href="\/moderation\/flagged\?area=7&amp;flag_source=alpr_presence"/,
+    );
+});
+
+test('node profiles keep rule flags visible without offering rule dismissal', async () => {
+    const ruleFlag = {
+        id: 1,
+        source: 'rule',
+        status: 'open',
+        rule_id: 5,
+        rule: { name: 'Require mount', enabled: true, severity: 'High' },
+        evidence: { missing_tags: ['mount'] },
+    };
+    const reportFlag = {
+        id: 2,
+        source: 'alpr_presence',
+        status: 'open',
+        rule: null,
+        evidence: { report_count: 2 },
+    };
+    for (const flags of [[ruleFlag], [ruleFlag, reportFlag]]) {
+        const output = await render('Moderation/Node', {
+            ...base,
+            node: { id: 200, tags: {}, visible: true },
+            versions: [],
+            flags,
+        });
+        assert.match(output.body, /Require mount/);
+        assert.doesNotMatch(output.body, /Dismiss\s+Require mount/);
+        if (flags.length === 1) assert.doesNotMatch(output.body, /Dismiss/);
+        else
+            assert.match(
+                output.body,
+                /aria-label="Dismiss Driver reported missing for node 200"/,
+            );
+    }
+});

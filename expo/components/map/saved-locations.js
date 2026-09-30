@@ -17,6 +17,47 @@ const PRIMARY_LOCATIONS_STORAGE_KEY =
 const RECENT_LOCATIONS_LIMIT = 5;
 
 const primaryLocationsListeners = new Set();
+const searchSavedLocationsListeners = new Set();
+const locationLoads = new Map();
+const locationWrites = new Map();
+const locationStateKeys = {
+    [RECENT_LOCATIONS_STORAGE_KEY]: 'recentLocations',
+    [FAVORITE_LOCATIONS_STORAGE_KEY]: 'favoriteLocations',
+    [PRIMARY_LOCATIONS_STORAGE_KEY]: 'primaryLocations',
+};
+let savedLocationsSnapshot = {
+    favoriteLocations: [],
+    primaryLocations: createEmptyPrimaryLocations(),
+    recentLocations: [],
+};
+
+function publishLocations(key, locations) {
+    savedLocationsSnapshot = {
+        ...savedLocationsSnapshot,
+        [locationStateKeys[key]]: locations,
+    };
+    searchSavedLocationsListeners.forEach((listener) => {
+        try {
+            listener(savedLocationsSnapshot);
+        } catch {}
+    });
+}
+
+function queueLocationUpdate(key, update) {
+    const operation = (locationWrites.get(key) ?? Promise.resolve())
+        .catch(() => {})
+        .then(update);
+
+    locationWrites.set(key, operation);
+    const release = () => {
+        if (locationWrites.get(key) === operation) {
+            locationWrites.delete(key);
+        }
+    };
+    operation.then(release, release);
+
+    return operation;
+}
 
 function getSafeString(value) {
     return typeof value === 'string' ? value.trim() : '';
@@ -190,45 +231,55 @@ export function createSearchResultFromSavedLocation(location) {
         return null;
     }
 
+    const description = formatSavedLocationDescription(savedLocation);
+
     return {
         address: savedLocation.address || '',
         id: savedLocation.id,
-        label: [
-            savedLocation.name,
-            formatSavedLocationDescription(savedLocation),
-        ]
-            .filter(Boolean)
-            .join(', '),
+        label: [savedLocation.name, description].filter(Boolean).join(', '),
         placeId: savedLocation.placeId,
         primaryText: savedLocation.name,
-        secondaryText: formatSavedLocationDescription(savedLocation),
+        secondaryText: description,
         typeLabel: savedLocation.typeLabel || '',
     };
 }
 
-async function loadLocations(key) {
-    const storedValue = await getPrivateCacheItem(key);
+function loadLocations(key, parse = parseStoredLocations) {
+    if (!locationLoads.has(key)) {
+        const load = Promise.resolve()
+            .then(() => getPrivateCacheItem(key))
+            .then((storedValue) => {
+                const locations = parse(storedValue);
 
-    return parseStoredLocations(storedValue);
+                publishLocations(key, locations);
+
+                return locations;
+            })
+            .catch((error) => {
+                locationLoads.delete(key);
+                throw error;
+            });
+
+        locationLoads.set(key, load);
+    }
+
+    return locationLoads.get(key);
 }
 
 async function setLocations(key, locations) {
     await setPrivateCacheItem(key, JSON.stringify(locations));
+    locationLoads.set(key, Promise.resolve(locations));
+    publishLocations(key, locations);
 }
 
 export async function loadSearchSavedLocations() {
-    const [recentLocations, favoriteLocations, primaryLocations] =
-        await Promise.all([
-            loadLocations(RECENT_LOCATIONS_STORAGE_KEY),
-            loadLocations(FAVORITE_LOCATIONS_STORAGE_KEY),
-            loadPrimaryLocations(),
-        ]);
+    await Promise.all([
+        loadLocations(RECENT_LOCATIONS_STORAGE_KEY),
+        loadLocations(FAVORITE_LOCATIONS_STORAGE_KEY),
+        loadPrimaryLocations(),
+    ]);
 
-    return {
-        favoriteLocations,
-        primaryLocations,
-        recentLocations,
-    };
+    return savedLocationsSnapshot;
 }
 
 export function addPrimaryLocationsListener(listener) {
@@ -239,138 +290,163 @@ export function addPrimaryLocationsListener(listener) {
     };
 }
 
-export async function loadPrimaryLocations() {
-    const storedPrimaryLocations = await getPrivateCacheItem(
-        PRIMARY_LOCATIONS_STORAGE_KEY,
-    );
+export function addSearchSavedLocationsListener(listener) {
+    searchSavedLocationsListeners.add(listener);
 
-    return parseStoredPrimaryLocations(
-        storedPrimaryLocations,
-        normalizePrimaryLocation,
+    return () => {
+        searchSavedLocationsListeners.delete(listener);
+    };
+}
+
+export async function loadPrimaryLocations() {
+    return loadLocations(PRIMARY_LOCATIONS_STORAGE_KEY, (storedValue) =>
+        parseStoredPrimaryLocations(storedValue, normalizePrimaryLocation),
     );
 }
 
 export async function savePrimaryLocation(type, location) {
-    const primaryLocations = await loadPrimaryLocations();
-    const normalizedLocation =
-        location === null ? null : normalizePrimaryLocation(location);
+    return queueLocationUpdate(PRIMARY_LOCATIONS_STORAGE_KEY, async () => {
+        const primaryLocations = await loadPrimaryLocations();
+        const normalizedLocation =
+            location === null ? null : normalizePrimaryLocation(location);
 
-    if (location !== null && !normalizedLocation) {
-        throw new Error('This place has no usable location.');
-    }
+        if (location !== null && !normalizedLocation) {
+            throw new Error('This place has no usable location.');
+        }
 
-    const updatedLocations = updatePrimaryLocations(
-        primaryLocations,
-        type,
-        normalizedLocation,
-        (primaryLocation) => primaryLocation,
-    );
+        const updatedLocations = updatePrimaryLocations(
+            primaryLocations,
+            type,
+            normalizedLocation,
+            (primaryLocation) => primaryLocation,
+        );
 
-    await setPrivateCacheItem(
-        PRIMARY_LOCATIONS_STORAGE_KEY,
-        JSON.stringify(updatedLocations),
-    );
+        const savedPrimaryLocations = {
+            ...createEmptyPrimaryLocations(),
+            ...updatedLocations,
+        };
 
-    const savedPrimaryLocations = {
-        ...createEmptyPrimaryLocations(),
-        ...updatedLocations,
-    };
+        await setLocations(
+            PRIMARY_LOCATIONS_STORAGE_KEY,
+            savedPrimaryLocations,
+        );
+        notifyPrimaryLocationsListeners(savedPrimaryLocations);
 
-    notifyPrimaryLocationsListeners(savedPrimaryLocations);
-
-    return savedPrimaryLocations;
+        return savedPrimaryLocations;
+    });
 }
 
 export async function addRecentLocation(location) {
-    const savedLocation = normalizeSavedLocation(location);
+    return queueLocationUpdate(RECENT_LOCATIONS_STORAGE_KEY, async () => {
+        const savedLocation = normalizeSavedLocation(location);
 
-    if (!savedLocation) {
-        return loadLocations(RECENT_LOCATIONS_STORAGE_KEY);
-    }
+        if (!savedLocation) {
+            return loadLocations(RECENT_LOCATIONS_STORAGE_KEY);
+        }
 
-    const recentLocations = await loadLocations(RECENT_LOCATIONS_STORAGE_KEY);
-    const updatedLocations = [
-        {
-            ...savedLocation,
-            selectedAt: Date.now(),
-        },
-        ...recentLocations.filter((recentLocation) => {
-            return !savedLocationsMatch(recentLocation, savedLocation);
-        }),
-    ].slice(0, RECENT_LOCATIONS_LIMIT);
+        const recentLocations = await loadLocations(
+            RECENT_LOCATIONS_STORAGE_KEY,
+        );
+        const updatedLocations = [
+            {
+                ...savedLocation,
+                selectedAt: Date.now(),
+            },
+            ...recentLocations.filter((recentLocation) => {
+                return !savedLocationsMatch(recentLocation, savedLocation);
+            }),
+        ].slice(0, RECENT_LOCATIONS_LIMIT);
 
-    await setLocations(RECENT_LOCATIONS_STORAGE_KEY, updatedLocations);
+        await setLocations(RECENT_LOCATIONS_STORAGE_KEY, updatedLocations);
 
-    return updatedLocations;
+        return updatedLocations;
+    });
 }
 
 export async function toggleFavoriteLocation(location) {
-    const savedLocation = normalizeSavedLocation(location);
-    const favoriteLocations = await loadLocations(
-        FAVORITE_LOCATIONS_STORAGE_KEY,
-    );
+    return queueLocationUpdate(FAVORITE_LOCATIONS_STORAGE_KEY, async () => {
+        const savedLocation = normalizeSavedLocation(location);
+        const favoriteLocations = await loadLocations(
+            FAVORITE_LOCATIONS_STORAGE_KEY,
+        );
 
-    if (!savedLocation) {
+        if (!savedLocation) {
+            return {
+                favoriteLocations,
+                isFavorite: false,
+            };
+        }
+
+        const isFavorite = favoriteLocations.some((favoriteLocation) => {
+            return savedLocationsMatch(favoriteLocation, savedLocation);
+        });
+        const updatedLocations = isFavorite
+            ? favoriteLocations.filter((favoriteLocation) => {
+                  return !savedLocationsMatch(favoriteLocation, savedLocation);
+              })
+            : [
+                  {
+                      ...savedLocation,
+                      favoritedAt: Date.now(),
+                  },
+                  ...favoriteLocations,
+              ];
+
+        await setLocations(FAVORITE_LOCATIONS_STORAGE_KEY, updatedLocations);
+
         return {
-            favoriteLocations,
-            isFavorite: false,
+            favoriteLocations: updatedLocations,
+            isFavorite: !isFavorite,
         };
-    }
-
-    const isFavorite = favoriteLocations.some((favoriteLocation) => {
-        return savedLocationsMatch(favoriteLocation, savedLocation);
     });
-    const updatedLocations = isFavorite
-        ? favoriteLocations.filter((favoriteLocation) => {
-              return !savedLocationsMatch(favoriteLocation, savedLocation);
-          })
-        : [
-              {
-                  ...savedLocation,
-                  favoritedAt: Date.now(),
-              },
-              ...favoriteLocations,
-          ];
-
-    await setLocations(FAVORITE_LOCATIONS_STORAGE_KEY, updatedLocations);
-
-    return {
-        favoriteLocations: updatedLocations,
-        isFavorite: !isFavorite,
-    };
 }
 
 export async function updateFavoriteLocation(location) {
-    const savedLocation = normalizeSavedLocation(location);
-    const favoriteLocations = await loadLocations(
-        FAVORITE_LOCATIONS_STORAGE_KEY,
-    );
+    return queueLocationUpdate(FAVORITE_LOCATIONS_STORAGE_KEY, async () => {
+        const savedLocation = normalizeSavedLocation(location);
+        const favoriteLocations = await loadLocations(
+            FAVORITE_LOCATIONS_STORAGE_KEY,
+        );
 
-    if (!savedLocation) {
-        return favoriteLocations;
-    }
-
-    let didUpdate = false;
-    const updatedLocations = favoriteLocations.map((favoriteLocation) => {
-        if (!savedLocationsMatch(favoriteLocation, savedLocation)) {
-            return favoriteLocation;
+        if (!savedLocation) {
+            return favoriteLocations;
         }
 
-        didUpdate = true;
+        let didUpdate = false;
+        const updatedLocations = favoriteLocations.map((favoriteLocation) => {
+            if (!savedLocationsMatch(favoriteLocation, savedLocation)) {
+                return favoriteLocation;
+            }
 
-        return {
-            ...favoriteLocation,
-            ...savedLocation,
-            favoritedAt:
-                favoriteLocation.favoritedAt ??
-                savedLocation.favoritedAt ??
-                Date.now(),
-        };
+            const updatedLocation = {
+                ...favoriteLocation,
+                ...savedLocation,
+                favoritedAt:
+                    favoriteLocation.favoritedAt ??
+                    savedLocation.favoritedAt ??
+                    Date.now(),
+            };
+
+            if (
+                Object.keys(updatedLocation).every(
+                    (key) => updatedLocation[key] === favoriteLocation[key],
+                )
+            ) {
+                return favoriteLocation;
+            }
+
+            didUpdate = true;
+
+            return updatedLocation;
+        });
+
+        if (didUpdate) {
+            await setLocations(
+                FAVORITE_LOCATIONS_STORAGE_KEY,
+                updatedLocations,
+            );
+        }
+
+        return didUpdate ? updatedLocations : favoriteLocations;
     });
-
-    if (didUpdate) {
-        await setLocations(FAVORITE_LOCATIONS_STORAGE_KEY, updatedLocations);
-    }
-
-    return updatedLocations;
 }

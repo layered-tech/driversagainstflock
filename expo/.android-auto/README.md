@@ -35,7 +35,7 @@ The default suite is [`suite.json`](./suite.json). To use another suite from `ex
 npm run e2e:android-auto -- /absolute/path/to/suite.json
 ```
 
-The portrait command uses [`suite-portrait.json`](./suite-portrait.json) with the cluster display enabled. It starts active guidance, toggles between 3D follow and route overview in both directions, verifies the camera changes visually, and checks the route-only overlay state.
+The portrait command uses [`suite-portrait.json`](./suite-portrait.json) with the primary portrait display. Instrument-cluster support stays disabled, matching `car-display-config.js`; this suite does not claim cluster coverage. It starts active guidance, toggles between 3D follow and route overview in both directions, verifies the camera changes visually using its map-only `mapCrop`, and checks the route-only overlay state. View toggles use the same app-handler command as the landscape suite rather than host-layout-dependent coordinates.
 
 ## Coverage
 

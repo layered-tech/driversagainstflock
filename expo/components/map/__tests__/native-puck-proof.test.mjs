@@ -90,9 +90,21 @@ describe('native puck snapping proof', () => {
                 providerOwnedByApp: true,
                 providerAtRawCoordinate: false,
                 providerAtSnappedCoordinate: true,
+                indicatorAtSnappedCoordinate: true,
                 renderedAtSnappedCoordinate: true,
             }),
             true,
+        );
+        assert.equal(
+            nativePuckStateProvesSnapping({
+                proofSource: 'native-3d-puck',
+                providerOwnedByApp: true,
+                providerAtRawCoordinate: false,
+                providerAtSnappedCoordinate: true,
+                indicatorAtSnappedCoordinate: false,
+                renderedAtSnappedCoordinate: true,
+            }),
+            false,
         );
         assert.equal(
             nativePuckStateProvesSnapping({

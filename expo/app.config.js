@@ -155,6 +155,7 @@ module.exports = {
             'expo-build-properties',
             {
                 ios: {
+                    // ExpoUI uses Fabric headers absent from the prebuilt React framework.
                     buildReactNativeFromSource: true,
                     // Keep React Native Firebase compatible with dynamic frameworks. Its static xcframeworks
                     // remain static within this setup through the Podfile compatibility shims below.

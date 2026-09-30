@@ -155,7 +155,7 @@ function StandardEventRow({ event }) {
                 </Text>
                 <Text
                     className="text-xs text-daf-text-tertiary dark:text-neutral-400"
-                    numberOfLines={1}
+                    numberOfLines={2}
                 >
                     {eventSummary}
                 </Text>

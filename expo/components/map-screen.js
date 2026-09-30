@@ -236,6 +236,7 @@ export default function LocationMapScreen({
         windowWidth,
     });
     const locationController = useMapLocationController({
+        navigationRoute: isDrivingMode ? directionsRoute : null,
         cameraFocusPadding,
         cameraDebugStateUpdatesEnabled,
         drivingCameraFollowViewportAnchorY: drivingLocationAnchorY,

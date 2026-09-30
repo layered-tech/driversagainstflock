@@ -1,6 +1,6 @@
 export const privacyPage = {
     badgeLabels: [
-        'Last updated August 2026',
+        'Last updated September 2026',
         'Location optional',
         'No ads, ever',
     ],
@@ -49,11 +49,20 @@ export const privacyPage = {
                 },
                 {
                     type: 'paragraph',
-                    text: 'DAF does not store a raw GPS trail, trip origin or destination, or route geometry in the Scorecard. During guided navigation, a phone-started free drive, or route-free driving while Android Auto or CarPlay is connected, the optional Scorecard records only sparse camera-crossing events, avoided public camera nodes, and trip totals. Parked-only automotive connections are not saved. Those details are encrypted on your device, expire after 30 days, and are never sent to DAF, analytics, diagnostics, or a scorecard sync service. When location is needed for another feature you request, it may be sent to the service required to complete that request — for example, search information may go to Google Places, map requests may go to Mapbox, locality lookups may go to OpenStreetMap services, police-alert lookups may go to OpenWebNinja, and origin, destination, or route information may go to OpenRouteService.',
+                    text: 'DAF does not store a raw GPS trail, trip origin or destination, or route geometry in the Scorecard. During guided navigation, a phone-started free drive, or route-free driving while Android Auto or CarPlay is connected, the optional Scorecard records only sparse camera-crossing events, avoided public camera nodes, and trip totals. Parked-only automotive connections are not saved. Scorecard details are encrypted on your device, expire after 30 days, and are never sent to DAF, analytics, diagnostics, or a scorecard sync service. A separately submitted “Not there” report is described below. When location is needed for another feature you request, it may be sent to the service required to complete that request — for example, search information may go to Google Places, map requests may go to Mapbox, locality lookups may go to OpenStreetMap services, police-alert lookups may go to OpenWebNinja, and origin, destination, or route information may go to OpenRouteService.',
                 },
                 {
                     type: 'paragraph',
                     text: 'You can deny location access and still use the app, and you can revoke it at any time through your device settings.',
+                },
+                { type: 'heading', text: 'ALPR confirmations and reports' },
+                {
+                    type: 'paragraph',
+                    text: 'While Android Auto or CarPlay is connected, the mobile app may ask whether an ALPR camera you just passed is still there. Dismissing the prompt sends no report. If you choose “Not there,” the app sends DAF the OpenStreetMap camera node ID, the platform, when the camera was passed and reported, and any available camera version, coordinates, and street label. A random key lets the app retry the same report without creating duplicates. Reports contain no account ID or persistent reporter identifier. The request IP address is used for rate limiting but is not stored as a report field.',
+                },
+                {
+                    type: 'paragraph',
+                    text: 'DAF retains “Not there” reports indefinitely for private moderation and map-data review. Reports are unverified and do not automatically change the public map. If you are offline, a report may remain encrypted on your device while the app retries delivery.',
                 },
                 { type: 'heading', text: 'On-device Scorecard' },
                 {
@@ -246,7 +255,7 @@ export const privacyPage = {
     summary: [
         {
             title: 'Location is optional',
-            body: 'The app works with or without it. Exposure tracking runs during guided navigation, a phone-started free drive, and while Android Auto or CarPlay is connected and the vehicle is moving. Parked-only automotive connections are not saved; raw GPS trails are not stored and nothing is synced.',
+            body: 'The app works with or without it. Exposure tracking runs during guided navigation, a phone-started free drive, and while Android Auto or CarPlay is connected and the vehicle is moving. Scorecard history stays on your device. If you tap “Not there” after an ALPR confirmation, that report is sent to DAF.',
         },
         {
             title: 'We don’t sell or advertise',

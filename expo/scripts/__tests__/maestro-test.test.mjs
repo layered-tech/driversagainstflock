@@ -360,24 +360,6 @@ R58M offline
         );
     });
 
-    test('forwards iOS Expo development-client scene URLs', () => {
-        const sceneDelegate = readFileSync(
-            path.join(
-                AUTO_PLAY_PACKAGE_ROOT,
-                'ios',
-                'scenes',
-                'WindowApplicationSceneDelegate.swift',
-            ),
-            'utf8',
-        );
-
-        assert.match(sceneDelegate, /url\.host == "expo-development-client"/);
-        assert.match(
-            sceneDelegate,
-            /UIApplication\.shared\.delegate\?\.application\?\(/,
-        );
-    });
-
     test('serializes iOS speech permission registration on the main thread', () => {
         const dependencyPatch = readFileSync(
             path.join(

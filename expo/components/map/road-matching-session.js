@@ -5,6 +5,7 @@ import { recordAndroidAutoPerformanceTrace } from '../android-auto-performance-t
 import {
     addAutoPlaySessionStateListener,
     autoPlaySessionOwnsForegroundLocation,
+    getAutoPlaySessionState,
 } from '../auto-play-session-state';
 import { publishAcceptedDeviceLocation } from './accepted-device-location';
 import { getRoadCorridor } from './api';
@@ -33,6 +34,7 @@ import {
     createRoadMatcherWithHistory,
     getRoadMatchingReplayObservations,
 } from './road-matching-history';
+import { publishSharedRoadMatchedLocation } from './shared-road-matched-location';
 import {
     addSharedRoutingStateListener,
     getSharedRoutingState,
@@ -74,6 +76,7 @@ let graphCenter = null;
 let lastGraphRequestFailure = null;
 let lastBackgroundDelivery = null;
 let lastBackgroundDeliveryAppState = null;
+let lastAppliedRoadGraph = null;
 let lastRawLocation = null;
 let lastRawLocationAppState = null;
 let lastRawLocationRecordedAt = null;
@@ -423,7 +426,14 @@ function updateRoadLookAhead(matchedLocation) {
 }
 
 function applyRawLocation(location) {
+    // Every fix awaiting a shared corridor request resumes when it resolves.
+    // Enrich the latest fix once per graph before notifying every consumer.
+    if (lastRawLocation === location && lastAppliedRoadGraph === roadGraph) {
+        return;
+    }
+
     lastRawLocation = location;
+    lastAppliedRoadGraph = roadGraph;
 
     const matcherStartedAt = Date.now();
     const matchedLocation =
@@ -460,6 +470,9 @@ function applyRawLocation(location) {
     );
     const locationListenerStartedAt = Date.now();
 
+    if (getAutoPlaySessionState().isConnected) {
+        publishSharedRoadMatchedLocation(nextLocation);
+    }
     emit(locationListeners, nextLocation);
 
     const locationListenerDurationMs = Date.now() - locationListenerStartedAt;
@@ -1205,6 +1218,7 @@ function abortPendingRoadGraphWork() {
 function clearReleasedRoadMatchingSessionState() {
     lastBackgroundDelivery = null;
     lastBackgroundDeliveryAppState = null;
+    lastAppliedRoadGraph = null;
     lastRawLocation = null;
     lastRawLocationAppState = null;
     lastRawLocationRecordedAt = null;
@@ -1227,6 +1241,12 @@ export function roadMatchingLocationIsSupported() {
 
 export function getPersistentRoadMatchingWatchIsActive() {
     return activePersistentRetainerCount > 0;
+}
+
+export function invalidateRoadMatchingGraphForE2E() {
+    abortPendingRoadGraphWork();
+    graphCenter = null;
+    lastGraphRequestFailure = null;
 }
 
 export async function retainRoadMatchingSessionAsync({

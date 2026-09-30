@@ -836,6 +836,39 @@ it('rejects directions beyond the configured max distance before external calls'
     Http::assertNothingSent();
 });
 
+it('retains the direct route when the private route fails', function (int $status) {
+    $coordinates = [
+        [-122.676, 45.523],
+        [-122.66, 45.52],
+        [-122.658, 45.512],
+    ];
+
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::response([
+            'elements' => [[
+                'id' => 120,
+                'lat' => 45.52,
+                'lon' => -122.66,
+                'tags' => ['surveillance:type' => 'ALPR', 'camera:direction' => 'E'],
+            ]],
+        ]),
+        'https://api.heigit.org/*' => Http::sequence()
+            ->push(orsDirectionsResponse($coordinates))
+            ->whenEmpty(Http::response([
+                'error' => ['code' => $status === 400 ? 2009 : 2099, 'message' => 'Route could not be found.'],
+            ], $status)),
+    ]);
+
+    $this->postJson('/api/v1/directions', directionsRequestPayload())
+        ->assertOk()
+        ->assertJsonPath('ok', true)
+        ->assertJsonPath('result.route.coordinates', $coordinates)
+        ->assertJsonPath('result.routes.direct.coordinates', $coordinates)
+        ->assertJsonPath('result.routes.ideal.coordinates', $coordinates)
+        ->assertJsonPath('result.avoidance_search_complete', false)
+        ->assertJsonPath('result.routes.ideal.node_count', 1);
+})->with([400, 503]);
+
 it('maps ors route errors to client-safe failures', function () {
     Http::fake([
         'https://overpass.test/api/interpreter' => Http::response(['elements' => []]),

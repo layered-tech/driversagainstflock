@@ -1,7 +1,13 @@
 import {
-    getDrivingAlertsPresentation,
-    getUpcomingAlertId,
-} from './map/driving-alerts.js';
+    AUTOMOTIVE_ALERT_MAXIMUM_RANGE_METERS,
+    AUTOMOTIVE_ALERT_MINIMUM_RANGE_METERS,
+    getAutomotiveAlertCoordinate,
+    getAutomotiveAlertDistanceMeters,
+    getAutomotiveAlertHistoryEntry,
+    getAutomotiveAlertKey,
+    getAutomotiveAlertsAllowedByHistory,
+} from './map/automotive-alert-policy.js';
+import { getDrivingAlertsPresentation } from './map/driving-alerts.js';
 
 export const AUTO_PLAY_NAVIGATION_ALERT_ACTION_TITLE = 'OK';
 export const AUTO_PLAY_NAVIGATION_ALERT_ICON_COLOR = '#ffdf92';
@@ -52,8 +58,100 @@ const AUTO_PLAY_NAVIGATION_ALERT_PRIORITY_RANKS = {
 };
 
 const METERS_PER_MILE = 1609.344;
+export const AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_RANGE_METERS =
+    AUTOMOTIVE_ALERT_MINIMUM_RANGE_METERS;
+export const AUTO_PLAY_NAVIGATION_ALERT_MAXIMUM_RANGE_METERS =
+    AUTOMOTIVE_ALERT_MAXIMUM_RANGE_METERS;
 const FEET_PER_METER = 3.28084;
 const FEET_DISTANCE_MAXIMUM_METERS = 161;
+
+function getUserLocationCoordinate(userLocation) {
+    return getAutomotiveAlertCoordinate([
+        userLocation?.longitude,
+        userLocation?.latitude,
+    ]);
+}
+
+export function getAutoPlayNavigationAlertEligibleAlerts({
+    upcomingAlerts,
+    userLocation,
+} = {}) {
+    const userCoordinate = getUserLocationCoordinate(userLocation);
+
+    if (!userCoordinate || !Array.isArray(upcomingAlerts)) {
+        return [];
+    }
+
+    return upcomingAlerts.filter((alert) => {
+        const alertCoordinate = getAutomotiveAlertCoordinate(alert?.coordinate);
+        const distanceMeters = getAutomotiveAlertDistanceMeters(
+            userCoordinate,
+            alertCoordinate,
+        );
+
+        return (
+            Number.isFinite(distanceMeters) &&
+            distanceMeters >= AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_RANGE_METERS &&
+            distanceMeters <= AUTO_PLAY_NAVIGATION_ALERT_MAXIMUM_RANGE_METERS
+        );
+    });
+}
+
+function getNavigationAlertCandidatesInStableOrder(alerts) {
+    return [...alerts].sort((firstAlert, secondAlert) => {
+        const distanceDelta =
+            getNavigationAlertDistanceForSort({ alert: firstAlert }) -
+            getNavigationAlertDistanceForSort({ alert: secondAlert });
+
+        return (
+            distanceDelta ||
+            (getAutomotiveAlertKey(firstAlert) ?? '').localeCompare(
+                getAutomotiveAlertKey(secondAlert) ?? '',
+            )
+        );
+    });
+}
+
+export function createAutoPlayNavigationAlertSuppressionController(
+    onChange = () => {},
+) {
+    let owner = null;
+
+    return {
+        get active() {
+            return owner !== null;
+        },
+        acquire(clearCurrentAlert = () => {}) {
+            const token = Symbol('auto-play-navigation-alert-suppression');
+            let released = false;
+
+            owner = token;
+            try {
+                clearCurrentAlert();
+            } catch (error) {
+                if (owner === token) owner = null;
+                throw error;
+            }
+            onChange();
+
+            return {
+                release() {
+                    if (released || owner !== token) return false;
+                    released = true;
+                    owner = null;
+                    onChange();
+                    return true;
+                },
+            };
+        },
+        reset({ notify = true } = {}) {
+            if (owner === null) return false;
+            owner = null;
+            if (notify) onChange();
+            return true;
+        },
+    };
+}
 
 function getNavigationAlertDistanceForSort(alertPresentation) {
     const distance = Number(alertPresentation?.alert?.distanceMeters);
@@ -137,20 +235,36 @@ export function getAutoPlayNavigationAlertDurationMs({
     );
 }
 
-/**
- * The car banner has room for one alert, so a dismissed alert has to step
- * aside for the next upcoming one instead of holding the slot until the driver
- * passes it. Dismissed keys are excluded here and pruned once they stop being
- * upcoming, which also keeps a dismissed alert from being announced again.
- */
 export function getAutoPlayNavigationAlertContent({
+    alertHistory,
     currentSpeedMps,
-    dismissedAlertKeys = null,
+    currentAlertKey = null,
+    now = Date.now(),
     upcomingAlerts,
+    userLocation,
 } = {}) {
-    const presentation = getDrivingAlertsPresentation(
+    const eligibleAlerts = getAutoPlayNavigationAlertEligibleAlerts({
         upcomingAlerts,
-        dismissedAlertKeys,
+        userLocation,
+    });
+
+    if (
+        currentAlertKey &&
+        !eligibleAlerts.some(
+            (alert) => getAutomotiveAlertKey(alert) === currentAlertKey,
+        )
+    ) {
+        return null;
+    }
+
+    const historyEligibleAlerts = getAutomotiveAlertsAllowedByHistory({
+        alerts: eligibleAlerts,
+        currentAlertKey,
+        history: alertHistory,
+        now,
+    });
+    const presentation = getDrivingAlertsPresentation(
+        getNavigationAlertCandidatesInStableOrder(historyEligibleAlerts),
     );
 
     if (!presentation) {
@@ -162,14 +276,16 @@ export function getAutoPlayNavigationAlertContent({
     const distance = getNavigationAlertDistance(distanceMeters);
     const priority =
         AUTO_PLAY_NAVIGATION_ALERT_TYPE_PRIORITIES[primaryAlert.type];
+    const historyEntry = getAutomotiveAlertHistoryEntry(primaryAlert.alert);
 
     return {
-        alertKey: primaryAlert.id,
+        alertKey: historyEntry.alertKey,
         distance,
         durationMs: getAutoPlayNavigationAlertDurationMs({
             currentSpeedMps,
             distanceMeters,
         }),
+        historyEntry,
         priority,
         priorityRank: AUTO_PLAY_NAVIGATION_ALERT_PRIORITY_RANKS[priority],
         subtitle: `${AUTO_PLAY_NAVIGATION_ALERT_TYPE_LABELS[primaryAlert.type]} - on your route`,
@@ -203,15 +319,15 @@ function navigationAlertTextChanged(state, content) {
  * Maps the alert the driver should hear about next onto a single car-host call.
  * A new closest alert becomes its own announcement with a fresh host id, an
  * announcement still on screen only gets its text refreshed, and the banner is
- * dismissed once nothing is upcoming. Keeping the alert key in state after the
- * host auto-dismisses the banner is what stops one alert from being announced
- * over and over while the driver approaches it.
+ * dismissed once nothing is upcoming. Durable drive history owns once-per-drive
+ * delivery; this short-lived state only coordinates the current host banner.
  *
  * @param {object} options
  * @param {{alertKey: string, distance: object|null, durationMs: number, priority: string, priorityRank: number, subtitle: string, title: string}|null} options.content
  * @param {number} options.nextAlertId
  * @param {number} [options.now]
  * @param {{alertId: number, alertKey: string, distance: object|null, expiresAt: number, isVisible: boolean, priorityRank: number, subtitle: string, title: string}|null} [options.state]
+ * @param {boolean} [options.suppressed]
  * @returns {{action: 'none'|'show'|'update'|'dismiss', alertId?: number, state: object|null}}
  */
 export function getAutoPlayNavigationAlertTransition({
@@ -220,8 +336,19 @@ export function getAutoPlayNavigationAlertTransition({
     nextAlertId,
     now = Date.now(),
     state = null,
+    suppressed = false,
 }) {
     const alertIsOnScreen = navigationAlertIsOnScreen(state, now);
+
+    if (suppressed) {
+        if (!state) return { action: 'none', state: null };
+
+        return {
+            action: alertIsOnScreen ? 'dismiss' : 'none',
+            alertId: state.alertId,
+            state: null,
+        };
+    }
 
     if (!content) {
         if (!state) {
@@ -295,54 +422,4 @@ export function getAutoPlayNavigationAlertDismissedState(
     }
 
     return { ...state, dismissedAt: now, isVisible: false };
-}
-
-/**
- * Records the alert behind a dismissed host banner so the next announcement
- * pass moves on to the following upcoming alert. Dismissals reported for an
- * alert the host already replaced leave the set untouched.
- */
-export function getDismissedAutoPlayNavigationAlertKeys({
-    alertId,
-    dismissedAlertKeys,
-    state,
-}) {
-    const currentKeys = dismissedAlertKeys ?? new Set();
-
-    if (
-        !state ||
-        state.alertId !== alertId ||
-        !state.alertKey ||
-        currentKeys.has(state.alertKey)
-    ) {
-        return currentKeys;
-    }
-
-    return new Set([...currentKeys, state.alertKey]);
-}
-
-/**
- * Forgets dismissed alerts that are no longer upcoming, so the same reader can
- * be announced again on a later approach.
- */
-export function pruneDismissedAutoPlayNavigationAlertKeys(
-    dismissedAlertKeys,
-    upcomingAlerts,
-) {
-    if (!dismissedAlertKeys?.size) {
-        return dismissedAlertKeys ?? new Set();
-    }
-
-    const upcomingAlertKeys = new Set(
-        (Array.isArray(upcomingAlerts) ? upcomingAlerts : []).map(
-            (alert, index) => getUpcomingAlertId(alert, index),
-        ),
-    );
-    const retainedKeys = [...dismissedAlertKeys].filter((alertKey) =>
-        upcomingAlertKeys.has(alertKey),
-    );
-
-    return retainedKeys.length === dismissedAlertKeys.size
-        ? dismissedAlertKeys
-        : new Set(retainedKeys);
 }

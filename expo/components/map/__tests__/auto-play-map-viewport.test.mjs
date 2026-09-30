@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+import vm from 'node:vm';
 import {
     getAutoPlayBoundsFitPadding,
     getAutoPlayViewportMetrics,
 } from '../../auto-play-map-viewport.js';
 import { getFollowCameraPadding } from '../follow-camera-padding.js';
+import { getNavigationPuckAnchorY } from '../navigation-puck-layout.js';
 
 const mapSurfaceContentSource = readFileSync(
     new URL('../../auto-play-map-surface-content.js', import.meta.url),
@@ -39,6 +41,66 @@ function getFollowPadding(viewportMetrics, followViewportAnchorY) {
 }
 
 describe('Auto Play map viewport geometry', () => {
+    test('dashboard camera uses the measured pane for its bottom puck slot', () => {
+        const metricsStart = mapSurfaceContentSource.indexOf(
+            'const viewportMetrics = useMemo(',
+        );
+        const callbackStart = mapSurfaceContentSource.indexOf(
+            '() =>',
+            metricsStart,
+        );
+        const callbackEnd = mapSurfaceContentSource.indexOf(
+            '        [',
+            callbackStart,
+        );
+        const callback = mapSurfaceContentSource
+            .slice(callbackStart, callbackEnd)
+            .trim()
+            .replace(/,$/, '');
+        for (const layout of [
+            { height: 240, width: 360, top: 0, bottom: 0, slotY: 176 },
+            { height: 320, width: 480, top: 16, bottom: 24, slotY: 200 },
+            { height: 280, width: 400, top: 12, bottom: 8, slotY: 184 },
+        ]) {
+            const context = {
+                autoPlaySafeAreaInsets: {
+                    top: layout.top,
+                    bottom: layout.bottom,
+                    left: 8,
+                    right: 0,
+                },
+                getAutoPlayViewportMetrics,
+                isDashboardMapSurface: true,
+                layoutSize: { height: layout.height, width: layout.width },
+                ornamentSafeAreaLeftScale: 1,
+                windowInfo: { height: 720, width: 1280 },
+            };
+            const metrics = vm.runInNewContext(`(${callback})()`, context);
+            assert.equal(metrics.height, layout.height);
+            assert.equal(metrics.width, layout.width);
+            // The measured slot already reflects safe areas and any road pill
+            // beneath it. Both layout and camera must use dashboard points.
+            const slotAnchorY = getNavigationPuckAnchorY({
+                layoutY: layout.slotY,
+                puckSize: 44,
+            });
+            const anchor = getCameraAnchor({
+                height: metrics.height,
+                width: metrics.width,
+                padding: getFollowPadding(metrics, slotAnchorY),
+            });
+            assertApproximatelyEqual(anchor.y, slotAnchorY);
+            assert.ok(anchor.y > metrics.center.y);
+            assert.ok(anchor.y + 22 < metrics.visibleRect.bottom);
+            const rootMetrics = vm.runInNewContext(`(${callback})()`, {
+                ...context,
+                isDashboardMapSurface: false,
+            });
+            assert.equal(rootMetrics.height, 720);
+            assert.equal(rootMetrics.width, 1280);
+        }
+    });
+
     test('centers the navigation puck on the measured CarPlay slot', () => {
         const viewportMetrics = getAutoPlayViewportMetrics({
             safeAreaInsets: { bottom: 120, left: 24, right: 12, top: 16 },
@@ -87,14 +149,14 @@ describe('Auto Play map viewport geometry', () => {
             /<AutoPlayMapStatusOverlay[\s\S]*?onLocationAnchorLayout=\{handleLocationAnchorLayout\}[\s\S]*?statusChromeIsVisible=\{\s*rendersAppOverlays && !searchResultsMapIsActive\s*\}/,
         );
         // The puck slot rides `drivingStatusIsVisible`; only the pill drawn
-        // beneath it answers to the chrome flag.
+        // beneath it answers to the chrome and confirmation visibility flags.
         assert.match(
             mapStatusOverlaySource,
             /drivingStatusIsVisible \? \([\s\S]*?onLocationAnchorLayout=\{onLocationAnchorLayout\}/,
         );
         assert.match(
             mapStatusOverlaySource,
-            /currentRoadPillIsVisible=\{statusChromeIsVisible\}/,
+            /currentRoadPillIsVisible=\{\s*statusChromeIsVisible && !confirmationIsActive\s*\}/,
         );
     });
 

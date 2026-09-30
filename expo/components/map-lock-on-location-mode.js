@@ -18,6 +18,7 @@ function getLocationUpdateAnimationDuration(value) {
 
 export function useLockOnLocationMode({
     cameraRef,
+    cameraUpdatesAreAllowed,
     cameraViewportInsets,
     clampZoomLevel,
     currentZoomRef,
@@ -40,7 +41,7 @@ export function useLockOnLocationMode({
     );
     const keepCameraOnUser = useCallback(
         (location) => {
-            if (!location) {
+            if (!location || cameraUpdatesAreAllowed?.() === false) {
                 return;
             }
 
@@ -73,6 +74,7 @@ export function useLockOnLocationMode({
             };
         },
         [
+            cameraUpdatesAreAllowed,
             cameraPadding,
             cameraRef,
             clampZoomLevel,
@@ -86,7 +88,7 @@ export function useLockOnLocationMode({
 
     const start = useCallback(
         (location, { isUserInitiated = false } = {}) => {
-            if (!location) {
+            if (!location || cameraUpdatesAreAllowed?.() === false) {
                 return;
             }
 
@@ -95,7 +97,7 @@ export function useLockOnLocationMode({
             setTrackingMode(LOCATION_TRACKING_LOCK_ON);
             moveCameraToUser(location, { isUserInitiated });
         },
-        [moveCameraToUser, setTrackingMode],
+        [cameraUpdatesAreAllowed, moveCameraToUser, setTrackingMode],
     );
 
     const stop = useCallback(() => {
@@ -105,7 +107,7 @@ export function useLockOnLocationMode({
 
     const orientNorthUp = useCallback(
         (location) => {
-            if (!location) {
+            if (!location || cameraUpdatesAreAllowed?.() === false) {
                 return false;
             }
 
@@ -144,6 +146,7 @@ export function useLockOnLocationMode({
             return true;
         },
         [
+            cameraUpdatesAreAllowed,
             cameraPadding,
             cameraRef,
             clampZoomLevel,
@@ -174,6 +177,7 @@ export function useLockOnLocationMode({
 
     const handleZoomLevelChange = useCallback(
         (trackingMode, nextZoomLevel, userLocation) => {
+            if (cameraUpdatesAreAllowed?.() === false) return true;
             if (trackingMode !== LOCATION_TRACKING_LOCK_ON) {
                 return false;
             }
@@ -202,7 +206,12 @@ export function useLockOnLocationMode({
             cameraRef.current?.setCamera(cameraStop);
             return true;
         },
-        [cameraPadding, cameraRef, suspendAutomatedLocationUpdates],
+        [
+            cameraUpdatesAreAllowed,
+            cameraPadding,
+            cameraRef,
+            suspendAutomatedLocationUpdates,
+        ],
     );
 
     const isActive = useCallback(

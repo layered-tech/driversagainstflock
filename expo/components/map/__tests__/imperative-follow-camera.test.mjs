@@ -71,7 +71,7 @@ test('starts phone follow from the existing fix when driving mode begins', () =>
     assert.ok(drivingModeTransitionIndex > followModeDeclarationIndex);
     assert.match(
         mapLocationControllerSource,
-        /const wasDrivingMode = previousDrivingModeRef\.current;\s*previousDrivingModeRef\.current = isDrivingMode;\s*if \(wasDrivingMode === isDrivingMode\) \{\s*return;\s*\}\s*if \(isDrivingMode\) \{\s*if \(locationAccessGranted && userLocationRef\.current\) \{\s*followLocationMode\.start\(userLocationRef\.current\);/,
+        /const wasDrivingMode = previousDrivingModeRef\.current;\s*previousDrivingModeRef\.current = isDrivingMode;[\s\S]*?if \(wasDrivingMode === isDrivingMode\) \{\s*return;\s*\}\s*if \(isDrivingMode\) \{\s*if \(locationAccessGranted && userLocationRef\.current\) \{\s*followLocationMode\.start\(userLocationRef\.current\);/,
     );
 });
 

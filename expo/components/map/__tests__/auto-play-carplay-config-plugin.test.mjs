@@ -6,6 +6,7 @@ const require = createRequire(import.meta.url);
 const carPlayAutoPlayPlugin = require('../../../plugins/withCarPlayAutoPlay.js');
 const {
     addAutoPlayRootViewToAppDelegate,
+    addExpoWindowSceneDelegateToAppDelegate,
     applyCarPlayInfoPlist,
     mergeCarPlaySceneManifest,
 } = carPlayAutoPlayPlugin.__testables;
@@ -60,7 +61,7 @@ describe('CarPlay Auto Play config plugin', () => {
         assert.equal(mergedManifest.CPSupportsDashboardNavigationScene, true);
         assert.equal(
             mergedManifest.CPSupportsInstrumentClusterNavigationScene,
-            true,
+            false,
         );
         assert.deepEqual(
             mergedManifest.UISceneConfigurations.CustomSceneSessionRole,
@@ -71,7 +72,7 @@ describe('CarPlay Auto Play config plugin', () => {
                 CustomWindowValue: 'preserved',
                 UISceneClassName: 'UIWindowScene',
                 UISceneConfigurationName: 'WindowApplication',
-                UISceneDelegateClassName: 'WindowApplicationSceneDelegate',
+                UISceneDelegateClassName: 'DAFWindowApplicationSceneDelegate',
             },
             {
                 UISceneConfigurationName: 'SecondaryWindow',
@@ -83,6 +84,34 @@ describe('CarPlay Auto Play config plugin', () => {
                 .CPTemplateApplicationSceneSessionRoleApplication[0]
                 .UISceneDelegateClassName,
             'HeadUnitSceneDelegate',
+        );
+    });
+
+    test('removes a previously enabled cluster scene but retains Dashboard and head-unit scenes', () => {
+        const manifest = mergeCarPlaySceneManifest({
+            CPSupportsInstrumentClusterNavigationScene: true,
+            UISceneConfigurations: {
+                CPTemplateApplicationInstrumentClusterSceneSessionRoleApplication:
+                    [{ UISceneDelegateClassName: 'ClusterSceneDelegate' }],
+            },
+        });
+        assert.equal(
+            manifest.CPSupportsInstrumentClusterNavigationScene,
+            false,
+        );
+        assert.equal(
+            manifest.UISceneConfigurations
+                .CPTemplateApplicationInstrumentClusterSceneSessionRoleApplication,
+            undefined,
+        );
+        assert.equal(manifest.CPSupportsDashboardNavigationScene, true);
+        assert.ok(
+            manifest.UISceneConfigurations
+                .CPTemplateApplicationDashboardSceneSessionRoleApplication,
+        );
+        assert.ok(
+            manifest.UISceneConfigurations
+                .CPTemplateApplicationSceneSessionRoleApplication,
         );
     });
 
@@ -142,6 +171,36 @@ describe('CarPlay Auto Play config plugin', () => {
         );
     });
 
+    test('forwards Expo development links while retaining AutoPlay scene callbacks', () => {
+        const delegate = addExpoWindowSceneDelegateToAppDelegate(
+            currentExpoAppDelegateFixture,
+        );
+        assert.equal(
+            addExpoWindowSceneDelegateToAppDelegate(delegate),
+            delegate,
+        );
+        assert.match(delegate, /@objc\(DAFWindowApplicationSceneDelegate\)/);
+        assert.match(
+            delegate,
+            /autoPlayDelegate\.scene\?\(scene, willConnectTo: session, options: connectionOptions\)/,
+        );
+        assert.match(
+            delegate,
+            /context\.url\.host == "expo-development-client"/,
+        );
+        assert.match(
+            delegate,
+            /autoPlayDelegate\.scene\?\(scene, openURLContexts: remaining\)/,
+        );
+        assert.match(
+            delegate,
+            /autoPlayDelegate\.sceneDidEnterBackground\?\(scene\)/,
+        );
+        assert.equal(
+            delegate.match(/@generated begin daf-expo-window-scene/g)?.length,
+            1,
+        );
+    });
     test('fails clearly for an unsupported AppDelegate template', () => {
         assert.throws(
             () =>

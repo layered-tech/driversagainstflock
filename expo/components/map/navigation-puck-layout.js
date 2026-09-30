@@ -5,7 +5,7 @@ const AUTO_PLAY_NAVIGATION_PUCK_MAXIMUM_SIZE = 80;
 const NAVIGATION_PUCK_VIEWPORT_RATIO = 0.19;
 const NAVIGATION_PUCK_MINIMUM_SIZE = 56;
 const NAVIGATION_PUCK_MAXIMUM_SIZE = 88;
-const AUTO_PLAY_NAVIGATION_PUCK_3D_SCALE_FACTOR = 0.6;
+const AUTO_PLAY_NAVIGATION_PUCK_3D_SCALE_FACTOR = 0.8;
 const IOS_NAVIGATION_PUCK_3D_SCALE_FACTOR = 0.6;
 
 export const AUTO_PLAY_NAVIGATION_PUCK_SIZE = BASE_NAVIGATION_PUCK_SIZE * 1.25;
@@ -14,17 +14,17 @@ export const NAVIGATION_PUCK_SIZE = BASE_NAVIGATION_PUCK_SIZE * 1.5;
 // tuned scale curve in one renderer-owned expression so a camera jump and its
 // matching puck scale are committed in the same frame.
 export const NAVIGATION_PUCK_3D_ZOOM_SCALES = [
-    { mapScale: 683.43, zoomLevel: 10 }, // 1/3
-    { mapScale: 455.62, zoomLevel: 11 }, // 1/3
-    { mapScale: 303.75, zoomLevel: 12 }, // 1/3
-    { mapScale: 202.5, zoomLevel: 13 }, // 1/2
-    { mapScale: 135, zoomLevel: 14 }, // 1/2
-    { mapScale: 90, zoomLevel: 15 }, // 1/2
-    { mapScale: 60, zoomLevel: 16 }, // 1/2
-    { mapScale: 40, zoomLevel: 17 }, // 1
-    { mapScale: 20, zoomLevel: 18 }, // 1
-    { mapScale: 10, zoomLevel: 19 }, // 1
-    { mapScale: 5, zoomLevel: 20 },
+    { mapScale: 384, zoomLevel: 10 }, // 1/3
+    { mapScale: 384, zoomLevel: 11 }, // 1/3
+    { mapScale: 384, zoomLevel: 12 }, // 1/3
+    { mapScale: 384, zoomLevel: 13 }, // 1/2
+    { mapScale: 256, zoomLevel: 14 }, // 1/2
+    { mapScale: 128, zoomLevel: 15 }, // 1/2
+    { mapScale: 64, zoomLevel: 16 }, // 1/2
+    { mapScale: 32, zoomLevel: 17 }, // 1
+    { mapScale: 16, zoomLevel: 18 }, // 1
+    { mapScale: 8, zoomLevel: 19 }, // 1
+    { mapScale: 4, zoomLevel: 20 },
 ];
 
 export const AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES =

@@ -13,10 +13,6 @@ const SECURE_STORE_OPTIONS =
               keychainAccessible:
                   SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
           };
-const PRIVATE_CACHE_TEXT_ENCODER =
-    typeof globalThis.TextEncoder === 'function'
-        ? new globalThis.TextEncoder()
-        : null;
 
 const privateCacheWriteQueues = new Map();
 let privateCacheGenerationSequence = 0;
@@ -56,16 +52,18 @@ function getSecureChunkKey(manifestKey, generation, index) {
     return `${manifestKey}.${generation}.${index}`;
 }
 
-function getUtf8ByteLength(value) {
-    if (PRIVATE_CACHE_TEXT_ENCODER) {
-        return PRIVATE_CACHE_TEXT_ENCODER.encode(value).length;
+function getCharacterUtf8ByteLength(character) {
+    const codePoint = character.codePointAt(0);
+
+    if (codePoint <= 0x7f) {
+        return 1;
+    }
+    if (codePoint <= 0x7ff) {
+        return 2;
     }
 
-    try {
-        return encodeURIComponent(value).replace(/%[0-9A-F]{2}/gi, 'x').length;
-    } catch {
-        return value.length * 4;
-    }
+    // A lone surrogate encodes as the three-byte replacement character.
+    return codePoint <= 0xffff ? 3 : 4;
 }
 
 function splitIntoSecureChunks(value) {
@@ -73,8 +71,8 @@ function splitIntoSecureChunks(value) {
     let currentChunk = '';
     let currentChunkBytes = 0;
 
-    for (const character of Array.from(value)) {
-        const characterBytes = getUtf8ByteLength(character);
+    for (const character of value) {
+        const characterBytes = getCharacterUtf8ByteLength(character);
 
         if (
             currentChunk &&
@@ -319,4 +317,29 @@ export function removePrivateCacheItem(storageKey) {
         await deleteSecureCacheValue(normalizedStorageKey);
         await AsyncStorage.removeItem(normalizedStorageKey);
     });
+}
+
+/** New durable limits must distinguish missing data from damaged encrypted data. */
+export async function getPrivateCacheItemStrict(storageKey) {
+    if (!privateCacheUsesSecureStore())
+        throw new Error('Encrypted storage unavailable');
+    const manifestKey = getSecureStorageKey(normalizeStorageKey(storageKey));
+    const raw = await SecureStore.getItemAsync(
+        manifestKey,
+        SECURE_STORE_OPTIONS,
+    );
+    if (raw === null) return null;
+    const manifest = parseManifest(raw);
+    if (!manifest) throw new Error('Invalid encrypted manifest');
+    const chunks = [];
+    for (let index = 0; index < manifest.chunks; index += 1) {
+        const chunk = await SecureStore.getItemAsync(
+            getSecureChunkKey(manifestKey, manifest.generation, index),
+            SECURE_STORE_OPTIONS,
+        );
+        if (typeof chunk !== 'string')
+            throw new Error('Incomplete encrypted state');
+        chunks.push(chunk);
+    }
+    return chunks.join('');
 }

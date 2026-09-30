@@ -127,3 +127,15 @@ it('rejects an electronic horizon path beyond the configured maximum', function 
         ->assertJsonPath('ok', false)
         ->assertJsonPath('error', 'The electronic horizon path is too long.');
 });
+
+it('uses separate wider complete coverage for presence without changing warning coverage', function () {
+    createElectronicHorizonAlprNode(990, 30.2685, -97.738);
+    createElectronicHorizonAlprNode(991, 30.2698, -97.738);
+    createElectronicHorizonAlprNode(992, 30.2726, -97.738);
+    createElectronicHorizonAlprNode(993, 30.2753, -97.738);
+    $coordinates = [[-97.738, 30.2672], [-97.73799, 30.2672]];
+    $this->postJson('/api/v1/electronic-horizon/alpr', compact('coordinates'))->assertOk()->assertJsonCount(0, 'result.nodes');
+    $this->postJson('/api/v1/electronic-horizon/alpr', ['coordinates' => $coordinates, 'presence' => true])
+        ->assertOk()->assertJsonPath('result.coverage_complete', true)->assertJsonPath('result.coverage_radius_meters', 750)->assertJsonCount(3, 'result.nodes');
+    $this->postJson('/api/v1/electronic-horizon/alpr', compact('coordinates'))->assertOk()->assertJsonCount(0, 'result.nodes');
+});

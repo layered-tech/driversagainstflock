@@ -115,6 +115,8 @@ export function startAutoDriveSimulation({
     coordinates,
     onArrive,
     onLocation,
+    speedMetersPerSecond = AUTO_DRIVE_SPEED_MPS,
+    tickMs = AUTO_DRIVE_TICK_MS,
 }) {
     stopAutoDriveSimulation();
 
@@ -125,7 +127,6 @@ export function startAutoDriveSimulation({
     }
 
     const routeDistance = segments[segments.length - 1].endDistance;
-    const speedMetersPerSecond = AUTO_DRIVE_SPEED_MPS;
     let traveledMeters = 0;
 
     const emitPositionAtDistance = (distanceAlongRoute) => {
@@ -140,7 +141,7 @@ export function startAutoDriveSimulation({
     };
 
     simulationTimer = setInterval(() => {
-        traveledMeters += speedMetersPerSecond * (AUTO_DRIVE_TICK_MS / 1000);
+        traveledMeters += speedMetersPerSecond * (tickMs / 1000);
 
         if (traveledMeters >= routeDistance) {
             emitPositionAtDistance(routeDistance);
@@ -150,7 +151,7 @@ export function startAutoDriveSimulation({
         }
 
         emitPositionAtDistance(traveledMeters);
-    }, AUTO_DRIVE_TICK_MS);
+    }, tickMs);
     setSimulationIsActive(true);
     emitPositionAtDistance(0);
 
