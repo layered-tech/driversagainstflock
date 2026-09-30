@@ -20,11 +20,18 @@ function applyDashboardButtons(CarPlayDashboard, makeGlyphImage) {
 export const autoPlayPlatform = {
     MapSurface: CarPlayMapSurface,
     createErrorTemplate({ autoPlayModule, alertMessage, searchAction }) {
-        const { MessageTemplate } = autoPlayModule;
+        const { HybridAutoPlay, MessageTemplate } = autoPlayModule;
+        const recoverSearchAction = {
+            ...searchAction,
+            onPress: async () => {
+                await HybridAutoPlay.popTemplate();
+                searchAction.onPress();
+            },
+        };
 
         return new MessageTemplate({
             actions: {
-                ios: [searchAction],
+                ios: [recoverSearchAction],
             },
             message: alertMessage,
         });

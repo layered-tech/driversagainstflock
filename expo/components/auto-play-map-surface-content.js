@@ -1862,13 +1862,16 @@ export function AutoPlayMapSurfaceContent({
                 layoutSize,
                 ornamentSafeAreaLeftScale,
                 safeAreaInsets: autoPlaySafeAreaInsets,
-                windowInfo,
+                // Dashboard's bridge reports the whole screen, while its map
+                // and measured puck slot live inside a smaller pane.
+                windowInfo: isDashboardMapSurface ? undefined : windowInfo,
             }),
         [
             autoPlaySafeAreaInsets.bottom,
             autoPlaySafeAreaInsets.left,
             autoPlaySafeAreaInsets.right,
             autoPlaySafeAreaInsets.top,
+            isDashboardMapSurface,
             layoutSize?.height,
             layoutSize?.width,
             ornamentSafeAreaLeftScale,

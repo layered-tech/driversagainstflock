@@ -38,11 +38,9 @@ export function createCarPlayVoiceSearchController({
         activeSearch?.[callbackName]?.();
     };
 
-    const requestPermissionsForNextAttempt = (HybridVoice) => {
+    const requestPermissionsForNextAttempt = async (HybridVoice) => {
         try {
-            Promise.resolve(HybridVoice.requestVoiceInputPermission?.()).catch(
-                () => {},
-            );
+            await HybridVoice.requestVoiceInputPermission?.();
         } catch {}
     };
 
@@ -73,6 +71,7 @@ export function createCarPlayVoiceSearchController({
         pendingSearch = {
             generation: searchGeneration,
             onCancelled,
+            onFallback,
             onNoMatch,
             onUnavailable,
         };
@@ -92,8 +91,9 @@ export function createCarPlayVoiceSearchController({
                 }
 
                 if (!permissionIsGranted) {
-                    finishSearch(searchGeneration, 'onUnavailable');
-                    requestPermissionsForNextAttempt(HybridVoice);
+                    pendingSearch.onFallback?.();
+                    await requestPermissionsForNextAttempt(HybridVoice);
+                    clearPendingSearch(searchGeneration);
                     return;
                 }
 

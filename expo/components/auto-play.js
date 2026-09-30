@@ -3273,7 +3273,7 @@ const handleRootHeaderVoiceSearchPress = () => {
                 );
             },
             onFallback: () => {
-                openSearchTemplate();
+                handleRootHeaderSearchPress();
             },
             onNoMatch: () => {
                 showAutoPlayError(

@@ -95,7 +95,7 @@ test('CarPlay keeps keyboard Search and voice input as separate header actions',
     );
     assert.match(
         autoPlaySource,
-        /const handleRootHeaderVoiceSearchPress = \(\) => \{[\s\S]*?startSearchVoiceInput[\s\S]*?onFallback:[\s\S]*?openSearchTemplate\(\)/,
+        /const handleRootHeaderVoiceSearchPress = \(\) => \{[\s\S]*?startSearchVoiceInput[\s\S]*?onFallback:[\s\S]*?handleRootHeaderSearchPress\(\)/,
     );
     assert.match(
         autoPlaySource,
@@ -140,7 +140,7 @@ test('CarPlay keeps keyboard Search as a no-voice fallback', () => {
 test('CarPlay presents errors with an alert-compatible message template', () => {
     assert.match(
         iosPlatformSource,
-        /createErrorTemplate\(\{[\s\S]*?MessageTemplate[\s\S]*?new MessageTemplate\(\{[\s\S]*?ios: \[searchAction\][\s\S]*?message: alertMessage/,
+        /createErrorTemplate\(\{[\s\S]*?MessageTemplate[\s\S]*?new MessageTemplate\(\{[\s\S]*?ios: \[recoverSearchAction\][\s\S]*?message: alertMessage/,
     );
     assert.doesNotMatch(iosPlatformSource, /InformationTemplate/);
 
@@ -224,40 +224,204 @@ const flushAsyncWork = () =>
         setImmediate(resolve);
     });
 
-test('CarPlay exposes a visible fallback while requesting voice permissions', async () => {
+test('CarPlay returns to destinations during permission prompts and allows a retry', async () => {
     let permissionRequests = 0;
-    let unavailableCalls = 0;
+    let fallbackCalls = 0;
     let voiceStarts = 0;
+    let permissionGranted = false;
+    let resolvePermission;
+    const queries = [];
     const controller = createCarPlayVoiceSearchController({
         getHybridVoice: () => ({
-            hasVoiceInputPermission: () => false,
-            requestVoiceInputPermission: async () => {
+            hasVoiceInputPermission: () => permissionGranted,
+            requestVoiceInputPermission: () => {
                 permissionRequests += 1;
-                return true;
+                return new Promise((resolve) => {
+                    resolvePermission = resolve;
+                });
             },
             startVoiceInput: async () => {
                 voiceStarts += 1;
+                return { transcription: 'Home' };
             },
             stopVoiceInput: () => {},
         }),
-        onVoiceNavigation: () => {},
+        onVoiceNavigation: (_coordinates, query) => queries.push(query),
     });
+    const callbacks = {
+        onFallback: () => {
+            fallbackCalls += 1;
+        },
+        onUnavailable: () =>
+            assert.fail('permission prompts must not show an error'),
+    };
 
-    assert.equal(
-        controller.start({
-            onFallback: () => {},
-            onUnavailable: () => {
-                unavailableCalls += 1;
-            },
-        }),
-        true,
-    );
-
+    controller.start(callbacks);
     await flushAsyncWork();
-
-    assert.equal(unavailableCalls, 1);
+    assert.equal(fallbackCalls, 1);
     assert.equal(permissionRequests, 1);
     assert.equal(voiceStarts, 0);
+
+    controller.start(callbacks);
+    await flushAsyncWork();
+    assert.equal(permissionRequests, 1);
+    assert.equal(fallbackCalls, 1);
+
+    permissionGranted = true;
+    resolvePermission(true);
+    await flushAsyncWork();
+    assert.equal(voiceStarts, 0);
+    controller.start(callbacks);
+    await flushAsyncWork();
+    assert.deepEqual(queries, ['Home']);
+});
+
+for (const outcome of ['denied', 'rejected', 'throws']) {
+    test(`CarPlay keeps destinations usable when voice permissions are ${outcome}`, async () => {
+        let fallbackCalls = 0;
+        const controller = createCarPlayVoiceSearchController({
+            getHybridVoice: () => ({
+                hasVoiceInputPermission: () => false,
+                requestVoiceInputPermission: () => {
+                    if (outcome === 'throws') {
+                        throw new Error('permission failed');
+                    }
+                    return outcome === 'rejected'
+                        ? Promise.reject(new Error('permission failed'))
+                        : Promise.resolve(false);
+                },
+                startVoiceInput: () =>
+                    assert.fail('ungranted permission cannot start voice'),
+                stopVoiceInput: () => {},
+            }),
+            onVoiceNavigation: () => assert.fail('permission is not a search'),
+        });
+        const callbacks = {
+            onFallback: () => {
+                fallbackCalls += 1;
+            },
+            onUnavailable: () =>
+                assert.fail('permissions must leave destinations visible'),
+        };
+        controller.start(callbacks);
+        await flushAsyncWork();
+        controller.start(callbacks);
+        await flushAsyncWork();
+        assert.equal(fallbackCalls, 2);
+    });
+}
+
+test('CarPlay permission completion after disconnect does not clear a newer voice attempt', async () => {
+    let granted = false;
+    let resolvePermission;
+    let resolveVoice;
+    let starts = 0;
+    const queries = [];
+    const controller = createCarPlayVoiceSearchController({
+        getHybridVoice: () => ({
+            hasVoiceInputPermission: () => granted,
+            requestVoiceInputPermission: () =>
+                new Promise((resolve) => {
+                    resolvePermission = resolve;
+                }),
+            startVoiceInput: () => {
+                starts += 1;
+                return new Promise((resolve) => {
+                    resolveVoice = resolve;
+                });
+            },
+            stopVoiceInput: () => {},
+        }),
+        onVoiceNavigation: (_coordinates, query) => queries.push(query),
+    });
+    const callbacks = {
+        onFallback() {},
+        onUnavailable: () => assert.fail('unexpected error'),
+    };
+    controller.start(callbacks);
+    await flushAsyncWork();
+    controller.cancel();
+    granted = true;
+    controller.start(callbacks);
+    await flushAsyncWork();
+    resolvePermission(true);
+    await flushAsyncWork();
+    controller.start(callbacks);
+    await flushAsyncWork();
+    assert.equal(starts, 1);
+    resolveVoice({ transcription: 'Work' });
+    await flushAsyncWork();
+    assert.deepEqual(queries, ['Work']);
+});
+
+test('CarPlay permission fallback opens recents and favorites', () => {
+    const start = autoPlaySource.indexOf(
+        'const handleRootHeaderVoiceSearchPress =',
+    );
+    const end = autoPlaySource.indexOf(
+        'const handleRootHeaderDrivingMapViewPress',
+        start,
+    );
+    let callbacks;
+    let destinationsOpened = 0;
+    const press = vm.runInNewContext(
+        `${autoPlaySource.slice(start, end)}; handleRootHeaderVoiceSearchPress`,
+        {
+            autoPlayPlatform: {
+                startSearchVoiceInput(value) {
+                    callbacks = value;
+                    return true;
+                },
+            },
+            handleRootHeaderSearchPress: () => {
+                destinationsOpened += 1;
+            },
+            openSearchTemplate: () =>
+                assert.fail('expected saved destinations'),
+            showAutoPlayError: () =>
+                assert.fail('permission fallback must not present a modal'),
+        },
+    );
+    press();
+    callbacks.onFallback();
+    assert.equal(destinationsOpened, 1);
+});
+
+test('CarPlay error Search action waits for modal dismissal before opening destinations', async () => {
+    const start = iosPlatformSource.indexOf('    createErrorTemplate(');
+    const end = iosPlatformSource.indexOf('    logAction(', start);
+    const events = [];
+    let resolveDismissal;
+    const platform = vm.runInNewContext(
+        `({${iosPlatformSource.slice(start, end)}})`,
+    );
+    const template = platform.createErrorTemplate({
+        alertMessage: 'Voice unavailable',
+        autoPlayModule: {
+            HybridAutoPlay: {
+                popTemplate: () => {
+                    events.push('dismiss');
+                    return new Promise((resolve) => {
+                        resolveDismissal = resolve;
+                    });
+                },
+            },
+            MessageTemplate: class {
+                constructor(config) {
+                    this.config = config;
+                }
+            },
+        },
+        searchAction: {
+            title: 'Search',
+            onPress: () => events.push('destinations'),
+        },
+    });
+    const recovery = template.config.actions.ios[0].onPress();
+    assert.deepEqual(events, ['dismiss']);
+    resolveDismissal();
+    await recovery;
+    assert.deepEqual(events, ['dismiss', 'destinations']);
 });
 
 test('CarPlay submits the HybridVoice transcription as a search', async () => {
