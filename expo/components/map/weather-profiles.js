@@ -28,6 +28,27 @@ export const WEATHER_PROFILE_DEFAULTS = Object.freeze({
     },
 });
 
+export const WEATHER_INTENSITY_DENSITY = Object.freeze({
+    Light: 0.5,
+    Baseline: 1,
+    Heavy: 1.75,
+    maximumHeavyDensity: 0.4,
+});
+
+export function getIntensityWeatherProfile(profile, bucket = 'Baseline') {
+    const factor = ['Light', 'Heavy'].includes(bucket)
+        ? WEATHER_INTENSITY_DENSITY[bucket]
+        : 1;
+    const maximum =
+        bucket === 'Heavy'
+            ? Math.max(
+                  profile.density,
+                  WEATHER_INTENSITY_DENSITY.maximumHeavyDensity,
+              )
+            : 1;
+    return { ...profile, density: Math.min(maximum, profile.density * factor) };
+}
+
 export function validateWeatherProfile(condition, profile) {
     const defaults = WEATHER_PROFILE_DEFAULTS[condition];
     if (!defaults || !profile || typeof profile !== 'object') {

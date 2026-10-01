@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, Switch, Text, TextInput, View } from 'react-native';
 import { WEATHER_PROFILE_DEFAULTS } from './weather-profiles';
+import { WEATHER_DEFAULTS } from './weather-policy';
 import { useWeatherState, weatherStore } from './weather-runtime';
 
 function WeatherButton({ label, onPress, selected = false }) {
@@ -142,6 +143,20 @@ export function WeatherDebugPane() {
         raw: weather.raw,
         accepted: weather.state.accepted,
         rendered: weather.rendered,
+        rawIntensityBucket: weather.raw?.intensityBucket ?? null,
+        acceptedIntensity: weather.state.intensity,
+        renderedIntensityBucket: weather.renderedIntensityBucket,
+        intensityDwellDeadline:
+            weather.state.intensity.changedAt === null
+                ? null
+                : Math.max(
+                      weather.state.changedAt,
+                      weather.state.intensity.changedAt,
+                  ) + WEATHER_DEFAULTS.intensityDwellMs,
+        intensityRetentionDeadline: weather.state.intensity.supporting
+            ? weather.state.intensity.supporting.observedAt +
+              WEATHER_DEFAULTS.intensityRetentionMs
+            : null,
         renderers: weather.renderers,
         override: weather.mode,
         reason: weather.state.reason,

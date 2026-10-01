@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createWeatherStore, WEATHER_STORAGE_KEY } from '../weather-store.js';
 import { WEATHER_PROFILE_DEFAULTS } from '../weather-profiles.js';
+import {
+    acceptWeatherObservation,
+    createWeatherState,
+} from '../weather-policy.js';
 
 const initialTime = Date.parse('2026-10-01T12:00:00Z');
 const location = { latitude: 40, longitude: -100 };
@@ -342,5 +346,83 @@ test('unreadable or malformed persisted evidence starts safely with no effect', 
         assert.equal(store.getSnapshot().state.reason, 'restore-unavailable');
         assert.equal(store.getSnapshot().rendered, null);
         assert.equal(store.getSnapshot().mode, 'Automatic');
+    }
+});
+
+test('shared intensity commits at dwell deadline, and forced modes use the unscaled profile', async () => {
+    let bucket = 'Light';
+    const { store, timers, calls, advance } = harness({
+        fetchObservation: (actual, time) => ({
+            condition: 'Rain',
+            intensityBucket: bucket,
+            observedAt: time,
+            fetchedAt: time,
+            stationLocation: actual,
+            fresh: true,
+        }),
+    });
+    store.setLocation(location);
+    const release = store.retainSurface({ car: true });
+    await settle();
+    assert.equal(store.getSnapshot().renderedIntensityBucket, 'Light');
+    bucket = 'Heavy';
+    await advance(minute);
+    await store.refresh();
+    await advance(10 * minute);
+    assert.equal(store.getSnapshot().state.intensity.pending.confirmed, true);
+    assert.equal(store.getSnapshot().renderedIntensityBucket, 'Light');
+    assert.equal([...timers.values()][0].deadline, initialTime + 20 * minute);
+    await advance(9 * minute);
+    assert.equal(store.getSnapshot().renderedIntensityBucket, 'Heavy');
+    assert.equal(store.getSnapshot().rendered, 'Rain');
+    assert.equal(calls.length, 3);
+    store.setMode('Rain');
+    assert.equal(store.getSnapshot().renderedIntensityBucket, 'Baseline');
+    assert.equal(store.getSnapshot().state.intensity.bucket, 'Heavy');
+    store.setMode('Snow');
+    assert.equal(store.getSnapshot().renderedIntensityBucket, 'Baseline');
+    store.setMode('Off');
+    assert.equal(store.getSnapshot().renderedIntensityBucket, null);
+    store.setMode('Automatic');
+    assert.equal(store.getSnapshot().renderedIntensityBucket, 'Heavy');
+    release();
+});
+
+test('intensity restores original evidence and legacy saved weather uses baseline', async () => {
+    const observation = {
+        condition: 'Rain',
+        intensityBucket: 'Heavy',
+        observedAt: initialTime,
+        stationLocation: location,
+        fresh: true,
+    };
+    const original = acceptWeatherObservation(
+        createWeatherState(),
+        observation,
+        location,
+        initialTime,
+    );
+    const legacy = { ...original };
+    delete legacy.intensity;
+    for (const [saved, expected] of [
+        [original, 'Heavy'],
+        [legacy, 'Baseline'],
+    ]) {
+        const { store, advance } = harness({
+            storage: {
+                getItem: async () => JSON.stringify({ state: saved }),
+                setItem: async () => {},
+            },
+        });
+        await store.hydrate();
+        assert.equal(store.getSnapshot().renderedIntensityBucket, null);
+        store.setLocation(location);
+        assert.equal(store.getSnapshot().renderedIntensityBucket, expected);
+        assert.equal(
+            store.getSnapshot().state.intensity.supporting.observedAt,
+            initialTime,
+        );
+        await advance(91 * minute);
+        assert.equal(store.getSnapshot().renderedIntensityBucket, null);
     }
 });

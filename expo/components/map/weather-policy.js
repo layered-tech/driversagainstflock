@@ -14,7 +14,28 @@ export const WEATHER_DEFAULTS = Object.freeze({
     observationCacheMs: 10 * MINUTE,
     timeoutMs: 10_000,
     backoffMs: [10 * MINUTE, 20 * MINUTE, 40 * MINUTE],
+    intensityConfirmationSpacingMs: 10 * MINUTE,
+    intensityDwellMs: 20 * MINUTE,
+    intensityCandidateExpiryMs: 45 * MINUTE,
+    intensityRetentionMs: 90 * MINUTE,
 });
+
+export function normalizeWeatherIntensityBucket(value) {
+    return ['Light', 'Heavy'].includes(value) ? value : 'Baseline';
+}
+
+function getReportIntensityBucket(reports) {
+    const ranks = { Light: 0, Baseline: 1, Heavy: 2 };
+    return reports.reduce((bucket, report) => {
+        const next =
+            report.intensity === 'light'
+                ? 'Light'
+                : report.intensity === 'heavy'
+                  ? 'Heavy'
+                  : 'Baseline';
+        return ranks[next] > ranks[bucket] ? next : bucket;
+    }, 'Light');
+}
 
 export function weatherLocationIsValid(location) {
     return Boolean(
@@ -110,7 +131,16 @@ export function classifyNwsWeather(properties = {}) {
     );
     const snow = localReports.some((report) => report.weather === 'snow');
     if (rain || snow) {
-        return { condition: snow ? 'Snow' : 'Rain', mixed: rain && snow };
+        const renderedReports = localReports.filter((report) =>
+            snow
+                ? report.weather === 'snow'
+                : ['rain', 'drizzle'].includes(report.weather),
+        );
+        return {
+            condition: snow ? 'Snow' : 'Rain',
+            mixed: rain && snow,
+            intensityBucket: getReportIntensityBucket(renderedReports),
+        };
     }
     // Non-precipitation structured reports establish dry only when every report
     // has a recognized phenomenon. Empty or incomplete reports prove nothing.
@@ -131,10 +161,10 @@ export function classifyNwsWeather(properties = {}) {
         localReports.length &&
         localReports.every((report) => dryPhenomena.includes(report.weather))
     ) {
-        return { condition: 'Dry', mixed: false };
+        return { condition: 'Dry', mixed: false, intensityBucket: null };
     }
     if (reports.length) {
-        return { condition: 'Unknown', mixed: false };
+        return { condition: 'Unknown', mixed: false, intensityBucket: null };
     }
     const description =
         typeof properties.textDescription === 'string'
@@ -143,8 +173,16 @@ export function classifyNwsWeather(properties = {}) {
                   .toLowerCase()
                   .replace(/\s+/g, ' ')
             : '';
+    const condition = DESCRIPTION_CONDITIONS.get(description) ?? 'Unknown';
     return {
-        condition: DESCRIPTION_CONDITIONS.get(description) ?? 'Unknown',
+        condition,
+        intensityBucket: ['Rain', 'Snow'].includes(condition)
+            ? description.startsWith('light ')
+                ? 'Light'
+                : description.startsWith('heavy ')
+                  ? 'Heavy'
+                  : 'Baseline'
+            : null,
         mixed: ['rain snow', 'light rain snow', 'rain and snow'].includes(
             description,
         ),
@@ -176,6 +214,115 @@ export function createWeatherState() {
         pending: null,
         newestObservedAt: null,
         reason: 'no-observation',
+        intensity: createWeatherIntensityState(),
+    };
+}
+
+export function createWeatherIntensityState() {
+    return {
+        bucket: 'Baseline',
+        supporting: null,
+        acceptedLocation: null,
+        changedAt: null,
+        pending: null,
+    };
+}
+
+function initializeWeatherIntensity(observation, location, now) {
+    return ['Rain', 'Snow'].includes(observation.condition)
+        ? {
+              ...createWeatherIntensityState(),
+              bucket: normalizeWeatherIntensityBucket(
+                  observation.intensityBucket,
+              ),
+              supporting: observation,
+              acceptedLocation: { ...location },
+              changedAt: now,
+          }
+        : createWeatherIntensityState();
+}
+
+function reconcileWeatherIntensity(
+    intensity,
+    conditionChangedAt,
+    location,
+    now,
+    settings,
+) {
+    if (
+        intensity.supporting &&
+        (now >=
+            intensity.supporting.observedAt + settings.intensityRetentionMs ||
+            weatherDistanceKm(location, intensity.acceptedLocation) >=
+                settings.movementKm ||
+            weatherDistanceKm(location, intensity.supporting.stationLocation) >
+                settings.stationDistanceKm)
+    ) {
+        return { ...createWeatherIntensityState(), changedAt: now };
+    }
+    let pending = intensity.pending;
+    if (
+        pending &&
+        (now >=
+            pending.first.observedAt + settings.intensityCandidateExpiryMs ||
+            !weatherObservationIsFresh(
+                pending.first,
+                location,
+                now,
+                settings,
+            ) ||
+            !weatherObservationIsFresh(pending.last, location, now, settings))
+    ) {
+        pending = null;
+    }
+    if (
+        pending?.confirmed &&
+        now >=
+            Math.max(conditionChangedAt, intensity.changedAt) +
+                settings.intensityDwellMs
+    ) {
+        return {
+            ...intensity,
+            bucket: normalizeWeatherIntensityBucket(
+                pending.last.intensityBucket,
+            ),
+            supporting: pending.last,
+            acceptedLocation: { ...location },
+            changedAt: now,
+            pending: null,
+        };
+    }
+    return pending === intensity.pending
+        ? intensity
+        : { ...intensity, pending };
+}
+
+function acceptWeatherIntensity(intensity, observation, location, settings) {
+    const bucket = normalizeWeatherIntensityBucket(observation.intensityBucket);
+    if (bucket === intensity.bucket) {
+        return {
+            ...intensity,
+            supporting: observation,
+            acceptedLocation: { ...location },
+            pending: null,
+        };
+    }
+    const sameCandidate =
+        normalizeWeatherIntensityBucket(
+            intensity.pending?.last.intensityBucket,
+        ) === bucket && intensity.pending;
+    const first = sameCandidate ? intensity.pending.first : observation;
+    return {
+        ...intensity,
+        pending: {
+            first,
+            last: observation,
+            confirmed: Boolean(
+                sameCandidate &&
+                observation.observedAt - first.observedAt >=
+                    settings.intensityConfirmationSpacingMs,
+            ),
+        },
     };
 }
 
@@ -196,7 +343,15 @@ export function reconcileWeatherState(
         };
     }
     if (!weatherLocationIsValid(location)) {
-        return { ...state, pending: null, reason: 'missing-location' };
+        return {
+            ...state,
+            pending: null,
+            reason: 'missing-location',
+            intensity: {
+                ...(state.intensity ?? createWeatherIntensityState()),
+                pending: null,
+            },
+        };
     }
     if (
         state.supporting &&
@@ -207,6 +362,13 @@ export function reconcileWeatherState(
     ) {
         return { ...createWeatherState(), reason: 'moved' };
     }
+    const intensity = reconcileWeatherIntensity(
+        state.intensity ?? createWeatherIntensityState(),
+        state.changedAt,
+        location,
+        now,
+        settings,
+    );
     let pending = state.pending;
     if (
         pending &&
@@ -230,9 +392,19 @@ export function reconcileWeatherState(
             changedAt: now,
             pending: null,
             reason: 'accepted',
+            intensity: ['Rain', 'Snow'].includes(pending.last.condition)
+                ? acceptWeatherIntensity(
+                      initializeWeatherIntensity(pending.first, location, now),
+                      pending.last,
+                      location,
+                      settings,
+                  )
+                : createWeatherIntensityState(),
         };
     }
-    return pending === state.pending ? state : { ...state, pending };
+    return pending === state.pending && intensity === state.intensity
+        ? state
+        : { ...state, pending, intensity };
 }
 
 export function acceptWeatherObservation(
@@ -271,14 +443,30 @@ export function acceptWeatherObservation(
         state.accepted === 'Unknown' ||
         state.accepted === observation.condition
     ) {
-        return {
-            ...state,
-            accepted: observation.condition,
-            supporting: observation,
-            acceptedLocation: { ...location },
-            changedAt: state.accepted === 'Unknown' ? now : state.changedAt,
-            pending: null,
-        };
+        const intensity = !['Rain', 'Snow'].includes(observation.condition)
+            ? createWeatherIntensityState()
+            : state.accepted === 'Unknown' || state.intensity.changedAt === null
+              ? initializeWeatherIntensity(observation, location, now)
+              : acceptWeatherIntensity(
+                    state.intensity,
+                    observation,
+                    location,
+                    settings,
+                );
+        return reconcileWeatherState(
+            {
+                ...state,
+                accepted: observation.condition,
+                supporting: observation,
+                acceptedLocation: { ...location },
+                changedAt: state.accepted === 'Unknown' ? now : state.changedAt,
+                pending: null,
+                intensity,
+            },
+            location,
+            now,
+            settings,
+        );
     }
     const sameCandidate =
         state.pending?.last.condition === observation.condition;
@@ -291,6 +479,7 @@ export function acceptWeatherObservation(
             observation.observedAt - first.observedAt >=
                 settings.confirmationSpacingMs,
     };
+    state.intensity = { ...state.intensity, pending: null };
     return reconcileWeatherState(state, location, now, settings);
 }
 

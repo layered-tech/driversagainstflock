@@ -360,3 +360,17 @@ test('concurrent locations across discovery-cell boundaries share station reques
         1,
     );
 });
+
+test('station observations carry structured intensity through to the shared weather policy', async () => {
+    const { client, reports } = harness();
+    reports.NEAR = response({
+        properties: {
+            timestamp: new Date(initialTime).toISOString(),
+            presentWeather: [{ weather: 'snow', intensity: 'heavy' }],
+            textDescription: 'Light Snow',
+        },
+    });
+    const observation = await client.getObservation(location);
+    assert.equal(observation.condition, 'Snow');
+    assert.equal(observation.intensityBucket, 'Heavy');
+});

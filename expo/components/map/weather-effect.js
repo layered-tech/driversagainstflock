@@ -1,7 +1,10 @@
 import Mapbox from '@rnmapbox/maps';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, UIManager } from 'react-native';
-import { getWeatherEffectStyle } from './weather-profiles';
+import {
+    getIntensityWeatherProfile,
+    getWeatherEffectStyle,
+} from './weather-profiles';
 import { useWeatherSurface, weatherStore } from './weather-runtime';
 
 export function WeatherEffect({ car, styleKey }) {
@@ -11,12 +14,30 @@ export function WeatherEffect({ car, styleKey }) {
     const [visible, setVisible] = useState(false);
     const currentRef = useRef(null);
     const rendererToken = useRef({});
+    const lastIntensityBucket = useRef('Baseline');
     const profiles = weather.preferences.profiles;
+    const intensityBucket =
+        effect === target
+            ? (weather.renderedIntensityBucket ?? 'Baseline')
+            : lastIntensityBucket.current;
     const style = useMemo(
         () =>
-            effect ? getWeatherEffectStyle(profiles[effect], visible) : null,
-        [effect, profiles, visible],
+            effect
+                ? getWeatherEffectStyle(
+                      getIntensityWeatherProfile(
+                          profiles[effect],
+                          intensityBucket,
+                      ),
+                      visible,
+                  )
+                : null,
+        [effect, profiles, visible, intensityBucket],
     );
+    useEffect(() => {
+        if (effect === target) {
+            lastIntensityBucket.current = intensityBucket;
+        }
+    }, [effect, target, intensityBucket]);
     const Component = effect === 'Rain' ? Mapbox.Rain : Mapbox.Snow;
     let supported =
         ['ios', 'android'].includes(Platform.OS) && Boolean(Component);
@@ -45,8 +66,18 @@ export function WeatherEffect({ car, styleKey }) {
             visible: supported && visible,
             supported,
             styleKey,
+            intensityBucket,
+            density: style?.density ?? 0,
         });
-    }, [car, effect, visible, supported, styleKey]);
+    }, [
+        car,
+        effect,
+        visible,
+        supported,
+        styleKey,
+        intensityBucket,
+        style?.density,
+    ]);
 
     useEffect(() => {
         let fadeTimer;

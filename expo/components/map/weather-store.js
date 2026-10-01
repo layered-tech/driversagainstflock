@@ -1,7 +1,8 @@
 import {
     acceptWeatherObservation,
+    createWeatherIntensityState,
     createWeatherState,
-    getAutomaticWeatherCondition,
+    normalizeWeatherIntensityBucket,
     reconcileWeatherState,
     WEATHER_DEFAULTS,
     weatherDistanceKm,
@@ -49,12 +50,15 @@ export function createWeatherStore({
     }
 
     function publish() {
-        const automatic = getAutomaticWeatherCondition(
+        const automaticState = reconcileWeatherState(
             state,
             location,
             now(),
             settings,
         );
+        const automatic = weatherLocationIsValid(location)
+            ? automaticState.accepted
+            : 'Unknown';
         const condition =
             !rolloutEnabled || !preferences.enabled || mode === 'Off'
                 ? 'Unknown'
@@ -70,6 +74,11 @@ export function createWeatherStore({
             rolloutEnabled,
             automatic,
             rendered: ['Rain', 'Snow'].includes(condition) ? condition : null,
+            renderedIntensityBucket: ['Rain', 'Snow'].includes(condition)
+                ? mode === 'Automatic'
+                    ? automaticState.intensity.bucket
+                    : 'Baseline'
+                : null,
             nextRefreshAt,
             failures,
             activeSurfaces: surfaces.size,
@@ -114,6 +123,24 @@ export function createWeatherStore({
             );
             if (state.pending.confirmed) {
                 deadlines.push(state.changedAt + settings.dwellMs);
+            }
+        }
+        if (state.intensity.supporting) {
+            deadlines.push(
+                state.intensity.supporting.observedAt +
+                    settings.intensityRetentionMs,
+            );
+        }
+        if (state.intensity.pending) {
+            deadlines.push(
+                state.intensity.pending.first.observedAt +
+                    settings.intensityCandidateExpiryMs,
+            );
+            if (state.intensity.pending.confirmed) {
+                deadlines.push(
+                    Math.max(state.changedAt, state.intensity.changedAt) +
+                        settings.intensityDwellMs,
+                );
             }
         }
         timer = setTimeoutFn(tick, Math.max(1, Math.min(...deadlines) - now()));
@@ -233,6 +260,7 @@ export function createWeatherStore({
                         ...createWeatherState(),
                         ...restored,
                         pending: null,
+                        intensity: restoreIntensity(restored),
                     };
                 }
             } catch {
@@ -245,6 +273,38 @@ export function createWeatherStore({
             tick();
         })();
         return hydrating;
+    }
+
+    function restoreIntensity(restored) {
+        const intensity = restored.intensity;
+        if (
+            intensity &&
+            ['Light', 'Baseline', 'Heavy'].includes(intensity.bucket) &&
+            Number.isFinite(intensity.changedAt) &&
+            intensity.changedAt <= now() + settings.futureToleranceMs &&
+            intensity.supporting?.condition === restored.accepted &&
+            normalizeWeatherIntensityBucket(
+                intensity.supporting.intensityBucket,
+            ) === intensity.bucket &&
+            Number.isFinite(intensity.supporting.observedAt) &&
+            intensity.supporting.observedAt <=
+                now() + settings.futureToleranceMs &&
+            weatherLocationIsValid(intensity.acceptedLocation) &&
+            weatherLocationIsValid(intensity.supporting.stationLocation)
+        ) {
+            return { ...intensity, pending: null };
+        }
+        return ['Rain', 'Snow'].includes(restored.accepted)
+            ? {
+                  ...createWeatherIntensityState(),
+                  supporting: {
+                      ...restored.supporting,
+                      intensityBucket: 'Baseline',
+                  },
+                  acceptedLocation: restored.acceptedLocation,
+                  changedAt: restored.changedAt,
+              }
+            : createWeatherIntensityState();
     }
 
     publish();

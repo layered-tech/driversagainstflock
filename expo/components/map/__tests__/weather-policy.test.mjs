@@ -85,6 +85,7 @@ test('structured current reports take priority, including mixed precipitation', 
     assert.deepEqual(weather({ weather: 'rain' }, { weather: 'snow' }), {
         condition: 'Snow',
         mixed: true,
+        intensityBucket: 'Baseline',
     });
     assert.equal(
         weather({ weather: 'snow', inVicinity: true }).condition,

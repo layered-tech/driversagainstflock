@@ -171,6 +171,11 @@ function renderer({
             dirty = true;
             return flush();
         },
+        intensityBucket(value) {
+            snapshot = { ...snapshot, renderedIntensityBucket: value };
+            dirty = true;
+            return flush();
+        },
         style(key) {
             props = { ...props, styleKey: key };
             dirty = true;
@@ -323,4 +328,49 @@ test('shared MapCanvas wires phone and car effects to its style attachment epoch
         'utf8',
     );
     assert.match(drawer, /<WeatherDebugPane \/>/);
+});
+
+test('intensity changes update density in place with a smooth native transition', () => {
+    const surface = renderer();
+    surface.condition('Rain');
+    surface.advance(32);
+    const key = surface.current().key;
+    surface.intensityBucket('Light');
+    assert.equal(surface.current().key, key);
+    assert.equal(surface.current().props.style.density, 0.075);
+    assert.equal(surface.current().props.style.opacity, 0.35);
+    assert.equal(
+        surface.timers.size,
+        0,
+        'intensity does not restart effect fade timers',
+    );
+    surface.intensityBucket('Heavy');
+    assert.equal(surface.current().key, key);
+    assert.equal(surface.current().props.style.density, 0.15 * 1.75);
+    assert.equal(surface.current().props.style.intensity, 0.35);
+    assert.deepEqual(surface.current().props.style.densityTransition, {
+        duration: 2000,
+        delay: 0,
+    });
+    assert.equal([...surface.reports.values()][0].intensityBucket, 'Heavy');
+    surface.intensityBucket('Baseline');
+    assert.equal(surface.current().props.style.density, 0.15);
+    surface.unmount();
+});
+
+test('outgoing precipitation retains its old intensity until replacement', () => {
+    const surface = renderer();
+    surface.condition('Rain');
+    surface.advance(32);
+    surface.intensityBucket('Heavy');
+    surface.condition('Snow');
+    surface.intensityBucket('Light');
+    assert.equal(surface.current().type, 'native-rain');
+    assert.equal([...surface.reports.values()][0].intensityBucket, 'Heavy');
+    surface.advance(2000);
+    surface.advance(32);
+    assert.equal(surface.current().type, 'native-snow');
+    assert.equal(surface.current().props.style.density, 0.1);
+    assert.equal([...surface.reports.values()][0].intensityBucket, 'Light');
+    surface.unmount();
 });
