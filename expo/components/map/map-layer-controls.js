@@ -21,6 +21,7 @@ import {
     NativeWindBottomSheetScrollView,
 } from './native-components';
 import { OfflineMapControls } from './offline-map-controls';
+import { useWeatherState, weatherStore } from './weather-runtime';
 
 function SettingSwitchRow({ label, onValueChange, testID, value }) {
     return (
@@ -75,6 +76,7 @@ export function MapLayerButton() {
 }
 
 export function MapLayerSheet() {
+    const weather = useWeatherState();
     const { height: windowHeight } = useWindowDimensions();
     const [mapSettingsSheetIsPresented, setMapSettingsSheetIsPresented] =
         useState(false);
@@ -171,7 +173,7 @@ export function MapLayerSheet() {
             onDismiss={handleMapSettingsSheetDismiss}
         >
             <NativeWindBottomSheetScrollView
-                className="dark:bg-daf-surface-dark bg-white"
+                className="bg-white dark:bg-daf-surface-dark"
                 contentContainerStyle={{
                     gap: 16,
                     paddingBottom: insets.bottom + 16,
@@ -225,6 +227,12 @@ export function MapLayerSheet() {
                         value={mapTrafficEnabled}
                     />
                     <SettingSwitchRow
+                        label="Rain and snow effects"
+                        onValueChange={weatherStore.setEnabled}
+                        testID="map-weather-toggle"
+                        value={weather.preferences.enabled}
+                    />
+                    <SettingSwitchRow
                         label="Police reports (Waze)"
                         onValueChange={setPoliceAlertsVisible}
                         testID="map-police-alerts-toggle"
@@ -245,15 +253,15 @@ export function MapLayerSheet() {
                                 accessibilityState={{ selected: isSelected }}
                                 className={`min-h-[104px] flex-row items-center gap-3 rounded-dafMd border p-2 active:opacity-[0.82] ${
                                     isSelected
-                                        ? 'bg-daf-brand/10 dark:bg-daf-brand/15 border-daf-brand dark:border-daf-brand'
-                                        : 'dark:border-daf-border-dark dark:bg-daf-surface-dark border-daf-border bg-white'
+                                        ? 'border-daf-brand bg-daf-brand/10 dark:border-daf-brand dark:bg-daf-brand/15'
+                                        : 'border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark'
                                 }`}
                                 onPress={() =>
                                     handleMapLayerSelect(mapLayer.styleURL)
                                 }
                                 testID={`map-layer-option-${mapLayer.key}`}
                             >
-                                <View className="dark:border-daf-border-dark h-[84px] w-32 overflow-hidden rounded-dafSm border border-daf-border bg-daf-surface-alt dark:bg-daf-surface-inverse">
+                                <View className="h-[84px] w-32 overflow-hidden rounded-dafSm border border-daf-border bg-daf-surface-alt dark:border-daf-border-dark dark:bg-daf-surface-inverse">
                                     <MapLayerPreview mapLayer={mapLayer} />
                                 </View>
 
@@ -283,7 +291,7 @@ export function MapLayerSheet() {
                     })}
                 </View>
 
-                <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark gap-3 rounded-dafMd border border-daf-border bg-white p-4">
+                <View className="gap-3 rounded-dafMd border border-daf-border bg-white p-4 dark:border-daf-border-dark dark:bg-daf-surface-dark">
                     <View className="flex-row items-center justify-between gap-3">
                         <Text className="text-base font-semibold text-daf-text-primary dark:text-white">
                             Map's Time of Day
@@ -292,7 +300,7 @@ export function MapLayerSheet() {
                             Auto-safe
                         </DafChip>
                     </View>
-                    <View className="dark:border-daf-border-dark flex-row overflow-hidden rounded-dafMd border border-daf-border bg-white dark:bg-daf-surface-inverse">
+                    <View className="flex-row overflow-hidden rounded-dafMd border border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-inverse">
                         {MAP_LIGHT_PRESET_OPTIONS.map(
                             (lightPresetOption, index) => {
                                 const isSelected =
@@ -309,7 +317,7 @@ export function MapLayerSheet() {
                                         }}
                                         className={`min-h-11 flex-1 items-center justify-center px-1 active:opacity-[0.82] ${
                                             index > 0
-                                                ? 'dark:border-daf-border-dark border-l border-daf-border'
+                                                ? 'border-l border-daf-border dark:border-daf-border-dark'
                                                 : ''
                                         } ${
                                             isSelected

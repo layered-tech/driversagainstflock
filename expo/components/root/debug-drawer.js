@@ -51,6 +51,7 @@ import {
 } from '../map/debug-overlays';
 import { useSharedMapState } from '../map/shared-map-state';
 import { UpcomingAlertDebugPane } from '../map/upcoming-alert-debug-pane';
+import { WeatherDebugPane } from '../map/weather-debug-pane';
 import { DebugDrawerToggleRow } from './debug-drawer-toggle-row';
 
 const DEBUG_DRAWER_ANIMATION_MS = 180;
@@ -330,6 +331,7 @@ export function DebugDrawer({ onClose, visible }) {
                     ))}
                     <AlprPresenceDebugPane />
                     <UpcomingAlertDebugPane />
+                    <WeatherDebugPane />
                     <View className="gap-2 rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
                         <View className="gap-1">
                             <Text className="text-sm font-semibold text-neutral-950 dark:text-white">
