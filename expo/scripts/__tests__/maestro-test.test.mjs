@@ -260,7 +260,7 @@ R58M offline
     test('collects the full suite without launcher UI readiness checks', () => {
         const flows = collectMaestroFlows(['.maestro'], EXPO_DIRECTORY);
 
-        assert.equal(flows.length, 28);
+        assert.equal(flows.length, 29);
         assert.deepEqual(
             flows.map((flow) => path.basename(flow)),
             [...flows.map((flow) => path.basename(flow))].sort(),
@@ -282,6 +282,7 @@ R58M offline
             'contribute-wizard.yml',
             'driving-alerts.yml',
             'map-layer-options.yml',
+            'map-settings-first-open-driving.yml',
             'marker-osm-details-toggle.yml',
             'moving-navigation.yml',
             'road-matching-free-drive.yml',
@@ -325,6 +326,42 @@ R58M offline
         assert.match(
             subflow,
             /runFlow:\s+when:\s+visible: '[^']*Development Build[^']*'\s+commands:\s+- openLink: \$\{MAESTRO_EXPO_DEV_CLIENT_URL\}/,
+        );
+    });
+
+    test('starts turn-by-turn guidance without a restored drive', () => {
+        const source = readFileSync(
+            path.join(
+                EXPO_DIRECTORY,
+                '.maestro',
+                'turn-by-turn-navigation.yml',
+            ),
+            'utf8',
+        );
+
+        assert.match(
+            source,
+            /launchApp:\s+stopApp: true\s+clearState: true\s+clearKeychain: true/,
+        );
+    });
+
+    test('restores browsing after the first driving settings presentation', () => {
+        const source = readFileSync(
+            path.join(
+                EXPO_DIRECTORY,
+                '.maestro',
+                'map-settings-first-open-driving.yml',
+            ),
+            'utf8',
+        );
+
+        assert.match(
+            source,
+            /id: 'map-layer-option-standard'[\s\S]*?notVisible:\s+id: 'map-settings-sheet'[\s\S]*?id: 'exit-free-drive-button'[\s\S]*?visible:\s+id: 'map-search-input-map'\s+timeout: 10000\s*$/,
+        );
+        assert.match(
+            source,
+            /file: subflows\/open-expo-dev-client-after-clear\.yml\s+- runFlow:\s+when:\s+visible:\s+id: 'exit-free-drive-button'\s+commands:\s+- tapOn:\s+id: 'exit-free-drive-button'[\s\S]*?- extendedWaitUntil:\s+visible:\s+id: 'map-search-input-map'/,
         );
     });
 

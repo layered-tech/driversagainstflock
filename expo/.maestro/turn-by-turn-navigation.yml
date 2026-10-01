@@ -11,6 +11,7 @@ tags:
 - launchApp:
     stopApp: true
     clearState: true
+    clearKeychain: true
     permissions:
       all: allow
 - runFlow:

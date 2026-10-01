@@ -543,6 +543,7 @@ export default function LocationMapScreen({
         voiceSearchIsListening: searchController.voiceSearchIsListening,
     });
     const {
+        dismissMapLayerSheet,
         handleMapLayerPress,
         handleMapLayerSelect,
         handleMapLayerSheetAnimate,
@@ -602,16 +603,16 @@ export default function LocationMapScreen({
     );
     const handleStartDriving = useStartDrivingAction({
         directionsRoute,
-        layerSheetRef,
+        dismissMapLayerSheet,
         searchController,
         selectedDirectionsRouteOption,
         setDrivingModeIsActive,
     });
     const handleStartFreeDrive = useCallback(() => {
-        layerSheetRef.current?.dismiss();
+        dismissMapLayerSheet();
         logMapDrivingStarted({ route: null });
         setDrivingModeIsActive(true);
-    }, [layerSheetRef, setDrivingModeIsActive]);
+    }, [dismissMapLayerSheet, setDrivingModeIsActive]);
     const handleRouteExportPress = useCallback(() => {
         if (!routeExportIsAvailable) {
             return;
@@ -861,7 +862,7 @@ export default function LocationMapScreen({
                                     <Pressable
                                         accessibilityLabel="Back from route choices"
                                         accessibilityRole="button"
-                                        className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90 h-[55px] w-[55px] items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82]"
+                                        className="h-[55px] w-[55px] items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82] dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90"
                                         onPress={
                                             searchController.handleDirectionsModeDismiss
                                         }
@@ -884,7 +885,7 @@ export default function LocationMapScreen({
                                         <Pressable
                                             accessibilityLabel="Close marker details"
                                             accessibilityRole="button"
-                                            className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90 h-[55px] w-[55px] items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82]"
+                                            className="h-[55px] w-[55px] items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82] dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90"
                                             onPress={
                                                 handleMarkerDetailsClosePress
                                             }
@@ -905,7 +906,7 @@ export default function LocationMapScreen({
                                         <Pressable
                                             accessibilityLabel="Close place details"
                                             accessibilityRole="button"
-                                            className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90 h-[55px] w-[55px] items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82]"
+                                            className="h-[55px] w-[55px] items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82] dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90"
                                             onPress={
                                                 searchController.handleClearSelectedSearchResult
                                             }

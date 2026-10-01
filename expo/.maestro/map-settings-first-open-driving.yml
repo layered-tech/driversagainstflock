@@ -1,0 +1,85 @@
+appId: com.anonymous.drivefree.dev
+name: Map Settings First Open After Driving
+tags:
+  - map
+  - layers
+---
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+- launchApp:
+    clearState: true
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    file: subflows/open-expo-dev-client-after-clear.yml
+- runFlow:
+    when:
+      visible:
+        id: 'exit-free-drive-button'
+    commands:
+      - tapOn:
+          id: 'exit-free-drive-button'
+          retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 120000
+- openLink: 'driversagainstflock://e2e-mocks'
+- extendedWaitUntil:
+    visible:
+      id: 'start-free-drive-button'
+    timeout: 30000
+- tapOn:
+    id: 'start-free-drive-button'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: 'exit-free-drive-button'
+    timeout: 10000
+- tapOn:
+    id: 'map-layer-button'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: 'map-settings-sheet'
+    timeout: 10000
+- assertVisible: 'Map settings'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-map-settings-first-open-driving'}
+- tapOn:
+    id: 'map-layer-option-standard-satellite'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible:
+      id: 'map-settings-sheet'
+    timeout: 10000
+- tapOn:
+    id: 'map-layer-button'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: 'map-settings-sheet'
+    timeout: 10000
+- assertVisible: 'Map settings'
+- tapOn:
+    id: 'map-layer-option-standard'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible:
+      id: 'map-settings-sheet'
+    timeout: 10000
+- tapOn:
+    id: 'exit-free-drive-button'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 10000

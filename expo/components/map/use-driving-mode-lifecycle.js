@@ -6,7 +6,7 @@ const IDLE_LOCK_ON_CAMERA_ANIMATION_DURATION_MS = 1250;
 
 export function useStartDrivingAction({
     directionsRoute,
-    layerSheetRef,
+    dismissMapLayerSheet,
     searchController,
     selectedDirectionsRouteOption,
     setDrivingModeIsActive,
@@ -17,12 +17,12 @@ export function useStartDrivingAction({
         }
 
         searchController.dismissDirectionsRouteSheet();
-        layerSheetRef.current?.dismiss();
+        dismissMapLayerSheet();
         logMapDrivingStarted({ route: directionsRoute });
         setDrivingModeIsActive(true);
     }, [
         directionsRoute,
-        layerSheetRef,
+        dismissMapLayerSheet,
         searchController.dismissDirectionsRouteSheet,
         selectedDirectionsRouteOption,
         setDrivingModeIsActive,
