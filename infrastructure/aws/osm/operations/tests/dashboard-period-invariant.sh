@@ -74,12 +74,22 @@ for title in metric_widget_titles:
             f"found {actual_period}"
         )
 
-if '"GraphHopper serving capacity"' in monitoring or '"ServingMemoryUsedPercent"' in monitoring:
+if '"GraphHopper serving capacity"' in monitoring:
     raise SystemExit("Dashboard must not present host RAM as GraphHopper serving capacity")
 
-for metric in ("MemoryUsedPercent", "ServingGraphVolumeUsedPercent"):
+if '"MemoryUsedPercent"' in monitoring:
+    raise SystemExit("Dashboard must not use the agent memory metric that excludes shared memory")
+
+for metric in ("ServingMemoryUsedPercent", "ServingGraphVolumeUsedPercent"):
     if monitoring.count(f'"{metric}"') != 1 or f'"{metric}"' not in metric_widget("Shared-host health"):
         raise SystemExit(f"{metric} must appear only in Shared-host health")
+
+if not re.search(
+    r'\["DAF/Routing", "ServingMemoryUsedPercent", "InstanceId", aws_instance\.database\.id, '
+    r'\{ label = "Shared-host memory used \(%; includes shared memory\)" \}\]',
+    metric_widget("Shared-host health"),
+):
+    raise SystemExit("Shared-host memory must use the MemAvailable-based routing metric")
 
 for title in ("Shared-host health", "Publication and history volume"):
     if not re.search(r"\bstacked\s*=\s*false\b", metric_widget(title)):

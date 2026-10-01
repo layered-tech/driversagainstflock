@@ -60,7 +60,7 @@ resource "aws_cloudwatch_dashboard" "unified" {
           metrics = [
             ["AWS/EC2", "CPUUtilization", "InstanceId", aws_instance.database.id, { label = "Shared-host CPU used (%)" }],
             ["AWS/EC2", "StatusCheckFailed", "InstanceId", aws_instance.database.id, { label = "Status check failures", stat = "Maximum", yAxis = "right" }],
-            ["DAF/OSM", "MemoryUsedPercent", "InstanceId", aws_instance.database.id, { label = "Shared-host memory used (%)" }],
+            ["DAF/Routing", "ServingMemoryUsedPercent", "InstanceId", aws_instance.database.id, { label = "Shared-host memory used (%; includes shared memory)" }],
             ["DAF/OSM", "DataVolumeUsedPercent", "InstanceId", aws_instance.database.id, { label = "OSM data volume used (%)" }],
             ["DAF/Routing", "ServingGraphVolumeUsedPercent", "InstanceId", aws_instance.database.id, { label = "Graph volume used (%)" }],
           ]
@@ -305,6 +305,52 @@ resource "aws_cloudwatch_dashboard" "unified" {
           region = var.aws_region
           title  = "Recent OSM, GraphHopper, and builder logs"
           view   = "table"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 53
+        width  = 12
+        height = 6
+        properties = {
+          metrics = [
+            ["DAF/Routing", "GraphHopperWorkingMemoryBytes", "InstanceId", aws_instance.database.id, { label = "GraphHopper: anonymous, shared and kernel memory" }],
+            ["DAF/Routing", "PostgreSQLWorkingMemoryBytes", "InstanceId", aws_instance.database.id, { label = "PostgreSQL: anonymous, shared and kernel memory" }],
+            ["DAF/Routing", "OsmReplicationWorkingMemoryBytes", "InstanceId", aws_instance.database.id, { label = "OSM node replication" }],
+            ["DAF/Routing", "OsmChangesetReplicationWorkingMemoryBytes", "InstanceId", aws_instance.database.id, { label = "Changeset replication" }],
+            ["DAF/Routing", "OsmChangesetBackfillWorkingMemoryBytes", "InstanceId", aws_instance.database.id, { label = "Changeset backfill" }],
+            ["DAF/Routing", "OsmChangesetRefreshWorkingMemoryBytes", "InstanceId", aws_instance.database.id, { label = "Changeset dump refresh" }],
+            ["DAF/Routing", "OsmBackupWorkingMemoryBytes", "InstanceId", aws_instance.database.id, { label = "Database backup" }],
+          ]
+          period  = 60
+          region  = var.aws_region
+          stat    = "Maximum"
+          stacked = false
+          title   = "Service memory excluding reclaimable file cache (bytes)"
+          view    = "timeSeries"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 53
+        width  = 12
+        height = 6
+        properties = {
+          metrics = [
+            ["DAF/Routing", "GraphHopperHeapUsedBytes", "InstanceId", aws_instance.database.id, { label = "Java heap used" }],
+            ["DAF/Routing", "GraphHopperHeapCommittedBytes", "InstanceId", aws_instance.database.id, { label = "Java heap committed" }],
+            ["DAF/Routing", "GraphHopperHeapMaxBytes", "InstanceId", aws_instance.database.id, { label = "Java heap limit" }],
+            ["DAF/Routing", "GraphHopperMemoryBytes", "InstanceId", aws_instance.database.id, { label = "GraphHopper total, including file cache" }],
+            ["DAF/Routing", "PostgreSQLMemoryBytes", "InstanceId", aws_instance.database.id, { label = "PostgreSQL total, including file cache" }],
+          ]
+          period  = 60
+          region  = var.aws_region
+          stat    = "Maximum"
+          stacked = false
+          title   = "Java heap and service memory including file cache (bytes)"
+          view    = "timeSeries"
         }
       },
     ]

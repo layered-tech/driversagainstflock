@@ -36,6 +36,7 @@ sources: list[tuple[Path, Path]] = [
     (operations / "install-core.sh", Path("operations/install-core.sh")),
     (operations / "install-graphhopper.sh", Path("operations/install-graphhopper.sh")),
     (operations / "migrate-data-volume.sh", Path("operations/migrate-data-volume.sh")),
+    (operations / "tune-shared-host-memory.sh", Path("operations/tune-shared-host-memory.sh")),
     (operations / "daf-osm.env", Path("operations/daf-osm.env")),
     (operations / "cloudwatch-agent.json", Path("operations/cloudwatch-agent.json")),
 ]
@@ -58,6 +59,8 @@ required_paths = {
     "operations/install-core.sh",
     "operations/install-graphhopper.sh",
     "operations/migrate-data-volume.sh",
+    "operations/tune-shared-host-memory.sh",
+    "operations/bin/collect-host-memory.py",
     "operations/daf-osm.env",
     "operations/cloudwatch-agent.json",
     "operations/bin/backup.sh",

@@ -12,6 +12,13 @@ readonly REFRESH_RESULT="${OSM_STATE_PATH}/global-changeset-refresh.pending"
 readonly REFRESH_HTTP_METADATA="${OSM_STATE_PATH}/global-changeset-refresh-http-headers.txt"
 
 (( EUID == 0 )) || die 'Changeset dump refresh must run as root'
+
+psql_osm()
+{
+    runuser --preserve-environment --user osm_ingest -- \
+        psql --no-psqlrc --set=ON_ERROR_STOP=1 "$@"
+}
+
 require_file "${BOOTSTRAP_MARKER}"
 require_file "${ACTIVATION_MARKER}"
 require_file "${CHANGESET_STATE}"
@@ -37,7 +44,7 @@ restore_timers()
 }
 trap restore_timers EXIT
 
-systemctl disable daf-osm-changeset-update.timer daf-osm-changeset-backfill.timer
+systemctl disable --now daf-osm-changeset-update.timer daf-osm-changeset-backfill.timer
 systemctl stop \
     daf-osm-changeset-update.service \
     daf-osm-changeset-backfill.service \

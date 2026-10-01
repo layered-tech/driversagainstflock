@@ -25,6 +25,7 @@ bash -n "${REFRESH_SCRIPT}"
 bash -n "${CORE_SCRIPT}"
 
 for contract in \
+    'systemctl disable --now daf-osm-changeset-update.timer daf-osm-changeset-backfill.timer' \
     'daf-osm-changeset-update.timer' \
     'daf-osm-changeset-backfill.timer' \
     '/run/daf-osm/backup.lock' \

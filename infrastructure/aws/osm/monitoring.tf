@@ -207,9 +207,9 @@ resource "aws_cloudwatch_metric_alarm" "memory_usage" {
   }
 
   alarm_name          = "daf-infrastructure-shared-host-high-memory"
-  alarm_description   = "The shared OSM and GraphHopper host memory has exceeded 90 percent usage for 15 minutes"
-  namespace           = "DAF/OSM"
-  metric_name         = "MemoryUsedPercent"
+  alarm_description   = "The shared OSM and GraphHopper host memory, including shared memory, has exceeded 90 percent usage for 15 minutes"
+  namespace           = "DAF/Routing"
+  metric_name         = "ServingMemoryUsedPercent"
   statistic           = "Maximum"
   period              = 300
   evaluation_periods  = 3

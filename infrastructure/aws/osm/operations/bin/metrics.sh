@@ -232,4 +232,25 @@ aws cloudwatch put-metric-data \
     --metric-data "${metric_data}" \
     >/dev/null
 
-log 'Published OSM pipeline metrics'
+IFS=$'\t' read -r database_temp_bytes database_blocks_read database_blocks_hit \
+    <<< "$(psql_osm --tuples-only --no-align --field-separator=$'\t' \
+        --command='SELECT temp_bytes, blks_read, blks_hit FROM pg_stat_database WHERE datname = current_database()')"
+for database_counter in "${database_temp_bytes}" "${database_blocks_read}" "${database_blocks_hit}"; do
+    [[ "${database_counter}" =~ ^[0-9]+$ ]] || die 'Database memory observation counter is invalid'
+done
+database_metric_data="$(jq -n \
+    --arg instance_id "${INSTANCE_ID}" \
+    --argjson temporary_bytes "${database_temp_bytes}" \
+    --argjson blocks_read "${database_blocks_read}" \
+    --argjson blocks_hit "${database_blocks_hit}" \
+    '[
+        {MetricName: "PostgreSQLTempBytes", Unit: "Bytes", Value: $temporary_bytes},
+        {MetricName: "PostgreSQLBlocksRead", Unit: "Count", Value: $blocks_read},
+        {MetricName: "PostgreSQLBlocksHit", Unit: "Count", Value: $blocks_hit}
+    ] | map(. + {Dimensions: [{Name: "InstanceId", Value: $instance_id}]})')"
+aws cloudwatch put-metric-data \
+    --region "${AWS_REGION}" \
+    --namespace "${CLOUDWATCH_NAMESPACE}" \
+    --metric-data "${database_metric_data}" >/dev/null
+
+log 'Published OSM pipeline and database memory observation metrics'

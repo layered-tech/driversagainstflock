@@ -301,6 +301,7 @@ install_runtime_files()
 {
     install --directory --mode=0755 /opt/daf-osm/bin /opt/daf-osm/database
     install --mode=0755 "${OPERATIONS_SOURCE}/migrate-data-volume.sh" /opt/daf-osm/bin/
+    install --mode=0755 "${OPERATIONS_SOURCE}/tune-shared-host-memory.sh" /opt/daf-osm/bin/
     install --mode=0755 "${OPERATIONS_SOURCE}"/bin/*.sh /opt/daf-osm/bin/
     install --mode=0755 "${OPERATIONS_SOURCE}"/bin/*.py /opt/daf-osm/bin/
     install --mode=0644 "${DATABASE_SOURCE}"/*.sql /opt/daf-osm/database/
@@ -433,9 +434,10 @@ password_encryption = 'scram-sha-256'
 ssl = on
 ssl_cert_file = 'server.crt'
 ssl_key_file = 'server.key'
-shared_buffers = '4GB'
-effective_cache_size = '12GB'
-maintenance_work_mem = '1GB'
+shared_buffers = '1GB'
+effective_cache_size = '3GB'
+maintenance_work_mem = '256MB'
+autovacuum_work_mem = '128MB'
 wal_compression = on
 checkpoint_completion_target = 0.9
 log_min_duration_statement = 5000

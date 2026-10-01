@@ -8,6 +8,7 @@ readonly METRICS_PATH="$(mktemp /run/daf-routing-serving-metrics/metrics.XXXXXX.
 
 cleanup() {
     rm -f "${METRICS_PATH}"
+    rm -f "${METRICS_PATH}.pending"
 }
 
 trap cleanup EXIT
@@ -54,6 +55,11 @@ jq -n \
             Value: $memory_used_percent
         }
     ]' > "${METRICS_PATH}"
+
+python3 /opt/daf-osm/bin/collect-host-memory.py \
+    --instance-id "${INSTANCE_ID}" \
+    --base-metrics "${METRICS_PATH}" > "${METRICS_PATH}.pending"
+mv --force "${METRICS_PATH}.pending" "${METRICS_PATH}"
 
 aws cloudwatch put-metric-data \
     --region "${AWS_REGION}" \
