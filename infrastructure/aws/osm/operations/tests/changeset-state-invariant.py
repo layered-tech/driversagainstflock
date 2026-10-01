@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import configparser
 import datetime as dt
 import gzip
 import importlib.util
@@ -246,6 +247,19 @@ class ChangesetStateInvariant(unittest.TestCase):
             server.routes["/state.yaml"] = (200, b"sequence: nope\n", {})
             with self.assertRaises(ValueError):
                 fetcher.fetch_root_state(server.url)
+
+
+class ChangesetTimerInvariant(unittest.TestCase):
+    def test_reenabling_after_refresh_schedules_without_a_service_transition(self) -> None:
+        timer = configparser.ConfigParser()
+        timer.read(TEST_DIRECTORY.parent / "systemd/daf-osm-changeset-update.timer")
+
+        # OnBootSec has already elapsed, and refresh stopped the service before
+        # restarting the timer. Neither can schedule a new inactivity transition.
+        self.assertTrue(timer.has_option("Timer", "OnActiveSec"))
+        self.assertNotEqual("0", timer["Timer"]["OnActiveSec"])
+        self.assertEqual("1min", timer["Timer"]["OnUnitInactiveSec"])
+        self.assertEqual("daf-osm-changeset-update.service", timer["Timer"]["Unit"])
 
 
 if __name__ == "__main__":
