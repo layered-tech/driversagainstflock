@@ -17,3 +17,5 @@ foreach (config('moderation.schedules', []) as $kind => $settings) {
 }
 
 Schedule::job(new ReconcileAlprPresenceReports)->everyFiveMinutes()->withoutOverlapping();
+
+Schedule::command('horizon:snapshot')->everyFiveMinutes();
