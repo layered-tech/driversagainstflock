@@ -1,27 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useColorScheme, View } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { getDafTheme } from '../design-system/tokens';
-import {
-    ACTIVE_ROUTE_DEVIATION_THRESHOLD_METERS,
-    getActiveRouteDeviationDistanceMeters,
-} from './active-route-deviation';
 import { logMapDrivingStopped } from './analytics';
-import { getDirections } from './api';
-import { DEBUG_OVERLAY_DIRECTIONS_GEOMETRY } from './debug-overlays';
 import {
-    createCurrentLocationDirectionsWaypoint,
     createDirectionsRouteProgressTracker,
     getActiveDirectionsManeuver,
-    getDirectionsRouteBounds,
-    getDirectionsWaypointApiCoord,
     getDirectionsWaypointCoordinate,
     getNextDirectionsManeuver,
-    getRemainingDirectionsStopWaypoints,
-    getSelectedDirectionsRouteKey,
+    getRemainingDirectionsRouteValues,
     getSelectedDirectionsRouteOption,
-    selectDirectionsRoute,
 } from './directions';
+import {
+    cancelSharedNavigationRerouting,
+    useSharedNavigationRerouting,
+} from './shared-navigation-controller';
 import { DrivingAlertsOverlay } from './driving-alerts-overlay';
 import {
     DestinationCard,
@@ -41,10 +34,6 @@ import {
     useRouteSpeedLimit,
 } from './speed-limit';
 import { MOBILE_SPEED_LIMIT_BADGE_SIZE } from './speed-limit-layout';
-
-const DRIVING_REROUTE_CONFIRMATION_MS = 2000;
-const DRIVING_REROUTE_COOLDOWN_MS = 8000;
-const DRIVING_REROUTE_GRACE_PERIOD_MS = 3000;
 
 function createSearchResultRestoreFromRoute(route) {
     const destination = route?.destination;
@@ -108,15 +97,11 @@ export function DrivingGuidanceOverlay({
 }) {
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
-    const offRouteDetectedAtRef = useRef(null);
-    const rerouteAbortControllerRef = useRef(null);
-    const lastRerouteAtRef = useRef(0);
-    const [rerouteIsLoading, setRerouteIsLoading] = useState(false);
+    const rerouteIsLoading = useSharedNavigationRerouting();
     const [routeProgressTracker] = useState(
         createDirectionsRouteProgressTracker,
     );
     const {
-        debugOverlayVisibility,
         directionsRoute,
         setDirectionsRoute,
         setDrivingModeIsActive,
@@ -131,10 +116,6 @@ export function DrivingGuidanceOverlay({
         () => routeProgressTracker.update(directionsRoute, userLocation),
         [directionsRoute, routeProgressTracker, userLocation],
     );
-    const routeDeviationDistance = getActiveRouteDeviationDistanceMeters({
-        routeProgress,
-        userLocation,
-    });
     const maneuver = useMemo(
         () =>
             getActiveDirectionsManeuver(
@@ -173,13 +154,10 @@ export function DrivingGuidanceOverlay({
         userLocation,
     });
     const handleCancelRoute = useCallback(() => {
+        cancelSharedNavigationRerouting();
         const searchResultRestore =
             createSearchResultRestoreFromRoute(directionsRoute);
 
-        rerouteAbortControllerRef.current?.abort();
-        rerouteAbortControllerRef.current = null;
-        offRouteDetectedAtRef.current = null;
-        setRerouteIsLoading(false);
         setPendingSearchResultRestore?.(
             searchResultRestore ?? {
                 id: `route-cleared:${Date.now()}`,
@@ -198,164 +176,6 @@ export function DrivingGuidanceOverlay({
         setPendingDirectionsRequest,
         setPendingSearchResultRestore,
     ]);
-    const handleReroute = useCallback(() => {
-        if (rerouteAbortControllerRef.current) {
-            return;
-        }
-
-        const destinationWaypoint = directionsRoute?.destination;
-        const currentLocationWaypoint =
-            createCurrentLocationDirectionsWaypoint(userLocation);
-        const start = getDirectionsWaypointApiCoord(currentLocationWaypoint);
-        const end = getDirectionsWaypointApiCoord(destinationWaypoint);
-
-        if (
-            !destinationWaypoint ||
-            !currentLocationWaypoint ||
-            !start ||
-            !end
-        ) {
-            return;
-        }
-
-        const abortController = new AbortController();
-        const selectedRouteKey = getSelectedDirectionsRouteKey(directionsRoute);
-        const requestedAt = Date.now();
-        const remainingStopWaypoints = getRemainingDirectionsStopWaypoints(
-            directionsRoute,
-            routeProgress,
-        );
-
-        rerouteAbortControllerRef.current = abortController;
-        lastRerouteAtRef.current = requestedAt;
-        setRerouteIsLoading(true);
-
-        getDirections({
-            advancedRouteSettings: directionsRoute?.advancedRouteSettings,
-            end,
-            showZone:
-                debugOverlayVisibility?.[DEBUG_OVERLAY_DIRECTIONS_GEOMETRY] ===
-                true,
-            signal: abortController.signal,
-            start,
-            waypoints: remainingStopWaypoints
-                .map(getDirectionsWaypointApiCoord)
-                .filter(Boolean),
-        })
-            .then(({ debugGeometry, exclusionZone, route }) => {
-                if (rerouteAbortControllerRef.current !== abortController) {
-                    return;
-                }
-
-                const selectedRoute = selectDirectionsRoute(
-                    route,
-                    selectedRouteKey,
-                );
-                const bounds =
-                    selectedRoute?.bounds ??
-                    getDirectionsRouteBounds(selectedRoute);
-
-                setDirectionsRoute({
-                    ...selectedRoute,
-                    advancedRouteSettings:
-                        directionsRoute?.advancedRouteSettings,
-                    bounds,
-                    debugGeometry,
-                    destination: destinationWaypoint,
-                    exclusionZone,
-                    requestedAt,
-                    start: currentLocationWaypoint,
-                    stopWaypoints: remainingStopWaypoints,
-                });
-            })
-            .catch((error) => {
-                if (error?.name !== 'AbortError') {
-                    lastRerouteAtRef.current = 0;
-                }
-            })
-            .finally(() => {
-                if (rerouteAbortControllerRef.current === abortController) {
-                    rerouteAbortControllerRef.current = null;
-                }
-
-                setRerouteIsLoading(false);
-            });
-    }, [
-        debugOverlayVisibility,
-        directionsRoute,
-        routeProgress,
-        setDirectionsRoute,
-        userLocation,
-    ]);
-
-    useEffect(
-        () => () => {
-            rerouteAbortControllerRef.current?.abort();
-            rerouteAbortControllerRef.current = null;
-        },
-        [],
-    );
-
-    useEffect(() => {
-        if (routeIsActive) {
-            return;
-        }
-
-        rerouteAbortControllerRef.current?.abort();
-        rerouteAbortControllerRef.current = null;
-        offRouteDetectedAtRef.current = null;
-        setRerouteIsLoading(false);
-    }, [routeIsActive]);
-
-    useEffect(() => {
-        if (
-            !routeIsActive ||
-            !routeProgress ||
-            routeDeviationDistance === null ||
-            rerouteAbortControllerRef.current
-        ) {
-            offRouteDetectedAtRef.current = null;
-            return;
-        }
-
-        const routeRequestedAt = directionsRoute?.requestedAt ?? 0;
-        const now = Date.now();
-
-        if (
-            now - routeRequestedAt < DRIVING_REROUTE_GRACE_PERIOD_MS ||
-            now - lastRerouteAtRef.current < DRIVING_REROUTE_COOLDOWN_MS
-        ) {
-            offRouteDetectedAtRef.current = null;
-            return;
-        }
-
-        if (routeDeviationDistance <= ACTIVE_ROUTE_DEVIATION_THRESHOLD_METERS) {
-            offRouteDetectedAtRef.current = null;
-            return;
-        }
-
-        if (!offRouteDetectedAtRef.current) {
-            offRouteDetectedAtRef.current = now;
-            return;
-        }
-
-        if (
-            now - offRouteDetectedAtRef.current <
-            DRIVING_REROUTE_CONFIRMATION_MS
-        ) {
-            return;
-        }
-
-        offRouteDetectedAtRef.current = null;
-        handleReroute();
-    }, [
-        directionsRoute,
-        handleReroute,
-        routeDeviationDistance,
-        routeIsActive,
-        routeProgress,
-    ]);
-
     return (
         <View className="absolute inset-0 z-50" pointerEvents="box-none">
             <NativeWindSafeAreaView
@@ -431,6 +251,11 @@ export function DrivingGuidanceOverlay({
                             onExportRoute={onRouteExport}
                             routeExportIsAvailable={routeExportIsAvailable}
                             routeOption={routeOption}
+                            remainingValues={getRemainingDirectionsRouteValues(
+                                directionsRoute,
+                                userLocation,
+                                routeProgress,
+                            )}
                         />
                     </View>
                 ) : (

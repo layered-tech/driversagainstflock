@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { setMockWazePoliceAlertsEnabled } from './api-mocks';
 import { DEBUG_OVERLAY_WAZE } from './debug-overlays';
+import { startSharedNavigationController } from './shared-navigation-controller';
 import {
     addSharedRoutingStateListener,
     getDirectionsRouteSyncKey,
@@ -27,6 +28,7 @@ const SharedMapStateContext = createContext(null);
 const SharedMapLocationStateContext = createContext(null);
 
 export function SharedMapStateProvider({ children }) {
+    useEffect(startSharedNavigationController, []);
     const mapPreferences = useMapPreferencesState();
     const markerLoader = useMarkerLoader();
     const wazeMockIsEnabled =

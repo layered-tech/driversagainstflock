@@ -93,7 +93,7 @@ export function ManeuverCard({ maneuver, nextManeuver }) {
 
     return (
         <View
-            className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95 w-full flex-row items-center gap-[14px] rounded-dafLg border border-daf-border-glass bg-white/95 px-4 py-3 shadow-[0px_4px_18px_rgba(11,14,18,0.18)]"
+            className="w-full flex-row items-center gap-[14px] rounded-dafLg border border-daf-border-glass bg-white/95 px-4 py-3 shadow-[0px_4px_18px_rgba(11,14,18,0.18)] dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95"
             testID="driving-maneuver-card"
         >
             <View className="h-[52px] w-[52px] items-center justify-center rounded-dafMd bg-daf-brand">
@@ -144,7 +144,7 @@ export function ManeuverCard({ maneuver, nextManeuver }) {
 export function ReroutingCard() {
     return (
         <View
-            className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95 w-full flex-row items-center gap-[14px] rounded-dafLg border border-daf-border-glass bg-white/95 px-4 py-3 shadow-[0px_4px_18px_rgba(11,14,18,0.18)]"
+            className="w-full flex-row items-center gap-[14px] rounded-dafLg border border-daf-border-glass bg-white/95 px-4 py-3 shadow-[0px_4px_18px_rgba(11,14,18,0.18)] dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95"
             testID="driving-rerouting-card"
         >
             <View className="h-[52px] w-[52px] items-center justify-center rounded-dafMd bg-daf-amber">
@@ -182,14 +182,27 @@ export function DestinationCard({
     onExportRoute,
     routeExportIsAvailable,
     routeOption,
+    remainingValues,
 }) {
     const destination = directionsRoute?.destination;
     const isPrivateRoute = routeOption?.routeKey === DIRECTIONS_ROUTE_PRIVATE;
     const destinationTitle =
         destination?.label || destination?.inputValue || 'Destination';
-    const durationLabel = formatDirectionsDuration(routeOption?.duration);
-    const distanceLabel = formatDirectionsDistance(routeOption?.distance);
-    const arrivalLabel = formatDirectionsArrivalTime(routeOption?.duration);
+    const durationLabel = formatDirectionsDuration(
+        remainingValues
+            ? remainingValues.durationRemaining
+            : routeOption?.duration,
+    );
+    const distanceLabel = formatDirectionsDistance(
+        remainingValues
+            ? remainingValues.distanceRemaining
+            : routeOption?.distance,
+    );
+    const arrivalLabel = formatDirectionsArrivalTime(
+        remainingValues
+            ? remainingValues.durationRemaining
+            : routeOption?.duration,
+    );
 
     return (
         <View

@@ -256,3 +256,48 @@ it('sends avoidance models without application-side size limits', function () {
         data_get($request, 'custom_model.areas.features', [])
     ) === count($polygons));
 });
+
+it('sends road snapping hints aligned with every waypoint and requests segment timing', function () {
+    Http::fake(['http://graphhopper.test:8080/route' => Http::response(graphHopperClientResponse())]);
+
+    app(GraphHopperClient::class)->route([
+        ['longitude' => -77.0365, 'latitude' => 38.8977, 'road_hint' => ' Main Street '],
+        ['longitude' => -77.02, 'latitude' => 38.892],
+        ['longitude' => -77.0091, 'latitude' => 38.8899],
+    ], ['type' => 'MultiPolygon', 'coordinates' => []]);
+
+    Http::assertSent(fn (Request $request): bool => $request['point_hints'] === ['Main Street', '', '']
+        && $request['details'] === ['time', 'distance']
+        && ! isset($request['snap_preventions']));
+});
+
+it('preserves snapped waypoints and converts segment timing from milliseconds to seconds', function () {
+    $response = graphHopperClientResponse();
+    $response['paths'][0]['snapped_waypoints'] = ['coordinates' => [[-77.0365, 38.8977], [-77.0091, 38.8899]]];
+    $response['paths'][0]['details']['time'] = [[0, 1, 20000], [1, 2, 301000]];
+    Http::fake(['http://graphhopper.test:8080/route' => Http::response($response)]);
+
+    $route = app(GraphHopperClient::class)->route([
+        ['longitude' => -77.0365, 'latitude' => 38.8977],
+        ['longitude' => -77.0091, 'latitude' => 38.8899],
+    ], ['type' => 'MultiPolygon', 'coordinates' => []]);
+
+    expect($route['timing_segments'])->toBe([
+        ['way_points' => [0, 1], 'duration' => 20.0],
+        ['way_points' => [1, 2], 'duration' => 301.0],
+    ])->and($route['snapped_waypoints'])->toBe($response['paths'][0]['snapped_waypoints']['coordinates']);
+});
+
+it('ignores malformed optional timing metadata without losing a valid route', function () {
+    $response = graphHopperClientResponse();
+    $response['paths'][0]['details']['time'] = [[0.5, 1, 1000], [0, 1, -1], [0, 1, '1e1000'], [0, 1, 20000]];
+    Http::fake(['http://graphhopper.test:8080/route' => Http::response($response)]);
+
+    $route = app(GraphHopperClient::class)->route([
+        ['longitude' => -77.0365, 'latitude' => 38.8977],
+        ['longitude' => -77.0091, 'latitude' => 38.8899],
+    ], ['type' => 'MultiPolygon', 'coordinates' => []]);
+
+    expect($route['timing_segments'])->toBe([['way_points' => [0, 1], 'duration' => 20.0]])
+        ->and($route['coordinates'])->toHaveCount(3);
+});

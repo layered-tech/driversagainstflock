@@ -535,6 +535,7 @@ class DirectionsRouter
         return [
             'longitude' => (float) $coordinate['longitude'],
             'latitude' => (float) $coordinate['latitude'],
+            ...isset($coordinate['road_hint']) ? ['road_hint' => $coordinate['road_hint']] : [],
         ];
     }
 
