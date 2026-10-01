@@ -74,7 +74,7 @@ describe('current road pill layout', () => {
         assert.deepEqual(
             AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES,
             NAVIGATION_PUCK_3D_ZOOM_SCALES.map(({ mapScale, zoomLevel }) => ({
-                mapScale: mapScale * 0.6,
+                mapScale: mapScale * 0.8,
                 zoomLevel,
             })),
         );

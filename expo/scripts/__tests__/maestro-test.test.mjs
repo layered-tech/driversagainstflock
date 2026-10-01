@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -360,22 +360,26 @@ R58M offline
         );
     });
 
-    test('serializes iOS speech permission registration on the main thread', () => {
-        const dependencyPatch = readFileSync(
-            path.join(
-                EXPO_DIRECTORY,
-                'patches',
-                'expo-speech-recognition+56.0.1.patch',
-            ),
+    test('uses upstream speech recognition permissions without native patches', () => {
+        const voiceSearchSource = readFileSync(
+            path.join(EXPO_DIRECTORY, 'components/map/use-voice-search.js'),
             'utf8',
         );
-
-        assert.match(dependencyPatch, /Thread\.isMainThread/);
-        assert.match(
-            dependencyPatch,
-            /DispatchQueue\.main\.sync\(execute: registerPermissionRequesters\)/,
+        const speechModuleSource = readFileSync(
+            path.join(EXPO_DIRECTORY, 'components/map/speech-recognition.js'),
+            'utf8',
         );
-        assert.doesNotMatch(dependencyPatch, /android\/build/);
+        assert.match(
+            speechModuleSource,
+            /require\("expo-speech-recognition"\)\.ExpoSpeechRecognitionModule/,
+        );
+        assert.match(voiceSearchSource, /\.requestPermissionsAsync\(\)/);
+        assert.match(voiceSearchSource, /speechRecognition\.start\(/);
+        const patches = readdirSync(path.join(EXPO_DIRECTORY, 'patches'));
+        assert.equal(
+            patches.some((name) => name.startsWith('expo-speech-recognition+')),
+            false,
+        );
     });
 
     test('does not combine IDs and values in iOS road-matching selectors', () => {
