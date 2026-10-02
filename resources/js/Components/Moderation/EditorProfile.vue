@@ -11,6 +11,7 @@ import {
     relativeTime,
 } from '@/moderation';
 import { Link } from '@inertiajs/vue3';
+import { profileTimeline } from '@/moderation-profile-timeline';
 import { computed, inject, onBeforeUnmount, reactive, ref, watch } from 'vue';
 
 const { absoluteTime } = useModerationTime();
@@ -79,6 +80,50 @@ const maxWeek = computed(() =>
     Math.max(1, ...props.weeks.map((week) => Number(week.total))),
 );
 const flagged = computed(() => props.filters.statuses?.includes('Flagged'));
+const timelineGroups = computed(() =>
+    profileTimeline(
+        props.records.data,
+        ![
+            'id',
+            'osm_user',
+            'added',
+            'modified',
+            'deleted',
+            'total',
+            'status',
+        ].includes(props.filters.sort),
+    ),
+);
+const timelineDayFormatter = new Intl.DateTimeFormat('en-US', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+});
+const timelineClockFormatter = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZone: 'UTC',
+});
+function timelineDay(day) {
+    return day
+        ? `${timelineDayFormatter.format(new Date(`${day}T00:00:00Z`))} · UTC`
+        : 'Date unavailable';
+}
+function timelineRange(group) {
+    if (group.first == null) return 'Time unavailable';
+    const first = timelineClockFormatter.format(group.first);
+    const last = timelineClockFormatter.format(group.last);
+    return `${first}${group.first === group.last ? '' : `–${last}`} UTC`;
+}
+function volumeLabel(volume, singular, plural = `${singular}s`) {
+    if (volume.unavailable && !volume.known) return `${plural}: unavailable`;
+    const label = `${volume.total.toLocaleString()} ${volume.total === 1 ? singular : plural}`;
+    return volume.unavailable
+        ? `${label} known · ${volume.unavailable} changeset${volume.unavailable === 1 ? '' : 's'} with counts unavailable`
+        : label;
+}
 const activityWeekFormatter = new Intl.DateTimeFormat(undefined, {
     day: 'numeric',
     month: 'short',
@@ -300,240 +345,253 @@ onBeforeUnmount(resetDetails);
                         >Flagged · {{ profile.flagged_changesets }}</Link
                     >
                 </header>
-                <ol class="px-[18px] pb-1 pt-[18px]">
-                    <li
-                        v-for="(row, index) in records.data"
-                        :key="row.id"
-                        class="flex gap-3.5"
-                    >
-                        <div
-                            aria-hidden="true"
-                            class="flex w-3 shrink-0 flex-col items-center"
+                <ol
+                    aria-label="Changesets by day"
+                    class="px-[18px] pb-1 pt-[18px]"
+                >
+                    <li v-for="group in timelineGroups" :key="group.key">
+                        <header
+                            class="mb-3 rounded-dafSm bg-daf-surface-alt px-3 py-2.5"
                         >
-                            <span
-                                :class="[
-                                    'mt-1 size-[11px] shrink-0 rounded-full ring-[3px]',
-                                    row.status === 'Flagged'
-                                        ? 'bg-[var(--amber-500)] ring-[var(--amber-100)]'
-                                        : 'bg-daf-brand ring-[var(--brand-soft)]',
-                                ]"
-                            />
-                            <span
-                                v-if="index < records.data.length - 1"
-                                class="mt-1.5 w-0.5 flex-1 rounded bg-daf-border"
-                            />
-                        </div>
-                        <div class="min-w-0 flex-1 pb-5">
-                            <div class="flex flex-wrap items-baseline gap-2.5">
-                                <Link
-                                    :href="
-                                        route('moderation.changesets.index', {
-                                            changeset: row.id,
-                                        })
-                                    "
-                                    class="font-mono text-[13px] font-bold hover:text-daf-text-brand"
-                                    >#{{ row.id }}</Link
-                                >
-                                <span
-                                    class="text-[11px] font-semibold text-daf-text-secondary"
-                                    >● {{ row.status }}</span
-                                >
-                                <time
-                                    :datetime="row.changed_at"
-                                    class="ml-auto font-mono text-[11px] text-daf-text-tertiary"
-                                    >{{ absoluteTime(row.changed_at) }}</time
-                                >
-                            </div>
+                            <h3 class="text-sm font-bold">
+                                {{ timelineDay(group.day) }}
+                            </h3>
                             <p
-                                class="mt-1 break-words text-daf-body-sm leading-relaxed"
+                                class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-daf-text-secondary"
                             >
-                                {{ row.comment || 'No changeset comment' }}
+                                <span class="font-semibold">
+                                    {{
+                                        changesetCountLabel(
+                                            group.entries.length,
+                                        )
+                                    }}
+                                    {{ group.span }}
+                                </span>
+                                <span>{{
+                                    volumeLabel(
+                                        group.volume,
+                                        'ALPR node touch',
+                                        'ALPR node touches',
+                                    )
+                                }}</span>
+                                <span class="font-mono tabular-nums">{{
+                                    timelineRange(group)
+                                }}</span>
                             </p>
-                            <div
-                                class="mt-[7px] flex flex-wrap items-center gap-2"
-                            >
-                                <ChangeCounts :row="row" />
-                                <span
-                                    class="text-xs font-semibold text-daf-text-secondary"
-                                    >{{ locationLabel(row) }}</span
-                                >
-                                <button
-                                    :aria-expanded="expanded === row.id"
-                                    :aria-label="`Details for changeset ${row.id}`"
-                                    class="mod-expand"
-                                    @click="expand(row)"
-                                >
-                                    <DafIcon
-                                        :class="
-                                            expanded === row.id && 'rotate-180'
-                                        "
-                                        :size="16"
-                                        name="chevron-down"
-                                    />
-                                </button>
-                            </div>
-                            <div
-                                v-if="expanded === row.id"
-                                class="mt-3 rounded-dafMd border border-daf-border bg-daf-surface-page p-4"
+                        </header>
+                        <ol>
+                            <li
+                                v-for="(
+                                    { row, time, spacing, volume, osmVolume },
+                                    index
+                                ) in group.entries"
+                                :key="row.id"
+                                class="flex gap-3.5"
                             >
                                 <div
-                                    v-if="detailLoading[row.id]"
-                                    class="flex animate-pulse flex-col gap-3 py-6"
-                                    role="status"
+                                    aria-hidden="true"
+                                    class="flex w-3 shrink-0 flex-col items-center"
                                 >
                                     <span
-                                        class="h-3 w-2/3 rounded bg-daf-surface-alt"
+                                        :class="[
+                                            'mt-1 size-[11px] shrink-0 rounded-full ring-[3px]',
+                                            row.status === 'Flagged'
+                                                ? 'bg-[var(--amber-500)] ring-[var(--amber-100)]'
+                                                : 'bg-daf-brand ring-[var(--brand-soft)]',
+                                        ]"
                                     />
                                     <span
-                                        class="h-3 w-1/2 rounded bg-daf-surface-alt"
+                                        v-if="index < group.entries.length - 1"
+                                        class="mt-1.5 w-0.5 flex-1 rounded bg-daf-border"
                                     />
-                                    <span class="sr-only"
-                                        >Loading details…</span
-                                    >
                                 </div>
-                                <div
-                                    v-else-if="detailErrors[row.id]"
-                                    class="py-4 text-sm text-[var(--alert-600)]"
-                                    role="alert"
-                                >
-                                    {{ detailErrors[row.id] }}
-                                    <button
-                                        class="mod-link ml-2"
-                                        @click="loadDetails(row)"
+                                <div class="min-w-0 flex-1 pb-5">
+                                    <p
+                                        v-if="spacing"
+                                        class="mb-2 border-l-2 border-daf-border pl-2 text-xs font-semibold text-daf-text-secondary"
                                     >
-                                        Try again
-                                    </button>
-                                </div>
-                                <div v-else-if="details[row.id]">
-                                    <h3 class="mod-subheading">
+                                        {{ spacing }}
+                                    </p>
+                                    <div
+                                        class="flex flex-wrap items-baseline gap-2.5"
+                                    >
+                                        <Link
+                                            :href="
+                                                route(
+                                                    'moderation.changesets.index',
+                                                    {
+                                                        changeset: row.id,
+                                                    },
+                                                )
+                                            "
+                                            class="font-mono text-[13px] font-bold hover:text-daf-text-brand"
+                                            >#{{ row.id }}</Link
+                                        >
+                                        <span
+                                            class="text-[11px] font-semibold text-daf-text-secondary"
+                                            >● {{ row.status }}</span
+                                        >
+                                        <time
+                                            :datetime="row.changed_at"
+                                            class="ml-auto font-mono text-[11px] text-daf-text-tertiary"
+                                            >{{
+                                                time != null
+                                                    ? absoluteTime(
+                                                          row.changed_at,
+                                                      )
+                                                    : 'Time unavailable'
+                                            }}</time
+                                        >
+                                    </div>
+                                    <p
+                                        class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs"
+                                    >
+                                        <span
+                                            class="font-semibold text-daf-text-primary"
+                                            >{{
+                                                volumeLabel(
+                                                    volume,
+                                                    'tracked ALPR node',
+                                                )
+                                            }}</span
+                                        >
+                                        <span class="text-daf-text-secondary">{{
+                                            volumeLabel(
+                                                osmVolume,
+                                                'total OSM change',
+                                            )
+                                        }}</span>
+                                    </p>
+                                    <p
+                                        class="mt-1 break-words text-daf-body-sm leading-relaxed"
+                                    >
                                         {{
                                             row.comment ||
-                                            `Changeset #${row.id}`
+                                            'No changeset comment'
                                         }}
-                                    </h3>
-                                    <dl class="mod-details mt-3">
-                                        <dt>Editor</dt>
-                                        <dd>
-                                            {{
-                                                row.osm_user || 'Unknown editor'
-                                            }}
-                                            · uid {{ row.osm_uid || '—' }}
-                                        </dd>
-                                        <dt>Opened</dt>
-                                        <dd>
-                                            {{ absoluteTime(row.changed_at) }}
-                                        </dd>
-                                        <dt>Closed</dt>
-                                        <dd>
-                                            {{
-                                                row.open
-                                                    ? 'Still open'
-                                                    : absoluteTime(
-                                                          row.closed_at,
-                                                      )
-                                            }}
-                                        </dd>
-                                        <dt>Changes</dt>
-                                        <dd>
-                                            {{ row.total }} tracked ALPR nodes ·
-                                            {{ row.osm_num_changes ?? '—' }}
-                                            total OSM changes
-                                        </dd>
-                                    </dl>
-                                    <h4 class="mod-label mt-5">
-                                        Changeset tags
-                                    </h4>
-                                    <dl
-                                        v-if="
-                                            Object.keys(row.tags || {}).length
-                                        "
-                                        class="mod-details mt-2"
-                                    >
-                                        <template
-                                            v-for="(value, key) in row.tags"
-                                            :key="key"
-                                        >
-                                            <dt>{{ key }}</dt>
-                                            <dd>{{ value }}</dd>
-                                        </template>
-                                    </dl>
-                                    <p
-                                        v-else
-                                        class="mt-2 text-xs text-daf-text-tertiary"
-                                    >
-                                        No changeset tags available.
                                     </p>
-                                    <h4 class="mod-label mt-5">
-                                        Nodes in this changeset ·
-                                        {{ details[row.id].versions.total }}
-                                    </h4>
-                                    <ModerationMap
-                                        :bounds="row.bounds"
-                                        :nodes="changesetNodes(details[row.id])"
-                                        class="mt-2"
-                                        @node="selectedNodes[row.id] = $event"
-                                    />
-                                    <div class="mt-2 grid gap-3">
-                                        <article
-                                            v-for="node in details[row.id]
-                                                .versions.data"
-                                            :key="node.id"
-                                            :class="[
-                                                'rounded-dafSm border bg-daf-surface-card p-3 transition-colors',
-                                                selectedNodes[row.id] ===
-                                                node.id
-                                                    ? 'border-daf-brand bg-[var(--brand-soft)] ring-2 ring-daf-brand'
-                                                    : 'border-daf-border',
-                                            ]"
+                                    <div
+                                        class="mt-[7px] flex flex-wrap items-center gap-2"
+                                    >
+                                        <ChangeCounts :row="row" />
+                                        <span
+                                            class="text-xs font-semibold text-daf-text-secondary"
+                                            >{{ locationLabel(row) }}</span
                                         >
-                                            <div
-                                                class="flex flex-wrap items-center gap-2"
+                                        <button
+                                            :aria-expanded="expanded === row.id"
+                                            :aria-label="`Details for changeset ${row.id}`"
+                                            class="mod-expand"
+                                            @click="expand(row)"
+                                        >
+                                            <DafIcon
+                                                :class="
+                                                    expanded === row.id &&
+                                                    'rotate-180'
+                                                "
+                                                :size="16"
+                                                name="chevron-down"
+                                            />
+                                        </button>
+                                    </div>
+                                    <div
+                                        v-if="expanded === row.id"
+                                        class="mt-3 rounded-dafMd border border-daf-border bg-daf-surface-page p-4"
+                                    >
+                                        <div
+                                            v-if="detailLoading[row.id]"
+                                            class="flex animate-pulse flex-col gap-3 py-6"
+                                            role="status"
+                                        >
+                                            <span
+                                                class="h-3 w-2/3 rounded bg-daf-surface-alt"
+                                            />
+                                            <span
+                                                class="h-3 w-1/2 rounded bg-daf-surface-alt"
+                                            />
+                                            <span class="sr-only"
+                                                >Loading details…</span
                                             >
-                                                <NodeLink
-                                                    :node-id="node.node_id"
-                                                    class="font-mono text-xs font-bold text-daf-text-brand hover:underline"
-                                                >
-                                                    Node {{ node.node_id }}
-                                                </NodeLink>
-                                                <span
-                                                    class="text-[11px] font-semibold text-daf-text-secondary"
-                                                >
-                                                    {{ nodeChangeLabel(node) }}
-                                                    · version
-                                                    {{ node.osm_version }}
-                                                </span>
-                                            </div>
+                                        </div>
+                                        <div
+                                            v-else-if="detailErrors[row.id]"
+                                            class="py-4 text-sm text-[var(--alert-600)]"
+                                            role="alert"
+                                        >
+                                            {{ detailErrors[row.id] }}
+                                            <button
+                                                class="mod-link ml-2"
+                                                @click="loadDetails(row)"
+                                            >
+                                                Try again
+                                            </button>
+                                        </div>
+                                        <div v-else-if="details[row.id]">
+                                            <h3 class="mod-subheading">
+                                                {{
+                                                    row.comment ||
+                                                    `Changeset #${row.id}`
+                                                }}
+                                            </h3>
                                             <dl class="mod-details mt-3">
                                                 <dt>Editor</dt>
                                                 <dd>
                                                     {{
-                                                        node.osm_user ||
-                                                        node.osm_uid ||
+                                                        row.osm_user ||
                                                         'Unknown editor'
                                                     }}
+                                                    · uid
+                                                    {{ row.osm_uid || '—' }}
                                                 </dd>
-                                                <dt>
-                                                    {{
-                                                        node.location_is_historical
-                                                            ? 'Last known location'
-                                                            : 'Location'
-                                                    }}
-                                                </dt>
+                                                <dt>Opened</dt>
                                                 <dd>
-                                                    {{ locationLabel(node) }}
+                                                    {{
+                                                        absoluteTime(
+                                                            row.changed_at,
+                                                        )
+                                                    }}
+                                                </dd>
+                                                <dt>Closed</dt>
+                                                <dd>
+                                                    {{
+                                                        row.open
+                                                            ? 'Still open'
+                                                            : absoluteTime(
+                                                                  row.closed_at,
+                                                              )
+                                                    }}
+                                                </dd>
+                                                <dt>Changes</dt>
+                                                <dd>
+                                                    {{
+                                                        volumeLabel(
+                                                            volume,
+                                                            'tracked ALPR node',
+                                                        )
+                                                    }}
+                                                    ·
+                                                    {{
+                                                        volumeLabel(
+                                                            osmVolume,
+                                                            'total OSM change',
+                                                        )
+                                                    }}
                                                 </dd>
                                             </dl>
+                                            <h4 class="mod-label mt-5">
+                                                Changeset tags
+                                            </h4>
                                             <dl
                                                 v-if="
-                                                    Object.keys(node.tags || {})
+                                                    Object.keys(row.tags || {})
                                                         .length
                                                 "
-                                                class="mod-details mt-3 border-t border-daf-border pt-3"
+                                                class="mod-details mt-2"
                                             >
                                                 <template
                                                     v-for="(
                                                         value, key
-                                                    ) in node.tags"
+                                                    ) in row.tags"
                                                     :key="key"
                                                 >
                                                     <dt>{{ key }}</dt>
@@ -542,133 +600,270 @@ onBeforeUnmount(resetDetails);
                                             </dl>
                                             <p
                                                 v-else
-                                                class="mt-3 border-t border-daf-border pt-3 text-xs text-daf-text-tertiary"
+                                                class="mt-2 text-xs text-daf-text-tertiary"
                                             >
-                                                No tags on this node version.
+                                                No changeset tags available.
                                             </p>
-                                        </article>
-                                        <p
-                                            v-if="
-                                                !details[row.id].versions.data
-                                                    .length
-                                            "
-                                            class="text-xs text-daf-text-tertiary"
-                                        >
-                                            No node versions are available for
-                                            this changeset.
-                                        </p>
-                                    </div>
-                                    <div class="mt-3 flex flex-wrap gap-3">
-                                        <button
-                                            v-if="
-                                                details[row.id].versions
-                                                    .prev_page_url
-                                            "
-                                            class="mod-link"
-                                            @click="
-                                                loadDetails(
-                                                    row,
+                                            <h4 class="mod-label mt-5">
+                                                Nodes in this changeset ·
+                                                {{
                                                     details[row.id].versions
-                                                        .prev_page_url,
-                                                )
-                                            "
-                                        >
-                                            ← Previous nodes
-                                        </button>
-                                        <button
-                                            v-if="
-                                                details[row.id].versions
-                                                    .next_page_url
-                                            "
-                                            class="mod-link"
-                                            @click="
-                                                loadDetails(
-                                                    row,
-                                                    details[row.id].versions
-                                                        .next_page_url,
-                                                )
-                                            "
-                                        >
-                                            Next nodes →
-                                        </button>
+                                                        .total
+                                                }}
+                                            </h4>
+                                            <ModerationMap
+                                                :bounds="row.bounds"
+                                                :nodes="
+                                                    changesetNodes(
+                                                        details[row.id],
+                                                    )
+                                                "
+                                                class="mt-2"
+                                                @node="
+                                                    selectedNodes[row.id] =
+                                                        $event
+                                                "
+                                            />
+                                            <div class="mt-2 grid gap-3">
+                                                <article
+                                                    v-for="node in details[
+                                                        row.id
+                                                    ].versions.data"
+                                                    :key="node.id"
+                                                    :class="[
+                                                        'rounded-dafSm border bg-daf-surface-card p-3 transition-colors',
+                                                        selectedNodes[
+                                                            row.id
+                                                        ] === node.id
+                                                            ? 'border-daf-brand bg-[var(--brand-soft)] ring-2 ring-daf-brand'
+                                                            : 'border-daf-border',
+                                                    ]"
+                                                >
+                                                    <div
+                                                        class="flex flex-wrap items-center gap-2"
+                                                    >
+                                                        <NodeLink
+                                                            :node-id="
+                                                                node.node_id
+                                                            "
+                                                            class="font-mono text-xs font-bold text-daf-text-brand hover:underline"
+                                                        >
+                                                            Node
+                                                            {{ node.node_id }}
+                                                        </NodeLink>
+                                                        <span
+                                                            class="text-[11px] font-semibold text-daf-text-secondary"
+                                                        >
+                                                            {{
+                                                                nodeChangeLabel(
+                                                                    node,
+                                                                )
+                                                            }}
+                                                            · version
+                                                            {{
+                                                                node.osm_version
+                                                            }}
+                                                        </span>
+                                                    </div>
+                                                    <dl
+                                                        class="mod-details mt-3"
+                                                    >
+                                                        <dt>Editor</dt>
+                                                        <dd>
+                                                            {{
+                                                                node.osm_user ||
+                                                                node.osm_uid ||
+                                                                'Unknown editor'
+                                                            }}
+                                                        </dd>
+                                                        <dt>
+                                                            {{
+                                                                node.location_is_historical
+                                                                    ? 'Last known location'
+                                                                    : 'Location'
+                                                            }}
+                                                        </dt>
+                                                        <dd>
+                                                            {{
+                                                                locationLabel(
+                                                                    node,
+                                                                )
+                                                            }}
+                                                        </dd>
+                                                    </dl>
+                                                    <dl
+                                                        v-if="
+                                                            Object.keys(
+                                                                node.tags || {},
+                                                            ).length
+                                                        "
+                                                        class="mod-details mt-3 border-t border-daf-border pt-3"
+                                                    >
+                                                        <template
+                                                            v-for="(
+                                                                value, key
+                                                            ) in node.tags"
+                                                            :key="key"
+                                                        >
+                                                            <dt>{{ key }}</dt>
+                                                            <dd>{{ value }}</dd>
+                                                        </template>
+                                                    </dl>
+                                                    <p
+                                                        v-else
+                                                        class="mt-3 border-t border-daf-border pt-3 text-xs text-daf-text-tertiary"
+                                                    >
+                                                        No tags on this node
+                                                        version.
+                                                    </p>
+                                                </article>
+                                                <p
+                                                    v-if="
+                                                        !details[row.id]
+                                                            .versions.data
+                                                            .length
+                                                    "
+                                                    class="text-xs text-daf-text-tertiary"
+                                                >
+                                                    No node versions are
+                                                    available for this
+                                                    changeset.
+                                                </p>
+                                            </div>
+                                            <div
+                                                class="mt-3 flex flex-wrap gap-3"
+                                            >
+                                                <button
+                                                    v-if="
+                                                        details[row.id].versions
+                                                            .prev_page_url
+                                                    "
+                                                    class="mod-link"
+                                                    @click="
+                                                        loadDetails(
+                                                            row,
+                                                            details[row.id]
+                                                                .versions
+                                                                .prev_page_url,
+                                                        )
+                                                    "
+                                                >
+                                                    ← Previous nodes
+                                                </button>
+                                                <button
+                                                    v-if="
+                                                        details[row.id].versions
+                                                            .next_page_url
+                                                    "
+                                                    class="mod-link"
+                                                    @click="
+                                                        loadDetails(
+                                                            row,
+                                                            details[row.id]
+                                                                .versions
+                                                                .next_page_url,
+                                                        )
+                                                    "
+                                                >
+                                                    Next nodes →
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
-                            <details
-                                v-if="row.outcomes?.length"
-                                class="mt-3 rounded-dafSm bg-[var(--alert-100)] p-3 text-xs text-[var(--alert-600)]"
-                            >
-                                <summary class="cursor-pointer font-semibold">
-                                    {{
-                                        new Set(
-                                            row.outcomes
-                                                .filter(
-                                                    (event) =>
-                                                        event.history_complete,
-                                                )
-                                                .map((event) => event.node_id),
-                                        ).size
-                                    }}
-                                    affected nodes · Revert details
-                                </summary>
-                                <div
-                                    v-for="event in row.outcomes"
-                                    :key="event.id"
-                                    class="mt-2"
-                                >
-                                    <p>
-                                        <NodeLink
-                                            :node-id="event.node_id"
-                                            class="font-semibold underline"
-                                            >Node {{ event.node_id }}</NodeLink
-                                        >
-                                        ·
-                                        {{
-                                            event.kind === 'deleted'
-                                                ? 'Deleted'
-                                                : 'Tags changed'
-                                        }}
-                                        by
-                                        {{
-                                            event.later_osm_user ||
-                                            event.later_osm_uid
-                                        }}
-                                        in
-                                        <Link
-                                            :href="
-                                                route(
-                                                    'moderation.changesets.index',
-                                                    {
-                                                        changeset:
-                                                            event.later_changeset_id,
-                                                    },
-                                                )
-                                            "
-                                            class="underline"
-                                            >#{{
-                                                event.later_changeset_id
-                                            }}</Link
-                                        >
-                                        · {{ absoluteTime(event.occurred_at)
-                                        }}{{
-                                            event.history_complete
-                                                ? ''
-                                                : ' · Incomplete history'
-                                        }}
-                                    </p>
-                                    <p
-                                        v-for="(change, key) in event.evidence
-                                            .tags"
-                                        :key="key"
-                                        class="mt-1 font-mono"
+                                    <details
+                                        v-if="row.outcomes?.length"
+                                        class="mt-3 rounded-dafSm bg-[var(--alert-100)] p-3 text-xs text-[var(--alert-600)]"
                                     >
-                                        {{ key }}:
-                                        {{ change.before ?? '(missing)' }} →
-                                        {{ change.after ?? '(removed)' }}
-                                    </p>
+                                        <summary
+                                            class="cursor-pointer font-semibold"
+                                        >
+                                            {{
+                                                new Set(
+                                                    row.outcomes
+                                                        .filter(
+                                                            (event) =>
+                                                                event.history_complete,
+                                                        )
+                                                        .map(
+                                                            (event) =>
+                                                                event.node_id,
+                                                        ),
+                                                ).size
+                                            }}
+                                            affected nodes · Revert details
+                                        </summary>
+                                        <div
+                                            v-for="event in row.outcomes"
+                                            :key="event.id"
+                                            class="mt-2"
+                                        >
+                                            <p>
+                                                <NodeLink
+                                                    :node-id="event.node_id"
+                                                    class="font-semibold underline"
+                                                    >Node
+                                                    {{
+                                                        event.node_id
+                                                    }}</NodeLink
+                                                >
+                                                ·
+                                                {{
+                                                    event.kind === 'deleted'
+                                                        ? 'Deleted'
+                                                        : 'Tags changed'
+                                                }}
+                                                by
+                                                {{
+                                                    event.later_osm_user ||
+                                                    event.later_osm_uid
+                                                }}
+                                                in
+                                                <Link
+                                                    :href="
+                                                        route(
+                                                            'moderation.changesets.index',
+                                                            {
+                                                                changeset:
+                                                                    event.later_changeset_id,
+                                                            },
+                                                        )
+                                                    "
+                                                    class="underline"
+                                                    >#{{
+                                                        event.later_changeset_id
+                                                    }}</Link
+                                                >
+                                                ·
+                                                {{
+                                                    absoluteTime(
+                                                        event.occurred_at,
+                                                    )
+                                                }}{{
+                                                    event.history_complete
+                                                        ? ''
+                                                        : ' · Incomplete history'
+                                                }}
+                                            </p>
+                                            <p
+                                                v-for="(change, key) in event
+                                                    .evidence.tags"
+                                                :key="key"
+                                                class="mt-1 font-mono"
+                                            >
+                                                {{ key }}:
+                                                {{
+                                                    change.before ?? '(missing)'
+                                                }}
+                                                →
+                                                {{
+                                                    change.after ?? '(removed)'
+                                                }}
+                                            </p>
+                                        </div>
+                                    </details>
                                 </div>
-                            </details>
-                        </div>
+                            </li>
+                        </ol>
                     </li>
                 </ol>
                 <p

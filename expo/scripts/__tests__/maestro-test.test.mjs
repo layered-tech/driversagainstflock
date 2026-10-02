@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -260,7 +260,7 @@ R58M offline
     test('collects the full suite without launcher UI readiness checks', () => {
         const flows = collectMaestroFlows(['.maestro'], EXPO_DIRECTORY);
 
-        assert.equal(flows.length, 28);
+        assert.equal(flows.length, 29);
         assert.deepEqual(
             flows.map((flow) => path.basename(flow)),
             [...flows.map((flow) => path.basename(flow))].sort(),
@@ -282,6 +282,7 @@ R58M offline
             'contribute-wizard.yml',
             'driving-alerts.yml',
             'map-layer-options.yml',
+            'map-settings-first-open-driving.yml',
             'marker-osm-details-toggle.yml',
             'moving-navigation.yml',
             'road-matching-free-drive.yml',
@@ -328,6 +329,42 @@ R58M offline
         );
     });
 
+    test('starts turn-by-turn guidance without a restored drive', () => {
+        const source = readFileSync(
+            path.join(
+                EXPO_DIRECTORY,
+                '.maestro',
+                'turn-by-turn-navigation.yml',
+            ),
+            'utf8',
+        );
+
+        assert.match(
+            source,
+            /launchApp:\s+stopApp: true\s+clearState: true\s+clearKeychain: true/,
+        );
+    });
+
+    test('restores browsing after the first driving settings presentation', () => {
+        const source = readFileSync(
+            path.join(
+                EXPO_DIRECTORY,
+                '.maestro',
+                'map-settings-first-open-driving.yml',
+            ),
+            'utf8',
+        );
+
+        assert.match(
+            source,
+            /id: 'map-layer-option-standard'[\s\S]*?notVisible:\s+id: 'map-settings-sheet'[\s\S]*?id: 'exit-free-drive-button'[\s\S]*?visible:\s+id: 'map-search-input-map'\s+timeout: 10000\s*$/,
+        );
+        assert.match(
+            source,
+            /file: subflows\/open-expo-dev-client-after-clear\.yml\s+- runFlow:\s+when:\s+visible:\s+id: 'exit-free-drive-button'\s+commands:\s+- tapOn:\s+id: 'exit-free-drive-button'[\s\S]*?- extendedWaitUntil:\s+visible:\s+id: 'map-search-input-map'/,
+        );
+    });
+
     test('restores the scorecard top before reading recap-updated totals', () => {
         const source = readFileSync(
             path.join(EXPO_DIRECTORY, '.maestro', 'scorecard-gamification.yml'),
@@ -360,22 +397,26 @@ R58M offline
         );
     });
 
-    test('serializes iOS speech permission registration on the main thread', () => {
-        const dependencyPatch = readFileSync(
-            path.join(
-                EXPO_DIRECTORY,
-                'patches',
-                'expo-speech-recognition+56.0.1.patch',
-            ),
+    test('uses upstream speech recognition permissions without native patches', () => {
+        const voiceSearchSource = readFileSync(
+            path.join(EXPO_DIRECTORY, 'components/map/use-voice-search.js'),
             'utf8',
         );
-
-        assert.match(dependencyPatch, /Thread\.isMainThread/);
-        assert.match(
-            dependencyPatch,
-            /DispatchQueue\.main\.sync\(execute: registerPermissionRequesters\)/,
+        const speechModuleSource = readFileSync(
+            path.join(EXPO_DIRECTORY, 'components/map/speech-recognition.js'),
+            'utf8',
         );
-        assert.doesNotMatch(dependencyPatch, /android\/build/);
+        assert.match(
+            speechModuleSource,
+            /require\("expo-speech-recognition"\)\.ExpoSpeechRecognitionModule/,
+        );
+        assert.match(voiceSearchSource, /\.requestPermissionsAsync\(\)/);
+        assert.match(voiceSearchSource, /speechRecognition\.start\(/);
+        const patches = readdirSync(path.join(EXPO_DIRECTORY, 'patches'));
+        assert.equal(
+            patches.some((name) => name.startsWith('expo-speech-recognition+')),
+            false,
+        );
     });
 
     test('does not combine IDs and values in iOS road-matching selectors', () => {

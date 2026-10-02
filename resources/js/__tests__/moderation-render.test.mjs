@@ -462,6 +462,109 @@ test('areas retain their design and distinguish missing rule counts from zero', 
     await preview('areas', output);
 });
 
+test('profile timeline shows daily volume, bursts, gaps and unavailable data within the current page', async () => {
+    const rows = [
+        {
+            id: 104,
+            changed_at: '2026-09-10T12:20:00Z',
+            total: 12,
+            osm_num_changes: 30,
+        },
+        {
+            id: 103,
+            changed_at: '2026-09-10T12:05:00Z',
+            total: 8,
+            osm_num_changes: 10,
+        },
+        {
+            id: 102,
+            changed_at: '2026-09-10T12:00:00Z',
+            total: 1,
+            osm_num_changes: 5,
+        },
+        {
+            id: 101,
+            changed_at: '2026-09-01T12:00:00Z',
+            total: 0,
+            osm_num_changes: 0,
+        },
+        { id: 100, changed_at: null, total: null, osm_num_changes: null },
+    ].map((row) => ({
+        ...row,
+        comment: `Survey ${row.id}`,
+        status: 'Needs review',
+        added: row.total,
+        modified: 0,
+        deleted: 0,
+    }));
+    const props = {
+        ...base,
+        view: 'profile',
+        profile: {
+            osm_uid: 123,
+            name: 'mapper',
+            tracked_changesets: 100,
+            added: 20,
+            modified: 1,
+            deleted: 0,
+        },
+        filters: { uid: 123, statuses: ['Flagged'] },
+        records: {
+            data: rows,
+            from: 201,
+            to: 205,
+            current_page: 2,
+            prev_page_url: '/moderation/editors/123?page=1',
+            next_page_url: '/moderation/editors/123?page=3',
+        },
+    };
+    const output = await renderListing(props);
+    const html = output.body.replace(/<!--.*?-->/gs, '');
+    for (const text of [
+        '21 ALPR node touches',
+        'Sep 10, 2026 · UTC',
+        '3 changesets over 20 minutes',
+        '12:00:00–12:20:00 UTC',
+        '15 minutes between listed changesets',
+        '5 minutes between listed changesets',
+        '9 days between listed changesets',
+        '12 tracked ALPR nodes',
+        '30 total OSM changes',
+        '0 tracked ALPR nodes',
+        '0 total OSM changes',
+        'Date unavailable',
+        'Time unavailable',
+        'tracked ALPR nodes: unavailable',
+        'total OSM changes: unavailable',
+    ])
+        assert.ok(html.includes(text), text);
+    for (const text of [
+        'On this page:',
+        'Counts and spacing cover listed changesets',
+        'Node counts: + created',
+    ])
+        assert.ok(!html.includes(text), text);
+    assert.match(html, /aria-label="Changesets by day"/);
+    for (const row of rows) {
+        assert.ok(
+            html.includes(`href="/moderation/changesets?changeset=${row.id}"`),
+        );
+        assert.ok(
+            html.includes(`aria-label="Details for changeset ${row.id}"`),
+        );
+        assert.ok(html.includes(`Survey ${row.id}`));
+    }
+    assert.ok(html.includes('Showing 201–205'));
+    await preview('profile-timeline', output);
+    await preview('profile-timeline', output, 'dark');
+    const sorted = await renderListing({
+        ...props,
+        filters: { uid: 123, sort: 'total' },
+    });
+    assert.ok(sorted.body.includes('Spacing unavailable in this sort order'));
+    assert.ok(!sorted.body.includes('9 days between listed changesets'));
+});
+
 test('Rules screens render typed settings and stored outcomes populate profile panels', async () => {
     const rules = await render('Moderation/Rules', {
         ...base,

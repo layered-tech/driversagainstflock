@@ -68,6 +68,7 @@ import {
     getDirectionsRouteProgress,
     getDirectionsWaypointApiCoord,
     getNextDirectionsManeuver,
+    getRemainingDirectionsRouteValues,
     getSelectedDirectionsRouteOption,
     selectDirectionsRoute,
 } from './map/directions';
@@ -95,6 +96,7 @@ import {
     loadPrimaryLocations,
     loadSearchSavedLocations,
 } from './map/saved-locations';
+import { updateSharedNavigationLocation } from './map/shared-navigation-controller';
 import { formatSearchResultDistance } from './map/search-formatters';
 import {
     addSharedRoutingStateListener,
@@ -465,6 +467,7 @@ function getLocationFromPosition(position) {
         latitude,
         longitude,
         recordedAt: position.timestamp,
+        accuracy: getFiniteNumber(position?.coords?.accuracy),
         roadMatch: position.roadMatch,
     };
 }
@@ -2265,28 +2268,6 @@ function makeAutoPlayRoutingManeuvers(
     return [currentRoutingManeuver, nextRoutingManeuver].filter(Boolean);
 }
 
-function getRemainingRouteValues(
-    route,
-    userLocation,
-    progress = getDirectionsRouteProgress(route, userLocation),
-) {
-    const routeOption = getSelectedDirectionsRouteOption(route);
-    const routeDistance = Number(routeOption?.distance) || 0;
-    const routeDuration = Number(routeOption?.duration) || 0;
-    const distanceRemaining = progress
-        ? Math.max(0, routeDistance - progress.alongRouteDistance)
-        : routeDistance;
-    const durationRemaining =
-        routeDistance > 0
-            ? Math.max(0, routeDuration * (distanceRemaining / routeDistance))
-            : routeDuration;
-
-    return {
-        distanceRemaining,
-        durationRemaining,
-    };
-}
-
 function makeNavigationMessage(
     route,
     userLocation,
@@ -2350,11 +2331,12 @@ function updateNavigationGuidance(userLocation) {
         userLocation,
         routeProgress,
     );
-    const { distanceRemaining, durationRemaining } = getRemainingRouteValues(
-        activeNavigationRoute,
-        userLocation,
-        routeProgress,
-    );
+    const { distanceRemaining, durationRemaining } =
+        getRemainingDirectionsRouteValues(
+            activeNavigationRoute,
+            userLocation,
+            routeProgress,
+        );
     const destinationName =
         activeNavigationDestination?.label ||
         activeNavigationDestination?.inputValue ||
@@ -2455,6 +2437,7 @@ function clearScheduledNavigationGuidance() {
 }
 
 function scheduleNavigationGuidance(userLocation) {
+    updateSharedNavigationLocation(userLocation);
     pendingNavigationGuidanceLocation = userLocation;
 
     const elapsedSinceLastUpdate = Date.now() - lastNavigationGuidanceUpdatedAt;

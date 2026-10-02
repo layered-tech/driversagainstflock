@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
+import { createAutoPlaySearchCallbackState } from '../../auto-play-template-state.js';
 
 const require = createRequire(import.meta.url);
 const { transformSync } = require('@babel/core');
@@ -88,10 +89,12 @@ test('typing clears saved suggestions and clearing text restores them', () => {
     const handler = vm.runInNewContext(`(${callback})`, {
         cancelAutoPlaySearchWork() {},
         emptyResults: initialResults,
+        initialVoiceSearchIsPending: false,
         refreshInitialResults() {
             initialResultsRefreshed += 1;
         },
         savedLocationWasSelected: false,
+        searchCallbackState: createAutoPlaySearchCallbackState(),
         searchTextValue: '',
         template,
         updateSearchTemplateSection: (...args) => calls.push(args),

@@ -12,6 +12,7 @@ import {
     getPlaceTypeLabel,
 } from './place-formatters';
 import { shouldHoldRoundaboutManeuver } from './roundabout-guidance';
+import { getCurrentLocationRoadHint } from './route-snapping';
 import {
     getRemainingRouteWaypoints,
     getRouteProjectionPath,
@@ -92,6 +93,7 @@ export function createCurrentLocationDirectionsWaypoint(location) {
         kind: CURRENT_LOCATION_DIRECTIONS_WAYPOINT_ID,
         label: 'Current location',
         location: {
+            ...location,
             latitude: coordinate[1],
             longitude: coordinate[0],
         },
@@ -143,9 +145,15 @@ export function getDirectionsWaypointApiCoord(waypoint) {
         return null;
     }
 
+    const roadHint =
+        waypoint?.kind === CURRENT_LOCATION_DIRECTIONS_WAYPOINT_ID
+            ? getCurrentLocationRoadHint(waypoint.location)
+            : null;
+
     return {
         latitude: coordinate[1],
         longitude: coordinate[0],
+        ...(roadHint ? { road_hint: roadHint } : {}),
     };
 }
 
@@ -530,6 +538,18 @@ export function normalizeDirectionsRoute(route, routeKey) {
         coordinates,
         distance: getStoredNumber(route?.distance),
         duration: getStoredNumber(route?.duration),
+        timingSegments: Array.isArray(
+            route?.timing_segments ?? route?.timingSegments,
+        )
+            ? (route.timing_segments ?? route.timingSegments)
+            : [],
+        snappedWaypoints: Array.isArray(
+            route?.snapped_waypoints ?? route?.snappedWaypoints,
+        )
+            ? (route.snapped_waypoints ?? route.snappedWaypoints)
+                  .map(normalizeRouteCoordinate)
+                  .filter(Boolean)
+            : [],
         maneuvers: Array.isArray(route?.maneuvers)
             ? route.maneuvers.map(normalizeDirectionsManeuver).filter(Boolean)
             : [],
@@ -638,6 +658,8 @@ export function selectDirectionsRoute(route, routeKey) {
         coordinates: selectedRoute.coordinates,
         distance: selectedRoute.distance,
         duration: selectedRoute.duration,
+        timingSegments: selectedRoute.timingSegments,
+        snappedWaypoints: selectedRoute.snappedWaypoints,
         maneuvers: selectedRoute.maneuvers,
         monitoringCameraNodes: selectedRoute.monitoringCameraNodes,
         nodeCount: selectedRoute.nodeCount,
@@ -1153,6 +1175,93 @@ export function getRemainingDirectionsStopWaypoints(route, routeProgress) {
         progressDistanceMeters: routeProgress?.alongRouteDistance,
         waypoints: route?.stopWaypoints,
     });
+}
+
+function getRemainingSegmentDuration(
+    segments,
+    cumulativeDistances,
+    progressDistance,
+) {
+    let nextIndex = 0;
+    let remainingDuration = 0;
+    for (const segment of segments) {
+        const [start, end] = segment?.way_points ?? [];
+        const duration = getStoredNumber(segment?.duration);
+        if (
+            !Number.isInteger(start) ||
+            !Number.isInteger(end) ||
+            start !== nextIndex ||
+            end < start ||
+            end >= cumulativeDistances.length ||
+            duration === null ||
+            duration < 0
+        ) {
+            return null;
+        }
+        const startDistance = cumulativeDistances[start];
+        const endDistance = cumulativeDistances[end];
+        const fractionRemaining =
+            endDistance > startDistance
+                ? Math.min(
+                      1,
+                      Math.max(
+                          0,
+                          (endDistance - progressDistance) /
+                              (endDistance - startDistance),
+                      ),
+                  )
+                : progressDistance < endDistance
+                  ? 1
+                  : 0;
+        remainingDuration += duration * fractionRemaining;
+        nextIndex = end;
+    }
+    return nextIndex === cumulativeDistances.length - 1
+        ? remainingDuration
+        : null;
+}
+
+export function getRemainingDirectionsRouteValues(
+    route,
+    userLocation,
+    progress = getDirectionsRouteProgress(route, userLocation),
+) {
+    const option = getSelectedDirectionsRouteOption(route);
+    const { cumulativeDistances, maneuvers } = getRouteProgressData(route);
+    const geometryDistance = cumulativeDistances.at(-1) ?? 0;
+    const totalDistance = getStoredNumber(option?.distance);
+    const totalDuration = getStoredNumber(option?.duration);
+    const progressDistance = Math.min(
+        geometryDistance,
+        Math.max(0, progress?.alongRouteDistance ?? 0),
+    );
+    const remainingFraction =
+        geometryDistance > 0 ? 1 - progressDistance / geometryDistance : 1;
+    const detailedDuration =
+        progress && geometryDistance > 0
+            ? (getRemainingSegmentDuration(
+                  option?.timingSegments ?? [],
+                  cumulativeDistances,
+                  progressDistance,
+              ) ??
+              getRemainingSegmentDuration(
+                  maneuvers,
+                  cumulativeDistances,
+                  progressDistance,
+              ))
+            : null;
+
+    return {
+        distanceRemaining:
+            totalDistance === null
+                ? null
+                : Math.max(0, totalDistance * remainingFraction),
+        durationRemaining:
+            detailedDuration ??
+            (totalDuration === null
+                ? null
+                : Math.max(0, totalDuration * remainingFraction)),
+    };
 }
 
 function getCurrentManeuver(maneuvers, progressDistance) {

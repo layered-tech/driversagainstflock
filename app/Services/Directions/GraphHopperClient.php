@@ -35,9 +35,17 @@ class GraphHopperClient implements DirectionsProvider
             'instructions' => true,
             'calc_points' => true,
             'points_encoded' => false,
+            'details' => ['time', 'distance'],
             'pass_through' => $continueStraight,
             'timeout_ms' => (int) config('services.graphhopper.route_timeout_milliseconds'),
         ];
+
+        if (isset($coordinates[0]['road_hint']) && trim($coordinates[0]['road_hint']) !== '') {
+            $body['point_hints'] = array_map(
+                fn (array $coordinate): string => trim($coordinate['road_hint'] ?? ''),
+                $coordinates,
+            );
+        }
 
         if ($hasExclusionZone) {
             $body['ch.disable'] = true;
@@ -175,7 +183,31 @@ class GraphHopperClient implements DirectionsProvider
             'distance' => is_numeric($path['distance'] ?? null) ? (float) $path['distance'] : null,
             'duration' => is_numeric($path['time'] ?? null) ? (float) $path['time'] / 1000 : null,
             'maneuvers' => $this->normalizeManeuvers($path['instructions'] ?? [], $coordinates),
+            ...isset($path['snapped_waypoints']['coordinates'])
+                ? ['snapped_waypoints' => $path['snapped_waypoints']['coordinates']] : [],
+            ...is_array($path['details']['time'] ?? null)
+                ? ['timing_segments' => $this->normalizeTimingSegments($path['details']['time'])] : [],
         ];
+    }
+
+    /**
+     * @param  array<int, mixed>  $segments
+     * @return array<int, array{way_points: array{int, int}, duration: float}>
+     */
+    private function normalizeTimingSegments(array $segments): array
+    {
+        return array_values(array_map(
+            fn (array $segment): array => [
+                'way_points' => [(int) $segment[0], (int) $segment[1]],
+                'duration' => (float) $segment[2] / 1000,
+            ],
+            array_filter($segments, fn ($segment): bool => is_array($segment)
+                && count($segment) === 3
+                && filter_var($segment[0], FILTER_VALIDATE_INT) !== false
+                && filter_var($segment[1], FILTER_VALIDATE_INT) !== false
+                && is_numeric($segment[2]) && is_finite((float) $segment[2])
+                && $segment[0] >= 0 && $segment[1] > $segment[0] && $segment[2] >= 0),
+        ));
     }
 
     /**

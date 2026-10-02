@@ -103,6 +103,7 @@ import {
     usePlaceSheetContext,
 } from './map-screen-context';
 import { NativeWindMapView } from './native-components';
+import { WeatherEffect } from './weather-effect';
 import {
     AUTO_PLAY_NAVIGATION_PUCK_SIZE,
     getNavigationPuck3DScaleExpression,
@@ -1068,6 +1069,10 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
             styleURL={mapStyleURL}
             surfaceView={!mapTextureViewIsRequired}
         >
+            <WeatherEffect
+                car={navigationPuckVariant === 'auto-play'}
+                styleKey={`${mapStyleURL}-${locationPuckMapLoadEpoch}`}
+            />
             <Mapbox.StyleImport
                 key={`${MAPBOX_STANDARD_STYLE_IMPORT_ID}-${mapStyleURL}-${mapLightPreset}`}
                 config={styleImportConfig}

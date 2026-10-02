@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     logMapLayerSelected,
     logMapLightPresetSelected,
@@ -14,51 +14,115 @@ export function useMapLayerSheetActions({
     setPoliceAlertsVisible,
 }) {
     const layerSheetRef = useRef(null);
+    const layerSheetHasMountedRef = useRef(false);
+    const layerSheetPresentationFrameRef = useRef(null);
+    const layerSheetPresentationRetryRef = useRef(null);
+    const layerSheetPresentationAttemptRef = useRef(0);
     const layerSheetIsDismissingRef = useRef(false);
     const layerSheetPresentationIsPendingRef = useRef(false);
     const [layerSheetResetCount, setLayerSheetResetCount] = useState(0);
-    const presentMapLayerSheet = useCallback(() => {
-        if (layerSheetRef.current) {
-            layerSheetRef.current.present();
-
-            return;
+    const clearScheduledPresentation = useCallback(() => {
+        if (layerSheetPresentationFrameRef.current !== null) {
+            cancelAnimationFrame(layerSheetPresentationFrameRef.current);
+            layerSheetPresentationFrameRef.current = null;
         }
-
-        requestAnimationFrame(() => {
-            layerSheetRef.current?.present();
-        });
+        if (layerSheetPresentationRetryRef.current !== null) {
+            clearTimeout(layerSheetPresentationRetryRef.current);
+            layerSheetPresentationRetryRef.current = null;
+        }
     }, []);
+    useEffect(
+        () => () => {
+            layerSheetPresentationIsPendingRef.current = false;
+            clearScheduledPresentation();
+        },
+        [clearScheduledPresentation],
+    );
+
+    const presentMapLayerSheet = useCallback(
+        function presentMapLayerSheet() {
+            if (layerSheetIsDismissingRef.current) {
+                return;
+            }
+            clearScheduledPresentation();
+            if (layerSheetRef.current) {
+                layerSheetPresentationIsPendingRef.current = false;
+                layerSheetRef.current.present();
+                return;
+            }
+            if (!layerSheetPresentationIsPendingRef.current) {
+                return;
+            }
+            if (layerSheetPresentationAttemptRef.current >= 10) {
+                layerSheetPresentationIsPendingRef.current = false;
+                return;
+            }
+            layerSheetPresentationAttemptRef.current += 1;
+            layerSheetPresentationFrameRef.current = requestAnimationFrame(
+                () => {
+                    layerSheetPresentationFrameRef.current = null;
+                    if (layerSheetRef.current) {
+                        presentMapLayerSheet();
+                        return;
+                    }
+                    layerSheetPresentationRetryRef.current = setTimeout(() => {
+                        layerSheetPresentationRetryRef.current = null;
+                        presentMapLayerSheet();
+                    }, 300);
+                },
+            );
+        },
+        [clearScheduledPresentation],
+    );
     const handleMapLayerPress = useCallback(() => {
-        if (layerSheetIsDismissingRef.current) {
-            layerSheetPresentationIsPendingRef.current = true;
-
-            return;
-        }
-
+        layerSheetPresentationIsPendingRef.current = true;
+        layerSheetPresentationAttemptRef.current = 0;
         presentMapLayerSheet();
     }, [presentMapLayerSheet]);
-    const handleMapLayerSheetAnimate = useCallback((_fromIndex, toIndex) => {
-        if (toIndex < 0) {
-            layerSheetIsDismissingRef.current = true;
-        }
-    }, []);
-    const handleMapLayerSheetChange = useCallback((index) => {
-        if (index >= 0) {
-            layerSheetIsDismissingRef.current = false;
-            layerSheetPresentationIsPendingRef.current = false;
-        }
-    }, []);
-    const handleMapLayerSheetDismiss = useCallback(() => {
-        layerSheetIsDismissingRef.current = false;
-        setLayerSheetResetCount((resetCount) => resetCount + 1);
-
-        if (!layerSheetPresentationIsPendingRef.current) {
+    const dismissMapLayerSheet = useCallback(() => {
+        clearScheduledPresentation();
+        layerSheetPresentationIsPendingRef.current = false;
+        if (
+            !layerSheetHasMountedRef.current ||
+            layerSheetIsDismissingRef.current
+        ) {
             return;
         }
-
-        layerSheetPresentationIsPendingRef.current = false;
-        requestAnimationFrame(presentMapLayerSheet);
-    }, [presentMapLayerSheet]);
+        layerSheetIsDismissingRef.current = true;
+        layerSheetRef.current?.dismiss();
+    }, [clearScheduledPresentation]);
+    const handleMapLayerSheetAnimate = useCallback((_fromIndex, toIndex) => {
+        layerSheetIsDismissingRef.current = toIndex < 0;
+        if (toIndex >= 0) {
+            layerSheetHasMountedRef.current = true;
+        }
+    }, []);
+    const handleMapLayerSheetChange = useCallback(
+        (index) => {
+            layerSheetIsDismissingRef.current = false;
+            if (index >= 0) {
+                layerSheetHasMountedRef.current = true;
+                layerSheetPresentationIsPendingRef.current = false;
+                clearScheduledPresentation();
+                return;
+            }
+            if (layerSheetPresentationIsPendingRef.current) {
+                layerSheetPresentationFrameRef.current =
+                    requestAnimationFrame(presentMapLayerSheet);
+            }
+        },
+        [clearScheduledPresentation, presentMapLayerSheet],
+    );
+    const handleMapLayerSheetDismiss = useCallback(() => {
+        layerSheetHasMountedRef.current = false;
+        layerSheetIsDismissingRef.current = false;
+        setLayerSheetResetCount((resetCount) => resetCount + 1);
+        clearScheduledPresentation();
+        if (layerSheetPresentationIsPendingRef.current) {
+            layerSheetPresentationFrameRef.current =
+                requestAnimationFrame(presentMapLayerSheet);
+        }
+    }, [clearScheduledPresentation, presentMapLayerSheet]);
     const handleMapLightPresetPreferenceChange = useCallback(
         (preset) => {
             setMapLightPresetPreference(preset);
@@ -83,8 +147,7 @@ export function useMapLayerSheetActions({
     const handleMapLayerSelect = useCallback(
         (styleURL) => {
             setMapStyleURL(styleURL);
-            layerSheetIsDismissingRef.current = true;
-            layerSheetRef.current?.dismiss();
+            dismissMapLayerSheet();
             logMapLayerSelected({
                 layerKey:
                     MAP_LAYER_STYLES.find(
@@ -92,10 +155,11 @@ export function useMapLayerSheetActions({
                     )?.key || 'unknown',
             });
         },
-        [setMapStyleURL],
+        [dismissMapLayerSheet, setMapStyleURL],
     );
 
     return {
+        dismissMapLayerSheet,
         handleMapLayerPress,
         handleMapLayerSelect,
         handleMapLayerSheetAnimate,

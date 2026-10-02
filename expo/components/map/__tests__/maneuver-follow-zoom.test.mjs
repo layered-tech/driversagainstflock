@@ -466,6 +466,65 @@ test('phone and automotive map surfaces pass only the active navigation route to
     );
 });
 
+test('shared follow holds adjacent speed reversals until stable and still follows larger changes quickly', () => {
+    const currentZoomRef = { current: 17 };
+    const hook = useFollowLocationMode({
+        cameraRef: { current: { setCamera() {} } },
+        clampZoomLevel: (value) => value,
+        currentZoomRef,
+        followSpeedZoomEnabled: true,
+        isDrivingMode: true,
+        locationTrackingMode: 'follow',
+        locationTrackingModeRef: { current: 'follow' },
+        markerLoadsEnabledRef: { current: true },
+        setTrackingMode() {},
+        userLocationRef: { current: null },
+    });
+    const fix = (mph, seconds) => ({
+        ...location(0, 0, epoch + seconds * 1000),
+        speed: mph * 0.44704,
+    });
+    hook.start(fix(49.8, 0));
+    hook.handleLocationUpdate('follow', fix(50.2, 1));
+    assert.equal(currentZoomRef.current, 15.25);
+    for (const [seconds, mph] of [
+        [2, 49.9],
+        [3, 50.1],
+        [4, 49.8],
+        [5, 50.2],
+    ]) {
+        hook.handleLocationUpdate('follow', fix(mph, seconds));
+        assert.equal(
+            currentZoomRef.current,
+            15.25,
+            `${mph} mph at ${seconds}s`,
+        );
+    }
+    for (const seconds of [6, 7, 8, 9, 10]) {
+        hook.handleLocationUpdate('follow', fix(49, seconds));
+        assert.equal(currentZoomRef.current, 15.25);
+    }
+    hook.handleLocationUpdate('follow', fix(49, 11));
+    assert.equal(currentZoomRef.current, 16);
+    hook.handleLocationUpdate('follow', fix(50.1, 12));
+    assert.equal(currentZoomRef.current, 16);
+    hook.handleLocationUpdate('follow', fix(55, 13));
+    assert.equal(currentZoomRef.current, 14.5);
+    hook.handleLocationUpdate('follow', fix(35, 14));
+    assert.equal(currentZoomRef.current, 17.5);
+    hook.handleZoomLevelChange('follow', 18);
+    hook.handleLocationUpdate('follow', fix(65, 15));
+    assert.equal(currentZoomRef.current, 18);
+    hook.recenter(fix(50, 16));
+    assert.equal(currentZoomRef.current, 15.25);
+    hook.handleLocationUpdate('follow', fix(49, 17));
+    assert.equal(
+        currentZoomRef.current,
+        16,
+        'recenter clears reversal history',
+    );
+});
+
 test('arrival releases the close view even while the completed route is retained', () => {
     const controller = createManeuverFollowZoomController();
     controller.update({

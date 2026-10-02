@@ -1018,3 +1018,28 @@ it('clears start destination and waypoint cameras in either avoidance mode', fun
         ->filter(fn (array $record): bool => str_contains($record[0]->url(), 'openrouteservice'));
     expect($requests)->toHaveCount(1);
 })->with(['directional', 'circular']);
+
+it('passes the validated starting road hint to GraphHopper', function () {
+    config(['directions.provider' => 'graphhopper']);
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::response(['elements' => []]),
+        'http://graphhopper.test:8080/route' => Http::response(graphHopperDirectionsResponse([
+            [-122.676, 45.523], [-122.658, 45.512],
+        ])),
+    ]);
+    $payload = directionsRequestPayload();
+    $payload['start']['road_hint'] = 'Main Street';
+
+    $this->postJson('/api/v1/directions', $payload)->assertOk();
+
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), 'graphhopper.test')
+        && $request['point_hints'] === ['Main Street', '']);
+});
+
+it('rejects oversized starting road hints', function () {
+    $payload = directionsRequestPayload();
+    $payload['start']['road_hint'] = str_repeat('a', 256);
+
+    $this->postJson('/api/v1/directions', $payload)->assertUnprocessable()->assertJsonValidationErrors('start.road_hint');
+    Http::assertNothingSent();
+});

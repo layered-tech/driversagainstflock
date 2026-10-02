@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 
 function readSource(relativePath) {
@@ -23,9 +23,6 @@ const drivingLocationProviderSource = readSource(
 );
 const durableAlertStoreSource = readSource('../durable-alert-store.js');
 const easJson = JSON.parse(readSource('../../../eas.json'));
-const expoLocationPatchSource = readSource(
-    '../../../patches/expo-location+57.0.8.patch',
-);
 const electronicHorizonAlprStoreSource = readSource(
     '../electronic-horizon-alpr-store.js',
 );
@@ -76,15 +73,20 @@ describe('in-house road-matched location integration', () => {
         );
     });
 
-    test('keeps native location callbacks safe after the Expo host is destroyed', () => {
-        assert.match(expoLocationPatchSource, /sendEventSafely/);
+    test('uses upstream Expo Location subscriptions without native patches', () => {
         assert.match(
-            expoLocationPatchSource,
-            /catch \(_: IllegalArgumentException\)/,
+            useDeviceLocationSource,
+            /import \* as Location from 'expo-location'/,
         );
-        assert.match(
-            expoLocationPatchSource,
-            /catch \(_: IllegalStateException\)/,
+        assert.match(useDeviceLocationSource, /Location\.watchPositionAsync\(/);
+        assert.match(useDeviceLocationSource, /Location\.watchHeadingAsync\(/);
+        assert.match(useDeviceLocationSource, /subscription\.remove\(\)/);
+        const patches = readdirSync(
+            new URL('../../../patches/', import.meta.url),
+        );
+        assert.equal(
+            patches.some((name) => name.startsWith('expo-location+')),
+            false,
         );
     });
 
