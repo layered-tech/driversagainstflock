@@ -166,6 +166,8 @@ export function createNwsWeatherClient({
                     stationLocation: station.location,
                     distanceKm: weatherDistanceKm(location, station.location),
                     description: properties.textDescription ?? null,
+                    presentWeather: properties.presentWeather ?? null,
+                    rawMessage: properties.rawMessage ?? null,
                 };
                 const fresh = weatherObservationIsFresh(
                     observation,

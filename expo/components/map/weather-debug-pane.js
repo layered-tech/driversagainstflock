@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, Switch, Text, TextInput, View } from 'react-native';
 import { WEATHER_PROFILE_DEFAULTS } from './weather-profiles';
-import { WEATHER_DEFAULTS } from './weather-policy';
+import { getWeatherDiagnostics } from './weather-diagnostics';
 import { useWeatherState, weatherStore } from './weather-runtime';
 
 function WeatherButton({ label, onPress, selected = false }) {
@@ -108,6 +108,11 @@ export function WeatherDebugPane() {
     const [editor, setEditor] = useState(null);
     const [diagnosticsVisible, setDiagnosticsVisible] = useState(false);
     const [simulation, setSimulation] = useState(null);
+    const [now, setNow] = useState(Date.now);
+    useEffect(() => {
+        const timer = setInterval(() => setNow(Date.now()), 15_000);
+        return () => clearInterval(timer);
+    }, []);
 
     function simulate(kind) {
         const now = Date.now();
@@ -138,49 +143,27 @@ export function WeatherDebugPane() {
         setSimulation({ kind, state: weatherStore.simulate(entries) });
     }
 
-    const observedAt = weather.state.supporting?.observedAt;
-    const diagnostics = {
-        raw: weather.raw,
-        accepted: weather.state.accepted,
-        rendered: weather.rendered,
-        rawIntensityBucket: weather.raw?.intensityBucket ?? null,
-        acceptedIntensity: weather.state.intensity,
-        renderedIntensityBucket: weather.renderedIntensityBucket,
-        intensityDwellDeadline:
-            weather.state.intensity.changedAt === null
-                ? null
-                : Math.max(
-                      weather.state.changedAt,
-                      weather.state.intensity.changedAt,
-                  ) + WEATHER_DEFAULTS.intensityDwellMs,
-        intensityRetentionDeadline: weather.state.intensity.supporting
-            ? weather.state.intensity.supporting.observedAt +
-              WEATHER_DEFAULTS.intensityRetentionMs
-            : null,
-        renderers: weather.renderers,
-        override: weather.mode,
-        reason: weather.state.reason,
-        observationAgeMinutes: observedAt
-            ? (Date.now() - observedAt) / 60_000
-            : null,
-        supportingObservation: weather.state.supporting,
-        pending: weather.state.pending,
-        dwellDeadline:
-            weather.state.changedAt === null
-                ? null
-                : weather.state.changedAt + 1_200_000,
-        retentionDeadline: observedAt ? observedAt + 5_400_000 : null,
-        nextRefreshAt: weather.nextRefreshAt,
-        failures: weather.failures,
-        rolloutEnabled: weather.rolloutEnabled,
-        activeSurfaces: weather.activeSurfaces,
-    };
+    const diagnostics = getWeatherDiagnostics(
+        weather,
+        Math.max(now, Date.now()),
+    );
 
     return (
         <View className="gap-3 rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
             <Text className="text-sm font-semibold text-neutral-950 dark:text-white">
                 Map weather
             </Text>
+            <View className="gap-1" testID="debug-weather-current-state">
+                {diagnostics.rows.map(({ label, value }, index) => (
+                    <Text
+                        key={`${label}-${index}`}
+                        selectable
+                        className="text-xs text-neutral-600 dark:text-neutral-400"
+                    >
+                        {label}: {value}
+                    </Text>
+                ))}
+            </View>
             <View className="flex-row items-center gap-2">
                 <Switch
                     accessibilityLabel="Enable map weather"
@@ -248,7 +231,7 @@ export function WeatherDebugPane() {
                     selectable
                     className="text-xs text-neutral-600 dark:text-neutral-400"
                 >
-                    {JSON.stringify(diagnostics, null, 2)}
+                    {JSON.stringify(diagnostics.details, null, 2)}
                 </Text>
             ) : null}
             <Text className="text-xs text-neutral-600 dark:text-neutral-400">

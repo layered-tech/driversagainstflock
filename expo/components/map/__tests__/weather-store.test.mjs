@@ -109,6 +109,31 @@ test('no active map or no location makes no requests', async () => {
     release();
 });
 
+test('publishes request progress and timing while NWS is pending and after failure', async () => {
+    let resolve;
+    const { store, getTime } = harness({
+        fetchObservation: () =>
+            new Promise((done) => {
+                resolve = done;
+            }),
+    });
+    store.setLocation(location);
+    const release = store.retainSurface();
+    assert.equal(store.getSnapshot().refreshing, true);
+    assert.equal(store.getSnapshot().lastRefreshStartedAt, getTime());
+    assert.equal(store.getSnapshot().lastRefreshCompletedAt, null);
+    assert.equal(store.getSnapshot().active, true);
+    resolve({ condition: 'Unknown', reason: 'timeout' });
+    await settle();
+    assert.equal(store.getSnapshot().refreshing, false);
+    assert.equal(store.getSnapshot().lastRefreshCompletedAt, getTime());
+    assert.equal(store.getSnapshot().raw.reason, 'timeout');
+    assert.equal(store.getSnapshot().nextRefreshAt, getTime() + 10 * minute);
+    store.setForeground(false);
+    assert.equal(store.getSnapshot().active, false);
+    release();
+});
+
 test('failure backoff is 10/20/40 minutes and honors longer retry deadlines', async () => {
     const { store, calls, advance, getTime } = harness({
         fetchObservation: (_, time) => ({

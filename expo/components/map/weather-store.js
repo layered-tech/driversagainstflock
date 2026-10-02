@@ -32,6 +32,8 @@ export function createWeatherStore({
     let nextRefreshAt = null;
     let failures = 0;
     let request = null;
+    let lastRefreshStartedAt = null;
+    let lastRefreshCompletedAt = null;
     let generation = 0;
     let timer = null;
     let hydrating = null;
@@ -81,6 +83,11 @@ export function createWeatherStore({
                 : null,
             nextRefreshAt,
             failures,
+            refreshing: request !== null,
+            lastRefreshStartedAt,
+            lastRefreshCompletedAt,
+            active: active(),
+            foreground,
             activeSurfaces: surfaces.size,
             simulation,
             hydrated,
@@ -190,6 +197,7 @@ export function createWeatherStore({
         }
         const requestedLocation = { ...location };
         const requestedGeneration = generation;
+        lastRefreshStartedAt = now();
         request = (async () => {
             const observation = await client
                 .getObservation(requestedLocation)
@@ -225,9 +233,11 @@ export function createWeatherStore({
             persist();
         })().finally(() => {
             request = null;
+            lastRefreshCompletedAt = now();
             publish();
             schedule();
         });
+        publish();
         return request;
     }
 

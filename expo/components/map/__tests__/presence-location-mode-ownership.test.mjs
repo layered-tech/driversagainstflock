@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
-import { getFollowZoomUpdate } from '../follow-zoom-update.js';
+import * as followZoom from '../follow-zoom-update.js';
 
 const require = createRequire(import.meta.url);
 
@@ -44,7 +44,7 @@ function loadHook(filename, hookName, events) {
             LOCATION_ZOOM_LEVEL: 17,
         },
         './map/follow-camera-padding': { getFollowCameraPadding: () => ({}) },
-        './map/follow-zoom-update': { getFollowZoomUpdate },
+        './map/follow-zoom-update': followZoom,
         './map/maneuver-follow-zoom': {
             createManeuverFollowZoomController: () => ({
                 update: ({ speedZoom }) => speedZoom,

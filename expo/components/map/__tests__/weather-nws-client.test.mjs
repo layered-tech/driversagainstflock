@@ -87,12 +87,36 @@ test('discovers points/stations, sorts nearest, and identifies the application',
     assert.equal(result.condition, 'Rain');
     assert.equal(result.distanceKm, 0);
     assert.equal(result.fresh, true);
+    assert.deepEqual(result.presentWeather, [{ weather: 'rain' }]);
     assert.equal(calls.length, 3);
     assert.match(calls[0].url, /\/points\/40\.0000,-100\.0000$/);
     for (const call of calls) {
         assert.match(call.options.headers['User-Agent'], /DriversAgainstFlock/);
         assert.ok(call.options.signal instanceof AbortSignal);
     }
+});
+
+test('keeps structured NWS reports and METAR text for diagnosing classification', async () => {
+    const presentWeather = [
+        { weather: 'rain', intensity: 'light', inVicinity: true },
+    ];
+    const { client } = harness({
+        reports: {
+            NEAR: response({
+                properties: {
+                    timestamp: new Date(initialTime).toISOString(),
+                    textDescription: 'Rain nearby',
+                    presentWeather,
+                    rawMessage: 'TEST METAR VCSH',
+                },
+            }),
+        },
+    });
+    const observation = await client.getObservation(location);
+    assert.equal(observation.condition, 'Unknown');
+    assert.equal(observation.reason, 'unclassifiable');
+    assert.deepEqual(observation.presentWeather, presentWeather);
+    assert.equal(observation.rawMessage, 'TEST METAR VCSH');
 });
 
 test('nearby concurrent lookups deduplicate discovery and observations', async () => {

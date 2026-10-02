@@ -292,7 +292,7 @@ export function drawnGeometry(points) {
         throw new Error('Add at least three points to draw a boundary.');
     return { type: 'Polygon', coordinates: [[...points, points[0]]] };
 }
-function moderationDate(value) {
+export function moderationDate(value) {
     // Database timestamps without an offset represent UTC, not browser local time.
     const normalized =
         typeof value === 'string'
@@ -303,7 +303,7 @@ function moderationDate(value) {
             : value;
     return new Date(
         typeof normalized === 'string' &&
-        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(normalized)
+            /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(normalized)
             ? `${normalized}Z`
             : normalized,
     );

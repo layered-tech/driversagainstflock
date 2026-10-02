@@ -25,7 +25,10 @@ function applyPhysicalLocation(location) {
     if (location?.locationProvider === 'auto-drive-simulation') {
         return;
     }
-    weatherStore.setLocation(location);
+    weatherStore.setLocation({
+        latitude: location?.latitude ?? location?.coords?.latitude,
+        longitude: location?.longitude ?? location?.coords?.longitude,
+    });
 }
 
 function retainWeatherRuntime(car) {

@@ -13,7 +13,7 @@ const settle = async () => {
     }
 };
 
-function runtimeHarness() {
+function runtimeHarness({ initialLocation } = {}) {
     let locationListener;
     let appListener;
     let activeRoot;
@@ -24,12 +24,14 @@ function runtimeHarness() {
     const timers = new Map();
     let sequence = 0;
     const time = Date.parse('2026-10-01T12:00:00Z');
-    const location = {
-        latitude: 40,
-        longitude: -100,
-        recordedAt: time,
-        locationProvider: 'expo-location',
-    };
+    const location =
+        initialLocation === undefined
+            ? {
+                  coords: { latitude: 40, longitude: -100 },
+                  timestamp: time,
+                  locationProvider: 'expo-location',
+              }
+            : initialLocation;
     const client = {
         async getObservation(actual) {
             calls.push(actual);
@@ -196,4 +198,54 @@ test('phone-only runtime pauses in background and resumes on foreground', async 
     assert.equal(harness.timers.size, 1);
     release();
     assert.equal(harness.timers.size, 0);
+});
+
+test('the first Expo GPS fix starts NWS after a map mounts without location', async () => {
+    const harness = runtimeHarness({ initialLocation: null });
+    const release = harness.mount(false);
+    await settle();
+    assert.equal(harness.calls.length, 0);
+    assert.equal(harness.runtime.weatherStore.getSnapshot().location, null);
+    harness.emitLocation({
+        coords: { latitude: 40, longitude: -100, accuracy: 10 },
+        timestamp: Date.parse('2026-10-01T12:00:00Z'),
+    });
+    await settle();
+    assert.deepEqual(harness.calls, [{ latitude: 40, longitude: -100 }]);
+    assert.equal(harness.runtime.weatherStore.getSnapshot().rendered, 'Rain');
+    harness.emitLocation({ coords: { latitude: NaN, longitude: -100 } });
+    await settle();
+    assert.equal(harness.calls.length, 1);
+    assert.equal(harness.runtime.weatherStore.getSnapshot().location, null);
+    release();
+});
+
+test('normalized locations remain supported and simulated nested coordinates never trigger NWS', async () => {
+    const harness = runtimeHarness({
+        initialLocation: {
+            coords: { latitude: 35, longitude: -90 },
+            locationProvider: 'auto-drive-simulation',
+        },
+    });
+    const release = harness.mount(true);
+    await settle();
+    assert.equal(harness.calls.length, 0);
+    harness.emitLocation({
+        latitude: 40,
+        longitude: -100,
+        locationProvider: 'expo-location',
+    });
+    await settle();
+    assert.deepEqual(harness.calls, [{ latitude: 40, longitude: -100 }]);
+    harness.emitLocation({
+        coords: { latitude: 35, longitude: -90 },
+        locationProvider: 'auto-drive-simulation',
+    });
+    await settle();
+    assert.equal(harness.calls.length, 1);
+    assert.deepEqual(harness.runtime.weatherStore.getSnapshot().location, {
+        latitude: 40,
+        longitude: -100,
+    });
+    release();
 });
