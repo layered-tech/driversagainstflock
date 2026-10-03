@@ -1,4 +1,4 @@
-import { addSentryBreadcrumb } from '../../lib/sentry';
+import { addCrashlyticsLog } from '../../lib/crashlytics';
 import {
     getAdvancedRouteSettingsRequestPayload,
     normalizeAdvancedRouteSettings,
@@ -458,7 +458,7 @@ function addApiErrorBreadcrumb({ error, operation }) {
         return;
     }
 
-    addSentryBreadcrumb({
+    addCrashlyticsLog({
         category: 'api',
         data: {
             errorMessage: error?.message,
@@ -569,7 +569,7 @@ export async function searchPlaces({
         body.origin = resolvedOrigin;
     }
 
-    addSentryBreadcrumb({
+    addCrashlyticsLog({
         category: 'map.search',
         data: {
             hasLocationBias: Boolean(resolvedLocationBias),
@@ -600,7 +600,7 @@ export async function searchPlaces({
 
     const suggestions = normalizePlaceSearchSuggestions(data?.suggestions);
 
-    addSentryBreadcrumb({
+    addCrashlyticsLog({
         category: 'map.search',
         data: {
             resultCount: suggestions.length,
@@ -646,7 +646,7 @@ export async function searchTextPlaces({
         body.locationBias = resolvedLocationBias;
     }
 
-    addSentryBreadcrumb({
+    addCrashlyticsLog({
         category: 'map.search',
         data: {
             hasLocationBias: Boolean(resolvedLocationBias),
@@ -682,7 +682,7 @@ export async function searchTextPlaces({
         resolvedOrigin,
     );
 
-    addSentryBreadcrumb({
+    addCrashlyticsLog({
         category: 'map.search',
         data: {
             resultCount: results.length,
@@ -715,7 +715,7 @@ export async function getPlaceDetails({ placeId, sessionToken, signal }) {
     throwIfAborted(signal);
 
     if (cachedPlace) {
-        addSentryBreadcrumb({
+        addCrashlyticsLog({
             category: 'map.place',
             data: {
                 cacheHit: true,
@@ -725,7 +725,7 @@ export async function getPlaceDetails({ placeId, sessionToken, signal }) {
         return cachedPlace;
     }
 
-    addSentryBreadcrumb({
+    addCrashlyticsLog({
         category: 'map.place',
         data: {
             cacheHit: false,
@@ -764,7 +764,7 @@ export async function getPlaceDetails({ placeId, sessionToken, signal }) {
     }
 
     setCachedPlaceDetails(safePlaceId, place).catch(() => {});
-    addSentryBreadcrumb({
+    addCrashlyticsLog({
         category: 'map.place',
         data: {
             hasLocation: Boolean(place.location),
@@ -785,7 +785,7 @@ export async function getLocalityBoundary({ signal, zip }) {
 
     throwIfAborted(signal);
 
-    addSentryBreadcrumb({
+    addCrashlyticsLog({
         category: 'map.search',
         data: {
             zip: safeZip,
@@ -823,7 +823,7 @@ export async function getLocalityBoundary({ signal, zip }) {
         throw new Error('ZIP boundary could not be loaded.');
     }
 
-    addSentryBreadcrumb({
+    addCrashlyticsLog({
         category: 'map.search',
         data: {
             hasBoundary: Boolean(localityBoundary.boundary),
@@ -868,7 +868,7 @@ export async function getDirections({
         };
     }
 
-    addSentryBreadcrumb({
+    addCrashlyticsLog({
         category: 'map.directions',
         data: {
             hasEnd: Boolean(end),
@@ -905,7 +905,7 @@ export async function getDirections({
         });
         const result = await readDirectionsResponse(response);
 
-        addSentryBreadcrumb({
+        addCrashlyticsLog({
             category: 'map.directions',
             data: {
                 hasExclusionZone: Boolean(result.exclusionZone),
@@ -962,7 +962,7 @@ export async function getSpeedLimit({ location, signal }) {
         );
         const speedLimit = await readSpeedLimitResponse(response);
 
-        addSentryBreadcrumb({
+        addCrashlyticsLog({
             category: 'map.speed_limit',
             data: {
                 hasSpeedLimit: Boolean(speedLimit),
@@ -1021,7 +1021,7 @@ export async function getRoadCorridor({
             }
         }
 
-        addSentryBreadcrumb({
+        addCrashlyticsLog({
             category: 'map.road_matching',
             data: {
                 radiusMeters,

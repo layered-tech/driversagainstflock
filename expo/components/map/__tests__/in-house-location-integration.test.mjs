@@ -90,12 +90,9 @@ describe('in-house road-matched location integration', () => {
         );
     });
 
-    test('uploads Android native Sentry symbols for native crash diagnosis', () => {
-        assert.match(appConfigSource, /experimental_android:\s*\{/);
-        assert.match(appConfigSource, /enableAndroidGradlePlugin:\s*true/);
-        assert.match(appConfigSource, /uploadNativeSymbols:\s*true/);
-        assert.match(appConfigSource, /autoUploadNativeSymbols:\s*true/);
-        assert.match(appConfigSource, /includeNativeSources:\s*true/);
+    test('configures Firebase Crashlytics for native crash diagnosis', () => {
+        assert.match(appConfigSource, /@react-native-firebase\/crashlytics/);
+        assert.match(appConfigSource, /withCrashlyticsNativeSymbols/);
     });
 
     test('does not package or invoke the removed Mapbox Navigation SDK', () => {

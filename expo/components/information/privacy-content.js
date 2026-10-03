@@ -103,8 +103,8 @@ export const privacyPage = {
                         'OpenStreetMap Overpass API — for nearby road, place, and speed-limit data used by map features.',
                         'OpenStreetMap.org API and OAuth — for optional account sign-in, authorized map edits, and OpenStreetMap data access.',
                         'OpenWebNinja Waze API — for nearby police-alert and traffic-incident data when that feature is enabled.',
-                        'Firebase Analytics — for mobile-app usage analytics when enabled. The current app may send search terms, place identifiers, event metadata, and a signed-in account identifier. Scorecard screens, trips, exposures, scores, badges, and local Scorecard identifiers are excluded.',
-                        'Sentry — for crash, error, and network monitoring when configured and enabled. Diagnostic event data and request URLs may be included. Scorecard screens, navigation, and local Scorecard data are excluded from diagnostics.',
+                        'Firebase Analytics — for mobile-app usage analytics when enabled. The current app reports usage across all screens, including Scorecard, with sanitized event metadata and a signed-in account identifier. Search terms, place identifiers, precise coordinate fields, and local Scorecard records are redacted from app-provided event data.',
+                        'Firebase Crashlytics — for crash, error, and network monitoring when configured and enabled. Diagnostics cover all app screens. App-provided reports redact credentials, email addresses, precise coordinate fields, and private Scorecard route identifiers; local Scorecard records are not attached to reports.',
                     ],
                 },
                 {
@@ -154,7 +154,7 @@ export const privacyPage = {
             blocks: [
                 {
                     type: 'paragraph',
-                    text: 'DAF shares information with the third-party services listed above only as needed for the feature you request or for configured analytics, crash, and network monitoring. For example, place searches may use Google Places, maps may use Mapbox, directions may use HEIGIT OpenRouteService, locality and road lookups may use OpenStreetMap services, police-alert lookups may use OpenWebNinja, analytics may use Firebase, and diagnostics may use Sentry.',
+                    text: 'DAF shares information with the third-party services listed above only as needed for the feature you request or for configured analytics, crash, and network monitoring. For example, place searches may use Google Places, maps may use Mapbox, directions may use HEIGIT OpenRouteService, locality and road lookups may use OpenStreetMap services, police-alert lookups may use OpenWebNinja, analytics may use Firebase, and diagnostics may use Firebase Crashlytics.',
                 },
                 {
                     type: 'paragraph',

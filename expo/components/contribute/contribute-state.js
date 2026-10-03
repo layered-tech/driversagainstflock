@@ -19,7 +19,7 @@ import {
     buildPublishedNodeSyncPayload,
     getUploadedNodeIndex,
 } from '../../lib/osm/published-node-sync';
-import { addSentryBreadcrumb } from '../../lib/sentry';
+import { addCrashlyticsLog } from '../../lib/crashlytics';
 import { useSharedMapState } from '../map/shared-map-state';
 import { useScorecard } from '../scorecard/scorecard-context';
 import {
@@ -360,7 +360,7 @@ export function ContributeProvider({ children }) {
 
                     upsertMarkerPoints(syncResult.points);
                 } catch (error) {
-                    addSentryBreadcrumb({
+                    addCrashlyticsLog({
                         category: 'osm.publish',
                         data: {
                             changesetId: result.changesetId,

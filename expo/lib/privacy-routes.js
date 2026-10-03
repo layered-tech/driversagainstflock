@@ -8,8 +8,8 @@ export function isPrivateScorecardPath(pathname) {
 }
 
 export function getPrivacySafeMonitoringPathname(pathname) {
-    return isPrivateScorecardPath(pathname)
-        ? `${SCORECARD_PATH_PREFIX}/private`
+    return typeof pathname === 'string'
+        ? redactPrivateScorecardPath(pathname)
         : pathname;
 }
 
@@ -19,7 +19,7 @@ export function redactPrivateScorecardPath(value) {
     }
 
     return value.replace(
-        /\/scorecard(?:\/[A-Za-z0-9._~!$&'()*+,;=:@%\-\[\]]*)*/g,
-        `${SCORECARD_PATH_PREFIX}/private`,
+        /\/scorecard\/event\/[A-Za-z0-9._~!$&'()*+,;=:@%\-\[\]]+/g,
+        `${SCORECARD_PATH_PREFIX}/event/[id]`,
     );
 }

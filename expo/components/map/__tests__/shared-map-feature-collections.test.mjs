@@ -8,7 +8,7 @@ const { transformSync } = require('@babel/core');
 const transformModulesCommonJs = require('@babel/plugin-transform-modules-commonjs');
 const modules = new Map();
 const nativeModules = {
-    'sentry.js': { addSentryBreadcrumb() {} },
+    'crashlytics.js': { addCrashlyticsLog() {} },
     'config.js': {},
     'api-mocks.js': {},
 };

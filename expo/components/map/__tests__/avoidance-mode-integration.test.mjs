@@ -166,7 +166,7 @@ test('sends stored or explicit shape preferences through the actual directions A
     const { getDirections } = loadModule(
         '../api.js',
         {
-            '../../lib/sentry': { addSentryBreadcrumb: () => {} },
+            '../../lib/crashlytics': { addCrashlyticsLog: () => {} },
             './advanced-route-settings': advancedSettings,
             './api-mocks': { mapApiMocksAreEnabled: () => false },
             './config': { buildApiURL: (path) => path },
