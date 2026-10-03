@@ -2,9 +2,20 @@
 
 use App\Models\OsmNode;
 use App\Repositories\MapRepository;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 uses(TestCase::class);
+
+test('it leaves unbounded marker queries available for the full inventory', function () {
+    $queries = DB::connection((string) config('osm.reader.connection'))->pretend(
+        fn (): array => (new MapRepository)->getPoints(),
+    );
+
+    expect($queries)->toHaveCount(1)
+        ->and($queries[0]['query'])->not->toContain('ST_MakeEnvelope')
+        ->and($queries[0]['bindings'])->toBe([]);
+});
 
 test('it surfaces OSM node tags without deriving ALPR rendering decisions', function () {
     $node = new OsmNode([

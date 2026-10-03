@@ -65,7 +65,7 @@ class MapRepository
         $nodeQuery = $this->osmNodeQuery();
 
         if ($swLng !== null && $swLat !== null && $neLng !== null && $neLat !== null) {
-            $nodeQuery->withinBounds([
+            $nodeQuery->withinSpatialBounds([
                 'west' => $swLng,
                 'south' => $swLat,
                 'east' => $neLng,
