@@ -19,7 +19,34 @@ function assertDeferredNativeSymbols(contents) {
         contents,
         /pluginManager\.withPlugin\('com\.google\.firebase\.crashlytics'\) \{\s+android\.buildTypes\.release\.firebaseCrashlytics \{/,
     );
+    assert.match(
+        contents,
+        /tasks\.matching \{ it\.name == 'generateCrashlyticsSymbolFileRelease' \}\.configureEach \{\s+dependsOn 'mergeReleaseNativeLibs'\s+\}/,
+    );
 }
+
+test('upgrades the existing deferred symbol block and preserves surrounding settings', () => {
+    const prefix = 'android { buildTypes { release {} } }\n';
+    const suffix = "\napply plugin: 'com.google.firebase.crashlytics'\n";
+    const previous = `${prefix}// DAF Crashlytics native symbols
+pluginManager.withPlugin('com.google.firebase.crashlytics') {
+    android.buildTypes.release.firebaseCrashlytics {
+        nativeSymbolUploadEnabled true
+        unstrippedNativeLibsDir file("$buildDir/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib")
+    }
+    tasks.matching { it.name == 'assembleRelease' || it.name == 'bundleRelease' }.configureEach {
+        finalizedBy 'uploadCrashlyticsSymbolFileRelease'
+    }
+}
+${suffix}`;
+    const output = configureCrashlyticsNativeSymbols(previous);
+
+    assertDeferredNativeSymbols(output);
+    assert.ok(output.startsWith(prefix));
+    assert.ok(output.endsWith(suffix));
+    assert.equal(output.match(/nativeSymbolUploadEnabled true/g)?.length, 1);
+    assert.equal(configureCrashlyticsNativeSymbols(output), output);
+});
 
 test('adds native symbol processing and uploading once to release builds', () => {
     const contents =

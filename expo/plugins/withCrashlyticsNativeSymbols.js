@@ -18,6 +18,9 @@ pluginManager.withPlugin('com.google.firebase.crashlytics') {
         nativeSymbolUploadEnabled true
         unstrippedNativeLibsDir file("$buildDir/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib")
     }
+    tasks.matching { it.name == 'generateCrashlyticsSymbolFileRelease' }.configureEach {
+        dependsOn 'mergeReleaseNativeLibs'
+    }
     tasks.matching { it.name == 'assembleRelease' || it.name == 'bundleRelease' }.configureEach {
         finalizedBy 'uploadCrashlyticsSymbolFileRelease'
     }
@@ -28,7 +31,11 @@ function configureCrashlyticsNativeSymbols(contents) {
     if (contents.includes(MARKER)) {
         const legacyBlock =
             /\/\/ DAF Crashlytics native symbols\r?\nandroid\.buildTypes\.release\.firebaseCrashlytics \{[\s\S]*?\r?\n\}\r?\ntasks\.matching \{[^\r\n]*\}\.configureEach \{[\s\S]*?\r?\n\}\r?\n?/;
-        return contents.replace(legacyBlock, () => NATIVE_SYMBOLS_BLOCK);
+        const deferredBlock =
+            /\/\/ DAF Crashlytics native symbols\r?\npluginManager\.withPlugin\('com\.google\.firebase\.crashlytics'\) \{[\s\S]*?\r?\n\}\r?\n?/;
+        return contents
+            .replace(legacyBlock, () => NATIVE_SYMBOLS_BLOCK)
+            .replace(deferredBlock, () => NATIVE_SYMBOLS_BLOCK);
     }
 
     return `${contents}\n${NATIVE_SYMBOLS_BLOCK}`;
