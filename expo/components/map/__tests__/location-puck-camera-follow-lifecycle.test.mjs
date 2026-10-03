@@ -239,53 +239,55 @@ describe('location puck camera follow fallback', () => {
 });
 
 describe('location puck camera follow lifecycle', () => {
-    test('does not wait for handset frames during iOS native follow', async () => {
-        let frameWaitCallCount = 0;
-        let isFollowing = false;
-        const calls = [];
-        const neverSettlingFrameWait = () => {
-            frameWaitCallCount += 1;
+    for (const platform of ['ios', 'android']) {
+        test(`does not wait for handset frames during ${platform} native follow`, async () => {
+            let frameWaitCallCount = 0;
+            let isFollowing = false;
+            const calls = [];
+            const neverSettlingFrameWait = () => {
+                frameWaitCallCount += 1;
 
-            return new Promise(() => {});
-        };
-        const lifecycle = createLocationPuckCameraFollowLifecycle({
-            configureCameraFollow: async (_mapView, followProps) => {
-                calls.push(followProps.enabled);
-                isFollowing = followProps.enabled;
+                return new Promise(() => {});
+            };
+            const lifecycle = createLocationPuckCameraFollowLifecycle({
+                configureCameraFollow: async (_mapView, followProps) => {
+                    calls.push(followProps.enabled);
+                    isFollowing = followProps.enabled;
 
-                return true;
-            },
-            verifyCameraFollow: async () => isFollowing,
-            waitForCameraCommit: () =>
-                waitForLocationPuckCameraFollowCommit({
-                    platform: 'ios',
-                    waitForFrameCommit: neverSettlingFrameWait,
+                    return true;
+                },
+                verifyCameraFollow: async () => isFollowing,
+                waitForCameraCommit: () =>
+                    waitForLocationPuckCameraFollowCommit({
+                        platform,
+                        waitForFrameCommit: neverSettlingFrameWait,
+                    }),
+            });
+            const mapViewRef = { current: { id: 'carplay-map' } };
+            const operations = (async () => {
+                await requestFollow(lifecycle, mapViewRef);
+                await lifecycle.release({ attachmentKey: 1, mapViewRef });
+
+                return 'settled';
+            })();
+            let timeoutId;
+            const outcome = await Promise.race([
+                operations,
+                new Promise((resolve) => {
+                    timeoutId = setTimeout(() => resolve('timed-out'), 100);
                 }),
+            ]);
+
+            clearTimeout(timeoutId);
+
+            assert.equal(outcome, 'settled');
+            assert.equal(frameWaitCallCount, 0);
+            assert.deepEqual(calls, [true, false]);
+            assert.equal(lifecycle.getStatus(), 'inactive');
         });
-        const mapViewRef = { current: { id: 'carplay-map' } };
-        const operations = (async () => {
-            await requestFollow(lifecycle, mapViewRef);
-            await lifecycle.release({ attachmentKey: 1, mapViewRef });
+    }
 
-            return 'settled';
-        })();
-        let timeoutId;
-        const outcome = await Promise.race([
-            operations,
-            new Promise((resolve) => {
-                timeoutId = setTimeout(() => resolve('timed-out'), 100);
-            }),
-        ]);
-
-        clearTimeout(timeoutId);
-
-        assert.equal(outcome, 'settled');
-        assert.equal(frameWaitCallCount, 0);
-        assert.deepEqual(calls, [true, false]);
-        assert.equal(lifecycle.getStatus(), 'inactive');
-    });
-
-    test('retains the frame commit wait outside iOS', async () => {
+    test('retains the frame commit wait outside native mobile platforms', async () => {
         let completeFrameCommit;
         let frameWaitCallCount = 0;
         let requestSettled = false;
@@ -299,7 +301,7 @@ describe('location puck camera follow lifecycle', () => {
             },
             waitForCameraCommit: () =>
                 waitForLocationPuckCameraFollowCommit({
-                    platform: 'android',
+                    platform: 'web',
                     waitForFrameCommit: async () => {
                         frameWaitCallCount += 1;
 

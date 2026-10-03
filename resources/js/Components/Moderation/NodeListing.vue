@@ -181,6 +181,15 @@ const {
                 :id="`node-details-${row.id}`"
                 :aria-label="`Flagged violations for node ${row.id}`"
             >
+                <p
+                    v-if="row.osm_edit?.pending_sync"
+                    class="mb-3 text-xs text-daf-text-secondary"
+                    role="status"
+                >
+                    Saved to OSM as version {{ row.osm_version }}. Report
+                    history and rule checks are refreshing; flagged evidence may
+                    describe an earlier version.
+                </p>
                 <FlagDetails
                     :absolute-time="absoluteTime"
                     :dismissing="dismissingFlag !== null"

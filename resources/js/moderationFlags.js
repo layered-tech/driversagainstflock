@@ -25,11 +25,20 @@ export function flagMapNodes(node, flags = []) {
             longitude: location[0],
             latitude: location[1],
             osm_version: flag.evidence.node_versions?.[id],
-            map_label: `Node ${id} (duplicate)`,
+            map_label: `Node ${id} (${Number(id) === Number(flag.node_id) ? 'duplicate' : 'original primary'})`,
         });
     }
-    if (nodes.size > 1)
-        nodes.set(Number(node.id), { ...node, map_label: `Node ${node.id}` });
+    if (nodes.size > 1) {
+        const isDuplicate = flags.some(
+            (flag) =>
+                flagRelatedNodeId(flag, node.id) != null &&
+                Number(node.id) === Number(flag.node_id),
+        );
+        nodes.set(Number(node.id), {
+            ...node,
+            map_label: `Node ${node.id} (${isDuplicate ? 'duplicate' : 'original primary'})`,
+        });
+    }
     return [...nodes.values()];
 }
 
@@ -54,7 +63,11 @@ export function flagSummary(flag, nodeId) {
     }
     if (evidence.radius_meters != null && flag.related_node_id) {
         const other = flagRelatedNodeId(flag, nodeId);
-        return `Node ${other} is ${evidence.distance_meters ?? 'an unknown distance'} m away (within ${evidence.radius_meters} m)`;
+        const role =
+            Number(other) === Number(flag.related_node_id)
+                ? 'Original primary node'
+                : 'Duplicate node';
+        return `${role} ${other} is ${evidence.distance_meters ?? 'an unknown distance'} m away (within ${evidence.radius_meters} m)`;
     }
     return 'Rule evidence unavailable';
 }

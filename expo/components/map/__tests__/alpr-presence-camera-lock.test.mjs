@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { createPresenceCameraDiagnostics } from '../alpr-presence-debug.js';
-import { getLocationPuckCameraFollowFallbackProps } from '../location-puck-camera-follow-lifecycle.js';
+import {
+    createLocationPuckCameraFollowLifecycle,
+    getLocationPuckCameraFollowFallbackProps,
+    waitForLocationPuckCameraFollowCommit,
+} from '../location-puck-camera-follow-lifecycle.js';
 
 const source = readFileSync(
     new URL('../../auto-play-map-surface-content.js', import.meta.url),
@@ -507,4 +511,88 @@ test('native touch gestures and the compass cannot bypass the confirmation lock'
         'utf8',
     );
     assert.match(context, /cameraIsLocked: controller\.presenceCameraIsLocked/);
+});
+
+for (const platform of ['android', 'ios']) {
+    test(`${platform} repeatedly focuses and restores confirmation while handset frames are paused`, async () => {
+        const h = harness();
+        const mapViewRef = { current: { id: 'automotive-map' } };
+        let nativeIsFollowing = false;
+        const lifecycle = createLocationPuckCameraFollowLifecycle({
+            canFollow: () => !h.refs.presenceCameraOwnerRef.current,
+            configureCameraFollow: async (_mapView, props) => {
+                nativeIsFollowing = props.enabled;
+                return true;
+            },
+            verifyCameraFollow: async () => nativeIsFollowing,
+            waitForCameraCommit: () =>
+                waitForLocationPuckCameraFollowCommit({
+                    platform,
+                    waitForFrameCommit: () => new Promise(() => {}),
+                }),
+        });
+        const resume = () =>
+            lifecycle.request({
+                attachmentKey: 1,
+                followProps: { enabled: true },
+                force: true,
+                mapViewRef,
+            });
+        h.refs.locationPuckCameraFollowReleaseRef.current = (options) =>
+            options?.resumeFollow
+                ? resume()
+                : lifecycle.release({ attachmentKey: 1, mapViewRef });
+        const timeout = Symbol('timed-out');
+        const withinDeadline = async (operation) => {
+            let timer;
+            const result = await Promise.race([
+                operation,
+                new Promise((resolve) => {
+                    timer = setTimeout(() => resolve(timeout), 100);
+                }),
+            ]);
+            clearTimeout(timer);
+            assert.notEqual(
+                result,
+                timeout,
+                'confirmation handoff must finish without handset frames',
+            );
+            return result;
+        };
+        for (let event = 0; event < 3; event += 1) {
+            // A native activation in flight must also release for confirmation.
+            const following = resume();
+            await settle();
+            const camera = {
+                centerCoordinate: [-88 + event * 0.001, 43],
+                zoomLevel: 17,
+            };
+            const focusing = h.focusPresenceCamera(camera, () => true);
+            h.commit();
+            assert.equal(await withinDeadline(focusing), true);
+            await withinDeadline(following);
+            assert.equal(nativeIsFollowing, false);
+            assert.equal(h.locked, true);
+            assert.deepEqual(h.events.at(-1), ['camera', camera]);
+            h.restorePresenceCamera();
+            await settle();
+            assert.equal(h.locked, false);
+            assert.equal(nativeIsFollowing, true);
+        }
+        assert.equal(h.events.filter(([type]) => type === 'camera').length, 3);
+    });
+}
+
+test('Android fallback idle acknowledgement reads the native viewport on the main queue', () => {
+    const android = readFileSync(
+        new URL(
+            '../../../modules/map-location-puck/android/src/main/java/expo/modules/maplocationpuck/MapLocationPuckModule.kt',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    assert.match(
+        android,
+        /AsyncFunction\("isLocationPuckCameraIdle"\) \{ viewTag: Int ->[\s\S]*?val mapView = requireMapView\(viewTag\)[\s\S]*?mapView\.mapView\.viewport\.status is ViewportStatus\.Idle[\s\S]*?\}\.runOnQueue\(Queues\.MAIN\)/,
+    );
 });

@@ -15,12 +15,13 @@ Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::get('register', fn () => to_route('login'))->name('register');
     Route::get('login/openstreetmap', [OpenStreetMapSessionController::class, 'redirect'])->middleware('throttle:10,1')->name('login.osm');
-    Route::get('login/openstreetmap/callback', [OpenStreetMapSessionController::class, 'callback'])->middleware('throttle:10,1')->name('login.osm.callback');
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
     Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])->name('password.reset');
     Route::post('reset-password', [NewPasswordController::class, 'store'])->name('password.store');
 });
+
+Route::get('login/openstreetmap/callback', [OpenStreetMapSessionController::class, 'callback'])->middleware('throttle:10,1')->name('login.osm.callback');
 
 Route::middleware('auth')->group(function () {
     Route::get('verify-email', EmailVerificationPromptController::class)->name('verification.notice');

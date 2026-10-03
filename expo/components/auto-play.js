@@ -233,6 +233,7 @@ let activeNavigationRoute = null;
 const navigationProgressTracker = createDirectionsRouteProgressTracker();
 let autoPlayHostNavigationIsActive = false;
 let lastNavigationGuidanceLocation = null;
+let latestNavigationGuidanceRecordedAt = null;
 let lastNavigationGuidanceUpdatedAt = 0;
 let pendingNavigationGuidanceLocation = null;
 let pendingNavigationGuidanceTimer = null;
@@ -2309,8 +2310,22 @@ function updateNavigationGuidance(userLocation) {
         return;
     }
 
-    lastNavigationGuidanceLocation =
-        userLocation ?? lastNavigationGuidanceLocation;
+    const recordedAt = getFiniteNumber(
+        userLocation?.recordedAt ?? userLocation?.timestamp,
+    );
+
+    if (
+        recordedAt === null ||
+        latestNavigationGuidanceRecordedAt === null ||
+        recordedAt >= latestNavigationGuidanceRecordedAt
+    ) {
+        lastNavigationGuidanceLocation =
+            userLocation ?? lastNavigationGuidanceLocation;
+        latestNavigationGuidanceRecordedAt =
+            recordedAt ?? latestNavigationGuidanceRecordedAt;
+    }
+
+    userLocation = lastNavigationGuidanceLocation;
 
     if (rootMapPanningInterfaceIsVisible) {
         navigationGuidanceIsDeferredDuringPanning = true;
@@ -3048,6 +3063,7 @@ async function stopAutoPlayNavigation({
     activeNavigationDestination = null;
     routePreviewIsVisible = false;
     lastNavigationGuidanceLocation = null;
+    latestNavigationGuidanceRecordedAt = null;
 
     if (notifyTemplate && rootMapTemplate) {
         try {
@@ -3995,6 +4011,7 @@ function clearAutoPlayNavigationRuntime() {
     navigationProgressTracker.reset();
     activeNavigationDestination = null;
     lastNavigationGuidanceLocation = null;
+    latestNavigationGuidanceRecordedAt = null;
     routePreviewIsVisible = false;
     setAutoPlayState(DEFAULT_AUTO_PLAY_STATE);
 }

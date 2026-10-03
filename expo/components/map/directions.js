@@ -21,6 +21,7 @@ import {
 
 const METERS_PER_MILE = 1609.344;
 const FEET_PER_METER = 3.28084;
+const DIRECTIONS_PROGRESS_JITTER_TOLERANCE_METERS = 25;
 const routeProgressDataCache = new WeakMap();
 export const DIRECTIONS_FIELD_START = 'start';
 export const DIRECTIONS_FIELD_STOP = 'stop';
@@ -1139,7 +1140,7 @@ export function createDirectionsRouteProgressTracker() {
             return latestProgress;
         }
 
-        const progress = getDirectionsRouteProgress(
+        let progress = getDirectionsRouteProgress(
             route,
             userLocation,
             userLocation.roadMatch?.isTeleport ? null : previousProgress,
@@ -1149,15 +1150,33 @@ export function createDirectionsRouteProgressTracker() {
             return null;
         }
 
-        latestProgress = progress;
-        latestRecordedAt = recordedAt;
-
-        if (
+        const isOnRoute =
             getActiveRouteDeviationDistanceMeters({
                 routeProgress: progress,
                 userLocation,
-            }) <= ACTIVE_ROUTE_DEVIATION_THRESHOLD_METERS
+            }) <= ACTIVE_ROUTE_DEVIATION_THRESHOLD_METERS;
+        const backwardDistance =
+            (previousProgress?.alongRouteDistance ?? 0) -
+            progress.alongRouteDistance;
+
+        if (
+            isOnRoute &&
+            !userLocation.roadMatch?.isTeleport &&
+            backwardDistance > 0 &&
+            backwardDistance <= DIRECTIONS_PROGRESS_JITTER_TOLERANCE_METERS
         ) {
+            progress = {
+                ...previousProgress,
+                distanceFromRoute: progress.distanceFromRoute,
+                distanceFromRouteMeters: progress.distanceFromRouteMeters,
+                distanceFromPathMeters: progress.distanceFromPathMeters,
+            };
+        }
+
+        latestProgress = progress;
+        latestRecordedAt = recordedAt ?? latestRecordedAt;
+
+        if (isOnRoute) {
             previousProgress = progress;
         }
 

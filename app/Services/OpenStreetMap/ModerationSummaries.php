@@ -89,9 +89,9 @@ class ModerationSummaries
             return null;
         }
         $nodes = OsmNodeVersion::where('osm_uid', $uid)->distinct()->pluck('node_id');
-        $flags = ModerationFlag::where('source', 'rule')->active()->where(fn ($q) => $q->whereIntegerInRaw('node_id', $nodes)->orWhereIntegerInRaw('related_node_id', $nodes))->get();
+        $flags = ModerationFlag::where('source', 'rule')->active()->whereIntegerInRaw('node_id', $nodes)->get();
 
-        return $flags->flatMap(fn ($flag) => [$flag->node_id, $flag->related_node_id])->filter()->unique()->intersect($nodes)->count();
+        return $flags->pluck('node_id')->unique()->count();
     }
 
     public function rulesReady(): bool
@@ -106,13 +106,13 @@ class ModerationSummaries
 
     public function area(WatchedArea $area): array
     {
-        $summary = $this->cache->remember('area', ['id' => $area->id, 'geometry' => $area->geometry, 'driver_reports' => true], function () use ($area): array {
+        $summary = $this->cache->remember('area', ['id' => $area->id, 'geometry' => $area->geometry, 'driver_reports' => true, 'flag_ownership' => 2], function () use ($area): array {
             $sets = $this->reader->listing('changesets', ['area' => $area->id])->get(['id', 'osm_uid', 'total', 'changed_at', 'status']);
             $ids = $sets->pluck('id');
             $states = $this->states($sets, ModerationContribution::whereIntegerInRaw('changeset_id', $ids)->get());
             $nodes = $this->reader->listing('nodes', ['area' => $area->id])->pluck('id');
-            $flags = ModerationFlag::active()->where('source', 'rule')->where(fn ($q) => $q->whereIntegerInRaw('node_id', $nodes)->orWhereIntegerInRaw('related_node_id', $nodes))->get();
-            $flaggedNodes = $flags->flatMap(fn ($flag) => [$flag->node_id, $flag->related_node_id])->filter()->unique()->intersect($nodes);
+            $flags = ModerationFlag::active()->where('source', 'rule')->whereIntegerInRaw('node_id', $nodes)->get();
+            $flaggedNodes = $flags->pluck('node_id')->unique();
 
             return [
                 'changesets_7d' => $sets->filter(fn ($set) => CarbonImmutable::parse($set->changed_at)->gte(now()->subDays(7)))->count(),
