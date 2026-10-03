@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { addSentryBreadcrumb } from '../../lib/sentry';
+import { addCrashlyticsLog } from '../../lib/crashlytics';
 import { getMockMarkerPoints, mapApiMocksAreEnabled } from './api-mocks';
 import { buildApiURL } from './config';
 import {
@@ -46,7 +46,7 @@ function buildMarkerRequestURL(bounds) {
 function addMarkerBreadcrumb({ bounds, message, reason }) {
     const span = getMarkerRequestBoundsSpan(bounds);
 
-    addSentryBreadcrumb({
+    addCrashlyticsLog({
         category: 'map.markers',
         data: {
             latitudeSpan: span ? Number(span.latitudeSpan.toFixed(3)) : null,

@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { fetchWithTimeout, readJSONResponse } from '../auth/http';
 import { buildApiURL } from '../auth/urls';
-import { addSentryBreadcrumb } from '../sentry';
+import { addCrashlyticsLog } from '../crashlytics';
 import {
     closeMockChangeset,
     createMockChangeset,
@@ -220,7 +220,7 @@ async function closeChangesetIgnoringFailure({ accessToken, changesetId }) {
 
         return false;
     } catch (error) {
-        addSentryBreadcrumb({
+        addCrashlyticsLog({
             category: 'osm.publish',
             data: {
                 changesetId,

@@ -1,4 +1,4 @@
-import { addSentryBreadcrumb } from '../lib/sentry';
+import { addCrashlyticsLog } from '../lib/crashlytics';
 import { mapApiMocksAreEnabled } from './map/api-mocks';
 import { buildApiURL } from './map/config';
 
@@ -180,7 +180,7 @@ export async function getHotlist({
     signal,
     timeWindow = '7',
 } = {}) {
-    addSentryBreadcrumb({
+    addCrashlyticsLog({
         category: 'hotlist',
         data: {
             manufacturer,
@@ -223,7 +223,7 @@ export async function getHotlist({
     );
     const payload = await readHotlistResponse(response);
 
-    addSentryBreadcrumb({
+    addCrashlyticsLog({
         category: 'hotlist',
         data: {
             resultCount: payload.nodes.data.length,

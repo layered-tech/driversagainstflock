@@ -1,5 +1,5 @@
 import { fetch as expoFetch } from 'expo/fetch';
-import { addSentryBreadcrumb } from '../../lib/sentry';
+import { addCrashlyticsLog } from '../../lib/crashlytics';
 import { runAbortableOperation } from './abortable-operation';
 import { mapApiMocksAreEnabled } from './api-mocks';
 import { buildApiURL } from './config';
@@ -112,7 +112,7 @@ export async function getElectronicHorizonAlprNodes({
         coordinateCount: normalizedCoordinates.length,
     });
 
-    addSentryBreadcrumb({
+    addCrashlyticsLog({
         category: 'map.electronic_horizon',
         data: { coordinateCount: normalizedCoordinates.length },
         message: 'Electronic Horizon ALPR nodes requested',
@@ -143,7 +143,7 @@ export async function getElectronicHorizonAlprNodes({
             return readElectronicHorizonAlprResponse(response);
         }, signal);
 
-        addSentryBreadcrumb({
+        addCrashlyticsLog({
             category: 'map.electronic_horizon',
             data: {
                 coverageComplete: result.coverageComplete,
@@ -162,7 +162,7 @@ export async function getElectronicHorizonAlprNodes({
         });
 
         if (!requestWasAborted) {
-            addSentryBreadcrumb({
+            addCrashlyticsLog({
                 category: 'api',
                 data: {
                     errorMessage: error?.message,

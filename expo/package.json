@@ -22,7 +22,6 @@
         "build:android:e2e": "APP_ENV=e2e EXPO_NO_DOTENV=1 ./scripts/eas-local-build.sh -p android --profile e2e-test --non-interactive --no-wait",
         "build:android:production": "APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p android --profile production --non-interactive --no-wait",
         "build:ios:production": "APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p ios --profile production --no-wait",
-        "sentry:upload-sourcemaps": "sentry-expo-upload-sourcemaps dist",
         "android": "expo run:android",
         "android:auto": "bash ./scripts/android-auto.sh 2.0 landscape",
         "android:auto:2.1": "bash ./scripts/android-auto.sh 2.1 landscape",
@@ -53,7 +52,6 @@
         "@react-native-firebase/app": "^24.1.1",
         "@react-navigation/drawer": "^7.14.3",
         "@rnmapbox/maps": "10.3.5",
-        "@sentry/react-native": "~7.11.0",
         "expo": "~57.0.26",
         "expo-build-properties": "~57.0.22",
         "expo-constants": "~57.0.20",
@@ -80,7 +78,8 @@
         "react-native-safe-area-context": "~5.7.0",
         "react-native-screens": "~4.26.2",
         "react-native-svg": "15.15.4",
-        "react-native-worklets": "0.10.1"
+        "react-native-worklets": "0.10.1",
+        "@react-native-firebase/crashlytics": "24.1.1"
     },
     "overrides": {
         "expo-modules-jsi": "57.1.1",
