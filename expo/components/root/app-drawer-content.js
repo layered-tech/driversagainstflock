@@ -8,9 +8,9 @@ import { Alert, Text, useColorScheme, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
 import { APP_ENVIRONMENT } from '../../lib/auth/constants';
 import {
-    emitSentryTestError,
-    triggerSentryNativeCrash,
-} from '../../lib/sentry';
+    emitCrashlyticsTestError,
+    triggerCrashlyticsNativeCrash,
+} from '../../lib/crashlytics';
 import { Icon } from '../design-system/icon';
 import { SHOW_MAP_DEBUG_CONTROLS } from '../map/config';
 import { useSharedMapState } from '../map/shared-map-state';
@@ -130,7 +130,7 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
     const environmentBadge = ENVIRONMENT_BADGE_COLORS[APP_ENVIRONMENT];
     const showDebugDrawerAction =
         SHOW_MAP_DEBUG_CONTROLS && mapPreferencesAreLoaded;
-    const showSentryDebugActions =
+    const showCrashlyticsDebugActions =
         SHOW_MAP_DEBUG_CONTROLS &&
         mapPreferencesAreLoaded &&
         debugOverlayIsVisible;
@@ -161,33 +161,35 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
             );
         }
     };
-    const handleEmitSentryError = () => {
-        const wasSent = emitSentryTestError();
+    const handleEmitCrashlyticsError = async () => {
+        const wasSent = await emitCrashlyticsTestError();
 
         Alert.alert(
-            wasSent ? 'Sentry error emitted' : 'Sentry is not configured',
             wasSent
-                ? 'Check the Sentry Issues view for Manual Sentry test error.'
-                : 'Set EXPO_PUBLIC_SENTRY_DSN before testing error reporting.',
+                ? 'Crashlytics test error recorded'
+                : 'Crashlytics is unavailable',
+            wasSent
+                ? 'Check Firebase Crashlytics for Manual Crashlytics test error after restarting the app.'
+                : 'Reporting requires a native build with Crashlytics enabled.',
         );
     };
     const handleNativeCrashPress = () => {
         Alert.alert(
             'Trigger native crash?',
-            'The app will close immediately. Reopen it afterward so Sentry can send the crash report.',
+            'The app will close immediately. Reopen it afterward so Crashlytics can send the crash report.',
             [
                 {
                     style: 'cancel',
                     text: 'Cancel',
                 },
                 {
-                    onPress: () => {
-                        const willCrash = triggerSentryNativeCrash();
+                    onPress: async () => {
+                        const willCrash = await triggerCrashlyticsNativeCrash();
 
                         if (!willCrash) {
                             Alert.alert(
-                                'Sentry is not configured',
-                                'Set EXPO_PUBLIC_SENTRY_DSN before testing native crash reporting.',
+                                'Crashlytics is unavailable',
+                                'Reporting requires a native build with Crashlytics enabled.',
                             );
                         }
                     },
@@ -214,7 +216,7 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
 
     return (
         <View
-            className="dark:bg-daf-surface-dark flex-1 bg-white"
+            className="flex-1 bg-white dark:bg-daf-surface-dark"
             testID={drawerIsOpen ? 'app-drawer-open' : undefined}
         >
             <DrawerContentScrollView
@@ -222,9 +224,9 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                 contentContainerStyle={{ paddingBottom: 8 }}
             >
                 {scorecardIsHydrated && secureStorageIsAvailable ? (
-                    <View className="dark:border-daf-border-dark border-b border-daf-border px-5 pb-4 pt-2">
+                    <View className="border-b border-daf-border px-5 pb-4 pt-2 dark:border-daf-border-dark">
                         <View className="flex-row items-center gap-3">
-                            <View className="bg-daf-brand/12 dark:bg-daf-brand/15 h-[46px] w-[46px] items-center justify-center rounded-dafPill">
+                            <View className="bg-daf-brand/12 h-[46px] w-[46px] items-center justify-center rounded-dafPill dark:bg-daf-brand/15">
                                 <Icon
                                     color={isDarkMode ? '#2FC177' : '#0F7D45'}
                                     name="ghost"
@@ -276,7 +278,7 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                     ))}
                 </View>
 
-                <View className="dark:bg-daf-border-dark mx-5 my-2.5 h-px bg-daf-border" />
+                <View className="mx-5 my-2.5 h-px bg-daf-border dark:bg-daf-border-dark" />
                 <Text className="px-5 pb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-daf-text-tertiary dark:text-neutral-400">
                     Help &amp; legal
                 </Text>
@@ -297,7 +299,7 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
 
                 {isAuthenticated ? (
                     <View className="mt-3">
-                        <View className="dark:bg-daf-border-dark mx-5 mb-2.5 h-px bg-daf-border" />
+                        <View className="mx-5 mb-2.5 h-px bg-daf-border dark:bg-daf-border-dark" />
                         <Text className="px-5 pb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-daf-text-tertiary dark:text-neutral-400">
                             Your account
                         </Text>
@@ -330,9 +332,9 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                     </View>
                 ) : null}
 
-                {showDebugDrawerAction || showSentryDebugActions ? (
+                {showDebugDrawerAction || showCrashlyticsDebugActions ? (
                     <View className="mt-3">
-                        <View className="dark:bg-daf-border-dark mx-5 mb-2.5 h-px bg-daf-border" />
+                        <View className="mx-5 mb-2.5 h-px bg-daf-border dark:bg-daf-border-dark" />
                         <Text className="px-5 pb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-daf-text-tertiary dark:text-neutral-400">
                             Developer
                         </Text>
@@ -359,10 +361,10 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                             />
                         ) : null}
 
-                        {showSentryDebugActions ? (
+                        {showCrashlyticsDebugActions ? (
                             <>
                                 <DrawerItem
-                                    accessibilityLabel="Emit Sentry test error"
+                                    accessibilityLabel="Emit Crashlytics test error"
                                     icon={({ color, size }) => (
                                         <Icon
                                             color={color}
@@ -371,21 +373,21 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                                         />
                                     )}
                                     inactiveTintColor={drawerTintColor}
-                                    label="Emit Sentry Error"
+                                    label="Emit Crashlytics Error"
                                     labelStyle={{
                                         fontSize: 15,
                                         fontWeight: '600',
                                     }}
-                                    onPress={handleEmitSentryError}
+                                    onPress={handleEmitCrashlyticsError}
                                     style={{
                                         borderRadius: 10,
                                         marginHorizontal: 0,
                                         marginVertical: 0,
                                     }}
-                                    testID="drawer-debug-sentry-error-button"
+                                    testID="drawer-debug-crashlytics-error-button"
                                 />
                                 <DrawerItem
-                                    accessibilityLabel="Trigger Sentry native crash"
+                                    accessibilityLabel="Trigger Crashlytics native crash"
                                     icon={({ color, size }) => (
                                         <Icon
                                             color={color}
@@ -417,7 +419,7 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
 
                 {!isAuthenticated ? (
                     <View className="mt-3">
-                        <View className="dark:bg-daf-border-dark mx-5 mb-2.5 h-px bg-daf-border" />
+                        <View className="mx-5 mb-2.5 h-px bg-daf-border dark:bg-daf-border-dark" />
                         <DrawerItem
                             accessibilityLabel="Login with OpenStreetMap"
                             activeBackgroundColor={authButtonBackgroundColor}
@@ -462,7 +464,7 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                     </View>
                 ) : null}
                 <Text
-                    className="font-dafMono text-center text-[11px] text-daf-text-tertiary dark:text-neutral-400"
+                    className="text-center font-dafMono text-[11px] text-daf-text-tertiary dark:text-neutral-400"
                     testID="drawer-auth-footer-app-version"
                 >
                     {appVersion}

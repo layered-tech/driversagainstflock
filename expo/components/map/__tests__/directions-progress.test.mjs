@@ -8,7 +8,7 @@ const { transformSync } = require('@babel/core');
 const transformModulesCommonJs = require('@babel/plugin-transform-modules-commonjs');
 const modules = new Map();
 const nativeModules = {
-    'sentry.js': { addSentryBreadcrumb() {} },
+    'crashlytics.js': { addCrashlyticsLog() {} },
     'config.js': { buildApiURL: () => 'https://road-corridor.test' },
     'api-mocks.js': { mapApiMocksAreEnabled: () => false },
     'place-details-cache.js': {},
@@ -312,6 +312,136 @@ describe('driving maneuver sequences', () => {
 });
 
 describe('navigation progress continuity', () => {
+    function turnRoute() {
+        return makeRoute(
+            [
+                [0, 0],
+                [0.001, 0],
+                [0.002, 0],
+                [0.003, 0],
+            ],
+            [
+                { type: 11, way_points: [0, 1] },
+                { type: 1, way_points: [1, 2] },
+                { type: 0, way_points: [2, 3] },
+                { type: 10, way_points: [3, 3] },
+            ],
+        );
+    }
+
+    test('holds maneuver and ETA progress through fresh GPS jitter behind a passed turn', () => {
+        const route = { ...turnRoute(), distance: 330, duration: 60 };
+        const tracker = directions.createDirectionsRouteProgressTracker();
+        const passedTurn = locationAt([0.00102, 0], 2000);
+        const progress = tracker.update(route, passedTurn);
+        const remaining = directions.getRemainingDirectionsRouteValues(
+            route,
+            passedTurn,
+            progress,
+        );
+        assert.equal(
+            directions.getActiveDirectionsManeuver(route, passedTurn, progress)
+                .stepIndex,
+            2,
+        );
+
+        for (const [index, longitude] of [
+            0.00099, 0.00101, 0.00098,
+        ].entries()) {
+            const jitter = locationAt([longitude, 0], 3000 + index * 1000);
+            const jitterProgress = tracker.update(route, jitter);
+            assert.equal(
+                directions.getActiveDirectionsManeuver(
+                    route,
+                    jitter,
+                    jitterProgress,
+                ).stepIndex,
+                2,
+            );
+            assert.equal(
+                directions.getNextDirectionsManeuver(
+                    route,
+                    jitter,
+                    jitterProgress,
+                ).stepIndex,
+                3,
+            );
+            assert.deepEqual(
+                directions.getRemainingDirectionsRouteValues(
+                    route,
+                    jitter,
+                    jitterProgress,
+                ),
+                remaining,
+            );
+        }
+    });
+
+    test('accepts sustained backward travel, teleports, and a replacement route after jitter', () => {
+        const route = turnRoute();
+        for (const teleport of [false, true]) {
+            const tracker = directions.createDirectionsRouteProgressTracker();
+            tracker.update(route, locationAt([0.00102, 0], 2000));
+            const backward = locationAt([teleport ? 0.00099 : 0.0007, 0], 3000);
+            backward.roadMatch.isTeleport = teleport;
+            const progress = tracker.update(route, backward);
+            assert.equal(
+                directions.getActiveDirectionsManeuver(
+                    route,
+                    backward,
+                    progress,
+                ).stepIndex,
+                1,
+            );
+        }
+        const tracker = directions.createDirectionsRouteProgressTracker();
+        tracker.update(route, locationAt([0.00102, 0], 2000));
+        const replacement = { ...turnRoute(), requestedAt: 3000 };
+        const start = locationAt([0.00099, 0], 3000);
+        assert.equal(
+            directions.getActiveDirectionsManeuver(
+                replacement,
+                start,
+                tracker.update(replacement, start),
+            ).stepIndex,
+            1,
+        );
+    });
+
+    test('retains the timestamp watermark when an intermediate fix has no timestamp', () => {
+        const route = turnRoute();
+        const tracker = directions.createDirectionsRouteProgressTracker();
+        tracker.update(route, locationAt([0.00102, 0], 3000));
+        const latest = tracker.update(
+            route,
+            locationAt([0.00105, 0], undefined),
+        );
+        assert.deepEqual(
+            tracker.update(route, locationAt([0.0007, 0], 2000)),
+            latest,
+        );
+    });
+
+    test('jitter retention preserves measured deviation and does not hold off-route projections', () => {
+        const route = turnRoute();
+        const tracker = directions.createDirectionsRouteProgressTracker();
+        const latest = tracker.update(route, locationAt([0.00102, 0], 2000));
+        const nearby = tracker.update(
+            route,
+            locationAt([0.00099, 0.0001], 3000),
+        );
+        assert.equal(nearby.alongRouteDistance, latest.alongRouteDistance);
+        assert.ok(nearby.distanceFromRoute > 10);
+        assert.equal(nearby.distanceFromRouteMeters, nearby.distanceFromRoute);
+        assert.equal(nearby.distanceFromPathMeters, nearby.distanceFromRoute);
+        const offRoute = tracker.update(
+            route,
+            locationAt([0.00099, 0.001], 4000),
+        );
+        assert.ok(offRoute.distanceFromRoute > 30);
+        assert.ok(offRoute.alongRouteDistance < latest.alongRouteDistance);
+    });
+
     function crossingRoute() {
         return makeRoute(
             [

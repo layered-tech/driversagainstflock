@@ -681,6 +681,12 @@ class MapLocationPuckModule : Module() {
                 viewportOwnsCameraFollowState(mapView, followState)
         }.runOnQueue(Queues.MAIN)
 
+        AsyncFunction("isLocationPuckCameraIdle") { viewTag: Int ->
+            val mapView = requireMapView(viewTag)
+
+            mapView.mapView.viewport.status is ViewportStatus.Idle
+        }.runOnQueue(Queues.MAIN)
+
         AsyncFunction("getLocationPuckState") { viewTag: Int ->
             val mapView = requireMapView(viewTag)
             val location = mapView.mapView.location

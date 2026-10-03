@@ -53,7 +53,7 @@ class ModerationReader
         })->all();
         $flags = ModerationFlag::query()
             ->with('rule:id,name,severity,enabled')
-            ->where(fn ($query) => $query->where('node_id', $id)->orWhere('related_node_id', $id))
+            ->where('node_id', $id)
             ->latest('evaluated_at')
             ->get()
             ->toArray();
@@ -238,7 +238,7 @@ class ModerationReader
         };
         if ($view === 'flagged') {
             $flags = ModerationFlag::forListing($filters)->get(['node_id', 'related_node_id', 'source', 'evidence']);
-            $nodeIds = $flags->flatMap(fn (ModerationFlag $flag): array => [$flag->node_id, $flag->related_node_id])->filter()->unique()->values();
+            $nodeIds = $flags->pluck('node_id')->unique()->values();
             $query->whereIntegerInRaw('id', $nodeIds);
             $reports = $flags->where('source', 'alpr_presence')->map(fn ($flag): array => [
                 'node_id' => $flag->node_id, 'reported_at' => $flag->evidence['latest_received_at'],

@@ -248,7 +248,7 @@ test('the API client propagates verified coverage radius and preserves unknown o
                 };
             },
         },
-        '../../lib/sentry': { addSentryBreadcrumb() {} },
+        '../../lib/crashlytics': { addCrashlyticsLog() {} },
         './abortable-operation': {
             runAbortableOperation: async (operation) => operation(),
         },

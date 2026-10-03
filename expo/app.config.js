@@ -13,16 +13,6 @@ const environment = IS_E2E
       : IS_STAGING
         ? 'staging'
         : 'production';
-const sentryPluginConfig = {
-    experimental_android: {
-        autoUploadNativeSymbols: true,
-        enableAndroidGradlePlugin: true,
-        includeNativeSources: true,
-        uploadNativeSymbols: true,
-    },
-    note: 'Use SENTRY_AUTH_TOKEN env to authenticate with Sentry.',
-    url: process.env.SENTRY_URL || 'https://sentry.io/',
-};
 const autoPlayIconFont = './assets/auto-play/font_awesome.ttf';
 const androidGoogleServicesFile =
     process.env.FIREBASE_ANDROID_GOOGLE_SERVICES_FILE ||
@@ -34,6 +24,8 @@ const iosGoogleServicesFile =
         : './daf-firebase-GoogleService-Info.plist');
 const nativeFirebasePlugins = [
     '@react-native-firebase/app',
+    '@react-native-firebase/crashlytics',
+    './plugins/withCrashlyticsNativeSymbols',
     [
         '@react-native-firebase/analytics',
         {
@@ -43,22 +35,6 @@ const nativeFirebasePlugins = [
         },
     ],
 ];
-
-if (process.env.SENTRY_ORG) {
-    sentryPluginConfig.organization = process.env.SENTRY_ORG;
-}
-
-if (process.env.SENTRY_PROJECT) {
-    sentryPluginConfig.project = process.env.SENTRY_PROJECT;
-}
-
-const shouldUseSentryBuildPlugin =
-    (!IS_DEV && !IS_E2E) ||
-    Boolean(
-        process.env.SENTRY_AUTH_TOKEN ||
-            process.env.SENTRY_ORG ||
-            process.env.SENTRY_PROJECT,
-    );
 
 const name = IS_E2E
     ? 'E2E | Drivers Against Flock'
@@ -193,9 +169,6 @@ module.exports = {
                 },
             },
         ],
-        ...(shouldUseSentryBuildPlugin
-            ? [['@sentry/react-native/expo', sentryPluginConfig]]
-            : []),
         [
             'expo-navigation-bar',
             {

@@ -163,30 +163,33 @@ test('car cluster expansion waits for camera release and cancels after recenter'
     }
 });
 
-test('CarPlay fallback release acknowledges native idle without requesting handset frames', async () => {
-    assert.equal(
-        typeof cameraLifecycle.waitForLocationPuckCameraFallbackCommit,
-        'function',
-    );
-    let checks = 0;
-    const result =
-        await cameraLifecycle.waitForLocationPuckCameraFallbackCommit({
-            platform: 'ios',
-            isCameraIdle: async () => ++checks === 3,
-            waitForNextCheck: async () => {},
-            waitForFrameCommit: () => assert.fail('handset frame requested'),
-        });
-    assert.equal(result, true);
-    assert.equal(checks, 3);
-    assert.equal(
-        await cameraLifecycle.waitForLocationPuckCameraFallbackCommit({
-            platform: 'ios',
-            isCameraIdle: async () => false,
-            waitForNextCheck: async () => {},
-        }),
-        false,
-    );
-});
+for (const platform of ['ios', 'android']) {
+    test(`${platform} fallback release acknowledges native idle without requesting handset frames`, async () => {
+        assert.equal(
+            typeof cameraLifecycle.waitForLocationPuckCameraFallbackCommit,
+            'function',
+        );
+        let checks = 0;
+        const result =
+            await cameraLifecycle.waitForLocationPuckCameraFallbackCommit({
+                platform,
+                isCameraIdle: async () => ++checks === 3,
+                waitForNextCheck: async () => {},
+                waitForFrameCommit: () =>
+                    assert.fail('handset frame requested'),
+            });
+        assert.equal(result, true);
+        assert.equal(checks, 3);
+        assert.equal(
+            await cameraLifecycle.waitForLocationPuckCameraFallbackCommit({
+                platform,
+                isCameraIdle: async () => false,
+                waitForNextCheck: async () => {},
+            }),
+            false,
+        );
+    });
+}
 
 test('a failed native idle acknowledgement cannot release fallback camera ownership', async () => {
     let idle = false;

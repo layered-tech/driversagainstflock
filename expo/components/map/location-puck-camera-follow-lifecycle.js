@@ -36,15 +36,15 @@ export function waitForNativeCameraCommit() {
 }
 
 /**
- * The iOS native module resolves after Mapbox completes and verifies its
- * viewport transition. Waiting for a handset frame after that would block an
- * active CarPlay scene while the phone is locked.
+ * Both native modules resolve after Mapbox completes and verifies its viewport
+ * transition. Handset frames can pause while an automotive surface stays active;
+ * waiting for them would also block the queued confirmation camera release.
  */
 export function waitForLocationPuckCameraFollowCommit({
     platform,
     waitForFrameCommit = waitForNativeCameraCommit,
 }) {
-    if (platform === 'ios') {
+    if (platform === 'ios' || platform === 'android') {
         return Promise.resolve();
     }
 
@@ -57,13 +57,13 @@ export async function waitForLocationPuckCameraFallbackCommit({
     waitForFrameCommit = waitForNativeCameraCommit,
     waitForNextCheck = () => new Promise((resolve) => setTimeout(resolve, 20)),
 }) {
-    if (platform !== 'ios') {
+    if (platform !== 'ios' && platform !== 'android') {
         await waitForFrameCommit();
         return true;
     }
 
-    // A visible CarPlay scene can keep native work running while handset
-    // animation frames are paused. Acknowledge the actual viewport handoff.
+    // Automotive surfaces can keep native work running while handset animation
+    // frames are paused. Acknowledge the actual viewport handoff.
     for (let attempt = 0; attempt < 50; attempt += 1) {
         try {
             if (await isCameraIdle()) return true;

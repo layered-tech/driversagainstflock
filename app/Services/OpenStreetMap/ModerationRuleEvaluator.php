@@ -48,17 +48,7 @@ class ModerationRuleEvaluator
             if ($value === null) {
                 return [];
             }
-            $valid = empty($settings['allowed_values']) || in_array($value, $settings['allowed_values'], true);
-            $numeric = is_numeric($value);
-            $valid = $valid && (! isset($settings['min']) || ($numeric && $value >= $settings['min']))
-                && (! isset($settings['max']) || ($numeric && $value <= $settings['max']));
-            $valid = $valid && match ($settings['format'] ?? null) {
-                'integer' => preg_match('/^-?[0-9]+$/D', $value) === 1,
-                'decimal' => $numeric,
-                'direction' => ($numeric && $value >= 0 && $value <= 360) || in_array(strtoupper($value), ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'], true),
-                'url' => filter_var($value, FILTER_VALIDATE_URL) !== false && in_array(parse_url($value, PHP_URL_SCHEME), ['https', 'http'], true),
-                default => true,
-            };
+            $valid = $this->validTagValue($value, $settings);
 
             return $valid ? [] : [['related_node_id' => 0, 'tag' => $settings['key'], 'value' => $value, 'expected' => $settings]];
         }
@@ -94,6 +84,24 @@ class ModerationRuleEvaluator
 
             return ['related_node_id' => $neighbor['id'], 'node_versions' => $versions, 'locations' => $locations, 'distance_meters' => round($distance, 2), 'radius_meters' => $settings['distance_meters'], 'matching_tags' => array_intersect_key($node['tags'], array_flip($settings['match_tags']))];
         })->values()->all();
+    }
+
+    /** @param array<string, mixed> $settings */
+    public function validTagValue(string $value, array $settings): bool
+    {
+        $valid = empty($settings['allowed_values']) || in_array($value, $settings['allowed_values'], true);
+        $numeric = is_numeric($value);
+        $valid = $valid && (! isset($settings['min']) || ($numeric && $value >= $settings['min']))
+            && (! isset($settings['max']) || ($numeric && $value <= $settings['max']));
+        $valid = $valid && match ($settings['format'] ?? null) {
+            'integer' => preg_match('/^-?[0-9]+$/D', $value) === 1,
+            'decimal' => $numeric,
+            'direction' => ($numeric && $value >= 0 && $value <= 360) || in_array(strtoupper($value), ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'], true),
+            'url' => filter_var($value, FILTER_VALIDATE_URL) !== false && in_array(parse_url($value, PHP_URL_SCHEME), ['https', 'http'], true),
+            default => true,
+        };
+
+        return $valid;
     }
 
     private function eligible(ModerationRule $rule, array $node): bool
@@ -148,14 +156,25 @@ class ModerationRuleEvaluator
             $ids = [];
             foreach ($result['matches'] as $match) {
                 $neighbor = $match['related_node_id'];
-                $nodeId = $neighbor ? min($node['id'], $neighbor) : $node['id'];
-                $related = $neighbor ? max($node['id'], $neighbor) : 0;
+                $nodeId = $neighbor ? max($node['id'], $neighbor) : $node['id'];
+                $related = $neighbor ? min($node['id'], $neighbor) : 0;
                 $match['related_node_id'] = $related;
                 $relevantEvidence = $match;
                 unset($relevantEvidence['node_versions']);
                 $hash = hash('sha256', json_encode([$rule->version, $relevantEvidence], JSON_THROW_ON_ERROR));
                 $flag = ModerationFlag::firstOrNew(['source' => 'rule', 'rule_id' => $rule->id, 'node_id' => $nodeId, 'related_node_id' => $related]);
-                $dismissed = $flag->status === 'dismissed' && $flag->evidence_hash === $hash;
+                $legacyHash = null;
+                if ($related && ! $flag->exists) {
+                    $legacy = ModerationFlag::where('source', 'rule')->where('rule_id', $rule->id)
+                        ->where('node_id', $related)->where('related_node_id', $nodeId)->first();
+                    if ($legacy !== null) {
+                        $flag = $legacy;
+                        $flag->fill(['node_id' => $nodeId, 'related_node_id' => $related]);
+                        $legacyEvidence = [...$relevantEvidence, 'related_node_id' => $nodeId];
+                        $legacyHash = hash('sha256', json_encode([$rule->version, $legacyEvidence], JSON_THROW_ON_ERROR));
+                    }
+                }
+                $dismissed = $flag->status === 'dismissed' && in_array($flag->evidence_hash, [$hash, $legacyHash], true);
                 $flag->fill(['rule_version' => $rule->version, 'node_version' => $match['node_versions'][$nodeId] ?? $node['osm_version'], 'status' => $dismissed ? 'dismissed' : 'open',
                     'evidence' => $match, 'evidence_hash' => $hash, 'evaluated_at' => now(), 'stale' => false,
                     'dismissed_by' => $dismissed ? $flag->dismissed_by : null, 'dismissed_at' => $dismissed ? $flag->dismissed_at : null]);

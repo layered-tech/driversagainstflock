@@ -39,6 +39,14 @@ class OpenStreetMapSessionController extends Controller
 
     public function callback(Request $request): RedirectResponse
     {
+        if ($request->session()->has('osm_edit_oauth')) {
+            abort_unless($request->user()?->osm_uid && in_array((string) $request->user()->osm_uid, config('moderation.approved_osm_ids', []), true), 403);
+
+            return app(OpenStreetMapEditAuthorizationController::class)->callback($request);
+        }
+        if ($request->user()) {
+            return to_route('moderation.index');
+        }
         $oauth = $request->session()->pull('osm_oauth');
         if (! is_array($oauth) || ! is_string($request->query('state'))
             || ! hash_equals($oauth['state'], $request->query('state')) || $oauth['expires_at'] < now()->timestamp) {

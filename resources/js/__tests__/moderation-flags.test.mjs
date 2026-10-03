@@ -88,11 +88,11 @@ test('proximity evidence identifies the other node on either side and handles un
     };
     assert.equal(
         flagSummary(duplicate, 200),
-        'Node 300 is 8.2 m away (within 25 m)',
+        'Original primary node 300 is 8.2 m away (within 25 m)',
     );
     assert.equal(
         flagSummary(duplicate, 300),
-        'Node 200 is 8.2 m away (within 25 m)',
+        'Duplicate node 200 is 8.2 m away (within 25 m)',
     );
     assert.equal(
         flagSummary({
@@ -109,8 +109,8 @@ test('proximity evidence identifies the other node on either side and handles un
 });
 
 const duplicateFlag = {
-    node_id: 200,
-    related_node_id: 300,
+    node_id: 300,
+    related_node_id: 200,
     evidence: {
         radius_meters: 25,
         locations: { 200: [-97.74, 30.27], 300: [-97.7401, 30.2701] },
@@ -139,8 +139,14 @@ test('duplicate maps show the other endpoint from either side with distinct node
             duplicateFlag.evidence.node_versions[other],
         );
         const features = moderationNodeFeatures(nodes);
-        assert.equal(features[0].properties.label, `Node ${id}`);
-        assert.equal(features[1].properties.label, `Node ${other} (duplicate)`);
+        assert.equal(
+            features[0].properties.label,
+            `Node ${id} (${id === 300 ? 'duplicate' : 'original primary'})`,
+        );
+        assert.equal(
+            features[1].properties.label,
+            `Node ${other} (${other === 300 ? 'duplicate' : 'original primary'})`,
+        );
         assert.equal(features[1].properties.recordId, other);
     }
 });
@@ -169,7 +175,7 @@ test('duplicate maps skip missing or invalid evidence locations and unrelated fl
     assert.deepEqual(
         flags.flagMapNodes(node, [
             { ...duplicateFlag, evidence: {} },
-            { ...duplicateFlag, node_id: 400 },
+            { ...duplicateFlag, node_id: 400, related_node_id: 500 },
         ]),
         [node],
     );
@@ -178,7 +184,7 @@ test('duplicate maps skip missing or invalid evidence locations and unrelated fl
 });
 
 test('duplicate map evidence preserves zero coordinates and includes every distinct neighbor', () => {
-    const node = { id: 200, longitude: 0, latitude: 0 };
+    const node = { id: 300, longitude: 0, latitude: 0 };
     const nodes = flags.flagMapNodes(node, [
         duplicateFlag,
         {
@@ -189,7 +195,7 @@ test('duplicate map evidence preserves zero coordinates and includes every disti
     ]);
     assert.deepEqual(
         nodes.map((node) => node.id),
-        [200, 300, 400],
+        [300, 200, 400],
     );
     assert.deepEqual([nodes[2].longitude, nodes[2].latitude], [0, 0]);
 });

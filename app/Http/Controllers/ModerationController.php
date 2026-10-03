@@ -11,6 +11,7 @@ use App\Models\ModerationFlag;
 use App\Models\ModerationProcess;
 use App\Models\ModerationRule;
 use App\Models\WatchedArea;
+use App\Services\OpenStreetMap\ModerationNodeEditor;
 use App\Services\OpenStreetMap\ModerationReader;
 use App\Services\OpenStreetMap\ModerationSummaries;
 use Illuminate\Contracts\Cache\LockTimeoutException;
@@ -136,8 +137,9 @@ class ModerationController extends Controller
                         }
                         if (in_array($view, ['nodes', 'flagged'], true)) {
                             $ids = $records->getCollection()->pluck('id');
-                            $flags = ModerationFlag::forListing($view === 'flagged' ? array_intersect_key($filters, array_flip(['flag_source', 'report_state'])) : [])->with('rule:id,name,severity')->where(fn ($query) => $query->whereIn('node_id', $ids)->orWhereIn('related_node_id', $ids))->get();
-                            $records->through(fn (array $row): array => [...$row, 'flags' => $flags->filter(fn ($flag) => $flag->node_id === $row['id'] || $flag->related_node_id === $row['id'])->values()->toArray()]);
+                            $flags = ModerationFlag::forListing($view === 'flagged' ? array_intersect_key($filters, array_flip(['flag_source', 'report_state'])) : [])->with('rule:id,name,severity')->whereIn('node_id', $ids)->get();
+                            $records->through(fn (array $row): array => [...$row, 'flags' => $flags->where('node_id', $row['id'])->values()->toArray()]);
+                            $records->setCollection(collect(app(ModerationNodeEditor::class)->overlay($records->getCollection()->all())));
                         }
                     }
                 });
@@ -243,6 +245,7 @@ class ModerationController extends Controller
             $detail = $reader->query()->getConnection()->transaction(
                 fn (): array => $reader->nodeDetail($node),
             );
+            $detail['node'] = app(ModerationNodeEditor::class)->overlay([$detail['node']])[0];
             $source = ['state' => 'ready'];
         } catch (QueryException|LockTimeoutException $exception) {
             report($exception);
@@ -259,6 +262,7 @@ class ModerationController extends Controller
         }
 
         return Inertia::render('Moderation/Node', [
+            'osmEditError' => $request->session()->get('osm_edit_error'),
             'reports' => $reports, 'reportReviews' => $reportReviews,
             'listingFilters' => $request->safe()->except(['reports_page', 'page']),
             ...$detail,

@@ -1,5 +1,5 @@
 import { fetch as expoFetch } from 'expo/fetch';
-import { addSentryBreadcrumb } from '../../lib/sentry';
+import { addCrashlyticsLog } from '../../lib/crashlytics';
 import { runAbortableOperation } from './abortable-operation';
 import {
     getMockWazePoliceAlerts,
@@ -83,7 +83,7 @@ export async function getWazePoliceAlerts({ location, signal } = {}) {
         return normalizeWazePoliceAlerts(mockAlerts);
     }
 
-    addSentryBreadcrumb({
+    addCrashlyticsLog({
         category: 'map.police_alerts',
         message: 'Police alerts requested',
     });
@@ -106,7 +106,7 @@ export async function getWazePoliceAlerts({ location, signal } = {}) {
             return readPoliceAlertsResponse(response);
         }, signal);
 
-        addSentryBreadcrumb({
+        addCrashlyticsLog({
             category: 'map.police_alerts',
             data: {
                 resultCount: policeAlerts.length,
@@ -120,7 +120,7 @@ export async function getWazePoliceAlerts({ location, signal } = {}) {
             signal?.aborted === true || error?.name === 'AbortError';
 
         if (!requestWasAborted) {
-            addSentryBreadcrumb({
+            addCrashlyticsLog({
                 category: 'api',
                 data: {
                     errorMessage: error?.message,

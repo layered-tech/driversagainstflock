@@ -6,8 +6,9 @@ import {
     setUserProperties as firebaseSetUserProperties,
 } from '@react-native-firebase/analytics';
 
+import { sanitizeDiagnosticValue } from './diagnostic-privacy';
 import { getFirebaseApp } from './firebase';
-import { isPrivateScorecardPath } from './privacy-routes';
+import { getPrivacySafeMonitoringPathname } from './privacy-routes';
 
 const ANALYTICS_DISABLED_VALUE = '0';
 
@@ -76,7 +77,7 @@ export function getAnalyticsScreenName(pathname) {
         return 'Home';
     }
 
-    return pathname
+    return getPrivacySafeMonitoringPathname(pathname)
         .split('/')
         .filter(Boolean)
         .map((segment) =>
@@ -100,7 +101,7 @@ export async function logAnalyticsEvent(name, params) {
         await firebaseLogEvent(
             analytics,
             name,
-            getCleanAnalyticsParams(params),
+            getCleanAnalyticsParams(sanitizeDiagnosticValue(params)),
         );
     } catch (error) {
         warnAnalyticsError(error);
@@ -108,10 +109,6 @@ export async function logAnalyticsEvent(name, params) {
 }
 
 export async function logAnalyticsScreenView(pathname) {
-    if (isPrivateScorecardPath(pathname)) {
-        return;
-    }
-
     const screenName = getAnalyticsScreenName(pathname);
 
     try {

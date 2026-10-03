@@ -1,6 +1,7 @@
 <script setup>
 import FlagLabel from '@/Components/Moderation/FlagLabel.vue';
 import NodeLink from '@/Components/Moderation/NodeLink.vue';
+import NodeActions from '@/Components/Moderation/NodeActions.vue';
 import { flagFacts, flagRelatedNodeId, flagSummary } from '@/moderationFlags';
 import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
@@ -57,7 +58,10 @@ const platformLabel = (platform) =>
                             :key="flag.id"
                             class="border-t border-daf-border align-top"
                         >
-                            <td><FlagLabel :flag="flag" class="mod-chip" /></td>
+                            <td>
+                                <FlagLabel :flag="flag" class="mod-chip" />
+                                <NodeActions :flag="flag" :node-id="nodeId" />
+                            </td>
                             <td class="min-w-[220px] max-w-md">
                                 <NodeLink
                                     v-if="flagRelatedNodeId(flag, nodeId)"
@@ -156,6 +160,11 @@ const platformLabel = (platform) =>
             <p class="mb-3 text-xs text-daf-text-secondary">
                 Unverified user reports.
             </p>
+            <NodeActions
+                v-if="reportFlag"
+                :flag="reportFlag"
+                :node-id="nodeId"
+            />
             <div class="overflow-x-auto rounded-dafMd border border-daf-border">
                 <table
                     aria-label="Individual not-there reports"

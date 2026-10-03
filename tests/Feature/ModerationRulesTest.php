@@ -1,11 +1,13 @@
 <?php
 
 use App\Models\ModerationFlag;
+use App\Models\ModerationProcess;
 use App\Models\ModerationRule;
 use App\Models\WatchedArea;
 use App\Services\OpenStreetMap\ModerationReader;
 use App\Services\OpenStreetMap\ModerationRoadLookup;
 use App\Services\OpenStreetMap\ModerationRuleEvaluator;
+use App\Services\OpenStreetMap\ModerationSummaries;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -89,21 +91,85 @@ test('dismissals survive identical evidence and clear nodes resolve flags', func
     expect(ModerationFlag::active()->count())->toBe(0)->and(ModerationFlag::count())->toBe(1);
 });
 
-test('duplicate pairs are canonical and deletion resolves both endpoints', function () {
+test('duplicate pairs flag only the newer node regardless of evaluation order and latest edits', function () {
+    $this->moderator();
     $rule = ModerationRule::factory()->create([...$this->ruleData, 'version' => 1, 'type' => 'duplicate_nodes', 'settings' => ['distance_meters' => 10, 'match_tags' => []]]);
-    $this->sourceNode(200);
-    $this->sourceNode(201);
+    $this->sourceNode(200, 1, ['osm_uid' => 123, 'osm_updated_at' => now()->subDays(2)]);
+    $this->sourceNode(200, 2, ['osm_uid' => 123, 'osm_updated_at' => now()]);
+    $this->sourceNode(201, 1, ['osm_uid' => 456, 'osm_updated_at' => now()->subDay()]);
     $evaluator = app(ModerationRuleEvaluator::class);
     $reader = app(ModerationReader::class);
-    foreach ($reader->nodes()->get() as $node) {
+    foreach ($reader->nodes()->orderByDesc('source.id')->get() as $node) {
         $evaluator->evaluate($rule, $reader->normalize($node));
     }
-    expect(ModerationFlag::count())->toBe(1)->and(ModerationFlag::first()->node_id)->toBe(200)->and(ModerationFlag::first()->related_node_id)->toBe(201);
-    $this->sourceNode(201, 2, ['visible' => false]);
-    $node = $reader->normalize($reader->nodes()->where('source.id', 201)->first());
-    $evaluator->evaluate($rule, $node);
-    expect(ModerationFlag::first()->status)->toBe('resolved');
+    expect(ModerationFlag::count())->toBe(1)->and(ModerationFlag::first()->node_id)->toBe(201)->and(ModerationFlag::first()->related_node_id)->toBe(200);
+    $this->get('/moderation/flagged')->assertInertia(fn (Assert $page) => $page->has('records.data', 1)->where('records.data.0.id', 201));
+    $this->get('/moderation/nodes?osm_id=200')->assertInertia(fn (Assert $page) => $page->has('records.data.0.flags', 0));
+    $this->getJson('/moderation/nodes/200')->assertJsonCount(0, 'flags');
+    $this->getJson('/moderation/nodes/201')->assertJsonCount(1, 'flags');
+    ModerationProcess::create(['name' => 'rule:'.$rule->id.':'.$rule->version, 'last_success_at' => now()]);
+    $summaries = app(ModerationSummaries::class);
+    expect($summaries->flagsForEditor(123))->toBe(0)->and($summaries->flagsForEditor(456))->toBe(1)
+        ->and($summaries->area(WatchedArea::first())['data']['open_flags'])->toBe(1);
 });
+
+test('duplicate lifecycle follows either endpoint while preserving unrelated flags', function (int $changedNode) {
+    $this->moderator();
+    $rule = ModerationRule::factory()->create([...$this->ruleData, 'type' => 'duplicate_nodes', 'settings' => ['distance_meters' => 10, 'match_tags' => []]]);
+    $missing = ModerationRule::factory()->create($this->ruleData);
+    $this->sourceNode(200);
+    $this->sourceNode(201);
+    $reader = app(ModerationReader::class);
+    $evaluator = app(ModerationRuleEvaluator::class);
+    foreach ($reader->nodes()->get() as $node) {
+        $evaluator->evaluate($rule, $reader->normalize($node));
+        $evaluator->evaluate($missing, $reader->normalize($node));
+    }
+    $this->get('/moderation/nodes?osm_id=200')->assertInertia(fn (Assert $page) => $page
+        ->has('records.data.0.flags', 1)->where('records.data.0.flags.0.rule_id', $missing->id));
+    $this->get('/moderation/nodes?osm_id=201')->assertInertia(fn (Assert $page) => $page->has('records.data.0.flags', 2));
+    $this->sourceNode($changedNode, 2, ['visible' => false]);
+    $evaluator->evaluate($rule, $reader->normalize($reader->nodes()->where('source.id', $changedNode)->first()));
+    expect(ModerationFlag::where('rule_id', $rule->id)->first()->status)->toBe('resolved')
+        ->and(ModerationFlag::where('rule_id', $missing->id)->where('status', 'open')->count())->toBe(2);
+    $this->sourceNode($changedNode, 3);
+    $evaluator->evaluate($rule, $reader->normalize($reader->nodes()->where('source.id', $changedNode)->first()));
+    expect(ModerationFlag::where('rule_id', $rule->id)->count())->toBe(1)
+        ->and(ModerationFlag::where('rule_id', $rule->id)->first()->node_id)->toBe(201)
+        ->and(ModerationFlag::where('rule_id', $rule->id)->first()->status)->toBe('open');
+})->with([200, 201]);
+
+test('legacy duplicate flags transfer to the newer node without losing dismissals', function (string $status) {
+    $this->moderator();
+    $rule = ModerationRule::factory()->create([...$this->ruleData, 'type' => 'duplicate_nodes', 'settings' => ['distance_meters' => 10, 'match_tags' => []]]);
+    $this->sourceNode(200);
+    $this->sourceNode(201);
+    $reader = app(ModerationReader::class);
+    $node = $reader->normalize($reader->nodes()->where('source.id', 200)->first());
+    $evaluator = app(ModerationRuleEvaluator::class);
+    $evaluator->evaluate($rule, $node);
+    $flag = ModerationFlag::first();
+    $evidence = [...$evaluator->evaluate($rule, $node, false)['matches'][0], 'related_node_id' => 201];
+    $relevant = $evidence;
+    unset($relevant['node_versions']);
+    $dismissedAt = $status === 'dismissed' ? now()->startOfSecond() : null;
+    $flag->update(['node_id' => 200, 'related_node_id' => 201, 'status' => $status, 'evidence' => $evidence,
+        'evidence_hash' => hash('sha256', json_encode([$rule->version, $relevant], JSON_THROW_ON_ERROR)),
+        'dismissed_by' => $status === 'dismissed' ? auth()->id() : null, 'dismissed_at' => $dismissedAt]);
+    $evaluator->evaluate($rule, $node);
+    expect(ModerationFlag::count())->toBe(1)->and($flag->fresh()->node_id)->toBe(201)
+        ->and($flag->fresh()->related_node_id)->toBe(200)->and($flag->fresh()->status)->toBe($status)
+        ->and($flag->fresh()->dismissed_by)->toBe($status === 'dismissed' ? auth()->id() : null);
+    if ($dismissedAt !== null) {
+        expect($flag->fresh()->dismissed_at->equalTo($dismissedAt))->toBeTrue();
+        $evaluator->evaluate($rule, $reader->normalize($reader->nodes()->where('source.id', 201)->first()));
+        expect($flag->fresh()->status)->toBe('dismissed');
+        $rule->update(['version' => $rule->version + 1]);
+        $evaluator->evaluate($rule, $node);
+        expect($flag->fresh()->status)->toBe('open')->and($flag->fresh()->dismissed_by)->toBeNull()
+            ->and($flag->fresh()->dismissed_at)->toBeNull();
+    }
+})->with(['open', 'dismissed']);
 
 test('road geometry uses segments filters and shared cached coverage', function () {
     Http::fake(['*' => Http::response(['elements' => [['type' => 'way', 'id' => 10, 'geometry' => [['lat' => 30.49, 'lon' => -97.5], ['lat' => 30.51, 'lon' => -97.5]]]]])]);
@@ -185,7 +251,7 @@ test('flagged lists only active rule matches and keeps all nodes in the ALPR tab
     $this->get('/moderation/nodes?osm_id=200')->assertInertia(fn (Assert $page) => $page->has('records.data', 1)->has('records.data.0.flags', 0));
 });
 
-test('flagged filters combine rule severity and existing node filters including related nodes', function () {
+test('flagged filters combine rule severity and existing node filters without flagging primary nodes', function () {
     $this->moderator();
     $this->sourceNode(200, 1, ['tags' => json_encode(['surveillance:type' => 'ALPR', 'operator' => 'City', 'direction' => '350'])]);
     $this->sourceNode(201, 1, ['osm_user' => 'other_mapper']);
@@ -198,10 +264,10 @@ test('flagged filters combine rule severity and existing node filters including 
         $evaluator->evaluate($duplicate, $reader->normalize($node));
         $evaluator->evaluate($missing, $reader->normalize($node));
     }
-    $this->get('/moderation/flagged?rules[]='.$duplicate->id.'&severities[]=High')->assertInertia(fn (Assert $page) => $page->has('records.data', 2));
+    $this->get('/moderation/flagged?rules[]='.$duplicate->id.'&severities[]=High')->assertInertia(fn (Assert $page) => $page->has('records.data', 1)->where('records.data.0.id', 201));
     $this->get('/moderation/flagged?rules[]='.$duplicate->id.'&severities[]=Low')->assertInertia(fn (Assert $page) => $page->has('records.data', 0));
     $this->get('/moderation/flagged?rules[]='.$duplicate->id.'&osm_id=201&missing_direction=1')->assertInertia(fn (Assert $page) => $page->has('records.data', 1)->where('records.data.0.id', 201)->has('records.data.0.flags', 2));
-    $this->get('/moderation/flagged?operator=City&direction_from=340&direction_to=10&user=123&changeset=100&window=24h')->assertInertia(fn (Assert $page) => $page->has('records.data', 1)->where('records.data.0.id', 200));
+    $this->get('/moderation/flagged?operator=City&direction_from=340&direction_to=10&user=123&changeset=100&window=24h')->assertInertia(fn (Assert $page) => $page->has('records.data', 0));
     $this->get('/moderation/flagged?rules[]=invalid')->assertSessionHasErrors('rules.0');
     $this->get('/moderation/flagged?severities[]=Critical')->assertSessionHasErrors('severities.0');
     $this->get('/moderation/nodes/201?from=flagged')->assertInertia(fn (Assert $page) => $page->where('from', 'flagged')->where('node.id', 201));

@@ -35,7 +35,7 @@ import {
 } from './auth/storage';
 import { fetchOSMPermissions } from './osm/client';
 import { OSM_ERROR_CODES } from './osm/errors';
-import { addSentryBreadcrumb, setSentryUser } from './sentry';
+import { addCrashlyticsLog, setCrashlyticsUser } from './crashlytics';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -75,7 +75,7 @@ export function AuthProvider({ children }) {
     const signInOperationLockRef = useRef(false);
 
     const clearSession = useCallback(async () => {
-        addSentryBreadcrumb({
+        addCrashlyticsLog({
             category: 'auth',
             message: 'User session cleared',
         });
@@ -185,7 +185,7 @@ export function AuthProvider({ children }) {
                 setUser(data.user ?? null);
                 setGrantedScopes(nextGrantedScopes);
                 setPermissions(null);
-                addSentryBreadcrumb({
+                addCrashlyticsLog({
                     category: 'auth',
                     data: {
                         provider: data.user?.provider,
@@ -303,7 +303,7 @@ export function AuthProvider({ children }) {
     }, []);
 
     useEffect(() => {
-        setSentryUser(user);
+        setCrashlyticsUser(user);
         setAnalyticsUser(user);
     }, [user]);
 
@@ -313,7 +313,7 @@ export function AuthProvider({ children }) {
         }
 
         setIsSigningIn(true);
-        addSentryBreadcrumb({
+        addCrashlyticsLog({
             category: 'auth',
             message: 'OpenStreetMap sign-in started',
         });
@@ -346,7 +346,7 @@ export function AuthProvider({ children }) {
             if (result.type !== 'success' || !result.url) {
                 pendingOAuthRequestRef.current = null;
                 forgetStoredOAuthRequest();
-                addSentryBreadcrumb({
+                addCrashlyticsLog({
                     category: 'auth',
                     data: {
                         resultType: result.type,

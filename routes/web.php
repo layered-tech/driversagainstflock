@@ -3,9 +3,11 @@
 use App\Http\Controllers\Api\DirectionsController;
 use App\Http\Controllers\Api\MarkersController;
 use App\Http\Controllers\Api\SearchController;
+use App\Http\Controllers\Auth\OpenStreetMapEditAuthorizationController;
 use App\Http\Controllers\DownloadAndroidApkController;
 use App\Http\Controllers\HotlistController;
 use App\Http\Controllers\ModerationController;
+use App\Http\Controllers\ModerationNodeController;
 use App\Http\Controllers\ModerationReviewController;
 use App\Http\Controllers\ModerationRuleController;
 use App\Http\Controllers\ProfileController;
@@ -92,6 +94,9 @@ Route::middleware('auth')->group(function () {
 require __DIR__.'/auth.php';
 
 Route::middleware(['auth', EnsureOsmModerator::class])->prefix('moderation')->name('moderation.')->group(function (): void {
+    Route::get('/openstreetmap/authorize-editing', [OpenStreetMapEditAuthorizationController::class, 'redirect'])->middleware('throttle:10,1')->name('osm.edit.authorize');
+    Route::get('/nodes/{node}/osm-edit', [ModerationNodeController::class, 'show'])->whereNumber('node')->name('nodes.osm-edit.show');
+    Route::post('/nodes/{node}/osm-edit', [ModerationNodeController::class, 'store'])->whereNumber('node')->middleware('throttle:10,1')->name('nodes.osm-edit.store');
     Route::get('/', [ModerationController::class, 'index'])->name('index');
     Route::get('/nodes', [ModerationController::class, 'nodes'])->name('nodes.index');
     Route::get('/changesets', [ModerationController::class, 'changesets'])->name('changesets.index');

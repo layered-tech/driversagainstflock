@@ -22,6 +22,7 @@ const props = defineProps({
     counts: Object,
     source: Object,
     osmUrl: String,
+    osmEditError: String,
 });
 const route = inject('route');
 const page = usePage();
@@ -59,16 +60,18 @@ const directionLabel = computed(() => {
     );
 });
 const displayedTags = computed(() => {
-    const tags = Object.entries(summary.value.current_tags).map(
-        ([key, value]) => ({ key, value, missing: false }),
-    );
+    const currentTags = props.node.osm_edit?.pending_sync
+        ? props.node.tags
+        : summary.value.current_tags;
+    const tags = Object.entries(currentTags).map(([key, value]) => ({
+        key,
+        value,
+        missing: false,
+    }));
     if (props.node.visible !== false) {
-        if (!summary.value.current_tags.operator)
+        if (!currentTags.operator)
             tags.push({ key: 'operator', value: '(missing)', missing: true });
-        if (
-            !summary.value.current_tags.direction &&
-            !summary.value.current_tags['camera:direction']
-        )
+        if (!currentTags.direction && !currentTags['camera:direction'])
             tags.push({ key: 'direction', value: '(missing)', missing: true });
     }
 
@@ -711,6 +714,23 @@ const dismissFlag = (flag) =>
                 class="moderation-page mt-6 rounded-dafMd border border-daf-border bg-daf-surface-card p-5"
             >
                 <h2 class="mod-subheading mb-5">Flagged violations</h2>
+                <p
+                    v-if="osmEditError"
+                    class="mb-3 text-sm text-[var(--alert-600)]"
+                    role="alert"
+                >
+                    {{ osmEditError }}
+                </p>
+                <p
+                    v-if="node.osm_edit?.pending_sync"
+                    class="mb-3 text-sm text-daf-text-secondary"
+                    role="status"
+                >
+                    Saved to OSM as version {{ node.osm_version }} ·
+                    {{ node.visible ? 'Visible' : 'Removed' }}. Report history
+                    and rule checks are refreshing; flagged evidence and the
+                    history below may describe earlier versions.
+                </p>
                 <FlagDetails
                     :absolute-time="absoluteTime"
                     :flags="flags"

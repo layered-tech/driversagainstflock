@@ -1,7 +1,7 @@
 import 'react-native-gesture-handler';
 
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { useNavigationContainerRef, usePathname } from 'expo-router';
+import { usePathname } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
 import { useCallback, useEffect, useState } from 'react';
 import { useColorScheme, View } from 'react-native';
@@ -28,11 +28,9 @@ import { ScorecardProvider } from '../components/scorecard/scorecard-context';
 import { logAnalyticsScreenView } from '../lib/analytics';
 import { AuthProvider } from '../lib/auth';
 import { installNetworkDebugFetchMonitor } from '../lib/network-debug';
-import {
-    registerSentryNavigationContainer,
-    useSentryRouteTracking,
-    withSentryRoot,
-} from '../lib/sentry';
+import { useCrashlyticsRouteTracking } from '../lib/crashlytics';
+
+export { CrashReportingErrorBoundary as ErrorBoundary } from '../components/root/crash-reporting-error-boundary';
 
 installNetworkDebugFetchMonitor();
 
@@ -46,7 +44,6 @@ function ScorecardContributeProvider({ children }) {
 
 function RootLayout() {
     const colorScheme = useColorScheme();
-    const navigationRef = useNavigationContainerRef();
     const pathname = usePathname();
     const [debugDrawerIsVisible, setDebugDrawerIsVisible] = useState(false);
     const isDarkMode = colorScheme === 'dark';
@@ -54,11 +51,7 @@ function RootLayout() {
         ? DARK_SYSTEM_BAR_BACKGROUND
         : LIGHT_SYSTEM_BAR_BACKGROUND;
 
-    useSentryRouteTracking();
-
-    useEffect(() => {
-        registerSentryNavigationContainer(navigationRef);
-    }, [navigationRef]);
+    useCrashlyticsRouteTracking();
 
     useEffect(() => {
         logAnalyticsScreenView(pathname);
@@ -288,4 +281,4 @@ function RootLayout() {
     );
 }
 
-export default withSentryRoot(RootLayout);
+export default RootLayout;

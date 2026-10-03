@@ -44,7 +44,15 @@ async function component(name, dependencies) {
 }
 const FlagLabel = await component('FlagLabel', {});
 const NodeLink = await component('NodeLink', {});
+const NodeActions = await component('NodeActions', {
+    '@inertiajs/vue3': {
+        router: {},
+        useHttp: (data) =>
+            Vue.reactive({ ...data, processing: false, errors: {} }),
+    },
+});
 const FlagDetails = await component('FlagDetails', {
+    '@/Components/Moderation/NodeActions.vue': { default: NodeActions },
     '@/Components/Moderation/FlagLabel.vue': { default: FlagLabel },
     '@/Components/Moderation/NodeLink.vue': { default: NodeLink },
     '@/moderationFlags': flags,
@@ -254,7 +262,11 @@ test('dismiss actions emit the selected flag and disable during a pending review
         });
         app.provide('route', () => '/moderation/rules/5/edit');
         app.mount({});
-        const button = elements.findLast((node) => node.tag === 'button');
+        const button = elements.findLast(
+            (node) =>
+                node.tag === 'button' &&
+                node.props['aria-label']?.startsWith('Dismiss'),
+        );
         assert.equal(button.props.disabled, false);
         button.props.onClick();
         assert.equal(dismissed, flag);
@@ -269,7 +281,11 @@ test('dismiss actions emit the selected flag and disable during a pending review
     app.provide('route', () => '/moderation/rules/5/edit');
     app.mount({});
     assert.equal(
-        elements.findLast((node) => node.tag === 'button').props.disabled,
+        elements.findLast(
+            (node) =>
+                node.tag === 'button' &&
+                node.props['aria-label']?.startsWith('Dismiss'),
+        ).props.disabled,
         true,
     );
     app.unmount();
@@ -363,7 +379,7 @@ test('duplicate evidence links to the other node profile from either endpoint ev
         assert.match(
             html,
             new RegExp(
-                `<a[^>]*href="/moderation/nodes/${otherId}"[^>]*>Node ${otherId} is 8.2 m away \\(within 25 m\\)</a>`,
+                `<a[^>]*href="/moderation/nodes/${otherId}"[^>]*>${nodeId === 200 ? 'Original primary node' : 'Duplicate node'} ${otherId} is 8.2 m away \\(within 25 m\\)</a>`,
             ),
         );
         assert.doesNotMatch(

@@ -120,7 +120,7 @@ test('duplicate map fits both locations, renders their labels and selects the ot
     const points = calls.sources[0].features;
     assert.deepEqual(
         points.map((feature) => feature.properties.label),
-        ['Node 200', 'Node 300 (duplicate)'],
+        ['Node 200 (duplicate)', 'Node 300 (original primary)'],
     );
     const labels = calls.layers.find(
         (layer) => layer.id === 'moderation-node-labels',

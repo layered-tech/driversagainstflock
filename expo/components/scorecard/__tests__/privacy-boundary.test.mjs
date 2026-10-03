@@ -23,47 +23,23 @@ describe('scorecard telemetry and storage boundary', () => {
             getPrivacySafeMonitoringPathname(
                 '/scorecard/event/read-local-secret',
             ),
-            '/scorecard/private',
+            '/scorecard/event/[id]',
         );
         assert.equal(
             redactPrivateScorecardPath(
                 'Navigation to /scorecard/event/read-local-secret',
             ),
-            'Navigation to /scorecard/private',
+            'Navigation to /scorecard/event/[id]',
         );
     });
 
-    test('skips scorecard screen analytics before opening Firebase', () => {
-        const analyticsSource = readSource('../../../lib/analytics.js');
-
+    test('sanitizes screen analytics instead of excluding Scorecard', () => {
+        const source = readSource('../../../lib/analytics.js');
+        assert.match(source, /getPrivacySafeMonitoringPathname\(pathname\)/);
+        assert.doesNotMatch(source, /isPrivateScorecardPath/);
         assert.match(
-            analyticsSource,
-            /logAnalyticsScreenView\(pathname\)[\s\S]*?isPrivateScorecardPath\(pathname\)[\s\S]*?return;[\s\S]*?getAnalyticsScreenName/,
-        );
-    });
-
-    test('drops scorecard navigation and events before Sentry sends them', () => {
-        const sentrySource = readSource('../../../lib/sentry.js');
-
-        assert.match(
-            sentrySource,
-            /beforeSend\(event\)[\s\S]*?sentryEventIsPrivateScorecard\(event\)[\s\S]*?return null;/,
-        );
-        assert.match(
-            sentrySource,
-            /beforeSendTransaction\(event\)[\s\S]*?sentryEventIsPrivateScorecard\(event\) \? null : event/,
-        );
-        assert.match(
-            sentrySource,
-            /serializedBreadcrumb\.toLowerCase\(\)\.includes\('scorecard'\)[\s\S]*?return null;/,
-        );
-        assert.match(
-            sentrySource,
-            /isPrivateScorecardPath\(pathname\)[\s\S]*?previousPathnameRef\.current = null;[\s\S]*?return;/,
-        );
-        assert.match(
-            sentrySource,
-            /privateScorecardRouteIsActive = isPrivateScorecardPath\(pathname\)/,
+            source,
+            /getCleanAnalyticsParams\(sanitizeDiagnosticValue\(params\)\)/,
         );
     });
 
@@ -111,7 +87,7 @@ describe('scorecard telemetry and storage boundary', () => {
         assert.match(backupSource, /pendingRecapTripId: null/);
         assert.doesNotMatch(
             backupSource,
-            /fetch\(|analytics|sentry|latitude|longitude/,
+            /fetch\(|analytics|crashlytics|latitude|longitude/,
         );
         assert.match(
             contextSource,

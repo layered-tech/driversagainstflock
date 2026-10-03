@@ -46,7 +46,7 @@ function createHarness(fetch) {
     let nextTimerId = 0;
     const module = { exports: {} };
     const modules = {
-        '../../lib/sentry': { addSentryBreadcrumb() {} },
+        '../../lib/crashlytics': { addCrashlyticsLog() {} },
         './api-mocks': { mapApiMocksAreEnabled: () => false },
         './config': {
             buildApiURL: () => 'https://example.test/v1/road-corridor',
