@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\OsmNode;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use MatanYadaev\EloquentSpatial\Objects\Point;
@@ -528,15 +529,20 @@ it('uses canonical database nodes for route intersection counts', function () {
     expect($overpassRequests)->toHaveCount(0);
 });
 
-it('uses canonical coordinates for route intersections when stored location is stale', function () {
+it('uses published geometry and its coordinate projection for route intersections', function () {
     config(['directions.poi_backend' => 'database']);
 
     createDirectionsOsmNode(
         302,
-        45.52,
-        -122.66,
-        storedLocation: new Point(0, 0),
+        0,
+        0,
+        storedLocation: new Point(45.52, -122.66),
     );
+
+    $connection = DB::connection((string) config('osm.reader.connection'));
+    $table = $connection->getQueryGrammar()->wrapTable((string) config('osm.reader.table'));
+    $connection->statement("CREATE TEMPORARY VIEW testing_directions_published_nodes AS SELECT id, osm_id, location, ST_Y(location) AS latitude, ST_X(location) AS longitude, tags, surveillance_type, direction, camera_direction FROM {$table}");
+    config(['osm.reader.table' => 'testing_directions_published_nodes']);
 
     Http::fake([
         'https://api.heigit.org/*' => Http::response(orsDirectionsResponse([

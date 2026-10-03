@@ -162,3 +162,26 @@ it('fails when the upstream request errors', function () {
         ->assertJsonPath('ok', false)
         ->assertJsonPath('error', 'Police alerts could not be loaded.');
 });
+
+it('returns a client safe upstream error when the police alert connection fails', function () {
+    Http::fake([
+        'https://waze.test/alerts-and-jams*' => Http::sequence()
+            ->pushFailedConnection()
+            ->push(['data' => ['alerts' => []]]),
+    ]);
+
+    $this->getJson('/api/v1/police-alerts?latitude=30.2672&longitude=-97.7431')
+        ->assertStatus(502)
+        ->assertExactJson([
+            'ok' => false,
+            'error' => 'Police alerts could not be loaded.',
+        ]);
+
+    expect(Cache::has('police-alerts:30.27:-97.74'))->toBeFalse();
+
+    $this->getJson('/api/v1/police-alerts?latitude=30.2672&longitude=-97.7431')
+        ->assertOk()
+        ->assertJsonPath('ok', true);
+
+    Http::assertSentCount(2);
+});

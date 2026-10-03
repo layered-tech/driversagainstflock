@@ -145,7 +145,10 @@ return [
             ],
             'groups' => [
                 '/^job-exceptions:.*/' => 'job-exceptions:*',
-                // '/:\d+/' => ':*',
+                '/^(markers:v\d+)(?::grid)?:.*/' => '$1:*',
+                '/^(electronic-horizon:alpr(?::v\d+)?):.*/' => '$1:*',
+                '/^(moderation:summary:v\d+):.*/' => '$1:*',
+                '/^(police-alerts):[-\d.]+:[-\d.]+$/' => '$1:*',
             ],
         ],
 
@@ -188,9 +191,7 @@ return [
                 // '#^http://127\.0\.0\.1:13714#', // Inertia SSR...
             ],
             'groups' => [
-                // '#^https://api\.github\.com/repos/.*$#' => 'api.github.com/repos/*',
-                // '#^https?://([^/]*).*$#' => '\1',
-                // '#/\d+#' => '/*',
+                '/\?.*$/' => '',
             ],
         ],
 

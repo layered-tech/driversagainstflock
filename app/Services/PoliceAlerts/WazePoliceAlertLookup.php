@@ -3,6 +3,7 @@
 namespace App\Services\PoliceAlerts;
 
 use App\Services\Directions\DirectionsException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -42,18 +43,22 @@ class WazePoliceAlertLookup
 
         $this->consumeMonthlyQuota();
 
-        $response = Http::withHeaders(['x-api-key' => $apiKey])
-            ->accept('application/json')
-            ->timeout(10)
-            ->retry(1, 150, throw: false)
-            ->get(config('police-alerts.url'), [
-                'center' => sprintf('%F,%F', $latitude, $longitude),
-                'radius' => (int) config('police-alerts.radius_miles'),
-                'radius_units' => 'MI',
-                'alert_types' => 'POLICE',
-                'max_alerts' => (int) config('police-alerts.max_alerts'),
-                'max_jams' => 0,
-            ]);
+        try {
+            $response = Http::withHeaders(['x-api-key' => $apiKey])
+                ->accept('application/json')
+                ->timeout(10)
+                ->retry(1, 150, throw: false)
+                ->get(config('police-alerts.url'), [
+                    'center' => sprintf('%F,%F', $latitude, $longitude),
+                    'radius' => (int) config('police-alerts.radius_miles'),
+                    'radius_units' => 'MI',
+                    'alert_types' => 'POLICE',
+                    'max_alerts' => (int) config('police-alerts.max_alerts'),
+                    'max_jams' => 0,
+                ]);
+        } catch (ConnectionException) {
+            throw DirectionsException::upstream('Police alerts could not be loaded.');
+        }
 
         if (! $response->successful()) {
             throw DirectionsException::upstream('Police alerts could not be loaded.');

@@ -17,6 +17,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class MarkersController extends Controller implements HasMiddleware
 {
+    private const CACHE_GRID_SCALE = 100;
+
     private const MAX_MARKER_REQUEST_LATITUDE_SPAN_DEGREES = 40.0;
 
     private const MAX_MARKER_REQUEST_LONGITUDE_SPAN_DEGREES = 40.0;
@@ -71,13 +73,30 @@ class MarkersController extends Controller implements HasMiddleware
             ], 422);
         }
 
-        $cacheKey = $this->markerBoundsCacheKey($swLng, $swLat, $neLng, $neLat);
+        $cacheBounds = [
+            floor($swLng * self::CACHE_GRID_SCALE) / self::CACHE_GRID_SCALE,
+            floor($swLat * self::CACHE_GRID_SCALE) / self::CACHE_GRID_SCALE,
+            ceil($neLng * self::CACHE_GRID_SCALE) / self::CACHE_GRID_SCALE,
+            ceil($neLat * self::CACHE_GRID_SCALE) / self::CACHE_GRID_SCALE,
+        ];
+        $cacheKey = $this->markerBoundsCacheKey(...$cacheBounds);
 
-        return Cache::remember(
+        $inventory = Cache::remember(
             $cacheKey,
             $this->markersCacheTtl(),
-            fn () => $this->markerRepository->getPoints($swLng, $swLat, $neLng, $neLat),
+            fn (): array => $this->markerRepository->getPoints(...$cacheBounds),
         );
+
+        return [
+            'points' => array_values(array_filter($inventory['points'], function (array $point) use ($swLng, $swLat, $neLng, $neLat): bool {
+                [$longitude, $latitude] = $point['location'];
+                $longitudeIsWithinBounds = $swLng <= $neLng
+                    ? $longitude >= $swLng && $longitude <= $neLng
+                    : $longitude >= $swLng || $longitude <= $neLng;
+
+                return $longitudeIsWithinBounds && $latitude >= $swLat && $latitude <= $neLat;
+            })),
+        ];
     }
 
     private function hasMarkerBounds(Request $request): bool
@@ -121,7 +140,7 @@ class MarkersController extends Controller implements HasMiddleware
         float $neLat,
     ): string {
         return sprintf(
-            'markers:%s:%s,%s,%s,%s',
+            'markers:%s:grid:%s,%s,%s,%s',
             MarkerFileCache::PAYLOAD_VERSION,
             $this->normalizeCoordinateForCache($swLng),
             $this->normalizeCoordinateForCache($swLat),

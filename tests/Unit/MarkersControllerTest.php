@@ -96,7 +96,7 @@ it('caches marker requests for viewport bounds', function () {
         ->with(-88.2, 43.0, -88.1, 43.1)
         ->andReturn([
             'points' => [
-                ['id' => 1],
+                ['id' => 1, 'location' => [-88.15, 43.05]],
             ],
         ]);
 
@@ -114,7 +114,7 @@ it('caches marker requests for viewport bounds', function () {
     $secondResult = $controller($request);
 
     expect($firstResult)->toEqual($secondResult)
-        ->and(Cache::has('markers:v4:-88.20000,43.00000,-88.10000,43.10000'))->toBeTrue();
+        ->and(Cache::has('markers:v4:grid:-88.20000,43.00000,-88.10000,43.10000'))->toBeTrue();
 });
 
 it('caches marker requests for the same viewport bounds', function () {
@@ -124,10 +124,10 @@ it('caches marker requests for the same viewport bounds', function () {
     $markerRepository
         ->shouldReceive('getPoints')
         ->once()
-        ->with(-122.5, 45.5239, -122.4, 45.6241)
+        ->with(-122.5, 45.52, -122.4, 45.63)
         ->andReturn([
             'points' => [
-                ['id' => 1],
+                ['id' => 1, 'location' => [-122.45, 45.55]],
             ],
         ]);
 
@@ -154,10 +154,10 @@ it('uses separate caches for separate viewport bounds', function () {
     $markerRepository
         ->shouldReceive('getPoints')
         ->once()
-        ->with(-122.5, 45.5239, -122.4, 45.6241)
+        ->with(-122.5, 45.52, -122.4, 45.63)
         ->andReturn([
             'points' => [
-                ['id' => 1],
+                ['id' => 1, 'location' => [-122.45, 45.55]],
             ],
         ]);
     $markerRepository
@@ -166,7 +166,7 @@ it('uses separate caches for separate viewport bounds', function () {
         ->with(-121.0, 44.1, -120.9, 44.2)
         ->andReturn([
             'points' => [
-                ['id' => 2],
+                ['id' => 2, 'location' => [-120.95, 44.15]],
             ],
         ]);
 
@@ -191,13 +191,68 @@ it('uses separate caches for separate viewport bounds', function () {
 
     expect($firstResult)->toEqual([
         'points' => [
-            ['id' => 1],
+            ['id' => 1, 'location' => [-122.45, 45.55]],
         ],
     ]);
 
     expect($secondResult)->toEqual([
         'points' => [
-            ['id' => 2],
+            ['id' => 2, 'location' => [-120.95, 44.15]],
         ],
     ]);
 });
+
+it('shares marker candidates across nearby viewports and filters their exact edges', function (): void {
+    Cache::flush();
+    $points = [
+        ['id' => 1, 'location' => [-88.199, 43.001]],
+        ['id' => 2, 'location' => [-88.101, 43.099]],
+        ['id' => 3, 'location' => [-88.1995, 43.001]],
+        ['id' => 4, 'location' => [-88.15, 43.101]],
+        ['id' => 5, 'location' => [-88.199, 43.0005]],
+    ];
+    $this->app->instance(MapRepository::class, mock(MapRepository::class)
+        ->shouldReceive('getPoints')->once()->with(-88.2, 43.0, -88.1, 43.1)
+        ->andReturn(['points' => $points])->getMock());
+    $controller = app(MarkersController::class);
+    $first = $controller(Request::create('/markers', 'GET', [
+        'sw_lng' => -88.199, 'sw_lat' => 43.001, 'ne_lng' => -88.101, 'ne_lat' => 43.099,
+    ]));
+    $second = $controller(Request::create('/markers', 'GET', [
+        'sw_lng' => -88.198, 'sw_lat' => 43.002, 'ne_lng' => -88.1005, 'ne_lat' => 43.0995,
+    ]));
+
+    expect(array_column($first['points'], 'id'))->toBe([1, 2])
+        ->and(array_column($second['points'], 'id'))->toBe([2])
+        ->and(array_keys($second['points']))->toBe([0]);
+});
+
+it('preserves marker bounds at geographic edges', function (array $bounds, array $grid, array $locations): void {
+    Cache::flush();
+    $points = array_map(fn (array $location): array => ['location' => $location], $locations);
+    $this->app->instance(MapRepository::class, mock(MapRepository::class)
+        ->shouldReceive('getPoints')->once()->with(...$grid)
+        ->andReturn(['points' => $points])->getMock());
+    $controller = app(MarkersController::class);
+    $result = $controller(Request::create('/markers', 'GET', array_combine(
+        ['sw_lng', 'sw_lat', 'ne_lng', 'ne_lat'], $bounds,
+    )));
+
+    expect($result['points'])->toBe(array_slice($points, 0, 2));
+})->with([
+    'antimeridian' => [
+        [179.901, -0.999, -179.901, 0.999],
+        [179.9, -1.0, -179.9, 1.0],
+        [[179.901, -0.999], [-179.901, 0.999], [179.9005, 0.0], [0.0, 0.0]],
+    ],
+    'north pole and western edge' => [
+        [-180.0, 89.901, -179.901, 90.0],
+        [-180.0, 89.9, -179.9, 90.0],
+        [[-180.0, 90.0], [-179.901, 89.901], [-179.9005, 89.95], [-179.95, 89.9005]],
+    ],
+    'south pole and eastern edge' => [
+        [179.901, -90.0, 180.0, -89.901],
+        [179.9, -90.0, 180.0, -89.9],
+        [[180.0, -90.0], [179.901, -89.901], [179.9005, -89.95], [179.95, -89.9005]],
+    ],
+]);

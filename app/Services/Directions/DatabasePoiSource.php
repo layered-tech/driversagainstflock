@@ -61,7 +61,7 @@ class DatabasePoiSource implements RouteAwarePoiSource
         $nodes = OsmNode::query()
             ->select(['id', 'osm_id', 'latitude', 'longitude', 'direction', 'camera_direction', 'tags'])
             ->matchingProfiles($profiles)
-            ->nearRoute($coordinates, $bufferMeters)
+            ->nearIndexedRoute($coordinates, $bufferMeters)
             ->get()
             ->unique('osm_id')
             ->values();
