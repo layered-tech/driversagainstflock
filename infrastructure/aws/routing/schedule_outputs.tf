@@ -1,5 +1,5 @@
 output "graph_build_schedule_arn" {
-  description = "ARN of the weekly GraphHopper graph build schedule."
+  description = "ARN of the biweekly GraphHopper graph build schedule."
   value       = aws_scheduler_schedule.graph_build.arn
 }
 

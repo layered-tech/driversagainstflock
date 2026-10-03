@@ -154,9 +154,10 @@ resource "aws_iam_role_policy" "builder_automation" {
 
 resource "aws_scheduler_schedule" "graph_build" {
   name                         = local.graph_build_schedule_name
-  description                  = "Build and deploy the U.S. GraphHopper graph on the configured weekly schedule"
+  description                  = "Build and deploy the U.S. GraphHopper graph every two weeks"
   schedule_expression          = var.graph_build_schedule_expression
   schedule_expression_timezone = var.graph_build_schedule_timezone
+  start_date                   = var.graph_build_schedule_start_date
   state                        = var.graph_build_schedule_enabled ? "ENABLED" : "DISABLED"
 
   flexible_time_window {

@@ -102,7 +102,9 @@ grep -qF 'mv -Tf "${GRAPH_ROOT}/current.rollback" "${GRAPH_ROOT}/current"' "${DE
 grep -qF 'grep -qF "${expected_value}" "${CONFIG_PATH}"' "${DEPLOY}"
 grep -qF 'local_release_id}" != "${RELEASE_ID}" && "${local_release_id}" != "${PREVIOUS_TARGET}' "${DEPLOY}"
 
-grep -qF 'default     = "cron(0 2 ? * SUN *)"' "${ROUTING_DIR}/schedule_variables.tf"
+grep -qF 'default     = "rate(14 days)"' "${ROUTING_DIR}/schedule_variables.tf"
+grep -qF 'default     = "2026-10-11T07:00:00Z"' "${ROUTING_DIR}/schedule_variables.tf"
+grep -qF 'start_date                   = var.graph_build_schedule_start_date' "${ROUTING_DIR}/scheduler.tf"
 grep -qF 'default     = "America/Chicago"' "${ROUTING_DIR}/schedule_variables.tf"
 grep -qF 'ClientToken = "<aws.scheduler.scheduled-time>"' "${ROUTING_DIR}/scheduler.tf"
 grep -qF '}), "\\u003caws.scheduler.scheduled-time\\u003e", "<aws.scheduler.scheduled-time>")' "${ROUTING_DIR}/scheduler.tf"
