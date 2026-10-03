@@ -6,6 +6,7 @@ use App\Support\NightwatchPrivacyRedactor;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -32,6 +33,10 @@ class AppServiceProvider extends ServiceProvider
         Nightwatch::redactRequests($nightwatchPrivacyRedactor->redactRequest(...));
         Nightwatch::redactOutgoingRequests($nightwatchPrivacyRedactor->redactOutgoingRequest(...));
         Nightwatch::redactExceptions($nightwatchPrivacyRedactor->redactException(...));
+
+        Queue::before(function (): void {
+            Nightwatch::sample(rate: 0.01);
+        });
 
         Vite::prefetch(concurrency: 3);
 
