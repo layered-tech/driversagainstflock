@@ -40,6 +40,7 @@ export function moderationNodeFeatures(nodes) {
                 change: nodeChangeKind(node),
                 nodeId: node.node_id ?? node.id,
                 recordId: node.id,
+                ...(node.map_label ? { label: node.map_label } : {}),
             },
             geometry: {
                 type: 'Point',

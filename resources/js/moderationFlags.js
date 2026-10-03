@@ -1,3 +1,38 @@
+export function flagRelatedNodeId(flag, nodeId) {
+    if (flag.evidence?.radius_meters == null || !flag.related_node_id)
+        return null;
+    if (Number(nodeId) === Number(flag.node_id)) return flag.related_node_id;
+    if (Number(nodeId) === Number(flag.related_node_id)) return flag.node_id;
+    return null;
+}
+
+export function flagMapNodes(node, flags = []) {
+    const nodes = new Map([[Number(node.id), node]]);
+    for (const flag of flags) {
+        const id = flagRelatedNodeId(flag, node.id);
+        if (id == null || nodes.has(Number(id))) continue;
+        const location = flag.evidence?.locations?.[id];
+        if (
+            !Array.isArray(location) ||
+            location.length !== 2 ||
+            !location.every((value) => Number.isFinite(value)) ||
+            Math.abs(location[0]) > 180 ||
+            Math.abs(location[1]) > 90
+        )
+            continue;
+        nodes.set(Number(id), {
+            id: Number(id),
+            longitude: location[0],
+            latitude: location[1],
+            osm_version: flag.evidence.node_versions?.[id],
+            map_label: `Node ${id} (duplicate)`,
+        });
+    }
+    if (nodes.size > 1)
+        nodes.set(Number(node.id), { ...node, map_label: `Node ${node.id}` });
+    return [...nodes.values()];
+}
+
 export function flagSummary(flag, nodeId) {
     const evidence = flag.evidence || {};
     if (flag.source === 'alpr_presence') {
@@ -18,10 +53,7 @@ export function flagSummary(flag, nodeId) {
             : `Nearest matching road is ${evidence.distance_meters} m away (maximum ${evidence.maximum_meters} m)`;
     }
     if (evidence.radius_meters != null && flag.related_node_id) {
-        const other =
-            Number(nodeId) === Number(flag.related_node_id)
-                ? flag.node_id
-                : flag.related_node_id;
+        const other = flagRelatedNodeId(flag, nodeId);
         return `Node ${other} is ${evidence.distance_meters ?? 'an unknown distance'} m away (within ${evidence.radius_meters} m)`;
     }
     return 'Rule evidence unavailable';

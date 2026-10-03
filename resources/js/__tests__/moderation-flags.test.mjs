@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import * as flags from '../moderationFlags.js';
 import { flagFacts, flagSummary, flagTiming } from '../moderationFlags.js';
+import { moderationNodeFeatures } from '../moderation.js';
 
 test('driver reports show report frequency and occurrence time, not node edit or reconciliation time', () => {
     const flag = {
@@ -104,4 +106,90 @@ test('proximity evidence identifies the other node on either side and handles un
     );
     assert.equal(flagSummary({}), 'Rule evidence unavailable');
     assert.deepEqual(flagTiming({}), { label: 'Last checked', at: null });
+});
+
+const duplicateFlag = {
+    node_id: 200,
+    related_node_id: 300,
+    evidence: {
+        radius_meters: 25,
+        locations: { 200: [-97.74, 30.27], 300: [-97.7401, 30.2701] },
+        node_versions: { 200: 2, 300: 3 },
+    },
+};
+
+test('duplicate maps show the other endpoint from either side with distinct node labels', () => {
+    for (const [id, other] of [
+        [200, 300],
+        [300, 200],
+    ]) {
+        const [longitude, latitude] = duplicateFlag.evidence.locations[id];
+        const node = { id, longitude, latitude, osm_version: 2, visible: true };
+        const nodes = flags.flagMapNodes(node, [duplicateFlag, duplicateFlag]);
+        assert.deepEqual(
+            nodes.map((node) => node.id),
+            [id, other],
+        );
+        assert.deepEqual(
+            [nodes[1].longitude, nodes[1].latitude],
+            duplicateFlag.evidence.locations[other],
+        );
+        assert.equal(
+            nodes[1].osm_version,
+            duplicateFlag.evidence.node_versions[other],
+        );
+        const features = moderationNodeFeatures(nodes);
+        assert.equal(features[0].properties.label, `Node ${id}`);
+        assert.equal(features[1].properties.label, `Node ${other} (duplicate)`);
+        assert.equal(features[1].properties.recordId, other);
+    }
+});
+
+test('duplicate maps skip missing or invalid evidence locations and unrelated flags', () => {
+    const node = { id: 200, longitude: -97.74, latitude: 30.27 };
+    for (const location of [
+        null,
+        [],
+        [null, 30],
+        ['', 30],
+        ['invalid', 30],
+        [181, 30],
+        [-97, 91],
+    ]) {
+        const flag = {
+            ...duplicateFlag,
+            evidence: {
+                ...duplicateFlag.evidence,
+                locations: { 300: location },
+            },
+        };
+        assert.deepEqual(flags.flagMapNodes(node, [flag]), [node]);
+        assert.equal(flags.flagRelatedNodeId(flag, 200), 300);
+    }
+    assert.deepEqual(
+        flags.flagMapNodes(node, [
+            { ...duplicateFlag, evidence: {} },
+            { ...duplicateFlag, node_id: 400 },
+        ]),
+        [node],
+    );
+    assert.equal(flags.flagRelatedNodeId({ related_node_id: 0 }, 200), null);
+    assert.equal(flags.flagRelatedNodeId(duplicateFlag, 400), null);
+});
+
+test('duplicate map evidence preserves zero coordinates and includes every distinct neighbor', () => {
+    const node = { id: 200, longitude: 0, latitude: 0 };
+    const nodes = flags.flagMapNodes(node, [
+        duplicateFlag,
+        {
+            ...duplicateFlag,
+            related_node_id: 400,
+            evidence: { radius_meters: 25, locations: { 400: [0, 0] } },
+        },
+    ]);
+    assert.deepEqual(
+        nodes.map((node) => node.id),
+        [200, 300, 400],
+    );
+    assert.deepEqual([nodes[2].longitude, nodes[2].latitude], [0, 0]);
 });

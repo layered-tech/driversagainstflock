@@ -30,7 +30,6 @@ yarn-error.log
 /CLAUDE.md
 /.ai/mcp
 /database/schema
-.env.sentry
 .ai/tmp
 
 # Terraform runtime artifacts

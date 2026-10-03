@@ -51,13 +51,14 @@ class ModerationProcessing
         }
         $process = $kind === 'summaries'
             ? Cache::lock('moderation:summary-dispatch', 10)->block(5, function () use ($name): ?ModerationProcess {
-                $active = ModerationProcess::where(fn (Builder $query): Builder => $query->where('name', 'summaries')->orWhere('name', 'like', 'summaries:%'))
-                    ->where(fn (Builder $query): Builder => $query->whereIn('state', ['dispatching', 'queued', 'running'])->orWhere('pending_jobs', '>', 0))->exists();
-
-                return $active ? null : $this->startRun($name);
+                return $this->activeSummaryProcess() ? null : $this->startRun($name);
             })
             : $this->startRun($name);
         if (! $process) {
+            if ($kind === 'summaries' && ! $scoped && ! $rebuild) {
+                $this->requestSummaryDrain();
+            }
+
             return ['jobs' => 0, 'processes' => 0, 'skipped' => [$name]];
         }
 
@@ -76,6 +77,105 @@ class ModerationProcessing
             $this->failDispatch($process, $exception);
             throw $exception;
         }
+    }
+
+    private function activeSummaryProcess(): ?ModerationProcess
+    {
+        return ModerationProcess::where(fn (Builder $query): Builder => $query->where('name', 'summaries')->orWhere('name', 'like', 'summaries:%'))
+            ->where(fn (Builder $query): Builder => $query->whereIn('state', ['dispatching', 'queued', 'running'])->orWhere('pending_jobs', '>', 0))
+            ->orderBy('id')->first();
+    }
+
+    /** @return array{jobs: int, processes: int, skipped: list<string>} */
+    public function drainSummaryBatch(): array
+    {
+        return Cache::lock('moderation:summary-dispatch', 75)->block(5, function (): array {
+            $process = DB::transaction(function (): ?ModerationProcess {
+                $active = $this->activeSummaryProcess();
+                if ($active) {
+                    return $active;
+                }
+                $previous = ModerationProcess::where('name', 'summaries')->first();
+                if ($previous?->state === 'failed' && $previous->dispatch_batch !== null) {
+                    return null;
+                }
+
+                $size = min(500, $this->chunkSize());
+                $batch = ModerationEditorSummary::whereNotNull('dirty_at')->orderBy('id')->limit($size)->pluck('osm_uid')
+                    ->map(fn (int $uid): array => ['kind' => 'summary-editor', 'target' => $uid, 'state' => 'pending', 'published' => false]);
+                if ($batch->count() < $size) {
+                    $batch = $batch->concat(WatchedArea::whereNotNull('summary_dirty_at')->orderBy('id')->limit($size - $batch->count())->pluck('id')
+                        ->map(fn (int $id): array => ['kind' => 'summary-area', 'target' => $id, 'state' => 'pending', 'published' => false]));
+                }
+                if ($batch->isEmpty()) {
+                    return null;
+                }
+
+                $process = $this->startRun('summaries');
+                if ($process) {
+                    $process->update([
+                        'state' => 'queued',
+                        'total_jobs' => $batch->count(),
+                        'pending_jobs' => $batch->count(),
+                        'dispatch_batch' => $batch->values()->all(),
+                    ]);
+                }
+
+                return $process;
+            });
+
+            if (! $process) {
+                return ['jobs' => 0, 'processes' => 0, 'skipped' => []];
+            }
+            if ($process->dispatch_batch === null) {
+                return ['jobs' => 0, 'processes' => 0, 'skipped' => [$process->name]];
+            }
+
+            $jobs = [];
+            foreach ($process->dispatch_batch as $index => $target) {
+                if ($target['state'] === 'pending' && ! ($target['published'] ?? false)) {
+                    $jobs[] = new ProcessModeration($target['kind'], $target['target'], processId: $process->id, runNumber: $process->run_number, batchIndex: $index);
+                }
+            }
+            if ($jobs === []) {
+                return ['jobs' => 0, 'processes' => 1, 'skipped' => [$process->name]];
+            }
+
+            try {
+                Queue::connection((string) config('moderation.processing.connection', 'redis'))
+                    ->bulk($jobs, '', (string) config('moderation.processing.queue', 'moderation'));
+            } catch (Throwable $exception) {
+                $this->recordSummaryDrainFailure($exception);
+                throw $exception;
+            }
+
+            DB::transaction(function () use ($process, $jobs): void {
+                $current = ModerationProcess::whereKey($process->id)->lockForUpdate()->firstOrFail();
+                if ($current->run_number !== $process->run_number) {
+                    return;
+                }
+                $batch = $current->dispatch_batch;
+                foreach ($jobs as $job) {
+                    $batch[$job->batchIndex]['published'] = true;
+                }
+                $current->update(['dispatch_batch' => $batch]);
+            });
+
+            return ['jobs' => count($jobs), 'processes' => 1, 'skipped' => []];
+        });
+    }
+
+    public function recordSummaryDrainFailure(?Throwable $exception): void
+    {
+        ModerationProcess::where('name', 'summaries')->whereNotNull('dispatch_batch')->where('pending_jobs', '>', 0)
+            ->update(['last_error' => mb_substr('Summary dispatch interrupted: '.($exception?->getMessage() ?? 'Unknown failure'), 0, 2000)]);
+    }
+
+    public function summaryBatchTargetIsPending(int $processId, int $runNumber, int $batchIndex): bool
+    {
+        $process = ModerationProcess::whereKey($processId)->where('run_number', $runNumber)->first();
+
+        return ($process?->dispatch_batch[$batchIndex]['state'] ?? null) === 'pending';
     }
 
     private function validateTargets(string $kind, ?int $node, ?int $user, ?int $rule): void
@@ -173,6 +273,7 @@ class ModerationProcessing
                 'total_jobs' => 0,
                 'pending_jobs' => 0,
                 'failed_jobs' => 0,
+                'dispatch_batch' => null,
                 'started_at' => now(),
                 'last_error' => null,
             ]);
@@ -248,7 +349,8 @@ class ModerationProcessing
 
     private function requestSummaryDrain(): void
     {
-        if (! $this->summariesNeedRefresh()) {
+        if (! $this->summariesNeedRefresh()
+            && ! ModerationProcess::where('name', 'summaries')->whereNotNull('dispatch_batch')->where('pending_jobs', '>', 0)->exists()) {
             return;
         }
 
@@ -547,19 +649,27 @@ class ModerationProcessing
             ->update(['state' => 'running']);
     }
 
-    public function markJobComplete(int $processId, int $runNumber): void
+    public function markJobComplete(int $processId, int $runNumber, ?int $batchIndex = null): void
     {
-        if ($this->finishJob($processId, $runNumber)) {
+        if ($this->finishJob($processId, $runNumber, batchIndex: $batchIndex)) {
             app(ModerationSummaryCache::class)->invalidate();
         }
     }
 
-    private function finishJob(int $processId, int $runNumber, ?Throwable $exception = null): bool
+    private function finishJob(int $processId, int $runNumber, ?Throwable $exception = null, ?int $batchIndex = null): bool
     {
-        $completed = DB::transaction(function () use ($processId, $runNumber, $exception): bool {
+        $completed = DB::transaction(function () use ($processId, $runNumber, $exception, $batchIndex): bool {
             $process = ModerationProcess::whereKey($processId)->lockForUpdate()->first();
             if (! $process || $process->run_number !== $runNumber || $process->pending_jobs === 0) {
                 return false;
+            }
+            if ($batchIndex !== null) {
+                $batch = $process->dispatch_batch;
+                if (($batch[$batchIndex]['state'] ?? null) !== 'pending') {
+                    return false;
+                }
+                $batch[$batchIndex]['state'] = $exception ? 'failed' : 'complete';
+                $process->dispatch_batch = $batch;
             }
             $process->pending_jobs--;
             if ($exception) {
@@ -585,9 +695,9 @@ class ModerationProcessing
         return $completed;
     }
 
-    public function markJobFailed(int $processId, int $runNumber, ?Throwable $exception): void
+    public function markJobFailed(int $processId, int $runNumber, ?Throwable $exception, ?int $batchIndex = null): void
     {
-        if ($this->finishJob($processId, $runNumber, $exception)) {
+        if ($this->finishJob($processId, $runNumber, $exception, $batchIndex)) {
             app(ModerationSummaryCache::class)->invalidate();
         }
     }

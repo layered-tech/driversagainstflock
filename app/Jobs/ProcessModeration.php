@@ -15,14 +15,24 @@ class ProcessModeration implements ShouldQueue
     use Queueable;
 
     private const int MissingPayloadValue = -1;
+
     public ?int $target = self::MissingPayloadValue;
+
     public ?int $ruleId = self::MissingPayloadValue;
+
     public ?int $ruleVersion = self::MissingPayloadValue;
+
     public ?int $processId = self::MissingPayloadValue;
+
     public ?int $runNumber = self::MissingPayloadValue;
+
     public int $tries = 3;
+
     public int $timeout = 50;
+
     private bool $legacyPayload = false;
+
+    public ?int $batchIndex = null;
 
     public function __construct(
         public string $kind,
@@ -31,12 +41,14 @@ class ProcessModeration implements ShouldQueue
         ?int $ruleVersion = null,
         ?int $processId = null,
         ?int $runNumber = null,
+        ?int $batchIndex = null,
     ) {
         $this->target = $target;
         $this->ruleId = $ruleId;
         $this->ruleVersion = $ruleVersion;
         $this->processId = $processId;
         $this->runNumber = $runNumber;
+        $this->batchIndex = $batchIndex;
         $this->onConnection((string) config('moderation.processing.connection', 'redis'));
         $this->onQueue((string) config('moderation.processing.queue', 'moderation'));
     }
@@ -94,11 +106,14 @@ class ProcessModeration implements ShouldQueue
         }
 
         if ($this->processId !== null && $this->runNumber !== null) {
+            if ($this->batchIndex !== null && ! $processing->summaryBatchTargetIsPending($this->processId, $this->runNumber, $this->batchIndex)) {
+                return;
+            }
             $processing->markRunning($this->processId, $this->runNumber);
         }
         $processing->process($this->kind, $this->target, $this->ruleId, $this->ruleVersion);
         if ($this->processId !== null && $this->runNumber !== null) {
-            $processing->markJobComplete($this->processId, $this->runNumber);
+            $processing->markJobComplete($this->processId, $this->runNumber, $this->batchIndex);
         }
     }
 
@@ -115,7 +130,7 @@ class ProcessModeration implements ShouldQueue
         }
 
         if ($this->processId !== null && $this->runNumber !== null) {
-            app(ModerationProcessing::class)->markJobFailed($this->processId, $this->runNumber, $exception);
+            app(ModerationProcessing::class)->markJobFailed($this->processId, $this->runNumber, $exception, $this->batchIndex);
         }
     }
 }

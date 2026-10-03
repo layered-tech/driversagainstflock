@@ -5,10 +5,13 @@ namespace App\Services\ElectronicHorizon;
 use App\Models\OsmNode;
 use App\Services\Directions\DirectionsException;
 use App\Services\Directions\GeometryService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
 
 class ElectronicHorizonAlprLookup
 {
+    private const CACHE_GRID_DEGREES = 0.01;
+
     public function __construct(private readonly GeometryService $geometry) {}
 
     /**
@@ -28,20 +31,54 @@ class ElectronicHorizonAlprLookup
     {
         $this->ensurePathLengthIsAllowed($coordinates);
 
+        $radius = $presence ? 750.0 : (float) config('electronic-horizon.alpr_path_buffer_meters');
+        $cacheSeconds = (int) config('electronic-horizon.alpr_cache_seconds');
+        $bounds = (new OsmNode)->routeSearchBounds($coordinates, $radius);
+
+        if ($bounds === null || $cacheSeconds <= 0) {
+            return $this->findUncached($coordinates, $radius);
+        }
+
+        $bounds = [
+            'west' => max(-180.0, round(floor($bounds['west'] / self::CACHE_GRID_DEGREES) * self::CACHE_GRID_DEGREES, 2)),
+            'south' => max(-90.0, round(floor($bounds['south'] / self::CACHE_GRID_DEGREES) * self::CACHE_GRID_DEGREES, 2)),
+            'east' => min(180.0, round(ceil($bounds['east'] / self::CACHE_GRID_DEGREES) * self::CACHE_GRID_DEGREES, 2)),
+            'north' => min(90.0, round(ceil($bounds['north'] / self::CACHE_GRID_DEGREES) * self::CACHE_GRID_DEGREES, 2)),
+        ];
+        $inventory = Cache::remember(
+            $this->cacheKey(['bounds' => $bounds]),
+            $cacheSeconds,
+            function () use ($bounds, $cacheSeconds): array {
+                $ids = OsmNode::query()
+                    ->matchingProfiles([['tags' => ['surveillance:type' => 'ALPR']]])
+                    ->withinSpatialBounds($bounds)
+                    ->pluck('id')->all();
+
+                return [
+                    'expires_at' => now()->addSeconds($cacheSeconds)->getTimestamp(),
+                    'ids' => $ids,
+                ];
+            },
+        );
+
         return Cache::remember(
-            $this->cacheKey($coordinates).($presence ? ':presence:750:v2' : ''),
-            now()->addSeconds((int) config('electronic-horizon.alpr_cache_seconds')),
-            fn (): array => $this->findUncached($coordinates, $presence),
+            $this->cacheKey(['coordinates' => $coordinates, 'radius' => $radius]),
+            now()->setTimestamp($inventory['expires_at']),
+            fn (): array => $this->findUncached($coordinates, $radius, $inventory['ids']),
         );
     }
 
     /**
      * @param  array<int, array{0: float, 1: float}>  $coordinates
+     * @param  array<int, int>|null  $candidateIds
      * @return array{coverage_complete: bool, coverage_radius_meters: float, nodes: array<int, array{camera_direction: string|null, coordinate: array{0: float, 1: float}, direction: string|null, id: string, osm_id: int, tags: array<string, mixed>}>}
      */
-    private function findUncached(array $coordinates, bool $presence): array
+    private function findUncached(array $coordinates, float $radius, ?array $candidateIds = null): array
     {
-        $radius = $presence ? 750.0 : (float) config('electronic-horizon.alpr_path_buffer_meters');
+        if ($candidateIds === []) {
+            return ['coverage_complete' => true, 'coverage_radius_meters' => $radius, 'nodes' => []];
+        }
+
         $nodes = OsmNode::query()
             ->select([
                 'id',
@@ -55,7 +92,8 @@ class ElectronicHorizonAlprLookup
             ->matchingProfiles([[
                 'tags' => ['surveillance:type' => 'ALPR'],
             ]])
-            ->nearRoute(
+            ->when($candidateIds !== null, fn (Builder $query): Builder => $query->whereIntegerInRaw('id', $candidateIds))
+            ->nearIndexedRoute(
                 $coordinates,
                 $radius,
             )
@@ -105,21 +143,15 @@ class ElectronicHorizonAlprLookup
     }
 
     /**
-     * @param  array<int, array{0: float, 1: float}>  $coordinates
+     * @param  array<string, mixed>  $lookup
      */
-    private function cacheKey(array $coordinates): string
+    private function cacheKey(array $lookup): string
     {
-        $normalizedCoordinates = array_map(
-            fn (array $coordinate): array => [
-                round($coordinate[0], 5),
-                round($coordinate[1], 5),
-            ],
-            $coordinates,
-        );
+        $node = new OsmNode;
 
-        return 'electronic-horizon:alpr:'.hash(
+        return 'electronic-horizon:alpr:v3:'.hash(
             'sha256',
-            json_encode($normalizedCoordinates, JSON_THROW_ON_ERROR),
+            json_encode([$node->getConnectionName(), $node->getTable(), $lookup], JSON_THROW_ON_ERROR),
         );
     }
 }

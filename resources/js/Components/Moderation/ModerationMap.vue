@@ -45,6 +45,39 @@ function data() {
 function update() {
     map?.getSource('moderation')?.setData(data());
 }
+function fitLocation() {
+    if (!map?.getSource('moderation')) return;
+    if (props.bounds?.length === 4 && props.bounds.every(Number.isFinite)) {
+        map.fitBounds(
+            [
+                [props.bounds[0], props.bounds[1]],
+                [props.bounds[2], props.bounds[3]],
+            ],
+            { padding: 35, maxZoom: 16, duration: 0 },
+        );
+        return;
+    }
+    const coordinates = moderationNodeFeatures(props.nodes)
+        .map((feature) => feature.geometry.coordinates)
+        .filter((point) => point.every(Number.isFinite));
+    if (coordinates.length > 1) {
+        map.fitBounds(
+            [
+                [
+                    Math.min(...coordinates.map(([longitude]) => longitude)),
+                    Math.min(...coordinates.map(([, latitude]) => latitude)),
+                ],
+                [
+                    Math.max(...coordinates.map(([longitude]) => longitude)),
+                    Math.max(...coordinates.map(([, latitude]) => latitude)),
+                ],
+            ],
+            { padding: 35, maxZoom: 19, duration: 0 },
+        );
+    } else if (coordinates.length) {
+        map.jumpTo({ center: coordinates[0], zoom: 16 });
+    }
+}
 onMounted(async () => {
     const token = import.meta.env.VITE_MAPBOX_TOKEN;
     if (!token) {
@@ -84,6 +117,23 @@ onMounted(async () => {
                 paint: { 'line-color': props.lineColor, 'line-width': 2 },
             });
             map.addLayer({
+                id: 'moderation-node-labels',
+                type: 'symbol',
+                source: 'moderation',
+                filter: ['has', 'label'],
+                layout: {
+                    'text-field': ['get', 'label'],
+                    'text-size': 11,
+                    'text-variable-anchor': ['top', 'bottom', 'left', 'right'],
+                    'text-radial-offset': 1,
+                },
+                paint: {
+                    'text-color': '#1f2937',
+                    'text-halo-color': '#fff',
+                    'text-halo-width': 2,
+                },
+            });
+            map.addLayer({
                 id: 'moderation-points',
                 type: 'circle',
                 source: 'moderation',
@@ -116,25 +166,7 @@ onMounted(async () => {
             map.on('mouseleave', 'moderation-points', () => {
                 map.getCanvas().style.cursor = '';
             });
-            if (
-                props.bounds?.length === 4 &&
-                props.bounds.every(Number.isFinite)
-            )
-                map.fitBounds(
-                    [
-                        [props.bounds[0], props.bounds[1]],
-                        [props.bounds[2], props.bounds[3]],
-                    ],
-                    { padding: 35, maxZoom: 16, duration: 0 },
-                );
-            else if (props.nodes[0]?.longitude != null)
-                map.jumpTo({
-                    center: [
-                        Number(props.nodes[0].longitude),
-                        Number(props.nodes[0].latitude),
-                    ],
-                    zoom: 16,
-                });
+            fitLocation();
         });
         map.on('click', (event) => {
             if (props.draw)
@@ -150,6 +182,7 @@ onMounted(async () => {
 watch(() => [props.geometry, props.points, props.nodes], update, {
     deep: true,
 });
+watch(() => [props.bounds, props.nodes], fitLocation, { deep: true });
 onBeforeUnmount(() => {
     removed = true;
     map?.remove();

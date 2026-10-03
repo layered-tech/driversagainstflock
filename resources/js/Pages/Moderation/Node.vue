@@ -6,6 +6,7 @@ import ModerationMap from '@/Components/Moderation/ModerationMap.vue';
 import NodeLink from '@/Components/Moderation/NodeLink.vue';
 import ModerationLayout from '@/Layouts/ModerationLayout.vue';
 import { locationLabel, nodeProfileSummary, relativeTime } from '@/moderation';
+import { flagMapNodes } from '@/moderationFlags';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, inject, ref } from 'vue';
 
@@ -96,11 +97,7 @@ const mapPoints = computed(() => {
             return true;
         });
 });
-const mapNodes = computed(() =>
-    props.node.latitude == null || props.node.longitude == null
-        ? []
-        : [props.node],
-);
+const mapNodes = computed(() => flagMapNodes(props.node, props.flags));
 const firstMappedDate = computed(() =>
     summary.value.first_mapped_at
         ? localDate(summary.value.first_mapped_at)

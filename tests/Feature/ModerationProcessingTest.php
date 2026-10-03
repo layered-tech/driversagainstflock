@@ -337,11 +337,201 @@ test('summary drains queue the existing summary processor after upstream work se
 
     $job->handle(app(ModerationProcessing::class));
 
-    $job->assertNotReleased();
+    $job->assertReleased(delay: 60);
     Queue::assertPushed(ProcessModeration::class, fn (ProcessModeration $queued): bool => $queued->kind === 'summary-editor' && $queued->target === 123);
     expect(ModerationProcess::where('name', 'summaries')->sole())
         ->state->toBe('queued')
         ->pending_jobs->toBe(1);
+});
+
+test('automatic summary drains persist and publish only one bounded batch', function () {
+    Queue::fake();
+    config(['moderation.processing.dispatch_chunk_size' => 2]);
+    foreach ([123, 456, 789] as $uid) {
+        ModerationEditorSummary::create(['osm_uid' => $uid, 'dirty_at' => now()]);
+    }
+    WatchedArea::factory()->create(['summary_dirty_at' => now()]);
+
+    $job = (new DrainModerationSummaries)->withFakeQueueInteractions();
+    $job->handle(app(ModerationProcessing::class));
+
+    $job->assertReleased(delay: 60);
+    Queue::assertPushedTimes(ProcessModeration::class, 2);
+    $process = ModerationProcess::where('name', 'summaries')->sole();
+    expect($process)->state->toBe('queued')->total_jobs->toBe(2)->pending_jobs->toBe(2)
+        ->and($process->dispatch_batch)->toHaveCount(2);
+});
+
+test('summary publication failures retain a resumable batch without incrementing counters again', function () {
+    ModerationEditorSummary::create(['osm_uid' => 123, 'dirty_at' => now()]);
+    ModerationEditorSummary::create(['osm_uid' => 456, 'dirty_at' => now()]);
+    $publisher = Mockery::mock();
+    $publisher->shouldReceive('bulk')->once()->andThrow(new RuntimeException('Redis interrupted'));
+    Queue::shouldReceive('connection')->with('redis')->andReturn($publisher);
+    $processing = app(ModerationProcessing::class);
+
+    expect(fn () => $processing->drainSummaryBatch())->toThrow(RuntimeException::class, 'Redis interrupted');
+
+    $process = ModerationProcess::where('name', 'summaries')->sole();
+    expect($process)->state->toBe('queued')->run_number->toBe(1)->pending_jobs->toBe(2)
+        ->last_error->toBe('Summary dispatch interrupted: Redis interrupted')
+        ->and($process->dispatch_batch)->toHaveCount(2);
+    Queue::fake();
+    $processing->drainSummaryBatch();
+
+    Queue::assertPushedTimes(ProcessModeration::class, 2);
+    expect($process->fresh())->run_number->toBe(1)->total_jobs->toBe(2)->pending_jobs->toBe(2);
+});
+
+test('summary retries publish unfinished targets and duplicate deliveries cannot finish twice', function () {
+    $this->sourceChangeset(100, ['osm_uid' => 123]);
+    $this->sourceChangeset(101, ['osm_uid' => 456]);
+    foreach ([123, 456] as $uid) {
+        ModerationEditorSummary::create(['osm_uid' => $uid, 'dirty_at' => now()]);
+    }
+    $processing = app(ModerationProcessing::class);
+    $first = null;
+    $publisher = Mockery::mock();
+    $publisher->shouldReceive('bulk')->once()->andReturnUsing(function (array $jobs) use ($processing, &$first): void {
+        $first = $jobs[0];
+        $first->handle($processing);
+        throw new RuntimeException('Publication interrupted after the first target');
+    });
+    Queue::shouldReceive('connection')->with('redis')->andReturn($publisher);
+    expect(fn () => $processing->drainSummaryBatch())->toThrow(RuntimeException::class);
+    ModerationEditorSummary::where('osm_uid', 123)->update(['dirty_at' => now()]);
+    $first->handle($processing);
+
+    expect(ModerationProcess::where('name', 'summaries')->sole()->pending_jobs)->toBe(1)
+        ->and(ModerationEditorSummary::where('osm_uid', 123)->value('dirty_at'))->not->toBeNull();
+    Queue::fake();
+    $processing->drainSummaryBatch();
+
+    Queue::assertPushedTimes(ProcessModeration::class, 1);
+    Queue::assertPushed(ProcessModeration::class, fn (ProcessModeration $job): bool => $job->target === 456);
+    $first->failed(new RuntimeException('Duplicate exhausted overlap retries'));
+    expect(ModerationProcess::where('name', 'summaries')->sole())->pending_jobs->toBe(1)->failed_jobs->toBe(0);
+});
+
+test('summary drains do not republish jobs already acknowledged by the queue', function () {
+    Queue::fake();
+    ModerationEditorSummary::create(['osm_uid' => 123, 'dirty_at' => now()]);
+    $processing = app(ModerationProcessing::class);
+    $processing->drainSummaryBatch();
+    Queue::fake();
+
+    $job = (new DrainModerationSummaries)->withFakeQueueInteractions();
+    $job->handle($processing);
+
+    Queue::assertNotPushed(ProcessModeration::class);
+    $job->assertReleased(delay: 60);
+    expect(ModerationProcess::where('name', 'summaries')->sole())->run_number->toBe(1)->pending_jobs->toBe(1);
+});
+
+test('late summary deliveries from an earlier batch cannot process or decrement a new run', function () {
+    Queue::fake();
+    config(['moderation.processing.dispatch_chunk_size' => 1]);
+    $this->sourceChangeset(100, ['osm_uid' => 123]);
+    $this->sourceChangeset(101, ['osm_uid' => 456]);
+    foreach ([123, 456] as $uid) {
+        ModerationEditorSummary::create(['osm_uid' => $uid, 'dirty_at' => now()]);
+    }
+    $processing = app(ModerationProcessing::class);
+    $processing->drainSummaryBatch();
+    $old = Queue::pushed(ProcessModeration::class)->sole();
+    $old->handle($processing);
+    Queue::fake();
+    $processing->drainSummaryBatch();
+    ModerationEditorSummary::where('osm_uid', 123)->update(['dirty_at' => now()]);
+
+    $old->handle($processing);
+    $old->failed(new RuntimeException('Late delivery failed'));
+
+    expect(ModerationProcess::where('name', 'summaries')->sole())->run_number->toBe(2)->pending_jobs->toBe(1)->failed_jobs->toBe(0)
+        ->and(ModerationEditorSummary::where('osm_uid', 123)->value('dirty_at'))->not->toBeNull();
+});
+
+test('failed summary targets are counted once and retain a visible failed batch', function () {
+    Queue::fake();
+    ModerationEditorSummary::create(['osm_uid' => 123, 'dirty_at' => now()]);
+    $processing = app(ModerationProcessing::class);
+    $processing->drainSummaryBatch();
+    $job = Queue::pushed(ProcessModeration::class)->sole();
+    $job->failed(new RuntimeException('Editor calculation failed'));
+    $job->failed(new RuntimeException('Duplicate failure'));
+    Queue::fake();
+    $drain = (new DrainModerationSummaries)->withFakeQueueInteractions();
+
+    $drain->handle($processing);
+
+    Queue::assertNotPushed(ProcessModeration::class);
+    $drain->assertNotReleased();
+    expect(ModerationProcess::where('name', 'summaries')->sole())
+        ->state->toBe('failed')->run_number->toBe(1)->pending_jobs->toBe(0)->failed_jobs->toBe(1)
+        ->last_error->toBe('Editor calculation failed');
+});
+
+test('summary drains finish all editor and area batches including orphaned dirty editors', function () {
+    config(['moderation.processing.dispatch_chunk_size' => 1]);
+    $this->sourceChangeset();
+    ModerationEditorSummary::create(['osm_uid' => 123, 'dirty_at' => now()]);
+    ModerationEditorSummary::create(['osm_uid' => 456, 'dirty_at' => now()]);
+    $area = WatchedArea::factory()->create(['summary_dirty_at' => now()]);
+    $processing = app(ModerationProcessing::class);
+    $kinds = [];
+    for ($batch = 0; $batch < 3; $batch++) {
+        Queue::fake();
+        $processing->drainSummaryBatch();
+        $job = Queue::pushed(ProcessModeration::class)->sole();
+        $kinds[] = $job->kind;
+        $job->handle($processing);
+        expect(ModerationProcess::where('name', 'summaries')->sole())->state->toBe('complete')->pending_jobs->toBe(0);
+    }
+
+    expect($kinds)->toBe(['summary-editor', 'summary-editor', 'summary-area'])
+        ->and($processing->summariesNeedRefresh())->toBeFalse()
+        ->and($area->fresh()->summary_dirty_at)->toBeNull()
+        ->and(ModerationEditorSummary::where('osm_uid', 456)->exists())->toBeFalse();
+});
+
+test('scheduled summary commands wake an unfinished persisted batch even after dirty markers clear', function () {
+    Queue::fake();
+    ModerationProcess::create([
+        'name' => 'summaries', 'state' => 'queued', 'run_number' => 1, 'total_jobs' => 1, 'pending_jobs' => 1,
+        'dispatch_batch' => [['kind' => 'summary-editor', 'target' => 123, 'state' => 'pending']],
+    ]);
+
+    $this->artisan('moderation:process summaries')->expectsOutputToContain('Already running: summaries')->assertSuccessful();
+
+    Queue::assertPushed(DrainModerationSummaries::class);
+    $job = (new DrainModerationSummaries)->withFakeQueueInteractions();
+    $job->handle(app(ModerationProcessing::class));
+    Queue::assertPushedTimes(ProcessModeration::class, 1);
+});
+
+test('automatic summary drains respect active manual scopes and rebuilds', function (string $name) {
+    Queue::fake();
+    ModerationEditorSummary::create(['osm_uid' => 123, 'dirty_at' => now()]);
+    $process = ModerationProcess::create(['name' => $name, 'state' => 'dispatching', 'run_number' => 7]);
+    $job = (new DrainModerationSummaries)->withFakeQueueInteractions();
+
+    $job->handle(app(ModerationProcessing::class));
+
+    $job->assertReleased(delay: 60);
+    Queue::assertNotPushed(ProcessModeration::class);
+    expect($process->fresh())->run_number->toBe(7)->state->toBe('dispatching');
+})->with(['summaries', 'summaries:rebuild', 'summaries:limit:1']);
+
+test('failed summary drains report the interruption while retaining unfinished targets', function () {
+    Queue::fake();
+    ModerationEditorSummary::create(['osm_uid' => 123, 'dirty_at' => now()]);
+    app(ModerationProcessing::class)->drainSummaryBatch();
+
+    (new DrainModerationSummaries)->failed(new RuntimeException('Dispatcher timed out'));
+
+    expect(ModerationProcess::where('name', 'summaries')->sole())
+        ->state->toBe('queued')->pending_jobs->toBe(1)->failed_jobs->toBe(0)
+        ->last_error->toBe('Summary dispatch interrupted: Dispatcher timed out');
 });
 
 test('completed full summary passes drain invalidations left during the pass', function () {

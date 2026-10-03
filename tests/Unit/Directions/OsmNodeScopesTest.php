@@ -39,6 +39,31 @@ it('filters route intersections through canonical coordinate columns', function 
         ->and($query->getBindings())->toContain('LINESTRING(-122.676000 45.523000,-122.660000 45.520000)');
 });
 
+it('prefilters indexed route intersections before measuring distance', function () {
+    $query = OsmNode::query()->nearIndexedRoute([
+        [-122.676, 45.523],
+        [-122.66, 45.52],
+    ], 250);
+
+    expect($query->toSql())
+        ->toContain('location && ST_MakeEnvelope(?, ?, ?, ?, 4326)')
+        ->toContain('ST_DWithin(location::geography')
+        ->not->toContain('ST_MakePoint')
+        ->and($query->getBindings())->toContain('LINESTRING(-122.676000 45.523000,-122.660000 45.520000)');
+});
+
+it('splits indexed bounds that cross the antimeridian', function () {
+    $query = OsmNode::query()->withinSpatialBounds([
+        'west' => 179.9,
+        'south' => -1,
+        'east' => -179.9,
+        'north' => 1,
+    ]);
+
+    expect(substr_count($query->toSql(), 'location && ST_MakeEnvelope'))->toBe(2)
+        ->and($query->getBindings())->toBe([179.9, -1.0, 180.0, 1.0, -180.0, -1.0, -179.9, 1.0]);
+});
+
 it('matches profiles through tags or denormalized surveillance type', function () {
     $query = OsmNode::query()->matchingProfiles([[
         'tags' => ['surveillance:type' => 'ALPR'],

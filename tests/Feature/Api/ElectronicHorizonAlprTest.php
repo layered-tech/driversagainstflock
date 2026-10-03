@@ -2,6 +2,7 @@
 
 use App\Models\OsmNode;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use MatanYadaev\EloquentSpatial\Objects\Point;
 
 function createElectronicHorizonAlprNode(
@@ -138,4 +139,125 @@ it('uses separate wider complete coverage for presence without changing warning 
     $this->postJson('/api/v1/electronic-horizon/alpr', ['coordinates' => $coordinates, 'presence' => true])
         ->assertOk()->assertJsonPath('result.coverage_complete', true)->assertJsonPath('result.coverage_radius_meters', 750)->assertJsonCount(3, 'result.nodes');
     $this->postJson('/api/v1/electronic-horizon/alpr', compact('coordinates'))->assertOk()->assertJsonCount(0, 'result.nodes');
+});
+
+it('reuses empty regional inventories when the path moves', function () {
+    $connection = DB::connection((string) config('osm.reader.connection'));
+    $connection->enableQueryLog();
+
+    foreach ([30.2672, 30.2682] as $latitude) {
+        $this->postJson('/api/v1/electronic-horizon/alpr', [
+            'coordinates' => [[-97.738, $latitude], [-97.734, $latitude]],
+        ])->assertOk()->assertJsonPath('result.coverage_complete', true)->assertJsonCount(0, 'result.nodes');
+    }
+
+    $queries = collect($connection->getQueryLog())->filter(
+        fn (array $query): bool => str_contains($query['query'], 'select') && str_contains($query['query'], 'testing_osm_nodes'),
+    );
+    $connection->disableQueryLog();
+
+    expect($queries)->toHaveCount(1);
+});
+
+it('shares candidates between nearby paths while checking each exact corridor', function () {
+    createElectronicHorizonAlprNode(1100, 30.2672, -97.736);
+    createElectronicHorizonAlprNode(1101, 30.2682, -97.736);
+    $connection = DB::connection((string) config('osm.reader.connection'));
+    $connection->enableQueryLog();
+
+    foreach ([1100 => 30.2672, 1101 => 30.2682] as $osmId => $latitude) {
+        $this->postJson('/api/v1/electronic-horizon/alpr', [
+            'coordinates' => [[-97.738, $latitude], [-97.734, $latitude]],
+        ])->assertOk()->assertJsonCount(1, 'result.nodes')->assertJsonPath('result.nodes.0.osm_id', $osmId);
+    }
+
+    $queries = collect($connection->getQueryLog())->filter(
+        fn (array $query): bool => str_contains($query['query'], 'select') && str_contains($query['query'], 'testing_osm_nodes'),
+    );
+    $connection->disableQueryLog();
+
+    expect($queries)->toHaveCount(3);
+});
+
+it('loads fresh candidates when the path enters another cache region', function () {
+    createElectronicHorizonAlprNode(1105, 30.2712, -97.736);
+    $this->postJson('/api/v1/electronic-horizon/alpr', [
+        'coordinates' => [[-97.738, 30.2672], [-97.734, 30.2672]],
+    ])->assertOk()->assertJsonCount(0, 'result.nodes');
+
+    $this->postJson('/api/v1/electronic-horizon/alpr', [
+        'coordinates' => [[-97.738, 30.2712], [-97.734, 30.2712]],
+    ])->assertOk()->assertJsonCount(1, 'result.nodes')->assertJsonPath('result.nodes.0.osm_id', 1105);
+});
+
+it('retains exact path response caching inside a populated inventory', function () {
+    createElectronicHorizonAlprNode(1106, 30.2672, -97.736);
+    $coordinates = [[-97.738, 30.2672], [-97.734, 30.2672]];
+    $connection = DB::connection((string) config('osm.reader.connection'));
+    $connection->enableQueryLog();
+
+    foreach (range(1, 2) as $attempt) {
+        $this->postJson('/api/v1/electronic-horizon/alpr', compact('coordinates'))
+            ->assertOk()->assertJsonCount(1, 'result.nodes');
+    }
+
+    $queries = collect($connection->getQueryLog())->filter(
+        fn (array $query): bool => str_contains($query['query'], 'select') && str_contains($query['query'], 'testing_osm_nodes'),
+    );
+    $connection->disableQueryLog();
+
+    expect($queries)->toHaveCount(2);
+});
+
+it('supports disabling inventory and response caching', function () {
+    config(['electronic-horizon.alpr_cache_seconds' => 0]);
+    $coordinates = [[-97.738, 30.2672], [-97.734, 30.2672]];
+    $this->postJson('/api/v1/electronic-horizon/alpr', compact('coordinates'))
+        ->assertOk()->assertJsonCount(0, 'result.nodes');
+
+    createElectronicHorizonAlprNode(1107, 30.2672, -97.736);
+    $this->postJson('/api/v1/electronic-horizon/alpr', compact('coordinates'))
+        ->assertOk()->assertJsonCount(1, 'result.nodes')->assertJsonPath('result.nodes.0.osm_id', 1107);
+});
+
+it('refreshes regional inventories after their configured lifetime', function () {
+    $coordinates = [[-97.738, 30.2672], [-97.734, 30.2672]];
+    $this->postJson('/api/v1/electronic-horizon/alpr', compact('coordinates'))
+        ->assertOk()->assertJsonCount(0, 'result.nodes');
+
+    createElectronicHorizonAlprNode(1102, 30.2672, -97.736);
+    $this->travel(31)->seconds();
+
+    $this->postJson('/api/v1/electronic-horizon/alpr', compact('coordinates'))
+        ->assertOk()->assertJsonCount(1, 'result.nodes')->assertJsonPath('result.nodes.0.osm_id', 1102);
+});
+
+it('does not extend stale inventory coverage when caching a new path', function () {
+    $this->postJson('/api/v1/electronic-horizon/alpr', [
+        'coordinates' => [[-97.738, 30.2672], [-97.734, 30.2672]],
+    ])->assertOk()->assertJsonCount(0, 'result.nodes');
+
+    $this->travel(29)->seconds();
+    $coordinates = [[-97.738, 30.2682], [-97.734, 30.2682]];
+    $this->postJson('/api/v1/electronic-horizon/alpr', compact('coordinates'))
+        ->assertOk()->assertJsonCount(0, 'result.nodes');
+
+    createElectronicHorizonAlprNode(1103, 30.2682, -97.736);
+    $this->travel(2)->seconds();
+    $this->postJson('/api/v1/electronic-horizon/alpr', compact('coordinates'))
+        ->assertOk()->assertJsonCount(1, 'result.nodes')->assertJsonPath('result.nodes.0.osm_id', 1103);
+});
+
+it('can use the stored geometry index for route lookups', function () {
+    createElectronicHorizonAlprNode(1104, 30.2672, -97.736);
+    $connection = DB::connection((string) config('osm.reader.connection'));
+    $connection->statement('CREATE INDEX testing_osm_nodes_route_gist ON testing_osm_nodes USING gist (location)');
+    $connection->statement('SET LOCAL enable_seqscan = off');
+
+    $query = OsmNode::query()->nearIndexedRoute([[-97.738, 30.2672], [-97.734, 30.2672]], 65);
+    $plan = $connection->select('EXPLAIN (FORMAT JSON) '.$query->toSql(), $query->getBindings());
+
+    expect($plan[0]->{'QUERY PLAN'})
+        ->toContain('testing_osm_nodes_route_gist')
+        ->toContain('Index Cond');
 });

@@ -32,8 +32,7 @@
         "osm:tunnel": "./infrastructure/aws/osm/operations/start-local-tunnel.sh",
         "graphhopper:tunnel": "./infrastructure/aws/routing/operations/start-local-tunnel.sh",
         "graph:build": "./infrastructure/aws/routing/operations/build-graph.sh",
-        "graph:status": "./infrastructure/aws/routing/operations/graph-status.sh",
-        "sentry:upload-sourcemaps": "cd expo && sentry-expo-upload-sourcemaps dist"
+        "graph:status": "./infrastructure/aws/routing/operations/graph-status.sh"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",

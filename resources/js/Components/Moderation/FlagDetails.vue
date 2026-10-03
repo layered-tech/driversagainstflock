@@ -1,6 +1,7 @@
 <script setup>
 import FlagLabel from '@/Components/Moderation/FlagLabel.vue';
-import { flagFacts, flagSummary } from '@/moderationFlags';
+import NodeLink from '@/Components/Moderation/NodeLink.vue';
+import { flagFacts, flagRelatedNodeId, flagSummary } from '@/moderationFlags';
 import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -58,7 +59,13 @@ const platformLabel = (platform) =>
                         >
                             <td><FlagLabel :flag="flag" class="mod-chip" /></td>
                             <td class="min-w-[220px] max-w-md">
-                                <p>{{ flagSummary(flag, nodeId) }}</p>
+                                <NodeLink
+                                    v-if="flagRelatedNodeId(flag, nodeId)"
+                                    :node-id="flagRelatedNodeId(flag, nodeId)"
+                                    class="mod-link"
+                                    >{{ flagSummary(flag, nodeId) }}</NodeLink
+                                >
+                                <p v-else>{{ flagSummary(flag, nodeId) }}</p>
                                 <p
                                     v-for="fact in flagFacts(flag).filter(
                                         (fact) =>
@@ -89,8 +96,7 @@ const platformLabel = (platform) =>
                                                 null,
                                                 2,
                                             )
-                                        }}</pre
-                                    >
+                                        }}</pre>
                                 </details>
                             </td>
                             <td>{{ flag.rule?.severity || 'Unavailable' }}</td>

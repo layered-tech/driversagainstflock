@@ -80,6 +80,25 @@ class OsmNode extends Model
 
     /**
      * @param  Builder<self>  $query
+     * @param  array{west: float|int|string, south: float|int|string, east: float|int|string, north: float|int|string}  $bounds
+     * @return Builder<self>
+     */
+    public function scopeWithinSpatialBounds(Builder $query, array $bounds): Builder
+    {
+        return $query->where(function (Builder $query) use ($bounds): void {
+            foreach ($this->boundsEnvelopes($bounds) as $envelope) {
+                $query->orWhereRaw('location && ST_MakeEnvelope(?, ?, ?, ?, 4326)', [
+                    $envelope['west'],
+                    $envelope['south'],
+                    $envelope['east'],
+                    $envelope['north'],
+                ]);
+            }
+        });
+    }
+
+    /**
+     * @param  Builder<self>  $query
      * @param  array<int, array<string, mixed>>  $profiles
      * @return Builder<self>
      */
@@ -131,8 +150,7 @@ class OsmNode extends Model
             return $query->whereRaw('false');
         }
 
-        $degreePadding = $this->degreePaddingForRoute($coordinates, $bufferMeters);
-        $bounds = $this->routeBounds($coordinates, $degreePadding);
+        $bounds = $this->routeSearchBounds($coordinates, $bufferMeters);
 
         return $query
             ->when($bounds !== null, fn (Builder $query) => $query->withinBounds($bounds))
@@ -140,6 +158,38 @@ class OsmNode extends Model
                 'ST_DWithin(ST_SetSRID(ST_MakePoint(longitude::double precision, latitude::double precision), 4326)::geography, ST_SetSRID(ST_GeomFromText(?), 4326)::geography, ?)',
                 [$lineString, $bufferMeters],
             );
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     * @param  array<int, array<int, float>>  $coordinates
+     * @return Builder<self>
+     */
+    public function scopeNearIndexedRoute(Builder $query, array $coordinates, float $bufferMeters): Builder
+    {
+        $lineString = $this->lineStringFromCoordinates($coordinates);
+
+        if ($lineString === null) {
+            return $query->whereRaw('false');
+        }
+
+        $bounds = $this->routeSearchBounds($coordinates, $bufferMeters);
+
+        return $query
+            ->when($bounds !== null, fn (Builder $query) => $query->withinSpatialBounds($bounds))
+            ->whereRaw(
+                'ST_DWithin(location::geography, ST_SetSRID(ST_GeomFromText(?), 4326)::geography, ?)',
+                [$lineString, $bufferMeters],
+            );
+    }
+
+    /**
+     * @param  array<int, array<int, float>>  $coordinates
+     * @return array{west: float, south: float, east: float, north: float}|null
+     */
+    public function routeSearchBounds(array $coordinates, float $bufferMeters): ?array
+    {
+        return $this->routeBounds($coordinates, $this->degreePaddingForRoute($coordinates, $bufferMeters));
     }
 
     /**

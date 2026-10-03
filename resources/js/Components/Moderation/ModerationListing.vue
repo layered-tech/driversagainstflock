@@ -4,6 +4,7 @@ import AreaDialog from '@/Components/Moderation/AreaDialog.vue';
 import ModerationMap from '@/Components/Moderation/ModerationMap.vue';
 import ModerationLayout from '@/Layouts/ModerationLayout.vue';
 import ModerationPageHeader from '@/Components/Moderation/ModerationPageHeader.vue';
+import { flagMapNodes } from '@/moderationFlags';
 import { Head, Link } from '@inertiajs/vue3';
 import {
     changesetNodes,
@@ -619,7 +620,10 @@ const {
                                                     :geometry="row.geometry"
                                                     :nodes="
                                                         isNodes
-                                                            ? [row]
+                                                            ? flagMapNodes(
+                                                                  row,
+                                                                  row.flags,
+                                                              )
                                                             : moderationDetailNodes(
                                                                   view,
                                                                   details[

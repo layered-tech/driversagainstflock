@@ -43,8 +43,10 @@ async function component(name, dependencies) {
     });
 }
 const FlagLabel = await component('FlagLabel', {});
+const NodeLink = await component('NodeLink', {});
 const FlagDetails = await component('FlagDetails', {
     '@/Components/Moderation/FlagLabel.vue': { default: FlagLabel },
+    '@/Components/Moderation/NodeLink.vue': { default: NodeLink },
     '@/moderationFlags': flags,
 });
 const row = {
@@ -331,4 +333,152 @@ test('switching report and rule sources updates the date column heading and sort
             .some(([, label]) => label === 'Report received'),
     );
     app.unmount();
+});
+
+test('duplicate evidence links to the other node profile from either endpoint even without coordinates', async () => {
+    for (const [nodeId, otherId] of [
+        [200, 300],
+        [300, 200],
+    ]) {
+        const app = Vue.createSSRApp(FlagDetails, {
+            flags: [
+                {
+                    id: 10,
+                    node_id: 200,
+                    related_node_id: 300,
+                    source: 'rule',
+                    status: 'open',
+                    evidence: { distance_meters: 8.2, radius_meters: 25 },
+                },
+            ],
+            nodeId,
+            absoluteTime: (value) => value,
+        });
+        app.provide('route', (name, id) =>
+            name === 'moderation.nodes.show'
+                ? `/moderation/nodes/${id}`
+                : '/moderation/rules/5/edit',
+        );
+        const html = (await renderToString(app)).replace(/<!--.*?-->/g, '');
+        assert.match(
+            html,
+            new RegExp(
+                `<a[^>]*href="/moderation/nodes/${otherId}"[^>]*>Node ${otherId} is 8.2 m away \\(within 25 m\\)</a>`,
+            ),
+        );
+        assert.doesNotMatch(
+            html,
+            new RegExp(`href="/moderation/nodes/${nodeId}"`),
+        );
+    }
+});
+
+test('node profiles and expanded node queues pass both duplicate endpoints to the map', async () => {
+    const maps = [];
+    const Wrapper = {
+        setup:
+            (_, { slots }) =>
+            () =>
+                Vue.h('div', slots.default?.()),
+    };
+    const Empty = () => Vue.h('div');
+    const MapPreview = {
+        props: ['nodes'],
+        setup: (props) => () => {
+            maps.push(props.nodes);
+            return Vue.h('div');
+        },
+    };
+    const dependencies = {
+        '@/Components/Moderation/ModerationMap.vue': { default: MapPreview },
+        '@/Layouts/ModerationLayout.vue': { default: Wrapper },
+        '@/Components/Moderation/NodeLink.vue': { default: NodeLink },
+        '@/Components/Moderation/FlagLabel.vue': { default: FlagLabel },
+        '@/Components/Moderation/FlagDetails.vue': { default: FlagDetails },
+        '@/Components/Moderation/AreaDialog.vue': { default: Empty },
+        '@/Components/Moderation/ModerationPageHeader.vue': { default: Empty },
+        '@/Components/Daf/DafButton.vue': { default: Empty },
+        '@/useModerationTime': {
+            useModerationTime: () => ({
+                absoluteTime: (value) => value,
+                localDate: (value) => value,
+            }),
+        },
+        '@/moderation': moderation,
+        '@/moderationFlags': flags,
+        '@inertiajs/vue3': {
+            Link,
+            Head: Empty,
+            router: {},
+            usePage: () => ({ props: {} }),
+        },
+        '@headlessui/vue': {
+            Combobox: Wrapper,
+            ComboboxInput: Empty,
+            ComboboxOption: Wrapper,
+            ComboboxOptions: Wrapper,
+        },
+    };
+    const Node = await component('../../Pages/Moderation/Node', dependencies);
+    const Listing = await component('ModerationListing', dependencies);
+    const duplicate = {
+        id: 10,
+        node_id: 200,
+        related_node_id: 300,
+        source: 'rule',
+        status: 'open',
+        evidence: {
+            radius_meters: 25,
+            locations: { 200: [-97.74, 30.27], 300: [-97.7401, 30.2701] },
+        },
+    };
+    for (const id of [200, 300]) {
+        const [longitude, latitude] = duplicate.evidence.locations[id];
+        const node = { ...row, id, longitude, latitude, flags: [duplicate] };
+        const profile = Vue.createSSRApp(Node, {
+            node,
+            versions: [],
+            flags: [duplicate],
+            source: { state: 'ready' },
+            counts: {},
+            osmUrl: 'https://www.openstreetmap.org',
+        });
+        profile.provide('route', () => '/moderation/nodes');
+        await renderToString(profile);
+        assert.deepEqual(
+            maps.at(-1).map((node) => node.id),
+            [id, id === 200 ? 300 : 200],
+        );
+        for (const view of ['nodes', 'flagged']) {
+            const key = `${view}:${id}`;
+            const listing = Vue.createSSRApp(Listing, {
+                columns: [],
+                listing: {
+                    view,
+                    title: 'Nodes',
+                    isNodes: true,
+                    isChangesets: false,
+                    groups: [],
+                    state: {},
+                    matchingAreas: [],
+                    ruleOptions: [],
+                    expanded: key,
+                    details: { [key]: {} },
+                    detailErrors: {},
+                    detailLoading: {},
+                    selectedNodes: {},
+                    rowKey: (row) => `${view}:${row.id}`,
+                    records: { data: [node] },
+                    counts: {},
+                    source: { state: 'ready' },
+                    page: { props: {} },
+                },
+            });
+            await renderToString(listing);
+            assert.deepEqual(
+                maps.at(-1).map((node) => node.id),
+                [id, id === 200 ? 300 : 200],
+            );
+        }
+    }
 });
