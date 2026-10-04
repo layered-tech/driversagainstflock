@@ -49,8 +49,6 @@ func decodePixels(_ image: CGImage) -> ([UInt8], Int) {
         fail("Could not decode screenshot pixels")
     }
 
-    context.translateBy(x: 0, y: CGFloat(image.height))
-    context.scaleBy(x: 1, y: -1)
     context.draw(
         image,
         in: CGRect(x: 0, y: 0, width: image.width, height: image.height)
@@ -84,6 +82,113 @@ func parseCrop(_ values: ArraySlice<String>, image: CGImage) -> [Int] {
     }
 
     return parsed
+}
+
+if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--host-layout" {
+    let image = loadImage(at: CommandLine.arguments[2])
+    let crop = parseCrop(["24", String(image.height - 64), "32", "36"][...], image: image)
+    let (pixels, stride) = decodePixels(image)
+    let width = crop[2], height = crop[3]
+    var visited = Set<Int>()
+    var gridDots = 0, dashboardButtons = 0
+    func isWhite(_ x: Int, _ y: Int) -> Bool {
+        let offset = (crop[1] + y) * stride + (crop[0] + x) * 4
+        let r = Int(pixels[offset]), g = Int(pixels[offset + 1]), b = Int(pixels[offset + 2])
+        return min(r, min(g, b)) > 200 && max(r, max(g, b)) - min(r, min(g, b)) < 30
+    }
+    for y in 0..<height {
+        for x in 0..<width {
+            let seed = y * width + x
+            if visited.contains(seed) || !isWhite(x, y) { continue }
+            var queue = [seed], cursor = 0
+            var minX = x, maxX = x, minY = y, maxY = y
+            visited.insert(seed)
+            while cursor < queue.count {
+                let point = queue[cursor], px = point % width, py = point / width
+                cursor += 1
+                minX = min(minX, px); maxX = max(maxX, px)
+                minY = min(minY, py); maxY = max(maxY, py)
+                for (dx, dy) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
+                    let nx = px + dx, ny = py + dy
+                    if nx < 0 || ny < 0 || nx >= width || ny >= height { continue }
+                    let next = ny * width + nx
+                    if !visited.contains(next) && isWhite(nx, ny) {
+                        visited.insert(next); queue.append(next)
+                    }
+                }
+            }
+            let componentWidth = maxX - minX + 1, componentHeight = maxY - minY + 1
+            if queue.count >= 6 && componentWidth <= 8 && componentHeight <= 8 { gridDots += 1 }
+            if queue.count >= 80 && componentWidth >= 20 && componentHeight >= 20 { dashboardButtons += 1 }
+        }
+    }
+    // The host shows the app-launcher grid in Dashboard and the two-pane Dashboard button in Fullscreen.
+    let layout = gridDots == 9 && dashboardButtons == 0 ? "dashboard" :
+        dashboardButtons == 1 && gridDots == 0 ? "fullscreen" : "unknown"
+    let result: [String: Any] = ["layout": layout, "gridDots": gridDots, "dashboardButtons": dashboardButtons]
+    let data = try! JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+    print(String(data: data, encoding: .utf8)!)
+    exit(0)
+}
+
+if CommandLine.arguments.count == 7, CommandLine.arguments[1] == "--puck-pixels" {
+    let image = loadImage(at: CommandLine.arguments[2])
+    let crop = parseCrop(CommandLine.arguments[3...6], image: image)
+    let (pixels, stride) = decodePixels(image)
+    let width = crop[2], height = crop[3]
+    var visited = Set<Int>()
+    var proof: [String: Any] = ["visible": false, "bluePixels": 0, "outlinePixels": 0]
+    func rgb(_ x: Int, _ y: Int) -> (Int, Int, Int) {
+        let offset = (crop[1] + y) * stride + (crop[0] + x) * 4
+        return (Int(pixels[offset]), Int(pixels[offset + 1]), Int(pixels[offset + 2]))
+    }
+    func isBlue(_ x: Int, _ y: Int) -> Bool {
+        let (red, green, blue) = rgb(x, y)
+        return blue > 100 && blue - red > 35 && blue - green > 12
+    }
+    for y in 0..<height {
+        for x in 0..<width {
+            let seed = y * width + x
+            if visited.contains(seed) || !isBlue(x, y) { continue }
+            var queue = [seed], cursor = 0
+            visited.insert(seed)
+            var minX = x, maxX = x, minY = y, maxY = y
+            var outline = Set<Int>()
+            while cursor < queue.count {
+                let point = queue[cursor], px = point % width, py = point / width
+                cursor += 1
+                minX = min(minX, px); maxX = max(maxX, px)
+                minY = min(minY, py); maxY = max(maxY, py)
+                for dy in -2...2 {
+                    for dx in -2...2 {
+                        let nx = px + dx, ny = py + dy
+                        if nx < 0 || ny < 0 || nx >= width || ny >= height { continue }
+                        let (r, g, b) = rgb(nx, ny)
+                        if min(r, min(g, b)) > 235 { outline.insert(ny * width + nx) }
+                        if abs(dx) + abs(dy) == 1 && isBlue(nx, ny) && !visited.contains(ny * width + nx) {
+                            visited.insert(ny * width + nx)
+                            queue.append(ny * width + nx)
+                        }
+                    }
+                }
+            }
+            // The default puck has a substantial blue body with a white outline.
+            // Thin route lines and blue water touching the crop edge are not puck evidence.
+            let filledFraction = Double(queue.count) / Double((maxX - minX + 1) * (maxY - minY + 1))
+            if queue.count >= 80 && maxX - minX >= 18 && maxY - minY >= 15 &&
+                maxX - minX <= 100 && maxY - minY <= 80 && outline.count >= 150 &&
+                filledFraction < 0.65 &&
+                minX > 0 && minY > 0 && maxX < width - 1 && maxY < height - 1 {
+                proof = ["visible": true, "bluePixels": queue.count, "outlinePixels": outline.count,
+                         "bounds": [crop[0] + minX, crop[1] + minY, maxX - minX + 1, maxY - minY + 1]]
+                break
+            }
+        }
+        if proof["visible"] as? Bool == true { break }
+    }
+    let data = try! JSONSerialization.data(withJSONObject: proof, options: [.sortedKeys])
+    print(String(data: data, encoding: .utf8)!)
+    exit(0)
 }
 
 if CommandLine.arguments.count == 7, CommandLine.arguments[1] == "--mean-luminance" {
@@ -155,16 +260,18 @@ if CommandLine.arguments.count == 8,
     exit(0)
 }
 
-guard CommandLine.arguments.count == 2 else {
+let findsTextBounds = CommandLine.arguments.count == 4 && CommandLine.arguments[1] == "--text-bounds"
+
+guard CommandLine.arguments.count == 2 || findsTextBounds else {
     fail(
         "Usage: android-auto-ocr.swift <screenshot.png> | --mean-luminance <screenshot.png> <x> <y> <width> <height> | --mean-pixel-difference <first.png> <second.png> <x> <y> <width> <height>"
     )
 }
 
-let image = loadImage(at: CommandLine.arguments[1])
+let image = loadImage(at: CommandLine.arguments[findsTextBounds ? 2 : 1])
 
 let request = VNRecognizeTextRequest()
-request.recognitionLevel = .accurate
+request.recognitionLevel = .fast
 request.usesLanguageCorrection = true
 request.recognitionLanguages = ["en-US"]
 
@@ -186,6 +293,19 @@ let observations = (request.results ?? []).sorted { first, second in
 
 for observation in observations {
     if let candidate = observation.topCandidates(1).first {
+        if findsTextBounds {
+            if candidate.string.localizedCaseInsensitiveContains(CommandLine.arguments[3]) {
+                let bounds = observation.boundingBox
+                let result: [String: Any] = ["text": candidate.string,
+                    "x": Int(bounds.midX * Double(image.width)),
+                    "y": Int((1 - bounds.midY) * Double(image.height))]
+                let data = try! JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+                print(String(data: data, encoding: .utf8)!)
+                exit(0)
+            }
+            continue
+        }
         print(candidate.string)
     }
 }
+if findsTextBounds { fail("Text was not found in screenshot: \(CommandLine.arguments[3])") }

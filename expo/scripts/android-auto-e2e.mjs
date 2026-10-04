@@ -15,6 +15,16 @@ import {
 import net from 'node:net';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import {
+    buildEmulatorRouteReplay,
+    parseEmulatorRoute,
+    replayEmulatorRoute,
+} from './emulator-route-replay.mjs';
+import {
+    androidGpsMatchesRouteFix,
+    createEmulatorGpsClient,
+    getAndroidGpsLocation,
+} from './emulator-gps-client.mjs';
 
 const SCRIPT_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const EXPO_DIRECTORY = resolve(SCRIPT_DIRECTORY, '..');
@@ -32,9 +42,33 @@ export const DEFAULT_MAP_CROP = Object.freeze({
     x: 430,
     y: 220,
 });
+export const DEFAULT_PUCK_CROP = Object.freeze({
+    x: 360,
+    y: 500,
+    width: 340,
+    height: 115,
+});
 export const MINIMUM_MAP_THEME_LUMINANCE_DIFFERENCE = 0.15;
 export const MINIMUM_VISIBLE_MAP_CROP_LUMINANCE = 0.01;
 export const MINIMUM_MAP_CROP_PIXEL_DIFFERENCE = 0.01;
+
+export function getConfirmationCameraStabilityAssertionFailure(proof) {
+    if (
+        !proof ||
+        !(proof.samples >= 20) ||
+        !Number.isFinite(proof.maximumCenterOffsetMeters)
+    ) {
+        return 'Missing native confirmation camera samples.';
+    }
+    if (
+        proof.offTargetSamples > 0 ||
+        proof.maximumCenterOffsetMeters > 5 ||
+        proof.maximumZoomDelta > 0.5
+    ) {
+        return `Confirmation camera moved away from the ALPR: ${JSON.stringify(proof)}`;
+    }
+    return null;
+}
 
 const delay = (milliseconds) =>
     new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
@@ -354,6 +388,9 @@ export class Runner {
         this.screenshots = new Map();
         this.screenshotNumber = 0;
         this.ocrBinary = join(this.runDirectory, 'android-auto-ocr');
+        this.emulatorGpsClient = null;
+        this.confirmationCameraFrames = [];
+        this.carLayout = 'dashboard';
     }
 
     report(message) {
@@ -591,7 +628,8 @@ export class Runner {
                     ...this.environment,
                     APP_ENV: 'e2e',
                     CI: '1',
-                    EXPO_PUBLIC_E2E_MAP_API_MOCKS: '1',
+                    EXPO_PUBLIC_E2E_MAP_API_MOCKS:
+                        this.suite.mapApiMocks === false ? '0' : '1',
                     FORCE_COLOR: '0',
                 },
                 stdio: ['ignore', 'pipe', 'pipe'],
@@ -850,6 +888,11 @@ export class Runner {
             outputStart,
             bundleTimeout,
         );
+        await this.waitForMetroMarker(
+            '[E2E] phone-root-mounted',
+            outputStart,
+            60000,
+        );
     }
 
     async waitForCarAppReady(outputStart) {
@@ -958,7 +1001,10 @@ export class Runner {
         this.dhuProcess.stdin.write(`${command}\n`);
     }
 
-    async captureScreenshot(name) {
+    async captureScreenshot(
+        name,
+        { recognizeText = true, verifyLayout = true } = {},
+    ) {
         this.screenshotNumber += 1;
         const prefix = String(this.screenshotNumber).padStart(2, '0');
         const imagePath = join(this.runDirectory, `${prefix}-${name}.png`);
@@ -989,28 +1035,30 @@ export class Runner {
             20000,
         );
         let ocrResult;
-        await this.waitFor(
-            () => {
-                const result = this.run(this.ocrBinary, [imagePath], {
-                    allowFailure: true,
-                    timeout: 90000,
-                });
+        if (recognizeText)
+            await this.waitFor(
+                () => {
+                    const result = this.run(this.ocrBinary, [imagePath], {
+                        allowFailure: true,
+                        timeout: 90000,
+                    });
 
-                if (result.error || result.status !== 0) {
-                    return false;
-                }
+                    if (result.error || result.status !== 0) {
+                        return false;
+                    }
 
-                ocrResult = result;
-                return true;
-            },
-            `decodable screenshot ${name}`,
-            120000,
-        );
-        const ocr = ocrResult.stdout.trim();
-        writeFileSync(
-            join(this.runDirectory, `${prefix}-${name}.ocr.txt`),
-            `${ocr}\n`,
-        );
+                    ocrResult = result;
+                    return true;
+                },
+                `decodable screenshot ${name}`,
+                120000,
+            );
+        const ocr = ocrResult?.stdout.trim() ?? '';
+        if (recognizeText)
+            writeFileSync(
+                join(this.runDirectory, `${prefix}-${name}.ocr.txt`),
+                `${ocr}\n`,
+            );
         const screenshot = {
             hash: createHash('sha256')
                 .update(readFileSync(imagePath))
@@ -1018,9 +1066,30 @@ export class Runner {
             imagePath,
             ocr,
         };
+        if (this.suite.layouts) {
+            screenshot.layoutProof = JSON.parse(
+                this.run(this.ocrBinary, ['--host-layout', imagePath]).stdout,
+            );
+            writeFileSync(
+                imagePath.replace(/\.png$/, '.layout.json'),
+                JSON.stringify(screenshot.layoutProof) + '\n',
+            );
+        }
         this.screenshots.set(name, screenshot);
 
+        if (verifyLayout && this.suite.layouts) {
+            this.assertScreenshotCarLayout(name);
+        }
+
         return screenshot;
+    }
+
+    assertScreenshotCarLayout(name) {
+        const screenshot = this.screenshots.get(name);
+        if (screenshot?.layoutProof?.layout !== this.carLayout)
+            throw new Error(
+                `Expected ${this.carLayout} layout in ${name}: ${JSON.stringify(screenshot?.layoutProof ?? null)}`,
+            );
     }
 
     async dispatchDeepLink(requestType, query, expectedMarker) {
@@ -1102,6 +1171,84 @@ export class Runner {
         this.adb(args);
     }
 
+    async replaySavedRoute(step) {
+        const routePath = resolve(dirname(this.suitePath), step.file);
+        const source = readFileSync(routePath, 'utf8');
+        const route = parseEmulatorRoute(JSON.parse(source));
+        const fixes = buildEmulatorRouteReplay(route, step);
+        this.report(
+            `Replaying ${route.name}: ${fixes[0].atMs}-${fixes.at(-1).atMs} ms through emulator GPS`,
+        );
+        writeFileSync(join(this.runDirectory, 'replayed-route.json'), source);
+        if (!this.emulatorGpsClient) {
+            this.emulatorGpsClient = await createEmulatorGpsClient({
+                serial: this.serial,
+                androidSdkRoot: this.androidSdkRoot,
+                discoveryDirectory:
+                    this.environment.ANDROID_AUTO_E2E_EMULATOR_DISCOVERY_DIR,
+            });
+        }
+        await replayEmulatorRoute(fixes, {
+            sendFix: async (fix) => {
+                await this.setEmulatorRouteLocation(fix);
+                const capture = step.cameraStability;
+                if (
+                    capture &&
+                    fix.atMs >= capture.fromMs &&
+                    fix.atMs <= capture.toMs &&
+                    (fix.atMs - capture.fromMs) % capture.intervalMs === 0
+                ) {
+                    const name = `confirmation-frame-${fix.atMs}`;
+                    await this.captureScreenshot(name, {
+                        recognizeText: false,
+                    });
+                    this.confirmationCameraFrames.push(name);
+                }
+            },
+            wait: delay,
+        });
+        const finalFix = fixes.at(-1);
+        await this.waitFor(
+            () =>
+                androidGpsMatchesRouteFix(
+                    getAndroidGpsLocation(
+                        this.adb(['shell', 'dumpsys', 'location'], {
+                            logOutput: false,
+                        }).stdout,
+                    ),
+                    finalFix,
+                ),
+            'Android GPS position, speed and bearing to match the replay endpoint',
+            10000,
+        );
+        this.report(`Verified Android GPS at route time ${finalFix.atMs} ms`);
+    }
+
+    async resetLiveGpsDrive() {
+        this.confirmationCameraFrames = [];
+        this.confirmationCameraOutputStart = this.metroOutput.length;
+        const outputStart = this.metroOutput.length;
+        this.adb([
+            'shell',
+            'am',
+            'start',
+            '-a',
+            'android.intent.action.VIEW',
+            '-d',
+            'driversagainstflock://e2e-mocks?liveGpsDrive=reset',
+            this.suite.appId,
+        ]);
+        await this.waitForMetroMarker(
+            '[E2E] live-gps-drive-reset',
+            outputStart,
+            15000,
+        );
+    }
+
+    setEmulatorRouteLocation(fix) {
+        return this.emulatorGpsClient.setLocation(fix);
+    }
+
     async assertPhoneScorecardCrossings(expectedCount) {
         await this.wakePhone();
         this.adb([
@@ -1140,7 +1287,12 @@ export class Runner {
 
     async assertOcr(
         name,
-        { contains = [], notContains = [], timeout = 20000 } = {},
+        {
+            contains = [],
+            notContains = [],
+            timeout = 20000,
+            retryDelayMilliseconds = 1000,
+        } = {},
     ) {
         let screenshot = this.screenshots.get(name);
 
@@ -1167,7 +1319,7 @@ export class Runner {
                 );
             }
 
-            await delay(1000);
+            await delay(retryDelayMilliseconds);
             screenshot = await this.captureScreenshot(name);
         }
     }
@@ -1179,7 +1331,10 @@ export class Runner {
             throw new Error(`Screenshot was not captured: ${name}`);
         }
 
-        const { height, width, x, y } = this.suite?.mapCrop ?? DEFAULT_MAP_CROP;
+        const { height, width, x, y } =
+            this.suite?.layouts?.[this.carLayout]?.mapCrop ??
+            this.suite?.mapCrop ??
+            DEFAULT_MAP_CROP;
         const result = this.run(this.ocrBinary, [
             '--mean-luminance',
             screenshot.imagePath,
@@ -1209,7 +1364,10 @@ export class Runner {
             );
         }
 
-        const { height, width, x, y } = this.suite?.mapCrop ?? DEFAULT_MAP_CROP;
+        const { height, width, x, y } =
+            this.suite?.layouts?.[this.carLayout]?.mapCrop ??
+            this.suite?.mapCrop ??
+            DEFAULT_MAP_CROP;
         const result = this.run(this.ocrBinary, [
             '--mean-pixel-difference',
             first.imagePath,
@@ -1240,6 +1398,149 @@ export class Runner {
         if (failure) {
             throw new Error(failure);
         }
+    }
+
+    async assertPuckIsVisible(name) {
+        await this.waitFor(
+            async () => {
+                const proof = this.puckVisibilityProof(name);
+                if (proof.visible === true) {
+                    this.report(
+                        `Verified visible user puck in ${name} (${proof.bluePixels} blue pixels, ${proof.outlinePixels} outline pixels)`,
+                    );
+                    return true;
+                }
+                await this.captureScreenshot(name);
+                return false;
+            },
+            `visible user puck in ${name}`,
+            20000,
+        );
+    }
+
+    assertConfirmationCameraStable(name) {
+        const marker = '[E2E] presence-camera-released ';
+        const line = this.metroOutput
+            .slice(this.confirmationCameraOutputStart ?? 0)
+            .split('\n')
+            .find((line) => line.includes(marker));
+        const proof = line
+            ? JSON.parse(line.slice(line.indexOf(marker) + marker.length))
+            : null;
+        const failure = getConfirmationCameraStabilityAssertionFailure(proof);
+        if (failure) throw new Error(failure);
+        if (this.confirmationCameraFrames.length < 6)
+            throw new Error('Missing continuous DHU confirmation frames.');
+        let maximumDifference = 0;
+        for (const frame of this.confirmationCameraFrames) {
+            maximumDifference = Math.max(
+                maximumDifference,
+                this.mapCropPixelDifference(name, frame),
+            );
+        }
+        if (maximumDifference > 0.01)
+            throw new Error(
+                `Confirmation map moved between DHU frames: ${maximumDifference.toFixed(4)}`,
+            );
+        this.report(
+            `Verified confirmation camera held the ALPR (${proof.samples} native movement samples, ${this.confirmationCameraFrames.length} DHU frames, maximum pixel difference ${maximumDifference.toFixed(4)})`,
+        );
+    }
+
+    puckVisibilityProof(name) {
+        const screenshot = this.screenshots.get(name);
+        if (!screenshot)
+            throw new Error(`Screenshot was not captured: ${name}`);
+        const { x, y, width, height } =
+            this.suite.layouts?.[this.carLayout]?.puckCrop ??
+            this.suite.puckCrop ??
+            DEFAULT_PUCK_CROP;
+        const result = this.run(this.ocrBinary, [
+            '--puck-pixels',
+            screenshot.imagePath,
+            String(x),
+            String(y),
+            String(width),
+            String(height),
+        ]);
+        const proof = JSON.parse(result.stdout);
+        return proof;
+    }
+
+    async setCarLayout(layout) {
+        if (!['dashboard', 'fullscreen'].includes(layout))
+            throw new Error(`Unknown car layout: ${layout}`);
+        const name = `layout-${layout}`;
+        const screenshot = await this.captureScreenshot(name, {
+            verifyLayout: false,
+        });
+        if (
+            !['dashboard', 'fullscreen'].includes(
+                screenshot.layoutProof?.layout,
+            )
+        )
+            throw new Error(
+                `Unrecognized Android Auto host layout: ${JSON.stringify(screenshot.layoutProof)}`,
+            );
+        if (screenshot.layoutProof.layout !== layout) {
+            this.sendDhu(layout === 'fullscreen' ? 'tap 40 260' : 'tap 40 675');
+            await delay(1500);
+            await this.captureScreenshot(name, { verifyLayout: false });
+        }
+        this.carLayout = layout;
+        this.assertScreenshotCarLayout(name);
+        await this.ensureMapCropIsVisible(name);
+        await this.assertPuckIsVisible(name);
+        this.report(`Verified ${layout} map layout`);
+    }
+
+    async tapOcrAction(step) {
+        const screenshot = this.screenshots.get(step.screenshot);
+        if (!screenshot)
+            throw new Error(`Screenshot was not captured: ${step.screenshot}`);
+        const result = this.run(this.ocrBinary, [
+            '--text-bounds',
+            screenshot.imagePath,
+            step.text,
+        ]);
+        const target = JSON.parse(result.stdout);
+        const outputStart = this.metroOutput.length;
+        this.sendDhu(`tap ${target.x} ${target.y}`);
+        if (step.waitForMetro)
+            await this.waitForMetroMarker(step.waitForMetro, outputStart, 2000);
+        if (step.waitForPresentation)
+            await this.waitForMetroMarker(
+                step.waitForPresentation,
+                outputStart,
+                10000,
+            );
+    }
+
+    assertPresenceReports(step) {
+        const marker = '[E2E] presence-report-queued ';
+        const reports = this.metroOutput
+            .split('\n')
+            .filter((line) => line.includes(marker))
+            .map((line) =>
+                JSON.parse(line.slice(line.indexOf(marker) + marker.length)),
+            );
+        if (
+            reports.length !== step.count ||
+            reports.some(
+                (report, index) =>
+                    report.count !== index + 1 ||
+                    report.osmNodeId !== step.osmNodeId ||
+                    report.response !== 'not_there' ||
+                    report.platform !== 'android_auto',
+            )
+        ) {
+            throw new Error(
+                `Unexpected queued presence reports: ${JSON.stringify(reports)}`,
+            );
+        }
+        this.report(
+            `Verified ${step.count} queued reports for mapped ALPR ${step.osmNodeId}`,
+        );
     }
 
     async ensureMapCropIsVisible(
@@ -1333,6 +1634,16 @@ export class Runner {
     }
 
     async runStep(step) {
+        if (
+            this.suite.mapApiMocks === false &&
+            ['deepLink', 'scorecardDriveScenario', 'autoDrive'].includes(
+                step.type,
+            )
+        ) {
+            throw new Error(
+                'Live GPS replay cannot enable mocked routes or internal auto-drive.',
+            );
+        }
         switch (step.type) {
             case 'dhu': {
                 const outputStart = this.metroOutput.length;
@@ -1397,6 +1708,27 @@ export class Runner {
             case 'geoFix':
                 this.setEmulatorLocation(step);
                 break;
+            case 'replayRoute':
+                await this.replaySavedRoute(step);
+                break;
+            case 'resetLiveGpsDrive':
+                await this.resetLiveGpsDrive();
+                break;
+            case 'assertPuckVisible':
+                await this.assertPuckIsVisible(step.screenshot);
+                break;
+            case 'assertConfirmationCameraStable':
+                this.assertConfirmationCameraStable(step.screenshot);
+                break;
+            case 'carLayout':
+                await this.setCarLayout(step.layout);
+                break;
+            case 'tapOcr':
+                await this.tapOcrAction(step);
+                break;
+            case 'assertPresenceReports':
+                this.assertPresenceReports(step);
+                break;
             case 'waitForScorecardCameraInventory':
                 await this.waitForScorecardCameraInventory();
                 break;
@@ -1447,12 +1779,14 @@ export class Runner {
         }
     }
 
-    async runSuite() {
+    async focusCarMap() {
         this.sendDhu(
             'keycode back; sleep 1; keycode navigation; sleep 2; dpad click; sleep 3',
         );
         await delay(7000);
+    }
 
+    async runSuite() {
         for (const [index, test] of this.suite.tests.entries()) {
             this.report(
                 `[${index + 1}/${this.suite.tests.length}] ${test.name}`,
@@ -1484,6 +1818,9 @@ export class Runner {
     }
 
     assertNoFatalCrash() {
+        const runtimeError = this.metroOutput.match(/^\s*ERROR\s+(.+)$/m)?.[1];
+        if (runtimeError)
+            throw new Error(`React Native runtime error: ${runtimeError}`);
         const logcat = this.captureLogcat();
         const escaped = this.suite.appId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const appOrService = `(?:${escaped}|AndroidAutoService)`;
@@ -1685,6 +2022,15 @@ export class Runner {
                     this.adb(['shell', 'am', 'force-stop', this.suite.appId]);
                     this.startedApp = false;
                 });
+                if (
+                    this.preparedDevice &&
+                    this.metroOutput.includes('[E2E] presence-report-queued ')
+                ) {
+                    await attempt('clear isolated test reports', () => {
+                        this.adb(['shell', 'pm', 'clear', this.suite.appId]);
+                        this.report('Cleared isolated E2E report data');
+                    });
+                }
                 await attempt('verify car session stopped', () =>
                     this.waitFor(
                         () => !this.serviceRunning(),
@@ -1695,6 +2041,13 @@ export class Runner {
             }
 
             await attempt('stop Metro', () => this.stopMetro());
+            if (this.emulatorGpsClient) {
+                await attempt('restore emulator GPS control', () =>
+                    this.emulatorGpsClient.restore(),
+                );
+                this.emulatorGpsClient.close();
+                this.emulatorGpsClient = null;
+            }
             if (this.preparedDevice) {
                 await attempt('reset emulator location', () => {
                     this.run(
@@ -1733,6 +2086,7 @@ export class Runner {
             await this.startServer();
             const outputStart = await this.launchApp();
             await this.startDhu();
+            await this.focusCarMap();
             await this.waitForCarAppReady(outputStart);
             await this.runSuite();
             this.assertNoFatalCrash();

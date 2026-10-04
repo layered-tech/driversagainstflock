@@ -16,13 +16,24 @@ import {
 const rounded = (value) =>
     Number.isFinite(value) ? Math.round(value * 100) / 100 : null;
 
+export async function samplePresenceCamera(mapView, diagnostics, shouldApply) {
+    const [center, zoom] = await Promise.all([
+        mapView.getCenter(),
+        mapView.getZoom(),
+    ]);
+    if (shouldApply())
+        diagnostics.record({ properties: { center, zoom } }, 'native-poll');
+}
+
 /** Exports aggregate camera movement without coordinates or frame history. */
-export function createPresenceCameraDiagnostics() {
+export function createPresenceCameraDiagnostics({ now = Date.now } = {}) {
     let focus = null;
     let snapshot = null;
+    let focusedAt = null;
     return {
         reset(nextFocus) {
             focus = nextFocus;
+            focusedAt = now();
             snapshot = {
                 samples: 0,
                 offTargetSamples: 0,
@@ -31,9 +42,10 @@ export function createPresenceCameraDiagnostics() {
                 zoomDelta: null,
                 maximumZoomDelta: null,
                 pitchDelta: null,
+                firstOffTargetSample: null,
             };
         },
-        record(state) {
+        record(state, source = 'camera-event') {
             if (!focus) return;
             const camera = state?.properties;
             const center = camera?.center;
@@ -65,6 +77,15 @@ export function createPresenceCameraDiagnostics() {
                 pitchDelta: Number.isFinite(camera?.pitch)
                     ? rounded(Math.abs(camera.pitch - focus.pitch))
                     : null,
+                firstOffTargetSample:
+                    snapshot.firstOffTargetSample ??
+                    (offset > 5
+                        ? {
+                              index: snapshot.samples + 1,
+                              elapsedMs: now() - focusedAt,
+                              source,
+                          }
+                        : null),
             };
         },
         getSnapshot: () => snapshot,

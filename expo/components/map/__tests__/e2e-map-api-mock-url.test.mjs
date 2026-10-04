@@ -3,9 +3,26 @@ import { describe, test } from 'node:test';
 import {
     getE2EAutoPlayCommandFromURL,
     getE2EMockFlagsFromURL,
+    isE2ELiveGpsDriveResetURL,
 } from '../../root/e2e-map-api-mock-url.js';
 
 describe('E2E map API mock links', () => {
+    test('live GPS drive reset keeps real map, camera, and auth sources', () => {
+        const value =
+            'driversagainstflock://e2e-mocks?liveGpsDrive=reset&e2eMapApiMocks=1&auth=1&drivingAlerts=alpr';
+        assert.equal(isE2ELiveGpsDriveResetURL(value), true);
+        assert.equal(getE2EMockFlagsFromURL(value).mocksAreEnabled, false);
+        assert.equal(getE2EMockFlagsFromURL(value).authMockIsEnabled, false);
+        assert.equal(getE2EMockFlagsFromURL(value).drivingAlertsFixture, null);
+        for (const value of [
+            'https://example.com/e2e-mocks?liveGpsDrive=reset',
+            'driversagainstflock://map?liveGpsDrive=reset',
+            'driversagainstflock://e2e-mocks?liveGpsDrive=start',
+            'invalid',
+        ]) {
+            assert.equal(isE2ELiveGpsDriveResetURL(value), false);
+        }
+    });
     test('defaults mocked flows to a signed-out session', () => {
         assert.deepEqual(
             getE2EMockFlagsFromURL('driversagainstflock://e2e-mocks'),

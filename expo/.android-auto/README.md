@@ -39,17 +39,26 @@ The portrait command uses [`suite-portrait.json`](./suite-portrait.json) with th
 
 ## Coverage
 
-The default suite contains nine ordered scenarios:
+The default suite replays the saved WI-164/Pewaukee Road route from [`route-pewaukee.json`](./route-pewaukee.json), using its detailed geometry and estimated duration. Map API mocks are disabled. GPS position, speed, and course are sent through the emulator's authenticated GPS API and checked against Android's GPS provider after each segment; internal `AUTO_DRIVE` and synthetic camera crossings are not used.
 
-1. Connect to Android Auto and render the Mapbox map, with service and session wake-lock checks.
+The default suite has 17 scenarios. It runs these eight flows in both Dashboard and Fullscreen, then disconnects and verifies that the Android Auto service stops:
+
+1. Render the Mapbox map and confirm the selected host layout and visible user puck.
 2. Switch between day and night presentation.
-3. Show native Android Auto search results for Walmart.
-4. Offer two routes to Austin Central Library and start the private route.
-5. Toggle from 3D follow to route overview and back.
-6. Advance active guidance with Android Auto's `AUTO_DRIVE` test command.
-7. Keep guidance and the session wake lock alive while the phone sleeps.
-8. Handle the Android Auto host's Stop action and return to the host dashboard while the car session remains connected.
-9. Disconnect and release the Android Auto service and session wake lock.
+3. Show an upcoming warning for a mapped ALPR on the saved road.
+4. Confirm the camera after passing it through emulator GPS.
+5. Hold the confirmation camera while GPS moves, expire it, and restore the user puck and map status.
+6. Continue the saved route while the phone sleeps and verify map movement.
+7. Press **Still there / Dismiss**, restore follow, and assert that no report was queued.
+8. Press **Not there**, assert one queued report for the canonical OSM camera ID, verify **Thanks!** and **Ok**, then press **Ok** and verify dismissal and restored follow.
+
+The saved-route checks use live camera inventory. The existing portrait suite remains an opt-in route-view UI check.
+
+Dashboard and Fullscreen checks identify Android Auto's own view-switch button in each fresh screenshot. They do not depend on a media app being installed, its title, or its card finishing loading. An unrecognized or incorrect host layout fails the test; each screenshot's layout evidence is saved in a matching `.layout.json` file.
+
+The default suite checks the arrow puck's blue body, shape and white outline in fresh DHU screenshots at connection, on approach, after confirmation, and before and after driving with the phone asleep. A visible map or accuracy circle alone cannot satisfy that check. Confirmation stability combines continuous native camera position samples and movement aggregates with six DHU frames captured while GPS advances. Button taps use OCR text bounds from the current host screenshot.
+
+After establishing GPS motion, a development-only command clears warning history and confirmation cooldowns so warnings consumed during startup do not suppress the drive; this command keeps API mocks disabled. In the E2E environment, missing-camera reports remain in the local encrypted outbox. These UI tests do not submit false reports against the live camera inventory.
 
 ## Artifacts
 
@@ -59,13 +68,13 @@ Each run creates a timestamped directory at:
 $DAF_EAS_LOCAL_BUILD_ROOT/android-auto-e2e/<timestamp>/
 ```
 
-With defaults, this is under `/Volumes/PfeiferDev/DevCaches/chris/expo-builds/android-auto-e2e/`. The directory includes DHU screenshots, matching OCR text, `harness.log`, `metro.log`, `dhu.log`, and `android-logcat.txt`.
+With defaults, this is under `/Volumes/PfeiferDev/DevCaches/chris/expo-builds/android-auto-e2e/`. The directory includes DHU screenshots, matching OCR text, `harness.log`, `metro.log`, `dhu.log`, `android-logcat.txt`, and a copy of the replayed route.
 
 ## Lifecycle and cleanup
 
-The harness stops an existing instance of the selected DHU binary, starts a dedicated Metro server on port `8091`, clears the development app's data, grants test permissions, sets the Austin test location, and starts the Android Auto head-unit server if needed. It loads the app through the development-client URL before connecting DHU, preventing the headless car service from racing Expo's development loader; one bounded retry handles an interrupted Expo startup. DHU then connects and the runner separately requires the car service, session wake lock, `AutoPlayRoot`, and Mapbox-ready marker.
+The harness stops an existing instance of the selected DHU binary, starts a dedicated Metro server on port `8091`, clears the development app's data, grants test permissions, sets the suite's starting location, and starts the Android Auto head-unit server if needed. It waits for both bundle delivery and the mounted phone root before connecting DHU, preventing the headless car service from racing Expo's development loader; one bounded retry handles an interrupted Expo startup. DHU then connects and the runner separately requires the car service, session wake lock, `AutoPlayRoot`, and Mapbox-ready marker.
 
-Cleanup runs after success, failure, `SIGINT`, or `SIGTERM`. It wakes the phone if necessary, stops the managed DHU, stops the head-unit server only when the harness started it, force-stops the launched app, stops its Metro process, and resets emulator location. It does not shut down the emulator. A head-unit server that was already running is left running.
+Cleanup runs after success, failure, `SIGINT`, or `SIGTERM`. It wakes the phone if necessary, stops the managed DHU, stops the head-unit server only when the harness started it, force-stops the launched app, clears isolated test app data when this run queued reports, stops its Metro process, and resets emulator location. It does not shut down the emulator. A head-unit server that was already running is left running.
 
 ## Overrides
 

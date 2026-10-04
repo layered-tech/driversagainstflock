@@ -74,10 +74,12 @@ export function createPresencePrompt({
                 primaryAction: {
                     title: 'Ok',
                     onPress: () => {
+                        trace('native-thanks-ok-pressed');
                         if (followUp === pending) clearFollowUp();
                     },
                 },
                 onWillShow: () => {
+                    trace('native-thanks-presented');
                     if (followUp === pending) pending.shownAt = now();
                 },
                 onDidDismiss: () => {

@@ -59,10 +59,13 @@ import {
     mergeCameraPadding,
 } from './map-location-mode-shared';
 import { useLockOnLocationMode } from './map-lock-on-location-mode';
-import { createPresenceCameraDiagnostics } from './map/alpr-presence-debug';
+import {
+    createPresenceCameraDiagnostics,
+    samplePresenceCamera,
+} from './map/alpr-presence-debug';
 import { useMockWazePoliceAlertsEnabled } from './map/api-mocks';
 import { getBoundsFitCameraStop } from './map/camera-state';
-import { SHOW_MAP_DEBUG_CONTROLS } from './map/config';
+import { APP_ENVIRONMENT, SHOW_MAP_DEBUG_CONTROLS } from './map/config';
 import { DEFAULT_ZOOM_LEVEL, ZOOM_STEP } from './map/constants';
 import {
     addDebugCameraZoomListener,
@@ -509,6 +512,22 @@ function useAutoPlayMapController({
         [],
     );
     const presenceCameraGenerationRef = useRef(0);
+    useEffect(() => {
+        if (APP_ENVIRONMENT !== 'e2e' || !presenceCameraIsLocked) return;
+        const generation = presenceCameraGenerationRef.current;
+        const sample = () => {
+            if (!mapViewRef.current || !presenceCameraFocusRef.current) return;
+            void samplePresenceCamera(
+                mapViewRef.current,
+                presenceCameraDiagnosticsRef.current,
+                () =>
+                    presenceCameraOwnerRef.current &&
+                    generation === presenceCameraGenerationRef.current,
+            ).catch(() => {});
+        };
+        const timer = setInterval(sample, 100);
+        return () => clearInterval(timer);
+    }, [presenceCameraIsLocked]);
     const cameraUpdatesAreAllowed = useCallback(
         () => !presenceCameraOwnerRef.current,
         [],
@@ -733,6 +752,14 @@ function useAutoPlayMapController({
     const restorePresenceCamera = useCallback((manual = false) => {
         presenceCameraGenerationRef.current += 1;
         if (!presenceCameraOwnerRef.current) return;
+        if (APP_ENVIRONMENT === 'e2e' && presenceCameraFocusRef.current) {
+            console.info(
+                '[E2E] presence-camera-released ' +
+                    JSON.stringify(
+                        presenceCameraDiagnosticsRef.current.getSnapshot(),
+                    ),
+            );
+        }
         presenceCameraOwnerRef.current = false;
         presenceCameraFocusRef.current = null;
         presenceCameraCommitRef.current?.(false);

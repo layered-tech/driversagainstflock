@@ -8,6 +8,7 @@ import {
     createPresenceDebugStore,
     formatPresenceDebugSnapshot,
     presenceDebugStore,
+    samplePresenceCamera,
 } from '../alpr-presence-debug.js';
 import {
     createPresencePassDetector,
@@ -19,6 +20,36 @@ import {
 } from '../debug-overlays.js';
 
 const now = 100000;
+
+test('native sampling records camera excursions without camera-change events and ignores released owners', async () => {
+    let clock = 0;
+    const diagnostics = createPresenceCameraDiagnostics({ now: () => clock });
+    diagnostics.reset({
+        centerCoordinate: [-97, 30],
+        zoomLevel: 17,
+        pitch: 55,
+    });
+    let center = [-97, 30];
+    const mapView = { getCenter: async () => center, getZoom: async () => 17 };
+    await samplePresenceCamera(mapView, diagnostics, () => true);
+    center = [-97, 30.001];
+    clock = 100;
+    await samplePresenceCamera(mapView, diagnostics, () => true);
+    center = [-97, 30];
+    await samplePresenceCamera(mapView, diagnostics, () => true);
+    assert.equal(diagnostics.getSnapshot().samples, 3);
+    assert.equal(diagnostics.getSnapshot().centerOffsetMeters, 0);
+    assert.equal(diagnostics.getSnapshot().offTargetSamples, 1);
+    assert.ok(diagnostics.getSnapshot().maximumCenterOffsetMeters > 100);
+    assert.deepEqual(diagnostics.getSnapshot().firstOffTargetSample, {
+        index: 2,
+        elapsedMs: 100,
+        source: 'native-poll',
+    });
+    center = [-97, 30.01];
+    await samplePresenceCamera(mapView, diagnostics, () => false);
+    assert.equal(diagnostics.getSnapshot().samples, 3);
+});
 const context = {
     enabled: true,
     connected: true,

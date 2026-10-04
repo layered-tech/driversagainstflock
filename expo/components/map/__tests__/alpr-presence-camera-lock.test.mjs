@@ -17,8 +17,9 @@ const callbacks = source.slice(
     source.indexOf('    const scheduleMarkerLoad = useCallback('),
 );
 const settle = () => new Promise((resolve) => setImmediate(resolve));
-function harness() {
+function harness({ environment = 'production' } = {}) {
     const events = [];
+    const logs = [];
     const effects = [];
     let locked = false;
     let release;
@@ -60,6 +61,8 @@ function harness() {
     };
     const values = {
         ...refs,
+        APP_ENVIRONMENT: environment,
+        console: { info: (value) => logs.push(value) },
         cameraUpdatesAreAllowed: () => !refs.presenceCameraOwnerRef.current,
         Platform: { OS: 'android' },
         useCallback: (callback) => callback,
@@ -77,6 +80,7 @@ function harness() {
         ...api,
         refs,
         events,
+        logs,
         updateViewport: (padding) => {
             viewportMetrics.cameraPadding = padding;
             refs.viewportMetricsRef.current = { cameraPadding: padding };
@@ -89,6 +93,32 @@ function harness() {
         release: () => release?.(true),
     };
 }
+
+test('E2E release retains a brief excursion even when the final camera is back on the ALPR', async () => {
+    const h = harness({ environment: 'e2e' });
+    const focus = { centerCoordinate: [-88, 43], pitch: 55, zoomLevel: 17 };
+    const pending = h.focusPresenceCamera(focus, () => true);
+    h.commit();
+    await settle();
+    h.release();
+    await pending;
+    const diagnostics = h.refs.presenceCameraDiagnosticsRef.current;
+    for (const center of [
+        [-88, 43],
+        [-88, 43.002],
+        [-88, 43],
+    ]) {
+        diagnostics.record({ properties: { center, zoom: 17, pitch: 55 } });
+    }
+    h.restorePresenceCamera();
+    assert.equal(h.logs.length, 1);
+    const proof = JSON.parse(
+        h.logs[0].split('[E2E] presence-camera-released ')[1],
+    );
+    assert.equal(proof.centerOffsetMeters, 0);
+    assert.equal(proof.offTargetSamples, 1);
+    assert.ok(proof.maximumCenterOffsetMeters > 200);
+});
 
 test('focus waits for follow-disabled React commit and native release before applying the node camera', async () => {
     const h = harness();

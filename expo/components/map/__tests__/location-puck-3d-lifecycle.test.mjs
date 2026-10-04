@@ -27,6 +27,38 @@ function requestPuck(lifecycle, mapViewRef, requested = true) {
 }
 
 describe('3D location puck lifecycle', () => {
+    test('retries native installation when late 2D cleanup replaces the first 3D puck', async () => {
+        let applications = 0;
+        const statuses = [];
+        const lifecycle = createLocationPuck3DLifecycle({
+            applyLocationPuck: async () => {
+                applications += 1;
+                return true;
+            },
+            clearLocationPuck: async () => true,
+            verifyLocationPuck: async () => applications > 1,
+            onStatusChange: (status) => statuses.push(status),
+        });
+        const view = { current: { id: 'car-map' } };
+        await requestPuck(lifecycle, view);
+        await requestPuck(lifecycle, view);
+        assert.equal(applications, 2);
+        assert.equal(lifecycle.getStatus(), 'active');
+        assert.deepEqual(statuses, ['preparing', 'active']);
+    });
+
+    test('restores the 2D fallback when native ownership cannot be verified', async () => {
+        const lifecycle = createLocationPuck3DLifecycle({
+            applyLocationPuck: async () => true,
+            clearLocationPuck: async () => true,
+            verifyLocationPuck: async () => false,
+        });
+        const view = { current: { id: 'car-map' } };
+        await requestPuck(lifecycle, view);
+        await requestPuck(lifecycle, view);
+        assert.equal(lifecycle.getStatus(), 'failed');
+    });
+
     test('unmounts the 2D fallback before applying the 3D puck', async () => {
         let applyCount = 0;
         const statuses = [];

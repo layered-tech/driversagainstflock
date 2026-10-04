@@ -16,13 +16,27 @@ const E2E_AUTO_PLAY_REQUEST_TYPES = new Set([
     'search',
 ]);
 
+export function isE2ELiveGpsDriveResetURL(value) {
+    try {
+        const url = new URL(value);
+        return (
+            url.protocol === 'driversagainstflock:' &&
+            getDeepLinkPath(url) === 'e2e-mocks' &&
+            url.searchParams.get('liveGpsDrive') === 'reset'
+        );
+    } catch {
+        return false;
+    }
+}
+
 export function getE2EMockFlagsFromURL(value) {
     try {
         const url = new URL(value);
         const mocksAreEnabled =
-            url.searchParams.get('e2eMapApiMocks') === '1' ||
-            (url.protocol === 'driversagainstflock:' &&
-                getDeepLinkPath(url) === 'e2e-mocks');
+            !isE2ELiveGpsDriveResetURL(value) &&
+            (url.searchParams.get('e2eMapApiMocks') === '1' ||
+                (url.protocol === 'driversagainstflock:' &&
+                    getDeepLinkPath(url) === 'e2e-mocks'));
         const authMockValue =
             url.searchParams.get('auth') ?? url.searchParams.get('e2eAuthMock');
         const authMockIsEnabled = mocksAreEnabled && authMockValue === '1';

@@ -17,6 +17,7 @@ import {
     presenceCoordinate,
 } from './map/alpr-presence-policy';
 import { createPresencePrompt } from './map/alpr-presence-prompt';
+import { APP_ENVIRONMENT } from './map/config';
 import {
     presenceCoordinator,
     startPresenceRuntime,
@@ -109,7 +110,7 @@ export function useAutoPlayAlprPresence({
             coordinator: presenceCoordinator,
             trace: (event, details) => {
                 presenceDebugStore.event(event, Date.now(), details);
-                if (getPresenceE2EFixture())
+                if (APP_ENVIRONMENT === 'e2e' || getPresenceE2EFixture())
                     console.info(`[E2E] presence:${event}`);
             },
             host: mapTemplate,

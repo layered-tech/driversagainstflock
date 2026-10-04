@@ -11,7 +11,11 @@ import {
 import { createPresenceCoordinator } from './alpr-presence-coordinator';
 import { presenceDebugStore } from './alpr-presence-debug';
 import { mapApiMocksAreEnabled } from './api-mocks';
-import { buildApiURL, SHOW_MAP_DEBUG_CONTROLS } from './config';
+import {
+    APP_ENVIRONMENT,
+    buildApiURL,
+    SHOW_MAP_DEBUG_CONTROLS,
+} from './config';
 import { DEBUG_OVERLAY_ALPR_PRESENCE } from './debug-overlays';
 import {
     addSharedMapPreferencesStateListener,
@@ -29,10 +33,23 @@ export const presenceCoordinator = createPresenceCoordinator({
     randomId: () => createPlaceSearchSessionToken().replaceAll('-', ''),
     notify: (message) => {
         console.info(`[ALPR presence] ${message}`);
+        if (APP_ENVIRONMENT === 'e2e' && message === 'Report queued') {
+            const outbox = presenceCoordinator.state.outbox;
+            const payload = outbox.at(-1).payload;
+            console.info(
+                '[E2E] presence-report-queued ' +
+                    JSON.stringify({
+                        count: outbox.length,
+                        osmNodeId: payload.osm_node_id,
+                        response: payload.response,
+                        platform: payload.platform,
+                    }),
+            );
+        }
         presenceDebugStore.event(message);
     },
     send: async (payload) => {
-        if (mapApiMocksAreEnabled())
+        if (APP_ENVIRONMENT === 'e2e' || mapApiMocksAreEnabled())
             throw new Error('E2E report remains queued');
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 10000);

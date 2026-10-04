@@ -8,6 +8,7 @@ import {
     envFileHasNonEmptyValue,
     findNodeBounds,
     findNodeByResourceId,
+    getConfirmationCameraStabilityAssertionFailure,
     getMapCropPixelDifferenceAssertionFailure,
     getMapSurfaceVisibilityAssertionFailure,
     getMapThemeContrastAssertionFailure,
@@ -22,16 +23,332 @@ import {
 } from '../android-auto-e2e.mjs';
 
 describe('Android Auto E2E helpers', () => {
+    for (const reportsWereQueued of [false, true]) {
+        test(`cleanup removes isolated report data only when this run queued reports (${reportsWereQueued})`, async () => {
+            const runner = Object.create(Runner.prototype);
+            const commands = [];
+            runner.suite = { appId: 'test.app' };
+            runner.preparedDevice = true;
+            runner.startedApp = true;
+            runner.metroOutput = reportsWereQueued
+                ? '[E2E] presence-report-queued {"count":1}'
+                : '';
+            runner.adb = (args) => commands.push(args);
+            runner.run = () => {};
+            runner.report = () => {};
+            runner.serviceRunning = () => false;
+            runner.waitFor = async (predicate) =>
+                assert.equal(await predicate(), true);
+            for (const name of [
+                'wakePhone',
+                'stopDhu',
+                'stopServer',
+                'removeOwnedForward',
+                'stopMetro',
+            ])
+                runner[name] = async () => {};
+            await runner.cleanup();
+            assert.equal(
+                commands.filter((args) => args.includes('clear')).length,
+                reportsWereQueued ? 1 : 0,
+            );
+            assert.deepEqual(commands[0], [
+                'shell',
+                'am',
+                'force-stop',
+                'test.app',
+            ]);
+            if (reportsWereQueued)
+                assert.deepEqual(commands[1], [
+                    'shell',
+                    'pm',
+                    'clear',
+                    'test.app',
+                ]);
+        });
+    }
+
+    test('rejects camera flicker even when the final position has returned to the ALPR', () => {
+        const stable = {
+            samples: 20,
+            offTargetSamples: 0,
+            centerOffsetMeters: 0,
+            maximumCenterOffsetMeters: 0,
+            maximumZoomDelta: 0.25,
+        };
+        assert.equal(
+            getConfirmationCameraStabilityAssertionFailure(stable),
+            null,
+        );
+        assert.match(
+            getConfirmationCameraStabilityAssertionFailure({
+                ...stable,
+                offTargetSamples: 1,
+                maximumCenterOffsetMeters: 200,
+            }),
+            /moved away/,
+        );
+        assert.match(
+            getConfirmationCameraStabilityAssertionFailure(null),
+            /Missing/,
+        );
+        assert.match(
+            getConfirmationCameraStabilityAssertionFailure({
+                ...stable,
+                samples: 0,
+            }),
+            /Missing/,
+        );
+    });
+
+    test('confirmation stability also rejects DHU map frames that visibly switch views', () => {
+        const runner = Object.create(Runner.prototype);
+        runner.metroOutput =
+            ' INFO  [E2E] presence-camera-released ' +
+            JSON.stringify({
+                samples: 20,
+                offTargetSamples: 0,
+                maximumCenterOffsetMeters: 0,
+                maximumZoomDelta: 0.25,
+            });
+        runner.confirmationCameraFrames = ['a', 'b', 'c', 'd', 'e', 'f'];
+        runner.report = () => {};
+        runner.mapCropPixelDifference = () => 0.001;
+        runner.assertConfirmationCameraStable('baseline');
+        runner.mapCropPixelDifference = (_, name) =>
+            name === 'c' ? 0.2 : 0.001;
+        assert.throws(
+            () => runner.assertConfirmationCameraStable('baseline'),
+            /map moved/,
+        );
+        runner.confirmationCameraFrames = [];
+        assert.throws(
+            () => runner.assertConfirmationCameraStable('baseline'),
+            /Missing continuous/,
+        );
+    });
+
+    test('a displayed React Native error cannot pass a completed DHU suite', () => {
+        const runner = Object.create(Runner.prototype);
+        runner.metroOutput =
+            " ERROR  Can't perform a React state update on a component that hasn't mounted yet.\n";
+        runner.captureLogcat = () =>
+            assert.fail('runtime error should fail first');
+        assert.throws(
+            () => runner.assertNoFatalCrash(),
+            /React Native runtime error/,
+        );
+    });
+
+    test('native action taps use current OCR bounds and require a new action callback', async () => {
+        const runner = Object.create(Runner.prototype);
+        const calls = [];
+        runner.screenshots = new Map([
+            ['confirmation', { imagePath: '/tmp/current-confirmation.png' }],
+        ]);
+        runner.ocrBinary = '/tmp/ocr';
+        runner.metroOutput = 'old native action';
+        runner.run = (binary, args) => {
+            calls.push([binary, args]);
+            return {
+                stdout: JSON.stringify({ text: 'Not there', x: 257, y: 224 }),
+            };
+        };
+        runner.sendDhu = (command) => calls.push(command);
+        runner.waitForMetroMarker = async (...args) => calls.push(args);
+        await runner.tapOcrAction({
+            screenshot: 'confirmation',
+            text: 'Not there',
+            waitForMetro: '[E2E] presence:native-not-there-pressed',
+            waitForPresentation: '[E2E] presence:native-thanks-presented',
+        });
+        assert.deepEqual(calls, [
+            [
+                '/tmp/ocr',
+                ['--text-bounds', '/tmp/current-confirmation.png', 'Not there'],
+            ],
+            'tap 257 224',
+            [
+                '[E2E] presence:native-not-there-pressed',
+                'old native action'.length,
+                2000,
+            ],
+            [
+                '[E2E] presence:native-thanks-presented',
+                'old native action'.length,
+                10000,
+            ],
+        ]);
+    });
+
+    test('native reports must be unique, negative and identify the actual mapped camera', () => {
+        const runner = Object.create(Runner.prototype);
+        runner.report = () => {};
+        runner.metroOutput = '';
+        runner.assertPresenceReports({ count: 0, osmNodeId: 12634608635 });
+        const report = {
+            count: 1,
+            osmNodeId: 12634608635,
+            response: 'not_there',
+            platform: 'android_auto',
+        };
+        const log = (value) =>
+            '[E2E] presence-report-queued ' + JSON.stringify(value) + '\n';
+        runner.metroOutput = log(report);
+        runner.assertPresenceReports({ count: 1, osmNodeId: 12634608635 });
+        assert.throws(
+            () =>
+                runner.assertPresenceReports({
+                    count: 0,
+                    osmNodeId: 12634608635,
+                }),
+            /Unexpected/,
+        );
+        runner.metroOutput += log(report);
+        assert.throws(
+            () =>
+                runner.assertPresenceReports({
+                    count: 2,
+                    osmNodeId: 12634608635,
+                }),
+            /Unexpected/,
+        );
+        for (const changes of [
+            { osmNodeId: 'osm-node-135365' },
+            { response: 'still_there' },
+            { platform: 'carplay' },
+        ]) {
+            runner.metroOutput = log({ ...report, ...changes });
+            assert.throws(
+                () =>
+                    runner.assertPresenceReports({
+                        count: 1,
+                        osmNodeId: 12634608635,
+                    }),
+                /Unexpected/,
+            );
+        }
+    });
+
+    test('short native banners use their configured OCR retry interval', async () => {
+        const runner = Object.create(Runner.prototype);
+        runner.screenshots = new Map([
+            ['thanks', { imagePath: '/tmp/thanks.png', ocr: 'Thanks!' }],
+        ]);
+        let captures = 0;
+        runner.captureScreenshot = async () => {
+            captures += 1;
+            return { imagePath: '/tmp/thanks.png', ocr: 'Thanks! Ok' };
+        };
+        const startedAt = Date.now();
+        await runner.assertOcr('thanks', {
+            contains: ['Thanks', 'Ok'],
+            retryDelayMilliseconds: 0,
+            timeout: 3000,
+        });
+        assert.equal(captures, 1);
+        assert.ok(Date.now() - startedAt < 500);
+    });
+
+    test('every flow rejects the wrong host layout even if its map and puck remain visible', () => {
+        const runner = Object.create(Runner.prototype);
+        runner.screenshots = new Map([
+            [
+                'current',
+                { ocr: 'SPEED LIMIT', layoutProof: { layout: 'dashboard' } },
+            ],
+        ]);
+        runner.carLayout = 'dashboard';
+        runner.assertScreenshotCarLayout('current');
+        runner.carLayout = 'fullscreen';
+        assert.throws(
+            () => runner.assertScreenshotCarLayout('current'),
+            /Expected fullscreen/,
+        );
+        runner.screenshots.set('current', {
+            ocr: 'SPEED LIMIT',
+            layoutProof: { layout: 'fullscreen' },
+        });
+        runner.assertScreenshotCarLayout('current');
+        runner.carLayout = 'dashboard';
+        assert.throws(
+            () => runner.assertScreenshotCarLayout('current'),
+            /Expected dashboard/,
+        );
+        runner.screenshots.set('current', {
+            layoutProof: { layout: 'unknown' },
+        });
+        assert.throws(
+            () => runner.assertScreenshotCarLayout('current'),
+            /Expected dashboard/,
+        );
+    });
+
+    for (const layout of ['dashboard', 'fullscreen']) {
+        test(`recognizes ${layout} without other apps or media titles`, async () => {
+            const runner = Object.create(Runner.prototype);
+            runner.screenshots = new Map();
+            runner.captureScreenshot = async (name) => {
+                const screenshot = { ocr: '', layoutProof: { layout } };
+                runner.screenshots.set(name, screenshot);
+                return screenshot;
+            };
+            runner.sendDhu = () =>
+                assert.fail('the requested host layout is already shown');
+            runner.assertOcr = () =>
+                assert.fail('host layout must not depend on app text');
+            runner.ensureMapCropIsVisible = async () => {};
+            runner.assertPuckIsVisible = async () => {};
+            runner.report = () => {};
+            await runner.setCarLayout(layout);
+            assert.equal(runner.carLayout, layout);
+        });
+
+        test(`switches to ${layout} using host controls without media text`, async () => {
+            const runner = Object.create(Runner.prototype);
+            const commands = [];
+            let currentLayout =
+                layout === 'dashboard' ? 'fullscreen' : 'dashboard';
+            runner.screenshots = new Map();
+            runner.captureScreenshot = async (name) => {
+                const screenshot = {
+                    ocr: '',
+                    layoutProof: { layout: currentLayout },
+                };
+                runner.screenshots.set(name, screenshot);
+                return screenshot;
+            };
+            runner.sendDhu = (command) => {
+                commands.push(command);
+                currentLayout = layout;
+            };
+            runner.assertOcr = () =>
+                assert.fail('host controls must not depend on media text');
+            runner.ensureMapCropIsVisible = async () => {};
+            runner.assertPuckIsVisible = async () => {};
+            runner.report = () => {};
+            await runner.setCarLayout(layout);
+            assert.deepEqual(commands, [
+                layout === 'dashboard' ? 'tap 40 675' : 'tap 40 260',
+            ]);
+            assert.equal(runner.carLayout, layout);
+        });
+    }
+
     test('route view scenario uses semantic commands without DHU taps', () => {
         const suite = JSON.parse(
             readFileSync(
-                new URL('../../.android-auto/suite.json', import.meta.url),
+                new URL(
+                    '../../.android-auto/suite-portrait.json',
+                    import.meta.url,
+                ),
                 'utf8',
             ),
         );
         const scenario = suite.tests.find(
             ({ name }) =>
-                name === 'toggles between 3D follow and route overview',
+                name ===
+                'toggles portrait guidance between 3D follow and route overview',
         );
 
         assert.ok(scenario);
@@ -280,7 +597,7 @@ describe('Android Auto E2E helpers', () => {
         assert.match(reports[1], /difference=0\.2400/);
     });
 
-    test('uses applied map preset markers and crop contrast in idle and active guidance', () => {
+    test('uses applied map preset markers and crop contrast and retains opt-in portrait route-view coverage', () => {
         const suite = JSON.parse(
             readFileSync(
                 new URL('../../.android-auto/suite.json', import.meta.url),
@@ -300,22 +617,6 @@ describe('Android Auto E2E helpers', () => {
             ({ name }) =>
                 name === 'switches between day and night presentation',
         );
-        const activeGuidanceTest = suite.tests.find(
-            ({ name }) => name === 'renders active guidance map themes',
-        );
-        const navigationTest = suite.tests.find(({ name }) =>
-            name.includes('private guidance'),
-        );
-        const mapViewToggleTest = suite.tests.find(({ name }) =>
-            name.includes('3D follow'),
-        );
-        const phoneSleepTest = suite.tests.find(({ name }) =>
-            name.includes('phone sleeps'),
-        );
-        const hostStopTest = suite.tests.find(({ name }) =>
-            name.includes('host stop'),
-        );
-
         assert.deepEqual(suite.display, { height: 720, width: 1280 });
         assert.deepEqual(portraitSuite.display, {
             height: 1080,
@@ -369,65 +670,7 @@ describe('Android Auto E2E helpers', () => {
                 },
             ],
         );
-        assert.deepEqual(
-            navigationTest.steps.find(
-                ({ screenshot, type }) =>
-                    type === 'assertOcr' && screenshot === 'navigation-started',
-            ).contains,
-            ['Turn right to avoid', 'monitored intersections'],
-        );
-        assert.deepEqual(
-            phoneSleepTest.steps.find(
-                ({ screenshot, type }) =>
-                    type === 'assertOcr' && screenshot === 'phone-asleep',
-            ).contains,
-            ['Arrive at your destin', 'Austin Central Library'],
-        );
-        assert.deepEqual(
-            hostStopTest.steps.find(
-                ({ screenshot, type }) =>
-                    type === 'assertOcr' &&
-                    screenshot === 'host-stopped-navigation',
-            ).contains,
-            ['SPEED', 'LIMIT'],
-        );
-        assert.deepEqual(
-            mapViewToggleTest.steps
-                .filter(
-                    ({ requestType, type }) =>
-                        type === 'deepLink' && requestType === 'map-view',
-                )
-                .map(({ waitForMetro }) => waitForMetro),
-            [
-                '[Auto Play] driving-route-overview-fitted',
-                '[Auto Play] driving-map-view-perspective-restored',
-            ],
-        );
-        assert.deepEqual(
-            mapViewToggleTest.steps.find(
-                ({ screenshot, type }) =>
-                    type === 'assertOcr' &&
-                    screenshot === 'map-view-route-overview',
-            ),
-            {
-                contains: ['Arrive at your destin'],
-                notContains: ['SPEED', 'LIMIT', 'Congress Avenue'],
-                screenshot: 'map-view-route-overview',
-                type: 'assertOcr',
-            },
-        );
-        assert.equal(
-            mapViewToggleTest.steps.filter(
-                ({ type }) => type === 'assertMapCropsDiffer',
-            ).length,
-            2,
-        );
-        assert.ok(
-            suite.tests.indexOf(mapViewToggleTest) <
-                suite.tests.indexOf(activeGuidanceTest),
-        );
-
-        for (const themeTest of [idleThemeTest, activeGuidanceTest]) {
+        for (const themeTest of [idleThemeTest]) {
             assert.ok(themeTest);
             const themeCommands = themeTest.steps.filter(
                 ({ command, type }) =>
@@ -520,85 +763,117 @@ describe('Android Auto E2E helpers', () => {
         assert.match(presenceScenarioSource, /\[E2E\] presence-limits-reset/);
         assert.match(presenceScenarioSource, /\[E2E\] presence-reset-failed:/);
     });
-    test('crosses a global camera route-free and checks the phone Scorecard', () => {
+    test('default command uses the saved road and removes synthetic location scenarios', () => {
         const suite = JSON.parse(
             readFileSync(
                 new URL('../../.android-auto/suite.json', import.meta.url),
                 'utf8',
             ),
         );
-        const freeDriveTest = suite.tests.find(({ name }) =>
-            name.includes('route-free crossing'),
+        const steps = suite.tests.flatMap(({ steps }) => steps);
+        assert.equal(suite.mapApiMocks, false);
+        assert.deepEqual(suite.location, {
+            latitude: 43.12152,
+            longitude: -88.24447,
+        });
+        for (const type of [
+            'geoFix',
+            'autoDrive',
+            'scorecardDriveScenario',
+            'deepLink',
+            'assertPhoneScorecardCrossings',
+        ]) {
+            assert.equal(
+                steps.some((step) => step.type === type),
+                false,
+                type,
+            );
+        }
+        assert.equal(
+            steps.filter((step) => step.type === 'replayRoute').length,
+            20,
         );
-        const geoFixes = freeDriveTest.steps.filter(
-            ({ type }) => type === 'geoFix',
-        );
-        const scenarioStep = freeDriveTest.steps.find(
-            ({ type }) => type === 'scorecardDriveScenario',
-        );
-        const cameraInventoryStep = freeDriveTest.steps.find(
-            ({ type }) => type === 'waitForScorecardCameraInventory',
-        );
-        const phoneAssertion = freeDriveTest.steps.find(
-            ({ type }) => type === 'assertPhoneScorecardCrossings',
-        );
-
-        assert.equal(scenarioStep.scenario, 'automotive-free-exposure');
-        assert.deepEqual(geoFixes, [
-            {
-                latitude: 30.266264,
-                longitude: -97.7479,
-                type: 'geoFix',
-            },
-            {
-                latitude: 30.266264,
-                longitude: -97.74845,
-                type: 'geoFix',
-                velocityKnots: 25,
-            },
-            {
-                latitude: 30.266264,
-                longitude: -97.7478,
-                type: 'geoFix',
-                velocityKnots: 25,
-            },
-            {
-                latitude: 30.266264,
-                longitude: -97.74735,
-                type: 'geoFix',
-                velocityKnots: 25,
-            },
-        ]);
-        assert.ok(geoFixes[0].longitude < -97.747624);
-        assert.ok(geoFixes[3].longitude > -97.747624);
-        assert.equal(phoneAssertion, undefined);
-        assert.ok(
-            freeDriveTest.steps.indexOf(geoFixes[0]) <
-                freeDriveTest.steps.indexOf(scenarioStep),
-        );
-        assert.ok(
-            freeDriveTest.steps.indexOf(scenarioStep) <
-                freeDriveTest.steps.indexOf(cameraInventoryStep),
-        );
-        assert.ok(
-            freeDriveTest.steps.indexOf(cameraInventoryStep) <
-                freeDriveTest.steps.indexOf(geoFixes[1]),
-        );
-        assert.ok(
-            freeDriveTest.steps.indexOf(geoFixes[3]) <
-                freeDriveTest.steps.findIndex(
-                    ({ type }) => type === 'waitForScorecardExposure',
+        for (const layout of ['dashboard', 'fullscreen']) {
+            const scenarios = suite.tests.filter(
+                (scenario) => scenario.layout === layout,
+            );
+            const layoutSteps = scenarios.flatMap(({ steps }) => steps);
+            assert.equal(scenarios.length, 8);
+            assert.equal(
+                layoutSteps.filter(({ type }) => type === 'assertPuckVisible')
+                    .length,
+                7,
+            );
+            assert.equal(
+                layoutSteps.filter(
+                    ({ type }) => type === 'assertConfirmationCameraStable',
+                ).length,
+                1,
+            );
+            for (const text of ['Dismiss', 'Not there', 'Ok']) {
+                assert.equal(
+                    layoutSteps.filter(
+                        (step) => step.type === 'tapOcr' && step.text === text,
+                    ).length,
+                    1,
+                    `${layout} ${text}`,
+                );
+            }
+            const negativeAction = scenarios.find(({ steps }) =>
+                steps.some(
+                    (step) =>
+                        step.type === 'tapOcr' && step.text === 'Not there',
                 ),
+            );
+            assert.equal(
+                negativeAction.steps.find(
+                    (step) =>
+                        step.type === 'tapOcr' && step.text === 'Not there',
+                ).waitForPresentation,
+                '[E2E] presence:native-thanks-presented',
+            );
+            const acknowledgement = negativeAction.steps.find(
+                (step) =>
+                    step.type === 'assertOcr' &&
+                    step.contains.includes('Thanks'),
+            );
+            assert.equal(acknowledgement.retryDelayMilliseconds, 250);
+            assert.equal(acknowledgement.timeout, 3000);
+            assert.ok(
+                negativeAction.steps.some(
+                    (step) =>
+                        step.type === 'assertOcr' &&
+                        step.contains?.includes('Ok'),
+                ),
+            );
+            assert.ok(
+                negativeAction.steps.some(
+                    (step) =>
+                        step.type === 'assertOcr' &&
+                        step.notContains?.includes('Thanks'),
+                ),
+            );
+            assert.ok(
+                negativeAction.steps.some(
+                    (step) => step.type === 'assertPresenceReports',
+                ),
+            );
+        }
+        for (const path of ['../../package.json', '../../../package.json']) {
+            const { scripts } = JSON.parse(
+                readFileSync(new URL(path, import.meta.url), 'utf8'),
+            );
+            assert.match(scripts['e2e:android-auto'], /android-auto-e2e\.sh$/);
+            assert.equal(scripts['e2e:android-auto:alpr-route'], undefined);
+        }
+        const launcher = readFileSync(
+            new URL('../android-auto-e2e.sh', import.meta.url),
+            'utf8',
         );
-        assert.ok(
-            freeDriveTest.steps.some(
-                ({ type, milliseconds }) =>
-                    type === 'sleep' && milliseconds === 1500,
-            ),
-        );
+        assert.match(launcher, /\.android-auto\/suite\.json/);
     });
 
-    test('requires live guidance progress while the phone display is off', () => {
+    test('requires saved-road GPS progress while the phone display is off', () => {
         const suite = JSON.parse(
             readFileSync(
                 new URL('../../.android-auto/suite.json', import.meta.url),
@@ -619,30 +894,28 @@ describe('Android Auto E2E helpers', () => {
                 type === 'screenshot' &&
                 name === 'phone-asleep-before-progress',
         );
-        const autoDriveIndex = stepIndex(({ type }) => type === 'autoDrive');
+        const replayIndex = stepIndex(({ type }) => type === 'replayRoute');
         const afterProgressIndex = stepIndex(
             ({ name, type }) =>
                 type === 'screenshot' && name === 'phone-asleep',
         );
         const progressAssertionIndex = stepIndex(
             ({ first, second, type }) =>
-                type === 'assertImagesDiffer' &&
+                type === 'assertMapCropsDiffer' &&
                 first === 'phone-asleep-before-progress' &&
                 second === 'phone-asleep',
         );
         const phoneWakeIndex = stepIndex(({ type }) => type === 'phoneWake');
-        const autoDriveStep = phoneSleepTest.steps[autoDriveIndex];
+        const replayStep = phoneSleepTest.steps[replayIndex];
 
         assert.ok(phoneSleepIndex < beforeProgressIndex);
-        assert.ok(beforeProgressIndex < autoDriveIndex);
-        assert.ok(autoDriveIndex < afterProgressIndex);
+        assert.ok(beforeProgressIndex < replayIndex);
+        assert.ok(replayIndex < afterProgressIndex);
         assert.ok(afterProgressIndex < progressAssertionIndex);
         assert.ok(progressAssertionIndex < phoneWakeIndex);
-        assert.equal(
-            autoDriveStep.waitForMetro,
-            '[Android Auto] auto-drive-progressed',
-        );
-        assert.equal(autoDriveStep.timeout, 15000);
+        assert.equal(replayStep.file, 'route-pewaukee.json');
+        assert.equal(replayStep.fromMs, 108000);
+        assert.equal(replayStep.toMs, 147000);
     });
 
     test('requires a non-empty Mapbox token without exposing its value', () => {
@@ -858,6 +1131,69 @@ describe('Android Auto E2E helpers', () => {
         assert.deepEqual(attempts, [1]);
     });
 
+    test('fails the puck assertion when only the map is visible', async () => {
+        const runner = Object.create(Runner.prototype);
+        let captures = 0;
+        runner.puckVisibilityProof = () => ({ visible: false });
+        runner.captureScreenshot = async () => {
+            captures += 1;
+        };
+        runner.waitFor = async (predicate, label, timeout) => {
+            assert.equal(timeout, 20000);
+            assert.equal(await predicate(), false);
+            throw new Error(`Timed out waiting for ${label}`);
+        };
+        await assert.rejects(
+            runner.assertPuckIsVisible('current-map'),
+            /visible user puck in current-map/,
+        );
+        assert.equal(captures, 1);
+    });
+
+    test('accepts a visible puck without replacing its evidence screenshot', async () => {
+        const runner = Object.create(Runner.prototype);
+        runner.puckVisibilityProof = () => ({
+            visible: true,
+            bluePixels: 1094,
+            outlinePixels: 331,
+        });
+        runner.captureScreenshot = async () =>
+            assert.fail('unexpected recapture');
+        runner.report = () => {};
+        runner.waitFor = async (predicate) =>
+            assert.equal(await predicate(), true);
+        await runner.assertPuckIsVisible('current-map');
+    });
+
+    test('focuses the car map before waiting for its rendered-map marker', async () => {
+        const runner = Object.create(Runner.prototype);
+        const calls = [];
+        for (const name of [
+            'validate',
+            'compileOCR',
+            'stopExistingDhu',
+            'startMetro',
+            'prepareDevice',
+            'wakePhone',
+            'startServer',
+            'launchApp',
+            'startDhu',
+            'focusCarMap',
+            'waitForCarAppReady',
+            'runSuite',
+            'assertNoFatalCrash',
+        ]) {
+            runner[name] = () => calls.push(name);
+        }
+        await runner.execute();
+        assert.ok(
+            calls.indexOf('focusCarMap') < calls.indexOf('waitForCarAppReady'),
+        );
+        assert.ok(
+            calls.indexOf('waitForCarAppReady') < calls.indexOf('runSuite'),
+        );
+    });
+
     test('requires the connected car service and rendered map', async () => {
         const markers = [];
         const runner = Object.create(Runner.prototype);
@@ -877,6 +1213,17 @@ describe('Android Auto E2E helpers', () => {
             ['Running "AutoPlayRoot"', 321, 60000],
             ['[Android Auto] map-loaded', 321, 60000],
             ['[Auto Play] secondary-map-surface-mounted', 321, 60000],
+        ]);
+    });
+
+    test('waits for the committed phone root rather than only bundle delivery', async () => {
+        const runner = Object.create(Runner.prototype);
+        const markers = [];
+        runner.waitForMetroMarker = async (...args) => markers.push(args);
+        await runner.waitForDevelopmentClient(123, 90000);
+        assert.deepEqual(markers, [
+            ['Android Bundled', 123, 90000],
+            ['[E2E] phone-root-mounted', 123, 60000],
         ]);
     });
 });

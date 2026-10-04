@@ -13,6 +13,7 @@ import {
 import { ContributeProvider } from '../components/contribute/contribute-state';
 import { Icon } from '../components/design-system/icon';
 import { SharedMapStateProvider } from '../components/map/shared-map-state';
+import { APP_ENVIRONMENT } from '../components/map/config';
 import { AppDrawerContent } from '../components/root/app-drawer-content';
 import { AndroidGeoIntentHandler } from '../components/root/android-geo-intent-handler';
 import { AuthCallbackHandler } from '../components/root/auth-callback-handler';
@@ -52,6 +53,12 @@ function RootLayout() {
         : LIGHT_SYSTEM_BAR_BACKGROUND;
 
     useCrashlyticsRouteTracking();
+
+    useEffect(() => {
+        if (APP_ENVIRONMENT === 'e2e') {
+            console.info('[E2E] phone-root-mounted');
+        }
+    }, []);
 
     useEffect(() => {
         logAnalyticsScreenView(pathname);

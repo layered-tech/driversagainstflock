@@ -19,6 +19,7 @@ import {
 import Svg, { Circle, Path } from 'react-native-svg';
 import { ContributeDraftPinMarkers } from '../contribute/contribute-draft-pin-markers';
 import {
+    APP_ENVIRONMENT,
     MAPBOX_ACCESS_TOKEN,
     MAPBOX_STANDARD_STYLE_IMPORT_ID,
     MAPBOX_TRAFFIC_SOURCE_ID,
@@ -61,6 +62,7 @@ import { DrivingLocationProvider } from './driving-location-provider';
 import {
     applyLocationPuck3DAsync,
     clearLocationPuck3DAsync,
+    getLocationPuck3DStateAsync,
     isLocationPuck3DSupported,
     isLocationPuckCameraFollowActiveAsync,
     isLocationPuckCameraFollowSupported,
@@ -775,6 +777,14 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
         locationPuckLifecycleRef.current = createLocationPuck3DLifecycle({
             applyLocationPuck: applyLocationPuck3DAsync,
             clearLocationPuck: clearLocationPuck3DAsync,
+            verifyLocationPuck: async (mapView) => {
+                const state = await getLocationPuck3DStateAsync(mapView);
+                return (
+                    state?.puckKind === '3d' && state.modelLayerExists === true
+                );
+            },
+            waitForPuckCommit: () =>
+                new Promise((resolve) => setTimeout(resolve, 50)),
             onStatusChange: setLocationPuck3DStatus,
         });
     }
@@ -807,6 +817,27 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
     }
 
     const locationPuckLifecycle = locationPuckLifecycleRef.current;
+    useEffect(() => {
+        if (APP_ENVIRONMENT !== 'e2e' || locationPuck3DStatus !== 'active')
+            return;
+        const timer = setTimeout(() => {
+            void getLocationPuck3DStateAsync(mapViewRef)
+                .then((state) => {
+                    console.info(
+                        '[E2E] native-puck ' +
+                            JSON.stringify({
+                                puckKind: state?.puckKind,
+                                modelLayerExists: state?.modelLayerExists,
+                                modelSourceExists: state?.modelSourceExists,
+                                indicatorLayerExists:
+                                    state?.indicatorLayerExists,
+                            }),
+                    );
+                })
+                .catch(() => {});
+        }, 200);
+        return () => clearTimeout(timer);
+    }, [locationPuck3DStatus, mapViewRef]);
     const locationPuckCameraFollowLifecycle =
         locationPuckCameraFollowLifecycleRef.current;
     const locationPuckCameraFallbackReleaseGate =

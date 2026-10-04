@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { injectE2EMockSession } from '../../lib/auth';
 import { setOSMApiMocksEnabled } from '../../lib/osm/api-mocks';
 import { dispatchAutoPlayE2ECommand } from '../auto-play';
+import { presenceCoordinator } from '../map/alpr-presence-runtime';
 import {
     e2eMapApiMocksCanBeEnabled,
     setMapApiMocksEnabled,
@@ -17,6 +18,7 @@ import {
 import {
     getE2EAutoPlayCommandFromURL,
     getE2EMockFlagsFromURL,
+    isE2ELiveGpsDriveResetURL,
 } from './e2e-map-api-mock-url';
 
 const E2E_MOCK_AUTH_SESSION = {
@@ -31,6 +33,18 @@ const E2E_MOCK_AUTH_SESSION = {
 };
 
 function applyE2EMocksFromURL(value) {
+    if (isE2ELiveGpsDriveResetURL(value)) {
+        setMapApiMocksEnabled(false);
+        setOSMApiMocksEnabled(false);
+        void presenceCoordinator
+            .resetLimits()
+            .then(() => presenceCoordinator.resetAutomotiveAlertHistory())
+            .then(() => console.info('[E2E] live-gps-drive-reset'))
+            .catch((error) =>
+                console.info(`[E2E] live-gps-drive-failed:${error.message}`),
+            );
+        return;
+    }
     const {
         authMockIsDisabled,
         authMockIsEnabled,

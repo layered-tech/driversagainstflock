@@ -10,6 +10,8 @@ function captureMapView(mapViewRef) {
 export function createLocationPuck3DLifecycle({
     applyLocationPuck,
     clearLocationPuck,
+    verifyLocationPuck = async () => true,
+    waitForPuckCommit = async () => {},
     onStatusChange = () => {},
 }) {
     let generation = 0;
@@ -64,15 +66,25 @@ export function createLocationPuck3DLifecycle({
 
                 try {
                     nativePuckMayBeConfigured = Boolean(mapView);
-                    wasApplied = Boolean(
-                        mapView &&
+                    // React's commit can precede RNMapbox's native 2D cleanup.
+                    // Verify ownership after that cleanup, and reassert once if it won the race.
+                    await waitForPuckCommit();
+                    for (let attempt = 0; attempt < 2; attempt += 1) {
+                        if (operationGeneration !== generation) return false;
+                        wasApplied = Boolean(
+                            mapView &&
                             (await applyLocationPuck(
                                 mapView,
                                 scaleExpression,
                                 slot,
                                 layerAbove,
                             )),
-                    );
+                        );
+                        if (!wasApplied) break;
+                        await waitForPuckCommit();
+                        wasApplied = Boolean(await verifyLocationPuck(mapView));
+                        if (wasApplied) break;
+                    }
                 } catch {
                     wasApplied = false;
                 }

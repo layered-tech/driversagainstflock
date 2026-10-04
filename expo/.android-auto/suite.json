@@ -11,13 +11,23 @@
         "port": 8091
     },
     "location": {
-        "latitude": 30.2672,
-        "longitude": -97.7431
+        "latitude": 43.12152,
+        "longitude": -88.24447
     },
     "tests": [
         {
             "name": "connects and renders the Mapbox map",
             "steps": [
+                {
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 0,
+                    "toMs": 4000
+                },
+                {
+                    "type": "carLayout",
+                    "layout": "dashboard"
+                },
                 {
                     "type": "dhu",
                     "command": "tap 400 300"
@@ -31,69 +41,20 @@
                     "name": "connected-map"
                 },
                 {
+                    "type": "assertPuckVisible",
+                    "screenshot": "connected-map"
+                },
+                {
                     "type": "assertOcr",
                     "screenshot": "connected-map",
-                    "contains": ["Congress Avenue", "SPEED", "LIMIT"]
+                    "contains": ["SPEED", "LIMIT"]
                 },
                 {
                     "type": "assertService",
                     "running": true
                 }
-            ]
-        },
-        {
-            "name": "records a route-free crossing on the phone Scorecard",
-            "steps": [
-                {
-                    "type": "geoFix",
-                    "latitude": 30.266264,
-                    "longitude": -97.7479
-                },
-                {
-                    "type": "sleep",
-                    "milliseconds": 1500
-                },
-                {
-                    "type": "scorecardDriveScenario",
-                    "scenario": "automotive-free-exposure"
-                },
-                {
-                    "type": "waitForScorecardCameraInventory"
-                },
-                {
-                    "type": "geoFix",
-                    "latitude": 30.266264,
-                    "longitude": -97.74845,
-                    "velocityKnots": 25
-                },
-                {
-                    "type": "sleep",
-                    "milliseconds": 1500
-                },
-                {
-                    "type": "geoFix",
-                    "latitude": 30.266264,
-                    "longitude": -97.7478,
-                    "velocityKnots": 25
-                },
-                {
-                    "type": "sleep",
-                    "milliseconds": 1500
-                },
-                {
-                    "type": "geoFix",
-                    "latitude": 30.266264,
-                    "longitude": -97.74735,
-                    "velocityKnots": 25
-                },
-                {
-                    "type": "waitForScorecardExposure"
-                },
-                {
-                    "type": "assertService",
-                    "running": true
-                }
-            ]
+            ],
+            "layout": "dashboard"
         },
         {
             "name": "switches between day and night presentation",
@@ -151,155 +112,364 @@
                     "night": "night-mode",
                     "recapture": "day-mode-return"
                 }
-            ]
+            ],
+            "layout": "dashboard"
         },
         {
-            "name": "shows native Android Auto search results",
+            "name": "warns about an upcoming mapped ALPR along the saved road",
             "steps": [
                 {
-                    "type": "deepLink",
-                    "requestType": "search",
-                    "query": "Walmart"
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 4000,
+                    "toMs": 8000
                 },
                 {
-                    "type": "sleep",
-                    "milliseconds": 5000
+                    "type": "resetLiveGpsDrive"
                 },
                 {
-                    "type": "screenshot",
-                    "name": "search-results"
-                },
-                {
-                    "type": "assertOcr",
-                    "screenshot": "search-results",
-                    "contains": [
-                        "Search results",
-                        "Walmart Supercenter",
-                        "Walmart Neighborhood",
-                        "2525 W Anderson Ln"
-                    ]
-                },
-                {
-                    "type": "dhu",
-                    "command": "keycode back"
-                },
-                {
-                    "type": "sleep",
-                    "milliseconds": 1500
-                }
-            ]
-        },
-        {
-            "name": "offers two route choices and starts private guidance",
-            "steps": [
-                {
-                    "type": "deepLink",
-                    "requestType": "directions",
-                    "query": "Austin Central Library"
-                },
-                {
-                    "type": "sleep",
-                    "milliseconds": 7000
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 8000,
+                    "toMs": 15000
                 },
                 {
                     "type": "screenshot",
-                    "name": "route-choices"
-                },
-                {
-                    "type": "assertOcr",
-                    "screenshot": "route-choices",
-                    "contains": [
-                        "Austin Central Library",
-                        "Private route",
-                        "3 monitored nodes",
-                        "Start"
-                    ]
-                },
-                {
-                    "type": "dhu",
-                    "command": "tap 250 390"
-                },
-                {
-                    "type": "sleep",
-                    "milliseconds": 5000
-                },
-                {
-                    "type": "screenshot",
-                    "name": "navigation-started"
-                },
-                {
-                    "type": "assertOcr",
-                    "screenshot": "navigation-started",
-                    "contains": [
-                        "Turn right to avoid",
-                        "monitored intersections"
-                    ]
-                }
-            ]
-        },
-        {
-            "name": "toggles between 3D follow and route overview",
-            "steps": [
-                {
-                    "type": "screenshot",
-                    "name": "map-view-perspective-before",
+                    "name": "saved-route-upcoming",
                     "requireVisibleMapCrop": true
                 },
                 {
-                    "type": "deepLink",
-                    "requestType": "map-view",
-                    "query": "toggle",
-                    "waitForMetro": "[Auto Play] driving-route-overview-fitted"
+                    "type": "assertPuckVisible",
+                    "screenshot": "saved-route-upcoming"
                 },
                 {
-                    "type": "sleep",
-                    "milliseconds": 1500
+                    "type": "assertOcr",
+                    "screenshot": "saved-route-upcoming",
+                    "contains": ["ALPR"],
+                    "notContains": ["Camera you just passed"]
+                }
+            ],
+            "layout": "dashboard"
+        },
+        {
+            "name": "confirms the camera after an actual GPS pass",
+            "steps": [
+                {
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 15000,
+                    "toMs": 78000
                 },
                 {
                     "type": "screenshot",
-                    "name": "map-view-route-overview",
+                    "name": "saved-route-confirmation",
                     "requireVisibleMapCrop": true
                 },
                 {
                     "type": "assertOcr",
-                    "screenshot": "map-view-route-overview",
-                    "contains": ["Arrive at your destin"],
-                    "notContains": ["SPEED", "LIMIT", "Congress Avenue"]
+                    "screenshot": "saved-route-confirmation",
+                    "contains": [
+                        "Camera you just passed",
+                        "Not there",
+                        "Dismiss"
+                    ],
+                    "notContains": ["SPEED", "LIMIT"]
+                }
+            ],
+            "layout": "dashboard"
+        },
+        {
+            "name": "expires confirmation and restores map status while continuing the drive",
+            "steps": [
+                {
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 78000,
+                    "toMs": 108000,
+                    "cameraStability": {
+                        "fromMs": 80000,
+                        "toMs": 90000,
+                        "intervalMs": 2000
+                    }
+                },
+                {
+                    "type": "assertConfirmationCameraStable",
+                    "screenshot": "saved-route-confirmation"
+                },
+                {
+                    "type": "screenshot",
+                    "name": "saved-route-restored",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertPuckVisible",
+                    "screenshot": "saved-route-restored"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "saved-route-restored",
+                    "contains": ["SPEED", "LIMIT"],
+                    "notContains": ["Camera you just passed"]
+                }
+            ],
+            "layout": "dashboard"
+        },
+        {
+            "name": "continues the saved GPS route while the phone sleeps",
+            "steps": [
+                {
+                    "type": "phoneSleep"
+                },
+                {
+                    "type": "screenshot",
+                    "name": "phone-asleep-before-progress",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertPuckVisible",
+                    "screenshot": "phone-asleep-before-progress"
+                },
+                {
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 108000,
+                    "toMs": 147000
+                },
+                {
+                    "type": "screenshot",
+                    "name": "phone-asleep",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertPuckVisible",
+                    "screenshot": "phone-asleep"
                 },
                 {
                     "type": "assertMapCropsDiffer",
-                    "first": "map-view-perspective-before",
-                    "second": "map-view-route-overview"
+                    "first": "phone-asleep-before-progress",
+                    "second": "phone-asleep"
                 },
                 {
-                    "type": "deepLink",
-                    "requestType": "map-view",
-                    "query": "toggle",
-                    "waitForMetro": "[Auto Play] driving-map-view-perspective-restored"
+                    "type": "assertService",
+                    "running": true
                 },
                 {
-                    "type": "sleep",
-                    "milliseconds": 1500
+                    "type": "phoneWake"
+                }
+            ],
+            "layout": "dashboard"
+        },
+        {
+            "name": "Dashboard: Still there / Dismiss restores follow without reporting",
+            "layout": "dashboard",
+            "steps": [
+                {
+                    "type": "carLayout",
+                    "layout": "dashboard"
+                },
+                {
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 45000,
+                    "toMs": 47000
+                },
+                {
+                    "type": "resetLiveGpsDrive"
+                },
+                {
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 47000,
+                    "toMs": 78000
                 },
                 {
                     "type": "screenshot",
-                    "name": "map-view-perspective-after",
+                    "name": "dashboard-dismiss-confirmation",
                     "requireVisibleMapCrop": true
                 },
                 {
                     "type": "assertOcr",
-                    "screenshot": "map-view-perspective-after",
-                    "contains": ["Arrive at your destin", "SPEED", "LIMIT"]
+                    "screenshot": "dashboard-dismiss-confirmation",
+                    "contains": [
+                        "Camera you just passed",
+                        "Still there",
+                        "Dismiss",
+                        "Not there"
+                    ]
                 },
                 {
-                    "type": "assertMapCropsDiffer",
-                    "first": "map-view-route-overview",
-                    "second": "map-view-perspective-after"
+                    "type": "tapOcr",
+                    "screenshot": "dashboard-dismiss-confirmation",
+                    "text": "Dismiss",
+                    "waitForMetro": "[E2E] presence:native-primary-pressed"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "dashboard-dismiss-restored",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "dashboard-dismiss-restored",
+                    "contains": ["SPEED", "LIMIT"],
+                    "notContains": ["Camera you just passed", "Thanks"]
+                },
+                {
+                    "type": "assertPuckVisible",
+                    "screenshot": "dashboard-dismiss-restored"
+                },
+                {
+                    "type": "assertPresenceReports",
+                    "count": 0,
+                    "osmNodeId": 12634608635
                 }
             ]
         },
         {
-            "name": "renders active guidance map themes",
+            "name": "Dashboard: Not there queues one report and Ok closes Thanks",
+            "layout": "dashboard",
+            "steps": [
+                {
+                    "type": "carLayout",
+                    "layout": "dashboard"
+                },
+                {
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 45000,
+                    "toMs": 47000
+                },
+                {
+                    "type": "resetLiveGpsDrive"
+                },
+                {
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 47000,
+                    "toMs": 78000
+                },
+                {
+                    "type": "screenshot",
+                    "name": "dashboard-not-there-confirmation",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "dashboard-not-there-confirmation",
+                    "contains": [
+                        "Camera you just passed",
+                        "Still there",
+                        "Dismiss",
+                        "Not there"
+                    ]
+                },
+                {
+                    "type": "tapOcr",
+                    "screenshot": "dashboard-not-there-confirmation",
+                    "text": "Not there",
+                    "waitForMetro": "[E2E] presence:native-not-there-pressed",
+                    "waitForPresentation": "[E2E] presence:native-thanks-presented"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "dashboard-not-there-thanks"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "dashboard-not-there-thanks",
+                    "contains": ["Thanks", "Ok"],
+                    "retryDelayMilliseconds": 250,
+                    "timeout": 3000,
+                    "notContains": ["Camera you just passed"]
+                },
+                {
+                    "type": "assertPresenceReports",
+                    "count": 1,
+                    "osmNodeId": 12634608635
+                },
+                {
+                    "type": "tapOcr",
+                    "screenshot": "dashboard-not-there-thanks",
+                    "text": "Ok",
+                    "waitForMetro": "[E2E] presence:native-thanks-ok-pressed"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "dashboard-not-there-restored",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "dashboard-not-there-restored",
+                    "contains": ["SPEED", "LIMIT"],
+                    "notContains": ["Camera you just passed", "Thanks"]
+                },
+                {
+                    "type": "assertPuckVisible",
+                    "screenshot": "dashboard-not-there-restored"
+                },
+                {
+                    "type": "assertPresenceReports",
+                    "count": 1,
+                    "osmNodeId": 12634608635
+                }
+            ]
+        },
+        {
+            "name": "Fullscreen: connects and renders the Mapbox map",
+            "steps": [
+                {
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 0,
+                    "toMs": 4000
+                },
+                {
+                    "type": "carLayout",
+                    "layout": "fullscreen"
+                },
+                {
+                    "type": "dhu",
+                    "command": "tap 400 300"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 2500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "fullscreen-connected-map"
+                },
+                {
+                    "type": "assertPuckVisible",
+                    "screenshot": "fullscreen-connected-map"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "fullscreen-connected-map",
+                    "contains": ["SPEED", "LIMIT"]
+                },
+                {
+                    "type": "assertService",
+                    "running": true
+                }
+            ],
+            "layout": "fullscreen"
+        },
+        {
+            "name": "Fullscreen: switches between day and night presentation",
             "steps": [
                 {
                     "type": "dhu",
@@ -311,7 +481,7 @@
                 },
                 {
                     "type": "screenshot",
-                    "name": "active-guidance-day",
+                    "name": "fullscreen-day-mode",
                     "requireVisibleMapCrop": true
                 },
                 {
@@ -325,14 +495,14 @@
                 },
                 {
                     "type": "screenshot",
-                    "name": "active-guidance-night",
+                    "name": "fullscreen-night-mode",
                     "requireVisibleMapCrop": true
                 },
                 {
                     "type": "assertMapThemeContrast",
-                    "day": "active-guidance-day",
-                    "night": "active-guidance-night",
-                    "recapture": "active-guidance-night"
+                    "day": "fullscreen-day-mode",
+                    "night": "fullscreen-night-mode",
+                    "recapture": "fullscreen-night-mode"
                 },
                 {
                     "type": "dhu",
@@ -345,91 +515,332 @@
                 },
                 {
                     "type": "screenshot",
-                    "name": "active-guidance-day-return",
+                    "name": "fullscreen-day-mode-return",
                     "requireVisibleMapCrop": true
                 },
                 {
                     "type": "assertMapThemeContrast",
-                    "day": "active-guidance-day-return",
-                    "night": "active-guidance-night",
-                    "recapture": "active-guidance-day-return"
+                    "day": "fullscreen-day-mode-return",
+                    "night": "fullscreen-night-mode",
+                    "recapture": "fullscreen-day-mode-return"
                 }
-            ]
+            ],
+            "layout": "fullscreen"
         },
         {
-            "name": "advances guidance while the phone sleeps",
+            "name": "Fullscreen: warns about an upcoming mapped ALPR along the saved road",
+            "steps": [
+                {
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 4000,
+                    "toMs": 8000
+                },
+                {
+                    "type": "resetLiveGpsDrive"
+                },
+                {
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 8000,
+                    "toMs": 15000
+                },
+                {
+                    "type": "screenshot",
+                    "name": "fullscreen-saved-route-upcoming",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertPuckVisible",
+                    "screenshot": "fullscreen-saved-route-upcoming"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "fullscreen-saved-route-upcoming",
+                    "contains": ["ALPR"],
+                    "notContains": ["Camera you just passed"]
+                }
+            ],
+            "layout": "fullscreen"
+        },
+        {
+            "name": "Fullscreen: confirms the camera after an actual GPS pass",
+            "steps": [
+                {
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 15000,
+                    "toMs": 78000
+                },
+                {
+                    "type": "screenshot",
+                    "name": "fullscreen-saved-route-confirmation",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "fullscreen-saved-route-confirmation",
+                    "contains": [
+                        "Camera you just passed",
+                        "Not there",
+                        "Dismiss"
+                    ],
+                    "notContains": ["SPEED", "LIMIT"]
+                }
+            ],
+            "layout": "fullscreen"
+        },
+        {
+            "name": "Fullscreen: expires confirmation and restores map status while continuing the drive",
+            "steps": [
+                {
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 78000,
+                    "toMs": 108000,
+                    "cameraStability": {
+                        "fromMs": 80000,
+                        "toMs": 90000,
+                        "intervalMs": 2000
+                    }
+                },
+                {
+                    "type": "assertConfirmationCameraStable",
+                    "screenshot": "fullscreen-saved-route-confirmation"
+                },
+                {
+                    "type": "screenshot",
+                    "name": "fullscreen-saved-route-restored",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertPuckVisible",
+                    "screenshot": "fullscreen-saved-route-restored"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "fullscreen-saved-route-restored",
+                    "contains": ["SPEED", "LIMIT"],
+                    "notContains": ["Camera you just passed"]
+                }
+            ],
+            "layout": "fullscreen"
+        },
+        {
+            "name": "Fullscreen: continues the saved GPS route while the phone sleeps",
             "steps": [
                 {
                     "type": "phoneSleep"
                 },
                 {
                     "type": "screenshot",
-                    "name": "phone-asleep-before-progress"
+                    "name": "fullscreen-phone-asleep-before-progress",
+                    "requireVisibleMapCrop": true
                 },
                 {
-                    "type": "autoDrive",
-                    "waitForMetro": "[Android Auto] auto-drive-progressed",
-                    "timeout": 15000
+                    "type": "assertPuckVisible",
+                    "screenshot": "fullscreen-phone-asleep-before-progress"
                 },
                 {
-                    "type": "sleep",
-                    "milliseconds": 9000
-                },
-                {
-                    "type": "screenshot",
-                    "name": "phone-asleep"
-                },
-                {
-                    "type": "assertImagesDiffer",
-                    "first": "phone-asleep-before-progress",
-                    "second": "phone-asleep"
-                },
-                {
-                    "type": "assertOcr",
-                    "screenshot": "phone-asleep",
-                    "contains": [
-                        "Arrive at your destin",
-                        "Austin Central Library"
-                    ]
-                },
-                {
-                    "type": "phoneWake"
-                }
-            ]
-        },
-        {
-            "name": "handles the Android Auto host stop action",
-            "steps": [
-                {
-                    "type": "dhu",
-                    "command": "tap 145 665",
-                    "waitForMetro": "[Android Auto] host-navigation-stopped"
-                },
-                {
-                    "type": "sleep",
-                    "milliseconds": 4000
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 108000,
+                    "toMs": 147000
                 },
                 {
                     "type": "screenshot",
-                    "name": "host-stopped-navigation"
+                    "name": "fullscreen-phone-asleep",
+                    "requireVisibleMapCrop": true
                 },
                 {
-                    "type": "assertOcr",
-                    "screenshot": "host-stopped-navigation",
-                    "contains": ["SPEED", "LIMIT"],
-                    "notContains": [
-                        "Turn right to avoid monitored intersections",
-                        "Arrive at your destination"
-                    ]
+                    "type": "assertPuckVisible",
+                    "screenshot": "fullscreen-phone-asleep"
+                },
+                {
+                    "type": "assertMapCropsDiffer",
+                    "first": "fullscreen-phone-asleep-before-progress",
+                    "second": "fullscreen-phone-asleep"
                 },
                 {
                     "type": "assertService",
                     "running": true
+                },
+                {
+                    "type": "phoneWake"
+                }
+            ],
+            "layout": "fullscreen"
+        },
+        {
+            "name": "Fullscreen: Still there / Dismiss restores follow without reporting",
+            "layout": "fullscreen",
+            "steps": [
+                {
+                    "type": "carLayout",
+                    "layout": "fullscreen"
+                },
+                {
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 45000,
+                    "toMs": 47000
+                },
+                {
+                    "type": "resetLiveGpsDrive"
+                },
+                {
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 47000,
+                    "toMs": 78000
+                },
+                {
+                    "type": "screenshot",
+                    "name": "fullscreen-dismiss-confirmation",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "fullscreen-dismiss-confirmation",
+                    "contains": [
+                        "Camera you just passed",
+                        "Still there",
+                        "Dismiss",
+                        "Not there"
+                    ]
+                },
+                {
+                    "type": "tapOcr",
+                    "screenshot": "fullscreen-dismiss-confirmation",
+                    "text": "Dismiss",
+                    "waitForMetro": "[E2E] presence:native-primary-pressed"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "fullscreen-dismiss-restored",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "fullscreen-dismiss-restored",
+                    "contains": ["SPEED", "LIMIT"],
+                    "notContains": ["Camera you just passed", "Thanks"]
+                },
+                {
+                    "type": "assertPuckVisible",
+                    "screenshot": "fullscreen-dismiss-restored"
+                },
+                {
+                    "type": "assertPresenceReports",
+                    "count": 1,
+                    "osmNodeId": 12634608635
                 }
             ]
         },
         {
-            "name": "stops the Android Auto service on disconnect",
+            "name": "Fullscreen: Not there queues one report and Ok closes Thanks",
+            "layout": "fullscreen",
+            "steps": [
+                {
+                    "type": "carLayout",
+                    "layout": "fullscreen"
+                },
+                {
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 45000,
+                    "toMs": 47000
+                },
+                {
+                    "type": "resetLiveGpsDrive"
+                },
+                {
+                    "type": "replayRoute",
+                    "file": "route-pewaukee.json",
+                    "fromMs": 47000,
+                    "toMs": 78000
+                },
+                {
+                    "type": "screenshot",
+                    "name": "fullscreen-not-there-confirmation",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "fullscreen-not-there-confirmation",
+                    "contains": [
+                        "Camera you just passed",
+                        "Still there",
+                        "Dismiss",
+                        "Not there"
+                    ]
+                },
+                {
+                    "type": "tapOcr",
+                    "screenshot": "fullscreen-not-there-confirmation",
+                    "text": "Not there",
+                    "waitForMetro": "[E2E] presence:native-not-there-pressed",
+                    "waitForPresentation": "[E2E] presence:native-thanks-presented"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "fullscreen-not-there-thanks"
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "fullscreen-not-there-thanks",
+                    "contains": ["Thanks", "Ok"],
+                    "retryDelayMilliseconds": 250,
+                    "timeout": 3000,
+                    "notContains": ["Camera you just passed"]
+                },
+                {
+                    "type": "assertPresenceReports",
+                    "count": 2,
+                    "osmNodeId": 12634608635
+                },
+                {
+                    "type": "tapOcr",
+                    "screenshot": "fullscreen-not-there-thanks",
+                    "text": "Ok",
+                    "waitForMetro": "[E2E] presence:native-thanks-ok-pressed"
+                },
+                {
+                    "type": "sleep",
+                    "milliseconds": 500
+                },
+                {
+                    "type": "screenshot",
+                    "name": "fullscreen-not-there-restored",
+                    "requireVisibleMapCrop": true
+                },
+                {
+                    "type": "assertOcr",
+                    "screenshot": "fullscreen-not-there-restored",
+                    "contains": ["SPEED", "LIMIT"],
+                    "notContains": ["Camera you just passed", "Thanks"]
+                },
+                {
+                    "type": "assertPuckVisible",
+                    "screenshot": "fullscreen-not-there-restored"
+                },
+                {
+                    "type": "assertPresenceReports",
+                    "count": 2,
+                    "osmNodeId": 12634608635
+                }
+            ]
+        },
+        {
+            "name": "disconnect",
             "steps": [
                 {
                     "type": "disconnect"
@@ -437,12 +848,39 @@
                 {
                     "type": "assertService",
                     "running": false
-                },
-                {
-                    "type": "assertPhoneScorecardCrossings",
-                    "count": 1
                 }
             ]
         }
-    ]
+    ],
+    "mapApiMocks": false,
+    "layouts": {
+        "dashboard": {
+            "mapCrop": {
+                "x": 430,
+                "y": 220,
+                "width": 280,
+                "height": 220
+            },
+            "puckCrop": {
+                "x": 360,
+                "y": 500,
+                "width": 410,
+                "height": 200
+            }
+        },
+        "fullscreen": {
+            "mapCrop": {
+                "x": 620,
+                "y": 220,
+                "width": 280,
+                "height": 220
+            },
+            "puckCrop": {
+                "x": 500,
+                "y": 500,
+                "width": 720,
+                "height": 200
+            }
+        }
+    }
 }

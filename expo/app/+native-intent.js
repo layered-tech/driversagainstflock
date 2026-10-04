@@ -1,4 +1,5 @@
 import { APP_ENVIRONMENT } from '../components/map/config';
+import { isE2ELiveGpsDriveResetURL } from '../components/root/e2e-map-api-mock-url';
 
 function getPathFromURL(url) {
     return [url.hostname, url.pathname]
@@ -19,6 +20,7 @@ export function redirectSystemPath({ path }) {
             url.protocol === 'driversagainstflock:' &&
             deepLinkPath === 'e2e-mocks'
         ) {
+            if (isE2ELiveGpsDriveResetURL(path)) return '/';
             return url.searchParams.get('auth') === '1'
                 ? '/?e2eMapApiMocks=1&e2eAuthMock=1'
                 : '/?e2eMapApiMocks=1';
