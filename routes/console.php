@@ -12,10 +12,10 @@ Schedule::command('telescope:prune')->environments(['local', 'staging'])->daily(
 
 foreach (config('moderation.schedules', []) as $kind => $settings) {
     if ($settings['enabled']) {
-        $event = Schedule::command('moderation:process '.$kind)->cron($settings['cron'])->timezone('UTC')->withoutOverlapping()->onOneServer();
+        $event = Schedule::command('moderation:process '.$kind)->cron($settings['cron'])->withoutOverlapping()->onOneServer();
         if (isset($settings['every_days'])) {
             $event->when(function () use ($settings): bool {
-                $daysSinceEpoch = intdiv(now('UTC')->getTimestamp(), 86400);
+                $daysSinceEpoch = intdiv(now(config('app.schedule_timezone'))->startOfDay()->getTimestamp(), 86400);
 
                 return $daysSinceEpoch % $settings['every_days'] === 0;
             });
