@@ -84,9 +84,11 @@ func parseCrop(_ values: ArraySlice<String>, image: CGImage) -> [Int] {
     return parsed
 }
 
-if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--host-layout" {
+if [3, 7].contains(CommandLine.arguments.count), CommandLine.arguments[1] == "--host-layout" {
     let image = loadImage(at: CommandLine.arguments[2])
-    let crop = parseCrop(["24", String(image.height - 64), "32", "36"][...], image: image)
+    let crop = parseCrop(
+        CommandLine.arguments.count == 7 ? CommandLine.arguments[3...6] :
+            ["24", String(image.height - 64), "32", "36"][...], image: image)
     let (pixels, stride) = decodePixels(image)
     let width = crop[2], height = crop[3]
     var visited = Set<Int>()

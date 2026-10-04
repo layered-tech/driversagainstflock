@@ -23,6 +23,76 @@ const node = {
     longitude: -97,
     osm_version: 2,
 };
+
+test('pending drive activity coalesces duplicate writes before confirming a pass', async () => {
+    let time = 100000;
+    let release;
+    let pause = false;
+    const saved = [];
+    const coordinator = createPresenceCoordinator({
+        load: async () => null,
+        save: async (value) => {
+            saved.push(JSON.parse(value));
+            if (pause) {
+                pause = false;
+                await new Promise((resolve) => {
+                    release = resolve;
+                });
+            }
+        },
+        randomId: () => 'a'.repeat(32),
+        now: () => time,
+        send: async () => {},
+    });
+    await coordinator.hydrate();
+    await coordinator.activity(true, false);
+    saved.length = 0;
+    time = 115000;
+    pause = true;
+    const updates = Array.from({ length: 50 }, () =>
+        coordinator.activity(true, true),
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+    const reservation = await coordinator.reserve(pass());
+    assert.ok(reservation);
+    const presented = coordinator.presented(reservation);
+    release();
+    await Promise.all([...updates, presented]);
+    assert.equal(
+        saved.length,
+        2,
+        'one activity write and one durable confirmation',
+    );
+    assert.equal(coordinator.state.drive.count, 1);
+});
+
+test('a reconnection queued during a disconnect write cannot be discarded', async () => {
+    let release;
+    let pause = false;
+    const coordinator = createPresenceCoordinator({
+        load: async () => null,
+        save: async () => {
+            if (pause) {
+                pause = false;
+                await new Promise((resolve) => {
+                    release = resolve;
+                });
+            }
+        },
+        randomId: () => 'a'.repeat(32),
+        now: () => 100000,
+        send: async () => {},
+    });
+    await coordinator.hydrate();
+    await coordinator.activity(true, false);
+    pause = true;
+    const disconnecting = coordinator.activity(false, false);
+    await new Promise((resolve) => setImmediate(resolve));
+    const reconnecting = coordinator.activity(true, false);
+    release();
+    await Promise.all([disconnecting, reconnecting]);
+    assert.equal(coordinator.state.drive.connected, true);
+});
 const coordinates = [
     [-97.002, 30],
     [-96.99, 30],
@@ -1437,10 +1507,23 @@ test('slow setup gives native acknowledgement its own full timeout window', asyn
     assert.equal(h.coordinator.state.drive.count, 0);
     await h.step(-96.99935, 109000);
     assert.equal(h.prompt.inspect().phase, 'presenting');
+    assert.equal(
+        h.traces.some(({ event }) => event === 'presentation-state-saved'),
+        false,
+    );
     await h.shown[0].onWillShow();
     assert.equal(h.prompt.inspect().phase, 'showing');
     assert.equal(h.coordinator.state.drive.count, 1);
     assert.equal(h.coordinator.state.lastPromptAt, 109000);
+    const events = h.traces.map(({ event }) => event);
+    assert.ok(
+        events.indexOf('native-presented') <
+            events.indexOf('presentation-state-saved'),
+    );
+    assert.ok(
+        events.indexOf('presentation-state-saved') <
+            events.indexOf('camera-focus-requested'),
+    );
 });
 
 test('cancelled or expired setup cannot show late or consume limits', async () => {

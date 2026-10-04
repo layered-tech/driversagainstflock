@@ -300,9 +300,11 @@ export function createPresencePrompt({
                     prompt.shownAt = now();
                     try {
                         await coordinator.presented(prompt.reservation);
+                        trace('presentation-state-saved');
                         if (!stillValid(prompt)) return;
                         const focus = getPresenceFocus(encounter, getContext());
                         prompt.focus = focus;
+                        trace('camera-focus-requested');
                         if (
                             !focus ||
                             !(await camera.focus(focus, () =>

@@ -35,13 +35,13 @@ The default suite is [`suite.json`](./suite.json). To use another suite from `ex
 npm run e2e:android-auto -- /absolute/path/to/suite.json
 ```
 
-The portrait command uses [`suite-portrait.json`](./suite-portrait.json) with the primary portrait display. Instrument-cluster support stays disabled, matching `car-display-config.js`; this suite does not claim cluster coverage. It starts active guidance, toggles between 3D follow and route overview in both directions, verifies the camera changes visually using its map-only `mapCrop`, and checks the route-only overlay state. View toggles use the same app-handler command as the landscape suite rather than host-layout-dependent coordinates.
+The portrait command uses [`suite-portrait.json`](./suite-portrait.json) with the primary portrait display. It inherits the scenarios from `suite.json` and overrides the DHU display, screenshot regions, and host control coordinates. Instrument-cluster support stays disabled, matching `car-display-config.js`; this suite does not claim cluster coverage.
 
 ## Coverage
 
-The default suite replays the saved WI-164/Pewaukee Road route from [`route-pewaukee.json`](./route-pewaukee.json), using its detailed geometry and estimated duration. Map API mocks are disabled. GPS position, speed, and course are sent through the emulator's authenticated GPS API and checked against Android's GPS provider after each segment; internal `AUTO_DRIVE` and synthetic camera crossings are not used.
+Both landscape and portrait suites replay the saved WI-164/Pewaukee Road route from [`route-pewaukee.json`](./route-pewaukee.json), using its detailed geometry and estimated duration. Map API mocks are disabled. GPS position, speed, and course are sent through the emulator's authenticated GPS API and checked against Android's GPS provider after each segment; internal `AUTO_DRIVE` and synthetic camera crossings are not used.
 
-The default suite has 17 scenarios. It runs these eight flows in both Dashboard and Fullscreen, then disconnects and verifies that the Android Auto service stops:
+Each suite has the same 17 scenarios. It runs these eight flows in both Dashboard and Fullscreen, then disconnects and verifies that the Android Auto service stops:
 
 1. Render the Mapbox map and confirm the selected host layout and visible user puck.
 2. Switch between day and night presentation.
@@ -52,11 +52,11 @@ The default suite has 17 scenarios. It runs these eight flows in both Dashboard 
 7. Press **Still there / Dismiss**, restore follow, and assert that no report was queued.
 8. Press **Not there**, assert one queued report for the canonical OSM camera ID, verify **Thanks!** and **Ok**, then press **Ok** and verify dismissal and restored follow.
 
-The saved-route checks use live camera inventory. The existing portrait suite remains an opt-in route-view UI check.
+The saved-route checks use live camera inventory.
 
 Dashboard and Fullscreen checks identify Android Auto's own view-switch button in each fresh screenshot. They do not depend on a media app being installed, its title, or its card finishing loading. An unrecognized or incorrect host layout fails the test; each screenshot's layout evidence is saved in a matching `.layout.json` file.
 
-The default suite checks the arrow puck's blue body, shape and white outline in fresh DHU screenshots at connection, on approach, after confirmation, and before and after driving with the phone asleep. A visible map or accuracy circle alone cannot satisfy that check. Confirmation stability combines continuous native camera position samples and movement aggregates with six DHU frames captured while GPS advances. Button taps use OCR text bounds from the current host screenshot.
+Both suites check the arrow puck's blue body, shape and white outline in fresh DHU screenshots at connection, on approach, after confirmation, and before and after driving with the phone asleep. A visible map or accuracy circle alone cannot satisfy that check. Confirmation stability combines continuous native camera position samples and movement aggregates with six DHU frames captured while GPS advances. Button taps use OCR text bounds from the current host screenshot. Portrait screenshots retain the side margins; the runner subtracts the configured touch offset when tapping the cropped DHU window.
 
 After establishing GPS motion, a development-only command clears warning history and confirmation cooldowns so warnings consumed during startup do not suppress the drive; this command keeps API mocks disabled. In the E2E environment, missing-camera reports remain in the local encrypted outbox. These UI tests do not submit false reports against the live camera inventory.
 
@@ -82,7 +82,7 @@ Cleanup runs after success, failure, `SIGINT`, or `SIGTERM`. It wakes the phone 
 - `ANDROID_AUTO_E2E_DEVICE` or `ANDROID_SERIAL`: emulator serial.
 - `ANDROID_HOME`: Android SDK root when `adb` discovery is not sufficient.
 - `ANDROID_AUTO_E2E_DHU_BINARY`: DHU executable path.
-- `ANDROID_AUTO_E2E_DHU_CONFIG`: DHU configuration path; it must use the suite's `1280x720` resolution.
+- `ANDROID_AUTO_E2E_DHU_CONFIG`: DHU configuration path; it must match the suite's display resolution.
 - `ANDROID_AUTO_E2E_ARTIFACTS_DIR`: artifact root when invoking `android-auto-e2e.mjs` directly. The shell wrapper sets this from `DAF_EAS_LOCAL_BUILD_ROOT`.
 
 ## Deterministic command seam

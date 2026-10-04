@@ -36,6 +36,15 @@ const ANDROID_AUTO_SETTINGS =
 const UI_DUMP_PATH = '/sdcard/android-auto-e2e-ui.xml';
 const HEAD_UNIT_PORT = 5277;
 const DEVELOPMENT_CLIENT_LAUNCH_TIMEOUTS = [45000, 120000];
+
+export function loadSuite(suitePath) {
+    const suite = JSON.parse(readFileSync(suitePath, 'utf8'));
+    if (!suite.extends) return suite;
+    const base = JSON.parse(
+        readFileSync(resolve(dirname(suitePath), suite.extends), 'utf8'),
+    );
+    return { ...base, ...suite };
+}
 export const DEFAULT_MAP_CROP = Object.freeze({
     height: 220,
     width: 280,
@@ -342,7 +351,7 @@ export class Runner {
     constructor(suitePath, environment = process.env) {
         this.environment = environment;
         this.suitePath = resolve(suitePath);
-        this.suite = JSON.parse(readFileSync(this.suitePath, 'utf8'));
+        this.suite = loadSuite(this.suitePath);
         this.serial = detectDevice(environment);
         this.androidSdkRoot = detectAndroidSdkRoot(environment);
         this.dhuBinary = resolve(
@@ -1001,6 +1010,21 @@ export class Runner {
         this.dhuProcess.stdin.write(`${command}\n`);
     }
 
+    tapDhu({ x, y }) {
+        const offset = this.suite?.touchOffset ?? { x: 0, y: 0 };
+        this.sendDhu(
+            `tap ${Math.round(x - offset.x)} ${Math.round(y - offset.y)}`,
+        );
+    }
+
+    currentMapCrop() {
+        return (
+            this.suite?.layouts?.[this.carLayout]?.mapCrop ??
+            this.suite?.mapCrop ??
+            DEFAULT_MAP_CROP
+        );
+    }
+
     async captureScreenshot(
         name,
         { recognizeText = true, verifyLayout = true } = {},
@@ -1067,8 +1091,15 @@ export class Runner {
             ocr,
         };
         if (this.suite.layouts) {
+            const crop = this.suite.hostLayoutCrop;
             screenshot.layoutProof = JSON.parse(
-                this.run(this.ocrBinary, ['--host-layout', imagePath]).stdout,
+                this.run(this.ocrBinary, [
+                    '--host-layout',
+                    imagePath,
+                    ...(crop
+                        ? [crop.x, crop.y, crop.width, crop.height].map(String)
+                        : []),
+                ]).stdout,
             );
             writeFileSync(
                 imagePath.replace(/\.png$/, '.layout.json'),
@@ -1331,10 +1362,7 @@ export class Runner {
             throw new Error(`Screenshot was not captured: ${name}`);
         }
 
-        const { height, width, x, y } =
-            this.suite?.layouts?.[this.carLayout]?.mapCrop ??
-            this.suite?.mapCrop ??
-            DEFAULT_MAP_CROP;
+        const { height, width, x, y } = this.currentMapCrop();
         const result = this.run(this.ocrBinary, [
             '--mean-luminance',
             screenshot.imagePath,
@@ -1364,10 +1392,7 @@ export class Runner {
             );
         }
 
-        const { height, width, x, y } =
-            this.suite?.layouts?.[this.carLayout]?.mapCrop ??
-            this.suite?.mapCrop ??
-            DEFAULT_MAP_CROP;
+        const { height, width, x, y } = this.currentMapCrop();
         const result = this.run(this.ocrBinary, [
             '--mean-pixel-difference',
             first.imagePath,
@@ -1483,7 +1508,12 @@ export class Runner {
                 `Unrecognized Android Auto host layout: ${JSON.stringify(screenshot.layoutProof)}`,
             );
         if (screenshot.layoutProof.layout !== layout) {
-            this.sendDhu(layout === 'fullscreen' ? 'tap 40 260' : 'tap 40 675');
+            this.tapDhu(
+                this.suite?.layouts?.[layout]?.activateTap ??
+                    (layout === 'fullscreen'
+                        ? { x: 40, y: 260 }
+                        : { x: 40, y: 675 }),
+            );
             await delay(1500);
             await this.captureScreenshot(name, { verifyLayout: false });
         }
@@ -1505,7 +1535,7 @@ export class Runner {
         ]);
         const target = JSON.parse(result.stdout);
         const outputStart = this.metroOutput.length;
-        this.sendDhu(`tap ${target.x} ${target.y}`);
+        this.tapDhu(target);
         if (step.waitForMetro)
             await this.waitForMetroMarker(step.waitForMetro, outputStart, 2000);
         if (step.waitForPresentation)
@@ -1661,6 +1691,11 @@ export class Runner {
             case 'sleep':
                 await delay(step.milliseconds);
                 break;
+            case 'tapMap': {
+                const { x, y, width, height } = this.currentMapCrop();
+                this.tapDhu({ x: x + width / 2, y: y + height / 2 });
+                break;
+            }
             case 'screenshot':
                 await this.captureScreenshot(step.name);
 

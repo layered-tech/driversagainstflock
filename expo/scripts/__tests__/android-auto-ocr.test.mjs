@@ -70,6 +70,44 @@ test(
                 );
                 assert.equal(proof.layout, expected, fixture);
             }
+            for (const layout of ['dashboard', 'fullscreen']) {
+                const fixture = fileURLToPath(
+                    new URL(
+                        `./fixtures/android-auto-portrait-${layout}.png`,
+                        import.meta.url,
+                    ),
+                );
+                const proof = JSON.parse(
+                    execFileSync(
+                        binary,
+                        ['--host-layout', fixture, '466', '1024', '32', '36'],
+                        { encoding: 'utf8', timeout: 30000 },
+                    ),
+                );
+                assert.equal(proof.layout, layout);
+                const puck = JSON.parse(
+                    execFileSync(
+                        binary,
+                        [
+                            '--puck-pixels',
+                            fixture,
+                            '650',
+                            layout === 'dashboard' ? '500' : '650',
+                            '700',
+                            layout === 'dashboard' ? '300' : '350',
+                        ],
+                        { encoding: 'utf8', timeout: 30000 },
+                    ),
+                );
+                assert.equal(puck.visible, true, `portrait ${layout} arrow`);
+                const wrongCrop = JSON.parse(
+                    execFileSync(binary, ['--host-layout', fixture], {
+                        encoding: 'utf8',
+                        timeout: 30000,
+                    }),
+                );
+                assert.equal(wrongCrop.layout, 'unknown');
+            }
             const visible = JSON.parse(
                 execFileSync(
                     binary,

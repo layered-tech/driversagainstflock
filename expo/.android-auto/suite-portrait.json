@@ -1,176 +1,57 @@
 {
+    "extends": "suite.json",
     "name": "Android Auto portrait end-to-end",
-    "appId": "com.anonymous.drivefree.dev",
-    "serviceComponent": "com.anonymous.drivefree.dev/com.margelo.nitro.swe.iternio.reactnativeautoplay.AndroidAutoService",
     "dhuConfig": "config/android-auto-dhu-portrait.ini",
     "display": {
         "width": 1920,
         "height": 1080
     },
-    "mapCrop": {
-        "x": 850,
-        "y": 300,
-        "width": 280,
-        "height": 220
+    "touchOffset": {
+        "x": 439,
+        "y": 0
     },
-    "metro": {
-        "host": "10.0.2.2",
-        "port": 8091
+    "hostLayoutCrop": {
+        "x": 466,
+        "y": 1024,
+        "width": 32,
+        "height": 36
     },
-    "location": {
-        "latitude": 30.2672,
-        "longitude": -97.7431
-    },
-    "tests": [
-        {
-            "name": "connects with the portrait primary display",
-            "steps": [
-                {
-                    "type": "dhu",
-                    "command": "tap 400 300"
-                },
-                {
-                    "type": "sleep",
-                    "milliseconds": 2500
-                },
-                {
-                    "type": "screenshot",
-                    "name": "portrait-connected-map"
-                },
-                {
-                    "type": "assertOcr",
-                    "screenshot": "portrait-connected-map",
-                    "contains": ["Congress Avenue", "SPEED", "LIMIT"]
-                },
-                {
-                    "type": "assertService",
-                    "running": true
-                }
-            ]
+    "layouts": {
+        "dashboard": {
+            "activateTap": {
+                "x": 482,
+                "y": 1040
+            },
+            "mapCrop": {
+                "x": 950,
+                "y": 270,
+                "width": 280,
+                "height": 220
+            },
+            "puckCrop": {
+                "x": 650,
+                "y": 500,
+                "width": 700,
+                "height": 300
+            }
         },
-        {
-            "name": "starts guidance on the portrait primary display",
-            "steps": [
-                {
-                    "type": "deepLink",
-                    "requestType": "directions",
-                    "query": "Austin Central Library"
-                },
-                {
-                    "type": "sleep",
-                    "milliseconds": 7000
-                },
-                {
-                    "type": "screenshot",
-                    "name": "portrait-route-choices"
-                },
-                {
-                    "type": "assertOcr",
-                    "screenshot": "portrait-route-choices",
-                    "contains": [
-                        "Austin Central Library",
-                        "Private route",
-                        "3 monitored nodes",
-                        "Start"
-                    ]
-                },
-                {
-                    "type": "dhu",
-                    "command": "tap 170 390"
-                },
-                {
-                    "type": "sleep",
-                    "milliseconds": 5000
-                },
-                {
-                    "type": "screenshot",
-                    "name": "portrait-navigation-started"
-                },
-                {
-                    "type": "assertOcr",
-                    "screenshot": "portrait-navigation-started",
-                    "contains": [
-                        "Turn right to avoid",
-                        "monitored intersections",
-                        "SPEED",
-                        "LIMIT",
-                        "Congress Avenue"
-                    ]
-                }
-            ]
-        },
-        {
-            "name": "toggles portrait guidance between 3D follow and route overview",
-            "steps": [
-                {
-                    "type": "screenshot",
-                    "name": "portrait-map-view-perspective-before",
-                    "requireVisibleMapCrop": true
-                },
-                {
-                    "type": "deepLink",
-                    "requestType": "map-view",
-                    "query": "toggle",
-                    "waitForMetro": "[Auto Play] driving-route-overview-fitted"
-                },
-                {
-                    "type": "sleep",
-                    "milliseconds": 1500
-                },
-                {
-                    "type": "screenshot",
-                    "name": "portrait-map-view-route-overview",
-                    "requireVisibleMapCrop": true
-                },
-                {
-                    "type": "assertOcr",
-                    "screenshot": "portrait-map-view-route-overview",
-                    "contains": ["Arrive at your destin"],
-                    "notContains": ["SPEED", "LIMIT", "Congress Avenue"]
-                },
-                {
-                    "type": "assertMapCropsDiffer",
-                    "first": "portrait-map-view-perspective-before",
-                    "second": "portrait-map-view-route-overview"
-                },
-                {
-                    "type": "deepLink",
-                    "requestType": "map-view",
-                    "query": "toggle",
-                    "waitForMetro": "[Auto Play] driving-map-view-perspective-restored"
-                },
-                {
-                    "type": "sleep",
-                    "milliseconds": 1500
-                },
-                {
-                    "type": "screenshot",
-                    "name": "portrait-map-view-perspective-after",
-                    "requireVisibleMapCrop": true
-                },
-                {
-                    "type": "assertOcr",
-                    "screenshot": "portrait-map-view-perspective-after",
-                    "contains": ["Arrive at your destin", "SPEED", "LIMIT"]
-                },
-                {
-                    "type": "assertMapCropsDiffer",
-                    "first": "portrait-map-view-route-overview",
-                    "second": "portrait-map-view-perspective-after"
-                }
-            ]
-        },
-        {
-            "name": "stops the portrait Android Auto service on disconnect",
-            "steps": [
-                {
-                    "type": "disconnect"
-                },
-                {
-                    "type": "assertService",
-                    "running": false
-                }
-            ]
+        "fullscreen": {
+            "activateTap": {
+                "x": 858,
+                "y": 1040
+            },
+            "mapCrop": {
+                "x": 950,
+                "y": 350,
+                "width": 280,
+                "height": 220
+            },
+            "puckCrop": {
+                "x": 650,
+                "y": 650,
+                "width": 700,
+                "height": 350
+            }
         }
-    ]
+    }
 }

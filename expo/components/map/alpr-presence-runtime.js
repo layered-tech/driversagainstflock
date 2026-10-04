@@ -23,12 +23,19 @@ import {
 } from './shared-map-preferences-sync';
 
 const STORAGE_KEY = 'driversagainstflock.alprPresence.v1';
+let writeSequence = 0;
 export const presenceCoordinator = createPresenceCoordinator({
     load: () => getPrivateCacheItemStrict(STORAGE_KEY),
     save: (value) => {
         if (!privateCacheStorageIsEncrypted())
             throw new Error('Encrypted storage unavailable');
-        return setPrivateCacheItem(STORAGE_KEY, value);
+        const sequence = ++writeSequence;
+        if (APP_ENVIRONMENT === 'e2e')
+            console.info(`[E2E] presence-write-start:${sequence}`);
+        return setPrivateCacheItem(STORAGE_KEY, value).then(() => {
+            if (APP_ENVIRONMENT === 'e2e')
+                console.info(`[E2E] presence-write-complete:${sequence}`);
+        });
     },
     randomId: () => createPlaceSearchSessionToken().replaceAll('-', ''),
     notify: (message) => {

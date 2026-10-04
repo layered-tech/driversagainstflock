@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
     builtInDisplayHasState,
     childProcessIsRunning,
@@ -13,6 +14,7 @@ import {
     getMapSurfaceVisibilityAssertionFailure,
     getMapThemeContrastAssertionFailure,
     getOCRAssertionFailure,
+    loadSuite,
     MINIMUM_MAP_CROP_PIXEL_DIFFERENCE,
     MINIMUM_MAP_THEME_LUMINANCE_DIFFERENCE,
     MINIMUM_VISIBLE_MAP_CROP_LUMINANCE,
@@ -335,36 +337,50 @@ describe('Android Auto E2E helpers', () => {
         });
     }
 
-    test('route view scenario uses semantic commands without DHU taps', () => {
-        const suite = JSON.parse(
-            readFileSync(
+    test('portrait inherits all saved-road assertions and replaces only its display geometry', () => {
+        const readSuite = (name) =>
+            loadSuite(
+                fileURLToPath(
+                    new URL(`../../.android-auto/${name}`, import.meta.url),
+                ),
+            );
+        const landscape = readSuite('suite.json');
+        const portrait = readSuite('suite-portrait.json');
+        assert.deepEqual(portrait.tests, landscape.tests);
+        assert.equal(portrait.tests.length, 17);
+        assert.equal(portrait.mapApiMocks, false);
+        assert.deepEqual(portrait.location, landscape.location);
+        assert.equal(
+            portrait.dhuConfig,
+            'config/android-auto-dhu-portrait.ini',
+        );
+        assert.deepEqual(portrait.touchOffset, { x: 439, y: 0 });
+        assert.notDeepEqual(portrait.layouts, landscape.layouts);
+    });
+
+    test('portrait taps translate screenshot coordinates into the cropped touch display', async () => {
+        const runner = Object.create(Runner.prototype);
+        runner.suite = loadSuite(
+            fileURLToPath(
                 new URL(
                     '../../.android-auto/suite-portrait.json',
                     import.meta.url,
                 ),
-                'utf8',
             ),
         );
-        const scenario = suite.tests.find(
-            ({ name }) =>
-                name ===
-                'toggles portrait guidance between 3D follow and route overview',
-        );
-
-        assert.ok(scenario);
-        assert.deepEqual(
-            scenario.steps
-                .filter(({ type }) => type === 'deepLink')
-                .map(({ requestType, query }) => ({ requestType, query })),
-            [
-                { requestType: 'map-view', query: 'toggle' },
-                { requestType: 'map-view', query: 'toggle' },
-            ],
-        );
-        assert.equal(
-            scenario.steps.some(({ type }) => type === 'dhu'),
-            false,
-        );
+        runner.carLayout = 'dashboard';
+        const commands = [];
+        runner.sendDhu = (command) => commands.push(command);
+        runner.tapDhu({ x: 482, y: 1040 });
+        runner.tapDhu({ x: 858, y: 1040 });
+        runner.tapDhu({ x: 635, y: 123 });
+        await runner.runStep({ type: 'tapMap' });
+        assert.deepEqual(commands, [
+            'tap 43 1040',
+            'tap 419 1040',
+            'tap 196 123',
+            'tap 651 380',
+        ]);
     });
 
     test('separates primary-only portrait and opt-in map cluster configurations', () => {
@@ -597,20 +613,19 @@ describe('Android Auto E2E helpers', () => {
         assert.match(reports[1], /difference=0\.2400/);
     });
 
-    test('uses applied map preset markers and crop contrast and retains opt-in portrait route-view coverage', () => {
+    test('both display suites share applied theme markers and map contrast assertions', () => {
         const suite = JSON.parse(
             readFileSync(
                 new URL('../../.android-auto/suite.json', import.meta.url),
                 'utf8',
             ),
         );
-        const portraitSuite = JSON.parse(
-            readFileSync(
+        const portraitSuite = loadSuite(
+            fileURLToPath(
                 new URL(
                     '../../.android-auto/suite-portrait.json',
                     import.meta.url,
                 ),
-                'utf8',
             ),
         );
         const idleThemeTest = suite.tests.find(
@@ -638,37 +653,6 @@ describe('Android Auto E2E helpers', () => {
         assert.equal(
             portraitSuite.dhuConfig,
             'config/android-auto-dhu-portrait.ini',
-        );
-        const portraitMapViewToggleTest = portraitSuite.tests.find(({ name }) =>
-            name.includes('3D follow'),
-        );
-        assert.equal(
-            portraitMapViewToggleTest.steps.filter(
-                ({ type }) => type === 'assertMapCropsDiffer',
-            ).length,
-            2,
-        );
-        assert.deepEqual(
-            portraitMapViewToggleTest.steps
-                .filter(({ type }) => type === 'deepLink')
-                .map(({ requestType, query, waitForMetro }) => ({
-                    requestType,
-                    query,
-                    waitForMetro,
-                })),
-            [
-                {
-                    requestType: 'map-view',
-                    query: 'toggle',
-                    waitForMetro: '[Auto Play] driving-route-overview-fitted',
-                },
-                {
-                    requestType: 'map-view',
-                    query: 'toggle',
-                    waitForMetro:
-                        '[Auto Play] driving-map-view-perspective-restored',
-                },
-            ],
         );
         for (const themeTest of [idleThemeTest]) {
             assert.ok(themeTest);

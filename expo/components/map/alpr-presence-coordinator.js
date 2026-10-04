@@ -106,19 +106,19 @@ export function createPresenceCoordinator({
             await this.hydrate();
             if (!this.state) return;
             const time = now();
-            if (
-                state.drive.connected === connected &&
-                (!driving || time - state.drive.lastActivityAt < 15000)
-            )
-                return;
-            await mutate((current) =>
-                updatePresenceDrive(current, {
+            await mutate((current) => {
+                if (
+                    current.drive.connected === connected &&
+                    (!driving || time - current.drive.lastActivityAt < 15000)
+                )
+                    return current;
+                return updatePresenceDrive(current, {
                     connected,
                     driving,
                     now: time,
                     createDriveId: randomId,
-                }),
-            );
+                });
+            });
         },
         async resetLimits() {
             await this.hydrate();
