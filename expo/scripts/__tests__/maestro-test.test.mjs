@@ -260,7 +260,7 @@ R58M offline
     test('collects the full suite without launcher UI readiness checks', () => {
         const flows = collectMaestroFlows(['.maestro'], EXPO_DIRECTORY);
 
-        assert.equal(flows.length, 29);
+        assert.equal(flows.length, 36);
         assert.deepEqual(
             flows.map((flow) => path.basename(flow)),
             [...flows.map((flow) => path.basename(flow))].sort(),
@@ -279,7 +279,7 @@ R58M offline
 
     test('reopens the exact server after clear-state launcher startup', () => {
         const clearStateFlows = [
-            'contribute-wizard.yml',
+            'subflows/contribute-tour-setup.yml',
             'driving-alerts.yml',
             'map-layer-options.yml',
             'map-settings-first-open-driving.yml',
@@ -301,7 +301,7 @@ R58M offline
                     path.join(EXPO_DIRECTORY, '.maestro', flow),
                     'utf8',
                 ),
-                /file: subflows\/open-expo-dev-client-after-clear\.yml/,
+                /file: (?:subflows\/)?open-expo-dev-client-after-clear\.yml/,
             );
         }
 
@@ -326,6 +326,64 @@ R58M offline
         assert.match(
             subflow,
             /runFlow:\s+when:\s+visible: '[^']*Development Build[^']*'\s+commands:\s+- openLink: \$\{MAESTRO_EXPO_DEV_CLIENT_URL\}/,
+        );
+    });
+
+    test('collects both new tour suites and the combined tour suite without their helpers', () => {
+        const { scripts } = JSON.parse(
+            readFileSync(path.join(EXPO_DIRECTORY, 'package.json'), 'utf8'),
+        );
+        const suites = {
+            'e2e:map-options-tour': [
+                'map-options-tour.yml',
+                'map-options-tour-skip.yml',
+            ],
+            'e2e:scorecard-tour': [
+                'scorecard-tour.yml',
+                'scorecard-tour-skip.yml',
+            ],
+            'e2e:user-tours': [
+                'contribute-wizard.yml',
+                'contribute-signed-out.yml',
+                'contribute-tour-skip.yml',
+                'contribute-tour-resume.yml',
+                'contribute-tour-reset.yml',
+                'map-options-tour.yml',
+                'map-options-tour-skip.yml',
+                'scorecard-tour.yml',
+                'scorecard-tour-skip.yml',
+            ],
+        };
+        for (const [script, expected] of Object.entries(suites)) {
+            const [runner, ...targets] = scripts[script].split(' ');
+            assert.equal(runner, './scripts/maestro-test.sh');
+            assert.deepEqual(
+                collectMaestroFlows(targets, EXPO_DIRECTORY).map((flow) =>
+                    path.basename(flow),
+                ),
+                expected,
+            );
+        }
+    });
+
+    test('collects the contribution tour suite without running its helpers as tests', () => {
+        const { scripts } = JSON.parse(
+            readFileSync(path.join(EXPO_DIRECTORY, 'package.json'), 'utf8'),
+        );
+        const [runner, ...targets] = scripts['e2e:contribute-tour'].split(' ');
+
+        assert.equal(runner, './scripts/maestro-test.sh');
+        assert.deepEqual(
+            collectMaestroFlows(targets, EXPO_DIRECTORY).map((flow) =>
+                path.basename(flow),
+            ),
+            [
+                'contribute-wizard.yml',
+                'contribute-signed-out.yml',
+                'contribute-tour-skip.yml',
+                'contribute-tour-resume.yml',
+                'contribute-tour-reset.yml',
+            ],
         );
     });
 
@@ -751,16 +809,16 @@ R58M offline
 
         const tapCount = source.match(/- tapOn:/g)?.length;
 
-        assert.equal(tapCount, 18);
+        assert.equal(tapCount, 19);
         assert.equal(
             source.match(/retryTapIfNoChange: false/g)?.length,
             tapCount,
         );
         assert.equal(
             source.match(/waitToSettleTimeoutMs: 0/g)?.length,
-            tapCount + 3,
+            tapCount + 4,
         );
-        assert.equal(source.match(/- swipe:/g)?.length, 3);
+        assert.equal(source.match(/- swipe:/g)?.length, 4);
         assert.equal(source.match(/timeout: 1000(?:\s|$)/g)?.length, 3);
         assert.doesNotMatch(source, /- assertNotVisible:/);
     });

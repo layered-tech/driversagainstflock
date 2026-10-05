@@ -1,0 +1,6 @@
+appId: com.anonymous.drivefree.dev
+---
+- runFlow:
+    file: user-tour-tip.yml
+    env:
+      TOUR_PREFIX: contribute-tour

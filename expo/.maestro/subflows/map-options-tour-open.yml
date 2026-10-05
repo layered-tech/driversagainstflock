@@ -1,0 +1,33 @@
+appId: com.anonymous.drivefree.dev
+---
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+- launchApp:
+    clearState: true
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    file: open-expo-dev-client-after-clear.yml
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 120000
+- openLink: 'driversagainstflock://e2e-mocks'
+- extendedWaitUntil:
+    visible:
+      id: 'map-layer-button'
+    timeout: 30000
+- assertNotVisible:
+    id: 'map-options-tour-tooltip'
+- tapOn:
+    id: 'map-layer-button'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: 'map-options-tour-police-reports'
+    timeout: 10000

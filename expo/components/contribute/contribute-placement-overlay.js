@@ -14,6 +14,9 @@ import { MAP_CONTROL_BUTTON_CLASS_NAME } from '../map/constants';
 import { MapControlButton } from '../map/map-control-button';
 import { saveDraftBeforeExit } from './contribute-draft-actions';
 import { useContribute } from './contribute-state';
+import { useSafeAreaInsets } from '../../lib/safe-area-insets';
+import { ContributeTourOverlay } from './contribute-tour-overlay';
+import { ContributeTourTarget } from './contribute-tour-target';
 
 function getMapBoundsMidpoint(bounds) {
     const west = Number(bounds?.sw?.[0]);
@@ -37,7 +40,9 @@ export function ContributePlacementOverlay({
     locationController,
     mapControls,
     screenIsFocused,
+    tourTargets,
 }) {
+    const insets = useSafeAreaInsets();
     const isSystemDarkMode = useColorScheme() === 'dark';
     const {
         addPinAtCoordinate,
@@ -45,6 +50,7 @@ export function ContributePlacementOverlay({
         exitContribute,
         pins,
         saveDraft,
+        tour,
     } = useContribute();
     const primaryIconColor = isSystemDarkMode ? '#f5f5f5' : '#171717';
 
@@ -136,7 +142,7 @@ export function ContributePlacementOverlay({
 
     return (
         <View className="gap-3" pointerEvents="box-none">
-            <View className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90 flex-row items-center gap-2 rounded-dafMd border border-daf-border-glass bg-white/90 py-1.5 pl-1.5 pr-2 shadow-[0px_4px_18px_rgba(11,14,18,0.16)]">
+            <View className="flex-row items-center gap-2 rounded-dafMd border border-daf-border-glass bg-white/90 py-1.5 pl-1.5 pr-2 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90">
                 <Pressable
                     accessibilityLabel="Back"
                     accessibilityRole="button"
@@ -158,7 +164,7 @@ export function ContributePlacementOverlay({
                     Place the cameras
                 </Text>
                 <View
-                    className="dark:border-daf-border-dark shrink-0 rounded-dafPill border border-daf-border bg-daf-surface-alt px-[9px] py-1 dark:bg-daf-surface-inverse"
+                    className="shrink-0 rounded-dafPill border border-daf-border bg-daf-surface-alt px-[9px] py-1 dark:border-daf-border-dark dark:bg-daf-surface-inverse"
                     testID="contribute-step-pill"
                 >
                     <Text className="font-dafMono text-[11px] font-semibold tracking-[0.04em] text-daf-text-secondary dark:text-neutral-300">
@@ -168,20 +174,26 @@ export function ContributePlacementOverlay({
             </View>
 
             <View className="relative h-12" pointerEvents="box-none">
-                <MapControlButton
-                    accessibilityLabel="Add camera here"
-                    accessibilityRole="button"
-                    className={`${MAP_CONTROL_BUTTON_CLASS_NAME} dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90 border-daf-border-glass bg-white/90`}
-                    onPress={handleAddCameraPress}
-                    testID="contribute-add-camera-button"
+                <ContributeTourTarget
+                    className="self-start"
+                    id="placement"
+                    targets={tourTargets}
                 >
-                    <Icon
-                        color={dafSemanticColors.brand}
-                        name="plus"
-                        size={24}
-                        stroke={2.2}
-                    />
-                </MapControlButton>
+                    <MapControlButton
+                        accessibilityLabel="Add camera here"
+                        accessibilityRole="button"
+                        className={`${MAP_CONTROL_BUTTON_CLASS_NAME} border-daf-border-glass bg-white/90 dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90`}
+                        onPress={handleAddCameraPress}
+                        testID="contribute-add-camera-button"
+                    >
+                        <Icon
+                            color={dafSemanticColors.brand}
+                            name="plus"
+                            size={24}
+                            stroke={2.2}
+                        />
+                    </MapControlButton>
+                </ContributeTourTarget>
                 {mapControls ? (
                     <View
                         className="absolute right-0 top-0"
@@ -195,6 +207,13 @@ export function ContributePlacementOverlay({
             <View className="items-center" pointerEvents="box-none">
                 <DafChip tone="glass">Move the map, then tap + to drop</DafChip>
             </View>
+            <ContributeTourOverlay
+                enabled={screenIsFocused && pins.length === 0}
+                insets={insets}
+                phase="placement"
+                targets={tourTargets}
+                tour={tour}
+            />
         </View>
     );
 }

@@ -1,0 +1,132 @@
+appId: com.anonymous.drivefree.dev
+name: Contribution Tour Debug Reset Preserves Draft
+tags:
+  - contribute
+  - contribute-tour
+  - map
+---
+- runFlow: subflows/contribute-tour-setup.yml
+- runFlow: subflows/contribute-tour-place-camera.yml
+- tapOn:
+    id: 'contribute-next-details-button'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-tour-camera-details'
+    timeout: 10000
+- tapOn:
+    id: 'contribute-tour-skip-camera-details'
+    retryTapIfNoChange: false
+- assertNotVisible:
+    id: 'contribute-tour-.*'
+- tapOn:
+    id: 'contribute-operator-input'
+- inputText: 'Maestro tour reset operator'
+- hideKeyboard
+- tapOn:
+    id: 'contribute-next-changeset-button'
+    retryTapIfNoChange: false
+- assertVisible:
+    id: 'contribute-comment-input'
+- tapOn:
+    id: 'contribute-comment-input'
+- inputText: 'Draft preserved when resetting the tour.'
+- hideKeyboard
+- tapOn:
+    id: 'contribute-next-review-button'
+    retryTapIfNoChange: false
+- assertVisible:
+    id: 'contribute-review-screen'
+- tapOn:
+    id: 'contribute-save-draft-button'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 10000
+- tapOn:
+    id: 'map-search-drawer-button-map'
+    retryTapIfNoChange: false
+- assertVisible:
+    id: 'app-drawer-open'
+- scrollUntilVisible:
+    element:
+      id: 'drawer-debug-button'
+    direction: DOWN
+- tapOn:
+    id: 'drawer-debug-button'
+    retryTapIfNoChange: false
+- assertVisible:
+    id: 'debug-drawer-reset-contribution-tour'
+    enabled: true
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-contribute-tour-debug-reset'}
+- tapOn:
+    id: 'debug-drawer-reset-contribution-tour'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    notVisible:
+      id: 'debug-drawer'
+    timeout: 10000
+# No reload is needed, and the reset leaves the current login and draft intact.
+- tapOn:
+    id: 'map-contribute-button'
+    retryTapIfNoChange: false
+- runFlow:
+    file: subflows/contribute-tour-tip.yml
+    env:
+      TOUR_STEP: start
+      TOUR_TITLE: Your first contribution
+- assertVisible:
+    id: 'contribute-account-card-signed-in'
+- assertVisible: '@daf_mapper'
+- assertVisible:
+    id: 'contribute-resume-draft-button'
+- tapOn:
+    id: 'contribute-resume-draft-button'
+    retryTapIfNoChange: false
+- runFlow:
+    file: subflows/contribute-tour-tip.yml
+    env:
+      TOUR_STEP: placed
+      TOUR_TITLE: Your camera is in the draft
+- assertVisible: '1 camera placed'
+- tapOn:
+    id: 'contribute-next-details-button'
+    retryTapIfNoChange: false
+# The reset is persistent: restarting still presents the newly pending camera tip.
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-tour-camera-details'
+    timeout: 10000
+- runFlow: subflows/contribute-tour-relaunch.yml
+- assertNotVisible:
+    id: 'contribute-tour-start'
+- tapOn:
+    id: 'contribute-resume-draft-button'
+    retryTapIfNoChange: false
+- assertVisible: '1 camera placed'
+- tapOn:
+    id: 'contribute-next-details-button'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-tour-camera-details'
+    timeout: 10000
+- tapOn:
+    id: 'contribute-tour-skip-camera-details'
+    retryTapIfNoChange: false
+- assertVisible:
+    id: 'contribute-operator-input'
+- assertVisible: 'Maestro tour reset operator'
+- tapOn:
+    id: 'contribute-next-changeset-button'
+    retryTapIfNoChange: false
+- assertVisible: 'Draft preserved when resetting the tour.'
+- tapOn:
+    id: 'contribute-next-review-button'
+    retryTapIfNoChange: false
+- assertVisible: 'Added ALPR camera · Flock Safety'
+- assertVisible: 'Draft preserved when resetting the tour.'
+- assertVisible:
+    id: 'contribute-publish-button'
+- assertNotVisible: 'Changeset published'

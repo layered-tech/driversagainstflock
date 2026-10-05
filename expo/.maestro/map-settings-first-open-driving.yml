@@ -50,6 +50,19 @@ tags:
       id: 'map-settings-sheet'
     timeout: 10000
 - assertVisible: 'Map settings'
+- extendedWaitUntil:
+    visible:
+      id: 'map-options-tour-police-reports'
+    timeout: 10000
+- tapOn:
+    id: 'map-options-tour-skip-police-reports'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- swipe:
+    start: '50%,45%'
+    end: '50%,88%'
+    duration: 400
+    waitToSettleTimeoutMs: 0
 - takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-map-settings-first-open-driving'}
 - tapOn:
     id: 'map-layer-option-standard-satellite'

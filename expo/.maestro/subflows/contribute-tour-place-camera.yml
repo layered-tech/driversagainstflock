@@ -1,0 +1,38 @@
+appId: com.anonymous.drivefree.dev
+---
+- runFlow:
+    file: contribute-tour-tip.yml
+    env:
+      TOUR_STEP: start
+      TOUR_TITLE: Your first contribution
+- assertVisible:
+    id: 'contribute-account-card-signed-in'
+- assertNotVisible:
+    id: 'contribute-placement-sheet'
+- tapOn:
+    id: 'contribute-start-editing-button'
+    retryTapIfNoChange: false
+- runFlow:
+    file: contribute-tour-tip.yml
+    env:
+      TOUR_STEP: placement-map
+      TOUR_TITLE: Find the camera’s exact location
+- runFlow:
+    file: contribute-tour-tip.yml
+    env:
+      TOUR_STEP: placement
+      TOUR_TITLE: Put the camera in the right place
+- assertNotVisible:
+    id: 'contribute-tour-camera-details'
+- assertVisible:
+    id: 'contribute-next-details-button'
+    enabled: false
+- tapOn:
+    id: 'contribute-add-camera-button'
+    retryTapIfNoChange: false
+- runFlow:
+    file: contribute-tour-tip.yml
+    env:
+      TOUR_STEP: placed
+      TOUR_TITLE: Your camera is in the draft
+- assertVisible: '1 camera placed'

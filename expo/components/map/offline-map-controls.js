@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { Icon } from '../design-system/icon';
+import { TourTarget } from '../tour-target';
 import { OfflineMapActionIcon } from './offline-map-action-icon';
 import { OFFLINE_MAX_ZOOM_OPTIONS } from './offline-map-utils';
 import { useOfflineMapPack } from './use-offline-map-pack';
@@ -50,6 +51,7 @@ export function OfflineMapControls({
     mapStyleURL,
     resetKey,
     selectedMapLayer,
+    tourTargets,
 }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const {
@@ -113,58 +115,60 @@ export function OfflineMapControls({
     };
 
     return (
-        <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark overflow-hidden rounded-dafMd border border-daf-border bg-white">
-            <Pressable
-                accessibilityHint={
-                    isExpanded
-                        ? 'Collapses offline map download options.'
-                        : 'Expands offline map download options.'
-                }
-                accessibilityLabel="Offline map download options"
-                accessibilityRole="button"
-                accessibilityState={{ expanded: isExpanded }}
-                className={`min-h-[76px] flex-row items-center justify-between gap-3 p-4 active:opacity-[0.82] ${
-                    isExpanded
-                        ? 'dark:border-daf-border-dark border-b border-daf-border'
-                        : ''
-                }`}
-                onPress={handleTogglePress}
-                testID="offline-map-section-toggle"
-            >
-                <View className="min-w-0 flex-1 gap-1">
-                    <Text className="text-base font-semibold text-neutral-950 dark:text-white">
-                        Offline Data
-                    </Text>
-                    <Text className="text-sm leading-5 text-neutral-600 dark:text-neutral-300">
-                        {selectedMapLayer.label}
-                    </Text>
-                </View>
-
-                <View className="shrink-0 flex-row items-center gap-2">
-                    <View
-                        className={`max-w-40 rounded-full border px-3 py-1 ${statusBadgeClassName}`}
-                    >
-                        <Text
-                            adjustsFontSizeToFit
-                            className={`text-xs font-semibold ${statusTextClassName}`}
-                            minimumFontScale={0.75}
-                            numberOfLines={1}
-                        >
-                            {statusLabel}
+        <View className="overflow-hidden rounded-dafMd border border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark">
+            <TourTarget id="offline-data" targets={tourTargets}>
+                <Pressable
+                    accessibilityHint={
+                        isExpanded
+                            ? 'Collapses offline map download options.'
+                            : 'Expands offline map download options.'
+                    }
+                    accessibilityLabel="Offline map download options"
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: isExpanded }}
+                    className={`min-h-[76px] flex-row items-center justify-between gap-3 p-4 active:opacity-[0.82] ${
+                        isExpanded
+                            ? 'border-b border-daf-border dark:border-daf-border-dark'
+                            : ''
+                    }`}
+                    onPress={handleTogglePress}
+                    testID="offline-map-section-toggle"
+                >
+                    <View className="min-w-0 flex-1 gap-1">
+                        <Text className="text-base font-semibold text-neutral-950 dark:text-white">
+                            Offline Data
+                        </Text>
+                        <Text className="text-sm leading-5 text-neutral-600 dark:text-neutral-300">
+                            {selectedMapLayer.label}
                         </Text>
                     </View>
-                    <Icon
-                        color="#737373"
-                        name="chevron-down"
-                        style={{
-                            transform: [
-                                { rotate: isExpanded ? '180deg' : '0deg' },
-                            ],
-                        }}
-                        size={13}
-                    />
-                </View>
-            </Pressable>
+
+                    <View className="shrink-0 flex-row items-center gap-2">
+                        <View
+                            className={`max-w-40 rounded-full border px-3 py-1 ${statusBadgeClassName}`}
+                        >
+                            <Text
+                                adjustsFontSizeToFit
+                                className={`text-xs font-semibold ${statusTextClassName}`}
+                                minimumFontScale={0.75}
+                                numberOfLines={1}
+                            >
+                                {statusLabel}
+                            </Text>
+                        </View>
+                        <Icon
+                            color="#737373"
+                            name="chevron-down"
+                            style={{
+                                transform: [
+                                    { rotate: isExpanded ? '180deg' : '0deg' },
+                                ],
+                            }}
+                            size={13}
+                        />
+                    </View>
+                </Pressable>
+            </TourTarget>
 
             {isExpanded ? (
                 <View className="gap-4 p-4">
@@ -208,7 +212,7 @@ export function OfflineMapControls({
                         <Text className="text-sm font-semibold uppercase text-neutral-500 dark:text-neutral-400">
                             Max Zoom
                         </Text>
-                        <View className="dark:border-daf-border-dark flex-row overflow-hidden rounded-dafMd border border-daf-border bg-white dark:bg-daf-surface-inverse">
+                        <View className="flex-row overflow-hidden rounded-dafMd border border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-inverse">
                             {OFFLINE_MAX_ZOOM_OPTIONS.map(
                                 (zoomLevel, index) => {
                                     const isSelected =
@@ -224,7 +228,7 @@ export function OfflineMapControls({
                                             }}
                                             className={`min-h-11 flex-1 items-center justify-center px-1 active:opacity-[0.82] disabled:opacity-50 ${
                                                 index > 0
-                                                    ? 'dark:border-daf-border-dark border-l border-daf-border'
+                                                    ? 'border-l border-daf-border dark:border-daf-border-dark'
                                                     : ''
                                             } ${
                                                 isSelected

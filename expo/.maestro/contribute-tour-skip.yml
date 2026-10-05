@@ -1,0 +1,82 @@
+appId: com.anonymous.drivefree.dev
+name: Contribution Tour Skip Preserves Submission
+tags:
+  - contribute
+  - contribute-tour
+  - map
+---
+- runFlow: subflows/contribute-tour-setup.yml
+- runFlow: subflows/contribute-tour-place-camera.yml
+- tapOn:
+    id: 'contribute-next-details-button'
+    retryTapIfNoChange: false
+- runFlow:
+    file: subflows/contribute-tour-tip.yml
+    env:
+      TOUR_STEP: camera-details
+      TOUR_TITLE: Describe what you can verify
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-tour-manufacturer'
+    timeout: 10000
+# Skipping midway ends guidance while retaining the camera being edited.
+- tapOn:
+    id: 'contribute-tour-skip-manufacturer'
+    retryTapIfNoChange: false
+- assertNotVisible:
+    id: 'contribute-tour-.*'
+- assertVisible: 'Camera 1 of 1'
+- scrollUntilVisible:
+    element:
+      id: 'contribute-operator-input'
+    direction: UP
+- tapOn:
+    id: 'contribute-operator-input'
+- inputText: 'Maestro tour skip operator'
+- hideKeyboard
+- assertVisible: 'Maestro tour skip operator'
+- tapOn:
+    id: 'contribute-next-changeset-button'
+    retryTapIfNoChange: false
+- assertVisible:
+    id: 'contribute-changeset-details-screen'
+- assertNotVisible:
+    id: 'contribute-tour-.*'
+- tapOn:
+    id: 'contribute-comment-input'
+- inputText: 'Contribution kept after skipping the tour.'
+- hideKeyboard
+- tapOn:
+    id: 'contribute-next-review-button'
+    retryTapIfNoChange: false
+- assertVisible:
+    id: 'contribute-review-screen'
+- assertNotVisible:
+    id: 'contribute-tour-.*'
+- assertVisible: 'Added ALPR camera · Flock Safety'
+- assertVisible: 'Contribution kept after skipping the tour.'
+- tapOn:
+    id: 'contribute-publish-button'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible: 'Changeset published'
+    timeout: 30000
+- assertNotVisible:
+    id: 'contribute-tour-published'
+- assertVisible: 'node/12100881'
+- tapOn:
+    id: 'contribute-see-on-map-button'
+    retryTapIfNoChange: false
+# Skipping is still respected after restarting the app.
+- runFlow: subflows/contribute-tour-relaunch.yml
+- assertVisible:
+    id: 'contribute-start-editing-button'
+- assertNotVisible:
+    id: 'contribute-tour-.*'
+- tapOn:
+    id: 'contribute-start-editing-button'
+    retryTapIfNoChange: false
+- assertVisible:
+    id: 'contribute-placement-sheet'
+- assertNotVisible:
+    id: 'contribute-tour-.*'

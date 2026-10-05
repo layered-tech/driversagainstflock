@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\ModerationFlag;
 use App\Models\ModerationReview;
+use App\Models\ModerationRule;
 use App\Models\OsmChangeset;
 use App\Models\OsmChangesetComment;
 use App\Models\OsmNodeVersion;
@@ -253,4 +255,33 @@ test('node pagination bounds previous-version lookups to the requested page', fu
     expect($historyScans)->not->toBeEmpty()
         ->and($historyScans->max('Actual Loops'))->toBeLessThanOrEqual(3)
         ->and($nodes->where('Function Name', 'jsonb_to_recordset')->max('Actual Loops'))->toBe(1);
+});
+
+test('node filters combine multiple selected locations and operators before pagination', function () {
+    $west = WatchedArea::factory()->create(['geometry' => ['type' => 'Polygon', 'coordinates' => [[[-98, 30], [-97, 30], [-97, 31], [-98, 31], [-98, 30]]]]]);
+    $east = WatchedArea::factory()->create(['geometry' => ['type' => 'Polygon', 'coordinates' => [[[-96, 30], [-95, 30], [-95, 31], [-96, 31], [-96, 30]]]]]);
+    $this->sourceNode(200, 1, ['tags' => json_encode(['operator' => 'Flock'])]);
+    $this->sourceNode(201, 1, ['longitude' => -95.5, 'tags' => json_encode(['operator' => 'City'])]);
+    $this->sourceNode(202, 1, ['longitude' => -95.5, 'tags' => json_encode(['operator' => 'Other'])]);
+    $reader = app(ModerationReader::class);
+    $query = $reader->listing('nodes', ['locations' => [$west->id, $east->id], 'operators' => ['Flock', 'City']], forPagination: true)->orderBy('id');
+    expect($reader->paginateListing($query, 'nodes')->getCollection()->pluck('id')->all())->toBe([200, 201]);
+    expect($reader->listing('nodes', ['locations' => [$west->id], 'operators' => ['City']])->count())->toBe(0);
+});
+
+test('flagged queues sort by the actual rule severity and first detection time before pagination', function () {
+    $this->sourceNode(200);
+    $this->sourceNode(201);
+    $low = ModerationRule::factory()->create(['enabled' => true, 'severity' => 'Low']);
+    $high = ModerationRule::factory()->create(['enabled' => true, 'severity' => 'High']);
+    foreach ([[200, $low, '2026-09-01 12:00:00'], [201, $high, '2026-09-02 12:00:00']] as [$node, $rule, $created]) {
+        ModerationFlag::create(['source' => 'rule', 'rule_id' => $rule->id, 'rule_version' => 1, 'node_id' => $node, 'related_node_id' => 0,
+            'node_version' => 1, 'status' => 'open', 'evidence' => [], 'evidence_hash' => hash('sha256', (string) $node), 'created_at' => $created, 'evaluated_at' => $created]);
+    }
+    $reader = app(ModerationReader::class);
+    foreach (['severity', 'detected_at'] as $sort) {
+        $query = $reader->listing('flagged', [], forPagination: true)->orderByDesc($sort)->orderByDesc('id');
+        $records = $reader->paginateListing($query, 'flagged')->getCollection();
+        expect($records->pluck('id')->all())->toBe([201, 200])->and((int) $records->first()->severity)->toBe(3)->and($records->first()->detected_at)->not->toBeNull();
+    }
 });

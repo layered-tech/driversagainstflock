@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { router, useIsFocused } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
     Pressable,
@@ -13,6 +13,9 @@ import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
 import { dafSemanticColors, getDafTheme } from '../design-system/tokens';
+import { TourOverlay } from '../tour-overlay';
+import { TourTarget } from '../tour-target';
+import { useUserTour } from '../user-tours';
 import { useScorecard } from './scorecard-context';
 import { getScorecardFuelCostSettings } from './scorecard-engine';
 import { ScorecardFuelSettingsModal } from './scorecard-fuel-settings-modal';
@@ -20,6 +23,7 @@ import {
     ScorecardPrivacyFooter,
     ScorecardScreenHeader,
 } from './scorecard-screen-header';
+import { SCORECARD_TOUR } from './scorecard-tour';
 
 const WEEK_BUCKET_COUNT = 5;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -115,7 +119,7 @@ function StatTile({ colorClassName = '', label, onPress, testID, value }) {
     return (
         <Container
             accessibilityRole={onPress ? 'button' : undefined}
-            className="dark:border-daf-border-dark dark:bg-daf-surface-dark flex-1 items-center rounded-dafMd border border-daf-border bg-white px-2 py-3 active:opacity-70"
+            className="flex-1 items-center rounded-dafMd border border-daf-border bg-white px-2 py-3 active:opacity-70 dark:border-daf-border-dark dark:bg-daf-surface-dark"
             onPress={onPress}
         >
             <Text
@@ -136,7 +140,7 @@ function BadgeCard({ badge }) {
         <View
             accessibilityLabel={`${badge.name} badge, ${badge.earned ? 'earned' : 'locked'}`}
             accessible
-            className={`dark:border-daf-border-dark dark:bg-daf-surface-dark w-[31.5%] items-center rounded-dafMd border border-daf-border bg-white px-2 py-3 ${
+            className={`w-[31.5%] items-center rounded-dafMd border border-daf-border bg-white px-2 py-3 dark:border-daf-border-dark dark:bg-daf-surface-dark ${
                 badge.earned ? '' : 'opacity-55'
             }`}
             testID={`scorecard-badge-${badge.id}`}
@@ -144,8 +148,8 @@ function BadgeCard({ badge }) {
             <View
                 className={`h-10 w-10 items-center justify-center rounded-dafPill border ${
                     badge.earned
-                        ? 'bg-daf-brand/12 dark:bg-daf-brand/15 border-transparent'
-                        : 'dark:border-daf-border-dark border-daf-border bg-daf-surface-alt dark:bg-daf-surface-inverse'
+                        ? 'bg-daf-brand/12 border-transparent dark:bg-daf-brand/15'
+                        : 'border-daf-border bg-daf-surface-alt dark:border-daf-border-dark dark:bg-daf-surface-inverse'
                 }`}
             >
                 <Icon
@@ -169,6 +173,11 @@ function BadgeCard({ badge }) {
 }
 
 export default function ScorecardDashboardScreen() {
+    const tour = useUserTour('scorecard');
+    const tourTargets = useRef({});
+    const tourScrollRef = useRef(null);
+    const tourContentRef = useRef(null);
+    const screenIsFocused = useIsFocused();
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
     const theme = getDafTheme(colorScheme);
@@ -218,6 +227,15 @@ export default function ScorecardDashboardScreen() {
         !isHydrated ||
         !secureStorageIsAvailable ||
         Boolean(scorecardState.activeSession);
+    useEffect(() => {
+        if (
+            screenIsFocused &&
+            isHydrated &&
+            tour.progress?.status === 'pending'
+        ) {
+            tour.start();
+        }
+    }, [screenIsFocused, isHydrated, tour.start, tour.progress?.status]);
 
     const handleExportBackup = async () => {
         setBackupActionIsPending(true);
@@ -345,10 +363,15 @@ export default function ScorecardDashboardScreen() {
             <ScrollView
                 className="flex-1"
                 contentContainerStyle={{ paddingBottom: bottomPadding }}
+                ref={tourScrollRef}
             >
-                <View className="gap-3.5 px-4 py-[18px]">
+                <View
+                    className="gap-3.5 px-4 py-[18px]"
+                    collapsable={false}
+                    ref={tourContentRef}
+                >
                     {!secureStorageIsAvailable ? (
-                        <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark rounded-dafLg border border-daf-border bg-white p-5">
+                        <View className="rounded-dafLg border border-daf-border bg-white p-5 dark:border-daf-border-dark dark:bg-daf-surface-dark">
                             <Text className="text-center text-base font-bold text-daf-text-primary dark:text-white">
                                 Secure storage required
                             </Text>
@@ -361,88 +384,122 @@ export default function ScorecardDashboardScreen() {
                         </View>
                     ) : null}
 
-                    <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark items-center rounded-dafLg border border-daf-border bg-white px-4 pb-[18px] pt-5 shadow-sm">
-                        <PrivacyScoreRing
-                            score={isHydrated ? windowStats.privacyScore : null}
-                            theme={theme}
-                        />
-                        <View className="mt-3.5 flex-row items-center gap-2">
-                            <Icon
-                                color={theme.text.brand}
-                                name="ghost"
-                                size={18}
+                    <View className="items-center rounded-dafLg border border-daf-border bg-white px-4 pb-[18px] pt-5 shadow-sm dark:border-daf-border-dark dark:bg-daf-surface-dark">
+                        <TourTarget id="privacy-score" targets={tourTargets}>
+                            <PrivacyScoreRing
+                                score={
+                                    isHydrated ? windowStats.privacyScore : null
+                                }
+                                theme={theme}
                             />
-                            <Text
-                                className="font-dafDisplay text-base font-bold text-daf-text-primary dark:text-white"
-                                testID="scorecard-level"
-                            >
-                                Level {level.level} · {level.name}
-                            </Text>
-                        </View>
-                        <View className="mt-3 w-full">
-                            <View className="mb-1.5 flex-row justify-between">
-                                <Text
-                                    className="text-xs font-semibold text-daf-text-secondary dark:text-neutral-300"
-                                    testID="scorecard-level-xp"
-                                >
-                                    {formatNumber(level.xp, 0)} XP
-                                </Text>
-                                <Text
-                                    className="font-dafMono text-xs text-daf-text-tertiary dark:text-neutral-400"
-                                    testID="scorecard-level-next"
-                                >
-                                    {level.nextLevel
-                                        ? `${formatNumber(level.xpToNext, 0)} to ${level.nextLevel.name}`
-                                        : 'Maximum level'}
-                                </Text>
-                            </View>
-                            <View className="h-1.5 overflow-hidden rounded-dafPill bg-daf-surface-alt dark:bg-daf-surface-inverse">
-                                <View
-                                    className="h-full rounded-dafPill bg-daf-brand"
-                                    style={{
-                                        width: `${Math.round(level.progress * 100)}%`,
-                                    }}
+                        </TourTarget>
+                        <TourTarget
+                            className="w-full items-center"
+                            id="level"
+                            targets={tourTargets}
+                        >
+                            <View className="mt-3.5 flex-row items-center gap-2">
+                                <Icon
+                                    color={theme.text.brand}
+                                    name="ghost"
+                                    size={18}
                                 />
+                                <Text
+                                    className="font-dafDisplay text-base font-bold text-daf-text-primary dark:text-white"
+                                    testID="scorecard-level"
+                                >
+                                    Level {level.level} · {level.name}
+                                </Text>
                             </View>
-                        </View>
+                            <View className="mt-3 w-full">
+                                <View className="mb-1.5 flex-row justify-between">
+                                    <Text
+                                        className="text-xs font-semibold text-daf-text-secondary dark:text-neutral-300"
+                                        testID="scorecard-level-xp"
+                                    >
+                                        {formatNumber(level.xp, 0)} XP
+                                    </Text>
+                                    <Text
+                                        className="font-dafMono text-xs text-daf-text-tertiary dark:text-neutral-400"
+                                        testID="scorecard-level-next"
+                                    >
+                                        {level.nextLevel
+                                            ? `${formatNumber(level.xpToNext, 0)} to ${level.nextLevel.name}`
+                                            : 'Maximum level'}
+                                    </Text>
+                                </View>
+                                <View className="h-1.5 overflow-hidden rounded-dafPill bg-daf-surface-alt dark:bg-daf-surface-inverse">
+                                    <View
+                                        className="h-full rounded-dafPill bg-daf-brand"
+                                        style={{
+                                            width: `${Math.round(level.progress * 100)}%`,
+                                        }}
+                                    />
+                                </View>
+                            </View>
+                        </TourTarget>
                     </View>
 
                     <View className="flex-row gap-2">
-                        <StatTile
-                            colorClassName="text-daf-text-brand dark:text-daf-brand"
-                            label="avoided"
-                            testID="scorecard-stat-avoided"
-                            value={formatNumber(
-                                windowStats.avoidedCameraCount,
-                                0,
-                            )}
-                        />
-                        <StatTile
-                            colorClassName="text-daf-alert"
-                            label="crossings"
-                            onPress={() => router.push('/scorecard/timeline')}
-                            testID="scorecard-stat-crossings"
-                            value={formatNumber(
-                                windowStats.cameraCrossingCount,
-                                0,
-                            )}
-                        />
-                        <StatTile
-                            label="drive streak"
-                            testID="scorecard-stat-streak"
-                            value={formatNumber(
-                                windowStats.cleanDriveStreak,
-                                0,
-                            )}
-                        />
+                        <TourTarget
+                            className="flex-1"
+                            id="avoided"
+                            targets={tourTargets}
+                        >
+                            <StatTile
+                                colorClassName="text-daf-text-brand dark:text-daf-brand"
+                                label="avoided"
+                                testID="scorecard-stat-avoided"
+                                value={formatNumber(
+                                    windowStats.avoidedCameraCount,
+                                    0,
+                                )}
+                            />
+                        </TourTarget>
+                        <TourTarget
+                            className="flex-1"
+                            id="crossings"
+                            targets={tourTargets}
+                        >
+                            <StatTile
+                                colorClassName="text-daf-alert"
+                                label="crossings"
+                                onPress={() =>
+                                    router.push('/scorecard/timeline')
+                                }
+                                testID="scorecard-stat-crossings"
+                                value={formatNumber(
+                                    windowStats.cameraCrossingCount,
+                                    0,
+                                )}
+                            />
+                        </TourTarget>
+                        <TourTarget
+                            className="flex-1"
+                            id="streak"
+                            targets={tourTargets}
+                        >
+                            <StatTile
+                                label="drive streak"
+                                testID="scorecard-stat-streak"
+                                value={formatNumber(
+                                    windowStats.cleanDriveStreak,
+                                    0,
+                                )}
+                            />
+                        </TourTarget>
                     </View>
 
-                    <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark rounded-dafLg border border-daf-border bg-white px-[15px] py-3.5">
+                    <TourTarget
+                        className="rounded-dafLg border border-daf-border bg-white px-[15px] py-3.5 dark:border-daf-border-dark dark:bg-daf-surface-dark"
+                        id="weekly-crossings"
+                        targets={tourTargets}
+                    >
                         <View className="mb-3 flex-row items-baseline">
                             <Text className="text-[14.5px] font-bold text-daf-text-primary dark:text-white">
                                 Camera crossings per week
                             </Text>
-                            <Text className="font-dafMono ml-auto text-[11px] text-daf-text-tertiary dark:text-neutral-400">
+                            <Text className="ml-auto font-dafMono text-[11px] text-daf-text-tertiary dark:text-neutral-400">
                                 30-day detail window
                             </Text>
                         </View>
@@ -469,101 +526,107 @@ export default function ScorecardDashboardScreen() {
                                 This week · {weeklyCrossings.at(-1) ?? 0}
                             </Text>
                         </View>
-                    </View>
+                    </TourTarget>
 
-                    <Pressable
-                        accessibilityHint="Tap or long press to configure MPG and gas price"
-                        accessibilityLabel="Edit privacy cost settings"
-                        accessibilityRole="button"
-                        className="dark:border-daf-border-dark dark:bg-daf-surface-dark rounded-dafLg border border-daf-border bg-white px-[15px] py-3.5 active:opacity-80"
-                        delayLongPress={450}
-                        onLongPress={() => setFuelSettingsAreVisible(true)}
-                        onPress={() => setFuelSettingsAreVisible(true)}
-                        testID="scorecard-privacy-costs"
-                    >
-                        <View className="mb-2.5 flex-row items-center gap-2">
-                            <Icon
-                                color={dafSemanticColors.speedOk}
-                                name="fuel"
-                                size={17}
-                            />
-                            <View className="min-w-0 flex-1 gap-0.5">
-                                <Text className="text-[14.5px] font-bold text-daf-text-primary dark:text-white">
-                                    What privacy costs you
-                                </Text>
-                                <Text className="font-dafMono text-[10.5px] text-daf-text-tertiary dark:text-neutral-400">
-                                    {formatNumber(
-                                        fuelCostSettings.fuelEconomyMpg,
-                                        1,
-                                    )}{' '}
-                                    mpg ·{' '}
-                                    {usesCustomFuelCosts
-                                        ? `$${formatNumber(fuelCostSettings.gasPricePerGallon, 2)}/gal custom`
-                                        : 'AAA state rates'}
-                                </Text>
-                            </View>
-                            <View
-                                className="bg-daf-brand/10 dark:bg-daf-brand/15 h-8 w-8 shrink-0 items-center justify-center rounded-dafPill"
-                                testID="scorecard-privacy-costs-edit-handle"
-                            >
+                    <TourTarget id="privacy-costs" targets={tourTargets}>
+                        <Pressable
+                            accessibilityHint="Tap or long press to configure MPG and gas price"
+                            accessibilityLabel="Edit privacy cost settings"
+                            accessibilityRole="button"
+                            className="rounded-dafLg border border-daf-border bg-white px-[15px] py-3.5 active:opacity-80 dark:border-daf-border-dark dark:bg-daf-surface-dark"
+                            delayLongPress={450}
+                            onLongPress={() => setFuelSettingsAreVisible(true)}
+                            onPress={() => setFuelSettingsAreVisible(true)}
+                            testID="scorecard-privacy-costs"
+                        >
+                            <View className="mb-2.5 flex-row items-center gap-2">
                                 <Icon
-                                    color={dafSemanticColors.brand}
-                                    name="pencil"
-                                    size={14}
+                                    color={dafSemanticColors.speedOk}
+                                    name="fuel"
+                                    size={17}
                                 />
-                            </View>
-                        </View>
-                        <View className="gap-2">
-                            <View className="flex-row">
-                                <Text className="flex-1 text-[13px] text-daf-text-secondary dark:text-neutral-300">
-                                    Extra miles
-                                </Text>
-                                <Text
-                                    className="font-dafMono text-[13px] font-semibold text-daf-text-primary dark:text-white"
-                                    testID="scorecard-extra-miles"
+                                <View className="min-w-0 flex-1 gap-0.5">
+                                    <Text className="text-[14.5px] font-bold text-daf-text-primary dark:text-white">
+                                        What privacy costs you
+                                    </Text>
+                                    <Text className="font-dafMono text-[10.5px] text-daf-text-tertiary dark:text-neutral-400">
+                                        {formatNumber(
+                                            fuelCostSettings.fuelEconomyMpg,
+                                            1,
+                                        )}{' '}
+                                        mpg ·{' '}
+                                        {usesCustomFuelCosts
+                                            ? `$${formatNumber(fuelCostSettings.gasPricePerGallon, 2)}/gal custom`
+                                            : 'AAA state rates'}
+                                    </Text>
+                                </View>
+                                <View
+                                    className="h-8 w-8 shrink-0 items-center justify-center rounded-dafPill bg-daf-brand/10 dark:bg-daf-brand/15"
+                                    testID="scorecard-privacy-costs-edit-handle"
                                 >
-                                    {formatNumber(windowStats.extraMiles)} mi
-                                </Text>
+                                    <Icon
+                                        color={dafSemanticColors.brand}
+                                        name="pencil"
+                                        size={14}
+                                    />
+                                </View>
                             </View>
-                            <View className="flex-row">
-                                <Text className="flex-1 text-[13px] text-daf-text-secondary dark:text-neutral-300">
-                                    Extra fuel
-                                </Text>
-                                <Text
-                                    className="font-dafMono text-[13px] font-semibold text-daf-text-primary dark:text-white"
-                                    testID="scorecard-fuel-cost"
-                                >
-                                    {formatNumber(windowStats.extraGallons, 2)}{' '}
-                                    gal ·{' '}
-                                    {windowStats.allDetourCostsPriced
-                                        ? `$${formatNumber(windowStats.extraFuelCost, 2)}`
-                                        : 'price unavailable'}
-                                </Text>
+                            <View className="gap-2">
+                                <View className="flex-row">
+                                    <Text className="flex-1 text-[13px] text-daf-text-secondary dark:text-neutral-300">
+                                        Extra miles
+                                    </Text>
+                                    <Text
+                                        className="font-dafMono text-[13px] font-semibold text-daf-text-primary dark:text-white"
+                                        testID="scorecard-extra-miles"
+                                    >
+                                        {formatNumber(windowStats.extraMiles)}{' '}
+                                        mi
+                                    </Text>
+                                </View>
+                                <View className="flex-row">
+                                    <Text className="flex-1 text-[13px] text-daf-text-secondary dark:text-neutral-300">
+                                        Extra fuel
+                                    </Text>
+                                    <Text
+                                        className="font-dafMono text-[13px] font-semibold text-daf-text-primary dark:text-white"
+                                        testID="scorecard-fuel-cost"
+                                    >
+                                        {formatNumber(
+                                            windowStats.extraGallons,
+                                            2,
+                                        )}{' '}
+                                        gal ·{' '}
+                                        {windowStats.allDetourCostsPriced
+                                            ? `$${formatNumber(windowStats.extraFuelCost, 2)}`
+                                            : 'price unavailable'}
+                                    </Text>
+                                </View>
+                                <View className="my-0.5 h-px bg-daf-border dark:bg-daf-border-dark" />
+                                <View className="flex-row">
+                                    <Text className="flex-1 text-[13px] font-semibold text-daf-text-primary dark:text-white">
+                                        Per camera avoided
+                                    </Text>
+                                    <Text
+                                        className="font-dafMono text-[13px] font-bold text-daf-text-brand dark:text-daf-brand"
+                                        testID="scorecard-cost-per-avoided"
+                                    >
+                                        {costPerAvoidedCamera === null
+                                            ? '—'
+                                            : `$${formatNumber(costPerAvoidedCamera, 2)}`}
+                                    </Text>
+                                </View>
                             </View>
-                            <View className="dark:bg-daf-border-dark my-0.5 h-px bg-daf-border" />
-                            <View className="flex-row">
-                                <Text className="flex-1 text-[13px] font-semibold text-daf-text-primary dark:text-white">
-                                    Per camera avoided
-                                </Text>
-                                <Text
-                                    className="font-dafMono text-[13px] font-bold text-daf-text-brand dark:text-daf-brand"
-                                    testID="scorecard-cost-per-avoided"
-                                >
-                                    {costPerAvoidedCamera === null
-                                        ? '—'
-                                        : `$${formatNumber(costPerAvoidedCamera, 2)}`}
-                                </Text>
-                            </View>
-                        </View>
-                    </Pressable>
+                        </Pressable>
+                    </TourTarget>
 
-                    <View>
+                    <TourTarget id="badges" targets={tourTargets}>
                         <View className="mb-2.5 flex-row items-baseline px-0.5">
                             <Text className="text-[14.5px] font-bold text-daf-text-primary dark:text-white">
                                 Badges
                             </Text>
                             <Text
-                                className="font-dafMono ml-auto text-[11px] text-daf-text-tertiary dark:text-neutral-400"
+                                className="ml-auto font-dafMono text-[11px] text-daf-text-tertiary dark:text-neutral-400"
                                 testID="scorecard-badge-count"
                             >
                                 {earnedBadgeCount} of {badges.length}
@@ -574,40 +637,46 @@ export default function ScorecardDashboardScreen() {
                                 <BadgeCard badge={badge} key={badge.id} />
                             ))}
                         </View>
-                    </View>
+                    </TourTarget>
 
-                    <Pressable
-                        accessibilityRole="button"
-                        className="dark:border-daf-border-dark dark:bg-daf-surface-dark flex-row items-center gap-3 rounded-dafMd border border-daf-border bg-white px-3.5 py-3 active:opacity-70"
-                        onPress={() => router.push('/scorecard/timeline')}
-                        testID="scorecard-open-timeline"
-                    >
-                        <View className="bg-daf-alert/10 h-[34px] w-[34px] items-center justify-center rounded-dafSm">
+                    <TourTarget id="timeline" targets={tourTargets}>
+                        <Pressable
+                            accessibilityRole="button"
+                            className="flex-row items-center gap-3 rounded-dafMd border border-daf-border bg-white px-3.5 py-3 active:opacity-70 dark:border-daf-border-dark dark:bg-daf-surface-dark"
+                            onPress={() => router.push('/scorecard/timeline')}
+                            testID="scorecard-open-timeline"
+                        >
+                            <View className="h-[34px] w-[34px] items-center justify-center rounded-dafSm bg-daf-alert/10">
+                                <Icon
+                                    color={dafSemanticColors.danger}
+                                    name="calendar"
+                                    size={18}
+                                />
+                            </View>
+                            <View className="min-w-0 flex-1">
+                                <Text className="text-[14.5px] font-semibold text-daf-text-primary dark:text-white">
+                                    Exposure timeline
+                                </Text>
+                                <Text className="text-xs text-daf-text-tertiary dark:text-neutral-400">
+                                    {exposureCount === 0
+                                        ? 'No local exposure events'
+                                        : `${exposureCount} local ${exposureCount === 1 ? 'event' : 'events'}, newest first`}
+                                </Text>
+                            </View>
                             <Icon
-                                color={dafSemanticColors.danger}
-                                name="calendar"
-                                size={18}
+                                color={dafSemanticColors.speedOk}
+                                name="chevron-right"
+                                size={16}
                             />
-                        </View>
-                        <View className="min-w-0 flex-1">
-                            <Text className="text-[14.5px] font-semibold text-daf-text-primary dark:text-white">
-                                Exposure timeline
-                            </Text>
-                            <Text className="text-xs text-daf-text-tertiary dark:text-neutral-400">
-                                {exposureCount === 0
-                                    ? 'No local exposure events'
-                                    : `${exposureCount} local ${exposureCount === 1 ? 'event' : 'events'}, newest first`}
-                            </Text>
-                        </View>
-                        <Icon
-                            color={dafSemanticColors.speedOk}
-                            name="chevron-right"
-                            size={16}
-                        />
-                    </Pressable>
+                        </Pressable>
+                    </TourTarget>
 
-                    <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark rounded-dafLg border border-daf-border bg-white px-4 py-3.5">
-                        <View className="flex-row items-center gap-3">
+                    <View className="rounded-dafLg border border-daf-border bg-white px-4 py-3.5 dark:border-daf-border-dark dark:bg-daf-surface-dark">
+                        <TourTarget
+                            className="flex-row items-center gap-3"
+                            id="recording"
+                            targets={tourTargets}
+                        >
                             <View className="min-w-0 flex-1">
                                 <Text className="text-[14px] font-semibold text-daf-text-primary dark:text-white">
                                     Record DAF drives
@@ -634,16 +703,20 @@ export default function ScorecardDashboardScreen() {
                                 }
                                 testID="scorecard-tracking-toggle"
                             />
-                        </View>
+                        </TourTarget>
                         {scorecardState.activeSession ? (
-                            <View className="bg-daf-brand/10 mt-3 flex-row items-center gap-2 rounded-dafSm px-2.5 py-2">
+                            <View className="mt-3 flex-row items-center gap-2 rounded-dafSm bg-daf-brand/10 px-2.5 py-2">
                                 <View className="h-2 w-2 rounded-dafPill bg-daf-brand" />
                                 <Text className="text-xs font-semibold text-daf-text-brand dark:text-daf-brand">
                                     Recording this drive locally
                                 </Text>
                             </View>
                         ) : null}
-                        <View className="dark:border-daf-border-dark mt-3 border-t border-daf-border pt-3">
+                        <TourTarget
+                            className="mt-3 border-t border-daf-border pt-3 dark:border-daf-border-dark"
+                            id="backup"
+                            targets={tourTargets}
+                        >
                             <Text className="text-[14px] font-semibold text-daf-text-primary dark:text-white">
                                 Backup and restore
                             </Text>
@@ -655,7 +728,7 @@ export default function ScorecardDashboardScreen() {
                             <View className="mt-3 flex-row gap-2">
                                 <Pressable
                                     accessibilityRole="button"
-                                    className={`min-h-hitMin border-daf-brand/30 bg-daf-brand/10 flex-1 flex-row items-center justify-center gap-2 rounded-dafPill border active:opacity-70 ${
+                                    className={`min-h-hitMin flex-1 flex-row items-center justify-center gap-2 rounded-dafPill border border-daf-brand/30 bg-daf-brand/10 active:opacity-70 ${
                                         backupActionsAreDisabled
                                             ? 'opacity-50'
                                             : ''
@@ -675,7 +748,7 @@ export default function ScorecardDashboardScreen() {
                                 </Pressable>
                                 <Pressable
                                     accessibilityRole="button"
-                                    className={`min-h-hitMin dark:border-daf-border-dark flex-1 flex-row items-center justify-center gap-2 rounded-dafPill border border-daf-border bg-daf-surface-alt active:opacity-70 dark:bg-daf-surface-inverse ${
+                                    className={`min-h-hitMin flex-1 flex-row items-center justify-center gap-2 rounded-dafPill border border-daf-border bg-daf-surface-alt active:opacity-70 dark:border-daf-border-dark dark:bg-daf-surface-inverse ${
                                         backupActionsAreDisabled
                                             ? 'opacity-50'
                                             : ''
@@ -709,27 +782,45 @@ export default function ScorecardDashboardScreen() {
                                     build.
                                 </Text>
                             ) : null}
-                        </View>
-                        <Pressable
-                            accessibilityRole="button"
-                            className="min-h-hitMin border-daf-alert/30 bg-daf-alert/10 mt-3 flex-row items-center justify-center gap-2 rounded-dafPill border active:opacity-70"
-                            onPress={handleDeleteHistory}
-                            testID="scorecard-delete-history"
-                        >
-                            <Icon
-                                color={dafSemanticColors.danger}
-                                name="trash"
-                                size={16}
-                            />
-                            <Text className="text-[13px] font-semibold text-daf-alert">
-                                Delete encrypted scorecard history
-                            </Text>
-                        </Pressable>
+                        </TourTarget>
+                        <TourTarget id="delete-history" targets={tourTargets}>
+                            <Pressable
+                                accessibilityRole="button"
+                                className="mt-3 min-h-hitMin flex-row items-center justify-center gap-2 rounded-dafPill border border-daf-alert/30 bg-daf-alert/10 active:opacity-70"
+                                onPress={handleDeleteHistory}
+                                testID="scorecard-delete-history"
+                            >
+                                <Icon
+                                    color={dafSemanticColors.danger}
+                                    name="trash"
+                                    size={16}
+                                />
+                                <Text className="text-[13px] font-semibold text-daf-alert">
+                                    Delete encrypted scorecard history
+                                </Text>
+                            </Pressable>
+                        </TourTarget>
                     </View>
 
-                    <ScorecardPrivacyFooter />
+                    <TourTarget id="data-handling" targets={tourTargets}>
+                        <ScorecardPrivacyFooter />
+                    </TourTarget>
                 </View>
             </ScrollView>
+            <TourOverlay
+                contentRef={tourContentRef}
+                enabled={
+                    screenIsFocused && isHydrated && !fuelSettingsAreVisible
+                }
+                insets={insets}
+                label={SCORECARD_TOUR.label}
+                prefix="scorecard-tour"
+                restoreScrollOnFinish
+                scrollRef={tourScrollRef}
+                steps={SCORECARD_TOUR.steps}
+                targets={tourTargets}
+                tour={tour}
+            />
             <ScorecardFuelSettingsModal
                 fuelEconomyMpg={fuelCostSettings.fuelEconomyMpg}
                 gasPricePerGallon={fuelCostSettings.gasPricePerGallon}

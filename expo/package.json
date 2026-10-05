@@ -37,6 +37,10 @@
         "e2e:android-auto": "./scripts/android-auto-e2e.sh",
         "e2e:android-auto:portrait": "ANDROID_AUTO_E2E_DHU_BINARY=\"${ANDROID_AUTO_DHU_ROOT:-$HOME/Library/Android/dhu}/2.1/desktop-head-unit\" ./scripts/android-auto-e2e.sh ./.android-auto/suite-portrait.json",
         "e2e:ios": "MAESTRO_PLATFORM=ios ./scripts/maestro-test.sh .maestro",
+        "e2e:contribute-tour": "./scripts/maestro-test.sh .maestro/contribute-wizard.yml .maestro/contribute-signed-out.yml .maestro/contribute-tour-skip.yml .maestro/contribute-tour-resume.yml .maestro/contribute-tour-reset.yml",
+        "e2e:map-options-tour": "./scripts/maestro-test.sh .maestro/map-options-tour.yml .maestro/map-options-tour-skip.yml",
+        "e2e:scorecard-tour": "./scripts/maestro-test.sh .maestro/scorecard-tour.yml .maestro/scorecard-tour-skip.yml",
+        "e2e:user-tours": "./scripts/maestro-test.sh .maestro/contribute-wizard.yml .maestro/contribute-signed-out.yml .maestro/contribute-tour-skip.yml .maestro/contribute-tour-resume.yml .maestro/contribute-tour-reset.yml .maestro/map-options-tour.yml .maestro/map-options-tour-skip.yml .maestro/scorecard-tour.yml .maestro/scorecard-tour-skip.yml",
         "e2e-reset": "./scripts/reset-android-location.sh",
         "test": "npm run test:unit",
         "test:unit": "node --test lib/osm/__tests__/*.test.mjs components/information/__tests__/*.test.mjs components/map/__tests__/*.test.mjs components/scorecard/__tests__/*.test.mjs scripts/__tests__/*.test.mjs"

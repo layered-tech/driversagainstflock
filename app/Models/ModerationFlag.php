@@ -48,6 +48,20 @@ class ModerationFlag extends Model
         }
     }
 
+    /** @param array<string, mixed> $filters */
+    public function scopeForListingDetails(Builder $query, array $filters): void
+    {
+        if (($filters['flag_source'] ?? null) !== 'alpr_presence') {
+            $query->active();
+
+            return;
+        }
+        $query->where(function (Builder $query) use ($filters): void {
+            $query->forListing(array_intersect_key($filters, array_flip(['flag_source', 'report_state'])))
+                ->orWhere(fn (Builder $rules) => $rules->forListing(['flag_source' => 'rule']));
+        });
+    }
+
     protected function casts(): array
     {
         return ['evidence' => 'array', 'stale' => 'boolean', 'evaluated_at' => 'immutable_datetime', 'dismissed_at' => 'immutable_datetime'];

@@ -237,14 +237,22 @@ class ModerationReader
             'nodes', 'flagged' => $this->query()->fromSub($this->nodes($withPrevious, $withReviews), 'records'), 'editors' => $this->query()->fromSub($this->editors(), 'records'), default => $this->query()->fromSub($this->changesets($withReviews), 'records')
         };
         if ($view === 'flagged') {
-            $flags = ModerationFlag::forListing($filters)->get(['node_id', 'related_node_id', 'source', 'evidence']);
+            $flags = ModerationFlag::forListing($filters)->with('rule:id,severity')->get(['rule_id', 'node_id', 'related_node_id', 'source', 'evidence', 'created_at']);
             $nodeIds = $flags->pluck('node_id')->unique()->values();
             $query->whereIntegerInRaw('id', $nodeIds);
-            $reports = $flags->where('source', 'alpr_presence')->map(fn ($flag): array => [
-                'node_id' => $flag->node_id, 'reported_at' => $flag->evidence['latest_received_at'],
-            ])->values()->toJson();
-            $query->leftJoin(DB::raw('jsonb_to_recordset(?::jsonb) as reports(node_id bigint, reported_at timestamptz)'), 'reports.node_id', '=', 'records.id')
-                ->addBinding($reports, 'join')->select('records.*', 'reports.reported_at');
+            $flags = ModerationFlag::forListingDetails($filters)->whereIn('node_id', $nodeIds)->with('rule:id,severity')->get(['rule_id', 'node_id', 'source', 'evidence', 'created_at']);
+            $reports = $flags->groupBy('node_id')->map(function ($nodeFlags, int $nodeId): array {
+                return [
+                    'node_id' => $nodeId,
+                    'reported_at' => $nodeFlags->firstWhere('source', 'alpr_presence')?->evidence['latest_received_at'] ?? null,
+                    'detected_at' => $nodeFlags->where('source', 'rule')->min('created_at') ?? ($nodeFlags->firstWhere('source', 'alpr_presence')?->evidence['latest_report_at'] ?? null),
+                    'severity' => $nodeFlags->max(fn ($flag): int => match ($flag->rule?->severity) {
+                        'High' => 3, 'Medium' => 2, 'Low' => 1, default => 0,
+                    }),
+                ];
+            })->values()->toJson();
+            $query->leftJoin(DB::raw('jsonb_to_recordset(?::jsonb) as reports(node_id bigint, reported_at timestamptz, detected_at timestamptz, severity integer)'), 'reports.node_id', '=', 'records.id')
+                ->addBinding($reports, 'join')->select('records.*', 'reports.reported_at', 'reports.detected_at', 'reports.severity');
         }
         if (array_key_exists('area_ids', $filters) && in_array($view, ['nodes', 'flagged'], true)) {
             $query->whereIn('id', $this->nodesWithinAreas($filters['area_ids'])->select('source.id'));
@@ -268,6 +276,20 @@ class ModerationReader
         if (! empty($filters['statuses'])) {
             $query->whereIn('status', $filters['statuses']);
         }
+        if (! empty($filters['locations'])) {
+            $areas = WatchedArea::whereKey($filters['locations'])->get();
+            $query->where(function (Builder $locations) use ($areas, $view): void {
+                foreach ($areas as $area) {
+                    $locations->orWhere(function (Builder $location) use ($area, $view): void {
+                        if ($view === 'editors') {
+                            $location->whereIn('osm_uid', $this->inArea($this->query()->fromSub($this->changesets(), 'located')->select('osm_uid'), $area, false));
+                        } else {
+                            $this->inArea($location, $area, in_array($view, ['nodes', 'flagged'], true));
+                        }
+                    });
+                }
+            });
+        }
         if (! empty($filters['area'])) {
             $area = WatchedArea::findOrFail($filters['area']);
             if ($view === 'editors') {
@@ -279,6 +301,9 @@ class ModerationReader
         if (in_array($view, ['nodes', 'flagged'], true)) {
             if (! empty($filters['osm_id'])) {
                 $query->where('id', $filters['osm_id']);
+            }
+            if (! empty($filters['operators'])) {
+                $query->whereIn('operator', $filters['operators']);
             }
             if (! empty($filters['operator'])) {
                 $query->whereLike('operator', '%'.$filters['operator'].'%');
@@ -318,14 +343,16 @@ class ModerationReader
     {
         $page = max(1, $page ?? Paginator::resolveCurrentPage());
         $orders = $query->orders ?? [];
-        $columns = array_unique(['id', ...array_column($orders, 'column')]);
+        $columns = array_unique(['id', ...($view === 'flagged' ? ['reported_at', 'detected_at', 'severity'] : []), ...array_column($orders, 'column')]);
         $candidates = (clone $query)->select($columns)->offset(($page - 1) * $perPage)->limit($perPage + 1);
         $isNode = in_array($view, ['nodes', 'flagged'], true);
         $details = $isNode ? $this->nodes(withReviews: false) : $this->changesets(withReviews: false);
         $details->whereColumn('source.id', 'page.id')->limit(1);
         $enriched = $this->query()->fromSub($candidates, 'page')->joinLateral($details, 'source')->select('source.*')->limit($perPage + 1);
-        if (in_array('reported_at', $columns, true)) {
-            $enriched->addSelect('page.reported_at');
+        foreach (['reported_at', 'detected_at', 'severity'] as $column) {
+            if (in_array($column, $columns, true)) {
+                $enriched->addSelect('page.'.$column);
+            }
         }
         foreach ($orders as $order) {
             $enriched->orderBy('page.'.$order['column'], $order['direction']);

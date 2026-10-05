@@ -1,5 +1,10 @@
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import {
+    router,
+    useFocusEffect,
+    useIsFocused,
+    useLocalSearchParams,
+} from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import {
     Pressable,
     ScrollView,
@@ -24,6 +29,8 @@ import {
 import { getDafTheme } from '../design-system/tokens';
 import { CompassDial } from './compass-dial';
 import { useContribute } from './contribute-state';
+import { ContributeTourOverlay } from './contribute-tour-overlay';
+import { ContributeTourTarget } from './contribute-tour-target';
 import { formatBearingChip } from './osm-tags';
 import { ContributePageHeader } from './step-header';
 
@@ -37,10 +44,14 @@ function parseCameraIndexParam(indexParam) {
 }
 
 export default function CameraDetailsScreen() {
+    const tourTargets = useRef({});
+    const tourScrollRef = useRef(null);
+    const tourContentRef = useRef(null);
+    const screenIsFocused = useIsFocused();
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
     const params = useLocalSearchParams();
-    const { pins, updatePinDetails, updatePinLocation } = useContribute();
+    const { pins, tour, updatePinDetails, updatePinLocation } = useContribute();
     const [rawSelectedDirectionIndex, setRawSelectedDirectionIndex] =
         useState(0);
     const cameraIndex = parseCameraIndexParam(params.index);
@@ -158,13 +169,15 @@ export default function CameraDetailsScreen() {
     );
 
     const handleNextPress = useCallback(() => {
+        tour.dismissPhase('camera');
+
         if (isLastCamera) {
             router.push('/contribute/changeset');
             return;
         }
 
         router.push(`/contribute/camera/${cameraIndex + 1}`);
-    }, [cameraIndex, isLastCamera]);
+    }, [cameraIndex, isLastCamera, tour]);
 
     if (!pin) {
         return null;
@@ -180,20 +193,31 @@ export default function CameraDetailsScreen() {
                 step={2}
                 title="Camera details"
             />
-            <View className="dark:border-daf-border-dark flex-row items-center gap-2 border-b border-daf-border bg-daf-surface-alt px-4 py-[9px] dark:bg-daf-surface-inverse">
+            <View className="flex-row items-center gap-2 border-b border-daf-border bg-daf-surface-alt px-4 py-[9px] dark:border-daf-border-dark dark:bg-daf-surface-inverse">
                 <Text className="font-dafMono text-[11px] font-semibold tracking-[0.04em] text-daf-text-brand dark:text-daf-brand">
                     Camera {cameraIndex + 1} of {pins.length}
                 </Text>
                 <Text
-                    className="font-dafMono ml-auto text-[11px] text-daf-text-tertiary dark:text-neutral-400"
+                    className="ml-auto font-dafMono text-[11px] text-daf-text-tertiary dark:text-neutral-400"
                     numberOfLines={1}
                 >
                     {pin.latitude.toFixed(4)}, {pin.longitude.toFixed(4)}
                 </Text>
             </View>
-            <ScrollView className="flex-1" keyboardShouldPersistTaps="handled">
-                <View className="gap-[18px] p-4">
-                    <View>
+            <ScrollView
+                className="flex-1"
+                keyboardShouldPersistTaps="handled"
+                ref={tourScrollRef}
+            >
+                <View
+                    className="gap-[18px] p-4"
+                    collapsable={false}
+                    ref={tourContentRef}
+                >
+                    <ContributeTourTarget
+                        id="camera-details"
+                        targets={tourTargets}
+                    >
                         <DafSectionLabel className="mb-2">Type</DafSectionLabel>
                         <DafSegmentedControl
                             onChange={handleTypeChange}
@@ -201,8 +225,11 @@ export default function CameraDetailsScreen() {
                             testIDPrefix="contribute-type"
                             value={details.type}
                         />
-                    </View>
-                    <View>
+                    </ContributeTourTarget>
+                    <ContributeTourTarget
+                        id="manufacturer"
+                        targets={tourTargets}
+                    >
                         <DafSectionLabel className="mb-2">
                             Manufacturer
                         </DafSectionLabel>
@@ -212,8 +239,8 @@ export default function CameraDetailsScreen() {
                             testIDPrefix="contribute-manufacturer"
                             value={details.manufacturer}
                         />
-                    </View>
-                    <View>
+                    </ContributeTourTarget>
+                    <ContributeTourTarget id="operator" targets={tourTargets}>
                         <DafSectionLabel className="mb-2">
                             Operator
                         </DafSectionLabel>
@@ -222,20 +249,25 @@ export default function CameraDetailsScreen() {
                             testID="contribute-operator-input"
                             value={details.operator}
                         />
-                    </View>
+                    </ContributeTourTarget>
                     <View>
                         <DafSectionLabel className="mb-2">
                             Directions faced
                         </DafSectionLabel>
-                        <CompassDial
-                            directions={directions}
-                            location={pin}
-                            onChange={handleDialChange}
-                            onLocationChange={handleLocationChange}
-                            selectedDirectionIndex={selectedDirectionIndex}
-                            testID="contribute-direction-dial"
-                            value={selectedBearing}
-                        />
+                        <ContributeTourTarget
+                            id="directions"
+                            targets={tourTargets}
+                        >
+                            <CompassDial
+                                directions={directions}
+                                location={pin}
+                                onChange={handleDialChange}
+                                onLocationChange={handleLocationChange}
+                                selectedDirectionIndex={selectedDirectionIndex}
+                                testID="contribute-direction-dial"
+                                value={selectedBearing}
+                            />
+                        </ContributeTourTarget>
                         <View className="mt-3.5 flex-row flex-wrap items-center gap-2">
                             {directions.map((degrees, directionIndex) => {
                                 const selected =
@@ -245,8 +277,8 @@ export default function CameraDetailsScreen() {
                                     <View
                                         className={`h-8 flex-row items-center rounded-dafPill border pl-3 pr-1 ${
                                             selected
-                                                ? 'bg-daf-brand/12 dark:bg-daf-brand/15 border-transparent'
-                                                : 'dark:border-daf-border-dark dark:bg-daf-surface-dark border-daf-border bg-white'
+                                                ? 'bg-daf-brand/12 border-transparent dark:bg-daf-brand/15'
+                                                : 'border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark'
                                         }`}
                                         key={`direction-${directionIndex}`}
                                     >
@@ -322,7 +354,7 @@ export default function CameraDetailsScreen() {
                             the imagery to fine-tune where the pole sits.
                         </Text>
                     </View>
-                    <View>
+                    <ContributeTourTarget id="mount" targets={tourTargets}>
                         <DafSectionLabel className="mb-2">
                             Mounted on
                         </DafSectionLabel>
@@ -341,11 +373,11 @@ export default function CameraDetailsScreen() {
                                 </DafChip>
                             ))}
                         </View>
-                    </View>
+                    </ContributeTourTarget>
                 </View>
             </ScrollView>
             <View
-                className="dark:border-daf-border-dark dark:bg-daf-surface-dark border-t border-daf-border bg-white px-4 pt-3"
+                className="border-t border-daf-border bg-white px-4 pt-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
                 style={{ paddingBottom: footerPaddingBottom }}
             >
                 <DafButton
@@ -356,6 +388,16 @@ export default function CameraDetailsScreen() {
                     {isLastCamera ? 'Next: changeset details' : 'Next camera'}
                 </DafButton>
             </View>
+            <ContributeTourOverlay
+                enabled={screenIsFocused && cameraIndex === 0}
+                insets={insets}
+                phase="camera"
+                targets={tourTargets}
+                tour={tour}
+                contentRef={tourContentRef}
+                scrollRef={tourScrollRef}
+                restoreScrollOnFinish
+            />
         </View>
     );
 }

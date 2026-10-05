@@ -1,0 +1,43 @@
+appId: com.anonymous.drivefree.dev
+---
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+- launchApp:
+    clearKeychain: true
+    clearState: true
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    file: open-expo-dev-client-after-clear.yml
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 120000
+- openLink: 'driversagainstflock://e2e-mocks?auth=1'
+- runFlow:
+    when:
+      true: ${typeof SCORECARD_FIXTURE !== 'undefined' && SCORECARD_FIXTURE.length > 0}
+    commands:
+      - openLink: ${'driversagainstflock://e2e-mocks?scorecard=' + SCORECARD_FIXTURE}
+- assertNotVisible:
+    id: 'scorecard-tour-.*'
+- tapOn:
+    id: 'map-search-drawer-button-map'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: 'app-drawer-open'
+    timeout: 10000
+- tapOn:
+    id: 'drawer-scorecard-button'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-tour-privacy-score'
+    timeout: 10000

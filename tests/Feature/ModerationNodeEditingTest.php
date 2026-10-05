@@ -255,3 +255,33 @@ test('duplicate rules without matching tag keys do not offer an empty tag form',
         ->assertOk()->assertJsonPath('authorized', false)->assertJsonPath('actions', ['location', 'remove'])->assertJsonPath('tag_keys', []);
     Http::assertNothingSent();
 });
+
+test('adjustment exposes the shared ALPR fields without widening the report-specific editor', function () {
+    $flag = editingFlag('invalid_tag');
+    $this->getJson('/moderation/nodes/200/osm-edit?flag_id='.$flag->id.'&adjust=1')
+        ->assertOk()->assertJsonPath('actions', ['adjust'])
+        ->assertJsonPath('tag_keys', ['direction', 'camera:direction', 'operator', 'surveillance', 'camera:mount', 'camera:type']);
+    $this->getJson('/moderation/nodes/200/osm-edit?flag_id='.$flag->id)
+        ->assertOk()->assertJsonPath('actions', ['tags'])->assertJsonPath('tag_keys', ['direction']);
+});
+
+test('adjustment saves surveyed tags and position together while preserving unrelated tags and ALPR identity', function () {
+    $flag = editingFlag('invalid_tag');
+    fakeEditingApi([...editingSnapshot(3), 'changeset' => 999]);
+    $input = [...editingInput($flag, 'adjust'), 'tags' => ['direction' => '90', 'operator' => 'Flock Safety', 'camera:mount' => 'pole'], 'latitude' => 30.6, 'longitude' => -97.6];
+    $this->withSession(['osm_edit_token' => editingToken()])->postJson('/moderation/nodes/200/osm-edit', $input)->assertOk();
+    Http::assertSent(fn ($request): bool => $request->method() === 'PUT' && str_ends_with($request->url(), '/node/200')
+        && str_contains($request->body(), 'lat="30.6"') && str_contains($request->body(), 'lon="-97.6"')
+        && str_contains($request->body(), 'k="operator" v="Flock Safety"')
+        && str_contains($request->body(), 'k="name" v="Keep this"')
+        && str_contains($request->body(), 'k="surveillance:type" v="ALPR"'));
+    expect(ModerationActivity::sole()->action)->toBe('node.osm_adjust');
+});
+
+test('adjustment refuses invalid bearings and unsupported tags before any OSM write', function (array $tags) {
+    $flag = editingFlag('invalid_tag');
+    $this->withSession(['osm_edit_token' => editingToken()])->postJson('/moderation/nodes/200/osm-edit', [
+        ...editingInput($flag, 'adjust'), 'tags' => $tags, 'latitude' => 30.5, 'longitude' => -97.5,
+    ])->assertUnprocessable();
+    Http::assertNothingSent();
+})->with([[['direction' => '360']], [['camera:direction' => '-1']], [['direction' => 'abc']], [['surveillance:type' => 'camera']]]);

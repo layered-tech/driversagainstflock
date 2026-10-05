@@ -1,4 +1,12 @@
 export const iconPaths = {
+    'columns-3': [
+        ['rect', { x: 3, y: 4, width: 18, height: 16, rx: 2 }],
+        ['path', { d: 'M9 4v16M15 4v16' }],
+    ],
+    mail: [
+        ['rect', { x: 2, y: 4, width: 20, height: 16, rx: 2 }],
+        ['path', { d: 'm22 7-10 7L2 7' }],
+    ],
     search: [
         ['circle', { cx: 11, cy: 11, r: 8 }],
         ['path', { d: 'm21 21-4.3-4.3' }],

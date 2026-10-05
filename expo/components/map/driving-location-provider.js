@@ -7,7 +7,10 @@ import {
     isLocationPuckLocationProviderSupported,
     setLocationPuckLocationAsync,
 } from './location-puck-3d';
-import { getLocationPuckPresentationLocation } from './location-puck-presentation';
+import {
+    getLocationPuckPresentationLocation,
+    startLocationPuckPresentationUpdates,
+} from './location-puck-presentation';
 import { createLocationPuckProviderLifecycle } from './location-puck-provider-lifecycle';
 
 function getFiniteNumber(value) {
@@ -88,22 +91,38 @@ export function DrivingLocationProvider({
     onNativeProviderStatusChange,
     userLocation,
 }) {
-    const presentationLocation = useMemo(
+    const predictionEnabled = !mapApiMocksAreEnabled();
+    const [presentationUpdate, setPresentationUpdate] = useState(null);
+    const initialPresentationLocation = useMemo(
         () =>
             getLocationPuckPresentationLocation(userLocation, Date.now(), {
-                predictionEnabled: !mapApiMocksAreEnabled(),
+                predictionEnabled,
             }),
-        [
-            userLocation?.courseHeading,
-            userLocation?.heading,
-            userLocation?.isMoving,
-            userLocation?.latitude,
-            userLocation?.longitude,
-            userLocation?.recordedAt,
-            userLocation?.roadMatch?.isOffRoad,
-            userLocation?.speed,
-        ],
+        [predictionEnabled, userLocation],
     );
+    const presentationLocation =
+        presentationUpdate?.sourceLocation === userLocation &&
+        presentationUpdate?.predictionEnabled === predictionEnabled
+            ? presentationUpdate.location
+            : initialPresentationLocation;
+
+    useEffect(() => {
+        if (!enabled) {
+            setPresentationUpdate(null);
+            return;
+        }
+
+        return startLocationPuckPresentationUpdates(userLocation, {
+            onLocation: (location) =>
+                setPresentationUpdate({
+                    location,
+                    predictionEnabled,
+                    sourceLocation: userLocation,
+                }),
+            predictionEnabled,
+        });
+    }, [enabled, predictionEnabled, userLocation]);
+
     const providerLocation = useDrivingProviderLocation({
         enabled,
         userLocation: presentationLocation,

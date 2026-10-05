@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useCallback } from 'react';
+import { router, useIsFocused } from 'expo-router';
+import { useCallback, useRef } from 'react';
 import { ScrollView, Text, useColorScheme, View } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
@@ -11,6 +11,8 @@ import {
 } from '../design-system/primitives';
 import { getDafTheme } from '../design-system/tokens';
 import { useContribute } from './contribute-state';
+import { ContributeTourOverlay } from './contribute-tour-overlay';
+import { ContributeTourTarget } from './contribute-tour-target';
 import { ContributePageHeader } from './step-header';
 
 const SOURCE_OPTIONS = [
@@ -28,9 +30,13 @@ const SOURCE_OPTIONS = [
 ];
 
 export default function ChangesetDetailsScreen() {
+    const tourTargets = useRef({});
+    const tourScrollRef = useRef(null);
+    const tourContentRef = useRef(null);
+    const screenIsFocused = useIsFocused();
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
-    const { changeset, pins, updateChangeset } = useContribute();
+    const { changeset, pins, tour, updateChangeset } = useContribute();
     const commentIsEmpty = !changeset.comment.trim();
     const theme = getDafTheme(colorScheme);
     const footerPaddingBottom = Math.max(insets.bottom + 12, 28);
@@ -61,8 +67,9 @@ export default function ChangesetDetailsScreen() {
     );
 
     const handleNextPress = useCallback(() => {
+        tour.dismissPhase('changeset');
         router.navigate('/contribute/review');
-    }, []);
+    }, [tour]);
 
     return (
         <View
@@ -74,9 +81,17 @@ export default function ChangesetDetailsScreen() {
                 step={3}
                 title="Changeset details"
             />
-            <ScrollView className="flex-1" keyboardShouldPersistTaps="handled">
-                <View className="gap-[18px] p-4">
-                    <View>
+            <ScrollView
+                className="flex-1"
+                keyboardShouldPersistTaps="handled"
+                ref={tourScrollRef}
+            >
+                <View
+                    className="gap-[18px] p-4"
+                    collapsable={false}
+                    ref={tourContentRef}
+                >
+                    <ContributeTourTarget id="changeset" targets={tourTargets}>
                         <DafSectionLabel className="mb-2">
                             Comment
                         </DafSectionLabel>
@@ -89,8 +104,8 @@ export default function ChangesetDetailsScreen() {
                         <Text className="mt-[7px] text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400">
                             Say what changed and why — other mappers read this.
                         </Text>
-                    </View>
-                    <View>
+                    </ContributeTourTarget>
+                    <ContributeTourTarget id="source" targets={tourTargets}>
                         <DafSectionLabel className="mb-2">
                             Source
                         </DafSectionLabel>
@@ -109,7 +124,7 @@ export default function ChangesetDetailsScreen() {
                                 </DafChip>
                             ))}
                         </View>
-                    </View>
+                    </ContributeTourTarget>
                     <View>
                         <DafSectionLabel className="mb-2">
                             Hashtags
@@ -122,7 +137,7 @@ export default function ChangesetDetailsScreen() {
                             value={changeset.hashtags}
                         />
                     </View>
-                    <View className="bg-daf-brand/12 dark:bg-daf-brand/15 flex-row items-center gap-[11px] rounded-dafMd p-3">
+                    <View className="bg-daf-brand/12 flex-row items-center gap-[11px] rounded-dafMd p-3 dark:bg-daf-brand/15">
                         <Icon
                             color={theme.text.brand}
                             name="circle-check"
@@ -143,7 +158,7 @@ export default function ChangesetDetailsScreen() {
                 </View>
             </ScrollView>
             <View
-                className="dark:border-daf-border-dark dark:bg-daf-surface-dark border-t border-daf-border bg-white px-4 pt-3"
+                className="border-t border-daf-border bg-white px-4 pt-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
                 style={{ paddingBottom: footerPaddingBottom }}
             >
                 <DafButton
@@ -155,6 +170,16 @@ export default function ChangesetDetailsScreen() {
                     Next: review & publish
                 </DafButton>
             </View>
+            <ContributeTourOverlay
+                enabled={screenIsFocused}
+                insets={insets}
+                phase="changeset"
+                targets={tourTargets}
+                tour={tour}
+                contentRef={tourContentRef}
+                scrollRef={tourScrollRef}
+                restoreScrollOnFinish
+            />
         </View>
     );
 }

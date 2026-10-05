@@ -1,0 +1,14 @@
+appId: com.anonymous.drivefree.dev
+---
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-tour-skip-privacy-score'
+    timeout: 10000
+- tapOn:
+    id: 'scorecard-tour-skip-privacy-score'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible:
+      id: 'scorecard-tour-privacy-score'
+    timeout: 10000

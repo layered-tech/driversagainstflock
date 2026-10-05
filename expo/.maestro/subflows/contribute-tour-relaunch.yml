@@ -1,0 +1,21 @@
+appId: com.anonymous.drivefree.dev
+---
+# Keep AsyncStorage intact. Only the in-memory auth/API fixtures are reapplied.
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 120000
+- openLink: 'driversagainstflock://e2e-mocks?auth=1'
+- extendedWaitUntil:
+    visible:
+      id: 'map-contribute-button'
+    timeout: 30000
+- assertNotVisible:
+    id: 'contribute-tour-.*'
+- tapOn:
+    id: 'map-contribute-button'
+    retryTapIfNoChange: false

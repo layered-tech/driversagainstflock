@@ -26,6 +26,7 @@ import {
 } from '../components/root/system-bars';
 import { ScorecardArrivalRecap } from '../components/scorecard/scorecard-arrival-recap';
 import { ScorecardProvider } from '../components/scorecard/scorecard-context';
+import { UserToursProvider } from '../components/user-tours';
 import { logAnalyticsScreenView } from '../lib/analytics';
 import { AuthProvider } from '../lib/auth';
 import { installNetworkDebugFetchMonitor } from '../lib/network-debug';
@@ -38,7 +39,9 @@ installNetworkDebugFetchMonitor();
 function ScorecardContributeProvider({ children }) {
     return (
         <ScorecardProvider>
-            <ContributeProvider>{children}</ContributeProvider>
+            <ContributeProvider>
+                <UserToursProvider>{children}</UserToursProvider>
+            </ContributeProvider>
         </ScorecardProvider>
     );
 }

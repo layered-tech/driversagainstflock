@@ -138,7 +138,7 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(
             drivingLocationProviderSource,
-            /getLocationPuckPresentationLocation\(userLocation,[\s\S]*?predictionEnabled: !mapApiMocksAreEnabled\(\)[\s\S]*?userLocation: presentationLocation/,
+            /predictionEnabled = !mapApiMocksAreEnabled\(\)[\s\S]*?startLocationPuckPresentationUpdates\(userLocation,[\s\S]*?userLocation: presentationLocation/,
         );
         assert.match(
             locationPuckPresentationSource,

@@ -1,0 +1,80 @@
+appId: com.anonymous.drivefree.dev
+name: Map Options Tour Skip And Persistence
+tags:
+  - map
+  - layers
+  - map-options-tour
+---
+- runFlow: subflows/map-options-tour-open.yml
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_PREFIX: map-options-tour
+      TOUR_STEP: police-reports
+      TOUR_TITLE: Police reports from Waze
+- extendedWaitUntil:
+    visible:
+      id: 'map-options-tour-time-of-day'
+    timeout: 10000
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-map-options-tour-before-skip'}
+- tapOn:
+    id: 'map-options-tour-skip-time-of-day'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- assertNotVisible:
+    id: 'map-options-tour-tooltip'
+# Skipping leaves the fixed/auto choices untouched and usable.
+- assertVisible:
+    id: 'map-light-preset-option-auto'
+    selected: true
+- assertVisible:
+    id: 'offline-map-section-toggle'
+- assertNotVisible:
+    id: 'offline-map-primary-action'
+- tapOn:
+    id: 'map-light-preset-option-night'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- assertVisible:
+    id: 'map-light-preset-option-night'
+    selected: true
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 120000
+- openLink: 'driversagainstflock://e2e-mocks'
+- extendedWaitUntil:
+    visible:
+      id: 'map-layer-button'
+    timeout: 30000
+- tapOn:
+    id: 'map-layer-button'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: 'map-settings-sheet'
+    timeout: 10000
+- assertNotVisible:
+    id: 'map-options-tour-tooltip'
+- assertVisible:
+    id: 'map-police-alerts-toggle'
+    checked: false
+- swipe:
+    start: '50%,90%'
+    end: '50%,35%'
+    duration: 400
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: 'map-light-preset-option-night'
+    timeout: 10000
+- assertVisible:
+    id: 'map-light-preset-option-night'
+    selected: true
+- assertVisible:
+    id: 'offline-map-section-toggle'
+- assertVisible: 'Not downloaded'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-map-options-tour-skipped'}

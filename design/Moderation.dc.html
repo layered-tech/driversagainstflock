@@ -30,7 +30,7 @@
     .flt-input:focus{ border-color:var(--brand); }
     .flt-select{ height:40px; border-radius:var(--radius-pill); border:1px solid var(--border); background:var(--surface-card); color:var(--text-primary); padding:0 12px; font-family:var(--font-ui); font-size:13px; outline:none; cursor:pointer; min-width:0; width:100%; }
     .flt-select:focus{ border-color:var(--brand); }
-    .node-grid{ display:grid; gap:10px; grid-template-columns:96px minmax(150px,1.4fr) 78px 72px minmax(96px,1fr) minmax(104px,1.1fr) 72px 128px 36px; align-items:center; }
+    .node-grid{ display:grid; gap:10px; grid-template-columns:96px minmax(150px,1.4fr) 78px 72px minmax(96px,1fr) minmax(104px,1.1fr) 72px 196px 36px; align-items:center; }
     .all-grid{ display:grid; gap:10px; grid-template-columns:110px 88px minmax(120px,1fr) minmax(120px,1fr) minmax(130px,1.1fr) 90px 36px; align-items:center; }
     .ed-grid{ display:grid; gap:10px; grid-template-columns:minmax(180px,1.3fr) 92px 148px 86px 74px 64px 104px 88px; align-items:center; }
     .kpi-grid{ display:grid; gap:12px; grid-template-columns:repeat(6, minmax(0,1fr)); }
@@ -407,7 +407,7 @@
     <sc-if hint-placeholder-val="{{ false }}" value="{{ isFlagged }}">
     <div style="padding:22px 24px 0;">
       <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h1); line-height:var(--lh-h1); letter-spacing:var(--ls-display); margin:0 0 6px;">Flagged nodes</h1>
-      <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0 0 8px; max-width:70ch;">Nodes tripped by the active moderation rules, waiting for review. Dismiss the flag, or adjust the node upstream.</p>
+      <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0 0 8px; max-width:70ch;">Nodes tripped by the active moderation rules or reported “Not there” by drivers, waiting for review. Dismiss the flag, or adjust the node upstream.</p>
     </div>
     <div style="position:sticky; top:57px; z-index:6; background:color-mix(in oklab, var(--surface-page) 92%, transparent); backdrop-filter:blur(12px); border-bottom:1px solid var(--border);">
       <div style="padding:12px 24px 14px; display:flex; flex-direction:column; gap:10px;">
@@ -473,53 +473,143 @@
           <sc-if hint-placeholder-val="{{ false }}" value="{{ nFiltersActive }}">
             <button onClick="{{ onNClear }}" style="height:40px; padding:0 16px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:pointer;" style-hover="border-color:var(--brand); color:var(--text-brand);">Clear</button>
           </sc-if>
-          <div style="margin-left:auto; font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); letter-spacing:var(--ls-mono); white-space:nowrap;">{{ nCountLabel }}</div>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:12px;">
+            <div style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); letter-spacing:var(--ls-mono); white-space:nowrap;">{{ nCountLabel }}</div>
+            <div style="position:relative;">
+              <button onBlur="{{ onNColsBlur }}" onClick="{{ onNColsToggle }}" style="height:40px; display:inline-flex; align-items:center; gap:8px; padding:0 14px 0 15px; border-radius:var(--radius-pill); border:1px solid {{ nColsBd }}; background:var(--surface-card); color:{{ nColsFg }}; font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap;" style-hover="border-color:var(--brand); color:var(--text-brand);" title="Choose columns"><svg fill="none" height="15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="15"><rect height="16" rx="2" width="18" x="3" y="4"></rect><path d="M9 4v16M15 4v16"></path></svg>Columns<span style="font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--text-tertiary);">{{ nColsCount }}</span><svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" style="opacity:0.7;" viewBox="0 0 24 24" width="14"><path d="M6 9l6 6 6-6"></path></svg></button>
+              <sc-if hint-placeholder-val="{{ false }}" value="{{ nColsOpen }}">
+                <div style="position:absolute; top:46px; right:0; z-index:20; width:244px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-float); padding:6px; display:flex; flex-direction:column;">
+                  <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); padding:6px 10px 5px;">Show columns</div>
+                  <sc-for as="c" hint-placeholder-count="6" list="{{ nColMenu }}">
+                    <button onMouseDown="{{ c.onToggle }}" style="display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:none; border:none; border-radius:var(--radius-xs); padding:7px 10px; font-family:var(--font-ui); font-size:13px; font-weight:var(--fw-semibold); color:var(--text-primary); cursor:pointer;" style-hover="background:var(--brand-soft);">
+                      <span style="width:16px; height:16px; border-radius:var(--radius-xs); border:1.5px solid {{ c.boxBd }}; background:{{ c.boxBg }}; display:inline-flex; align-items:center; justify-content:center; flex:none; transition:background 120ms, border-color 120ms;"><svg fill="none" height="10" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" style="opacity:{{ c.checkOp }};" viewBox="0 0 24 24" width="10"><path d="M20 6L9 17l-5-5"></path></svg></span>
+                      <span style="flex:1;">{{ c.label }}</span>
+                    </button>
+                  </sc-for>
+                  <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px 4px; border-top:1px solid var(--border); margin-top:4px;">
+                    <span style="font-size:11px; color:var(--text-tertiary);">Node and actions always show</span>
+                    <sc-if hint-placeholder-val="{{ false }}" value="{{ nColsHiddenAny }}">
+                      <button class="lnk-btn" onMouseDown="{{ onNColsReset }}">Show all</button>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </div>
         </div>
       </div>
     </div>
     <section>
       <div style="padding:16px 24px 24px;">
         <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); overflow:auto;">
-          <div style="min-width:980px;">
-            <div class="node-grid" style="padding:12px 12px 10px; border-bottom:1px solid var(--border);">
+          <div style="min-width:{{ nMinWidth }};">
+            <div class="node-grid" style="padding:12px 12px 10px; border-bottom:1px solid var(--border); grid-template-columns:{{ nGridCols }};">
               <sc-for as="c" hint-placeholder-count="8" list="{{ nCols }}">
                 <button onClick="{{ c.onClick }}" style="display:flex; align-items:center; gap:5px; justify-content:{{ c.just }}; cursor:{{ c.cursor }}; background:none; border:none; padding:0; font-family:var(--font-ui); font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:{{ c.color }}; min-width:0;" title="{{ c.title }}"><span>{{ c.label }}</span><span style="font-family:var(--font-mono); font-size:11px;">{{ c.arrow }}</span></button>
               </sc-for>
               <div></div>
             </div>
             <sc-for as="n" hint-placeholder-count="10" list="{{ nRows }}">
-              <div class="node-grid" style="padding:{{ rowPad }}; border-bottom:1px solid var(--border); transition:background 120ms;" style-hover="background:color-mix(in oklab, var(--brand) 4%, var(--surface-card));">
+              <div class="node-grid" style="padding:{{ rowPad }}; border-bottom:1px solid var(--border); transition:background 120ms; grid-template-columns:{{ nGridCols }};" style-hover="background:color-mix(in oklab, var(--brand) 4%, var(--surface-card));">
                 <button onClick="{{ n.goNode }}" style="display:block; text-align:left; background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-mono); font-size:12.5px; letter-spacing:var(--ls-mono); color:var(--text-primary); font-weight:600;" style-hover="color:var(--text-brand);" title="Open node history">{{ n.nid }}</button>
-                <div style="display:flex; flex-wrap:wrap; gap:4px; min-width:0;">
+                <div style="display:{{ dRules }}; flex-wrap:wrap; gap:4px; min-width:0;">
                   <sc-for as="rc" hint-placeholder-count="1" list="{{ n.ruleChips }}">
-                    <span style="font-size:11px; font-weight:var(--fw-semibold); color:var(--text-secondary); border:1px solid var(--border); border-radius:var(--radius-xs); padding:2px 7px; white-space:nowrap;">{{ rc }}</span>
+                    <button onClick="{{ rc.onClick }}" style="display:inline-flex; align-items:center; gap:6px; height:22px; padding:0 8px 0 7px; border-radius:var(--radius-xs); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:11px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap;" style-hover="border-color:var(--text-tertiary); color:var(--text-primary);" title="{{ rc.title }}"><span style="width:6px; height:6px; border-radius:50%; background:{{ rc.dot }}; flex:none;"></span>{{ rc.label }}</button>
                   </sc-for>
+                  <sc-if hint-placeholder-val="{{ false }}" value="{{ n.ruleMore }}">
+                    <button onClick="{{ n.onToggle }}" style="display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:var(--radius-xs); border:1px dashed var(--border); background:none; color:var(--text-tertiary); font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); cursor:pointer; white-space:nowrap;" style-hover="border-color:var(--text-tertiary); color:var(--text-primary);" title="{{ n.ruleMoreTitle }}">{{ n.ruleMoreLabel }}</button>
+                  </sc-if>
                 </div>
-                <div><span style="font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); border-radius:var(--radius-pill); padding:3px 9px; color:{{ n.sevFg }}; background:{{ n.sevBg }};">{{ n.severity }}</span></div>
-                <div style="font-family:var(--font-mono); font-size:12.5px; letter-spacing:var(--ls-mono); color:{{ n.dirColor }};">{{ n.dirT }}</div>
-                <div style="font-size:var(--fs-body-sm); color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ n.operator }}</div>
-                <div style="min-width:0;">
+                <div style="display:{{ dSeverity }};"><span style="font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); border-radius:var(--radius-pill); padding:3px 9px; color:{{ n.sevFg }}; background:{{ n.sevBg }};">{{ n.severity }}</span></div>
+                <div style="display:{{ dDir }}; font-family:var(--font-mono); font-size:12.5px; letter-spacing:var(--ls-mono); color:{{ n.dirColor }};">{{ n.dirT }}</div>
+                <div style="display:{{ dOperator }}; font-size:var(--fs-body-sm); color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ n.operator }}</div>
+                <div style="display:{{ dUser }}; min-width:0;">
                   <button onClick="{{ n.goEditor }}" style="display:block; width:100%; text-align:left; background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" style-hover="color:var(--text-brand);" title="Open editor profile">{{ n.user }}</button>
                   <div style="display:flex; gap:10px; margin-top:3px;">
                     <button class="lnk-btn" onClick="{{ n.goEdits }}">Changesets</button>
                     <button class="lnk-btn" onClick="{{ n.goEditor }}">Profile</button>
                   </div>
                 </div>
-                <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-tertiary); letter-spacing:var(--ls-mono);" title="{{ n.absTime }}">{{ n.time }}</div>
-                <div style="display:flex; gap:6px;">
+                <div style="display:{{ dDetected }}; font-family:var(--font-mono); font-size:12px; color:var(--text-tertiary); letter-spacing:var(--ls-mono);" title="{{ n.absTime }}">{{ n.time }}</div>
+                <div style="display:{{ dActions }}; gap:6px;">
                   <button onClick="{{ n.onDismiss }}" style="height:30px; padding:0 12px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer;" style-hover="border-color:var(--alert-500); color:var(--alert-600);">Dismiss</button>
-                  <a href="{{ n.adjustHref }}" style="height:30px; display:inline-flex; align-items:center; padding:0 12px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); text-decoration:none;" style-hover="background:color-mix(in oklab, var(--brand) 22%, transparent);" target="_blank">Adjust</a>
+                  <button onBlur="{{ onActBlur }}" onClick="{{ n.onAct }}" style="height:30px; display:inline-flex; align-items:center; gap:5px; padding:0 9px 0 12px; border-radius:var(--radius-pill); border:none; background:{{ n.actBg }}; color:var(--text-brand); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); cursor:pointer; white-space:nowrap;" style-hover="background:color-mix(in oklab, var(--brand) 22%, transparent);">Take action<svg fill="none" height="13" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" style="opacity:0.8;" viewBox="0 0 24 24" width="13"><path d="M6 9l6 6 6-6"></path></svg></button>
                 </div>
                 <button onClick="{{ n.onToggle }}" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center; justify-self:end; border:none; background:none; cursor:pointer; color:{{ n.chevColor }}; border-radius:var(--radius-xs); padding:0;" style-hover="background:color-mix(in oklab, var(--text-primary) 8%, transparent); color:var(--text-primary);" title="Details"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" style="transition:transform 180ms; transform:{{ n.chevRot }};" viewBox="0 0 24 24" width="16"><path d="M6 9l6 6 6-6"></path></svg></button>
               </div>
               <sc-if hint-placeholder-val="{{ false }}" value="{{ n.isOpen }}">
                 <div class="det-grid" style="padding:18px 20px 22px; border-bottom:1px solid var(--border); background:color-mix(in oklab, var(--brand) 3%, var(--surface-page));">
                   <div style="min-width:0; display:flex; flex-direction:column; gap:16px;">
-                    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:12px 20px;">
+                    <sc-if hint-placeholder-val="{{ true }}" value="{{ n.hasViols }}">
+                    <div>
+                      <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:7px;">
+                        <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">Rule violations</div>
+                        <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--alert-600); background:var(--alert-100); border-radius:var(--radius-pill); padding:1px 7px;">{{ n.violCount }}</span>
+                        <span style="margin-left:auto; font-size:11px; color:var(--text-tertiary);">{{ n.violNote }}</span>
+                      </div>
+                      <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; display:flex; flex-direction:column;">
+                        <sc-for as="v" hint-placeholder-count="1" list="{{ n.violations }}">
+                          <div style="display:grid; grid-template-columns:4px minmax(0,1fr); border-bottom:1px solid {{ v.line }};">
+                            <div style="background:{{ v.bar }};"></div>
+                            <div style="padding:12px 14px 12px 14px; min-width:0;">
+                              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); border-radius:var(--radius-pill); padding:2px 8px; color:{{ v.sevFg }}; background:{{ v.sevBg }};">{{ v.sev }}</span>
+                                <span style="font-size:13px; font-weight:var(--fw-bold); color:var(--text-primary);">{{ v.rule }}</span>
+                                <span style="margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-family:var(--font-mono); font-size:11px; letter-spacing:var(--ls-mono); color:var(--text-tertiary); white-space:nowrap;"><span style="width:6px; height:6px; border-radius:50%; background:var(--alert-500);"></span>Open</span>
+                              </div>
+                              <div style="font-size:var(--fs-body-sm); line-height:1.5; color:var(--text-primary); margin-top:6px; text-wrap:pretty;">{{ v.desc }}</div>
+                              <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:9px;">
+                                <span style="font-family:var(--font-mono); font-size:11px; letter-spacing:var(--ls-mono); color:var(--text-tertiary); white-space:nowrap;">First flagged <span style="color:var(--text-secondary); font-weight:600;">{{ v.first }}</span></span>
+                                <span style="font-family:var(--font-mono); font-size:11px; letter-spacing:var(--ls-mono); color:var(--text-tertiary); white-space:nowrap;">Last checked <span style="color:var(--text-secondary); font-weight:600;">{{ v.last }}</span></span>
+                                <button onClick="{{ v.onRaw }}" style="margin-left:auto; display:inline-flex; align-items:center; gap:4px; background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-ui); font-size:11px; font-weight:600; color:{{ v.rawFg }}; white-space:nowrap;" style-hover="text-decoration:underline;"><svg fill="none" height="12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" style="transition:transform 180ms; transform:{{ v.rawRot }};" viewBox="0 0 24 24" width="12"><path d="M9 6l6 6-6 6"></path></svg>Raw evidence</button>
+                              </div>
+                              <sc-if hint-placeholder-val="{{ false }}" value="{{ v.rawOpen }}">
+                                <pre style="margin:10px 0 0; padding:10px 12px; background:color-mix(in oklab, var(--text-primary) 4%, var(--surface-page)); border:1px solid var(--border); border-radius:var(--radius-xs); font-family:var(--font-mono); font-size:11.5px; line-height:1.55; letter-spacing:var(--ls-mono); color:var(--text-secondary); overflow:auto; max-height:260px; white-space:pre;">{{ v.raw }}</pre>
+                              </sc-if>
+                            </div>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </div>
+                    </sc-if>
+                    <sc-if hint-placeholder-val="{{ false }}" value="{{ n.hasReports }}">
+                    <div>
+                      <div style="display:flex; align-items:center; gap:8px; margin-bottom:7px; flex-wrap:wrap;">
+                        <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">Not there reports</div>
+                        <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--text-secondary); background:color-mix(in oklab, var(--text-primary) 9%, transparent); border-radius:var(--radius-pill); padding:1px 7px;">{{ n.repCount }}</span>
+                        <span style="font-size:11px; color:var(--text-tertiary); min-width:0;">{{ n.repNote }}</span>
+                        <button onClick="{{ n.onDismissReps }}" style="margin-left:auto; height:26px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:11.5px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap;" style-hover="border-color:var(--alert-500); color:var(--alert-600);">Dismiss reports</button>
+                      </div>
+                      <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; display:flex; flex-direction:column;">
+                        <div style="display:grid; grid-template-columns:52px minmax(0,1.2fr) minmax(0,0.9fr) minmax(0,1.2fr) auto; gap:12px; align-items:center; padding:8px 14px; border-bottom:1px solid var(--border); background:color-mix(in oklab, var(--text-primary) 3%, var(--surface-card));">
+                          <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">Report</span>
+                          <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">Reported</span>
+                          <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">Platform</span>
+                          <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">Received</span>
+                          <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); text-align:right;">Evidence</span>
+                        </div>
+                        <sc-for as="rp" hint-placeholder-count="2" list="{{ n.reports }}">
+                          <div style="border-bottom:1px solid {{ rp.line }}; min-width:0;">
+                            <div style="display:grid; grid-template-columns:52px minmax(0,1.2fr) minmax(0,0.9fr) minmax(0,1.2fr) auto; gap:12px; align-items:center; padding:11px 14px;">
+                              <span style="font-family:var(--font-mono); font-size:12.5px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--text-primary);">{{ rp.id }}</span>
+                              <span style="font-family:var(--font-mono); font-size:12px; letter-spacing:var(--ls-mono); color:var(--text-primary); overflow-wrap:anywhere;" title="{{ rp.reportedFull }}">{{ rp.reported }}</span>
+                              <span style="font-size:var(--fs-body-sm); color:var(--text-secondary); overflow-wrap:anywhere;">{{ rp.platform }}</span>
+                              <span style="font-family:var(--font-mono); font-size:12px; letter-spacing:var(--ls-mono); color:var(--text-secondary); overflow-wrap:anywhere;" title="{{ rp.receivedFull }}">{{ rp.received }}</span>
+                              <button onClick="{{ rp.onRaw }}" style="justify-self:end; display:inline-flex; align-items:center; gap:4px; background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-ui); font-size:11px; font-weight:600; color:{{ rp.rawFg }}; white-space:nowrap;" style-hover="text-decoration:underline;"><svg fill="none" height="12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" style="transition:transform 180ms; transform:{{ rp.rawRot }};" viewBox="0 0 24 24" width="12"><path d="M9 6l6 6-6 6"></path></svg>Raw evidence</button>
+                            </div>
+                            <sc-if hint-placeholder-val="{{ false }}" value="{{ rp.rawOpen }}">
+                              <pre style="margin:0 14px 12px; padding:10px 12px; background:color-mix(in oklab, var(--text-primary) 4%, var(--surface-page)); border:1px solid var(--border); border-radius:var(--radius-xs); font-family:var(--font-mono); font-size:11.5px; line-height:1.55; letter-spacing:var(--ls-mono); color:var(--text-secondary); overflow:auto; max-height:260px; white-space:pre;">{{ rp.raw }}</pre>
+                            </sc-if>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </div>
+                    </sc-if>
+                    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:2px 28px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 14px;">
                       <sc-for as="d" hint-placeholder-count="6" list="{{ n.detail }}">
-                        <div style="min-width:0;">
-                          <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:3px;">{{ d.k }}</div>
-                          <div style="font-family:var(--font-mono); font-size:12.5px; letter-spacing:var(--ls-mono); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ d.v }}">{{ d.v }}</div>
+                        <div style="display:grid; grid-template-columns:112px minmax(0,1fr); gap:12px; align-items:baseline; padding:5px 0; min-width:0;">
+                          <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); line-height:1.5;">{{ d.k }}</div>
+                          <div style="font-family:var(--font-mono); font-size:12.5px; line-height:1.5; letter-spacing:var(--ls-mono); color:var(--text-primary); min-width:0; overflow-wrap:anywhere; text-wrap:pretty;">{{ d.v }}</div>
                         </div>
                       </sc-for>
                     </div>
@@ -607,7 +697,7 @@
           <sc-if hint-placeholder-val="{{ false }}" value="{{ ndDismissed }}">
             <span style="height:34px; display:inline-flex; align-items:center; gap:6px; padding:0 14px; border-radius:var(--radius-pill); border:1px solid var(--border); color:var(--text-tertiary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold);"><span style="width:7px; height:7px; border-radius:50%; background:var(--text-tertiary);"></span>Dismissed</span>
           </sc-if>
-          <a href="{{ ndAdjustHref }}" style="height:34px; display:inline-flex; align-items:center; padding:0 14px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); text-decoration:none;" style-hover="background:color-mix(in oklab, var(--brand) 22%, transparent);" target="_blank">Adjust in OSM ↗</a>
+          <button onBlur="{{ onActBlur }}" onClick="{{ ndAct }}" style="height:34px; display:inline-flex; align-items:center; gap:6px; padding:0 11px 0 14px; border-radius:var(--radius-pill); border:none; background:{{ ndActBg }}; color:var(--text-brand); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); cursor:pointer; white-space:nowrap;" style-hover="background:color-mix(in oklab, var(--brand) 22%, transparent);">Take action<svg fill="none" height="13" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" style="opacity:0.8;" viewBox="0 0 24 24" width="13"><path d="M6 9l6 6 6-6"></path></svg></button>
         </div>
       </div>
       <div class="kpi-grid" style="margin:20px 0 18px;">
@@ -1163,6 +1253,139 @@
     </sc-if>
     </main>
   </div>
+
+  <!-- ===================== TAKE ACTION MENU ===================== -->
+  <sc-if hint-placeholder-val="{{ false }}" value="{{ actOpen }}">
+    <div style="position:fixed; top:{{ actTop }}; left:{{ actLeft }}; z-index:40; width:236px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-float); padding:6px; display:flex; flex-direction:column;">
+      <div style="display:flex; align-items:center; gap:6px; padding:6px 10px 5px; font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);"><span>Node</span><span style="font-family:var(--font-mono); letter-spacing:var(--ls-mono); text-transform:none; color:var(--text-secondary);">{{ actNid }}</span></div>
+      <button onMouseDown="{{ onActAdjust }}" style="display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:none; border:none; border-radius:var(--radius-xs); padding:8px 10px; cursor:pointer; color:var(--text-primary);" style-hover="background:var(--brand-soft);">
+        <span style="width:30px; height:30px; border-radius:var(--radius-sm); display:inline-flex; align-items:center; justify-content:center; background:color-mix(in oklab, var(--text-primary) 6%, transparent); color:var(--text-secondary); flex:none;"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"></path></svg></span>
+        <span style="display:flex; flex-direction:column; gap:1px; min-width:0;"><span style="font-family:var(--font-ui); font-size:13px; font-weight:var(--fw-semibold);">Adjust node</span><span style="font-size:11px; color:var(--text-tertiary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Fix tags, position or direction</span></span>
+      </button>
+      <button onMouseDown="{{ onActMessage }}" style="display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:none; border:none; border-radius:var(--radius-xs); padding:8px 10px; cursor:pointer; color:var(--text-primary);" style-hover="background:var(--brand-soft);">
+        <span style="width:30px; height:30px; border-radius:var(--radius-sm); display:inline-flex; align-items:center; justify-content:center; background:color-mix(in oklab, var(--text-primary) 6%, transparent); color:var(--text-secondary); flex:none;"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16"><rect height="16" rx="2" width="20" x="2" y="4"></rect><path d="M22 7l-10 7L2 7"></path></svg></span>
+        <span style="display:flex; flex-direction:column; gap:1px; min-width:0;"><span style="font-family:var(--font-ui); font-size:13px; font-weight:var(--fw-semibold);">Message user</span><span style="font-size:11px; color:var(--text-tertiary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ actUserSub }}</span></span>
+      </button>
+    </div>
+  </sc-if>
+
+  <!-- ===================== MESSAGE USER MODAL ===================== -->
+  <x-import component-from-global-scope="DesignSystem_c71fad.Dialog" dc-props="{{ msgDialogProps }}" description="Sent as an OSM message from your account. Most flags are honest mistakes — keep it friendly." hint-size="0px,0px" on-close="{{ onMsgClose }}" open="{{ msgOpen }}" size="lg" title="Message user">
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <div style="display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); background:color-mix(in oklab, var(--text-primary) 3%, var(--surface-card));">
+        <span style="display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:50%; background:var(--brand-soft); color:var(--text-brand); font-weight:var(--fw-bold); font-size:12px; flex:none;">{{ msgInitials }}</span>
+        <div style="min-width:0; flex:1;">
+          <div style="display:flex; align-items:center; gap:7px; font-size:13.5px; font-weight:var(--fw-bold); color:var(--text-primary);"><span>{{ msgUser }}</span><span style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:var(--fw-semibold); color:var(--text-secondary);"><span style="width:6px; height:6px; border-radius:50%; background:{{ msgStatusColor }};"></span>{{ msgStatus }}</span></div>
+          <div style="font-size:12px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ msgUserMeta }}</div>
+        </div>
+        <button class="lnk-btn" onClick="{{ msgGoProfile }}">View profile</button>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12px; color:var(--text-secondary);">
+        <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">About</span>
+        <span style="font-family:var(--font-mono); font-size:12.5px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--text-primary);">{{ msgNid }}</span>
+        <span>{{ msgArea }}</span>
+        <div style="display:flex; gap:4px; flex-wrap:wrap;">
+          <sc-for as="r" hint-placeholder-count="1" list="{{ msgRules }}">
+            <span style="display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:var(--fw-semibold); color:var(--text-secondary); border:1px solid var(--border); border-radius:var(--radius-xs); padding:2px 7px; white-space:nowrap;"><span style="width:6px; height:6px; border-radius:50%; background:{{ r.dot }};"></span>{{ r.label }}</span>
+          </sc-for>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:6px;">Start from</div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <sc-for as="t" hint-placeholder-count="3" list="{{ msgTemplates }}">
+            <button onClick="{{ t.onPick }}" style="height:32px; padding:0 13px; border-radius:var(--radius-pill); border:1px solid {{ t.bd }}; background:{{ t.bg }}; color:{{ t.fg }}; font-family:var(--font-ui); font-size:12.5px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap;" style-hover="border-color:var(--brand); color:var(--text-brand);">{{ t.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:5px;">Subject</div>
+        <input onChange="{{ onMsgSubject }}" style="height:38px; width:100%; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface-card); color:var(--text-primary); padding:0 12px; font-family:var(--font-ui); font-size:13px; outline:none;" style-focus="border-color:var(--brand);" value="{{ msgSubject }}">
+      </div>
+      <div>
+        <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:5px;">Message</div>
+        <textarea onChange="{{ onMsgBody }}" placeholder="Say what you noticed and what would help" rows="9" style="display:block; width:100%; resize:vertical; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface-card); color:var(--text-primary); padding:10px 12px; font-family:var(--font-ui); font-size:13px; line-height:1.5; outline:none;" style-focus="border-color:var(--brand);" value="{{ msgBody }}"></textarea>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:6px;">
+          <button onClick="{{ onMsgLink }}" style="display:inline-flex; align-items:center; gap:8px; background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); color:var(--text-secondary);"><span style="width:16px; height:16px; border-radius:var(--radius-xs); border:1.5px solid {{ msgLinkBd }}; background:{{ msgLinkBg }}; display:inline-flex; align-items:center; justify-content:center; flex:none; transition:background 120ms, border-color 120ms;"><svg fill="none" height="10" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" style="opacity:{{ msgLinkOp }};" viewBox="0 0 24 24" width="10"><path d="M20 6L9 17l-5-5"></path></svg></span>Attach a link to the node</button>
+          <span style="font-family:var(--font-mono); font-size:11px; letter-spacing:var(--ls-mono); color:var(--text-tertiary); white-space:nowrap;">{{ msgCount }}</span>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding-top:2px;">
+        <a href="{{ msgOsmHref }}" style="height:38px; display:inline-flex; align-items:center; padding:0 14px; border-radius:var(--radius-pill); border:1px solid var(--border); color:var(--text-secondary); font-family:var(--font-ui); font-size:12.5px; font-weight:var(--fw-semibold); text-decoration:none;" style-hover="border-color:var(--brand); color:var(--text-brand);" target="_blank">Open OSM inbox ↗</a>
+        <div style="margin-left:auto; display:flex; gap:10px;">
+          <button onClick="{{ onMsgClose }}" style="height:38px; padding:0 16px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:13px; font-weight:var(--fw-semibold); cursor:pointer;" style-hover="border-color:var(--text-secondary); color:var(--text-primary);">Cancel</button>
+          <button onClick="{{ onMsgSend }}" style="height:38px; padding:0 18px; border-radius:var(--radius-pill); border:none; background:var(--brand); color:#fff; font-family:var(--font-ui); font-size:13px; font-weight:var(--fw-bold); cursor:{{ msgSendCursor }}; opacity:{{ msgSendOp }}; white-space:nowrap;" style-active="transform:scale(0.97);" style-hover="filter:brightness(1.05);">Send message</button>
+        </div>
+      </div>
+    </div>
+  </x-import>
+
+  <!-- ===================== ADJUST NODE MODAL ===================== -->
+  <x-import component-from-global-scope="DesignSystem_c71fad.Dialog" dc-props="{{ adjDialogProps }}" description="Changes save as an OSM changeset from your account. Fix the tag a rule tripped on and the flag clears." hint-size="0px,0px" on-close="{{ onAdjClose }}" open="{{ adjOpen }}" size="lg" title="Adjust node">
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); background:color-mix(in oklab, var(--text-primary) 3%, var(--surface-card));">
+        <span style="width:10px; height:10px; border-radius:50%; background:var(--alert-500); box-shadow:0 0 0 3px color-mix(in oklab, var(--alert-500) 25%, transparent); flex:none;"></span>
+        <span style="font-family:var(--font-mono); font-size:13px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--text-primary);">{{ adjNid }}</span>
+        <span style="font-size:12px; color:var(--text-secondary);">{{ adjArea }}</span>
+        <div style="margin-left:auto; display:flex; gap:4px; flex-wrap:wrap;">
+          <sc-for as="r" hint-placeholder-count="1" list="{{ adjRules }}">
+            <span style="font-size:11px; font-weight:var(--fw-semibold); color:{{ r.fg }}; border:1px solid {{ r.bd }}; background:{{ r.bg }}; border-radius:var(--radius-xs); padding:2px 7px; white-space:nowrap;">{{ r.label }}</span>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px 16px;">
+        <div>
+          <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:5px;">Latitude</div>
+          <input onChange="{{ onAdjLat }}" style="height:38px; width:100%; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface-card); color:var(--text-primary); padding:0 12px; font-family:var(--font-mono); font-size:13px; letter-spacing:var(--ls-mono); outline:none;" style-focus="border-color:var(--brand);" value="{{ adjLat }}">
+        </div>
+        <div>
+          <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:5px;">Longitude</div>
+          <input onChange="{{ onAdjLon }}" style="height:38px; width:100%; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface-card); color:var(--text-primary); padding:0 12px; font-family:var(--font-mono); font-size:13px; letter-spacing:var(--ls-mono); outline:none;" style-focus="border-color:var(--brand);" value="{{ adjLon }}">
+        </div>
+        <div>
+          <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:5px;">Direction · degrees</div>
+          <div style="position:relative;">
+            <input onChange="{{ onAdjDir }}" placeholder="Leave blank for none" style="height:38px; width:100%; border-radius:var(--radius-sm); border:1px solid {{ adjDirBd }}; background:var(--surface-card); color:var(--text-primary); padding:0 44px 0 12px; font-family:var(--font-mono); font-size:13px; letter-spacing:var(--ls-mono); outline:none;" style-focus="border-color:var(--brand);" value="{{ adjDir }}">
+            <span style="position:absolute; right:12px; top:50%; transform:translateY(-50%); font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--text-tertiary);">{{ adjDirOct }}</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:5px;">Operator</div>
+          <select onChange="{{ onAdjOperator }}" style="height:38px; width:100%; border-radius:var(--radius-sm); border:1px solid {{ adjOpBd }}; background:var(--surface-card); color:var(--text-primary); padding:0 10px; font-family:var(--font-ui); font-size:13px; outline:none; cursor:pointer;" value="{{ adjOperator }}"><sc-for as="o" hint-placeholder-count="3" list="{{ adjOpOpts }}"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select>
+        </div>
+        <div>
+          <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:5px;">surveillance</div>
+          <select onChange="{{ onAdjSurv }}" style="height:38px; width:100%; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface-card); color:var(--text-primary); padding:0 10px; font-family:var(--font-mono); font-size:13px; letter-spacing:var(--ls-mono); outline:none; cursor:pointer;" value="{{ adjSurv }}"><sc-for as="o" hint-placeholder-count="3" list="{{ adjSurvOpts }}"><option value="{{ o }}">{{ o }}</option></sc-for></select>
+        </div>
+        <div>
+          <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:5px;">camera:mount</div>
+          <select onChange="{{ onAdjMount }}" style="height:38px; width:100%; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface-card); color:var(--text-primary); padding:0 10px; font-family:var(--font-mono); font-size:13px; letter-spacing:var(--ls-mono); outline:none; cursor:pointer;" value="{{ adjMount }}"><sc-for as="o" hint-placeholder-count="3" list="{{ adjMountOpts }}"><option value="{{ o }}">{{ o }}</option></sc-for></select>
+        </div>
+        <div>
+          <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:5px;">camera:type</div>
+          <select onChange="{{ onAdjCamType }}" style="height:38px; width:100%; border-radius:var(--radius-sm); border:1px solid {{ adjCamBd }}; background:var(--surface-card); color:var(--text-primary); padding:0 10px; font-family:var(--font-mono); font-size:13px; letter-spacing:var(--ls-mono); outline:none; cursor:pointer;" value="{{ adjCamType }}"><sc-for as="o" hint-placeholder-count="3" list="{{ adjCamOpts }}"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select>
+        </div>
+        <div>
+          <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:5px;">surveillance:type</div>
+          <div style="height:38px; display:flex; align-items:center; border-radius:var(--radius-sm); border:1px dashed var(--border); padding:0 12px; font-family:var(--font-mono); font-size:13px; letter-spacing:var(--ls-mono); color:var(--text-tertiary);">ALPR · fixed by the node class</div>
+        </div>
+        <div style="grid-column:1 / -1;">
+          <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:5px;">Changeset comment</div>
+          <textarea onChange="{{ onAdjComment }}" placeholder="{{ adjCommentHint }}" rows="2" style="display:block; width:100%; resize:vertical; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface-card); color:var(--text-primary); padding:10px 12px; font-family:var(--font-ui); font-size:13px; line-height:1.45; outline:none;" style-focus="border-color:var(--brand);" value="{{ adjComment }}"></textarea>
+        </div>
+      </div>
+      <sc-if hint-placeholder-val="{{ false }}" value="{{ adjResolvesAny }}">
+        <div style="display:flex; align-items:center; gap:8px; padding:9px 12px; border-radius:var(--radius-sm); background:var(--brand-soft); color:var(--text-brand); font-size:12.5px; font-weight:var(--fw-semibold);"><svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewBox="0 0 24 24" width="14"><path d="M20 6L9 17l-5-5"></path></svg>{{ adjResolvesLabel }}</div>
+      </sc-if>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding-top:2px;">
+        <a href="{{ adjOsmHref }}" style="height:38px; display:inline-flex; align-items:center; padding:0 14px; border-radius:var(--radius-pill); border:1px solid var(--border); color:var(--text-secondary); font-family:var(--font-ui); font-size:12.5px; font-weight:var(--fw-semibold); text-decoration:none;" style-hover="border-color:var(--brand); color:var(--text-brand);" target="_blank">Open in OSM ↗</a>
+        <div style="margin-left:auto; display:flex; gap:10px;">
+          <button onClick="{{ onAdjClose }}" style="height:38px; padding:0 16px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:13px; font-weight:var(--fw-semibold); cursor:pointer;" style-hover="border-color:var(--text-secondary); color:var(--text-primary);">Cancel</button>
+          <button onClick="{{ onAdjSave }}" style="height:38px; padding:0 18px; border-radius:var(--radius-pill); border:none; background:var(--brand); color:#fff; font-family:var(--font-ui); font-size:13px; font-weight:var(--fw-bold); cursor:pointer; white-space:nowrap;" style-active="transform:scale(0.97);" style-hover="filter:brightness(1.05);">{{ adjSaveLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </x-import>
 </div>
 </x-dc>
 <script data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;comfortable&quot;,&quot;compact&quot;],&quot;default&quot;:&quot;comfortable&quot;,&quot;tsType&quot;:&quot;'comfortable' | 'compact'&quot;,&quot;section&quot;:&quot;Table&quot;}}" type="text/x-dc">
@@ -1171,7 +1394,7 @@ class Component extends DCLogic {
     view: 'nodes',
     sortKey: 'time', sortDir: 'desc', fChangeset: '', fUser: '', page: 0,
     cfStatuses: [], cfKinds: [], cfAreas: [], cfAreaText: '', cfAreaOpen: false, cfWin: 'Any time',
-    nfRules: [], nfSevs: [], nfDirFrom: '', nfDirTo: '', nfDirMissing: false,
+    nfRules: [], nfSrc: [], nfSevs: [], nfDirFrom: '', nfDirTo: '', nfDirMissing: false,
     nfOpTokens: [], nfOpText: '', nfAreas: [], nfAreaText: '', nfAreaOpen: false, nfUser: '', nfCs: '', nfWin: 'Any time',
     nSortKey: 'detected', nSortDir: 'desc', nPage: 0, dismissed: {},
     afDirFrom: '', afDirTo: '', afDirMissing: false, afOpTokens: [], afOpText: '', afOpOpen: false, afAreas: [], afAreaText: '', afAreaOpen: false, afUser: '', afCs: '', afWin: 'Any time',
@@ -1250,16 +1473,24 @@ class Component extends DCLogic {
     const rows = [];
     let nid = 12034559102;
     const now = Date.now();
+    const hh = (seed, salt) => { let x = (seed ^ (salt * 374761393)) >>> 0; x = (x * 2654435761) >>> 0; x = ((x >>> 13) ^ x) >>> 0; return (x % 1000) / 1000; };
+    const plats = ['Android Auto', 'Android', 'iOS', 'CarPlay'];
     for (let i = 0; i < 1400; i++) {
       const isFlag = rnd() < 0.3;
-      const count = !isFlag ? 0 : rnd() < 0.68 ? 1 : (rnd() < 0.75 ? 2 : 3);
+      const count = !isFlag ? 0 : rnd() < 0.6 ? 1 : rnd() < 0.6 ? 2 : rnd() < 0.6 ? 3 : rnd() < 0.6 ? 4 : 5;
       const rules = [];
       while (rules.length < count) { const r = pick(RULES); if (!rules.some(x => x[0] === r[0])) rules.push(r); }
       const names = rules.map(r => r[0]);
       const severity = names.length ? rules.reduce((m, r) => rank[r[1]] < rank[m] ? r[1] : m, 'Low') : null;
       const u = pick(users);
+      const r0 = hh(nid, 501);
+      const repN = r0 < 0.07 ? (r0 < 0.04 ? 1 : r0 < 0.06 ? 2 : 3) : 0;
+      const reports = Array.from({ length: repN }, (_, k) => {
+        const t = now - Math.round(5 + hh(nid, 510 + k) * 30000) * 60000;
+        return { id: 0, platform: plats[Math.floor(hh(nid, 520 + k) * plats.length)], ts: t, recv: t + Math.round(hh(nid, 530 + k) * 4) * 60000 };
+      }).sort((a, b) => b.ts - a.ts);
       rows.push({
-        nid, rules: names, severity,
+        nid, rules: names, severity, reports,
         area: pick(['Austin, TX', 'Houston, TX', 'Phoenix, AZ', 'San Diego, CA', 'Denver, CO', 'Atlanta, GA', 'Nashville, TN', 'Columbus, OH', 'Tampa, FL', 'Sacramento, CA', 'Tucson, AZ', 'Charlotte, NC', 'Boise, ID', 'Memphis, TN', 'Oakland, CA', 'Tulsa, OK', 'Reno, NV', 'El Paso, TX', 'Fort Worth, TX', 'Spokane, WA', 'Albuquerque, NM', 'Louisville, KY', 'Fresno, CA', 'Omaha, NE']),
         dirDeg: names.includes('Missing direction') || (!names.length && rnd() < 0.08) ? null : ri(0, 359),
         operator: names.includes('No operator tag') || (!names.length && rnd() < 0.06) ? 'Unknown' : pick(ops),
@@ -1268,12 +1499,23 @@ class Component extends DCLogic {
       });
       nid -= ri(400, 66000);
     }
+    rows.flatMap(r => r.reports).sort((a, b) => a.ts - b.ts).forEach((r, i) => { r.id = i + 1; });
     this.RULE_NAMES = RULES.map(r => r[0]);
+    this.RULE_SEV = Object.fromEntries(RULES);
     this.SEV_RANK = rank;
     this.NODE_USERS = users; this.NODE_OPS = ops;
     return rows;
   }
 
+  componentDidMount() {
+    this._closeAct = () => { if (this.state.actAnchor) this.setState({ actAnchor: null }); };
+    window.addEventListener('scroll', this._closeAct, true);
+    window.addEventListener('resize', this._closeAct);
+  }
+  componentWillUnmount() {
+    window.removeEventListener('scroll', this._closeAct, true);
+    window.removeEventListener('resize', this._closeAct);
+  }
   renderVals() {
     if (!this.all) this.all = this.gen();
     const theme = this.props.theme ?? 'light';
@@ -1475,7 +1717,11 @@ class Component extends DCLogic {
       this.nodesLinked = true;
     }
     const { view, nfRules, nfSevs, nfDirFrom, nfDirTo, nfDirMissing, nfOpTokens, nfOpText, nfAreas, nfAreaText, nfUser, nfCs, nfWin, nSortKey, nSortDir, dismissed } = this.state;
-    const open = this.nodes.filter(n => n.rules.length && !dismissed[n.nid]);
+    const nfSrc = this.state.nfSrc || [];
+    const repDismissed = this.state.repDismissed || {};
+    const reportsOf = n => repDismissed[n.nid] ? [] : (n.reports || []);
+    const flagTs = n => { const r = reportsOf(n); return !n.rules.length && r.length ? r[0].ts : n.ts; };
+    const open = this.nodes.filter(n => (n.rules.length || reportsOf(n).length) && !dismissed[n.nid]);
     const OCT = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
     const octant = d => OCT[Math.round(d / 45) % 8];
     const winMs = { 'Last 24 h': day, 'Last 7 d': 7 * day, 'Last 30 d': 30 * day }[nfWin];
@@ -1491,6 +1737,7 @@ class Component extends DCLogic {
       return lo <= hi ? (n.dirDeg >= lo && n.dirDeg <= hi) : (n.dirDeg >= lo || n.dirDeg <= hi);
     };
     const nFiltered = open.filter(n =>
+      (!nfSrc.length || (nfSrc.includes('Rule checks') && n.rules.length) || (nfSrc.includes('User reports') && reportsOf(n).length)) &&
       (!nfRules.length || n.rules.some(r => nfRules.includes(r))) &&
       (!nfSevs.length || nfSevs.includes(n.severity)) &&
       dirPass(n) &&
@@ -1498,15 +1745,15 @@ class Component extends DCLogic {
       (!nfAreas.length || nfAreas.includes(n.area)) &&
       (!nfcs || (n.cs != null && String(n.cs).includes(nfcs))) &&
       (!nfu || n.user.toLowerCase().includes(nfu) || String(n.uid).includes(nfu)) &&
-      (!winMs || now - n.ts < winMs));
+      (!winMs || now - flagTs(n) < winMs));
 
     const nKeyFns = {
       nid: n => n.nid,
-      severity: n => this.SEV_RANK[n.severity],
+      severity: n => this.SEV_RANK[n.severity] ?? 3,
       dir: n => n.dirDeg == null ? 999 : n.dirDeg,
       operator: n => n.operator.toLowerCase(),
       user: n => n.user.toLowerCase(),
-      detected: n => n.ts,
+      detected: n => flagTs(n),
     };
     const nkf = nKeyFns[nSortKey] || nKeyFns.detected;
     const nSorted = nFiltered.slice().sort((a, b) => {
@@ -1524,28 +1771,180 @@ class Component extends DCLogic {
       Low: ['var(--azure-600, #1D6FE0)', 'color-mix(in oklab, var(--azure-500) 14%, transparent)'],
       null: ['var(--text-tertiary)', 'transparent'],
     };
+    const coordsOf = n => {
+      if (n.coordsOv) return n.coordsOv;
+      const cc = AREA_COORDS[n.area] || [39.5, -98.35];
+      return [(cc[0] + (hpos(n.nid, 3) - 0.5) * 0.2).toFixed(5), (cc[1] + (hpos(n.nid, 9) - 0.5) * 0.2).toFixed(5)];
+    };
+    const tagsOf = n => {
+      const ov = n.tagsOv || {};
+      return {
+        surveillance: ov.surveillance || 'public',
+        mount: ov['camera:mount'] || 'pole',
+        camType: 'camera:type' in ov ? ov['camera:type'] : (n.rules.includes('Untagged camera type') ? null : 'fixed'),
+      };
+    };
+    if (!this.adjusted) this.adjusted = {};
+    if (!this.messaged) this.messaged = {};
+    const rawOpen = this.state.rawOpen || {};
+    const violationsFor = n => {
+      const [lat, lon] = coordsOf(n);
+      const ordered = n.rules.slice().sort((a, b) => this.SEV_RANK[this.RULE_SEV[a]] - this.SEV_RANK[this.RULE_SEV[b]]);
+      return ordered.map((r, i) => {
+        const h = k => hpos(n.nid, 200 + i * 10 + k);
+        const first = n.ts + 3 * 60000 + Math.round(h(1) * 40) * 60000;
+        const last = Math.max(first + 60000, now - Math.round(5 + h(2) * 170) * 60000);
+        let desc, brief, raw;
+        if (r === 'Deleted by new user') {
+          const ageD = 1 + Math.round(h(3) * 20), prior = Math.round(h(4) * 30);
+          desc = 'Deleted by ' + n.user + ', an account ' + ageD + (ageD === 1 ? ' day' : ' days') + ' old with ' + prior + ' prior edits — under the 30-day / 50-edit threshold for removing surveillance nodes.';
+          brief = 'Deleted by ' + n.user + ' · ' + ageD + '-day-old account, ' + prior + ' edits';
+          raw = { changeset: n.cs, editor: n.user, editor_uid: n.uid, account_age_days: ageD, prior_edits: prior, thresholds: { min_account_age_days: 30, min_prior_edits: 50 }, deleted_tags: ['man_made=surveillance', 'surveillance:type=ALPR'] };
+        } else if (r === 'Duplicate node') {
+          const related = n.nid - (1 + Math.round(h(3) * 40)), dist = +(0.4 + h(4) * 8).toFixed(2);
+          const lat2 = +(+lat + (h(5) - 0.5) * 0.00012).toFixed(7), lon2 = +(+lon + (h(6) - 0.5) * 0.00012).toFixed(7);
+          desc = 'Original node ' + related + ' is ' + dist + ' m away (within 10 m) and carries the same surveillance tags.';
+          brief = dist + ' m from node ' + related + ', same tags';
+          raw = { related_node_id: related, distance_meters: dist, radius_meters: 10, matching_tags: ['man_made=surveillance', 'surveillance:type=ALPR'], locations: { [related]: [lon2, lat2], [n.nid]: [+lon, +lat] }, node_versions: { [related]: 1 + Math.round(h(7) * 3), [n.nid]: 1 } };
+        } else if (r === 'Moved >50 m') {
+          const dist = Math.round(55 + h(3) * 600);
+          const dlat = (dist / 111320) * (h(4) - 0.5) * 2, dlon = (dist / 111320) * (h(5) - 0.5) * 2;
+          desc = 'Moved ' + dist + ' m from its previous position in a single edit (threshold 50 m). Cameras rarely relocate; this is usually a mis-drag.';
+          brief = 'Moved ' + dist + ' m in one edit';
+          raw = { distance_meters: dist, threshold_meters: 50, from: [+(+lon - dlon).toFixed(7), +(+lat - dlat).toFixed(7)], to: [+lon, +lat], changeset: n.cs, previous_version: 1 + Math.round(h(6) * 4) };
+        } else if (r === 'Operator mismatch') {
+          const others = this.NODE_OPS.filter(o => o !== n.operator), other = others[Math.floor(h(3) * others.length)];
+          const k = 3 + Math.round(h(4) * 9);
+          desc = 'Tagged operator=' + n.operator + ', but all ' + k + ' ALPR nodes within 500 m are tagged ' + other + '.';
+          brief = k + ' neighbors tagged ' + other;
+          raw = { operator: n.operator, neighborhood_operator: other, neighbors_within_meters: 500, neighbor_count: k, neighbor_agreement: 1 };
+        } else if (r === 'Missing direction') {
+          const k = 2 + Math.round(h(3) * 7);
+          desc = 'No direction tag. The ' + k + ' ALPR cameras within 300 m all carry one, so this node is likely incomplete.';
+          brief = 'No direction tag · ' + k + ' neighbors have one';
+          raw = { tag: 'direction', present: false, radius_meters: 300, nearby_total: k, nearby_with_direction: k };
+        } else if (r === 'No operator tag') {
+          desc = 'No operator tag. Required on surveillance:type=ALPR so the camera can be attributed and routed around by operator.';
+          brief = 'operator tag missing';
+          raw = { tag: 'operator', present: false, required_by: 'surveillance:type=ALPR' };
+        } else {
+          desc = 'camera:type is missing. ALPR units are almost always camera:type=fixed; without it some data consumers skip the node.';
+          brief = 'camera:type missing · likely fixed';
+          raw = { tag: 'camera:type', present: false, suggested_value: 'fixed', confidence: +(0.86 + h(3) * 0.12).toFixed(2) };
+        }
+        const sev = this.RULE_SEV[r], sc = sevColors[sev];
+        const key = n.nid + '|' + r, isRaw = !!rawOpen[key];
+        return {
+          rule: r, sev, sevFg: sc[0], sevBg: sc[1], bar: sc[0],
+          desc, brief, first: abs(first), last: abs(last), raw: JSON.stringify(raw, null, 2),
+          rawOpen: isRaw, rawRot: isRaw ? 'rotate(90deg)' : 'rotate(0deg)', rawFg: isRaw ? 'var(--text-brand)' : 'var(--text-secondary)',
+          onRaw: () => this.setState(s2 => { const ro = s2.rawOpen || {}; return { rawOpen: { ...ro, [key]: !ro[key] } }; }),
+          line: i === n.rules.length - 1 ? 'transparent' : 'var(--border)',
+        };
+      });
+    };
+    const openAdjust = n => {
+      const [lat, lon] = coordsOf(n), t = tagsOf(n);
+      this.setState({ actAnchor: null, adj: { nid: n.nid, lat, lon, dir: n.dirDeg == null ? '' : String(n.dirDeg), operator: n.operator, surv: t.surveillance, mount: t.mount, camType: t.camType || '', comment: '' } });
+    };
+    const askFor = (r, n) => ({
+      'Missing direction': 'Which way does the camera face? A compass bearing (0–359) in the direction tag is ideal.',
+      'No operator tag': 'Who operates it? Flock Safety, Motorola, the city… that goes in the operator tag.',
+      'Untagged camera type': 'Is it a fixed, dome or panning unit? That goes in camera:type.',
+      'Moved >50 m': 'It moved more than 50 m in your edit — a correction from a survey, or a mis-drag?',
+      'Operator mismatch': 'It is tagged operator=' + n.operator + ', but nearby ALPR nodes carry a different operator — can you confirm which it is?',
+      'Duplicate node': 'It sits within 10 m of an existing ALPR node with the same tags — a second camera, or the same one?',
+      'Deleted by new user': 'You removed this surveillance node — was it decommissioned, or confirmed gone on the ground?',
+    })[r];
+    const fixFor = r => ({ 'Missing direction': 'added a direction tag', 'No operator tag': 'added the operator', 'Untagged camera type': 'set camera:type', 'Moved >50 m': 'moved it back to its surveyed position', 'Operator mismatch': 'corrected the operator', 'Duplicate node': 'merged it with the existing node', 'Deleted by new user': 'restored the node' })[r];
+    const composeMsg = (n, tpl) => {
+      const where = 'ALPR node ' + n.nid + ' near ' + n.area;
+      const sig = '\n\nThanks for mapping,\nMaya Ortiz · DAF moderation';
+      if (tpl === 'blank') return { subject: 'About ALPR node ' + n.nid, body: 'Hi ' + n.user + ',\n\n' };
+      if (tpl === 'fix') {
+        const rec = this.adjusted[n.nid];
+        const fixes = (rec && rec.resolved.length ? rec.resolved : n.rules).map(fixFor);
+        const list = fixes.length ? fixes.join(', ').replace(/, ([^,]*)$/, ' and $1') : 'tidied the tags';
+        return { subject: 'Small fix to ALPR node ' + n.nid, body: 'Hi ' + n.user + ',\n\nHeads-up: we ' + list + ' on ' + where + '. Nothing wrong with your edit — these tags are easy to miss.\n\nIf you saw something different on the ground, reply here or edit away.' + sig };
+      }
+      const reps = reportsOf(n);
+      const asks = [...n.rules.map(r => '• ' + askFor(r, n)), ...(reps.length ? ['• ' + (reps.length === 1 ? 'A driver has' : reps.length + ' drivers have') + ' reported this camera as no longer there — is it still up, or has it been taken down?'] : [])];
+      const intro = n.rules.length ? (asks.length === 1 ? 'One thing our checks picked up:' : 'A few things our checks picked up:') : 'One thing came in from drivers using the app:';
+      return { subject: 'Quick question about ALPR node ' + n.nid, body: 'Hi ' + n.user + ',\n\nThanks for mapping the camera at ' + where + '. ' + intro + '\n\n' + asks.join('\n') + '\n\nIf you have survey notes or a photo, add the tags or reply here and we will fill them in. No rush.' + sig };
+    };
+    const openMessage = n => {
+      const c = composeMsg(n, 'ask');
+      this.setState({ actAnchor: null, msg: { nid: n.nid, tpl: 'ask', subject: c.subject, body: c.body, link: true } });
+    };
+    const openAct = (e, n) => {
+      const r = e.currentTarget.getBoundingClientRect(), W = 236, H = 134;
+      const below = r.bottom + 6 + H <= window.innerHeight;
+      this.setState(s2 => s2.actAnchor && s2.actAnchor.nid === n.nid ? { actAnchor: null } : { actAnchor: { nid: n.nid, top: below ? r.bottom + 6 : r.top - 6 - H, left: Math.max(8, r.right - W) } });
+    };
+    const actAnchor = this.state.actAnchor || null;
+    const absFull = ts => new Date(ts).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
     const nRows = nSlice.map(n => {
       const isOpen = expKey === 'nd:' + n.nid;
+      const viols = violationsFor(n);
+      const reps = reportsOf(n);
+      const violChips = viols.map(v => ({
+        label: v.rule, title: v.sev + ' · ' + v.desc, dot: v.sevFg,
+        onClick: () => this.setState(s2 => ({ nfRules: s2.nfRules.includes(v.rule) ? s2.nfRules : [...s2.nfRules, v.rule], nPage: 0 })),
+      }));
+      const repChip = reps.length ? [{
+        label: 'Not there · ' + reps.length, title: reps.length + (reps.length === 1 ? ' driver reported' : ' drivers reported') + ' this camera as gone — unverified', dot: 'var(--text-tertiary)',
+        onClick: () => this.setState(s2 => { const src = s2.nfSrc || []; return { nfSrc: src.includes('User reports') ? src : [...src, 'User reports'], nPage: 0 }; }),
+      }] : [];
+      const allChips = [...violChips, ...repChip];
+      const ruleChips = allChips.slice(0, 2);
+      const ruleMore = allChips.length > 2;
+      const ruleMoreLabel = '+' + (allChips.length - 2);
+      const ruleMoreTitle = allChips.slice(2).map(c => c.label).join(', ');
       let det = null;
       if (isOpen) {
-        const cc = AREA_COORDS[n.area] || [39.5, -98.35];
-        const lat = (cc[0] + (hpos(n.nid, 3) - 0.5) * 0.2).toFixed(5);
-        const lon = (cc[1] + (hpos(n.nid, 9) - 0.5) * 0.2).toFixed(5);
+        const [lat, lon] = coordsOf(n), t = tagsOf(n);
         const miss = 'var(--alert-600)', ok = 'var(--text-primary)';
+        const adjRec = this.adjusted[n.nid], msgRec = this.messaged[n.nid];
+        const reports = reps.map((rp, i) => {
+          const key = n.nid + '|rep' + rp.id, isRaw = !!rawOpen[key];
+          const h = k => hpos(rp.id * 7919 + 13, k);
+          const raw = {
+            report_id: rp.id, response: 'not-there', node_id: n.nid, node_version: 1,
+            reported_at: new Date(rp.ts).toISOString(), received_at: new Date(rp.recv).toISOString(),
+            platform: rp.platform, app_version: '2.' + (4 + Math.floor(h(1) * 4)) + '.' + Math.floor(h(2) * 9),
+            gps: [+(+lon + (h(3) - 0.5) * 0.0006).toFixed(7), +(+lat + (h(4) - 0.5) * 0.0006).toFixed(7)],
+            accuracy_m: Math.round(4 + h(5) * 18), heading_deg: Math.floor(h(6) * 360), speed_mph: Math.round(15 + h(7) * 40),
+            passes_at_node: 1 + Math.round(h(8) * 5), prompt: 'Is this camera still here?',
+          };
+          return {
+            id: '#' + rp.id, reported: abs(rp.ts), reportedFull: absFull(rp.ts), received: abs(rp.recv), receivedFull: absFull(rp.recv), platform: rp.platform,
+            raw: JSON.stringify(raw, null, 2),
+            rawOpen: isRaw, rawRot: isRaw ? 'rotate(90deg)' : 'rotate(0deg)', rawFg: isRaw ? 'var(--text-brand)' : 'var(--text-secondary)',
+            onRaw: () => this.setState(s2 => { const ro = s2.rawOpen || {}; return { rawOpen: { ...ro, [key]: !ro[key] } }; }),
+            line: i === reps.length - 1 ? 'transparent' : 'var(--border)',
+          };
+        });
         det = {
+          violations: viols, violCount: String(viols.length), hasViols: viols.length > 0,
+          violNote: 'Re-checked on every edit',
+          hasReports: reps.length > 0, repCount: String(reps.length), reports,
+          repNote: reps.length === 1 ? 'Unverified · one driver tapped “Not there” passing this camera' : 'Unverified · drivers tapped “Not there” passing this camera',
+          onDismissReps: () => this.setState(s2 => ({ repDismissed: { ...(s2.repDismissed || {}), [n.nid]: true } })),
           detail: [
             { k: 'Coordinates', v: lat + ', ' + lon },
             { k: 'Location', v: n.area },
             { k: 'Last changeset', v: n.cs != null ? '#' + n.cs : '—' },
             { k: 'Changed by', v: n.user + ' · uid ' + n.uid },
-            { k: 'Detected', v: abs(n.ts) },
-            { k: 'Rules', v: n.rules.length ? n.rules.join(' · ') : 'None tripped' },
+            { k: n.rules.length ? 'Detected' : 'Latest report', v: absFull(n.rules.length ? n.ts : flagTs(n)) },
+            ...(adjRec ? [{ k: 'Adjusted', v: rel(adjRec.ts) + ' by you' }] : []),
+            ...(msgRec ? [{ k: 'Messaged', v: msgRec.to + ' · ' + rel(msgRec.ts) }] : []),
           ],
           tags: [
             { k: 'man_made', v: 'surveillance', color: ok },
-            { k: 'surveillance', v: 'public', color: ok },
+            { k: 'surveillance', v: t.surveillance, color: ok },
             { k: 'surveillance:type', v: 'ALPR', color: ok },
-            { k: 'camera:mount', v: 'pole', color: ok },
+            { k: 'camera:mount', v: t.mount, color: ok },
+            { k: 'camera:type', v: t.camType || '(missing)', color: t.camType ? ok : miss },
             { k: 'operator', v: n.operator === 'Unknown' ? '(missing)' : n.operator, color: n.operator === 'Unknown' ? miss : ok },
             { k: 'direction', v: n.dirDeg == null ? '(missing)' : String(n.dirDeg), color: n.dirDeg == null ? miss : ok },
           ],
@@ -1561,18 +1960,19 @@ class Component extends DCLogic {
       ...(det || {}),
       isOpen, ...chev(isOpen),
       onToggle: () => toggleExp('nd:' + n.nid),
-      ruleChips: n.rules,
-      severity: n.severity,
+      ruleChips, ruleMore, ruleMoreLabel, ruleMoreTitle,
+      severity: n.severity || '—',
       sevFg: sevColors[n.severity][0], sevBg: sevColors[n.severity][1],
       dirT: n.dirDeg == null ? '—' : n.dirDeg + '° ' + octant(n.dirDeg),
       dirColor: n.dirDeg == null ? 'var(--text-tertiary)' : 'var(--text-primary)',
       operator: n.operator, user: n.user, uid: n.uid,
-      time: rel(n.ts), absTime: abs(n.ts),
+      time: rel(flagTs(n)), absTime: absFull(flagTs(n)),
       goEdits: () => this.setState({ view: 'changesets', fUser: n.user, page: 0 }),
       goEditor: () => openProfile(n.uid),
       goNode: () => this.setState({ view: 'node', nodeId: n.nid, ntlFilter: 'All', nodeFrom: 'flagged' }),
       onDismiss: () => this.setState(s2 => ({ dismissed: { ...s2.dismissed, [n.nid]: true } })),
-      adjustHref: 'https://www.openstreetmap.org/edit?node=' + n.nid,
+      onAct: e => openAct(e, n),
+      actBg: actAnchor && actAnchor.nid === n.nid ? 'color-mix(in oklab, var(--brand) 22%, transparent)' : 'var(--brand-soft)',
       };
     });
 
@@ -1580,13 +1980,82 @@ class Component extends DCLogic {
       nSortKey: key,
       nSortDir: s2.nSortKey === key ? (s2.nSortDir === 'asc' ? 'desc' : 'asc') : (key === 'operator' || key === 'user' || key === 'severity' ? 'asc' : 'desc'),
     }));
-    const nColDefs = [
-      { key: 'nid', label: 'Node' }, { key: null, label: 'Rules' },
-      { key: 'severity', label: 'Severity' }, { key: 'dir', label: 'Direction' },
-      { key: 'operator', label: 'Operator' }, { key: 'user', label: 'Changed by' },
-      { key: 'detected', label: 'Detected' }, { key: null, label: 'Actions' },
+    const N_COLS = [
+      { col: 'nid', key: 'nid', label: 'Node', w: '96px', min: 96, fixed: true },
+      { col: 'rules', key: null, label: 'Rules', w: 'minmax(150px,1.4fr)', min: 150 },
+      { col: 'severity', key: 'severity', label: 'Severity', w: '78px', min: 78 },
+      { col: 'dir', key: 'dir', label: 'Direction', w: '72px', min: 72 },
+      { col: 'operator', key: 'operator', label: 'Operator', w: 'minmax(96px,1fr)', min: 96 },
+      { col: 'user', key: 'user', label: 'Changed by', w: 'minmax(104px,1.1fr)', min: 104 },
+      { col: 'detected', key: 'detected', label: 'Detected', w: '72px', min: 72 },
+      { col: 'actions', key: null, label: 'Actions', w: '196px', min: 196, fixed: true },
     ];
-    const nCols = nColDefs.map(c => {
+    const nHidden = this.state.nHidden || [];
+    const nColVis = col => !nHidden.includes(col);
+    const nVisDefs = N_COLS.filter(c => nColVis(c.col));
+    const nGridCols = nVisDefs.map(c => c.w).join(' ') + ' 36px';
+    const nMinWidth = Math.max(560, nVisDefs.reduce((s, c) => s + c.min, 0) + 36 + 10 * nVisDefs.length + 48) + 'px';
+    const nColMenu = N_COLS.filter(c => !c.fixed).map(c => {
+      const on = nColVis(c.col);
+      return {
+        label: c.label,
+        boxBd: on ? 'var(--brand)' : 'var(--text-tertiary)', boxBg: on ? 'var(--brand)' : 'transparent', checkOp: on ? '1' : '0',
+        onToggle: e => { e.preventDefault(); this.setState(s2 => { const h = s2.nHidden || []; return { nHidden: h.includes(c.col) ? h.filter(x => x !== c.col) : [...h, c.col] }; }); },
+      };
+    });
+    const adj = this.state.adj;
+    const adjNode = adj ? this.nodes.find(n => n.nid === adj.nid) : null;
+    const setAdj = k => e => { const v = e.target.value; this.setState(s2 => ({ adj: { ...s2.adj, [k]: v } })); };
+    const adjDirNum = adj && adj.dir.trim() !== '' ? parseInt(adj.dir, 10) : NaN;
+    const adjResolves = adjNode ? adjNode.rules.filter(r =>
+      (r === 'Missing direction' && !isNaN(adjDirNum)) ||
+      (r === 'No operator tag' && adj.operator !== 'Unknown') ||
+      (r === 'Untagged camera type' && adj.camType !== '')) : [];
+    const adjv = {
+      adjOpen: !!adjNode,
+      onAdjClose: () => this.setState({ adj: null }),
+      adjDialogProps: { style: { width: 640, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto' } },
+      adjNid: adjNode ? String(adjNode.nid) : '',
+      adjArea: adjNode ? adjNode.area + ' · ' + (adjNode.rules.length === 1 ? '1 open rule' : adjNode.rules.length + ' open rules') : '',
+      adjRules: adjNode ? adjNode.rules.map(r => {
+        const res = adjResolves.includes(r);
+        return { label: res ? r + ' · clears' : r, fg: res ? 'var(--text-brand)' : 'var(--alert-600)', bd: res ? 'var(--brand)' : 'color-mix(in oklab, var(--alert-500) 40%, transparent)', bg: res ? 'var(--brand-soft)' : 'color-mix(in oklab, var(--alert-500) 6%, var(--surface-card))' };
+      }) : [],
+      adjLat: adj ? adj.lat : '', onAdjLat: setAdj('lat'),
+      adjLon: adj ? adj.lon : '', onAdjLon: setAdj('lon'),
+      adjDir: adj ? adj.dir : '',
+      onAdjDir: e => { const v = e.target.value.replace(/[^\d]/g, '').slice(0, 3); this.setState(s2 => ({ adj: { ...s2.adj, dir: v } })); },
+      adjDirOct: !isNaN(adjDirNum) ? octant(adjDirNum % 360) : '—',
+      adjDirBd: adjNode && adjNode.rules.includes('Missing direction') && isNaN(adjDirNum) ? 'var(--alert-500)' : 'var(--border)',
+      adjOperator: adj ? adj.operator : 'Unknown', onAdjOperator: setAdj('operator'),
+      adjOpBd: adjNode && adjNode.rules.includes('No operator tag') && adj.operator === 'Unknown' ? 'var(--alert-500)' : 'var(--border)',
+      adjOpOpts: [{ v: 'Unknown', l: 'Unknown — no operator tag' }, ...this.NODE_OPS.map(o => ({ v: o, l: o }))],
+      adjSurv: adj ? adj.surv : 'public', onAdjSurv: setAdj('surv'), adjSurvOpts: ['public', 'traffic', 'outdoor'],
+      adjMount: adj ? adj.mount : 'pole', onAdjMount: setAdj('mount'), adjMountOpts: ['pole', 'wall', 'street_lamp', 'traffic_signals', 'gantry'],
+      adjCamType: adj ? adj.camType : '', onAdjCamType: setAdj('camType'),
+      adjCamBd: adjNode && adjNode.rules.includes('Untagged camera type') && adj.camType === '' ? 'var(--alert-500)' : 'var(--border)',
+      adjCamOpts: [{ v: '', l: '(missing)' }, { v: 'fixed', l: 'fixed' }, { v: 'dome', l: 'dome' }, { v: 'panning', l: 'panning' }],
+      adjComment: adj ? adj.comment : '', onAdjComment: setAdj('comment'),
+      adjCommentHint: adjResolves.length ? 'e.g. ' + (adjResolves[0] === 'Missing direction' ? 'Add direction to ALPR camera, from survey' : adjResolves[0] === 'No operator tag' ? 'Add operator to ALPR camera' : 'Add camera:type to ALPR node') : 'Say what changed and how you know',
+      adjResolvesAny: adjResolves.length > 0,
+      adjResolvesLabel: 'Saving clears ' + adjResolves.join(', ') + (adjNode && adjResolves.length === adjNode.rules.length ? ' — the node leaves the flagged list' : ''),
+      adjSaveLabel: adjResolves.length ? 'Save · clears ' + adjResolves.length + (adjResolves.length === 1 ? ' rule' : ' rules') : 'Save changes',
+      adjOsmHref: adjNode ? 'https://www.openstreetmap.org/edit?node=' + adjNode.nid : '#',
+      onAdjSave: () => {
+        if (!adjNode) return;
+        const la = parseFloat(adj.lat), lo = parseFloat(adj.lon);
+        if (!isNaN(la) && !isNaN(lo)) adjNode.coordsOv = [la.toFixed(5), lo.toFixed(5)];
+        adjNode.dirDeg = isNaN(adjDirNum) ? null : Math.min(359, Math.max(0, adjDirNum));
+        adjNode.operator = adj.operator || 'Unknown';
+        adjNode.tagsOv = { surveillance: adj.surv, 'camera:mount': adj.mount, 'camera:type': adj.camType || null };
+        adjNode.rules = adjNode.rules.filter(r => !adjResolves.includes(r));
+        adjNode.severity = adjNode.rules.length ? adjNode.rules.reduce((m, r) => this.SEV_RANK[this.RULE_SEV[r]] < this.SEV_RANK[m] ? this.RULE_SEV[r] : m, 'Low') : null;
+        this.adjusted[adjNode.nid] = { ts: Date.now(), comment: adj.comment, resolved: adjResolves };
+        this.allOps = null;
+        this.setState({ adj: null });
+      },
+    };
+    const nCols = nVisDefs.map(c => {
       const active = c.key && c.key === nSortKey;
       return {
         label: c.label, just: 'flex-start',
@@ -1630,6 +2099,7 @@ class Component extends DCLogic {
       onRemove: () => this.setState(s2 => ({ cfAreas: s2.cfAreas.filter(x => x !== a), page: 0 })),
     }));
     const nGroups = [
+      { name: 'Source', chips: mkChips('nfSrc', ['Rule checks', 'User reports'], nfSrc) },
       { name: 'Rule', chips: mkChips('nfRules', this.RULE_NAMES, nfRules) },
       { name: 'Severity', chips: mkChips('nfSevs', ['High', 'Medium', 'Low'], nfSevs) },
     ];
@@ -1661,7 +2131,7 @@ class Component extends DCLogic {
       onRemove: () => this.setState(s2 => ({ nfAreas: s2.nfAreas.filter(x => x !== a), nPage: 0 })),
     }));
 
-    const nFiltersActive = !!(nfRules.length || nfSevs.length || hasRange || nfDirMissing || nfOpTokens.length || nfAreas.length || nfu || nfcs || nfWin !== 'Any time');
+    const nFiltersActive = !!(nfRules.length || nfSrc.length || nfSevs.length || hasRange || nfDirMissing || nfOpTokens.length || nfAreas.length || nfu || nfcs || nfWin !== 'Any time');
     const nFrom = nSorted.length ? nPage * 200 + 1 : 0;
     const nTo = Math.min(nSorted.length, (nPage + 1) * 200);
     const nGo = p => this.setState({ nPage: p });
@@ -1921,12 +2391,14 @@ class Component extends DCLogic {
       const sevC = sevColors[nd.severity];
       ndv.ndId = String(nd.nid);
       ndv.ndSeverity = nd.severity; ndv.ndSevFg = sevC[0]; ndv.ndSevBg = sevC[1];
-      ndv.ndRules = nd.rules; ndv.ndHasRules = nd.rules.length > 0;
+      const ndReps = reportsOf(nd);
+      ndv.ndRules = [...nd.rules, ...(ndReps.length ? ['Not there · ' + ndReps.length] : [])]; ndv.ndHasRules = nd.rules.length > 0;
       ndv.ndBackLabel = this.state.nodeFrom === 'flagged' ? '← Flagged nodes' : '← ALPR nodes';
       ndv.ndMeta = nd.area + ' · ' + nd.operator + ' · ' + (nd.dirDeg == null ? 'No direction' : 'Facing ' + nd.dirDeg + '° ' + octant(nd.dirDeg)) + ' · first mapped ' + fmtDate(hc.first) + ' · last change ' + rel(nd.ts);
-      ndv.ndIsOpen = nd.rules.length > 0 && !ndDismissed; ndv.ndDismissed = nd.rules.length > 0 && ndDismissed;
+      ndv.ndIsOpen = (nd.rules.length > 0 || ndReps.length > 0) && !ndDismissed; ndv.ndDismissed = (nd.rules.length > 0 || ndReps.length > 0) && ndDismissed;
       ndv.ndDismiss = () => this.setState(s2 => ({ dismissed: { ...s2.dismissed, [nd.nid]: true } }));
-      ndv.ndAdjustHref = 'https://www.openstreetmap.org/edit?node=' + nd.nid;
+      ndv.ndAct = e => openAct(e, nd);
+      ndv.ndActBg = actAnchor && actAnchor.nid === nd.nid ? 'color-mix(in oklab, var(--brand) 22%, transparent)' : 'var(--brand-soft)';
       ndv.ndGoCs = () => this.setState({ view: 'changesets', fChangeset: nd.cs != null ? String(nd.cs) : '', page: 0 });
       ndv.ndKpis = [
         { v: 'v' + hc.nv, l: 'versions', s: 'since ' + fmtDate(hc.first), c: 'var(--text-primary)' },
@@ -2030,6 +2502,53 @@ class Component extends DCLogic {
     });
 
     const eStatusColors = { Watch: 'var(--amber-500)', New: 'var(--violet-500)', Neutral: 'var(--text-tertiary)', Trusted: 'var(--brand)' };
+    const actNode = actAnchor ? this.nodes.find(n => n.nid === actAnchor.nid) : null;
+    const actv = {
+      actOpen: !!actNode,
+      actTop: actAnchor ? actAnchor.top + 'px' : '0px',
+      actLeft: actAnchor ? actAnchor.left + 'px' : '0px',
+      actNid: actNode ? String(actNode.nid) : '',
+      actUserSub: actNode ? 'Ask ' + actNode.user + ' about this edit' : '',
+      onActBlur: () => this.setState({ actAnchor: null }),
+      onActAdjust: e => { e.preventDefault(); if (actNode) openAdjust(actNode); },
+      onActMessage: e => { e.preventDefault(); if (actNode) openMessage(actNode); },
+    };
+    const msg = this.state.msg || null;
+    const msgNode = msg ? this.nodes.find(n => n.nid === msg.nid) : null;
+    const msgEd = msgNode ? editors.find(x => x.uid === msgNode.uid) : null;
+    const setMsg = k => e => { const v = e.target.value; this.setState(s2 => ({ msg: { ...s2.msg, [k]: v } })); };
+    const msgCanSend = !!(msg && msg.subject.trim() && msg.body.trim());
+    const msgv = {
+      msgOpen: !!msgNode,
+      onMsgClose: () => this.setState({ msg: null }),
+      msgDialogProps: { style: { width: 600, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto' } },
+      msgUser: msgNode ? msgNode.user : '',
+      msgInitials: msgNode ? msgNode.user.split(/[_\s.\-]+/).filter(Boolean).map(x => x[0]).join('').slice(0, 2).toUpperCase() : '',
+      msgStatus: msgEd ? msgEd.status : '',
+      msgStatusColor: msgEd ? eStatusColors[msgEd.status] : 'var(--text-tertiary)',
+      msgUserMeta: msgEd ? 'uid ' + msgEd.uid + ' · ' + msgEd.cs + (msgEd.cs === 1 ? ' changeset' : ' changesets') + ' · ' + msgEd.nodeFlags + ' open ' + (msgEd.nodeFlags === 1 ? 'flag' : 'flags') + ' · last active ' + rel(msgEd.last) : (msgNode ? 'uid ' + msgNode.uid : ''),
+      msgGoProfile: () => { if (msgNode) this.setState({ msg: null, view: 'editor', profileUid: msgNode.uid, tlFilter: 'All' }); },
+      msgNid: msgNode ? String(msgNode.nid) : '',
+      msgArea: msgNode ? msgNode.area : '',
+      msgRules: msgNode ? [...msgNode.rules.map(r => ({ label: r, dot: sevColors[this.RULE_SEV[r]][0] })), ...(reportsOf(msgNode).length ? [{ label: 'Not there · ' + reportsOf(msgNode).length, dot: 'var(--text-tertiary)' }] : [])] : [],
+      msgTemplates: [['ask', 'Ask for details'], ['fix', 'Heads-up on a fix'], ['blank', 'Blank']].map(([k, l]) => {
+        const on = !!msg && msg.tpl === k;
+        return { label: l, bd: on ? 'var(--brand)' : 'var(--border)', bg: on ? 'var(--brand-soft)' : 'transparent', fg: on ? 'var(--text-brand)' : 'var(--text-secondary)',
+          onPick: () => { if (!msgNode) return; const c = composeMsg(msgNode, k); this.setState(s2 => ({ msg: { ...s2.msg, tpl: k, subject: c.subject, body: c.body } })); } };
+      }),
+      msgSubject: msg ? msg.subject : '', onMsgSubject: setMsg('subject'),
+      msgBody: msg ? msg.body : '', onMsgBody: setMsg('body'),
+      msgCount: msg ? msg.body.length + ' chars' : '',
+      msgLinkBd: msg && msg.link ? 'var(--brand)' : 'var(--text-tertiary)', msgLinkBg: msg && msg.link ? 'var(--brand)' : 'transparent', msgLinkOp: msg && msg.link ? '1' : '0',
+      onMsgLink: () => this.setState(s2 => ({ msg: { ...s2.msg, link: !s2.msg.link } })),
+      msgOsmHref: 'https://www.openstreetmap.org/messages/inbox',
+      msgSendCursor: msgCanSend ? 'pointer' : 'not-allowed', msgSendOp: msgCanSend ? '1' : '0.5',
+      onMsgSend: () => {
+        if (!msgNode || !msgCanSend) return;
+        this.messaged[msgNode.nid] = { ts: Date.now(), to: msgNode.user, subject: msg.subject, link: msg.link };
+        this.setState({ msg: null });
+      },
+    };
     const eRows = eSorted.map(e => {
       const a = cell(e.added, '+', 'var(--green-700, #0E8A4C)', 'var(--brand-soft)');
       const m = cell(e.modified, '~', 'var(--amber-600)', 'var(--amber-100)');
@@ -2415,6 +2934,23 @@ class Component extends DCLogic {
       nodeOpenCount: String(open.length),
       nGroups, nCols, nRows,
       isNEmpty: nRows.length === 0,
+      nGridCols, nMinWidth, nColMenu,
+      nColsOpen: !!this.state.nColsOpen,
+      onNColsToggle: () => this.setState(s2 => ({ nColsOpen: !s2.nColsOpen })),
+      onNColsBlur: () => this.setState({ nColsOpen: false }),
+      onNColsReset: e => { e.preventDefault(); this.setState({ nHidden: [] }); },
+      nColsHiddenAny: nHidden.length > 0,
+      nColsBd: nHidden.length ? 'var(--brand)' : 'var(--border)',
+      nColsFg: nHidden.length ? 'var(--text-brand)' : 'var(--text-secondary)',
+      nColsCount: nVisDefs.length + '/' + N_COLS.length,
+      dRules: nColVis('rules') ? 'flex' : 'none',
+      dSeverity: nColVis('severity') ? 'block' : 'none',
+      dDir: nColVis('dir') ? 'block' : 'none',
+      dOperator: nColVis('operator') ? 'block' : 'none',
+      dUser: nColVis('user') ? 'block' : 'none',
+      dDetected: nColVis('detected') ? 'block' : 'none',
+      dActions: nColVis('actions') ? 'flex' : 'none',
+      ...adjv, ...actv, ...msgv,
       nfUser, nfCs, nfWin, nfDirFrom, nfDirTo, nfOpText, opTokens,
       onNfCs: e => this.setState({ nfCs: e.target.value, nPage: 0 }),
       onNfDirFrom: e => this.setState({ nfDirFrom: cleanDeg(e.target.value), nPage: 0 }),
@@ -2436,7 +2972,7 @@ class Component extends DCLogic {
       winOpts: ['Any time', 'Last 24 h', 'Last 7 d', 'Last 30 d'],
       onNfUser: e => this.setState({ nfUser: e.target.value, nPage: 0 }),
       onNfWin: e => this.setState({ nfWin: e.target.value, nPage: 0 }),
-      onNClear: () => this.setState({ nfRules: [], nfSevs: [], nfDirFrom: '', nfDirTo: '', nfDirMissing: false, nfOpTokens: [], nfOpText: '', nfAreas: [], nfAreaText: '', nfUser: '', nfCs: '', nfWin: 'Any time', nPage: 0 }),
+      onNClear: () => this.setState({ nfRules: [], nfSrc: [], nfSevs: [], nfDirFrom: '', nfDirTo: '', nfDirMissing: false, nfOpTokens: [], nfOpText: '', nfAreas: [], nfAreaText: '', nfUser: '', nfCs: '', nfWin: 'Any time', nPage: 0 }),
       nAreaTokens, nAreaSuggestions, nfAreaText,
       onNfAreaText: e => this.setState({ nfAreaText: e.target.value, nfAreaOpen: true }),
       onNfAreaFocus: () => this.setState({ nfAreaOpen: true }),

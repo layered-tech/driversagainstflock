@@ -138,6 +138,7 @@ export default function LocationMapScreen({
     const navigation = useNavigation();
     const safeAreaInsets = useSafeAreaInsets();
     const screenIsFocused = useIsFocused();
+    const contributeTourTargets = useRef({});
     const { contributePlacementIsActive, pins: contributePins } =
         useContribute();
     const {
@@ -795,7 +796,9 @@ export default function LocationMapScreen({
                             />
                         ) : null}
                         {contributePlacementIsActive ? (
-                            <ContributeCrosshair />
+                            <ContributeCrosshair
+                                tourTargets={contributeTourTargets}
+                            />
                         ) : null}
                         {isDrivingMode ? (
                             <DrivingGuidanceOverlay
@@ -838,6 +841,7 @@ export default function LocationMapScreen({
                             >
                                 {contributePlacementIsActive ? (
                                     <ContributePlacementOverlay
+                                        tourTargets={contributeTourTargets}
                                         locationController={locationController}
                                         mapControls={
                                             <MapControlsOverlay
@@ -959,6 +963,7 @@ export default function LocationMapScreen({
                     renderBackdrop={renderBackdrop}
                 />
                 <ContributePlacementSheet
+                    tourTargets={contributeTourTargets}
                     bottomSheetBackgroundStyle={
                         presentation.bottomSheetBackgroundStyle
                     }
