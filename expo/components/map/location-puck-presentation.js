@@ -3,6 +3,7 @@ export const LOCATION_PUCK_PREDICTION_HORIZON_MS = 500;
 export const LOCATION_PUCK_PREDICTION_MAXIMUM_AGE_MS = 2000;
 export const LOCATION_PUCK_PREDICTION_MAXIMUM_DISTANCE_METERS = 20;
 export const LOCATION_PUCK_PREDICTION_MINIMUM_SPEED_MPS = 1.5;
+export const LOCATION_PUCK_PRESENTATION_UPDATE_INTERVAL_MS = 100;
 
 function degreesToRadians(value) {
     return (value * Math.PI) / 180;
@@ -115,10 +116,12 @@ export function getLocationPuckPresentationLocation(
         return location;
     }
 
-    const distanceMeters = Math.min(
-        LOCATION_PUCK_PREDICTION_MAXIMUM_DISTANCE_METERS,
-        speed * (LOCATION_PUCK_PREDICTION_HORIZON_MS / 1000),
-    );
+    const distanceMeters =
+        speed * (locationAgeMs / 1000) +
+        Math.min(
+            LOCATION_PUCK_PREDICTION_MAXIMUM_DISTANCE_METERS,
+            speed * (LOCATION_PUCK_PREDICTION_HORIZON_MS / 1000),
+        );
     const predictedCoordinate = getCoordinateAhead({
         coordinate,
         distanceMeters,
@@ -129,5 +132,65 @@ export function getLocationPuckPresentationLocation(
         ...location,
         latitude: predictedCoordinate[1],
         longitude: predictedCoordinate[0],
+    };
+}
+
+export function startLocationPuckPresentationUpdates(
+    location,
+    {
+        onLocation,
+        predictionEnabled = true,
+        now = Date.now,
+        schedule = setTimeout,
+        cancel = clearTimeout,
+    },
+) {
+    const recordedAt = getStoredNumber(location?.recordedAt);
+    const predictionDeadline =
+        recordedAt === null
+            ? null
+            : recordedAt + LOCATION_PUCK_PREDICTION_MAXIMUM_AGE_MS;
+    let timeout = null;
+    let stopped = false;
+
+    function publish(isInitialUpdate = false) {
+        if (stopped) {
+            return;
+        }
+
+        const currentTime = now();
+        // Finish at the prediction limit instead of jumping back to the old fix.
+        const presentationTime = isInitialUpdate
+            ? currentTime
+            : Math.min(currentTime, predictionDeadline);
+        const presentationLocation = getLocationPuckPresentationLocation(
+            location,
+            presentationTime,
+            { predictionEnabled },
+        );
+
+        onLocation(presentationLocation);
+
+        if (
+            presentationLocation === location ||
+            currentTime >= predictionDeadline
+        ) {
+            return;
+        }
+
+        timeout = schedule(
+            publish,
+            Math.min(
+                LOCATION_PUCK_PRESENTATION_UPDATE_INTERVAL_MS,
+                predictionDeadline - currentTime,
+            ),
+        );
+    }
+
+    publish(true);
+
+    return () => {
+        stopped = true;
+        cancel(timeout);
     };
 }

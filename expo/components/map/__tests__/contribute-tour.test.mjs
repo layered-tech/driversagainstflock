@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { describe, test } from 'node:test';
 import {
     CONTRIBUTE_TOUR_PHASE_STEPS,
+    CONTRIBUTE_TOUR_STEPS,
     CONTRIBUTE_TOUR_STORAGE_KEY,
     createContributeTourProgress,
     getVisibleContributeTourStep,
@@ -17,151 +16,15 @@ import {
     getContributeTourLayout,
 } from '../../contribute/contribute-tour-layout.js';
 
-const require = createRequire(import.meta.url);
-const { transformSync } = require('@babel/core');
-const commonjs = require('@babel/plugin-transform-modules-commonjs');
-const jsx = require('@babel/plugin-transform-react-jsx');
+import { createHookHarness, loadTourModule } from './tour-test-helpers.mjs';
+import { getVisibleTourStep } from '../../tour-progress.js';
 
-function loadComponent(file, mocks, scheduler = {}) {
-    const { code } = transformSync(
-        readFileSync(
-            new URL(`../../contribute/${file}`, import.meta.url),
-            'utf8',
-        ),
-        {
-            babelrc: false,
-            configFile: false,
-            plugins: [[jsx, { runtime: 'automatic' }], commonjs],
-        },
+function loadComponent(file, mocks, scheduler) {
+    return loadTourModule(
+        new URL(`../../contribute/${file}`, import.meta.url),
+        mocks,
+        scheduler,
     );
-    const module = { exports: {} };
-    const createElement = (type, props) => ({ type, props });
-
-    new Function(
-        'require',
-        'module',
-        'exports',
-        'requestAnimationFrame',
-        'cancelAnimationFrame',
-        code,
-    )(
-        (specifier) => {
-            if (specifier === 'react/jsx-runtime') {
-                return { jsx: createElement, jsxs: createElement };
-            }
-
-            assert.ok(specifier in mocks, `Missing mock: ${specifier}`);
-            return mocks[specifier];
-        },
-        module,
-        module.exports,
-        scheduler.requestAnimationFrame,
-        scheduler.cancelAnimationFrame,
-    );
-
-    return module.exports;
-}
-
-function createHookHarness() {
-    const slots = [];
-    let cursor = 0;
-    let effects = [];
-    let needsRender = false;
-
-    function dependenciesChanged(previous, next) {
-        return (
-            !previous ||
-            next.some((value, index) => !Object.is(value, previous[index]))
-        );
-    }
-
-    return {
-        react: {
-            useState(initial) {
-                const index = cursor++;
-
-                if (!(index in slots)) {
-                    slots[index] =
-                        typeof initial === 'function' ? initial() : initial;
-                }
-
-                return [
-                    slots[index],
-                    (next) => {
-                        const value =
-                            typeof next === 'function'
-                                ? next(slots[index])
-                                : next;
-
-                        if (!Object.is(value, slots[index])) {
-                            slots[index] = value;
-                            needsRender = true;
-                        }
-                    },
-                ];
-            },
-            useRef(initial) {
-                return (slots[cursor++] ??= { current: initial });
-            },
-            useEffect(effect, dependencies) {
-                const index = cursor++;
-                const previous = slots[index];
-
-                if (dependenciesChanged(previous?.dependencies, dependencies)) {
-                    effects.push(() => {
-                        previous?.cleanup?.();
-                        slots[index] = { dependencies, cleanup: effect() };
-                    });
-                }
-            },
-            useCallback(callback, dependencies) {
-                const index = cursor++;
-
-                if (
-                    dependenciesChanged(
-                        slots[index]?.dependencies,
-                        dependencies,
-                    )
-                ) {
-                    slots[index] = { dependencies, value: callback };
-                }
-
-                return slots[index].value;
-            },
-            useMemo(factory, dependencies) {
-                const index = cursor++;
-
-                if (
-                    dependenciesChanged(
-                        slots[index]?.dependencies,
-                        dependencies,
-                    )
-                ) {
-                    slots[index] = { dependencies, value: factory() };
-                }
-
-                return slots[index].value;
-            },
-        },
-        render(renderHook) {
-            let result;
-            let renders = 0;
-
-            do {
-                assert.ok(++renders < 20, 'Hook effects must settle');
-                needsRender = false;
-                cursor = 0;
-                effects = [];
-                result = renderHook();
-                effects.forEach((effect) => effect());
-            } while (needsRender);
-
-            return result;
-        },
-        cleanup() {
-            slots.forEach((slot) => slot?.cleanup?.());
-        },
-    };
 }
 
 function createTourHarness({
@@ -201,8 +64,12 @@ function createTourHarness({
             serialized = null;
         },
     };
-    const { useContributeTour } = loadComponent('use-contribute-tour.js', {
+    const persistence = loadComponent('../use-persistent-tour.js', {
         '@react-native-async-storage/async-storage': storage,
+        react: hooks.react,
+    });
+    const { useContributeTour } = loadComponent('use-contribute-tour.js', {
+        '../use-persistent-tour': persistence,
         react: hooks.react,
         './contribute-tour-state': {
             CONTRIBUTE_TOUR_PHASE_STEPS,
@@ -272,7 +139,7 @@ function getTourOverlays(tree) {
     ];
 }
 
-function createDebugDrawerHarness(reset) {
+function createDebugDrawerHarness(reset, featureTours = {}) {
     const hooks = createHookHarness();
     let closeCount = 0;
     const tour = { progress: createContributeTourProgress(), reset };
@@ -328,6 +195,7 @@ function createDebugDrawerHarness(reset) {
             useSafeAreaInsets: () => ({ top: 44, bottom: 34 }),
         },
         '../contribute/contribute-state': { useContribute: () => ({ tour }) },
+        '../user-tours': { useUserTour: (id) => featureTours[id] ?? tour },
         '../android-auto-performance-trace': {
             formatAndroidAutoPerformanceTrace: () => '',
             getAndroidAutoPerformanceTraceAsync: async () => null,
@@ -735,6 +603,37 @@ describe('first contribution walkthrough', () => {
 });
 
 describe('debug menu contribution tour reset', () => {
+    test('resets each feature tour separately without resetting contributions', async () => {
+        for (const id of ['map-options', 'scorecard']) {
+            const resets = [];
+            const featureTours = Object.fromEntries(
+                ['map-options', 'scorecard'].map((feature) => [
+                    feature,
+                    {
+                        progress: { status: 'skipped', dismissedSteps: [] },
+                        reset: async () => resets.push(feature),
+                    },
+                ]),
+            );
+            const harness = createDebugDrawerHarness(
+                () => assert.fail('Contribution history was reset'),
+                featureTours,
+            );
+            await findElement(
+                harness.render(),
+                `debug-drawer-reset-${id}-tour`,
+            ).props.onPress();
+            assert.deepEqual(resets, [id]);
+            assert.equal(harness.closeCount(), 1);
+            assert.ok(
+                findElement(
+                    harness.render(),
+                    `debug-drawer-${id}-tour-reset-success`,
+                ),
+            );
+        }
+    });
+
     test('makes debug reset reachable in the e2e app while keeping production controls hidden', () => {
         for (const [environment, expected] of [
             ['development', true],
@@ -973,8 +872,8 @@ function createOverlayHarness(phase = 'camera') {
             });
         },
     };
-    const { ContributeTourOverlay } = loadComponent(
-        'contribute-tour-overlay.js',
+    const { TourOverlay } = loadComponent(
+        '../tour-overlay.js',
         {
             react: hooks.react,
             'react-native': {
@@ -993,16 +892,24 @@ function createOverlayHarness(phase = 'camera') {
                 Path: 'Path',
                 Rect: 'Rect',
             },
-            './contribute-tour-layout': {
-                getContributeTourLayout,
-                getContributeTourBackdropPath,
+            './tour-layout': {
+                getTourLayout: getContributeTourLayout,
+                getTourBackdropPath: getContributeTourBackdropPath,
             },
+            './tour-progress': { getVisibleTourStep },
+        },
+        scheduler,
+    );
+    const { ContributeTourOverlay } = loadComponent(
+        'contribute-tour-overlay.js',
+        {
+            '../tour-overlay': { TourOverlay },
             './contribute-tour-state': {
                 CONTRIBUTE_TOUR_PHASE_STEPS,
+                CONTRIBUTE_TOUR_STEPS,
                 getVisibleContributeTourStep,
             },
         },
-        scheduler,
     );
     // Ref objects must stay stable across renders, as they do in the app.
     const scrollRef = {
@@ -1011,16 +918,18 @@ function createOverlayHarness(phase = 'camera') {
     const contentRef = { current: {} };
     const stableRender = () =>
         hooks.render(() =>
-            ContributeTourOverlay({
-                enabled,
-                phase,
-                tour,
-                targets,
-                scrollRef,
-                contentRef,
-                restoreScrollOnFinish: true,
-                insets: { top: 44, bottom: 34, left: 0, right: 0 },
-            }),
+            TourOverlay(
+                ContributeTourOverlay({
+                    enabled,
+                    phase,
+                    tour,
+                    targets,
+                    scrollRef,
+                    contentRef,
+                    restoreScrollOnFinish: true,
+                    insets: { top: 44, bottom: 34, left: 0, right: 0 },
+                }).props,
+            ),
         );
     return {
         tour,
@@ -1048,8 +957,8 @@ function createOverlayHarness(phase = 'camera') {
 describe('spotlight walkthrough controls', () => {
     test('registers native targets without context and cleans up only the matching view', () => {
         const targets = { current: {} };
-        const { ContributeTourTarget } = loadComponent(
-            'contribute-tour-target.js',
+        const { TourTarget: ContributeTourTarget } = loadComponent(
+            '../tour-target.js',
             {
                 react: {
                     useCallback: (callback) => callback,

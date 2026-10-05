@@ -236,6 +236,7 @@ tags:
     visible:
       id: 'scorecard-dashboard'
     timeout: 10000
+- runFlow: subflows/scorecard-tour-skip-first-visit.yml
 - copyTextFrom:
     id: 'scorecard-privacy-score'
 - assertTrue: ${maestro.copiedText == '100'}

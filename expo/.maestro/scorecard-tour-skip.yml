@@ -1,0 +1,109 @@
+appId: com.anonymous.drivefree.dev
+name: Scorecard Tour Empty State and Skip
+tags:
+  - scorecard
+  - user-tours
+  - scorecard-tour
+env:
+  TOUR_PREFIX: scorecard-tour
+---
+- runFlow:
+    file: subflows/scorecard-tour-setup.yml
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_STEP: privacy-score
+      TOUR_TITLE: Your privacy score
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-tour-skip-level'
+    timeout: 10000
+- tapOn:
+    id: 'scorecard-tour-skip-level'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible:
+      id: 'scorecard-tour-tooltip'
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-privacy-score'
+    direction: UP
+    timeout: 10000
+- assertVisible: '0 XP'
+- copyTextFrom:
+    id: 'scorecard-privacy-score'
+- assertTrue: ${maestro.copiedText == '—'}
+- copyTextFrom:
+    id: 'scorecard-stat-avoided'
+- assertTrue: ${maestro.copiedText == '0'}
+- copyTextFrom:
+    id: 'scorecard-stat-crossings'
+- assertTrue: ${maestro.copiedText == '0'}
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-tracking-toggle'
+    direction: DOWN
+    timeout: 10000
+- assertVisible:
+    id: 'scorecard-tracking-toggle'
+    checked: true
+
+# Skipping affects only tour history. A subsequent real scorecard fixture is
+# preserved through restart and can still open its exposure timeline.
+- openLink: 'driversagainstflock://scorecard?e2eScorecardFixture=populated'
+- assertNotVisible:
+    id: 'scorecard-tour-tooltip'
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-level-xp'
+    direction: UP
+    timeout: 10000
+- assertVisible: '2,520 XP'
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 120000
+- openLink: 'driversagainstflock://e2e-mocks?auth=1'
+- tapOn:
+    id: 'map-search-drawer-button-map'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: 'app-drawer-open'
+    timeout: 10000
+- tapOn:
+    id: 'drawer-scorecard-button'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-level-xp'
+    timeout: 10000
+- assertVisible: '2,520 XP'
+- assertNotVisible:
+    id: 'scorecard-tour-tooltip'
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-open-timeline'
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: 'scorecard-open-timeline'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-timeline'
+    timeout: 10000
+- assertVisible:
+    id: 'scorecard-event-read-e2e-confirmed-east'
+- assertVisible:
+    id: 'scorecard-event-read-e2e-possible'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-tour-skipped'}

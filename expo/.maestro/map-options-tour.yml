@@ -1,0 +1,119 @@
+appId: com.anonymous.drivefree.dev
+name: Map Options Tour Completion And Persistence
+tags:
+  - map
+  - layers
+  - map-options-tour
+---
+- runFlow: subflows/map-options-tour-open.yml
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_PREFIX: map-options-tour
+      TOUR_STEP: police-reports
+      TOUR_TITLE: Police reports from Waze
+- extendedWaitUntil:
+    visible:
+      id: 'map-options-tour-time-of-day'
+    timeout: 10000
+- assertVisible: "Choose the map's time of day"
+- tapOn:
+    id: 'map-options-tour-back-time-of-day'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_PREFIX: map-options-tour
+      TOUR_STEP: police-reports
+      TOUR_TITLE: Police reports from Waze
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_PREFIX: map-options-tour
+      TOUR_STEP: time-of-day
+      TOUR_TITLE: "Choose the map's time of day"
+- extendedWaitUntil:
+    visible:
+      id: 'map-options-tour-offline-data'
+    timeout: 10000
+- assertVisible: 'Done'
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_PREFIX: map-options-tour
+      TOUR_STEP: offline-data
+      TOUR_TITLE: Take map data offline
+- assertNotVisible:
+    id: 'map-options-tour-tooltip'
+# Completing the guide restores the sheet scroll position and preserves settings.
+- assertVisible: 'Map settings'
+- assertVisible:
+    id: 'map-police-alerts-toggle'
+    checked: false
+- assertVisible:
+    id: 'map-surveillance-markers-toggle'
+    checked: true
+- swipe:
+    start: '50%,90%'
+    end: '50%,35%'
+    duration: 400
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: 'map-light-preset-option-auto'
+    timeout: 10000
+- assertVisible:
+    id: 'map-light-preset-option-auto'
+    selected: true
+- assertVisible:
+    id: 'offline-map-section-toggle'
+- assertVisible: 'Not downloaded'
+- assertNotVisible:
+    id: 'offline-map-primary-action'
+- tapOn:
+    id: 'offline-map-section-toggle'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- swipe:
+    start: '50%,90%'
+    end: '50%,35%'
+    duration: 400
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: 'offline-map-primary-action'
+    timeout: 10000
+- assertVisible: 'Download Map'
+- assertNotVisible:
+    id: 'offline-map-delete-action'
+# A restart preserves completion, while the modal remains fully usable.
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 120000
+- openLink: 'driversagainstflock://e2e-mocks'
+- extendedWaitUntil:
+    visible:
+      id: 'map-layer-button'
+    timeout: 30000
+- tapOn:
+    id: 'map-layer-button'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: 'map-settings-sheet'
+    timeout: 10000
+- assertNotVisible:
+    id: 'map-options-tour-tooltip'
+- tapOn:
+    id: 'map-police-alerts-toggle'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- assertVisible:
+    id: 'map-police-alerts-toggle'
+    checked: true
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-map-options-tour-completed'}

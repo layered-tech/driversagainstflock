@@ -1,0 +1,201 @@
+appId: com.anonymous.drivefree.dev
+name: Scorecard First Visit Tour
+tags:
+  - scorecard
+  - user-tours
+  - scorecard-tour
+env:
+  TOUR_PREFIX: scorecard-tour
+---
+- runFlow:
+    file: subflows/scorecard-tour-setup.yml
+    env:
+      SCORECARD_FIXTURE: populated
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_STEP: privacy-score
+      TOUR_TITLE: Your privacy score
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-tour-back-level'
+    timeout: 10000
+- tapOn:
+    id: 'scorecard-tour-back-level'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_STEP: privacy-score
+      TOUR_TITLE: Your privacy score
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_STEP: level
+      TOUR_TITLE: Lifetime XP and levels
+
+# Only tour progress is saved by these taps. Relaunch resumes at the next tip
+# while the real encrypted scorecard fixture remains intact.
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-tour-avoided'
+    timeout: 10000
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 120000
+- openLink: 'driversagainstflock://e2e-mocks?auth=1'
+- tapOn:
+    id: 'map-search-drawer-button-map'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: 'app-drawer-open'
+    timeout: 10000
+- tapOn:
+    id: 'drawer-scorecard-button'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- assertNotVisible:
+    id: 'scorecard-tour-privacy-score'
+- assertNotVisible:
+    id: 'scorecard-tour-level'
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_STEP: avoided
+      TOUR_TITLE: Cameras avoided
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_STEP: crossings
+      TOUR_TITLE: Camera crossings
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_STEP: streak
+      TOUR_TITLE: Your clean drive streak
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_STEP: weekly-crossings
+      TOUR_TITLE: Crossings over time
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_STEP: privacy-costs
+      TOUR_TITLE: The estimated cost of a detour
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_STEP: badges
+      TOUR_TITLE: Badges you earn
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_STEP: timeline
+      TOUR_TITLE: Inspect your exposure timeline
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_STEP: recording
+      TOUR_TITLE: You control drive recording
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_STEP: backup
+      TOUR_TITLE: Back up or move your scorecard
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_STEP: delete-history
+      TOUR_TITLE: Delete your local history
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-tour-data-handling'
+    timeout: 10000
+- assertVisible: Done
+- runFlow:
+    file: subflows/user-tour-tip.yml
+    env:
+      TOUR_STEP: data-handling
+      TOUR_TITLE: How your information is handled
+- assertNotVisible:
+    id: 'scorecard-tour-tooltip'
+- assertVisible:
+    id: 'scorecard-dashboard'
+- copyTextFrom:
+    id: 'scorecard-privacy-score'
+- assertTrue: ${maestro.copiedText == '86'}
+- copyTextFrom:
+    id: 'scorecard-level-xp'
+- assertTrue: ${maestro.copiedText == '2,520 XP'}
+- copyTextFrom:
+    id: 'scorecard-stat-avoided'
+- assertTrue: ${maestro.copiedText == '27'}
+- copyTextFrom:
+    id: 'scorecard-stat-crossings'
+- assertTrue: ${maestro.copiedText == '3'}
+- copyTextFrom:
+    id: 'scorecard-stat-streak'
+- assertTrue: ${maestro.copiedText == '1'}
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-privacy-costs'
+    direction: DOWN
+    timeout: 10000
+- assertVisible: '25.2 mpg · AAA state rates'
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-badge-count'
+    direction: DOWN
+    timeout: 10000
+- copyTextFrom:
+    id: 'scorecard-badge-count'
+- assertTrue: ${maestro.copiedText == '4 of 6'}
+- scrollUntilVisible:
+    element:
+      id: 'scorecard-tracking-toggle'
+    direction: DOWN
+    timeout: 10000
+- assertVisible:
+    id: 'scorecard-tracking-toggle'
+    checked: true
+- assertNotVisible: '^Delete encrypted scorecard history\?$'
+
+# Completing and reopening the screen after a fresh process does not replay.
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 120000
+- openLink: 'driversagainstflock://e2e-mocks?auth=1'
+- tapOn:
+    id: 'map-search-drawer-button-map'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: 'app-drawer-open'
+    timeout: 10000
+- tapOn:
+    id: 'drawer-scorecard-button'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-level-xp'
+    timeout: 10000
+- assertVisible: '2,520 XP'
+- assertNotVisible:
+    id: 'scorecard-tour-tooltip'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-tour-completed'}

@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
+import { usePersistentTour } from '../use-persistent-tour';
 import {
     CONTRIBUTE_TOUR_PHASE_STEPS,
     CONTRIBUTE_TOUR_STORAGE_KEY,
@@ -9,97 +9,44 @@ import {
     writeContributeTourProgress,
 } from './contribute-tour-state';
 
+const PERSISTENCE = {
+    storageKey: CONTRIBUTE_TOUR_STORAGE_KEY,
+    createProgress: createContributeTourProgress,
+    readProgress: readContributeTourProgress,
+    updateProgress: updateContributeTourProgress,
+    writeProgress: writeContributeTourProgress,
+};
+
 export function useContributeTour(contributeStatus) {
-    const [progress, setProgress] = useState(null);
-    const storageWritesRef = useRef(Promise.resolve());
-
-    useEffect(() => {
-        let isActive = true;
-
-        readContributeTourProgress(AsyncStorage).then((savedProgress) => {
-            if (isActive) {
-                setProgress(savedProgress);
-            }
-        });
-
-        return () => {
-            isActive = false;
-        };
-    }, []);
+    const { progress, dispatch, reset } = usePersistentTour(PERSISTENCE);
 
     useEffect(() => {
         if (contributeStatus === 'idle') {
             return;
         }
 
-        setProgress((currentProgress) => {
-            return contributeStatus === 'published'
-                ? updateContributeTourProgress(currentProgress, {
-                      type: 'published',
-                  })
-                : updateContributeTourProgress(currentProgress, {
-                      type: 'start',
-                  });
+        dispatch({
+            type: contributeStatus === 'published' ? 'published' : 'start',
         });
-    }, [contributeStatus, progress?.status]);
+    }, [contributeStatus, dispatch, progress?.status]);
 
-    useEffect(() => {
-        if (!progress || progress.status === 'pending') {
-            return;
-        }
-
-        // Preserve write order when several tips are dismissed together.
-        storageWritesRef.current = storageWritesRef.current.then(() =>
-            writeContributeTourProgress(AsyncStorage, progress),
-        );
-    }, [progress]);
-
-    const dismissStep = useCallback((step) => {
-        setProgress((currentProgress) =>
-            updateContributeTourProgress(currentProgress, {
-                type: 'dismiss',
-                step,
-            }),
-        );
-    }, []);
-
-    const skip = useCallback(() => {
-        setProgress((currentProgress) =>
-            updateContributeTourProgress(currentProgress, { type: 'skip' }),
-        );
-    }, []);
-
-    const reopenStep = useCallback((step) => {
-        setProgress((currentProgress) =>
-            updateContributeTourProgress(currentProgress, {
-                type: 'reopen',
-                step,
-            }),
-        );
-    }, []);
-
-    const dismissPhase = useCallback((phase) => {
-        setProgress((currentProgress) =>
-            CONTRIBUTE_TOUR_PHASE_STEPS[phase].reduce(
-                (nextProgress, step) =>
-                    updateContributeTourProgress(nextProgress, {
-                        type: 'dismiss',
-                        step,
-                    }),
-                currentProgress,
-            ),
-        );
-    }, []);
-
-    const reset = useCallback(async () => {
-        const resetWrite = storageWritesRef.current.then(() =>
-            AsyncStorage.removeItem(CONTRIBUTE_TOUR_STORAGE_KEY),
-        );
-
-        storageWritesRef.current = resetWrite.catch(() => {});
-        await resetWrite;
-        setProgress(createContributeTourProgress());
-    }, []);
+    const dismissStep = useCallback(
+        (step) => dispatch({ type: 'dismiss', step }),
+        [dispatch],
+    );
+    const skip = useCallback(() => dispatch({ type: 'skip' }), [dispatch]);
+    const reopenStep = useCallback(
+        (step) => dispatch({ type: 'reopen', step }),
+        [dispatch],
+    );
+    const dismissPhase = useCallback(
+        (phase) => {
+            CONTRIBUTE_TOUR_PHASE_STEPS[phase].forEach((step) =>
+                dispatch({ type: 'dismiss', step }),
+            );
+        },
+        [dispatch],
+    );
 
     return useMemo(
         () => ({

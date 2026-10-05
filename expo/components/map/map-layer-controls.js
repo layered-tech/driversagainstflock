@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Pressable,
     Switch,
@@ -12,9 +12,13 @@ import {
     DafChip,
     DafSectionLabel,
 } from '../design-system/primitives';
+import { TourOverlay } from '../tour-overlay';
+import { TourTarget } from '../tour-target';
+import { useUserTour } from '../user-tours';
 import { MAP_LAYER_STYLES, MAP_LIGHT_PRESET_OPTIONS } from './constants';
 import { MapControlButton } from './map-control-button';
 import { MapLayerPreview, MapLayersIcon } from './map-layer-preview';
+import { MAP_OPTIONS_TOUR } from './map-options-tour';
 import { useMapLayerContext } from './map-screen-context';
 import {
     NativeWindBottomSheetModal,
@@ -77,6 +81,10 @@ export function MapLayerButton() {
 
 export function MapLayerSheet() {
     const weather = useWeatherState();
+    const tour = useUserTour(MAP_OPTIONS_TOUR.id);
+    const tourTargets = useRef({});
+    const tourScrollRef = useRef(null);
+    const tourContentRef = useRef(null);
     const { height: windowHeight } = useWindowDimensions();
     const [mapSettingsSheetIsPresented, setMapSettingsSheetIsPresented] =
         useState(false);
@@ -130,6 +138,15 @@ export function MapLayerSheet() {
         handleMapLayerSheetDismiss();
     }, [handleMapLayerSheetDismiss]);
 
+    useEffect(() => {
+        if (
+            mapSettingsSheetIsPresented &&
+            tour.progress?.status === 'pending'
+        ) {
+            tour.start();
+        }
+    }, [mapSettingsSheetIsPresented, tour.progress?.status, tour.start]);
+
     if (!mapPreferencesAreLoaded) {
         return null;
     }
@@ -173,9 +190,9 @@ export function MapLayerSheet() {
             onDismiss={handleMapSettingsSheetDismiss}
         >
             <NativeWindBottomSheetScrollView
+                ref={tourScrollRef}
                 className="bg-white dark:bg-daf-surface-dark"
                 contentContainerStyle={{
-                    gap: 16,
                     paddingBottom: insets.bottom + 16,
                     paddingHorizontal: 24,
                 }}
@@ -186,187 +203,215 @@ export function MapLayerSheet() {
                         : undefined
                 }
             >
-                <View className="gap-1">
-                    <Text className="font-dafDisplay text-[21px] font-bold text-daf-text-primary dark:text-white">
-                        Map settings
-                    </Text>
-                    <Text className="text-[13px] font-medium text-daf-text-secondary dark:text-neutral-300">
-                        Customize what you see
-                    </Text>
-                </View>
-
-                <View className="gap-0.5">
-                    <SettingSwitchRow
-                        label="Show surveillance markers"
-                        onValueChange={handleSurveillanceMarkersChange}
-                        testID="map-surveillance-markers-toggle"
-                        value={surveillanceMarkersVisible}
-                    />
-                    <SettingSwitchRow
-                        label="Cluster nearby markers"
-                        onValueChange={handleMarkerClustersChange}
-                        testID="map-marker-clusters-toggle"
-                        value={markerClustersEnabled}
-                    />
-                    <SettingSwitchRow
-                        label="Camera direction cones"
-                        onValueChange={handleCameraConesChange}
-                        testID="map-camera-cones-toggle"
-                        value={cameraConesVisible}
-                    />
-                    <SettingSwitchRow
-                        label="Prefer private routes"
-                        onValueChange={setPreferPrivateRoutes}
-                        testID="map-prefer-private-routes-toggle"
-                        value={preferPrivateRoutes}
-                    />
-                    <SettingSwitchRow
-                        label="Traffic overlays"
-                        onValueChange={setMapTrafficEnabled}
-                        testID="map-traffic-toggle"
-                        value={mapTrafficEnabled}
-                    />
-                    <SettingSwitchRow
-                        label="Rain and snow effects"
-                        onValueChange={weatherStore.setEnabled}
-                        testID="map-weather-toggle"
-                        value={weather.preferences.enabled}
-                    />
-                    <SettingSwitchRow
-                        label="Police reports (Waze)"
-                        onValueChange={setPoliceAlertsVisible}
-                        testID="map-police-alerts-toggle"
-                        value={policeAlertsVisible}
-                    />
-                </View>
-
-                <View className="gap-3">
-                    <DafSectionLabel>Map layer</DafSectionLabel>
-                    {MAP_LAYER_STYLES.map((mapLayer) => {
-                        const isSelected = mapLayer.styleURL === mapStyleURL;
-
-                        return (
-                            <Pressable
-                                key={mapLayer.key}
-                                accessibilityLabel={`Use ${mapLayer.label} map layer`}
-                                accessibilityRole="button"
-                                accessibilityState={{ selected: isSelected }}
-                                className={`min-h-[104px] flex-row items-center gap-3 rounded-dafMd border p-2 active:opacity-[0.82] ${
-                                    isSelected
-                                        ? 'border-daf-brand bg-daf-brand/10 dark:border-daf-brand dark:bg-daf-brand/15'
-                                        : 'border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark'
-                                }`}
-                                onPress={() =>
-                                    handleMapLayerSelect(mapLayer.styleURL)
-                                }
-                                testID={`map-layer-option-${mapLayer.key}`}
-                            >
-                                <View className="h-[84px] w-32 overflow-hidden rounded-dafSm border border-daf-border bg-daf-surface-alt dark:border-daf-border-dark dark:bg-daf-surface-inverse">
-                                    <MapLayerPreview mapLayer={mapLayer} />
-                                </View>
-
-                                <View className="min-w-0 flex-1">
-                                    <Text className="text-base font-semibold text-daf-text-primary dark:text-white">
-                                        {mapLayer.label}
-                                    </Text>
-                                </View>
-
-                                <View
-                                    className={`h-6 w-6 items-center justify-center rounded-[12px] border ${
-                                        isSelected
-                                            ? 'border-daf-brand bg-daf-brand'
-                                            : 'border-neutral-300 bg-white dark:border-neutral-700 dark:bg-daf-surface-inverse'
-                                    }`}
-                                >
-                                    {isSelected ? (
-                                        <Icon
-                                            color="#0B0E12"
-                                            name="check"
-                                            size={13}
-                                        />
-                                    ) : null}
-                                </View>
-                            </Pressable>
-                        );
-                    })}
-                </View>
-
-                <View className="gap-3 rounded-dafMd border border-daf-border bg-white p-4 dark:border-daf-border-dark dark:bg-daf-surface-dark">
-                    <View className="flex-row items-center justify-between gap-3">
-                        <Text className="text-base font-semibold text-daf-text-primary dark:text-white">
-                            Map's Time of Day
-                        </Text>
-                        <DafChip selected tone="brand">
-                            Auto-safe
-                        </DafChip>
-                    </View>
-                    <View className="flex-row overflow-hidden rounded-dafMd border border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-inverse">
-                        {MAP_LIGHT_PRESET_OPTIONS.map(
-                            (lightPresetOption, index) => {
-                                const isSelected =
-                                    lightPresetOption.key ===
-                                    mapLightPresetPreference;
-
-                                return (
-                                    <Pressable
-                                        key={lightPresetOption.key}
-                                        accessibilityLabel={`Use ${lightPresetOption.label} map light preset`}
-                                        accessibilityRole="button"
-                                        accessibilityState={{
-                                            selected: isSelected,
-                                        }}
-                                        className={`min-h-11 flex-1 items-center justify-center px-1 active:opacity-[0.82] ${
-                                            index > 0
-                                                ? 'border-l border-daf-border dark:border-daf-border-dark'
-                                                : ''
-                                        } ${
-                                            isSelected
-                                                ? 'bg-daf-brand'
-                                                : 'bg-white dark:bg-daf-surface-inverse'
-                                        }`}
-                                        onPress={() =>
-                                            setMapLightPresetPreference(
-                                                lightPresetOption.key,
-                                            )
-                                        }
-                                        testID={`map-light-preset-option-${lightPresetOption.key}`}
-                                    >
-                                        <Text
-                                            adjustsFontSizeToFit
-                                            className={`text-[13px] font-semibold ${
-                                                isSelected
-                                                    ? 'text-daf-brand-contrast'
-                                                    : 'text-daf-text-secondary dark:text-neutral-200'
-                                            }`}
-                                            minimumFontScale={0.78}
-                                            numberOfLines={1}
-                                        >
-                                            {lightPresetOption.label}
-                                        </Text>
-                                    </Pressable>
-                                );
-                            },
-                        )}
-                    </View>
-                </View>
-
-                <OfflineMapControls
-                    currentMapBounds={currentMapBounds}
-                    mapStyleURL={mapStyleURL}
-                    resetKey={layerSheetResetCount}
-                    selectedMapLayer={selectedMapLayer}
-                />
-
-                <DafButton
-                    accessibilityLabel="Reset map settings"
-                    className="w-full"
-                    onPress={handleResetPress}
-                    testID="map-settings-reset-button"
-                    variant="secondary"
+                <View
+                    ref={tourContentRef}
+                    collapsable={false}
+                    className="gap-[16px]"
                 >
-                    Reset
-                </DafButton>
+                    <View className="gap-1">
+                        <Text className="font-dafDisplay text-[21px] font-bold text-daf-text-primary dark:text-white">
+                            Map settings
+                        </Text>
+                        <Text className="text-[13px] font-medium text-daf-text-secondary dark:text-neutral-300">
+                            Customize what you see
+                        </Text>
+                    </View>
+
+                    <View className="gap-0.5">
+                        <SettingSwitchRow
+                            label="Show surveillance markers"
+                            onValueChange={handleSurveillanceMarkersChange}
+                            testID="map-surveillance-markers-toggle"
+                            value={surveillanceMarkersVisible}
+                        />
+                        <SettingSwitchRow
+                            label="Cluster nearby markers"
+                            onValueChange={handleMarkerClustersChange}
+                            testID="map-marker-clusters-toggle"
+                            value={markerClustersEnabled}
+                        />
+                        <SettingSwitchRow
+                            label="Camera direction cones"
+                            onValueChange={handleCameraConesChange}
+                            testID="map-camera-cones-toggle"
+                            value={cameraConesVisible}
+                        />
+                        <SettingSwitchRow
+                            label="Prefer private routes"
+                            onValueChange={setPreferPrivateRoutes}
+                            testID="map-prefer-private-routes-toggle"
+                            value={preferPrivateRoutes}
+                        />
+                        <SettingSwitchRow
+                            label="Traffic overlays"
+                            onValueChange={setMapTrafficEnabled}
+                            testID="map-traffic-toggle"
+                            value={mapTrafficEnabled}
+                        />
+                        <SettingSwitchRow
+                            label="Rain and snow effects"
+                            onValueChange={weatherStore.setEnabled}
+                            testID="map-weather-toggle"
+                            value={weather.preferences.enabled}
+                        />
+                        <TourTarget id="police-reports" targets={tourTargets}>
+                            <SettingSwitchRow
+                                label="Police reports (Waze)"
+                                onValueChange={setPoliceAlertsVisible}
+                                testID="map-police-alerts-toggle"
+                                value={policeAlertsVisible}
+                            />
+                        </TourTarget>
+                    </View>
+
+                    <View className="gap-3">
+                        <DafSectionLabel>Map layer</DafSectionLabel>
+                        {MAP_LAYER_STYLES.map((mapLayer) => {
+                            const isSelected =
+                                mapLayer.styleURL === mapStyleURL;
+
+                            return (
+                                <Pressable
+                                    key={mapLayer.key}
+                                    accessibilityLabel={`Use ${mapLayer.label} map layer`}
+                                    accessibilityRole="button"
+                                    accessibilityState={{
+                                        selected: isSelected,
+                                    }}
+                                    className={`min-h-[104px] flex-row items-center gap-3 rounded-dafMd border p-2 active:opacity-[0.82] ${
+                                        isSelected
+                                            ? 'border-daf-brand bg-daf-brand/10 dark:border-daf-brand dark:bg-daf-brand/15'
+                                            : 'border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark'
+                                    }`}
+                                    onPress={() =>
+                                        handleMapLayerSelect(mapLayer.styleURL)
+                                    }
+                                    testID={`map-layer-option-${mapLayer.key}`}
+                                >
+                                    <View className="h-[84px] w-32 overflow-hidden rounded-dafSm border border-daf-border bg-daf-surface-alt dark:border-daf-border-dark dark:bg-daf-surface-inverse">
+                                        <MapLayerPreview mapLayer={mapLayer} />
+                                    </View>
+
+                                    <View className="min-w-0 flex-1">
+                                        <Text className="text-base font-semibold text-daf-text-primary dark:text-white">
+                                            {mapLayer.label}
+                                        </Text>
+                                    </View>
+
+                                    <View
+                                        className={`h-6 w-6 items-center justify-center rounded-[12px] border ${
+                                            isSelected
+                                                ? 'border-daf-brand bg-daf-brand'
+                                                : 'border-neutral-300 bg-white dark:border-neutral-700 dark:bg-daf-surface-inverse'
+                                        }`}
+                                    >
+                                        {isSelected ? (
+                                            <Icon
+                                                color="#0B0E12"
+                                                name="check"
+                                                size={13}
+                                            />
+                                        ) : null}
+                                    </View>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
+
+                    <TourTarget
+                        id="time-of-day"
+                        targets={tourTargets}
+                        className="gap-3 rounded-dafMd border border-daf-border bg-white p-4 dark:border-daf-border-dark dark:bg-daf-surface-dark"
+                    >
+                        <View className="flex-row items-center justify-between gap-3">
+                            <Text className="text-base font-semibold text-daf-text-primary dark:text-white">
+                                Map's Time of Day
+                            </Text>
+                            <DafChip selected tone="brand">
+                                Auto-safe
+                            </DafChip>
+                        </View>
+                        <View className="flex-row overflow-hidden rounded-dafMd border border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-inverse">
+                            {MAP_LIGHT_PRESET_OPTIONS.map(
+                                (lightPresetOption, index) => {
+                                    const isSelected =
+                                        lightPresetOption.key ===
+                                        mapLightPresetPreference;
+
+                                    return (
+                                        <Pressable
+                                            key={lightPresetOption.key}
+                                            accessibilityLabel={`Use ${lightPresetOption.label} map light preset`}
+                                            accessibilityRole="button"
+                                            accessibilityState={{
+                                                selected: isSelected,
+                                            }}
+                                            className={`min-h-11 flex-1 items-center justify-center px-1 active:opacity-[0.82] ${
+                                                index > 0
+                                                    ? 'border-l border-daf-border dark:border-daf-border-dark'
+                                                    : ''
+                                            } ${
+                                                isSelected
+                                                    ? 'bg-daf-brand'
+                                                    : 'bg-white dark:bg-daf-surface-inverse'
+                                            }`}
+                                            onPress={() =>
+                                                setMapLightPresetPreference(
+                                                    lightPresetOption.key,
+                                                )
+                                            }
+                                            testID={`map-light-preset-option-${lightPresetOption.key}`}
+                                        >
+                                            <Text
+                                                adjustsFontSizeToFit
+                                                className={`text-[13px] font-semibold ${
+                                                    isSelected
+                                                        ? 'text-daf-brand-contrast'
+                                                        : 'text-daf-text-secondary dark:text-neutral-200'
+                                                }`}
+                                                minimumFontScale={0.78}
+                                                numberOfLines={1}
+                                            >
+                                                {lightPresetOption.label}
+                                            </Text>
+                                        </Pressable>
+                                    );
+                                },
+                            )}
+                        </View>
+                    </TourTarget>
+
+                    <OfflineMapControls
+                        currentMapBounds={currentMapBounds}
+                        mapStyleURL={mapStyleURL}
+                        resetKey={layerSheetResetCount}
+                        selectedMapLayer={selectedMapLayer}
+                        tourTargets={tourTargets}
+                    />
+
+                    <DafButton
+                        accessibilityLabel="Reset map settings"
+                        className="w-full"
+                        onPress={handleResetPress}
+                        testID="map-settings-reset-button"
+                        variant="secondary"
+                    >
+                        Reset
+                    </DafButton>
+                </View>
             </NativeWindBottomSheetScrollView>
+            <TourOverlay
+                contentRef={tourContentRef}
+                enabled={mapSettingsSheetIsPresented}
+                insets={insets}
+                label={MAP_OPTIONS_TOUR.label}
+                prefix="map-options-tour"
+                restoreScrollOnFinish
+                scrollRef={tourScrollRef}
+                steps={MAP_OPTIONS_TOUR.steps}
+                targets={tourTargets}
+                tour={tour}
+            />
         </NativeWindBottomSheetModal>
     );
 }

@@ -1,21 +1,6 @@
 appId: com.anonymous.drivefree.dev
 ---
-- extendedWaitUntil:
-    visible:
-      id: ${'contribute-tour-' + TOUR_STEP}
-    timeout: 10000
-- assertVisible:
-    id: 'contribute-tour-tooltip'
-- assertVisible: ${TOUR_TITLE}
-- assertVisible:
-    id: ${'contribute-tour-dismiss-' + TOUR_STEP}
-- waitForAnimationToEnd:
-    timeout: 1000
-# Keep a visual artifact of each measured spotlight and its tooltip.
-- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-contribute-tour-' + TOUR_STEP}
-- tapOn:
-    id: ${'contribute-tour-dismiss-' + TOUR_STEP}
-    retryTapIfNoChange: false
-    waitToSettleTimeoutMs: 0
-- assertNotVisible:
-    id: ${'contribute-tour-' + TOUR_STEP}
+- runFlow:
+    file: user-tour-tip.yml
+    env:
+      TOUR_PREFIX: contribute-tour
