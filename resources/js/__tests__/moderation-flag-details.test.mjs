@@ -108,6 +108,9 @@ const reports = {
     ],
 };
 const NodeListing = await component('NodeListing', {
+    '@/Components/Moderation/FlaggedActions.vue': {
+        default: { render: () => null },
+    },
     '@/Components/Moderation/FlagDetails.vue': { default: FlagDetails },
     '@/moderationFlags': flags,
     '@/moderation': moderation,
@@ -151,6 +154,8 @@ async function render(expanded, view = 'flagged') {
             rowKey: (row) => `${view}:${row.id}`,
             expand() {},
             dismissFlag() {},
+            columnVisible: () => true,
+            osmUrl: 'https://www.openstreetmap.org',
             absoluteTime: (value) => value,
         },
     });
@@ -158,18 +163,15 @@ async function render(expanded, view = 'flagged') {
     return renderToString(app);
 }
 
-test('collapsed mixed-source rows show what, frequency and distinct event times without hidden evidence or dismiss actions', async () => {
+test('collapsed mixed-source rows show compact severity tags and report review actions', async () => {
     const html = await render(false);
-    assert.match(html, /not-there.*?2/s);
+    assert.match(html, /Not there.*?2/s);
     assert.match(html, /Require mount/);
-    assert.match(html, /divide-y divide-daf-border/);
-    assert.doesNotMatch(
-        html,
-        /Missing tags: mount|rule match|Unverified user report|expand for evidence/,
-    );
-    assert.match(html, /Last reported.*?datetime="2026-09-21T22:05:20Z"/s);
-    assert.match(html, /Last checked.*?datetime="2026-09-21T22:00:00Z"/s);
-    assert.doesNotMatch(html, /<details|Dismiss|Reports &amp; rule violations/);
+    assert.match(html, /mod-rule-tag/);
+    assert.match(html, /mod-severity-high/);
+    assert.match(html, /title="High · Missing tags: mount"/);
+    assert.doesNotMatch(html, /Raw evidence|Individual not-there reports/);
+    assert.match(html, /Dismiss/);
     assert.match(
         html,
         /aria-expanded="false".*?aria-controls="node-details-200"/s,
@@ -180,7 +182,7 @@ test('one expanded row contains readable evidence, exact dates, severity and per
     for (const view of ['flagged', 'nodes']) {
         const html = await render(true, view);
         const details = html.slice(html.indexOf('<section'));
-        assert.match(details, /aria-label="Individual rule violations"/);
+        assert.match(details, /aria-label="Rule violations"/);
         assert.match(details, /aria-label="Individual not-there reports"/);
         assert.match(details, /#10/);
         assert.match(details, /#11/);
@@ -223,9 +225,9 @@ test('dismissed reports retain their count and review date without a dismiss act
     });
     app.provide('route', () => '/moderation/rules/5/edit');
     const html = await renderToString(app);
-    assert.match(html, /Not there reports · 2/);
+    assert.match(html, /Not there reports[\s\S]*?>2</);
     assert.match(html, /Dismissed.*?2026-09-21T23:00:00Z/s);
-    assert.doesNotMatch(html, /<button|High|rules\/5/);
+    assert.doesNotMatch(html, /Dismiss reports|High|rules\/5/);
 });
 
 test('dismiss actions emit the selected flag and disable during a pending review', () => {
@@ -255,6 +257,8 @@ test('dismiss actions emit the selected flag and disable during a pending review
         const app = renderer.createApp(FlagDetails, {
             flags: [flag],
             nodeId: 200,
+            columnVisible: () => true,
+            osmUrl: 'https://www.openstreetmap.org',
             absoluteTime: (value) => value,
             onDismiss: (value) => {
                 dismissed = value;
@@ -291,12 +295,12 @@ test('dismiss actions emit the selected flag and disable during a pending review
     app.unmount();
 });
 
-test('switching report and rule sources updates the date column heading and sort key', async () => {
+test('the Detected column retains its design label while sorting report queues by received time', async () => {
     const renderedColumns = [];
     const Flagged = await component('../../Pages/Moderation/Flagged', {
         '@/useModerationListing': {
             moderationListingProps: { filters: Object },
-            useModerationListing: () => ({}),
+            useModerationListing: () => ({ columnVisible: () => true }),
         },
         '@/Components/Moderation/NodeListing.vue': {
             default: {
@@ -329,8 +333,7 @@ test('switching report and rule sources updates the date column heading and sort
         renderedColumns
             .at(-1)
             .some(
-                ([key, label]) =>
-                    key === 'reported_at' && label === 'Report received',
+                ([key, label]) => key === 'reported_at' && label === 'Detected',
             ),
     );
     props.filters = { flag_source: 'rule' };
@@ -339,8 +342,7 @@ test('switching report and rule sources updates the date column heading and sort
         renderedColumns
             .at(-1)
             .some(
-                ([key, label]) =>
-                    key === 'changed_at' && label === 'Node updated',
+                ([key, label]) => key === 'detected_at' && label === 'Detected',
             ),
     );
     assert.ok(
@@ -368,6 +370,8 @@ test('duplicate evidence links to the other node profile from either endpoint ev
                 },
             ],
             nodeId,
+            columnVisible: () => true,
+            osmUrl: 'https://www.openstreetmap.org',
             absoluteTime: (value) => value,
         });
         app.provide('route', (name, id) =>
@@ -406,6 +410,8 @@ test('node profiles and expanded node queues pass both duplicate endpoints to th
         },
     };
     const dependencies = {
+        '@/Components/Moderation/FlaggedActions.vue': { default: Empty },
+        '@/Components/Daf/DafIcon.vue': { default: Empty },
         '@/Components/Moderation/ModerationMap.vue': { default: MapPreview },
         '@/Layouts/ModerationLayout.vue': { default: Wrapper },
         '@/Components/Moderation/NodeLink.vue': { default: NodeLink },
@@ -416,6 +422,8 @@ test('node profiles and expanded node queues pass both duplicate endpoints to th
         '@/Components/Daf/DafButton.vue': { default: Empty },
         '@/useModerationTime': {
             useModerationTime: () => ({
+                columnVisible: () => true,
+                osmUrl: 'https://www.openstreetmap.org',
                 absoluteTime: (value) => value,
                 localDate: (value) => value,
             }),
@@ -477,6 +485,12 @@ test('node profiles and expanded node queues pass both duplicate endpoints to th
                     groups: [],
                     state: {},
                     matchingAreas: [],
+                    selectedAreas: [],
+                    operatorSearch: '',
+                    operatorSuggestions: [],
+                    selectedSources: [],
+                    hiddenColumns: [],
+                    columnOptions: [],
                     ruleOptions: [],
                     expanded: key,
                     details: { [key]: {} },
@@ -497,4 +511,79 @@ test('node profiles and expanded node queues pass both duplicate endpoints to th
             );
         }
     }
+});
+
+test('report evidence expands independently and retains recorded snapshots without private identifiers', async () => {
+    const elements = [];
+    const renderer = Vue.createRenderer({
+        createElement(tag) {
+            const node = { tag, props: {} };
+            elements.push(node);
+            return node;
+        },
+        createText: () => ({}),
+        createComment: () => ({}),
+        insert() {},
+        remove() {},
+        setText() {},
+        setElementText(node, value) {
+            node.text = value;
+        },
+        parentNode: () => null,
+        nextSibling: () => null,
+        patchProp(node, key, _previous, value) {
+            node.props[key] = value;
+        },
+    });
+    const app = renderer.createApp(FlagDetails, {
+        flags: [row.flags[0]],
+        nodeId: 200,
+        showActions: false,
+        absoluteTime: (value) => value,
+        reports: {
+            data: [
+                {
+                    ...reports.data[0],
+                    observed: { version: 2, latitude: 30, longitude: -97 },
+                    server_node_version: 3,
+                    server_latitude: 30.1,
+                    server_longitude: -97.1,
+                    event_key: 'private-key',
+                },
+                reports.data[1],
+            ],
+        },
+    });
+    app.mount({});
+    const toggle = elements.find(
+        (node) => node.props['aria-label'] === 'Raw evidence for report 10',
+    );
+    assert.equal(toggle.props['aria-expanded'], false);
+    assert.equal(
+        elements.some((node) => node.tag === 'pre'),
+        false,
+    );
+    toggle.props.onClick();
+    await Vue.nextTick();
+    assert.equal(toggle.props['aria-expanded'], true);
+    const raw = elements.find((node) => node.tag === 'pre').text;
+    const evidence = JSON.parse(raw);
+    assert.equal(evidence.node_id, 200);
+    assert.equal(evidence.observed.version, 2);
+    assert.equal(evidence.server_node_version, 3);
+    assert.equal(evidence.platform, 'android_auto');
+    assert.doesNotMatch(
+        raw,
+        /user_id|98765|event_key|private-key|accuracy|app_version/,
+    );
+    assert.equal(
+        elements.find(
+            (node) => node.props['aria-label'] === 'Raw evidence for report 11',
+        ).props['aria-expanded'],
+        false,
+    );
+    toggle.props.onClick();
+    await Vue.nextTick();
+    assert.equal(toggle.props['aria-expanded'], false);
+    app.unmount();
 });

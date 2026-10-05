@@ -5,6 +5,8 @@ import ModerationMap from '@/Components/Moderation/ModerationMap.vue';
 import ModerationLayout from '@/Layouts/ModerationLayout.vue';
 import ModerationPageHeader from '@/Components/Moderation/ModerationPageHeader.vue';
 import { flagMapNodes } from '@/moderationFlags';
+import DafIcon from '@/Components/Daf/DafIcon.vue';
+import { computed } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import {
     changesetNodes,
@@ -33,7 +35,16 @@ const {
     loading,
     areaSearch,
     matchingAreas,
-    selectedArea,
+    selectedAreas,
+    operatorSearch,
+    operatorSuggestions,
+    selectOperator,
+    selectedSources,
+    changeSource,
+    hiddenColumns,
+    columnOptions,
+    columnVisible,
+    toggleColumn,
     selectArea,
     expanded,
     details,
@@ -55,6 +66,46 @@ const {
     counts,
     source,
 } = props.listing;
+const fixedColumnWidths = {
+    node: 96,
+    severity: 78,
+    direction: 72,
+    detected: 72,
+    actions: 196,
+    expand: 36,
+};
+const flexibleColumnWeights = { rules: 1.4, operator: 1, editor: 1.1 };
+function flaggedColumnWidth(key) {
+    if (fixedColumnWidths[key]) return `${fixedColumnWidths[key]}px`;
+    const fixedWidth = props.columns.reduce(
+        (sum, [, , column]) => sum + (fixedColumnWidths[column] || 0),
+        0,
+    );
+    const totalWeight = props.columns.reduce(
+        (sum, [, , column]) => sum + (flexibleColumnWeights[column] || 0),
+        0,
+    );
+    const fraction = flexibleColumnWeights[key] / totalWeight;
+    return `calc(${fraction * 100}% - ${fraction * fixedWidth}px)`;
+}
+const flaggedMinWidth = computed(() =>
+    props.columns.reduce(
+        (width, [, , key]) =>
+            width +
+            ({
+                node: 96,
+                rules: 170,
+                severity: 78,
+                direction: 72,
+                operator: 110,
+                editor: 120,
+                detected: 80,
+                actions: 186,
+                expand: 36,
+            }[key] || 0),
+        24,
+    ),
+);
 </script>
 <template>
     <ModerationLayout :counts="counts" :view="view" navigation>
@@ -73,30 +124,9 @@ const {
 
             <form
                 v-if="!['audit', 'profile'].includes(view)"
-                class="sticky top-[57px] z-20 flex flex-col gap-2.5 border-b border-daf-border bg-[color-mix(in_oklab,var(--surface-page)_95%,transparent)] px-4 py-3.5 backdrop-blur-xl sm:px-6"
+                class="sticky top-[57px] z-20 flex flex-col gap-2.5 border-b border-daf-border bg-[color-mix(in_oklab,var(--surface-page)_95%,transparent)] px-4 pb-3.5 pt-3 backdrop-blur-xl sm:px-6"
                 @submit.prevent="apply()"
             >
-                <div
-                    v-if="['flagged', 'nodes', 'areas'].includes(view)"
-                    class="flex gap-2"
-                >
-                    <button
-                        :aria-pressed="state.area_scope !== 'my' && !state.area"
-                        class="mod-chip"
-                        type="button"
-                        @click="apply({ area_scope: '', area: '' })"
-                    >
-                        All Areas
-                    </button>
-                    <button
-                        :aria-pressed="state.area_scope === 'my'"
-                        class="mod-chip"
-                        type="button"
-                        @click="apply({ area_scope: 'my', area: '' })"
-                    >
-                        My Areas
-                    </button>
-                </div>
                 <div
                     v-if="view !== 'areas'"
                     class="flex flex-wrap items-center gap-x-[18px] gap-y-2.5"
@@ -123,46 +153,86 @@ const {
                         >
                             {{
                                 {
-                                    added: 'Added',
-                                    modified: 'Modified',
-                                    deleted: 'Deleted',
+                                    added: 'Adds',
+                                    modified: 'Updates',
+                                    deleted: 'Deletes',
                                 }[option] || option
                             }}
                         </button>
                     </div>
-                    <template v-if="view === 'flagged'">
-                        <label class="mod-label"
-                            >Source
-                            <select
-                                :value="state.flag_source || 'all'"
-                                aria-label="Flag source"
-                                class="mod-input"
-                                @change="
-                                    apply({
-                                        flag_source: $event.target.value,
-                                        rules: [],
-                                        severities: [],
-                                        window: '',
-                                        sort: '',
-                                        report_state: '',
-                                        report_window: '',
-                                    })
-                                "
+                    <template v-if="['nodes', 'flagged'].includes(view)">
+                        <details class="relative order-last">
+                            <summary class="mod-chip cursor-pointer list-none">
+                                {{
+                                    state.area_scope === 'my'
+                                        ? 'My Areas'
+                                        : 'All Areas'
+                                }}
+                                <DafIcon
+                                    :size="12"
+                                    class="ml-1"
+                                    name="chevron-down"
+                                />
+                            </summary>
+                            <div
+                                class="absolute left-0 top-8 z-30 flex w-[160px] flex-col rounded-dafMd border border-daf-border bg-daf-surface-card p-1 shadow-dafFloat"
                             >
-                                <option value="all">All</option>
-                                <option value="rule">Rule flags</option>
-                                <option value="alpr_presence">
-                                    Driver reports
-                                </option>
-                            </select>
-                        </label>
+                                <button
+                                    v-for="[scope, label] in [
+                                        ['', 'All Areas'],
+                                        ['my', 'My Areas'],
+                                    ]"
+                                    :key="scope"
+                                    :aria-pressed="
+                                        (state.area_scope || '') === scope
+                                    "
+                                    class="rounded-dafXs px-3 py-2 text-left text-xs hover:bg-[var(--brand-soft)]"
+                                    type="button"
+                                    @click="
+                                        apply({
+                                            area_scope: scope,
+                                            area: '',
+                                            locations: [],
+                                        });
+                                        $event.currentTarget.closest(
+                                            'details',
+                                        ).open = false;
+                                    "
+                                >
+                                    {{ label }}
+                                </button>
+                            </div>
+                        </details>
+                    </template>
+                    <template v-if="view === 'flagged'">
+                        <div class="flex flex-wrap items-center gap-[5px]">
+                            <span class="mod-label mr-1">Source</span>
+                            <button
+                                v-for="[source, label] in [
+                                    ['rule', 'Rule checks'],
+                                    ['alpr_presence', 'User reports'],
+                                ]"
+                                :key="source"
+                                :aria-pressed="selectedSources.includes(source)"
+                                :class="[
+                                    'mod-chip',
+                                    selectedSources.includes(source) &&
+                                        'mod-chip-active',
+                                ]"
+                                type="button"
+                                @click="changeSource(source)"
+                            >
+                                {{ label }}
+                            </button>
+                        </div>
                         <template v-if="state.flag_source === 'alpr_presence'">
-                            <label class="mod-label"
+                            <label
+                                class="flex items-center gap-[5px] text-xs font-semibold text-daf-text-secondary"
                                 >Review state
                                 <select
                                     :value="state.report_state || 'open'"
                                     aria-label="Report review state"
-                                    class="mod-input"
+                                    class="mod-input !h-7 !w-auto !px-3 !text-xs"
                                     @change="
                                         apply({
                                             report_state: $event.target.value,
@@ -174,12 +244,13 @@ const {
                                     <option value="all">All</option>
                                 </select>
                             </label>
-                            <label class="mod-label"
+                            <label
+                                class="flex items-center gap-[5px] text-xs font-semibold text-daf-text-secondary"
                                 >Report received
                                 <select
                                     :value="state.report_window || ''"
                                     aria-label="Report received window"
-                                    class="mod-input"
+                                    class="mod-input !h-7 !w-auto !px-3 !text-xs"
                                     @change="
                                         apply({
                                             report_window: $event.target.value,
@@ -194,12 +265,7 @@ const {
                             </label>
                         </template>
                     </template>
-                    <template
-                        v-if="
-                            view === 'flagged' &&
-                            state.flag_source !== 'alpr_presence'
-                        "
-                    >
+                    <template v-if="view === 'flagged'">
                         <div class="flex flex-wrap items-center gap-[5px]">
                             <span class="mod-label mr-1">Rule</span>
                             <button
@@ -295,24 +361,28 @@ const {
                             view === 'editors' ? 'Active in' : 'Location'
                         }}</span>
                         <button
-                            v-if="selectedArea"
-                            :aria-label="`Remove location ${selectedArea.name}`"
+                            v-for="area in selectedAreas"
+                            :key="area.id"
+                            :aria-label="`Remove location ${area.name}`"
                             class="mod-chip mod-chip-active gap-1.5"
                             type="button"
-                            @click="selectArea('')"
+                            @click="selectArea(area.id)"
                         >
-                            {{ selectedArea.name }}
+                            {{ area.name }}
                             <span aria-hidden="true">×</span>
                         </button>
                         <Combobox
-                            :model-value="state.area"
+                            :model-value="null"
                             @update:model-value="selectArea"
                         >
                             <div class="relative">
                                 <ComboboxInput
                                     :display-value="() => areaSearch"
                                     aria-label="Watched area"
-                                    class="mod-input !h-7 !w-[170px] !px-3 !text-xs"
+                                    :class="
+                                        isNodes ? '!w-[150px]' : '!w-[170px]'
+                                    "
+                                    class="mod-input !h-7 !px-3 !text-xs"
                                     placeholder="Search locations…"
                                     @change="areaSearch = $event.target.value"
                                 />
@@ -320,7 +390,10 @@ const {
                                     class="absolute left-0 top-8 z-30 max-h-[260px] min-w-[200px] overflow-auto rounded-dafMd border border-daf-border bg-daf-surface-card p-1 shadow-dafFloat"
                                 >
                                     <ComboboxOption
-                                        v-for="area in matchingAreas"
+                                        v-for="area in matchingAreas.filter(
+                                            (area) =>
+                                                !selectedAreas.includes(area),
+                                        )"
                                         :key="area.id"
                                         v-slot="{ active }"
                                         :value="area.id"
@@ -346,17 +419,104 @@ const {
                             </div>
                         </Combobox>
                     </div>
-                    <label v-if="isNodes" class="flex items-center gap-[5px]">
+                    <div
+                        v-if="isNodes"
+                        class="flex flex-wrap items-center gap-[5px]"
+                    >
                         <span class="mod-label mr-1">Operator</span>
-                        <input
-                            v-model="state.operator"
-                            aria-label="Operator"
-                            class="mod-input !h-7 !w-[170px] !px-3 !text-xs"
-                            placeholder="Search operators…"
-                            @input="debounce"
-                        />
-                    </label>
+                        <button
+                            v-for="operator in state.operators || []"
+                            :key="operator"
+                            :aria-label="`Remove operator ${operator}`"
+                            class="mod-chip mod-chip-active gap-1.5"
+                            type="button"
+                            @click="selectOperator(operator)"
+                        >
+                            {{ operator }}<span aria-hidden="true">×</span>
+                        </button>
+                        <Combobox
+                            :model-value="null"
+                            @update:model-value="selectOperator"
+                        >
+                            <div class="relative">
+                                <ComboboxInput
+                                    :display-value="
+                                        () =>
+                                            operatorSearch ||
+                                            state.operator ||
+                                            ''
+                                    "
+                                    aria-label="Operator"
+                                    class="mod-input !h-7 !w-[170px] !px-3 !text-xs"
+                                    placeholder="Search operators…"
+                                    @change="
+                                        operatorSearch = $event.target.value
+                                    "
+                                />
+                                <ComboboxOptions
+                                    class="absolute left-0 top-8 z-30 max-h-[260px] min-w-[200px] overflow-auto rounded-dafMd border border-daf-border bg-daf-surface-card p-1 shadow-dafFloat"
+                                >
+                                    <ComboboxOption
+                                        v-for="operator in operatorSuggestions"
+                                        :key="operator"
+                                        v-slot="{ active }"
+                                        :value="operator"
+                                        as="template"
+                                        ><li
+                                            :class="[
+                                                'cursor-pointer rounded-dafXs px-2.5 py-[7px] text-[13px]',
+                                                active &&
+                                                    'bg-[var(--brand-soft)] text-daf-text-brand',
+                                            ]"
+                                        >
+                                            {{ operator }}
+                                        </li></ComboboxOption
+                                    >
+                                    <ComboboxOption
+                                        v-if="
+                                            operatorSearch.trim() &&
+                                            !operatorSuggestions.includes(
+                                                operatorSearch.trim(),
+                                            )
+                                        "
+                                        :value="operatorSearch.trim()"
+                                        class="cursor-pointer rounded-dafXs px-2.5 py-[7px] text-[13px]"
+                                        >Use “{{
+                                            operatorSearch.trim()
+                                        }}”</ComboboxOption
+                                    >
+                                </ComboboxOptions>
+                            </div>
+                        </Combobox>
+                    </div>
                 </div>
+                <div v-if="view === 'areas'" class="flex gap-2">
+                    <button
+                        :aria-pressed="state.area_scope !== 'my' && !state.area"
+                        :class="[
+                            'mod-chip',
+                            state.area_scope !== 'my' &&
+                                !state.area &&
+                                'mod-chip-active',
+                        ]"
+                        type="button"
+                        @click="apply({ area_scope: '', area: '' })"
+                    >
+                        All Areas
+                    </button>
+                    <button
+                        :aria-pressed="state.area_scope === 'my'"
+                        :class="[
+                            'mod-chip',
+                            state.area_scope === 'my' && 'mod-chip-active',
+                        ]"
+                        type="button"
+                        @click="apply({ area_scope: 'my', area: '' })"
+                    >
+                        My Areas
+                    </button>
+                </div>
+
                 <div class="flex flex-wrap items-center gap-2.5">
                     <input
                         v-if="view === 'areas'"
@@ -367,42 +527,63 @@ const {
                         @input="debounce"
                     />
                     <template v-else>
-                        <input
-                            v-if="isNodes"
-                            v-model="state.osm_id"
-                            aria-label="OSM node ID"
-                            class="mod-input !w-[220px] min-w-[170px]"
-                            inputmode="numeric"
-                            placeholder="#  OSM node ID"
-                            @input="debounce"
-                        />
-                        <input
+                        <div
                             v-if="view !== 'editors'"
-                            v-model="state.changeset"
-                            aria-label="Changeset ID"
-                            class="mod-input !w-[220px] min-w-[170px]"
-                            inputmode="numeric"
-                            placeholder="#  Changeset ID"
-                            @input="debounce"
-                        />
-                        <input
-                            v-model="state.user"
-                            :placeholder="
-                                isNodes
-                                    ? '@  Changed by — user or UID'
-                                    : '@  User or UID'
+                            class="relative min-w-[170px] flex-[0_1_220px]"
+                        >
+                            <span
+                                class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 font-mono text-[13px] text-daf-text-tertiary"
+                                >#</span
+                            >
+                            <input
+                                v-model="state.changeset"
+                                :placeholder="'Changeset ID'"
+                                aria-label="Changeset ID"
+                                class="mod-input !pl-[38px] font-mono"
+                                inputmode="numeric"
+                                @input="debounce"
+                            />
+                        </div>
+                        <div
+                            :class="
+                                view === 'editors'
+                                    ? 'flex-[0_1_240px]'
+                                    : 'flex-[0_1_220px]'
                             "
-                            aria-label="User or UID"
-                            class="mod-input !w-[220px] min-w-[170px]"
-                            @input="debounce"
-                        />
+                            class="relative min-w-[170px]"
+                        >
+                            <span
+                                class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 font-mono text-[13px] text-daf-text-tertiary"
+                                >@</span
+                            >
+                            <input
+                                v-model="state.user"
+                                :placeholder="
+                                    isNodes
+                                        ? 'Changed by — user or UID'
+                                        : 'User or UID'
+                                "
+                                aria-label="User or UID"
+                                class="mod-input !pl-[38px] font-mono"
+                                @input="debounce"
+                            />
+                        </div>
                         <select
                             v-model="state.window"
                             aria-label="Node edit time window"
-                            class="mod-input !w-[150px]"
+                            :class="
+                                view === 'editors' ? '!w-[170px]' : '!w-[150px]'
+                            "
+                            class="mod-input"
                             @change="apply()"
                         >
-                            <option value="">Any edit time</option>
+                            <option value="">
+                                {{
+                                    view === 'editors'
+                                        ? 'Any activity'
+                                        : 'Any time'
+                                }}
+                            </option>
                             <option value="24h">Last 24 h</option>
                             <option value="7d">Last 7 d</option>
                             <option value="30d">Last 30 d</option>
@@ -434,6 +615,48 @@ const {
                                         : `${records.data.length} ${view === 'flagged' ? 'flagged nodes' : view} on this page`
                         }}</span
                     >
+                    <details v-if="view === 'flagged'" class="relative">
+                        <summary
+                            aria-label="Choose columns"
+                            class="mod-button !h-10 cursor-pointer list-none gap-2 bg-daf-surface-card"
+                        >
+                            <DafIcon :size="15" name="columns-3" />Columns
+                            <span
+                                class="font-mono text-[11px] text-daf-text-tertiary"
+                                >{{ 8 - hiddenColumns.length }}/8</span
+                            ><DafIcon :size="14" name="chevron-down" />
+                        </summary>
+                        <div
+                            class="absolute right-0 top-[46px] z-30 w-[244px] rounded-dafMd border border-daf-border bg-daf-surface-card p-1.5 shadow-dafFloat"
+                        >
+                            <div class="mod-label px-2.5 pb-1 pt-1.5">
+                                Show columns
+                            </div>
+                            <label
+                                v-for="[key, label] in columnOptions"
+                                :key="key"
+                                class="flex cursor-pointer items-center gap-2.5 rounded-dafXs px-2.5 py-[7px] text-[13px] font-semibold hover:bg-[var(--brand-soft)]"
+                                ><input
+                                    :checked="columnVisible(key)"
+                                    type="checkbox"
+                                    @change="toggleColumn(key)"
+                                />{{ label }}</label
+                            >
+                            <div
+                                class="mt-1 flex items-center justify-between border-t border-daf-border px-2.5 pb-1 pt-2 text-[11px] text-daf-text-tertiary"
+                            >
+                                <span>Node and actions always show</span
+                                ><button
+                                    v-if="hiddenColumns.length"
+                                    class="mod-link"
+                                    type="button"
+                                    @click="hiddenColumns = []"
+                                >
+                                    Show all
+                                </button>
+                            </div>
+                        </div>
+                    </details>
                 </div>
                 <p
                     v-for="(error, key) in page.props.errors"
@@ -444,10 +667,18 @@ const {
                     {{ error }}
                 </p>
             </form>
-            <section :aria-busy="loading" class="px-4 pb-4 pt-2.5 sm:px-6">
+            <section :aria-busy="loading" class="px-4 pb-6 pt-4 sm:px-6">
                 <div class="mod-card overflow-x-auto">
                     <table
-                        :class="`mod-table-${view}`"
+                        :class="[
+                            `mod-table-${view}`,
+                            view === 'flagged' && 'table-fixed',
+                        ]"
+                        :style="
+                            view === 'flagged'
+                                ? { minWidth: `${flaggedMinWidth}px` }
+                                : undefined
+                        "
                         class="mod-table w-full border-collapse text-left text-daf-body-sm"
                     >
                         <caption class="sr-only">
@@ -456,6 +687,13 @@ const {
                             }}
                             moderation records
                         </caption>
+                        <colgroup v-if="view === 'flagged'">
+                            <col
+                                v-for="[, , key] in columns"
+                                :key="key"
+                                :style="{ width: flaggedColumnWidth(key) }"
+                            />
+                        </colgroup>
                         <thead>
                             <tr
                                 class="border-b border-daf-border bg-daf-surface-page"
@@ -597,22 +835,25 @@ const {
                                         </div>
                                         <div
                                             v-else
-                                            class="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,420px)]"
+                                            class="grid gap-[22px] min-[1181px]:grid-cols-[minmax(0,1fr)_minmax(320px,0.7fr)]"
                                         >
                                             <div
-                                                v-if="$slots['detail-top']"
-                                                class="min-w-0 xl:col-span-2"
+                                                class="flex min-w-0 flex-col gap-4"
                                             >
-                                                <slot
-                                                    :row="row"
-                                                    name="detail-top"
-                                                />
-                                            </div>
-                                            <div class="min-w-0">
-                                                <slot
-                                                    :row="row"
-                                                    name="detail"
-                                                />
+                                                <div
+                                                    v-if="$slots['detail-top']"
+                                                >
+                                                    <slot
+                                                        :row="row"
+                                                        name="detail-top"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <slot
+                                                        :row="row"
+                                                        name="detail"
+                                                    />
+                                                </div>
                                             </div>
                                             <div>
                                                 <ModerationMap

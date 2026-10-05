@@ -132,3 +132,66 @@ export function flagFacts(flag) {
         facts.push(time('Dismissed', flag.dismissed_at));
     return facts;
 }
+
+export function flagSeverity(flags = []) {
+    return (
+        ['High', 'Medium', 'Low'].find((severity) =>
+            flags.some(
+                (flag) =>
+                    flag.source !== 'alpr_presence' &&
+                    flag.rule?.severity === severity,
+            ),
+        ) ?? null
+    );
+}
+
+export function severityClass(severity) {
+    return (
+        {
+            High: 'mod-severity-high',
+            Medium: 'mod-severity-medium',
+            Low: 'mod-severity-low',
+        }[severity] || 'mod-severity-unknown'
+    );
+}
+
+export function flagDetectedAt(row) {
+    return (
+        row.detected_at ||
+        row.flags
+            ?.filter((flag) => flag.source !== 'alpr_presence')
+            .map((flag) => flag.created_at)
+            .filter(Boolean)
+            .sort()[0] ||
+        null
+    );
+}
+
+export function selectedFlagSources(source) {
+    return source === 'all'
+        ? ['rule', 'alpr_presence']
+        : ['rule', 'alpr_presence'].includes(source)
+          ? [source]
+          : [];
+}
+
+export function flagSourceFilter(sources) {
+    return sources.length === 2 ? 'all' : sources[0] || '';
+}
+
+export function reportEvidence(report, nodeId) {
+    return {
+        report_id: report.id,
+        response: report.response || 'not_there',
+        node_id: report.osm_node_id ?? nodeId,
+        reported_at: report.occurred_at,
+        received_at: report.received_at,
+        platform: report.platform,
+        passed_at: report.passed_at,
+        submitted_at: report.submitted_at,
+        observed: report.observed,
+        server_node_version: report.server_node_version,
+        server_latitude: report.server_latitude,
+        server_longitude: report.server_longitude,
+    };
+}

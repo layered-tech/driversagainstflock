@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\OpenStreetMapEditAuthorizationController;
 use App\Http\Controllers\DownloadAndroidApkController;
 use App\Http\Controllers\HotlistController;
 use App\Http\Controllers\ModerationController;
+use App\Http\Controllers\ModerationEditorStatusController;
 use App\Http\Controllers\ModerationNodeController;
 use App\Http\Controllers\ModerationReviewController;
 use App\Http\Controllers\ModerationRuleController;
@@ -95,6 +96,8 @@ require __DIR__.'/auth.php';
 
 Route::middleware(['auth', EnsureOsmModerator::class])->prefix('moderation')->name('moderation.')->group(function (): void {
     Route::get('/openstreetmap/authorize-editing', [OpenStreetMapEditAuthorizationController::class, 'redirect'])->middleware('throttle:10,1')->name('osm.edit.authorize');
+    Route::get('/nodes/{node}/message', [ModerationNodeController::class, 'messageState'])->whereNumber('node')->name('nodes.message.show');
+    Route::post('/nodes/{node}/message', [ModerationNodeController::class, 'message'])->whereNumber('node')->middleware('throttle:10,1')->name('nodes.message.store');
     Route::get('/nodes/{node}/osm-edit', [ModerationNodeController::class, 'show'])->whereNumber('node')->name('nodes.osm-edit.show');
     Route::post('/nodes/{node}/osm-edit', [ModerationNodeController::class, 'store'])->whereNumber('node')->middleware('throttle:10,1')->name('nodes.osm-edit.store');
     Route::get('/', [ModerationController::class, 'index'])->name('index');
@@ -104,6 +107,7 @@ Route::middleware(['auth', EnsureOsmModerator::class])->prefix('moderation')->na
     Route::get('/editors', [ModerationController::class, 'editors'])->name('editors.index');
     Route::get('/areas', [ModerationController::class, 'areas'])->name('areas.index');
     Route::get('/audit', [ModerationController::class, 'audit'])->name('audit.index');
+    Route::put('/editors/{uid}/status', [ModerationEditorStatusController::class, 'update'])->where('uid', '[1-9][0-9]*')->name('editors.status.update');
     Route::get('/editors/{uid}', [ModerationController::class, 'profile'])->where('uid', '[1-9][0-9]*')->name('editors.show');
     Route::get('/rules', [ModerationRuleController::class, 'index'])->name('rules.index');
     Route::get('/rules/create', [ModerationRuleController::class, 'create'])->name('rules.create');

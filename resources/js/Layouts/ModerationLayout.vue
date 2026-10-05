@@ -198,8 +198,7 @@ const links = [
 .moderation-page .mod-table-changesets th:nth-child(6) {
     width: 48px;
 }
-.moderation-page .mod-table-nodes,
-.moderation-page .mod-table-flagged {
+.moderation-page .mod-table-nodes {
     min-width: 1080px;
 }
 .moderation-page .mod-table-editors {
@@ -218,6 +217,69 @@ const links = [
         tr:not(:has(td[colspan]))
         td:nth-child(4) {
         display: none;
+    }
+}
+.moderation-page .mod-rule-tag {
+    @apply inline-flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-dafXs border border-daf-border px-2 text-[11px] font-semibold text-daf-text-secondary hover:border-daf-text-tertiary;
+}
+.moderation-page .mod-severity-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--severity-color, var(--text-tertiary));
+}
+.moderation-page .mod-severity {
+    @apply whitespace-nowrap rounded-dafPill px-2 py-0.5 font-mono text-[11px] font-bold;
+    color: var(--severity-color, var(--text-tertiary));
+    background: var(--severity-bg, var(--surface-alt));
+}
+.moderation-page .mod-severity-high {
+    --severity-color: var(--alert-600);
+    --severity-bg: var(--alert-100);
+}
+.moderation-page .mod-severity-medium {
+    --severity-color: var(--amber-600);
+    --severity-bg: var(--amber-100);
+}
+.moderation-page .mod-severity-low {
+    --severity-color: var(--azure-600);
+    --severity-bg: var(--azure-100);
+}
+.moderation-page .mod-violation {
+    border-left: 4px solid var(--severity-color, var(--border));
+}
+.moderation-page .mod-action-item {
+    @apply flex w-full items-center gap-2.5 rounded-dafXs px-2.5 py-2 text-left text-daf-text-primary disabled:opacity-50;
+}
+.moderation-page .mod-dialog-input {
+    @apply block h-[38px] w-full rounded-dafSm border border-daf-border bg-daf-surface-card px-3 text-[13px] font-normal normal-case tracking-normal text-daf-text-primary focus:border-daf-brand focus:ring-daf-brand;
+}
+.moderation-page .mod-field-label {
+    @apply flex flex-col gap-[5px] text-[10px] font-bold uppercase tracking-[var(--ls-label)] text-daf-text-tertiary;
+}
+.moderation-page .mod-primary-button {
+    @apply inline-flex h-[38px] items-center justify-center rounded-dafPill bg-daf-brand px-[18px] text-[13px] font-bold text-white disabled:opacity-50;
+}
+
+.mod-report-row {
+    display: grid;
+    grid-template-columns:
+        52px minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 1.2fr)
+        auto;
+    gap: 12px;
+    align-items: center;
+    padding: 11px 14px;
+}
+.mod-report-row .break-anywhere {
+    overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+    .mod-report-row {
+        gap: 6px;
+        padding: 10px 8px;
+        grid-template-columns:
+            40px minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 1.2fr)
+            auto;
     }
 }
 </style>

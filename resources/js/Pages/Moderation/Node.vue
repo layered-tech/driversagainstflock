@@ -1,4 +1,5 @@
 <script setup>
+import FlaggedActions from '@/Components/Moderation/FlaggedActions.vue';
 import FlagLabel from '@/Components/Moderation/FlagLabel.vue';
 import FlagDetails from '@/Components/Moderation/FlagDetails.vue';
 import { useModerationTime } from '@/useModerationTime';
@@ -277,7 +278,11 @@ const dismissFlag = (flag) =>
                             {{ relativeTime(node.changed_at) }}
                         </p>
                     </div>
-                    <div class="flex flex-wrap gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <FlaggedActions
+                            :node="{ ...node, flags: activeFlags }"
+                            :osm-url="osmUrl"
+                        />
                         <Link
                             v-if="node.osm_changeset_id"
                             :href="

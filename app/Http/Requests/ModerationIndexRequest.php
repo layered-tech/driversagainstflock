@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\ModerationEditorStatus;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -29,17 +30,23 @@ class ModerationIndexRequest extends FormRequest
             'area' => ['nullable', 'integer', 'exists:watched_areas,id'],
             'search' => ['nullable', 'string', 'max:255'],
             'window' => ['nullable', Rule::in(['24h', '7d', '30d'])],
+            'editor_statuses' => ['sometimes', 'array', 'max:4'],
+            'editor_statuses.*' => [Rule::in(ModerationEditorStatus::STATUSES)],
             'statuses' => ['sometimes', 'array', 'max:3'], 'statuses.*' => [Rule::in(['Needs review', 'Reviewed', 'Flagged'])],
             'kinds' => ['sometimes', 'array', 'max:3'], 'kinds.*' => [Rule::in(['added', 'modified', 'deleted'])],
             'rules' => ['sometimes', 'array', 'max:100'],
             'rules.*' => ['integer', 'distinct', 'exists:moderation_rules,id'],
             'severities' => ['sometimes', 'array', 'max:3'],
             'severities.*' => [Rule::in(['High', 'Medium', 'Low'])],
+            'locations' => ['sometimes', 'array', 'max:50'],
+            'locations.*' => ['integer', 'distinct', 'exists:watched_areas,id'],
+            'operators' => ['sometimes', 'array', 'max:50'],
+            'operators.*' => ['string', 'distinct', 'max:255'],
             'operator' => ['nullable', 'string', 'max:255'],
             'direction_from' => ['nullable', 'integer', 'between:0,359'],
             'direction_to' => ['nullable', 'integer', 'between:0,359'],
             'missing_direction' => ['sometimes', 'boolean'],
-            'sort' => ['nullable', Rule::in(['reported_at', 'id', 'changed_at', 'osm_user', 'added', 'modified', 'deleted', 'total', 'status', 'direction', 'operator', 'name', 'changesets_count', 'last_active', 'created_at', 'flags_count', 'survival', 'area_count'])],
+            'sort' => ['nullable', Rule::in(['severity', 'detected_at', 'reported_at', 'id', 'changed_at', 'osm_user', 'added', 'modified', 'deleted', 'total', 'status', 'direction', 'operator', 'name', 'changesets_count', 'last_active', 'created_at', 'flags_count', 'survival', 'area_count'])],
             'outcome' => ['nullable', Rule::in(['reverted'])],
             'order' => ['nullable', Rule::in(['asc', 'desc'])],
         ];

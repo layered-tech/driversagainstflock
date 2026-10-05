@@ -199,3 +199,57 @@ test('duplicate map evidence preserves zero coordinates and includes every disti
     );
     assert.deepEqual([nodes[2].longitude, nodes[2].latitude], [0, 0]);
 });
+
+test('severity badges use the strongest configured rule and leave driver reports unclassified', () => {
+    assert.equal(
+        flags.flagSeverity([
+            { source: 'alpr_presence', evidence: { report_count: 100 } },
+        ]),
+        null,
+    );
+    assert.equal(
+        flags.flagSeverity([
+            { source: 'rule', rule: { severity: 'Low' } },
+            { source: 'rule', rule: { severity: 'High' } },
+        ]),
+        'High',
+    );
+    assert.equal(flags.flagSeverity([{ source: 'rule', rule: null }]), null);
+    assert.equal(
+        flags.flagDetectedAt({
+            flags: [
+                { created_at: '2026-09-02T00:00:00Z' },
+                { created_at: '2026-09-01T00:00:00Z' },
+            ],
+        }),
+        '2026-09-01T00:00:00Z',
+    );
+});
+
+test('source chips support either source, both sources, or clearing to all', () => {
+    assert.deepEqual(flags.selectedFlagSources(undefined), []);
+    assert.deepEqual(flags.selectedFlagSources('rule'), ['rule']);
+    assert.deepEqual(flags.selectedFlagSources('alpr_presence'), [
+        'alpr_presence',
+    ]);
+    assert.deepEqual(flags.selectedFlagSources('all'), [
+        'rule',
+        'alpr_presence',
+    ]);
+    assert.equal(flags.flagSourceFilter([]), '');
+    assert.equal(flags.flagSourceFilter(['rule']), 'rule');
+    assert.equal(flags.flagSourceFilter(['alpr_presence']), 'alpr_presence');
+    assert.equal(flags.flagSourceFilter(['rule', 'alpr_presence']), 'all');
+});
+
+test('report creation time is not used as a rule detection timestamp', () => {
+    assert.equal(
+        flags.flagDetectedAt({
+            flags: [
+                { source: 'alpr_presence', created_at: '2026-01-01T00:00:00Z' },
+                { source: 'rule', created_at: '2026-09-01T00:00:00Z' },
+            ],
+        }),
+        '2026-09-01T00:00:00Z',
+    );
+});

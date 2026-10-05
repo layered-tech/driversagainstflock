@@ -156,8 +156,9 @@ test('compiled moderation renders source-backed rows and escapes upstream text',
     assert.ok(!output.body.includes('Missing direction'));
     assert.ok(!output.body.includes('Moved &gt;50'));
     assert.ok(output.body.includes('Changeset'));
-    assert.ok(output.body.includes('aria-label="OSM node ID"'));
-    assert.ok(output.body.includes('placeholder="#  OSM node ID"'));
+    assert.ok(output.body.includes('aria-label="Changeset ID"'));
+    assert.ok(!output.body.includes('aria-label="OSM node ID"'));
+    assert.ok(output.body.includes('placeholder="Changeset ID"'));
     assert.ok(output.body.includes('12034559102'));
     assert.ok(
         output.body.includes('/moderation/nodes/show/12034559102'),
@@ -202,10 +203,8 @@ test('compiled moderation renders source-backed rows and escapes upstream text',
         /<form\b[^>]*>(.*?)<\/form>/s,
     )?.[1];
     assert.ok(changesetFilters);
-    assert.doesNotMatch(
-        changesetFilters,
-        />Status<|Needs review|Reviewed|Flagged/,
-    );
+    assert.match(changesetFilters, />Status</);
+    assert.match(changesetFilters, /Needs review|Reviewed|Flagged/);
     assert.match(changesetFilters, />Changes</);
     const changesetTableHead = changes.body.match(
         /<table[^>]*mod-table-changesets[^>]*>.*?<thead>(.*?)<\/thead>/s,
@@ -427,10 +426,10 @@ test('editor profile follows the design timeline and shows missing outcomes as u
         assert.ok(editors.body.includes(label));
     assert.ok(!editors.body.includes('Watch means'));
     const header = editors.body.match(/<thead>(.*?)<\/thead>/s)[1];
-    assert.doesNotMatch(header, />Status</);
-    assert.equal((header.match(/<th\b/g) || []).length, 7);
+    assert.match(header, />Status\s*</);
+    assert.equal((header.match(/<th\b/g) || []).length, 8);
     const body = editors.body.match(/<tbody>(.*?)<\/tbody>/s)[1];
-    assert.equal((body.match(/<td\b/g) || []).length, 7);
+    assert.equal((body.match(/<td\b/g) || []).length, 8);
     assert.ok(!editors.body.includes('Editor status is not configured'));
     await preview('editors', editors);
 });
@@ -678,7 +677,7 @@ test('summary refresh failures keep stale rows visible with an explicit status',
     assert.match(output.body, /Stale mapper/);
 });
 
-test('flagged table summarizes rule evidence while actions live in the expanded row', async () => {
+test('flagged table renders severity tags and a column picker with row actions', async () => {
     const row = {
         id: 200,
         osm_uid: 123,
@@ -711,12 +710,12 @@ test('flagged table summarizes rule evidence while actions live in the expanded 
             records: { ...base.records, data: [row] },
         });
         const header = output.body.match(/<thead>(.*?)<\/thead>/s)[1];
-        assert.equal(header.includes('What happened'), view === 'flagged');
-        assert.ok(!header.includes('Severity'));
+        assert.equal(header.includes('Rules'), view === 'flagged');
+        assert.equal(header.includes('Severity'), view === 'flagged');
         assert.ok(output.body.includes('href="/moderation/flagged"'));
         assert.ok(output.body.includes('aria-label="Remove location Austin"'));
         assert.ok(output.body.includes('placeholder="Search locations…"'));
-        assert.ok(output.body.includes('aria-label="OSM node ID"'));
+        assert.ok(output.body.includes('aria-label="Changeset ID"'));
         assert.ok(
             output.body.indexOf('aria-label="Direction from"') <
                 output.body.indexOf('aria-label="Watched area"'),
@@ -730,10 +729,10 @@ test('flagged table summarizes rule evidence while actions live in the expanded 
                 output.body.includes('/moderation/nodes/show/200?from=flagged'),
             );
             assert.match(output.body, /Require mount/);
-            assert.doesNotMatch(
-                output.body,
-                /Missing tags: mount|1 rule match/,
-            );
+            assert.match(output.body, /Missing tags: mount/);
+            assert.match(output.body, /Choose columns/);
+            assert.match(output.body, /Take action/);
+            assert.match(output.body, /mod-severity-high/);
             assert.ok(output.body.includes('1 flagged nodes on this page'));
             assert.ok(
                 !output.body.includes(
@@ -832,10 +831,13 @@ test('driver report queues render source, review filters and evidence without a 
             ],
         },
     });
-    assert.match(output.body, /Last reported/);
+    assert.match(output.body, /datetime="2026-09-18T12:00:00Z"/);
     assert.doesNotMatch(output.body, /Unverified user report/);
-    assert.match(output.body, /not-there.*?27/s);
+    assert.match(output.body, /Not there.*?27/s);
     assert.match(output.body, /aria-label="Report review state"/);
+    assert.match(output.body, /aria-pressed="true"[^>]*>\s*User reports/);
+    assert.match(output.body, /Rule checks/);
+    assert.doesNotMatch(output.body, /aria-label="Flag source"/);
     assert.match(output.body, /My Areas/);
     assert.doesNotMatch(
         output.body,
@@ -879,9 +881,8 @@ test('node report history survives unavailable source data and includes independ
     });
     for (const text of [
         'Not there reports',
-        'Unverified user report',
-        'Client-observed version',
-        'Server node snapshot',
+        'Unverified ·',
+        'Raw evidence for report 1',
         'Maya dismissed',
         'More reports',
         'More reviews',

@@ -1,6 +1,12 @@
 <script setup>
 import FlagDetails from '@/Components/Moderation/FlagDetails.vue';
-import { flagTiming } from '@/moderationFlags';
+import FlaggedActions from '@/Components/Moderation/FlaggedActions.vue';
+import {
+    flagDetectedAt,
+    flagSeverity,
+    flagSummary,
+    severityClass,
+} from '@/moderationFlags';
 import ModerationListing from '@/Components/Moderation/ModerationListing.vue';
 import DafIcon from '@/Components/Daf/DafIcon.vue';
 import NodeLink from '@/Components/Moderation/NodeLink.vue';
@@ -24,7 +30,25 @@ const {
     expand,
     dismissFlag,
     absoluteTime,
+    columnVisible,
+    toggle,
+    changeSource,
+    osmUrl,
 } = props.listing;
+const visible = (key) => view !== 'flagged' || columnVisible(key);
+const detected = (row) =>
+    state.flag_source === 'alpr_presence'
+        ? row.reported_at
+        : flagDetectedAt(row) || row.reported_at;
+function filterRule(flag) {
+    if (flag.source === 'alpr_presence') {
+        changeSource('alpr_presence', true);
+    } else if (flag.rule_id) {
+        state.rules = (state.rules || []).map(Number);
+        if (!state.rules.includes(Number(flag.rule_id)))
+            toggle('rules', Number(flag.rule_id));
+    }
+}
 </script>
 <template>
     <ModerationListing :columns="columns" :listing="listing"
@@ -51,48 +75,64 @@ const {
                     details
                 </span>
             </td>
-            <td v-if="view === 'flagged'" class="min-w-[180px]">
-                <div class="divide-y divide-daf-border">
-                    <div
-                        v-for="flag in row.flags"
+            <td
+                v-if="view === 'flagged' && visible('rules')"
+                class="min-w-[150px] max-w-[260px]"
+            >
+                <div class="flex flex-wrap items-center gap-1">
+                    <button
+                        v-for="flag in (row.flags || []).slice(0, 2)"
                         :key="flag.id"
-                        class="flex flex-col items-start gap-1 py-2 first:pt-0 last:pb-0"
+                        :class="severityClass(flag.rule?.severity)"
+                        :title="`${flag.rule?.severity || 'Unverified'} · ${flagSummary(flag, row.id)}`"
+                        class="mod-rule-tag"
+                        type="button"
+                        @click="filterRule(flag)"
                     >
-                        <span class="mod-chip">
-                            {{
-                                flag.source === 'alpr_presence'
-                                    ? 'not-there'
-                                    : flag.rule?.name || 'Rule unavailable'
-                            }}
-                            <template
-                                v-if="
-                                    flag.source === 'alpr_presence' &&
-                                    flag.evidence?.report_count != null
-                                "
-                            >
-                                · {{ flag.evidence.report_count }}</template
-                            >
-                        </span>
-                        <span
-                            v-if="flagTiming(flag).at"
-                            class="text-[11px] text-daf-text-tertiary"
+                        <span class="mod-severity-dot" />{{
+                            flag.source === 'alpr_presence'
+                                ? 'Not there'
+                                : flag.rule?.name || 'Rule unavailable'
+                        }}<template
+                            v-if="
+                                flag.source === 'alpr_presence' &&
+                                flag.evidence?.report_count != null
+                            "
                         >
-                            {{
-                                flag.source === 'alpr_presence'
-                                    ? 'Last reported'
-                                    : 'Last checked'
-                            }}
-                            ·
-                            <time
-                                :datetime="flagTiming(flag).at"
-                                :title="absoluteTime(flagTiming(flag).at)"
-                                >{{ relativeTime(flagTiming(flag).at) }}</time
-                            >
-                        </span>
-                    </div>
+                            · {{ flag.evidence.report_count }}</template
+                        >
+                    </button>
+                    <button
+                        v-if="row.flags?.length > 2"
+                        :title="
+                            row.flags
+                                .slice(2)
+                                .map((flag) => flag.rule?.name || 'Not there')
+                                .join(', ')
+                        "
+                        class="mod-rule-tag !border-dashed font-mono"
+                        type="button"
+                        @click="expand(row)"
+                    >
+                        +{{ row.flags.length - 2 }}
+                    </button>
                 </div>
             </td>
-            <td>
+            <td v-if="view === 'flagged' && visible('severity')">
+                <span
+                    v-if="flagSeverity(row.flags)"
+                    :class="severityClass(flagSeverity(row.flags))"
+                    class="mod-severity"
+                    >{{ flagSeverity(row.flags) }}</span
+                >
+                <span
+                    v-else
+                    aria-label="Severity unavailable"
+                    class="text-xs text-daf-text-tertiary"
+                    >—</span
+                >
+            </td>
+            <td v-if="view !== 'flagged'">
                 <Link
                     :href="
                         query('changesets', {
@@ -103,13 +143,20 @@ const {
                     >#{{ row.osm_changeset_id }}</Link
                 >
             </td>
-            <td class="font-mono text-xs">
+            <td
+                v-if="visible('direction')"
+                class="whitespace-nowrap font-mono text-xs"
+            >
                 {{ row.direction === null ? '—' : `${row.direction}°` }}
             </td>
-            <td class="max-w-[150px] text-xs">
+            <td
+                v-if="visible('operator')"
+                :title="row.operator"
+                class="max-w-[150px] truncate text-xs text-daf-text-secondary"
+            >
                 {{ row.operator || 'Unknown' }}
             </td>
-            <td class="max-w-[180px]">
+            <td v-if="visible('editor')" class="max-w-[180px]">
                 <Link
                     v-if="row.osm_uid"
                     :href="
@@ -122,37 +169,81 @@ const {
                 ><span v-else class="text-xs text-daf-text-tertiary"
                     >Unknown</span
                 >
+                <div
+                    v-if="view === 'flagged' && row.osm_uid"
+                    class="mt-1 flex gap-2.5"
+                >
+                    <Link
+                        :href="
+                            query('changesets', { user: String(row.osm_uid) })
+                        "
+                        class="mod-link"
+                        >Changesets</Link
+                    >
+                    <Link
+                        :href="query('profile', { uid: row.osm_uid })"
+                        class="mod-link"
+                        >Profile</Link
+                    >
+                </div>
             </td>
-            <td class="max-w-[160px] truncate text-xs text-daf-text-secondary">
+            <td
+                v-if="view !== 'flagged'"
+                class="max-w-[160px] truncate text-xs text-daf-text-secondary"
+            >
                 {{ locationLabel(row) }}
             </td>
             <td
+                v-if="visible('detected')"
                 class="whitespace-nowrap font-mono text-xs text-daf-text-tertiary"
             >
                 <time
                     :datetime="
-                        state.flag_source === 'alpr_presence'
-                            ? row.reported_at
-                            : row.changed_at
+                        view === 'flagged' ? detected(row) : row.changed_at
                     "
                     :title="
                         absoluteTime(
-                            state.flag_source === 'alpr_presence'
-                                ? row.reported_at
-                                : row.changed_at,
+                            view === 'flagged' ? detected(row) : row.changed_at,
                         )
                     "
                     >{{
                         relativeTime(
-                            state.flag_source === 'alpr_presence'
-                                ? row.reported_at
-                                : row.changed_at,
+                            view === 'flagged' ? detected(row) : row.changed_at,
                         )
                     }}</time
                 >
             </td>
-            <td>
-                <div class="flex flex-wrap items-center gap-3">
+            <td :class="view === 'flagged' && '!px-0'">
+                <div
+                    v-if="view === 'flagged'"
+                    class="flex items-center gap-1.5"
+                >
+                    <button
+                        v-if="
+                            row.flags?.find(
+                                (flag) =>
+                                    flag.source === 'alpr_presence' &&
+                                    flag.status === 'open',
+                            )
+                        "
+                        :disabled="dismissingFlag !== null"
+                        class="mod-button !h-[30px] !px-3"
+                        type="button"
+                        @click="
+                            dismissFlag(
+                                row.flags.find(
+                                    (flag) =>
+                                        flag.source === 'alpr_presence' &&
+                                        flag.status === 'open',
+                                ),
+                            )
+                        "
+                    >
+                        Dismiss
+                    </button>
+                    <FlaggedActions :node="row" :osm-url="osmUrl" />
+                </div>
+                <div v-else class="flex flex-wrap items-center gap-3">
                     <a
                         :href="osm(`/edit?editor=id&node=${row.id}`)"
                         class="mod-link"
@@ -162,7 +253,7 @@ const {
                     >
                 </div>
             </td>
-            <td>
+            <td :class="view === 'flagged' && '!px-1'">
                 <button
                     :aria-expanded="expanded === rowKey(row)"
                     :aria-label="`Details for node ${row.id}`"
@@ -196,13 +287,98 @@ const {
                     :flags="row.flags || []"
                     :node-id="row.id"
                     :reports="details[rowKey(row)]?.reports"
+                    :show-actions="view !== 'flagged'"
                     inline
                     @dismiss="dismissFlag"
                     @reports-page="loadDetails(row, $event)"
                 />
             </section> </template
         ><template #detail="{ row }">
-            <section :aria-label="`Node information for ${row.id}`">
+            <section
+                v-if="view === 'flagged'"
+                :aria-label="`Node information for ${row.id}`"
+            >
+                <dl
+                    class="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-x-7 gap-y-0.5 rounded-dafSm border border-daf-border bg-daf-surface-card px-3.5 py-2 text-xs"
+                >
+                    <div
+                        v-for="[label, value] in [
+                            [
+                                'Coordinates',
+                                `${row.latitude}, ${row.longitude}`,
+                            ],
+                            ['Location', locationLabel(row)],
+                            ['Last changeset', `#${row.osm_changeset_id}`],
+                            [
+                                'Changed by',
+                                `${row.osm_user || 'Unknown'} · uid ${row.osm_uid || '—'}`,
+                            ],
+                            [
+                                row.flags?.some(
+                                    (flag) => flag.source === 'rule',
+                                )
+                                    ? 'Detected'
+                                    : 'Latest report',
+                                absoluteTime(detected(row)),
+                            ],
+                        ]"
+                        :key="label"
+                        class="grid min-w-0 grid-cols-[112px_minmax(0,1fr)] items-baseline gap-3 py-[5px]"
+                    >
+                        <dt class="mod-label leading-normal">{{ label }}</dt>
+                        <dd
+                            class="min-w-0 break-words font-mono text-[12.5px] leading-normal text-daf-text-primary"
+                        >
+                            {{ value }}
+                        </dd>
+                    </div>
+                </dl>
+                <h3 class="mod-label mb-2 mt-4">OSM tags</h3>
+                <div
+                    class="flex max-w-[420px] flex-col gap-1 rounded-dafSm border border-daf-border bg-daf-surface-card px-3 py-2.5"
+                >
+                    <span
+                        v-for="key in [
+                            ...new Set([
+                                'man_made',
+                                'surveillance',
+                                'surveillance:type',
+                                'camera:mount',
+                                'camera:type',
+                                'operator',
+                                'direction',
+                                ...Object.keys(row.tags || {}),
+                            ]),
+                        ]"
+                        :key="key"
+                        class="break-words font-mono text-xs text-daf-text-primary"
+                        ><span class="text-daf-text-tertiary">{{ key }} = </span
+                        ><span
+                            :class="
+                                !row.tags?.[key] && 'text-[var(--alert-600)]'
+                            "
+                            class="font-semibold"
+                            >{{ row.tags?.[key] || '(missing)' }}</span
+                        ></span
+                    >
+                </div>
+                <div class="mt-4 flex gap-4">
+                    <NodeLink
+                        :filters="state"
+                        :from="view"
+                        :node-id="row.id"
+                        class="mod-button !border-0 bg-[var(--brand-soft)] !font-bold !text-daf-text-brand"
+                        >Node history</NodeLink
+                    ><a
+                        :href="osm(`/node/${row.id}`)"
+                        class="mod-link"
+                        rel="noopener noreferrer"
+                        target="_blank"
+                        >Open in OSM ↗</a
+                    >
+                </div>
+            </section>
+            <section v-else :aria-label="`Node information for ${row.id}`">
                 <h2 class="mod-subheading">
                     <NodeLink
                         :node-id="row.id"

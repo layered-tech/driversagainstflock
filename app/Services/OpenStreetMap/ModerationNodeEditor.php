@@ -24,11 +24,11 @@ class ModerationNodeEditor
      */
     public function save(int $id, string $token, array $input, ModerationFlag $flag, int $userId, string $actor): array
     {
-        $options = $this->options($flag);
+        $options = $this->options($flag, $input['action'] === 'adjust');
         if (! in_array($input['action'], $options['actions'], true)) {
             throw ValidationException::withMessages(['action' => 'This action is not available for this report.']);
         }
-        if ($input['action'] === 'tags' && array_diff(array_keys($input['tags']), $options['tag_keys']) !== []) {
+        if (in_array($input['action'], ['tags', 'adjust'], true) && array_diff(array_keys($input['tags']), $options['tag_keys']) !== []) {
             throw ValidationException::withMessages(['tags' => 'Only tags relevant to this rule can be changed from this report.']);
         }
         $this->validateTagUpdate($flag, $input);
@@ -39,7 +39,7 @@ class ModerationNodeEditor
                 throw ValidationException::withMessages(['edit' => 'This node changed on OpenStreetMap. Reload the editor and review the latest version before saving.']);
             }
             $updated = $node;
-            if ($input['action'] === 'tags') {
+            if (in_array($input['action'], ['tags', 'adjust'], true)) {
                 foreach ($input['tags'] as $key => $value) {
                     if ($value === null || $value === '') {
                         unset($updated['tags'][$key]);
@@ -47,7 +47,8 @@ class ModerationNodeEditor
                         $updated['tags'][$key] = $value;
                     }
                 }
-            } elseif ($input['action'] === 'location') {
+            }
+            if (in_array($input['action'], ['location', 'adjust'], true)) {
                 $updated['lat'] = (float) $input['latitude'];
                 $updated['lon'] = (float) $input['longitude'];
             }
@@ -110,10 +111,14 @@ class ModerationNodeEditor
     }
 
     /** @return array{actions: list<string>, tag_keys: list<string>} */
-    public function options(ModerationFlag $flag): array
+    public function options(ModerationFlag $flag, bool $adjust = false): array
     {
         if ($flag->status !== 'open' || ($flag->source === 'rule' && ! $flag->rule?->enabled)) {
             return ['actions' => [], 'tag_keys' => []];
+        }
+
+        if ($adjust) {
+            return ['actions' => ['adjust'], 'tag_keys' => ['direction', 'camera:direction', 'operator', 'surveillance', 'camera:mount', 'camera:type']];
         }
 
         return match ($flag->source === 'alpr_presence' ? 'alpr_presence' : $flag->rule?->type) {
@@ -129,6 +134,16 @@ class ModerationNodeEditor
     /** @param array<string, mixed> $input */
     private function validateTagUpdate(ModerationFlag $flag, array $input): void
     {
+        if ($input['action'] === 'adjust') {
+            foreach (['direction', 'camera:direction'] as $key) {
+                $value = $input['tags'][$key] ?? null;
+                if ($value !== null && $value !== '' && (! app(ModerationRuleEvaluator::class)->validTagValue($value, ['format' => 'direction']) || (is_numeric($value) && (float) $value >= 360))) {
+                    throw ValidationException::withMessages(['tags.'.$key => 'Use a compass bearing from 0 to less than 360 degrees.']);
+                }
+            }
+
+            return;
+        }
         if ($input['action'] !== 'tags') {
             return;
         }

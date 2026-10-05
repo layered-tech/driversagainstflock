@@ -10,6 +10,7 @@ import {
     watch,
 } from 'vue';
 import { filterQuery, moderationPageRoute } from './moderation.js';
+import { flagSourceFilter, selectedFlagSources } from './moderationFlags.js';
 import { useModerationTime } from './useModerationTime.js';
 
 export const moderationListingProps = {
@@ -21,6 +22,7 @@ export const moderationListingProps = {
     areas: Array,
     counts: Object,
     source: Object,
+    operatorOptions: { type: Array, default: () => [] },
     osmUrl: String,
 };
 export function useModerationListing(props, view) {
@@ -37,12 +39,58 @@ export function useModerationListing(props, view) {
             area.name.toLowerCase().includes(areaSearch.value.toLowerCase()),
         ),
     );
-    const selectedArea = computed(() =>
-        props.areas.find((area) => String(area.id) === String(state.area)),
+    const selectedAreas = computed(() =>
+        props.areas.filter((area) =>
+            [...(state.locations || []), state.area]
+                .map(String)
+                .includes(String(area.id)),
+        ),
     );
     function selectArea(id) {
         areaSearch.value = '';
-        apply({ area: id, area_scope: '' });
+        const locations = [
+            ...new Set([
+                ...(state.locations || []).map(Number),
+                ...(state.area ? [Number(state.area)] : []),
+            ]),
+        ];
+        apply({
+            area: '',
+            locations: locations.includes(Number(id))
+                ? locations.filter((value) => value !== Number(id))
+                : [...locations, Number(id)],
+            area_scope: '',
+        });
+    }
+    const operatorSearch = ref('');
+    const operatorSuggestions = computed(() =>
+        [
+            ...new Set([
+                ...(props.operatorOptions || []),
+                ...(props.records?.data || [])
+                    .map((row) => row.operator)
+                    .filter(Boolean),
+            ]),
+        ]
+            .filter(
+                (operator) =>
+                    !(state.operators || []).includes(operator) &&
+                    operator
+                        .toLowerCase()
+                        .includes(operatorSearch.value.toLowerCase()),
+            )
+            .slice(0, 20),
+    );
+    function selectOperator(value) {
+        if (!value.trim()) return;
+        operatorSearch.value = '';
+        const operators = state.operators || [];
+        apply({
+            operator: '',
+            operators: operators.includes(value)
+                ? operators.filter((item) => item !== value)
+                : [...operators, value],
+        });
     }
 
     const expanded = ref(null);
@@ -77,7 +125,7 @@ export function useModerationListing(props, view) {
             'Every OpenStreetMap edit that touches a surveillance node, as it lands.',
         nodes: 'Every ALPR node on the map, as OpenStreetMap has it. Open a node for its full history.',
         flagged:
-            'Rule flags and unverified driver reports, available for review.',
+            'Nodes tripped by the active moderation rules or reported “Not there” by drivers, waiting for review. Dismiss the flag, or adjust the node upstream.',
         editors:
             'The people editing the surveillance map, and the edits they leave behind.',
         areas: 'Shared boundaries. Subscribe to keep the places you care about close.',
@@ -89,8 +137,29 @@ export function useModerationListing(props, view) {
     const isNodes = computed(() => ['nodes', 'flagged'].includes(view));
     const groups = computed(() =>
         ['nodes', 'flagged', 'editors'].includes(view)
-            ? []
+            ? view === 'editors'
+                ? [
+                      {
+                          key: 'editor_statuses',
+                          label: 'Status',
+                          options: ['Trusted', 'Neutral', 'New', 'Watch'],
+                      },
+                  ]
+                : []
             : [
+                  ...(view === 'changesets'
+                      ? [
+                            {
+                                key: 'statuses',
+                                label: 'Status',
+                                options: [
+                                    'Needs review',
+                                    'Reviewed',
+                                    'Flagged',
+                                ],
+                            },
+                        ]
+                      : []),
                   {
                       key: 'kinds',
                       label: 'Changes',
@@ -98,6 +167,42 @@ export function useModerationListing(props, view) {
                   },
               ],
     );
+    const selectedSources = computed(() =>
+        selectedFlagSources(state.flag_source),
+    );
+    function changeSource(source, add = false) {
+        const selected = selectedSources.value;
+        const sources = selected.includes(source)
+            ? add
+                ? selected
+                : selected.filter((value) => value !== source)
+            : [...selected, source];
+        apply({
+            flag_source: flagSourceFilter(sources),
+            sort: '',
+            report_state: '',
+            report_window: '',
+        });
+    }
+    const hiddenColumns = ref([]);
+    const columnOptions = computed(() =>
+        view === 'flagged'
+            ? [
+                  ['rules', 'Rules'],
+                  ['severity', 'Severity'],
+                  ['direction', 'Direction'],
+                  ['operator', 'Operator'],
+                  ['editor', 'Changed by'],
+                  ['detected', 'Detected'],
+              ]
+            : [],
+    );
+    const columnVisible = (key) => !hiddenColumns.value.includes(key);
+    function toggleColumn(key) {
+        hiddenColumns.value = columnVisible(key)
+            ? [...hiddenColumns.value, key]
+            : hiddenColumns.value.filter((column) => column !== key);
+    }
     const filtersActive = computed(() =>
         Object.keys(filterQuery(state)).some(
             (key) => !['view', 'uid', 'page', 'sort', 'order'].includes(key),
@@ -108,8 +213,25 @@ export function useModerationListing(props, view) {
         () => {
             clearTimeout(timer);
             areaSearch.value = '';
+            operatorSearch.value = '';
             Object.keys(state).forEach((key) => delete state[key]);
-            Object.assign(state, { area: '', window: '' }, props.filters);
+            Object.assign(
+                state,
+                {
+                    area: '',
+                    window: '',
+                    sort:
+                        view === 'flagged'
+                            ? props.filters?.flag_source === 'alpr_presence'
+                                ? 'reported_at'
+                                : 'detected_at'
+                            : view === 'editors'
+                              ? 'changesets_count'
+                              : 'changed_at',
+                    order: 'desc',
+                },
+                props.filters,
+            );
             expanded.value = null;
             review.clearErrors();
             for (const request of requests.values()) request.abort();
@@ -297,6 +419,12 @@ export function useModerationListing(props, view) {
 
     return {
         ...toRefs(props),
+        selectedSources,
+        changeSource,
+        hiddenColumns,
+        columnOptions,
+        columnVisible,
+        toggleColumn,
         view,
         title,
         descriptions,
@@ -309,7 +437,10 @@ export function useModerationListing(props, view) {
         loading,
         areaSearch,
         matchingAreas,
-        selectedArea,
+        selectedAreas,
+        operatorSearch,
+        operatorSuggestions,
+        selectOperator,
         selectArea,
         expanded,
         details,

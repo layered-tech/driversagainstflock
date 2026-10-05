@@ -6,6 +6,7 @@ use App\Http\Requests\ModerationIndexRequest;
 use App\Models\AlprPresenceReport;
 use App\Models\ModerationActivity;
 use App\Models\ModerationContribution;
+use App\Models\ModerationEditorStatus;
 use App\Models\ModerationEditorSummary;
 use App\Models\ModerationFlag;
 use App\Models\ModerationProcess;
@@ -114,13 +115,14 @@ class ModerationController extends Controller
                             $query->whereIn('id', ModerationContribution::where('status', 'reverted')->distinct()->pluck('changeset_id')->all());
                         }
                         $sorts = match ($view) {
-                            'nodes', 'flagged' => ['reported_at', 'id', 'changed_at', 'osm_user', 'direction', 'operator'],
+                            'nodes' => ['id', 'changed_at', 'osm_user', 'direction', 'operator'],
+                            'flagged' => ['severity', 'detected_at', 'reported_at', 'id', 'changed_at', 'osm_user', 'direction', 'operator'],
                             'editors' => ['name', 'tracked_changesets', 'last_active', 'added', 'modified', 'deleted'],
                             default => ['id', 'changed_at', 'osm_user', 'added', 'modified', 'deleted', 'total', 'status'],
                         };
                         $sort = ($filters['sort'] ?? null) === 'changesets_count' ? 'tracked_changesets' : ($filters['sort'] ?? '');
                         if (! in_array($sort, $sorts, true)) {
-                            $sort = ($view === 'flagged' && ($filters['flag_source'] ?? null) === 'alpr_presence') ? 'reported_at' : ($view === 'editors' ? 'tracked_changesets' : 'changed_at');
+                            $sort = ($view === 'flagged' && ($filters['flag_source'] ?? null) === 'alpr_presence') ? 'reported_at' : ($view === 'flagged' ? 'detected_at' : ($view === 'editors' ? 'tracked_changesets' : 'changed_at'));
                         }
                         $order = $filters['order'] ?? 'desc';
                         $query->orderBy($sort, $order);
@@ -137,7 +139,7 @@ class ModerationController extends Controller
                         }
                         if (in_array($view, ['nodes', 'flagged'], true)) {
                             $ids = $records->getCollection()->pluck('id');
-                            $flags = ModerationFlag::forListing($view === 'flagged' ? array_intersect_key($filters, array_flip(['flag_source', 'report_state'])) : [])->with('rule:id,name,severity')->whereIn('node_id', $ids)->get();
+                            $flags = ModerationFlag::forListingDetails($view === 'flagged' ? $filters : [])->with('rule:id,name,severity')->whereIn('node_id', $ids)->orderByDesc('source')->get();
                             $records->through(fn (array $row): array => [...$row, 'flags' => $flags->where('node_id', $row['id'])->values()->toArray()]);
                             $records->setCollection(collect(app(ModerationNodeEditor::class)->overlay($records->getCollection()->all())));
                         }
@@ -149,6 +151,10 @@ class ModerationController extends Controller
         } catch (QueryException $exception) {
             report($exception);
             $source['state'] = 'unavailable';
+        }
+
+        if ($profile !== null && $view === 'profile') {
+            $profile['editor_status'] = ModerationEditorStatus::where('osm_uid', $filters['uid'])->value('status');
         }
 
         return Inertia::render($component, [
@@ -163,7 +169,11 @@ class ModerationController extends Controller
     /** @param array<string, mixed> $filters */
     private function editorRecords(ModerationIndexRequest $request, array $filters, array &$source): Paginator
     {
-        $query = ModerationEditorSummary::query()->whereNotNull('calculated_at');
+        $query = ModerationEditorSummary::query()->whereNotNull('calculated_at')
+            ->addSelect(['editor_status' => ModerationEditorStatus::select('status')->whereColumn('osm_uid', 'moderation_editor_summaries.osm_uid')->limit(1)]);
+        if (! empty($filters['editor_statuses'])) {
+            $query->whereIn('osm_uid', ModerationEditorStatus::select('osm_uid')->whereIn('status', $filters['editor_statuses']));
+        }
         if (! empty($filters['user'])) {
             ctype_digit($filters['user'])
                 ? $query->where('osm_uid', $filters['user'])
@@ -173,6 +183,9 @@ class ModerationController extends Controller
             $query->where('last_active', '>=', match ($filters['window']) {
                 '24h' => now()->subDay(), '7d' => now()->subDays(7), default => now()->subDays(30),
             });
+        }
+        if (! empty($filters['locations'])) {
+            $query->whereHas('areas', fn ($areas) => $areas->whereKey($filters['locations']));
         }
         if (! empty($filters['area'])) {
             $query->whereHas('areas', fn ($areas) => $areas->whereKey($filters['area']));
@@ -186,6 +199,7 @@ class ModerationController extends Controller
             'flags_count' => 'flags_count',
             'survival' => 'survival_percent',
             'area_count' => 'areas_count',
+            'status' => 'editor_status',
             'last_active' => 'last_active',
             default => 'tracked_changesets',
         };
@@ -195,7 +209,7 @@ class ModerationController extends Controller
                 ...$summary->toArray(),
                 'id' => $summary->osm_uid,
                 'area_count' => $summary->areas_count,
-                'status' => null,
+                'status' => $summary->editor_status,
                 'survival' => ['percent' => $summary->survival_percent, 'reverted' => $summary->survival_reverted],
             ]);
 

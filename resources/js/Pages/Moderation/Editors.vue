@@ -1,4 +1,5 @@
 <script setup>
+import EditorStatus from '@/Components/Moderation/EditorStatus.vue';
 import ChangeCounts from '@/Components/Moderation/ChangeCounts.vue';
 import { Link } from '@inertiajs/vue3';
 import { relativeTime } from '@/moderation';
@@ -17,7 +18,8 @@ const columns = [
     ['changes', '+ / ~ / −'],
     ['flags_count', 'Open flags'],
     ['survival', 'Survival'],
-    ['area_count', 'Areas'],
+    ['area_count', 'Locations'],
+    ['status', 'Status'],
     ['last_active', 'Last active'],
 ];
 </script>
@@ -81,6 +83,12 @@ const columns = [
             <td class="font-mono">
                 {{ row.area_count ?? '—' }}
             </td>
+            <td>
+                <EditorStatus
+                    :status="row.editor_status || row.status"
+                    :uid="row.osm_uid"
+                />
+            </td>
             <td
                 class="whitespace-nowrap font-mono text-xs text-daf-text-tertiary"
             >
@@ -89,7 +97,7 @@ const columns = [
                     :title="absoluteTime(row.last_active)"
                     >{{ relativeTime(row.last_active) }}</time
                 >
-            </td></template
-        ></ModerationListing
+            </td>
+        </template></ModerationListing
     >
 </template>

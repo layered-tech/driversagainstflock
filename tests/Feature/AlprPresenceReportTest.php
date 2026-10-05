@@ -419,3 +419,25 @@ test('individual report details require moderator access', function () {
     $this->getJson('/moderation/nodes/987654321')->assertUnauthorized();
     $this->actingAs(User::factory()->create())->getJson('/moderation/nodes/987654321')->assertForbidden();
 });
+
+test('source filters retain both kinds of evidence for mixed nodes and dismiss reports independently', function () {
+    $this->moderator();
+    WatchedArea::factory()->create();
+    $this->postJson('/api/v1/alpr-presence-reports', $this->payload)->assertCreated();
+    $reportFlag = ModerationFlag::firstOrFail();
+    $rule = ModerationRule::factory()->create(['enabled' => true, 'severity' => 'High']);
+    $ruleFlag = ModerationFlag::create(['source' => 'rule', 'rule_id' => $rule->id, 'rule_version' => 1,
+        'node_id' => 987654321, 'related_node_id' => 0, 'node_version' => 1, 'status' => 'open',
+        'evidence' => ['missing_tags' => ['direction']], 'evidence_hash' => hash('sha256', 'mixed-rule'), 'evaluated_at' => now()]);
+    foreach (['rule', 'alpr_presence', 'all'] as $source) {
+        $this->get('/moderation/flagged?flag_source='.$source)->assertInertia(fn ($page) => $page
+            ->has('records.data', 1)->has('records.data.0.flags', 2)
+            ->where('records.data.0.severity', 3));
+    }
+    $this->patch('/moderation/flags/'.$reportFlag->id.'/dismiss', ['evidence_hash' => $reportFlag->evidence_hash])->assertRedirect();
+    expect($ruleFlag->fresh()->status)->toBe('open')->and($reportFlag->fresh()->status)->toBe('dismissed');
+    $this->get('/moderation/flagged?flag_source=rule')->assertInertia(fn ($page) => $page->has('records.data', 1)->has('records.data.0.flags', 1));
+    $this->get('/moderation/flagged?flag_source=alpr_presence')->assertInertia(fn ($page) => $page->has('records.data', 0));
+    $this->get('/moderation/flagged?flag_source=alpr_presence&report_state=dismissed')->assertInertia(fn ($page) => $page->has('records.data', 1)->has('records.data.0.flags', 2));
+    $this->getJson('/moderation/nodes/987654321')->assertOk()->assertJsonPath('reports.total', 1)->assertJsonPath('reports.data.0.server_node_version', 1);
+});

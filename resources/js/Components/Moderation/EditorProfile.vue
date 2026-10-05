@@ -1,5 +1,6 @@
 <script setup>
 import { useModerationTime } from '@/useModerationTime';
+import EditorStatus from '@/Components/Moderation/EditorStatus.vue';
 import ChangeCounts from '@/Components/Moderation/ChangeCounts.vue';
 import DafIcon from '@/Components/Daf/DafIcon.vue';
 import ModerationMap from '@/Components/Moderation/ModerationMap.vue';
@@ -263,7 +264,11 @@ onBeforeUnmount(resetDetails);
                     · {{ profile.identity.last_error }}</span
                 >
             </p>
-            <div class="flex flex-wrap gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+                <EditorStatus
+                    :status="profile.editor_status"
+                    :uid="profile.osm_uid"
+                />
                 <Link :href="listing('changesets')" class="mod-button !h-[34px]"
                     >Changesets</Link
                 >
