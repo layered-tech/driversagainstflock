@@ -20,7 +20,9 @@ export const APP_ENVIRONMENT =
 const MAP_DEBUG_CONTROLS_ARE_HIDDEN = false;
 export const SHOW_MAP_DEBUG_CONTROLS =
     !MAP_DEBUG_CONTROLS_ARE_HIDDEN &&
-    (APP_ENVIRONMENT === 'development' || APP_ENVIRONMENT === 'staging');
+    (APP_ENVIRONMENT === 'development' ||
+        APP_ENVIRONMENT === 'staging' ||
+        APP_ENVIRONMENT === 'e2e');
 
 export function getApiBaseURL() {
     const configuredBaseURL = process.env.EXPO_PUBLIC_API_BASE_URL;

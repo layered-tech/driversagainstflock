@@ -33,6 +33,7 @@ import {
     formatAndroidAutoPerformanceTrace,
     getAndroidAutoPerformanceTraceAsync,
 } from '../android-auto-performance-trace';
+import { useContribute } from '../contribute/contribute-state';
 import { AlprPresenceDebugPane } from '../map/alpr-presence-debug-pane';
 import { SHOW_MAP_DEBUG_CONTROLS } from '../map/config';
 import { MAX_ZOOM_LEVEL, MIN_ZOOM_LEVEL } from '../map/constants';
@@ -122,6 +123,7 @@ const DEBUG_DRAWER_ITEMS = [
 ];
 
 export function DebugDrawer({ onClose, visible }) {
+    const { tour } = useContribute();
     const {
         debugOverlayVisibility,
         mapPreferencesAreLoaded,
@@ -136,6 +138,9 @@ export function DebugDrawer({ onClose, visible }) {
     const [androidAutoTraceStatus, setAndroidAutoTraceStatus] = useState('');
     const [cameraZoomInput, setCameraZoomInput] = useState('');
     const [cameraZoomError, setCameraZoomError] = useState('');
+    const [tourResetStatus, setTourResetStatus] = useState('idle');
+    const tourResetIsInProgress = tourResetStatus === 'resetting';
+    const tourResetIsDisabled = tourResetIsInProgress || !tour.progress;
     const animationProgressRef = useRef(new Animated.Value(visible ? 1 : 0));
     const drawerWidth = useMemo(
         () =>
@@ -188,6 +193,18 @@ export function DebugDrawer({ onClose, visible }) {
         setCameraZoomError('');
         setDebugCameraZoomLevel(zoomLevel);
     }, [cameraZoomInput]);
+
+    const handleResetContributionTour = useCallback(async () => {
+        setTourResetStatus('resetting');
+
+        try {
+            await tour.reset();
+            setTourResetStatus('success');
+            onClose();
+        } catch {
+            setTourResetStatus('error');
+        }
+    }, [onClose, tour]);
 
     useEffect(() => {
         if (visible) {
@@ -260,6 +277,49 @@ export function DebugDrawer({ onClose, visible }) {
                         padding: 16,
                     }}
                 >
+                    <View className="gap-2 rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+                        <Text className="text-sm font-semibold text-neutral-950 dark:text-white">
+                            Contribution walkthrough
+                        </Text>
+                        <Text className="text-xs leading-4 text-neutral-600 dark:text-neutral-400">
+                            Reset the tour to see the walkthrough again.
+                        </Text>
+                        <Pressable
+                            accessibilityLabel="Reset contribution tour"
+                            accessibilityRole="button"
+                            accessibilityState={{
+                                busy: tourResetIsInProgress,
+                                disabled: tourResetIsDisabled,
+                            }}
+                            className="min-h-hitComfy items-center justify-center rounded-md bg-blue-600 px-3 py-2 disabled:opacity-50"
+                            disabled={tourResetIsDisabled}
+                            onPress={handleResetContributionTour}
+                            testID="debug-drawer-reset-contribution-tour"
+                        >
+                            <Text className="text-sm font-semibold text-white">
+                                {tourResetIsInProgress
+                                    ? 'Resetting…'
+                                    : 'Reset contribution tour'}
+                            </Text>
+                        </Pressable>
+                        {tourResetStatus === 'success' ? (
+                            <Text
+                                accessibilityLiveRegion="polite"
+                                className="text-xs leading-4 text-neutral-600 dark:text-neutral-400"
+                                testID="debug-drawer-contribution-tour-reset-success"
+                            >
+                                Tour reset. Open Contribute to replay it.
+                            </Text>
+                        ) : tourResetStatus === 'error' ? (
+                            <Text
+                                accessibilityLiveRegion="polite"
+                                className="text-xs leading-4 text-red-600 dark:text-red-400"
+                                testID="debug-drawer-contribution-tour-reset-error"
+                            >
+                                Could not reset the tour. Please try again.
+                            </Text>
+                        ) : null}
+                    </View>
                     {DEBUG_DRAWER_ITEMS.map((item) => (
                         <Fragment key={item.key}>
                             <DebugDrawerToggleRow

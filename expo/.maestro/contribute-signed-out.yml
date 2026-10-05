@@ -1,44 +1,66 @@
 appId: com.anonymous.drivefree.dev
-name: Contribute Signed Out Mocked
+name: Contribution Tour Signed Out Entry
 tags:
   - contribute
+  - contribute-tour
   - map
 ---
-- setLocation:
-    latitude: 30.26715
-    longitude: -97.74035
-- launchApp:
-    stopApp: true
-    permissions:
-      all: allow
-- extendedWaitUntil:
-    visible:
-      id: 'map-search-input-map'
-    timeout: 120000
-- openLink: 'driversagainstflock://e2e-mocks?auth=0'
-- extendedWaitUntil:
-    visible:
-      id: 'map-search-input-map'
-    timeout: 10000
+- runFlow:
+    file: subflows/contribute-tour-setup.yml
+    env:
+      CONTRIBUTE_AUTH: '0'
+- runFlow:
+    file: subflows/contribute-tour-tip.yml
+    env:
+      TOUR_STEP: start
+      TOUR_TITLE: Your first contribution
+- assertVisible:
+    id: 'contribute-account-card-signed-out'
+- assertVisible:
+    id: 'contribute-sign-in-button'
+- assertNotVisible:
+    id: 'contribute-start-editing-button'
+- assertNotVisible:
+    id: 'contribute-placement-sheet'
+- assertNotVisible:
+    id: 'contribute-tour-placement-map'
 
-# Without the auth mock the start sheet must show the signed-out card
-- extendedWaitUntil:
-    visible:
-      id: 'map-contribute-button'
-    timeout: 30000
-- waitForAnimationToEnd
+# Closing and reopening the sheet retains the dismissed sign-in guidance.
+- tapOn:
+    point: '10%,15%'
+    retryTapIfNoChange: false
 - assertNotVisible:
     id: 'contribute-start-sheet'
 - tapOn:
     id: 'map-contribute-button'
     retryTapIfNoChange: false
-- extendedWaitUntil:
-    visible:
-      id: 'contribute-start-sheet'
-    timeout: 30000
-- assertVisible:
-    id: 'contribute-start-sheet-title'
 - assertVisible:
     id: 'contribute-account-card-signed-out'
+- assertNotVisible:
+    id: 'contribute-tour-start'
+
+# Inject the same fixture as the other flows rather than opening real OAuth.
+- openLink: 'driversagainstflock://e2e-mocks?auth=1'
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-account-card-signed-in'
+    timeout: 10000
+- assertNotVisible:
+    id: 'contribute-tour-start'
+- tapOn:
+    id: 'contribute-start-editing-button'
+    retryTapIfNoChange: false
+- runFlow:
+    file: subflows/contribute-tour-tip.yml
+    env:
+      TOUR_STEP: placement-map
+      TOUR_TITLE: Find the camera’s exact location
+- runFlow:
+    file: subflows/contribute-tour-tip.yml
+    env:
+      TOUR_STEP: placement
+      TOUR_TITLE: Put the camera in the right place
 - assertVisible:
-    id: 'contribute-sign-in-button'
+    id: 'contribute-placement-sheet'
+- assertNotVisible:
+    id: 'contribute-tour-camera-details'

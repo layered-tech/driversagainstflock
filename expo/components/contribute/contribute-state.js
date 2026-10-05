@@ -30,6 +30,7 @@ import {
     writeStoredDraft,
 } from './contribute-draft-storage';
 import { buildChangesetTags, buildNodeTags } from './osm-tags';
+import { useContributeTour } from './use-contribute-tour';
 
 const CONTRIBUTE_DRAFT_AUTOSAVE_DELAY_MS = 1000;
 
@@ -79,6 +80,7 @@ export function ContributeProvider({ children }) {
     const [changeset, setChangeset] = useState(createDefaultChangeset);
     const [coachMarkIsDismissed, setCoachMarkIsDismissed] = useState(false);
     const [contributeStatus, setContributeStatus] = useState('idle');
+    const tour = useContributeTour(contributeStatus);
     const [draftUpdatedAt, setDraftUpdatedAt] = useState(null);
     const [pins, setPins] = useState([]);
     const [publishError, setPublishError] = useState(null);
@@ -440,6 +442,7 @@ export function ContributeProvider({ children }) {
             saveDraft: persistDraftNow,
             startPlacing,
             storedDraftSummary,
+            tour,
             updateChangeset,
             updatePinDetails,
             updatePinLocation,
@@ -467,6 +470,7 @@ export function ContributeProvider({ children }) {
             resumeStoredDraft,
             startPlacing,
             storedDraftSummary,
+            tour,
             updateChangeset,
             updatePinDetails,
             updatePinLocation,

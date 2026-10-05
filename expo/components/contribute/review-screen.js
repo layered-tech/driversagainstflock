@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useCallback } from 'react';
+import { router, useIsFocused } from 'expo-router';
+import { useCallback, useRef } from 'react';
 import { Alert, ScrollView, Text, useColorScheme, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
@@ -9,6 +9,8 @@ import { DafButton, DafSectionLabel } from '../design-system/primitives';
 import { dafColors, getDafTheme } from '../design-system/tokens';
 import { saveDraftBeforeExit } from './contribute-draft-actions';
 import { useContribute } from './contribute-state';
+import { ContributeTourOverlay } from './contribute-tour-overlay';
+import { ContributeTourTarget } from './contribute-tour-target';
 import { ContributePageHeader } from './step-header';
 
 const MANUFACTURER_LABELS = {
@@ -44,6 +46,10 @@ function formatSourceLabel(source) {
 }
 
 export default function ReviewPublishScreen() {
+    const tourTargets = useRef({});
+    const tourScrollRef = useRef(null);
+    const tourContentRef = useRef(null);
+    const screenIsFocused = useIsFocused();
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
@@ -55,6 +61,7 @@ export default function ReviewPublishScreen() {
         publishError,
         publishStatus,
         saveDraft,
+        tour,
     } = useContribute();
     const isPublishing = publishStatus === 'publishing';
     const theme = getDafTheme(colorScheme);
@@ -99,9 +106,13 @@ export default function ReviewPublishScreen() {
                 step={4}
                 title="Review & publish"
             />
-            <ScrollView className="flex-1">
-                <View className="gap-4 p-4">
-                    <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark rounded-dafMd border border-daf-border bg-white p-3.5">
+            <ScrollView className="flex-1" ref={tourScrollRef}>
+                <View
+                    className="gap-4 p-4"
+                    collapsable={false}
+                    ref={tourContentRef}
+                >
+                    <View className="rounded-dafMd border border-daf-border bg-white p-3.5 dark:border-daf-border-dark dark:bg-daf-surface-dark">
                         <DafSectionLabel className="mb-1.5">
                             Comment
                         </DafSectionLabel>
@@ -117,16 +128,22 @@ export default function ReviewPublishScreen() {
                             Changes · {pins.length}
                         </DafSectionLabel>
                         {pins.map((pin, pinIndex) => (
-                            <View
+                            <ContributeTourTarget
+                                id={
+                                    pinIndex === 0
+                                        ? 'review'
+                                        : `review-${pinIndex}`
+                                }
+                                targets={tourTargets}
                                 className={`flex-row items-center gap-[11px] py-2.5 ${
                                     pinIndex < pins.length - 1
-                                        ? 'dark:border-daf-border-dark border-b border-daf-border'
+                                        ? 'border-b border-daf-border dark:border-daf-border-dark'
                                         : ''
                                 }`}
                                 key={pin.id}
                                 testID={`contribute-change-row-${pinIndex}`}
                             >
-                                <View className="bg-daf-brand/12 dark:bg-daf-brand/15 h-[26px] w-[26px] items-center justify-center rounded-dafPill">
+                                <View className="bg-daf-brand/12 h-[26px] w-[26px] items-center justify-center rounded-dafPill dark:bg-daf-brand/15">
                                     <Icon
                                         color={theme.text.brand}
                                         name="plus"
@@ -149,7 +166,7 @@ export default function ReviewPublishScreen() {
                                         {pin.longitude.toFixed(4)}
                                     </Text>
                                 </View>
-                            </View>
+                            </ContributeTourTarget>
                         ))}
                     </View>
                     <View className="flex-row gap-4">
@@ -189,12 +206,12 @@ export default function ReviewPublishScreen() {
                 </View>
             </ScrollView>
             <View
-                className="dark:border-daf-border-dark dark:bg-daf-surface-dark border-t border-daf-border bg-white px-4 pt-3"
+                className="border-t border-daf-border bg-white px-4 pt-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
                 style={{ paddingBottom: footerPaddingBottom }}
             >
                 {publishError ? (
                     <View
-                        className="border-daf-alert/30 bg-daf-alert/10 dark:bg-daf-alert/15 mb-2.5 rounded-dafSm border p-3"
+                        className="mb-2.5 rounded-dafSm border border-daf-alert/30 bg-daf-alert/10 p-3 dark:bg-daf-alert/15"
                         testID="contribute-publish-error"
                     >
                         <Text className="text-[13px] leading-[18px] text-daf-alert">
@@ -202,17 +219,19 @@ export default function ReviewPublishScreen() {
                         </Text>
                     </View>
                 ) : null}
-                <DafButton
-                    icon="upload"
-                    loading={isPublishing}
-                    onPress={handlePublishPress}
-                    size="lg"
-                    testID="contribute-publish-button"
-                >
-                    {publishStatus === 'error'
-                        ? 'Try again'
-                        : 'Publish to OpenStreetMap'}
-                </DafButton>
+                <ContributeTourTarget id="publish" targets={tourTargets}>
+                    <DafButton
+                        icon="upload"
+                        loading={isPublishing}
+                        onPress={handlePublishPress}
+                        size="lg"
+                        testID="contribute-publish-button"
+                    >
+                        {publishStatus === 'error'
+                            ? 'Try again'
+                            : 'Publish to OpenStreetMap'}
+                    </DafButton>
+                </ContributeTourTarget>
                 <View className="h-2.5" />
                 <DafButton
                     disabled={isPublishing}
@@ -223,6 +242,15 @@ export default function ReviewPublishScreen() {
                     Save as draft
                 </DafButton>
             </View>
+            <ContributeTourOverlay
+                enabled={screenIsFocused && !isPublishing}
+                insets={insets}
+                phase="review"
+                targets={tourTargets}
+                tour={tour}
+                contentRef={tourContentRef}
+                scrollRef={tourScrollRef}
+            />
         </View>
     );
 }

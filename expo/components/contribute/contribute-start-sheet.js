@@ -1,4 +1,5 @@
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { useIsFocused } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Text, useWindowDimensions, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
@@ -12,6 +13,8 @@ import {
 import { useBottomSheetPresentedState } from '../map/use-bottom-sheet-presented-state';
 import { ContributeAuthProgress } from './contribute-auth-progress';
 import { useContribute } from './contribute-state';
+import { ContributeTourOverlay } from './contribute-tour-overlay';
+import { ContributeTourTarget } from './contribute-tour-target';
 
 const CONTRIBUTE_STEPS = [
     'Place a pin on each camera',
@@ -66,7 +69,7 @@ function ContributeAccountCard({ isAuthenticated, subtitle, testID, title }) {
                 className={`h-10 w-10 items-center justify-center rounded-dafPill ${
                     isAuthenticated
                         ? 'bg-daf-brand/15'
-                        : 'dark:bg-daf-surface-dark bg-white'
+                        : 'bg-white dark:bg-daf-surface-dark'
                 }`}
             >
                 <Icon
@@ -105,6 +108,7 @@ export function ContributeStartSheet({
     mapPreferencesAreLoaded,
     renderBackdrop,
 }) {
+    const screenIsFocused = useIsFocused();
     const { height: windowHeight } = useWindowDimensions();
     const {
         ensureWriteAccess,
@@ -121,8 +125,12 @@ export function ContributeStartSheet({
         resumeStoredDraft,
         startPlacing,
         storedDraftSummary,
+        tour,
     } = useContribute();
     const sheetRef = useRef(null);
+    const tourTargets = useRef({});
+    const tourScrollRef = useRef(null);
+    const tourContentRef = useRef(null);
     const startSheetIsPresentedRef = useRef(false);
     const [signInError, setSignInError] = useState('');
     const startSheetIsOpen = contributeStatus === 'start-sheet';
@@ -179,186 +187,229 @@ export function ContributeStartSheet({
     }, [ensureWriteAccess]);
 
     const handleResumeDraftPress = useCallback(() => {
+        tour.dismissStep('start');
         resumeStoredDraft();
-    }, [resumeStoredDraft]);
+    }, [resumeStoredDraft, tour]);
+
+    const handleStartEditingPress = useCallback(() => {
+        tour.dismissStep('start');
+        startPlacing();
+    }, [startPlacing, tour]);
 
     if (!mapPreferencesAreLoaded) {
         return null;
     }
 
     return (
-        <NativeWindBottomSheetModal
-            ref={sheetRef}
-            accessible={false}
-            backdropComponent={renderStartSheetBackdrop}
-            backgroundStyle={bottomSheetBackgroundStyle}
-            enableDynamicSizing
-            enableOverDrag={false}
-            enablePanDownToClose={!isSigningIn}
-            handleIndicatorStyle={bottomSheetHandleIndicatorStyle}
-            index={0}
-            maxDynamicContentSize={windowHeight * 0.85}
-            onChange={handleBottomSheetChange}
-            onDismiss={handleBottomSheetDismiss}
-        >
-            <NativeWindBottomSheetView
-                className="dark:bg-daf-surface-dark bg-white"
-                testID={
-                    bottomSheetIsPresented
-                        ? 'contribute-start-sheet'
-                        : undefined
-                }
+        <>
+            <NativeWindBottomSheetModal
+                ref={sheetRef}
+                accessible={false}
+                backdropComponent={renderStartSheetBackdrop}
+                backgroundStyle={bottomSheetBackgroundStyle}
+                enableDynamicSizing
+                enableOverDrag={false}
+                enablePanDownToClose={!isSigningIn}
+                handleIndicatorStyle={bottomSheetHandleIndicatorStyle}
+                index={0}
+                maxDynamicContentSize={windowHeight * 0.85}
+                onChange={handleBottomSheetChange}
+                onDismiss={handleBottomSheetDismiss}
             >
-                <BottomSheetScrollView
-                    contentContainerStyle={{
-                        gap: 16,
-                        paddingBottom: Math.max(insets.bottom + 12, 20),
-                        paddingHorizontal: 24,
-                        paddingTop: 4,
-                    }}
-                    showsVerticalScrollIndicator={false}
+                <NativeWindBottomSheetView
+                    className="bg-white dark:bg-daf-surface-dark"
+                    testID={
+                        bottomSheetIsPresented
+                            ? 'contribute-start-sheet'
+                            : undefined
+                    }
                 >
-                    {authProgressIsVisible ? (
-                        <ContributeAuthProgress
-                            hasUser={Boolean(user)}
-                            hasWriteScope={hasWriteScope}
-                            isAuthenticated={isAuthenticated}
-                            isLoading={isLoading}
-                            isSigningIn={isSigningIn}
-                        />
-                    ) : (
-                        <>
-                            <View className="gap-1">
-                                <Text
-                                    className="font-dafDisplay text-[21px] font-bold leading-7 text-daf-text-primary dark:text-white"
-                                    testID="contribute-start-sheet-title"
-                                >
-                                    Start a changeset
-                                </Text>
-                                <Text className="text-sm text-daf-text-secondary dark:text-neutral-300">
-                                    Add camera data to OpenStreetMap
-                                </Text>
-                            </View>
-
-                            {isAuthenticated ? (
-                                <ContributeAccountCard
-                                    isAuthenticated
-                                    subtitle={
-                                        hasWriteScope
-                                            ? 'OpenStreetMap account · signed in'
-                                            : 'Signed in — editing access needed'
-                                    }
-                                    title={
-                                        user?.name
-                                            ? `@${user.name}`
-                                            : 'OpenStreetMap account'
-                                    }
-                                    testID="contribute-account-card-signed-in"
+                    <BottomSheetScrollView
+                        ref={tourScrollRef}
+                        contentContainerStyle={{
+                            gap: 16,
+                            paddingBottom: Math.max(insets.bottom + 12, 20),
+                            paddingHorizontal: 24,
+                            paddingTop: 4,
+                        }}
+                        showsVerticalScrollIndicator={false}
+                    >
+                        <View
+                            className="gap-4"
+                            collapsable={false}
+                            ref={tourContentRef}
+                        >
+                            {authProgressIsVisible ? (
+                                <ContributeAuthProgress
+                                    hasUser={Boolean(user)}
+                                    hasWriteScope={hasWriteScope}
+                                    isAuthenticated={isAuthenticated}
+                                    isLoading={isLoading}
+                                    isSigningIn={isSigningIn}
                                 />
                             ) : (
-                                <ContributeAccountCard
-                                    isAuthenticated={false}
-                                    subtitle="You need an OpenStreetMap account to publish edits"
-                                    testID="contribute-account-card-signed-out"
-                                    title="Not signed in"
-                                />
-                            )}
-
-                            {storedDraftSummary ? (
-                                <View className="dark:border-daf-border-dark gap-3 rounded-dafMd border border-daf-border bg-daf-surface-alt p-3 dark:bg-daf-surface-inverse">
-                                    <Text className="text-sm font-semibold text-daf-text-primary dark:text-white">
-                                        {`Draft in progress — ${formatDraftPinCount(storedDraftSummary.pinCount)} · saved ${formatDraftSavedRelativeTime(storedDraftSummary.updatedAt)}`}
-                                    </Text>
-                                    <View className="flex-row gap-2">
-                                        <DafButton
-                                            accessibilityLabel="Resume draft"
-                                            className="flex-1"
-                                            onPress={handleResumeDraftPress}
-                                            testID="contribute-resume-draft-button"
-                                            variant="secondary"
+                                <>
+                                    <View className="gap-1">
+                                        <Text
+                                            className="font-dafDisplay text-[21px] font-bold leading-7 text-daf-text-primary dark:text-white"
+                                            testID="contribute-start-sheet-title"
                                         >
-                                            Resume draft
-                                        </DafButton>
-                                        <DafButton
-                                            accessibilityLabel="Discard draft"
-                                            className="flex-1"
-                                            onPress={discardStoredDraft}
-                                            testID="contribute-discard-draft-button"
-                                            variant="ghost"
-                                        >
-                                            Discard draft
-                                        </DafButton>
-                                    </View>
-                                </View>
-                            ) : null}
-
-                            <Text className="text-sm leading-[21px] text-daf-text-secondary dark:text-neutral-300">
-                                Your edits are public and credited to you. Place
-                                new camera nodes or fix existing ones, then
-                                publish them together in one changeset.
-                            </Text>
-
-                            <View className="gap-2.5">
-                                {CONTRIBUTE_STEPS.map((step, stepIndex) => (
-                                    <View
-                                        className="flex-row items-center gap-[11px]"
-                                        key={step}
-                                    >
-                                        <View className="bg-daf-brand/15 h-6 w-6 items-center justify-center rounded-dafPill">
-                                            <Text className="font-dafMono text-xs font-bold text-daf-text-brand dark:text-daf-brand">
-                                                {stepIndex + 1}
-                                            </Text>
-                                        </View>
-                                        <Text className="flex-1 text-sm text-daf-text-primary dark:text-white">
-                                            {step}
+                                            Start a changeset
+                                        </Text>
+                                        <Text className="text-sm text-daf-text-secondary dark:text-neutral-300">
+                                            Add camera data to OpenStreetMap
                                         </Text>
                                     </View>
-                                ))}
-                            </View>
 
-                            {signInError ? (
-                                <Text className="rounded-dafMd bg-red-50 px-3 py-2 text-sm leading-5 text-red-700 dark:bg-red-950/40 dark:text-red-200">
-                                    {signInError}
-                                </Text>
-                            ) : null}
+                                    {isAuthenticated ? (
+                                        <ContributeAccountCard
+                                            isAuthenticated
+                                            subtitle={
+                                                hasWriteScope
+                                                    ? 'OpenStreetMap account · signed in'
+                                                    : 'Signed in — editing access needed'
+                                            }
+                                            title={
+                                                user?.name
+                                                    ? `@${user.name}`
+                                                    : 'OpenStreetMap account'
+                                            }
+                                            testID="contribute-account-card-signed-in"
+                                        />
+                                    ) : (
+                                        <ContributeAccountCard
+                                            isAuthenticated={false}
+                                            subtitle="You need an OpenStreetMap account to publish edits"
+                                            testID="contribute-account-card-signed-out"
+                                            title="Not signed in"
+                                        />
+                                    )}
 
-                            {isAuthenticated ? (
-                                hasWriteScope ? (
-                                    <DafButton
-                                        accessibilityLabel="Start editing"
-                                        icon="pencil"
-                                        onPress={startPlacing}
-                                        size="lg"
-                                        testID="contribute-start-editing-button"
+                                    {storedDraftSummary ? (
+                                        <View className="gap-3 rounded-dafMd border border-daf-border bg-daf-surface-alt p-3 dark:border-daf-border-dark dark:bg-daf-surface-inverse">
+                                            <Text className="text-sm font-semibold text-daf-text-primary dark:text-white">
+                                                {`Draft in progress — ${formatDraftPinCount(storedDraftSummary.pinCount)} · saved ${formatDraftSavedRelativeTime(storedDraftSummary.updatedAt)}`}
+                                            </Text>
+                                            <View className="flex-row gap-2">
+                                                <DafButton
+                                                    accessibilityLabel="Resume draft"
+                                                    className="flex-1"
+                                                    onPress={
+                                                        handleResumeDraftPress
+                                                    }
+                                                    testID="contribute-resume-draft-button"
+                                                    variant="secondary"
+                                                >
+                                                    Resume draft
+                                                </DafButton>
+                                                <DafButton
+                                                    accessibilityLabel="Discard draft"
+                                                    className="flex-1"
+                                                    onPress={discardStoredDraft}
+                                                    testID="contribute-discard-draft-button"
+                                                    variant="ghost"
+                                                >
+                                                    Discard draft
+                                                </DafButton>
+                                            </View>
+                                        </View>
+                                    ) : null}
+
+                                    <Text className="text-sm leading-[21px] text-daf-text-secondary dark:text-neutral-300">
+                                        Your edits are public and credited to
+                                        you. Place new camera nodes or fix
+                                        existing ones, then publish them
+                                        together in one changeset.
+                                    </Text>
+
+                                    <View className="gap-2.5">
+                                        {CONTRIBUTE_STEPS.map(
+                                            (step, stepIndex) => (
+                                                <View
+                                                    className="flex-row items-center gap-[11px]"
+                                                    key={step}
+                                                >
+                                                    <View className="h-6 w-6 items-center justify-center rounded-dafPill bg-daf-brand/15">
+                                                        <Text className="font-dafMono text-xs font-bold text-daf-text-brand dark:text-daf-brand">
+                                                            {stepIndex + 1}
+                                                        </Text>
+                                                    </View>
+                                                    <Text className="flex-1 text-sm text-daf-text-primary dark:text-white">
+                                                        {step}
+                                                    </Text>
+                                                </View>
+                                            ),
+                                        )}
+                                    </View>
+
+                                    {signInError ? (
+                                        <Text className="rounded-dafMd bg-red-50 px-3 py-2 text-sm leading-5 text-red-700 dark:bg-red-950/40 dark:text-red-200">
+                                            {signInError}
+                                        </Text>
+                                    ) : null}
+
+                                    <ContributeTourTarget
+                                        id="start"
+                                        targets={tourTargets}
                                     >
-                                        Start editing
-                                    </DafButton>
-                                ) : (
-                                    <DafButton
-                                        accessibilityLabel="Allow map editing"
-                                        loading={isSigningIn}
-                                        onPress={handleGrantAccessPress}
-                                        size="lg"
-                                        testID="contribute-grant-access-button"
-                                    >
-                                        Allow map editing
-                                    </DafButton>
-                                )
-                            ) : (
-                                <DafButton
-                                    accessibilityLabel="Sign in with OpenStreetMap"
-                                    loading={isSigningIn}
-                                    onPress={handleGrantAccessPress}
-                                    size="lg"
-                                    testID="contribute-sign-in-button"
-                                >
-                                    Sign in with OpenStreetMap
-                                </DafButton>
+                                        {isAuthenticated ? (
+                                            hasWriteScope ? (
+                                                <DafButton
+                                                    accessibilityLabel="Start editing"
+                                                    icon="pencil"
+                                                    onPress={
+                                                        handleStartEditingPress
+                                                    }
+                                                    size="lg"
+                                                    testID="contribute-start-editing-button"
+                                                >
+                                                    Start editing
+                                                </DafButton>
+                                            ) : (
+                                                <DafButton
+                                                    accessibilityLabel="Allow map editing"
+                                                    loading={isSigningIn}
+                                                    onPress={
+                                                        handleGrantAccessPress
+                                                    }
+                                                    size="lg"
+                                                    testID="contribute-grant-access-button"
+                                                >
+                                                    Allow map editing
+                                                </DafButton>
+                                            )
+                                        ) : (
+                                            <DafButton
+                                                accessibilityLabel="Sign in with OpenStreetMap"
+                                                loading={isSigningIn}
+                                                onPress={handleGrantAccessPress}
+                                                size="lg"
+                                                testID="contribute-sign-in-button"
+                                            >
+                                                Sign in with OpenStreetMap
+                                            </DafButton>
+                                        )}
+                                    </ContributeTourTarget>
+                                </>
                             )}
-                        </>
-                    )}
-                </BottomSheetScrollView>
-            </NativeWindBottomSheetView>
-        </NativeWindBottomSheetModal>
+                        </View>
+                    </BottomSheetScrollView>
+                </NativeWindBottomSheetView>
+            </NativeWindBottomSheetModal>
+            <ContributeTourOverlay
+                enabled={
+                    startSheetIsOpen &&
+                    bottomSheetIsPresented &&
+                    screenIsFocused &&
+                    !authProgressIsVisible
+                }
+                insets={insets}
+                phase="start"
+                tour={tour}
+                targets={tourTargets}
+                scrollRef={tourScrollRef}
+                contentRef={tourContentRef}
+            />
+        </>
     );
 }

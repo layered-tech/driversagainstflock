@@ -260,7 +260,7 @@ R58M offline
     test('collects the full suite without launcher UI readiness checks', () => {
         const flows = collectMaestroFlows(['.maestro'], EXPO_DIRECTORY);
 
-        assert.equal(flows.length, 29);
+        assert.equal(flows.length, 32);
         assert.deepEqual(
             flows.map((flow) => path.basename(flow)),
             [...flows.map((flow) => path.basename(flow))].sort(),
@@ -279,7 +279,7 @@ R58M offline
 
     test('reopens the exact server after clear-state launcher startup', () => {
         const clearStateFlows = [
-            'contribute-wizard.yml',
+            'subflows/contribute-tour-setup.yml',
             'driving-alerts.yml',
             'map-layer-options.yml',
             'map-settings-first-open-driving.yml',
@@ -301,7 +301,7 @@ R58M offline
                     path.join(EXPO_DIRECTORY, '.maestro', flow),
                     'utf8',
                 ),
-                /file: subflows\/open-expo-dev-client-after-clear\.yml/,
+                /file: (?:subflows\/)?open-expo-dev-client-after-clear\.yml/,
             );
         }
 
@@ -326,6 +326,27 @@ R58M offline
         assert.match(
             subflow,
             /runFlow:\s+when:\s+visible: '[^']*Development Build[^']*'\s+commands:\s+- openLink: \$\{MAESTRO_EXPO_DEV_CLIENT_URL\}/,
+        );
+    });
+
+    test('collects the contribution tour suite without running its helpers as tests', () => {
+        const { scripts } = JSON.parse(
+            readFileSync(path.join(EXPO_DIRECTORY, 'package.json'), 'utf8'),
+        );
+        const [runner, ...targets] = scripts['e2e:contribute-tour'].split(' ');
+
+        assert.equal(runner, './scripts/maestro-test.sh');
+        assert.deepEqual(
+            collectMaestroFlows(targets, EXPO_DIRECTORY).map((flow) =>
+                path.basename(flow),
+            ),
+            [
+                'contribute-wizard.yml',
+                'contribute-signed-out.yml',
+                'contribute-tour-skip.yml',
+                'contribute-tour-resume.yml',
+                'contribute-tour-reset.yml',
+            ],
         );
     });
 

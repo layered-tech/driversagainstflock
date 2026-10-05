@@ -1,5 +1,5 @@
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
+import { router, useFocusEffect, useIsFocused } from 'expo-router';
+import { useCallback, useRef } from 'react';
 import { ScrollView, Text, useColorScheme, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
@@ -8,6 +8,8 @@ import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
 import { getDafTheme } from '../design-system/tokens';
 import { useContribute } from './contribute-state';
+import { ContributeTourOverlay } from './contribute-tour-overlay';
+import { ContributeTourTarget } from './contribute-tour-target';
 
 const MANUFACTURER_LABELS = {
     flock: 'Flock Safety',
@@ -32,10 +34,12 @@ function formatChangesetId(changesetId) {
 }
 
 export default function PublishedScreen() {
+    const tourTargets = useRef({});
+    const screenIsFocused = useIsFocused();
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
-    const { finishContribute, pins, publishResult, resetForMoreCameras } =
+    const { finishContribute, pins, publishResult, resetForMoreCameras, tour } =
         useContribute();
     const theme = getDafTheme(colorScheme);
     const userName = user?.name ?? 'you';
@@ -92,7 +96,7 @@ export default function PublishedScreen() {
                     className="flex-1 items-center justify-center px-6 pb-6"
                     style={{ paddingTop: contentPaddingTop }}
                 >
-                    <View className="bg-daf-brand/12 dark:bg-daf-brand/15 h-[72px] w-[72px] items-center justify-center rounded-dafPill">
+                    <View className="bg-daf-brand/12 h-[72px] w-[72px] items-center justify-center rounded-dafPill dark:bg-daf-brand/15">
                         <Icon
                             color={theme.text.brand}
                             name="check"
@@ -100,11 +104,11 @@ export default function PublishedScreen() {
                             stroke={2.4}
                         />
                     </View>
-                    <Text className="font-dafDisplay mt-[18px] text-center text-[21px] font-bold leading-[26px] text-daf-text-primary dark:text-white">
+                    <Text className="mt-[18px] text-center font-dafDisplay text-[21px] font-bold leading-[26px] text-daf-text-primary dark:text-white">
                         Changeset published
                     </Text>
                     <Text
-                        className="font-dafMono mt-1.5 text-center text-xs text-daf-text-brand dark:text-daf-brand"
+                        className="mt-1.5 text-center font-dafMono text-xs text-daf-text-brand dark:text-daf-brand"
                         testID="contribute-changeset-id"
                     >
                         changeset/{formatChangesetId(publishResult.changesetId)}
@@ -116,18 +120,18 @@ export default function PublishedScreen() {
                         </Text>
                         .
                     </Text>
-                    <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark mt-5 w-full rounded-dafMd border border-daf-border bg-white px-3.5">
+                    <View className="mt-5 w-full rounded-dafMd border border-daf-border bg-white px-3.5 dark:border-daf-border-dark dark:bg-daf-surface-dark">
                         {publishedNodes.map((node, nodeIndex) => (
                             <View
                                 className={`flex-row items-center gap-3 py-3 ${
                                     nodeIndex < publishedNodes.length - 1
-                                        ? 'dark:border-daf-border-dark border-b border-daf-border'
+                                        ? 'border-b border-daf-border dark:border-daf-border-dark'
                                         : ''
                                 }`}
                                 key={`${node.nodeId}-${nodeIndex}`}
                                 testID={`contribute-published-node-${nodeIndex}`}
                             >
-                                <View className="bg-daf-marker-alpr/15 h-[17px] w-[17px] items-center justify-center rounded-dafPill">
+                                <View className="h-[17px] w-[17px] items-center justify-center rounded-dafPill bg-daf-marker-alpr/15">
                                     <View className="h-[9px] w-[9px] rounded-dafPill bg-daf-marker-alpr" />
                                 </View>
                                 <Text
@@ -152,16 +156,18 @@ export default function PublishedScreen() {
                 </View>
             </ScrollView>
             <View
-                className="dark:border-daf-border-dark dark:bg-daf-surface-dark border-t border-daf-border bg-white px-4 pt-3"
+                className="border-t border-daf-border bg-white px-4 pt-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
                 style={{ paddingBottom: footerPaddingBottom }}
             >
-                <DafButton
-                    onPress={handleSeeOnMapPress}
-                    size="lg"
-                    testID="contribute-see-on-map-button"
-                >
-                    See them on the map
-                </DafButton>
+                <ContributeTourTarget id="published" targets={tourTargets}>
+                    <DafButton
+                        onPress={handleSeeOnMapPress}
+                        size="lg"
+                        testID="contribute-see-on-map-button"
+                    >
+                        See them on the map
+                    </DafButton>
+                </ContributeTourTarget>
                 <View className="h-2.5" />
                 <DafButton
                     onPress={handleAddMorePress}
@@ -171,6 +177,13 @@ export default function PublishedScreen() {
                     Add more cameras
                 </DafButton>
             </View>
+            <ContributeTourOverlay
+                enabled={screenIsFocused}
+                insets={insets}
+                phase="published"
+                targets={tourTargets}
+                tour={tour}
+            />
         </View>
     );
 }
