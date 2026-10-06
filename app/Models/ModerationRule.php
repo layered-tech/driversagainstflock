@@ -6,17 +6,25 @@ use Database\Factories\ModerationRuleFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ModerationRule extends Model
 {
     /** @use HasFactory<ModerationRuleFactory> */
     use HasFactory;
 
+    use SoftDeletes;
+
     protected $guarded = [];
 
     public function versions(): HasMany
     {
         return $this->hasMany(ModerationRuleVersion::class, 'rule_id');
+    }
+
+    public function flags(): HasMany
+    {
+        return $this->hasMany(ModerationFlag::class, 'rule_id');
     }
 
     protected function casts(): array

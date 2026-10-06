@@ -1,5 +1,5 @@
 import { onMounted, ref } from 'vue';
-import { localTime } from './moderation.js';
+import { localTime, relativeTime } from './moderation.js';
 
 export function useModerationTime() {
     const mounted = ref(false);
@@ -11,5 +11,6 @@ export function useModerationTime() {
         absoluteTime: (value) => (mounted.value ? localTime(value) : '—'),
         localTime: (value) => (mounted.value ? localTime(value) : '—'),
         localDate: (value) => (mounted.value ? localTime(value, true) : '—'),
+        relativeTime: (value) => (mounted.value ? relativeTime(value) : '—'),
     };
 }

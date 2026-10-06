@@ -9,6 +9,7 @@ use App\Services\OpenStreetMap\ModerationRoadLookup;
 use App\Services\OpenStreetMap\ModerationRuleEvaluator;
 use App\Services\OpenStreetMap\ModerationSummaries;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\CreatesModerationSource;
@@ -22,10 +23,10 @@ beforeEach(function (): void {
         'settings' => ['keys' => ['operator'], 'blank_is_missing' => true], 'conditions' => [], 'exceptions' => [], 'area_ids' => []];
 });
 
-test('rules require moderator permissions and save typed versioned configuration disabled initially', function () {
+test('rules require moderator permissions and save typed versioned configuration paused when no state is supplied', function () {
     $this->get('/moderation/rules')->assertRedirect('/login');
     $this->moderator();
-    $this->post('/moderation/rules', $this->ruleData)->assertRedirect();
+    $this->post('/moderation/rules', collect($this->ruleData)->except('enabled')->all())->assertRedirect();
     $rule = ModerationRule::first();
     expect($rule->enabled)->toBeFalse()->and($rule->version)->toBe(1);
     $this->put('/moderation/rules/'.$rule->id, [...$this->ruleData, 'version' => 1])->assertRedirect();
@@ -289,4 +290,128 @@ test('flagged paginates matching nodes before applying the page limit', function
         ->where('records.next_page_url', fn ($url) => str_contains($url, '/moderation/flagged?') && ! str_contains($url, 'view=') && str_contains($url, 'page=2')));
     $this->get('/moderation/flagged?sort=id&order=desc&page=2')->assertInertia(fn (Assert $page) => $page
         ->has('records.data', 1)->where('records.data.0.id', 200));
+});
+
+test('rule list and editor expose real recent distinct node counts and creator history', function () {
+    $user = $this->moderator();
+    $this->sourceNode(200);
+    $this->sourceNode(201);
+    $this->post('/moderation/rules', $this->ruleData)->assertRedirect();
+    $rule = ModerationRule::first();
+    $rule->update(['enabled' => true]);
+    $reader = app(ModerationReader::class);
+    $evaluator = app(ModerationRuleEvaluator::class);
+    foreach ($reader->nodes()->get() as $node) {
+        $evaluator->evaluate($rule, $reader->normalize($node));
+    }
+    $first = ModerationFlag::where('node_id', 200)->first();
+    $copy = $first->replicate();
+    $copy->related_node_id = 201;
+    $copy->save();
+    ModerationFlag::where('node_id', 201)->update(['created_at' => now()->subDays(31)]);
+
+    $this->get('/moderation/rules?types[]=missing_tags&severities[]=Medium&states[]=Enabled')->assertInertia(fn (Assert $page) => $page
+        ->where('rules.0.flags_30d', 1)
+        ->where('filters.types.0', 'missing_tags')
+        ->where('filters.states.0', 'Enabled'));
+    $this->get('/moderation/rules/'.$rule->id.'/edit')->assertInertia(fn (Assert $page) => $page
+        ->where('rule.flags_30d', 1)->has('recentMatches', 2)
+        ->where('recentMatches.0.node_id', 200)
+        ->where('versions.0.user.name', $user->name));
+    $this->get('/moderation/rules?types[]=expression')->assertSessionHasErrors('types.0');
+});
+
+test('moderators can pause and enable rules with version checks without replacing configuration', function () {
+    $this->moderator();
+    $rule = ModerationRule::factory()->create($this->ruleData);
+    $configuration = $rule->only(['type', 'settings', 'conditions', 'exceptions', 'area_ids']);
+    $this->patch('/moderation/rules/'.$rule->id.'/state', ['version' => 1, 'enabled' => false])->assertRedirect();
+    expect($rule->fresh()->enabled)->toBeFalse()->and($rule->fresh()->version)->toBe(2)
+        ->and($rule->fresh()->only(array_keys($configuration)))->toBe($configuration)
+        ->and($rule->versions()->count())->toBe(1);
+    $this->assertDatabaseHas('moderation_activities', ['action' => 'rule.paused', 'subject_id' => $rule->id]);
+    $this->patch('/moderation/rules/'.$rule->id.'/state', ['version' => 1, 'enabled' => true])->assertSessionHasErrors('version');
+    $this->patch('/moderation/rules/'.$rule->id.'/state', ['version' => 2, 'enabled' => true])->assertRedirect();
+    expect($rule->fresh()->enabled)->toBeTrue()->and($rule->fresh()->version)->toBe(3);
+    $this->patchJson('/moderation/rules/'.$rule->id.'/state', ['version' => 3])->assertUnprocessable();
+    config(['moderation.approved_osm_ids' => []]);
+    $this->patch('/moderation/rules/'.$rule->id.'/state', ['version' => 3, 'enabled' => false])->assertForbidden();
+    $this->delete('/moderation/rules/'.$rule->id, ['version' => 3])->assertForbidden();
+});
+
+test('rule types cannot change after creation', function () {
+    $this->moderator();
+    $rule = ModerationRule::factory()->create($this->ruleData);
+    $this->put('/moderation/rules/'.$rule->id, [...$this->ruleData, 'version' => 1, 'type' => 'duplicate_nodes', 'settings' => ['distance_meters' => 10, 'match_tags' => []]])->assertSessionHasErrors('type');
+    expect($rule->fresh()->type)->toBe('missing_tags')->and($rule->fresh()->version)->toBe(1);
+});
+
+test('deleting a rule preserves its flags and history while preventing further evaluation', function () {
+    $this->moderator();
+    $this->sourceNode();
+    $this->post('/moderation/rules', $this->ruleData);
+    $rule = ModerationRule::first();
+    $rule->update(['enabled' => true]);
+    $reader = app(ModerationReader::class);
+    app(ModerationRuleEvaluator::class)->evaluate($rule, $reader->normalize($reader->nodes()->first()));
+    $flag = ModerationFlag::first();
+    $this->delete('/moderation/rules/'.$rule->id, ['version' => 99])->assertSessionHasErrors('version');
+    $this->delete('/moderation/rules/'.$rule->id, ['version' => 1])->assertRedirect('/moderation/rules');
+
+    $this->assertSoftDeleted('moderation_rules', ['id' => $rule->id]);
+    $this->sourceNode(201);
+    app(ModerationRuleEvaluator::class)->evaluate($rule, $reader->normalize($reader->nodes()->where('source.id', 201)->first()));
+    $this->assertDatabaseCount('moderation_evaluations', 1);
+    expect(ModerationRule::count())->toBe(0)->and(ModerationFlag::count())->toBe(1)
+        ->and(ModerationFlag::active()->count())->toBe(1)
+        ->and($flag->fresh()->rule->name)->toBe($rule->name)
+        ->and(ModerationRule::withTrashed()->find($rule->id)->versions()->count())->toBe(2);
+    $this->get('/moderation/rules')->assertInertia(fn (Assert $page) => $page->has('rules', 0)->where('moderationNavigation.rules', 0)->where('moderationNavigation.flagged', 1));
+    $this->get('/moderation/flagged')->assertInertia(fn (Assert $page) => $page->where('records.data.0.flags.0.rule.name', $rule->name)
+        ->where('records.data.0.flags.0.rule.deleted_at', fn ($date) => $date !== null));
+    $this->get('/moderation/nodes/200')->assertInertia(fn (Assert $page) => $page->where('flags.0.rule.enabled', false)->where('flags.0.rule.deleted_at', fn ($date) => $date !== null));
+    $this->get('/moderation/rules/'.$rule->id.'/edit')->assertNotFound();
+    $this->assertDatabaseHas('moderation_activities', ['action' => 'rule.deleted', 'subject_id' => $rule->id]);
+});
+
+test('navigation counts are global on every moderation page and remain included in partial responses', function () {
+    $this->moderator();
+    $this->sourceChangeset();
+    $this->sourceNode(200);
+    $this->sourceNode(201);
+    foreach ([200, 201] as $nodeId) {
+        DB::table(config('osm.reader.table'))->insert(['osm_id' => $nodeId, 'latitude' => 30.5, 'longitude' => -97.5,
+            'location' => DB::raw('ST_SetSRID(ST_MakePoint(-97.5,30.5),4326)'), 'surveillance_type' => 'ALPR']);
+    }
+    $rule = ModerationRule::factory()->create($this->ruleData);
+    $second = ModerationRule::factory()->create($this->ruleData);
+    ModerationRule::factory()->create(['enabled' => false]);
+    $reader = app(ModerationReader::class);
+    $evaluator = app(ModerationRuleEvaluator::class);
+    foreach ($reader->nodes()->get() as $node) {
+        $evaluator->evaluate($rule, $reader->normalize($node));
+    }
+    $evaluator->evaluate($second, $reader->normalize($reader->nodes()->first()));
+    foreach (['changesets', 'nodes?osm_id=200', 'flagged?rules[]='.$rule->id, 'editors', 'areas', 'audit', 'rules', 'rules/create', 'rules/'.$rule->id.'/edit', 'nodes/200', 'editors/123'] as $path) {
+        $this->get('/moderation/'.$path)->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('moderationNavigation.nodes', 2)
+            ->where('moderationNavigation.flagged', 2)
+            ->where('moderationNavigation.areas', 1)
+            ->where('moderationNavigation.rules', 2));
+    }
+    $response = $this->get('/moderation/rules');
+    $this->getJson('/moderation/rules', ['X-Inertia' => 'true', 'X-Inertia-Version' => $response->viewData('page')['version'], 'X-Inertia-Partial-Component' => 'Moderation/Rules', 'X-Inertia-Partial-Data' => 'rules'])
+        ->assertOk()->assertJsonPath('props.moderationNavigation.flagged', 2);
+    $this->get('/moderation/nodes/200?from=rules&rule='.$rule->id)->assertInertia(fn (Assert $page) => $page->where('from', 'rules')->where('listingFilters.rule', (string) $rule->id));
+});
+
+test('creating a rule honors the enabled state chosen by the moderator', function () {
+    $this->moderator();
+    foreach ([true, false] as $enabled) {
+        $name = $enabled ? 'Enabled rule' : 'Paused rule';
+        $this->post('/moderation/rules', [...$this->ruleData, 'name' => $name, 'enabled' => $enabled])->assertRedirect();
+        $rule = ModerationRule::where('name', $name)->firstOrFail();
+        expect($rule->enabled)->toBe($enabled)->and($rule->version)->toBe(1)
+            ->and($rule->versions()->first()->configuration['enabled'])->toBe($enabled);
+    }
 });

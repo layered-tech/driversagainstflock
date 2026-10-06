@@ -45,6 +45,18 @@
     @media (max-width:960px){ .mod-grid{ grid-template-columns:92px minmax(104px,1.1fr) 140px 96px 64px 36px; } .mod-grid > *:nth-child(5){ display:none !important; } }
     .det-grid{ display:grid; gap:22px; grid-template-columns:minmax(0,1.25fr) minmax(320px,420px); align-items:start; }
     @media (max-width:1180px){ .det-grid{ grid-template-columns:1fr; } }
+    .rl-grid{ display:grid; gap:12px; grid-template-columns:minmax(220px,1.7fr) 84px minmax(120px,1fr) 92px 44px 32px; align-items:center; }
+    @media (max-width:980px){ .rl-grid{ grid-template-columns:minmax(200px,1.7fr) 84px 92px 44px 32px; } .rl-grid > *:nth-child(3){ display:none !important; } }
+    .re-grid{ display:grid; gap:22px; grid-template-columns:minmax(0,1.3fr) minmax(300px,380px); align-items:start; }
+    @media (max-width:1120px){ .re-grid{ grid-template-columns:1fr; } .re-side{ position:static !important; } }
+    .rt-grid{ display:grid; gap:8px; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); }
+    .re-fields{ display:grid; gap:14px 16px; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); }
+    .re-input{ height:38px; width:100%; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface-card); color:var(--text-primary); padding:0 12px; font-family:var(--font-ui); font-size:13px; outline:none; transition:border-color 160ms; }
+    .re-input::placeholder{ color:var(--text-tertiary); font-family:var(--font-ui); letter-spacing:0; }
+    .re-input:focus{ border-color:var(--brand); }
+    .re-input.mono{ font-family:var(--font-mono); letter-spacing:var(--ls-mono); }
+    .re-input.ta{ height:auto; min-height:76px; padding:9px 12px; resize:vertical; line-height:1.5; }
+    .re-lbl{ display:block; font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:6px; }
   </style>
 </helmet>
 
@@ -73,6 +85,8 @@
       <button onClick="{{ showFlagged }}" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px; border-radius:var(--radius-sm); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); color:{{ flColor }}; background:{{ flBg }}; border:none; cursor:pointer; font-family:var(--font-ui); text-align:left; width:100%;">Flagged<span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--alert-600); background:var(--alert-100); border-radius:var(--radius-pill); padding:1px 8px;">{{ nodeOpenCount }}</span></button>
       <button onClick="{{ showEditors }}" style="display:flex; align-items:center; padding:9px 12px; border-radius:var(--radius-sm); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); color:{{ edColor }}; background:{{ edBg }}; border:none; cursor:pointer; font-family:var(--font-ui); text-align:left; width:100%;">Editors</button>
       <button onClick="{{ showAreas }}" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px; border-radius:var(--radius-sm); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); color:{{ waColor }}; background:{{ waBg }}; border:none; cursor:pointer; font-family:var(--font-ui); text-align:left; width:100%;">Areas<span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--text-tertiary); background:color-mix(in oklab, var(--text-primary) 8%, transparent); border-radius:var(--radius-pill); padding:1px 8px;">{{ waCount }}</span></button>
+      <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); padding:0 12px 8px; margin-top:18px;">Configure</div>
+      <button onClick="{{ showRules }}" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px; border-radius:var(--radius-sm); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); color:{{ ruColor }}; background:{{ ruBg }}; border:none; cursor:pointer; font-family:var(--font-ui); text-align:left; width:100%;">Rules<span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--text-tertiary); background:color-mix(in oklab, var(--text-primary) 8%, transparent); border-radius:var(--radius-pill); padding:1px 8px;">{{ ruCount }}</span></button>
       <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); padding:0 12px 8px; margin-top:18px;">System</div>
       <a href="#" style="display:flex; align-items:center; padding:9px 12px; border-radius:var(--radius-sm); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-secondary); text-decoration:none;" style-hover="background:color-mix(in oklab, var(--text-primary) 6%, transparent); color:var(--text-primary);">Audit log</a>
     </nav>
@@ -668,6 +682,250 @@
         </sc-if>
       </div>
     </section>
+    </sc-if>
+
+    <!-- ===================== RULES VIEW ===================== -->
+    <sc-if hint-placeholder-val="{{ false }}" value="{{ isRules }}">
+    <div data-screen-label="Rules" style="padding:22px 24px 44px;">
+      <div style="display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+        <div style="flex:1 1 320px; min-width:0;">
+          <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h1); line-height:var(--lh-h1); letter-spacing:var(--ls-display); margin:0 0 6px;">Rules</h1>
+          <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-secondary); margin:0; max-width:70ch;">What trips a flag. Every rule runs on each edit that touches a surveillance node; anything that breaks one lands in Flagged.</p>
+        </div>
+        <button onClick="{{ onRuleNew }}" style="height:40px; padding:0 18px 0 14px; border-radius:var(--radius-pill); border:none; background:var(--brand); color:#fff; font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:7px;" style-hover="filter:brightness(1.05);"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewBox="0 0 24 24" width="16"><path d="M12 5v14M5 12h14"></path></svg>New rule</button>
+      </div>
+      <div style="display:flex; gap:18px; row-gap:10px; flex-wrap:wrap; align-items:center; margin-top:18px;">
+        <sc-for as="g" hint-placeholder-count="3" list="{{ rfGroups }}">
+          <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+            <span style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-right:3px;">{{ g.name }}</span>
+            <sc-for as="ch" hint-placeholder-count="3" list="{{ g.chips }}">
+              <button onClick="{{ ch.onClick }}" style="height:28px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid {{ ch.bd }}; background:{{ ch.bg }}; color:{{ ch.fg }}; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap;">{{ ch.label }}</button>
+            </sc-for>
+          </div>
+        </sc-for>
+        <sc-if hint-placeholder-val="{{ false }}" value="{{ rfActive }}">
+          <button onClick="{{ onRfClear }}" style="height:28px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer;" style-hover="border-color:var(--brand); color:var(--text-brand);">Clear</button>
+        </sc-if>
+        <div style="margin-left:auto; font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); letter-spacing:var(--ls-mono); white-space:nowrap;">{{ ruCountLabel }}</div>
+      </div>
+      <div style="margin-top:14px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); overflow:hidden;">
+        <div class="rl-grid" style="padding:12px 16px 10px; border-bottom:1px solid var(--border);">
+          <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">Rule</div>
+          <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">Severity</div>
+          <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">Scope</div>
+          <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); text-align:right; white-space:nowrap;">Flags · 30 d</div>
+          <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary);">On</div>
+          <div></div>
+        </div>
+        <sc-for as="g" hint-placeholder-count="3" list="{{ ruGroups }}">
+          <div style="display:flex; align-items:baseline; gap:10px; padding:11px 16px 8px; background:color-mix(in oklab, var(--text-primary) 3%, var(--surface-card)); border-bottom:1px solid var(--border); flex-wrap:wrap;">
+            <span style="font-family:var(--font-display); font-size:13px; font-weight:700; letter-spacing:var(--ls-display); color:var(--text-primary);">{{ g.name }}</span>
+            <span style="font-size:12px; color:var(--text-secondary); min-width:0;">{{ g.desc }}</span>
+            <span style="margin-left:auto; font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); letter-spacing:var(--ls-mono); white-space:nowrap;">{{ g.count }}</span>
+          </div>
+          <sc-for as="r" hint-placeholder-count="2" list="{{ g.rows }}">
+            <div class="rl-grid" style="padding:12px 16px; border-bottom:1px solid var(--border); transition:background 120ms;" style-hover="background:color-mix(in oklab, var(--brand) 4%, var(--surface-card));">
+              <div style="min-width:0; opacity:{{ r.nameOp }};">
+                <button onClick="{{ r.onOpen }}" style="display:block; max-width:100%; text-align:left; background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" style-hover="color:var(--text-brand);">{{ r.name }}</button>
+                <div style="font-size:12px; line-height:1.45; color:var(--text-secondary); margin-top:2px; text-wrap:pretty;">{{ r.summary }}</div>
+              </div>
+              <div><span style="display:inline-block; font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); border-radius:var(--radius-pill); padding:2px 8px; color:{{ r.sevFg }}; background:{{ r.sevBg }};">{{ r.sev }}</span></div>
+              <div style="font-size:12px; color:{{ r.scopeColor }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ r.scope }}">{{ r.scope }}</div>
+              <div style="font-family:var(--font-mono); font-size:13px; font-weight:600; letter-spacing:var(--ls-mono); color:{{ r.hitsColor }}; text-align:right;">{{ r.hits }}</div>
+              <x-import aria-label="Enabled" checked="{{ r.enabled }}" component-from-global-scope="DesignSystem_c71fad.Switch" hint-size="40px,24px" on-change="{{ r.onToggle }}"></x-import>
+              <button onClick="{{ r.onOpen }}" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center; justify-self:end; border:none; background:none; cursor:pointer; color:var(--text-tertiary); border-radius:var(--radius-xs); padding:0;" style-hover="background:color-mix(in oklab, var(--text-primary) 8%, transparent); color:var(--text-primary);" title="Edit rule"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewBox="0 0 24 24" width="16"><path d="M9 6l6 6-6 6"></path></svg></button>
+            </div>
+          </sc-for>
+        </sc-for>
+        <sc-if hint-placeholder-val="{{ false }}" value="{{ isRuEmpty }}">
+          <div style="padding:72px 24px; text-align:center;">
+            <div style="font-family:var(--font-display); font-size:var(--fs-h3); font-weight:600; margin-bottom:8px;">{{ ruEmptyTitle }}</div>
+            <div style="font-size:var(--fs-body); color:var(--text-secondary); margin-bottom:20px;">{{ ruEmptyMsg }}</div>
+            <sc-if hint-placeholder-val="{{ false }}" value="{{ rfActive }}">
+              <button onClick="{{ onRfClear }}" style="height:40px; padding:0 20px; border-radius:var(--radius-pill); border:1px solid var(--brand); background:var(--brand-soft); color:var(--text-brand); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); cursor:pointer;">Clear filters</button>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ===================== RULE EDITOR VIEW ===================== -->
+    <sc-if hint-placeholder-val="{{ false }}" value="{{ isRule }}">
+    <div data-screen-label="Rule editor" style="padding:20px 24px 0;">
+      <button onClick="{{ onReCancel }}" style="display:inline-flex; align-items:center; gap:6px; background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-secondary);" style-hover="color:var(--text-brand);">← Rules</button>
+      <div style="display:flex; align-items:center; gap:10px; margin:16px 0 0; flex-wrap:wrap;">
+        <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h2); line-height:var(--lh-h2); letter-spacing:var(--ls-display); margin:0 4px 0 0;">{{ reTitle }}</h1>
+        <span style="font-size:11px; font-weight:var(--fw-semibold); color:var(--text-secondary); border:1px solid var(--border); border-radius:var(--radius-xs); padding:3px 8px; white-space:nowrap;">{{ reTypeName }}</span>
+        <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); border-radius:var(--radius-pill); padding:3px 9px; color:{{ reSevFg }}; background:{{ reSevBg }};">{{ reSev }}</span>
+        <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:var(--ls-mono); border-radius:var(--radius-pill); padding:3px 9px; color:{{ reStatusFg }}; background:{{ reStatusBg }};">{{ reStatus }}</span>
+      </div>
+
+      <div class="re-grid" style="margin-top:18px;">
+        <div style="display:flex; flex-direction:column; gap:16px; min-width:0;">
+          <section style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:18px 20px;">
+            <div style="font-family:var(--font-display); font-size:var(--fs-h4); font-weight:700; letter-spacing:var(--ls-display); margin-bottom:14px;">Basics</div>
+            <label class="re-lbl">Name</label>
+            <input class="re-input" onChange="{{ onReName }}" placeholder="e.g. Missing direction" value="{{ reName }}">
+            <div style="margin-top:16px;">
+              <label class="re-lbl">Type</label>
+              <sc-if hint-placeholder-val="{{ true }}" value="{{ reIsNew }}">
+                <div class="rt-grid">
+                  <sc-for as="t" hint-placeholder-count="6" list="{{ reTypes }}">
+                    <button onClick="{{ t.onClick }}" style="display:flex; flex-direction:column; align-items:flex-start; gap:3px; text-align:left; padding:11px 12px; border-radius:var(--radius-md); border:1px solid {{ t.bd }}; background:{{ t.bg }}; cursor:pointer; font-family:var(--font-ui); transition:border-color 120ms;" style-hover="border-color:var(--brand);">
+                      <span style="font-size:13px; font-weight:var(--fw-bold); color:{{ t.fg }};">{{ t.name }}</span>
+                      <span style="font-size:12px; line-height:1.4; color:var(--text-secondary); text-wrap:pretty;">{{ t.desc }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-if hint-placeholder-val="{{ false }}" value="{{ reIsExisting }}">
+                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:11px 12px; border-radius:var(--radius-md); border:1px solid var(--border); background:color-mix(in oklab, var(--text-primary) 3%, var(--surface-card));">
+                  <div style="min-width:0; flex:1 1 200px;">
+                    <div style="font-size:13px; font-weight:var(--fw-bold); color:var(--text-primary);">{{ reTypeName }}</div>
+                    <div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">{{ reTypeDesc }}</div>
+                  </div>
+                  <span style="font-size:11px; color:var(--text-tertiary); white-space:nowrap;">Fixed after creation — make a new rule to change it.</span>
+                </div>
+              </sc-if>
+            </div>
+            <div style="margin-top:16px;">
+              <label class="re-lbl">Severity</label>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <sc-for as="s" hint-placeholder-count="3" list="{{ reSevs }}">
+                  <button onClick="{{ s.onClick }}" style="height:30px; padding:0 12px 0 10px; border-radius:var(--radius-pill); border:1px solid {{ s.bd }}; background:{{ s.bg }}; color:{{ s.fg }}; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); cursor:pointer; display:inline-flex; align-items:center; gap:7px;"><span style="width:8px; height:8px; border-radius:50%; background:{{ s.dot }};"></span>{{ s.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </section>
+
+          <section style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:18px 20px;">
+            <div style="font-family:var(--font-display); font-size:var(--fs-h4); font-weight:700; letter-spacing:var(--ls-display); margin-bottom:14px;">Condition</div>
+            <sc-if hint-placeholder-val="{{ true }}" value="{{ rtDuplicate }}">
+              <div class="re-fields">
+                <div><label class="re-lbl">Another node within · m</label><input class="re-input mono" onChange="{{ onPRadius }}" placeholder="10" value="{{ pRadius }}"></div>
+                <div style="grid-column:1 / -1; min-width:0;"><label class="re-lbl">Sharing all of these tags · one per line</label><textarea class="re-input mono ta" onChange="{{ onPTags }}" placeholder="man_made=surveillance" value="{{ pTags }}"></textarea></div>
+              </div>
+            </sc-if>
+            <sc-if hint-placeholder-val="{{ false }}" value="{{ rtMissing }}">
+              <div class="re-fields">
+                <div style="grid-column:1 / -1; min-width:0;"><label class="re-lbl">Required tags · one per line</label><textarea class="re-input mono ta" onChange="{{ onPTags }}" placeholder="operator" value="{{ pTags }}"></textarea></div>
+                <div><label class="re-lbl">On nodes tagged</label><input class="re-input mono" onChange="{{ onPWhen }}" placeholder="surveillance:type=ALPR" value="{{ pWhen }}"></div>
+              </div>
+              <p style="font-size:12px; line-height:1.5; color:var(--text-secondary); margin:12px 0 0; max-width:60ch;">Trips when any listed tag is absent. Use one rule per tag if they need different severities.</p>
+            </sc-if>
+            <sc-if hint-placeholder-val="{{ false }}" value="{{ rtRoad }}">
+              <div style="max-width:300px;"><label class="re-lbl">Farther than · m from the nearest road</label><input class="re-input mono" onChange="{{ onPDistance }}" placeholder="40" value="{{ pDistance }}"></div>
+              <div style="margin-top:14px;">
+                <label class="re-lbl">Roads that count</label>
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                  <sc-for as="c" hint-placeholder-count="8" list="{{ pRoads }}">
+                    <button onClick="{{ c.onClick }}" style="height:28px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid {{ c.bd }}; background:{{ c.bg }}; color:{{ c.fg }}; font-family:var(--font-mono); font-size:12px; letter-spacing:var(--ls-mono); font-weight:600; cursor:pointer; white-space:nowrap;">{{ c.label }}</button>
+                  </sc-for>
+                </div>
+                <p style="font-size:12px; line-height:1.5; color:var(--text-secondary); margin:12px 0 0; max-width:60ch;">Measured to the centreline of the nearest way with one of these highway values. Leave service off to ignore parking lots and driveways.</p>
+              </div>
+            </sc-if>
+            <sc-if hint-placeholder-val="{{ false }}" value="{{ rtInvalid }}">
+              <div class="re-fields">
+                <div><label class="re-lbl">Tag</label><input class="re-input mono" onChange="{{ onPTag }}" placeholder="camera:type" value="{{ pTag }}"></div>
+                <div style="grid-column:1 / -1;">
+                  <label class="re-lbl">Trip when the value is</label>
+                  <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <sc-for as="c" hint-placeholder-count="2" list="{{ pModes }}">
+                      <button onClick="{{ c.onClick }}" style="height:28px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid {{ c.bd }}; background:{{ c.bg }}; color:{{ c.fg }}; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap;">{{ c.label }}</button>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+              <sc-if hint-placeholder-val="{{ true }}" value="{{ rtInvList }}">
+                <div style="margin-top:14px;"><label class="re-lbl">Accepted values · one per line</label><textarea class="re-input mono ta" onChange="{{ onPValues }}" placeholder="fixed" value="{{ pValues }}"></textarea></div>
+              </sc-if>
+              <sc-if hint-placeholder-val="{{ false }}" value="{{ rtInvRange }}">
+                <div class="re-fields" style="margin-top:14px; max-width:380px;">
+                  <div><label class="re-lbl">From</label><input class="re-input mono" onChange="{{ onPMin }}" placeholder="0" value="{{ pMin }}"></div>
+                  <div><label class="re-lbl">To</label><input class="re-input mono" onChange="{{ onPMax }}" placeholder="359" value="{{ pMax }}"></div>
+                </div>
+              </sc-if>
+            </sc-if>
+          </section>
+
+          <section style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:18px 20px;">
+            <div style="font-family:var(--font-display); font-size:var(--fs-h4); font-weight:700; letter-spacing:var(--ls-display); margin-bottom:14px;">Scope</div>
+            <label class="re-lbl">Areas</label>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <sc-for as="c" hint-placeholder-count="3" list="{{ reScopeChips }}">
+                <button onClick="{{ c.onClick }}" style="height:28px; padding:0 11px; border-radius:var(--radius-pill); border:1px solid {{ c.bd }}; background:{{ c.bg }}; color:{{ c.fg }}; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer; white-space:nowrap;">{{ c.label }}</button>
+              </sc-for>
+            </div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:baseline; font-size:12px; color:var(--text-secondary); margin-top:10px;"><span>{{ reScopeNote }}</span><button class="lnk-btn" onClick="{{ showAreas }}">Manage areas</button></div>
+          </section>
+
+          <section style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:18px 20px 6px;">
+            <div style="font-family:var(--font-display); font-size:var(--fs-h4); font-weight:700; letter-spacing:var(--ls-display); margin-bottom:6px;">When it fires</div>
+            <div style="display:flex; align-items:center; gap:14px; padding:12px 0 8px;">
+              <div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:var(--fw-semibold); color:var(--text-primary);">{{ reFlagLabel }}</div><div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">{{ reFlagNote }}</div></div>
+              <x-import aria-label="Flag" checked="{{ true }}" component-from-global-scope="DesignSystem_c71fad.Switch" disabled="{{ true }}" hint-size="40px,24px"></x-import>
+            </div>
+          </section>
+        </div>
+
+        <aside class="re-side" style="display:flex; flex-direction:column; gap:16px; position:sticky; top:77px;">
+          <section style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:18px 20px;">
+            <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin-bottom:8px;">In plain English</div>
+            <p style="font-family:var(--font-display); font-size:var(--fs-h4); line-height:1.4; font-weight:600; letter-spacing:var(--ls-display); color:var(--text-primary); margin:0; text-wrap:pretty;">{{ reSummary }}</p>
+            <div style="display:flex; align-items:baseline; gap:8px; margin-top:16px; padding-top:14px; border-top:1px solid var(--border);">
+              <span style="font-family:var(--font-mono); font-size:22px; font-weight:700; letter-spacing:var(--ls-mono); color:var(--text-primary); line-height:1;">{{ reHits }}</span>
+              <span style="font-size:12px; color:var(--text-secondary);">{{ reHitsLabel }}</span>
+            </div>
+            <sc-if hint-placeholder-val="{{ false }}" value="{{ reHasRecent }}">
+              <div style="font-size:10px; letter-spacing:var(--ls-label); text-transform:uppercase; font-weight:var(--fw-bold); color:var(--text-tertiary); margin:16px 0 4px;">Recent matches</div>
+              <div style="display:flex; flex-direction:column;">
+                <sc-for as="m" hint-placeholder-count="3" list="{{ reRecent }}">
+                  <button onClick="{{ m.onGo }}" style="display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:none; border:none; border-top:1px solid var(--border); padding:8px 0; cursor:pointer; font-family:var(--font-ui); color:var(--text-primary);" style-hover="color:var(--text-brand);">
+                    <span style="font-family:var(--font-mono); font-size:12.5px; font-weight:600; letter-spacing:var(--ls-mono);">{{ m.id }}</span>
+                    <span style="flex:1; min-width:0; font-size:12px; color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ m.sub }}</span>
+                    <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); letter-spacing:var(--ls-mono); white-space:nowrap;">{{ m.time }}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-if>
+          </section>
+          <section style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:16px 20px;">
+            <div style="display:flex; align-items:center; gap:14px;">
+              <div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:var(--fw-semibold); color:var(--text-primary);">Enabled</div><div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">Paused rules keep their history but stop flagging.</div></div>
+              <x-import aria-label="Enabled" checked="{{ reEnabled }}" component-from-global-scope="DesignSystem_c71fad.Switch" hint-size="40px,24px" on-change="{{ onReEnabled }}"></x-import>
+            </div>
+            <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); letter-spacing:var(--ls-mono); margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">{{ reMeta }}</div>
+          </section>
+          <sc-if hint-placeholder-val="{{ false }}" value="{{ reIsExisting }}">
+            <div style="padding:0 4px;">
+              <sc-if hint-placeholder-val="{{ true }}" value="{{ reNotConfirmDel }}">
+                <button onClick="{{ onReAskDel }}" style="background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); color:var(--alert-600);" style-hover="text-decoration:underline;">Delete this rule</button>
+              </sc-if>
+              <sc-if hint-placeholder-val="{{ false }}" value="{{ reConfirmDel }}">
+                <div style="border:1px solid color-mix(in oklab, var(--alert-500) 40%, transparent); background:color-mix(in oklab, var(--alert-500) 6%, var(--surface-card)); border-radius:var(--radius-md); padding:12px 14px;">
+                  <div style="font-size:13px; font-weight:var(--fw-semibold); color:var(--text-primary);">Delete “{{ reDelName }}”?</div>
+                  <div style="font-size:12px; color:var(--text-secondary); margin-top:3px;">Existing flags stay. Nothing new trips it.</div>
+                  <div style="display:flex; gap:8px; margin-top:10px;">
+                    <button onClick="{{ onReDelete }}" style="height:32px; padding:0 14px; border-radius:var(--radius-pill); border:none; background:var(--alert-500); color:#fff; font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-bold); cursor:pointer;">Delete</button>
+                    <button onClick="{{ onReKeep }}" style="height:32px; padding:0 14px; border-radius:var(--radius-pill); border:1px solid var(--border); background:none; color:var(--text-secondary); font-family:var(--font-ui); font-size:12px; font-weight:var(--fw-semibold); cursor:pointer;">Keep</button>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+        </aside>
+      </div>
+
+      <div style="position:sticky; bottom:0; z-index:5; margin:28px -24px 0; padding:12px 24px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:color-mix(in oklab, var(--surface-page) 92%, transparent); backdrop-filter:blur(12px); border-top:1px solid var(--border);">
+        <span style="font-family:var(--font-mono); font-size:var(--fs-caption); letter-spacing:var(--ls-mono); color:{{ reFootColor }};">{{ reFootLabel }}</span>
+        <div style="margin-left:auto; display:flex; gap:8px;">
+          <button onClick="{{ onReCancel }}" style="height:38px; padding:0 16px; border-radius:var(--radius-pill); border:1px solid var(--border); background:var(--surface-card); color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); cursor:pointer;" style-hover="border-color:var(--brand); color:var(--text-brand);">Cancel</button>
+          <button onClick="{{ onReSave }}" style="height:38px; padding:0 18px; border-radius:var(--radius-pill); border:none; background:var(--brand); color:#fff; font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-bold); cursor:{{ reSaveCursor }}; opacity:{{ reSaveOp }};">{{ reSaveLabel }}</button>
+        </div>
+      </div>
+    </div>
     </sc-if>
 
     <!-- ===================== NODE DETAIL VIEW ===================== -->
@@ -1411,6 +1669,17 @@ class Component extends DCLogic {
     expKey: null,
     profileUid: null, tlFilter: 'All',
     nodeId: null, ntlFilter: 'All',
+    rules: [
+      { id: 1, key: 'Duplicate node', name: 'Duplicate node', type: 'duplicate', sev: 'High', enabled: true, scope: [], notify: false, ask: true, askMsg: 'It sits within 10 m of an existing ALPR node with the same tags — a second camera, or the same one?', p: { radius: 10, tags: 'man_made=surveillance\nsurveillance:type=ALPR' }, createdBy: 'Devin Park', updated: Date.now() - 58 * 86400000 },
+      { id: 2, key: 'Missing direction', name: 'Missing direction', type: 'missing', sev: 'Medium', enabled: true, scope: [], notify: false, ask: true, askMsg: 'Which way does the camera face? A compass bearing (0–359) in the direction tag is ideal.', p: { tags: 'direction', when: 'surveillance:type=ALPR' }, createdBy: 'you', updated: Date.now() - 20 * 86400000 },
+      { id: 3, key: 'No operator tag', name: 'No operator tag', type: 'missing', sev: 'Low', enabled: true, scope: [], notify: false, ask: true, askMsg: 'Who operates it? Flock Safety, Motorola, the city… that goes in the operator tag.', p: { tags: 'operator', when: 'surveillance:type=ALPR' }, createdBy: 'Devin Park', updated: Date.now() - 90 * 86400000 },
+      { id: 4, key: 'Untagged camera type', name: 'Untagged camera type', type: 'missing', sev: 'Low', enabled: true, scope: [], notify: false, ask: false, askMsg: 'Is it a fixed, dome or panning unit? That goes in camera:type.', p: { tags: 'camera:type', when: 'surveillance:type=ALPR' }, createdBy: 'you', updated: Date.now() - 3 * 86400000 },
+      { id: 5, key: 'Too far from road', name: 'Too far from road', type: 'road', sev: 'Medium', enabled: true, scope: [], notify: true, ask: true, askMsg: 'It sits well off any mapped road — is it on an unmapped access road, or should it move to the roadside?', p: { distance: 40, roads: ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential'] }, createdBy: 'Priya Raman', updated: Date.now() - 44 * 86400000 },
+      { id: 6, key: 'Invalid direction', name: 'Invalid direction', type: 'invalid', sev: 'Medium', enabled: true, scope: [], notify: false, ask: true, askMsg: 'direction should be a compass bearing from 0 to 359 — which way does the camera face?', p: { tag: 'direction', mode: 'range', values: '', min: 0, max: 359 }, createdBy: 'Devin Park', updated: Date.now() - 31 * 86400000 },
+      { id: 7, key: 'Unknown operator', name: 'Unknown operator', type: 'invalid', sev: 'Medium', enabled: true, scope: ['Austin metro', 'Maricopa County, AZ'], notify: true, ask: true, askMsg: 'Is that Flock Safety, Motorola Solutions, Vigilant, Axon, or the city? We match on the exact name.', p: { tag: 'operator', mode: 'list', values: 'Flock Safety\nMotorola Solutions\nVigilant\nAxon\nCity of Austin', min: '', max: '' }, createdBy: 'Priya Raman', updated: Date.now() - 12 * 86400000 },
+      { id: 8, key: 'Unknown camera type', name: 'Unknown camera type', type: 'invalid', sev: 'Low', enabled: false, scope: [], notify: false, ask: false, askMsg: '', p: { tag: 'camera:type', mode: 'list', values: 'fixed\ndome\npanning', min: '', max: '' }, createdBy: 'you', updated: Date.now() - 8 * 86400000 },
+    ],
+    ruNextId: 9, rfTypes: [], rfSevs: [], rfStatus: [], ruleId: null, ruDraft: null, ruConfirmDel: false,
   };
 
   gen() {
@@ -1467,7 +1736,9 @@ class Component extends DCLogic {
     const ri = (a, b) => a + Math.floor(rnd() * (b - a + 1));
     const pick = (a) => a[Math.floor(rnd() * a.length)];
     const users = [['plate_awareness', 14203311], ['mapper_atx', 9284511], ['SurveilWatch', 15733208], ['gridfinder', 6120944], ['deflock_dan', 16044182], ['osm_carla', 4381207], ['NodeAudit', 12977055], ['camerawatch_pdx', 15211903], ['tx_surveys', 8834271], ['quietroutes', 13402856], ['alpr_tracker', 16233017], ['streetlevel_sam', 5127763], ['CivicLens', 14672289], ['watchthewatchers', 15987224], ['metroaudit', 11278533], ['nightsurvey', 16107738], ['newbie4021', 17204518], ['fastedits_99', 17093321]];
-    const RULES = [['Deleted by new user', 'High'], ['Duplicate node', 'High'], ['Moved >50 m', 'Medium'], ['Operator mismatch', 'Medium'], ['Missing direction', 'Medium'], ['No operator tag', 'Low'], ['Untagged camera type', 'Low']];
+    const RULES = [['Duplicate node', 'High'], ['Too far from road', 'Medium'], ['Unknown operator', 'Medium'], ['Invalid direction', 'Medium'], ['Missing direction', 'Medium'], ['No operator tag', 'Low'], ['Untagged camera type', 'Low']];
+    const CLASH = { 'Missing direction': 'Invalid direction', 'Invalid direction': 'Missing direction', 'No operator tag': 'Unknown operator', 'Unknown operator': 'No operator tag' };
+    const BAD_OPS = ['flock', 'Flock', 'FLOCK SAFETY', 'City PD', 'Motorola', 'Vigilant Solutions', 'flock safety inc'];
     const ops = ['Flock Safety', 'Motorola Solutions', 'Vigilant', 'City of Austin', 'Axon'];
     const rank = { High: 0, Medium: 1, Low: 2 };
     const rows = [];
@@ -1479,7 +1750,7 @@ class Component extends DCLogic {
       const isFlag = rnd() < 0.3;
       const count = !isFlag ? 0 : rnd() < 0.6 ? 1 : rnd() < 0.6 ? 2 : rnd() < 0.6 ? 3 : rnd() < 0.6 ? 4 : 5;
       const rules = [];
-      while (rules.length < count) { const r = pick(RULES); if (!rules.some(x => x[0] === r[0])) rules.push(r); }
+      while (rules.length < count) { const r = pick(RULES); if (!rules.some(x => x[0] === r[0] || x[0] === CLASH[r[0]])) rules.push(r); }
       const names = rules.map(r => r[0]);
       const severity = names.length ? rules.reduce((m, r) => rank[r[1]] < rank[m] ? r[1] : m, 'Low') : null;
       const u = pick(users);
@@ -1493,7 +1764,7 @@ class Component extends DCLogic {
         nid, rules: names, severity, reports,
         area: pick(['Austin, TX', 'Houston, TX', 'Phoenix, AZ', 'San Diego, CA', 'Denver, CO', 'Atlanta, GA', 'Nashville, TN', 'Columbus, OH', 'Tampa, FL', 'Sacramento, CA', 'Tucson, AZ', 'Charlotte, NC', 'Boise, ID', 'Memphis, TN', 'Oakland, CA', 'Tulsa, OK', 'Reno, NV', 'El Paso, TX', 'Fort Worth, TX', 'Spokane, WA', 'Albuquerque, NM', 'Louisville, KY', 'Fresno, CA', 'Omaha, NE']),
         dirDeg: names.includes('Missing direction') || (!names.length && rnd() < 0.08) ? null : ri(0, 359),
-        operator: names.includes('No operator tag') || (!names.length && rnd() < 0.06) ? 'Unknown' : pick(ops),
+        operator: names.includes('No operator tag') || (!names.length && rnd() < 0.06) ? 'Unknown' : names.includes('Unknown operator') ? pick(BAD_OPS) : pick(ops),
         user: u[0], uid: u[1],
         ts: now - ri(5, 43200) * 60000,
       });
@@ -1795,29 +2066,28 @@ class Component extends DCLogic {
         const first = n.ts + 3 * 60000 + Math.round(h(1) * 40) * 60000;
         const last = Math.max(first + 60000, now - Math.round(5 + h(2) * 170) * 60000);
         let desc, brief, raw;
-        if (r === 'Deleted by new user') {
-          const ageD = 1 + Math.round(h(3) * 20), prior = Math.round(h(4) * 30);
-          desc = 'Deleted by ' + n.user + ', an account ' + ageD + (ageD === 1 ? ' day' : ' days') + ' old with ' + prior + ' prior edits — under the 30-day / 50-edit threshold for removing surveillance nodes.';
-          brief = 'Deleted by ' + n.user + ' · ' + ageD + '-day-old account, ' + prior + ' edits';
-          raw = { changeset: n.cs, editor: n.user, editor_uid: n.uid, account_age_days: ageD, prior_edits: prior, thresholds: { min_account_age_days: 30, min_prior_edits: 50 }, deleted_tags: ['man_made=surveillance', 'surveillance:type=ALPR'] };
+        if (r === 'Too far from road') {
+          const RD = ['FM 620', 'Lamar Blvd', 'Peachtree St', 'Van Buren St', 'Colfax Ave', 'Broadway', 'Speedway Blvd', 'Central Ave'];
+          const dist = Math.round(45 + h(3) * 280), road = RD[Math.floor(h(4) * RD.length)];
+          desc = 'Sits ' + dist + ' m from the nearest mapped road, ' + road + ' (threshold 40 m). ALPR units mount on roadside poles — this is usually a misplaced pin or an unmapped access road.';
+          brief = dist + ' m from ' + road;
+          raw = { distance_meters: dist, threshold_meters: 40, nearest_way: { name: road, highway: ['primary', 'secondary', 'tertiary', 'residential'][Math.floor(h(5) * 4)], way_id: 400000000 + Math.floor(h(6) * 90000000) }, road_classes: ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential'] };
         } else if (r === 'Duplicate node') {
           const related = n.nid - (1 + Math.round(h(3) * 40)), dist = +(0.4 + h(4) * 8).toFixed(2);
           const lat2 = +(+lat + (h(5) - 0.5) * 0.00012).toFixed(7), lon2 = +(+lon + (h(6) - 0.5) * 0.00012).toFixed(7);
           desc = 'Original node ' + related + ' is ' + dist + ' m away (within 10 m) and carries the same surveillance tags.';
           brief = dist + ' m from node ' + related + ', same tags';
           raw = { related_node_id: related, distance_meters: dist, radius_meters: 10, matching_tags: ['man_made=surveillance', 'surveillance:type=ALPR'], locations: { [related]: [lon2, lat2], [n.nid]: [+lon, +lat] }, node_versions: { [related]: 1 + Math.round(h(7) * 3), [n.nid]: 1 } };
-        } else if (r === 'Moved >50 m') {
-          const dist = Math.round(55 + h(3) * 600);
-          const dlat = (dist / 111320) * (h(4) - 0.5) * 2, dlon = (dist / 111320) * (h(5) - 0.5) * 2;
-          desc = 'Moved ' + dist + ' m from its previous position in a single edit (threshold 50 m). Cameras rarely relocate; this is usually a mis-drag.';
-          brief = 'Moved ' + dist + ' m in one edit';
-          raw = { distance_meters: dist, threshold_meters: 50, from: [+(+lon - dlon).toFixed(7), +(+lat - dlat).toFixed(7)], to: [+lon, +lat], changeset: n.cs, previous_version: 1 + Math.round(h(6) * 4) };
-        } else if (r === 'Operator mismatch') {
-          const others = this.NODE_OPS.filter(o => o !== n.operator), other = others[Math.floor(h(3) * others.length)];
-          const k = 3 + Math.round(h(4) * 9);
-          desc = 'Tagged operator=' + n.operator + ', but all ' + k + ' ALPR nodes within 500 m are tagged ' + other + '.';
-          brief = k + ' neighbors tagged ' + other;
-          raw = { operator: n.operator, neighborhood_operator: other, neighbors_within_meters: 500, neighbor_count: k, neighbor_agreement: 1 };
+        } else if (r === 'Invalid direction') {
+          const bad = ['NE', '420', '-15', '90;270', 'north', '361'][Math.floor(h(3) * 6)];
+          desc = 'direction=' + bad + " isn't a compass bearing. Expected a whole number from 0 to 359.";
+          brief = 'direction=' + bad;
+          raw = { tag: 'direction', value: bad, expected: 'integer 0–359', accepted: { min: 0, max: 359 }, changeset: n.cs };
+        } else if (r === 'Unknown operator') {
+          const sug = this.NODE_OPS.find(o => o.toLowerCase().startsWith(String(n.operator).toLowerCase().slice(0, 3))) || 'Flock Safety';
+          desc = 'operator=' + n.operator + " isn't in the accepted operator list. Closest match: " + sug + '.';
+          brief = 'operator=' + n.operator + ' · not in list';
+          raw = { tag: 'operator', value: n.operator, accepted: this.NODE_OPS, suggestion: sug, changeset: n.cs };
         } else if (r === 'Missing direction') {
           const k = 2 + Math.round(h(3) * 7);
           desc = 'No direction tag. The ' + k + ' ALPR cameras within 300 m all carry one, so this node is likely incomplete.';
@@ -1851,12 +2121,12 @@ class Component extends DCLogic {
       'Missing direction': 'Which way does the camera face? A compass bearing (0–359) in the direction tag is ideal.',
       'No operator tag': 'Who operates it? Flock Safety, Motorola, the city… that goes in the operator tag.',
       'Untagged camera type': 'Is it a fixed, dome or panning unit? That goes in camera:type.',
-      'Moved >50 m': 'It moved more than 50 m in your edit — a correction from a survey, or a mis-drag?',
-      'Operator mismatch': 'It is tagged operator=' + n.operator + ', but nearby ALPR nodes carry a different operator — can you confirm which it is?',
+      'Too far from road': 'It sits well off any mapped road — is it on an unmapped access road, or should it move to the roadside?',
+      'Unknown operator': 'It is tagged operator=' + n.operator + ' — is that Flock Safety, Motorola Solutions, Vigilant, Axon, or the city? We match on the exact name.',
       'Duplicate node': 'It sits within 10 m of an existing ALPR node with the same tags — a second camera, or the same one?',
-      'Deleted by new user': 'You removed this surveillance node — was it decommissioned, or confirmed gone on the ground?',
+      'Invalid direction': 'direction should be a compass bearing from 0 to 359 — which way does the camera face?',
     })[r];
-    const fixFor = r => ({ 'Missing direction': 'added a direction tag', 'No operator tag': 'added the operator', 'Untagged camera type': 'set camera:type', 'Moved >50 m': 'moved it back to its surveyed position', 'Operator mismatch': 'corrected the operator', 'Duplicate node': 'merged it with the existing node', 'Deleted by new user': 'restored the node' })[r];
+    const fixFor = r => ({ 'Missing direction': 'added a direction tag', 'No operator tag': 'added the operator', 'Untagged camera type': 'set camera:type', 'Too far from road': 'moved it to the roadside', 'Unknown operator': 'corrected the operator', 'Duplicate node': 'merged it with the existing node', 'Invalid direction': 'fixed the direction' })[r];
     const composeMsg = (n, tpl) => {
       const where = 'ALPR node ' + n.nid + ' near ' + n.area;
       const sig = '\n\nThanks for mapping,\nMaya Ortiz · DAF moderation';
@@ -2288,7 +2558,7 @@ class Component extends DCLogic {
         const nv = 2 + Math.floor(h(101) * 5);
         const span = (30 + h(103) * 700) * day;
         const first = nd.ts - span;
-        const lastKind = nd.rules.includes('Deleted by new user') ? 'Deleted' : nd.rules.includes('Moved >50 m') ? 'Moved' : 'Retagged';
+        const lastKind = nd.rules.includes('Too far from road') ? 'Moved' : 'Retagged';
         const target = { man_made: 'surveillance', surveillance: 'public', 'surveillance:type': 'ALPR', 'camera:mount': 'pole' };
         if (nd.operator !== 'Unknown') target.operator = nd.operator;
         if (nd.dirDeg != null) target.direction = String(nd.dirDeg);
@@ -2837,11 +3107,164 @@ class Component extends DCLogic {
     };
     const subscribedCount = watched.filter(w => w.watchers.includes('you')).length;
 
+    // ---------- Rules ----------
+    const RTYPES = [
+      ['duplicate', 'Duplicate node', 'Another surveillance node too close, carrying the same tags.'],
+      ['missing', 'Missing tags', 'Tags every surveillance node must carry.'],
+      ['road', 'Too far from road', 'A node farther from any mapped road than a camera could be.'],
+      ['invalid', 'Invalid tags', 'A tag whose value is outside what we accept.'],
+    ];
+    const RT = Object.fromEntries(RTYPES.map(t => [t[0], { name: t[1], desc: t[2] }]));
+    const ROAD_CLASSES = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'service'];
+    const R_DEF = type => ({
+      duplicate: { radius: 10, tags: 'man_made=surveillance\nsurveillance:type=ALPR' },
+      missing: { tags: '', when: 'surveillance:type=ALPR' },
+      road: { distance: 40, roads: ROAD_CLASSES.slice(0, 7) },
+      invalid: { tag: '', mode: 'list', values: '', min: '', max: '' },
+    })[type];
+    const q = v => (v === '' || v == null) ? '…' : v;
+    const lst = s => String(s || '').split('\n').map(x => x.trim()).filter(Boolean);
+    const joinOr = a => a.length <= 1 ? a.join('') : a.slice(0, -1).join(', ') + ' or ' + a[a.length - 1];
+    const ruleSummary = r => {
+      const p = r.p || {};
+      if (r.type === 'duplicate') { const k = lst(p.tags).length; return 'Another node sharing the same ' + k + ' tag' + (k === 1 ? '' : 's') + ' sits within ' + q(p.radius) + ' m.'; }
+      if (r.type === 'missing') { const t = lst(p.tags); return (t.length ? joinOr(t) : '…') + ' is missing on nodes tagged ' + (String(p.when || '').trim() || '…') + '.'; }
+      if (r.type === 'road') { const k = (p.roads || []).length; return 'Sits more than ' + q(p.distance) + ' m from the nearest mapped road' + (k && k < ROAD_CLASSES.length ? ' (' + k + ' of ' + ROAD_CLASSES.length + ' road classes count)' : '') + '.'; }
+      if (r.type === 'invalid') {
+        const tg = String(p.tag || '').trim() || '…';
+        if (p.mode === 'range') return tg + ' is anything but a whole number from ' + q(p.min) + ' to ' + q(p.max) + '.';
+        const v = lst(p.values);
+        return tg + ' is anything other than ' + (v.length === 0 ? '…' : v.length <= 3 ? joinOr(v) : 'the ' + v.length + ' accepted values') + '.';
+      }
+      return '';
+    };
+    const d30 = now - 30 * day;
+    const ruleHits = r => this.nodes.filter(n => n.rules.includes(r.key) && n.ts > d30).map(n => ({ ts: n.ts, area: n.area, nid: n.nid }));
+    const { rules, rfTypes, rfSevs, rfStatus, ruleId, ruDraft } = this.state;
+    const rfActive = !!(rfTypes.length || rfSevs.length || rfStatus.length);
+    const ruFiltered = rules.filter(r => (!rfTypes.length || rfTypes.includes(r.type)) && (!rfSevs.length || rfSevs.includes(r.sev)) && (!rfStatus.length || rfStatus.includes(r.enabled ? 'Enabled' : 'Paused')));
+    const ruChip = (on, label, onClick) => ({ label, onClick, bd: on ? 'var(--brand)' : 'var(--border)', bg: on ? 'var(--brand-soft)' : 'transparent', fg: on ? 'var(--text-brand)' : 'var(--text-secondary)' });
+    const ruTog = (key, v) => this.setState(s2 => { const a = s2[key]; return { [key]: a.includes(v) ? a.filter(x => x !== v) : [...a, v] }; });
+    const openRule = id => { const r = rules.find(x => x.id === id); if (r) this.setState({ view: 'rule', ruleId: id, ruDraft: JSON.parse(JSON.stringify(r)), ruConfirmDel: false }); };
+    const ruGroups = RTYPES.map(t => {
+      const rs = ruFiltered.filter(r => r.type === t[0]).sort((a, b) => this.SEV_RANK[a.sev] - this.SEV_RANK[b.sev] || a.name.localeCompare(b.name));
+      return { name: t[1], desc: t[2], count: rs.length + (rs.length === 1 ? ' rule' : ' rules'), rows: rs.map(r => {
+        const hits = r.enabled ? ruleHits(r).length : 0, sc = sevColors[r.sev];
+        return {
+          id: r.id, name: r.name, summary: ruleSummary(r), sev: r.sev, sevFg: sc[0], sevBg: sc[1],
+          scope: r.scope.length ? r.scope.join(', ') : 'All areas', scopeColor: r.scope.length ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+          hits: r.enabled ? String(hits) : '—', hitsColor: r.enabled && hits ? 'var(--text-primary)' : 'var(--text-tertiary)',
+          nameOp: r.enabled ? '1' : '0.5', enabled: r.enabled,
+          onToggle: () => this.setState(s2 => ({ rules: s2.rules.map(x => x.id === r.id ? { ...x, enabled: !x.enabled, updated: Date.now() } : x) })),
+          onOpen: () => openRule(r.id),
+        };
+      }) };
+    }).filter(g => g.rows.length);
+    const d = ruDraft;
+    const orig = ruleId != null ? rules.find(x => x.id === ruleId) : null;
+    const isRuleView = view === 'rule' && !!d;
+    let rev = {};
+    if (isRuleView) {
+      const isNew = d.id == null;
+      const setD = patch => this.setState(s2 => ({ ruDraft: { ...s2.ruDraft, ...patch } }));
+      const setP = patch => this.setState(s2 => ({ ruDraft: { ...s2.ruDraft, p: { ...s2.ruDraft.p, ...patch } } }));
+      const num = (v, hi) => { const n = parseInt(String(v).replace(/\D/g, ''), 10); return isNaN(n) ? '' : Math.min(hi, n); };
+      const p = d.p;
+      const pOk = {
+        duplicate: +p.radius > 0 && lst(p.tags).length > 0,
+        missing: lst(p.tags).length > 0 && !!String(p.when || '').trim(),
+        road: +p.distance > 0 && (p.roads || []).length > 0,
+        invalid: !!String(p.tag || '').trim() && (p.mode === 'range' ? p.min !== '' && p.max !== '' && +p.max >= +p.min : lst(p.values).length > 0),
+      }[d.type];
+      const valid = d.name.trim().length > 0 && !!pOk;
+      const dirty = isNew || JSON.stringify(d) !== JSON.stringify(orig);
+      const canSave = valid && dirty;
+      const hits = isNew ? [] : ruleHits(orig).sort((a, b) => b.ts - a.ts);
+      const sc = sevColors[d.sev];
+      const pillChips = (list, cur, onPick) => list.map(o => ruChip(cur === o[0], o[1], () => onPick(o[0])));
+      rev = {
+        reTitle: isNew ? 'New rule' : orig.name,
+        reIsNew: isNew, reIsExisting: !isNew,
+        reName: d.name, onReName: e => setD({ name: e.target.value }),
+        reTypeName: RT[d.type].name, reTypeDesc: RT[d.type].desc,
+        reTypes: RTYPES.map(t => { const on = d.type === t[0]; return { name: t[1], desc: t[2], bd: on ? 'var(--brand)' : 'var(--border)', bg: on ? 'var(--brand-soft)' : 'var(--surface-card)', fg: on ? 'var(--text-brand)' : 'var(--text-primary)', onClick: () => setD({ type: t[0], p: R_DEF(t[0]) }) }; }),
+        reSevs: ['High', 'Medium', 'Low'].map(s => { const c = sevColors[s], on = d.sev === s; return { label: s, dot: c[0], bd: on ? c[0] : 'var(--border)', bg: on ? c[1] : 'transparent', fg: on ? c[0] : 'var(--text-secondary)', onClick: () => setD({ sev: s }) }; }),
+        reSev: d.sev, reSevFg: sc[0], reSevBg: sc[1],
+        reStatus: d.enabled ? 'Enabled' : 'Paused',
+        reStatusFg: d.enabled ? 'var(--text-brand)' : 'var(--text-tertiary)',
+        reStatusBg: d.enabled ? 'var(--brand-soft)' : 'color-mix(in oklab, var(--text-primary) 8%, transparent)',
+        reEnabled: d.enabled, onReEnabled: () => setD({ enabled: !d.enabled }),
+        rtDuplicate: d.type === 'duplicate', rtMissing: d.type === 'missing', rtRoad: d.type === 'road', rtInvalid: d.type === 'invalid',
+        rtInvList: d.type === 'invalid' && p.mode !== 'range', rtInvRange: d.type === 'invalid' && p.mode === 'range',
+        pDistance: p.distance, onPDistance: e => setP({ distance: num(e.target.value, 100000) }),
+        pRadius: p.radius, onPRadius: e => setP({ radius: num(e.target.value, 100000) }),
+        pTags: p.tags, onPTags: e => setP({ tags: e.target.value }),
+        pTag: p.tag, onPTag: e => setP({ tag: e.target.value }),
+        pWhen: p.when, onPWhen: e => setP({ when: e.target.value }),
+        pRoads: ROAD_CLASSES.map(c => ruChip((p.roads || []).includes(c), c, () => setP({ roads: (p.roads || []).includes(c) ? p.roads.filter(x => x !== c) : [...(p.roads || []), c] }))),
+        pModes: pillChips([['list', 'Not one of the accepted values'], ['range', 'Not a whole number in a range']], p.mode, v => setP({ mode: v })),
+        pValues: p.values, onPValues: e => setP({ values: e.target.value }),
+        pMin: p.min, onPMin: e => setP({ min: num(e.target.value, 999999) }),
+        pMax: p.max, onPMax: e => setP({ max: num(e.target.value, 999999) }),
+        reScopeChips: [ruChip(!d.scope.length, 'All areas', () => setD({ scope: [] })), ...watched.map(w => ruChip(d.scope.includes(w.area), w.area, () => setD({ scope: d.scope.includes(w.area) ? d.scope.filter(x => x !== w.area) : [...d.scope, w.area] })))],
+        reScopeNote: d.scope.length ? 'Only edits inside ' + d.scope.join(', ') + ' trip this rule.' : 'Runs everywhere. Pick watched areas to narrow it.',
+        reFlagLabel: 'Flag the node',
+        reFlagNote: "Always on. The node lands in Flagged with this rule's severity.",
+        reSummary: ruleSummary(d),
+        reHits: isNew ? '—' : String(hits.length),
+        reHitsLabel: isNew ? 'No history yet — counting starts when you save.' : (orig.enabled ? 'flags in the last 30 days' : 'would have flagged in the last 30 days · paused'),
+        reHasRecent: hits.length > 0,
+        reRecent: hits.slice(0, 4).map(h => ({
+          id: String(h.nid), sub: h.area, time: rel(h.ts),
+          onGo: () => this.setState({ view: 'node', nodeId: h.nid, ntlFilter: 'All', nodeFrom: 'rule' }),
+        })),
+        reMeta: isNew ? 'Saved under your account as the creator.' : 'Created by ' + orig.createdBy + ' · updated ' + rel(orig.updated),
+        reFootLabel: !valid ? (d.name.trim() ? 'Finish the condition to save' : 'Give the rule a name to save') : isNew ? 'Ready to save' : dirty ? 'Unsaved changes' : 'No changes',
+        reFootColor: !valid && dirty ? 'var(--amber-600)' : 'var(--text-tertiary)',
+        reSaveOp: canSave ? '1' : '0.45', reSaveCursor: canSave ? 'pointer' : 'default',
+        reSaveLabel: isNew ? 'Create rule' : 'Save changes',
+        onReSave: () => {
+          if (!canSave) return;
+          const nm = d.name.trim();
+          if (isNew) this.setState(s2 => ({ rules: [...s2.rules, { ...d, id: s2.ruNextId, key: nm, name: nm, updated: Date.now() }], ruNextId: s2.ruNextId + 1, view: 'rules', ruDraft: null, ruleId: null }));
+          else {
+            if (d.key && this.RULE_SEV[d.key]) this.RULE_SEV[d.key] = d.sev;
+            this.setState(s2 => ({ rules: s2.rules.map(x => x.id === d.id ? { ...d, name: nm, updated: Date.now() } : x), view: 'rules', ruDraft: null, ruleId: null }));
+          }
+        },
+        onReCancel: () => this.setState({ view: 'rules', ruDraft: null, ruleId: null, ruConfirmDel: false }),
+        reConfirmDel: !!this.state.ruConfirmDel, reNotConfirmDel: !this.state.ruConfirmDel,
+        onReAskDel: () => this.setState({ ruConfirmDel: true }), onReKeep: () => this.setState({ ruConfirmDel: false }),
+        onReDelete: () => this.setState(s2 => ({ rules: s2.rules.filter(x => x.id !== ruleId), view: 'rules', ruDraft: null, ruleId: null, ruConfirmDel: false })),
+        reDelName: orig ? orig.name : '',
+      };
+    }
+    const ruActive = view === 'rules' || isRuleView || (isNodeView && this.state.nodeFrom === 'rule');
+    const ruv = {
+      isRules: view === 'rules', isRule: isRuleView,
+      showRules: () => this.setState({ view: 'rules' }),
+      ruColor: ruActive ? 'var(--text-brand)' : 'var(--text-secondary)', ruBg: ruActive ? 'var(--brand-soft)' : 'transparent',
+      ruCount: String(rules.filter(r => r.enabled).length),
+      onRuleNew: () => this.setState({ view: 'rule', ruleId: null, ruConfirmDel: false, ruDraft: { id: null, key: null, name: '', type: 'duplicate', sev: 'Medium', enabled: true, scope: [], notify: false, ask: false, askMsg: '', p: R_DEF('duplicate'), createdBy: 'you', updated: Date.now() } }),
+      rfGroups: [
+        { name: 'Type', chips: RTYPES.map(t => ruChip(rfTypes.includes(t[0]), t[1], () => ruTog('rfTypes', t[0]))) },
+        { name: 'Severity', chips: ['High', 'Medium', 'Low'].map(s => ruChip(rfSevs.includes(s), s, () => ruTog('rfSevs', s))) },
+        { name: 'Status', chips: ['Enabled', 'Paused'].map(s => ruChip(rfStatus.includes(s), s, () => ruTog('rfStatus', s))) },
+      ],
+      rfActive, onRfClear: () => this.setState({ rfTypes: [], rfSevs: [], rfStatus: [] }),
+      ruCountLabel: (rfActive ? ruFiltered.length + ' of ' + rules.length : rules.length) + ' rules · ' + rules.filter(r => r.enabled).length + ' enabled',
+      ruGroups, isRuEmpty: ruGroups.length === 0,
+      ruEmptyTitle: rules.length ? 'No rules match' : 'No rules yet',
+      ruEmptyMsg: rules.length ? 'Loosen the filters.' : 'Nothing gets flagged until you add one.',
+      ...rev,
+    };
+
     const csActive = view === 'changesets';
     const edActive = view === 'editors';
     const waActive = view === 'areas';
 
     return {
+      ...ruv,
       isAreas: waActive,
       showAreas: () => this.setState({ view: 'areas' }),
       waColor: waActive ? 'var(--text-brand)' : 'var(--text-secondary)',
@@ -2920,15 +3343,15 @@ class Component extends DCLogic {
       isNodes: view === 'nodes' || (isNodeView && !nd),
       isFlagged: view === 'flagged',
       isNode: isNodeView && !!nd,
-      backToNodes: () => this.setState({ view: this.state.nodeFrom === 'flagged' ? 'flagged' : 'nodes' }),
+      backToNodes: () => this.setState({ view: this.state.nodeFrom === 'flagged' ? 'flagged' : this.state.nodeFrom === 'rule' ? 'rule' : 'nodes' }),
       ...ndv, ...av,
       showChangesets: () => this.setState({ view: 'changesets' }),
       showNodes: () => this.setState({ view: 'nodes' }),
       showFlagged: () => this.setState({ view: 'flagged' }),
       csColor: csActive ? 'var(--text-brand)' : 'var(--text-secondary)',
       csBg: csActive ? 'var(--brand-soft)' : 'transparent',
-      ndColor: (view === 'nodes' || (isNodeView && this.state.nodeFrom !== 'flagged')) ? 'var(--text-brand)' : 'var(--text-secondary)',
-      ndBg: (view === 'nodes' || (isNodeView && this.state.nodeFrom !== 'flagged')) ? 'var(--brand-soft)' : 'transparent',
+      ndColor: (view === 'nodes' || (isNodeView && this.state.nodeFrom !== 'flagged' && this.state.nodeFrom !== 'rule')) ? 'var(--text-brand)' : 'var(--text-secondary)',
+      ndBg: (view === 'nodes' || (isNodeView && this.state.nodeFrom !== 'flagged' && this.state.nodeFrom !== 'rule')) ? 'var(--brand-soft)' : 'transparent',
       flColor: (view === 'flagged' || (isNodeView && this.state.nodeFrom === 'flagged')) ? 'var(--text-brand)' : 'var(--text-secondary)',
       flBg: (view === 'flagged' || (isNodeView && this.state.nodeFrom === 'flagged')) ? 'var(--brand-soft)' : 'transparent',
       nodeOpenCount: String(open.length),

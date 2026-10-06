@@ -250,7 +250,9 @@ export function nodeProfileSummary(versions, flags = []) {
             0,
         ),
         open_flags: flags.filter(
-            (flag) => flag.status === 'open' && flag.rule?.enabled !== false,
+            (flag) =>
+                flag.status === 'open' &&
+                (flag.rule?.enabled !== false || flag.rule?.deleted_at),
         ).length,
     };
 }

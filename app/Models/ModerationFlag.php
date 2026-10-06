@@ -13,14 +13,14 @@ class ModerationFlag extends Model
 
     public function rule(): BelongsTo
     {
-        return $this->belongsTo(ModerationRule::class, 'rule_id');
+        return $this->belongsTo(ModerationRule::class, 'rule_id')->withTrashed();
     }
 
     public function scopeActive(Builder $query): void
     {
         $covered = app(AlprPresenceReports::class)->coveredFlagNodeIds();
         $query->where('status', 'open')->where(function (Builder $query) use ($covered): void {
-            $query->where(fn (Builder $rule) => $rule->where('source', 'rule')->whereHas('rule', fn ($rule) => $rule->where('enabled', true)))
+            $query->where(fn (Builder $rule) => $rule->where('source', 'rule')->whereHas('rule', fn ($rule) => $rule->where(fn ($rule) => $rule->where('enabled', true)->orWhereNotNull('deleted_at'))))
                 ->orWhere(fn (Builder $reports) => $reports->where('source', 'alpr_presence')->whereIntegerInRaw('node_id', $covered));
         });
     }

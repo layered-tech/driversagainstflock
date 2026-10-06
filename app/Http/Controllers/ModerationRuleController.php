@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ModerationRuleIndexRequest;
 use App\Http\Requests\ModerationRuleRequest;
+use App\Http\Requests\ModerationRuleStateRequest;
 use App\Models\ModerationActivity;
 use App\Models\ModerationFlag;
 use App\Models\ModerationProcess;
@@ -13,6 +15,7 @@ use App\Services\OpenStreetMap\ModerationEditorSummaries;
 use App\Services\OpenStreetMap\ModerationReader;
 use App\Services\OpenStreetMap\ModerationRuleEvaluator;
 use App\Services\OpenStreetMap\ModerationSummaryCache;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -24,9 +27,19 @@ use Inertia\Response;
 
 class ModerationRuleController extends Controller
 {
-    public function index(): Response
+    public function index(ModerationRuleIndexRequest $request): Response
     {
-        return Inertia::render('Moderation/Rules', ['rules' => ModerationRule::orderBy('name')->get(), 'processes' => ModerationProcess::where('name', 'not like', 'warm-%')->orderBy('name')->get()]);
+        return Inertia::render('Moderation/Rules', [
+            'rules' => $this->ruleQuery()->orderBy('name')->get(),
+            'areas' => WatchedArea::orderBy('name')->get(['id', 'name']),
+            'filters' => $request->validated(),
+            'processes' => ModerationProcess::where('name', 'not like', 'warm-%')->orderBy('name')->get(),
+        ]);
+    }
+
+    private function ruleQuery(): Builder
+    {
+        return ModerationRule::withCount(['flags as flags_30d' => fn (Builder $query) => $query->where('source', 'rule')->where('created_at', '>=', now()->subDays(30))->select(DB::raw('count(distinct node_id)'))]);
     }
 
     public function edit(ModerationRule $rule): Response
@@ -36,8 +49,12 @@ class ModerationRuleController extends Controller
 
     private function form(?ModerationRule $rule): Response
     {
-        return Inertia::render('Moderation/RuleForm', ['rule' => $rule, 'areas' => WatchedArea::orderBy('name')->get(['id', 'name']),
-            'versions' => $rule?->versions()->latest('version')->get() ?? []]);
+        return Inertia::render('Moderation/RuleForm', [
+            'rule' => $rule ? $this->ruleQuery()->findOrFail($rule->id) : null,
+            'areas' => WatchedArea::orderBy('name')->get(['id', 'name']),
+            'versions' => $rule?->versions()->with('user:id,name')->latest('version')->get() ?? [],
+            'recentMatches' => $rule?->flags()->where('source', 'rule')->where('created_at', '>=', now()->subDays(30))->latest('created_at')->limit(4)->get(['id', 'node_id', 'status', 'created_at']) ?? [],
+        ]);
     }
 
     public function store(ModerationRuleRequest $request): RedirectResponse
@@ -56,20 +73,19 @@ class ModerationRuleController extends Controller
                 if ((int) $request->validated('version') !== $rule->version) {
                     throw ValidationException::withMessages(['version' => 'This rule changed. Reload before saving.']);
                 }
+                if ($request->validated('type') !== $rule->type) {
+                    throw ValidationException::withMessages(['type' => 'The rule type is fixed after creation. Create a new rule to change it.']);
+                }
                 $values['version'] = $rule->version + 1;
                 $rule->update($values);
             } else {
-                $rule = ModerationRule::create([...$values, 'version' => 1, 'enabled' => false]);
+                $rule = ModerationRule::create([...$values, 'version' => 1, 'enabled' => $request->boolean('enabled')]);
             }
             ModerationRuleVersion::create(['rule_id' => $rule->id, 'version' => $rule->version, 'user_id' => $request->user()->id,
                 'configuration' => $rule->only(['name', 'description', 'type', 'severity', 'enabled', 'settings', 'conditions', 'exceptions', 'area_ids'])]);
             ModerationFlag::where('rule_id', $rule->id)->update(['stale' => true]);
             ModerationActivity::create(['user_id' => $request->user()->id, 'actor' => $request->user()->name, 'action' => 'rule.saved', 'subject_type' => 'rule', 'subject_id' => $rule->id, 'details' => ['name' => $rule->name, 'version' => $rule->version]]);
-            DB::afterCommit(function () use ($rule): void {
-                app(ModerationSummaryCache::class)->invalidate();
-                $flags = ModerationFlag::where('rule_id', $rule->id)->get(['node_id', 'related_node_id']);
-                app(ModerationEditorSummaries::class)->markEditorsForNodesDirty($flags->flatMap(fn (ModerationFlag $flag): array => [$flag->node_id, $flag->related_node_id]));
-            });
+            $this->invalidateRule($rule);
 
             return $rule;
         });
@@ -79,12 +95,62 @@ class ModerationRuleController extends Controller
     {
         $this->save($request, $rule);
 
-        return back();
+        return to_route('moderation.rules.index');
     }
 
     public function create(): Response
     {
         return $this->form(null);
+    }
+
+    public function state(ModerationRuleStateRequest $request, ModerationRule $rule): RedirectResponse
+    {
+        $this->changeState($request, $rule, false);
+
+        return back();
+    }
+
+    public function destroy(ModerationRuleStateRequest $request, ModerationRule $rule): RedirectResponse
+    {
+        $this->changeState($request, $rule, true);
+
+        return to_route('moderation.rules.index');
+    }
+
+    private function changeState(ModerationRuleStateRequest $request, ModerationRule $rule, bool $delete): void
+    {
+        DB::transaction(function () use ($request, $rule, $delete): void {
+            $rule = ModerationRule::whereKey($rule->id)->lockForUpdate()->firstOrFail();
+            if ((int) $request->validated('version') !== $rule->version) {
+                throw ValidationException::withMessages(['version' => 'This rule changed. Reload before saving.']);
+            }
+            $enabled = $delete ? false : $request->boolean('enabled');
+            if (! $delete && $enabled === $rule->enabled) {
+                return;
+            }
+            $rule->update(['enabled' => $enabled, 'version' => $rule->version + 1]);
+            if (! $delete) {
+                ModerationFlag::where('rule_id', $rule->id)->update(['stale' => true]);
+            }
+            ModerationRuleVersion::create(['rule_id' => $rule->id, 'version' => $rule->version, 'user_id' => $request->user()->id,
+                'configuration' => $rule->only(['name', 'description', 'type', 'severity', 'enabled', 'settings', 'conditions', 'exceptions', 'area_ids'])]);
+            if ($delete) {
+                $rule->delete();
+            }
+            ModerationActivity::create(['user_id' => $request->user()->id, 'actor' => $request->user()->name,
+                'action' => $delete ? 'rule.deleted' : ($enabled ? 'rule.enabled' : 'rule.paused'), 'subject_type' => 'rule', 'subject_id' => $rule->id,
+                'details' => ['name' => $rule->name, 'version' => $rule->version]]);
+            $this->invalidateRule($rule);
+        });
+    }
+
+    private function invalidateRule(ModerationRule $rule): void
+    {
+        DB::afterCommit(function () use ($rule): void {
+            app(ModerationSummaryCache::class)->invalidate();
+            $flags = ModerationFlag::where('rule_id', $rule->id)->get(['node_id', 'related_node_id']);
+            app(ModerationEditorSummaries::class)->markEditorsForNodesDirty($flags->flatMap(fn (ModerationFlag $flag): array => [$flag->node_id, $flag->related_node_id]));
+        });
     }
 
     public function preview(ModerationRuleRequest $request, ModerationReader $reader, ModerationRuleEvaluator $evaluator): JsonResponse

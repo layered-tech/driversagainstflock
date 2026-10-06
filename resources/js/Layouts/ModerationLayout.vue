@@ -4,12 +4,16 @@ import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import logoMark from '../../assets/daf-logo-mark.png';
 
-defineProps({
+const props = defineProps({
     navigation: { type: Boolean, default: false },
     view: { type: String, default: '' },
     counts: { type: Object, default: () => ({}) },
 });
 const page = usePage();
+const navigationCounts = computed(() => ({
+    ...props.counts,
+    ...page.props.moderationNavigation,
+}));
 const user = computed(() => page.props.auth?.user);
 const initials = computed(() =>
     (user.value?.name || '')
@@ -103,27 +107,53 @@ const links = [
                 >
                     {{ item.label
                     }}<span
-                        v-if="counts[item.view] != null"
+                        v-if="item.view in navigationCounts"
                         :class="[
-                            'rounded-dafPill px-2 font-mono text-[11px]',
+                            'rounded-dafPill px-2 py-px font-mono text-[11px] font-bold',
                             item.view === 'flagged'
                                 ? 'bg-[var(--alert-100)] text-[var(--alert-600)]'
-                                : 'bg-daf-surface-alt text-daf-text-tertiary',
+                                : 'bg-[color-mix(in_oklab,var(--text-primary)_8%,transparent)] text-daf-text-tertiary',
                         ]"
-                        >{{ counts[item.view] }}</span
+                        :title="
+                            navigationCounts[item.view] == null
+                                ? 'Count unavailable'
+                                : undefined
+                        "
+                        >{{
+                            navigationCounts[item.view]?.toLocaleString(
+                                'en-US',
+                            ) ?? '—'
+                        }}</span
                     >
                 </Link>
                 <div
                     class="mt-[18px] hidden px-3 pb-2 text-[10px] font-bold uppercase tracking-[var(--ls-label)] text-daf-text-tertiary md:block"
                 >
-                    System
+                    Configure
                 </div>
                 <Link
                     :aria-current="view === 'rules' ? 'page' : undefined"
                     :href="route('moderation.rules.index')"
-                    class="whitespace-nowrap rounded-dafSm px-3 py-[9px] text-daf-body-sm font-semibold text-daf-text-secondary hover:bg-[var(--brand-soft)]"
-                    >Rules</Link
+                    :class="[
+                        'flex items-center justify-between gap-2 whitespace-nowrap rounded-dafSm px-3 py-[9px] text-daf-body-sm font-bold',
+                        view === 'rules'
+                            ? 'bg-[var(--brand-soft)] text-daf-text-brand'
+                            : 'text-daf-text-secondary hover:bg-[var(--brand-soft)]',
+                    ]"
+                    >Rules<span
+                        v-if="'rules' in navigationCounts"
+                        class="rounded-dafPill bg-[color-mix(in_oklab,var(--text-primary)_8%,transparent)] px-2 py-px font-mono text-[11px] font-bold text-daf-text-tertiary"
+                        >{{
+                            navigationCounts.rules?.toLocaleString('en-US') ??
+                            '—'
+                        }}</span
+                    ></Link
                 >
+                <div
+                    class="mt-[18px] hidden px-3 pb-2 text-[10px] font-bold uppercase tracking-[var(--ls-label)] text-daf-text-tertiary md:block"
+                >
+                    System
+                </div>
                 <Link
                     :aria-current="view === 'audit' ? 'page' : undefined"
                     :href="route('moderation.audit.index')"
@@ -209,6 +239,76 @@ const links = [
 }
 .moderation-page .mod-table-audit {
     min-width: 650px;
+}
+.moderation-page .mod-table-rules {
+    min-width: 720px;
+    table-layout: fixed;
+}
+.moderation-page .mod-table-rules th:not(:first-child),
+.moderation-page .mod-table-rules td:not(:first-child) {
+    padding-left: 12px;
+    padding-right: 12px;
+}
+.moderation-page .mod-table-rules th:nth-child(2) {
+    width: 108px;
+}
+.moderation-page .mod-table-rules th:nth-child(3) {
+    width: 24%;
+}
+.moderation-page .mod-table-rules th:nth-child(4) {
+    width: 116px;
+}
+.moderation-page .mod-table-rules th:nth-child(5) {
+    width: 68px;
+}
+.moderation-page .mod-table-rules th:nth-child(6) {
+    width: 56px;
+}
+.moderation-page .mod-rule-editor {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(300px, 380px);
+    align-items: start;
+    gap: 22px;
+}
+.moderation-page .mod-rule-side {
+    position: sticky;
+    top: 77px;
+}
+.moderation-page .mod-rule-card {
+    @apply rounded-dafLg border border-daf-border bg-daf-surface-card px-5 py-[18px] shadow-dafCard;
+}
+.moderation-page .mod-rule-heading {
+    @apply mb-3.5 font-display text-base font-bold tracking-[var(--ls-display)];
+}
+.moderation-page .mod-rule-label {
+    @apply mb-1.5 block text-[10px] font-bold uppercase tracking-[var(--ls-label)] text-daf-text-tertiary;
+}
+.moderation-page .mod-rule-textarea {
+    @apply block h-auto min-h-[76px] w-full resize-y rounded-dafSm border border-daf-border bg-daf-surface-card px-3 py-[9px] font-mono text-[13px] font-normal normal-case leading-[1.5] tracking-normal text-daf-text-primary focus:border-daf-brand focus:ring-daf-brand;
+}
+.moderation-page .mod-rule-severity {
+    @apply inline-flex h-[30px] items-center gap-[7px] rounded-dafPill border border-daf-border pl-2.5 pr-3 text-xs font-bold text-daf-text-secondary;
+}
+.moderation-page .mod-rule-severity-selected {
+    color: var(--severity-color);
+    border-color: var(--severity-color);
+    background: var(--severity-bg);
+}
+@media (max-width: 1120px) {
+    .moderation-page .mod-rule-editor {
+        grid-template-columns: 1fr;
+    }
+    .moderation-page .mod-rule-side {
+        position: static;
+    }
+}
+@media (max-width: 980px) {
+    .moderation-page .mod-table-rules {
+        min-width: 550px;
+    }
+    .moderation-page .mod-rule-scope {
+        display: none;
+    }
 }
 @media (max-width: 960px) {
     .moderation-page .mod-table-changesets th:nth-child(4),

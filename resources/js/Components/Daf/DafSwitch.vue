@@ -23,11 +23,16 @@ const props = defineProps({
     size: {
         type: String,
         default: 'md',
-        validator: (value) => ['xs', 'sm', 'md'].includes(value),
+        validator: (value) => ['compact', 'xs', 'sm', 'md'].includes(value),
     },
 });
 
 const switchSizeClasses = {
+    compact: {
+        track: 'h-6 w-10 p-0.5',
+        thumb: 'size-[18px]',
+        checkedThumb: 'translate-x-4',
+    },
     xs: {
         track: 'h-7 w-11 p-1',
         thumb: 'size-5',

@@ -139,7 +139,7 @@ class ModerationController extends Controller
                         }
                         if (in_array($view, ['nodes', 'flagged'], true)) {
                             $ids = $records->getCollection()->pluck('id');
-                            $flags = ModerationFlag::forListingDetails($view === 'flagged' ? $filters : [])->with('rule:id,name,severity')->whereIn('node_id', $ids)->orderByDesc('source')->get();
+                            $flags = ModerationFlag::forListingDetails($view === 'flagged' ? $filters : [])->with('rule:id,name,severity,deleted_at')->whereIn('node_id', $ids)->orderByDesc('source')->get();
                             $records->through(fn (array $row): array => [...$row, 'flags' => $flags->where('node_id', $row['id'])->values()->toArray()]);
                             $records->setCollection(collect(app(ModerationNodeEditor::class)->overlay($records->getCollection()->all())));
                         }
@@ -280,7 +280,7 @@ class ModerationController extends Controller
             'reports' => $reports, 'reportReviews' => $reportReviews,
             'listingFilters' => $request->safe()->except(['reports_page', 'page']),
             ...$detail,
-            'from' => $request->query('from') === 'flagged' ? 'flagged' : 'nodes',
+            'from' => in_array($request->query('from'), ['flagged', 'rules'], true) ? $request->query('from') : 'nodes',
             'counts' => ['nodes' => null, 'areas' => WatchedArea::count()],
             'source' => $source,
             'osmUrl' => rtrim(config('moderation.oauth.url'), '/'),

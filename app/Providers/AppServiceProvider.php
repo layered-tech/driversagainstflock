@@ -2,9 +2,12 @@
 
 namespace App\Providers;
 
+use App\Jobs\DrainModerationSummaries;
+use App\Jobs\ProcessModeration;
 use App\Support\NightwatchPrivacyRedactor;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
@@ -34,7 +37,13 @@ class AppServiceProvider extends ServiceProvider
         Nightwatch::redactOutgoingRequests($nightwatchPrivacyRedactor->redactOutgoingRequest(...));
         Nightwatch::redactExceptions($nightwatchPrivacyRedactor->redactException(...));
 
-        Queue::before(function (): void {
+        Queue::before(function (JobProcessing $event): void {
+            if (in_array($event->job->resolveQueuedJobClass(), [ProcessModeration::class, DrainModerationSummaries::class], true)) {
+                Nightwatch::dontSample();
+
+                return;
+            }
+
             Nightwatch::sample(rate: 0.01);
         });
 

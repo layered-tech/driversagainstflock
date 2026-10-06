@@ -340,7 +340,8 @@ test('rule evaluation disabling and deletion leave driver report flags active', 
     expect(ModerationFlag::active()->pluck('id')->all())->toBe([$presenceFlag->id]);
 
     $rule->delete();
-    expect(ModerationFlag::where('source', 'rule')->count())->toBe(0)
+    expect(ModerationFlag::where('source', 'rule')->count())->toBe(1)
+        ->and(ModerationFlag::where('source', 'rule')->first()->status)->toBe('resolved')
         ->and(ModerationFlag::active()->pluck('id')->all())->toBe([$presenceFlag->id]);
 });
 

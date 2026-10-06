@@ -18,6 +18,7 @@ use App\Support\SearchMetadata;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Laravel\Nightwatch\Http\Middleware\Sample;
 
 Route::get('/sitemap.xml', function (SearchMetadata $searchMetadata) {
     return response()->view('sitemap', [
@@ -94,7 +95,7 @@ Route::middleware('auth')->group(function () {
 
 require __DIR__.'/auth.php';
 
-Route::middleware(['auth', EnsureOsmModerator::class])->prefix('moderation')->name('moderation.')->group(function (): void {
+Route::middleware(['auth', EnsureOsmModerator::class, Sample::never()])->prefix('moderation')->name('moderation.')->group(function (): void {
     Route::get('/openstreetmap/authorize-editing', [OpenStreetMapEditAuthorizationController::class, 'redirect'])->middleware('throttle:10,1')->name('osm.edit.authorize');
     Route::get('/nodes/{node}/message', [ModerationNodeController::class, 'messageState'])->whereNumber('node')->name('nodes.message.show');
     Route::post('/nodes/{node}/message', [ModerationNodeController::class, 'message'])->whereNumber('node')->middleware('throttle:10,1')->name('nodes.message.store');
@@ -115,6 +116,8 @@ Route::middleware(['auth', EnsureOsmModerator::class])->prefix('moderation')->na
     Route::post('/rules', [ModerationRuleController::class, 'store'])->name('rules.store');
     Route::get('/rules/{rule}/edit', [ModerationRuleController::class, 'edit'])->name('rules.edit');
     Route::put('/rules/{rule}', [ModerationRuleController::class, 'update'])->name('rules.update');
+    Route::patch('/rules/{rule}/state', [ModerationRuleController::class, 'state'])->name('rules.state');
+    Route::delete('/rules/{rule}', [ModerationRuleController::class, 'destroy'])->name('rules.destroy');
     Route::patch('/flags/{flag}/dismiss', [ModerationRuleController::class, 'dismiss'])->name('flags.dismiss');
 
     Route::get('/changesets/{changeset}', [ModerationController::class, 'changeset'])->whereNumber('changeset')->name('changesets.show');

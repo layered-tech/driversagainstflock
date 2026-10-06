@@ -60,7 +60,7 @@ const base = {
 };
 function route(name, args = {}) {
     if (name === 'moderation.nodes.show' && typeof args === 'object')
-        return `/moderation/nodes/show/${args.node}?from=${args.from}`;
+        return `/moderation/nodes/show/${args.node}?${new URLSearchParams(Object.entries(args).filter(([key]) => key !== 'node'))}`;
     if (name === 'logout') return '/logout';
     if (name === 'login.osm') return '/login/openstreetmap';
     if (name === 'moderation.editors.show') {
@@ -570,13 +570,13 @@ test('Rules screens render typed settings and stored outcomes populate profile p
         rules: [],
         processes: [],
     });
-    assert.ok(rules.body.includes('Create rule'));
+    assert.ok(rules.body.includes('New rule'));
     const form = await render('Moderation/RuleForm', {
         ...base,
         rule: null,
         versions: [],
     });
-    assert.ok(form.body.includes('Required tags'));
+    assert.ok(form.body.includes('Sharing all of these tags'));
     assert.ok(form.body.includes('Preview rule'));
     const editor = await renderListing({
         ...base,
@@ -957,4 +957,128 @@ test('node profiles keep rule flags visible without offering rule dismissal', as
                 /aria-label="Dismiss Driver reported missing for node 200"/,
             );
     }
+});
+
+test('Rules groups and editor show real state scope counts and shared navigation badges', async () => {
+    const rule = {
+        id: 1,
+        name: 'Require operator',
+        description: '',
+        type: 'missing_tags',
+        severity: 'High',
+        enabled: true,
+        version: 2,
+        area_ids: [1],
+        settings: { keys: ['operator'], blank_is_missing: true },
+        conditions: [],
+        exceptions: [],
+        flags_30d: 12,
+        updated_at: '2026-10-05T12:00:00Z',
+    };
+    const props = {
+        ...base,
+        moderationNavigation: { nodes: 1400, flagged: 493, areas: 4, rules: 7 },
+        rules: [rule],
+        processes: [],
+        areas: [{ id: 1, name: 'Austin metro' }],
+        filters: {},
+    };
+    const list = await render('Moderation/Rules', props);
+    assert.match(list.body, /Flags · 30 d/);
+    assert.match(list.body, /Enable Require operator/);
+    assert.match(list.body, /aria-checked="true"/);
+    assert.match(list.body, /Austin metro/);
+    assert.match(list.body, /1 rules · 1 enabled/);
+    const nav = list.body.split('<nav')[1].split('</nav>')[0];
+    for (const count of ['1,400', '493', '4', '7'])
+        assert.ok(nav.includes(`>${count}</span>`));
+    assert.match(nav, /Configure/);
+    const form = await render('Moderation/RuleForm', {
+        ...props,
+        rule,
+        recentMatches: [
+            {
+                id: 1,
+                node_id: 200,
+                status: 'open',
+                created_at: '2026-10-04T12:00:00Z',
+            },
+        ],
+        versions: [],
+    });
+    for (const label of [
+        'Basics',
+        'Condition',
+        'Scope',
+        'When it fires',
+        'In plain English',
+        'Recent matches',
+        'Delete this rule',
+        'Save changes',
+        'No changes',
+    ])
+        assert.ok(form.body.includes(label), label);
+    assert.ok(form.body.includes('Fixed after creation'));
+    assert.ok(form.body.includes('from=rules'));
+    assert.ok(form.body.includes('rule=1'));
+    const filtered = await render('Moderation/Rules', {
+        ...props,
+        filters: { states: ['Paused'] },
+    });
+    assert.ok(filtered.body.includes('No rules match'));
+    assert.ok(filtered.body.includes('Clear filters'));
+});
+
+test('node links preserve the originating rule and its return path', async () => {
+    const output = await render('Moderation/Node', {
+        ...base,
+        node: {
+            id: 200,
+            visible: true,
+            tags: {},
+            latitude: 30.5,
+            longitude: -97.5,
+        },
+        versions: [],
+        flags: [],
+        source: { state: 'ready' },
+        from: 'rules',
+        listingFilters: { rule: 9 },
+    });
+    assert.ok(output.body.includes('from=rules&amp;rule=9'));
+    assert.ok(output.body.includes('/moderation/rules/edit/9'));
+    assert.ok(output.body.includes('← Rule'));
+});
+
+test('deleted rule flags keep their evidence without linking to a removed editor', async () => {
+    const output = await render('Moderation/Node', {
+        ...base,
+        node: {
+            id: 200,
+            visible: true,
+            tags: {},
+            latitude: 30.5,
+            longitude: -97.5,
+        },
+        versions: [],
+        flags: [
+            {
+                id: 1,
+                source: 'rule',
+                rule_id: 9,
+                status: 'open',
+                evidence: {},
+                rule: {
+                    name: 'Archived rule',
+                    severity: 'Medium',
+                    enabled: false,
+                    deleted_at: '2026-10-05T12:00:00Z',
+                },
+            },
+        ],
+        source: { state: 'ready' },
+    });
+    assert.ok(output.body.includes('Archived rule · Deleted'));
+    assert.ok(output.body.includes('title="Deleted rule"'));
+    assert.ok(!output.body.includes('/moderation/rules/edit/9'));
 });

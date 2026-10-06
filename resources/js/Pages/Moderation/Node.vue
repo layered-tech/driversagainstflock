@@ -27,11 +27,18 @@ const props = defineProps({
 });
 const route = inject('route');
 const page = usePage();
+const backLink = computed(() =>
+    props.from === 'rules' && props.listingFilters.rule
+        ? route('moderation.rules.edit', props.listingFilters.rule)
+        : route(`moderation.${props.from}.index`, props.listingFilters),
+);
 const timelineFilter = ref('All');
 const summary = computed(() => nodeProfileSummary(props.versions, props.flags));
 const activeFlags = computed(() =>
     props.flags.filter(
-        (flag) => flag.status === 'open' && flag.rule?.enabled !== false,
+        (flag) =>
+            flag.status === 'open' &&
+            (flag.rule?.enabled !== false || flag.rule?.deleted_at),
     ),
 );
 const severity = computed(() => {
@@ -211,10 +218,17 @@ const dismissFlag = (flag) =>
         </Head>
         <section class="px-4 pb-11 pt-5 sm:px-6">
             <Link
-                :href="route(`moderation.${from}.index`, listingFilters)"
+                :href="backLink"
                 class="inline-flex text-sm font-semibold text-daf-text-secondary hover:text-daf-text-brand"
             >
-                ← {{ from === 'flagged' ? 'Flagged nodes' : 'ALPR nodes' }}
+                ←
+                {{
+                    from === 'rules'
+                        ? 'Rule'
+                        : from === 'flagged'
+                          ? 'Flagged nodes'
+                          : 'ALPR nodes'
+                }}
             </Link>
 
             <div
@@ -243,6 +257,7 @@ const dismissFlag = (flag) =>
                                 Node
                             </h1>
                             <NodeLink
+                                :filters="listingFilters"
                                 :from="from"
                                 :node-id="node.id"
                                 class="font-mono text-daf-h2 font-bold tracking-[var(--ls-mono)]"

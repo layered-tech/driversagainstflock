@@ -17,6 +17,7 @@ class ModerationIndexRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'rule' => ['sometimes', 'integer', 'min:1'],
             'flag_source' => ['nullable', Rule::in(['all', 'rule', 'alpr_presence'])],
             'area_scope' => ['nullable', Rule::in(['all', 'my'])],
             'report_state' => ['nullable', Rule::in(['open', 'dismissed', 'all'])],

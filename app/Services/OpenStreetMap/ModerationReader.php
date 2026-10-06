@@ -52,7 +52,7 @@ class ModerationReader
             return $data;
         })->all();
         $flags = ModerationFlag::query()
-            ->with('rule:id,name,severity,enabled')
+            ->with('rule:id,name,severity,enabled,deleted_at')
             ->where('node_id', $id)
             ->latest('evaluated_at')
             ->get()
