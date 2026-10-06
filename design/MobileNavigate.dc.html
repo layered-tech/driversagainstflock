@@ -27,6 +27,7 @@
     /* advanced-settings disclosure chevron */
     .daf-chev{ transition:transform var(--dur-base) var(--ease-standard); }
     button[aria-expanded="true"] .daf-chev{ transform:rotate(180deg); }
+    .daf-steps::-webkit-scrollbar{ display:none; }
   </style>
 </helmet>
 
@@ -142,7 +143,7 @@
 
       <!-- 07 ACTIVE NAVIGATION -->
       <div style="display:flex; flex-direction:column; gap:14px;">
-        <div style="font-size:13px; font-weight:600;">07 · Active navigation</div>
+        <div style="font-size:13px; font-weight:600;">07 · Active navigation <span style="font-weight:400; color:var(--text-tertiary);">— drag the sheet for steps</span></div>
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui); background:var(--map-land);">
             <dc-import name="SchematicMap" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
@@ -160,13 +161,35 @@
               <button aria-label="Zoom out" style="width:46px; height:46px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><span style="width:15px; height:2px; border-radius:2px; background:currentColor;"></span></button>
               <button aria-label="Recenter" style="width:46px; height:46px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="2" x2="5" y1="12" y2="12"></line><line x1="19" x2="22" y1="12" y2="12"></line><line x1="12" x2="12" y1="2" y2="5"></line><line x1="12" x2="12" y1="19" y2="22"></line><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="1"></circle></svg></button>
             </div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10; background:var(--surface-sheet); border-top-left-radius:var(--radius-sheet); border-top-right-radius:var(--radius-sheet); box-shadow:var(--shadow-sheet); padding:16px 16px 30px; display:flex; align-items:center; gap:14px;">
-              <div style="flex:1;">
-                <div style="margin-bottom:7px;"><x-import component-from-global-scope="DesignSystem_c71fad.Badge" tone="brand" hint-size="auto,26px">Private route</x-import></div>
-                <div style="display:flex; align-items:baseline; gap:8px;"><span style="font-family:var(--font-mono); font-weight:800; font-size:24px; color:var(--text-brand);">12 min</span><span style="font-family:var(--font-mono); font-size:var(--fs-body-sm); color:var(--text-secondary);">4.1 mi · 6:15</span></div>
-                <div style="font-size:var(--fs-body-sm); color:var(--text-secondary);">Ferry Building Marketplace</div>
+            <!-- Draggable steps sheet: grab the handle / ETA row and pull up to reveal the maneuver list. Snaps collapsed ↔ expanded (≤ ⅔ of the map). -->
+            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10; height:{{ sheetH }}px; transition:{{ sheetTransition }}; background:var(--surface-sheet); border-top-left-radius:var(--radius-sheet); border-top-right-radius:var(--radius-sheet); box-shadow:var(--shadow-sheet); display:flex; flex-direction:column; overflow:hidden;">
+              <div onPointerCancel="{{ sheetUp }}" onPointerDown="{{ sheetDown }}" onPointerMove="{{ sheetMove }}" onPointerUp="{{ sheetUp }}" style="flex:0 0 auto; cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none;">
+                <div style="display:flex; justify-content:center; padding:8px 0 2px;"><span aria-hidden="true" style="width:36px; height:5px; border-radius:var(--radius-pill); background:var(--border-strong);"></span></div>
+                <div style="padding:8px 16px 30px; display:flex; align-items:center; gap:14px;">
+                  <div style="flex:1;">
+                    <div style="margin-bottom:7px;"><x-import component-from-global-scope="DesignSystem_c71fad.Badge" hint-size="auto,26px" tone="brand">Private route</x-import></div>
+                    <div style="display:flex; align-items:baseline; gap:8px;"><span style="font-family:var(--font-mono); font-weight:800; font-size:24px; color:var(--text-brand);">12 min</span><span style="font-family:var(--font-mono); font-size:var(--fs-body-sm); color:var(--text-secondary);">4.1 mi · 6:15</span></div>
+                    <div style="font-size:var(--fs-body-sm); color:var(--text-secondary);">Ferry Building Marketplace</div>
+                  </div>
+                  <x-import component-from-global-scope="DesignSystem_c71fad.Button" hint-size="auto,46px" size="md" variant="danger">Exit</x-import>
+                </div>
               </div>
-              <x-import component-from-global-scope="DesignSystem_c71fad.Button" variant="danger" size="md" hint-size="auto,46px">Exit</x-import>
+              <div class="daf-steps" style="flex:1; min-height:0; overflow-y:auto; scrollbar-width:none; border-top:1px solid var(--border); padding:0 16px 34px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0 4px;">
+                  <span style="font-size:var(--fs-label); font-weight:700; letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary);">Steps</span>
+                  <span style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary);">6 · 4.1 mi</span>
+                </div>
+                <sc-for as="step" hint-placeholder-count="4" list="{{ steps }}">
+                  <div style="display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--border);">
+                    <span style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:var(--radius-sm); background:{{ step.tileBg }}; color:{{ step.tileColor }};">{{ step.iconEl }}</span>
+                    <div style="flex:1; min-width:0;">
+                      <div style="font-size:15px; font-weight:var(--fw-semibold); color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ step.text }}</div>
+                      <sc-if hint-placeholder-val="{{ false }}" value="{{ step.sub }}"><div style="font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ step.sub }}</div></sc-if>
+                    </div>
+                    <span style="flex:0 0 auto; font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-weight:600; font-size:14px; color:var(--text-secondary); white-space:nowrap;">{{ step.dist }}</span>
+                  </div>
+                </sc-for>
+              </div>
             </div>
           </div>
         </x-import>
@@ -345,8 +368,33 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1500,&quot;height&quot;:1100},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
 class Component extends DCLogic {
-  state = { advOpen: false, bufferFt: 250, allowNearEnds: false };
+  state = { advOpen: false, bufferFt: 250, allowNearEnds: false, sheetH: 133, sheetDragging: false };
   toggleAdv() { this.setState(s => ({ advOpen: !s.advOpen })); }
+  // Steps sheet drag: collapsed (ETA bar + hairline only) ↔ expanded (≤ ⅔ of the 844px map)
+  get sheetMin() { return 133; }
+  get sheetMax() { return 556; }
+  sheetDown(e) {
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+    this._drag = { y: e.clientY, h: this.state.sheetH, moved: false };
+    this.setState({ sheetDragging: true });
+  }
+  sheetMove(e) {
+    if (!this._drag) return;
+    const dy = this._drag.y - e.clientY;
+    if (Math.abs(dy) > 3) this._drag.moved = true;
+    const h = Math.max(this.sheetMin, Math.min(this.sheetMax, this._drag.h + dy));
+    this.setState({ sheetH: h });
+  }
+  sheetUp(e) {
+    const d = this._drag; if (!d) return; this._drag = null;
+    const dy = d.y - e.clientY, mid = (this.sheetMin + this.sheetMax) / 2;
+    let target;
+    if (!d.moved) target = d.h > mid ? this.sheetMin : this.sheetMax;            // tap toggles
+    else if (dy > 40) target = this.sheetMax;                                     // flick up
+    else if (dy < -40) target = this.sheetMin;                                    // flick down
+    else target = this.state.sheetH > mid ? this.sheetMax : this.sheetMin;        // settle nearest
+    this.setState({ sheetH: target, sheetDragging: false });
+  }
   setBuffer(v) { this.setState({ bufferFt: v }); }
   setAllowNearEnds(v) { this.setState({ allowNearEnds: v }); }
   renderVals() {
@@ -391,8 +439,31 @@ class Component extends DCLogic {
 
     const theme = this.props.theme ?? 'light';
 
+    // Active-nav steps list — maneuver glyphs (Lucide corner-up-right / corner-up-left / arrow-up / flag)
+    const man = {
+      right: svg(20, [R('polyline', { key: 1, points: '15 14 20 9 15 4' }), R('path', { key: 2, d: 'M4 20v-7a4 4 0 0 1 4-4h12' })]),
+      left: svg(20, [R('polyline', { key: 1, points: '9 14 4 9 9 4' }), R('path', { key: 2, d: 'M20 20v-7a4 4 0 0 0-4-4H4' })]),
+      straight: svg(20, [R('path', { key: 1, d: 'm5 12 7-7 7 7' }), R('path', { key: 2, d: 'M12 19V5' })]),
+      flag: svg(20, [R('path', { key: 1, d: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z' }), R('line', { key: 2, x1: 4, x2: 4, y1: 22, y2: 15 })]),
+    };
+    const tile = (now) => now ? { tileBg: 'var(--brand-soft)', tileColor: 'var(--text-brand)' } : { tileBg: 'var(--surface-card-alt)', tileColor: 'var(--text-primary)' };
+    const steps = [
+      { iconEl: man.right, dist: '500 ft', text: 'Turn right onto Market St', sub: 'Now', ...tile(true) },
+      { iconEl: man.straight, dist: '1.2 mi', text: 'Continue on Market St', ...tile(false) },
+      { iconEl: man.left, dist: '0.4 mi', text: 'Turn left onto Steuart St', sub: 'Skips 2 cameras on Howard St', ...tile(false) },
+      { iconEl: man.right, dist: '600 ft', text: 'Turn right onto Mission St', ...tile(false) },
+      { iconEl: man.straight, dist: '0.3 mi', text: 'Continue onto The Embarcadero', ...tile(false) },
+      { iconEl: man.flag, dist: '6:15', text: 'Arrive at Ferry Building Marketplace', sub: 'On the right', ...tile(false) },
+    ];
+
     return {
       theme,
+      steps,
+      sheetH: this.state.sheetH,
+      sheetTransition: this.state.sheetDragging ? 'none' : 'height 320ms var(--ease-sheet)',
+      sheetDown: (e) => this.sheetDown(e),
+      sheetMove: (e) => this.sheetMove(e),
+      sheetUp: (e) => this.sheetUp(e),
       isDark: theme === 'dark',
       searchClear,
       searchLeading, searchTrailing, chipStyle,
