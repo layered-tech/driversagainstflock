@@ -294,9 +294,14 @@ for (const expanded of [false, true]) {
                     },
                     './directions': directions,
                     './driving-guidance-cards': { DestinationCard },
+                    'react-native-reanimated': {
+                        useSharedValue: () => ({ value: expanded ? 1 : 0 }),
+                        useAnimatedReaction() {},
+                    },
                     './native-components': {
                         NativeWindBottomSheet: 'BottomSheet',
                         NativeWindBottomSheetFlatList: 'FlatList',
+                        NativeWindBottomSheetTouchableOpacity: 'SheetTouchable',
                     },
                 },
             );
@@ -307,10 +312,20 @@ for (const expanded of [false, true]) {
                 }),
             ).find((node) => node.type === 'StepsSheet');
             const sheet = DrivingStepsSheet(sheetNode.props);
-            const summary = sheet.props.handleComponent().props.children[1];
+            const summary = nodes(sheet.props.children).find(
+                (node) => node.type === DestinationCard,
+            );
             assert.equal(sheet.props.index, 0);
+            assert.equal(sheet.props.enableContentPanningGesture, false);
+            assert.equal(sheet.props.enableHandlePanningGesture, true);
             assert.equal(
-                sheet.props.handleComponent().props.children[0].props
+                nodes(sheet.props.handleComponent()).some(
+                    (node) => node.type === DestinationCard,
+                ),
+                false,
+            );
+            assert.equal(
+                sheet.props.handleComponent().props.children.props
                     .accessibilityState.expanded,
                 expanded,
             );

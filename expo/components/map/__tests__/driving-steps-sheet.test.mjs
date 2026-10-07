@@ -6,13 +6,18 @@ import { test } from 'node:test';
 const require = createRequire(import.meta.url);
 const { transformSync } = require('@babel/core');
 const element = (type, props) => ({ type, props });
-const getStepList = (sheet) => sheet.props.children.props.children[0];
+const getStepList = (sheet) =>
+    sheet.props.children.props.children.find(
+        (node) => node?.type === 'FlatList',
+    );
 
 function loadSheet(expanded = false) {
     const snaps = [];
     const scrolls = [];
     const effects = [];
     const refs = [];
+    const reactions = [];
+    const animatedIndex = { value: 0 };
     const states = [expanded, true];
     let refIndex = 0;
     let stateIndex = 0;
@@ -61,6 +66,12 @@ function loadSheet(expanded = false) {
             Pressable: 'Pressable',
             useColorScheme: () => 'dark',
         },
+        'react-native-reanimated': {
+            useSharedValue: () => animatedIndex,
+            useAnimatedReaction: (prepare, react) =>
+                reactions.push({ prepare, react }),
+            runOnJS: (fn) => fn,
+        },
         '../design-system/icon': { Icon: 'Icon' },
         '../design-system/primitives': { DafButton: 'Button' },
         '../design-system/tokens': {
@@ -79,6 +90,7 @@ function loadSheet(expanded = false) {
         './native-components': {
             NativeWindBottomSheet: 'BottomSheet',
             NativeWindBottomSheetFlatList: 'FlatList',
+            NativeWindBottomSheetTouchableOpacity: 'SheetTouchable',
         },
         './roundabout-guidance': {
             getRoundaboutExitNumber: (step) => step.exit_number ?? null,
@@ -95,6 +107,7 @@ function loadSheet(expanded = false) {
             refIndex = 0;
             stateIndex = 0;
             effects.length = 0;
+            reactions.length = 0;
             const sheet = module.exports.DrivingStepsSheet(props);
             refs[0].current = { snapToIndex: (index) => snaps.push(index) };
             refs[1].current = {
@@ -106,7 +119,110 @@ function loadSheet(expanded = false) {
         snaps,
         scrolls,
         effects,
+        setNativeIndex(value) {
+            const previous = animatedIndex.value;
+            animatedIndex.value = value;
+            reactions.forEach(({ prepare, react }) =>
+                react(prepare(), previous),
+            );
+        },
     };
+}
+
+test('handle drags synchronize expansion without an animation completion callback', () => {
+    const { DrivingStepsSheet, setNativeIndex, snaps, scrolls, effects } =
+        loadSheet();
+    const props = {
+        containerHeight: 900,
+        collapsedHeight: 170,
+        directionsRoute: { steps: [{ stepIndex: 4, isCurrent: true }] },
+    };
+    let sheet = DrivingStepsSheet(props);
+    assert.ok(
+        sheet.props.animatedIndex,
+        'The sheet must expose its actual native position',
+    );
+    setNativeIndex(0.5);
+    sheet = DrivingStepsSheet(props);
+    assert.equal(
+        sheet.props.handleComponent().props.children.props.accessibilityState
+            .expanded,
+        false,
+    );
+    setNativeIndex(1);
+    sheet = DrivingStepsSheet(props);
+    const toggle = sheet.props.handleComponent().props.children;
+    assert.equal(toggle.props.accessibilityState.expanded, true);
+    effects[0]();
+    assert.deepEqual(scrolls, [['index', { index: 0, animated: false }]]);
+    toggle.props.onPress();
+    assert.deepEqual(snaps, [0]);
+    setNativeIndex(0);
+    sheet = DrivingStepsSheet(props);
+    assert.equal(
+        sheet.props.handleComponent().props.children.props.accessibilityState
+            .expanded,
+        false,
+    );
+});
+
+for (const expanded of [false, true]) {
+    test(`only the top handle can drag the ${expanded ? 'expanded' : 'collapsed'} directions sheet`, () => {
+        const { DrivingStepsSheet } = loadSheet(expanded);
+        const sheet = DrivingStepsSheet({
+            containerHeight: 900,
+            collapsedHeight: 170,
+            onCollapsedHeightChange() {},
+        });
+        assert.equal(sheet.props.enableContentPanningGesture, false);
+        assert.equal(sheet.props.enableHandlePanningGesture, true);
+        const handleChildren = [
+            sheet.props.handleComponent().props.children,
+        ].flat();
+        assert.equal(handleChildren.length, 1);
+        assert.equal(handleChildren[0].props.testID, 'driving-steps-toggle');
+        assert.equal(handleChildren[0].props.hitSlop, undefined);
+        const summary = sheet.props.children.props.children.find(
+            (node) => node?.props.children?.type === 'DestinationCard',
+        );
+        assert.ok(
+            summary,
+            'Destination buttons belong in the sheet body, outside the drag handle',
+        );
+        assert.equal(getStepList(sheet).type, 'FlatList');
+    });
+}
+
+for (const firstSection of ['handle', 'summary']) {
+    test(`collapsed height includes both sections when ${firstSection} lays out first`, () => {
+        const { DrivingStepsSheet } = loadSheet();
+        const heights = [];
+        const props = {
+            containerHeight: 900,
+            collapsedHeight: 170,
+            onCollapsedHeightChange: (height) => heights.push(height),
+        };
+        const sheet = DrivingStepsSheet(props);
+        const sections = {
+            handle: sheet.props.handleComponent(),
+            summary: sheet.props.children.props.children[0],
+        };
+        const layout = (section, height) =>
+            sections[section].props.onLayout({
+                nativeEvent: { layout: { height } },
+            });
+        const otherSection = firstSection === 'handle' ? 'summary' : 'handle';
+        const initialHeights = { handle: 24, summary: 156 };
+        layout(firstSection, initialHeights[firstSection]);
+        assert.deepEqual(heights, []);
+        layout(otherSection, initialHeights[otherSection]);
+        assert.deepEqual(heights, [180]);
+        layout('handle', 28);
+        layout('summary', 202);
+        assert.deepEqual(heights, [180, 184, 230]);
+        const resized = DrivingStepsSheet({ ...props, collapsedHeight: 230 });
+        assert.deepEqual(resized.props.snapPoints, [230, 600]);
+    });
 }
 
 test('the drawer snaps between its measured summary and two-thirds of the map', () => {
@@ -128,9 +244,12 @@ test('the drawer snaps between its measured summary and two-thirds of the map', 
     assert.equal(sheet.props.enableDynamicSizing, false);
     assert.equal(sheet.props.enableOverDrag, false);
     const handle = sheet.props.handleComponent();
-    handle.props.onLayout({ nativeEvent: { layout: { height: 180 } } });
+    handle.props.onLayout({ nativeEvent: { layout: { height: 24 } } });
+    const summaryWrapper = sheet.props.children.props.children[0];
+    summaryWrapper.props.onLayout({ nativeEvent: { layout: { height: 156 } } });
     assert.equal(measuredHeight, 180);
-    const [toggle, summary] = handle.props.children;
+    const toggle = handle.props.children;
+    const summary = summaryWrapper.props.children;
     toggle.props.onPress();
     assert.deepEqual(snaps, [1]);
     assert.equal(toggle.props.accessibilityState.expanded, false);
@@ -148,7 +267,7 @@ test('the accessible toggle collapses an expanded drawer', () => {
         collapsedHeight: 160,
         onCollapsedHeightChange() {},
     });
-    const toggle = sheet.props.handleComponent().props.children[0];
+    const toggle = sheet.props.handleComponent().props.children;
     toggle.props.onPress();
     assert.deepEqual(snaps, [0]);
     assert.equal(toggle.props.accessibilityLabel, 'Hide direction steps');
@@ -283,7 +402,7 @@ test('manual list scrolling pauses synchronization until the floating Sync butto
     effects[0]();
     getStepList(sheet).props.onLayout();
     assert.equal(scrolls.length, beforeManualScroll);
-    const floatingControl = sheet.props.children.props.children[1];
+    const floatingControl = sheet.props.children.props.children[2];
     assert.equal(floatingControl.props.style.bottom, 46);
     const syncButton = floatingControl.props.children;
     assert.equal(syncButton.props.children, 'Sync');
@@ -291,5 +410,5 @@ test('manual list scrolling pauses synchronization until the floating Sync butto
     sheet = DrivingStepsSheet(props);
     effects[0]();
     assert.deepEqual(scrolls.at(-1), ['index', { index: 2, animated: false }]);
-    assert.equal(sheet.props.children.props.children[1], null);
+    assert.equal(sheet.props.children.props.children[2], null);
 });

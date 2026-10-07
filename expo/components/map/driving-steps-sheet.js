@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, useColorScheme, View } from 'react-native';
+import {
+    runOnJS,
+    useAnimatedReaction,
+    useSharedValue,
+} from 'react-native-reanimated';
 import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
 import { getDafTheme } from '../design-system/tokens';
@@ -13,6 +18,7 @@ import { DestinationCard, getManeuverIcon } from './driving-guidance-cards';
 import {
     NativeWindBottomSheet,
     NativeWindBottomSheetFlatList,
+    NativeWindBottomSheetTouchableOpacity,
 } from './native-components';
 import { getRoundaboutExitNumber } from './roundabout-guidance';
 
@@ -88,7 +94,17 @@ export function DrivingStepsSheet({
     const sheetRef = bottomSheetRef ?? localSheetRef;
     const listRef = useRef(null);
     const scrollRetryRef = useRef(null);
+    const collapsedSectionHeightsRef = useRef({ handle: null, summary: null });
     const [expanded, setExpanded] = useState(false);
+    const animatedIndex = useSharedValue(0);
+    useAnimatedReaction(
+        () => animatedIndex.value,
+        (index, previousIndex) => {
+            if (index !== previousIndex && (index === 0 || index === 1)) {
+                runOnJS(setExpanded)(index === 1);
+            }
+        },
+    );
     const [stepsAreSynced, setStepsAreSynced] = useState(true);
     const arrivalLabel = formatDirectionsArrivalTime(
         destinationProps.remainingValues?.durationRemaining ??
@@ -158,14 +174,25 @@ export function DrivingStepsSheet({
         ],
         [collapsedHeight, containerHeight],
     );
-    const handleLayout = useCallback(
-        (event) => onCollapsedHeightChange(event.nativeEvent.layout.height),
+    const handleCollapsedSectionLayout = useCallback(
+        (section, event) => {
+            const heights = collapsedSectionHeightsRef.current;
+            heights[section] = event.nativeEvent.layout.height;
+
+            if (heights.handle !== null && heights.summary !== null) {
+                onCollapsedHeightChange(heights.handle + heights.summary);
+            }
+        },
         [onCollapsedHeightChange],
     );
     const renderHandle = useCallback(
         () => (
-            <View onLayout={handleLayout}>
-                <Pressable
+            <View
+                onLayout={(event) =>
+                    handleCollapsedSectionLayout('handle', event)
+                }
+            >
+                <NativeWindBottomSheetTouchableOpacity
                     accessibilityLabel={
                         expanded
                             ? 'Hide direction steps'
@@ -174,34 +201,41 @@ export function DrivingStepsSheet({
                     accessibilityRole="button"
                     accessibilityState={{ expanded }}
                     className="h-6 items-center justify-center"
-                    hitSlop={10}
                     onPress={() =>
                         sheetRef.current?.snapToIndex(expanded ? 0 : 1)
                     }
                     testID="driving-steps-toggle"
                 >
                     <View className="h-[5px] w-9 rounded-full bg-daf-border-strong dark:bg-neutral-600" />
-                </Pressable>
-                <DestinationCard {...destinationProps} />
+                </NativeWindBottomSheetTouchableOpacity>
             </View>
         ),
-        [destinationProps, expanded, handleLayout],
+        [expanded, handleCollapsedSectionLayout, sheetRef],
     );
 
     return (
         <NativeWindBottomSheet
             ref={sheetRef}
             animateOnMount={false}
+            animatedIndex={animatedIndex}
             backgroundClassName="rounded-t-[22px] border-t border-daf-border-glass bg-white dark:border-daf-border-glass-dark dark:bg-daf-surface-dark"
+            enableContentPanningGesture={false}
             enableDynamicSizing={false}
+            enableHandlePanningGesture
             enableOverDrag={false}
             enablePanDownToClose={false}
             handleComponent={renderHandle}
             index={0}
-            onChange={(index) => setExpanded(index === 1)}
             snapPoints={snapPoints}
         >
             <View className="flex-1">
+                <View
+                    onLayout={(event) =>
+                        handleCollapsedSectionLayout('summary', event)
+                    }
+                >
+                    <DestinationCard {...destinationProps} />
+                </View>
                 <NativeWindBottomSheetFlatList
                     ref={listRef}
                     className="flex-1 border-t border-daf-border dark:border-daf-border-dark"

@@ -116,8 +116,43 @@ tags:
 - assertVisible:
     id: 'driving-destination-title'
 - assertVisible: 'Austin Central Library'
+- swipe:
+    from:
+      id: 'driving-destination-title'
+    direction: UP
+    duration: 500
+- assertVisible: 'Show direction steps'
+- swipe:
+    from:
+      id: 'driving-steps-toggle'
+    direction: UP
+    duration: 500
+- extendedWaitUntil:
+    visible: 'Hide direction steps'
+    timeout: 10000
+- swipe:
+    from:
+      id: 'driving-direction-steps'
+    direction: DOWN
+    duration: 500
+- assertVisible: 'Hide direction steps'
+- swipe:
+    from:
+      id: 'driving-steps-toggle'
+    direction: DOWN
+    duration: 500
+- extendedWaitUntil:
+    visible: 'Show direction steps'
+    timeout: 10000
+- tapOn:
+    id: 'driving-steps-toggle'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible: 'Hide direction steps'
+    timeout: 10000
 - tapOn:
     id: 'driving-cancel-route-button'
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     notVisible:
       id: 'driving-destination-card'
