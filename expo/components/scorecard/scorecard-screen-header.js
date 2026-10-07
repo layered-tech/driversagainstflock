@@ -26,7 +26,7 @@ export function ScorecardScreenHeader({
             className={`flex-row items-center gap-2.5 border-b px-4 pb-2.5 ${
                 operatorView
                     ? 'border-[#262E37] bg-[#161B22]'
-                    : 'dark:border-daf-border-dark dark:bg-daf-surface-dark border-daf-border bg-white'
+                    : 'border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark'
             }`}
             style={{ paddingTop }}
         >
@@ -53,7 +53,7 @@ export function ScorecardScreenHeader({
             </Pressable>
             <View className="min-w-0 flex-1">
                 <Text
-                    className={`font-dafDisplay text-lg font-bold ${
+                    className={`font-dafDisplay text-[18px] font-bold ${
                         operatorView
                             ? 'text-white'
                             : 'text-daf-text-primary dark:text-white'
@@ -96,7 +96,7 @@ export function ScorecardPrivacyFooter({ operatorView = false }) {
                 size={15}
             />
             <Text
-                className={`min-w-0 flex-1 text-xs leading-[18px] ${
+                className={`min-w-0 flex-1 text-[12px] leading-[18px] ${
                     operatorView
                         ? 'text-[#828D9B]'
                         : 'text-daf-text-tertiary dark:text-neutral-400'

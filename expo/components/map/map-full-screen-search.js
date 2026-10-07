@@ -30,7 +30,7 @@ function SearchSection({ children, title, visible = true }) {
 
     return (
         <View>
-            <Text className="px-4 pb-1.5 pt-3.5 text-[11px] font-bold uppercase tracking-[0.06em] text-daf-text-tertiary dark:text-neutral-400">
+            <Text className="px-4 pb-1.5 pt-3.5 text-[11px] font-normal uppercase tracking-[0.06em] text-daf-text-tertiary dark:text-neutral-400">
                 {title}
             </Text>
             <View>{children}</View>
@@ -247,7 +247,7 @@ export function MapFullScreenSearch() {
             testID={`map-full-screen-search-${searchSource}`}
         >
             <View
-                className="dark:border-daf-border-dark dark:bg-daf-surface-dark gap-4 border-b border-daf-border bg-white px-4"
+                className="gap-4 border-b border-daf-border bg-white px-4 dark:border-daf-border-dark dark:bg-daf-surface-dark"
                 style={{
                     paddingBottom: 14,
                     paddingTop: insets.top + 12,
@@ -269,7 +269,7 @@ export function MapFullScreenSearch() {
                             />
                         </Pressable>
                         <Text
-                            className="font-dafDisplay min-w-0 flex-1 text-[17px] font-semibold text-daf-text-primary dark:text-white"
+                            className="min-w-0 flex-1 font-dafDisplay text-[17px] font-semibold text-daf-text-primary dark:text-white"
                             numberOfLines={1}
                         >
                             Set{' '}
@@ -291,7 +291,7 @@ export function MapFullScreenSearch() {
                 ) : null}
 
                 <View className="flex-row items-center gap-2">
-                    <View className="dark:border-daf-border-dark min-w-0 flex-1 flex-row items-center gap-2 rounded-dafPill border border-daf-border bg-daf-surface-alt px-3 dark:bg-daf-surface-inverse">
+                    <View className="min-w-0 flex-1 flex-row items-center gap-2 rounded-dafPill border border-daf-border bg-daf-surface-alt px-3 dark:border-daf-border-dark dark:bg-daf-surface-inverse">
                         <Icon color={searchIconColor} name="search" size={18} />
                         <TextInput
                             accessibilityLabel={inputAccessibilityLabel}
@@ -377,7 +377,7 @@ export function MapFullScreenSearch() {
                 ) : null}
 
                 {localitySearchIsLoading ? (
-                    <View className="dark:bg-daf-surface-dark flex-row items-center gap-3 rounded-dafMd bg-daf-surface-alt px-3 py-3">
+                    <View className="flex-row items-center gap-3 rounded-dafMd bg-daf-surface-alt px-3 py-3 dark:bg-daf-surface-dark">
                         <ActivityIndicator
                             color={searchPrimaryIconColor}
                             size="small"

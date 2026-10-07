@@ -222,7 +222,7 @@ export function DafChip({
 export function DafSectionLabel({ children, className = '' }) {
     return (
         <Text
-            className={`text-[11px] font-bold uppercase tracking-[0.06em] text-daf-text-tertiary dark:text-neutral-400 ${className}`}
+            className={`text-[11px] font-normal uppercase tracking-[0.06em] text-daf-text-tertiary dark:text-neutral-400 ${className}`}
         >
             {children}
         </Text>
@@ -239,7 +239,7 @@ export function DafSegmentedControl({
 }) {
     return (
         <View
-            className={`dark:border-daf-border-dark h-[42px] flex-row rounded-dafPill border border-daf-border bg-daf-surface-alt p-1 dark:bg-daf-surface-inverse ${className}`}
+            className={`h-[42px] flex-row rounded-dafPill border border-daf-border bg-daf-surface-alt p-1 dark:border-daf-border-dark dark:bg-daf-surface-inverse ${className}`}
             testID={testID}
         >
             {options.map((option) => {
@@ -251,7 +251,7 @@ export function DafSegmentedControl({
                         accessibilityState={{ selected }}
                         className={`min-h-[34px] flex-1 items-center justify-center rounded-dafPill px-2 ${
                             selected
-                                ? 'dark:bg-daf-surface-dark bg-white'
+                                ? 'bg-white dark:bg-daf-surface-dark'
                                 : 'bg-transparent'
                         }`}
                         key={option.value}
@@ -292,7 +292,7 @@ export function DafTextInput({
 
     return (
         <TextInput
-            className={`${sizeClassName} dark:border-daf-border-dark dark:bg-daf-surface-dark rounded-dafSm border border-daf-border bg-white px-[14px] text-[15px] text-daf-text-primary dark:text-white ${className}`}
+            className={`${sizeClassName} rounded-dafSm border border-daf-border bg-white px-[14px] text-[15px] text-daf-text-primary dark:border-daf-border-dark dark:bg-daf-surface-dark dark:text-white ${className}`}
             multiline={multiline}
             onChangeText={onChangeText}
             placeholder={placeholder}

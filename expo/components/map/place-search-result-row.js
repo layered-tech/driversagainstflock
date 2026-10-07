@@ -36,7 +36,7 @@ export function PlaceSearchResultRow({
 
             <View className="min-w-0 flex-1">
                 <HighlightedSearchText
-                    className="text-sm font-semibold text-daf-text-primary dark:text-white"
+                    className="text-[15px] font-semibold text-daf-text-primary dark:text-white"
                     highlightQuery={highlightQuery}
                     numberOfLines={1}
                 >
@@ -44,7 +44,7 @@ export function PlaceSearchResultRow({
                 </HighlightedSearchText>
                 {subtitle ? (
                     <HighlightedSearchText
-                        className="mt-0.5 text-xs font-medium text-daf-text-tertiary dark:text-neutral-400"
+                        className="mt-0.5 text-[13px] font-normal text-daf-text-tertiary dark:text-neutral-400"
                         highlightQuery={highlightQuery}
                         numberOfLines={1}
                     >

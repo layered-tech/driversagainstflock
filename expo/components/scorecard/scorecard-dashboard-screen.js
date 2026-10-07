@@ -123,7 +123,7 @@ function StatTile({ colorClassName = '', label, onPress, testID, value }) {
             onPress={onPress}
         >
             <Text
-                className={`font-dafMono text-2xl font-bold ${colorClassName || 'text-daf-text-primary dark:text-white'}`}
+                className={`font-dafMono text-[24px] font-bold ${colorClassName || 'text-daf-text-primary dark:text-white'}`}
                 testID={testID}
             >
                 {value}

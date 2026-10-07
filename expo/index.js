@@ -1,5 +1,5 @@
-import './lib/crashlytics';
 import '@iternio/react-native-auto-play/installTimers';
+import './lib/crashlytics';
 import 'react-native-gesture-handler';
 import './global.css';
 

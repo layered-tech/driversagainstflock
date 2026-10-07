@@ -90,7 +90,7 @@ export function SelectedPlaceSheet() {
             onDismiss={handleBottomSheetDismiss}
         >
             <NativeWindBottomSheetView
-                className="dark:bg-daf-surface-dark bg-white"
+                className="bg-white dark:bg-daf-surface-dark"
                 testID={
                     bottomSheetIsPresented
                         ? 'selected-place-sheet-presented'
@@ -112,7 +112,7 @@ export function SelectedPlaceSheet() {
                                 accessibilityHint="Returns to the expanded search results list."
                                 accessibilityLabel="Back to search results"
                                 accessibilityRole="button"
-                                className="dark:border-daf-border-dark flex-row items-center gap-2 self-start rounded-dafMd border border-daf-border px-3 py-2 active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
+                                className="flex-row items-center gap-2 self-start rounded-dafMd border border-daf-border px-3 py-2 active:bg-daf-surface-alt dark:border-daf-border-dark dark:active:bg-daf-surface-inverse"
                                 hitSlop={6}
                                 onPress={handleSelectedPlaceBackToSearchResults}
                                 testID="selected-place-back-to-results-button"
@@ -138,7 +138,7 @@ export function SelectedPlaceSheet() {
                             </Text>
                             {selectedPlaceHeaderSubtitle ? (
                                 <Text
-                                    className="text-[13px] font-medium leading-5 text-daf-text-secondary dark:text-neutral-300"
+                                    className="text-[13px] font-normal leading-5 text-daf-text-secondary dark:text-neutral-300"
                                     numberOfLines={1}
                                     testID="selected-place-subtitle"
                                 >
@@ -156,7 +156,7 @@ export function SelectedPlaceSheet() {
                                         size={18}
                                     />
                                     <Text
-                                        className="min-w-0 flex-1 text-[13px] font-medium leading-5 text-daf-text-secondary dark:text-neutral-300"
+                                        className="min-w-0 flex-1 text-[13px] font-normal leading-5 text-daf-text-secondary dark:text-neutral-300"
                                         selectable
                                         testID="selected-place-address"
                                     >
@@ -175,7 +175,7 @@ export function SelectedPlaceSheet() {
                                     busy: primaryLocationSaveIsLoading,
                                     disabled: primaryLocationSaveIsLoading,
                                 }}
-                                className={`dark:border-daf-border-dark dark:bg-daf-surface-dark flex-row items-center gap-3 rounded-dafMd border border-daf-border bg-white p-3 active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse ${
+                                className={`flex-row items-center gap-3 rounded-dafMd border border-daf-border bg-white p-3 active:bg-daf-surface-alt dark:border-daf-border-dark dark:bg-daf-surface-dark dark:active:bg-daf-surface-inverse ${
                                     primaryLocationSaveIsLoading
                                         ? 'opacity-60'
                                         : ''
@@ -186,7 +186,7 @@ export function SelectedPlaceSheet() {
                                 }
                                 testID={`selected-place-set-${selectedPlacePrimaryLocationType}-button`}
                             >
-                                <View className="bg-daf-brand/12 dark:bg-daf-brand/20 h-[34px] w-[34px] items-center justify-center rounded-dafSm">
+                                <View className="bg-daf-brand/12 h-[34px] w-[34px] items-center justify-center rounded-dafSm dark:bg-daf-brand/20">
                                     <Icon
                                         color="#167C47"
                                         name={
@@ -203,7 +203,7 @@ export function SelectedPlaceSheet() {
                                         Set as{' '}
                                         {selectedPlacePrimaryLocationLabel}
                                     </Text>
-                                    <Text className="mt-0.5 text-[12.5px] font-medium text-daf-text-tertiary dark:text-neutral-400">
+                                    <Text className="mt-0.5 text-[12.5px] font-normal text-daf-text-tertiary dark:text-neutral-400">
                                         {primaryLocationTypeBeingSet ===
                                         selectedPlacePrimaryLocationType
                                             ? 'Save for one-tap directions'

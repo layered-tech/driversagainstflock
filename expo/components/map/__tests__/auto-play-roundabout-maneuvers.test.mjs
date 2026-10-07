@@ -92,7 +92,7 @@ test('automotive guidance uses numbered roundabout assets', () => {
 test('mobile and route progress retain the numbered roundabout badge', () => {
     assert.match(
         drivingGuidanceCardsSource,
-        /<RoundaboutExitIcon exitNumber=\{roundaboutExitNumber\}/,
+        /<RoundaboutExitIcon\s+exitNumber=\{roundaboutExitNumber\}/,
     );
     assert.match(
         directionsSource,

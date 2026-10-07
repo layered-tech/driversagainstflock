@@ -39,7 +39,7 @@ function SettingSwitchRow({ label, onValueChange, testID, value }) {
                 value={value}
                 testID={testID}
             />
-            <Text className="min-w-0 flex-1 text-[15px] font-medium leading-5 text-daf-text-primary dark:text-white">
+            <Text className="min-w-0 flex-1 text-[15px] font-normal leading-5 text-daf-text-primary dark:text-white">
                 {label}
             </Text>
         </View>
@@ -212,7 +212,7 @@ export function MapLayerSheet() {
                         <Text className="font-dafDisplay text-[21px] font-bold text-daf-text-primary dark:text-white">
                             Map settings
                         </Text>
-                        <Text className="text-[13px] font-medium text-daf-text-secondary dark:text-neutral-300">
+                        <Text className="text-[13px] font-normal text-daf-text-secondary dark:text-neutral-300">
                             Customize what you see
                         </Text>
                     </View>

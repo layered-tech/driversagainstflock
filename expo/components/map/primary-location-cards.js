@@ -46,8 +46,8 @@ export function PrimaryLocationCards({
                         accessibilityRole="button"
                         className={`min-w-0 flex-1 gap-2.5 rounded-dafMd border p-3 active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse ${
                             location
-                                ? 'dark:border-daf-border-dark dark:bg-daf-surface-dark border-daf-border bg-white'
-                                : 'dark:border-daf-border-dark border-dashed border-daf-border-strong bg-transparent'
+                                ? 'border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark'
+                                : 'border-dashed border-daf-border-strong bg-transparent dark:border-daf-border-dark'
                         }`}
                         onLongPress={
                             location
@@ -83,7 +83,7 @@ export function PrimaryLocationCards({
                                 {location ? label : `Set ${label}`}
                             </Text>
                             <Text
-                                className="mt-0.5 text-[12.5px] font-medium text-daf-text-tertiary dark:text-neutral-400"
+                                className="mt-0.5 text-[12.5px] font-normal text-daf-text-tertiary dark:text-neutral-400"
                                 numberOfLines={1}
                             >
                                 {subtitle}

@@ -4,7 +4,7 @@ import { Icon } from '../design-system/icon';
 
 export function ContributeStepPill({ step }) {
     return (
-        <View className="dark:border-daf-border-dark h-[26px] items-center justify-center rounded-dafPill border border-daf-border bg-daf-surface-alt px-[9px] dark:bg-daf-surface-inverse">
+        <View className="h-[26px] items-center justify-center rounded-dafPill border border-daf-border bg-daf-surface-alt px-[9px] dark:border-daf-border-dark dark:bg-daf-surface-inverse">
             <Text
                 className="font-dafMono text-[11px] font-semibold tracking-[0.04em] text-daf-text-secondary dark:text-neutral-300"
                 numberOfLines={1}
@@ -26,7 +26,7 @@ export function ContributePageHeader({ onBack, step, testID, title }) {
 
     return (
         <View
-            className="dark:border-daf-border-dark dark:bg-daf-surface-dark flex-row items-center gap-1.5 border-b border-daf-border bg-white px-3 pb-3"
+            className="flex-row items-center gap-1.5 border-b border-daf-border bg-white px-3 pb-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
             style={{ paddingTop: headerPaddingTop }}
             testID={testID}
         >
@@ -45,7 +45,7 @@ export function ContributePageHeader({ onBack, step, testID, title }) {
                 />
             </Pressable>
             <Text
-                className="font-dafDisplay min-w-0 flex-1 text-lg font-bold leading-6 text-daf-text-primary dark:text-white"
+                className="min-w-0 flex-1 font-dafDisplay text-[18px] font-bold leading-6 text-daf-text-primary dark:text-white"
                 numberOfLines={1}
             >
                 {title}

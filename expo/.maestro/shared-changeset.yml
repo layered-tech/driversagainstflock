@@ -54,6 +54,7 @@ tags:
     timeout: 10000
 - tapOn:
     id: 'remove-camera-confirm-button'
+    retryTapIfNoChange: false
 - runFlow:
     when:
       visible:
@@ -69,12 +70,14 @@ tags:
     timeout: 10000
 - tapOn:
     id: 'contribute-continue-map-button'
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'map-contribute-button'
     timeout: 10000
 - tapOn:
     id: 'map-contribute-button'
+    retryTapIfNoChange: false
 - runFlow:
     when:
       visible:
@@ -89,20 +92,27 @@ tags:
     timeout: 10000
 - tapOn:
     id: 'contribute-start-editing-button'
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'contribute-add-camera-button'
     timeout: 10000
 - tapOn:
     id: 'contribute-add-camera-button'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible: '1 camera placed'
+    timeout: 10000
 - tapOn:
     id: 'contribute-next-details-button'
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'contribute-camera-details-screen'
     timeout: 10000
 - tapOn:
     id: 'contribute-next-changeset-button'
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'contribute-changeset-details-screen'
@@ -114,6 +124,7 @@ tags:
 - hideKeyboard
 - tapOn:
     id: 'contribute-next-review-button'
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'contribute-review-removal-1234567890'
@@ -121,6 +132,7 @@ tags:
 - assertVisible: 'Added ALPR camera · Flock Safety'
 - tapOn:
     id: 'contribute-publish-button'
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'contribute-published-screen'
@@ -132,6 +144,7 @@ tags:
     id: 'contribute-published-node-1'
 - tapOn:
     id: 'contribute-see-on-map-button'
+    retryTapIfNoChange: false
 - openLink: 'driversagainstflock://edits/1234567890'
 - extendedWaitUntil:
     visible:

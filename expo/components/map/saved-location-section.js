@@ -17,7 +17,7 @@ export function SavedLocationSection({
 
     return (
         <View>
-            <Text className="px-4 pb-1.5 pt-3.5 text-[11px] font-bold uppercase tracking-[0.06em] text-daf-text-tertiary dark:text-neutral-400">
+            <Text className="px-4 pb-1.5 pt-3.5 text-[11px] font-normal uppercase tracking-[0.06em] text-daf-text-tertiary dark:text-neutral-400">
                 {label}
             </Text>
 
@@ -68,7 +68,7 @@ export function SavedLocationSection({
                                 </Text>
                                 {description ? (
                                     <Text
-                                        className="mt-0.5 text-[13px] font-medium text-daf-text-tertiary dark:text-neutral-400"
+                                        className="mt-0.5 text-[13px] font-normal text-daf-text-tertiary dark:text-neutral-400"
                                         numberOfLines={1}
                                     >
                                         {description}

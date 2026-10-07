@@ -84,13 +84,13 @@ function ContributeAccountCard({ isAuthenticated, subtitle, testID, title }) {
             </View>
             <View className="min-w-0 flex-1">
                 <Text
-                    className="text-sm font-semibold text-daf-text-primary dark:text-white"
+                    className="text-[13px] font-semibold text-daf-text-primary dark:text-white"
                     numberOfLines={1}
                 >
                     {title}
                 </Text>
                 <Text
-                    className="text-xs text-daf-text-tertiary dark:text-neutral-400"
+                    className="text-[12px] text-daf-text-tertiary dark:text-neutral-400"
                     numberOfLines={2}
                 >
                     {subtitle}
@@ -256,7 +256,7 @@ export function ContributeStartSheet({
                                         >
                                             Start a changeset
                                         </Text>
-                                        <Text className="text-sm text-daf-text-secondary dark:text-neutral-300">
+                                        <Text className="text-[13px] text-daf-text-secondary dark:text-neutral-300">
                                             Add camera data to OpenStreetMap
                                         </Text>
                                     </View>
@@ -287,7 +287,7 @@ export function ContributeStartSheet({
 
                                     {storedDraftSummary ? (
                                         <View className="gap-3 rounded-dafMd border border-daf-border bg-daf-surface-alt p-3 dark:border-daf-border-dark dark:bg-daf-surface-inverse">
-                                            <Text className="text-sm font-semibold text-daf-text-primary dark:text-white">
+                                            <Text className="text-[13px] font-semibold text-daf-text-primary dark:text-white">
                                                 {`Draft in progress — ${formatDraftPinCount(storedDraftSummary.pinCount)} · saved ${formatDraftSavedRelativeTime(storedDraftSummary.updatedAt)}`}
                                             </Text>
                                             <View className="flex-row gap-2">
@@ -315,7 +315,7 @@ export function ContributeStartSheet({
                                         </View>
                                     ) : null}
 
-                                    <Text className="text-sm leading-[21px] text-daf-text-secondary dark:text-neutral-300">
+                                    <Text className="text-[13px] leading-[21px] text-daf-text-secondary dark:text-neutral-300">
                                         Your edits are public and credited to
                                         you. Place new camera nodes or fix
                                         existing ones, then publish them
@@ -330,11 +330,11 @@ export function ContributeStartSheet({
                                                     key={step}
                                                 >
                                                     <View className="h-6 w-6 items-center justify-center rounded-dafPill bg-daf-brand/15">
-                                                        <Text className="font-dafMono text-xs font-bold text-daf-text-brand dark:text-daf-brand">
+                                                        <Text className="font-dafMono text-[12px] font-bold text-daf-text-brand dark:text-daf-brand">
                                                             {stepIndex + 1}
                                                         </Text>
                                                     </View>
-                                                    <Text className="flex-1 text-sm text-daf-text-primary dark:text-white">
+                                                    <Text className="flex-1 text-[13px] text-daf-text-primary dark:text-white">
                                                         {step}
                                                     </Text>
                                                 </View>
@@ -343,7 +343,7 @@ export function ContributeStartSheet({
                                     </View>
 
                                     {signInError ? (
-                                        <Text className="rounded-dafMd bg-red-50 px-3 py-2 text-sm leading-5 text-red-700 dark:bg-red-950/40 dark:text-red-200">
+                                        <Text className="rounded-dafMd bg-red-50 px-3 py-2 text-[13px] leading-5 text-red-700 dark:bg-red-950/40 dark:text-red-200">
                                             {signInError}
                                         </Text>
                                     ) : null}
