@@ -1,12 +1,12 @@
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { ContributeEntryButton } from '../contribute/contribute-entry-button';
-import { Icon } from '../design-system/icon';
 import { MAP_CONTROL_BUTTON_CLASS_NAME, ZOOM_STEP } from './constants';
 import {
     getDrivingMapViewPresentation,
     getNextDrivingMapViewMode,
 } from './driving-map-view';
 import { MapControlButton } from './map-control-button';
+import { MapControlIcon } from './map-control-icon';
 import { MapLayerButton } from './map-layer-controls';
 import { useMapControlsContext } from './map-screen-context';
 import { MarkerLoadingIndicator } from './marker-loading-indicator';
@@ -93,10 +93,9 @@ export function MapControlsOverlay({
                     onPress={onDrawerPress}
                     testID="driving-drawer-button"
                 >
-                    <Icon
+                    <MapControlIcon
                         color={defaultMapControlIconColor}
                         name="menu"
-                        size={22}
                     />
                 </MapControlButton>
             ) : null}
@@ -113,19 +112,10 @@ export function MapControlsOverlay({
                     onPress={handleDrivingMapViewPress}
                     testID="driving-map-view-button"
                 >
-                    <View className="items-center justify-center gap-0.5">
-                        <Icon
-                            color={defaultMapControlIconColor}
-                            name={drivingMapViewPresentation.iconName}
-                            size={17}
-                        />
-                        <Text
-                            className="text-[8px] font-bold uppercase leading-[9px]"
-                            style={{ color: defaultMapControlIconColor }}
-                        >
-                            {drivingMapViewPresentation.shortLabel}
-                        </Text>
-                    </View>
+                    <MapControlIcon
+                        color={defaultMapControlIconColor}
+                        name={drivingMapViewPresentation.iconName}
+                    />
                 </MapControlButton>
             ) : null}
 
@@ -139,7 +129,7 @@ export function MapControlsOverlay({
                     accessibilityRole="button"
                     className={`${MAP_CONTROL_BUTTON_CLASS_NAME} ${
                         freeDriveIsActive
-                            ? 'dark:bg-daf-surface-dark border-daf-alert bg-white'
+                            ? 'border-daf-alert bg-white dark:bg-daf-surface-dark'
                             : defaultMapControlClassName
                     }`}
                     glassTintColor={
@@ -158,17 +148,14 @@ export function MapControlsOverlay({
                             : 'start-free-drive-button'
                     }
                 >
-                    <View className="-translate-x-px translate-y-px">
-                        <Icon
-                            color={
-                                freeDriveIsActive
-                                    ? '#FF4D4F'
-                                    : defaultMapControlIconColor
-                            }
-                            name={freeDriveIsActive ? 'x' : 'navigation'}
-                            size={21}
-                        />
-                    </View>
+                    <MapControlIcon
+                        color={
+                            freeDriveIsActive
+                                ? '#FF4D4F'
+                                : defaultMapControlIconColor
+                        }
+                        name={freeDriveIsActive ? 'x' : 'navigation'}
+                    />
                 </MapControlButton>
             ) : null}
 
@@ -179,10 +166,9 @@ export function MapControlsOverlay({
                 glassTintColor={defaultMapControlGlassTintColor}
                 onPress={() => handleZoomPress(ZOOM_STEP)}
             >
-                <Icon
+                <MapControlIcon
                     color={defaultMapControlIconColor}
                     name="plus"
-                    size={22}
                 />
             </MapControlButton>
 
@@ -193,10 +179,9 @@ export function MapControlsOverlay({
                 glassTintColor={defaultMapControlGlassTintColor}
                 onPress={() => handleZoomPress(-ZOOM_STEP)}
             >
-                <Icon
+                <MapControlIcon
                     color={defaultMapControlIconColor}
                     name="minus"
-                    size={22}
                 />
             </MapControlButton>
 
@@ -220,13 +205,10 @@ export function MapControlsOverlay({
                         size="small"
                     />
                 ) : (
-                    <View className="h-6 w-6 items-center justify-center">
-                        <Icon
-                            color={userLocationButtonIconColor}
-                            name="locate-fixed"
-                            size={20}
-                        />
-                    </View>
+                    <MapControlIcon
+                        color={userLocationButtonIconColor}
+                        name="locate-fixed"
+                    />
                 )}
             </MapControlButton>
 

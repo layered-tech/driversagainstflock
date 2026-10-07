@@ -21,7 +21,7 @@ const RemappedBottomSheetModal = remapProps(BottomSheetModal, {
     handleIndicatorClassName: 'handleIndicatorStyle',
 });
 
-export const NativeWindBottomSheet = remapProps(BottomSheet, {
+export const NativeWindBottomSheet = cssInterop(BottomSheet, {
     backgroundClassName: 'backgroundStyle',
     handleIndicatorClassName: 'handleIndicatorStyle',
 });

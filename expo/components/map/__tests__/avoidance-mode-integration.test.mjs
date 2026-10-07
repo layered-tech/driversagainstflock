@@ -35,7 +35,7 @@ function flatten(node) {
     return [node, ...children.flatMap(flatten)];
 }
 
-function createSheetHarness(avoidanceMode = 'directional') {
+function createSheetHarness(avoidanceMode = 'directional', form = false) {
     const state = [];
     let cursor = 0;
     const applied = [];
@@ -47,74 +47,107 @@ function createSheetHarness(avoidanceMode = 'directional') {
         directionsRouteIsLoading: false,
         handleDirectionsAdvancedSettingsApply: (settings) =>
             applied.push(settings),
+        advancedRouteSettings: advancedSettings.normalizeAdvancedRouteSettings({
+            avoidanceMode,
+        }),
+        searchMode: 'directions',
+        searchSource: 'map',
+        submittedSearchResults: [],
+        setAdvancedRouteSettings: (settings) => {
+            context.advancedRouteSettings = settings;
+        },
     };
-    const element = (type, props) => ({ type, props });
-    const { DirectionsRouteSheet } = loadModule(
-        '../directions-route-sheet.js',
-        {
-            'react/jsx-runtime': { jsx: element, jsxs: element },
-            react: {
-                useEffect: () => {},
-                useState: (initial) => {
-                    const index = cursor++;
-                    if (!(index in state)) state[index] = initial;
-                    return [
-                        state[index],
-                        (next) => {
-                            state[index] =
-                                typeof next === 'function'
-                                    ? next(state[index])
-                                    : next;
-                        },
-                    ];
-                },
-            },
-            'react-native': {
-                Pressable: 'Pressable',
-                Switch: 'Switch',
-                Text: 'Text',
-                View: 'View',
-            },
-            '@gorhom/bottom-sheet': { BottomSheetScrollView: 'ScrollView' },
-            '../design-system/icon': { Icon: 'Icon' },
-            '../design-system/primitives': {
-                DafButton: 'Button',
-                DafIconButton: 'IconButton',
-                DafTextInput: 'Input',
-            },
-            '../scorecard/scorecard-engine': {
-                getAvoidableRouteCameraCount: () => 0,
-            },
-            './advanced-route-settings': advancedSettings,
-            './directions': {
-                DIRECTIONS_ROUTE_FASTEST: 'direct',
-                DIRECTIONS_ROUTE_PRIVATE: 'ideal',
-                formatDirectionsDuration: () => '',
-                getDirectionsRouteOptions: () => [],
-                getSelectedDirectionsRouteKey: () => 'ideal',
-            },
-            './map-screen-context': {
-                useDirectionsRouteContext: () => context,
-            },
-            './native-components': {
-                NativeWindBottomSheetModal: 'Modal',
-                NativeWindBottomSheetView: 'View',
-            },
-            './route-option-card': { RouteOptionCard: 'RouteOptionCard' },
-            './use-bottom-sheet-presented-state': {
-                useBottomSheetPresentedState: () => ({
-                    bottomSheetIsPresented: true,
-                }),
+    const element = (type, props) =>
+        typeof type === 'function' ? type(props) : { type, props };
+    const mocks = {
+        'react/jsx-runtime': { jsx: element, jsxs: element },
+        react: {
+            useEffect: () => {},
+            useState: (initial) => {
+                const index = cursor++;
+                if (!(index in state)) state[index] = initial;
+                return [
+                    state[index],
+                    (next) => {
+                        state[index] =
+                            typeof next === 'function'
+                                ? next(state[index])
+                                : next;
+                    },
+                ];
             },
         },
+        'react-native': {
+            Pressable: 'Pressable',
+            Switch: 'Switch',
+            Text: 'Text',
+            View: 'View',
+            ScrollView: 'ScrollView',
+            useWindowDimensions: () => ({ height: 844 }),
+        },
+        '@gorhom/bottom-sheet': { BottomSheetScrollView: 'ScrollView' },
+        '../design-system/icon': { Icon: 'Icon' },
+        '../design-system/primitives': {
+            DafButton: 'Button',
+            DafChip: 'Chip',
+            DafIconButton: 'IconButton',
+            DafTextInput: 'Input',
+        },
+        '../scorecard/scorecard-engine': {
+            getAvoidableRouteCameraCount: () => 0,
+        },
+        './advanced-route-settings': advancedSettings,
+        './directions': {
+            DIRECTIONS_MODE_DIRECTIONS: 'directions',
+            DIRECTIONS_ROUTE_FASTEST: 'direct',
+            DIRECTIONS_ROUTE_PRIVATE: 'ideal',
+            formatDirectionsDuration: () => '',
+            getDirectionsRouteOptions: () => [],
+            getSelectedDirectionsRouteKey: () => 'ideal',
+        },
+        './map-screen-context': {
+            useDirectionsRouteContext: () => context,
+            useMapSearchContext: () => context,
+        },
+        './native-components': {
+            NativeWindBottomSheetModal: 'Modal',
+            NativeWindBottomSheetView: 'View',
+        },
+        './route-option-card': { RouteOptionCard: 'RouteOptionCard' },
+        './use-bottom-sheet-presented-state': {
+            useBottomSheetPresentedState: () => ({
+                bottomSheetIsPresented: true,
+            }),
+        },
+        'react-native-reanimated': {
+            __esModule: true,
+            default: { View: 'AnimatedView' },
+        },
+        './destination-category-pills': {},
+        './directions-field': { DirectionsField: 'DirectionsField' },
+        './layout-animations': {},
+        './search-glass-shell': { SearchGlassShell: 'GlassShell' },
+    };
+    mocks['./advanced-route-settings-controls'] = loadModule(
+        '../advanced-route-settings-controls.js',
+        mocks,
     );
+    const { DirectionsRouteSheet } = loadModule(
+        '../directions-route-sheet.js',
+        mocks,
+    );
+    const { MapSearchOverlay } = loadModule('../map-search-overlay.js', mocks);
     const render = () => {
         cursor = 0;
-        return flatten(DirectionsRouteSheet());
+        return flatten(form ? MapSearchOverlay({}) : DirectionsRouteSheet());
     };
     const control = (id) =>
         render().find((node) => node.props.testID === id)?.props;
-    control('directions-route-advanced-settings-toggle').onPress();
+    control(
+        form
+            ? 'map-directions-map-advanced-settings-toggle'
+            : 'directions-route-advanced-settings-toggle',
+    ).onPress();
     return { control, context, applied };
 }
 
@@ -306,4 +339,61 @@ test('changing only the mode starts a fresh request and discards the previous re
     assert.equal(published.length, 1);
     assert.equal(published[0].mode, 'circular');
     assert.equal(published[0].advancedRouteSettings.avoidanceMode, 'circular');
+});
+
+test('form settings update before lookup and the first request uses all three options', () => {
+    const { control, context, applied } = createSheetHarness(
+        'directional',
+        true,
+    );
+    const prefix = 'map-directions-map';
+    assert.equal(control(`${prefix}-advanced-settings-apply`), undefined);
+    control(`${prefix}-avoidance-circular`).onPress();
+    control(`${prefix}-allow-alpr-switch`).onValueChange(false);
+    control(`${prefix}-avoid-distance-input`).onChangeText('275m');
+    assert.equal(control(`${prefix}-avoid-distance-input`).value, '275');
+    const expected = {
+        allowAlprNearStartDestination: false,
+        avoidanceMode: 'circular',
+        avoidBufferMeters: 275,
+    };
+    assert.deepEqual(context.advancedRouteSettings, expected);
+    assert.deepEqual(applied, []);
+    const requests = [];
+    const { useDirectionsRouteRequest } = loadModule(
+        '../use-directions-route-request.js',
+        {
+            react: {
+                useCallback: (fn) => fn,
+                useRef: (current) => ({ current }),
+            },
+            'react-native': { Keyboard: { dismiss() {} } },
+            './advanced-route-settings': advancedSettings,
+            './analytics': { logMapDirectionsRequested() {} },
+            './api': {
+                getDirections: (args) => {
+                    requests.push(args);
+                    return new Promise(() => {});
+                },
+            },
+            './directions': { getDirectionsWaypointApiCoord: (value) => value },
+        },
+    );
+    const { requestDirectionsRoute } = useDirectionsRouteRequest({
+        advancedRouteSettings: context.advancedRouteSettings,
+        setDirectionsRouteError() {},
+        setDirectionsRouteIsLoading() {},
+        setDirectionsSearchIsFocused() {},
+    });
+    requestDirectionsRoute({
+        startWaypoint: { latitude: 41, longitude: -87 },
+        destinationWaypoint: { latitude: 42, longitude: -87 },
+    });
+    assert.deepEqual(requests[0].advancedRouteSettings, expected);
+    control(`${prefix}-avoid-distance-increase`).onPress();
+    assert.equal(context.advancedRouteSettings.avoidBufferMeters, 300);
+    control(`${prefix}-avoid-distance-input`).onChangeText('9999');
+    assert.equal(context.advancedRouteSettings.avoidBufferMeters, 1000);
+    control(`${prefix}-avoid-distance-input`).onChangeText('');
+    assert.equal(context.advancedRouteSettings.avoidBufferMeters, 25);
 });

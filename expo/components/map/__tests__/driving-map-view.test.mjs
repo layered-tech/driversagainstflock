@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
+import { iconPaths } from '../../design-system/icon-paths.js';
 import {
     DRIVING_MAP_VIEW_PERSPECTIVE,
     DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
@@ -37,12 +38,20 @@ describe('driving map view modes', () => {
     });
 
     test('describes the current mode for the shared control', () => {
+        const perspective = getDrivingMapViewPresentation(
+            DRIVING_MAP_VIEW_PERSPECTIVE,
+        );
+
+        assert.deepEqual(perspective, {
+            iconName: 'route',
+            label: 'Perspective',
+        });
+        assert.ok(iconPaths[perspective.iconName]?.length > 0);
         assert.deepEqual(
             getDrivingMapViewPresentation(DRIVING_MAP_VIEW_ROUTE_OVERVIEW),
             {
                 iconName: 'map',
                 label: 'Route overview',
-                shortLabel: 'Route',
             },
         );
     });

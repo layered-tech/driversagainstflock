@@ -1,7 +1,15 @@
-import { Pressable, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import {
+    Pressable,
+    Text,
+    useColorScheme,
+    useWindowDimensions,
+    View,
+} from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
-import { dafSemanticColors } from '../design-system/tokens';
+import { dafSemanticColors, getDafTheme } from '../design-system/tokens';
 import { DRIVING_DESTINATION_BOTTOM_PADDING } from './constants';
 import {
     DIRECTIONS_ROUTE_PRIVATE,
@@ -75,12 +83,67 @@ export function getManeuverIcon(maneuver) {
     return 'corner-up-right';
 }
 
+export function ManeuverInstruction({ instruction }) {
+    const { fontScale } = useWindowDimensions();
+
+    return (
+        <Text
+            adjustsFontSizeToFit
+            className="mt-0.5 text-[20px] font-medium text-daf-text-secondary dark:text-neutral-300"
+            includeFontPadding={false}
+            minimumFontScale={14 / 20}
+            numberOfLines={2}
+            style={{ maxHeight: 48 * fontScale }}
+            testID="driving-maneuver-instruction"
+        >
+            {instruction}
+        </Text>
+    );
+}
+
 export function ManeuverCard({
     directionsRoute,
     maneuver,
     nextManeuver,
     onStepFocus,
+    isFocused = false,
+    onPreviousStep,
+    onNextStep,
 }) {
+    const colorScheme = useColorScheme();
+    const { fontScale } = useWindowDimensions();
+    const theme = getDafTheme(colorScheme);
+    const floatingShadow =
+        colorScheme === 'dark'
+            ? '0 1px 2px rgba(0,0,0,0.40), 0 10px 30px rgba(0,0,0,0.50)'
+            : '0 1px 2px rgba(11,14,18,0.14), 0 6px 22px rgba(11,14,18,0.16)';
+
+    const stepSwipeGesture = useMemo(
+        () =>
+            Gesture.Pan()
+                .enabled(isFocused)
+                .activeOffsetX([-20, 20])
+                .failOffsetY([-16, 16])
+                .maxPointers(1)
+                .runOnJS(true)
+                .onEnd(({ translationX, translationY }, success) => {
+                    if (
+                        !success ||
+                        !isFocused ||
+                        Math.abs(translationX) < 40 ||
+                        Math.abs(translationX) <= Math.abs(translationY)
+                    ) {
+                        return;
+                    }
+                    if (translationX < 0) {
+                        onNextStep?.();
+                    } else {
+                        onPreviousStep?.();
+                    }
+                }),
+        [isFocused, onNextStep, onPreviousStep],
+    );
+
     if (!maneuver) {
         return null;
     }
@@ -106,66 +169,133 @@ export function ManeuverCard({
     );
 
     return (
-        <Pressable
-            accessibilityLabel={`Show on map: ${maneuver.instruction || maneuverLabel}`}
-            accessibilityRole="button"
-            className="w-full flex-row items-center gap-[14px] rounded-dafLg border border-daf-border-glass bg-white/95 px-4 py-3 shadow-[0px_4px_18px_rgba(11,14,18,0.18)] dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95"
-            disabled={!coordinate || !onStepFocus}
-            onPress={() => onStepFocus(coordinate)}
-            testID="driving-maneuver-card"
-        >
-            <View className="h-[52px] w-[52px] items-center justify-center rounded-dafMd bg-daf-brand">
-                {roundaboutExitNumber === null ? (
-                    <Icon
-                        color={dafSemanticColors.brandContrast}
-                        name={getManeuverIcon(maneuver)}
-                        size={30}
-                        stroke={2.4}
-                    />
-                ) : (
-                    <RoundaboutExitIcon exitNumber={roundaboutExitNumber} />
-                )}
+        <View className="w-full">
+            <View className="relative z-10 flex-row items-stretch overflow-visible">
+                {isFocused ? (
+                    <Pressable
+                        accessibilityLabel="Previous step"
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: !onPreviousStep }}
+                        className={`relative z-[1] my-2.5 -mr-[14px] w-[50px] shrink-0 items-center justify-center rounded-l-dafSm border border-r-0 border-daf-border-glass bg-white/95 pr-[14px] dark:border-daf-border-glass-dark dark:bg-[rgba(17,21,27,0.95)] ${onPreviousStep ? 'active:scale-[0.97]' : 'opacity-40'}`}
+                        disabled={!onPreviousStep}
+                        onPress={onPreviousStep}
+                        style={{ boxShadow: floatingShadow }}
+                        testID="driving-step-previous"
+                    >
+                        <Icon
+                            name="chevron-left"
+                            size={22}
+                            stroke={2.4}
+                            color={theme.text.primary}
+                        />
+                    </Pressable>
+                ) : null}
+                <GestureDetector gesture={stepSwipeGesture}>
+                    <Pressable
+                        accessibilityHint={
+                            isFocused
+                                ? 'Swipe left for a later step or right for an earlier step.'
+                                : undefined
+                        }
+                        accessibilityLabel={`Show on map: ${maneuver.instruction || maneuverLabel}`}
+                        accessibilityRole="button"
+                        className="relative z-[2] min-w-0 flex-1 flex-row items-center gap-[14px] rounded-dafLg border border-daf-border-glass bg-white/95 px-4 py-2.5 dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95"
+                        disabled={!coordinate || !onStepFocus}
+                        onPress={() =>
+                            onStepFocus(coordinate, maneuver.stepIndex)
+                        }
+                        style={{ boxShadow: floatingShadow }}
+                        testID="driving-maneuver-card"
+                    >
+                        <View className="h-[52px] w-[52px] items-center justify-center rounded-dafMd bg-daf-brand">
+                            {roundaboutExitNumber === null ? (
+                                <Icon
+                                    color={dafSemanticColors.brandContrast}
+                                    name={getManeuverIcon(maneuver)}
+                                    size={30}
+                                    stroke={2.4}
+                                />
+                            ) : (
+                                <RoundaboutExitIcon
+                                    exitNumber={roundaboutExitNumber}
+                                />
+                            )}
+                        </View>
+                        <View
+                            className="min-w-0 flex-1 justify-center"
+                            style={{ height: 78 * fontScale }}
+                        >
+                            <Text
+                                className="font-dafMono text-[26px] font-bold leading-[28px] text-daf-text-primary dark:text-white"
+                                numberOfLines={1}
+                                testID="driving-maneuver-distance"
+                            >
+                                {maneuverDistanceText}
+                            </Text>
+                            <ManeuverInstruction
+                                instruction={
+                                    maneuver.instruction || maneuverLabel
+                                }
+                            />
+                        </View>
+                    </Pressable>
+                </GestureDetector>
+                {isFocused ? (
+                    <Pressable
+                        accessibilityLabel="Next step"
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: !onNextStep }}
+                        className={`relative z-[1] my-2.5 -ml-[14px] w-[50px] shrink-0 items-center justify-center rounded-r-dafSm border border-l-0 border-daf-border-glass bg-white/95 pl-[14px] dark:border-daf-border-glass-dark dark:bg-[rgba(17,21,27,0.95)] ${onNextStep ? 'active:scale-[0.97]' : 'opacity-40'}`}
+                        disabled={!onNextStep}
+                        onPress={onNextStep}
+                        style={{ boxShadow: floatingShadow }}
+                        testID="driving-step-next"
+                    >
+                        <Icon
+                            name="chevron-right"
+                            size={22}
+                            stroke={2.4}
+                            color={theme.text.primary}
+                        />
+                    </Pressable>
+                ) : null}
             </View>
-
-            <View className="min-w-0 flex-1">
-                <Text
-                    className="font-dafMono text-[26px] font-bold leading-[28px] text-daf-text-primary dark:text-white"
-                    numberOfLines={1}
-                    testID="driving-maneuver-distance"
-                >
-                    {maneuverDistanceText}
-                </Text>
-                <Text
-                    className="mt-0.5 text-[17px] font-medium leading-[23px] text-daf-text-secondary dark:text-neutral-300"
-                    numberOfLines={1}
-                    testID="driving-maneuver-instruction"
-                >
-                    {maneuver.instruction || maneuverLabel}
-                </Text>
-            </View>
-
-            {nextManeuver?.instruction ? (
+            {!isFocused && nextManeuver?.instruction ? (
                 <Pressable
                     accessibilityLabel={`Show on map: ${nextManeuver.instruction}`}
                     accessibilityRole="button"
-                    className="max-w-[118px] flex-none rounded-dafPill bg-daf-surface-alt px-3 py-1.5 dark:bg-daf-surface-inverse"
+                    className="relative z-[1] mx-3 -mt-2 min-h-11 flex-row items-center gap-2 rounded-b-dafSm border border-t-0 border-daf-border-glass bg-white/95 px-3 pb-2 pt-4 dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95"
                     disabled={!nextCoordinate || !onStepFocus}
-                    hitSlop={10}
-                    onPress={(event) => {
-                        event.stopPropagation();
-                        onStepFocus(nextCoordinate);
-                    }}
+                    onPress={() =>
+                        onStepFocus(nextCoordinate, nextManeuver.stepIndex)
+                    }
+                    testID="driving-maneuver-next-step-bar"
+                    style={{ boxShadow: floatingShadow }}
                 >
+                    <Icon
+                        color="#828D9B"
+                        name={getManeuverIcon(nextManeuver)}
+                        size={16}
+                    />
                     <Text
-                        className="text-[12px] font-semibold leading-[16px] text-daf-text-secondary dark:text-neutral-300"
+                        className="min-w-0 flex-1 text-[14px] font-semibold text-daf-text-secondary dark:text-neutral-300"
                         numberOfLines={1}
                         testID="driving-maneuver-next-step"
                     >
-                        then {nextManeuver.instruction}
+                        Then {nextManeuver.instruction}
+                    </Text>
+                    <Text className="font-dafMono text-xs font-semibold text-daf-text-tertiary dark:text-neutral-400">
+                        {formatDirectionsManeuverDistance(
+                            Math.max(
+                                0,
+                                nextManeuver.distanceToManeuver -
+                                    maneuver.distanceToManeuver,
+                            ),
+                        )}
                     </Text>
                 </Pressable>
             ) : null}
-        </Pressable>
+        </View>
     );
 }
 

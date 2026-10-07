@@ -399,15 +399,15 @@ test('step previews frame the turn between the measured guidance and collapsed d
                     snapToIndex: (index) => events.push(['sheet', index]),
                 },
             },
+            setFocusedStepIndex: (index) => events.push(['step', index]),
             onStepFocus: (coordinate, options) => {
                 events.push(['focus', coordinate, options]);
                 return true;
             },
         },
     );
-    assert.equal(focus([-87, 41]), true);
+    assert.equal(focus([-87, 41], 2), true);
     assert.deepEqual(events, [
-        ['sheet', 0],
         [
             'focus',
             [-87, 41],
@@ -420,6 +420,8 @@ test('step previews frame the turn between the measured guidance and collapsed d
                 },
             },
         ],
+        ['step', 2],
+        ['sheet', 0],
     ]);
     assert.match(
         readSource('../driving-guidance-overlay.js'),

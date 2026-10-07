@@ -1,10 +1,11 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useColorScheme, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { logMapDrivingStopped } from './analytics';
 import {
     createDirectionsRouteProgressTracker,
     getActiveDirectionsManeuver,
+    getDirectionsSteps,
     getDirectionsWaypointCoordinate,
     getNextDirectionsManeuver,
     getRemainingDirectionsRouteValues,
@@ -94,8 +95,17 @@ export function DrivingGuidanceOverlay({
     topOverlay = null,
 }) {
     const colorScheme = useColorScheme();
+    const [focusedStepIndex, setFocusedStepIndex] = useState(null);
     const statusChromeIsVisible =
-        drivingStatusIsVisible && cameraIsFollowingUser;
+        drivingStatusIsVisible &&
+        cameraIsFollowingUser &&
+        focusedStepIndex === null;
+
+    useEffect(() => {
+        if (cameraIsFollowingUser) {
+            setFocusedStepIndex(null);
+        }
+    }, [cameraIsFollowingUser]);
     const insets = useSafeAreaInsets();
     const stepsSheetRef = useRef(null);
     const { height: windowHeight } = useWindowDimensions();
@@ -103,9 +113,8 @@ export function DrivingGuidanceOverlay({
     const [collapsedHeight, setCollapsedHeight] = useState(156 + insets.bottom);
     const [guidanceHeight, setGuidanceHeight] = useState(88);
     const handleStepFocus = useCallback(
-        (coordinate) => {
-            stepsSheetRef.current?.snapToIndex(0);
-            return onStepFocus(coordinate, {
+        (coordinate, stepIndex) => {
+            const didFocus = onStepFocus(coordinate, {
                 padding: {
                     paddingTop: insets.top + guidanceHeight + 12,
                     paddingBottom: collapsedHeight + 12,
@@ -113,6 +122,11 @@ export function DrivingGuidanceOverlay({
                     paddingRight: insets.right + 12,
                 },
             });
+            if (didFocus !== false) {
+                setFocusedStepIndex(stepIndex);
+                stepsSheetRef.current?.snapToIndex(0);
+            }
+            return didFocus;
         },
         [
             collapsedHeight,
@@ -160,6 +174,28 @@ export function DrivingGuidanceOverlay({
             ),
         [directionsRoute, routeProgress, userLocation],
     );
+    useEffect(() => {
+        setFocusedStepIndex(null);
+    }, [directionsRoute]);
+    const steps = useMemo(
+        () => getDirectionsSteps(directionsRoute, maneuver),
+        [directionsRoute, maneuver],
+    );
+    const focusedStepPosition = steps.findIndex(
+        (step) => step.stepIndex === focusedStepIndex,
+    );
+    const focusedStep = steps[focusedStepPosition];
+    const previousStep = steps
+        .slice(0, focusedStepPosition)
+        .findLast((step) => step.coordinate);
+    const followingStep = steps
+        .slice(focusedStepPosition + 1)
+        .find((step) => step.coordinate);
+    const focusStep = (step) => {
+        if (step?.coordinate) {
+            handleStepFocus(step.coordinate, step.stepIndex);
+        }
+    };
     const routeIsActive = Boolean(directionsRoute && routeOption);
     const headerCardIsVisible = Boolean(
         routeIsActive && (rerouteIsLoading || maneuver),
@@ -217,8 +253,27 @@ export function DrivingGuidanceOverlay({
                         ) : (
                             <ManeuverCard
                                 directionsRoute={directionsRoute}
-                                maneuver={maneuver}
-                                nextManeuver={nextManeuver}
+                                maneuver={
+                                    focusedStep
+                                        ? {
+                                              ...focusedStep,
+                                              distanceToManeuver:
+                                                  focusedStep.displayDistance,
+                                          }
+                                        : maneuver
+                                }
+                                nextManeuver={focusedStep ? null : nextManeuver}
+                                isFocused={Boolean(focusedStep)}
+                                onPreviousStep={
+                                    previousStep
+                                        ? () => focusStep(previousStep)
+                                        : undefined
+                                }
+                                onNextStep={
+                                    followingStep
+                                        ? () => focusStep(followingStep)
+                                        : undefined
+                                }
                                 onStepFocus={handleStepFocus}
                             />
                         )

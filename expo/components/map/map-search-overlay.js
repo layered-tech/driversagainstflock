@@ -1,13 +1,16 @@
 import {
     ActivityIndicator,
     Pressable,
+    ScrollView,
     Text,
     TextInput,
+    useWindowDimensions,
     View,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { Icon } from '../design-system/icon';
 import { DafButton, DafChip } from '../design-system/primitives';
+import { AdvancedRouteSettings } from './advanced-route-settings-controls';
 import { DestinationCategoryPills } from './destination-category-pills';
 import {
     DIRECTIONS_FIELD_DESTINATION,
@@ -24,7 +27,10 @@ export function MapSearchOverlay({
     mapControls = null,
     showDestinationCategories = true,
 }) {
+    const { height: windowHeight } = useWindowDimensions();
     const {
+        advancedRouteSettings,
+        setAdvancedRouteSettings,
         directionsActiveField,
         directionsCurrentLocationWaypoint,
         directionsDestinationInputRef,
@@ -139,7 +145,20 @@ export function MapSearchOverlay({
                         searchSource={searchSource}
                     >
                         {searchModeIsDirections ? (
-                            <View className="px-[14px] py-[14px]">
+                            <ScrollView
+                                className="shrink"
+                                contentContainerClassName="px-[14px] py-[14px]"
+                                keyboardShouldPersistTaps="handled"
+                                style={{
+                                    maxHeight: Math.max(
+                                        120,
+                                        windowHeight -
+                                            (insets?.top ?? 0) -
+                                            bottomCtaPadding -
+                                            88,
+                                    ),
+                                }}
+                            >
                                 <View className="mb-[14px] flex-row items-center gap-2.5">
                                     <Pressable
                                         accessibilityLabel="Close directions mode"
@@ -164,9 +183,9 @@ export function MapSearchOverlay({
 
                                 <View className="flex-row items-start gap-2.5">
                                     <View className="relative w-3 self-stretch">
-                                        <View className="dark:bg-daf-border-dark absolute bottom-[22px] left-[5px] top-[22px] w-0.5 rounded-dafPill bg-daf-border-strong" />
+                                        <View className="absolute bottom-[22px] left-[5px] top-[22px] w-0.5 rounded-dafPill bg-daf-border-strong dark:bg-daf-border-dark" />
                                         <View className="flex-1 items-center justify-center">
-                                            <View className="dark:border-daf-surface-dark h-[11px] w-[11px] rounded-dafPill border-2 border-white bg-daf-brand" />
+                                            <View className="h-[11px] w-[11px] rounded-dafPill border-2 border-white bg-daf-brand dark:border-daf-surface-dark" />
                                         </View>
                                         {directionsStopIsVisible ? (
                                             <View className="flex-1 items-center justify-center">
@@ -327,11 +346,20 @@ export function MapSearchOverlay({
                                     </DafChip>
                                 </View>
 
+                                <View className="mt-3">
+                                    <AdvancedRouteSettings
+                                        settings={advancedRouteSettings}
+                                        onChange={setAdvancedRouteSettings}
+                                        loading={directionsRouteIsLoading}
+                                        testIDPrefix={`map-directions-${searchSource}`}
+                                    />
+                                </View>
+
                                 {directionsPlaceIsLoading ? (
                                     <View
                                         accessibilityLabel="Loading place location"
                                         accessibilityRole="progressbar"
-                                        className="dark:bg-daf-surface-dark mt-3 flex-row items-center gap-3 rounded-dafMd bg-daf-surface-alt px-3 py-3"
+                                        className="mt-3 flex-row items-center gap-3 rounded-dafMd bg-daf-surface-alt px-3 py-3 dark:bg-daf-surface-dark"
                                     >
                                         <ActivityIndicator
                                             color={searchIconColor}
@@ -352,7 +380,7 @@ export function MapSearchOverlay({
                                         </Text>
                                     </View>
                                 ) : null}
-                            </View>
+                            </ScrollView>
                         ) : null}
 
                         {!searchModeIsDirections ? (
@@ -476,7 +504,7 @@ export function MapSearchOverlay({
                                     ) : null}
                                 </View>
 
-                                <View className="dark:bg-daf-border-glass-dark h-6 w-px bg-daf-border-glass" />
+                                <View className="h-6 w-px bg-daf-border-glass dark:bg-daf-border-glass-dark" />
                                 <Pressable
                                     accessibilityLabel={
                                         searchRightActionIsClear

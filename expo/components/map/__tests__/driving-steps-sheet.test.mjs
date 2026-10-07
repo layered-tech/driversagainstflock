@@ -190,7 +190,8 @@ test('tapping a past step delegates its coordinate to the shared preview action'
     const sheet = DrivingStepsSheet({
         containerHeight: 900,
         collapsedHeight: 170,
-        onStepFocus: (coordinate) => focused.push(coordinate),
+        onStepFocus: (coordinate, stepIndex) =>
+            focused.push({ coordinate, stepIndex }),
     });
     const item = {
         stepIndex: 0,
@@ -203,7 +204,7 @@ test('tapping a past step delegates its coordinate to the shared preview action'
     assert.equal(row.props.accessibilityRole, 'button');
     row.props.onPress();
     assert.deepEqual(snaps, []);
-    assert.deepEqual(focused, [[-87, 41]]);
+    assert.deepEqual(focused, [{ coordinate: [-87, 41], stepIndex: 0 }]);
     assert.equal(
         DrivingStepRow({ item: { stepIndex: 1 } }).props.disabled,
         true,

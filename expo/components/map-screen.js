@@ -9,7 +9,6 @@ import { ContributePlacementOverlay } from './contribute/contribute-placement-ov
 import { ContributePlacementSheet } from './contribute/contribute-placement-sheet';
 import { ContributeStartSheet } from './contribute/contribute-start-sheet';
 import { useContribute } from './contribute/contribute-state';
-import { Icon } from './design-system/icon';
 import {
     fitRouteComparisonCamera,
     getDisplayedMapStyleURL,
@@ -51,6 +50,7 @@ import { makeElectronicHorizonDebugFeatureCollection } from './map/electronic-ho
 import { makeMarkerFeatureCollection } from './map/geo';
 import { LocationPermissionSheet } from './map/location-permission-sheet';
 import { MapCanvas } from './map/map-canvas';
+import { MapControlIcon } from './map/map-control-icon';
 import { MapControlsOverlay } from './map/map-controls-overlay';
 import { MapDebugControls } from './map/map-debug-controls';
 import { MapFullScreenSearch } from './map/map-full-screen-search';
@@ -879,16 +879,12 @@ export default function LocationMapScreen({
                                         }
                                         testID="directions-route-back-button"
                                     >
-                                        {/* Nudge the chevron left so it reads as optically centered in the pill. */}
-                                        <View className="-translate-x-px">
-                                            <Icon
-                                                color={
-                                                    presentation.searchPrimaryIconColor
-                                                }
-                                                name="chevron-left"
-                                                size={22}
-                                            />
-                                        </View>
+                                        <MapControlIcon
+                                            color={
+                                                presentation.searchPrimaryIconColor
+                                            }
+                                            name="chevron-left"
+                                        />
                                     </Pressable>
                                 ) : null}
                                 {markerDetailsModeIsActive ? (
@@ -902,12 +898,11 @@ export default function LocationMapScreen({
                                             }
                                             testID="marker-details-close-button"
                                         >
-                                            <Icon
+                                            <MapControlIcon
                                                 color={
                                                     presentation.searchPrimaryIconColor
                                                 }
                                                 name="x"
-                                                size={21}
                                             />
                                         </Pressable>
                                     </View>
@@ -923,12 +918,11 @@ export default function LocationMapScreen({
                                             }
                                             testID="place-details-close-button"
                                         >
-                                            <Icon
+                                            <MapControlIcon
                                                 color={
                                                     presentation.searchPrimaryIconColor
                                                 }
                                                 name="x"
-                                                size={21}
                                             />
                                         </Pressable>
                                     </View>

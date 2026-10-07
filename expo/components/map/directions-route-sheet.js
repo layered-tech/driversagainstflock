@@ -1,21 +1,11 @@
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { useEffect, useState } from 'react';
-import { Pressable, Switch, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import { Text, View } from 'react-native';
 import { Icon } from '../design-system/icon';
-import {
-    DafButton,
-    DafIconButton,
-    DafTextInput,
-} from '../design-system/primitives';
+import { DafButton } from '../design-system/primitives';
 import { getAvoidableRouteCameraCount } from '../scorecard/scorecard-engine';
-import {
-    AVOID_BUFFER_STEP_METERS,
-    AVOIDANCE_MODE_OPTIONS,
-    getAdvancedRouteSettings,
-    MAX_AVOID_BUFFER_METERS,
-    MIN_AVOID_BUFFER_METERS,
-    normalizeAdvancedRouteSettings,
-} from './advanced-route-settings';
+import { getAdvancedRouteSettings } from './advanced-route-settings';
+import { AdvancedRouteSettings } from './advanced-route-settings-controls';
 import {
     DIRECTIONS_ROUTE_FASTEST,
     DIRECTIONS_ROUTE_PRIVATE,
@@ -59,28 +49,6 @@ export function DirectionsRouteSheet() {
         onDismiss: directionsRouteSheetTrackingHandlers.onDismiss,
     });
     const appliedAdvancedSettings = getAdvancedRouteSettings(directionsRoute);
-    const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false);
-    const [allowAlprNearStartDestination, setAllowAlprNearStartDestination] =
-        useState(appliedAdvancedSettings.allowAlprNearStartDestination);
-    const [avoidBufferInput, setAvoidBufferInput] = useState(
-        String(appliedAdvancedSettings.avoidBufferMeters),
-    );
-    const [avoidanceMode, setAvoidanceMode] = useState(
-        appliedAdvancedSettings.avoidanceMode,
-    );
-
-    useEffect(() => {
-        setAllowAlprNearStartDestination(
-            appliedAdvancedSettings.allowAlprNearStartDestination,
-        );
-        setAvoidBufferInput(String(appliedAdvancedSettings.avoidBufferMeters));
-        setAvoidanceMode(appliedAdvancedSettings.avoidanceMode);
-    }, [
-        appliedAdvancedSettings.allowAlprNearStartDestination,
-        appliedAdvancedSettings.avoidBufferMeters,
-        appliedAdvancedSettings.avoidanceMode,
-    ]);
-
     useEffect(() => {
         if (!mapPreferencesAreLoaded || !directionsRoute) {
             return undefined;
@@ -147,25 +115,6 @@ export function DirectionsRouteSheet() {
                   ),
               )
             : '';
-    const adjustAvoidBuffer = (stepCount) => {
-        const settings = normalizeAdvancedRouteSettings({
-            allowAlprNearStartDestination,
-            avoidBufferMeters:
-                Number(avoidBufferInput) + stepCount * AVOID_BUFFER_STEP_METERS,
-        });
-
-        setAvoidBufferInput(String(settings.avoidBufferMeters));
-    };
-    const applyAdvancedSettings = () => {
-        const settings = normalizeAdvancedRouteSettings({
-            allowAlprNearStartDestination,
-            avoidBufferMeters: avoidBufferInput,
-            avoidanceMode,
-        });
-
-        setAvoidBufferInput(String(settings.avoidBufferMeters));
-        handleDirectionsAdvancedSettingsApply(settings);
-    };
 
     return (
         <NativeWindBottomSheetModal
@@ -187,7 +136,7 @@ export function DirectionsRouteSheet() {
             onDismiss={handleBottomSheetDismiss}
         >
             <NativeWindBottomSheetView
-                className="dark:bg-daf-surface-dark bg-white"
+                className="bg-white dark:bg-daf-surface-dark"
                 testID={
                     bottomSheetIsPresented
                         ? 'directions-route-sheet-presented'
@@ -240,193 +189,12 @@ export function DirectionsRouteSheet() {
                             </View>
                         ) : null}
 
-                        <View className="dark:border-daf-border-dark overflow-hidden rounded-dafSm border border-daf-border bg-daf-surface-alt dark:bg-daf-surface-inverse">
-                            <Pressable
-                                accessibilityRole="button"
-                                accessibilityState={{
-                                    expanded: advancedSettingsOpen,
-                                }}
-                                className="min-h-hitComfy flex-row items-center gap-2 px-3 active:opacity-[0.82]"
-                                onPress={() =>
-                                    setAdvancedSettingsOpen(
-                                        (currentValue) => !currentValue,
-                                    )
-                                }
-                                testID="directions-route-advanced-settings-toggle"
-                            >
-                                <Icon
-                                    color="#828D9B"
-                                    name="sliders-horizontal"
-                                    size={16}
-                                />
-                                <Text className="min-w-0 flex-1 text-[14px] font-semibold text-daf-text-primary dark:text-white">
-                                    Advanced settings
-                                </Text>
-                                <Text className="font-dafMono text-xs font-semibold text-daf-text-tertiary dark:text-neutral-400">
-                                    {appliedAdvancedSettings.avoidBufferMeters}{' '}
-                                    m
-                                </Text>
-                                <Icon
-                                    color="#828D9B"
-                                    name="chevron-down"
-                                    size={16}
-                                />
-                            </Pressable>
-
-                            {advancedSettingsOpen ? (
-                                <View className="dark:border-daf-border-dark gap-3 border-t border-daf-border px-3 py-3">
-                                    <View className="gap-2">
-                                        <Text className="text-[14px] font-medium text-daf-text-primary dark:text-white">
-                                            ALPR avoidance shape
-                                        </Text>
-                                        <View
-                                            className="flex-row gap-2"
-                                            testID="directions-route-avoidance-options"
-                                        >
-                                            {AVOIDANCE_MODE_OPTIONS.map(
-                                                (option) => (
-                                                    <Pressable
-                                                        key={option.value}
-                                                        accessibilityLabel={
-                                                            option.label
-                                                        }
-                                                        accessibilityRole="radio"
-                                                        accessibilityState={{
-                                                            checked:
-                                                                avoidanceMode ===
-                                                                option.value,
-                                                            disabled:
-                                                                directionsRouteIsLoading,
-                                                        }}
-                                                        className={`min-h-11 min-w-0 flex-1 items-center justify-center rounded-dafSm border px-3 py-2 focus:border-daf-brand ${
-                                                            avoidanceMode ===
-                                                            option.value
-                                                                ? 'border-daf-brand bg-daf-surface-alt dark:bg-daf-surface-inverse'
-                                                                : 'dark:border-daf-border-dark border-daf-border'
-                                                        }`}
-                                                        disabled={
-                                                            directionsRouteIsLoading
-                                                        }
-                                                        onPress={() =>
-                                                            setAvoidanceMode(
-                                                                option.value,
-                                                            )
-                                                        }
-                                                        testID={`directions-route-avoidance-${option.value}`}
-                                                    >
-                                                        <Text className="text-center text-[14px] font-medium text-daf-text-primary dark:text-white">
-                                                            {option.label}
-                                                        </Text>
-                                                    </Pressable>
-                                                ),
-                                            )}
-                                        </View>
-                                        <Text className="text-xs text-daf-text-secondary dark:text-neutral-300">
-                                            Directional cones use camera
-                                            direction when known. Circular
-                                            radius avoids every camera in all
-                                            directions.
-                                        </Text>
-                                    </View>
-                                    <View className="min-h-11 flex-row items-center gap-3">
-                                        <Text className="min-w-0 flex-1 text-[14px] font-medium leading-5 text-daf-text-primary dark:text-white">
-                                            Allow ALPR near start & destination
-                                        </Text>
-                                        <Switch
-                                            accessibilityLabel="Allow ALPR near start and destination"
-                                            className="shrink-0"
-                                            disabled={directionsRouteIsLoading}
-                                            onValueChange={
-                                                setAllowAlprNearStartDestination
-                                            }
-                                            thumbColor="#ffffff"
-                                            trackColor={{
-                                                false: '#D4D9DF',
-                                                true: '#1FBF6B',
-                                            }}
-                                            value={
-                                                allowAlprNearStartDestination
-                                            }
-                                            testID="directions-route-allow-alpr-switch"
-                                        />
-                                    </View>
-
-                                    <View className="gap-2">
-                                        <View className="flex-row items-end justify-between gap-3">
-                                            <Text className="text-[14px] font-medium text-daf-text-primary dark:text-white">
-                                                Avoid cameras by
-                                            </Text>
-                                            <Text className="font-dafMono text-xs text-daf-text-secondary dark:text-neutral-300">
-                                                {MIN_AVOID_BUFFER_METERS}–
-                                                {MAX_AVOID_BUFFER_METERS} m
-                                            </Text>
-                                        </View>
-                                        <View className="flex-row items-center gap-2">
-                                            <DafIconButton
-                                                accessibilityLabel={`Decrease avoid distance by ${AVOID_BUFFER_STEP_METERS} meters`}
-                                                disabled={
-                                                    directionsRouteIsLoading
-                                                }
-                                                icon="minus"
-                                                onPress={() =>
-                                                    adjustAvoidBuffer(-1)
-                                                }
-                                                size="sm"
-                                                testID="directions-route-avoid-distance-decrease"
-                                            />
-                                            <DafTextInput
-                                                accessibilityLabel="Avoid distance in meters"
-                                                className="font-dafMono flex-1 text-center"
-                                                editable={
-                                                    !directionsRouteIsLoading
-                                                }
-                                                keyboardType="number-pad"
-                                                maxLength={4}
-                                                onChangeText={(value) =>
-                                                    setAvoidBufferInput(
-                                                        value.replace(
-                                                            /[^0-9]/g,
-                                                            '',
-                                                        ),
-                                                    )
-                                                }
-                                                testID="directions-route-avoid-distance-input"
-                                                value={avoidBufferInput}
-                                            />
-                                            <DafIconButton
-                                                accessibilityLabel={`Increase avoid distance by ${AVOID_BUFFER_STEP_METERS} meters`}
-                                                disabled={
-                                                    directionsRouteIsLoading
-                                                }
-                                                icon="plus"
-                                                onPress={() =>
-                                                    adjustAvoidBuffer(1)
-                                                }
-                                                size="sm"
-                                                testID="directions-route-avoid-distance-increase"
-                                            />
-                                        </View>
-                                    </View>
-
-                                    {directionsRouteError ? (
-                                        <Text className="text-xs font-medium text-daf-alert">
-                                            {directionsRouteError}
-                                        </Text>
-                                    ) : null}
-
-                                    <DafButton
-                                        accessibilityLabel="Apply advanced settings and recalculate route"
-                                        disabled={directionsRouteIsLoading}
-                                        loading={directionsRouteIsLoading}
-                                        onPress={applyAdvancedSettings}
-                                        testID="directions-route-advanced-settings-apply"
-                                        variant="secondary"
-                                    >
-                                        Apply & recalculate
-                                    </DafButton>
-                                </View>
-                            ) : null}
-                        </View>
+                        <AdvancedRouteSettings
+                            settings={appliedAdvancedSettings}
+                            onApply={handleDirectionsAdvancedSettingsApply}
+                            loading={directionsRouteIsLoading}
+                            error={directionsRouteError}
+                        />
 
                         <View className="flex-row items-center gap-2">
                             <Icon

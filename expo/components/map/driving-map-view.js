@@ -13,14 +13,12 @@ const DRIVING_MAP_VIEW_MODES = [
 
 const DRIVING_MAP_VIEW_PRESENTATIONS = {
     [DRIVING_MAP_VIEW_PERSPECTIVE]: {
-        iconName: 'navigation-2',
+        iconName: 'route',
         label: 'Perspective',
-        shortLabel: '3D',
     },
     [DRIVING_MAP_VIEW_ROUTE_OVERVIEW]: {
         iconName: 'map',
         label: 'Route overview',
-        shortLabel: 'Route',
     },
 };
 

@@ -15,6 +15,7 @@ import { Icon } from '../design-system/icon';
 import { SHOW_MAP_DEBUG_CONTROLS } from '../map/config';
 import { useSharedMapState } from '../map/shared-map-state';
 import { useScorecard } from '../scorecard/scorecard-context';
+import { AppDrawerIcon } from './app-drawer-icon';
 import {
     getDrawerActiveRouteName,
     HELP_AND_LEGAL_DRAWER_ITEMS,
@@ -59,9 +60,7 @@ function DrawerNavigationItem({
             }
             activeTintColor={isDarkMode ? '#56CF8E' : '#0F7D45'}
             focused={isFocused}
-            icon={({ color, size }) => (
-                <Icon color={color} name={icon} size={size} />
-            )}
+            icon={({ color }) => <AppDrawerIcon color={color} name={icon} />}
             inactiveBackgroundColor="transparent"
             inactiveTintColor={isDarkMode ? '#F5F7F9' : '#11151B'}
             label={
@@ -341,11 +340,10 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                         {showDebugDrawerAction ? (
                             <DrawerItem
                                 accessibilityLabel="Open debug settings"
-                                icon={({ color, size }) => (
-                                    <Icon
+                                icon={({ color }) => (
+                                    <AppDrawerIcon
                                         color={color}
                                         name="sliders-horizontal"
-                                        size={size}
                                     />
                                 )}
                                 inactiveTintColor={drawerTintColor}
@@ -365,11 +363,10 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                             <>
                                 <DrawerItem
                                     accessibilityLabel="Emit Crashlytics test error"
-                                    icon={({ color, size }) => (
-                                        <Icon
+                                    icon={({ color }) => (
+                                        <AppDrawerIcon
                                             color={color}
                                             name="bug"
-                                            size={size}
                                         />
                                     )}
                                     inactiveTintColor={drawerTintColor}
@@ -388,11 +385,10 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                                 />
                                 <DrawerItem
                                     accessibilityLabel="Trigger Crashlytics native crash"
-                                    icon={({ color, size }) => (
-                                        <Icon
+                                    icon={({ color }) => (
+                                        <AppDrawerIcon
                                             color={color}
                                             name="triangle-alert"
-                                            size={size}
                                         />
                                     )}
                                     inactiveBackgroundColor="rgba(239, 68, 68, 0.12)"
@@ -424,8 +420,8 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                             accessibilityLabel="Login with OpenStreetMap"
                             activeBackgroundColor={authButtonBackgroundColor}
                             activeTintColor={drawerTintColor}
-                            icon={({ color, size }) => (
-                                <Icon color={color} name="user" size={size} />
+                            icon={({ color }) => (
+                                <AppDrawerIcon color={color} name="user" />
                             )}
                             inactiveBackgroundColor={authButtonBackgroundColor}
                             inactiveTintColor={drawerTintColor}

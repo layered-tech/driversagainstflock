@@ -1661,6 +1661,8 @@ export function useMapSearch({
     }, [selectedSavedLocation, toggleSavedLocationFavorite]);
 
     return {
+        advancedRouteSettings,
+        setAdvancedRouteSettings,
         directionsActiveField,
         directionsCurrentLocationWaypoint,
         directionsDestinationInputRef,

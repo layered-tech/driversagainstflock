@@ -501,7 +501,11 @@ test('the app controller consumes shared and automotive fixes without depending 
     assert.equal(updates.at(-1), 'cancel');
 });
 
-function loadGuidanceCards(directionOverrides = {}) {
+function loadGuidanceCards(
+    directionOverrides = {},
+    colorScheme = 'light',
+    fontScale = 1,
+) {
     const module = { exports: {} };
     const jsx = require('@babel/plugin-transform-react-jsx');
     const source = transformSync(
@@ -520,11 +524,45 @@ function loadGuidanceCards(directionOverrides = {}) {
     ).code;
     const element = (type, props) => ({ type, props });
     const mocked = {
+        react: { useMemo: (factory) => factory() },
+        'react-native-gesture-handler': {
+            GestureDetector: 'GestureDetector',
+            Gesture: {
+                Pan: () => {
+                    const gesture = { config: {} };
+                    for (const name of [
+                        'enabled',
+                        'activeOffsetX',
+                        'failOffsetY',
+                        'maxPointers',
+                        'runOnJS',
+                        'onEnd',
+                    ]) {
+                        gesture[name] = (value) => {
+                            gesture.config[name] = value;
+                            return gesture;
+                        };
+                    }
+                    return gesture;
+                },
+            },
+        },
         'react/jsx-runtime': { jsx: element, jsxs: element },
-        'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable' },
+        'react-native': {
+            View: 'View',
+            Text: 'Text',
+            Pressable: 'Pressable',
+            useColorScheme: () => colorScheme,
+            useWindowDimensions: () => ({ fontScale }),
+        },
         '../design-system/icon': { Icon: 'Icon' },
         '../design-system/primitives': { DafButton: 'Button' },
-        '../design-system/tokens': { dafSemanticColors: {} },
+        '../design-system/tokens': {
+            dafSemanticColors: {},
+            getDafTheme: (scheme) => ({
+                text: { primary: scheme === 'dark' ? '#F5F7F9' : '#11151B' },
+            }),
+        },
         './constants': { DRIVING_DESTINATION_BOTTOM_PADDING: 0 },
         './roundabout-guidance': { getRoundaboutExitNumber: () => null },
         './directions': { ...directions, ...directionOverrides },
@@ -565,7 +603,7 @@ test('the phone card renders remaining distance, duration and arrival estimate',
     ]);
 });
 
-test('the maneuver bar and then chip focus the same locations as their list steps', () => {
+test('the separate maneuver bars focus the same steps as the list', () => {
     const { ManeuverCard } = loadGuidanceCards();
     const route = makeRoute();
     const option = directions.getSelectedDirectionsRouteOption(route);
@@ -577,23 +615,23 @@ test('the maneuver bar and then chip focus the same locations as their list step
         directionsRoute: route,
         maneuver,
         nextManeuver,
-        onStepFocus: (coordinate) => focused.push(coordinate),
+        onStepFocus: (coordinate, stepIndex) =>
+            focused.push({ coordinate, stepIndex }),
     });
     const steps = directions.getDirectionsSteps(route, maneuver);
-    assert.equal(card.type, 'Pressable');
-    assert.equal(card.props.disabled, false);
-    card.props.onPress();
-    assert.deepEqual(focused, [steps[0].coordinate]);
-    const thenChip = card.props.children[2];
-    assert.equal(thenChip.props.disabled, false);
-    let propagationStopped = false;
-    thenChip.props.onPress({
-        stopPropagation: () => {
-            propagationStopped = true;
-        },
-    });
-    assert.equal(propagationStopped, true);
-    assert.deepEqual(focused, [steps[0].coordinate, steps[1].coordinate]);
+    const mainBar = card.props.children[0].props.children[1].props.children;
+    const thenBar = card.props.children[1];
+    assert.equal(mainBar.type, 'Pressable');
+    assert.equal(mainBar.props.disabled, false);
+    const subtitle = mainBar.props.children[1].props.children[1];
+    assert.equal(subtitle.props.instruction, maneuver.instruction);
+    mainBar.props.onPress();
+    assert.equal(thenBar.props.disabled, false);
+    thenBar.props.onPress();
+    assert.deepEqual(
+        focused,
+        steps.map(({ coordinate, stepIndex }) => ({ coordinate, stepIndex })),
+    );
 });
 
 test('maneuver focus is disabled without a valid coordinate', () => {
@@ -605,6 +643,245 @@ test('maneuver focus is disabled without a valid coordinate', () => {
             assert.fail('invalid coordinate focused');
         },
     });
-    assert.equal(card.props.disabled, true);
-    assert.equal(card.props.children[2].props.disabled, true);
+    assert.equal(
+        card.props.children[0].props.children[1].props.children.props.disabled,
+        true,
+    );
+    assert.equal(card.props.children[1].props.disabled, true);
+});
+
+test('focused maneuver tabs page in either direction and disable at route boundaries', () => {
+    const { ManeuverCard } = loadGuidanceCards();
+    const events = [];
+    const props = {
+        maneuver: { instruction: 'Turn right', distanceToManeuver: 100 },
+        nextManeuver: { instruction: 'Continue' },
+        isFocused: true,
+    };
+    const card = ManeuverCard({
+        ...props,
+        onPreviousStep: () => events.push('previous'),
+        onNextStep: () => events.push('next'),
+    });
+    assert.equal(card.props.children[1], null);
+    const [previous, , next] = card.props.children[0].props.children;
+    previous.props.onPress();
+    next.props.onPress();
+    assert.deepEqual(events, ['previous', 'next']);
+    const boundaries = ManeuverCard(props).props.children[0].props.children;
+    assert.equal(boundaries[0].props.disabled, true);
+    assert.equal(boundaries[2].props.disabled, true);
+});
+
+test('focused step arrow tabs match the design geometry, chevrons and theme shadows', () => {
+    for (const colorScheme of ['light', 'dark']) {
+        const { ManeuverCard } = loadGuidanceCards({}, colorScheme);
+        const card = ManeuverCard({
+            maneuver: { instruction: 'Turn right' },
+            isFocused: true,
+            onNextStep() {},
+        });
+        const [previous, banner, next] = card.props.children[0].props.children;
+        for (const tab of [previous, next]) {
+            for (const token of [
+                'relative',
+                'z-[1]',
+                'my-2.5',
+                'w-[50px]',
+                'shrink-0',
+                'bg-white/95',
+                'dark:bg-[rgba(17,21,27,0.95)]',
+            ]) {
+                assert.ok(
+                    tab.props.className.split(' ').includes(token),
+                    token,
+                );
+            }
+            assert.equal(tab.props.children.props.size, 22);
+            assert.equal(tab.props.children.props.stroke, 2.4);
+            assert.equal(
+                tab.props.children.props.color,
+                colorScheme === 'dark' ? '#F5F7F9' : '#11151B',
+            );
+            assert.equal(
+                tab.props.style.boxShadow,
+                colorScheme === 'dark'
+                    ? '0 1px 2px rgba(0,0,0,0.40), 0 10px 30px rgba(0,0,0,0.50)'
+                    : '0 1px 2px rgba(11,14,18,0.14), 0 6px 22px rgba(11,14,18,0.16)',
+            );
+        }
+        assert.match(previous.props.className, /-mr-\[14px\]/);
+        assert.match(previous.props.className, /pr-\[14px\]/);
+        assert.match(previous.props.className, /rounded-l-dafSm/);
+        assert.match(previous.props.className, /border-r-0/);
+        assert.match(previous.props.className, /opacity-40/);
+        assert.match(next.props.className, /-ml-\[14px\]/);
+        assert.match(next.props.className, /pl-\[14px\]/);
+        assert.match(next.props.className, /rounded-r-dafSm/);
+        assert.match(next.props.className, /border-l-0/);
+        assert.match(next.props.className, /active:scale-\[0.97\]/);
+        assert.match(banner.props.children.props.className, /z-\[2\]/);
+    }
+});
+
+test('native fitting leaves room for two full-size instruction lines', () => {
+    for (const fontScale of [1, 1.5]) {
+        const { ManeuverInstruction } = loadGuidanceCards(
+            {},
+            'light',
+            fontScale,
+        );
+        const instructions = [
+            'Turn left',
+            'Turn right onto Stonegate Court',
+            'Turn right onto Martin Luther King Junior Boulevard',
+        ];
+        const rendered = instructions.map((instruction) =>
+            ManeuverInstruction({ instruction }),
+        );
+        for (const [index, text] of rendered.entries()) {
+            assert.equal(text.type, 'Text');
+            assert.equal(text.props.children, instructions[index]);
+            assert.equal(text.props.adjustsFontSizeToFit, true);
+            assert.equal(text.props.minimumFontScale, 14 / 20);
+            assert.equal(text.props.numberOfLines, 2);
+            assert.equal(text.props.style.maxHeight, 48 * fontScale);
+            assert.equal(text.props.includeFontPadding, false);
+            assert.equal(text.props.onTextLayout, undefined);
+            assert.match(text.props.className, /text-\[20px\]/);
+            assert.doesNotMatch(text.props.className, /leading-/);
+        }
+        assert.deepEqual(rendered[0].props.style, rendered[1].props.style);
+    }
+});
+
+test('the next-next step bar has the design floating shadow in both themes', () => {
+    for (const scheme of ['light', 'dark']) {
+        const { ManeuverCard } = loadGuidanceCards({}, scheme);
+        const bar = ManeuverCard({
+            maneuver: { instruction: 'Turn right' },
+            nextManeuver: { instruction: 'Continue' },
+        }).props.children[1];
+        assert.equal(
+            bar.props.style.boxShadow,
+            scheme === 'dark'
+                ? '0 1px 2px rgba(0,0,0,0.40), 0 10px 30px rgba(0,0,0,0.50)'
+                : '0 1px 2px rgba(11,14,18,0.14), 0 6px 22px rgba(11,14,18,0.16)',
+        );
+    }
+});
+
+test('the main step casts a native shadow above the next-next step without clipping', () => {
+    for (const scheme of ['light', 'dark']) {
+        const { ManeuverCard } = loadGuidanceCards({}, scheme);
+        const card = ManeuverCard({
+            maneuver: { instruction: 'Turn right' },
+            nextManeuver: { instruction: 'Continue' },
+        });
+        const [upperLayer, nextBar] = card.props.children;
+        const mainBar = upperLayer.props.children[1].props.children;
+        assert.equal(
+            mainBar.props.style.boxShadow,
+            nextBar.props.style.boxShadow,
+        );
+        assert.ok(mainBar.props.style.boxShadow);
+        assert.match(upperLayer.props.className, /z-10/);
+        assert.match(upperLayer.props.className, /overflow-visible/);
+        assert.match(nextBar.props.className, /z-\[1\]/);
+        assert.doesNotMatch(mainBar.props.className, /shadow-/);
+    }
+});
+
+test('distance and instruction center together within a fixed-height banner', () => {
+    for (const fontScale of [1, 1.5]) {
+        const { ManeuverCard } = loadGuidanceCards({}, 'light', fontScale);
+        for (const instruction of [
+            'Turn left',
+            'Turn right onto Stonegate Court',
+            'Turn right onto Martin Luther King Junior Boulevard',
+        ]) {
+            for (const isFocused of [false, true]) {
+                const card = ManeuverCard({
+                    maneuver: { instruction },
+                    isFocused,
+                });
+                const mainBar =
+                    card.props.children[0].props.children[1].props.children;
+                assert.match(mainBar.props.className, /\bpy-2\.5\b/);
+                const column =
+                    card.props.children[0].props.children[1].props.children
+                        .props.children[1];
+                assert.equal(column.props.style.height, 78 * fontScale);
+                assert.match(column.props.className, /justify-center/);
+                assert.equal(
+                    column.props.children[0].props.testID,
+                    'driving-maneuver-distance',
+                );
+                assert.equal(
+                    column.props.children[1].props.instruction,
+                    instruction,
+                );
+            }
+        }
+    }
+});
+
+test('focused banner swipes page once on release and share the arrow actions', () => {
+    const { ManeuverCard } = loadGuidanceCards();
+    const events = [];
+    const card = ManeuverCard({
+        maneuver: { instruction: 'Turn right' },
+        isFocused: true,
+        onPreviousStep: () => events.push('earlier'),
+        onNextStep: () => events.push('later'),
+    });
+    const [previous, detector, next] = card.props.children[0].props.children;
+    assert.equal(detector.type, 'GestureDetector');
+    const gesture = detector.props.gesture.config;
+    assert.equal(gesture.enabled, true);
+    assert.equal(gesture.runOnJS, true);
+    assert.equal(gesture.maxPointers, 1);
+    assert.deepEqual(gesture.activeOffsetX, [-20, 20]);
+    assert.deepEqual(gesture.failOffsetY, [-16, 16]);
+    gesture.onEnd({ translationX: -60, translationY: 4 }, true);
+    gesture.onEnd({ translationX: 60, translationY: -4 }, true);
+    next.props.onPress();
+    previous.props.onPress();
+    assert.deepEqual(events, ['later', 'earlier', 'later', 'earlier']);
+    for (const [event, success] of [
+        [{ translationX: 10, translationY: 0 }, true],
+        [{ translationX: -60, translationY: 80 }, true],
+        [{ translationX: -60, translationY: 0 }, false],
+    ]) {
+        gesture.onEnd(event, success);
+    }
+    assert.equal(events.length, 4);
+});
+
+test('swipes are disabled during live guidance and do not wrap past route boundaries', () => {
+    const { ManeuverCard } = loadGuidanceCards();
+    const events = [];
+    const props = { maneuver: { instruction: 'Turn right' } };
+    const gestureFor = (options) =>
+        ManeuverCard({ ...props, ...options }).props.children[0].props
+            .children[1].props.gesture.config;
+    const live = gestureFor({ onNextStep: () => events.push('unexpected') });
+    assert.equal(live.enabled, false);
+    live.onEnd({ translationX: -70, translationY: 0 }, true);
+    assert.deepEqual(events, []);
+    const first = gestureFor({
+        isFocused: true,
+        onNextStep: () => events.push('later'),
+    });
+    first.onEnd({ translationX: 70, translationY: 0 }, true);
+    assert.deepEqual(events, []);
+    first.onEnd({ translationX: -70, translationY: 0 }, true);
+    const last = gestureFor({
+        isFocused: true,
+        onPreviousStep: () => events.push('earlier'),
+    });
+    last.onEnd({ translationX: -70, translationY: 0 }, true);
+    assert.deepEqual(events, ['later']);
+    last.onEnd({ translationX: 70, translationY: 0 }, true);
+    assert.deepEqual(events, ['later', 'earlier']);
 });

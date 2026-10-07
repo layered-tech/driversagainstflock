@@ -100,7 +100,7 @@ export function DrivingStepsSheet({
                 return;
             }
 
-            onStepFocus(step.coordinate);
+            onStepFocus(step.coordinate, step.stepIndex);
         },
         [onStepFocus],
     );

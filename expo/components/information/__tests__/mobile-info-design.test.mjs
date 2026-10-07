@@ -52,8 +52,6 @@ describe('Mobile help and legal design', () => {
             [
                 { label: 'FAQ', routeName: 'faqs' },
                 { label: 'Support Us', routeName: 'contribute-to-daf' },
-                { label: 'Privacy Policy', routeName: 'privacy-policy' },
-                { label: 'Terms of Use', routeName: 'terms-of-use' },
                 { label: 'About & Legal', routeName: 'about-and-legal' },
             ],
         );

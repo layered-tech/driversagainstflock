@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Icon } from '../design-system/icon';
 import { dafSemanticColors } from '../design-system/tokens';
 import {
     MAP_CONTROL_BUTTON_CLASS_NAME,
     MAP_CONTROL_BUTTON_SIZE,
 } from '../map/constants';
 import { MapControlButton } from '../map/map-control-button';
+import { MapControlIcon } from '../map/map-control-icon';
 import { useSharedMapState } from '../map/shared-map-state';
 import { useContribute } from './contribute-state';
 
@@ -44,19 +44,18 @@ export function ContributeEntryButton() {
 
     return (
         <View className="relative">
-            <View className="bg-daf-brand/15 rounded-dafMd p-1">
+            <View className="rounded-dafMd bg-daf-brand/15 p-1">
                 <MapControlButton
                     accessibilityLabel="Add a camera to the map"
                     accessibilityRole="button"
-                    className={`${MAP_CONTROL_BUTTON_CLASS_NAME} dark:bg-daf-surface-dark border-daf-brand bg-white`}
+                    className={`${MAP_CONTROL_BUTTON_CLASS_NAME} border-daf-brand bg-white dark:bg-daf-surface-dark`}
                     glassTintColor="rgba(230,249,239,0.78)"
                     onPress={handleContributePress}
                     testID="map-contribute-button"
                 >
-                    <Icon
+                    <MapControlIcon
                         color={dafSemanticColors.brand}
                         name="pencil"
-                        size={20}
                     />
                 </MapControlButton>
             </View>
@@ -65,7 +64,7 @@ export function ContributeEntryButton() {
                     accessibilityHint="Dismisses this tip."
                     accessibilityLabel="Contribute. Spotted a camera that isn't mapped? Add it."
                     accessibilityRole="button"
-                    className="dark:border-daf-border-dark dark:bg-daf-surface-dark absolute right-[62px] w-[198px] rounded-dafMd border border-daf-border bg-white px-3 py-2.5 shadow-[0px_4px_18px_rgba(11,14,18,0.16)]"
+                    className="absolute right-[62px] w-[198px] rounded-dafMd border border-daf-border bg-white px-3 py-2.5 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] dark:border-daf-border-dark dark:bg-daf-surface-dark"
                     onLayout={(event) =>
                         setCoachMarkHeight(event.nativeEvent.layout.height)
                     }

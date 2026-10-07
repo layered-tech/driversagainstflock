@@ -80,15 +80,7 @@ test('keeps route-selection camera fitting under the map screen owner', () => {
 test('keeps advanced settings available and recalculates the selected route', () => {
     assert.match(
         directionsRouteSheetSource,
-        /testID="directions-route-advanced-settings-toggle"/,
-    );
-    assert.match(
-        directionsRouteSheetSource,
-        /testID="directions-route-avoid-distance-input"/,
-    );
-    assert.match(
-        directionsRouteSheetSource,
-        /handleDirectionsAdvancedSettingsApply\(settings\)/,
+        /<AdvancedRouteSettings[\s\S]*?onApply=\{handleDirectionsAdvancedSettingsApply\}/,
     );
     assert.match(
         mapSearchSource,

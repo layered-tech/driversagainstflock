@@ -103,52 +103,55 @@ function nodes(element) {
         : [];
 }
 
-test('paused and resumed follow toggle visibility while keeping the speed and road components mounted', () => {
-    const { DrivingGuidanceOverlay } = loadComponent(
-        drivingGuidanceOverlaySource,
-        {
-            '../../lib/safe-area-insets': {
-                useSafeAreaInsets: () => ({
-                    top: 46,
-                    bottom: 34,
-                    left: 0,
-                    right: 0,
-                }),
-            },
-            './analytics': {},
-            './directions': {
-                createDirectionsRouteProgressTracker: () => ({
-                    update: () => null,
-                }),
-                getSelectedDirectionsRouteOption: () => null,
-                getActiveDirectionsManeuver: () => null,
-                getNextDirectionsManeuver: () => null,
-            },
-            './shared-navigation-controller': {
-                useSharedNavigationRerouting: () => false,
-            },
-            './driving-alerts-overlay': { DrivingAlertsOverlay: 'Alerts' },
-            './driving-guidance-cards': {},
-            './driving-steps-sheet': {},
-            './driving-location-road-stack': {
-                DrivingLocationRoadStack: 'RoadStack',
-            },
-            './e2e-driving-alert-fixture': {
-                useE2EDrivingAlertsFixture: () => null,
-            },
-            './native-components': { NativeWindSafeAreaView: 'SafeArea' },
-            './shared-map-state': {
-                useSharedMapState: () => ({}),
-                useSharedMapLocationState: () => ({}),
-            },
-            './speed-limit': {
-                getRouteCurrentSpeedMps: () => 10,
-                useRouteSpeedLimit: () => 35,
-                SpeedLimitSign: 'SpeedLimitSign',
-            },
-            './speed-limit-layout': { MOBILE_SPEED_LIMIT_BADGE_SIZE: 80 },
+function loadOverlay(overrides = {}) {
+    return loadComponent(drivingGuidanceOverlaySource, {
+        '../../lib/safe-area-insets': {
+            useSafeAreaInsets: () => ({
+                top: 46,
+                bottom: 34,
+                left: 0,
+                right: 0,
+            }),
         },
-    );
+        './analytics': {},
+        './directions': {
+            createDirectionsRouteProgressTracker: () => ({
+                update: () => null,
+            }),
+            getSelectedDirectionsRouteOption: () => null,
+            getActiveDirectionsManeuver: () => null,
+            getNextDirectionsManeuver: () => null,
+            getDirectionsSteps: () => [],
+        },
+        './shared-navigation-controller': {
+            useSharedNavigationRerouting: () => false,
+        },
+        './driving-alerts-overlay': { DrivingAlertsOverlay: 'Alerts' },
+        './driving-guidance-cards': {},
+        './driving-steps-sheet': {},
+        './driving-location-road-stack': {
+            DrivingLocationRoadStack: 'RoadStack',
+        },
+        './e2e-driving-alert-fixture': {
+            useE2EDrivingAlertsFixture: () => null,
+        },
+        './native-components': { NativeWindSafeAreaView: 'SafeArea' },
+        './shared-map-state': {
+            useSharedMapState: () => ({}),
+            useSharedMapLocationState: () => ({}),
+        },
+        './speed-limit': {
+            getRouteCurrentSpeedMps: () => 10,
+            useRouteSpeedLimit: () => 35,
+            SpeedLimitSign: 'SpeedLimitSign',
+        },
+        './speed-limit-layout': { MOBILE_SPEED_LIMIT_BADGE_SIZE: 80 },
+        ...overrides,
+    });
+}
+
+test('paused and resumed follow toggle visibility while keeping the speed and road components mounted', () => {
+    const { DrivingGuidanceOverlay } = loadOverlay();
     for (const cameraIsFollowingUser of [true, false, false, true]) {
         const rendered = nodes(
             DrivingGuidanceOverlay({ cameraIsFollowingUser }),
@@ -218,4 +221,143 @@ test('hiding the road pill preserves its contents and location anchor layout', (
     hidden.props.onLayout({ nativeEvent: { layout: { y: 500 } } });
     assert.equal(anchors.length, 2);
     assert.equal(anchors[0], anchors[1]);
+});
+
+test('step focus survives progress and paging until recenter or a replacement route', () => {
+    const state = [];
+    const effects = [];
+    let index = 0;
+    let dirty = false;
+    const hooks = {
+        useState(initial) {
+            const slot = index++;
+            if (!(slot in state))
+                state[slot] =
+                    typeof initial === 'function' ? initial() : initial;
+            return [
+                state[slot],
+                (value) => {
+                    const next =
+                        typeof value === 'function'
+                            ? value(state[slot])
+                            : value;
+                    dirty ||= next !== state[slot];
+                    state[slot] = next;
+                },
+            ];
+        },
+        useRef: (value) => ({ current: value }),
+        useCallback: (fn) => fn,
+        useMemo: (fn) => fn(),
+        useEffect(fn, deps) {
+            const slot = index++;
+            if (
+                !state[slot] ||
+                deps.some((value, i) => value !== state[slot][i])
+            ) {
+                effects.push(fn);
+                state[slot] = deps;
+            }
+        },
+    };
+    const steps = [0, 1, 2].map((stepIndex) => ({
+        stepIndex,
+        instruction: `Step ${stepIndex}`,
+        coordinate: [-87, 41 + stepIndex],
+        displayDistance: 100,
+    }));
+    let route = { steps };
+    let activeIndex = 1;
+    let following = true;
+    let focusSucceeds = true;
+    const focusedCoordinates = [];
+    const { DrivingGuidanceOverlay } = loadOverlay({
+        react: hooks,
+        './directions': {
+            createDirectionsRouteProgressTracker: () => ({
+                update: () => null,
+            }),
+            getSelectedDirectionsRouteOption: () => route,
+            getActiveDirectionsManeuver: () => steps[activeIndex],
+            getNextDirectionsManeuver: () => steps[activeIndex + 1],
+            getDirectionsSteps: () => steps,
+            getRemainingDirectionsRouteValues: () => ({}),
+        },
+        './shared-map-state': {
+            useSharedMapState: () => ({ directionsRoute: route }),
+            useSharedMapLocationState: () => ({}),
+        },
+        './driving-guidance-cards': { ManeuverCard: 'ManeuverCard' },
+        './driving-steps-sheet': { DrivingStepsSheet: 'StepsSheet' },
+    });
+    function render() {
+        let tree;
+        do {
+            dirty = false;
+            index = 0;
+            tree = nodes(
+                DrivingGuidanceOverlay({
+                    cameraIsFollowingUser: following,
+                    onStepFocus(coordinate) {
+                        if (!focusSucceeds) return false;
+                        focusedCoordinates.push(coordinate);
+                        following = false;
+                        return true;
+                    },
+                }),
+            );
+            effects.splice(0).forEach((effect) => effect());
+        } while (dirty);
+        return {
+            card: tree.find((node) => node.type === 'ManeuverCard').props,
+            sheet: tree.find((node) => node.type === 'StepsSheet').props,
+            speed: tree.find(
+                (node) => node.props.testID === 'driving-speed-status',
+            ).props,
+            road: tree.find((node) => node.type === 'RoadStack').props,
+        };
+    }
+    let view = render();
+    assert.equal(view.card.isFocused, false);
+    view.card.onStepFocus(steps[1].coordinate, 1);
+    view = render();
+    assert.equal(view.card.isFocused, true);
+    assert.equal(view.speed.className, 'opacity-0');
+    assert.equal(view.road.isHidden, true);
+    assert.equal(view.card.nextManeuver, null);
+    activeIndex = 2;
+    assert.equal(render().card.maneuver.stepIndex, 1);
+    view.card.onPreviousStep();
+    view = render();
+    assert.equal(view.card.maneuver.stepIndex, 0);
+    assert.equal(view.card.onPreviousStep, undefined);
+    view.card.onNextStep();
+    view = render();
+    view.card.onNextStep();
+    view = render();
+    assert.equal(view.card.maneuver.stepIndex, 2);
+    assert.equal(view.card.onNextStep, undefined);
+    activeIndex = 1;
+    following = true;
+    view = render();
+    assert.equal(view.card.isFocused, false);
+    assert.equal(view.card.maneuver.stepIndex, activeIndex);
+    assert.equal(view.speed.className, 'opacity-100');
+    assert.equal(view.road.isHidden, false);
+    assert.equal(view.card.nextManeuver, steps[2]);
+    focusSucceeds = false;
+    view.card.onStepFocus(steps[0].coordinate, 0);
+    assert.equal(render().card.isFocused, false);
+    focusSucceeds = true;
+    view.sheet.onStepFocus(steps[0].coordinate, 0);
+    assert.equal(render().card.maneuver.stepIndex, 0);
+    route = { steps: [...steps] };
+    assert.equal(render().card.isFocused, false);
+    assert.deepEqual(focusedCoordinates, [
+        steps[1].coordinate,
+        steps[0].coordinate,
+        steps[1].coordinate,
+        steps[2].coordinate,
+        steps[0].coordinate,
+    ]);
 });

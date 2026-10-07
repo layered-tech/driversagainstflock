@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+import { iconPaths } from '../../design-system/icon-paths.js';
+import { loadTourModule } from './tour-test-helpers.mjs';
+
+const { MapControlIcon } = loadTourModule(
+    new URL('../map-control-icon.js', import.meta.url),
+    {
+        'react-native': { View: 'View' },
+        '../design-system/icon': { Icon: 'Icon' },
+    },
+);
 
 const mapControlsOverlaySource = readFileSync(
     new URL('../map-controls-overlay.js', import.meta.url),
@@ -48,14 +58,81 @@ describe('MapControlsOverlay', () => {
         );
     });
 
-    test('visually centers the free-drive icon with a subtle optical offset', () => {
+    test('offsets the directional arrow without shifting the symmetric exit icon', () => {
+        const navigation = MapControlIcon({ name: 'navigation' });
+        const exit = MapControlIcon({ name: 'x' });
+
         assert.match(
-            mapControlsOverlaySource,
-            /<View className="-translate-x-px translate-y-px">[\s\S]*?<Icon[\s\S]*?name=\{freeDriveIsActive \? 'x' : 'navigation'\}/,
+            navigation.props.className,
+            /-translate-x-px translate-y-px/,
+        );
+        assert.doesNotMatch(exit.props.className, /translate/);
+    });
+
+    test('keeps stroke weight consistent across the optically sized rail icons', () => {
+        for (const name of [
+            'menu',
+            'sliders-horizontal',
+            'route',
+            'map',
+            'navigation',
+            'x',
+            'chevron-left',
+            'plus',
+            'minus',
+            'locate-fixed',
+            'pencil',
+        ]) {
+            const wrapper = MapControlIcon({ name, color: '#1FBF6B' });
+            const icon = wrapper.props.children;
+
+            assert.equal(icon.type, 'Icon');
+            assert.equal(icon.props.name, name);
+            assert.equal(icon.props.color, '#1FBF6B');
+            assert.ok(iconPaths[name]?.length > 0);
+            assert.ok(icon.props.size <= 28);
+            assert.ok(
+                Math.abs((icon.props.stroke * icon.props.size) / 24 - 2) <
+                    0.0001,
+            );
+        }
+    });
+
+    test('compensates for zoom glyph whitespace while keeping plus and minus equal', () => {
+        const icon = (name) => MapControlIcon({ name }).props.children.props;
+
+        assert.equal(icon('plus').size, icon('minus').size);
+        assert.ok(icon('plus').size > icon('sliders-horizontal').size);
+        assert.ok(icon('x').size > icon('navigation').size);
+    });
+
+    test('centers the enlarged back chevron with a horizontal optical offset', () => {
+        const back = MapControlIcon({ name: 'chevron-left' });
+        const exit = MapControlIcon({ name: 'x' });
+
+        assert.match(back.props.className, /-translate-x-px/);
+        assert.doesNotMatch(back.props.className, /translate-y/);
+        assert.ok(
+            back.props.children.props.size > exit.props.children.props.size,
         );
     });
 
-    test('shows one labeled map-view control during route navigation', () => {
+    test('uses the shared icon sizing for directions back and both details close buttons', () => {
+        for (const [testID, name] of [
+            ['directions-route-back-button', 'chevron-left'],
+            ['marker-details-close-button', 'x'],
+            ['place-details-close-button', 'x'],
+        ]) {
+            assert.match(
+                mapScreenSource,
+                new RegExp(
+                    `testID="${testID}"\\s*>\\s*<MapControlIcon\\s+color=\\{\\s*presentation\\.searchPrimaryIconColor\\s*\\}\\s+name="${name}"\\s*/>\\s*</Pressable>`,
+                ),
+            );
+        }
+    });
+
+    test('shows an icon-only map-view control with an accessibility label', () => {
         assert.match(
             mapControlsOverlaySource,
             /\{drivingMapViewControlIsVisible \? \([\s\S]*?accessibilityLabel=\{`Map view: \$\{drivingMapViewPresentation\.label\}`\}[\s\S]*?testID="driving-map-view-button"/,
@@ -63,6 +140,10 @@ describe('MapControlsOverlay', () => {
         assert.match(
             mapControlsOverlaySource,
             /getNextDrivingMapViewMode\(drivingMapViewMode\)/,
+        );
+        assert.match(
+            mapControlsOverlaySource,
+            /testID="driving-map-view-button"\s*>\s*<MapControlIcon\s+color=\{defaultMapControlIconColor\}\s+name=\{drivingMapViewPresentation\.iconName\}\s*\/>\s*<\/MapControlButton>/,
         );
         assert.match(
             mapScreenSource,
