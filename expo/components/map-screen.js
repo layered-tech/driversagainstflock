@@ -802,6 +802,10 @@ export default function LocationMapScreen({
                         ) : null}
                         {isDrivingMode ? (
                             <DrivingGuidanceOverlay
+                                cameraIsFollowingUser={
+                                    locationController.nativeCameraFollowProps
+                                        .enabled
+                                }
                                 drivingStatusIsVisible={shouldShowDrivingMapStatus(
                                     drivingMapViewMode,
                                 )}
@@ -810,6 +814,9 @@ export default function LocationMapScreen({
                                     setDrivingLocationAnchorY
                                 }
                                 onRouteExport={handleRouteExportPress}
+                                onStepFocus={
+                                    locationController.moveCameraToCoordinate
+                                }
                                 routeExportIsAvailable={routeExportIsAvailable}
                                 topOverlay={
                                     freeDriveSearchOverlayIsVisible ? (

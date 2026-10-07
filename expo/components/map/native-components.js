@@ -3,6 +3,7 @@ import {
     BottomSheetModal,
     BottomSheetScrollView,
     BottomSheetView,
+    default as BottomSheet,
 } from '@gorhom/bottom-sheet';
 import Mapbox from '@rnmapbox/maps';
 import { GlassView } from 'expo-glass-effect';
@@ -16,6 +17,11 @@ import {
 import { SafeAreaViewWithBottomOffset } from './safe-area-view-with-bottom-offset';
 
 const RemappedBottomSheetModal = remapProps(BottomSheetModal, {
+    backgroundClassName: 'backgroundStyle',
+    handleIndicatorClassName: 'handleIndicatorStyle',
+});
+
+export const NativeWindBottomSheet = remapProps(BottomSheet, {
     backgroundClassName: 'backgroundStyle',
     handleIndicatorClassName: 'handleIndicatorStyle',
 });

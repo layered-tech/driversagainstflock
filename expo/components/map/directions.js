@@ -1406,3 +1406,30 @@ export function getNextDirectionsManeuver(
             : 0,
     );
 }
+
+export function getDirectionsManeuverCoordinate(route, maneuver) {
+    return (
+        getSelectedDirectionsRouteOption(route)?.coordinates?.[
+            getStepWaypointIndex(maneuver)
+        ] ?? normalizeRouteCoordinate(maneuver?.maneuver?.location)
+    );
+}
+
+export function getDirectionsSteps(route, activeManeuver) {
+    const option = getSelectedDirectionsRouteOption(route);
+    const maneuvers = option?.maneuvers ?? [];
+    const activeIndex = maneuvers.findIndex(
+        (step) => step.stepIndex === activeManeuver?.stepIndex,
+    );
+
+    return maneuvers.map((step, index) => ({
+        ...step,
+        coordinate: getDirectionsManeuverCoordinate(route, step),
+        typeLabel: getDirectionsManeuverTypeLabel(step),
+        isCurrent: index === activeIndex,
+        displayDistance:
+            index === activeIndex
+                ? activeManeuver.distanceToManeuver
+                : step.distance,
+    }));
+}

@@ -16,6 +16,7 @@ export function DrivingLocationRoadStack({
     currentRoadPillTestID,
     currentRoadPillStyle,
     currentRoadPillTextStyle,
+    isHidden = false,
     onLocationAnchorLayout,
     puckSize = NAVIGATION_PUCK_SIZE,
     testID,
@@ -55,7 +56,11 @@ export function DrivingLocationRoadStack({
 
     return (
         <View
-            className="items-center gap-1 px-3 pb-5"
+            accessibilityElementsHidden={isHidden}
+            className={`${isHidden ? 'opacity-0' : 'opacity-100'} items-center gap-1 px-3 pb-5`}
+            importantForAccessibility={
+                isHidden ? 'no-hide-descendants' : 'auto'
+            }
             onLayout={handleLayout}
             pointerEvents="none"
             testID={testID}

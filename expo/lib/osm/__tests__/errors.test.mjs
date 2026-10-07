@@ -60,6 +60,44 @@ describe('throwOSMResponseError', () => {
         );
     });
 
+    test('does not describe a stale node version as a closed changeset', async () => {
+        const error = await captureError(
+            fakeResponse(
+                409,
+                'Version mismatch: Provided 1, server had: 2 of Node 123',
+            ),
+        );
+
+        assert.match(error.message, /changed on OpenStreetMap/);
+        assert.doesNotMatch(error.message, /changeset was closed/);
+    });
+
+    test('explains that a referenced node cannot be deleted', async () => {
+        const error = await captureError(
+            fakeResponse(
+                412,
+                'Precondition failed: Node 123 is still used by ways 456,789.',
+            ),
+        );
+
+        assert.match(error.message, /still used by a way or relation/);
+        assert.doesNotMatch(error.message, /changeset was closed/);
+    });
+
+    test('only describes a closed changeset when OSM says it was closed', async () => {
+        const error = await captureError(
+            fakeResponse(409, 'The changeset 42 was closed at 2026-07-11.'),
+        );
+
+        assert.match(error.message, /changeset was closed/);
+    });
+
+    test('keeps an unrecognized conflict message neutral', async () => {
+        const error = await captureError(fakeResponse(409, 'Unknown conflict'));
+
+        assert.doesNotMatch(error.message, /changeset was closed/);
+    });
+
     test('falls back to an empty detail when the body is unreadable', async () => {
         const error = await captureError({
             status: 401,

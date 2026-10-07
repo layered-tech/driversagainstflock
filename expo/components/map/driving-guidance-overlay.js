@@ -1,7 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
-import { useColorScheme, View } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useColorScheme, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
-import { getDafTheme } from '../design-system/tokens';
 import { logMapDrivingStopped } from './analytics';
 import {
     createDirectionsRouteProgressTracker,
@@ -16,11 +15,8 @@ import {
     useSharedNavigationRerouting,
 } from './shared-navigation-controller';
 import { DrivingAlertsOverlay } from './driving-alerts-overlay';
-import {
-    DestinationCard,
-    ManeuverCard,
-    ReroutingCard,
-} from './driving-guidance-cards';
+import { ManeuverCard, ReroutingCard } from './driving-guidance-cards';
+import { DrivingStepsSheet } from './driving-steps-sheet';
 import { DrivingLocationRoadStack } from './driving-location-road-stack';
 import { useE2EDrivingAlertsFixture } from './e2e-driving-alert-fixture';
 import { NativeWindSafeAreaView } from './native-components';
@@ -87,16 +83,46 @@ function createSearchResultRestoreFromRoute(route) {
 }
 
 export function DrivingGuidanceOverlay({
+    cameraIsFollowingUser = true,
     children,
     drivingStatusIsVisible = true,
     navigationPuckSize,
     onLocationAnchorLayout,
     onRouteExport,
+    onStepFocus,
     routeExportIsAvailable,
     topOverlay = null,
 }) {
     const colorScheme = useColorScheme();
+    const statusChromeIsVisible =
+        drivingStatusIsVisible && cameraIsFollowingUser;
     const insets = useSafeAreaInsets();
+    const stepsSheetRef = useRef(null);
+    const { height: windowHeight } = useWindowDimensions();
+    const [containerHeight, setContainerHeight] = useState(windowHeight);
+    const [collapsedHeight, setCollapsedHeight] = useState(156 + insets.bottom);
+    const [guidanceHeight, setGuidanceHeight] = useState(88);
+    const handleStepFocus = useCallback(
+        (coordinate) => {
+            stepsSheetRef.current?.snapToIndex(0);
+            return onStepFocus(coordinate, {
+                padding: {
+                    paddingTop: insets.top + guidanceHeight + 12,
+                    paddingBottom: collapsedHeight + 12,
+                    paddingLeft: insets.left + 12,
+                    paddingRight: insets.right + 12,
+                },
+            });
+        },
+        [
+            collapsedHeight,
+            guidanceHeight,
+            insets.top,
+            insets.left,
+            insets.right,
+            onStepFocus,
+        ],
+    );
     const rerouteIsLoading = useSharedNavigationRerouting();
     const [routeProgressTracker] = useState(
         createDirectionsRouteProgressTracker,
@@ -138,17 +164,6 @@ export function DrivingGuidanceOverlay({
     const headerCardIsVisible = Boolean(
         routeIsActive && (rerouteIsLoading || maneuver),
     );
-    const bottomSheetTheme = getDafTheme(colorScheme);
-    const destinationSurfaceStyle = useMemo(
-        () => ({
-            backgroundColor: bottomSheetTheme.surface.sheet,
-            borderTopColor: bottomSheetTheme.border.glass,
-            borderTopLeftRadius: 22,
-            borderTopRightRadius: 22,
-            borderTopWidth: 1,
-        }),
-        [bottomSheetTheme],
-    );
     const speedLimit = useRouteSpeedLimit({
         routeIsActive: true,
         userLocation,
@@ -177,20 +192,34 @@ export function DrivingGuidanceOverlay({
         setPendingSearchResultRestore,
     ]);
     return (
-        <View className="absolute inset-0 z-50" pointerEvents="box-none">
+        <View
+            className="absolute inset-0 z-50"
+            onLayout={(event) =>
+                setContainerHeight(event.nativeEvent.layout.height)
+            }
+            pointerEvents="box-none"
+        >
             <NativeWindSafeAreaView
                 className="absolute inset-0"
                 edges={['top', 'right', 'left']}
                 pointerEvents="box-none"
             >
-                <View className="px-3 pt-3" pointerEvents="box-none">
+                <View
+                    className="px-3 pt-3"
+                    onLayout={(event) =>
+                        setGuidanceHeight(event.nativeEvent.layout.height)
+                    }
+                    pointerEvents="box-none"
+                >
                     {routeIsActive ? (
                         rerouteIsLoading ? (
                             <ReroutingCard />
                         ) : (
                             <ManeuverCard
+                                directionsRoute={directionsRoute}
                                 maneuver={maneuver}
                                 nextManeuver={nextManeuver}
+                                onStepFocus={handleStepFocus}
                             />
                         )
                     ) : null}
@@ -201,20 +230,30 @@ export function DrivingGuidanceOverlay({
                     className={`${headerCardIsVisible || topOverlay ? 'pt-3' : ''} flex-row items-start gap-3 px-3`}
                     pointerEvents="box-none"
                 >
-                    {drivingStatusIsVisible ? (
-                        <View pointerEvents="box-none">
-                            <SpeedLimitSign
-                                currentSpeedMps={getRouteCurrentSpeedMps(
-                                    userLocation,
-                                )}
-                                currentSpeedPlacement="bottom-right"
-                                currentSpeedVisible
-                                isDarkMode={colorScheme === 'dark'}
-                                size={MOBILE_SPEED_LIMIT_BADGE_SIZE}
-                                speedLimit={speedLimit}
-                            />
-                        </View>
-                    ) : null}
+                    <View
+                        accessibilityElementsHidden={!statusChromeIsVisible}
+                        className={
+                            statusChromeIsVisible ? 'opacity-100' : 'opacity-0'
+                        }
+                        importantForAccessibility={
+                            statusChromeIsVisible
+                                ? 'auto'
+                                : 'no-hide-descendants'
+                        }
+                        pointerEvents="none"
+                        testID="driving-speed-status"
+                    >
+                        <SpeedLimitSign
+                            currentSpeedMps={getRouteCurrentSpeedMps(
+                                userLocation,
+                            )}
+                            currentSpeedPlacement="bottom-right"
+                            currentSpeedVisible
+                            isDarkMode={colorScheme === 'dark'}
+                            size={MOBILE_SPEED_LIMIT_BADGE_SIZE}
+                            speedLimit={speedLimit}
+                        />
+                    </View>
                     <View className="flex-1" pointerEvents="none" />
                     <View className="items-end" pointerEvents="box-none">
                         {children}
@@ -224,7 +263,7 @@ export function DrivingGuidanceOverlay({
                 <View className="flex-1" pointerEvents="none" />
 
                 <DrivingLocationRoadStack
-                    currentRoadPillIsVisible={drivingStatusIsVisible}
+                    isHidden={!statusChromeIsVisible}
                     onLocationAnchorLayout={onLocationAnchorLayout}
                     puckSize={navigationPuckSize}
                     testID="driving-location-road-stack"
@@ -238,30 +277,34 @@ export function DrivingGuidanceOverlay({
                     unrestrictedFixture={e2eDrivingAlertsFixture !== null}
                 />
 
-                {routeIsActive ? (
-                    <View
-                        className="overflow-hidden"
-                        pointerEvents="box-none"
-                        style={destinationSurfaceStyle}
-                    >
-                        <DestinationCard
-                            bottomInset={insets.bottom}
-                            directionsRoute={directionsRoute}
-                            onCancelRoute={handleCancelRoute}
-                            onExportRoute={onRouteExport}
-                            routeExportIsAvailable={routeExportIsAvailable}
-                            routeOption={routeOption}
-                            remainingValues={getRemainingDirectionsRouteValues(
-                                directionsRoute,
-                                userLocation,
-                                routeProgress,
-                            )}
-                        />
-                    </View>
-                ) : (
-                    <View style={{ height: insets.bottom }} />
-                )}
+                <View
+                    pointerEvents="none"
+                    style={{
+                        height: routeIsActive ? collapsedHeight : insets.bottom,
+                    }}
+                />
             </NativeWindSafeAreaView>
+            {routeIsActive ? (
+                <DrivingStepsSheet
+                    bottomInset={insets.bottom}
+                    bottomSheetRef={stepsSheetRef}
+                    collapsedHeight={collapsedHeight}
+                    containerHeight={containerHeight}
+                    directionsRoute={directionsRoute}
+                    maneuver={maneuver}
+                    onCollapsedHeightChange={setCollapsedHeight}
+                    onCancelRoute={handleCancelRoute}
+                    onExportRoute={onRouteExport}
+                    onStepFocus={handleStepFocus}
+                    routeExportIsAvailable={routeExportIsAvailable}
+                    routeOption={routeOption}
+                    remainingValues={getRemainingDirectionsRouteValues(
+                        directionsRoute,
+                        userLocation,
+                        routeProgress,
+                    )}
+                />
+            ) : null}
         </View>
     );
 }

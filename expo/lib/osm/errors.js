@@ -18,7 +18,7 @@ const OSM_ERROR_MESSAGES = {
     [OSM_ERROR_CODES.badRequest]:
         'OpenStreetMap rejected the edit — check the details and try again.',
     [OSM_ERROR_CODES.conflict]:
-        'The changeset was closed before the upload finished — try publishing again.',
+        'This edit conflicts with the current OpenStreetMap data — reload the camera and review it before publishing again.',
     [OSM_ERROR_CODES.forbidden]:
         'Your OpenStreetMap account is not allowed to edit the map — sign in again and allow map editing.',
     [OSM_ERROR_CODES.gone]:
@@ -47,9 +47,31 @@ const OSM_STATUS_ERROR_CODES = {
     429: OSM_ERROR_CODES.rateLimited,
 };
 
+function getOSMErrorMessage(code, detail) {
+    if (code === OSM_ERROR_CODES.conflict) {
+        if (/\bchangeset\b.*\bclosed\b/i.test(detail)) {
+            return 'The changeset was closed before the upload finished — try publishing again.';
+        }
+
+        if (/\bversion mismatch\b/i.test(detail)) {
+            return 'This camera changed on OpenStreetMap — reload it and review the latest version before publishing again.';
+        }
+
+        if (
+            /\b(?:still used by|used in)\b.*\b(?:ways?|relations?)\b/i.test(
+                detail,
+            )
+        ) {
+            return 'This camera is still used by a way or relation on OpenStreetMap — review its links in an OSM editor before removing it.';
+        }
+    }
+
+    return OSM_ERROR_MESSAGES[code] ?? OSM_ERROR_MESSAGES.server;
+}
+
 export class OSMApiError extends Error {
     constructor({ code, detail = '', status = null }) {
-        super(OSM_ERROR_MESSAGES[code] ?? OSM_ERROR_MESSAGES.server);
+        super(getOSMErrorMessage(code, detail));
 
         this.code = code;
         this.detail = detail;

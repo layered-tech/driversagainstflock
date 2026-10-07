@@ -51,10 +51,12 @@ export default function CameraDetailsScreen() {
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
     const params = useLocalSearchParams();
-    const { pins, tour, updatePinDetails, updatePinLocation } = useContribute();
+    const { pins, removals, tour, updatePinDetails, updatePinLocation } =
+        useContribute();
     const [rawSelectedDirectionIndex, setRawSelectedDirectionIndex] =
         useState(0);
-    const cameraIndex = parseCameraIndexParam(params.index);
+    const cameraIndex =
+        params.index === undefined ? 0 : parseCameraIndexParam(params.index);
     const pin = cameraIndex === null ? undefined : pins[cameraIndex];
     const pinId = pin?.id ?? null;
     const details = pin?.details ?? {};
@@ -73,9 +75,9 @@ export default function CameraDetailsScreen() {
     useFocusEffect(
         useCallback(() => {
             if (!pin) {
-                router.replace('/');
+                router.replace(removals.length ? '/contribute/changeset' : '/');
             }
-        }, [pin]),
+        }, [pin, removals.length]),
     );
 
     const handleBackPress = useCallback(() => {

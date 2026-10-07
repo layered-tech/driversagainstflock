@@ -1,9 +1,9 @@
 appId: com.anonymous.drivefree.dev
-name: OSM Node Removal Mocked
+name: Shared Addition And Removal Changeset
 tags:
   - map
   - contribute
-  - node-removal
+  - shared-changeset
 ---
 - setLocation:
     latitude: 30.26715
@@ -52,63 +52,8 @@ tags:
     visible:
       id: 'remove-camera-sheet'
     timeout: 10000
-- assertVisible: 'Remove this camera?'
-- tapOn:
-    id: 'remove-camera-cancel-button'
-    retryTapIfNoChange: false
-- extendedWaitUntil:
-    notVisible:
-      id: 'remove-camera-sheet'
-    timeout: 10000
-- assertVisible:
-    id: 'edit-camera-screen'
-# Cancel must leave the node available, including another Delete from the map.
-- tapOn:
-    id: 'edit-camera-back-button'
-    retryTapIfNoChange: false
-- extendedWaitUntil:
-    visible:
-      id: 'map-marker-0-map'
-    timeout: 10000
-- tapOn:
-    id: 'map-marker-0-map'
-    retryTapIfNoChange: false
-- extendedWaitUntil:
-    visible:
-      id: 'marker-details-delete-node-button'
-    timeout: 10000
-- tapOn:
-    id: 'marker-details-delete-node-button'
-    retryTapIfNoChange: false
-- extendedWaitUntil:
-    visible:
-      id: 'remove-camera-sheet'
-    timeout: 10000
-- tapOn:
-    id: 'remove-camera-cancel-button'
-    retryTapIfNoChange: false
-- extendedWaitUntil:
-    notVisible:
-      id: 'remove-camera-sheet'
-    timeout: 10000
-- scrollUntilVisible:
-    element:
-      id: 'edit-camera-remove-row'
-    direction: DOWN
-    timeout: 10000
-- tapOn:
-    id: 'edit-camera-remove-row'
-    retryTapIfNoChange: false
-- extendedWaitUntil:
-    visible:
-      id: 'remove-camera-sheet'
-    timeout: 10000
-- tapOn:
-    id: 'remove-camera-reason-duplicate'
-    retryTapIfNoChange: false
 - tapOn:
     id: 'remove-camera-confirm-button'
-    retryTapIfNoChange: false
 - runFlow:
     when:
       visible:
@@ -122,23 +67,42 @@ tags:
     visible:
       id: 'contribute-changeset-details-screen'
     timeout: 10000
-# Staging a removal leaves the live node available until Publish.
 - tapOn:
     id: 'contribute-continue-map-button'
-- openLink: 'driversagainstflock://edits/1234567890'
 - extendedWaitUntil:
     visible:
-      id: 'edit-camera-save-button'
-    timeout: 10000
-- assertNotVisible:
-    id: 'edit-camera-deleted-message'
-- openLink: 'driversagainstflock://edits/12100881?action=remove'
-- extendedWaitUntil:
-    visible:
-      id: 'remove-camera-sheet'
+      id: 'map-contribute-button'
     timeout: 10000
 - tapOn:
-    id: 'remove-camera-confirm-button'
+    id: 'map-contribute-button'
+- runFlow:
+    when:
+      visible:
+        id: 'contribute-tour-start'
+    commands:
+      - tapOn:
+          id: 'contribute-tour-skip-start'
+          retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-start-editing-button'
+    timeout: 10000
+- tapOn:
+    id: 'contribute-start-editing-button'
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-add-camera-button'
+    timeout: 10000
+- tapOn:
+    id: 'contribute-add-camera-button'
+- tapOn:
+    id: 'contribute-next-details-button'
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-camera-details-screen'
+    timeout: 10000
+- tapOn:
+    id: 'contribute-next-changeset-button'
 - extendedWaitUntil:
     visible:
       id: 'contribute-changeset-details-screen'
@@ -146,7 +110,7 @@ tags:
 - assertVisible: '.*2 nodes.*'
 - tapOn:
     id: 'contribute-comment-input'
-- inputText: 'Removed missing cameras after survey'
+- inputText: 'Survey: add a camera and remove a missing one'
 - hideKeyboard
 - tapOn:
     id: 'contribute-next-review-button'
@@ -154,8 +118,7 @@ tags:
     visible:
       id: 'contribute-review-removal-1234567890'
     timeout: 10000
-- assertVisible:
-    id: 'contribute-review-removal-12100881'
+- assertVisible: 'Added ALPR camera · Flock Safety'
 - tapOn:
     id: 'contribute-publish-button'
 - extendedWaitUntil:
@@ -163,6 +126,10 @@ tags:
       id: 'contribute-published-screen'
     timeout: 10000
 - assertVisible: 'Changeset published'
+- assertVisible: 'Removed camera'
+- assertVisible: 'ALPR camera · Flock Safety'
+- assertVisible:
+    id: 'contribute-published-node-1'
 - tapOn:
     id: 'contribute-see-on-map-button'
 - openLink: 'driversagainstflock://edits/1234567890'
@@ -170,5 +137,3 @@ tags:
     visible:
       id: 'edit-camera-deleted-message'
     timeout: 10000
-- assertNotVisible:
-    id: 'edit-camera-save-button'

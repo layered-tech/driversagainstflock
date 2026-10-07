@@ -1,4 +1,4 @@
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
 import { dafSemanticColors } from '../design-system/tokens';
@@ -9,6 +9,7 @@ import {
     formatDirectionsDistance,
     formatDirectionsDuration,
     formatDirectionsManeuverDistance,
+    getDirectionsManeuverCoordinate,
 } from './directions';
 import { getRoundaboutExitNumber } from './roundabout-guidance';
 
@@ -28,7 +29,7 @@ function RoundaboutExitIcon({ exitNumber }) {
     );
 }
 
-function getManeuverIcon(maneuver) {
+export function getManeuverIcon(maneuver) {
     const maneuverType = Number(maneuver?.type);
     const modifier =
         typeof maneuver?.maneuver?.modifier === 'string'
@@ -74,7 +75,12 @@ function getManeuverIcon(maneuver) {
     return 'corner-up-right';
 }
 
-export function ManeuverCard({ maneuver, nextManeuver }) {
+export function ManeuverCard({
+    directionsRoute,
+    maneuver,
+    nextManeuver,
+    onStepFocus,
+}) {
     if (!maneuver) {
         return null;
     }
@@ -90,10 +96,22 @@ export function ManeuverCard({ maneuver, nextManeuver }) {
               ? maneuverDistanceLabel
               : maneuverLabel;
     const roundaboutExitNumber = getRoundaboutExitNumber(maneuver);
+    const coordinate = getDirectionsManeuverCoordinate(
+        directionsRoute,
+        maneuver,
+    );
+    const nextCoordinate = getDirectionsManeuverCoordinate(
+        directionsRoute,
+        nextManeuver,
+    );
 
     return (
-        <View
+        <Pressable
+            accessibilityLabel={`Show on map: ${maneuver.instruction || maneuverLabel}`}
+            accessibilityRole="button"
             className="w-full flex-row items-center gap-[14px] rounded-dafLg border border-daf-border-glass bg-white/95 px-4 py-3 shadow-[0px_4px_18px_rgba(11,14,18,0.18)] dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95"
+            disabled={!coordinate || !onStepFocus}
+            onPress={() => onStepFocus(coordinate)}
             testID="driving-maneuver-card"
         >
             <View className="h-[52px] w-[52px] items-center justify-center rounded-dafMd bg-daf-brand">
@@ -127,7 +145,17 @@ export function ManeuverCard({ maneuver, nextManeuver }) {
             </View>
 
             {nextManeuver?.instruction ? (
-                <View className="max-w-[118px] flex-none rounded-dafPill bg-daf-surface-alt px-3 py-1.5 dark:bg-daf-surface-inverse">
+                <Pressable
+                    accessibilityLabel={`Show on map: ${nextManeuver.instruction}`}
+                    accessibilityRole="button"
+                    className="max-w-[118px] flex-none rounded-dafPill bg-daf-surface-alt px-3 py-1.5 dark:bg-daf-surface-inverse"
+                    disabled={!nextCoordinate || !onStepFocus}
+                    hitSlop={10}
+                    onPress={(event) => {
+                        event.stopPropagation();
+                        onStepFocus(nextCoordinate);
+                    }}
+                >
                     <Text
                         className="text-[12px] font-semibold leading-[16px] text-daf-text-secondary dark:text-neutral-300"
                         numberOfLines={1}
@@ -135,9 +163,9 @@ export function ManeuverCard({ maneuver, nextManeuver }) {
                     >
                         then {nextManeuver.instruction}
                     </Text>
-                </View>
+                </Pressable>
             ) : null}
-        </View>
+        </Pressable>
     );
 }
 
@@ -258,7 +286,7 @@ export function DestinationCard({
                     testID="driving-cancel-route-button"
                     variant="danger"
                 >
-                    End
+                    Exit
                 </DafButton>
             </View>
             {routeExportIsAvailable ? (

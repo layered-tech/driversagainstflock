@@ -2,13 +2,9 @@ import { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Text, useWindowDimensions, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
-import { publishNodeDeletion } from '../../lib/osm/client';
-import {
-    buildRemovalChangesetComment,
-    REMOVAL_REASONS,
-} from '../../lib/osm/edit-tags';
+import { REMOVAL_REASONS } from '../../lib/osm/edit-tags';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
-import { buildChangesetTags } from '../contribute/osm-tags';
+import { useContribute } from '../contribute/contribute-state';
 import { Icon } from '../design-system/icon';
 import {
     DafButton,
@@ -20,8 +16,6 @@ import {
     NativeWindBottomSheetModal,
     NativeWindBottomSheetView,
 } from '../map/native-components';
-
-const REMOVAL_CHANGESET_HASHTAGS = '#flock #alpr #surveillance';
 
 function getRemoveSheetSubtitle(node) {
     if (!node) {
@@ -36,10 +30,11 @@ function getRemoveSheetSubtitle(node) {
         : `node/${node.id}`;
 }
 
-export function RemoveCameraSheet({ isOpen, node, onDismiss, onRemoved }) {
+export function RemoveCameraSheet({ isOpen, node, onDismiss, onStaged }) {
     const { height: windowHeight } = useWindowDimensions();
     const insets = useSafeAreaInsets();
-    const { ensureWriteAccess, openStreetMapAccessToken, user } = useAuth();
+    const { user } = useAuth();
+    const { stageRemoval } = useContribute();
     const sheetRef = useRef(null);
     const sheetWasPresentedRef = useRef(false);
     const [removeError, setRemoveError] = useState(null);
@@ -96,52 +91,21 @@ export function RemoveCameraSheet({ isOpen, node, onDismiss, onRemoved }) {
         setRemoveStatus('removing');
 
         try {
-            const session = await ensureWriteAccess();
-
-            if (!session) {
-                setRemoveStatus('idle');
-                return;
-            }
-
-            const accessToken =
-                session.token ??
-                session.accessToken ??
-                openStreetMapAccessToken;
-
-            await publishNodeDeletion({
-                accessToken,
-                changesetTags: buildChangesetTags({
-                    comment: buildRemovalChangesetComment(selectedReason),
-                    hashtags: REMOVAL_CHANGESET_HASHTAGS,
-                    source: 'survey',
-                }),
-                node: {
-                    id: node.id,
-                    latitude: node.latitude,
-                    longitude: node.longitude,
-                    version: node.version,
-                },
-            });
+            await stageRemoval(node, selectedReason);
 
             setRemoveStatus('idle');
             sheetRef.current?.dismiss();
-            onRemoved?.();
+            onStaged?.();
         } catch (error) {
             setRemoveError(
                 error?.message ??
-                    'Removing the camera from OpenStreetMap failed.',
+                    'Adding the removal to your changeset failed.',
             );
             setRemoveStatus('error');
         } finally {
             removeIsInFlightRef.current = false;
         }
-    }, [
-        ensureWriteAccess,
-        node,
-        onRemoved,
-        openStreetMapAccessToken,
-        selectedReason,
-    ]);
+    }, [node, onStaged, selectedReason, stageRemoval]);
 
     return (
         <NativeWindBottomSheetModal
@@ -206,12 +170,12 @@ export function RemoveCameraSheet({ isOpen, node, onDismiss, onRemoved }) {
                             />
                         </View>
                         <Text className="min-w-0 flex-1 text-xs leading-[18px] text-daf-text-secondary dark:text-neutral-300">
-                            Removal is public — it publishes a delete changeset
-                            credited to{' '}
+                            This removal will be published with your other
+                            changes after review, credited to{' '}
                             <Text className="font-bold text-daf-text-primary dark:text-white">
                                 @{userName}
                             </Text>
-                            . Other mappers can see and discuss it.
+                            . You can undo it before publishing.
                         </Text>
                     </View>
                     {removeError ? (
@@ -231,7 +195,7 @@ export function RemoveCameraSheet({ isOpen, node, onDismiss, onRemoved }) {
                             testID="remove-camera-confirm-button"
                             variant="danger"
                         >
-                            Remove from map
+                            Add to changeset
                         </DafButton>
                         <View className="h-2.5" />
                         <DafButton

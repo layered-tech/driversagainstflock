@@ -28,7 +28,9 @@ test('a closed removal sheet can open, cancel, reopen, and close', () => {
             '../../lib/safe-area-insets': {
                 useSafeAreaInsets: () => ({ bottom: 0 }),
             },
-            '../contribute/osm-tags': { buildChangesetTags: () => ({}) },
+            '../contribute/contribute-state': {
+                useContribute: () => ({ stageRemoval: async () => {} }),
+            },
             '../design-system/icon': { Icon: 'Icon' },
             '../design-system/primitives': {
                 DafButton: 'Button',

@@ -305,6 +305,158 @@ test('every phone manual destination delegates to the camera ownership handoff',
     }
 });
 
+test('a direction-step focus pauses phone following before moving and recenter resumes it', async () => {
+    const source = readSource('../use-map-location-controller.js');
+    const events = [];
+    const cameraStops = [];
+    const release = deferred();
+    const generation = { current: 0 };
+    const followLocationMode = {
+        pauseUntilRecenter: () => events.push('pause'),
+        recenter: (location) => events.push(['recenter', location]),
+    };
+    const releaseRef = {
+        current: (options) => (options?.resumeFollow ? true : release.promise),
+    };
+    const applyManualCameraMove = callback(source, 'applyManualCameraMove', {
+        useCallback: (fn) => fn,
+        manualCameraGenerationRef: generation,
+        isMountedRef: { current: true },
+        clearDrivingModeExitCameraRetry() {},
+        isDrivingMode: true,
+        setTrackingMode() {},
+        followLocationMode,
+        locationPuckCameraFollowReleaseRef: releaseRef,
+    });
+    const focus = callback(source, 'moveCameraToCoordinate', {
+        useCallback: (fn) => fn,
+        getStoredNumber: (value) => Number(value),
+        normalizeLongitude: (value) => value,
+        clampZoomLevel: (value) => value,
+        MARKER_FOCUS_ZOOM_LEVEL: 16,
+        MARKER_FOCUS_CAMERA_ANIMATION_DURATION_MS: 500,
+        isDrivingMode: true,
+        cameraFocusPadding: {},
+        applyManualCameraMove,
+        markerLoadsEnabledRef: { current: false },
+        currentZoomRef: { current: 15 },
+        isMapReadyRef: { current: true },
+        cameraRef: {
+            current: {
+                setCamera: (stop) => {
+                    cameraStops.push(stop);
+                    events.push(['focus', stop.centerCoordinate]);
+                },
+            },
+        },
+    });
+    const padding = {
+        paddingTop: 146,
+        paddingBottom: 202,
+        paddingLeft: 12,
+        paddingRight: 12,
+    };
+    const pending = focus([-87, 41], { padding });
+    assert.deepEqual(events, ['pause']);
+    release.resolve(true);
+    assert.equal(await pending, true);
+    assert.deepEqual(events, ['pause', ['focus', [-87, 41]]]);
+    assert.deepEqual(cameraStops[0].padding, padding);
+    const userLocation = { latitude: 40, longitude: -88 };
+    const recenter = callback(source, 'handleDrivingRecenterPress', {
+        useCallback: (fn) => fn,
+        manualCameraGenerationRef: generation,
+        locationAccessGranted: true,
+        userLocation,
+        findCurrentLocation() {},
+        locationPuckCameraFollowReleaseRef: releaseRef,
+        followLocationMode,
+    });
+    await recenter();
+    assert.deepEqual(events.at(-1), ['recenter', userLocation]);
+    assert.match(
+        readSource('../../map-screen.js'),
+        /onStepFocus=\{\s*locationController\.moveCameraToCoordinate\s*\}/,
+    );
+    assert.match(
+        readSource('../driving-guidance-overlay.js'),
+        /<DrivingStepsSheet[\s\S]*?onStepFocus=\{handleStepFocus\}/,
+    );
+});
+
+test('step previews frame the turn between the measured guidance and collapsed drawer', () => {
+    const events = [];
+    const focus = callback(
+        readSource('../driving-guidance-overlay.js'),
+        'handleStepFocus',
+        {
+            useCallback: (fn) => fn,
+            collapsedHeight: 190,
+            guidanceHeight: 88,
+            insets: { top: 46, bottom: 34, left: 0, right: 0 },
+            stepsSheetRef: {
+                current: {
+                    snapToIndex: (index) => events.push(['sheet', index]),
+                },
+            },
+            onStepFocus: (coordinate, options) => {
+                events.push(['focus', coordinate, options]);
+                return true;
+            },
+        },
+    );
+    assert.equal(focus([-87, 41]), true);
+    assert.deepEqual(events, [
+        ['sheet', 0],
+        [
+            'focus',
+            [-87, 41],
+            {
+                padding: {
+                    paddingTop: 146,
+                    paddingBottom: 202,
+                    paddingLeft: 12,
+                    paddingRight: 12,
+                },
+            },
+        ],
+    ]);
+    assert.match(
+        readSource('../driving-guidance-overlay.js'),
+        /<ManeuverCard[\s\S]*?onStepFocus=\{handleStepFocus\}/,
+    );
+});
+
+test('follow visibility stays paused across camera updates and zoom overrides until recenter', () => {
+    const source = readSource('../../map-follow-location-mode.js');
+    const context = {
+        useMemo: (fn) => fn(),
+        followIsEnabled: true,
+        isDrivingMode: true,
+        locationTrackingMode: 'follow',
+        LOCATION_TRACKING_FOLLOW: 'follow',
+        recenterIsNeeded: false,
+        followCameraPadding: {},
+        followPitch: 55,
+        nativeFollowZoomLevel: 16,
+    };
+    const enabled = () =>
+        callback(source, 'nativeCameraFollowProps', context).enabled;
+    assert.equal(enabled(), true);
+    context.nativeFollowZoomLevel = 17;
+    assert.equal(enabled(), true);
+    context.recenterIsNeeded = true;
+    for (const zoom of [16, 17, 18, 16]) {
+        context.nativeFollowZoomLevel = zoom;
+        context.followCameraPadding = { paddingTop: zoom * 10 };
+        assert.equal(enabled(), false);
+    }
+    context.recenterIsNeeded = false;
+    assert.equal(enabled(), true);
+    context.locationTrackingMode = 'none';
+    assert.equal(enabled(), false);
+});
+
 test('free-driving car status accepts the shared road match while its permission check is stale', () => {
     const source = readSource('../../auto-play-map-surface-content.js');
     const declaration = source.match(/const freeDriveIsActive = [\s\S]*?;/)[0];

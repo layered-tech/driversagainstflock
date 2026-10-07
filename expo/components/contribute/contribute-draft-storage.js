@@ -29,7 +29,7 @@ function parseStoredChangeset(changeset) {
 }
 
 function parseStoredPins(pins) {
-    if (!Array.isArray(pins) || pins.length === 0) {
+    if (!Array.isArray(pins)) {
         return null;
     }
 
@@ -58,6 +58,26 @@ function parseStoredPins(pins) {
     return parsedPins;
 }
 
+function parseStoredRemovals(removals = []) {
+    if (!Array.isArray(removals)) {
+        return null;
+    }
+
+    return removals.every(
+        (node) =>
+            isPlainObject(node) &&
+            Number.isInteger(node.id) &&
+            node.id > 0 &&
+            Number.isInteger(node.version) &&
+            node.version > 0 &&
+            Number.isFinite(node.latitude) &&
+            Number.isFinite(node.longitude) &&
+            typeof node.reason === 'string',
+    )
+        ? removals
+        : null;
+}
+
 export async function readStoredDraft() {
     try {
         const storedValue = await AsyncStorage.getItem(
@@ -80,14 +100,21 @@ export async function readStoredDraft() {
 
         const changeset = parseStoredChangeset(parsedValue.changeset);
         const pins = parseStoredPins(parsedValue.pins);
+        const removals = parseStoredRemovals(parsedValue.removals);
 
-        if (!changeset || !pins) {
+        if (
+            !changeset ||
+            !pins ||
+            !removals ||
+            pins.length + removals.length === 0
+        ) {
             return null;
         }
 
         return {
             changeset,
             pins,
+            removals,
             updatedAt: parsedValue.updatedAt,
         };
     } catch {
@@ -95,10 +122,11 @@ export async function readStoredDraft() {
     }
 }
 
-export async function writeStoredDraft({ changeset, pins }) {
+export async function writeStoredDraft({ changeset, pins, removals = [] }) {
     const storedDraft = {
         changeset,
         pins,
+        removals,
         updatedAt: new Date().toISOString(),
         version: CONTRIBUTE_DRAFT_STORAGE_VERSION,
     };

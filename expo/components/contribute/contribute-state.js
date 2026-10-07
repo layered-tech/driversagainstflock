@@ -60,16 +60,16 @@ function getStoredDraftSummary(storedDraft) {
     }
 
     return {
-        pinCount: storedDraft.pins.length,
+        pinCount: storedDraft.pins.length + (storedDraft.removals ?? []).length,
         updatedAt: storedDraft.updatedAt,
     };
 }
 
-function contributeDraftShouldPersist(contributeStatus, pins) {
+function contributeDraftShouldPersist(contributeStatus, pins, removals = []) {
     return (
         contributeStatus !== 'idle' &&
         contributeStatus !== 'published' &&
-        pins.length > 0
+        pins.length + removals.length > 0
     );
 }
 
@@ -83,15 +83,21 @@ export function ContributeProvider({ children }) {
     const tour = useContributeTour(contributeStatus);
     const [draftUpdatedAt, setDraftUpdatedAt] = useState(null);
     const [pins, setPins] = useState([]);
+    const [removals, setRemovals] = useState([]);
     const [publishError, setPublishError] = useState(null);
     const [publishResult, setPublishResult] = useState(null);
     const [publishStatus, setPublishStatus] = useState('idle');
     const [storedDraftSummary, setStoredDraftSummary] = useState(null);
-    const draftStateRef = useRef({ changeset, contributeStatus, pins });
+    const draftStateRef = useRef({
+        changeset,
+        contributeStatus,
+        pins,
+        removals,
+    });
     const pinIdCounterRef = useRef(0);
     const publishIsInFlightRef = useRef(false);
 
-    draftStateRef.current = { changeset, contributeStatus, pins };
+    draftStateRef.current = { changeset, contributeStatus, pins, removals };
 
     useEffect(() => {
         let isActive = true;
@@ -118,16 +124,20 @@ export function ContributeProvider({ children }) {
     }, []);
 
     const persistDraftNow = useCallback(async () => {
-        const { changeset: currentChangeset, pins: currentPins } =
-            draftStateRef.current;
+        const {
+            changeset: currentChangeset,
+            pins: currentPins,
+            removals: currentRemovals,
+        } = draftStateRef.current;
 
-        if (currentPins.length === 0) {
+        if (currentPins.length + currentRemovals.length === 0) {
             return false;
         }
 
         const storedDraft = await writeStoredDraft({
             changeset: currentChangeset,
             pins: currentPins,
+            removals: currentRemovals,
         });
 
         if (!storedDraft) {
@@ -141,7 +151,7 @@ export function ContributeProvider({ children }) {
     }, []);
 
     useEffect(() => {
-        if (!contributeDraftShouldPersist(contributeStatus, pins)) {
+        if (!contributeDraftShouldPersist(contributeStatus, pins, removals)) {
             return undefined;
         }
 
@@ -152,22 +162,21 @@ export function ContributeProvider({ children }) {
         return () => {
             clearTimeout(autosaveTimeoutId);
         };
-    }, [changeset, contributeStatus, persistDraftNow, pins]);
+    }, [changeset, contributeStatus, persistDraftNow, pins, removals]);
 
     useEffect(() => {
-        // Removing the last pin mid-session must also remove the draft this
-        // session persisted, or deleted pins resurface through the resume card.
+        // Removing the last change must also remove the persisted draft.
         if (
             contributeStatus !== 'idle' &&
             contributeStatus !== 'published' &&
-            pins.length === 0 &&
+            pins.length + removals.length === 0 &&
             draftUpdatedAt
         ) {
             clearStoredDraft();
             setDraftUpdatedAt(null);
             setStoredDraftSummary(null);
         }
-    }, [contributeStatus, draftUpdatedAt, pins.length]);
+    }, [contributeStatus, draftUpdatedAt, pins.length, removals.length]);
 
     useEffect(() => {
         const appStateSubscription = AppState.addEventListener(
@@ -176,6 +185,7 @@ export function ContributeProvider({ children }) {
                 const {
                     contributeStatus: currentContributeStatus,
                     pins: currentPins,
+                    removals: currentRemovals,
                 } = draftStateRef.current;
 
                 if (
@@ -183,6 +193,7 @@ export function ContributeProvider({ children }) {
                     contributeDraftShouldPersist(
                         currentContributeStatus,
                         currentPins,
+                        currentRemovals,
                     )
                 ) {
                     persistDraftNow();
@@ -219,6 +230,7 @@ export function ContributeProvider({ children }) {
         setContributeStatus('idle');
         setDraftUpdatedAt(null);
         setPins([]);
+        setRemovals([]);
         setPublishError(null);
         setPublishResult(null);
         setPublishStatus('idle');
@@ -249,6 +261,48 @@ export function ContributeProvider({ children }) {
 
     const removePin = useCallback((pinId) => {
         setPins((currentPins) => currentPins.filter((pin) => pin.id !== pinId));
+    }, []);
+
+    const stageRemoval = useCallback(async (node, reason) => {
+        const removal = {
+            id: node.id,
+            version: node.version,
+            latitude: node.latitude,
+            longitude: node.longitude,
+            reason,
+        };
+        if (draftStateRef.current.contributeStatus === 'idle') {
+            const storedDraft = await readStoredDraft();
+            if (storedDraft) {
+                setChangeset(storedDraft.changeset);
+                setPins(storedDraft.pins);
+                setRemovals([
+                    ...(storedDraft.removals ?? []).filter(
+                        (item) => item.id !== node.id,
+                    ),
+                    removal,
+                ]);
+            } else {
+                setRemovals([removal]);
+            }
+        } else {
+            setRemovals((current) => [
+                ...current.filter((item) => item.id !== node.id),
+                removal,
+            ]);
+        }
+        setContributeStatus('draft');
+        setPublishError(null);
+        setPublishResult(null);
+        setPublishStatus('idle');
+    }, []);
+
+    const removeRemoval = useCallback((nodeId) => {
+        setRemovals((current) => current.filter((node) => node.id !== nodeId));
+    }, []);
+
+    const continueOnMap = useCallback(() => {
+        setContributeStatus('draft');
     }, []);
 
     const updatePinDetails = useCallback((pinId, detailsPatch) => {
@@ -286,6 +340,7 @@ export function ContributeProvider({ children }) {
         }
 
         setChangeset({ ...createDefaultChangeset(), ...storedDraft.changeset });
+        setRemovals(storedDraft.removals ?? []);
         setDraftUpdatedAt(storedDraft.updatedAt);
         setPins(
             storedDraft.pins.map((pin) => ({
@@ -313,10 +368,13 @@ export function ContributeProvider({ children }) {
             return;
         }
 
-        const { changeset: currentChangeset, pins: currentPins } =
-            draftStateRef.current;
+        const {
+            changeset: currentChangeset,
+            pins: currentPins,
+            removals: currentRemovals,
+        } = draftStateRef.current;
 
-        if (currentPins.length === 0) {
+        if (currentPins.length + currentRemovals.length === 0) {
             return;
         }
 
@@ -345,6 +403,7 @@ export function ContributeProvider({ children }) {
                 accessToken,
                 changesetTags: buildChangesetTags(currentChangeset),
                 nodes: uploadedNodes,
+                deletedNodes: currentRemovals,
             });
 
             const syncPayload = buildPublishedNodeSyncPayload({
@@ -383,9 +442,12 @@ export function ContributeProvider({ children }) {
                         currentPins[getUploadedNodeIndex(node, nodeIndex)]
                             ?.id ?? null,
                 })),
+                removedNodes: currentRemovals,
                 publishedAt: new Date().toISOString(),
             });
-            recordPublishedCameras((result.nodes ?? []).length);
+            if (result.nodes?.length) {
+                recordPublishedCameras(result.nodes.length);
+            }
             setPublishStatus('success');
             setContributeStatus('published');
             setDraftUpdatedAt(null);
@@ -393,6 +455,18 @@ export function ContributeProvider({ children }) {
             await clearStoredDraft();
             router.replace('/contribute/published');
         } catch (error) {
+            addCrashlyticsLog({
+                category: 'osm.publish',
+                level: 'warning',
+                message: 'Changeset upload failed',
+                data: {
+                    errorCode: error?.code,
+                    errorStatus: error?.status,
+                    errorDetail: error?.detail,
+                    nodeCount: currentPins.length,
+                    removalCount: currentRemovals.length,
+                },
+            });
             setPublishError(
                 error?.message ?? 'Publishing to OpenStreetMap failed.',
             );
@@ -410,6 +484,7 @@ export function ContributeProvider({ children }) {
     const resetForMoreCameras = useCallback(() => {
         setContributeStatus('placing');
         setPins([]);
+        setRemovals([]);
         setPublishError(null);
         setPublishResult(null);
         setPublishStatus('idle');
@@ -437,6 +512,10 @@ export function ContributeProvider({ children }) {
             publishResult,
             publishStatus,
             removePin,
+            removals,
+            stageRemoval,
+            removeRemoval,
+            continueOnMap,
             resetForMoreCameras,
             resumeStoredDraft,
             saveDraft: persistDraftNow,
@@ -465,6 +544,10 @@ export function ContributeProvider({ children }) {
             publishResult,
             publishStatus,
             removePin,
+            removals,
+            stageRemoval,
+            removeRemoval,
+            continueOnMap,
             resetContributeSession,
             resetForMoreCameras,
             resumeStoredDraft,

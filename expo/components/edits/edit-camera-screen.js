@@ -418,8 +418,8 @@ export default function EditCameraScreen() {
         setRemoveSheetIsOpen(false);
     }, []);
 
-    const handleRemoved = useCallback(() => {
-        router.back();
+    const handleRemovalStaged = useCallback(() => {
+        router.replace('/contribute/changeset');
     }, []);
 
     const handleSavePress = useCallback(async () => {
@@ -740,7 +740,7 @@ export default function EditCameraScreen() {
                                         Remove from map
                                     </Text>
                                     <Text className="mt-px text-xs text-daf-text-tertiary dark:text-neutral-400">
-                                        Publishes a delete changeset
+                                        Add a removal to your changeset
                                     </Text>
                                 </View>
                                 <Icon
@@ -788,7 +788,7 @@ export default function EditCameraScreen() {
                     isOpen={removeSheetIsOpen}
                     node={node}
                     onDismiss={handleRemoveSheetDismiss}
-                    onRemoved={handleRemoved}
+                    onStaged={handleRemovalStaged}
                 />
             ) : null}
         </View>

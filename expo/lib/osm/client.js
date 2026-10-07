@@ -23,9 +23,9 @@ import { normalizeOsmJsonChangeset, normalizeOsmJsonNode } from './normalizers';
 import { chunkUniqueValues, mapWithConcurrency } from './request-batching';
 import {
     buildChangesetCreateXML,
-    buildOsmChangeCreateXML,
     buildOsmChangeDeleteXML,
     buildOsmChangeModifyXML,
+    buildOsmChangeXML,
     parseChangesetCreateResponse,
     parseDiffResult,
     parseOsmChangeXML,
@@ -83,23 +83,32 @@ export async function createChangeset({ accessToken, signal, tags }) {
     return parseChangesetCreateResponse(await response.text());
 }
 
-export async function uploadCreatedNodes({
+export async function uploadNodeChanges({
     accessToken,
     changesetId,
     nodes,
+    deletedNodes = [],
     signal,
 }) {
     if (osmApiMocksAreEnabled()) {
-        return uploadMockCreatedNodes({ nodes, signal });
+        const created = (nodes ?? []).length
+            ? await uploadMockCreatedNodes({ nodes, signal })
+            : [];
+        const deleted = [];
+        for (const node of deletedNodes) {
+            deleted.push(...(await uploadMockDeletedNode({ node, signal })));
+        }
+        return [...created, ...deleted];
     }
 
     const response = await fetchOSM(
         `${getOSMApiBaseURL()}/changeset/${changesetId}/upload`,
         {
-            body: buildOsmChangeCreateXML({
+            body: buildOsmChangeXML({
                 changesetId,
                 generator: OSM_CREATED_BY,
                 nodes: (nodes ?? []).map(normalizeNodeForUpload),
+                deletedNodes,
             }),
             headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -347,6 +356,7 @@ export async function publishNodes({
     accessToken,
     changesetTags,
     nodes,
+    deletedNodes = [],
     onProgress,
 }) {
     const {
@@ -366,17 +376,19 @@ export async function publishNodes({
             }),
         onProgress,
         upload: (createdChangesetId) =>
-            uploadCreatedNodes({
+            uploadNodeChanges({
                 accessToken,
                 changesetId: createdChangesetId,
                 nodes,
+                deletedNodes,
             }),
     });
 
     return {
         changesetId,
         closeFailed,
-        nodes: diffNodes,
+        nodes: diffNodes.filter((node) => node.newId !== null),
+        deletedNodes: diffNodes.filter((node) => node.newId === null),
     };
 }
 

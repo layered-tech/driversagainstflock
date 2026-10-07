@@ -76,8 +76,18 @@ export default function PublishedScreen() {
     const publishedNodes = (publishResult.nodes ?? []).map((node) => {
         const publishedPin = pins.find((pin) => pin.id === node.pinId);
 
-        return { details: publishedPin?.details, nodeId: node.nodeId };
+        return {
+            details: publishedPin?.details,
+            nodeId: node.nodeId,
+            removed: false,
+        };
     });
+    publishedNodes.push(
+        ...(publishResult.removedNodes ?? []).map((node) => ({
+            nodeId: node.id,
+            removed: true,
+        })),
+    );
     const cameraCountLabel =
         publishedNodes.length === 1
             ? '1 camera'
@@ -114,7 +124,11 @@ export default function PublishedScreen() {
                         changeset/{formatChangesetId(publishResult.changesetId)}
                     </Text>
                     <Text className="mt-3 max-w-[260px] text-center text-[13px] leading-[19px] text-daf-text-secondary dark:text-neutral-300">
-                        {cameraCountLabel} added, credited to{' '}
+                        {cameraCountLabel}{' '}
+                        {publishResult.removedNodes?.length
+                            ? 'changed'
+                            : 'added'}
+                        , credited to{' '}
                         <Text className="font-bold text-daf-text-primary dark:text-white">
                             @{userName}
                         </Text>
@@ -138,7 +152,9 @@ export default function PublishedScreen() {
                                     className="min-w-0 flex-1 text-[13px] font-medium text-daf-text-primary dark:text-white"
                                     numberOfLines={1}
                                 >
-                                    {getPublishedNodeLabel(node.details)}
+                                    {node.removed
+                                        ? 'Removed camera'
+                                        : getPublishedNodeLabel(node.details)}
                                 </Text>
                                 <Text
                                     className="font-dafMono text-[11px] text-daf-text-tertiary dark:text-neutral-400"
@@ -150,8 +166,8 @@ export default function PublishedScreen() {
                         ))}
                     </View>
                     <Text className="mt-3.5 text-center text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400">
-                        They'll appear in Explore and on the Hotlist within
-                        minutes.
+                        Map updates will appear in Explore and on the Hotlist
+                        within minutes.
                     </Text>
                 </View>
             </ScrollView>

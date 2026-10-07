@@ -97,6 +97,61 @@ function makeRoute(
 const flush = async () => {
     for (let i = 0; i < 8; i++) await Promise.resolve();
 };
+
+test('direction steps retain passed maneuvers and jump directly to the current step', () => {
+    const route = makeRoute();
+    const option = directions.getSelectedDirectionsRouteOption(route);
+    option.maneuvers = [
+        { stepIndex: 0, type: 11, distance: 100, way_points: [0, 1] },
+        { stepIndex: 1, type: 1, distance: 600, way_points: [1, 2] },
+        { stepIndex: 2, type: 7, distance: 300, exit_number: 3 },
+        { stepIndex: 3, type: 10, distance: 0 },
+    ];
+    const steps = directions.getDirectionsSteps(route, {
+        stepIndex: 1,
+        distanceToManeuver: 75,
+    });
+    assert.deepEqual(
+        steps.map((step) => step.stepIndex),
+        [0, 1, 2, 3],
+    );
+    assert.deepEqual(
+        steps.map((step) => step.isCurrent),
+        [false, true, false, false],
+    );
+    assert.deepEqual(
+        steps.map((step) => step.displayDistance),
+        [100, 75, 300, 0],
+    );
+    assert.equal(steps[2].exit_number, 3);
+    assert.equal(option.maneuvers[1].isCurrent, undefined);
+    assert.deepEqual(steps[0].coordinate, [0, 0]);
+    assert.equal(steps[1].coordinate, option.coordinates[1]);
+    assert.equal(steps[2].coordinate, null);
+    assert.deepEqual(
+        directions
+            .getDirectionsSteps(route, {
+                stepIndex: 3,
+                distanceToManeuver: 0,
+            })
+            .filter((step) => step.isCurrent)
+            .map((step) => step.type),
+        [10],
+    );
+});
+
+test('direction steps reset for replacement routes and tolerate missing maneuvers', () => {
+    assert.deepEqual(directions.getDirectionsSteps(null, null), []);
+    const route = makeRoute();
+    const steps = directions.getDirectionsSteps(route, {
+        stepIndex: 20,
+    });
+    assert.equal(steps.length, 2);
+    assert.equal(
+        steps.some((step) => step.isCurrent),
+        false,
+    );
+});
 function harness() {
     let time = 10000;
     let state = { drivingModeIsActive: true, directionsRoute: makeRoute() };
@@ -446,9 +501,8 @@ test('the app controller consumes shared and automotive fixes without depending 
     assert.equal(updates.at(-1), 'cancel');
 });
 
-test('the phone card renders remaining distance, duration and arrival estimate', () => {
+function loadGuidanceCards(directionOverrides = {}) {
     const module = { exports: {} };
-    const calls = [];
     const jsx = require('@babel/plugin-transform-react-jsx');
     const source = transformSync(
         readFileSync(
@@ -467,34 +521,39 @@ test('the phone card renders remaining distance, duration and arrival estimate',
     const element = (type, props) => ({ type, props });
     const mocked = {
         'react/jsx-runtime': { jsx: element, jsxs: element },
-        'react-native': { View: 'View', Text: 'Text' },
+        'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable' },
         '../design-system/icon': { Icon: 'Icon' },
         '../design-system/primitives': { DafButton: 'Button' },
         '../design-system/tokens': { dafSemanticColors: {} },
         './constants': { DRIVING_DESTINATION_BOTTOM_PADDING: 0 },
         './roundabout-guidance': { getRoundaboutExitNumber: () => null },
-        './directions': {
-            DIRECTIONS_ROUTE_PRIVATE: 'ideal',
-            formatDirectionsArrivalTime: (v) => {
-                calls.push(['arrival', v]);
-                return 'arrival';
-            },
-            formatDirectionsDistance: (v) => {
-                calls.push(['distance', v]);
-                return 'distance';
-            },
-            formatDirectionsDuration: (v) => {
-                calls.push(['duration', v]);
-                return 'duration';
-            },
-        },
+        './directions': { ...directions, ...directionOverrides },
     };
     new Function('require', 'module', 'exports', source)(
         (name) => mocked[name],
         module,
         module.exports,
     );
-    module.exports.DestinationCard({
+    return module.exports;
+}
+
+test('the phone card renders remaining distance, duration and arrival estimate', () => {
+    const calls = [];
+    const { DestinationCard } = loadGuidanceCards({
+        formatDirectionsArrivalTime: (v) => {
+            calls.push(['arrival', v]);
+            return 'arrival';
+        },
+        formatDirectionsDistance: (v) => {
+            calls.push(['distance', v]);
+            return 'distance';
+        },
+        formatDirectionsDuration: (v) => {
+            calls.push(['duration', v]);
+            return 'duration';
+        },
+    });
+    DestinationCard({
         directionsRoute: makeRoute(),
         routeOption: { distance: 2000, duration: 1000 },
         remainingValues: { distanceRemaining: 500, durationRemaining: 450 },
@@ -504,4 +563,48 @@ test('the phone card renders remaining distance, duration and arrival estimate',
         ['distance', 500],
         ['arrival', 450],
     ]);
+});
+
+test('the maneuver bar and then chip focus the same locations as their list steps', () => {
+    const { ManeuverCard } = loadGuidanceCards();
+    const route = makeRoute();
+    const option = directions.getSelectedDirectionsRouteOption(route);
+    const [maneuver, nextManeuver] = option.maneuvers;
+    maneuver.instruction = 'Continue on Main Street';
+    nextManeuver.instruction = 'Arrive at destination';
+    const focused = [];
+    const card = ManeuverCard({
+        directionsRoute: route,
+        maneuver,
+        nextManeuver,
+        onStepFocus: (coordinate) => focused.push(coordinate),
+    });
+    const steps = directions.getDirectionsSteps(route, maneuver);
+    assert.equal(card.type, 'Pressable');
+    assert.equal(card.props.disabled, false);
+    card.props.onPress();
+    assert.deepEqual(focused, [steps[0].coordinate]);
+    const thenChip = card.props.children[2];
+    assert.equal(thenChip.props.disabled, false);
+    let propagationStopped = false;
+    thenChip.props.onPress({
+        stopPropagation: () => {
+            propagationStopped = true;
+        },
+    });
+    assert.equal(propagationStopped, true);
+    assert.deepEqual(focused, [steps[0].coordinate, steps[1].coordinate]);
+});
+
+test('maneuver focus is disabled without a valid coordinate', () => {
+    const { ManeuverCard } = loadGuidanceCards();
+    const card = ManeuverCard({
+        maneuver: { instruction: 'Continue' },
+        nextManeuver: { instruction: 'Turn right' },
+        onStepFocus() {
+            assert.fail('invalid coordinate focused');
+        },
+    });
+    assert.equal(card.props.disabled, true);
+    assert.equal(card.props.children[2].props.disabled, true);
 });

@@ -32,7 +32,7 @@ export function ContributePlacementSheet({
     tourTargets,
 }) {
     const { height: windowHeight } = useWindowDimensions();
-    const { contributePlacementIsActive, pins, removePin, tour } =
+    const { contributePlacementIsActive, pins, removals, removePin, tour } =
         useContribute();
     const sheetRef = useRef(null);
     const tourScrollRef = useRef(null);
@@ -73,8 +73,10 @@ export function ContributePlacementSheet({
     const handleNextPress = useCallback(() => {
         tour.dismissPhase('placement');
         tour.dismissStep('placed');
-        router.push('/contribute/camera/0');
-    }, [tour]);
+        router.push(
+            pins.length ? '/contribute/camera/0' : '/contribute/changeset',
+        );
+    }, [tour, pins.length]);
 
     if (!mapPreferencesAreLoaded) {
         return null;
@@ -125,6 +127,15 @@ export function ContributePlacementSheet({
                                 >
                                     {formatPlacedPinCount(pins.length)}
                                 </Text>
+                                {removals.length > 0 ? (
+                                    <Text className="text-sm text-daf-text-secondary dark:text-neutral-300">
+                                        {removals.length}{' '}
+                                        {removals.length === 1
+                                            ? 'removal'
+                                            : 'removals'}{' '}
+                                        in this changeset
+                                    </Text>
+                                ) : null}
                                 <Text className="text-sm text-daf-text-secondary dark:text-neutral-300">
                                     Tap a point to edit or remove
                                 </Text>
@@ -183,13 +194,21 @@ export function ContributePlacementSheet({
                                 targets={tourTargets}
                             >
                                 <DafButton
-                                    accessibilityLabel="Next: describe cameras"
-                                    disabled={pins.length === 0}
+                                    accessibilityLabel={
+                                        pins.length
+                                            ? 'Next: describe cameras'
+                                            : 'Next: changeset details'
+                                    }
+                                    disabled={
+                                        pins.length + removals.length === 0
+                                    }
                                     onPress={handleNextPress}
                                     size="lg"
                                     testID="contribute-next-details-button"
                                 >
-                                    Next: describe cameras
+                                    {pins.length
+                                        ? 'Next: describe cameras'
+                                        : 'Next: changeset details'}
                                 </DafButton>
                             </ContributeTourTarget>
                         </View>

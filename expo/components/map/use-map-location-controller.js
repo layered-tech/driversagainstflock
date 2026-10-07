@@ -547,7 +547,7 @@ export function useMapLocationController({
     );
 
     const moveCameraToCoordinate = useCallback(
-        (coordinate) => {
+        (coordinate, { padding } = {}) => {
             if (!Array.isArray(coordinate) || coordinate.length < 2) {
                 return false;
             }
@@ -567,6 +567,7 @@ export function useMapLocationController({
             const nextZoomLevel = clampZoomLevel(MARKER_FOCUS_ZOOM_LEVEL);
             const cameraStop = {
                 centerCoordinate: [normalizeLongitude(longitude), latitude],
+                ...(padding ? { padding } : {}),
                 zoomLevel: nextZoomLevel,
                 animationDuration: MARKER_FOCUS_CAMERA_ANIMATION_DURATION_MS,
                 animationMode: 'flyTo',

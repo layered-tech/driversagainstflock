@@ -242,6 +242,7 @@ function createDebugDrawerHarness(reset, featureTours = {}) {
 function createScreenHarness() {
     const dismissals = [];
     const routes = [];
+    const focusEffects = [];
     let publishCalls = 0;
     let screenIsFocused = true;
     const auth = {
@@ -254,6 +255,9 @@ function createScreenHarness() {
         contributeStatus: 'start-sheet',
         contributePlacementIsActive: true,
         changeset: { comment: '', source: 'survey', hashtags: '' },
+        removals: [],
+        continueOnMap() {},
+        removeRemoval() {},
         pins: [
             {
                 id: 'camera-1',
@@ -307,13 +311,17 @@ function createScreenHarness() {
             router: {
                 push: (route) => routes.push(route),
                 navigate: (route) => routes.push(route),
+                replace: (route) => routes.push(route),
             },
-            useFocusEffect() {},
+            useFocusEffect(effect) {
+                focusEffects.push(effect);
+            },
             useIsFocused: () => screenIsFocused,
             useLocalSearchParams: () => params,
         },
         '@gorhom/bottom-sheet': { BottomSheetScrollView: 'ScrollView' },
         '../../lib/auth': { useAuth: () => auth },
+        '../../lib/osm/edit-tags': { REMOVAL_REASONS: [] },
         '../../lib/safe-area-insets': {
             useSafeAreaInsets: () => ({ top: 20, bottom: 10 }),
         },
@@ -367,6 +375,7 @@ function createScreenHarness() {
         dismissals,
         params,
         routes,
+        focusEffects,
         publishCalls: () => publishCalls,
         setFocused: (focused) => {
             screenIsFocused = focused;
@@ -1151,6 +1160,28 @@ describe('spotlight positioning', () => {
 });
 
 describe('contribution screen integration', () => {
+    test('a restored camera route without an index shows the first addition', () => {
+        const harness = createScreenHarness();
+        delete harness.params.index;
+        const { default: CameraDetailsScreen } = harness.screen(
+            'camera-details-screen.js',
+        );
+        const tree = CameraDetailsScreen();
+        harness.focusEffects.forEach((effect) => effect());
+        assert.ok(findElement(tree, 'contribute-camera-details-screen'));
+        assert.deepEqual(harness.routes, []);
+    });
+    test('an empty camera screen opens the pending removal changeset', () => {
+        const harness = createScreenHarness();
+        harness.contribution.pins = [];
+        harness.contribution.removals = [{ id: 123, version: 1 }];
+        const { default: CameraDetailsScreen } = harness.screen(
+            'camera-details-screen.js',
+        );
+        CameraDetailsScreen();
+        harness.focusEffects.forEach((effect) => effect());
+        assert.deepEqual(harness.routes, ['/contribute/changeset']);
+    });
     test('passes screen-owned tour state and targets across the bottom-sheet portal boundary', () => {
         const harness = createScreenHarness();
         const { ContributeStartSheet } = harness.screen(
@@ -1321,6 +1352,40 @@ describe('contribution screen integration', () => {
         assert.deepEqual(harness.dismissals, ['changeset', 'source']);
     });
 
+    test('changeset details count removals and retain additions-only wording', () => {
+        const harness = createScreenHarness();
+        const { default: ChangesetDetailsScreen } = harness.screen(
+            'changeset-details-screen.js',
+        );
+        assert.match(
+            JSON.stringify(ChangesetDetailsScreen()),
+            /will be added to OpenStreetMap/,
+        );
+        harness.contribution.pins = [];
+        harness.contribution.removals = [
+            { id: 123, version: 2, reason: 'gone' },
+        ];
+        harness.contribution.changeset.comment = 'Removed a missing camera';
+        const tree = ChangesetDetailsScreen();
+        assert.equal(
+            findElement(tree, 'contribute-node-count').props.children,
+            '1 node',
+        );
+        assert.match(JSON.stringify(tree), /will be changed on OpenStreetMap/);
+        assert.equal(
+            findElement(tree, 'contribute-next-review-button').props.disabled,
+            false,
+        );
+        harness.contribution.removals = [];
+        assert.equal(
+            findElement(
+                ChangesetDetailsScreen(),
+                'contribute-next-review-button',
+            ).props.disabled,
+            true,
+        );
+    });
+
     test('renders review guidance without publishing and hides it while publishing', () => {
         const harness = createScreenHarness();
         const { default: ReviewPublishScreen } =
@@ -1342,6 +1407,32 @@ describe('contribution screen integration', () => {
             findElement(tree, 'contribute-save-draft-button').props.disabled,
             true,
         );
+    });
+
+    test('undoing the last removal disables publishing the empty changeset', () => {
+        const harness = createScreenHarness();
+        harness.contribution.pins = [];
+        harness.contribution.removals = [
+            { id: 123, version: 2, reason: 'gone' },
+        ];
+        harness.contribution.removeRemoval = (id) => {
+            harness.contribution.removals =
+                harness.contribution.removals.filter((node) => node.id !== id);
+        };
+        const { default: ReviewPublishScreen } =
+            harness.screen('review-screen.js');
+        const tree = ReviewPublishScreen();
+        assert.equal(
+            findElement(tree, 'contribute-publish-button').props.disabled,
+            false,
+        );
+        findElement(tree, 'contribute-undo-removal-123').props.onPress();
+        assert.equal(
+            findElement(ReviewPublishScreen(), 'contribute-publish-button')
+                .props.disabled,
+            true,
+        );
+        assert.equal(harness.publishCalls(), 0);
     });
 
     test('passes tour state into the published screen overlay', () => {

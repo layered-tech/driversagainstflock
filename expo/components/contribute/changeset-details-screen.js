@@ -36,7 +36,9 @@ export default function ChangesetDetailsScreen() {
     const screenIsFocused = useIsFocused();
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
-    const { changeset, pins, tour, updateChangeset } = useContribute();
+    const { changeset, pins, removals, continueOnMap, tour, updateChangeset } =
+        useContribute();
+    const changeCount = pins.length + removals.length;
     const commentIsEmpty = !changeset.comment.trim();
     const theme = getDafTheme(colorScheme);
     const footerPaddingBottom = Math.max(insets.bottom + 12, 28);
@@ -148,11 +150,13 @@ export default function ChangesetDetailsScreen() {
                                 className="font-bold"
                                 testID="contribute-node-count"
                             >
-                                {pins.length === 1
+                                {changeCount === 1
                                     ? '1 node'
-                                    : `${pins.length} nodes`}
+                                    : `${changeCount} nodes`}
                             </Text>{' '}
-                            will be added to OpenStreetMap.
+                            {removals.length
+                                ? 'will be changed on OpenStreetMap.'
+                                : 'will be added to OpenStreetMap.'}
                         </Text>
                     </View>
                 </View>
@@ -162,7 +166,17 @@ export default function ChangesetDetailsScreen() {
                 style={{ paddingBottom: footerPaddingBottom }}
             >
                 <DafButton
-                    disabled={commentIsEmpty}
+                    onPress={() => {
+                        continueOnMap();
+                        router.replace('/');
+                    }}
+                    testID="contribute-continue-map-button"
+                    variant="ghost"
+                >
+                    Add more changes on the map
+                </DafButton>
+                <DafButton
+                    disabled={commentIsEmpty || changeCount === 0}
                     onPress={handleNextPress}
                     size="lg"
                     testID="contribute-next-review-button"

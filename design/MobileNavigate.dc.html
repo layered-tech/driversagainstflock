@@ -80,6 +80,24 @@
                   <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" selected="{{ true }}" hint-size="auto,34px">Current location</x-import>
                   <x-import component-from-global-scope="DesignSystem_c71fad.Chip" tone="light" hint-size="auto,34px">Add stop</x-import>
                 </div>
+                <div style="border-top:1px solid var(--border); margin-top:14px; padding-top:10px;">
+                  <button aria-expanded="{{ advOpenForm }}" class="daf-ctl" onClick="{{ toggleAdvForm }}" style="display:flex; align-items:center; gap:9px; width:100%; padding:4px 2px; border:none; background:transparent; cursor:pointer; color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); -webkit-tap-highlight-color:transparent;">
+                    <svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block; flex:0 0 auto;" viewBox="0 0 24 24" width="16"><line x1="4" x2="4" y1="21" y2="14"></line><line x1="4" x2="4" y1="10" y2="3"></line><line x1="12" x2="12" y1="21" y2="12"></line><line x1="12" x2="12" y1="8" y2="3"></line><line x1="20" x2="20" y1="21" y2="16"></line><line x1="20" x2="20" y1="12" y2="3"></line><line x1="2" x2="6" y1="14" y2="14"></line><line x1="10" x2="14" y1="8" y2="8"></line><line x1="18" x2="22" y1="16" y2="16"></line></svg>
+                    <span>Advanced Settings</span>
+                    <span style="flex:1;"></span>
+                    <span style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary);">{{ bufferLabel }}</span>
+                    <span class="daf-chev" style="display:inline-flex; color:var(--text-tertiary);"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="16"><path d="m6 9 6 6 6-6"></path></svg></span>
+                  </button>
+                  <sc-if hint-placeholder-val="{{ false }}" value="{{ advOpenForm }}">
+                    <div style="margin-top:12px; display:grid; gap:12px;">
+                      <div style="display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--surface-card-alt); border-radius:var(--radius-md);">
+                        <span style="flex:1; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary);">Allow ALPR near start &amp; destination</span>
+                        <x-import checked="{{ allowNearEnds }}" component-from-global-scope="DesignSystem_c71fad.Switch" hint-size="48px,28px" onChange="{{ setAllowNearEnds }}"></x-import>
+                      </div>
+                      <x-import component-from-global-scope="DesignSystem_c71fad.Slider" format-value="{{ fmtBuffer }}" hint-size="100%,52px" label="Avoid cameras by" max="{{ bufMax }}" min="{{ bufMin }}" onChange="{{ setBuffer }}" show-value="{{ true }}" step="{{ bufStep }}" value="{{ bufferFt }}"></x-import>
+                    </div>
+                  </sc-if>
+                </div>
               </x-import>
             </div>
             <div style="position:absolute; left:12px; right:12px; bottom:46px; z-index:10;">
@@ -152,11 +170,17 @@
               <path d="M50 78 C 50 62, 52 50, 50 40 S 46 24, 48 12" fill="none" stroke="var(--route-private)" stroke-width="8" vector-effect="non-scaling-stroke" stroke-linecap="round"></path>
             </svg>
             <div style="position:absolute; left:50%; bottom:20%; transform:translate(-50%,50%); z-index:3; display:flex; flex-direction:column; align-items:center; gap:8px;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="user" heading="0" hint-size="64px,64px"></x-import><span style="font-family:var(--font-ui); font-size:12px; font-weight:700; letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-primary); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); padding:3px 10px; border-radius:var(--radius-pill); box-shadow:var(--shadow-marker); white-space:nowrap;">Market St</span></div>
-            <div style="position:absolute; top:56px; left:12px; right:12px; z-index:10;">
-              <x-import component-from-global-scope="DesignSystem_c71fad.NavBanner" maneuver="right" distance="500 ft" instruction="Turn right onto Market St" then="then continue 1.2 mi" hint-size="100%,auto"></x-import>
+            <div style="position:absolute; top:56px; left:12px; right:12px; z-index:10; display:flex; flex-direction:column;">
+              <div style="position:relative; z-index:2;"><x-import component-from-global-scope="DesignSystem_c71fad.NavBanner" distance="500 ft" hint-size="100%,auto" instruction="Turn right onto Market St" maneuver="right"></x-import></div>
+              <!-- Next-next step: a quiet tab tucked under the banner (banner shadow falls onto it) -->
+              <div style="position:relative; z-index:1; margin:0 16px; padding:7px 12px; display:flex; align-items:center; gap:8px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-top:none; border-radius:0 0 var(--radius-sm) var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-secondary);">
+                <span style="flex:0 0 auto; display:inline-flex; color:var(--text-tertiary);"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="16"><path d="m5 12 7-7 7 7"></path><path d="M12 19V5"></path></svg></span>
+                <span style="flex:1; min-width:0; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Then continue on Market St</span>
+                <span style="flex:0 0 auto; font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-size:var(--fs-caption); font-weight:600; color:var(--text-tertiary);">1.2 mi</span>
+              </div>
             </div>
-            <div class="daf-slb" style="position:absolute; left:12px; top:145px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" limit="35" current="{{ n41 }}" size="lg" hint-size="80px,115px"></x-import></div>
-            <div style="position:absolute; right:12px; top:145px; z-index:10; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
+            <div class="daf-slb" style="position:absolute; left:12px; top:182px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" current="{{ n41 }}" hint-size="80px,115px" limit="35" size="lg"></x-import></div>
+            <div style="position:absolute; right:12px; top:182px; z-index:10; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
               <button aria-label="Zoom in" style="width:46px; height:46px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
               <button aria-label="Zoom out" style="width:46px; height:46px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><span style="width:15px; height:2px; border-radius:2px; background:currentColor;"></span></button>
               <button aria-label="Recenter" style="width:46px; height:46px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="2" x2="5" y1="12" y2="12"></line><line x1="19" x2="22" y1="12" y2="12"></line><line x1="12" x2="12" y1="2" y2="5"></line><line x1="12" x2="12" y1="19" y2="22"></line><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="1"></circle></svg></button>
@@ -207,10 +231,16 @@
             </svg>
             <div style="position:absolute; left:50%; bottom:20%; transform:translate(-50%,50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="user" heading="0" hint-size="64px,64px"></x-import></div>
             <div style="position:absolute; left:50%; top:41%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="police" label="Police" hint-size="132px,132px"></x-import></div>
-            <div style="position:absolute; top:56px; left:12px; right:12px; z-index:10;">
-              <x-import component-from-global-scope="DesignSystem_c71fad.NavBanner" maneuver="right" distance="500 ft" instruction="Turn right onto Market St" then="then continue 1.2 mi" hint-size="100%,auto"></x-import>
+            <div style="position:absolute; top:56px; left:12px; right:12px; z-index:10; display:flex; flex-direction:column;">
+              <div style="position:relative; z-index:2;"><x-import component-from-global-scope="DesignSystem_c71fad.NavBanner" distance="500 ft" hint-size="100%,auto" instruction="Turn right onto Market St" maneuver="right"></x-import></div>
+              <!-- Next-next step: a quiet tab tucked under the banner (banner shadow falls onto it) -->
+              <div style="position:relative; z-index:1; margin:0 16px; padding:7px 12px; display:flex; align-items:center; gap:8px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-top:none; border-radius:0 0 var(--radius-sm) var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-secondary);">
+                <span style="flex:0 0 auto; display:inline-flex; color:var(--text-tertiary);"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="16"><path d="m5 12 7-7 7 7"></path><path d="M12 19V5"></path></svg></span>
+                <span style="flex:1; min-width:0; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Then continue on Market St</span>
+                <span style="flex:0 0 auto; font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-size:var(--fs-caption); font-weight:600; color:var(--text-tertiary);">1.2 mi</span>
+              </div>
             </div>
-            <div class="daf-slb" style="position:absolute; left:12px; top:145px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" limit="35" current="{{ n41 }}" size="lg" hint-size="80px,115px"></x-import></div>
+            <div class="daf-slb" style="position:absolute; left:12px; top:182px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" current="{{ n41 }}" hint-size="80px,115px" limit="35" size="lg"></x-import></div>
             <div style="position:absolute; left:0; right:0; bottom:0; z-index:10; display:flex; flex-direction:column; gap:12px;">
               <!-- Single alert: the card runs full width. Distance track fills left→right as you close in; the green user arrow
                    rides the leading edge toward the fixed report pin at the right end. -->
@@ -257,10 +287,16 @@
             </svg>
             <div style="position:absolute; left:50%; bottom:20%; transform:translate(-50%,50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="user" heading="0" hint-size="64px,64px"></x-import></div>
             <div style="position:absolute; left:47%; top:38%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="camera" heading="200" label="ALPR" hint-size="132px,132px"></x-import></div>
-            <div style="position:absolute; top:56px; left:12px; right:12px; z-index:10;">
-              <x-import component-from-global-scope="DesignSystem_c71fad.NavBanner" maneuver="right" distance="500 ft" instruction="Turn right onto Market St" then="then continue 1.2 mi" hint-size="100%,auto"></x-import>
+            <div style="position:absolute; top:56px; left:12px; right:12px; z-index:10; display:flex; flex-direction:column;">
+              <div style="position:relative; z-index:2;"><x-import component-from-global-scope="DesignSystem_c71fad.NavBanner" distance="500 ft" hint-size="100%,auto" instruction="Turn right onto Market St" maneuver="right"></x-import></div>
+              <!-- Next-next step: a quiet tab tucked under the banner (banner shadow falls onto it) -->
+              <div style="position:relative; z-index:1; margin:0 16px; padding:7px 12px; display:flex; align-items:center; gap:8px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-top:none; border-radius:0 0 var(--radius-sm) var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-secondary);">
+                <span style="flex:0 0 auto; display:inline-flex; color:var(--text-tertiary);"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="16"><path d="m5 12 7-7 7 7"></path><path d="M12 19V5"></path></svg></span>
+                <span style="flex:1; min-width:0; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Then continue on Market St</span>
+                <span style="flex:0 0 auto; font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-size:var(--fs-caption); font-weight:600; color:var(--text-tertiary);">1.2 mi</span>
+              </div>
             </div>
-            <div class="daf-slb" style="position:absolute; left:12px; top:145px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" limit="35" current="{{ n41 }}" size="lg" hint-size="80px,115px"></x-import></div>
+            <div class="daf-slb" style="position:absolute; left:12px; top:182px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" current="{{ n41 }}" hint-size="80px,115px" limit="35" size="lg"></x-import></div>
             <div style="position:absolute; left:0; right:0; bottom:0; z-index:10; display:flex; flex-direction:column; gap:12px;">
               <!-- Single alert: the card runs full width. Distance track fills left→right as you close in; the green user arrow
                    rides the leading edge toward the fixed report pin at the right end. -->
@@ -308,10 +344,16 @@
             <div style="position:absolute; left:50%; bottom:20%; transform:translate(-50%,50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="user" heading="0" hint-size="64px,64px"></x-import></div>
             <div style="position:absolute; left:50%; top:41%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="police" label="Police" hint-size="132px,132px"></x-import></div>
             <div style="position:absolute; left:47%; top:16%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" variant="camera" heading="200" label="ALPR" hint-size="132px,132px"></x-import></div>
-            <div style="position:absolute; top:56px; left:12px; right:12px; z-index:10;">
-              <x-import component-from-global-scope="DesignSystem_c71fad.NavBanner" maneuver="right" distance="500 ft" instruction="Turn right onto Market St" then="then continue 1.2 mi" hint-size="100%,auto"></x-import>
+            <div style="position:absolute; top:56px; left:12px; right:12px; z-index:10; display:flex; flex-direction:column;">
+              <div style="position:relative; z-index:2;"><x-import component-from-global-scope="DesignSystem_c71fad.NavBanner" distance="500 ft" hint-size="100%,auto" instruction="Turn right onto Market St" maneuver="right"></x-import></div>
+              <!-- Next-next step: a quiet tab tucked under the banner (banner shadow falls onto it) -->
+              <div style="position:relative; z-index:1; margin:0 16px; padding:7px 12px; display:flex; align-items:center; gap:8px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-top:none; border-radius:0 0 var(--radius-sm) var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-secondary);">
+                <span style="flex:0 0 auto; display:inline-flex; color:var(--text-tertiary);"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="16"><path d="m5 12 7-7 7 7"></path><path d="M12 19V5"></path></svg></span>
+                <span style="flex:1; min-width:0; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Then continue on Market St</span>
+                <span style="flex:0 0 auto; font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-size:var(--fs-caption); font-weight:600; color:var(--text-tertiary);">1.2 mi</span>
+              </div>
             </div>
-            <div class="daf-slb" style="position:absolute; left:12px; top:145px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" limit="35" current="{{ n41 }}" size="lg" hint-size="80px,115px"></x-import></div>
+            <div class="daf-slb" style="position:absolute; left:12px; top:182px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" current="{{ n41 }}" hint-size="80px,115px" limit="35" size="lg"></x-import></div>
             <div style="position:absolute; left:0; right:0; bottom:0; z-index:10; display:flex; flex-direction:column; gap:12px;">
               <!-- Two alerts: police left, ALPR right, split by a diagonal slash. Distance track fills left→right as you close in; the green user arrow
                    rides the leading edge toward the fixed report pin at the right end. -->
@@ -368,8 +410,9 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1500,&quot;height&quot;:1100},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
 class Component extends DCLogic {
-  state = { advOpen: false, bufferFt: 250, allowNearEnds: false, sheetH: 133, sheetDragging: false };
+  state = { advOpen: false, advOpenForm: false, bufferFt: 250, allowNearEnds: false, sheetH: 133, sheetDragging: false };
   toggleAdv() { this.setState(s => ({ advOpen: !s.advOpen })); }
+  toggleAdvForm() { this.setState(s => ({ advOpenForm: !s.advOpenForm })); }
   // Steps sheet drag: collapsed (ETA bar + hairline only) ↔ expanded (≤ ⅔ of the 844px map)
   get sheetMin() { return 133; }
   get sheetMax() { return 556; }
@@ -507,6 +550,8 @@ class Component extends DCLogic {
       n58: 58,
       advOpen: this.state.advOpen,
       toggleAdv: () => this.toggleAdv(),
+      advOpenForm: this.state.advOpenForm,
+      toggleAdvForm: () => this.toggleAdvForm(),
       bufferFt: this.state.bufferFt,
       bufMin: 0,
       bufMax: 1000,

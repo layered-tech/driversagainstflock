@@ -2,6 +2,7 @@ import { router, useIsFocused } from 'expo-router';
 import { useCallback, useRef } from 'react';
 import { Alert, ScrollView, Text, useColorScheme, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
+import { REMOVAL_REASONS } from '../../lib/osm/edit-tags';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { usePreventRemove } from '../../lib/use-prevent-remove';
 import { Icon } from '../design-system/icon';
@@ -57,6 +58,8 @@ export default function ReviewPublishScreen() {
         changeset,
         exitContribute,
         pins,
+        removals,
+        removeRemoval,
         publish,
         publishError,
         publishStatus,
@@ -125,7 +128,7 @@ export default function ReviewPublishScreen() {
                     </View>
                     <View>
                         <DafSectionLabel className="mb-1">
-                            Changes · {pins.length}
+                            Changes · {pins.length + removals.length}
                         </DafSectionLabel>
                         {pins.map((pin, pinIndex) => (
                             <ContributeTourTarget
@@ -167,6 +170,42 @@ export default function ReviewPublishScreen() {
                                     </Text>
                                 </View>
                             </ContributeTourTarget>
+                        ))}
+                        {removals.map((node) => (
+                            <View
+                                key={`remove-${node.id}`}
+                                className="flex-row items-center gap-3 py-2.5"
+                                testID={`contribute-review-removal-${node.id}`}
+                            >
+                                <Icon
+                                    name="trash"
+                                    color={dafColors.amber[600]}
+                                    size={17}
+                                />
+                                <View className="min-w-0 flex-1">
+                                    <Text className="text-[13px] font-medium text-daf-text-primary dark:text-white">
+                                        Remove camera · node/{node.id}
+                                    </Text>
+                                    <Text className="text-xs text-daf-text-tertiary dark:text-neutral-400">
+                                        {REMOVAL_REASONS.find(
+                                            (reason) =>
+                                                reason.value === node.reason,
+                                        )?.label ?? node.reason}{' '}
+                                        · v{node.version}
+                                    </Text>
+                                </View>
+                                <DafButton
+                                    disabled={
+                                        isPublishing ||
+                                        pins.length + removals.length === 0
+                                    }
+                                    onPress={() => removeRemoval(node.id)}
+                                    testID={`contribute-undo-removal-${node.id}`}
+                                    variant="ghost"
+                                >
+                                    Undo
+                                </DafButton>
+                            </View>
                         ))}
                     </View>
                     <View className="flex-row gap-4">
@@ -221,6 +260,7 @@ export default function ReviewPublishScreen() {
                 ) : null}
                 <ContributeTourTarget id="publish" targets={tourTargets}>
                     <DafButton
+                        disabled={pins.length + removals.length === 0}
                         icon="upload"
                         loading={isPublishing}
                         onPress={handlePublishPress}
@@ -234,7 +274,9 @@ export default function ReviewPublishScreen() {
                 </ContributeTourTarget>
                 <View className="h-2.5" />
                 <DafButton
-                    disabled={isPublishing}
+                    disabled={
+                        isPublishing || pins.length + removals.length === 0
+                    }
                     onPress={handleSaveDraftPress}
                     testID="contribute-save-draft-button"
                     variant="ghost"
