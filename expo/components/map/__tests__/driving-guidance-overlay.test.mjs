@@ -83,6 +83,9 @@ function loadComponent(source, dependencies) {
         },
         'react/jsx-runtime': { jsx: element, jsxs: element },
         'react-native': {
+            ActivityIndicator: 'ActivityIndicator',
+            Pressable: 'Pressable',
+            Text: 'Text',
             View: 'View',
             useColorScheme: () => 'light',
             useWindowDimensions: () => ({ height: 900, width: 400 }),
@@ -148,6 +151,219 @@ function loadOverlay(overrides = {}) {
         './speed-limit-layout': { MOBILE_SPEED_LIMIT_BADGE_SIZE: 80 },
         ...overrides,
     });
+}
+
+function loadButton() {
+    return loadComponent(
+        readFileSync(
+            new URL('../../design-system/primitives.js', import.meta.url),
+            'utf8',
+        ),
+        {
+            './icon': {},
+            './tokens': { dafSemanticColors: {} },
+        },
+    ).DafButton;
+}
+
+test('sheet-compatible buttons retain default controls, disabled states, and styling', () => {
+    const DafButton = loadButton();
+    const onPress = () => {};
+    const props = { onPress, variant: 'danger', children: 'Exit' };
+    const regularButton = DafButton(props);
+    assert.equal(regularButton.type, 'Pressable');
+    for (const [disabled, loading] of [
+        [false, false],
+        [true, false],
+        [false, true],
+    ]) {
+        const button = DafButton({
+            ...props,
+            disabled,
+            loading,
+            pressableComponent: 'SheetTouchable',
+        });
+        assert.equal(button.type, 'SheetTouchable');
+        assert.equal(button.props.onPress, onPress);
+        assert.equal(button.props.className, regularButton.props.className);
+        assert.equal(button.props.disabled, disabled || loading);
+        assert.deepEqual(button.props.accessibilityState, {
+            busy: loading,
+            disabled: disabled || loading,
+        });
+    }
+});
+
+for (const expanded of [false, true]) {
+    for (const rerouting of [false, true]) {
+        test(`Exit ends navigation with the drawer ${expanded ? 'expanded' : 'collapsed'} and rerouting ${rerouting ? 'active' : 'idle'}`, () => {
+            const destination = {
+                label: 'Austin Central Library',
+                placeId: 'library',
+                location: { longitude: -97.7518, latitude: 30.2654 },
+            };
+            const route = { destination };
+            const events = [];
+            const state = {
+                directionsRoute: route,
+                drivingModeIsActive: true,
+                pendingDirectionsRequest: { id: 'pending-route' },
+                pendingSearchResultRestore: null,
+            };
+            const set = (key) => (value) => {
+                state[key] = value;
+            };
+            const { DrivingGuidanceOverlay } = loadOverlay({
+                './analytics': {
+                    logMapDrivingStopped: ({ route }) =>
+                        events.push(['stopped', route]),
+                },
+                './directions': {
+                    createDirectionsRouteProgressTracker: () => ({
+                        update: () => null,
+                    }),
+                    getSelectedDirectionsRouteOption: (route) => route,
+                    getActiveDirectionsManeuver: () => null,
+                    getNextDirectionsManeuver: () => null,
+                    getDirectionsSteps: () => [],
+                    getRemainingDirectionsRouteValues: () => null,
+                    getDirectionsWaypointCoordinate: (waypoint) => [
+                        waypoint.location.longitude,
+                        waypoint.location.latitude,
+                    ],
+                },
+                './shared-navigation-controller': {
+                    useSharedNavigationRerouting: () => rerouting,
+                    cancelSharedNavigationRerouting: () =>
+                        events.push(['cancel-rerouting']),
+                },
+                './shared-map-state': {
+                    useSharedMapState: () => ({
+                        ...state,
+                        setDirectionsRoute: set('directionsRoute'),
+                        setDrivingModeIsActive: set('drivingModeIsActive'),
+                        setPendingDirectionsRequest: set(
+                            'pendingDirectionsRequest',
+                        ),
+                        setPendingSearchResultRestore: set(
+                            'pendingSearchResultRestore',
+                        ),
+                    }),
+                    useSharedMapLocationState: () => ({}),
+                },
+                './driving-steps-sheet': { DrivingStepsSheet: 'StepsSheet' },
+            });
+            const DafButton = loadButton();
+            const directions = {
+                getDirectionsSteps: () => [],
+                formatDirectionsArrivalTime: () => '',
+                formatDirectionsDistance: () => '',
+                formatDirectionsDuration: () => '',
+            };
+            const { DestinationCard } = loadComponent(
+                readFileSync(
+                    new URL('../driving-guidance-cards.js', import.meta.url),
+                    'utf8',
+                ),
+                {
+                    '../design-system/primitives': { DafButton },
+                    '../design-system/tokens': {},
+                    './directions': directions,
+                    './constants': { DRIVING_DESTINATION_BOTTOM_PADDING: 16 },
+                    './native-components': {
+                        NativeWindBottomSheetTouchableOpacity: 'SheetTouchable',
+                    },
+                },
+            );
+            let stateIndex = 0;
+            const { DrivingStepsSheet } = loadComponent(
+                readFileSync(
+                    new URL('../driving-steps-sheet.js', import.meta.url),
+                    'utf8',
+                ),
+                {
+                    react: {
+                        useCallback: (fn) => fn,
+                        useEffect() {},
+                        useMemo: (fn) => fn(),
+                        useRef: (initial) => ({ current: initial }),
+                        useState: () => [
+                            [expanded, true][stateIndex++],
+                            () => {},
+                        ],
+                    },
+                    './directions': directions,
+                    './driving-guidance-cards': { DestinationCard },
+                    './native-components': {
+                        NativeWindBottomSheet: 'BottomSheet',
+                        NativeWindBottomSheetFlatList: 'FlatList',
+                    },
+                },
+            );
+            const sheetNode = nodes(
+                DrivingGuidanceOverlay({
+                    routeExportIsAvailable: true,
+                    onRouteExport: () => events.push(['export']),
+                }),
+            ).find((node) => node.type === 'StepsSheet');
+            const sheet = DrivingStepsSheet(sheetNode.props);
+            const summary = sheet.props.handleComponent().props.children[1];
+            assert.equal(sheet.props.index, 0);
+            assert.equal(
+                sheet.props.handleComponent().props.children[0].props
+                    .accessibilityState.expanded,
+                expanded,
+            );
+            const summaryNodes = nodes(DestinationCard(summary.props));
+            const exportButton = DafButton(
+                summaryNodes.find(
+                    (node) =>
+                        node.props.testID === 'driving-route-export-button',
+                ).props,
+            );
+            assert.equal(exportButton.type, 'SheetTouchable');
+            exportButton.props.onPress();
+            assert.deepEqual(events, [['export']]);
+            events.length = 0;
+            const button = summaryNodes.find(
+                (node) => node.props.testID === 'driving-cancel-route-button',
+            );
+            const control = DafButton(button.props);
+            assert.equal(
+                control.type,
+                'SheetTouchable',
+                'The Exit button must use a touchable compatible with the drawer pan gesture',
+            );
+            assert.equal(control.props.accessibilityRole, 'button');
+            assert.equal(control.props.disabled, false);
+            control.props.onPress();
+            assert.equal(state.directionsRoute, null);
+            assert.equal(state.drivingModeIsActive, false);
+            assert.equal(state.pendingDirectionsRequest, null);
+            assert.deepEqual(events, [
+                ['cancel-rerouting'],
+                ['stopped', route],
+            ]);
+            assert.equal(
+                state.pendingSearchResultRestore.result.placeId,
+                'library',
+            );
+            assert.equal(
+                state.pendingSearchResultRestore.result.label,
+                destination.label,
+            );
+            assert.deepEqual(state.pendingSearchResultRestore.place.location, {
+                latitude: 30.2654,
+                longitude: -97.7518,
+            });
+            assert.equal(
+                nodes(DrivingGuidanceOverlay({})).some(
+                    (node) => node.type === 'StepsSheet',
+                ),
+                false,
+            );
+        });
+    }
 }
 
 test('paused and resumed follow toggle visibility while keeping the speed and road components mounted', () => {

@@ -73,6 +73,7 @@ export function DafButton({
     icon,
     loading = false,
     onPress,
+    pressableComponent: PressableComponent = Pressable,
     size = 'md',
     testID,
     variant = 'primary',
@@ -109,7 +110,7 @@ export function DafButton({
     const isDisabled = disabled || loading;
 
     return (
-        <Pressable
+        <PressableComponent
             accessibilityLabel={accessibilityLabel}
             accessibilityRole="button"
             accessibilityState={{ busy: loading, disabled: isDisabled }}
@@ -131,7 +132,7 @@ export function DafButton({
             >
                 {children}
             </Text>
-        </Pressable>
+        </PressableComponent>
     );
 }
 

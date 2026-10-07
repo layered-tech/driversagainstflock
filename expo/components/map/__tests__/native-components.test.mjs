@@ -33,6 +33,7 @@ test('the persistent bottom sheet resolves themed styles before passing them to 
             BottomSheetFlatList: 'BottomSheetFlatList',
             BottomSheetScrollView: 'BottomSheetScrollView',
             BottomSheetView: 'BottomSheetView',
+            TouchableOpacity: 'BottomSheetTouchableOpacity',
         },
         '@rnmapbox/maps': { MapView: 'MapView' },
         'expo-glass-effect': { GlassView: 'GlassView' },
@@ -70,4 +71,8 @@ test('the persistent bottom sheet resolves themed styles before passing them to 
         backgroundClassName: 'backgroundStyle',
         handleIndicatorClassName: 'handleIndicatorStyle',
     });
+    const touchable = module.exports.NativeWindBottomSheetTouchableOpacity;
+    assert.equal(touchable.component, 'BottomSheetTouchableOpacity');
+    assert.equal(touchable.resolvesStyles, true);
+    assert.deepEqual(touchable.mapping, { className: 'style' });
 });

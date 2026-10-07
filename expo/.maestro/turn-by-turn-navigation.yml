@@ -118,7 +118,14 @@ tags:
 - assertVisible: 'Austin Central Library'
 - tapOn:
     id: 'driving-cancel-route-button'
-    retryTapIfNoChange: true
+- extendedWaitUntil:
+    notVisible:
+      id: 'driving-destination-card'
+    timeout: 10000
+- assertNotVisible:
+    id: 'driving-maneuver-card'
+- assertNotVisible:
+    id: 'driving-cancel-route-button'
 - runFlow:
     when:
       visible:

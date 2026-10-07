@@ -20,6 +20,7 @@ import {
     getDirectionsManeuverCoordinate,
 } from './directions';
 import { getRoundaboutExitNumber } from './roundabout-guidance';
+import { NativeWindBottomSheetTouchableOpacity } from './native-components';
 
 function RoundaboutExitIcon({ exitNumber }) {
     return (
@@ -413,6 +414,7 @@ export function DestinationCard({
                 <DafButton
                     accessibilityLabel="End route guidance"
                     onPress={onCancelRoute}
+                    pressableComponent={NativeWindBottomSheetTouchableOpacity}
                     testID="driving-cancel-route-button"
                     variant="danger"
                 >
@@ -424,6 +426,7 @@ export function DestinationCard({
                     accessibilityLabel="Export route as GPX or KML text"
                     icon="download"
                     onPress={onExportRoute}
+                    pressableComponent={NativeWindBottomSheetTouchableOpacity}
                     testID="driving-route-export-button"
                     variant="secondary"
                 >

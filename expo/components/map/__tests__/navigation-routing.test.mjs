@@ -564,6 +564,9 @@ function loadGuidanceCards(
             }),
         },
         './constants': { DRIVING_DESTINATION_BOTTOM_PADDING: 0 },
+        './native-components': {
+            NativeWindBottomSheetTouchableOpacity: 'SheetTouchable',
+        },
         './roundabout-guidance': { getRoundaboutExitNumber: () => null },
         './directions': { ...directions, ...directionOverrides },
     };

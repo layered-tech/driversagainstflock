@@ -4,6 +4,7 @@ import {
     BottomSheetScrollView,
     BottomSheetView,
     default as BottomSheet,
+    TouchableOpacity as BottomSheetTouchableOpacity,
 } from '@gorhom/bottom-sheet';
 import Mapbox from '@rnmapbox/maps';
 import { GlassView } from 'expo-glass-effect';
@@ -30,6 +31,11 @@ export const NativeWindBottomSheetFlatList = remapProps(BottomSheetFlatList, {
     className: 'style',
     contentContainerClassName: 'contentContainerStyle',
 });
+
+export const NativeWindBottomSheetTouchableOpacity = cssInterop(
+    BottomSheetTouchableOpacity,
+    { className: 'style' },
+);
 
 export const NativeWindBottomSheetScrollView = remapProps(
     BottomSheetScrollView,
