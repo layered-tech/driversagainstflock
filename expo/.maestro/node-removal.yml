@@ -1,0 +1,125 @@
+appId: com.anonymous.drivefree.dev
+name: OSM Node Removal Mocked
+tags:
+  - map
+  - contribute
+  - node-removal
+---
+- setLocation:
+    latitude: 30.26715
+    longitude: -97.74035
+- launchApp:
+    clearState: true
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    file: subflows/open-expo-dev-client-after-clear.yml
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-(map|driving)'
+    timeout: 120000
+- runFlow:
+    when:
+      visible:
+        id: 'exit-free-drive-button'
+    commands:
+      - tapOn:
+          id: 'exit-free-drive-button'
+          retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 120000
+- openLink: 'driversagainstflock://e2e-mocks?auth=1'
+- extendedWaitUntil:
+    visible:
+      id: 'map-marker-0-map'
+    timeout: 60000
+- tapOn:
+    id: 'map-marker-0-map'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'marker-details-delete-node-button'
+    timeout: 10000
+- tapOn:
+    id: 'marker-details-delete-node-button'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'remove-camera-sheet'
+    timeout: 10000
+- assertVisible: 'Remove this camera?'
+- tapOn:
+    id: 'remove-camera-cancel-button'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    notVisible:
+      id: 'remove-camera-sheet'
+    timeout: 10000
+- assertVisible:
+    id: 'edit-camera-screen'
+# Cancel must leave the node available, including another Delete from the map.
+- tapOn:
+    id: 'edit-camera-back-button'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'map-marker-0-map'
+    timeout: 10000
+- tapOn:
+    id: 'map-marker-0-map'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'marker-details-delete-node-button'
+    timeout: 10000
+- tapOn:
+    id: 'marker-details-delete-node-button'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'remove-camera-sheet'
+    timeout: 10000
+- tapOn:
+    id: 'remove-camera-cancel-button'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    notVisible:
+      id: 'remove-camera-sheet'
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: 'edit-camera-remove-row'
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: 'edit-camera-remove-row'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'remove-camera-sheet'
+    timeout: 10000
+- tapOn:
+    id: 'remove-camera-reason-duplicate'
+    retryTapIfNoChange: false
+- tapOn:
+    id: 'remove-camera-confirm-button'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 10000
+- assertNotVisible:
+    id: 'remove-camera-error'
+# Reloading the same OSM node proves confirmation published the deletion.
+- openLink: 'driversagainstflock://edits/1234567890'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-camera-deleted-message'
+    timeout: 10000
+- assertNotVisible:
+    id: 'edit-camera-save-button'

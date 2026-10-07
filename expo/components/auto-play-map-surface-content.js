@@ -2111,6 +2111,7 @@ export function AutoPlayMapSurfaceContent({
                 routePreviewIsActive ||
                 searchResultsMapIsActive ||
                 autoPlayState.routeLoading ||
+                autoPlayState.searchLoading ||
                 drivingMapViewMode !== DRIVING_MAP_VIEW_PERSPECTIVE,
             ),
             warningBusy:
@@ -2597,6 +2598,7 @@ export function AutoPlayMapSurfaceContent({
                             presentation.mapControlLayoutInsets
                         }
                         routeLoading={autoPlayState.routeLoading}
+                        searchLoading={autoPlayState.searchLoading}
                         singleResultCountdown={
                             autoPlayState.singleResultCountdown
                         }

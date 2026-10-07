@@ -145,6 +145,7 @@ const MOCK_MARKER_POINTS = [
             direction: '90',
             heading: '90',
             id: 'mock-austin-alpr-marker',
+            osm_id: 'node/1234567890',
             osm_nodes: [
                 {
                     node_id: 1234567890,

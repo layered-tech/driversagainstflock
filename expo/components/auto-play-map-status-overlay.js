@@ -17,22 +17,30 @@ import {
 } from './map/speed-limit';
 import { AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE } from './map/speed-limit-layout';
 
-function AutoPlayRouteLoadingCard({ isDarkMode, routeLoading }) {
-    const destinationLabel = String(routeLoading.destinationLabel ?? '').trim();
-    const loadingText = destinationLabel
-        ? `Finding route to ${destinationLabel}`
-        : 'Finding route';
+function AutoPlayRouteLoadingCard({ isDarkMode, routeLoading, searchLoading }) {
+    const destinationLabel = String(
+        searchLoading?.query ?? routeLoading?.destinationLabel ?? '',
+    ).trim();
+    const loadingText = searchLoading
+        ? `Searching for ${destinationLabel}`
+        : destinationLabel
+          ? `Finding route to ${destinationLabel}`
+          : 'Finding route';
 
     return (
         <View
             accessibilityLabel={loadingText}
             accessibilityRole="progressbar"
-            className={`${isDarkMode ? 'border-daf-border-glass-dark bg-daf-surface-dark/95' : 'border-daf-border-glass bg-white/95'} max-w-[360px] flex-row items-center gap-3 rounded-dafPill border px-5 py-3 shadow-[0px_4px_18px_rgba(11,14,18,0.22)]`}
-            testID="auto-play-route-loading-card"
+            className={`${isDarkMode ? 'border-daf-border-glass-dark bg-daf-surface-dark/95' : 'border-daf-border-glass bg-white/95'} max-w-[360px] flex-row items-center gap-2 rounded-dafPill border px-3 py-2`}
+            testID={
+                searchLoading
+                    ? 'auto-play-search-loading-card'
+                    : 'auto-play-route-loading-card'
+            }
         >
             <ActivityIndicator color={dafSemanticColors.brand} size="small" />
             <Text
-                className={`min-w-0 flex-shrink text-[15px] font-semibold leading-[19px] ${isDarkMode ? 'text-white' : 'text-daf-text-primary'}`}
+                className={`min-w-0 flex-shrink text-[14px] font-medium leading-[18px] ${isDarkMode ? 'text-white' : 'text-daf-text-primary'}`}
                 numberOfLines={2}
             >
                 {loadingText}
@@ -92,12 +100,13 @@ export function AutoPlayTopRightStatusOverlay({
     isDarkMode,
     mapControlLayoutInsets,
     routeLoading,
+    searchLoading,
     singleResultCountdown,
 }) {
     const systemColorScheme = useColorScheme();
     const resolvedIsDarkMode = isDarkMode ?? systemColorScheme === 'dark';
 
-    if (!routeLoading && !singleResultCountdown) {
+    if (!routeLoading && !searchLoading && !singleResultCountdown) {
         return null;
     }
 
@@ -118,10 +127,11 @@ export function AutoPlayTopRightStatusOverlay({
                     isDarkMode={resolvedIsDarkMode}
                 />
             ) : null}
-            {routeLoading ? (
+            {routeLoading || searchLoading ? (
                 <AutoPlayRouteLoadingCard
                     isDarkMode={resolvedIsDarkMode}
                     routeLoading={routeLoading}
+                    searchLoading={searchLoading}
                 />
             ) : null}
         </View>

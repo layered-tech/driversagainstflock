@@ -150,34 +150,18 @@ test('CarPlay presents errors with an alert-compatible message template', () => 
     );
 });
 
-test('CarPlay presents voice results in a list without duplicating keyboard results', () => {
-    assert.match(iosPlatformSource, /presentsVoiceSearchResultsInList:\s*true/);
-    assert.match(
-        autoPlaySource,
-        /const presentsVoiceSearchResultsInList\s*=\s*autoAdvanceSingleResult[\s\S]*?presentsVoiceSearchResultsInList === true/,
+test('CarPlay and Android Auto voice searches load on the map before presenting results', () => {
+    const start = autoPlaySource.indexOf(
+        'function openVoiceSearchResultsTemplate(',
     );
+    const end = autoPlaySource.indexOf('function getRouteNumberDelta(', start);
+    const source = autoPlaySource.slice(start, end);
+    assert.match(source, /popToRootTemplate\(false\)/);
+    assert.match(source, /runPlaceTextSearch/);
+    assert.doesNotMatch(source, /new ListTemplate|new SearchTemplate/);
     assert.match(
         autoPlaySource,
-        /presentAutoPlaySearchResults\(\{[\s\S]*?includesMap: showsSearchResultsOnMap/,
-    );
-});
-
-test('CarPlay voice searches use a visible loading list instead of an empty search field', () => {
-    assert.match(
-        autoPlaySource,
-        /function openVoiceSearchResultsTemplate\([\s\S]*?const \{ ListTemplate \} = loadAutoPlayModule\(\)[\s\S]*?getAutoPlaySearchLoadingCopy\(searchQuery\)[\s\S]*?new ListTemplate\([\s\S]*?loadingCopy\.title[\s\S]*?loadingCopy\.detailedText/,
-    );
-    assert.match(
-        autoPlaySource,
-        /openVoiceSearchResultsTemplate[\s\S]*?resultTemplateIsAlreadyPresented: true/,
-    );
-    assert.match(
-        autoPlaySource,
-        /searchTemplateWasUpdated[\s\S]*?!resultTemplateIsAlreadyPresented[\s\S]*?presentAutoPlaySearchResults/,
-    );
-    assert.match(
-        autoPlaySource,
-        /presentsVoiceSearchResultsInList === true[\s\S]*?openVoiceSearchResultsTemplate[\s\S]*?voiceSearchOptions[\s\S]*?: openSearchTemplate\(\s*searchQuery/,
+        /presentAutoPlaySearchResults\(\{\s*includesMap: true/,
     );
 });
 

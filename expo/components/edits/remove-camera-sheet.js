@@ -41,6 +41,7 @@ export function RemoveCameraSheet({ isOpen, node, onDismiss, onRemoved }) {
     const insets = useSafeAreaInsets();
     const { ensureWriteAccess, openStreetMapAccessToken, user } = useAuth();
     const sheetRef = useRef(null);
+    const sheetWasPresentedRef = useRef(false);
     const [removeError, setRemoveError] = useState(null);
     const [removeStatus, setRemoveStatus] = useState('idle');
     const [selectedReason, setSelectedReason] = useState(
@@ -52,8 +53,10 @@ export function RemoveCameraSheet({ isOpen, node, onDismiss, onRemoved }) {
 
     useEffect(() => {
         if (isOpen) {
+            sheetWasPresentedRef.current = true;
             sheetRef.current?.present();
-        } else {
+        } else if (sheetWasPresentedRef.current) {
+            sheetWasPresentedRef.current = false;
             sheetRef.current?.dismiss();
         }
     }, [isOpen]);
@@ -72,6 +75,7 @@ export function RemoveCameraSheet({ isOpen, node, onDismiss, onRemoved }) {
     );
 
     const handleSheetDismiss = useCallback(() => {
+        sheetWasPresentedRef.current = false;
         setRemoveError(null);
         setRemoveStatus('idle');
         setSelectedReason(REMOVAL_REASONS[0].value);
@@ -153,7 +157,7 @@ export function RemoveCameraSheet({ isOpen, node, onDismiss, onRemoved }) {
             onDismiss={handleSheetDismiss}
         >
             <NativeWindBottomSheetView
-                className="dark:bg-daf-surface-dark bg-white"
+                className="bg-white dark:bg-daf-surface-dark"
                 testID="remove-camera-sheet"
             >
                 <View

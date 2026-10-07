@@ -47,7 +47,12 @@ function createSavedSearchTemplateHarness(
     const functionSource = autoPlaySource.slice(functionStart, functionEnd);
     const updates = [];
     const selections = [];
-    const state = { listener: null, template: null, unsubscribed: false };
+    const state = {
+        listener: null,
+        template: null,
+        unsubscribed: false,
+        cancellations: 0,
+    };
     class SearchTemplate {
         constructor(config) {
             this.config = config;
@@ -65,12 +70,15 @@ function createSavedSearchTemplateHarness(
                 state.unsubscribed = true;
             };
         },
-        cancelAutoPlaySearchWork() {},
+        cancelAutoPlaySearchWork() {
+            state.cancellations += 1;
+        },
         clearAutoPlaySubmittedSearchResults() {},
         createAutoPlaySearchTemplateLifecycle: () => ({
             waitForResultTemplatePushes() {},
         }),
         createAutoPlaySearchCallbackState,
+        PLACE_SEARCH_MIN_QUERY_LENGTH: 2,
         getBackHeaderAction: (onPress) => ({ onPress }),
         getAutoPlaySearchLoadingCopy: (query) => ({
             detailedText: `Looking for ${query}.`,
@@ -102,7 +110,7 @@ function createSavedSearchTemplateHarness(
     return { openSearchTemplate, selections, state, updates };
 }
 
-test('late search text callbacks keep the processing row visible', async () => {
+test('late search callbacks cannot reset a submitted search', async () => {
     let finishSearch;
     const pendingSearch = new Promise((resolve) => {
         finishSearch = resolve;
@@ -129,7 +137,36 @@ test('late search text callbacks keep the processing row visible', async () => {
     finishSearch();
     await search;
     harness.state.template.config.onSearchTextChanged('');
-    assert.equal(harness.updates.at(-1).items[0].title.text, 'Home');
+    assert.equal(harness.updates.at(-1).items[0].title.text, 'Searching...');
+});
+
+test('submission survives native dismissal and ignores late voice callbacks', async () => {
+    let finish;
+    let searches = 0;
+    const harness = createSavedSearchTemplateHarness(
+        Promise.resolve({ places: [] }),
+        () => {
+            searches += 1;
+            return new Promise((resolve) => {
+                finish = resolve;
+            });
+        },
+    );
+    await harness.openSearchTemplate().pushPromise;
+    const cancellations = harness.state.cancellations;
+    const search =
+        harness.state.template.config.onSearchTextSubmitted('New York coffee');
+    harness.state.template.config.onPopped();
+    harness.state.template.config.onSearchTextChanged('');
+    harness.state.template.config.onSearchTextChanged('New York');
+    await harness.state.template.config.onSearchTextSubmitted(
+        'New York coffee',
+    );
+    assert.equal(searches, 1);
+    assert.equal(harness.state.cancellations, cancellations);
+    assert.equal(harness.state.unsubscribed, true);
+    finish();
+    await search;
 });
 
 test('an initial voice query opens with a processing row', async () => {
@@ -219,7 +256,7 @@ test('Android Auto presents submitted place results with the host map', () => {
     );
     assert.match(
         autoPlaySource,
-        /const showsSearchResultsOnMap[\s\S]*?showsSearchResultsOnMap === true[\s\S]*?presentAutoPlaySearchResults/,
+        /presentAutoPlaySearchResults\(\{\s*includesMap: true/,
     );
     assert.match(
         autoPlaySource,
@@ -253,10 +290,10 @@ test('Auto Play omits the unreachable header driving-mode toggle', () => {
     assert.match(autoPlaySource, /function setAutoPlayDrivingModeIsActive/);
 });
 
-test('Android Auto publishes submitted results before opening its map-backed list', () => {
+test('submitted results open without updating the dismissed search template', () => {
     assert.match(
         autoPlaySource,
-        /const searchTemplateWasUpdated = await updateSearchTemplateResults\([\s\S]*?const showsSearchResultsOnMap[\s\S]*?searchTemplateWasUpdated &&[\s\S]*?showsSearchResultsOnMap \|\| presentsVoiceSearchResultsInList[\s\S]*?presentAutoPlaySearchResults\(/,
+        /await prepareMap\(\)[\s\S]*?searchTextPlaces\([\s\S]*?presentAutoPlaySearchResults\(/,
     );
     assert.match(
         autoPlaySource,
@@ -275,7 +312,7 @@ test('voice searches visibly count down before advancing a sole result', () => {
     );
     assert.match(
         autoPlaySource,
-        /results\.length === 1[\s\S]*?resultTemplateIsAlreadyPresented[\s\S]*?resultTemplatePresentation\?\.pushPromise[\s\S]*?await resultTemplatePresentation\.pushPromise[\s\S]*?scheduleAutoPlaySingleResultAutoAdvance/,
+        /await resultTemplatePresentation\.pushPromise[\s\S]*?results\.length === 1[\s\S]*?scheduleAutoPlaySingleResultAutoAdvance/,
     );
     assert.match(
         autoPlaySource,

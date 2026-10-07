@@ -148,3 +148,27 @@ describe('Auto Play route-loading overlay', () => {
         );
     });
 });
+
+test('search and route loading use the same compact destination pill', () => {
+    assert.match(autoPlayStateSource, /searchLoading: null/);
+    assert.match(
+        mapSurfaceSource,
+        /searchLoading=\{autoPlayState\.searchLoading\}/,
+    );
+    assert.match(
+        mapStatusOverlaySource,
+        /searchLoading\?\.query \?\? routeLoading\?\.destinationLabel/,
+    );
+    assert.match(
+        mapStatusOverlaySource,
+        /Searching for \$\{destinationLabel\}/,
+    );
+    assert.match(
+        mapStatusOverlaySource,
+        /gap-2 rounded-dafPill border px-3 py-2/,
+    );
+    assert.match(
+        mapStatusOverlaySource,
+        /routeLoading \|\| searchLoading \? \(/,
+    );
+});

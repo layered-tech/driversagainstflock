@@ -42,11 +42,11 @@ tags:
 - tapOn:
     id: 'drawer-scorecard-button'
     retryTapIfNoChange: true
+- runFlow: subflows/scorecard-tour-skip-first-visit.yml
 - extendedWaitUntil:
     visible:
       id: 'scorecard-dashboard'
     timeout: 10000
-- runFlow: subflows/scorecard-tour-skip-first-visit.yml
 - assertVisible: 'Level 4 · Ghost'
 - assertVisible: '86'
 - assertVisible: '27'

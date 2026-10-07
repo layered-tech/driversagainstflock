@@ -27,6 +27,15 @@ tags:
 - tapOn:
     id: 'map-contribute-button'
     retryTapIfNoChange: false
+- runFlow:
+    when:
+      visible:
+        id: 'contribute-tour-start'
+    commands:
+      - tapOn:
+          id: 'contribute-tour-skip-start'
+          retryTapIfNoChange: false
+          waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
     visible:
       id: 'contribute-start-sheet'

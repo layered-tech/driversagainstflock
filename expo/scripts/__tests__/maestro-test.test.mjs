@@ -809,16 +809,16 @@ R58M offline
 
         const tapCount = source.match(/- tapOn:/g)?.length;
 
-        assert.equal(tapCount, 19);
+        assert.equal(tapCount, 21);
         assert.equal(
             source.match(/retryTapIfNoChange: false/g)?.length,
             tapCount,
         );
         assert.equal(
             source.match(/waitToSettleTimeoutMs: 0/g)?.length,
-            tapCount + 4,
+            tapCount + 3,
         );
-        assert.equal(source.match(/- swipe:/g)?.length, 4);
+        assert.equal(source.match(/- swipe:/g)?.length, 3);
         assert.equal(source.match(/timeout: 1000(?:\s|$)/g)?.length, 3);
         assert.doesNotMatch(source, /- assertNotVisible:/);
     });
@@ -855,3 +855,65 @@ describe('Managed Metro crash reporting', () => {
         assert.equal(message.split('\n').length, 2);
     });
 });
+
+for (const flow of [
+    'map-layer-options.yml',
+    'map-settings-first-open-driving.yml',
+]) {
+    test(`${flow} dismisses first-run guidance before asserting the underlying settings sheet`, () => {
+        const source = readFileSync(
+            path.join(EXPO_DIRECTORY, '.maestro', flow),
+            'utf8',
+        );
+        const skipTour = source.indexOf(
+            "id: 'map-options-tour-skip-police-reports'",
+        );
+        // Exclude the initial notVisible check when identifying the first visible assertion.
+        const visibleAssertions = [
+            ...source.matchAll(
+                /- extendedWaitUntil:\s+visible:\s+id: 'map-settings-sheet'/g,
+            ),
+        ];
+        assert.doesNotMatch(source, /start: '50%,45%'/);
+        assert.match(
+            source,
+            /point: '50%,20%'[\s\S]*?notVisible:\s+id: 'map-settings-sheet'[\s\S]*?id: 'map-layer-button'/,
+        );
+        assert.ok(skipTour >= 0);
+        assert.ok(visibleAssertions.length > 0);
+        assert.ok(visibleAssertions[0].index > skipTour);
+        assert.ok(source.indexOf("- assertVisible: 'Map settings'") > skipTour);
+    });
+}
+
+test('node editing handles first-use contribution guidance before asserting the start sheet', () => {
+    const source = readFileSync(
+        path.join(EXPO_DIRECTORY, '.maestro/node-location-editor.yml'),
+        'utf8',
+    );
+    const skip = source.indexOf("id: 'contribute-tour-skip-start'");
+    const sheet = source.search(
+        /- extendedWaitUntil:\s+visible:\s+id: 'contribute-start-sheet'/,
+    );
+    assert.ok(skip >= 0 && sheet > skip);
+});
+
+for (const flow of [
+    'scorecard-gamification.yml',
+    'scorecard-private-route-drive.yml',
+    'scorecard.yml',
+]) {
+    test(`${flow} dismisses the first-visit tour before waiting for the dashboard`, () => {
+        const source = readFileSync(
+            path.join(EXPO_DIRECTORY, '.maestro', flow),
+            'utf8',
+        );
+        const skip = source.indexOf(
+            '- runFlow: subflows/scorecard-tour-skip-first-visit.yml',
+        );
+        const dashboard = source.search(
+            /- extendedWaitUntil:\s+visible:\s+id: 'scorecard-dashboard'/,
+        );
+        assert.ok(skip >= 0 && dashboard > skip);
+    });
+}

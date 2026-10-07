@@ -223,6 +223,7 @@ let navigationLocationSubscription = null;
 let navigationLocationUpdateGeneration = 0;
 let navigationRouteGeneration = 0;
 let searchAbortController = null;
+let searchRequestSequence = 0;
 let routeLoadAbortController = null;
 let routeLoadingRequestSequence = 0;
 let singleResultCountdown = null;
@@ -668,17 +669,6 @@ function updateSearchTemplateLoadingRoute(template, title) {
     });
 }
 
-function updateSearchTemplateLoadingResults(template, query) {
-    const loadingCopy = getAutoPlaySearchLoadingCopy(query);
-
-    updateSearchTemplateSection(template, {
-        items: [
-            makeDisabledSearchRow(loadingCopy.title, loadingCopy.detailedText),
-        ],
-        type: 'default',
-    });
-}
-
 function updateSearchTemplateSection(template, section) {
     try {
         const updateSearchResults = template?.updateSearchResults;
@@ -709,6 +699,9 @@ function updateSearchTemplateSection(template, section) {
 }
 
 function abortSearchRequest() {
+    searchRequestSequence += 1;
+    setAutoPlayState({ searchLoading: null });
+
     if (searchAbortController) {
         searchAbortController.abort();
         searchAbortController = null;
@@ -901,11 +894,10 @@ function setAutoPlaySubmittedSearchResults({ query, results }) {
 }
 
 function presentAutoPlaySearchResults({
-    includesMap = false,
+    includesMap = true,
     query,
     requestIsCurrent = () => true,
     results,
-    sourceTemplate,
     startLocation,
 }) {
     const { ListTemplate } = loadAutoPlayModule();
@@ -955,11 +947,9 @@ function presentAutoPlaySearchResults({
             () => {
                 if (requestIsCurrent()) {
                     clearAutoPlaySubmittedSearchResults();
-                    updateSearchTemplateResults(
-                        sourceTemplate,
-                        results,
-                        query,
-                        startLocation,
+                    showAutoPlayError(
+                        'Search unavailable',
+                        'Search results could not be opened.',
                     );
                 }
 
@@ -975,11 +965,9 @@ function presentAutoPlaySearchResults({
     } catch {
         if (requestIsCurrent()) {
             clearAutoPlaySubmittedSearchResults();
-            updateSearchTemplateResults(
-                sourceTemplate,
-                results,
-                query,
-                startLocation,
+            showAutoPlayError(
+                'Search unavailable',
+                'Search results could not be opened.',
             );
         }
     }
@@ -994,14 +982,18 @@ async function runPlaceTextSearch(
     {
         autoAdvanceSingleResult = false,
         onResultsTemplatePresented = () => {},
-        requestIsCurrent = () => true,
-        resultTemplateIsAlreadyPresented = false,
+        requestIsCurrent: parentRequestIsCurrent = () => true,
+        prepareMap = () =>
+            loadAutoPlayModule().HybridAutoPlay.popToRootTemplate(false),
     } = {},
 ) {
     const textQuery = String(searchText ?? '').trim();
 
     clearAutoPlaySingleResultCountdown();
     abortSearchRequest();
+    const requestSequence = searchRequestSequence;
+    const requestIsCurrent = () =>
+        parentRequestIsCurrent() && requestSequence === searchRequestSequence;
 
     if (textQuery.length < PLACE_SEARCH_MIN_QUERY_LENGTH) {
         if (requestIsCurrent()) {
@@ -1012,9 +1004,19 @@ async function runPlaceTextSearch(
 
     const abortController = new AbortController();
     searchAbortController = abortController;
-    updateSearchTemplateLoadingResults(template, textQuery);
+    setAutoPlayState({ searchLoading: { query: textQuery }, errorText: '' });
 
     try {
+        await prepareMap();
+        if (
+            !requestIsCurrent() ||
+            !autoPlaySearchRequestIsCurrent(
+                searchAbortController,
+                abortController,
+            )
+        ) {
+            return;
+        }
         const location = await getAutoPlaySearchLocation(startLocation);
 
         if (
@@ -1048,60 +1050,21 @@ async function runPlaceTextSearch(
             resultCount: results.length,
         });
 
-        // Android Auto's voice host reads the active SearchTemplate's result
-        // list. Publish there before adding the map-backed result list.
-        const searchTemplateWasUpdated = await updateSearchTemplateResults(
-            template,
+        const resultTemplatePresentation = presentAutoPlaySearchResults({
+            includesMap: true,
+            query: textQuery,
+            requestIsCurrent,
             results,
-            textQuery,
             startLocation,
-        );
-
-        if (
-            !requestIsCurrent() ||
-            !autoPlaySearchRequestIsCurrent(
-                searchAbortController,
-                abortController,
-            )
-        ) {
-            return;
-        }
-
-        const showsSearchResultsOnMap =
-            autoPlayPlatform?.showsSearchResultsOnMap === true;
-        const presentsVoiceSearchResultsInList =
-            autoAdvanceSingleResult &&
-            autoPlayPlatform?.presentsVoiceSearchResultsInList === true;
-
-        let resultTemplatePresentation = null;
-
-        if (
-            searchTemplateWasUpdated &&
-            !resultTemplateIsAlreadyPresented &&
-            (showsSearchResultsOnMap || presentsVoiceSearchResultsInList)
-        ) {
-            resultTemplatePresentation = presentAutoPlaySearchResults({
-                includesMap: showsSearchResultsOnMap,
-                query: textQuery,
-                requestIsCurrent,
-                results,
-                sourceTemplate: template,
-                startLocation,
-            });
-            onResultsTemplatePresented(resultTemplatePresentation);
-        }
+        });
+        onResultsTemplatePresented(resultTemplatePresentation);
+        const resultTemplateWasPresented =
+            resultTemplatePresentation?.pushPromise
+                ? await resultTemplatePresentation.pushPromise
+                : false;
 
         if (autoAdvanceSingleResult && results.length === 1) {
-            const resultTemplate = resultTemplateIsAlreadyPresented
-                ? template
-                : resultTemplatePresentation?.template;
-            const resultTemplateWasPresented =
-                resultTemplateIsAlreadyPresented && searchTemplateWasUpdated
-                    ? true
-                    : resultTemplatePresentation?.pushPromise
-                      ? await resultTemplatePresentation.pushPromise
-                      : false;
-
+            const resultTemplate = resultTemplatePresentation?.template;
             if (
                 resultTemplate &&
                 resultTemplateWasPresented &&
@@ -1128,11 +1091,9 @@ async function runPlaceTextSearch(
                 abortController,
             )
         ) {
-            updateSearchTemplateResults(
-                template,
-                [],
+            showAutoPlayError(
+                'Search unavailable',
                 error?.message || 'Search failed.',
-                startLocation,
             );
             setAutoPlayState({
                 errorText: error?.message || 'Search failed.',
@@ -1142,6 +1103,7 @@ async function runPlaceTextSearch(
     } finally {
         if (searchAbortController === abortController) {
             searchAbortController = null;
+            setAutoPlayState({ searchLoading: null });
         }
     }
 }
@@ -1285,6 +1247,7 @@ function openSearchTemplate(
     let savedLocationsUnsubscribe = null;
     let savedLocations = null;
     let searchIsActive = true;
+    let searchWasSubmitted = false;
     let savedLocationsAreLoaded = false;
     let savedLocationsLoadFailed = false;
     let savedLocationWasSelected = false;
@@ -1358,7 +1321,7 @@ function openSearchTemplate(
         searchText,
         { shouldAutoAdvanceSingleResult = false } = {},
     ) => {
-        if (!requestIsCurrent()) {
+        if (!searchIsActive || searchWasSubmitted || !requestIsCurrent()) {
             return Promise.resolve();
         }
 
@@ -1376,6 +1339,22 @@ function openSearchTemplate(
             refreshInitialResults();
             return Promise.resolve();
         }
+
+        if (submittedSearchText.length < PLACE_SEARCH_MIN_QUERY_LENGTH) {
+            searchCallbackState.handleSearchTextSubmissionCompleted(
+                submissionToken,
+            );
+            return updateSearchTemplateResults(
+                template,
+                [],
+                submittedSearchText,
+                preferredStartLocation,
+            );
+        }
+
+        searchWasSubmitted = true;
+        savedLocationsUnsubscribe?.();
+        savedLocationsUnsubscribe = null;
 
         return runPlaceTextSearch(
             template,
@@ -1401,7 +1380,7 @@ function openSearchTemplate(
         savedLocationsUnsubscribe?.();
         savedLocationsUnsubscribe = null;
 
-        if (!requestIsCurrent()) {
+        if (searchWasSubmitted || !requestIsCurrent()) {
             return;
         }
 
@@ -1416,7 +1395,11 @@ function openSearchTemplate(
         headerActions: getBackHeaderAction(dismissSearch),
         initialSearchText,
         onSearchTextChanged: (searchText) => {
-            if (savedLocationWasSelected) {
+            if (
+                !searchIsActive ||
+                searchWasSubmitted ||
+                savedLocationWasSelected
+            ) {
                 return;
             }
 
@@ -1524,79 +1507,26 @@ function openVoiceSearchResultsTemplate(
     preferredStartLocation,
     { autoAdvanceSingleResult = false, requestIsCurrent = () => true } = {},
 ) {
-    const { ListTemplate } = loadAutoPlayModule();
-    const loadingCopy = getAutoPlaySearchLoadingCopy(searchQuery);
-    let templateWasPushed = false;
-    let template;
-    const dismissSearch = () => {
-        if (!requestIsCurrent()) {
-            return;
-        }
-
-        cancelAutoPlaySearchWork();
-        clearAutoPlaySubmittedSearchResults();
-    };
-
+    const lifecycle = createAutoPlaySearchTemplateLifecycle();
+    let presentation = null;
+    const { HybridAutoPlay } = loadAutoPlayModule();
     cancelAutoPlaySearchWork();
     clearAutoPlaySubmittedSearchResults();
-    template = new ListTemplate({
-        headerActions: getBackHeaderAction(dismissSearch),
-        onPopped: dismissSearch,
-        sections: {
-            items: [
-                makeDisabledSearchRow(
-                    loadingCopy.title,
-                    loadingCopy.detailedText,
-                ),
-            ],
-            type: 'default',
+    const pushPromise = HybridAutoPlay.popToRootTemplate(false);
+    void runPlaceTextSearch(null, searchQuery, preferredStartLocation, {
+        autoAdvanceSingleResult,
+        requestIsCurrent,
+        prepareMap: () => pushPromise,
+        onResultsTemplatePresented: (result) => {
+            presentation = lifecycle.trackResultTemplatePresentation(result);
         },
-        title: makeAutoText(loadingCopy.title),
     });
-
-    setAutoPlayState({
-        detailText: loadingCopy.detailedText,
-        errorText: '',
-        statusLabel: loadingCopy.title,
-        title: 'Destination',
-    });
-
-    const pushPromise = template
-        .push()
-        .then(() => {
-            templateWasPushed = true;
-
-            return runPlaceTextSearch(
-                template,
-                searchQuery,
-                preferredStartLocation,
-                {
-                    autoAdvanceSingleResult,
-                    requestIsCurrent,
-                    resultTemplateIsAlreadyPresented: true,
-                },
-            );
-        })
-        .catch((error) => {
-            if (!requestIsCurrent()) {
-                return;
-            }
-
-            dismissSearch();
-            logAutoPlayPlatformAction('voice-search-template-push-failed', {
-                message: error?.message || 'Unknown error',
-            });
-            showAutoPlayError(
-                'Search unavailable',
-                error?.message || 'Voice search could not be opened.',
-            );
-        });
 
     return {
         pushPromise,
-        template,
-        waitForResultTemplatePushes: () => Promise.resolve(),
-        wasPushed: () => templateWasPushed,
+        getTemplate: () => presentation?.template,
+        waitForResultTemplatePushes: lifecycle.waitForResultTemplatePushes,
+        wasPushed: () => presentation?.wasPushed() ?? false,
     };
 }
 
@@ -3479,7 +3409,9 @@ async function dismissSupersededVoiceSearchTemplate(requestGeneration) {
                 return;
             }
 
-            const poppedToSearchTemplate = await pendingSearch.template
+            const poppedToSearchTemplate = await (
+                pendingSearch.getTemplate?.() ?? pendingSearch.template
+            )
                 .popTo()
                 .then(
                     () => true,
@@ -3542,17 +3474,11 @@ async function handleVoiceNavigation(
             requestIsCurrent,
         };
         pendingVoiceSearchTemplatePush = {
-            ...(autoPlayPlatform?.presentsVoiceSearchResultsInList === true
-                ? openVoiceSearchResultsTemplate(
-                      searchQuery,
-                      destinationLocation,
-                      voiceSearchOptions,
-                  )
-                : openSearchTemplate(
-                      searchQuery,
-                      destinationLocation,
-                      voiceSearchOptions,
-                  )),
+            ...openVoiceSearchResultsTemplate(
+                searchQuery,
+                destinationLocation,
+                voiceSearchOptions,
+            ),
             requestGeneration,
         };
         return;

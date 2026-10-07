@@ -36,11 +36,11 @@ tags:
 - tapOn:
     id: 'drawer-scorecard-button'
     retryTapIfNoChange: true
+- runFlow: subflows/scorecard-tour-skip-first-visit.yml
 - extendedWaitUntil:
     visible:
       id: 'scorecard-dashboard'
     timeout: 10000
-- runFlow: subflows/scorecard-tour-skip-first-visit.yml
 
 # Every XP threshold resolves to the designed level and next-level target.
 # The in-scorecard deep links are accepted only by APP_ENV=e2e and every state

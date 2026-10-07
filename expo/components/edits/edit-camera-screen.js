@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -105,7 +105,7 @@ function EditCameraHeader({ onBack, versionLabel }) {
 
     return (
         <View
-            className="dark:border-daf-border-dark dark:bg-daf-surface-dark flex-row items-center gap-1.5 border-b border-daf-border bg-white px-3 pb-3"
+            className="flex-row items-center gap-1.5 border-b border-daf-border bg-white px-3 pb-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
             style={{ paddingTop: headerPaddingTop }}
         >
             <Pressable
@@ -123,14 +123,14 @@ function EditCameraHeader({ onBack, versionLabel }) {
                 />
             </Pressable>
             <Text
-                className="font-dafDisplay min-w-0 flex-1 text-lg font-bold leading-6 text-daf-text-primary dark:text-white"
+                className="min-w-0 flex-1 font-dafDisplay text-lg font-bold leading-6 text-daf-text-primary dark:text-white"
                 numberOfLines={1}
             >
                 Edit camera
             </Text>
             {versionLabel ? (
                 <View
-                    className="dark:border-daf-border-dark h-[26px] items-center justify-center rounded-dafPill border border-daf-border bg-daf-surface-alt px-[9px] dark:bg-daf-surface-inverse"
+                    className="h-[26px] items-center justify-center rounded-dafPill border border-daf-border bg-daf-surface-alt px-[9px] dark:border-daf-border-dark dark:bg-daf-surface-inverse"
                     testID="edit-camera-version-pill"
                 >
                     <Text
@@ -147,7 +147,7 @@ function EditCameraHeader({ onBack, versionLabel }) {
 
 function EditCameraSubheader({ metaLabel, nodeId }) {
     return (
-        <View className="dark:border-daf-border-dark flex-row items-center gap-2 border-b border-daf-border bg-daf-surface-alt px-4 py-[9px] dark:bg-daf-surface-inverse">
+        <View className="flex-row items-center gap-2 border-b border-daf-border bg-daf-surface-alt px-4 py-[9px] dark:border-daf-border-dark dark:bg-daf-surface-inverse">
             {nodeId ? (
                 <Text
                     className="font-dafMono text-[11px] font-semibold tracking-[0.04em] text-daf-text-brand dark:text-daf-brand"
@@ -158,7 +158,7 @@ function EditCameraSubheader({ metaLabel, nodeId }) {
             ) : null}
             {metaLabel ? (
                 <Text
-                    className="font-dafMono ml-auto text-[11px] text-daf-text-tertiary dark:text-neutral-400"
+                    className="ml-auto font-dafMono text-[11px] text-daf-text-tertiary dark:text-neutral-400"
                     numberOfLines={1}
                 >
                     {metaLabel}
@@ -213,67 +213,71 @@ export default function EditCameraScreen() {
 
     usePreventRemove(isSaving, () => {});
 
-    useEffect(() => {
-        if (nodeId === null) {
-            setLoadError('This camera link is invalid.');
-            setLoadStatus('error');
-            return undefined;
-        }
-
-        const abortController = new AbortController();
-        let isActive = true;
-
-        setLoadError(null);
-        setLoadStatus('loading');
-
-        fetchNode({ nodeId, signal: abortController.signal })
-            .then((fetchedNode) => {
-                if (!isActive) {
-                    return;
-                }
-
-                if (fetchedNode?.visible === false) {
-                    setLoadStatus('deleted');
-                    return;
-                }
-
-                const fetchedNodeLocation = normalizeNodeLocation(fetchedNode);
-
-                if (!fetchedNodeLocation) {
-                    throw new Error(
-                        'OpenStreetMap returned this camera without a valid location.',
-                    );
-                }
-
-                dirtyDetailFieldsRef.current.clear();
-                setDetails(parseNodeDetails(fetchedNode?.tags ?? {}));
-                setNode(fetchedNode);
-                setNodeLocation(fetchedNodeLocation);
-                setRawSelectedDirectionIndex(0);
-                setLoadStatus('loaded');
-            })
-            .catch((error) => {
-                if (!isActive) {
-                    return;
-                }
-
-                if (error?.code === 'gone' || error?.status === 410) {
-                    setLoadStatus('deleted');
-                    return;
-                }
-
-                setLoadError(
-                    error?.message ??
-                        'Loading this camera from OpenStreetMap failed.',
-                );
+    useFocusEffect(
+        useCallback(() => {
+            if (nodeId === null) {
+                setLoadError('This camera link is invalid.');
                 setLoadStatus('error');
-            });
+                return undefined;
+            }
 
-        return () => {
-            isActive = false;
-            abortController.abort();
-        };
-    }, [loadAttempt, nodeId]);
+            const abortController = new AbortController();
+            let isActive = true;
+
+            setLoadError(null);
+            setLoadStatus('loading');
+
+            fetchNode({ nodeId, signal: abortController.signal })
+                .then((fetchedNode) => {
+                    if (!isActive) {
+                        return;
+                    }
+
+                    if (fetchedNode?.visible === false) {
+                        setLoadStatus('deleted');
+                        return;
+                    }
+
+                    const fetchedNodeLocation =
+                        normalizeNodeLocation(fetchedNode);
+
+                    if (!fetchedNodeLocation) {
+                        throw new Error(
+                            'OpenStreetMap returned this camera without a valid location.',
+                        );
+                    }
+
+                    dirtyDetailFieldsRef.current.clear();
+                    removeActionHandledRef.current = false;
+                    setDetails(parseNodeDetails(fetchedNode?.tags ?? {}));
+                    setNode(fetchedNode);
+                    setNodeLocation(fetchedNodeLocation);
+                    setRawSelectedDirectionIndex(0);
+                    setLoadStatus('loaded');
+                })
+                .catch((error) => {
+                    if (!isActive) {
+                        return;
+                    }
+
+                    if (error?.code === 'gone' || error?.status === 410) {
+                        setLoadStatus('deleted');
+                        return;
+                    }
+
+                    setLoadError(
+                        error?.message ??
+                            'Loading this camera from OpenStreetMap failed.',
+                    );
+                    setLoadStatus('error');
+                });
+
+            return () => {
+                isActive = false;
+                abortController.abort();
+            };
+        }, [loadAttempt, nodeId]),
+    );
 
     useEffect(() => {
         if (
@@ -530,7 +534,7 @@ export default function EditCameraScreen() {
                         <View className="gap-[18px] p-4">
                             {showsOverwriteNotice ? (
                                 <View
-                                    className="bg-daf-amber/12 dark:bg-daf-amber/15 flex-row items-start gap-[9px] rounded-dafSm px-3 py-[11px]"
+                                    className="bg-daf-amber/12 flex-row items-start gap-[9px] rounded-dafSm px-3 py-[11px] dark:bg-daf-amber/15"
                                     testID="edit-camera-overwrite-notice"
                                 >
                                     <View className="mt-px">
@@ -610,8 +614,8 @@ export default function EditCameraScreen() {
                                                 <View
                                                     className={`h-8 flex-row items-center rounded-dafPill border pl-3 pr-1 ${
                                                         selected
-                                                            ? 'bg-daf-brand/12 dark:bg-daf-brand/15 border-transparent'
-                                                            : 'dark:border-daf-border-dark dark:bg-daf-surface-dark border-daf-border bg-white'
+                                                            ? 'bg-daf-brand/12 border-transparent dark:bg-daf-brand/15'
+                                                            : 'border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark'
                                                     }`}
                                                     key={`direction-${directionIndex}`}
                                                 >
@@ -720,11 +724,11 @@ export default function EditCameraScreen() {
                             <Pressable
                                 accessibilityLabel="Remove from map"
                                 accessibilityRole="button"
-                                className="dark:border-daf-border-dark dark:bg-daf-surface-dark flex-row items-center gap-3 rounded-dafMd border border-daf-border bg-white px-3.5 py-3 active:opacity-[0.82]"
+                                className="flex-row items-center gap-3 rounded-dafMd border border-daf-border bg-white px-3.5 py-3 active:opacity-[0.82] dark:border-daf-border-dark dark:bg-daf-surface-dark"
                                 onPress={handleRemoveRowPress}
                                 testID="edit-camera-remove-row"
                             >
-                                <View className="bg-daf-alert/14 dark:bg-daf-alert/20 h-[34px] w-[34px] items-center justify-center rounded-dafSm">
+                                <View className="bg-daf-alert/14 h-[34px] w-[34px] items-center justify-center rounded-dafSm dark:bg-daf-alert/20">
                                     <Icon
                                         color={dafSemanticColors.danger}
                                         name="trash"
@@ -748,12 +752,12 @@ export default function EditCameraScreen() {
                         </View>
                     </ScrollView>
                     <View
-                        className="dark:border-daf-border-dark dark:bg-daf-surface-dark border-t border-daf-border bg-white px-4 pt-3"
+                        className="border-t border-daf-border bg-white px-4 pt-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
                         style={{ paddingBottom: footerPaddingBottom }}
                     >
                         {publishError ? (
                             <View
-                                className="border-daf-alert/30 bg-daf-alert/10 dark:bg-daf-alert/15 mb-2.5 rounded-dafSm border p-3"
+                                className="mb-2.5 rounded-dafSm border border-daf-alert/30 bg-daf-alert/10 p-3 dark:bg-daf-alert/15"
                                 testID="edit-camera-error-banner"
                             >
                                 <Text className="text-[13px] leading-[18px] text-daf-alert">

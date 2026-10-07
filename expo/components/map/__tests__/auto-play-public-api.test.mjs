@@ -94,6 +94,8 @@ test('typing clears saved suggestions and clearing text restores them', () => {
             initialResultsRefreshed += 1;
         },
         savedLocationWasSelected: false,
+        searchIsActive: true,
+        searchWasSubmitted: false,
         searchCallbackState: createAutoPlaySearchCallbackState(),
         searchTextValue: '',
         template,

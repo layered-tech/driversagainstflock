@@ -46,6 +46,12 @@ const MOCK_USER_CHANGESET_FIXTURES = [
 
 const MOCK_NODE_FIXTURES = [
     {
+        id: 1234567890,
+        latitude: 30.26715,
+        longitude: -97.74035,
+        tags: { ...MOCK_ALPR_TAGS, 'camera:mount': 'pole', direction: '90' },
+    },
+    {
         changesetId: MOCK_CHANGESET_ID_START,
         id: MOCK_NODE_ID_START,
         latitude: 37.7832121,

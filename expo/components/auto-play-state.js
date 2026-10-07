@@ -12,6 +12,7 @@ export const DEFAULT_AUTO_PLAY_STATE = {
     routeDistanceText: '',
     routeDurationText: '',
     routeLoading: null,
+    searchLoading: null,
     routeName: '',
     singleResultCountdown: null,
     statusLabel: 'Ready',
