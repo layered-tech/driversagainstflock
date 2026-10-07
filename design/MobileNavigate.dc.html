@@ -219,6 +219,43 @@
         </x-import>
       </div>
 
+      <!-- 07A STEP PREVIEW -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">07a · Step preview <span style="font-weight:400; color:var(--text-tertiary);">— page with the side tabs</span></div>
+        <x-import component="IOSDevice" dark="{{ isDark }}" from="./ios-frame.jsx" height="{{ h }}" hint-size="390px,844px" width="{{ w }}">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui); background:var(--map-land);">
+            <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
+            <svg preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible; z-index:2; pointer-events:none;" viewBox="0 0 100 100">
+              <path d="M50 78 C 50 62, 52 50, 50 40 S 46 24, 48 12" fill="none" stroke="var(--route-private-casing)" stroke-linecap="round" stroke-width="13" vector-effect="non-scaling-stroke"></path>
+              <path d="M50 78 C 50 62, 52 50, 50 40 S 46 24, 48 12" fill="none" stroke="var(--route-private)" stroke-linecap="round" stroke-width="8" vector-effect="non-scaling-stroke"></path>
+            </svg>
+            <div style="position:absolute; left:50%; bottom:20%; transform:translate(-50%,50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="0" hint-size="64px,64px" variant="user"></x-import></div>
+            <!-- Previewed maneuver point: moves along the route as you page -->
+            <div style="position:absolute; left:{{ pvX }}%; top:{{ pvY }}%; transform:translate(-50%,-50%); z-index:4; transition:left 320ms var(--ease-standard), top 320ms var(--ease-standard); width:26px; height:26px; border-radius:50%; background:var(--surface-card); border:5px solid var(--brand); box-shadow:0 0 0 6px var(--brand-soft), var(--shadow-marker);"></div>
+            <div style="position:absolute; top:56px; left:12px; right:12px; z-index:10; display:flex; flex-direction:column;">
+              <div style="display:flex; align-items:stretch;">
+                <button aria-label="Previous step" disabled="{{ pvAtStart }}" onClick="{{ pvPrev }}" style="position:relative; z-index:1; flex:0 0 auto; width:50px; margin:10px -14px 10px 0; padding:0 14px 0 0; display:flex; align-items:center; justify-content:center; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-right:none; border-radius:var(--radius-sm) 0 0 var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); opacity:{{ pvPrevOpacity }}; cursor:pointer; -webkit-tap-highlight-color:transparent;" style-active="transform:scale(0.97);"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" style="display:block;" viewBox="0 0 24 24" width="22"><path d="m15 18-6-6 6-6"></path></svg></button>
+                <div style="position:relative; z-index:2; flex:1; min-width:0;"><x-import component-from-global-scope="DesignSystem_c71fad.NavBanner" distance="{{ pvDist }}" hint-size="100%,auto" instruction="{{ pvText }}" maneuver="{{ pvManeuver }}"></x-import></div>
+                <button aria-label="Next step" disabled="{{ pvAtEnd }}" onClick="{{ pvNext }}" style="position:relative; z-index:1; flex:0 0 auto; width:50px; margin:10px 0 10px -14px; padding:0 0 0 14px; display:flex; align-items:center; justify-content:center; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-left:none; border-radius:0 var(--radius-sm) var(--radius-sm) 0; box-shadow:var(--shadow-float); color:var(--text-primary); opacity:{{ pvNextOpacity }}; cursor:pointer; -webkit-tap-highlight-color:transparent;" style-active="transform:scale(0.97);"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" style="display:block;" viewBox="0 0 24 24" width="22"><path d="m9 18 6-6-6-6"></path></svg></button>
+              </div>
+            </div>
+            <div style="position:absolute; right:12px; top:200px; z-index:10; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
+              <button aria-label="Zoom in" style="width:46px; height:46px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="22"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+              <button aria-label="Zoom out" style="width:46px; height:46px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><span style="width:15px; height:2px; border-radius:2px; background:currentColor;"></span></button>
+            </div>
+            <!-- ETA sheet: Resume returns to live guidance -->
+            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10; background:var(--surface-sheet); border-top-left-radius:var(--radius-sheet); border-top-right-radius:var(--radius-sheet); box-shadow:var(--shadow-sheet); padding:16px 16px 30px; display:flex; align-items:center; gap:14px;">
+              <div style="flex:1;">
+                <div style="margin-bottom:7px;"><x-import component-from-global-scope="DesignSystem_c71fad.Badge" hint-size="auto,26px" tone="brand">Private route</x-import></div>
+                <div style="display:flex; align-items:baseline; gap:8px;"><span style="font-family:var(--font-mono); font-weight:800; font-size:24px; color:var(--text-brand);">12 min</span><span style="font-family:var(--font-mono); font-size:var(--fs-body-sm); color:var(--text-secondary);">4.1 mi · 6:15</span></div>
+                <div style="font-size:var(--fs-body-sm); color:var(--text-secondary);">Ferry Building Marketplace</div>
+              </div>
+              <x-import component-from-global-scope="DesignSystem_c71fad.Button" hint-size="auto,46px" onClick="{{ pvResume }}" size="md" variant="primary">Resume</x-import>
+            </div>
+          </div>
+        </x-import>
+      </div>
+
       <!-- 07B ALERT AHEAD — POLICE ONLY -->
       <div style="display:flex; flex-direction:column; gap:14px;">
         <div style="font-size:13px; font-weight:600;">07b · Alert ahead — police only</div>
@@ -410,7 +447,7 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1500,&quot;height&quot;:1100},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
 class Component extends DCLogic {
-  state = { advOpen: false, advOpenForm: false, bufferFt: 250, allowNearEnds: false, sheetH: 133, sheetDragging: false };
+  state = { advOpen: false, advOpenForm: false, bufferFt: 250, allowNearEnds: false, sheetH: 133, sheetDragging: false, previewIdx: 2 };
   toggleAdv() { this.setState(s => ({ advOpen: !s.advOpen })); }
   toggleAdvForm() { this.setState(s => ({ advOpenForm: !s.advOpenForm })); }
   // Steps sheet drag: collapsed (ETA bar + hairline only) ↔ expanded (≤ ⅔ of the 844px map)
@@ -499,9 +536,22 @@ class Component extends DCLogic {
       { iconEl: man.flag, dist: '6:15', text: 'Arrive at Ferry Building Marketplace', sub: 'On the right', ...tile(false) },
     ];
 
+    const pvM = ['right', 'straight', 'left', 'right', 'straight', 'arrive'];
+    const pvPos = [[50.5, 66], [51.5, 52], [50, 40], [47, 30], [46.8, 21], [48, 12]];
+    const pi = this.state.previewIdx, ps = steps[pi], last = steps.length - 1;
+
     return {
       theme,
       steps,
+      pvManeuver: pvM[pi], pvDist: ps.dist, pvText: ps.text,
+      pvNote: pi === 0 ? 'Next step' : (ps.sub || 'Previewing step'),
+      pvCount: `${pi + 1} / ${steps.length}`,
+      pvX: pvPos[pi][0], pvY: pvPos[pi][1],
+      pvAtStart: pi === 0, pvAtEnd: pi === last,
+      pvPrevOpacity: pi === 0 ? 0.4 : 1, pvNextOpacity: pi === last ? 0.4 : 1,
+      pvPrev: () => this.setState(s => ({ previewIdx: Math.max(0, s.previewIdx - 1) })),
+      pvNext: () => this.setState(s => ({ previewIdx: Math.min(last, s.previewIdx + 1) })),
+      pvResume: () => this.setState({ previewIdx: 0 }),
       sheetH: this.state.sheetH,
       sheetTransition: this.state.sheetDragging ? 'none' : 'height 320ms var(--ease-sheet)',
       sheetDown: (e) => this.sheetDown(e),
