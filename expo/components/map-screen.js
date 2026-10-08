@@ -116,6 +116,7 @@ export default function LocationMapScreen({
     // distinguish a user drag-to-close from an internal flow transition.
     const placeSheetProgrammaticDismissRef = useRef(false);
     const directionsRouteSheetProgrammaticDismissRef = useRef(false);
+    const directionsRouteSheetHasMountedRef = useRef(false);
     // Latest-value ref for the route sheet's user-close handler, since the route
     // tracking handlers are created before `searchController` exists.
     const directionsRouteUserCloseRef = useRef(null);
@@ -218,6 +219,7 @@ export default function LocationMapScreen({
         permissionSheetTrackingHandlers,
     } = useMapBottomSheetTrackingHandlers({
         bottomSheetAnimatedPosition,
+        directionsRouteSheetHasMountedRef,
         directionsRouteSheetProgrammaticDismissRef,
         directionsRouteUserCloseRef,
         markerDetailsIsOpenRef,
@@ -267,6 +269,7 @@ export default function LocationMapScreen({
             true,
         directionsRouteCameraPadding,
         directionsRoute,
+        directionsRouteSheetHasMountedRef,
         directionsRouteSheetProgrammaticDismissRef,
         fitCameraToBounds: locationController.fitCameraToBounds,
         initialSearchMode,

@@ -200,7 +200,7 @@ export function DrivingStepsSheet({
                     }
                     accessibilityRole="button"
                     accessibilityState={{ expanded }}
-                    className="h-6 items-center justify-center"
+                    className="items-center justify-center pb-1 pt-2"
                     onPress={() =>
                         sheetRef.current?.snapToIndex(expanded ? 0 : 1)
                     }

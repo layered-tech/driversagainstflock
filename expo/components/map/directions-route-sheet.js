@@ -27,6 +27,7 @@ export function DirectionsRouteSheet() {
         bottomSheetHandleIndicatorStyle,
         bottomSheetAnimatedPosition,
         directionsRoute,
+        directionsRouteSheetHasMountedRef,
         directionsRouteSheetRef,
         directionsRouteSheetSnapPoints,
         directionsRouteSheetTrackingHandlers,
@@ -49,6 +50,12 @@ export function DirectionsRouteSheet() {
         onDismiss: directionsRouteSheetTrackingHandlers.onDismiss,
     });
     const appliedAdvancedSettings = getAdvancedRouteSettings(directionsRoute);
+    useEffect(
+        () => () => {
+            directionsRouteSheetHasMountedRef.current = false;
+        },
+        [directionsRouteSheetHasMountedRef],
+    );
     useEffect(() => {
         if (!mapPreferencesAreLoaded || !directionsRoute) {
             return undefined;

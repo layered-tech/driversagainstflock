@@ -8,6 +8,7 @@ function noop() {}
 
 export function useMapBottomSheetTrackingHandlers({
     bottomSheetAnimatedPosition,
+    directionsRouteSheetHasMountedRef,
     directionsRouteSheetProgrammaticDismissRef,
     directionsRouteUserCloseRef,
     markerDetailsIsOpenRef,
@@ -44,14 +45,19 @@ export function useMapBottomSheetTrackingHandlers({
                 // Clear any stale programmatic flag whenever the sheet opens, so a
                 // defensive dismiss-while-closed can't be mistaken for the next drag.
                 if (toIndex >= 0) {
+                    directionsRouteSheetHasMountedRef.current = true;
                     directionsRouteSheetProgrammaticDismissRef.current = false;
                 }
                 handleDirectionsRouteSheetPositionChange(toIndex, toPosition);
             },
             onChange: (index, position) => {
+                if (index >= 0) {
+                    directionsRouteSheetHasMountedRef.current = true;
+                }
                 handleDirectionsRouteSheetPositionChange(index, position);
             },
             onDismiss: () => {
+                directionsRouteSheetHasMountedRef.current = false;
                 resetTrackedSheetPosition();
                 setActiveDirectionsRouteSheetCoverageRatio(0);
                 // A user drag-to-close leaves the flag unset; mirror the back arrow and
@@ -66,6 +72,7 @@ export function useMapBottomSheetTrackingHandlers({
             },
         }),
         [
+            directionsRouteSheetHasMountedRef,
             directionsRouteSheetProgrammaticDismissRef,
             directionsRouteUserCloseRef,
             handleDirectionsRouteSheetPositionChange,

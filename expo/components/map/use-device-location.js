@@ -32,6 +32,7 @@ import { getSharedMapUserLocation } from './shared-map-preferences-sync';
 
 export { roadMatchingLocationIsSupported } from './road-matching-session';
 
+const COMPASS_HEADING_UPDATE_INTERVAL_MS = 2000;
 const headingListeners = new Set();
 let sharedHeadingWatch = null;
 
@@ -39,7 +40,7 @@ function retainSharedHeadingWatch(listener) {
     headingListeners.add(listener);
 
     if (!sharedHeadingWatch) {
-        const watch = { subscription: null };
+        const watch = { subscription: null, lastHeadingUpdateAt: null };
 
         sharedHeadingWatch = watch;
         Location.watchHeadingAsync((heading) => {
@@ -52,6 +53,18 @@ function retainSharedHeadingWatch(listener) {
             if (nextHeading === null) {
                 return;
             }
+
+            const now = Date.now();
+
+            if (
+                watch.lastHeadingUpdateAt !== null &&
+                now - watch.lastHeadingUpdateAt <
+                    COMPASS_HEADING_UPDATE_INTERVAL_MS
+            ) {
+                return;
+            }
+
+            watch.lastHeadingUpdateAt = now;
 
             headingListeners.forEach((headingListener) => {
                 try {

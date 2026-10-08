@@ -50,6 +50,7 @@ export function useMapSearch({
     directionsDebugGeometryIsEnabled = false,
     directionsRouteCameraPadding,
     directionsRoute,
+    directionsRouteSheetHasMountedRef,
     directionsRouteSheetProgrammaticDismissRef,
     fitCameraToBounds,
     initialSearchMode = DIRECTIONS_MODE_SEARCH,
@@ -197,9 +198,17 @@ export function useMapSearch({
         placeSheetRef.current?.dismiss();
     }, [placeSheetProgrammaticDismissRef, placeSheetRef]);
     const dismissDirectionsRouteSheet = useCallback(() => {
+        if (!directionsRouteSheetHasMountedRef.current) {
+            return;
+        }
+
         directionsRouteSheetProgrammaticDismissRef.current = true;
         directionsRouteSheetRef.current?.dismiss();
-    }, [directionsRouteSheetProgrammaticDismissRef, directionsRouteSheetRef]);
+    }, [
+        directionsRouteSheetHasMountedRef,
+        directionsRouteSheetProgrammaticDismissRef,
+        directionsRouteSheetRef,
+    ]);
     const {
         applyFavoriteLocations,
         favoriteLocations,
@@ -1676,6 +1685,7 @@ export function useMapSearch({
         directionsRouteCanSubmit,
         directionsRouteError,
         directionsRouteIsLoading,
+        directionsRouteSheetHasMountedRef,
         directionsRouteSheetRef,
         directionsSearchError,
         directionsSearchIsFocused,

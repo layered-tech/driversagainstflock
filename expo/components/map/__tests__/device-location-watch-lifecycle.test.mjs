@@ -17,7 +17,11 @@ const transformedSource = transformSync(
     },
 ).code;
 
-function createWatchHarness({ watchHeadingAsync, watchPositionAsync } = {}) {
+function createWatchHarness({
+    now = Date.now,
+    watchHeadingAsync,
+    watchPositionAsync,
+} = {}) {
     let activeHooks = [];
     const publishedLocations = [];
     const headingWatches = [];
@@ -90,7 +94,7 @@ function createWatchHarness({ watchHeadingAsync, watchPositionAsync } = {}) {
         './shared-map-preferences-sync': {},
     };
 
-    new Function('require', 'module', 'exports', transformedSource)(
+    new Function('require', 'module', 'exports', 'Date', transformedSource)(
         (specifier) => {
             assert.ok(specifier in mockedModules, specifier);
 
@@ -98,6 +102,7 @@ function createWatchHarness({ watchHeadingAsync, watchPositionAsync } = {}) {
         },
         module,
         module.exports,
+        { now },
     );
 
     function createSurface() {
@@ -237,7 +242,8 @@ test('heading updates use the latest callback without recreating the compass wat
 });
 
 test('phone and car share one compass watch and normalize each heading once', async () => {
-    const harness = createWatchHarness();
+    let now = 1000;
+    const harness = createWatchHarness({ now: () => now });
     const car = harness.createSurface();
     const phoneHeadings = [];
     const carHeadings = [];
@@ -258,6 +264,7 @@ test('phone and car share one compass watch and normalize each heading once', as
     assert.equal(harness.headingNormalizationCount, 1);
     harness.unmount();
     assert.equal(harness.headingWatches[0].removalCount, 0);
+    now += 2000;
     harness.headingWatches[0].callback({ trueHeading: 180 });
     assert.deepEqual(phoneHeadings, [90]);
     assert.deepEqual(carHeadings, [90, 180]);
@@ -265,6 +272,65 @@ test('phone and car share one compass watch and normalize each heading once', as
     assert.equal(harness.headingWatches[0].removalCount, 1);
     harness.headingWatches[0].callback({ trueHeading: 270 });
     assert.deepEqual(carHeadings, [90, 180]);
+});
+
+test('phone and car receive the first compass heading immediately and then at most every two seconds', async () => {
+    let now = 0;
+    const harness = createWatchHarness({ now: () => now });
+    const car = harness.createSurface();
+    const phoneHeadings = [];
+    const carHeadings = [];
+    const options = { isDrivingMode: true, locationAccessGranted: true };
+    await harness.render('useHeadingWatch', {
+        ...options,
+        handleHeadingUpdate: (heading) => phoneHeadings.push(heading),
+    });
+    await car.render('useHeadingWatch', {
+        ...options,
+        handleHeadingUpdate: (heading) => carHeadings.push(heading),
+    });
+    const publish = (time, heading) => {
+        now = time;
+        harness.headingWatches[0].callback({ trueHeading: heading });
+    };
+
+    publish(0, 359);
+    assert.deepEqual(carHeadings, [359]);
+    for (let time = 100; time < 2000; time += 100) {
+        publish(time, time % 360);
+    }
+    assert.deepEqual(carHeadings, [359]);
+    publish(2000, 1);
+    publish(3999, 270);
+    publish(4000, 45);
+    assert.deepEqual(carHeadings, [359, 1, 45]);
+    assert.deepEqual(phoneHeadings, carHeadings);
+
+    harness.unmount();
+    car.unmount();
+});
+
+test('invalid compass readings do not delay the next valid heading', async () => {
+    let now = 0;
+    const harness = createWatchHarness({ now: () => now });
+    const headings = [];
+    await harness.render('useHeadingWatch', {
+        isDrivingMode: true,
+        locationAccessGranted: true,
+        handleHeadingUpdate: (heading) => headings.push(heading),
+    });
+    const publish = (heading) =>
+        harness.headingWatches[0].callback({ trueHeading: heading });
+
+    publish(null);
+    publish(90);
+    assert.deepEqual(headings, [90]);
+    now = 2000;
+    publish(null);
+    now = 2001;
+    publish(180);
+    assert.deepEqual(headings, [90, 180]);
+    harness.unmount();
 });
 
 test('a failing compass consumer does not block the other surface', async () => {
@@ -348,7 +414,7 @@ test('a compass setup that resolves after the last surface leaves is removed', a
 });
 
 test('a retired native compass cannot deliver into a replacement watch', async () => {
-    const harness = createWatchHarness();
+    const harness = createWatchHarness({ now: () => 0 });
     const replacement = harness.createSurface();
     const headings = [];
     const options = {
@@ -357,12 +423,13 @@ test('a retired native compass cannot deliver into a replacement watch', async (
         handleHeadingUpdate: (heading) => headings.push(heading),
     };
     await harness.render('useHeadingWatch', options);
+    harness.headingWatches[0].callback({ trueHeading: 45 });
     harness.unmount();
     await replacement.render('useHeadingWatch', options);
 
     assert.equal(harness.headingWatches.length, 2);
     harness.headingWatches[0].callback({ trueHeading: 90 });
     harness.headingWatches[1].callback({ trueHeading: 180 });
-    assert.deepEqual(headings, [180]);
+    assert.deepEqual(headings, [45, 180]);
     replacement.unmount();
 });

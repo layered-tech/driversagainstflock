@@ -343,6 +343,7 @@ export function DestinationCard({
     routeOption,
     remainingValues,
 }) {
+    const theme = getDafTheme(useColorScheme());
     const destination = directionsRoute?.destination;
     const isPrivateRoute = routeOption?.routeKey === DIRECTIONS_ROUTE_PRIVATE;
     const destinationTitle =
@@ -365,61 +366,96 @@ export function DestinationCard({
 
     return (
         <View
-            className="w-full gap-3 px-4 pt-4"
+            className="w-full gap-3 px-4 pt-1"
             style={{
                 paddingBottom: Math.max(
                     bottomInset + DRIVING_DESTINATION_BOTTOM_PADDING,
-                    DRIVING_DESTINATION_BOTTOM_PADDING,
+                    24,
                 ),
             }}
             testID="driving-destination-card"
         >
-            <View className="flex-row items-center gap-[14px]">
+            <View className="flex-row items-center gap-3">
+                <View
+                    className={`h-[46px] w-[46px] shrink-0 items-center justify-center rounded-dafSm ${
+                        isPrivateRoute
+                            ? 'bg-[#E6F9EF] dark:bg-daf-brand/[0.16]'
+                            : 'bg-daf-azure/10 dark:bg-daf-azure/[0.16]'
+                    }`}
+                >
+                    <Icon
+                        color={
+                            isPrivateRoute
+                                ? theme.text.brand
+                                : dafSemanticColors.routeFast
+                        }
+                        name={isPrivateRoute ? 'shield-check' : 'zap'}
+                        size={24}
+                        stroke={2.2}
+                    />
+                </View>
                 <View className="min-w-0 flex-1">
-                    <View className="mb-1.5 self-start">
-                        <View
-                            className={`h-[26px] justify-center rounded-dafPill px-2.5 ${
-                                isPrivateRoute ? 'bg-daf-brand' : 'bg-daf-azure'
-                            }`}
-                        >
-                            <Text className="text-[12px] font-bold text-white">
-                                {isPrivateRoute
-                                    ? 'Private route'
-                                    : 'Fastest route'}
-                            </Text>
-                        </View>
-                    </View>
-                    <View className="flex-row items-baseline gap-2">
+                    <View className="flex-row items-baseline gap-2.5 overflow-hidden">
                         <Text
-                            className="font-dafMono text-2xl font-extrabold text-daf-text-brand dark:text-daf-brand"
+                            adjustsFontSizeToFit
+                            className="shrink font-dafMono text-[26px] font-bold leading-[26px] tracking-[-0.52px] text-daf-text-primary dark:text-daf-text-inverse"
+                            includeFontPadding={false}
+                            minimumFontScale={0.8}
                             numberOfLines={1}
                             testID="driving-destination-route-summary"
                         >
                             {durationLabel || '-'}
                         </Text>
-                        <Text className="font-dafMono text-[13px] text-daf-text-secondary dark:text-neutral-300">
-                            {[distanceLabel, arrivalLabel]
-                                .filter(Boolean)
-                                .join(' - ')}
+                        {arrivalLabel ? (
+                            <Text
+                                className="shrink-0 font-dafMono text-[13px] font-semibold text-daf-text-secondary dark:text-[#A9B2BD]"
+                                includeFontPadding={false}
+                                numberOfLines={1}
+                            >
+                                {arrivalLabel}
+                            </Text>
+                        ) : null}
+                        {distanceLabel ? (
+                            <Text
+                                className="shrink font-dafMono text-[13px] text-daf-text-tertiary"
+                                includeFontPadding={false}
+                                numberOfLines={1}
+                            >
+                                {distanceLabel}
+                            </Text>
+                        ) : null}
+                    </View>
+                    <View className="mt-[5px] min-w-0 flex-row items-center gap-[7px]">
+                        <Text
+                            className={`shrink-0 text-[11px] font-bold uppercase leading-[13px] tracking-[0.66px] ${
+                                isPrivateRoute
+                                    ? 'text-daf-text-brand dark:text-[#2FC177]'
+                                    : 'text-daf-azure'
+                            }`}
+                            includeFontPadding={false}
+                        >
+                            {isPrivateRoute ? 'Private' : 'Fastest'}
+                        </Text>
+                        <View className="h-[3px] w-[3px] shrink-0 rounded-full bg-daf-border-strong dark:bg-[#3A434E]" />
+                        <Text
+                            className="min-w-0 shrink text-[13px] leading-[16px] text-daf-text-secondary dark:text-[#A9B2BD]"
+                            includeFontPadding={false}
+                            numberOfLines={1}
+                            testID="driving-destination-title"
+                        >
+                            {destinationTitle}
                         </Text>
                     </View>
-                    <Text
-                        className="text-[13px] font-medium text-daf-text-secondary dark:text-neutral-300"
-                        numberOfLines={1}
-                        testID="driving-destination-title"
-                    >
-                        {destinationTitle}
-                    </Text>
                 </View>
-                <DafButton
+                <NativeWindBottomSheetTouchableOpacity
                     accessibilityLabel="End route guidance"
+                    accessibilityRole="button"
+                    className="h-[46px] w-[46px] shrink-0 items-center justify-center rounded-dafSm bg-daf-alert active:scale-[0.97]"
                     onPress={onCancelRoute}
-                    pressableComponent={NativeWindBottomSheetTouchableOpacity}
                     testID="driving-cancel-route-button"
-                    variant="danger"
                 >
-                    Exit
-                </DafButton>
+                    <Icon color="#FFFFFF" name="x" size={22} stroke={2.4} />
+                </NativeWindBottomSheetTouchableOpacity>
             </View>
             {routeExportIsAvailable ? (
                 <DafButton
