@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
+import { createBottomSheetModalLifecycle } from '../bottom-sheet-modal-lifecycle.js';
+import { createHookHarness } from './tour-test-helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { transformSync } = require('@babel/core');
 
-test('the persistent bottom sheet resolves themed styles before passing them to the library', () => {
+function loadNativeComponents(overrides = {}) {
     const module = { exports: {} };
     const source = transformSync(
         readFileSync(
@@ -53,6 +55,7 @@ test('the persistent bottom sheet resolves themed styles before passing them to 
         'react-native': {},
         './responsive-map-layout': {},
         './safe-area-view-with-bottom-offset': {},
+        ...overrides,
     };
     new Function('require', 'module', 'exports', source)(
         (name) => mocks[name],
@@ -60,7 +63,12 @@ test('the persistent bottom sheet resolves themed styles before passing them to 
         module.exports,
     );
 
-    const sheet = module.exports.NativeWindBottomSheet;
+    return module.exports;
+}
+
+test('the persistent bottom sheet resolves themed styles before passing them to the library', () => {
+    const components = loadNativeComponents();
+    const sheet = components.NativeWindBottomSheet;
     assert.equal(sheet.component, 'BottomSheet');
     assert.equal(
         sheet.resolvesStyles,
@@ -71,8 +79,81 @@ test('the persistent bottom sheet resolves themed styles before passing them to 
         backgroundClassName: 'backgroundStyle',
         handleIndicatorClassName: 'handleIndicatorStyle',
     });
-    const touchable = module.exports.NativeWindBottomSheetTouchableOpacity;
+    const touchable = components.NativeWindBottomSheetTouchableOpacity;
     assert.equal(touchable.component, 'BottomSheetTouchableOpacity');
     assert.equal(touchable.resolvesStyles, true);
     assert.deepEqual(touchable.mapping, { className: 'style' });
+});
+
+test('all modal callers use a stable guarded ref while Gorhom retains its own object ref', () => {
+    const harness = createHookHarness();
+    const frames = new Map();
+    let nextFrame = 0;
+    const { NativeWindBottomSheetModal } = loadNativeComponents({
+        react: {
+            ...harness.react,
+            forwardRef: (fn) => fn,
+            useLayoutEffect: harness.react.useEffect,
+            useImperativeHandle: (ref, factory) => {
+                ref.current = factory();
+            },
+        },
+        'react/jsx-runtime': { jsx: (type, props) => ({ type, props }) },
+        'react-native': { useWindowDimensions: () => ({ width: 400 }) },
+        './bottom-sheet-modal-lifecycle': {
+            createBottomSheetModalLifecycle: (options) =>
+                createBottomSheetModalLifecycle({
+                    ...options,
+                    requestFrame: (callback) => {
+                        frames.set(++nextFrame, callback);
+                        return nextFrame;
+                    },
+                    cancelFrame: (id) => frames.delete(id),
+                }),
+        },
+    });
+    const ref = { current: null };
+    const changes = [];
+    let props = { onChange: (index) => changes.push(['old', index]) };
+    const render = () =>
+        harness.render(() => NativeWindBottomSheetModal(props, ref));
+    const node = render();
+    const guardedRef = ref.current;
+    assert.equal(
+        typeof node.props.ref,
+        'object',
+        'Gorhom stores this ref in its modal stack',
+    );
+    const calls = [];
+    node.props.ref.current = {
+        present: () => calls.push('old present'),
+        dismiss: () => calls.push('dismiss'),
+    };
+    ref.current.dismiss();
+    ref.current.present();
+    // Gorhom replaces its imperative handle when its own mount state changes.
+    node.props.ref.current = {
+        present: () => calls.push('new present'),
+        dismiss: () => calls.push('dismiss'),
+    };
+    const flush = () => {
+        const pending = [...frames.values()];
+        frames.clear();
+        pending.forEach((callback) => callback());
+    };
+    flush();
+    assert.deepEqual(calls, ['new present']);
+    ref.current.dismiss();
+    assert.deepEqual(calls, ['new present']);
+    props = { onChange: (index) => changes.push(['new', index]) };
+    const updated = render();
+    assert.equal(ref.current, guardedRef);
+    updated.props.onChange(0);
+    assert.deepEqual(changes, [['new', 0]]);
+    assert.deepEqual(calls, ['new present', 'dismiss']);
+    ref.current.present();
+    updated.props.onDismiss();
+    harness.cleanup();
+    flush();
+    assert.deepEqual(calls, ['new present', 'dismiss']);
 });

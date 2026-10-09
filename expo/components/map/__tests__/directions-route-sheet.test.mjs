@@ -37,7 +37,7 @@ test('presents the directions sheet after the route renders', () => {
     assert.equal(routeSheetPresentationEffectCount, 1);
     assert.match(
         directionsRouteSheetSource,
-        /if \(!mapPreferencesAreLoaded \|\| !directionsRoute\) \{\s+return undefined;\s+\}/,
+        /if \(!mapPreferencesAreLoaded \|\| !directionsRoute\) \{\s+directionsRouteSheetRef\.current\?\.dismiss\(\);\s+return undefined;\s+\}/,
     );
     assert.match(
         directionsRouteSheetSource,

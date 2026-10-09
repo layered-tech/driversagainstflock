@@ -82,10 +82,11 @@ export function useMapLayerSheetActions({
     const dismissMapLayerSheet = useCallback(() => {
         clearScheduledPresentation();
         layerSheetPresentationIsPendingRef.current = false;
-        if (
-            !layerSheetHasMountedRef.current ||
-            layerSheetIsDismissingRef.current
-        ) {
+        if (!layerSheetHasMountedRef.current) {
+            layerSheetRef.current?.dismiss();
+            return;
+        }
+        if (layerSheetIsDismissingRef.current) {
             return;
         }
         layerSheetIsDismissingRef.current = true;

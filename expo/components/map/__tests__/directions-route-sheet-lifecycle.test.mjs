@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
+import { createBottomSheetModalLifecycle } from '../bottom-sheet-modal-lifecycle.js';
 
 const require = createRequire(import.meta.url);
 const { transformSync } = require('@babel/core');
@@ -80,10 +81,26 @@ function createInstalledModal() {
         willUnmountSheet() {},
         unmount() {},
     };
-    return new Function(
+    const nativeModal = new Function(
         ...Object.keys(bindings),
         `${code}\nreturn { present: handlePresent, dismiss: handleDismiss, render: handlePortalRender };`,
     )(...Object.values(bindings));
+    const frames = [];
+    const lifecycle = createBottomSheetModalLifecycle({
+        requestFrame: (callback) => {
+            frames.push(callback);
+            return frames.length;
+        },
+        cancelFrame() {},
+    });
+    lifecycle.setModal(nativeModal);
+    return {
+        ...lifecycle,
+        render(callback) {
+            frames.splice(0).forEach((frame) => frame());
+            nativeModal.render(callback);
+        },
+    };
 }
 
 function createTrackingHandlers(mountedRef, programmaticRef, userClose) {
@@ -150,7 +167,7 @@ test('dismissing an unopened route sheet preserves its first presentation', () =
     });
 
     assert.equal(rendered, true, 'The installed modal must still render');
-    assert.equal(programmaticRef.current, false);
+    assert.equal(programmaticRef.current, true);
 });
 
 test('a mounted sheet dismisses programmatically and resets before reopening', () => {
@@ -174,8 +191,6 @@ test('a mounted sheet dismisses programmatically and resets before reopening', (
     handlers.onDismiss();
     assert.equal(mountedRef.current, false);
     assert.equal(userCloses, 0);
-    dismiss();
-    assert.equal(dismissals, 1);
     assert.equal(programmaticRef.current, false);
 
     handlers.onChange(0, 400);
@@ -239,4 +254,21 @@ test('unmounting for driving mode resets the guard before the sheet remounts', (
         rendered = true;
     });
     assert.equal(rendered, true);
+});
+
+test('a deferred programmatic dismissal does not exit route choice after the opening animation clears its old flag', () => {
+    const mountedRef = { current: false };
+    const programmaticRef = { current: true };
+    let userCloses = 0;
+    const handlers = createTrackingHandlers(
+        mountedRef,
+        programmaticRef,
+        () => userCloses++,
+    );
+    handlers.onAnimate(-1, 0, 800, 400);
+    assert.equal(programmaticRef.current, false);
+    handlers.onDismiss({ programmatic: true });
+    assert.equal(userCloses, 0);
+    handlers.onDismiss({ programmatic: false });
+    assert.equal(userCloses, 1);
 });

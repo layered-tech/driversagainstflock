@@ -9,8 +9,15 @@ import {
 import Mapbox from '@rnmapbox/maps';
 import { GlassView } from 'expo-glass-effect';
 import { cssInterop, remapProps } from 'nativewind';
-import { forwardRef, useMemo } from 'react';
+import {
+    forwardRef,
+    useImperativeHandle,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+} from 'react';
 import { useWindowDimensions } from 'react-native';
+import { createBottomSheetModalLifecycle } from './bottom-sheet-modal-lifecycle';
 import {
     MAP_SIDE_SHEET_BREAKPOINT,
     MAP_SIDE_SHEET_MAX_WIDTH,
@@ -47,6 +54,28 @@ export const NativeWindBottomSheetScrollView = remapProps(
 
 export const NativeWindBottomSheetModal = forwardRef(
     function NativeWindBottomSheetModal({ style, ...props }, ref) {
+        const modalRef = useRef(null);
+        const callbacks = useRef(props);
+        callbacks.current = props;
+        const lifecycle = useMemo(
+            () =>
+                createBottomSheetModalLifecycle({
+                    getModal: () => modalRef.current,
+                    onAnimate: (...args) =>
+                        callbacks.current.onAnimate?.(...args),
+                    onChange: (...args) =>
+                        callbacks.current.onChange?.(...args),
+                    onDismiss: (...args) =>
+                        callbacks.current.onDismiss?.(...args),
+                }),
+            [],
+        );
+        useImperativeHandle(ref, () => lifecycle, [lifecycle]);
+        useLayoutEffect(() => {
+            lifecycle.activate();
+            lifecycle.setModal(modalRef.current);
+            return lifecycle.dispose;
+        }, [lifecycle]);
         const { width } = useWindowDimensions();
         const responsiveSheetStyle = useMemo(() => {
             if (width < MAP_SIDE_SHEET_BREAKPOINT) {
@@ -65,7 +94,14 @@ export const NativeWindBottomSheetModal = forwardRef(
         );
 
         return (
-            <RemappedBottomSheetModal ref={ref} style={sheetStyle} {...props} />
+            <RemappedBottomSheetModal
+                {...props}
+                ref={modalRef}
+                style={sheetStyle}
+                onAnimate={lifecycle.onAnimate}
+                onChange={lifecycle.onChange}
+                onDismiss={lifecycle.onDismiss}
+            />
         );
     },
 );

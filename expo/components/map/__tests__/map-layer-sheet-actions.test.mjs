@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
+import { createBottomSheetModalLifecycle } from '../bottom-sheet-modal-lifecycle.js';
 
 const require = createRequire(import.meta.url);
 const { transformSync } = require('@babel/core');
@@ -195,11 +196,18 @@ function createInstalledModal(ref, props, scheduler) {
 
 test('starting driving before ever opening settings does not poison the first presentation', () => {
     const h = createActions();
+    const nativeRef = { current: null };
+    const lifecycle = createBottomSheetModalLifecycle({
+        requestFrame: h.scheduler.requestAnimationFrame,
+        cancelFrame: h.scheduler.cancelAnimationFrame,
+    });
     const modal = createInstalledModal(
-        h.actions.layerSheetRef,
+        nativeRef,
         { snapPoints: [500] },
         h.scheduler,
     );
+    lifecycle.setModal(nativeRef.current);
+    h.actions.layerSheetRef.current = lifecycle;
     const { useStartDrivingAction } = loadModule(
         new URL('../use-driving-mode-lifecycle.js', import.meta.url),
         {
@@ -219,6 +227,7 @@ test('starting driving before ever opening settings does not poison the first pr
     });
     start();
     h.actions.handleMapLayerPress();
+    h.scheduler.flushFrames();
     h.scheduler.flushFrames();
     const portal = modal.render();
     assert.ok(portal);
@@ -293,4 +302,56 @@ test('unmount cancels a queued opening and a late dismissal cannot replay it', (
     h.scheduler.flushFrames();
     h.scheduler.flushTimers();
     assert.equal(h.scheduler.count(), 0);
+});
+
+test('the installed modal renders again after a reopen requested during its dismissal', () => {
+    const scheduler = createScheduler();
+    const nativeRef = { current: null };
+    let dismissals = 0;
+    let nativeCloses = 0;
+    const lifecycle = createBottomSheetModalLifecycle({
+        requestFrame: scheduler.requestAnimationFrame,
+        cancelFrame: scheduler.cancelAnimationFrame,
+        getModal: () => nativeRef.current,
+        onDismiss: () => dismissals++,
+    });
+    const modal = createInstalledModal(
+        nativeRef,
+        {
+            snapPoints: [500],
+            onAnimate: lifecycle.onAnimate,
+            onChange: lifecycle.onChange,
+            onDismiss: lifecycle.onDismiss,
+        },
+        scheduler,
+    );
+    lifecycle.present();
+    scheduler.flushFrames();
+    scheduler.flushFrames();
+    const portal = modal.render();
+    const sheet = portal.props.children[0].props.children[0];
+    sheet.props.ref.current = {
+        forceClose: () => nativeCloses++,
+        snapToIndex() {},
+    };
+    sheet.props.onAnimate(-1, 0);
+    sheet.props.onChange(0);
+    lifecycle.dismiss();
+    lifecycle.present();
+    assert.equal(nativeCloses, 1);
+    sheet.props.onAnimate(0, -1);
+    sheet.props.onChange(-1);
+    sheet.props.onClose();
+    sheet.props.ref.current = null;
+    assert.equal(modal.render(), null);
+    assert.equal(dismissals, 0);
+    scheduler.flushFrames();
+    scheduler.flushFrames();
+    const reopened = modal.render();
+    assert.ok(reopened);
+    let rendered = false;
+    reopened.props.handleOnMount(() => {
+        rendered = true;
+    });
+    assert.equal(rendered, true);
 });

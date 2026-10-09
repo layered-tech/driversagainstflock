@@ -58,6 +58,7 @@ export function DirectionsRouteSheet() {
     );
     useEffect(() => {
         if (!mapPreferencesAreLoaded || !directionsRoute) {
+            directionsRouteSheetRef.current?.dismiss();
             return undefined;
         }
 

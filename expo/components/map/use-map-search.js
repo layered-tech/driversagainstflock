@@ -198,17 +198,9 @@ export function useMapSearch({
         placeSheetRef.current?.dismiss();
     }, [placeSheetProgrammaticDismissRef, placeSheetRef]);
     const dismissDirectionsRouteSheet = useCallback(() => {
-        if (!directionsRouteSheetHasMountedRef.current) {
-            return;
-        }
-
         directionsRouteSheetProgrammaticDismissRef.current = true;
         directionsRouteSheetRef.current?.dismiss();
-    }, [
-        directionsRouteSheetHasMountedRef,
-        directionsRouteSheetProgrammaticDismissRef,
-        directionsRouteSheetRef,
-    ]);
+    }, [directionsRouteSheetProgrammaticDismissRef, directionsRouteSheetRef]);
     const {
         applyFavoriteLocations,
         favoriteLocations,

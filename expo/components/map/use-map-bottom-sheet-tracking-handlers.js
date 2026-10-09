@@ -56,7 +56,7 @@ export function useMapBottomSheetTrackingHandlers({
                 }
                 handleDirectionsRouteSheetPositionChange(index, position);
             },
-            onDismiss: () => {
+            onDismiss: (dismissal) => {
                 directionsRouteSheetHasMountedRef.current = false;
                 resetTrackedSheetPosition();
                 setActiveDirectionsRouteSheetCoverageRatio(0);
@@ -64,6 +64,7 @@ export function useMapBottomSheetTrackingHandlers({
                 // exit the route-choice flow. Programmatic dismisses set the flag and
                 // skip this so in-flight transitions keep their route state.
                 const wasProgrammaticDismiss =
+                    dismissal?.programmatic ??
                     directionsRouteSheetProgrammaticDismissRef.current;
                 if (!wasProgrammaticDismiss) {
                     directionsRouteUserCloseRef.current?.();
@@ -153,9 +154,10 @@ export function useMapSearchBottomSheetTrackingHandlers({
                 }
             },
             onChange: noop,
-            onDismiss: () => {
+            onDismiss: (dismissal) => {
                 resetTrackedSheetPosition();
                 const wasProgrammaticDismiss =
+                    dismissal?.programmatic ??
                     placeSheetProgrammaticDismissRef.current;
                 handlePlaceSheetDismiss();
                 // A user drag-to-close leaves the flag unset; mirror the ✕ button and

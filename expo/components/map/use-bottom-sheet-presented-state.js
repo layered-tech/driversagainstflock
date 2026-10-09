@@ -6,9 +6,7 @@ export function useBottomSheetPresentedState({ onChange, onDismiss } = {}) {
         (index, ...args) => {
             onChange?.(index, ...args);
 
-            if (index >= 0) {
-                setBottomSheetIsPresented(true);
-            }
+            setBottomSheetIsPresented(index >= 0);
         },
         [onChange],
     );
