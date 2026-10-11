@@ -14,7 +14,8 @@ readonly BUILD_SCRIPT_KEY="operations/build/${BUILD_SCRIPT_VERSION}/build-initia
 readonly DEPLOY_SCRIPT_KEY="operations/serving/${DEPLOY_SCRIPT_VERSION}/deploy-graph.sh"
 readonly BUILD_SCRIPT_SHA256="2db8a26abb7d7a2b998a1dede77c23b7951f2c23e1bd1e26f17b9d1f9f98e7c8"
 readonly DEPLOY_SCRIPT_SHA256="dcdb2f0c49383b9a4f21c03896c4c700a9b7879167d882575a71767a382fcd25"
-readonly GEOFABRIK_INDEX_URL="https://download.geofabrik.de/north-america/"
+readonly GEOFABRIK_INDEX_URL="https://download.geofabrik.de/north-america/us.html"
+readonly GEOFABRIK_DOWNLOAD_URL="https://download.geofabrik.de/north-america/"
 readonly OPERATION_ROOT="/var/lib/daf-routing-build/operations"
 readonly CLOUDWATCH_EVENT_LOG="/var/log/daf-routing/builder-events.log"
 
@@ -234,7 +235,7 @@ else
     index_html="$(curl --fail --location --silent --show-error "${GEOFABRIK_INDEX_URL}")"
     PBF_NAME="$(printf '%s' "${index_html}" | grep -Eo 'us-[0-9]{6}\.osm\.pbf\.md5' | sort -u | tail -n 1 | sed 's/\.md5$//')"
     [[ -n "${PBF_NAME}" ]] || fail "could not identify the newest dated U.S. PBF"
-    checksum_line="$(curl --fail --location --silent --show-error "${GEOFABRIK_INDEX_URL}${PBF_NAME}.md5")"
+    checksum_line="$(curl --fail --location --silent --show-error "${GEOFABRIK_DOWNLOAD_URL}${PBF_NAME}.md5")"
     PBF_MD5="$(printf '%s\n' "${checksum_line}" | awk '{print tolower($1)}')"
 fi
 

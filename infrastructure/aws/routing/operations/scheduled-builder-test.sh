@@ -57,6 +57,26 @@ manual_dry_run="$(${WORKFLOW} \
 grep -qF 'Mode: manual' <<< "${manual_dry_run}"
 grep -qF 'Deployment: deferred' <<< "${manual_dry_run}"
 
+for discovery_script in "${WORKFLOW}" "${OPERATIONS_DIR}/build-graph.sh"; do
+    discovered_dry_run="$(
+        curl() {
+            if [[ "${!#}" == "https://download.geofabrik.de/north-america/us.html" ]]; then
+                printf '%s\n' '<a href="us-261008.osm.pbf.md5">older</a>' \
+                    '<a href="us-261009.osm.pbf.md5">newest</a>' \
+                    '<a href="us-261007.osm.pbf.md5">oldest</a>'
+            elif [[ "${!#}" == "https://download.geofabrik.de/north-america/us-261009.osm.pbf.md5" ]]; then
+                printf '%s\n' '0befc76d07878c8a68f1ed85948ea7a9  us-261009.osm.pbf'
+            else
+                echo "Unexpected snapshot discovery URL: ${!#}" >&2
+                return 1
+            fi
+        }
+        export -f curl
+        bash "${discovery_script}" --dry-run --release-id 20261011T070000Z-us-v1
+    )"
+    grep -qF 'us-261009.osm.pbf' <<< "${discovered_dry_run}"
+done
+
 if "${WORKFLOW}" \
     --dry-run \
     --mode scheduled \

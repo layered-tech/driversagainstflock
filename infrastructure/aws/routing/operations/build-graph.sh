@@ -19,7 +19,8 @@ readonly LOGGING_SCRIPT_PATH="${OPERATIONS_DIR}/logging/${LOGGING_SCRIPT_VERSION
 readonly BUILDER_USER_DATA_PATH="${OPERATIONS_DIR}/builder-user-data.sh"
 readonly WORKFLOW_SCRIPT_KEY="operations/scheduled-builder/${WORKFLOW_SCRIPT_VERSION}/run-build.sh"
 readonly LOGGING_SCRIPT_KEY="operations/logging/${LOGGING_SCRIPT_VERSION}/install-cloudwatch-logs.sh"
-readonly GEOFABRIK_INDEX_URL="https://download.geofabrik.de/north-america/"
+readonly GEOFABRIK_INDEX_URL="https://download.geofabrik.de/north-america/us.html"
+readonly GEOFABRIK_DOWNLOAD_URL="https://download.geofabrik.de/north-america/"
 
 ASSUME_YES=false
 DRY_RUN=false
@@ -161,7 +162,7 @@ else
     PBF_NAME="$(printf '%s' "${index_html}" | grep -Eo 'us-[0-9]{6}\.osm\.pbf\.md5' | sort -u | tail -n 1 | sed 's/\.md5$//')"
     [[ -n "${PBF_NAME}" ]] || fail "could not identify the newest dated U.S. PBF"
 
-    checksum_line="$(curl --fail --location --silent --show-error "${GEOFABRIK_INDEX_URL}${PBF_NAME}.md5")"
+    checksum_line="$(curl --fail --location --silent --show-error "${GEOFABRIK_DOWNLOAD_URL}${PBF_NAME}.md5")"
     PBF_MD5="$(printf '%s\n' "${checksum_line}" | awk '{print tolower($1)}')"
 fi
 
