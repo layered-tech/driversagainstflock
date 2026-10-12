@@ -4,7 +4,7 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { usePathname } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
 import { useCallback, useEffect, useState } from 'react';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
     initialWindowMetrics,
@@ -15,6 +15,7 @@ import { Icon } from '../components/design-system/icon';
 import { FirstLaunchSupportGate } from '../components/information/first-launch-support-gate';
 import { SharedMapStateProvider } from '../components/map/shared-map-state';
 import { APP_ENVIRONMENT } from '../components/map/config';
+import { AdaptiveNavigationShell } from '../components/root/adaptive-navigation-shell';
 import { AppDrawerContent } from '../components/root/app-drawer-content';
 import { AndroidGeoIntentHandler } from '../components/root/android-geo-intent-handler';
 import { AuthCallbackHandler } from '../components/root/auth-callback-handler';
@@ -86,202 +87,219 @@ function RootLayout() {
                             <AndroidGeoIntentHandler />
                             <ScorecardContributeProvider>
                                 <FirstLaunchSupportGate>
-                                    <Drawer
-                                        drawerContent={(props) => (
-                                            <AppDrawerContent
-                                                {...props}
-                                                onOpenDebugDrawer={
-                                                    handleOpenDebugDrawer
-                                                }
-                                            />
-                                        )}
-                                        screenOptions={{
-                                            drawerActiveTintColor: isDarkMode
-                                                ? '#F5F7F9'
-                                                : '#11151B',
-                                            drawerInactiveTintColor: isDarkMode
-                                                ? '#F5F7F9'
-                                                : '#11151B',
-                                            drawerItemStyle: {
-                                                borderRadius: 10,
-                                            },
-                                            drawerStyle: {
-                                                backgroundColor:
-                                                    systemBarBackground,
-                                                width: 308,
-                                            },
-                                            headerShown: false,
-                                            sceneStyle: {
-                                                backgroundColor:
-                                                    systemBarBackground,
-                                            },
-                                        }}
-                                    >
-                                        <Drawer.Screen
-                                            name="index"
-                                            options={{
-                                                drawerLabel: 'Map',
-                                                drawerIcon: ({
-                                                    color,
-                                                    size,
-                                                }) => (
-                                                    <Icon
-                                                        color={color}
-                                                        name="navigation"
-                                                        size={size}
+                                    <View style={{ flex: 1 }}>
+                                        <AdaptiveNavigationShell>
+                                            {(drawerNavigation) => (
+                                                <Drawer
+                                                    drawerContent={(props) => {
+                                                        drawerNavigation.current =
+                                                            props.navigation;
+                                                        return (
+                                                            <AppDrawerContent
+                                                                {...props}
+                                                                onOpenDebugDrawer={
+                                                                    handleOpenDebugDrawer
+                                                                }
+                                                            />
+                                                        );
+                                                    }}
+                                                    screenOptions={{
+                                                        drawerActiveTintColor:
+                                                            isDarkMode
+                                                                ? '#F5F7F9'
+                                                                : '#11151B',
+                                                        drawerInactiveTintColor:
+                                                            isDarkMode
+                                                                ? '#F5F7F9'
+                                                                : '#11151B',
+                                                        drawerItemStyle: {
+                                                            borderRadius: 10,
+                                                        },
+                                                        drawerStyle: {
+                                                            backgroundColor:
+                                                                systemBarBackground,
+                                                            width: 308,
+                                                        },
+                                                        headerShown: false,
+                                                        sceneStyle: {
+                                                            backgroundColor:
+                                                                systemBarBackground,
+                                                        },
+                                                    }}
+                                                >
+                                                    <Drawer.Screen
+                                                        name="index"
+                                                        options={{
+                                                            drawerLabel: 'Map',
+                                                            drawerIcon: ({
+                                                                color,
+                                                                size,
+                                                            }) => (
+                                                                <Icon
+                                                                    color={color}
+                                                                    name="navigation"
+                                                                    size={size}
+                                                                />
+                                                            ),
+                                                            title: 'Map',
+                                                        }}
                                                     />
-                                                ),
-                                                title: 'Map',
-                                            }}
-                                        />
-                                        <Drawer.Screen
-                                            name="scorecard"
-                                            options={{
-                                                drawerLabel: 'Scorecard',
-                                                drawerIcon: ({
-                                                    color,
-                                                    size,
-                                                }) => (
-                                                    <Icon
-                                                        color={color}
-                                                        name="gauge"
-                                                        size={size}
+                                                    <Drawer.Screen
+                                                        name="scorecard"
+                                                        options={{
+                                                            drawerLabel:
+                                                                'Scorecard',
+                                                            drawerIcon: ({
+                                                                color,
+                                                                size,
+                                                            }) => (
+                                                                <Icon
+                                                                    color={color}
+                                                                    name="gauge"
+                                                                    size={size}
+                                                                />
+                                                            ),
+                                                            popToTopOnBlur: true,
+                                                            title: 'Scorecard',
+                                                        }}
                                                     />
-                                                ),
-                                                popToTopOnBlur: true,
-                                                title: 'Scorecard',
-                                            }}
-                                        />
-                                        <Drawer.Screen
-                                            name="hotlist"
-                                            options={{
-                                                drawerLabel: 'Hotlist',
-                                                drawerIcon: ({
-                                                    color,
-                                                    size,
-                                                }) => (
-                                                    <Icon
-                                                        color={color}
-                                                        name="clock"
-                                                        size={size}
+                                                    <Drawer.Screen
+                                                        name="hotlist"
+                                                        options={{
+                                                            drawerLabel: 'Hotlist',
+                                                            drawerIcon: ({
+                                                                color,
+                                                                size,
+                                                            }) => (
+                                                                <Icon
+                                                                    color={color}
+                                                                    name="clock"
+                                                                    size={size}
+                                                                />
+                                                            ),
+                                                            title: 'Hotlist',
+                                                        }}
                                                     />
-                                                ),
-                                                title: 'Hotlist',
-                                            }}
-                                        />
-                                        <Drawer.Screen
-                                            name="faqs"
-                                            options={{
-                                                drawerLabel: 'FAQ',
-                                                drawerIcon: ({
-                                                    color,
-                                                    size,
-                                                }) => (
-                                                    <Icon
-                                                        color={color}
-                                                        name="info"
-                                                        size={size}
+                                                    <Drawer.Screen
+                                                        name="faqs"
+                                                        options={{
+                                                            drawerLabel: 'FAQ',
+                                                            drawerIcon: ({
+                                                                color,
+                                                                size,
+                                                            }) => (
+                                                                <Icon
+                                                                    color={color}
+                                                                    name="info"
+                                                                    size={size}
+                                                                />
+                                                            ),
+                                                            title: 'FAQ',
+                                                        }}
                                                     />
-                                                ),
-                                                title: 'FAQ',
-                                            }}
-                                        />
-                                        <Drawer.Screen
-                                            name="contribute-to-daf"
-                                            options={{
-                                                drawerLabel: 'Support Us',
-                                                drawerIcon: ({
-                                                    color,
-                                                    size,
-                                                }) => (
-                                                    <Icon
-                                                        color={color}
-                                                        name="coffee"
-                                                        size={size}
+                                                    <Drawer.Screen
+                                                        name="contribute-to-daf"
+                                                        options={{
+                                                            drawerLabel:
+                                                                'Support Us',
+                                                            drawerIcon: ({
+                                                                color,
+                                                                size,
+                                                            }) => (
+                                                                <Icon
+                                                                    color={color}
+                                                                    name="coffee"
+                                                                    size={size}
+                                                                />
+                                                            ),
+                                                            title: 'Support Us',
+                                                        }}
                                                     />
-                                                ),
-                                                title: 'Support Us',
-                                            }}
-                                        />
-                                        <Drawer.Screen
-                                            name="privacy-policy"
-                                            options={{
-                                                drawerLabel: 'Privacy Policy',
-                                                drawerIcon: ({
-                                                    color,
-                                                    size,
-                                                }) => (
-                                                    <Icon
-                                                        color={color}
-                                                        name="shield-check"
-                                                        size={size}
+                                                    <Drawer.Screen
+                                                        name="privacy-policy"
+                                                        options={{
+                                                            drawerLabel:
+                                                                'Privacy Policy',
+                                                            drawerIcon: ({
+                                                                color,
+                                                                size,
+                                                            }) => (
+                                                                <Icon
+                                                                    color={color}
+                                                                    name="shield-check"
+                                                                    size={size}
+                                                                />
+                                                            ),
+                                                            title: 'Privacy Policy',
+                                                        }}
                                                     />
-                                                ),
-                                                title: 'Privacy Policy',
-                                            }}
-                                        />
-                                        <Drawer.Screen
-                                            name="terms-of-use"
-                                            options={{
-                                                drawerLabel: 'Terms of Use',
-                                                drawerIcon: ({
-                                                    color,
-                                                    size,
-                                                }) => (
-                                                    <Icon
-                                                        color={color}
-                                                        name="flag"
-                                                        size={size}
+                                                    <Drawer.Screen
+                                                        name="terms-of-use"
+                                                        options={{
+                                                            drawerLabel:
+                                                                'Terms of Use',
+                                                            drawerIcon: ({
+                                                                color,
+                                                                size,
+                                                            }) => (
+                                                                <Icon
+                                                                    color={color}
+                                                                    name="flag"
+                                                                    size={size}
+                                                                />
+                                                            ),
+                                                            title: 'Terms of Use',
+                                                        }}
                                                     />
-                                                ),
-                                                title: 'Terms of Use',
-                                            }}
-                                        />
-                                        <Drawer.Screen
-                                            name="about-and-legal"
-                                            options={{
-                                                drawerLabel: 'About & Legal',
-                                                drawerIcon: ({
-                                                    color,
-                                                    size,
-                                                }) => (
-                                                    <Icon
-                                                        color={color}
-                                                        name="info"
-                                                        size={size}
+                                                    <Drawer.Screen
+                                                        name="about-and-legal"
+                                                        options={{
+                                                            drawerLabel:
+                                                                'About & Legal',
+                                                            drawerIcon: ({
+                                                                color,
+                                                                size,
+                                                            }) => (
+                                                                <Icon
+                                                                    color={color}
+                                                                    name="info"
+                                                                    size={size}
+                                                                />
+                                                            ),
+                                                            title: 'About & Legal',
+                                                        }}
                                                     />
-                                                ),
-                                                title: 'About & Legal',
-                                            }}
+                                                    <Drawer.Screen
+                                                        name="contribute"
+                                                        options={{
+                                                            drawerItemStyle: {
+                                                                display: 'none',
+                                                            },
+                                                            popToTopOnBlur: true,
+                                                            swipeEnabled: false,
+                                                            title: 'Contribute',
+                                                        }}
+                                                    />
+                                                    <Drawer.Screen
+                                                        name="edits"
+                                                        options={{
+                                                            drawerItemStyle: {
+                                                                display: 'none',
+                                                            },
+                                                            popToTopOnBlur: true,
+                                                            swipeEnabled: false,
+                                                            title: 'Your edits',
+                                                        }}
+                                                    />
+                                                </Drawer>
+                                            )}
+                                        </AdaptiveNavigationShell>
+                                        <DebugDrawer
+                                            onClose={handleCloseDebugDrawer}
+                                            visible={debugDrawerIsVisible}
                                         />
-                                        <Drawer.Screen
-                                            name="contribute"
-                                            options={{
-                                                drawerItemStyle: {
-                                                    display: 'none',
-                                                },
-                                                popToTopOnBlur: true,
-                                                swipeEnabled: false,
-                                                title: 'Contribute',
-                                            }}
-                                        />
-                                        <Drawer.Screen
-                                            name="edits"
-                                            options={{
-                                                drawerItemStyle: {
-                                                    display: 'none',
-                                                },
-                                                popToTopOnBlur: true,
-                                                swipeEnabled: false,
-                                                title: 'Your edits',
-                                            }}
-                                        />
-                                    </Drawer>
-                                    <DebugDrawer
-                                        onClose={handleCloseDebugDrawer}
-                                        visible={debugDrawerIsVisible}
-                                    />
-                                    <ScorecardArrivalRecap />
+                                        <ScorecardArrivalRecap />
+                                    </View>
                                 </FirstLaunchSupportGate>
                             </ScorecardContributeProvider>
                         </SharedMapStateProvider>

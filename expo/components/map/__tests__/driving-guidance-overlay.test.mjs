@@ -71,6 +71,12 @@ function loadComponent(source, dependencies) {
         ],
     }).code;
     const mocks = {
+        '../../lib/safe-area-insets': {
+            useSafeAreaInsets: () => ({ top: 46, bottom: 34 }),
+        },
+        './use-responsive-map-layout': {
+            useResponsiveMapLayout: () => ({ isWide: false }),
+        },
         react: {
             useCallback: (fn) => fn,
             useMemo: (fn) => fn(),

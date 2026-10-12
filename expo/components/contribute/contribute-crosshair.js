@@ -1,3 +1,4 @@
+import { useResponsiveMapLayout } from '../map/use-responsive-map-layout';
 import { View } from 'react-native';
 import Svg, { Circle, Line } from 'react-native-svg';
 import { dafSemanticColors } from '../design-system/tokens';
@@ -6,9 +7,11 @@ import { ContributeTourTarget } from './contribute-tour-target';
 const CROSSHAIR_SIZE = 58;
 
 export function ContributeCrosshair({ tourTargets }) {
+    const layout = useResponsiveMapLayout();
     return (
         <View
             className="absolute inset-0 items-center justify-center"
+            style={layout.isWide ? { left: layout.mapLeftInset } : undefined}
             pointerEvents="none"
             testID="contribute-crosshair"
         >

@@ -1,0 +1,70 @@
+appId: com.anonymous.drivefree.dev
+name: Tablet panes and navigation rail
+tags:
+  - responsive
+---
+# Run on a window at least 1024 logical pixels wide, with Metro connected.
+- extendedWaitUntil:
+    visible:
+      id: 'tablet-navigation-rail'
+    timeout: 30000
+- runFlow:
+    when:
+      visible:
+        id: 'wide-sheet-close-button'
+    commands:
+      - tapOn:
+          id: 'wide-sheet-close-button'
+- tapOn:
+    id: 'tablet-rail-map'
+- tapOn:
+    id: 'map-search-input-map'
+- extendedWaitUntil:
+    visible:
+      id: 'map-full-screen-search-map'
+    timeout: 10000
+- hideKeyboard
+- assertVisible:
+    id: 'map-layer-button'
+- tapOn:
+    id: 'map-full-screen-search-cancel-map'
+- tapOn:
+    id: 'map-layer-button'
+- extendedWaitUntil:
+    visible:
+      id: 'wide-sheet-close-button'
+    timeout: 10000
+- tapOn:
+    id: 'wide-sheet-close-button'
+- assertNotVisible:
+    id: 'wide-sheet-close-button'
+- tapOn:
+    id: 'tablet-rail-gauge'
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-dashboard'
+    timeout: 10000
+- assertVisible:
+    id: 'workspace-left-pane'
+- assertVisible:
+    id: 'workspace-map'
+- tapOn:
+    id: 'tablet-rail-flame'
+- extendedWaitUntil:
+    visible:
+      id: 'hotlist-screen'
+    timeout: 10000
+- assertVisible:
+    id: 'workspace-left-pane'
+- tapOn:
+    id: 'tablet-rail-menu'
+- extendedWaitUntil:
+    visible:
+      id: 'app-drawer-open'
+    timeout: 10000
+- tapOn:
+    id: 'drawer-index-button'
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 10000

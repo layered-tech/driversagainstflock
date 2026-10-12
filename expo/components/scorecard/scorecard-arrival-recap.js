@@ -1,5 +1,6 @@
+import { useResponsiveMapLayout } from '../map/use-responsive-map-layout';
 import { router } from 'expo-router';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
@@ -54,6 +55,7 @@ function RecapStat({ label, testID, tone = 'default', value }) {
 
 export function ScorecardArrivalRecap() {
     const insets = useSafeAreaInsets();
+    const layout = useResponsiveMapLayout();
     const { dismissRecap, level, pendingRecap, scorecardState, windowStats } =
         useScorecard();
 
@@ -99,15 +101,37 @@ export function ScorecardArrivalRecap() {
             style={{ zIndex: 120 }}
             testID="scorecard-arrival-recap"
         >
-            <Pressable
-                accessibilityLabel="Arrival recap backdrop"
-                className="absolute inset-0 bg-black/25"
-            />
-            <View
-                className="dark:border-daf-border-dark dark:bg-daf-surface-dark rounded-t-dafSheet border-t border-daf-border bg-white px-4 pt-4 shadow-2xl"
-                style={{ paddingBottom: Math.max(insets.bottom + 12, 24) }}
+            {!layout.isWide ? (
+                <Pressable
+                    accessibilityLabel="Arrival recap backdrop"
+                    className="absolute inset-0 bg-black/25"
+                />
+            ) : null}
+            <ScrollView
+                contentContainerStyle={{
+                    paddingBottom: layout.isWide
+                        ? 24
+                        : Math.max(insets.bottom + 12, 24),
+                }}
+                className="shrink grow-0 rounded-t-dafSheet border-t border-daf-border bg-white px-4 pt-4 shadow-2xl dark:border-daf-border-dark dark:bg-daf-surface-dark"
+                style={
+                    layout.isWide
+                        ? {
+                              position: 'absolute',
+                              maxHeight:
+                                  layout.height -
+                                  insets.top -
+                                  insets.bottom -
+                                  24,
+                              left: layout.railWidth + insets.left + 12,
+                              top: insets.top + 12,
+                              width: layout.paneWidth,
+                              borderRadius: 22,
+                          }
+                        : undefined
+                }
             >
-                <View className="dark:bg-daf-border-dark mx-auto mb-3 h-1 w-10 rounded-dafPill bg-daf-border-strong" />
+                <View className="mx-auto mb-3 h-1 w-10 rounded-dafPill bg-daf-border-strong dark:bg-daf-border-dark" />
                 <Text
                     className="font-dafDisplay text-xl font-bold text-daf-text-primary dark:text-white"
                     testID="scorecard-arrival-recap-title"
@@ -115,7 +139,7 @@ export function ScorecardArrivalRecap() {
                     {title}
                 </Text>
                 <Text
-                    className="font-dafMono mt-1 text-xs text-daf-text-tertiary dark:text-neutral-400"
+                    className="mt-1 font-dafMono text-xs text-daf-text-tertiary dark:text-neutral-400"
                     testID="scorecard-arrival-recap-trip-summary"
                 >
                     {formatDuration(trip.durationSeconds)} ·{' '}
@@ -250,7 +274,7 @@ export function ScorecardArrivalRecap() {
                 >
                     View exposure timeline
                 </DafButton>
-            </View>
+            </ScrollView>
         </View>
     );
 }

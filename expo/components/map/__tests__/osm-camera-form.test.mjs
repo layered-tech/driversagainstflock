@@ -203,6 +203,9 @@ test('opening a new camera waits until the returned pin is committed to shared s
             import.meta.url,
         ),
         {
+            '../map/use-responsive-map-layout': {
+                useResponsiveMapLayout: () => ({ isWide: false }),
+            },
             react: hooks.react,
             'react-native': {
                 Pressable: 'Pressable',

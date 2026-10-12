@@ -1,3 +1,5 @@
+import { useResponsiveMapLayout } from './use-responsive-map-layout';
+import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, useColorScheme, View } from 'react-native';
 import {
@@ -90,12 +92,15 @@ export function DrivingStepsSheet({
     maneuver,
     ...destinationProps
 }) {
+    const layout = useResponsiveMapLayout();
+    const insets = useSafeAreaInsets();
     const localSheetRef = useRef(null);
     const sheetRef = bottomSheetRef ?? localSheetRef;
     const listRef = useRef(null);
     const scrollRetryRef = useRef(null);
     const collapsedSectionHeightsRef = useRef({ handle: null, summary: null });
     const [expanded, setExpanded] = useState(false);
+    const stepsAreExpanded = expanded || layout.isWide;
     const animatedIndex = useSharedValue(0);
     useAnimatedReaction(
         () => animatedIndex.value,
@@ -140,13 +145,13 @@ export function DrivingStepsSheet({
         scrollRetryRef.current = null;
     }, []);
     const scrollToCurrentStep = useCallback(() => {
-        if (expanded && stepsAreSynced && currentStepIndex >= 0) {
+        if (stepsAreExpanded && stepsAreSynced && currentStepIndex >= 0) {
             listRef.current?.scrollToIndex({
                 index: currentStepIndex,
                 animated: false,
             });
         }
-    }, [currentStepIndex, expanded, stepsAreSynced]);
+    }, [currentStepIndex, stepsAreExpanded, stepsAreSynced]);
     const handleScrollBeginDrag = useCallback(() => {
         cancelScrollRetry();
         setStepsAreSynced(false);
@@ -224,9 +229,20 @@ export function DrivingStepsSheet({
             enableHandlePanningGesture
             enableOverDrag={false}
             enablePanDownToClose={false}
-            handleComponent={renderHandle}
+            handleComponent={layout.isWide ? null : renderHandle}
+            style={
+                layout.isWide
+                    ? {
+                          marginLeft: 12,
+                          marginRight: layout.width - layout.paneWidth - 12,
+                      }
+                    : undefined
+            }
+            topInset={layout.isWide ? insets.top + 12 : 0}
+            bottomInset={layout.isWide ? insets.bottom + 12 : 0}
+            detached={layout.isWide}
             index={0}
-            snapPoints={snapPoints}
+            snapPoints={layout.isWide ? ['100%'] : snapPoints}
         >
             <View className="flex-1">
                 <View
@@ -273,7 +289,7 @@ export function DrivingStepsSheet({
                     showsVerticalScrollIndicator={false}
                     testID="driving-direction-steps"
                 />
-                {expanded && !stepsAreSynced ? (
+                {stepsAreExpanded && !stepsAreSynced ? (
                     <View
                         className="absolute self-center"
                         style={{

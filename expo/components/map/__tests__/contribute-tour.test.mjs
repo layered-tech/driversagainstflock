@@ -299,6 +299,9 @@ function createScreenHarness() {
         },
     };
     const mocks = {
+        '../map/use-responsive-map-layout': {
+            useResponsiveMapLayout: () => ({ isWide: false }),
+        },
         './changeset-summary': { getChangesetSummary },
         '../../lib/osm/camera-presets': {
             getCameraChangeLabel,

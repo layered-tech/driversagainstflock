@@ -76,6 +76,9 @@ function createDashboardHarness({
     const { default: Dashboard } = loadTourModule(
         new URL('../scorecard-dashboard-screen.js', import.meta.url),
         {
+            '../map/responsive-map-workspace': {
+                ResponsiveMapWorkspace: 'ResponsiveMapWorkspace',
+            },
             react: hooks.react,
             'expo-router': {
                 router: { push: (route) => routes.push(route) },

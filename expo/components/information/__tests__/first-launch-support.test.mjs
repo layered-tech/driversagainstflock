@@ -190,7 +190,7 @@ test('storage read failure leaves the app usable', async () => {
     gate.cleanup();
 });
 
-test('mounts the launch gate around the phone navigator and uses a scrollable screen', () => {
+test('mounts the launch gate around adaptive navigation and uses a scrollable screen', () => {
     const layout = readFileSync(
         new URL('../../../app/_layout.js', import.meta.url),
         'utf8',
@@ -199,7 +199,14 @@ test('mounts the launch gate around the phone navigator and uses a scrollable sc
         new URL('../first-launch-support-screen.js', import.meta.url),
         'utf8',
     );
-    assert.match(layout, /<FirstLaunchSupportGate>\s*<Drawer/);
+    assert.match(
+        layout,
+        /<FirstLaunchSupportGate>\s*<View style=\{\{ flex: 1 \}\}>\s*<AdaptiveNavigationShell>/,
+    );
+    assert.match(
+        layout,
+        /<\/AdaptiveNavigationShell>[\s\S]*<ScorecardArrivalRecap \/>\s*<\/View>\s*<\/FirstLaunchSupportGate>/,
+    );
     assert.match(screen, /<ScrollView/);
     assert.match(screen, /paddingTop: layout.paddingTop/);
     assert.match(screen, /paddingBottom: layout.paddingBottom/);

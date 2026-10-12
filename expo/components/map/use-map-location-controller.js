@@ -85,6 +85,7 @@ const ZOOM_LEVEL_STATE_UPDATE_EPSILON = 0.01;
 export function useMapLocationController({
     cameraFocusPadding = EMPTY_CAMERA_PADDING,
     cameraDebugStateUpdatesEnabled = false,
+    mapViewportWidth,
     drivingCameraFollowViewportAnchorY,
     drivingMapViewMode = DRIVING_MAP_VIEW_PERSPECTIVE,
     initialCameraSettings,
@@ -99,7 +100,8 @@ export function useMapLocationController({
     setUserLocation,
     userLocation,
 }) {
-    const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+    const { height: windowHeight, width: screenWidth } = useWindowDimensions();
+    const windowWidth = mapViewportWidth ?? screenWidth;
     const bottomSheetRef = useRef(null);
     const cameraRef = useRef(null);
     const closeTimeoutRef = useRef(null);
