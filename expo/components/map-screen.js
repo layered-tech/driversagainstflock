@@ -1,3 +1,4 @@
+import { useResponsiveMapLayout } from './map/use-responsive-map-layout';
 import { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useIsFocused, useNavigation } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -188,6 +189,7 @@ export default function LocationMapScreen({
     } = useSharedMapState();
     const { setUserLocation, userLocation } = useSharedMapLocationState();
     const isDrivingMode = drivingModeIsActive;
+    const responsiveLayout = useResponsiveMapLayout();
     const routeExportIsAvailable =
         SHOW_MAP_DEBUG_CONTROLS && debugOverlayIsVisible;
 
@@ -242,6 +244,12 @@ export default function LocationMapScreen({
     const locationController = useMapLocationController({
         navigationRoute: isDrivingMode ? directionsRoute : null,
         cameraFocusPadding,
+        mapViewportWidth: responsiveLayout.isWide
+            ? responsiveLayout.contentWidth -
+              (contributePlacementIsActive || (isDrivingMode && directionsRoute)
+                  ? responsiveLayout.mapLeftInset
+                  : 0)
+            : undefined,
         cameraDebugStateUpdatesEnabled,
         drivingCameraFollowViewportAnchorY: drivingLocationAnchorY,
         drivingMapViewMode,
@@ -787,7 +795,18 @@ export default function LocationMapScreen({
             searchValue={searchValue}
         >
             <View className="flex-1 bg-white dark:bg-neutral-950">
-                <MapCanvas />
+                <View
+                    className="absolute inset-0"
+                    style={
+                        (contributePlacementIsActive ||
+                            (isDrivingMode && directionsRoute)) &&
+                        responsiveLayout.isWide
+                            ? { left: responsiveLayout.mapLeftInset }
+                            : undefined
+                    }
+                >
+                    <MapCanvas />
+                </View>
                 {screenIsFocused ? (
                     <>
                         {SHOW_MAP_DEBUG_CONTROLS &&
@@ -856,20 +875,63 @@ export default function LocationMapScreen({
                                 }}
                             >
                                 {contributePlacementIsActive ? (
-                                    <ContributePlacementOverlay
-                                        tourTargets={contributeTourTargets}
-                                        locationController={locationController}
-                                        screenIsFocused={screenIsFocused}
-                                    />
+                                    <View
+                                        style={
+                                            responsiveLayout.isWide
+                                                ? {
+                                                      width: responsiveLayout.paneWidth,
+                                                  }
+                                                : undefined
+                                        }
+                                    >
+                                        <ContributePlacementOverlay
+                                            tourTargets={contributeTourTargets}
+                                            locationController={
+                                                locationController
+                                            }
+                                            screenIsFocused={screenIsFocused}
+                                        />
+                                    </View>
                                 ) : null}
                                 {resolvedMapSearchOverlayIsVisible ? (
-                                    <MapSearchOverlay
-                                        mapControls={
-                                            mapChromeIsVisible ? (
-                                                <MapControlsOverlay />
-                                            ) : null
+                                    <View
+                                        style={
+                                            responsiveLayout.isWide
+                                                ? {
+                                                      width: responsiveLayout.paneWidth,
+                                                      flex: 1,
+                                                  }
+                                                : { flex: 1 }
                                         }
-                                    />
+                                        pointerEvents="box-none"
+                                    >
+                                        <MapSearchOverlay
+                                            mapControls={
+                                                mapChromeIsVisible &&
+                                                !responsiveLayout.isWide ? (
+                                                    <MapControlsOverlay />
+                                                ) : null
+                                            }
+                                        />
+                                    </View>
+                                ) : null}
+                                {responsiveLayout.isWide &&
+                                (mapChromeIsVisible ||
+                                    contributePlacementIsActive) ? (
+                                    <View
+                                        className="absolute right-3 items-end"
+                                        style={{ top: safeAreaInsets.top + 12 }}
+                                        pointerEvents="box-none"
+                                    >
+                                        <MapControlsOverlay
+                                            showContributeEntryButton={
+                                                !contributePlacementIsActive
+                                            }
+                                            showFreeDriveButton={
+                                                !contributePlacementIsActive
+                                            }
+                                        />
+                                    </View>
                                 ) : null}
                                 {routeComparisonIsActive ? (
                                     <Pressable

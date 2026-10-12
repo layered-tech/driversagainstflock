@@ -8,6 +8,7 @@ import {
     TextInput,
     View,
 } from 'react-native';
+import { useResponsiveMapLayout } from './use-responsive-map-layout';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
 import {
@@ -51,6 +52,7 @@ function EmptyMessage({ children }) {
 
 export function MapFullScreenSearch() {
     const insets = useSafeAreaInsets();
+    const layout = useResponsiveMapLayout();
     const {
         directionsActiveField,
         directionsCurrentLocationWaypoint,
@@ -245,14 +247,24 @@ export function MapFullScreenSearch() {
     return (
         <KeyboardAvoidingView
             behavior="padding"
-            className="absolute inset-0 z-[90] bg-daf-surface-page dark:bg-[#0B0E12]"
+            className={`absolute z-[90] bg-daf-surface-page dark:bg-[#0B0E12] ${layout.isWide ? 'overflow-hidden rounded-dafXl border border-daf-border dark:border-daf-border-dark' : 'inset-0'}`}
+            style={
+                layout.isWide
+                    ? {
+                          left: insets.left + 12,
+                          width: layout.paneWidth,
+                          top: insets.top + 12,
+                          bottom: insets.bottom + 12,
+                      }
+                    : undefined
+            }
             testID={`map-full-screen-search-${searchSource}`}
         >
             <View
                 className="gap-4 border-b border-daf-border bg-white px-4 dark:border-daf-border-dark dark:bg-daf-surface-dark"
                 style={{
                     paddingBottom: 14,
-                    paddingTop: insets.top + 12,
+                    paddingTop: layout.isWide ? 14 : insets.top + 12,
                 }}
             >
                 {primaryLocationSetupIsActive ? (

@@ -1,3 +1,4 @@
+import { ResponsiveMapWorkspace } from './map/responsive-map-workspace';
 import { useNavigation } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -90,7 +91,7 @@ function formatCount(value) {
 
 function HotlistStatTile({ stat }) {
     return (
-        <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark flex-1 rounded-dafMd border border-daf-border bg-white px-3.5 py-3">
+        <View className="flex-1 rounded-dafMd border border-daf-border bg-white px-3.5 py-3 dark:border-daf-border-dark dark:bg-daf-surface-dark">
             <Text
                 className="mb-2 text-[11px] font-bold uppercase leading-[13px] tracking-[0.06em] text-daf-text-tertiary dark:text-neutral-400"
                 numberOfLines={2}
@@ -98,7 +99,7 @@ function HotlistStatTile({ stat }) {
                 {formatStatLabel(stat.label)}
             </Text>
             <Text
-                className="font-dafMono mb-1.5 text-[28px] font-semibold leading-[28px] text-daf-text-primary dark:text-white"
+                className="mb-1.5 font-dafMono text-[28px] font-semibold leading-[28px] text-daf-text-primary dark:text-white"
                 numberOfLines={1}
             >
                 {stat.value}
@@ -116,10 +117,10 @@ function HotlistStatTile({ stat }) {
 function HotlistNodeRow({ node, testID }) {
     return (
         <View
-            className="dark:border-daf-border-dark flex-row items-center gap-[13px] border-t border-daf-border px-4 py-[13px]"
+            className="flex-row items-center gap-[13px] border-t border-daf-border px-4 py-[13px] dark:border-daf-border-dark"
             testID={testID}
         >
-            <View className="bg-daf-marker-alpr/15 h-[17px] w-[17px] flex-none items-center justify-center rounded-dafPill">
+            <View className="h-[17px] w-[17px] flex-none items-center justify-center rounded-dafPill bg-daf-marker-alpr/15">
                 <View className="h-[9px] w-[9px] rounded-dafPill bg-daf-marker-alpr" />
             </View>
 
@@ -137,7 +138,7 @@ function HotlistNodeRow({ node, testID }) {
                     {node.street}
                 </Text>
                 <Text
-                    className="font-dafMono mt-0.5 text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400"
+                    className="mt-0.5 font-dafMono text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400"
                     numberOfLines={1}
                 >
                     {node.osm}
@@ -164,7 +165,7 @@ function HotlistNodeRow({ node, testID }) {
 
 function HotlistAttribution() {
     return (
-        <View className="dark:border-daf-border-dark flex-row items-center gap-[7px] border-t border-daf-border px-4 py-4">
+        <View className="flex-row items-center gap-[7px] border-t border-daf-border px-4 py-4 dark:border-daf-border-dark">
             <Icon color={dafSemanticColors.speedOk} name="map-pin" size={14} />
             <Text className="text-xs text-daf-text-tertiary dark:text-neutral-400">
                 Data from OpenStreetMap contributors
@@ -175,7 +176,7 @@ function HotlistAttribution() {
 
 function HotlistEmptyState() {
     return (
-        <View className="dark:border-daf-border-dark border-t border-daf-border px-4 py-8">
+        <View className="border-t border-daf-border px-4 py-8 dark:border-daf-border-dark">
             <Text className="text-center text-[15px] font-semibold text-daf-text-primary dark:text-white">
                 No recent nodes
             </Text>
@@ -188,7 +189,7 @@ function HotlistEmptyState() {
 
 function HotlistErrorState({ message, onRetry }) {
     return (
-        <View className="dark:border-daf-border-dark border-t border-daf-border px-4 py-8">
+        <View className="border-t border-daf-border px-4 py-8 dark:border-daf-border-dark">
             <Text className="text-center text-[15px] font-semibold text-daf-text-primary dark:text-white">
                 Hotlist unavailable
             </Text>
@@ -373,165 +374,171 @@ export default function HotlistScreen() {
     }, [navigation]);
 
     return (
-        <View
-            className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
-            testID="hotlist-screen"
-        >
+        <ResponsiveMapWorkspace>
             <View
-                className="dark:border-daf-border-dark dark:bg-daf-surface-dark border-b border-daf-border bg-white px-4 pb-3.5"
-                style={{ paddingTop: headerPaddingTop }}
+                className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
+                testID="hotlist-screen"
             >
-                <View className="mb-3.5 flex-row items-start justify-between gap-2.5">
-                    <Pressable
-                        accessibilityLabel="Open menu"
-                        accessibilityRole="button"
-                        className="dark:border-daf-border-dark mt-0.5 h-10 w-10 items-center justify-center rounded-dafPill border border-daf-border bg-daf-surface-alt active:opacity-[0.82] dark:bg-daf-surface-inverse"
-                        onPress={handleDrawerPress}
-                        testID="hotlist-drawer-button"
-                    >
-                        <Icon
-                            color={isDarkMode ? '#F4F7FA' : '#0B0E12'}
-                            name="menu"
-                            size={20}
-                        />
-                    </Pressable>
-                    <View className="min-w-0 flex-1">
-                        <Text className="mb-1 text-[11px] font-bold uppercase tracking-[0.06em] text-daf-text-brand dark:text-daf-brand">
-                            Hotlist
-                        </Text>
-                        <Text className="font-dafDisplay text-lg font-bold leading-5 text-daf-text-primary dark:text-white">
-                            Recently added
-                        </Text>
-                    </View>
-
-                    <View className="dark:border-daf-border-dark mt-0.5 h-[31px] flex-row items-center gap-[7px] rounded-dafPill border border-daf-border bg-daf-surface-alt px-[11px] dark:bg-daf-surface-inverse">
-                        <View className="h-1.5 w-1.5 rounded-dafPill bg-daf-text-brand dark:bg-daf-brand" />
-                        <Text
-                            className="text-xs font-semibold text-daf-text-secondary dark:text-neutral-300"
-                            numberOfLines={1}
+                <View
+                    className="border-b border-daf-border bg-white px-4 pb-3.5 dark:border-daf-border-dark dark:bg-daf-surface-dark"
+                    style={{ paddingTop: headerPaddingTop }}
+                >
+                    <View className="mb-3.5 flex-row items-start justify-between gap-2.5">
+                        <Pressable
+                            accessibilityLabel="Open menu"
+                            accessibilityRole="button"
+                            className="mt-0.5 h-10 w-10 items-center justify-center rounded-dafPill border border-daf-border bg-daf-surface-alt active:opacity-[0.82] dark:border-daf-border-dark dark:bg-daf-surface-inverse"
+                            onPress={handleDrawerPress}
+                            testID="hotlist-drawer-button"
                         >
-                            {latestLabel}
-                        </Text>
+                            <Icon
+                                color={isDarkMode ? '#F4F7FA' : '#0B0E12'}
+                                name="menu"
+                                size={20}
+                            />
+                        </Pressable>
+                        <View className="min-w-0 flex-1">
+                            <Text className="mb-1 text-[11px] font-bold uppercase tracking-[0.06em] text-daf-text-brand dark:text-daf-brand">
+                                Hotlist
+                            </Text>
+                            <Text className="font-dafDisplay text-lg font-bold leading-5 text-daf-text-primary dark:text-white">
+                                Recently added
+                            </Text>
+                        </View>
+
+                        <View className="mt-0.5 h-[31px] flex-row items-center gap-[7px] rounded-dafPill border border-daf-border bg-daf-surface-alt px-[11px] dark:border-daf-border-dark dark:bg-daf-surface-inverse">
+                            <View className="h-1.5 w-1.5 rounded-dafPill bg-daf-text-brand dark:bg-daf-brand" />
+                            <Text
+                                className="text-xs font-semibold text-daf-text-secondary dark:text-neutral-300"
+                                numberOfLines={1}
+                            >
+                                {latestLabel}
+                            </Text>
+                        </View>
                     </View>
-                </View>
 
-                <DafSegmentedControl
-                    onChange={setTimeWindow}
-                    options={WINDOW_OPTIONS}
-                    testID="hotlist-window-control"
-                    testIDPrefix="hotlist-window"
-                    value={timeWindow}
-                />
-            </View>
-
-            <ScrollView
-                className="flex-1"
-                contentContainerStyle={{ paddingBottom: scrollPaddingBottom }}
-                refreshControl={
-                    <RefreshControl
-                        colors={[dafSemanticColors.brand]}
-                        onRefresh={handleRefresh}
-                        refreshing={isRefreshing}
-                        tintColor={dafSemanticColors.brand}
+                    <DafSegmentedControl
+                        onChange={setTimeWindow}
+                        options={WINDOW_OPTIONS}
+                        testID="hotlist-window-control"
+                        testIDPrefix="hotlist-window"
+                        value={timeWindow}
                     />
-                }
-            >
-                <View className="flex-row gap-2.5 px-4 pb-1.5 pt-3.5">
-                    {stats.map((stat) => (
-                        <HotlistStatTile key={stat.label} stat={stat} />
-                    ))}
                 </View>
 
                 <ScrollView
-                    horizontal
-                    className="py-2.5"
-                    showsHorizontalScrollIndicator={false}
-                >
-                    <View className="flex-row gap-2 px-4">
-                        {chips.map((chip) => {
-                            const selected = chip.value === manufacturer;
-
-                            return (
-                                <Pressable
-                                    accessibilityRole="button"
-                                    accessibilityState={{ selected }}
-                                    key={chip.value}
-                                    onPress={() => setManufacturer(chip.value)}
-                                    className={`h-[34px] flex-row items-center rounded-dafPill border px-3 active:opacity-[0.82] ${
-                                        selected
-                                            ? 'border-daf-brand bg-daf-brand'
-                                            : 'dark:border-daf-border-dark dark:bg-daf-surface-dark border-daf-border bg-white'
-                                    }`}
-                                    testID={`hotlist-chip-${chip.value}`}
-                                >
-                                    <Text
-                                        className={`text-[13px] font-semibold ${
-                                            selected
-                                                ? 'text-white'
-                                                : 'text-daf-text-primary dark:text-white'
-                                        }`}
-                                        numberOfLines={1}
-                                    >
-                                        {chip.label}
-                                    </Text>
-                                </Pressable>
-                            );
-                        })}
-                    </View>
-                </ScrollView>
-
-                {isLoading && !hotlist ? (
-                    <View className="dark:border-daf-border-dark items-center border-t border-daf-border px-4 py-10">
-                        <ActivityIndicator
-                            color={
-                                isDarkMode
-                                    ? dafSemanticColors.brandHover
-                                    : dafSemanticColors.brand
-                            }
+                    className="flex-1"
+                    contentContainerStyle={{
+                        paddingBottom: scrollPaddingBottom,
+                    }}
+                    refreshControl={
+                        <RefreshControl
+                            colors={[dafSemanticColors.brand]}
+                            onRefresh={handleRefresh}
+                            refreshing={isRefreshing}
+                            tintColor={dafSemanticColors.brand}
                         />
-                    </View>
-                ) : errorMessage ? (
-                    <HotlistErrorState
-                        message={errorMessage}
-                        onRetry={() => void loadHotlist()}
-                    />
-                ) : nodes.length === 0 ? (
-                    <HotlistEmptyState />
-                ) : (
-                    <View>
-                        {nodes.map((node, index) => (
-                            <HotlistNodeRow
-                                key={`${node.id}-${node.osmId ?? index}`}
-                                node={node}
-                                testID={`hotlist-row-${index}`}
-                            />
+                    }
+                >
+                    <View className="flex-row gap-2.5 px-4 pb-1.5 pt-3.5">
+                        {stats.map((stat) => (
+                            <HotlistStatTile key={stat.label} stat={stat} />
                         ))}
-                        <View className="dark:border-daf-border-dark items-center gap-2 border-t border-daf-border px-4 py-4">
-                            <Text className="text-xs text-daf-text-tertiary dark:text-neutral-400">
-                                Showing {formatCount(nodes.length)} of{' '}
-                                {formatCount(hotlist?.nodes?.total)}
-                            </Text>
-                            {loadMoreError ? (
-                                <Text className="text-center text-xs text-daf-alert">
-                                    {loadMoreError}
-                                </Text>
-                            ) : null}
-                            {nextPage !== null ? (
-                                <DafButton
-                                    loading={isLoadingMore}
-                                    onPress={handleLoadMore}
-                                    testID="hotlist-load-more-button"
-                                    variant="secondary"
-                                >
-                                    Load more
-                                </DafButton>
-                            ) : null}
-                        </View>
                     </View>
-                )}
 
-                <HotlistAttribution />
-            </ScrollView>
-        </View>
+                    <ScrollView
+                        horizontal
+                        className="py-2.5"
+                        showsHorizontalScrollIndicator={false}
+                    >
+                        <View className="flex-row gap-2 px-4">
+                            {chips.map((chip) => {
+                                const selected = chip.value === manufacturer;
+
+                                return (
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        accessibilityState={{ selected }}
+                                        key={chip.value}
+                                        onPress={() =>
+                                            setManufacturer(chip.value)
+                                        }
+                                        className={`h-[34px] flex-row items-center rounded-dafPill border px-3 active:opacity-[0.82] ${
+                                            selected
+                                                ? 'border-daf-brand bg-daf-brand'
+                                                : 'border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark'
+                                        }`}
+                                        testID={`hotlist-chip-${chip.value}`}
+                                    >
+                                        <Text
+                                            className={`text-[13px] font-semibold ${
+                                                selected
+                                                    ? 'text-white'
+                                                    : 'text-daf-text-primary dark:text-white'
+                                            }`}
+                                            numberOfLines={1}
+                                        >
+                                            {chip.label}
+                                        </Text>
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
+                    </ScrollView>
+
+                    {isLoading && !hotlist ? (
+                        <View className="items-center border-t border-daf-border px-4 py-10 dark:border-daf-border-dark">
+                            <ActivityIndicator
+                                color={
+                                    isDarkMode
+                                        ? dafSemanticColors.brandHover
+                                        : dafSemanticColors.brand
+                                }
+                            />
+                        </View>
+                    ) : errorMessage ? (
+                        <HotlistErrorState
+                            message={errorMessage}
+                            onRetry={() => void loadHotlist()}
+                        />
+                    ) : nodes.length === 0 ? (
+                        <HotlistEmptyState />
+                    ) : (
+                        <View>
+                            {nodes.map((node, index) => (
+                                <HotlistNodeRow
+                                    key={`${node.id}-${node.osmId ?? index}`}
+                                    node={node}
+                                    testID={`hotlist-row-${index}`}
+                                />
+                            ))}
+                            <View className="items-center gap-2 border-t border-daf-border px-4 py-4 dark:border-daf-border-dark">
+                                <Text className="text-xs text-daf-text-tertiary dark:text-neutral-400">
+                                    Showing {formatCount(nodes.length)} of{' '}
+                                    {formatCount(hotlist?.nodes?.total)}
+                                </Text>
+                                {loadMoreError ? (
+                                    <Text className="text-center text-xs text-daf-alert">
+                                        {loadMoreError}
+                                    </Text>
+                                ) : null}
+                                {nextPage !== null ? (
+                                    <DafButton
+                                        loading={isLoadingMore}
+                                        onPress={handleLoadMore}
+                                        testID="hotlist-load-more-button"
+                                        variant="secondary"
+                                    >
+                                        Load more
+                                    </DafButton>
+                                ) : null}
+                            </View>
+                        </View>
+                    )}
+
+                    <HotlistAttribution />
+                </ScrollView>
+            </View>
+        </ResponsiveMapWorkspace>
     );
 }

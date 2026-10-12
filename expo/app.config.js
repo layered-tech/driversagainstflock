@@ -81,7 +81,7 @@ module.exports = {
     slug: 'driversagainstflock',
     scheme: 'driversagainstflock',
     version: require('./package.json').version,
-    orientation: 'portrait',
+    orientation: 'default',
     icon,
     userInterfaceStyle: 'automatic',
     splash: {

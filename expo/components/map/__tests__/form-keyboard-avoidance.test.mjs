@@ -76,6 +76,9 @@ for (const platform of ['ios', 'android']) {
             'map/map-full-screen-search.js',
             platform,
             {
+                './use-responsive-map-layout': {
+                    useResponsiveMapLayout: () => ({ isWide: false }),
+                },
                 './directions': { DIRECTIONS_MODE_DIRECTIONS: 'directions' },
                 './directions-current-location-option': {},
                 './google-results-footer': {},

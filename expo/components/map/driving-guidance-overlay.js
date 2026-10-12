@@ -1,3 +1,4 @@
+import { useResponsiveMapLayout } from './use-responsive-map-layout';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useColorScheme, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
@@ -96,6 +97,7 @@ export function DrivingGuidanceOverlay({
     topOverlay = null,
 }) {
     const colorScheme = useColorScheme();
+    const layout = useResponsiveMapLayout();
     const [focusedStepIndex, setFocusedStepIndex] = useState(null);
     const statusChromeIsVisible =
         drivingStatusIsVisible &&
@@ -133,7 +135,9 @@ export function DrivingGuidanceOverlay({
                 heading: getDirectionsStepHeading(directionsRoute, stepIndex),
                 padding: {
                     paddingTop: insets.top + guidanceHeight + 12,
-                    paddingBottom: collapsedHeight + 12,
+                    paddingBottom: layout.isWide
+                        ? insets.bottom + 12
+                        : collapsedHeight + 12,
                     paddingLeft: insets.left + 12,
                     paddingRight: insets.right + 12,
                 },
@@ -147,6 +151,8 @@ export function DrivingGuidanceOverlay({
         [
             directionsRoute,
             collapsedHeight,
+            layout.isWide,
+            insets.bottom,
             guidanceHeight,
             insets.top,
             insets.left,
@@ -240,6 +246,11 @@ export function DrivingGuidanceOverlay({
         >
             <NativeWindSafeAreaView
                 className="absolute inset-0"
+                style={
+                    layout.isWide && routeIsActive
+                        ? { left: layout.mapLeftInset }
+                        : undefined
+                }
                 edges={['top', 'right', 'left']}
                 pointerEvents="box-none"
             >
@@ -338,7 +349,10 @@ export function DrivingGuidanceOverlay({
                 <View
                     pointerEvents="none"
                     style={{
-                        height: routeIsActive ? collapsedHeight : insets.bottom,
+                        height:
+                            routeIsActive && !layout.isWide
+                                ? collapsedHeight
+                                : insets.bottom,
                     }}
                 />
             </NativeWindSafeAreaView>

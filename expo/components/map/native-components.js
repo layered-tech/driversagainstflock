@@ -17,13 +17,12 @@ import {
     useMemo,
     useRef,
 } from 'react';
-import { useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { createBottomSheetModalLifecycle } from './bottom-sheet-modal-lifecycle';
-import {
-    MAP_SIDE_SHEET_BREAKPOINT,
-    MAP_SIDE_SHEET_MAX_WIDTH,
-} from './responsive-map-layout';
+import { useResponsiveMapLayout } from './use-responsive-map-layout';
 import { SafeAreaViewWithBottomOffset } from './safe-area-view-with-bottom-offset';
+import { Pressable, useColorScheme, View } from 'react-native';
+import { Icon } from '../design-system/icon';
 
 const RemappedBottomSheetModal = remapProps(BottomSheetModal, {
     backgroundClassName: 'backgroundStyle',
@@ -56,12 +55,23 @@ export const NativeWindBottomSheetScrollView = remapProps(
 export const NativeWindBottomSheetModal = forwardRef(
     function NativeWindBottomSheetModal({ style, ...props }, ref) {
         const modalRef = useRef(null);
+        const layout = useResponsiveMapLayout();
+        const insets = useSafeAreaInsets();
+        const colorScheme = useColorScheme();
         const callbacks = useRef(props);
-        callbacks.current = props;
+        callbacks.current = { ...props, isWide: layout.isWide };
         const lifecycle = useMemo(
             () =>
                 createBottomSheetModalLifecycle({
-                    getModal: () => modalRef.current,
+                    getModal: () => {
+                        if (!modalRef.current || !callbacks.current.isWide)
+                            return modalRef.current;
+                        return {
+                            ...modalRef.current,
+                            snapToIndex: (_index, config) =>
+                                modalRef.current?.snapToIndex(0, config),
+                        };
+                    },
                     onAnimate: (...args) =>
                         callbacks.current.onAnimate?.(...args),
                     onChange: (...args) =>
@@ -77,18 +87,27 @@ export const NativeWindBottomSheetModal = forwardRef(
             lifecycle.setModal(modalRef.current);
             return lifecycle.dispose;
         }, [lifecycle]);
-        const { width } = useWindowDimensions();
         const responsiveSheetStyle = useMemo(() => {
-            if (width < MAP_SIDE_SHEET_BREAKPOINT) {
+            if (!layout.isWide) {
                 return null;
             }
 
             return {
-                marginHorizontal: 'auto',
-                maxWidth: MAP_SIDE_SHEET_MAX_WIDTH,
-                width: '100%',
+                marginLeft: layout.railWidth + insets.left + 12,
+                marginRight:
+                    layout.width -
+                    layout.railWidth -
+                    insets.left -
+                    12 -
+                    layout.paneWidth,
             };
-        }, [width]);
+        }, [
+            layout.isWide,
+            layout.width,
+            layout.railWidth,
+            layout.paneWidth,
+            insets.left,
+        ]);
         const sheetStyle = useMemo(
             () => [responsiveSheetStyle, style],
             [responsiveSheetStyle, style],
@@ -97,6 +116,50 @@ export const NativeWindBottomSheetModal = forwardRef(
         return (
             <RemappedBottomSheetModal
                 {...props}
+                {...(layout.isWide
+                    ? {
+                          backdropComponent: null,
+                          detached: true,
+                          topInset: Math.max(
+                              props.topInset ?? 0,
+                              insets.top + 12,
+                          ),
+                          bottomInset: insets.bottom + 12,
+                          snapPoints: ['100%'],
+                          index: 0,
+                          enableDynamicSizing: false,
+                          enableContentPanningGesture: false,
+                          enableHandlePanningGesture: false,
+                          enablePanDownToClose: false,
+                          handleComponent:
+                              props.enablePanDownToClose === false
+                                  ? null
+                                  : () => (
+                                        <View className="items-end px-3 pt-2">
+                                            <Pressable
+                                                accessibilityLabel="Close panel"
+                                                accessibilityRole="button"
+                                                className="h-10 w-10 items-center justify-center rounded-dafPill active:opacity-70"
+                                                onPress={() =>
+                                                    lifecycle.dismiss()
+                                                }
+                                                testID="wide-sheet-close-button"
+                                            >
+                                                <Icon
+                                                    name="x"
+                                                    size={20}
+                                                    color={
+                                                        colorScheme === 'dark'
+                                                            ? '#F5F7F9'
+                                                            : '#11151B'
+                                                    }
+                                                />
+                                            </Pressable>
+                                        </View>
+                                    ),
+                          keyboardBehavior: 'fillParent',
+                      }
+                    : {})}
                 ref={modalRef}
                 style={sheetStyle}
                 onAnimate={lifecycle.onAnimate}

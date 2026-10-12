@@ -10,6 +10,12 @@ export function ContributeDraftPinMarkers() {
         useMapCanvasContext();
     const { removals } = useContribute();
     if (!contributePlacementIsActive) return null;
+    return (
+        <DraftPinMarkers contributePins={contributePins} removals={removals} />
+    );
+}
+
+export function DraftPinMarkers({ contributePins = [], removals = [] }) {
     const markers = [
         ...(contributePins ?? []).map((pin, index) => ({
             ...pin,

@@ -475,54 +475,57 @@ test('a direction-step focus pauses phone following before moving and recenter r
     );
 });
 
-test('step previews frame the turn between the measured guidance and collapsed drawer', () => {
-    const events = [];
-    const focus = callback(
-        readSource('../driving-guidance-overlay.js'),
-        'handleStepFocus',
-        {
-            useCallback: (fn) => fn,
-            directionsRoute: {},
-            getDirectionsStepHeading: (_route, stepIndex) =>
-                stepIndex === 2 ? 90 : null,
-            collapsedHeight: 190,
-            guidanceHeight: 88,
-            insets: { top: 46, bottom: 34, left: 0, right: 0 },
-            stepsSheetRef: {
-                current: {
-                    snapToIndex: (index) => events.push(['sheet', index]),
-                },
-            },
-            setFocusedStepIndex: (index) => events.push(['step', index]),
-            onStepFocus: (coordinate, options) => {
-                events.push(['focus', coordinate, options]);
-                return true;
-            },
-        },
-    );
-    assert.equal(focus([-87, 41], 2), true);
-    assert.deepEqual(events, [
-        [
-            'focus',
-            [-87, 41],
+for (const isWide of [false, true]) {
+    test(`step previews fit the exposed map in ${isWide ? 'wide' : 'phone'} navigation`, () => {
+        const events = [];
+        const focus = callback(
+            readSource('../driving-guidance-overlay.js'),
+            'handleStepFocus',
             {
-                heading: 90,
-                padding: {
-                    paddingTop: 146,
-                    paddingBottom: 202,
-                    paddingLeft: 12,
-                    paddingRight: 12,
+                useCallback: (fn) => fn,
+                directionsRoute: {},
+                getDirectionsStepHeading: (_route, stepIndex) =>
+                    stepIndex === 2 ? 90 : null,
+                layout: { isWide },
+                collapsedHeight: 190,
+                guidanceHeight: 88,
+                insets: { top: 46, bottom: 34, left: 0, right: 0 },
+                stepsSheetRef: {
+                    current: {
+                        snapToIndex: (index) => events.push(['sheet', index]),
+                    },
+                },
+                setFocusedStepIndex: (index) => events.push(['step', index]),
+                onStepFocus: (coordinate, options) => {
+                    events.push(['focus', coordinate, options]);
+                    return true;
                 },
             },
-        ],
-        ['step', 2],
-        ['sheet', 0],
-    ]);
-    assert.match(
-        readSource('../driving-guidance-overlay.js'),
-        /<ManeuverCard[\s\S]*?onStepFocus=\{handleStepFocus\}/,
-    );
-});
+        );
+        assert.equal(focus([-87, 41], 2), true);
+        assert.deepEqual(events, [
+            [
+                'focus',
+                [-87, 41],
+                {
+                    heading: 90,
+                    padding: {
+                        paddingTop: 146,
+                        paddingBottom: isWide ? 46 : 202,
+                        paddingLeft: 12,
+                        paddingRight: 12,
+                    },
+                },
+            ],
+            ['step', 2],
+            ['sheet', 0],
+        ]);
+        assert.match(
+            readSource('../driving-guidance-overlay.js'),
+            /<ManeuverCard[\s\S]*?onStepFocus=\{handleStepFocus\}/,
+        );
+    });
+}
 
 test('follow visibility stays paused across camera updates and zoom overrides until recenter', () => {
     const source = readSource('../../map-follow-location-mode.js');

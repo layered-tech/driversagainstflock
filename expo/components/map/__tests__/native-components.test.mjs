@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { createBottomSheetModalLifecycle } from '../bottom-sheet-modal-lifecycle.js';
 import { createHookHarness } from './tour-test-helpers.mjs';
+import { getResponsiveMapLayout } from '../responsive-map-layout.js';
 
 const require = createRequire(import.meta.url);
 const { transformSync } = require('@babel/core');
@@ -53,7 +54,18 @@ function loadNativeComponents(overrides = {}) {
         },
         react: { forwardRef: (fn) => fn },
         'react-native': {},
-        './responsive-map-layout': {},
+        './use-responsive-map-layout': {
+            useResponsiveMapLayout: () => ({ isWide: false }),
+        },
+        '../../lib/safe-area-insets': {
+            useSafeAreaInsets: () => ({
+                top: 24,
+                bottom: 28,
+                left: 0,
+                right: 0,
+            }),
+        },
+        '../design-system/icon': { Icon: 'Icon' },
         './safe-area-view-with-bottom-offset': {},
         ...overrides,
     };
@@ -85,6 +97,64 @@ test('the persistent bottom sheet resolves themed styles before passing them to 
     assert.deepEqual(touchable.mapping, { className: 'style' });
 });
 
+test('wide modals dock beside the rail and restore phone snap points on resize', () => {
+    const harness = createHookHarness();
+    let width = 1194;
+    let lifecycleOptions;
+    const { NativeWindBottomSheetModal } = loadNativeComponents({
+        react: {
+            ...harness.react,
+            forwardRef: (fn) => fn,
+            useLayoutEffect: harness.react.useEffect,
+            useImperativeHandle: (ref, factory) => {
+                ref.current = factory();
+            },
+        },
+        'react/jsx-runtime': { jsx: (type, props) => ({ type, props }) },
+        'react-native': { useColorScheme: () => 'dark' },
+        './use-responsive-map-layout': {
+            useResponsiveMapLayout: () => ({
+                ...getResponsiveMapLayout(width),
+                width,
+            }),
+        },
+        './bottom-sheet-modal-lifecycle': {
+            createBottomSheetModalLifecycle: (options) => {
+                lifecycleOptions = options;
+                return { activate() {}, setModal() {}, dispose() {} };
+            },
+        },
+    });
+    const ref = { current: null };
+    const props = { snapPoints: ['40%', '80%'], enablePanDownToClose: true };
+    const render = () =>
+        harness.render(() => NativeWindBottomSheetModal(props, ref));
+    const wideSheet = render();
+    assert.deepEqual(wideSheet.props.snapPoints, ['100%']);
+    assert.deepEqual(wideSheet.props.style[0], {
+        marginLeft: 96,
+        marginRight: 722,
+    });
+    assert.equal(wideSheet.props.topInset, 36);
+    assert.equal(wideSheet.props.bottomInset, 40);
+    assert.equal(wideSheet.props.backdropComponent, null);
+    assert.equal(wideSheet.props.enablePanDownToClose, false);
+    assert.equal(typeof wideSheet.props.handleComponent, 'function');
+    const snapped = [];
+    wideSheet.props.ref.current = {
+        snapToIndex: (index) => snapped.push(index),
+    };
+    lifecycleOptions.getModal().snapToIndex(1);
+    assert.deepEqual(snapped, [0]);
+    const originalRef = ref.current;
+    width = 390;
+    const phoneSheet = render();
+    assert.equal(ref.current, originalRef);
+    assert.deepEqual(phoneSheet.props.snapPoints, ['40%', '80%']);
+    assert.equal(phoneSheet.props.enablePanDownToClose, true);
+    assert.equal(phoneSheet.props.style[0], null);
+});
+
 test('all modal callers use a stable guarded ref while Gorhom retains its own object ref', () => {
     const harness = createHookHarness();
     const frames = new Map();
@@ -99,7 +169,11 @@ test('all modal callers use a stable guarded ref while Gorhom retains its own ob
             },
         },
         'react/jsx-runtime': { jsx: (type, props) => ({ type, props }) },
-        'react-native': { useWindowDimensions: () => ({ width: 400 }) },
+        'react-native': {
+            useColorScheme: () => 'light',
+            View: 'View',
+            Pressable: 'Pressable',
+        },
         './bottom-sheet-modal-lifecycle': {
             createBottomSheetModalLifecycle: (options) =>
                 createBottomSheetModalLifecycle({

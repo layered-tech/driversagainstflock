@@ -1,5 +1,5 @@
 import Mapbox from '@rnmapbox/maps';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Text, useColorScheme, useWindowDimensions, View } from 'react-native';
 import { getBoundsFitCameraStop } from '../map/camera-state';
 import {
@@ -12,15 +12,13 @@ import {
 import { NativeWindMapView } from '../map/native-components';
 import { getScorecardExposureMapData } from './scorecard-map-data';
 
-const MAP_HORIZONTAL_INSET = 32;
-
 function getCameraSettings({ bounds, mappedExposures }, height, width) {
     if (bounds) {
         return getBoundsFitCameraStop({
             bounds,
             padding: 48,
             viewportHeight: height,
-            viewportWidth: Math.max(1, width - MAP_HORIZONTAL_INSET),
+            viewportWidth: Math.max(1, width),
         });
     }
 
@@ -35,7 +33,8 @@ function getCameraSettings({ bounds, mappedExposures }, height, width) {
 
 export function ScorecardExposureMap({
     exposures,
-    height,
+    height = 270,
+    fill = false,
     lineCollection = null,
     lineColor = '#FF4D4F',
     numbered = false,
@@ -43,7 +42,10 @@ export function ScorecardExposureMap({
     testID,
 }) {
     const colorScheme = useColorScheme();
-    const { width } = useWindowDimensions();
+    const window = useWindowDimensions();
+    const [viewport, setViewport] = useState(null);
+    const width = viewport?.width ?? window.width;
+    const mapHeight = viewport?.height ?? height;
     const mapData = useMemo(
         () =>
             getScorecardExposureMapData(exposures, {
@@ -58,8 +60,8 @@ export function ScorecardExposureMap({
         pointCollection,
     } = mapData;
     const cameraSettings = useMemo(
-        () => getCameraSettings(mapData, height, width),
-        [height, mapData, width],
+        () => getCameraSettings(mapData, mapHeight, width),
+        [mapHeight, mapData, width],
     );
     const styleImportConfig = useMemo(
         () => ({
@@ -78,7 +80,7 @@ export function ScorecardExposureMap({
         return (
             <View
                 className="items-center justify-center bg-daf-surface-alt px-6 dark:bg-daf-surface-inverse"
-                style={{ height }}
+                style={fill ? { flex: 1 } : { height }}
                 testID={`${testID}-unavailable`}
             >
                 <Text className="text-center text-sm font-semibold text-daf-text-secondary dark:text-neutral-300">
@@ -91,6 +93,14 @@ export function ScorecardExposureMap({
 
     return (
         <NativeWindMapView
+            onLayout={(event) => {
+                const { width, height } = event.nativeEvent.layout;
+                setViewport((current) =>
+                    current?.width === width && current?.height === height
+                        ? current
+                        : { width, height },
+                );
+            }}
             attributionEnabled
             className="w-full"
             compassEnabled={false}
@@ -98,7 +108,7 @@ export function ScorecardExposureMap({
             pitchEnabled={false}
             rotateEnabled={false}
             scaleBarEnabled={false}
-            style={{ height }}
+            style={fill ? { flex: 1 } : { height }}
             styleURL={MAPBOX_STANDARD_STYLE_URL}
             surfaceView={false}
             testID={testID}
@@ -109,7 +119,7 @@ export function ScorecardExposureMap({
                 id={MAPBOX_STANDARD_STYLE_IMPORT_ID}
             />
             {cameraSettings ? (
-                <Mapbox.Camera defaultSettings={cameraSettings} />
+                <Mapbox.Camera {...cameraSettings} animationDuration={0} />
             ) : null}
             {showCones && coneCollection.features.length > 0 ? (
                 <Mapbox.ShapeSource

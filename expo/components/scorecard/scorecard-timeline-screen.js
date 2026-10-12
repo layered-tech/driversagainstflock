@@ -1,3 +1,4 @@
+import { ResponsiveMapWorkspace } from '../map/responsive-map-workspace';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -127,7 +128,7 @@ function StandardEventRow({ event }) {
         <Pressable
             accessibilityLabel={`${event.label}, ${eventSummary}`}
             accessibilityRole="button"
-            className="dark:border-daf-border-dark dark:bg-daf-surface-dark flex-row items-center gap-3 rounded-dafMd border border-daf-border bg-white px-[13px] py-3 active:opacity-70"
+            className="flex-row items-center gap-3 rounded-dafMd border border-daf-border bg-white px-[13px] py-3 active:opacity-70 dark:border-daf-border-dark dark:bg-daf-surface-dark"
             onPress={() =>
                 router.push({
                     params: { eventId: event.id },
@@ -191,7 +192,7 @@ function OperatorEventRow({ event }) {
                     {formatOperatorTimestamp(event.occurredAt)}
                 </Text>
                 <Text
-                    className="font-dafMono ml-auto text-[11px] text-[#828D9B]"
+                    className="ml-auto font-dafMono text-[11px] text-[#828D9B]"
                     numberOfLines={1}
                 >
                     {event.osmId ? `OSM ${event.osmId}` : 'NO OSM ID'}
@@ -200,7 +201,7 @@ function OperatorEventRow({ event }) {
             <Text className="font-dafMono text-[12px] font-semibold uppercase text-white">
                 {event.label}
             </Text>
-            <Text className="font-dafMono mt-1 text-[11px] leading-[16px] text-[#A9B2BD]">
+            <Text className="mt-1 font-dafMono text-[11px] leading-[16px] text-[#A9B2BD]">
                 {event.certainty === 'confirmed'
                     ? 'LOCAL MATCH: DIRECTIONAL CONE CROSSED'
                     : 'LOCAL MATCH: DIRECTION UNKNOWN · POSSIBLE ONLY'}
@@ -224,7 +225,7 @@ function DriveTrailButton({ driveId, operatorView }) {
             className={`min-h-hitComfy flex-row items-center justify-center gap-2 rounded-dafPill border px-[18px] active:opacity-75 ${
                 operatorView
                     ? 'border-[#3A434E] bg-[#11151B]'
-                    : 'dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95 border-daf-border-glass bg-white/95'
+                    : 'border-daf-border-glass bg-white/95 dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95'
             }`}
             onPress={() =>
                 router.push({
@@ -271,259 +272,273 @@ export default function ScorecardTimelineScreen() {
     const bottomPadding = Math.max(insets.bottom + 24, 24);
 
     return (
-        <View
-            className={`flex-1 ${
-                operatorView
-                    ? 'bg-[#0B0E12]'
-                    : 'bg-daf-surface-page dark:bg-[#0B0E12]'
-            }`}
-            testID="scorecard-timeline"
-        >
-            <ScorecardScreenHeader
-                back
-                backRoute="index"
-                operatorView={operatorView}
-                subtitle={
-                    operatorView
-                        ? `OPERATOR VIEW · ${windowStats.confirmedReadCount} CONFIRMED · 30 DAYS`
-                        : `${windowStats.confirmedReadCount} confirmed · ${windowStats.possibleReadCount} possible · ${windowStats.avoidedCameraCount} avoided`
-                }
-                title="Exposure timeline"
-            />
+        <ResponsiveMapWorkspace>
             <View
-                className={`flex-row items-center gap-3 border-b px-4 py-3 ${
+                className={`flex-1 ${
                     operatorView
-                        ? 'border-[#262E37] bg-[#161B22]'
-                        : 'dark:border-daf-border-dark dark:bg-daf-surface-dark border-daf-border bg-white'
+                        ? 'bg-[#0B0E12]'
+                        : 'bg-daf-surface-page dark:bg-[#0B0E12]'
                 }`}
+                testID="scorecard-timeline"
             >
-                <View
-                    className={`h-[34px] w-[34px] items-center justify-center rounded-dafSm ${
+                <ScorecardScreenHeader
+                    back
+                    backRoute="index"
+                    operatorView={operatorView}
+                    subtitle={
                         operatorView
-                            ? 'bg-daf-alert/15'
-                            : 'bg-daf-surface-alt dark:bg-daf-surface-inverse'
+                            ? `OPERATOR VIEW · ${windowStats.confirmedReadCount} CONFIRMED · 30 DAYS`
+                            : `${windowStats.confirmedReadCount} confirmed · ${windowStats.possibleReadCount} possible · ${windowStats.avoidedCameraCount} avoided`
+                    }
+                    title="Exposure timeline"
+                />
+                <View
+                    className={`flex-row items-center gap-3 border-b px-4 py-3 ${
+                        operatorView
+                            ? 'border-[#262E37] bg-[#161B22]'
+                            : 'border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark'
                     }`}
                 >
-                    <Icon
-                        color={
+                    <View
+                        className={`h-[34px] w-[34px] items-center justify-center rounded-dafSm ${
                             operatorView
-                                ? dafSemanticColors.danger
-                                : dafSemanticColors.speedOk
-                        }
-                        name="eye"
-                        size={18}
-                    />
-                </View>
-                <View className="min-w-0 flex-1">
-                    <Text
-                        className={`text-[14.5px] font-semibold ${
-                            operatorView
-                                ? 'text-white'
-                                : 'text-daf-text-primary dark:text-white'
+                                ? 'bg-daf-alert/15'
+                                : 'bg-daf-surface-alt dark:bg-daf-surface-inverse'
                         }`}
                     >
-                        See it like they do
-                    </Text>
-                    <Text
-                        className={`text-xs ${
-                            operatorView
-                                ? 'text-[#828D9B]'
-                                : 'text-daf-text-tertiary dark:text-neutral-400'
-                        }`}
-                    >
-                        A truthful local simulation—no invented plate data
-                    </Text>
-                </View>
-                <Switch
-                    accessibilityLabel="See exposures in operator style"
-                    onValueChange={setOperatorView}
-                    trackColor={{
-                        false: theme.border.strong,
-                        true: dafSemanticColors.danger,
-                    }}
-                    value={operatorView}
-                    testID="scorecard-operator-view-toggle"
-                />
-            </View>
-
-            <ScrollView
-                className="flex-1"
-                contentContainerStyle={{ paddingBottom: bottomPadding }}
-            >
-                <View className="gap-3 px-4 py-3">
-                    {operatorView ? (
-                        <View className="border-daf-alert/35 bg-daf-alert/10 flex-row items-start gap-2 rounded-dafMd border px-3 py-2.5">
-                            <Icon
-                                color={dafSemanticColors.danger}
-                                name="triangle-alert"
-                                size={15}
-                            />
-                            <Text className="min-w-0 flex-1 text-xs leading-[18px] text-[#A9B2BD]">
-                                Built locally from your recorded DAF drives and
-                                public camera nodes. DAF has no plate image,
-                                vehicle description, hotlist result, or access
-                                to an operator database.
-                            </Text>
-                        </View>
-                    ) : null}
-
-                    {eventCount === 0 ? (
-                        <View
-                            className={`rounded-dafLg border px-5 py-10 ${
+                        <Icon
+                            color={
                                 operatorView
-                                    ? 'border-[#262E37] bg-[#161B22]'
-                                    : 'dark:border-daf-border-dark dark:bg-daf-surface-dark border-daf-border bg-white'
+                                    ? dafSemanticColors.danger
+                                    : dafSemanticColors.speedOk
+                            }
+                            name="eye"
+                            size={18}
+                        />
+                    </View>
+                    <View className="min-w-0 flex-1">
+                        <Text
+                            className={`text-[14.5px] font-semibold ${
+                                operatorView
+                                    ? 'text-white'
+                                    : 'text-daf-text-primary dark:text-white'
                             }`}
                         >
-                            <Icon
-                                color={
+                            See it like they do
+                        </Text>
+                        <Text
+                            className={`text-xs ${
+                                operatorView
+                                    ? 'text-[#828D9B]'
+                                    : 'text-daf-text-tertiary dark:text-neutral-400'
+                            }`}
+                        >
+                            A truthful local simulation—no invented plate data
+                        </Text>
+                    </View>
+                    <Switch
+                        accessibilityLabel="See exposures in operator style"
+                        onValueChange={setOperatorView}
+                        trackColor={{
+                            false: theme.border.strong,
+                            true: dafSemanticColors.danger,
+                        }}
+                        value={operatorView}
+                        testID="scorecard-operator-view-toggle"
+                    />
+                </View>
+
+                <ScrollView
+                    className="flex-1"
+                    contentContainerStyle={{ paddingBottom: bottomPadding }}
+                >
+                    <View className="gap-3 px-4 py-3">
+                        {operatorView ? (
+                            <View className="flex-row items-start gap-2 rounded-dafMd border border-daf-alert/35 bg-daf-alert/10 px-3 py-2.5">
+                                <Icon
+                                    color={dafSemanticColors.danger}
+                                    name="triangle-alert"
+                                    size={15}
+                                />
+                                <Text className="min-w-0 flex-1 text-xs leading-[18px] text-[#A9B2BD]">
+                                    Built locally from your recorded DAF drives
+                                    and public camera nodes. DAF has no plate
+                                    image, vehicle description, hotlist result,
+                                    or access to an operator database.
+                                </Text>
+                            </View>
+                        ) : null}
+
+                        {eventCount === 0 ? (
+                            <View
+                                className={`rounded-dafLg border px-5 py-10 ${
                                     operatorView
-                                        ? '#828D9B'
-                                        : dafSemanticColors.speedOk
-                                }
-                                name="shield-check"
-                                size={30}
-                                style={{ alignSelf: 'center' }}
-                            />
-                            <Text
-                                className={`mt-3 text-center text-base font-bold ${
-                                    operatorView
-                                        ? 'text-white'
-                                        : 'text-daf-text-primary dark:text-white'
+                                        ? 'border-[#262E37] bg-[#161B22]'
+                                        : 'border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark'
                                 }`}
                             >
-                                No exposure events recorded
-                            </Text>
-                            <Text
-                                className={`mt-1 text-center text-[13px] leading-[19px] ${
-                                    operatorView
-                                        ? 'text-[#828D9B]'
-                                        : 'text-daf-text-secondary dark:text-neutral-300'
-                                }`}
-                            >
-                                Events appear only during recorded DAF drives
-                                and expire after 30 days unless you delete them
-                                sooner.
-                            </Text>
-                        </View>
-                    ) : (
-                        groupedDays.map((dayGroup) => (
-                            <View className="gap-2" key={dayGroup.dayKey}>
-                                <View className="flex-row items-baseline">
-                                    <Text
-                                        className={`text-[13px] font-bold ${
-                                            operatorView
-                                                ? 'text-white'
-                                                : 'text-daf-text-primary dark:text-white'
-                                        }`}
-                                    >
-                                        {dayGroup.day}
-                                    </Text>
-                                    <Text
-                                        className={`font-dafMono ml-auto text-[11px] ${
-                                            operatorView
-                                                ? 'text-[#828D9B]'
-                                                : 'text-daf-text-tertiary dark:text-neutral-400'
-                                        }`}
-                                    >
-                                        {dayGroup.drives.length}{' '}
-                                        {dayGroup.drives.length === 1
-                                            ? 'drive'
-                                            : 'drives'}
-                                    </Text>
-                                </View>
-                                <View className="gap-3">
-                                    {dayGroup.drives.map((driveGroup) => (
-                                        <View
-                                            className={`overflow-hidden rounded-dafLg border ${
+                                <Icon
+                                    color={
+                                        operatorView
+                                            ? '#828D9B'
+                                            : dafSemanticColors.speedOk
+                                    }
+                                    name="shield-check"
+                                    size={30}
+                                    style={{ alignSelf: 'center' }}
+                                />
+                                <Text
+                                    className={`mt-3 text-center text-base font-bold ${
+                                        operatorView
+                                            ? 'text-white'
+                                            : 'text-daf-text-primary dark:text-white'
+                                    }`}
+                                >
+                                    No exposure events recorded
+                                </Text>
+                                <Text
+                                    className={`mt-1 text-center text-[13px] leading-[19px] ${
+                                        operatorView
+                                            ? 'text-[#828D9B]'
+                                            : 'text-daf-text-secondary dark:text-neutral-300'
+                                    }`}
+                                >
+                                    Events appear only during recorded DAF
+                                    drives and expire after 30 days unless you
+                                    delete them sooner.
+                                </Text>
+                            </View>
+                        ) : (
+                            groupedDays.map((dayGroup) => (
+                                <View className="gap-2" key={dayGroup.dayKey}>
+                                    <View className="flex-row items-baseline">
+                                        <Text
+                                            className={`text-[13px] font-bold ${
                                                 operatorView
-                                                    ? 'border-[#262E37] bg-[#11151B]'
-                                                    : 'dark:border-daf-border-dark border-daf-border bg-daf-surface-alt dark:bg-daf-surface-inverse'
+                                                    ? 'text-white'
+                                                    : 'text-daf-text-primary dark:text-white'
                                             }`}
-                                            key={driveGroup.driveId}
-                                            testID={`scorecard-drive-group-${driveGroup.driveId}`}
                                         >
+                                            {dayGroup.day}
+                                        </Text>
+                                        <Text
+                                            className={`ml-auto font-dafMono text-[11px] ${
+                                                operatorView
+                                                    ? 'text-[#828D9B]'
+                                                    : 'text-daf-text-tertiary dark:text-neutral-400'
+                                            }`}
+                                        >
+                                            {dayGroup.drives.length}{' '}
+                                            {dayGroup.drives.length === 1
+                                                ? 'drive'
+                                                : 'drives'}
+                                        </Text>
+                                    </View>
+                                    <View className="gap-3">
+                                        {dayGroup.drives.map((driveGroup) => (
                                             <View
-                                                className={`gap-1 border-b px-3.5 py-3 ${
+                                                className={`overflow-hidden rounded-dafLg border ${
                                                     operatorView
-                                                        ? 'border-[#262E37]'
-                                                        : 'dark:border-daf-border-dark border-daf-border'
+                                                        ? 'border-[#262E37] bg-[#11151B]'
+                                                        : 'border-daf-border bg-daf-surface-alt dark:border-daf-border-dark dark:bg-daf-surface-inverse'
                                                 }`}
+                                                key={driveGroup.driveId}
+                                                testID={`scorecard-drive-group-${driveGroup.driveId}`}
                                             >
-                                                <View className="flex-row items-baseline gap-3">
+                                                <View
+                                                    className={`gap-1 border-b px-3.5 py-3 ${
+                                                        operatorView
+                                                            ? 'border-[#262E37]'
+                                                            : 'border-daf-border dark:border-daf-border-dark'
+                                                    }`}
+                                                >
+                                                    <View className="flex-row items-baseline gap-3">
+                                                        <Text
+                                                            className={`min-w-0 flex-1 text-[14px] font-bold ${
+                                                                operatorView
+                                                                    ? 'font-dafMono uppercase text-white'
+                                                                    : 'text-daf-text-primary dark:text-white'
+                                                            }`}
+                                                            numberOfLines={1}
+                                                        >
+                                                            {formatDriveTitle(
+                                                                driveGroup,
+                                                            )}
+                                                        </Text>
+                                                        <Text
+                                                            className={`font-dafMono text-[11px] ${
+                                                                operatorView
+                                                                    ? 'text-[#A9B2BD]'
+                                                                    : 'text-daf-text-secondary dark:text-neutral-300'
+                                                            }`}
+                                                        >
+                                                            {formatDriveTimeRange(
+                                                                driveGroup,
+                                                            )}
+                                                        </Text>
+                                                    </View>
                                                     <Text
-                                                        className={`min-w-0 flex-1 text-[14px] font-bold ${
+                                                        className={`text-xs ${
                                                             operatorView
-                                                                ? 'font-dafMono uppercase text-white'
-                                                                : 'text-daf-text-primary dark:text-white'
-                                                        }`}
-                                                        numberOfLines={1}
-                                                    >
-                                                        {formatDriveTitle(
-                                                            driveGroup,
-                                                        )}
-                                                    </Text>
-                                                    <Text
-                                                        className={`font-dafMono text-[11px] ${
-                                                            operatorView
-                                                                ? 'text-[#A9B2BD]'
-                                                                : 'text-daf-text-secondary dark:text-neutral-300'
+                                                                ? 'font-dafMono text-[#828D9B]'
+                                                                : 'text-daf-text-tertiary dark:text-neutral-400'
                                                         }`}
                                                     >
-                                                        {formatDriveTimeRange(
+                                                        {formatDriveDetails(
                                                             driveGroup,
                                                         )}
                                                     </Text>
                                                 </View>
-                                                <Text
-                                                    className={`text-xs ${
+                                                <View className="gap-2 p-2.5">
+                                                    {driveGroup.exposures.map(
+                                                        (event) =>
+                                                            operatorView ? (
+                                                                <OperatorEventRow
+                                                                    event={
+                                                                        event
+                                                                    }
+                                                                    key={
+                                                                        event.id
+                                                                    }
+                                                                />
+                                                            ) : (
+                                                                <StandardEventRow
+                                                                    event={
+                                                                        event
+                                                                    }
+                                                                    key={
+                                                                        event.id
+                                                                    }
+                                                                />
+                                                            ),
+                                                    )}
+                                                </View>
+                                                <View
+                                                    className={`border-t p-2.5 ${
                                                         operatorView
-                                                            ? 'font-dafMono text-[#828D9B]'
-                                                            : 'text-daf-text-tertiary dark:text-neutral-400'
+                                                            ? 'border-[#262E37]'
+                                                            : 'border-daf-border dark:border-daf-border-dark'
                                                     }`}
                                                 >
-                                                    {formatDriveDetails(
-                                                        driveGroup,
-                                                    )}
-                                                </Text>
+                                                    <DriveTrailButton
+                                                        driveId={
+                                                            driveGroup.driveId
+                                                        }
+                                                        operatorView={
+                                                            operatorView
+                                                        }
+                                                    />
+                                                </View>
                                             </View>
-                                            <View className="gap-2 p-2.5">
-                                                {driveGroup.exposures.map(
-                                                    (event) =>
-                                                        operatorView ? (
-                                                            <OperatorEventRow
-                                                                event={event}
-                                                                key={event.id}
-                                                            />
-                                                        ) : (
-                                                            <StandardEventRow
-                                                                event={event}
-                                                                key={event.id}
-                                                            />
-                                                        ),
-                                                )}
-                                            </View>
-                                            <View
-                                                className={`border-t p-2.5 ${
-                                                    operatorView
-                                                        ? 'border-[#262E37]'
-                                                        : 'dark:border-daf-border-dark border-daf-border'
-                                                }`}
-                                            >
-                                                <DriveTrailButton
-                                                    driveId={driveGroup.driveId}
-                                                    operatorView={operatorView}
-                                                />
-                                            </View>
-                                        </View>
-                                    ))}
+                                        ))}
+                                    </View>
                                 </View>
-                            </View>
-                        ))
-                    )}
-                    <ScorecardPrivacyFooter operatorView={operatorView} />
-                </View>
-            </ScrollView>
-        </View>
+                            ))
+                        )}
+                        <ScorecardPrivacyFooter operatorView={operatorView} />
+                    </View>
+                </ScrollView>
+            </View>
+        </ResponsiveMapWorkspace>
     );
 }

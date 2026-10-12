@@ -1,3 +1,4 @@
+import { useResponsiveMapLayout } from '../map/use-responsive-map-layout';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
@@ -25,6 +26,7 @@ export function ContributePlacementSheet({
     screenIsFocused,
     tourTargets,
 }) {
+    const layout = useResponsiveMapLayout();
     const { height } = useWindowDimensions();
     const {
         contributePlacementIsActive,
@@ -126,7 +128,16 @@ export function ContributePlacementSheet({
             {contributePlacementIsActive && screenIsFocused && !expanded ? (
                 <View
                     className="absolute left-3 right-3 z-40 gap-2 rounded-dafMd border border-daf-border bg-white p-2 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] dark:border-daf-border-dark dark:bg-daf-surface-dark"
-                    style={{ bottom: Math.max(insets.bottom + 12, 30) }}
+                    style={
+                        layout.isWide
+                            ? {
+                                  right: undefined,
+                                  width: layout.paneWidth,
+                                  top: insets.top + 76,
+                                  bottom: insets.bottom + 12,
+                              }
+                            : { bottom: Math.max(insets.bottom + 12, 30) }
+                    }
                     testID="contribute-placement-sheet"
                 >
                     <View className="flex-row items-center gap-2.5">
@@ -198,6 +209,7 @@ export function ContributePlacementSheet({
                 enablePanDownToClose={false}
                 enableOverDrag={false}
                 maxDynamicContentSize={height * 0.6}
+                topInset={layout.isWide ? insets.top + 76 : undefined}
                 onChange={handleBottomSheetChange}
                 onDismiss={handleBottomSheetDismiss}
             >

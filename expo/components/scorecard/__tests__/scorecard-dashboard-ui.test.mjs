@@ -3,7 +3,10 @@ import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 
 function readSource(relativePath) {
-    return readFileSync(new URL(relativePath, import.meta.url), 'utf8');
+    return readFileSync(new URL(relativePath, import.meta.url), 'utf8').replace(
+        /\s+/g,
+        ' ',
+    );
 }
 
 describe('scorecard dashboard interactions', () => {
@@ -46,7 +49,7 @@ describe('scorecard dashboard interactions', () => {
 
         assert.match(
             dashboardSource,
-            /label="crossings"[\s\S]*?onPress=\{\(\) => router\.push\('\/scorecard\/timeline'\)\}/,
+            /label="crossings"[\s\S]*?onPress=\{\(\) =>\s*router\.push\('\/scorecard\/timeline'\)\s*\}/,
         );
     });
 

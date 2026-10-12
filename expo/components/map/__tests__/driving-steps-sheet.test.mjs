@@ -11,7 +11,7 @@ const getStepList = (sheet) =>
         (node) => node?.type === 'FlatList',
     );
 
-function loadSheet(expanded = false) {
+function loadSheet(expanded = false, layout = { isWide: false }) {
     const snaps = [];
     const scrolls = [];
     const effects = [];
@@ -40,6 +40,10 @@ function loadSheet(expanded = false) {
         },
     ).code;
     const mocks = {
+        './use-responsive-map-layout': { useResponsiveMapLayout: () => layout },
+        '../../lib/safe-area-insets': {
+            useSafeAreaInsets: () => ({ top: 24, bottom: 28 }),
+        },
         react: {
             useCallback: (fn) => fn,
             useMemo: (fn) => fn(),
@@ -374,6 +378,25 @@ test('the closed list waits to scroll until it is expanded', () => {
     });
     effects[0]();
     assert.deepEqual(scrolls, []);
+});
+
+test('wide navigation keeps steps in a full-height left pane beside the map', () => {
+    const { DrivingStepsSheet } = loadSheet(false, {
+        isWide: true,
+        width: 1194,
+        paneWidth: 376,
+    });
+    const sheet = DrivingStepsSheet({
+        containerHeight: 834,
+        collapsedHeight: 170,
+        directionsRoute: { steps: [{ stepIndex: 0, isCurrent: true }] },
+    });
+    assert.deepEqual(sheet.props.snapPoints, ['100%']);
+    assert.equal(sheet.props.handleComponent, null);
+    assert.equal(sheet.props.topInset, 36);
+    assert.equal(sheet.props.bottomInset, 40);
+    assert.deepEqual(sheet.props.style, { marginLeft: 12, marginRight: 806 });
+    assert.equal(getStepList(sheet).props.data.length, 1);
 });
 
 test('manual list scrolling pauses synchronization until the floating Sync button is pressed', () => {
