@@ -5,6 +5,7 @@ import {
     getCameraSurveillanceTags,
     normalizeCameraDegrees,
 } from '../../lib/osm/camera-schema.js';
+import { getCameraFormTags } from '../../lib/osm/camera-presets.js';
 
 const CARDINAL_DIRECTIONS = [
     'N',
@@ -26,6 +27,9 @@ const CARDINAL_DIRECTIONS = [
 ];
 
 export function buildNodeTags(details = {}) {
+    if (details.preset) {
+        return getCameraFormTags(details);
+    }
     const { directions, manufacturer, mount, operator, type } = details;
     const tags = {
         man_made: 'surveillance',

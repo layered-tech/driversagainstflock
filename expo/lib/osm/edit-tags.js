@@ -75,7 +75,9 @@ export function parseNodeDetails(tags = {}) {
               : 'cctv';
 
     return {
-        directions: parseDirectionTagValue(safeTags.direction),
+        directions: parseDirectionTagValue(
+            safeTags['camera:direction'] ?? safeTags.direction,
+        ),
         isActive: safeTags['disused:man_made'] !== 'surveillance',
         manufacturer: getCameraManufacturerValue(safeTags.manufacturer),
         mount: CAMERA_MOUNT_TAG_VALUES.includes(mountTagValue)

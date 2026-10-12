@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import {
+    mkdtempSync,
+    readdirSync,
+    readFileSync,
+    rmSync,
+    writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -35,6 +43,53 @@ const AUTO_PLAY_PACKAGE_ROOT = process.env.AUTO_PLAY_PACKAGE_ROOT
       );
 
 describe('Maestro managed development server', () => {
+    test('resets the emulator fused service after removing GPS mocks without clearing data', () => {
+        const directory = mkdtempSync(
+            path.join(tmpdir(), 'maestro-location-reset-'),
+        );
+        const callsFile = path.join(directory, 'calls');
+        writeFileSync(
+            path.join(directory, 'adb'),
+            '#!/bin/sh\nprintf "%s\\n" "$*" >> "$ADB_CALLS_FILE"\n',
+            { mode: 0o755 },
+        );
+        try {
+            for (const serial of ['emulator-5554', 'physical-device']) {
+                writeFileSync(callsFile, '');
+                const result = spawnSync(
+                    'bash',
+                    [
+                        path.join(
+                            EXPO_DIRECTORY,
+                            'scripts/reset-android-location.sh',
+                        ),
+                    ],
+                    {
+                        env: {
+                            ...process.env,
+                            PATH: `${directory}:${process.env.PATH}`,
+                            ANDROID_SERIAL: serial,
+                            ADB_CALLS_FILE: callsFile,
+                        },
+                        encoding: 'utf8',
+                    },
+                );
+                assert.equal(result.status, 0, result.stderr);
+                const calls = readFileSync(callsFile, 'utf8');
+                assert.doesNotMatch(calls, /pm clear/);
+                if (serial.startsWith('emulator-')) {
+                    assert.match(
+                        calls,
+                        /remove-test-provider gps\n.*force-stop com.google.android.gms\n.*emu geo fix/,
+                    );
+                } else {
+                    assert.doesNotMatch(calls, /force-stop/);
+                }
+            }
+        } finally {
+            rmSync(directory, { recursive: true, force: true });
+        }
+    });
     test('parses only connected Android devices', () => {
         assert.deepEqual(
             parseAdbDevices(`List of devices attached
@@ -260,7 +315,7 @@ R58M offline
     test('collects the full suite without launcher UI readiness checks', () => {
         const flows = collectMaestroFlows(['.maestro'], EXPO_DIRECTORY);
 
-        assert.equal(flows.length, 38);
+        assert.equal(flows.length, 39);
         assert.deepEqual(
             flows.map((flow) => path.basename(flow)),
             [...flows.map((flow) => path.basename(flow))].sort(),
@@ -624,6 +679,18 @@ R58M offline
         assert.doesNotMatch(source, /speed: 1(?:\s|$)/);
         assert.equal(source.match(/- travel:/g)?.length, 3);
         assert.equal(source.match(/speed: 12/g)?.length, 3);
+        for (const [latitude, longitude] of [
+            ['30.270606', '-97.749971'],
+            ['30.262520', '-97.745886'],
+            ['30.2654', '-97.7518'],
+        ]) {
+            assert.ok(
+                source.includes(
+                    `speed: 12\n- setLocation:\n    latitude: ${latitude}\n    longitude: ${longitude}\n- extendedWaitUntil:`,
+                ),
+                `Navigation must deliver the final GPS waypoint ${latitude}, ${longitude} before asserting it`,
+            );
+        }
         assert.equal(source.match(/waitToSettleTimeoutMs: 1000/g)?.length, 8);
         assert.match(
             source,

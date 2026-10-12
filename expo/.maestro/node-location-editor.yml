@@ -70,24 +70,9 @@ tags:
     notVisible:
       id: 'contribute-start-sheet'
     timeout: 10000
-- extendedWaitUntil:
-    visible: 'Place the cameras'
-    timeout: 10000
 - tapOn:
     id: 'contribute-add-camera-button'
-    retryTapIfNoChange: true
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - tapOn:
-          id: 'contribute-next-details-button'
-      - openLink: 'driversagainstflock://contribute/camera/0'
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - openLink: 'driversagainstflock://contribute/camera/0'
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     notVisible:
       id: 'contribute-placement-sheet'
@@ -247,31 +232,31 @@ tags:
 # opposite while preserving direction 0.
 - scrollUntilVisible:
     element:
-      id: 'contribute-add-direction-button'
+      id: 'contribute-add-direction'
     direction: DOWN
     timeout: 10000
     visibilityPercentage: 100
 - extendedWaitUntil:
     visible:
-      id: 'contribute-direction-chip-0-value'
+      id: 'contribute-direction-0'
     timeout: 10000
 - copyTextFrom:
-    id: 'contribute-direction-chip-0-value'
+    id: 'contribute-direction-0'
 - evalScript: ${output.direction0BeforeAdd = maestro.copiedText}
 - tapOn:
-    id: 'contribute-add-direction-button'
+    id: 'contribute-add-direction'
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
-      id: 'contribute-direction-chip-1-value'
+      id: 'contribute-direction-1'
     timeout: 10000
 - copyTextFrom:
-    id: 'contribute-direction-chip-0-value'
+    id: 'contribute-direction-0'
 - assertTrue: ${maestro.copiedText == output.direction0BeforeAdd}
 - copyTextFrom:
-    id: 'contribute-direction-chip-1-value'
+    id: 'contribute-direction-1'
 - evalScript: ${output.direction1BeforeRing = maestro.copiedText}
-- assertTrue: ${parseInt(output.direction1BeforeRing) == ((parseInt(output.direction0BeforeAdd) + 180) % 360)}
+- assertTrue: ${parseInt(output.direction1BeforeRing.match(/\d+/)[0]) == ((parseInt(output.direction0BeforeAdd.match(/\d+/)[0]) + 180) % 360)}
 
 - scrollUntilVisible:
     element:
@@ -300,26 +285,26 @@ tags:
 - waitForAnimationToEnd
 - scrollUntilVisible:
     element:
-      id: 'contribute-direction-chip-1-value'
+      id: 'contribute-direction-1'
     direction: DOWN
     timeout: 10000
     visibilityPercentage: 100
 - copyTextFrom:
-    id: 'contribute-direction-chip-0-value'
+    id: 'contribute-direction-0'
 - assertTrue: ${maestro.copiedText == output.direction0BeforeAdd}
 - copyTextFrom:
-    id: 'contribute-direction-chip-1-value'
+    id: 'contribute-direction-1'
 - assertTrue: ${maestro.copiedText != output.direction1BeforeRing}
 - evalScript: ${output.direction1AfterRing = maestro.copiedText}
 
 # Selecting direction 0 re-aims the map to it. A second ring drag changes only
 # direction 0 and leaves direction 1 at its fixed cardinal heading.
 - tapOn:
-    id: 'contribute-direction-chip-0'
+    id: 'contribute-direction-0'
     retryTapIfNoChange: true
 - waitForAnimationToEnd
 - copyTextFrom:
-    id: 'contribute-direction-chip-0-value'
+    id: 'contribute-direction-0'
 - evalScript: ${output.direction0BeforeSecondRing = maestro.copiedText}
 - scrollUntilVisible:
     element:
@@ -342,49 +327,23 @@ tags:
 - waitForAnimationToEnd
 - scrollUntilVisible:
     element:
-      id: 'contribute-direction-chip-1-value'
+      id: 'contribute-direction-1'
     direction: DOWN
     timeout: 10000
     visibilityPercentage: 100
 - copyTextFrom:
-    id: 'contribute-direction-chip-0-value'
+    id: 'contribute-direction-0'
 - assertTrue: ${maestro.copiedText != output.direction0BeforeSecondRing}
 - copyTextFrom:
-    id: 'contribute-direction-chip-1-value'
+    id: 'contribute-direction-1'
 - assertTrue: ${maestro.copiedText == output.direction1AfterRing}
-# Maestro 1.40 has no multi-pointer gesture command. Native two-finger rotation
-# is therefore covered by focused source/state tests and a simulator check.
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - pressKey: BACK
-      - pressKey: BACK
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - tapOn:
-          id: 'contribute-back-button'
-          retryTapIfNoChange: false
-      - extendedWaitUntil:
-          visible:
-            id: 'contribute-add-camera-button'
-          timeout: 10000
-      - tapOn:
-          id: 'contribute-back-button'
-          retryTapIfNoChange: false
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - tapOn: 'DISCARD'
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - tapOn: 'Discard'
-- extendedWaitUntil:
-    visible:
-      id: 'map-search-input-map'
-    timeout: 10000
+- tapOn:
+    id: 'contribute-back-button'
+    retryTapIfNoChange: false
+- assertVisible:
+    id: 'contribute-add-camera-button'
+- tapOn:
+    id: 'contribute-back-button'
+    retryTapIfNoChange: false
+- assertVisible:
+    id: 'map-search-input-map'

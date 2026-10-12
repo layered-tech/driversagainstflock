@@ -7,9 +7,6 @@ tags:
 ---
 - runFlow: subflows/contribute-tour-setup.yml
 - runFlow: subflows/contribute-tour-place-camera.yml
-- tapOn:
-    id: 'contribute-next-details-button'
-    retryTapIfNoChange: false
 - runFlow:
     file: subflows/contribute-tour-tip.yml
     env:
@@ -25,7 +22,8 @@ tags:
     retryTapIfNoChange: false
 - assertNotVisible:
     id: 'contribute-tour-.*'
-- assertVisible: 'Camera 1 of 1'
+- assertVisible:
+    id: 'contribute-camera-details-screen'
 - scrollUntilVisible:
     element:
       id: 'contribute-operator-input'
@@ -37,6 +35,9 @@ tags:
 - assertVisible: 'Maestro tour skip operator'
 - tapOn:
     id: 'contribute-next-changeset-button'
+    retryTapIfNoChange: false
+- tapOn:
+    id: 'contribute-next-details-button'
     retryTapIfNoChange: false
 - assertVisible:
     id: 'contribute-changeset-details-screen'
@@ -53,7 +54,7 @@ tags:
     id: 'contribute-review-screen'
 - assertNotVisible:
     id: 'contribute-tour-.*'
-- assertVisible: 'Added ALPR camera · Flock Safety'
+- assertVisible: 'Create · ALPR reader · Flock Safety'
 - assertVisible: 'Contribution kept after skipping the tour.'
 - tapOn:
     id: 'contribute-publish-button'
@@ -63,7 +64,8 @@ tags:
     timeout: 30000
 - assertNotVisible:
     id: 'contribute-tour-published'
-- assertVisible: 'node/12100881'
+- assertVisible:
+    id: 'contribute-published-node-0'
 - tapOn:
     id: 'contribute-see-on-map-button'
     retryTapIfNoChange: false

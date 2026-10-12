@@ -1,3 +1,4 @@
+import { getMarkerOsmNode } from '../../lib/osm/marker-node';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { router } from 'expo-router';
 import {
@@ -7,6 +8,9 @@ import {
     useWindowDimensions,
     View,
 } from 'react-native';
+import { useContribute } from '../contribute/contribute-state';
+import { useAuth } from '../../lib/auth';
+import { EditingCameraDetails } from '../contribute/editing-camera-details';
 import { getOSMBaseURL } from '../../lib/osm/config';
 import { Icon } from '../design-system/icon';
 import {
@@ -150,7 +154,9 @@ function AlprMarkerField({
 }
 
 export function MarkerDetailsSheet() {
+    const { user } = useAuth();
     const { height: windowHeight } = useWindowDimensions();
+    const { contributePlacementIsActive, cacheEditingNode } = useContribute();
     const {
         bottomSheetAnimatedPosition,
         bottomSheetBackgroundStyle,
@@ -182,11 +188,13 @@ export function MarkerDetailsSheet() {
         formatMarkerDirectionLabel(selectedMarker) || 'Not reported';
     const osmId = getOsmId(selectedMarker, osmNodes) || 'Unavailable';
     const editableNodeId = getEditableNodeId(osmId);
+    const editableNode = getMarkerOsmNode(selectedMarker);
     const updatedDate = getUpdatedDate(selectedMarker) || 'Unknown';
     const contentGap = 16;
     const bottomContentPadding = Math.max(insets.bottom + 12, 20);
 
     const handleEditNodePress = () => {
+        cacheEditingNode(editableNode);
         markerDetailsSheetRef.current?.dismiss();
         router.push({
             pathname: '/edits/[nodeId]',
@@ -195,6 +203,7 @@ export function MarkerDetailsSheet() {
     };
 
     const handleDeleteNodePress = () => {
+        cacheEditingNode(editableNode);
         markerDetailsSheetRef.current?.dismiss();
         router.push({
             pathname: '/edits/[nodeId]',
@@ -228,7 +237,7 @@ export function MarkerDetailsSheet() {
             onDismiss={handleBottomSheetDismiss}
         >
             <NativeWindBottomSheetView
-                className="dark:bg-daf-surface-dark bg-white"
+                className="bg-white dark:bg-daf-surface-dark"
                 testID={
                     bottomSheetIsPresented
                         ? 'marker-details-sheet-presented'
@@ -240,132 +249,147 @@ export function MarkerDetailsSheet() {
                         contentContainerStyle={{
                             gap: contentGap,
                             paddingBottom: bottomContentPadding,
-                            paddingHorizontal: 24,
+                            paddingHorizontal: contributePlacementIsActive
+                                ? 16
+                                : 24,
                             paddingTop: 4,
                         }}
                         showsVerticalScrollIndicator={false}
                     >
-                        <View className="gap-1">
-                            <Text
-                                className="font-dafDisplay text-[21px] font-bold leading-7 text-daf-text-primary dark:text-white"
-                                numberOfLines={2}
-                                testID="marker-details-title"
-                            >
-                                ALPR camera
-                            </Text>
-                            {coordinateLabel ? (
-                                <Text
-                                    className="font-dafMono text-[13px] leading-5 text-daf-text-secondary dark:text-neutral-300"
-                                    numberOfLines={1}
-                                    selectable
-                                    testID="marker-details-subtitle"
-                                >
-                                    {coordinateLabel}
-                                </Text>
-                            ) : null}
-                        </View>
-
-                        <View className="flex-row flex-wrap gap-2">
-                            <DafBadge tone="alert">ALPR</DafBadge>
-                            {manufacturer ? (
-                                <DafBadge tone="neutral">
-                                    {manufacturer}
-                                </DafBadge>
-                            ) : null}
-                        </View>
-
-                        <View className="flex-row flex-wrap gap-x-4 gap-y-[14px]">
-                            <View className="min-w-[128px] flex-1">
-                                <AlprMarkerField
-                                    label="Manufacturer"
-                                    testID="marker-details-manufacturer-value"
-                                    value={manufacturer}
-                                />
-                            </View>
-                            <View className="min-w-[128px] flex-1">
-                                <AlprMarkerField
-                                    label="Direction"
-                                    numberOfLines={0}
-                                    testID="marker-details-direction-value"
-                                    value={directionLabel}
-                                />
-                            </View>
-                            <View className="min-w-[128px] flex-1">
-                                <AlprMarkerField
-                                    label="OSM ID"
-                                    mono
-                                    testID="marker-details-osm-id-value"
-                                    value={osmId}
-                                />
-                            </View>
-                            <View className="min-w-[128px] flex-1">
-                                <AlprMarkerField
-                                    label="Updated"
-                                    mono
-                                    testID="marker-details-updated-value"
-                                    value={updatedDate}
-                                />
-                            </View>
-                        </View>
-
-                        <View
-                            className="flex-row items-center gap-2 rounded-dafSm bg-daf-surface-alt px-3 py-2.5 dark:bg-daf-surface-inverse"
-                            testID="marker-details-osm-attribution"
-                        >
-                            <Icon
-                                color={dafColors.ink[400]}
-                                name="map-pin"
-                                size={16}
+                        {contributePlacementIsActive && editableNodeId ? (
+                            <EditingCameraDetails
+                                node={editableNode}
+                                currentUser={user}
+                                onEdit={handleEditNodePress}
+                                onDelete={handleDeleteNodePress}
                             />
-                            <Text className="text-xs text-daf-text-secondary dark:text-neutral-300">
-                                From OpenStreetMap contributors
-                            </Text>
-                        </View>
-
-                        {editableNodeId ? (
-                            <View className="gap-2">
-                                <DafSectionLabel>
-                                    Edit this node
-                                </DafSectionLabel>
-                                <View className="flex-row gap-2">
-                                    <DafButton
-                                        className="flex-1"
-                                        icon="pencil"
-                                        onPress={handleEditNodePress}
-                                        testID="marker-details-edit-node-button"
-                                        variant="secondary"
+                        ) : (
+                            <>
+                                <View className="gap-1">
+                                    <Text
+                                        className="font-dafDisplay text-[21px] font-bold leading-7 text-daf-text-primary dark:text-white"
+                                        numberOfLines={2}
+                                        testID="marker-details-title"
                                     >
-                                        Edit node
-                                    </DafButton>
-                                    <Pressable
-                                        accessibilityRole="button"
-                                        className="min-h-hitComfy dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95 flex-1 flex-row items-center justify-center gap-2 rounded-dafPill border border-daf-border-glass bg-white/95 px-[18px] active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
-                                        onPress={handleDeleteNodePress}
-                                        testID="marker-details-delete-node-button"
-                                    >
-                                        <Icon
-                                            color={dafSemanticColors.danger}
-                                            name="trash"
-                                            size={17}
-                                            stroke={2.4}
-                                        />
+                                        ALPR camera
+                                    </Text>
+                                    {coordinateLabel ? (
                                         <Text
-                                            className="text-[15px] font-semibold text-daf-alert"
+                                            className="font-dafMono text-[13px] leading-5 text-daf-text-secondary dark:text-neutral-300"
                                             numberOfLines={1}
+                                            selectable
+                                            testID="marker-details-subtitle"
                                         >
-                                            Delete
+                                            {coordinateLabel}
                                         </Text>
-                                    </Pressable>
+                                    ) : null}
                                 </View>
-                                <DafButton
-                                    onPress={handleOpenInOsmPress}
-                                    testID="marker-details-open-osm-button"
-                                    variant="ghost"
+
+                                <View className="flex-row flex-wrap gap-2">
+                                    <DafBadge tone="alert">ALPR</DafBadge>
+                                    {manufacturer ? (
+                                        <DafBadge tone="neutral">
+                                            {manufacturer}
+                                        </DafBadge>
+                                    ) : null}
+                                </View>
+
+                                <View className="flex-row flex-wrap gap-x-4 gap-y-[14px]">
+                                    <View className="min-w-[128px] flex-1">
+                                        <AlprMarkerField
+                                            label="Manufacturer"
+                                            testID="marker-details-manufacturer-value"
+                                            value={manufacturer}
+                                        />
+                                    </View>
+                                    <View className="min-w-[128px] flex-1">
+                                        <AlprMarkerField
+                                            label="Direction"
+                                            numberOfLines={0}
+                                            testID="marker-details-direction-value"
+                                            value={directionLabel}
+                                        />
+                                    </View>
+                                    <View className="min-w-[128px] flex-1">
+                                        <AlprMarkerField
+                                            label="OSM ID"
+                                            mono
+                                            testID="marker-details-osm-id-value"
+                                            value={osmId}
+                                        />
+                                    </View>
+                                    <View className="min-w-[128px] flex-1">
+                                        <AlprMarkerField
+                                            label="Updated"
+                                            mono
+                                            testID="marker-details-updated-value"
+                                            value={updatedDate}
+                                        />
+                                    </View>
+                                </View>
+
+                                <View
+                                    className="flex-row items-center gap-2 rounded-dafSm bg-daf-surface-alt px-3 py-2.5 dark:bg-daf-surface-inverse"
+                                    testID="marker-details-osm-attribution"
                                 >
-                                    Open in OpenStreetMap ↗
-                                </DafButton>
-                            </View>
-                        ) : null}
+                                    <Icon
+                                        color={dafColors.ink[400]}
+                                        name="map-pin"
+                                        size={16}
+                                    />
+                                    <Text className="text-xs text-daf-text-secondary dark:text-neutral-300">
+                                        From OpenStreetMap contributors
+                                    </Text>
+                                </View>
+
+                                {editableNodeId ? (
+                                    <View className="gap-2">
+                                        <DafSectionLabel>
+                                            Edit this node
+                                        </DafSectionLabel>
+                                        <View className="flex-row gap-2">
+                                            <DafButton
+                                                className="flex-1"
+                                                icon="pencil"
+                                                onPress={handleEditNodePress}
+                                                testID="marker-details-edit-node-button"
+                                                variant="secondary"
+                                            >
+                                                Edit node
+                                            </DafButton>
+                                            <Pressable
+                                                accessibilityRole="button"
+                                                className="min-h-hitComfy flex-1 flex-row items-center justify-center gap-2 rounded-dafPill border border-daf-border-glass bg-white/95 px-[18px] active:bg-daf-surface-alt dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95 dark:active:bg-daf-surface-inverse"
+                                                onPress={handleDeleteNodePress}
+                                                testID="marker-details-delete-node-button"
+                                            >
+                                                <Icon
+                                                    color={
+                                                        dafSemanticColors.danger
+                                                    }
+                                                    name="trash"
+                                                    size={17}
+                                                    stroke={2.4}
+                                                />
+                                                <Text
+                                                    className="text-[15px] font-semibold text-daf-alert"
+                                                    numberOfLines={1}
+                                                >
+                                                    Delete
+                                                </Text>
+                                            </Pressable>
+                                        </View>
+                                        <DafButton
+                                            onPress={handleOpenInOsmPress}
+                                            testID="marker-details-open-osm-button"
+                                            variant="ghost"
+                                        >
+                                            Open in OpenStreetMap ↗
+                                        </DafButton>
+                                    </View>
+                                ) : null}
+                            </>
+                        )}
                     </BottomSheetScrollView>
                 ) : null}
             </NativeWindBottomSheetView>

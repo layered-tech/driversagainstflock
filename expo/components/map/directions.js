@@ -3,7 +3,11 @@ import {
     getActiveRouteDeviationDistanceMeters,
 } from './active-route-deviation';
 import { EMPTY_FEATURE_COLLECTION } from './constants';
-import { getStoredNumber, normalizeLongitude } from './geo';
+import {
+    getCoordinateBearingDegrees,
+    getStoredNumber,
+    normalizeLongitude,
+} from './geo';
 import { shouldKeepCurrentManeuverActive } from './navigation-advancement';
 import {
     getPlaceAddress,
@@ -1413,6 +1417,39 @@ export function getDirectionsManeuverCoordinate(route, maneuver) {
             getStepWaypointIndex(maneuver)
         ] ?? normalizeRouteCoordinate(maneuver?.maneuver?.location)
     );
+}
+
+export function getDirectionsStepHeading(route, stepIndex) {
+    const option = getSelectedDirectionsRouteOption(route);
+    const step = option?.maneuvers?.find(
+        (item) => item.stepIndex === stepIndex,
+    );
+    const index = getStepWaypointIndex(step);
+    const coordinates = option?.coordinates ?? [];
+    const coordinate = coordinates[index];
+    if (index === null || !coordinate) return null;
+
+    // Skip repeated vertices; at arrival use the final incoming segment.
+    for (let next = index + 1; next < coordinates.length; next += 1) {
+        if (
+            coordinates[next][0] !== coordinate[0] ||
+            coordinates[next][1] !== coordinate[1]
+        ) {
+            return getCoordinateBearingDegrees(coordinate, coordinates[next]);
+        }
+    }
+    for (let previous = index - 1; previous >= 0; previous -= 1) {
+        if (
+            coordinates[previous][0] !== coordinate[0] ||
+            coordinates[previous][1] !== coordinate[1]
+        ) {
+            return getCoordinateBearingDegrees(
+                coordinates[previous],
+                coordinate,
+            );
+        }
+    }
+    return null;
 }
 
 export function getDirectionsSteps(route, activeManeuver) {

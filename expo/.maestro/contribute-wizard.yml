@@ -8,33 +8,6 @@ tags:
 - runFlow: subflows/contribute-tour-setup.yml
 - runFlow: subflows/contribute-tour-place-camera.yml
 
-# Place another camera through the map controls, then use the real route button.
-- swipe:
-    start: '65%,30%'
-    end: '35%,30%'
-    duration: 500
-- tapOn:
-    id: 'contribute-add-camera-button'
-    retryTapIfNoChange: false
-- assertVisible: '2 cameras placed'
-- assertNotVisible:
-    id: 'contribute-tour-placed'
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - tapOn:
-          id: 'contribute-pin-remove-1'
-          retryTapIfNoChange: false
-      - assertVisible: '1 camera placed'
-      - tapOn:
-          id: 'contribute-add-camera-button'
-          retryTapIfNoChange: false
-      - assertVisible: '2 cameras placed'
-- tapOn:
-    id: 'contribute-next-details-button'
-    retryTapIfNoChange: false
-
 # Every camera spotlight must appear, including Back remeasuring its target.
 - runFlow:
     file: subflows/contribute-tour-tip.yml
@@ -75,11 +48,20 @@ tags:
       TOUR_TITLE: What is it mounted on?
 - assertNotVisible:
     id: 'contribute-tour-.*'
-- assertVisible: 'Camera 1 of 2'
+- assertVisible:
+    id: 'contribute-camera-details-screen'
+# Scroll at the edge so the compass does not consume the gesture.
+- repeat:
+    times: 2
+    commands:
+      - swipe:
+          start: '95%,35%'
+          end: '95%,80%'
+          duration: 500
 - scrollUntilVisible:
     element:
       id: 'contribute-operator-input'
-    direction: DOWN
+    direction: UP
 - tapOn:
     id: 'contribute-operator-input'
 - inputText: 'Maestro first camera operator'
@@ -106,14 +88,40 @@ tags:
 - tapOn:
     id: 'contribute-next-changeset-button'
     retryTapIfNoChange: false
-- assertVisible: 'Camera 2 of 2'
-# Camera guidance is taught once, rather than repeated for each camera.
+- assertVisible: '1 change staged'
+- tapOn:
+    id: 'contribute-keep-editing'
+    retryTapIfNoChange: false
+- swipe:
+    start: '65%,30%'
+    end: '35%,30%'
+    duration: 500
+- tapOn:
+    id: 'contribute-add-camera-button'
+    retryTapIfNoChange: false
 - assertNotVisible:
     id: 'contribute-tour-.*'
 - tapOn:
     id: 'contribute-next-changeset-button'
     retryTapIfNoChange: false
-
+- assertVisible: '2 changes staged'
+- tapOn:
+    id: 'contribute-pin-remove-1'
+    retryTapIfNoChange: false
+- assertVisible: '1 change staged'
+- tapOn:
+    id: 'contribute-keep-editing'
+    retryTapIfNoChange: false
+- tapOn:
+    id: 'contribute-add-camera-button'
+    retryTapIfNoChange: false
+- tapOn:
+    id: 'contribute-next-changeset-button'
+    retryTapIfNoChange: false
+- assertVisible: '2 changes staged'
+- tapOn:
+    id: 'contribute-next-details-button'
+    retryTapIfNoChange: false
 - runFlow:
     file: subflows/contribute-tour-tip.yml
     env:
@@ -135,7 +143,7 @@ tags:
 - tapOn:
     id: 'contribute-source-local'
     retryTapIfNoChange: false
-- assertVisible: '2 nodes will be added to OpenStreetMap.'
+- assertVisible: '2 changes'
 - tapOn:
     id: 'contribute-next-review-button'
     retryTapIfNoChange: false
@@ -152,7 +160,7 @@ tags:
       TOUR_TITLE: Publish when you’re ready
 - assertVisible: 'Review & publish'
 - assertVisible: 'Added 2 Flock Safety ALPR cameras for the e2e flow.'
-- assertVisible: 'DriversAgainstFlock.org'
+- assertVisible: 'DAF Mobile'
 - assertNotVisible: 'Changeset published'
 # Dismissing the publish tip never submits; only this real button does.
 - tapOn:
@@ -165,8 +173,10 @@ tags:
       TOUR_TITLE: You’ve made your first contribution
 - assertVisible: 'Changeset published'
 - assertVisible: 'changeset/171,224,908'
-- assertVisible: 'node/12100881'
-- assertVisible: 'node/12100882'
+- assertVisible:
+    id: 'contribute-published-node-0'
+- assertVisible:
+    id: 'contribute-published-node-1'
 - tapOn:
     id: 'contribute-see-on-map-button'
     retryTapIfNoChange: false
@@ -187,12 +197,7 @@ tags:
 - tapOn:
     id: 'contribute-add-camera-button'
     retryTapIfNoChange: false
-- assertVisible: '1 camera placed'
-- assertNotVisible:
-    id: 'contribute-tour-.*'
-- tapOn:
-    id: 'contribute-next-details-button'
-    retryTapIfNoChange: false
-- assertVisible: 'Camera 1 of 1'
+- assertVisible:
+    id: 'contribute-camera-details-screen'
 - assertNotVisible:
     id: 'contribute-tour-.*'

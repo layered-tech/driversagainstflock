@@ -146,6 +146,7 @@ const MOCK_MARKER_POINTS = [
             heading: '90',
             id: 'mock-austin-alpr-marker',
             osm_id: 'node/1234567890',
+            osm_version: 1,
             osm_nodes: [
                 {
                     node_id: 1234567890,
@@ -154,9 +155,11 @@ const MOCK_MARKER_POINTS = [
                         'camera:direction': '90',
                         'camera:mount': 'pole',
                         'camera:type': 'fixed',
+                        man_made: 'surveillance',
                         manufacturer: 'Flock Safety',
                         operator: 'Austin Transportation and Public Works',
-                        surveillance: 'outdoor',
+                        surveillance: 'public',
+                        'surveillance:zone': 'traffic',
                         'surveillance:type': 'ALPR',
                     },
                 },

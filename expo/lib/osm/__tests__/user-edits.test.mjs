@@ -269,7 +269,7 @@ describe('buildYourEditsModel', () => {
 
         assert.equal(freshSection.id, 171224908);
         assert.equal(freshSection.idLabel, 'changeset/171,224,908');
-        assert.equal(freshSection.title, 'Just now · 2 cameras');
+        assert.equal(freshSection.title, 'Just now · +2');
         assert.equal(freshSection.isFresh, true);
         assert.equal(freshSection.nodes[0].subtitle, '37.7749, -122.4194');
         assert.equal(
@@ -277,7 +277,7 @@ describe('buildYourEditsModel', () => {
             'ALPR reader · Flock Safety',
         );
 
-        assert.equal(olderSection.title, '21 Jun · 1 camera');
+        assert.equal(olderSection.title, '21 Jun · ~1');
         assert.equal(olderSection.isFresh, false);
         assert.equal(olderSection.nodes[0].refLabel, 'node/11640217 · v3');
 
@@ -285,7 +285,7 @@ describe('buildYourEditsModel', () => {
         assert.equal(model.liveCount, 3);
         assert.equal(model.changesetCount, 2);
         assert.equal(model.livePillLabel, '3 live');
-        assert.equal(model.countsLabel, '3 cameras · 2 changesets');
+        assert.equal(model.countsLabel, '3 changes · 2 changesets');
     });
 
     test('skips changesets without surveillance nodes or without data', () => {
@@ -311,7 +311,7 @@ describe('buildYourEditsModel', () => {
 
         assert.equal(model.changesetCount, 1);
         assert.equal(model.sections[0].id, 1);
-        assert.equal(model.countsLabel, '1 camera · 1 changeset');
+        assert.equal(model.countsLabel, '1 change · 1 changeset');
     });
 
     test('dedupes camera counts for nodes touched by several changesets', () => {
@@ -341,7 +341,7 @@ describe('buildYourEditsModel', () => {
         assert.equal(model.sections[1].nodes.length, 2);
         assert.equal(model.cameraCount, 2);
         assert.equal(model.liveCount, 2);
-        assert.equal(model.countsLabel, '2 cameras · 2 changesets');
+        assert.equal(model.countsLabel, '3 changes · 2 changesets');
     });
 
     test('gives repeated nodes the same distinct marker color', () => {
@@ -485,6 +485,60 @@ describe('buildYourEditsModel', () => {
         assert.equal(model.cameraCount, 0);
         assert.equal(model.liveCount, 0);
         assert.equal(model.livePillLabel, '0 live');
-        assert.equal(model.countsLabel, '0 cameras · 0 changesets');
+        assert.equal(model.countsLabel, '0 changes · 0 changesets');
+    });
+
+    test('shows each operation in a mixed changeset and counts changes separately from live cameras', () => {
+        const model = buildYourEditsModel({
+            changesets: [makeChangeset(1)],
+            changesetNodesById: {
+                1: emptyGroups({
+                    created: [makeChangeNode(11), makeChangeNode(12)],
+                    modified: [makeChangeNode(13, { version: 3 })],
+                    deleted: [makeChangeNode(14, { version: 4 })],
+                }),
+            },
+            now: NOW,
+        });
+        assert.equal(model.sections[0].title, 'Just now · +2 ~1 −1');
+        assert.equal(model.changeCount, 4);
+        assert.equal(model.countsLabel, '4 changes · 1 changeset');
+        assert.equal(model.liveCount, 3);
+        assert.equal(model.sections[0].nodes[3].isRemoved, true);
+    });
+
+    test('retains tagless deletions using camera history and marks earlier appearances deleted', () => {
+        const model = buildYourEditsModel({
+            changesets: [
+                makeChangeset(1),
+                makeChangeset(2, { closedAt: isoMinutesAgo(2000) }),
+            ],
+            changesetNodesById: {
+                1: emptyGroups({
+                    deleted: [makeChangeNode(11, { tags: {}, version: 2 })],
+                }),
+                2: emptyGroups({ created: [makeChangeNode(11)] }),
+            },
+            currentNodesById: {
+                11: makeCurrentNode(11, {
+                    tags: {},
+                    visible: false,
+                    version: 2,
+                }),
+            },
+            now: NOW,
+        });
+        assert.equal(model.sections[0].title, 'Just now · −1');
+        assert.equal(model.sections[1].title.endsWith('· +1'), true);
+        assert.equal(model.changeCount, 2);
+        assert.equal(model.cameraCount, 1);
+        assert.equal(model.liveCount, 0);
+        for (const section of model.sections) {
+            assert.equal(section.nodes[0].isRemoved, true);
+            assert.equal(
+                section.nodes[0].typeLabel,
+                'ALPR reader · Flock Safety',
+            );
+        }
     });
 });

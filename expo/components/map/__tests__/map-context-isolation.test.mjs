@@ -38,3 +38,11 @@ test('keeps MapCanvas subscribed only to its canvas and location contexts', () =
     assert.match(mapCanvasSource, /useMapLocationContext\(\)/);
     assert.doesNotMatch(mapCanvasSource, /useMapSearchContext\(\)/);
 });
+
+test('car maps without contribution state never mount draft markers', () => {
+    assert.match(mapCanvasSource, /contributePlacementIsActive = false/);
+    assert.match(
+        mapCanvasSource,
+        /\{contributePlacementIsActive \? <ContributeDraftPinMarkers \/> : null\}/,
+    );
+});

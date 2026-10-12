@@ -356,12 +356,13 @@ test('a direction-step focus pauses phone following before moving and recenter r
         paddingLeft: 12,
         paddingRight: 12,
     };
-    const pending = focus([-87, 41], { padding });
+    const pending = focus([-87, 41], { padding, heading: 270 });
     assert.deepEqual(events, ['pause']);
     release.resolve(true);
     assert.equal(await pending, true);
     assert.deepEqual(events, ['pause', ['focus', [-87, 41]]]);
     assert.deepEqual(cameraStops[0].padding, padding);
+    assert.equal(cameraStops[0].heading, 270);
     const userLocation = { latitude: 40, longitude: -88 };
     const recenter = callback(source, 'handleDrivingRecenterPress', {
         useCallback: (fn) => fn,
@@ -391,6 +392,9 @@ test('step previews frame the turn between the measured guidance and collapsed d
         'handleStepFocus',
         {
             useCallback: (fn) => fn,
+            directionsRoute: {},
+            getDirectionsStepHeading: (_route, stepIndex) =>
+                stepIndex === 2 ? 90 : null,
             collapsedHeight: 190,
             guidanceHeight: 88,
             insets: { top: 46, bottom: 34, left: 0, right: 0 },
@@ -412,6 +416,7 @@ test('step previews frame the turn between the measured guidance and collapsed d
             'focus',
             [-87, 41],
             {
+                heading: 90,
                 padding: {
                     paddingTop: 146,
                     paddingBottom: 202,
@@ -553,4 +558,44 @@ test('returning to the phone app refreshes car permission without polling', asyn
     assert.equal(checks, 1);
     cleanup();
     assert.equal(removals, 1);
+});
+
+test('the native map stays mounted when form navigation blurs the map screen', () => {
+    const source = readSource('../../map-screen.js');
+    const ast = parse(source, { sourceType: 'module', plugins: ['jsx'] });
+    let found = false;
+    function visit(node, ancestors = []) {
+        if (!node || typeof node !== 'object') return;
+        if (
+            node.type === 'JSXElement' &&
+            node.openingElement.name?.name === 'MapCanvas'
+        ) {
+            found = true;
+            assert.equal(
+                ancestors.some(
+                    (parent) =>
+                        parent.type === 'ConditionalExpression' &&
+                        parent.test?.name === 'screenIsFocused',
+                ),
+                false,
+            );
+        }
+        for (const value of Object.values(node).flat()) {
+            if (value && typeof value === 'object')
+                visit(value, [...ancestors, node]);
+        }
+    }
+    visit(ast);
+    assert.ok(found);
+    const controller = readSource('../use-map-location-controller.js');
+    assert.doesNotMatch(
+        controller,
+        /isMapReadyRef.current = false/,
+        'blurring a retained map must not reset its camera readiness',
+    );
+    assert.match(
+        controller,
+        /screenIsFocused && appStateIsActive/,
+        'background location updates remain focus-gated',
+    );
 });

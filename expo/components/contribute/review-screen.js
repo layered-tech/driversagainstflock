@@ -2,6 +2,10 @@ import { router, useIsFocused } from 'expo-router';
 import { useCallback, useRef } from 'react';
 import { Alert, ScrollView, Text, useColorScheme, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
+import {
+    getCameraChangeLabel,
+    getCameraFormTags,
+} from '../../lib/osm/camera-presets';
 import { REMOVAL_REASONS } from '../../lib/osm/edit-tags';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { usePreventRemove } from '../../lib/use-prevent-remove';
@@ -14,25 +18,11 @@ import { ContributeTourOverlay } from './contribute-tour-overlay';
 import { ContributeTourTarget } from './contribute-tour-target';
 import { ContributePageHeader } from './step-header';
 
-const MANUFACTURER_LABELS = {
-    flock: 'Flock Safety',
-    motorola: 'Motorola Solutions',
-};
-
 const SOURCE_LABELS = {
     'aerial imagery': 'Aerial imagery',
     'local knowledge': 'Local knowledge',
     survey: 'Survey',
 };
-
-function getChangeRowLabel(details = {}) {
-    const typeLabel = details.type === 'cctv' ? 'CCTV camera' : 'ALPR camera';
-    const manufacturerLabel = MANUFACTURER_LABELS[details.manufacturer];
-
-    return manufacturerLabel
-        ? `Added ${typeLabel} · ${manufacturerLabel}`
-        : `Added ${typeLabel}`;
-}
 
 function formatSourceLabel(source) {
     if (SOURCE_LABELS[source]) {
@@ -59,7 +49,6 @@ export default function ReviewPublishScreen() {
         exitContribute,
         pins,
         removals,
-        removeRemoval,
         publish,
         publishError,
         publishStatus,
@@ -106,7 +95,7 @@ export default function ReviewPublishScreen() {
         >
             <ContributePageHeader
                 onBack={handleBackPress}
-                step={4}
+                badge={`${pins.length + removals.length} changes`}
                 title="Review & publish"
             />
             <ScrollView className="flex-1" ref={tourScrollRef}>
@@ -146,10 +135,10 @@ export default function ReviewPublishScreen() {
                                 key={pin.id}
                                 testID={`contribute-change-row-${pinIndex}`}
                             >
-                                <View className="bg-daf-brand/12 h-[26px] w-[26px] items-center justify-center rounded-dafPill dark:bg-daf-brand/15">
+                                <View className="h-[26px] w-[26px] items-center justify-center rounded-dafPill bg-[#E6F9EF] dark:bg-daf-brand/15">
                                     <Icon
                                         color={theme.text.brand}
-                                        name="plus"
+                                        name={pin.nodeId ? 'pencil' : 'plus'}
                                         size={15}
                                         stroke={2.4}
                                     />
@@ -159,14 +148,24 @@ export default function ReviewPublishScreen() {
                                         className="text-[13px] font-medium text-daf-text-primary dark:text-white"
                                         numberOfLines={1}
                                     >
-                                        {getChangeRowLabel(pin.details)}
+                                        {pin.nodeId ? 'Modify' : 'Create'} ·{' '}
+                                        {getCameraChangeLabel(pin.details)}
                                     </Text>
                                     <Text
                                         className="font-dafMono text-xs text-daf-text-tertiary dark:text-neutral-400"
                                         numberOfLines={1}
                                     >
-                                        node · {pin.latitude.toFixed(4)},{' '}
-                                        {pin.longitude.toFixed(4)}
+                                        {pin.nodeId
+                                            ? `node/${pin.nodeId} · v${pin.version} → v${pin.version + 1} · `
+                                            : 'node · '}
+                                        {pin.latitude.toFixed(4)},{' '}
+                                        {pin.longitude.toFixed(4)} ·{' '}
+                                        {
+                                            Object.keys(
+                                                getCameraFormTags(pin.details),
+                                            ).length
+                                        }{' '}
+                                        tags
                                     </Text>
                                 </View>
                             </ContributeTourTarget>
@@ -177,34 +176,29 @@ export default function ReviewPublishScreen() {
                                 className="flex-row items-center gap-3 py-2.5"
                                 testID={`contribute-review-removal-${node.id}`}
                             >
-                                <Icon
-                                    name="trash"
-                                    color={dafColors.amber[600]}
-                                    size={17}
-                                />
+                                <View className="h-[26px] w-[26px] items-center justify-center rounded-full bg-daf-alert/15">
+                                    <Icon
+                                        name="minus"
+                                        color="#FF4D4F"
+                                        size={15}
+                                    />
+                                </View>
                                 <View className="min-w-0 flex-1">
                                     <Text className="text-[13px] font-medium text-daf-text-primary dark:text-white">
-                                        Remove camera · node/{node.id}
+                                        Delete · ALPR reader
+                                        {node.tags?.manufacturer
+                                            ? ` · ${node.tags.manufacturer}`
+                                            : ''}
                                     </Text>
                                     <Text className="text-xs text-daf-text-tertiary dark:text-neutral-400">
+                                        node/{node.id} · v{node.version} → v
+                                        {node.version + 1} ·{' '}
                                         {REMOVAL_REASONS.find(
                                             (reason) =>
                                                 reason.value === node.reason,
-                                        )?.label ?? node.reason}{' '}
-                                        · v{node.version}
+                                        )?.comment ?? node.reason}
                                     </Text>
                                 </View>
-                                <DafButton
-                                    disabled={
-                                        isPublishing ||
-                                        pins.length + removals.length === 0
-                                    }
-                                    onPress={() => removeRemoval(node.id)}
-                                    testID={`contribute-undo-removal-${node.id}`}
-                                    variant="ghost"
-                                >
-                                    Undo
-                                </DafButton>
                             </View>
                         ))}
                     </View>
@@ -222,7 +216,7 @@ export default function ReviewPublishScreen() {
                                 Editor
                             </DafSectionLabel>
                             <Text className="text-[13px] font-medium text-daf-text-primary dark:text-white">
-                                DriversAgainstFlock.org
+                                DAF Mobile
                             </Text>
                         </View>
                     </View>
