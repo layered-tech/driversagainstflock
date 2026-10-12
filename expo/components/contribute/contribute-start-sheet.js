@@ -1,7 +1,7 @@
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { useIsFocused } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
 import { Icon } from '../design-system/icon';
 import { DafBadge, DafButton } from '../design-system/primitives';
@@ -17,10 +17,9 @@ import { ContributeTourOverlay } from './contribute-tour-overlay';
 import { ContributeTourTarget } from './contribute-tour-target';
 
 const CONTRIBUTE_STEPS = [
-    'Place a pin on each camera',
-    'Describe each camera',
+    'Add, edit or delete cameras — as many as you need',
     'Describe the changeset',
-    'Review & publish',
+    'Review the diff & publish',
 ];
 
 function formatDraftPinCount(pinCount) {
@@ -229,7 +228,7 @@ export function ContributeStartSheet({
                         contentContainerStyle={{
                             gap: 16,
                             paddingBottom: Math.max(insets.bottom + 12, 20),
-                            paddingHorizontal: 24,
+                            paddingHorizontal: 16,
                             paddingTop: 4,
                         }}
                         showsVerticalScrollIndicator={false}
@@ -254,28 +253,37 @@ export function ContributeStartSheet({
                                             className="font-dafDisplay text-[21px] font-bold leading-7 text-daf-text-primary dark:text-white"
                                             testID="contribute-start-sheet-title"
                                         >
-                                            Start a changeset
+                                            Open a changeset
                                         </Text>
                                         <Text className="text-[13px] text-daf-text-secondary dark:text-neutral-300">
-                                            Add camera data to OpenStreetMap
+                                            Edit camera data on OpenStreetMap
                                         </Text>
                                     </View>
 
                                     {isAuthenticated ? (
-                                        <ContributeAccountCard
-                                            isAuthenticated
-                                            subtitle={
-                                                hasWriteScope
-                                                    ? 'OpenStreetMap account · signed in'
-                                                    : 'Signed in — editing access needed'
-                                            }
-                                            title={
-                                                user?.name
-                                                    ? `@${user.name}`
-                                                    : 'OpenStreetMap account'
-                                            }
-                                            testID="contribute-account-card-signed-in"
-                                        />
+                                        <Pressable
+                                            accessibilityRole="button"
+                                            accessibilityLabel="Your edits"
+                                            onPress={() => {
+                                                closeStartSheet();
+                                                router.push('/edits');
+                                            }}
+                                        >
+                                            <ContributeAccountCard
+                                                isAuthenticated
+                                                subtitle={
+                                                    hasWriteScope
+                                                        ? 'OpenStreetMap account · signed in'
+                                                        : 'Signed in — editing access needed'
+                                                }
+                                                title={
+                                                    user?.name
+                                                        ? `@${user.name}`
+                                                        : 'OpenStreetMap account'
+                                                }
+                                                testID="contribute-account-card-signed-in"
+                                            />
+                                        </Pressable>
                                     ) : (
                                         <ContributeAccountCard
                                             isAuthenticated={false}
@@ -317,9 +325,9 @@ export function ContributeStartSheet({
 
                                     <Text className="text-[13px] leading-[21px] text-daf-text-secondary dark:text-neutral-300">
                                         Your edits are public and credited to
-                                        you. Place new camera nodes or fix
-                                        existing ones, then publish them
-                                        together in one changeset.
+                                        you. Changes stay staged on your phone
+                                        until you publish, so you can work a
+                                        whole block in one go.
                                     </Text>
 
                                     <View className="gap-2.5">

@@ -18,6 +18,7 @@ export function MapControlsOverlay({
     showContributeEntryButton = true,
 }) {
     const {
+        isDarkMapLayer,
         defaultMapControlClassName,
         defaultMapControlGlassTintColor,
         defaultMapControlIconColor,
@@ -212,7 +213,9 @@ export function MapControlsOverlay({
                 )}
             </MapControlButton>
 
-            {showContributeEntryButton ? <ContributeEntryButton /> : null}
+            {showContributeEntryButton ? (
+                <ContributeEntryButton isDarkMapLayer={isDarkMapLayer} />
+            ) : null}
 
             {renderMarkerLoadingIndicator ? (
                 <MarkerLoadingIndicator

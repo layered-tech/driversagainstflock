@@ -180,6 +180,7 @@ export function useMapSearch({
     const directionsTrimmedSearchValue = directionsAutocompleteValue.trim();
     const {
         handlePlaceSheetDismiss,
+        requestResultsAfterPlaceDismiss,
         handleSubmittedSearchResultsSheetDismiss,
         placeSheetIsOpenRef,
         placeSheetRef,
@@ -1172,12 +1173,16 @@ export function useMapSearch({
         }
 
         placeSheetIsOpenRef.current = false;
+        requestResultsAfterPlaceDismiss();
         dismissPlaceSheet();
         setSearchMode(DIRECTIONS_MODE_SEARCH);
         setSearchIsFocused(false);
         setSearchPageIsVisible(false);
-        presentSubmittedSearchResultsSheet();
-    }, [presentSubmittedSearchResultsSheet, submittedSearchResults.length]);
+    }, [
+        dismissPlaceSheet,
+        requestResultsAfterPlaceDismiss,
+        submittedSearchResults.length,
+    ]);
 
     const handleSubmittedSearchResultPress = useCallback(
         (result) => {

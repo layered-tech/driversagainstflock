@@ -30,9 +30,7 @@ appId: com.anonymous.drivefree.dev
 - tapOn:
     id: 'contribute-add-camera-button'
     retryTapIfNoChange: false
-- runFlow:
-    file: contribute-tour-tip.yml
-    env:
-      TOUR_STEP: placed
-      TOUR_TITLE: Your camera is in the draft
-- assertVisible: '1 camera placed'
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-tour-camera-details'
+    timeout: 10000

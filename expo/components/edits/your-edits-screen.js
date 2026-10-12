@@ -1,4 +1,5 @@
-import { router, useFocusEffect, useNavigation } from 'expo-router';
+import { useContribute } from '../contribute/contribute-state';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
@@ -26,7 +27,6 @@ import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
 import { dafSemanticColors, getDafTheme } from '../design-system/tokens';
-import { toggleNearestDrawer } from '../map/navigation';
 
 function YourEditsNodeRow({
     isMenuOpen,
@@ -39,7 +39,7 @@ function YourEditsNodeRow({
     const isDarkMode = useColorScheme() === 'dark';
 
     return (
-        <View className="dark:border-daf-border-dark border-t border-daf-border">
+        <View className="border-t border-daf-border dark:border-daf-border-dark">
             <Pressable
                 accessibilityLabel={
                     node.isRemoved ? node.typeLabel : `Edit ${node.typeLabel}`
@@ -51,22 +51,16 @@ function YourEditsNodeRow({
                 testID={`your-edits-row-${node.id}`}
             >
                 <View
-                    className="h-[17px] w-[17px] flex-none items-center justify-center rounded-dafPill"
-                    style={{
-                        backgroundColor: isDarkMode
-                            ? node.markerColor.darkBackground
-                            : node.markerColor.lightBackground,
-                    }}
+                    className={`h-[17px] w-[17px] flex-none items-center justify-center rounded-dafPill ${node.isRemoved ? 'bg-daf-surface-alt dark:bg-daf-surface-inverse' : 'bg-daf-alert/15'}`}
                 >
                     <View
-                        className="h-[9px] w-[9px] rounded-dafPill"
-                        style={{ backgroundColor: node.markerColor.fill }}
+                        className={`h-[9px] w-[9px] rounded-dafPill ${node.isRemoved ? 'bg-daf-border-strong dark:bg-daf-border-dark' : 'bg-daf-alert'}`}
                     />
                 </View>
 
                 <View className="min-w-0 flex-1">
                     <Text
-                        className="text-[15px] font-semibold leading-[19px] text-daf-text-primary dark:text-white"
+                        className={`text-[15px] font-semibold leading-[19px] ${node.isRemoved ? 'text-daf-text-tertiary line-through dark:text-neutral-400' : 'text-daf-text-primary dark:text-white'}`}
                         numberOfLines={1}
                     >
                         {node.typeLabel}
@@ -78,19 +72,19 @@ function YourEditsNodeRow({
                         {node.subtitle}
                     </Text>
                     <Text
-                        className="font-dafMono mt-0.5 text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400"
+                        className="mt-0.5 font-dafMono text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400"
                         numberOfLines={1}
                     >
                         {node.refLabel}
                     </Text>
                     {node.isRemoved ? (
-                        <View className="dark:border-daf-border-dark mt-1.5 self-start rounded-dafPill border border-daf-border bg-daf-surface-alt px-2 py-[3px] dark:bg-daf-surface-inverse">
-                            <Text className="text-[11px] font-semibold text-daf-text-secondary dark:text-neutral-300">
-                                Removed from map
+                        <View className="mt-1.5 self-start rounded-dafPill bg-daf-alert/15 px-2 py-[2px]">
+                            <Text className="text-[11px] font-semibold text-daf-alert">
+                                Deleted
                             </Text>
                         </View>
                     ) : node.updatedByLabel ? (
-                        <View className="bg-daf-amber/12 dark:bg-daf-amber/15 mt-1.5 self-start rounded-dafPill px-2 py-[3px]">
+                        <View className="bg-daf-amber/12 mt-1.5 self-start rounded-dafPill px-2 py-[3px] dark:bg-daf-amber/15">
                             <Text className="text-[11px] font-semibold text-amber-700 dark:text-daf-amber">
                                 {node.updatedByLabel}
                             </Text>
@@ -126,7 +120,7 @@ function YourEditsNodeRow({
             </Pressable>
 
             {isMenuOpen && !node.isRemoved ? (
-                <View className="dark:border-daf-border-dark flex-row gap-2 border-t border-daf-border bg-daf-surface-alt p-2 dark:bg-daf-surface-inverse">
+                <View className="flex-row gap-2 border-t border-daf-border bg-daf-surface-alt p-2 dark:border-daf-border-dark dark:bg-daf-surface-inverse">
                     <Pressable
                         accessibilityLabel="Edit camera"
                         accessibilityRole="menuitem"
@@ -145,13 +139,13 @@ function YourEditsNodeRow({
                             size={17}
                         />
                         <Text className="text-[13px] font-semibold text-daf-text-brand dark:text-daf-brand">
-                            Edit
+                            Edit tags
                         </Text>
                     </Pressable>
                     <Pressable
                         accessibilityLabel="Delete camera"
                         accessibilityRole="menuitem"
-                        className="bg-daf-alert/10 dark:bg-daf-alert/15 h-[46px] flex-1 flex-row items-center justify-center gap-2 rounded-dafSm active:opacity-[0.82]"
+                        className="h-[46px] flex-1 flex-row items-center justify-center gap-2 rounded-dafSm bg-daf-alert/10 active:opacity-[0.82] dark:bg-daf-alert/15"
                         onPress={onDelete}
                         testID={`your-edits-row-${node.id}-delete-button`}
                     >
@@ -179,14 +173,14 @@ function YourEditsChangesetCard({
     theme,
 }) {
     return (
-        <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark mb-4 overflow-hidden rounded-dafMd border border-daf-border bg-white">
+        <View className="mb-4 overflow-hidden rounded-dafMd border border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark">
             <View className="flex-row items-center justify-between gap-2.5 bg-daf-surface-alt px-3.5 py-2.5 dark:bg-daf-surface-inverse">
                 <View className="min-w-0 flex-1 flex-row items-center gap-2">
                     <View
                         className={`h-1.5 w-1.5 flex-none rounded-dafPill ${
                             section.isFresh
                                 ? 'bg-daf-text-brand dark:bg-daf-brand'
-                                : 'dark:bg-daf-border-dark bg-daf-border-strong'
+                                : 'bg-daf-border-strong dark:bg-daf-border-dark'
                         }`}
                     />
                     <Text
@@ -197,7 +191,7 @@ function YourEditsChangesetCard({
                     </Text>
                 </View>
                 <Text
-                    className="font-dafMono flex-none text-[11px] text-daf-text-tertiary dark:text-neutral-400"
+                    className="flex-none font-dafMono text-[11px] text-daf-text-tertiary dark:text-neutral-400"
                     numberOfLines={1}
                 >
                     {section.idLabel}
@@ -258,7 +252,7 @@ function YourEditsFooterNote() {
         <View className="flex-row items-center gap-[7px] px-0.5 pb-2 pt-1">
             <Icon color={dafSemanticColors.speedOk} name="info" size={14} />
             <Text className="flex-1 text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400">
-                Past changesets can't be rewritten — edits and removals publish
+                Past changesets can't be rewritten — edits and deletions publish
                 as new ones.
             </Text>
         </View>
@@ -266,9 +260,9 @@ function YourEditsFooterNote() {
 }
 
 export default function YourEditsScreen() {
+    const { cacheEditingNode } = useContribute();
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
-    const navigation = useNavigation();
     const { isAuthenticated, openStreetMapAccessToken, user } = useAuth();
     const [errorMessage, setErrorMessage] = useState('');
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -331,6 +325,7 @@ export default function YourEditsScreen() {
 
             for (const node of currentNodes) {
                 currentNodesById[node.id] = node;
+                if (!signal?.aborted) cacheEditingNode(node);
             }
 
             return buildYourEditsModel({
@@ -341,7 +336,7 @@ export default function YourEditsScreen() {
                 now: Date.now(),
             });
         },
-        [openStreetMapAccessToken, user],
+        [openStreetMapAccessToken, user, cacheEditingNode],
     );
 
     useFocusEffect(
@@ -386,10 +381,6 @@ export default function YourEditsScreen() {
         }, [isAuthenticated, loadYourEdits, reloadToken]),
     );
 
-    const handleDrawerPress = useCallback(() => {
-        toggleNearestDrawer(navigation);
-    }, [navigation]);
-
     const handleRefresh = useCallback(() => {
         setIsRefreshing(true);
         setReloadToken((token) => token + 1);
@@ -428,32 +419,32 @@ export default function YourEditsScreen() {
             testID="your-edits-screen"
         >
             <View
-                className="dark:border-daf-border-dark dark:bg-daf-surface-dark flex-row items-center gap-1.5 border-b border-daf-border bg-white px-3 pb-3"
+                className="flex-row items-center gap-1.5 border-b border-daf-border bg-white px-3 pb-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
                 style={{ paddingTop: headerPaddingTop }}
             >
                 <Pressable
-                    accessibilityLabel="Open menu"
+                    accessibilityLabel="Back"
                     accessibilityRole="button"
                     className="h-[50px] w-[50px] items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
                     hitSlop={6}
-                    onPress={handleDrawerPress}
-                    testID="your-edits-drawer-button"
+                    onPress={() => router.navigate('/')}
+                    testID="your-edits-back-button"
                 >
                     <Icon
                         color={isDarkMode ? '#F4F7FA' : '#0B0E12'}
-                        name="menu"
+                        name="chevron-left"
                         size={20}
                     />
                 </Pressable>
                 <Text
-                    className="font-dafDisplay min-w-0 flex-1 text-lg font-bold leading-6 text-daf-text-primary dark:text-white"
+                    className="min-w-0 flex-1 font-dafDisplay text-lg font-bold leading-6 text-daf-text-primary dark:text-white"
                     numberOfLines={1}
                 >
                     Your edits
                 </Text>
                 {model ? (
                     <View
-                        className="dark:border-daf-border-dark h-[26px] items-center justify-center rounded-dafPill border border-daf-border bg-daf-surface-alt px-[9px] dark:bg-daf-surface-inverse"
+                        className="h-[26px] items-center justify-center rounded-dafPill border border-daf-border bg-daf-surface-alt px-[9px] dark:border-daf-border-dark dark:bg-daf-surface-inverse"
                         testID="your-edits-live-pill"
                     >
                         <Text
@@ -466,15 +457,15 @@ export default function YourEditsScreen() {
                 ) : null}
             </View>
 
-            <View className="dark:border-daf-border-dark flex-row items-center gap-2 border-b border-daf-border bg-daf-surface-alt px-4 py-[9px] dark:bg-daf-surface-inverse">
+            <View className="flex-row items-center gap-2 border-b border-daf-border bg-daf-surface-alt px-4 py-[9px] dark:border-daf-border-dark dark:bg-daf-surface-inverse">
                 <Text
-                    className="font-dafMono min-w-0 flex-shrink text-[11px] font-semibold tracking-[0.04em] text-daf-text-brand dark:text-daf-brand"
+                    className="min-w-0 flex-shrink font-dafMono text-[11px] font-semibold tracking-[0.04em] text-daf-text-brand dark:text-daf-brand"
                     numberOfLines={1}
                 >
                     @{userName}
                 </Text>
                 <Text
-                    className="font-dafMono ml-auto text-[11px] text-daf-text-tertiary dark:text-neutral-400"
+                    className="ml-auto font-dafMono text-[11px] text-daf-text-tertiary dark:text-neutral-400"
                     numberOfLines={1}
                 >
                     {model ? model.countsLabel : ''}
@@ -514,8 +505,8 @@ export default function YourEditsScreen() {
                     ) : (
                         <>
                             <Text className="mb-4 text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400">
-                                Tap a camera to edit it, or open its ⋯ menu for
-                                actions.
+                                Open a camera's ⋯ menu to edit or delete it in a
+                                new changeset.
                             </Text>
                             {model.sections.map((section) => (
                                 <YourEditsChangesetCard

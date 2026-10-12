@@ -18,6 +18,11 @@ import {
 
 import { createHookHarness, loadTourModule } from './tour-test-helpers.mjs';
 import { getVisibleTourStep } from '../../tour-progress.js';
+import { getChangesetSummary } from '../../contribute/changeset-summary.js';
+import {
+    getCameraChangeLabel,
+    getCameraFormTags,
+} from '../../../lib/osm/camera-presets.js';
 
 function loadComponent(file, mocks, scheduler) {
     return loadTourModule(
@@ -258,6 +263,9 @@ function createScreenHarness() {
         removals: [],
         continueOnMap() {},
         removeRemoval() {},
+        removePin() {},
+        updatePinDetails() {},
+        updatePinLocation() {},
         pins: [
             {
                 id: 'camera-1',
@@ -291,6 +299,12 @@ function createScreenHarness() {
         },
     };
     const mocks = {
+        './changeset-summary': { getChangesetSummary },
+        '../../lib/osm/camera-presets': {
+            getCameraChangeLabel,
+            getCameraFormTags,
+        },
+        './camera-form': { CameraForm: 'CameraForm' },
         react: {
             useCallback: (callback) => callback,
             useEffect() {},
@@ -349,6 +363,7 @@ function createScreenHarness() {
         '../map/native-components': {
             NativeWindBottomSheetModal: 'BottomSheetModal',
             NativeWindBottomSheetView: 'View',
+            NativeWindBottomSheetScrollView: 'ScrollView',
         },
         '../map/use-bottom-sheet-presented-state': {
             useBottomSheetPresentedState: () => ({
@@ -1168,7 +1183,8 @@ describe('contribution screen integration', () => {
         );
         const tree = CameraDetailsScreen();
         harness.focusEffects.forEach((effect) => effect());
-        assert.ok(findElement(tree, 'contribute-camera-details-screen'));
+        assert.equal(tree.type, 'CameraForm');
+        assert.equal(tree.props.pin.id, 'camera-1');
         assert.deepEqual(harness.routes, []);
     });
     test('an empty camera screen opens the pending removal changeset', () => {
@@ -1255,7 +1271,7 @@ describe('contribution screen integration', () => {
         assert.deepEqual(harness.dismissals, ['start']);
     });
 
-    test('placement guidance follows actual pins and the existing Next action', () => {
+    test('staged changes proceed directly to changeset details', () => {
         const harness = createScreenHarness();
         const { ContributePlacementSheet } = harness.screen(
             'contribute-placement-sheet.js',
@@ -1265,6 +1281,7 @@ describe('contribution screen integration', () => {
                 insets: { bottom: 10 },
                 mapPreferencesAreLoaded: true,
                 screenIsFocused: true,
+                tourTargets: { current: {} },
             });
         const pins = harness.contribution.pins;
         harness.contribution.pins = [];
@@ -1277,47 +1294,28 @@ describe('contribution screen integration', () => {
         harness.contribution.pins = pins;
         assert.equal(getTourOverlays(render())[0].enabled, true);
         findElement(render(), 'contribute-next-details-button').props.onPress();
-
-        assert.deepEqual(harness.routes, ['/contribute/camera/0']);
-        assert.deepEqual(harness.dismissals, [
-            'placement-map',
-            'placement',
-            'placed',
-        ]);
+        assert.deepEqual(harness.routes, ['/contribute/changeset']);
+        assert.deepEqual(harness.dismissals, ['placed']);
     });
 
-    test('teaches camera details and directions once while retaining per-camera navigation', () => {
+    test('saving a camera stages it and returns to map editing', () => {
         const harness = createScreenHarness();
+        let patch;
+        harness.contribution.updatePinDetails = (id, next) => {
+            patch = { id, next };
+        };
         const { default: CameraDetailsScreen } = harness.screen(
             'camera-details-screen.js',
         );
-        assert.ok(
-            getTourOverlays(CameraDetailsScreen()).every(
-                (card) =>
-                    card.enabled && card.tour === harness.contribution.tour,
-            ),
-        );
-        findElement(
-            CameraDetailsScreen(),
-            'contribute-next-changeset-button',
-        ).props.onPress();
-
-        assert.deepEqual(harness.routes, ['/contribute/camera/1']);
+        const tree = CameraDetailsScreen();
+        assert.equal(tree.props.tour, harness.contribution.tour);
+        tree.props.onSave();
+        assert.deepEqual(patch, { id: 'camera-1', next: { staged: true } });
+        assert.deepEqual(harness.routes, ['/']);
         assert.deepEqual(
             harness.dismissals,
             CONTRIBUTE_TOUR_PHASE_STEPS.camera,
         );
-        harness.params.index = '1';
-        assert.ok(
-            getTourOverlays(CameraDetailsScreen()).every(
-                (card) => !card.enabled,
-            ),
-        );
-        findElement(
-            CameraDetailsScreen(),
-            'contribute-next-changeset-button',
-        ).props.onPress();
-        assert.equal(harness.routes.at(-1), '/contribute/changeset');
     });
 
     test('requires the real comment before proceeding to review', () => {
@@ -1352,26 +1350,23 @@ describe('contribution screen integration', () => {
         assert.deepEqual(harness.dismissals, ['changeset', 'source']);
     });
 
-    test('changeset details count removals and retain additions-only wording', () => {
+    test('changeset details summarize added and deleted nodes', () => {
         const harness = createScreenHarness();
         const { default: ChangesetDetailsScreen } = harness.screen(
             'changeset-details-screen.js',
         );
-        assert.match(
-            JSON.stringify(ChangesetDetailsScreen()),
-            /will be added to OpenStreetMap/,
-        );
+        assert.match(JSON.stringify(ChangesetDetailsScreen()), /added/);
         harness.contribution.pins = [];
         harness.contribution.removals = [
             { id: 123, version: 2, reason: 'gone' },
         ];
         harness.contribution.changeset.comment = 'Removed a missing camera';
         const tree = ChangesetDetailsScreen();
-        assert.equal(
+        assert.deepEqual(
             findElement(tree, 'contribute-node-count').props.children,
-            '1 node',
+            [1, ' changes'],
         );
-        assert.match(JSON.stringify(tree), /will be changed on OpenStreetMap/);
+        assert.match(JSON.stringify(tree), /deleted/);
         assert.equal(
             findElement(tree, 'contribute-next-review-button').props.disabled,
             false,
@@ -1409,7 +1404,7 @@ describe('contribution screen integration', () => {
         );
     });
 
-    test('undoing the last removal disables publishing the empty changeset', () => {
+    test('undoing the last staged removal disables publishing the empty changeset', () => {
         const harness = createScreenHarness();
         harness.contribution.pins = [];
         harness.contribution.removals = [
@@ -1426,7 +1421,7 @@ describe('contribution screen integration', () => {
             findElement(tree, 'contribute-publish-button').props.disabled,
             false,
         );
-        findElement(tree, 'contribute-undo-removal-123').props.onPress();
+        harness.contribution.removeRemoval(123);
         assert.equal(
             findElement(ReviewPublishScreen(), 'contribute-publish-button')
                 .props.disabled,

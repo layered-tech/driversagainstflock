@@ -101,9 +101,18 @@ function listChangesetNodes(nodeGroups) {
 
     const nodesById = new Map();
     const allNodes = [
-        ...(nodeGroups.created ?? []),
-        ...(nodeGroups.modified ?? []),
-        ...(nodeGroups.deleted ?? []),
+        ...(nodeGroups.created ?? []).map((node) => ({
+            ...node,
+            action: 'create',
+        })),
+        ...(nodeGroups.modified ?? []).map((node) => ({
+            ...node,
+            action: 'modify',
+        })),
+        ...(nodeGroups.deleted ?? []).map((node) => ({
+            ...node,
+            action: 'delete',
+        })),
     ];
 
     for (const node of allNodes) {
@@ -287,6 +296,26 @@ export function buildYourEditsModel({
     const cameraNodeIds = new Set();
     const liveNodeIds = new Set();
     const sections = [];
+    const cameraHistoryById = new Map();
+    const latestHistoryById = new Map();
+
+    for (const changeset of changesets) {
+        for (const node of listChangesetNodes(
+            changesetNodesById?.[changeset.id],
+        )) {
+            const camera = cameraHistoryById.get(node.id);
+            if (
+                isSurveillanceTags(node.tags) &&
+                (!camera || (node.version ?? 0) >= (camera.version ?? 0))
+            ) {
+                cameraHistoryById.set(node.id, node);
+            }
+            const latest = latestHistoryById.get(node.id);
+            if (!latest || (node.version ?? 0) >= (latest.version ?? 0)) {
+                latestHistoryById.set(node.id, node);
+            }
+        }
+    }
 
     const orderedChangesets = [...changesets].sort((a, b) => {
         const aMs = changesetTimestampMs(a);
@@ -305,20 +334,35 @@ export function buildYourEditsModel({
             changesetNodesById?.[changeset.id],
         )) {
             const currentNode = currentNodesById?.[changesetNode.id] ?? null;
+            const historicalCamera = cameraHistoryById.get(changesetNode.id);
 
             if (
                 !isSurveillanceTags(changesetNode.tags) &&
-                !isSurveillanceTags(currentNode?.tags)
+                !isSurveillanceTags(currentNode?.tags) &&
+                !historicalCamera
             ) {
                 continue;
             }
 
-            const isRemoved = currentNode?.visible === false;
+            const isRemoved =
+                changesetNode.action === 'delete' ||
+                currentNode?.visible === false ||
+                (!currentNode &&
+                    latestHistoryById.get(changesetNode.id)?.action ===
+                        'delete');
             const displayTags = hasTags(currentNode?.tags)
                 ? currentNode.tags
-                : (changesetNode.tags ?? {});
-            const latitude = currentNode?.latitude ?? changesetNode.latitude;
-            const longitude = currentNode?.longitude ?? changesetNode.longitude;
+                : hasTags(changesetNode.tags)
+                  ? changesetNode.tags
+                  : (historicalCamera?.tags ?? {});
+            const latitude =
+                currentNode?.latitude ??
+                changesetNode.latitude ??
+                historicalCamera?.latitude;
+            const longitude =
+                currentNode?.longitude ??
+                changesetNode.longitude ??
+                historicalCamera?.longitude;
             const version = currentNode?.version ?? changesetNode.version ?? 1;
             const updatedByOther =
                 !isRemoved &&
@@ -334,6 +378,7 @@ export function buildYourEditsModel({
 
             rows.push({
                 id: changesetNode.id,
+                action: changesetNode.action,
                 isRemoved,
                 refLabel: `node/${changesetNode.id} · v${version}`,
                 subtitle: formatCoordinateLabel(latitude, longitude),
@@ -350,6 +395,15 @@ export function buildYourEditsModel({
         }
 
         const timestampMs = changesetTimestampMs(changeset);
+        const actionCounts = ['create', 'modify', 'delete'].map(
+            (action) => rows.filter((node) => node.action === action).length,
+        );
+        const changesLabel = actionCounts
+            .map((count, index) =>
+                count ? `${['+', '~', '−'][index]}${count}` : '',
+            )
+            .filter(Boolean)
+            .join(' ');
 
         sections.push({
             id: changeset.id,
@@ -360,7 +414,7 @@ export function buildYourEditsModel({
                 nowMs - timestampMs < HOUR_IN_MS,
             isOpen: changeset.open === true,
             nodes: rows,
-            title: `${formatChangesetDateLabel(timestampMs, nowMs)} · ${pluralizeCount(rows.length, 'camera')}`,
+            title: `${formatChangesetDateLabel(timestampMs, nowMs)} · ${changesLabel}`,
         });
     }
 
@@ -372,10 +426,16 @@ export function buildYourEditsModel({
         }
     }
 
+    const changeCount = sections.reduce(
+        (count, section) => count + section.nodes.length,
+        0,
+    );
+
     return {
         cameraCount: cameraNodeIds.size,
+        changeCount,
         changesetCount: sections.length,
-        countsLabel: `${pluralizeCount(cameraNodeIds.size, 'camera')} · ${pluralizeCount(sections.length, 'changeset')}`,
+        countsLabel: `${pluralizeCount(changeCount, 'change')} · ${pluralizeCount(sections.length, 'changeset')}`,
         liveCount: liveNodeIds.size,
         livePillLabel: `${liveNodeIds.size} live`,
         sections,

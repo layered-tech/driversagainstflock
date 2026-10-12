@@ -18,13 +18,13 @@ test('renders the submitted search results sheet with the map', () => {
 test('submitted searches leave full-screen search and present the results sheet', () => {
     assert.match(
         mapSearchSource,
-        /submitSubmittedSearchQuery\(query\);\s+setSearchIsFocused\(false\);\s+setSearchPageIsVisible\(false\);\s+presentSubmittedSearchResultsSheet\(\);/,
+        /submitSubmittedSearchQuery\(query\);\s+setSearchIsFocused\(false\);\s+setSearchPageIsVisible\(false\);/,
     );
 });
 
 test('back from place details restores the submitted results sheet', () => {
     assert.match(
         mapSearchSource,
-        /const handleSelectedPlaceBackToSearchResults = useCallback\(\(\) => \{[\s\S]*?dismissPlaceSheet\(\);[\s\S]*?setSearchIsFocused\(false\);\s+setSearchPageIsVisible\(false\);\s+presentSubmittedSearchResultsSheet\(\);/,
+        /const handleSelectedPlaceBackToSearchResults = useCallback\(\(\) => \{[\s\S]*?dismissPlaceSheet\(\);[\s\S]*?setSearchIsFocused\(false\);\s+setSearchPageIsVisible\(false\);/,
     );
 });

@@ -185,16 +185,6 @@ export function useMapLocationController({
     }, [initialCameraSettings]);
 
     useEffect(() => {
-        if (screenIsFocused) {
-            return;
-        }
-
-        isMapReadyRef.current = false;
-        setIsMapReady(false);
-        setRemountCameraSettings(latestCameraSettingsRef.current);
-    }, [screenIsFocused]);
-
-    useEffect(() => {
         if (!mapBearingUpdatesEnabled) {
             return;
         }
@@ -547,7 +537,7 @@ export function useMapLocationController({
     );
 
     const moveCameraToCoordinate = useCallback(
-        (coordinate, { padding } = {}) => {
+        (coordinate, { padding, heading } = {}) => {
             if (!Array.isArray(coordinate) || coordinate.length < 2) {
                 return false;
             }
@@ -568,6 +558,7 @@ export function useMapLocationController({
             const cameraStop = {
                 centerCoordinate: [normalizeLongitude(longitude), latitude],
                 ...(padding ? { padding } : {}),
+                ...(Number.isFinite(heading) ? { heading } : {}),
                 zoomLevel: nextZoomLevel,
                 animationDuration: MARKER_FOCUS_CAMERA_ANIMATION_DURATION_MS,
                 animationMode: 'flyTo',

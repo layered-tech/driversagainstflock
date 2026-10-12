@@ -637,9 +637,7 @@ export default function LocationMapScreen({
         handleMapPress: contributePlacementIsActive
             ? noopMapInteractionHandler
             : handleMapPress,
-        handleMarkerSourcePress: contributePlacementIsActive
-            ? noopMapInteractionHandler
-            : handleMarkerSourcePress,
+        handleMarkerSourcePress,
         initialCameraSettings: locationController.remountCameraSettings,
         isDrivingMode,
         locationController,
@@ -788,9 +786,9 @@ export default function LocationMapScreen({
             searchValue={searchValue}
         >
             <View className="flex-1 bg-white dark:bg-neutral-950">
+                <MapCanvas />
                 {screenIsFocused ? (
                     <>
-                        <MapCanvas />
                         {e2eMapApiMocksAreRequested ? (
                             <RoadMatchingE2EProbe
                                 mapViewRef={locationController.mapViewRef}
@@ -853,13 +851,6 @@ export default function LocationMapScreen({
                                     <ContributePlacementOverlay
                                         tourTargets={contributeTourTargets}
                                         locationController={locationController}
-                                        mapControls={
-                                            <MapControlsOverlay
-                                                showContributeEntryButton={
-                                                    false
-                                                }
-                                            />
-                                        }
                                         screenIsFocused={screenIsFocused}
                                     />
                                 ) : null}
@@ -890,7 +881,8 @@ export default function LocationMapScreen({
                                         />
                                     </Pressable>
                                 ) : null}
-                                {markerDetailsModeIsActive ? (
+                                {markerDetailsModeIsActive &&
+                                !contributePlacementIsActive ? (
                                     <View className="items-end">
                                         <Pressable
                                             accessibilityLabel="Close marker details"

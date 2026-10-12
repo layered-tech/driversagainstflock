@@ -7,22 +7,10 @@ const yourEditsScreenSource = readFileSync(
     'utf8',
 );
 
-test('Your Edits opens the app drawer from its header', () => {
+test('Your edits returns directly to the map instead of reopening an earlier camera', () => {
     assert.match(
         yourEditsScreenSource,
-        /import \{ router, useFocusEffect, useNavigation \} from 'expo-router';/,
+        /accessibilityLabel="Back"[\s\S]*?onPress=\{\(\) => router.navigate\('\/'\)\}[\s\S]*?testID="your-edits-back-button"[\s\S]*?<Icon[\s\S]*?name="chevron-left"/,
     );
-    assert.match(
-        yourEditsScreenSource,
-        /import \{ toggleNearestDrawer \} from '\.\.\/map\/navigation';/,
-    );
-    assert.match(
-        yourEditsScreenSource,
-        /const handleDrawerPress = useCallback\(\(\) => \{\s*toggleNearestDrawer\(navigation\);\s*\}, \[navigation\]\);/,
-    );
-    assert.match(
-        yourEditsScreenSource,
-        /accessibilityLabel="Open menu"[\s\S]*?onPress=\{handleDrawerPress\}[\s\S]*?testID="your-edits-drawer-button"[\s\S]*?<Icon[\s\S]*?name="menu"/,
-    );
-    assert.doesNotMatch(yourEditsScreenSource, /your-edits-back-button/);
+    assert.doesNotMatch(yourEditsScreenSource, /toggleNearestDrawer/);
 });

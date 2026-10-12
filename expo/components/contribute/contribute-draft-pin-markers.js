@@ -1,22 +1,30 @@
 import Mapbox from '@rnmapbox/maps';
-import { View } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
-import { dafSemanticColors } from '../design-system/tokens';
+import { router } from 'expo-router';
+import { Pressable, View } from 'react-native';
+import { Icon } from '../design-system/icon';
 import { useMapCanvasContext } from '../map/map-screen-context';
-
-const DRAFT_PIN_MARKER_SIZE = 30;
+import { useContribute } from './contribute-state';
 
 export function ContributeDraftPinMarkers() {
     const { contributePins, contributePlacementIsActive } =
         useMapCanvasContext();
-
-    if (!contributePlacementIsActive || !(contributePins ?? []).length) {
-        return null;
-    }
-
+    const { removals } = useContribute();
+    if (!contributePlacementIsActive) return null;
+    const markers = [
+        ...(contributePins ?? []).map((pin, index) => ({
+            ...pin,
+            index,
+            action: pin.nodeId ? 'edit' : 'add',
+        })),
+        ...removals.map((node) => ({
+            ...node,
+            id: `delete-${node.id}`,
+            action: 'delete',
+        })),
+    ];
     return (
         <>
-            {contributePins.map((pin, pinIndex) => (
+            {markers.map((pin) => (
                 <Mapbox.MarkerView
                     key={pin.id}
                     allowOverlap
@@ -24,31 +32,37 @@ export function ContributeDraftPinMarkers() {
                     anchor={{ x: 0.5, y: 0.5 }}
                     coordinate={[pin.longitude, pin.latitude]}
                 >
-                    <View
-                        pointerEvents="none"
-                        testID={`contribute-draft-pin-${pinIndex}`}
+                    <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                            pin.action === 'delete'
+                                ? 'Staged deletion'
+                                : 'Edit staged camera'
+                        }
+                        onPress={() => {
+                            if (pin.action !== 'delete')
+                                router.push(`/contribute/camera/${pin.index}`);
+                        }}
+                        testID={`contribute-draft-pin-${pin.index ?? pin.id}`}
+                        className={`h-10 w-10 items-center justify-center rounded-full border-2 border-white ${pin.action === 'delete' ? 'bg-daf-marker-alpr/40' : 'bg-daf-marker-alpr'}`}
                     >
-                        <Svg
-                            height={DRAFT_PIN_MARKER_SIZE}
-                            viewBox="0 0 30 30"
-                            width={DRAFT_PIN_MARKER_SIZE}
+                        <Icon name="camera" color="#fff" size={20} />
+                        <View
+                            className={`absolute -right-1 -top-1 h-[18px] w-[18px] items-center justify-center rounded-full border-2 border-white ${pin.action === 'delete' ? 'bg-daf-alert' : 'bg-daf-brand'}`}
                         >
-                            <Circle
-                                cx={15}
-                                cy={15}
-                                fill="rgba(255,77,79,0.15)"
-                                r={14}
+                            <Icon
+                                name={
+                                    pin.action === 'add'
+                                        ? 'plus'
+                                        : pin.action === 'edit'
+                                          ? 'pencil'
+                                          : 'minus'
+                                }
+                                color="#fff"
+                                size={10}
                             />
-                            <Circle
-                                cx={15}
-                                cy={15}
-                                fill={dafSemanticColors.markerAlpr}
-                                r={7}
-                                stroke="#ffffff"
-                                strokeWidth={2.5}
-                            />
-                        </Svg>
-                    </View>
+                        </View>
+                    </Pressable>
                 </Mapbox.MarkerView>
             ))}
         </>

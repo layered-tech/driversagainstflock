@@ -124,3 +124,37 @@ test('publishes a removal-only batch without an empty create block', async () =>
     assert.match(requests[1].body, /<delete>/);
     assert.deepEqual(result.nodes, []);
 });
+
+test('publishes a mixed diff in one upload and separates created modified and deleted results', async () => {
+    const { client, requests } = loadClient({
+        body: '<diffResult><node old_id="-1" new_id="900" new_version="1"/><node old_id="123" new_id="123" new_version="3"/><node old_id="456"/></diffResult>',
+        status: 200,
+    });
+    const result = await client.publishNodes({
+        accessToken: deletion.accessToken,
+        changesetTags: deletion.changesetTags,
+        nodes: [{ lat: 31, lon: -98, tags: { man_made: 'surveillance' } }],
+        modifiedNodes: [
+            {
+                ...deletion.node,
+                tags: { man_made: 'surveillance', operator: 'City' },
+            },
+        ],
+        deletedNodes: [{ ...deletion.node, id: 456 }],
+    });
+    assert.equal(
+        requests.filter((request) => request.url.endsWith('/upload')).length,
+        1,
+    );
+    assert.match(
+        requests[1].body,
+        /<create>.*<\/create><modify>.*id="123".*version="2".*<\/modify><delete>.*id="456".*<\/delete>/,
+    );
+    assert.deepEqual(result.nodes, [{ oldId: -1, newId: 900, newVersion: 1 }]);
+    assert.deepEqual(result.modifiedNodes, [
+        { oldId: 123, newId: 123, newVersion: 3 },
+    ]);
+    assert.deepEqual(result.deletedNodes, [
+        { oldId: 456, newId: null, newVersion: null },
+    ]);
+});

@@ -35,7 +35,7 @@ const COMPASS_DESIGN_SIZE = 330;
 const COMPASS_PREVIEW_SIZE = 256;
 const COMPASS_PREVIEW_INSET = 37;
 const COMPASS_PREVIEW_ZOOM_LEVEL = 18;
-const COMPASS_MIN_ZOOM_LEVEL = 16;
+const COMPASS_MIN_ZOOM_LEVEL = 0;
 const COMPASS_MAX_ZOOM_LEVEL = 20;
 const COMPASS_PREVIEW_FRAMES_PER_SECOND = 30;
 const COMPASS_CAMERA_ANIMATION_DURATION_MS = 220;
@@ -194,7 +194,7 @@ function CompassRingLabel({
 
     return (
         <Animated.Text
-            className="font-dafMono absolute text-center"
+            className="absolute text-center font-dafMono"
             pointerEvents="none"
             style={[
                 {
@@ -871,7 +871,7 @@ export function CompassDial({
                 <GestureDetector gesture={headingRingGesture}>
                     <View
                         accessibilityLabel="Camera direction compass"
-                        className="dark:border-daf-border-dark dark:bg-daf-surface-dark aspect-square w-full rounded-full border border-daf-border bg-daf-surface-card shadow-[0px_8px_24px_rgba(11,14,18,0.16)]"
+                        className="aspect-square w-full rounded-full border border-daf-border bg-daf-surface-card shadow-[0px_8px_24px_rgba(11,14,18,0.16)] dark:border-daf-border-dark dark:bg-daf-surface-dark"
                         collapsable={false}
                         onLayout={handleDialLayout}
                         testID={dialTestID}
@@ -967,7 +967,7 @@ export function CompassDial({
                                         now: displayDegrees,
                                         text: formatBearingChip(displayDegrees),
                                     }}
-                                    className="bg-daf-surface-inverse/80 max-w-full rounded-dafPill border border-white/20 px-3 py-[5px]"
+                                    className="max-w-full rounded-dafPill border border-white/20 bg-daf-surface-inverse/80 px-3 py-[5px]"
                                     onAccessibilityAction={
                                         handleAccessibilityAction
                                     }
@@ -1134,7 +1134,7 @@ export function CompassDial({
 
             {displayLocation ? (
                 <Text
-                    className="font-dafMono mt-[9px] text-center text-[11px] tracking-[0.02em] text-daf-text-tertiary dark:text-neutral-400"
+                    className="mt-[9px] text-center font-dafMono text-[11px] tracking-[0.02em] text-daf-text-tertiary dark:text-neutral-400"
                     numberOfLines={1}
                     testID={`${dialTestID}-coordinates`}
                 >

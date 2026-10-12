@@ -13,6 +13,7 @@ import { getDafTheme } from '../design-system/tokens';
 import { useContribute } from './contribute-state';
 import { ContributeTourOverlay } from './contribute-tour-overlay';
 import { ContributeTourTarget } from './contribute-tour-target';
+import { getChangesetSummary } from './changeset-summary';
 import { ContributePageHeader } from './step-header';
 
 const SOURCE_OPTIONS = [
@@ -36,9 +37,10 @@ export default function ChangesetDetailsScreen() {
     const screenIsFocused = useIsFocused();
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
-    const { changeset, pins, removals, continueOnMap, tour, updateChangeset } =
+    const { changeset, pins, removals, tour, updateChangeset } =
         useContribute();
-    const changeCount = pins.length + removals.length;
+    const summary = getChangesetSummary(pins, removals);
+    const changeCount = summary.total;
     const commentIsEmpty = !changeset.comment.trim();
     const theme = getDafTheme(colorScheme);
     const footerPaddingBottom = Math.max(insets.bottom + 12, 28);
@@ -80,7 +82,7 @@ export default function ChangesetDetailsScreen() {
         >
             <ContributePageHeader
                 onBack={handleBackPress}
-                step={3}
+                badge={`${changeCount} changes`}
                 title="Changeset details"
             />
             <ScrollView
@@ -139,7 +141,7 @@ export default function ChangesetDetailsScreen() {
                             value={changeset.hashtags}
                         />
                     </View>
-                    <View className="bg-daf-brand/12 flex-row items-center gap-[11px] rounded-dafMd p-3 dark:bg-daf-brand/15">
+                    <View className="flex-row items-center gap-[11px] rounded-dafMd bg-[#E6F9EF] p-3 dark:bg-daf-brand/15">
                         <Icon
                             color={theme.text.brand}
                             name="circle-check"
@@ -150,13 +152,9 @@ export default function ChangesetDetailsScreen() {
                                 className="font-bold"
                                 testID="contribute-node-count"
                             >
-                                {changeCount === 1
-                                    ? '1 node'
-                                    : `${changeCount} nodes`}
+                                {changeCount} changes
                             </Text>{' '}
-                            {removals.length
-                                ? 'will be changed on OpenStreetMap.'
-                                : 'will be added to OpenStreetMap.'}
+                            — {summary.label} on OpenStreetMap.
                         </Text>
                     </View>
                 </View>
@@ -165,16 +163,6 @@ export default function ChangesetDetailsScreen() {
                 className="border-t border-daf-border bg-white px-4 pt-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
                 style={{ paddingBottom: footerPaddingBottom }}
             >
-                <DafButton
-                    onPress={() => {
-                        continueOnMap();
-                        router.replace('/');
-                    }}
-                    testID="contribute-continue-map-button"
-                    variant="ghost"
-                >
-                    Add more changes on the map
-                </DafButton>
                 <DafButton
                     disabled={commentIsEmpty || changeCount === 0}
                     onPress={handleNextPress}

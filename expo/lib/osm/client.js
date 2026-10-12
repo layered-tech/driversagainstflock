@@ -87,6 +87,7 @@ export async function uploadNodeChanges({
     accessToken,
     changesetId,
     nodes,
+    modifiedNodes = [],
     deletedNodes = [],
     signal,
 }) {
@@ -95,10 +96,14 @@ export async function uploadNodeChanges({
             ? await uploadMockCreatedNodes({ nodes, signal })
             : [];
         const deleted = [];
+        const modified = [];
+        for (const node of modifiedNodes) {
+            modified.push(...(await uploadMockModifiedNode({ node, signal })));
+        }
         for (const node of deletedNodes) {
             deleted.push(...(await uploadMockDeletedNode({ node, signal })));
         }
-        return [...created, ...deleted];
+        return [...created, ...modified, ...deleted];
     }
 
     const response = await fetchOSM(
@@ -108,6 +113,7 @@ export async function uploadNodeChanges({
                 changesetId,
                 generator: OSM_CREATED_BY,
                 nodes: (nodes ?? []).map(normalizeNodeForUpload),
+                modifiedNodes,
                 deletedNodes,
             }),
             headers: {
@@ -356,6 +362,7 @@ export async function publishNodes({
     accessToken,
     changesetTags,
     nodes,
+    modifiedNodes = [],
     deletedNodes = [],
     onProgress,
 }) {
@@ -380,6 +387,7 @@ export async function publishNodes({
                 accessToken,
                 changesetId: createdChangesetId,
                 nodes,
+                modifiedNodes,
                 deletedNodes,
             }),
     });
@@ -387,7 +395,12 @@ export async function publishNodes({
     return {
         changesetId,
         closeFailed,
-        nodes: diffNodes.filter((node) => node.newId !== null),
+        nodes: diffNodes.filter(
+            (node) => node.oldId < 0 && node.newId !== null,
+        ),
+        modifiedNodes: diffNodes.filter(
+            (node) => node.oldId > 0 && node.newId !== null,
+        ),
         deletedNodes: diffNodes.filter((node) => node.newId === null),
     };
 }

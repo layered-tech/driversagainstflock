@@ -14,6 +14,7 @@ import {
     publishNodes,
     syncPublishedNodesToBackend,
 } from '../../lib/osm/client';
+import { getMarkerOsmNode } from '../../lib/osm/marker-node';
 import { updatePinLocationInList } from '../../lib/osm/node-location';
 import {
     buildPublishedNodeSyncPayload,
@@ -29,6 +30,7 @@ import {
     writeCoachMarkDismissed,
     writeStoredDraft,
 } from './contribute-draft-storage';
+import { getChangesetSummary } from './changeset-summary';
 import { buildChangesetTags, buildNodeTags } from './osm-tags';
 import { useContributeTour } from './use-contribute-tour';
 
@@ -48,7 +50,11 @@ function createDefaultPinDetails() {
     return {
         directions: [],
         manufacturer: 'flock',
-        mount: null,
+        preset: 'flock',
+        staged: true,
+        rawTags: [],
+        extraTags: [],
+        mount: 'pole',
         operator: '',
         type: 'alpr',
     };
@@ -60,6 +66,7 @@ function getStoredDraftSummary(storedDraft) {
     }
 
     return {
+        ...getChangesetSummary(storedDraft.pins, storedDraft.removals),
         pinCount: storedDraft.pins.length + (storedDraft.removals ?? []).length,
         updatedAt: storedDraft.updatedAt,
     };
@@ -69,13 +76,35 @@ function contributeDraftShouldPersist(contributeStatus, pins, removals = []) {
     return (
         contributeStatus !== 'idle' &&
         contributeStatus !== 'published' &&
-        pins.length + removals.length > 0
+        pins.filter((pin) => pin.details?.staged !== false).length +
+            removals.length >
+            0
     );
 }
 
 export function ContributeProvider({ children }) {
     const { ensureWriteAccess, openStreetMapAccessToken } = useAuth();
-    const { upsertMarkerPoints } = useSharedMapState();
+    const { upsertMarkerPoints, markerPoints = [] } = useSharedMapState();
+    const markerPointsRef = useRef(markerPoints);
+    markerPointsRef.current = markerPoints;
+    const editingNodesRef = useRef(new Map());
+    const cacheEditingNode = useCallback((node) => {
+        if (node?.id) editingNodesRef.current.set(Number(node.id), node);
+    }, []);
+    const getEditingNode = useCallback((nodeId) => {
+        const cached = editingNodesRef.current.get(Number(nodeId));
+        if (cached) return cached;
+        const marker = markerPointsRef.current.find(
+            (point) =>
+                Number(
+                    String(point.properties?.osm_id ?? '').replace(
+                        /^node\//,
+                        '',
+                    ),
+                ) === Number(nodeId),
+        );
+        return getMarkerOsmNode(marker);
+    }, []);
     const { recordPublishedCameras } = useScorecard();
     const [changeset, setChangeset] = useState(createDefaultChangeset);
     const [coachMarkIsDismissed, setCoachMarkIsDismissed] = useState(false);
@@ -126,9 +155,12 @@ export function ContributeProvider({ children }) {
     const persistDraftNow = useCallback(async () => {
         const {
             changeset: currentChangeset,
-            pins: currentPins,
+            pins: allPins,
             removals: currentRemovals,
         } = draftStateRef.current;
+        const currentPins = allPins.filter(
+            (pin) => pin.details?.staged !== false,
+        );
 
         if (currentPins.length + currentRemovals.length === 0) {
             return false;
@@ -169,7 +201,7 @@ export function ContributeProvider({ children }) {
         if (
             contributeStatus !== 'idle' &&
             contributeStatus !== 'published' &&
-            pins.length + removals.length === 0 &&
+            getChangesetSummary(pins, removals).total === 0 &&
             draftUpdatedAt
         ) {
             clearStoredDraft();
@@ -248,7 +280,7 @@ export function ContributeProvider({ children }) {
         pinIdCounterRef.current += 1;
 
         const pin = {
-            details: createDefaultPinDetails(),
+            details: { ...createDefaultPinDetails(), staged: false },
             id: `pin-${Date.now()}-${pinIdCounterRef.current}`,
             latitude,
             longitude,
@@ -270,12 +302,15 @@ export function ContributeProvider({ children }) {
             latitude: node.latitude,
             longitude: node.longitude,
             reason,
+            ...(node.tags ? { tags: node.tags } : {}),
         };
         if (draftStateRef.current.contributeStatus === 'idle') {
             const storedDraft = await readStoredDraft();
             if (storedDraft) {
                 setChangeset(storedDraft.changeset);
-                setPins(storedDraft.pins);
+                setPins(
+                    storedDraft.pins.filter((pin) => pin.nodeId !== node.id),
+                );
                 setRemovals([
                     ...(storedDraft.removals ?? []).filter(
                         (item) => item.id !== node.id,
@@ -286,12 +321,57 @@ export function ContributeProvider({ children }) {
                 setRemovals([removal]);
             }
         } else {
+            setPins((current) =>
+                current.filter((pin) => pin.nodeId !== node.id),
+            );
             setRemovals((current) => [
                 ...current.filter((item) => item.id !== node.id),
                 removal,
             ]);
         }
-        setContributeStatus('draft');
+        setContributeStatus('placing');
+        setPublishError(null);
+        setPublishResult(null);
+        setPublishStatus('idle');
+    }, []);
+
+    const stageNodeEdit = useCallback(async (node, details, location) => {
+        const pin = {
+            id: `node-${node.id}`,
+            nodeId: node.id,
+            version: node.version,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            details: { ...details, staged: true },
+        };
+        if (draftStateRef.current.contributeStatus === 'idle') {
+            const storedDraft = await readStoredDraft();
+            if (storedDraft) {
+                setChangeset(storedDraft.changeset);
+                setPins([
+                    ...storedDraft.pins.filter(
+                        (item) => item.nodeId !== node.id,
+                    ),
+                    pin,
+                ]);
+                setRemovals(
+                    (storedDraft.removals ?? []).filter(
+                        (item) => item.id !== node.id,
+                    ),
+                );
+            } else {
+                setPins([pin]);
+            }
+        } else {
+            setPins((current) => [
+                ...current.filter((item) => item.nodeId !== node.id),
+                pin,
+            ]);
+            setRemovals((current) =>
+                current.filter((item) => item.id !== node.id),
+            );
+        }
+        setContributeStatus('placing');
         setPublishError(null);
         setPublishResult(null);
         setPublishStatus('idle');
@@ -302,7 +382,7 @@ export function ContributeProvider({ children }) {
     }, []);
 
     const continueOnMap = useCallback(() => {
-        setContributeStatus('draft');
+        setContributeStatus('placing');
     }, []);
 
     const updatePinDetails = useCallback((pinId, detailsPatch) => {
@@ -345,7 +425,16 @@ export function ContributeProvider({ children }) {
         setPins(
             storedDraft.pins.map((pin) => ({
                 ...pin,
-                details: { ...createDefaultPinDetails(), ...pin.details },
+                details: {
+                    ...createDefaultPinDetails(),
+                    ...pin.details,
+                    preset: pin.details.preset ?? 'custom',
+                    rawTags: pin.details.preset
+                        ? (pin.details.rawTags ?? [])
+                        : Object.entries(buildNodeTags(pin.details)).map(
+                              ([key, value]) => ({ key, value: String(value) }),
+                          ),
+                },
             })),
         );
         setPublishError(null);
@@ -370,9 +459,12 @@ export function ContributeProvider({ children }) {
 
         const {
             changeset: currentChangeset,
-            pins: currentPins,
+            pins: allPins,
             removals: currentRemovals,
         } = draftStateRef.current;
+        const currentPins = allPins.filter(
+            (pin) => pin.details?.staged !== false,
+        );
 
         if (currentPins.length + currentRemovals.length === 0) {
             return;
@@ -394,7 +486,9 @@ export function ContributeProvider({ children }) {
                 session.token ??
                 session.accessToken ??
                 openStreetMapAccessToken;
-            const uploadedNodes = currentPins.map((pin) => ({
+            const createdPins = currentPins.filter((pin) => !pin.nodeId);
+            const editedPins = currentPins.filter((pin) => pin.nodeId);
+            const uploadedNodes = createdPins.map((pin) => ({
                 lat: pin.latitude,
                 lon: pin.longitude,
                 tags: buildNodeTags(pin.details),
@@ -403,6 +497,13 @@ export function ContributeProvider({ children }) {
                 accessToken,
                 changesetTags: buildChangesetTags(currentChangeset),
                 nodes: uploadedNodes,
+                modifiedNodes: editedPins.map((pin) => ({
+                    id: pin.nodeId,
+                    version: pin.version,
+                    latitude: pin.latitude,
+                    longitude: pin.longitude,
+                    tags: buildNodeTags(pin.details),
+                })),
                 deletedNodes: currentRemovals,
             });
 
@@ -411,6 +512,20 @@ export function ContributeProvider({ children }) {
                 diffNodes: result.nodes,
                 sourceNodes: uploadedNodes,
             });
+            for (const pin of editedPins) {
+                const diff = (result.modifiedNodes ?? []).find(
+                    (node) => node.oldId === pin.nodeId,
+                );
+                if (
+                    diff?.newVersion &&
+                    buildNodeTags(pin.details)['surveillance:type'] === 'ALPR'
+                ) {
+                    syncPayload.nodes.push({
+                        id: pin.nodeId,
+                        version: diff.newVersion,
+                    });
+                }
+            }
 
             if (syncPayload.nodes.length > 0) {
                 try {
@@ -439,8 +554,17 @@ export function ContributeProvider({ children }) {
                 nodes: (result.nodes ?? []).map((node, nodeIndex) => ({
                     nodeId: node.newId,
                     pinId:
-                        currentPins[getUploadedNodeIndex(node, nodeIndex)]
+                        createdPins[getUploadedNodeIndex(node, nodeIndex)]
                             ?.id ?? null,
+                    version: node.newVersion ?? 1,
+                })),
+                modifiedNodes: editedPins.map((pin) => ({
+                    nodeId: pin.nodeId,
+                    pinId: pin.id,
+                    version:
+                        (result.modifiedNodes ?? []).find(
+                            (node) => node.oldId === pin.nodeId,
+                        )?.newVersion ?? pin.version + 1,
                 })),
                 removedNodes: currentRemovals,
                 publishedAt: new Date().toISOString(),
@@ -514,6 +638,9 @@ export function ContributeProvider({ children }) {
             removePin,
             removals,
             stageRemoval,
+            stageNodeEdit,
+            cacheEditingNode,
+            getEditingNode,
             removeRemoval,
             continueOnMap,
             resetForMoreCameras,
@@ -546,6 +673,9 @@ export function ContributeProvider({ children }) {
             removePin,
             removals,
             stageRemoval,
+            stageNodeEdit,
+            cacheEditingNode,
+            getEditingNode,
             removeRemoval,
             continueOnMap,
             resetContributeSession,

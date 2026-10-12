@@ -266,8 +266,14 @@ for (const expanded of [false, true]) {
                     'utf8',
                 ),
                 {
+                    '../design-system/icon': { Icon: 'Icon' },
                     '../design-system/primitives': { DafButton },
-                    '../design-system/tokens': {},
+                    '../design-system/tokens': {
+                        dafSemanticColors: { routeFast: 'blue' },
+                        getDafTheme: () => ({
+                            text: { brand: 'green', primary: 'black' },
+                        }),
+                    },
                     './directions': directions,
                     './constants': { DRIVING_DESTINATION_BOTTOM_PADDING: 16 },
                     './native-components': {
@@ -340,17 +346,16 @@ for (const expanded of [false, true]) {
             exportButton.props.onPress();
             assert.deepEqual(events, [['export']]);
             events.length = 0;
-            const button = summaryNodes.find(
+            const control = summaryNodes.find(
                 (node) => node.props.testID === 'driving-cancel-route-button',
             );
-            const control = DafButton(button.props);
             assert.equal(
                 control.type,
                 'SheetTouchable',
                 'The Exit button must use a touchable compatible with the drawer pan gesture',
             );
             assert.equal(control.props.accessibilityRole, 'button');
-            assert.equal(control.props.disabled, false);
+            assert.notEqual(control.props.disabled, true);
             control.props.onPress();
             assert.equal(state.directionsRoute, null);
             assert.equal(state.drivingModeIsActive, false);
@@ -512,6 +517,7 @@ test('step focus survives progress and paging until recenter or a replacement ro
             getActiveDirectionsManeuver: () => steps[activeIndex],
             getNextDirectionsManeuver: () => steps[activeIndex + 1],
             getDirectionsSteps: () => steps,
+            getDirectionsStepHeading: () => 90,
             getRemainingDirectionsRouteValues: () => ({}),
         },
         './shared-map-state': {

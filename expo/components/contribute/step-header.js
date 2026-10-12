@@ -2,20 +2,20 @@ import { Platform, Pressable, Text, useColorScheme, View } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
 
-export function ContributeStepPill({ step }) {
+export function ContributeStepPill({ children }) {
     return (
-        <View className="h-[26px] items-center justify-center rounded-dafPill border border-daf-border bg-daf-surface-alt px-[9px] dark:border-daf-border-dark dark:bg-daf-surface-inverse">
+        <View className="h-[26px] items-center justify-center rounded-dafPill bg-daf-brand/15 px-[9px]">
             <Text
-                className="font-dafMono text-[11px] font-semibold tracking-[0.04em] text-daf-text-secondary dark:text-neutral-300"
+                className="font-dafMono text-[11px] font-semibold tracking-[0.04em] text-daf-text-brand dark:text-daf-brand"
                 numberOfLines={1}
             >
-                Step {step} of 4
+                {children}
             </Text>
         </View>
     );
 }
 
-export function ContributePageHeader({ onBack, step, testID, title }) {
+export function ContributePageHeader({ onBack, badge, testID, title }) {
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
     const isDarkMode = colorScheme === 'dark';
@@ -50,7 +50,7 @@ export function ContributePageHeader({ onBack, step, testID, title }) {
             >
                 {title}
             </Text>
-            <ContributeStepPill step={step} />
+            {badge ? <ContributeStepPill>{badge}</ContributeStepPill> : null}
         </View>
     );
 }

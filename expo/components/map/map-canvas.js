@@ -507,6 +507,7 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
         cameraRef,
         cameraUpdatesAreAllowed,
         cameraIsLocked = false,
+        contributePlacementIsActive = false,
         directionsDebugFeatureCollection,
         directionsRouteFeatureCollection,
         electronicHorizonDebugFeatureCollection,
@@ -1713,7 +1714,7 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
                     </Pressable>
                 </Mapbox.MarkerView>
             ) : null}
-            <ContributeDraftPinMarkers />
+            {contributePlacementIsActive ? <ContributeDraftPinMarkers /> : null}
             {children}
         </NativeWindMapView>
     );

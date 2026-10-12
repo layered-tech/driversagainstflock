@@ -5,100 +5,30 @@ tags:
   - contribute
   - node-removal
 ---
-- setLocation:
-    latitude: 30.26715
-    longitude: -97.74035
-- launchApp:
-    clearState: true
-    stopApp: true
-    permissions:
-      all: allow
-- runFlow:
-    when:
-      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
-    file: subflows/open-expo-dev-client-after-clear.yml
-- extendedWaitUntil:
-    visible:
-      id: 'map-search-input-(map|driving)'
-    timeout: 120000
-- runFlow:
-    when:
-      visible:
-        id: 'exit-free-drive-button'
-    commands:
-      - tapOn:
-          id: 'exit-free-drive-button'
-          retryTapIfNoChange: false
-- extendedWaitUntil:
-    visible:
-      id: 'map-search-input-map'
-    timeout: 120000
-- openLink: 'driversagainstflock://e2e-mocks?auth=1'
-- extendedWaitUntil:
-    visible:
-      id: 'map-marker-0-map'
-    timeout: 60000
+- runFlow: subflows/contribute-tour-setup.yml
+- tapOn:
+    id: 'contribute-tour-skip-start'
+    retryTapIfNoChange: false
+- tapOn:
+    id: 'contribute-start-editing-button'
+    retryTapIfNoChange: false
 - tapOn:
     id: 'map-marker-0-map'
     retryTapIfNoChange: false
-- extendedWaitUntil:
-    visible:
-      id: 'marker-details-delete-node-button'
-    timeout: 10000
 - tapOn:
     id: 'marker-details-delete-node-button'
     retryTapIfNoChange: false
-- extendedWaitUntil:
-    visible:
-      id: 'remove-camera-sheet'
-    timeout: 10000
-- assertVisible: 'Remove this camera?'
-- tapOn:
-    id: 'remove-camera-cancel-button'
-    retryTapIfNoChange: false
-- extendedWaitUntil:
-    notVisible:
-      id: 'remove-camera-sheet'
-    timeout: 10000
 - assertVisible:
-    id: 'edit-camera-screen'
-# Cancel must leave the node available, including another Delete from the map.
-- tapOn:
-    id: 'edit-camera-back-button'
-    retryTapIfNoChange: false
-- extendedWaitUntil:
-    visible:
-      id: 'map-marker-0-map'
-    timeout: 10000
-- tapOn:
-    id: 'map-marker-0-map'
-    retryTapIfNoChange: false
-- extendedWaitUntil:
-    visible:
-      id: 'marker-details-delete-node-button'
-    timeout: 10000
-- tapOn:
-    id: 'marker-details-delete-node-button'
-    retryTapIfNoChange: false
-- extendedWaitUntil:
-    visible:
-      id: 'remove-camera-sheet'
-    timeout: 10000
+    id: 'remove-camera-sheet'
+- assertVisible: 'Delete this camera?'
 - tapOn:
     id: 'remove-camera-cancel-button'
     retryTapIfNoChange: false
-- extendedWaitUntil:
-    notVisible:
-      id: 'remove-camera-sheet'
-    timeout: 10000
-- scrollUntilVisible:
-    element:
-      id: 'edit-camera-remove-row'
-    direction: DOWN
-    timeout: 10000
-- tapOn:
-    id: 'edit-camera-remove-row'
-    retryTapIfNoChange: false
+- assertVisible:
+    id: 'contribute-add-camera-button'
+- assertNotVisible:
+    id: 'contribute-placement-sheet-title'
+- openLink: 'driversagainstflock://edits/1234567890?action=remove'
 - extendedWaitUntil:
     visible:
       id: 'remove-camera-sheet'
@@ -109,66 +39,52 @@ tags:
 - tapOn:
     id: 'remove-camera-confirm-button'
     retryTapIfNoChange: false
-- runFlow:
-    when:
-      visible:
-        id: 'contribute-tour-changeset'
-    commands:
-      - tapOn:
-          id: 'contribute-tour-skip-changeset'
-          retryTapIfNoChange: false
-          waitToSettleTimeoutMs: 0
-- extendedWaitUntil:
-    visible:
-      id: 'contribute-changeset-details-screen'
-    timeout: 10000
-# Staging a removal leaves the live node available until Publish.
+- assertVisible: '1 change staged'
 - tapOn:
-    id: 'contribute-continue-map-button'
-- openLink: 'driversagainstflock://edits/1234567890'
-- extendedWaitUntil:
-    visible:
-      id: 'edit-camera-save-button'
-    timeout: 10000
-- assertNotVisible:
-    id: 'edit-camera-deleted-message'
-- openLink: 'driversagainstflock://edits/12100881?action=remove'
+    id: 'contribute-undo-removal-1234567890'
+    retryTapIfNoChange: false
+- assertVisible:
+    id: 'contribute-add-camera-button'
+- openLink: 'driversagainstflock://edits/1234567890?action=remove'
 - extendedWaitUntil:
     visible:
       id: 'remove-camera-sheet'
     timeout: 10000
 - tapOn:
     id: 'remove-camera-confirm-button'
-- extendedWaitUntil:
-    visible:
-      id: 'contribute-changeset-details-screen'
-    timeout: 10000
-- assertVisible: '.*2 nodes.*'
+    retryTapIfNoChange: false
+- assertVisible: '1 change staged'
+- tapOn:
+    id: 'contribute-keep-editing'
+    retryTapIfNoChange: false
+- openLink: 'driversagainstflock://edits/1234567890'
+- assertVisible:
+    id: 'contribute-next-changeset-button'
+- tapOn:
+    id: 'contribute-back-button'
+    retryTapIfNoChange: false
+- tapOn:
+    id: 'contribute-next-details-button'
+    retryTapIfNoChange: false
 - tapOn:
     id: 'contribute-comment-input'
-- inputText: 'Removed missing cameras after survey'
+- inputText: 'Removed missing camera after survey'
 - hideKeyboard
 - tapOn:
     id: 'contribute-next-review-button'
-- extendedWaitUntil:
-    visible:
-      id: 'contribute-review-removal-1234567890'
-    timeout: 10000
+    retryTapIfNoChange: false
 - assertVisible:
-    id: 'contribute-review-removal-12100881'
+    id: 'contribute-review-removal-1234567890'
 - tapOn:
     id: 'contribute-publish-button'
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'contribute-published-screen'
     timeout: 10000
-- assertVisible: 'Changeset published'
+- assertVisible: deleted
 - tapOn:
     id: 'contribute-see-on-map-button'
-- openLink: 'driversagainstflock://edits/1234567890'
-- extendedWaitUntil:
-    visible:
-      id: 'edit-camera-deleted-message'
-    timeout: 10000
+    retryTapIfNoChange: false
 - assertNotVisible:
-    id: 'edit-camera-save-button'
+    id: 'contribute-draft-count'
