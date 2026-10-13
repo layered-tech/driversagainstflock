@@ -33,7 +33,7 @@
       <img src="assets/logo-mark.png" alt="DAF" style="width:36px; height:36px; object-fit:contain;">
       <span style="font-family:var(--font-display); font-weight:700; font-size:24px; letter-spacing:var(--ls-heading);">Drivers Against Flock — Mobile · Settings</span>
     </div>
-    <p style="font-size:15px; color:var(--text-secondary); margin:0 0 18px; max-width:70ch;">First-run location fallback and the map settings sheet.</p>
+    <p style="font-size:15px; color:var(--text-secondary); margin:0 0 18px; max-width:70ch;">First-run support ask, location fallback, and the map settings sheet.</p>
     <div style="display:flex; flex-wrap:wrap; gap:8px; margin:0 0 40px;">
       <a href="MobileApp.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">All screens</a>
       <a href="MobileExplore.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Explore</a>
@@ -41,14 +41,53 @@
       <a href="MobileScorecard.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Scorecard</a>
       <a href="MobileContribute.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Contribute</a>
       <span style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; font-weight:600; color:var(--text-brand); background:var(--brand-soft); border:1px solid transparent; padding:6px 13px; border-radius:var(--radius-pill);">Settings</span>
+      <span style="margin-left:auto; display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-pill);"><span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; color:var(--surface-card); background:var(--text-primary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Phone</span><a href="FoldSettings.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Foldable</a><a href="TabletSettings.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Tablet</a></span>
     </div>
 
     <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">iOS · Onboarding &amp; settings</div>
     <div style="display:flex; flex-wrap:wrap; gap:44px 40px;">
 
-      <!-- 08 LOCATION PERMISSION -->
+      <!-- 08 DONATION CTA (first launch) -->
       <div style="display:flex; flex-direction:column; gap:14px;">
-        <div style="font-size:13px; font-weight:600;">08 · No-location fallback</div>
+        <div style="font-size:13px; font-weight:600;">08 · Support DAF <span style="font-weight:400; color:var(--text-tertiary);">— first launch</span></div>
+        <x-import component="IOSDevice" dark="{{ isDark }}" from="./ios-frame.jsx" height="{{ h }}" hint-size="390px,844px" width="{{ w }}">
+          <div data-screen-label="08" style="position:relative; width:100%; height:100%; background:var(--surface-page); font-family:var(--font-ui); display:flex; flex-direction:column; padding:68px 22px 36px; overflow:hidden;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:22px;">
+              <div style="display:inline-flex; align-items:center; justify-content:center; width:58px; height:58px; border-radius:var(--radius-lg); background:var(--brand-soft); color:var(--text-brand);"><svg fill="none" height="28" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="28"><rect height="8" rx="2" ry="2" width="20" x="2" y="2"></rect><rect height="8" rx="2" ry="2" width="20" x="2" y="14"></rect><line x1="6" x2="6.01" y1="6" y2="6"></line><line x1="6" x2="6.01" y1="18" y2="18"></line></svg></div>
+              <span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-tertiary);">One-time ask</span>
+            </div>
+            <h2 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h1); letter-spacing:var(--ls-heading); margin:0 0 12px; line-height:1.15;">Your routes stay ours to run</h2>
+            <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); margin:0 0 18px;">We keep our own synced copy of OpenStreetMap and run a private GraphHopper routing server. Your routes stay on our servers — but servers aren't free.</p>
+
+            <div style="display:flex; align-items:center; gap:14px; padding:14px 16px; border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); margin-bottom:18px;">
+              <div style="flex:0 0 auto;">
+                <div style="font-family:var(--font-mono); font-weight:700; font-size:28px; letter-spacing:-0.02em; line-height:1; color:var(--text-primary);">~$200</div>
+                <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:4px;">USD / month</div>
+              </div>
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; font-size:13px; color:var(--text-secondary); line-height:1.35; border-left:1px solid var(--border); padding-left:14px;">
+                <div style="display:flex; align-items:center; gap:8px;"><span style="color:var(--text-brand); display:inline-flex;"><svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" style="display:block;" viewBox="0 0 24 24" width="14"><polyline points="20 6 9 17 4 12"></polyline></svg></span>OpenStreetMap data sync</div>
+                <div style="display:flex; align-items:center; gap:8px;"><span style="color:var(--text-brand); display:inline-flex;"><svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" style="display:block;" viewBox="0 0 24 24" width="14"><polyline points="20 6 9 17 4 12"></polyline></svg></span>Private GraphHopper routing</div>
+                <div style="display:flex; align-items:center; gap:8px;"><span style="color:var(--text-brand); display:inline-flex;"><svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" style="display:block;" viewBox="0 0 24 24" width="14"><polyline points="20 6 9 17 4 12"></polyline></svg></span>Google Places search</div>
+              </div>
+            </div>
+
+            <p style="font-size:var(--fs-body); line-height:var(--lh-body); color:var(--text-primary); margin:0 0 18px; font-weight:var(--fw-semibold); text-wrap:balance;">A few dollars from a few drivers covers it.</p>
+
+            <div style="flex:1;"></div>
+            <a href="{{ bmcUrl }}" rel="noopener" style="display:inline-flex; align-items:center; justify-content:center; gap:9px; width:100%; border:none; cursor:pointer; background:#FFDD00; color:#0D0C0C; font-family:var(--font-ui); font-weight:var(--fw-bold); font-size:var(--fs-body); border-radius:var(--radius-pill); padding:15px 20px; text-decoration:none; box-shadow:var(--shadow-card); transition:transform var(--dur-fast) var(--ease-standard);" style-active="transform:scale(0.97);" target="_blank">
+              <svg fill="none" height="19" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="19"><path d="M10 2v2"></path><path d="M14 2v2"></path><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"></path><path d="M6 2v2"></path></svg>
+              Buy us a coffee
+            </a>
+            <div style="height:8px;"></div>
+            <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,46px" size="md" variant="ghost">Maybe later</x-import>
+            <p style="font-size:var(--fs-caption); color:var(--text-tertiary); text-align:center; margin:12px 0 0; line-height:1.4;">Opens Buy Me a Coffee in Safari. Any amount, one time or monthly. You can always find this later under Support DAF.</p>
+          </div>
+        </x-import>
+      </div>
+
+      <!-- 08b LOCATION PERMISSION -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">08b · No-location fallback</div>
         <x-import component="IOSDevice" from="./ios-frame.jsx" width="{{ w }}" height="{{ h }}" dark="{{ isDark }}" hint-size="390px,844px">
           <div style="position:relative; width:100%; height:100%; background:var(--surface-page); font-family:var(--font-ui); display:flex; flex-direction:column; padding:80px 22px 40px;">
             <div style="display:inline-flex; align-self:flex-start; align-items:center; justify-content:center; width:58px; height:58px; border-radius:var(--radius-lg); background:var(--brand-soft); color:var(--text-brand); margin-bottom:22px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg></div>
@@ -134,6 +173,7 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1500,&quot;height&quot;:1100},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
 class Component extends DCLogic {
   renderVals() {
+    const donation = { bmcUrl: 'https://buymeacoffee.com/driversagainstflock' };
     const R = React.createElement;
     const svg = (w, kids, opts) => R('svg', { width: w, height: w, viewBox: '0 0 24 24', fill: (opts && opts.fill) || 'none', stroke: (opts && opts.fill) ? 'none' : 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, kids);
 
@@ -176,6 +216,7 @@ class Component extends DCLogic {
     const theme = this.props.theme ?? 'light';
 
     return {
+      ...donation,
       theme,
       isDark: theme === 'dark',
       searchClear,
