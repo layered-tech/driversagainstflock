@@ -4,7 +4,7 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { usePathname } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
 import { useCallback, useEffect, useState } from 'react';
-import { useColorScheme, View } from 'react-native';
+import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
     initialWindowMetrics,
@@ -12,6 +12,7 @@ import {
 } from 'react-native-safe-area-context';
 import { ContributeProvider } from '../components/contribute/contribute-state';
 import { Icon } from '../components/design-system/icon';
+import { FirstLaunchSupportGate } from '../components/information/first-launch-support-gate';
 import { SharedMapStateProvider } from '../components/map/shared-map-state';
 import { APP_ENVIRONMENT } from '../components/map/config';
 import { AppDrawerContent } from '../components/root/app-drawer-content';
@@ -84,7 +85,7 @@ function RootLayout() {
                         <SharedMapStateProvider>
                             <AndroidGeoIntentHandler />
                             <ScorecardContributeProvider>
-                                <View style={{ flex: 1 }}>
+                                <FirstLaunchSupportGate>
                                     <Drawer
                                         drawerContent={(props) => (
                                             <AppDrawerContent
@@ -281,7 +282,7 @@ function RootLayout() {
                                         visible={debugDrawerIsVisible}
                                     />
                                     <ScorecardArrivalRecap />
-                                </View>
+                                </FirstLaunchSupportGate>
                             </ScorecardContributeProvider>
                         </SharedMapStateProvider>
                     </AuthProvider>
