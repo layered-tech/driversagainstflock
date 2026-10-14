@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\V1\AlprPresenceReportController;
+use App\Http\Controllers\Api\V1\AreaDeviceController;
+use App\Http\Controllers\Api\V1\AreaSubscriptionController;
 use App\Http\Controllers\Api\V1\DirectionsController as V1DirectionsController;
 use App\Http\Controllers\Api\V1\ElectronicHorizonAlprController;
 use App\Http\Controllers\Api\V1\PoliceAlertsController;
@@ -17,6 +19,7 @@ use App\Http\Controllers\Api\V1\RoadCorridorController;
 use App\Http\Controllers\Api\V1\SpeedLimitController;
 use App\Http\Controllers\Api\V1\StateGasPricesController;
 use App\Http\Controllers\HotlistController;
+use App\Http\Middleware\AuthenticateAreaDevice;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
@@ -90,4 +93,19 @@ Route::post('/sanctum/token', function (Request $request) {
     }
 
     return $user->createToken($request->device_name)->plainTextToken;
+});
+
+Route::post('v1/area-devices', [AreaDeviceController::class, 'store'])->middleware('throttle:10,1');
+Route::prefix('v1/areas')->middleware([AuthenticateAreaDevice::class, 'throttle:60,1'])->group(function (): void {
+    $controller = AreaSubscriptionController::class;
+    Route::patch('device', [AreaDeviceController::class, 'update']);
+    Route::get('search', [$controller, 'search']);
+    Route::post('preview', [$controller, 'preview']);
+    Route::get('/', [$controller, 'index']);
+    Route::post('/', [$controller, 'store']);
+    Route::patch('{area}', [$controller, 'update'])->whereNumber('area');
+    Route::delete('{area}', [$controller, 'destroy'])->whereNumber('area');
+    Route::get('{area}/changes', [$controller, 'feed'])->whereNumber('area');
+    Route::get('{area}/changes/{change}', [$controller, 'change'])->whereNumber(['area', 'change']);
+    Route::post('{area}/read', [$controller, 'markRead'])->whereNumber('area');
 });

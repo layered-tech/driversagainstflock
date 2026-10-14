@@ -1,0 +1,53 @@
+appId: "${typeof MAESTRO_APP_ID !== 'undefined' ? MAESTRO_APP_ID : 'com.anonymous.drivefree.dev'}"
+name: Draw and remove a custom area
+---
+- setLocation:
+    latitude: 37.8044
+    longitude: -122.2712
+- runFlow:
+    file: subflows/open-area.yml
+    env:
+      AREA_URL: 'driversagainstflock://areas/add?mode=draw'
+- extendedWaitUntil:
+    visible: 'Tap to add corners · drag to move'
+    timeout: 10000
+- tapOn: 'Center map on my location'
+- tapOn:
+    point: '28%,25%'
+- tapOn:
+    point: '65%,25%'
+- tapOn:
+    point: '65%,40%'
+- assertVisible: '3 corners.*'
+- tapOn: 'Undo last corner'
+- assertVisible: '2 corners.*'
+- tapOn:
+    point: '65%,40%'
+- tapOn:
+    id: 'area-name-input'
+- inputText: 'Drawn area test'
+- hideKeyboard
+- extendedWaitUntil:
+    visible: '.*cameras mapped inside'
+    timeout: 30000
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-area-drawn'}
+- tapOn:
+    id: 'watch-area-button'
+- extendedWaitUntil:
+    visible:
+      id: 'area-feed-screen'
+    timeout: 30000
+- assertVisible: 'Drawn area test'
+- tapOn:
+    id: 'area-alert-settings'
+- extendedWaitUntil:
+    visible:
+      id: 'stop-watching-area'
+    timeout: 10000
+- tapOn:
+    id: 'stop-watching-area'
+- extendedWaitUntil:
+    visible:
+      id: 'areas-screen'
+    timeout: 20000
+- assertNotVisible: 'Drawn area test'

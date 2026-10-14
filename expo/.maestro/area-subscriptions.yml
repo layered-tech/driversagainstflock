@@ -1,0 +1,77 @@
+appId: "${typeof MAESTRO_APP_ID !== 'undefined' ? MAESTRO_APP_ID : 'com.anonymous.drivefree.dev'}"
+name: Anonymous area subscription lifecycle
+---
+- setLocation:
+    latitude: 37.8044
+    longitude: -122.2712
+- runFlow:
+    file: subflows/open-area.yml
+    env:
+      AREA_URL: 'driversagainstflock://areas/add?mode=around'
+- extendedWaitUntil:
+    visible:
+      id: 'area-name-input'
+    timeout: 20000
+- tapOn:
+    id: 'area-name-input'
+- inputText: 'Area subscription test'
+- hideKeyboard
+- extendedWaitUntil:
+    visible: '.*cameras mapped inside'
+    timeout: 30000
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-area-radius'}
+- tapOn:
+    id: 'watch-area-button'
+- extendedWaitUntil:
+    visible:
+      id: 'area-feed-screen'
+    timeout: 30000
+- assertVisible: 'Area subscription test'
+- tapOn:
+    id: 'area-alert-settings'
+- extendedWaitUntil:
+    visible:
+      id: 'area-alert-mode-off'
+    timeout: 20000
+- assertVisible: 'A camera is added'
+- assertVisible: 'A camera is removed'
+- tapOn:
+    id: 'area-alert-mode-instant'
+- extendedWaitUntil:
+    visible:
+      id: 'area-alert-mode-instant'
+      checked: true
+    timeout: 45000
+- tapOn:
+    id: 'area-alert-mode-daily'
+- extendedWaitUntil:
+    visible:
+      id: 'area-alert-mode-daily'
+      checked: true
+    timeout: 30000
+- tapOn: 'Change digest time'
+- tapOn:
+    id: 'area-digest-time-input'
+- eraseText
+- inputText: '09:15'
+- hideKeyboard
+- tapOn: 'Save time'
+- extendedWaitUntil:
+    notVisible:
+      id: 'area-digest-time-input'
+    timeout: 20000
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-area-alerts-saved'}
+- tapOn:
+    id: 'area-alert-mode-off'
+- extendedWaitUntil:
+    visible:
+      id: 'area-alert-mode-off'
+      checked: true
+    timeout: 20000
+- tapOn:
+    id: 'stop-watching-area'
+- extendedWaitUntil:
+    visible:
+      id: 'areas-screen'
+    timeout: 20000
+- assertNotVisible: 'Area subscription test'

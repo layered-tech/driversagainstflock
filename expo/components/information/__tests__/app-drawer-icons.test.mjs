@@ -8,6 +8,7 @@ const { AppDrawerIcon } = loadTourModule(
     new URL('../../root/app-drawer-icon.js', import.meta.url),
     {
         'react-native': { View: 'View' },
+        '../areas/areas-context': { useAreas: () => ({ unreadCount: 5 }) },
         '../design-system/icon': { Icon: 'Icon' },
     },
 );
@@ -100,6 +101,9 @@ describe('Navigation drawer icons', () => {
                             APP_ENVIRONMENT: 'development',
                         },
                         '../../lib/crashlytics': {},
+                        '../areas/areas-context': {
+                            useAreas: () => ({ unreadCount: 5 }),
+                        },
                         '../design-system/icon': { Icon: 'Icon' },
                         '../map/config': { SHOW_MAP_DEBUG_CONTROLS: true },
                         '../map/shared-map-state': {

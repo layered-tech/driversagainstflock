@@ -118,6 +118,7 @@ module.exports = {
         favicon: './assets/images/app-logo.png',
     },
     plugins: [
+        ['expo-notifications', { defaultChannel: 'area-changes' }],
         './plugins/withCocoaPodsHttp1',
         './plugins/withUniqueCocoaPodsUuids',
         './plugins/withGradleJvmMemory',

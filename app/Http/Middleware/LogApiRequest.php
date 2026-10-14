@@ -69,6 +69,7 @@ class LogApiRequest
      */
     public function handle(Request $request, Closure $next): Response
     {
+        $privateAreaPayload = $request->is('api/v1/areas', 'api/v1/areas/*', 'api/v1/area-devices');
         $startedAt = hrtime(true);
         $response = $next($request);
 
@@ -78,9 +79,9 @@ class LogApiRequest
             'status' => $response->getStatusCode(),
             'elapsed_ms' => (int) round((hrtime(true) - $startedAt) / 1_000_000),
             'request_headers' => $this->redactHeaders($request->headers->all()),
-            'request_payload' => $this->redactPayload($request->all()),
+            'request_payload' => $privateAreaPayload ? ['redacted' => true] : $this->redactPayload($request->all()),
             'response_headers' => $this->redactHeaders($response->headers->all()),
-            'response_payload' => $this->responsePayload($response),
+            'response_payload' => $privateAreaPayload ? ['redacted' => true] : $this->responsePayload($response),
         ]);
 
         return $response;
