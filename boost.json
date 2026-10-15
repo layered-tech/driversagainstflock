@@ -10,11 +10,13 @@
     "nightwatch": false,
     "sail": false,
     "skills": [
+        "infer-conventions",
         "laravel-best-practices",
+        "testing-best-practices",
         "configuring-horizon",
         "configure-nightwatch",
         "pulse-development",
-        "pest-testing",
+        "telescope-debugging",
         "inertia-vue-development",
         "tailwindcss-development"
     ]

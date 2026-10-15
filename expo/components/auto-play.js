@@ -3837,6 +3837,13 @@ async function handleAutoPlayConnect() {
             },
         }),
         onStopNavigation: () => {
+            if (
+                connectionGeneration !== autoPlayConnectionGeneration ||
+                rootMapTemplate !== mapTemplate
+            ) {
+                return;
+            }
+
             logAutoPlayPlatformAction('host-navigation-stopped');
             stopAutoPlayNavigation({ notifyTemplate: false });
         },
