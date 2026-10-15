@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import { removePrivateCacheItem } from '../../lib/private-cache-storage';
 import { buildApiURL } from '../map/config';
 import { createAreaClient } from './area-client';
+import { AREA_BOUNDARIES_STORAGE_KEY } from './area-boundary-cache';
 
 const TOKEN_KEY = 'daf.area-device.v1';
 const INSTALL_KEY = 'daf.area-install.v1';
@@ -29,6 +31,7 @@ export const areaRequest = createAreaClient({
         async clear() {
             await SecureStore.deleteItemAsync(TOKEN_KEY, secureOptions);
             await AsyncStorage.removeItem(INSTALL_KEY);
+            await removePrivateCacheItem(AREA_BOUNDARIES_STORAGE_KEY);
         },
     },
 });

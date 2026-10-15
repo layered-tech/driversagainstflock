@@ -1,21 +1,19 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import {
-    Pressable,
-    RefreshControl,
-    ScrollView,
-    Text,
-    View,
-} from 'react-native';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
-import {
-    DafButton,
-    DafIconButton,
-    DafSegmentedControl,
-} from '../design-system/primitives';
+import { DafIconButton } from '../design-system/primitives';
 import { AREA_KINDS } from './area-geometry';
-import { areaCardClass, AreaError, AreaHeader, AreaLoading } from './area-ui';
+import {
+    AreaButton as DafButton,
+    areaCardClass,
+    AreaError,
+    AreaHeader,
+    AreaLoading,
+    AreaSegmentedControl as DafSegmentedControl,
+    AreaText as Text,
+} from './area-ui';
 import { useAreas } from './areas-context';
 import { useAreaFeed } from './use-area-feed';
 
@@ -212,18 +210,21 @@ export default function AreaFeedScreen() {
                                     here.
                                 </Text>
                             </View>
-                        ) : (
-                            <DafButton
-                                icon="map"
-                                onPress={() =>
-                                    router.push(
-                                        `/areas/${areaId}/map?window=${window}`,
-                                    )
-                                }
-                            >
-                                Show all {payload.changes.total} on the map
-                            </DafButton>
-                        )}
+                        ) : null}
+                        <DafButton
+                            className={!changes.length ? 'mt-3' : ''}
+                            icon="map"
+                            testID="area-view-map"
+                            onPress={() =>
+                                router.push(
+                                    `/areas/${areaId}/map?window=${window}`,
+                                )
+                            }
+                        >
+                            {payload.changes.total
+                                ? `Show all ${payload.changes.total} on the map`
+                                : 'View area on map'}
+                        </DafButton>
                         {payload.changes.current_page <
                         payload.changes.last_page ? (
                             <DafButton

@@ -8,6 +8,7 @@ import {
     MAPBOX_STANDARD_STYLE_URL,
 } from '../map/config';
 import { geometryBounds } from './area-geometry';
+import { areaCameraSettings } from './area-map-camera';
 
 export function AreaMap({
     geometry,
@@ -19,27 +20,25 @@ export function AreaMap({
     onChangePress,
     fitGeometry = true,
     zoomLevel = 12,
+    bottomOverlap = 0,
 }) {
     const camera = useRef(null);
     const dark = useColorScheme() === 'dark';
     const bounds = useMemo(() => geometryBounds(geometry), [geometry]);
+    const target = areaCameraSettings({
+        bounds,
+        center,
+        fitGeometry,
+        zoomLevel,
+    });
+    const targetKey = JSON.stringify(target);
+    const initialCamera = useRef(target);
+    const previousTarget = useRef(targetKey);
     useEffect(() => {
-        if (bounds && fitGeometry)
-            camera.current?.fitBounds(
-                [bounds[2], bounds[3]],
-                [bounds[0], bounds[1]],
-                40,
-                350,
-            );
-    }, [bounds, fitGeometry]);
-    useEffect(() => {
-        if (center && (!bounds || !fitGeometry))
-            camera.current?.setCamera({
-                centerCoordinate: center,
-                zoomLevel,
-                animationDuration: 350,
-            });
-    }, [center?.[0], center?.[1], zoomLevel]);
+        if (previousTarget.current === targetKey) return;
+        previousTarget.current = targetKey;
+        camera.current?.setCamera({ ...target, animationDuration: 350 });
+    }, [target, targetKey]);
     const collection = useMemo(
         () => ({
             type: 'FeatureCollection',
@@ -69,6 +68,16 @@ export function AreaMap({
             scaleBarEnabled={false}
             pitchEnabled={false}
             rotateEnabled={false}
+            logoPosition={
+                bottomOverlap
+                    ? { bottom: bottomOverlap + 8, left: 8 }
+                    : undefined
+            }
+            attributionPosition={
+                bottomOverlap
+                    ? { bottom: bottomOverlap + 8, left: 96 }
+                    : undefined
+            }
             onPress={
                 onAddPoint
                     ? (event) => {
@@ -89,22 +98,7 @@ export function AreaMap({
             />
             <Mapbox.Camera
                 ref={camera}
-                defaultSettings={
-                    center
-                        ? { centerCoordinate: center, zoomLevel }
-                        : bounds
-                          ? {
-                                bounds: {
-                                    ne: [bounds[2], bounds[3]],
-                                    sw: [bounds[0], bounds[1]],
-                                    paddingTop: 40,
-                                    paddingBottom: 40,
-                                    paddingLeft: 40,
-                                    paddingRight: 40,
-                                },
-                            }
-                          : { centerCoordinate: [-98.5, 39.5], zoomLevel: 3 }
-                }
+                defaultSettings={initialCamera.current}
             />
             {geometry ? (
                 <Mapbox.ShapeSource

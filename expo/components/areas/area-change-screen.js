@@ -1,14 +1,17 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, ScrollView, Text, View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
-import {
-    DafBadge,
-    DafButton,
-    DafIconButton,
-} from '../design-system/primitives';
+import { DafIconButton } from '../design-system/primitives';
 import { AreaMap } from './area-map';
-import { AreaError, AreaLoading } from './area-ui';
+import {
+    AreaBadge as DafBadge,
+    AreaButton as DafButton,
+    AreaError,
+    AreaLoading,
+    AreaSheet,
+    AreaText as Text,
+} from './area-ui';
 import { areaRequest } from './areas-api';
 
 export default function AreaChangeScreen() {
@@ -32,9 +35,10 @@ export default function AreaChangeScreen() {
     const change = payload?.change;
     return (
         <View className="flex-1" testID="area-change-screen">
-            <View className="flex-1">
+            <View className="-mb-[22px] min-h-[150px] flex-1">
                 {change ? (
                     <AreaMap
+                        bottomOverlap={22}
                         zoomLevel={16}
                         center={[change.longitude, change.latitude]}
                         changes={[change]}
@@ -53,9 +57,14 @@ export default function AreaChangeScreen() {
                     />
                 </View>
             </View>
-            <ScrollView
-                className="max-h-[60%] rounded-t-[24px] bg-white px-5 pt-5 dark:bg-daf-surface-dark"
-                contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+            <AreaSheet
+                title={change ? `Camera ${change.kind}` : 'Camera change'}
+                subtitle={
+                    change
+                        ? `${payload.area.name} · ${new Date(change.changed_at).toLocaleString()}`
+                        : undefined
+                }
+                testID="area-change-sheet"
             >
                 <AreaError
                     message={error}
@@ -63,13 +72,6 @@ export default function AreaChangeScreen() {
                 />
                 {change ? (
                     <>
-                        <Text className="font-dafDisplay text-[22px] font-bold text-daf-text-primary dark:text-white">
-                            Camera {change.kind}
-                        </Text>
-                        <Text className="mb-4 mt-1 text-xs text-daf-text-tertiary dark:text-neutral-400">
-                            {payload.area.name} ·{' '}
-                            {new Date(change.changed_at).toLocaleString()}
-                        </Text>
                         <View className="mb-4 flex-row flex-wrap gap-2">
                             <DafBadge
                                 tone={
@@ -108,22 +110,14 @@ export default function AreaChangeScreen() {
                                     <Text className="mb-1 text-[11px] uppercase tracking-[1px] text-daf-text-tertiary dark:text-neutral-400">
                                         {label}
                                     </Text>
-                                    <Text className="text-[13px] font-medium text-daf-text-primary dark:text-white">
+                                    <Text
+                                        className={`text-[13px] text-daf-text-primary dark:text-white ${['Added', 'Removed', 'OSM ID'].includes(label) ? 'font-dafMono' : 'font-medium'}`}
+                                    >
                                         {value}
                                     </Text>
                                 </View>
                             ))}
                         </View>
-                        <DafButton
-                            size="lg"
-                            onPress={() =>
-                                router.push(
-                                    `/areas/${areaId}/map?changeId=${change.id}`,
-                                )
-                            }
-                        >
-                            Show on the map
-                        </DafButton>
                         <DafButton
                             className="mt-2"
                             variant="ghost"
@@ -137,7 +131,7 @@ export default function AreaChangeScreen() {
                         </DafButton>
                     </>
                 ) : null}
-            </ScrollView>
+            </AreaSheet>
         </View>
     );
 }

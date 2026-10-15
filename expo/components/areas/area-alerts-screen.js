@@ -1,24 +1,19 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import {
-    Linking,
-    Pressable,
-    ScrollView,
-    Switch,
-    Text,
-    View,
-} from 'react-native';
+import { Linking, Pressable, ScrollView, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
-import { DafButton, DafTextInput } from '../design-system/primitives';
+import { DafTextInput } from '../design-system/primitives';
 import { ALERT_MODES, AREA_KINDS } from './area-geometry';
 import { registerAreaNotifications } from './area-notifications';
 import {
+    AreaButton as DafButton,
     areaCardClass,
     AreaError,
     AreaHeader,
     AreaLoading,
     AreaPrivacy,
+    AreaText as Text,
 } from './area-ui';
 import { useAreas } from './areas-context';
 
@@ -95,7 +90,7 @@ export default function AreaAlertsScreen() {
                             ].map(([key, label], index) => (
                                 <View
                                     key={key}
-                                    className={`min-h-[54px] flex-row items-center justify-between gap-2 ${index ? 'border-t border-daf-border dark:border-daf-border-dark' : ''}`}
+                                    className={`min-h-[48px] flex-row items-center justify-between gap-2 ${index ? 'border-t border-daf-border dark:border-daf-border-dark' : ''}`}
                                 >
                                     <Text className="flex-1 text-[15px] font-medium text-daf-text-primary dark:text-white">
                                         {label}
@@ -129,7 +124,7 @@ export default function AreaAlertsScreen() {
                                         disabled: busy,
                                     }}
                                     disabled={busy}
-                                    className="flex-row items-center gap-3 py-3"
+                                    className="min-h-[48px] flex-row items-center gap-[10px] py-[6px]"
                                     onPress={() =>
                                         save({ alert_mode: mode.value })
                                     }
@@ -143,10 +138,10 @@ export default function AreaAlertsScreen() {
                                         ) : null}
                                     </View>
                                     <View className="flex-1">
-                                        <Text className="text-[15px] font-semibold text-daf-text-primary dark:text-white">
+                                        <Text className="text-[15px] font-medium leading-[20px] text-daf-text-primary dark:text-white">
                                             {mode.label}
                                         </Text>
-                                        <Text className="mt-0.5 text-xs text-daf-text-tertiary dark:text-neutral-400">
+                                        <Text className="mt-[2px] text-[13px] leading-[18px] text-daf-text-secondary dark:text-neutral-300">
                                             {mode.description}
                                         </Text>
                                     </View>
@@ -168,14 +163,16 @@ export default function AreaAlertsScreen() {
                                         Applies to daily and weekly · local time
                                     </Text>
                                 </View>
-                                <Text className="font-dafMono text-[13px] font-semibold text-daf-text-primary dark:text-white">
-                                    {new Date(
-                                        `2000-01-01T${area.digest_time}:00`,
-                                    ).toLocaleTimeString(undefined, {
-                                        hour: 'numeric',
-                                        minute: '2-digit',
-                                    })}
-                                </Text>
+                                <View className="rounded-dafPill border border-daf-border bg-daf-surface-alt px-[11px] py-[5px] dark:border-daf-border-dark dark:bg-daf-surface-inverse">
+                                    <Text className="font-dafMono text-[13px] font-semibold text-daf-text-primary dark:text-white">
+                                        {new Date(
+                                            `2000-01-01T${area.digest_time}:00`,
+                                        ).toLocaleTimeString(undefined, {
+                                            hour: 'numeric',
+                                            minute: '2-digit',
+                                        })}
+                                    </Text>
+                                </View>
                                 <Icon
                                     name="chevron-down"
                                     color="#828D9B"

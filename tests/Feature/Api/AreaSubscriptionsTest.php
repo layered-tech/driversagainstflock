@@ -100,6 +100,44 @@ test('area search returns polygon boundaries and handles upstream failures', fun
     $this->getJson('/api/v1/areas/search?query=Chicago')->assertStatus(503);
 });
 
+test('ZIP searches return watchable Census boundaries and bypass old empty search caches', function (string $query) {
+    Http::preventStrayRequests();
+    $geometry = personalAreaInput()['geometry'];
+    Cache::put('mobile-area-search:'.hash('sha256', $query), [], now()->addDay());
+    Http::fake(['tigerweb.geo.census.gov/*' => Http::response([
+        'type' => 'FeatureCollection',
+        'features' => [['properties' => ['ZCTA5' => '00501'], 'geometry' => $geometry]],
+    ])]);
+
+    $result = $this->getJson('/api/v1/areas/search?'.http_build_query(['query' => $query]))
+        ->assertOk()->assertJsonCount(1, 'results')
+        ->assertJsonPath('results.0.name', '00501')->assertJsonPath('results.0.kind', 'zip')
+        ->assertJsonPath('results.0.geometry', $geometry)->json('results.0');
+    $this->postJson('/api/v1/areas', $result)->assertCreated()->assertJsonPath('area.kind', 'zip');
+    $this->getJson('/api/v1/areas/search?query=00501')->assertOk()->assertJsonCount(1, 'results');
+    Http::assertSentCount(1);
+    Http::assertSent(fn ($request): bool => $request['where'] === "ZCTA5='00501'" && $request['outSR'] === 4326 && $request['f'] === 'geojson');
+})->with(['00501', '00501-1234', ' ZIP 00501 ']);
+
+test('ZIP search handles missing boundaries and provider errors without substituting a point or box', function () {
+    Http::preventStrayRequests();
+    Http::fake(['tigerweb.geo.census.gov/*' => Http::sequence()
+        ->push(['type' => 'FeatureCollection', 'features' => []])
+        ->push(['error' => ['message' => 'Service unavailable']])
+        ->push(['type' => 'FeatureCollection', 'features' => [['geometry' => personalAreaInput()['geometry']]]])]);
+
+    $this->getJson('/api/v1/areas/search?query=00000')->assertOk()->assertJsonCount(0, 'results');
+    $this->getJson('/api/v1/areas/search?query=53089')->assertStatus(503);
+    $this->getJson('/api/v1/areas/search?query=53089')->assertOk()->assertJsonCount(1, 'results');
+});
+
+test('ZIP search handles connection failures', function () {
+    Http::preventStrayRequests();
+    Http::fake(['tigerweb.geo.census.gov/*' => Http::failedConnection()]);
+
+    $this->getJson('/api/v1/areas/search?query=53089')->assertStatus(503);
+});
+
 test('area secrets and boundaries never enter API payload logs', function () {
     $this->postJson('/api/v1/areas', personalAreaInput())->assertCreated();
     $log = ApiLog::latest('id')->firstOrFail();

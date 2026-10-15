@@ -127,14 +127,33 @@ class AreaSubscriptionController extends Controller
     public function search(Request $request): JsonResponse
     {
         $values = $request->validate(['query' => ['required', 'string', 'min:2', 'max:180']]);
-        $key = 'mobile-area-search:'.hash('sha256', $values['query']);
+        $query = trim($values['query']);
+        $zip = preg_match('/^(?:ZIP\s*)?(\d{5})(?:-\d{4})?$/i', $query, $matches) ? $matches[1] : null;
+        $key = 'mobile-area-search:v2:'.hash('sha256', $zip ?? $query);
         if (($cached = Cache::get($key)) !== null) {
             return response()->json(['results' => $cached]);
         }
-        abort_unless(Cache::add('moderation-nominatim-rate', true, 1), 429, 'Please wait a moment before searching again.');
         try {
+            if ($zip !== null) {
+                $response = Http::acceptJson()->connectTimeout(3)->timeout(10)
+                    ->get('https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Current/MapServer/2/query', [
+                        'where' => "ZCTA5='{$zip}'", 'outFields' => 'ZCTA5', 'returnGeometry' => 'true',
+                        'outSR' => 4326, 'geometryPrecision' => 5, 'maxAllowableOffset' => 0.0001, 'f' => 'geojson',
+                    ])->throw()->json();
+                abort_if(isset($response['error']) || ! is_array($response['features'] ?? null), 503, 'Boundary search is unavailable. Try again or draw an area.');
+                $results = collect($response['features'])
+                    ->filter(fn (array $feature): bool => in_array($feature['geometry']['type'] ?? '', ['Polygon', 'MultiPolygon'], true))
+                    ->map(fn (array $feature): array => [
+                        'name' => $zip, 'kind' => 'zip', 'definition' => 'Census ZIP Code Tabulation Area',
+                        'geometry' => $feature['geometry'], 'camera_count' => $this->changes->cameraCount($feature['geometry']),
+                    ])->values()->all();
+                Cache::put($key, $results, $results === [] ? now()->addMinutes(5) : now()->addDay());
+
+                return response()->json(['results' => $results]);
+            }
+            abort_unless(Cache::add('moderation-nominatim-rate', true, 1), 429, 'Please wait a moment before searching again.');
             $rows = Http::acceptJson()->withUserAgent('DriversAgainstFlock area subscriptions')->connectTimeout(3)->timeout(10)
-                ->get('https://nominatim.openstreetmap.org/search', ['q' => $values['query'], 'format' => 'jsonv2', 'addressdetails' => 1, 'polygon_geojson' => 1, 'polygon_threshold' => 0.001, 'limit' => 5])->throw()->json();
+                ->get('https://nominatim.openstreetmap.org/search', ['q' => $query, 'format' => 'jsonv2', 'addressdetails' => 1, 'polygon_geojson' => 1, 'polygon_threshold' => 0.001, 'limit' => 5])->throw()->json();
             $results = collect(is_array($rows) ? $rows : [])->filter(fn (array $row): bool => in_array($row['geojson']['type'] ?? '', ['Polygon', 'MultiPolygon'], true) && in_array($row['addresstype'] ?? $row['type'] ?? '', ['city', 'town', 'village', 'municipality', 'county', 'postcode'], true))
                 ->map(function (array $row): array {
                     $kind = match ($row['addresstype'] ?? $row['type'] ?? '') {

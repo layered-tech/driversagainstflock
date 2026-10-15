@@ -6,19 +6,11 @@ import {
     KeyboardAvoidingView,
     Platform,
     Pressable,
-    ScrollView,
-    Text,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
-import {
-    DafBadge,
-    DafButton,
-    DafIconButton,
-    DafSegmentedControl,
-    DafTextInput,
-} from '../design-system/primitives';
+import { DafIconButton, DafTextInput } from '../design-system/primitives';
 import {
     AREA_KINDS,
     circleGeometry,
@@ -27,8 +19,15 @@ import {
 } from './area-geometry';
 import { AreaMap } from './area-map';
 import { AreaRadiusControl } from './area-radius-control';
-import { AreaError } from './area-ui';
 import { areaRequest } from './areas-api';
+import {
+    AreaBadge as DafBadge,
+    AreaButton as DafButton,
+    AreaError,
+    AreaSegmentedControl as DafSegmentedControl,
+    AreaSheet,
+    AreaText as Text,
+} from './area-ui';
 import { useAreas } from './areas-context';
 
 const MODES = [
@@ -168,8 +167,9 @@ export default function AddAreaScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             testID="add-area-screen"
         >
-            <View className="min-h-[150px] flex-1">
+            <View className="-mb-[22px] min-h-[150px] flex-1">
                 <AreaMap
+                    bottomOverlap={22}
                     geometry={geometry}
                     changes={cameras}
                     center={center}
@@ -238,17 +238,11 @@ export default function AddAreaScreen() {
                     </View>
                 ) : null}
             </View>
-            <View
-                className="max-h-[65%] rounded-t-[24px] border-t border-daf-border bg-white px-4 pt-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
-                style={{ paddingBottom: insets.bottom + 16 }}
+            <AreaSheet
+                title="Add an area"
+                subtitle="Watch a place for camera changes"
+                testID="add-area-sheet"
             >
-                <View className="mb-3 h-1 w-10 self-center rounded-full bg-daf-border dark:bg-daf-border-dark" />
-                <Text className="font-dafDisplay text-[22px] font-bold text-daf-text-primary dark:text-white">
-                    Add an area
-                </Text>
-                <Text className="mb-4 mt-1 text-[13px] text-daf-text-tertiary dark:text-neutral-400">
-                    Watch a place for camera changes
-                </Text>
                 <DafSegmentedControl
                     options={MODES}
                     value={mode}
@@ -258,10 +252,10 @@ export default function AddAreaScreen() {
                     }}
                     testIDPrefix="area-mode"
                 />
-                <ScrollView
-                    keyboardShouldPersistTaps="handled"
-                    className="mt-4"
-                    contentContainerStyle={{ gap: 12 }}
+                <View
+                    className={
+                        mode === 'search' ? 'mt-[14px]' : 'mt-[14px] gap-[12px]'
+                    }
                 >
                     <AreaError message={error} />
                     {mode === 'search' ? (
@@ -269,6 +263,7 @@ export default function AddAreaScreen() {
                             <View className="flex-row items-center gap-2">
                                 <View className="flex-1">
                                     <DafTextInput
+                                        className="font-areaRegular"
                                         placeholder="City, county or ZIP"
                                         accessibilityLabel="City, county or ZIP"
                                         value={query}
@@ -290,39 +285,44 @@ export default function AddAreaScreen() {
                             {searching ? (
                                 <ActivityIndicator color="#1FBF6B" />
                             ) : null}
-                            {results.map((result, index) => (
-                                <Pressable
-                                    key={`${result.name}-${index}`}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={`Watch ${result.name}`}
-                                    disabled={saving}
-                                    className="flex-row items-center gap-3 border-b border-daf-border py-3.5 dark:border-daf-border-dark"
-                                    onPress={() => watch(result)}
-                                >
-                                    <DafBadge>
-                                        {AREA_KINDS[result.kind]}
-                                    </DafBadge>
-                                    <View className="min-w-0 flex-1">
-                                        <Text className="text-[15px] font-semibold text-daf-text-primary dark:text-white">
-                                            {result.name}
-                                        </Text>
-                                        <Text
-                                            className="mt-1 text-xs text-daf-text-tertiary dark:text-neutral-400"
-                                            numberOfLines={2}
-                                        >
-                                            {result.definition} ·{' '}
-                                            {result.camera_count} cameras mapped
-                                        </Text>
-                                    </View>
-                                    <View className="h-8 w-8 items-center justify-center rounded-full bg-daf-brand/10">
-                                        <Icon
-                                            name="plus"
-                                            color="#0F7D45"
-                                            size={17}
-                                        />
-                                    </View>
-                                </Pressable>
-                            ))}
+                            <View className="mt-[6px]">
+                                {results.map((result, index) => (
+                                    <Pressable
+                                        key={`${result.name}-${index}`}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`Watch ${result.name}`}
+                                        disabled={saving}
+                                        className="min-h-[56px] flex-row items-center gap-[12px] border-b border-daf-border px-[4px] py-[12px] dark:border-daf-border-dark"
+                                        onPress={() => watch(result)}
+                                    >
+                                        <View className="w-[44px] items-center rounded-full border border-daf-border py-[3px] dark:border-daf-border-dark">
+                                            <Text className="text-center font-dafMono text-[9px] font-bold uppercase tracking-[0.72px] text-daf-text-secondary dark:text-neutral-300">
+                                                {AREA_KINDS[result.kind]}
+                                            </Text>
+                                        </View>
+                                        <View className="min-w-0 flex-1">
+                                            <Text className="text-[15px] font-semibold text-daf-text-primary dark:text-white">
+                                                {result.name}
+                                            </Text>
+                                            <Text
+                                                className="mt-[2px] text-xs text-daf-text-tertiary dark:text-neutral-400"
+                                                numberOfLines={1}
+                                            >
+                                                {result.definition} ·{' '}
+                                                {result.camera_count} cameras
+                                                mapped
+                                            </Text>
+                                        </View>
+                                        <View className="h-8 w-8 items-center justify-center rounded-full bg-daf-brand/10">
+                                            <Icon
+                                                name="plus"
+                                                color="#0F7D45"
+                                                size={17}
+                                            />
+                                        </View>
+                                    </Pressable>
+                                ))}
+                            </View>
                             {searched && !results.length ? (
                                 <Text className="text-[13px] text-daf-text-secondary dark:text-neutral-300">
                                     No city, county or ZIP boundary found. Try
@@ -332,7 +332,7 @@ export default function AddAreaScreen() {
                             {saving ? (
                                 <ActivityIndicator color="#1FBF6B" />
                             ) : null}
-                            <Text className="text-xs leading-[18px] text-daf-text-tertiary dark:text-neutral-400">
+                            <Text className="mt-[12px] text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400">
                                 Counts are cameras currently mapped in
                                 OpenStreetMap. Tap a result to start watching
                                 it.
@@ -392,6 +392,7 @@ export default function AddAreaScreen() {
                             </Text>
                             <AreaError message={previewError} />
                             <DafTextInput
+                                className="font-areaRegular"
                                 placeholder="Name this area"
                                 accessibilityLabel="Name this area"
                                 value={name}
@@ -420,8 +421,8 @@ export default function AddAreaScreen() {
                             </DafButton>
                         </>
                     )}
-                </ScrollView>
-            </View>
+                </View>
+            </AreaSheet>
         </KeyboardAvoidingView>
     );
 }

@@ -1,23 +1,19 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
-import {
-    Pressable,
-    RefreshControl,
-    ScrollView,
-    Text,
-    View,
-} from 'react-native';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
-import { DafBadge, DafSegmentedControl } from '../design-system/primitives';
 import { ALERT_MODES, AREA_KINDS } from './area-geometry';
 import {
     AreaAddButton,
+    AreaBadge as DafBadge,
     areaCardClass,
     AreaError,
     AreaHeader,
     AreaLoading,
     AreaPrivacy,
+    AreaSegmentedControl as DafSegmentedControl,
+    AreaText as Text,
 } from './area-ui';
 import { useAreas } from './areas-context';
 
@@ -131,32 +127,33 @@ export default function AreasScreen() {
                     </>
                 ) : null}
                 {areas.length ? (
-                    <Text className="mb-4 text-xs text-daf-text-tertiary dark:text-neutral-400">
-                        {areas.length} {areas.length === 1 ? 'area' : 'areas'} ·{' '}
-                        {total} changes{' '}
-                        {timeWindow === '24h'
-                            ? 'in 24 hours'
-                            : timeWindow === '30'
-                              ? 'in 30 days'
-                              : 'this week'}
-                    </Text>
-                ) : null}
-                {areas.length ? (
-                    <DafSegmentedControl
-                        className="mb-4"
-                        options={[
-                            { value: '24h', label: '24h' },
-                            { value: '7', label: '7 days' },
-                            { value: '30', label: '30 days' },
-                        ]}
-                        value={timeWindow}
-                        onChange={setTimeWindow}
-                    />
+                    <View className="mb-[14px] mt-[6px] flex-row items-center justify-between gap-[12px]">
+                        <Text className="min-w-0 flex-1 text-xs text-daf-text-tertiary dark:text-neutral-400">
+                            {areas.length}{' '}
+                            {areas.length === 1 ? 'area' : 'areas'} · {total}{' '}
+                            changes{' '}
+                            {timeWindow === '24h'
+                                ? 'in 24 hours'
+                                : timeWindow === '30'
+                                  ? 'in 30 days'
+                                  : 'this week'}
+                        </Text>
+                        <DafSegmentedControl
+                            compact
+                            options={[
+                                { value: '24h', label: '24h' },
+                                { value: '7', label: '7 days' },
+                                { value: '30', label: '30 days' },
+                            ]}
+                            value={timeWindow}
+                            onChange={setTimeWindow}
+                        />
+                    </View>
                 ) : null}
                 {areas.map((area) => (
                     <View
                         key={area.id}
-                        className={`${areaCardClass} mb-3 px-4 py-3.5`}
+                        className={`${areaCardClass} mb-[10px] px-[16px] py-[14px]`}
                     >
                         <Pressable
                             accessibilityRole="button"
@@ -164,70 +161,76 @@ export default function AreasScreen() {
                             testID={`area-card-${area.id}`}
                             onPress={() => router.push(`/areas/${area.id}`)}
                         >
-                            <View className="flex-row items-center gap-2">
-                                <Text
-                                    className="min-w-0 flex-1 text-[16px] font-semibold text-daf-text-primary dark:text-white"
-                                    numberOfLines={1}
-                                >
-                                    {area.name}
-                                </Text>
-                                <DafBadge>{AREA_KINDS[area.kind]}</DafBadge>
+                            <View className="flex-row items-center gap-[12px]">
+                                <View className="min-w-0 flex-1">
+                                    <View className="flex-row items-center gap-[8px]">
+                                        <Text
+                                            className="min-w-0 shrink text-[16px] font-semibold text-daf-text-primary dark:text-white"
+                                            numberOfLines={1}
+                                        >
+                                            {area.name}
+                                        </Text>
+                                        <DafBadge kind>
+                                            {AREA_KINDS[area.kind]}
+                                        </DafBadge>
+                                    </View>
+                                    <Text
+                                        className="mt-[3px] text-xs text-daf-text-tertiary dark:text-neutral-400"
+                                        numberOfLines={1}
+                                    >
+                                        {area.definition} · {area.camera_count}{' '}
+                                        cameras mapped
+                                    </Text>
+                                </View>
                                 <Icon
                                     name="chevron-right"
                                     size={18}
                                     color="#828D9B"
                                 />
                             </View>
-                            <Text
-                                className="mt-1 text-xs text-daf-text-tertiary dark:text-neutral-400"
-                                numberOfLines={2}
-                            >
-                                {area.definition} · {area.camera_count} cameras
-                                mapped
-                            </Text>
-                            <View className="mt-3 flex-row flex-wrap gap-2">
-                                {area.counts.added ? (
-                                    <DafBadge tone="alert">
-                                        +{area.counts.added} added
-                                    </DafBadge>
-                                ) : null}
-                                {area.counts.removed ? (
-                                    <DafBadge tone="brand">
-                                        −{area.counts.removed} removed
-                                    </DafBadge>
-                                ) : null}
-                                {!area.counts.added && !area.counts.removed ? (
-                                    <Text className="text-xs text-daf-text-tertiary dark:text-neutral-400">
-                                        {timeWindow === '7'
-                                            ? 'Quiet week. Zero new boxes.'
-                                            : 'No changes in this period.'}
-                                    </Text>
-                                ) : null}
-                            </View>
                         </Pressable>
-                        <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={`Alerts for ${area.name}`}
-                            className="mt-3 flex-row items-center gap-2 border-t border-daf-border pt-3 dark:border-daf-border-dark"
-                            onPress={() =>
-                                router.push(`/areas/${area.id}/alerts`)
-                            }
-                        >
-                            <Icon name="bell" size={14} color="#828D9B" />
-                            <Text className="flex-1 text-xs text-daf-text-secondary dark:text-neutral-300">
-                                {
-                                    ALERT_MODES.find(
-                                        (mode) =>
-                                            mode.value === area.alert_mode,
-                                    )?.label
-                                }
-                            </Text>
-                            {area.unread_count ? (
-                                <DafBadge tone="brand">
-                                    {area.unread_count} new
+                        <View className="mt-[12px] flex-row flex-wrap items-center gap-[8px]">
+                            {area.counts.added ? (
+                                <DafBadge tone="alert">
+                                    +{area.counts.added} added
                                 </DafBadge>
                             ) : null}
-                        </Pressable>
+                            {area.counts.removed ? (
+                                <DafBadge tone="brand">
+                                    −{area.counts.removed} removed
+                                </DafBadge>
+                            ) : null}
+                            {!area.counts.added && !area.counts.removed ? (
+                                <Text className="text-xs text-daf-text-tertiary dark:text-neutral-400">
+                                    {timeWindow === '7'
+                                        ? 'Quiet week. Zero new boxes.'
+                                        : 'No changes in this period.'}
+                                </Text>
+                            ) : null}
+                            <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={`Alerts for ${area.name}`}
+                                className="ml-auto min-h-[24px] flex-row items-center gap-[5px]"
+                                onPress={() =>
+                                    router.push(`/areas/${area.id}/alerts`)
+                                }
+                            >
+                                <Icon name="bell" size={14} color="#828D9B" />
+                                <Text className="text-xs text-daf-text-tertiary dark:text-neutral-400">
+                                    {
+                                        ALERT_MODES.find(
+                                            (mode) =>
+                                                mode.value === area.alert_mode,
+                                        )?.label
+                                    }
+                                </Text>
+                                {area.unread_count ? (
+                                    <DafBadge tone="brand">
+                                        {area.unread_count} new
+                                    </DafBadge>
+                                ) : null}
+                            </Pressable>
+                        </View>
                     </View>
                 ))}
                 <AreaPrivacy />

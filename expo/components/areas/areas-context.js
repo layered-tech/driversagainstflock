@@ -4,10 +4,17 @@ import {
     useCallback,
     useContext,
     useEffect,
+    useMemo,
     useRef,
     useState,
 } from 'react';
 import { AppState } from 'react-native';
+import {
+    getPrivateCacheItem,
+    removePrivateCacheItem,
+    setPrivateCacheItem,
+} from '../../lib/private-cache-storage';
+import { createAreaBoundaryCache } from './area-boundary-cache';
 import { areaRequest, hasAreaDevice } from './areas-api';
 import { notificationRoute } from './area-geometry';
 import {
@@ -18,6 +25,36 @@ import {
 const AreasContext = createContext(null);
 export function AreasProvider({ children }) {
     const [areas, setAreas] = useState([]);
+    const [cachedAreas, setCachedAreas] = useState([]);
+    const cacheActive = useRef(true);
+    const boundaryCache = useMemo(
+        () =>
+            createAreaBoundaryCache({
+                storage: {
+                    getItem: getPrivateCacheItem,
+                    setItem: setPrivateCacheItem,
+                    removeItem: removePrivateCacheItem,
+                },
+                hasDevice: hasAreaDevice,
+                onChange: (saved) => {
+                    if (cacheActive.current) setCachedAreas(saved);
+                },
+            }),
+        [],
+    );
+    const rememberAreaBoundary = useCallback(
+        (area) => {
+            boundaryCache.remember(area).catch(() => {});
+        },
+        [boundaryCache],
+    );
+    useEffect(() => {
+        cacheActive.current = true;
+        boundaryCache.load().catch(() => {});
+        return () => {
+            cacheActive.current = false;
+        };
+    }, [boundaryCache]);
     const [timeWindow, setTimeWindow] = useState('7');
     const requestVersion = useRef(0);
     const [loading, setLoading] = useState(false);
@@ -34,6 +71,7 @@ export function AreasProvider({ children }) {
                 .then((result) => {
                     if (version !== requestVersion.current) return;
                     setAreas(result.areas);
+                    boundaryCache.replace(result.areas).catch(() => {});
                     setError(null);
                     return result.areas;
                 })
@@ -50,47 +88,64 @@ export function AreasProvider({ children }) {
             pending.current = { window: timeWindow, promise };
             return promise;
         },
-        [timeWindow],
+        [timeWindow, boundaryCache],
     );
-    const saveArea = useCallback(async (input) => {
-        const { area } = await areaRequest('', { method: 'POST', body: input });
-        requestVersion.current++;
-        pending.current = null;
-        setLoading(false);
-        setAreas((current) => [
-            ...current.filter((item) => item.id !== area.id),
-            area,
-        ]);
-        return area;
-    }, []);
-    const updateArea = useCallback(async (id, values) => {
-        const { area } = await areaRequest(`/${id}`, {
-            method: 'PATCH',
-            body: values,
-        });
-        requestVersion.current++;
-        pending.current = null;
-        setLoading(false);
-        setAreas((current) =>
-            current.map((item) =>
-                item.id === area.id
-                    ? {
-                          ...area,
-                          counts: item.counts,
-                          unread_count: item.unread_count,
-                      }
-                    : item,
-            ),
-        );
-        return area;
-    }, []);
-    const removeArea = useCallback(async (id) => {
-        await areaRequest(`/${id}`, { method: 'DELETE' });
-        requestVersion.current++;
-        pending.current = null;
-        setLoading(false);
-        setAreas((current) => current.filter((area) => area.id !== Number(id)));
-    }, []);
+    const saveArea = useCallback(
+        async (input) => {
+            const { area } = await areaRequest('', {
+                method: 'POST',
+                body: input,
+            });
+            rememberAreaBoundary(area);
+            requestVersion.current++;
+            pending.current = null;
+            setLoading(false);
+            setAreas((current) => [
+                ...current.filter((item) => item.id !== area.id),
+                area,
+            ]);
+            return area;
+        },
+        [rememberAreaBoundary],
+    );
+    const updateArea = useCallback(
+        async (id, values) => {
+            const { area } = await areaRequest(`/${id}`, {
+                method: 'PATCH',
+                body: values,
+            });
+            rememberAreaBoundary(area);
+            requestVersion.current++;
+            pending.current = null;
+            setLoading(false);
+            setAreas((current) =>
+                current.map((item) =>
+                    item.id === area.id
+                        ? {
+                              ...area,
+                              counts: item.counts,
+                              unread_count: item.unread_count,
+                          }
+                        : item,
+                ),
+            );
+            return area;
+        },
+        [rememberAreaBoundary],
+    );
+    const removeArea = useCallback(
+        async (id) => {
+            await areaRequest(`/${id}`, { method: 'DELETE' });
+            boundaryCache.remove(id).catch(() => {});
+            requestVersion.current++;
+            pending.current = null;
+            setLoading(false);
+            setAreas((current) =>
+                current.filter((area) => area.id !== Number(id)),
+            );
+        },
+        [boundaryCache],
+    );
     const markRead = useCallback(
         async (id, throughId) => {
             await areaRequest(`/${id}/read`, {
@@ -164,6 +219,8 @@ export function AreasProvider({ children }) {
         <AreasContext.Provider
             value={{
                 areas,
+                cachedAreas,
+                rememberAreaBoundary,
                 timeWindow,
                 setTimeWindow,
                 loading,
