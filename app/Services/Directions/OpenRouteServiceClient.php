@@ -3,6 +3,7 @@
 namespace App\Services\Directions;
 
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +12,8 @@ use Throwable;
 class OpenRouteServiceClient implements DirectionsProvider
 {
     private const DIRECTIONS_ENDPOINT = 'https://api.heigit.org/openrouteservice/v2/directions/driving-car/geojson';
+
+    private const FALLBACK_SEARCH_RADIUS_METERS = 2000;
 
     public function name(): string
     {
@@ -56,11 +59,25 @@ class OpenRouteServiceClient implements DirectionsProvider
         ]);
 
         try {
-            $response = Http::accept('application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8')
+            $request = Http::accept('application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8')
                 ->withHeaders($headers)
+                ->connectTimeout(5)
                 ->timeout(45)
-                ->retry(3, 200, throw: false)
-                ->post(self::DIRECTIONS_ENDPOINT, $body);
+                ->retry(3, 200, fn (Throwable $exception): bool => $exception instanceof ConnectionException
+                    || ($exception instanceof RequestException
+                        && ($exception->response->serverError() || $exception->response->status() === 429)), throw: false);
+
+            $response = $request->post(self::DIRECTIONS_ENDPOINT, $body);
+
+            if ($response->status() === 400 && $response->json('error.code') === 2010) {
+                Log::info('OpenRouteService retrying with expanded road search radius.', [
+                    'search_radius_meters' => self::FALLBACK_SEARCH_RADIUS_METERS,
+                    'coordinate_count' => count($coordinates),
+                ]);
+
+                $body['radiuses'] = array_fill(0, count($coordinates), self::FALLBACK_SEARCH_RADIUS_METERS);
+                $response = $request->post(self::DIRECTIONS_ENDPOINT, $body);
+            }
         } catch (Throwable $exception) {
             Log::error('OpenRouteService directions request threw an exception.', [
                 'has_exclusion_zone' => $hasExclusionZone,

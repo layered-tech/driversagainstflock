@@ -1044,14 +1044,10 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
             locationPuckCameraFallbackReleaseGate.invalidate();
         };
     }, [locationPuckCameraFallbackReleaseGate]);
-    // iOS Fabric never applies image props back to undefined (rnmapbox
-    // FabricOptionalProp limitation), so switching between the navigation
-    // arrow and the default dot requires remounting the puck there. Android
-    // clears null image props correctly, so it keeps the update-in-place path.
-    const locationPuckKey =
-        Platform.OS === 'ios'
-            ? `location-puck-${navigationPuckIsVisible ? 'navigation' : 'default'}`
-            : 'location-puck';
+    // Apply image sets to a fresh native puck. Updating an attached Android
+    // puck rebinds its style layer for each individual image prop; iOS Fabric
+    // also cannot clear an image prop back to undefined.
+    const locationPuckKey = `location-puck-${navigationPuckIsVisible ? navigationPuckBearingImage : 'default'}`;
     const mapboxBrandingIsVisible = !isDrivingMode;
 
     if (!mapPreferencesAreLoaded) {
