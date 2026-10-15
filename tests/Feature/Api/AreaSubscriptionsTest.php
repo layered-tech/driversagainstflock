@@ -159,3 +159,27 @@ test('area list counters follow the selected time window', function () {
     $this->getJson('/api/v1/areas?window=7')->assertJsonPath('areas.0.counts.added', 1);
     $this->getJson('/api/v1/areas?window=30')->assertJsonPath('areas.0.counts.added', 2);
 });
+
+test('the area map returns every current camera across pages inside its boundary', function (): void {
+    $geometry = personalAreaInput()['geometry'];
+    $geometry['coordinates'][] = [[-97.8, 30.2], [-97.2, 30.2], [-97.2, 30.8], [-97.8, 30.8], [-97.8, 30.2]];
+    $area = AreaSubscription::factory()->for($this->device, 'device')->create(['geometry' => $geometry]);
+    for ($id = 1; $id <= 501; $id++) {
+        OsmNode::create(['osm_id' => $id, 'longitude' => -97.9, 'latitude' => 30.5, 'location' => new Point(30.5, -97.9), 'osm_updated_at' => now()->subYears(2)]);
+    }
+    foreach ([[-97.5, 30.5], [-96, 30.5]] as $index => [$longitude, $latitude]) {
+        OsmNode::create(['osm_id' => 1000 + $index, 'longitude' => $longitude, 'latitude' => $latitude, 'location' => new Point($latitude, $longitude)]);
+    }
+    $this->sourceNode(2000, 1);
+    $this->sourceNode(2000, 2, ['visible' => false]);
+
+    $this->getJson('/api/v1/areas/'.$area->id.'/cameras')->assertOk()
+        ->assertJsonPath('area.id', $area->id)->assertJsonPath('area.geometry', $geometry)
+        ->assertJsonPath('cameras.total', 501)->assertJsonCount(500, 'cameras.data')
+        ->assertJsonPath('cameras.data.0', ['id' => 1, 'kind' => 'current', 'longitude' => -97.9, 'latitude' => 30.5]);
+    $this->getJson('/api/v1/areas/'.$area->id.'/cameras?page=2')->assertOk()
+        ->assertJsonCount(1, 'cameras.data')->assertJsonPath('cameras.data.0.id', 501);
+    $other = AreaSubscription::factory()->create();
+    $this->getJson('/api/v1/areas/'.$other->id.'/cameras')->assertNotFound();
+    $this->getJson('/api/v1/areas/'.$area->id.'/cameras?page=0')->assertUnprocessable();
+});

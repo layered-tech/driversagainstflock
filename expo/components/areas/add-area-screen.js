@@ -200,7 +200,7 @@ export default function AddAreaScreen() {
                 >
                     {mode === 'draw' ? (
                         <View className="min-w-0 flex-1 rounded-dafPill border border-daf-border bg-white/95 px-4 py-3 dark:border-daf-border-dark dark:bg-daf-surface-dark">
-                            <Text className="text-[13px] font-semibold text-daf-text-primary dark:text-white">
+                            <Text className="text-[13px] font-semibold text-daf-text-primary dark:text-daf-text-inverse">
                                 Tap to add corners · drag to move
                             </Text>
                         </View>
@@ -296,16 +296,16 @@ export default function AddAreaScreen() {
                                         onPress={() => watch(result)}
                                     >
                                         <View className="w-[44px] items-center rounded-full border border-daf-border py-[3px] dark:border-daf-border-dark">
-                                            <Text className="text-center font-dafMono text-[9px] font-bold uppercase tracking-[0.72px] text-daf-text-secondary dark:text-neutral-300">
+                                            <Text className="text-center font-dafMono text-[9px] font-bold uppercase tracking-[0.72px] text-daf-text-secondary dark:text-[#A9B2BD]">
                                                 {AREA_KINDS[result.kind]}
                                             </Text>
                                         </View>
                                         <View className="min-w-0 flex-1">
-                                            <Text className="text-[15px] font-semibold text-daf-text-primary dark:text-white">
+                                            <Text className="text-[15px] font-semibold text-daf-text-primary dark:text-daf-text-inverse">
                                                 {result.name}
                                             </Text>
                                             <Text
-                                                className="mt-[2px] text-xs text-daf-text-tertiary dark:text-neutral-400"
+                                                className="mt-[2px] text-xs text-daf-text-tertiary dark:text-daf-text-tertiary"
                                                 numberOfLines={1}
                                             >
                                                 {result.definition} ·{' '}
@@ -324,7 +324,7 @@ export default function AddAreaScreen() {
                                 ))}
                             </View>
                             {searched && !results.length ? (
-                                <Text className="text-[13px] text-daf-text-secondary dark:text-neutral-300">
+                                <Text className="text-[13px] text-daf-text-secondary dark:text-[#A9B2BD]">
                                     No city, county or ZIP boundary found. Try
                                     another search or draw your area.
                                 </Text>
@@ -332,7 +332,7 @@ export default function AddAreaScreen() {
                             {saving ? (
                                 <ActivityIndicator color="#1FBF6B" />
                             ) : null}
-                            <Text className="mt-[12px] text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400">
+                            <Text className="mt-[12px] text-xs leading-[17px] text-daf-text-tertiary dark:text-daf-text-tertiary">
                                 Counts are cameras currently mapped in
                                 OpenStreetMap. Tap a result to start watching
                                 it.
@@ -343,7 +343,7 @@ export default function AddAreaScreen() {
                             {mode === 'around' ? (
                                 <>
                                     <View className="flex-row items-center justify-between">
-                                        <Text className="text-[15px] font-semibold text-daf-text-primary dark:text-white">
+                                        <Text className="text-[15px] font-semibold text-daf-text-primary dark:text-daf-text-inverse">
                                             Radius
                                         </Text>
                                         <Text className="font-dafMono text-[18px] font-semibold text-daf-text-brand dark:text-daf-brand">
@@ -367,7 +367,7 @@ export default function AddAreaScreen() {
                                 </>
                             ) : (
                                 <View className="flex-row items-center justify-between">
-                                    <Text className="text-[15px] font-semibold text-daf-text-primary dark:text-white">
+                                    <Text className="text-[15px] font-semibold text-daf-text-primary dark:text-daf-text-inverse">
                                         {points.length} corners ·{' '}
                                         {geometrySquareMiles(geometry).toFixed(
                                             1,
@@ -381,7 +381,7 @@ export default function AddAreaScreen() {
                                     ) : null}
                                 </View>
                             )}
-                            <Text className="text-xs text-daf-text-tertiary dark:text-neutral-400">
+                            <Text className="text-xs text-daf-text-tertiary dark:text-daf-text-tertiary">
                                 {count === null
                                     ? geometry
                                         ? 'Checking cameras…'
@@ -401,7 +401,7 @@ export default function AddAreaScreen() {
                                 testID="area-name-input"
                             />
                             {mode === 'around' ? (
-                                <Text className="text-xs leading-[18px] text-daf-text-tertiary dark:text-neutral-400">
+                                <Text className="text-xs leading-[18px] text-daf-text-tertiary dark:text-daf-text-tertiary">
                                     We save the circle’s center, not your live
                                     location. It won’t follow you.
                                 </Text>

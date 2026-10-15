@@ -60,16 +60,16 @@ export default function AreasScreen() {
                                     color="#1FBF6B"
                                 />
                             </View>
-                            <Text className="font-dafDisplay text-[32px] font-bold leading-[37px] text-daf-text-primary dark:text-white">
+                            <Text className="font-dafDisplay text-[32px] font-bold leading-[37px] text-daf-text-primary dark:text-daf-text-inverse">
                                 Keep an eye on the places you drive
                             </Text>
-                            <Text className="mt-3 text-[17px] leading-[25px] text-daf-text-secondary dark:text-neutral-300">
+                            <Text className="mt-3 text-[17px] leading-[25px] text-daf-text-secondary dark:text-[#A9B2BD]">
                                 Pick a city, a ZIP, or a shape on the map. We’ll
                                 tell you when a camera shows up there — or comes
                                 down.
                             </Text>
                         </View>
-                        <Text className="mb-2 text-[11px] uppercase tracking-[1px] text-daf-text-tertiary dark:text-neutral-400">
+                        <Text className="mb-2 text-[11px] uppercase tracking-[1px] text-daf-text-tertiary dark:text-daf-text-tertiary">
                             Add an area
                         </Text>
                         <View className={`${areaCardClass} px-4`}>
@@ -109,10 +109,10 @@ export default function AreasScreen() {
                                         />
                                     </View>
                                     <View className="min-w-0 flex-1">
-                                        <Text className="text-[15px] font-semibold text-daf-text-primary dark:text-white">
+                                        <Text className="text-[15px] font-semibold text-daf-text-primary dark:text-daf-text-inverse">
                                             {title}
                                         </Text>
-                                        <Text className="mt-1 text-xs text-daf-text-tertiary dark:text-neutral-400">
+                                        <Text className="mt-1 text-xs text-daf-text-tertiary dark:text-daf-text-tertiary">
                                             {description}
                                         </Text>
                                     </View>
@@ -128,7 +128,7 @@ export default function AreasScreen() {
                 ) : null}
                 {areas.length ? (
                     <View className="mb-[14px] mt-[6px] flex-row items-center justify-between gap-[12px]">
-                        <Text className="min-w-0 flex-1 text-xs text-daf-text-tertiary dark:text-neutral-400">
+                        <Text className="min-w-0 flex-1 text-xs text-daf-text-tertiary dark:text-daf-text-tertiary">
                             {areas.length}{' '}
                             {areas.length === 1 ? 'area' : 'areas'} · {total}{' '}
                             changes{' '}
@@ -153,7 +153,7 @@ export default function AreasScreen() {
                 {areas.map((area) => (
                     <View
                         key={area.id}
-                        className={`${areaCardClass} mb-[10px] px-[16px] py-[14px]`}
+                        className={`${areaCardClass} mb-[10px] px-[16px] py-[14px] shadow-areaCard dark:shadow-areaCardDark`}
                     >
                         <Pressable
                             accessibilityRole="button"
@@ -165,7 +165,7 @@ export default function AreasScreen() {
                                 <View className="min-w-0 flex-1">
                                     <View className="flex-row items-center gap-[8px]">
                                         <Text
-                                            className="min-w-0 shrink text-[16px] font-semibold text-daf-text-primary dark:text-white"
+                                            className="min-w-0 shrink text-[16px] font-semibold text-daf-text-primary dark:text-daf-text-inverse"
                                             numberOfLines={1}
                                         >
                                             {area.name}
@@ -175,7 +175,7 @@ export default function AreasScreen() {
                                         </DafBadge>
                                     </View>
                                     <Text
-                                        className="mt-[3px] text-xs text-daf-text-tertiary dark:text-neutral-400"
+                                        className="mt-[3px] text-xs text-daf-text-tertiary dark:text-daf-text-tertiary"
                                         numberOfLines={1}
                                     >
                                         {area.definition} · {area.camera_count}{' '}
@@ -201,7 +201,7 @@ export default function AreasScreen() {
                                 </DafBadge>
                             ) : null}
                             {!area.counts.added && !area.counts.removed ? (
-                                <Text className="text-xs text-daf-text-tertiary dark:text-neutral-400">
+                                <Text className="text-xs text-daf-text-tertiary dark:text-daf-text-tertiary">
                                     {timeWindow === '7'
                                         ? 'Quiet week. Zero new boxes.'
                                         : 'No changes in this period.'}
@@ -216,7 +216,7 @@ export default function AreasScreen() {
                                 }
                             >
                                 <Icon name="bell" size={14} color="#828D9B" />
-                                <Text className="text-xs text-daf-text-tertiary dark:text-neutral-400">
+                                <Text className="text-xs text-daf-text-tertiary dark:text-daf-text-tertiary">
                                     {
                                         ALERT_MODES.find(
                                             (mode) =>

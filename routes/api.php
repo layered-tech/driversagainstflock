@@ -106,6 +106,7 @@ Route::prefix('v1/areas')->middleware([AuthenticateAreaDevice::class, 'throttle:
     Route::patch('{area}', [$controller, 'update'])->whereNumber('area');
     Route::delete('{area}', [$controller, 'destroy'])->whereNumber('area');
     Route::get('{area}/changes', [$controller, 'feed'])->whereNumber('area');
+    Route::get('{area}/cameras', [$controller, 'cameras'])->whereNumber('area');
     Route::get('{area}/changes/{change}', [$controller, 'change'])->whereNumber(['area', 'change']);
     Route::post('{area}/read', [$controller, 'markRead'])->whereNumber('area');
 });

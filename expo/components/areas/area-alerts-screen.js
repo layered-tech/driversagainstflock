@@ -80,7 +80,7 @@ export default function AreaAlertsScreen() {
                     />
                 ) : (
                     <>
-                        <Text className="mb-2 mt-3 text-[11px] uppercase tracking-[1px] text-daf-text-tertiary dark:text-neutral-400">
+                        <Text className="mb-2 mt-3 text-[11px] uppercase tracking-[1px] text-daf-text-tertiary dark:text-daf-text-tertiary">
                             Tell me when
                         </Text>
                         <View className={`${areaCardClass} px-4`}>
@@ -90,12 +90,11 @@ export default function AreaAlertsScreen() {
                             ].map(([key, label], index) => (
                                 <View
                                     key={key}
-                                    className={`min-h-[48px] flex-row items-center justify-between gap-2 ${index ? 'border-t border-daf-border dark:border-daf-border-dark' : ''}`}
+                                    className={`min-h-[36px] flex-row items-center gap-[10px] ${index ? 'border-t border-daf-border dark:border-daf-border-dark' : ''}`}
                                 >
-                                    <Text className="flex-1 text-[15px] font-medium text-daf-text-primary dark:text-white">
-                                        {label}
-                                    </Text>
                                     <Switch
+                                        className="h-[34px] w-[48px]"
+                                        hitSlop={6}
                                         accessibilityLabel={label}
                                         disabled={busy}
                                         value={area[key]}
@@ -108,10 +107,13 @@ export default function AreaAlertsScreen() {
                                         }}
                                         thumbColor="#FFFFFF"
                                     />
+                                    <Text className="flex-1 text-[15px] font-medium text-daf-text-primary dark:text-daf-text-inverse">
+                                        {label}
+                                    </Text>
                                 </View>
                             ))}
                         </View>
-                        <Text className="mb-2 mt-5 text-[11px] uppercase tracking-[1px] text-daf-text-tertiary dark:text-neutral-400">
+                        <Text className="mb-2 mt-5 text-[11px] uppercase tracking-[1px] text-daf-text-tertiary dark:text-daf-text-tertiary">
                             How often
                         </Text>
                         <View className={`${areaCardClass} px-4 py-2`}>
@@ -124,24 +126,24 @@ export default function AreaAlertsScreen() {
                                         disabled: busy,
                                     }}
                                     disabled={busy}
-                                    className="min-h-[48px] flex-row items-center gap-[10px] py-[6px]"
+                                    className="min-h-[48px] flex-row items-start gap-[10px] py-[6px]"
                                     onPress={() =>
                                         save({ alert_mode: mode.value })
                                     }
                                     testID={`area-alert-mode-${mode.value}`}
                                 >
                                     <View
-                                        className={`h-5 w-5 items-center justify-center rounded-full border-2 ${area.alert_mode === mode.value ? 'border-daf-brand' : 'border-daf-border-strong dark:border-daf-border-dark'}`}
+                                        className={`mt-[3px] h-5 w-5 items-center justify-center rounded-full border-2 ${area.alert_mode === mode.value ? 'border-daf-brand' : 'border-daf-border-strong dark:border-[#3A434E]'}`}
                                     >
                                         {area.alert_mode === mode.value ? (
                                             <View className="h-2.5 w-2.5 rounded-full bg-daf-brand" />
                                         ) : null}
                                     </View>
                                     <View className="flex-1">
-                                        <Text className="text-[15px] font-medium leading-[20px] text-daf-text-primary dark:text-white">
+                                        <Text className="text-[15px] font-medium leading-[20px] text-daf-text-primary dark:text-daf-text-inverse">
                                             {mode.label}
                                         </Text>
-                                        <Text className="mt-[2px] text-[13px] leading-[18px] text-daf-text-secondary dark:text-neutral-300">
+                                        <Text className="mt-[2px] text-[13px] leading-[18px] text-daf-text-secondary dark:text-[#A9B2BD]">
                                             {mode.description}
                                         </Text>
                                     </View>
@@ -156,15 +158,15 @@ export default function AreaAlertsScreen() {
                                 onPress={() => setEditingTime(!editingTime)}
                             >
                                 <View className="flex-1">
-                                    <Text className="text-[15px] font-semibold text-daf-text-primary dark:text-white">
+                                    <Text className="text-[15px] font-medium text-daf-text-primary dark:text-daf-text-inverse">
                                         Digest time
                                     </Text>
-                                    <Text className="mt-1 text-xs text-daf-text-tertiary dark:text-neutral-400">
+                                    <Text className="mt-1 text-xs text-daf-text-tertiary dark:text-daf-text-tertiary">
                                         Applies to daily and weekly · local time
                                     </Text>
                                 </View>
-                                <View className="rounded-dafPill border border-daf-border bg-daf-surface-alt px-[11px] py-[5px] dark:border-daf-border-dark dark:bg-daf-surface-inverse">
-                                    <Text className="font-dafMono text-[13px] font-semibold text-daf-text-primary dark:text-white">
+                                <View className="rounded-dafPill bg-daf-surface-alt px-[11px] py-[5px] dark:bg-[#1A2027]">
+                                    <Text className="font-dafMono text-[13px] font-semibold text-daf-text-primary dark:text-daf-text-inverse">
                                         {new Date(
                                             `2000-01-01T${area.digest_time}:00`,
                                         ).toLocaleTimeString(undefined, {
@@ -217,11 +219,11 @@ export default function AreaAlertsScreen() {
                         <Pressable
                             accessibilityRole="button"
                             disabled={busy}
-                            className="min-h-[48px] items-center justify-center"
+                            className="mt-[18px] min-h-[48px] items-center justify-center"
                             onPress={stopWatching}
                             testID="stop-watching-area"
                         >
-                            <Text className="text-[15px] font-semibold text-daf-alert">
+                            <Text className="text-[15px] font-semibold text-daf-text-primary dark:text-daf-text-inverse">
                                 Stop watching {area.name}
                             </Text>
                         </Pressable>

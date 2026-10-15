@@ -21,6 +21,7 @@ export function AreaMap({
     fitGeometry = true,
     zoomLevel = 12,
     bottomOverlap = 0,
+    overview = false,
 }) {
     const camera = useRef(null);
     const dark = useColorScheme() === 'dark';
@@ -107,14 +108,19 @@ export function AreaMap({
                 >
                     <Mapbox.FillLayer
                         id="area-fill"
-                        style={{ fillColor: '#1FBF6B', fillOpacity: 0.16 }}
+                        style={{
+                            fillColor: '#1FBF6B',
+                            fillEmissiveStrength: 1,
+                            fillOpacity: overview ? 0.1 : 0.16,
+                        }}
                     />
                     <Mapbox.LineLayer
                         id="area-outline"
                         style={{
                             lineColor: '#1FBF6B',
+                            lineEmissiveStrength: 1,
                             lineWidth: 2,
-                            lineDasharray: [3, 2],
+                            ...(overview ? {} : { lineDasharray: [3, 2] }),
                         }}
                     />
                 </Mapbox.ShapeSource>
@@ -130,7 +136,11 @@ export function AreaMap({
                 >
                     <Mapbox.LineLayer
                         id="area-drawing-line"
-                        style={{ lineColor: '#1FBF6B', lineWidth: 2 }}
+                        style={{
+                            lineColor: '#1FBF6B',
+                            lineWidth: 2,
+                            lineEmissiveStrength: 1,
+                        }}
                     />
                 </Mapbox.ShapeSource>
             ) : null}
@@ -154,6 +164,24 @@ export function AreaMap({
                     onChangePress?.(event.features[0]?.properties?.id)
                 }
             >
+                {overview ? (
+                    <Mapbox.CircleLayer
+                        id="area-change-halos"
+                        style={{
+                            circleRadius: 12,
+                            circleColor: '#FF4D4F',
+                            circleEmissiveStrength: 1,
+                            circleBlur: 0.6,
+                            circleOpacity: [
+                                'match',
+                                ['get', 'kind'],
+                                'removed',
+                                0.2,
+                                0.55,
+                            ],
+                        }}
+                    />
+                ) : null}
                 <Mapbox.CircleLayer
                     id="area-change-circles"
                     style={{
@@ -168,15 +196,37 @@ export function AreaMap({
                             16,
                             8,
                         ],
-                        circleColor: [
-                            'match',
-                            ['get', 'kind'],
-                            'removed',
-                            '#1FBF6B',
-                            '#FF4D4F',
-                        ],
+                        circleColor: overview
+                            ? '#FF4D4F'
+                            : [
+                                  'match',
+                                  ['get', 'kind'],
+                                  'removed',
+                                  '#1FBF6B',
+                                  '#FF4D4F',
+                              ],
                         circleStrokeColor: '#FFFFFF',
+                        circleEmissiveStrength: 1,
                         circleStrokeWidth: 1.5,
+                        ...(overview
+                            ? {
+                                  circleRadius: 5,
+                                  circleOpacity: [
+                                      'match',
+                                      ['get', 'kind'],
+                                      'removed',
+                                      0.45,
+                                      1,
+                                  ],
+                                  circleStrokeOpacity: [
+                                      'match',
+                                      ['get', 'kind'],
+                                      'removed',
+                                      0.45,
+                                      1,
+                                  ],
+                              }
+                            : {}),
                     }}
                 />
             </Mapbox.ShapeSource>

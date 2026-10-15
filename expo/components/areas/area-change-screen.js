@@ -107,11 +107,11 @@ export default function AreaChangeScreen() {
                                     key={label}
                                     className={wide ? 'w-full' : 'w-1/2 pr-3'}
                                 >
-                                    <Text className="mb-1 text-[11px] uppercase tracking-[1px] text-daf-text-tertiary dark:text-neutral-400">
+                                    <Text className="mb-1 text-[11px] uppercase tracking-[1px] text-daf-text-tertiary dark:text-daf-text-tertiary">
                                         {label}
                                     </Text>
                                     <Text
-                                        className={`text-[13px] text-daf-text-primary dark:text-white ${['Added', 'Removed', 'OSM ID'].includes(label) ? 'font-dafMono' : 'font-medium'}`}
+                                        className={`text-[13px] text-daf-text-primary dark:text-daf-text-inverse ${['Added', 'Removed', 'OSM ID'].includes(label) ? 'font-dafMono' : 'font-medium'}`}
                                     >
                                         {value}
                                     </Text>

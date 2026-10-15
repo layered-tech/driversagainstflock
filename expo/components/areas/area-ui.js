@@ -16,20 +16,33 @@ export function AreaText({ className = '', ...props }) {
     return <Text {...props} className={areaTextClassName(className)} />;
 }
 
-export function AreaButton(props) {
-    return <DafButton {...props} textClassName="font-areaSemibold" />;
+export function AreaButton({ className = '', variant = 'primary', ...props }) {
+    return (
+        <DafButton
+            {...props}
+            variant={variant}
+            className={`${variant === 'ghost' ? '' : 'shadow-areaControl'} ${variant === 'secondary' ? 'dark:!bg-[#1A2027]' : ''} ${className}`}
+            textClassName="font-areaSemibold"
+        />
+    );
 }
+
+export const AREA_WINDOWS = [
+    { value: '24h', label: '24h' },
+    { value: '7', label: '7 days' },
+    { value: '30', label: '30 days' },
+];
 
 export function AreaBadge({ children, tone = 'neutral', kind = false }) {
     return (
         <View
-            className={`self-start rounded-dafPill ${kind ? 'border border-daf-border px-[7px] py-[2px] dark:border-daf-border-dark' : tone === 'alert' ? 'bg-daf-alert/10 px-[10px] py-[4px]' : tone === 'brand' ? 'bg-daf-brand/10 px-[10px] py-[4px]' : 'bg-daf-surface-alt px-[10px] py-[4px] dark:bg-daf-surface-dark'}`}
+            className={`self-start rounded-dafPill ${kind ? 'border border-daf-border px-[7px] py-[2px] dark:border-daf-border-dark' : tone === 'alert' ? 'bg-daf-alert/10 px-[10px] py-[4px]' : tone === 'brand' ? 'bg-daf-brand/10 px-[10px] py-[4px] dark:bg-daf-brand/[0.16]' : 'bg-daf-surface-alt px-[10px] py-[4px] dark:bg-[#1A2027]'}`}
         >
             <AreaText
                 className={
                     kind
-                        ? 'font-dafMono text-[9px] font-bold uppercase tracking-[0.72px] text-daf-text-secondary dark:text-neutral-300'
-                        : `text-[12px] font-semibold ${tone === 'alert' ? 'text-[#E5383B] dark:text-daf-alert' : tone === 'brand' ? 'text-daf-text-brand dark:text-daf-brand' : 'text-daf-text-secondary dark:text-neutral-300'}`
+                        ? 'font-dafMono text-[9px] font-bold uppercase tracking-[0.72px] text-daf-text-secondary dark:text-[#A9B2BD]'
+                        : `text-[12px] font-semibold ${tone === 'alert' ? 'text-[#E5383B] ' : tone === 'brand' ? 'text-daf-text-brand dark:text-daf-brand-hover' : 'text-daf-text-secondary dark:text-[#A9B2BD]'}`
                 }
             >
                 {children}
@@ -48,14 +61,14 @@ export function AreaSegmentedControl({
 }) {
     return (
         <View
-            className={`flex-row rounded-dafPill border border-daf-border bg-daf-surface-alt p-[4px] dark:border-daf-border-dark dark:bg-daf-surface-dark ${compact ? 'w-[170px]' : 'w-full'} ${className}`}
+            className={`flex-row rounded-dafPill border border-daf-border bg-daf-surface-alt p-[4px] dark:border-daf-border-dark dark:bg-[#1A2027] ${compact ? 'w-[180px]' : 'w-full'} ${className}`}
         >
             {options.map((option) => (
                 <Pressable
                     key={option.value}
                     accessibilityRole="button"
                     accessibilityState={{ selected: value === option.value }}
-                    className={`flex-1 items-center justify-center rounded-dafPill ${compact ? 'min-h-[24px]' : 'min-h-[30px]'} ${value === option.value ? 'bg-white dark:bg-daf-surface-inverse' : ''}`}
+                    className={`flex-1 items-center justify-center rounded-dafPill ${compact ? 'min-h-[28px]' : 'min-h-[40px]'} ${value === option.value ? 'bg-white shadow-areaControl dark:bg-daf-surface-dark' : 'shadow-none'}`}
                     onPress={() => onChange(option.value)}
                     testID={
                         testIDPrefix
@@ -65,7 +78,7 @@ export function AreaSegmentedControl({
                     hitSlop={compact ? { top: 10, bottom: 10 } : undefined}
                 >
                     <AreaText
-                        className={`${compact ? 'text-[11px]' : 'text-[13px]'} font-semibold ${value === option.value ? 'text-daf-text-primary dark:text-white' : 'text-daf-text-secondary dark:text-neutral-300'}`}
+                        className={`${compact ? 'text-[12px]' : 'text-[13px]'} font-semibold ${value === option.value ? 'text-daf-text-primary dark:text-daf-text-inverse' : 'text-daf-text-tertiary'}`}
                         numberOfLines={1}
                     >
                         {option.label}
@@ -80,7 +93,7 @@ export function AreaSheet({ title, subtitle, children, onLayout, testID }) {
     const insets = useSafeAreaInsets();
     return (
         <View
-            className="max-h-[75%] overflow-hidden rounded-t-dafSheet border-t border-daf-border-glass bg-white dark:border-daf-border-glass-dark dark:bg-daf-surface-dark"
+            className="max-h-[75%] overflow-hidden rounded-t-dafSheet border-t border-daf-border-glass bg-white shadow-areaSheet dark:border-daf-border-glass-dark dark:bg-[#11151B] dark:shadow-areaSheetDark"
             onLayout={onLayout}
             testID={testID}
         >
@@ -90,12 +103,12 @@ export function AreaSheet({ title, subtitle, children, onLayout, testID }) {
                 contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
             >
                 <View className="px-[16px] pt-[8px]">
-                    <View className="mb-[12px] h-[5px] w-[36px] self-center rounded-full bg-daf-border-strong dark:bg-daf-border-dark" />
-                    <AreaText className="font-dafDisplay text-[21px] font-bold tracking-[-0.42px] text-daf-text-primary dark:text-white">
+                    <View className="mb-[12px] h-[5px] w-[32px] self-center rounded-full bg-daf-border-strong dark:bg-[#3A434E]" />
+                    <AreaText className="font-dafDisplay text-[21px] font-bold tracking-[-0.42px] text-daf-text-primary dark:text-daf-text-inverse">
                         {title}
                     </AreaText>
                     {subtitle ? (
-                        <AreaText className="mb-[14px] mt-[2px] text-[13px] text-daf-text-secondary dark:text-neutral-300">
+                        <AreaText className="mb-[14px] mt-[2px] text-[13px] text-daf-text-secondary dark:text-[#A9B2BD]">
                             {subtitle}
                         </AreaText>
                     ) : null}
@@ -113,13 +126,13 @@ export function AreaHeader({ title, subtitle, root = false, trailing }) {
     const dark = useColorScheme() === 'dark';
     return (
         <View
-            className="flex-row items-center gap-2 px-3 pb-3"
+            className="flex-row items-center gap-[4px] px-[10px] pb-[6px]"
             style={{ paddingTop: insets.top + 8 }}
         >
             <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={root ? 'Back to map' : 'Back'}
-                className="h-11 w-9 items-center justify-center"
+                className="h-[40px] w-[40px] items-center justify-center"
                 onPress={() =>
                     root
                         ? router.replace('/')
@@ -136,14 +149,14 @@ export function AreaHeader({ title, subtitle, root = false, trailing }) {
             </Pressable>
             <View className="min-w-0 flex-1">
                 <AreaText
-                    className="font-dafDisplay text-[22px] font-bold text-daf-text-primary dark:text-white"
+                    className="font-dafDisplay text-[22px] font-bold leading-[25px] tracking-[-0.44px] text-daf-text-primary dark:text-daf-text-inverse"
                     numberOfLines={1}
                 >
                     {title}
                 </AreaText>
                 {subtitle ? (
                     <AreaText
-                        className="mt-0.5 text-xs text-daf-text-tertiary dark:text-neutral-400"
+                        className="mt-0.5 text-xs text-daf-text-tertiary dark:text-daf-text-tertiary"
                         numberOfLines={1}
                     >
                         {subtitle}
@@ -183,7 +196,7 @@ export function AreaPrivacy({ alerts = false }) {
     return (
         <View className="flex-row items-start gap-2 py-4">
             <Icon name="shield-check" color="#828D9B" size={16} />
-            <AreaText className="min-w-0 flex-1 text-xs leading-[18px] text-daf-text-tertiary dark:text-neutral-400">
+            <AreaText className="min-w-0 flex-1 text-xs leading-[18px] text-daf-text-tertiary dark:text-daf-text-tertiary">
                 {alerts
                     ? 'Pushes go to this phone through an anonymous device token. No account or email needed.'
                     : 'No account needed. Your areas are tied to this phone. We store the boundaries and alert settings anonymously to check for changes. Stop watching to delete an area.'}

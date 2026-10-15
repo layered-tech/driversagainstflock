@@ -30,7 +30,7 @@
       <span style="font-family:var(--font-display); font-weight:700; font-size:24px; letter-spacing:var(--ls-heading);">Drivers Against Flock — Mobile</span>
     </div>
     <p style="font-size:15px; color:var(--text-secondary); margin:0 0 18px; max-width:70ch;">Native-feeling iOS screens built from the shared design system. The gallery is split into focused pages — by what the driver is doing — so each one loads fast.</p>
-    <div style="display:flex; flex-wrap:wrap; gap:8px; margin:0 0 36px;"><span style="display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-pill);"><span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; color:var(--surface-card); background:var(--text-primary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Phone</span><a href="FoldApp.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Foldable</a><a href="TabletApp.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Tablet</a></span></div>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin:0 0 36px;"><span style="display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-pill);"><span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; color:var(--surface-card); background:var(--text-primary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Phone</span><a href="FoldApp.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Foldable</a><a href="TabletApp.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Tablet</a></span><span style="display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-pill);"><button aria-label="Light theme" aria-pressed="{{ isLight }}" onClick="{{ setLight }}" style="display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; border:none; cursor:pointer; color:{{ lightFg }}; background:{{ lightBg }}; padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;" type="button"><svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="14"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>Light</button><button aria-label="Dark theme" aria-pressed="{{ isDark }}" onClick="{{ setDark }}" style="display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; border:none; cursor:pointer; color:{{ darkFg }}; background:{{ darkBg }}; padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;" type="button"><svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="14"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>Dark</button></span></div>
 
     <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px;">
 
@@ -104,8 +104,20 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:760},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
 class Component extends DCLogic {
+
+  themeVals() {
+    const theme = this.state.themeOverride ?? this.props.theme ?? 'light';
+    const dark = theme === 'dark';
+    const on = { fg: 'var(--surface-card)', bg: 'var(--text-primary)' }, off = { fg: 'var(--text-secondary)', bg: 'transparent' };
+    return { theme, isDark: dark, isLight: !dark,
+      lightFg: dark ? off.fg : on.fg, lightBg: dark ? off.bg : on.bg, darkFg: dark ? on.fg : off.fg, darkBg: dark ? on.bg : off.bg,
+      setLight: () => this.setTheme('light'), setDark: () => this.setTheme('dark') };
+  }
+  setTheme(t) { try { sessionStorage.setItem('daf-gallery-theme', t); } catch (_) {} this.setState({ themeOverride: t }); }
+  componentDidMount() { try { const t = sessionStorage.getItem('daf-gallery-theme'); if (t && t !== (this.props.theme ?? 'light')) this.setState({ themeOverride: t }); } catch (_) {} if (super.componentDidMount) super.componentDidMount(); }
+  state = { themeOverride: null };
   renderVals() {
-    return { theme: this.props.theme ?? 'light' };
+    return { ...this.themeVals() };
   }
 }
 </script>

@@ -35,6 +35,8 @@ const files = [
     '../../areas/area-change-screen.js',
     '../../areas/area-alerts-screen.js',
     '../../areas/areas-screen.js',
+    '../../areas/area-feed-screen.js',
+    '../../areas/area-changes-map-screen.js',
 ];
 const sources = files.map(source);
 const css = await postcss([
@@ -45,19 +47,21 @@ const css = await postcss([
 ]).process('@tailwind utilities;', { from: undefined });
 const compiled = cssToReactNativeRuntime(css.css, { inlineRem: 14 });
 
-function styleFor(className) {
+function styleFor(className, dark = false) {
     const style = {};
     for (const name of className.split(/\s+/)) {
-        if (name.startsWith('dark:')) continue;
+        if (name.startsWith('dark:') && !dark) continue;
         for (const rule of compiled.rules[name]?.n ?? []) {
             for (const declaration of rule.d ?? []) {
                 if (declaration.length === 1)
                     Object.assign(style, declaration[0]);
                 else if (
-                    declaration[1] === 'color' &&
+                    ['color', 'backgroundColor', 'borderColor'].includes(
+                        declaration[1],
+                    ) &&
                     declaration[0]?.[1] === 'rgba'
                 ) {
-                    style.color = `#${declaration[0][2]
+                    style[declaration[1]] = `#${declaration[0][2]
                         .slice(0, 3)
                         .map((value) => value.toString(16).padStart(2, '0'))
                         .join('')}`;
@@ -67,6 +71,64 @@ function styleFor(className) {
     }
     return style;
 }
+
+test('Area theme utilities compile sheet, card, selected control and secondary text colors', () => {
+    for (const [classes, property, light, dark] of [
+        ['bg-white dark:bg-[#11151B]', 'backgroundColor', '#ffffff', '#11151b'],
+        [
+            'bg-white dark:bg-daf-surface-dark',
+            'backgroundColor',
+            '#ffffff',
+            '#161b22',
+        ],
+        [
+            'bg-daf-surface-alt dark:bg-[#1A2027]',
+            'backgroundColor',
+            '#eff2f5',
+            '#1a2027',
+        ],
+        [
+            'text-daf-text-primary dark:text-daf-text-inverse',
+            'color',
+            '#11151b',
+            '#f5f7f9',
+        ],
+        [
+            'text-daf-text-secondary dark:text-[#A9B2BD]',
+            'color',
+            '#4a5562',
+            '#a9b2bd',
+        ],
+        ['text-daf-text-tertiary', 'color', '#828d9b', '#828d9b'],
+    ]) {
+        assert.equal(styleFor(classes)[property]?.toLowerCase(), light);
+        assert.equal(styleFor(classes, true)[property]?.toLowerCase(), dark);
+    }
+    for (const [name, offset, blur] of [
+        ['shadow-areaCard', 6, 20],
+        ['shadow-areaSheet', -8, 40],
+    ]) {
+        const rule = compiled.rules[name].n[0];
+        assert.ok(rule.d.some((declaration) => declaration[1] === 'boxShadow'));
+        const shadow = rule.variables.find(
+            ([name]) => name === '--tw-shadow',
+        )[1];
+        assert.equal(shadow[1], offset);
+        assert.equal(shadow[2], blur);
+    }
+    for (const name of ['bg-daf-alert/[0.12]', 'dark:bg-daf-brand/[0.16]']) {
+        assert.ok(
+            compiled.rules[name],
+            `${name} must produce a native background`,
+        );
+    }
+    assert.equal(
+        compiled.rules['shadow-none'].variables,
+        true,
+        'Inactive segments retain the shadow variable provider before selection changes',
+    );
+    assert.ok(sources[0].includes(": 'shadow-none'"));
+});
 
 for (const [classes, family] of [
     ['text-xs', 'HankenGrotesk-Regular'],
@@ -179,4 +241,29 @@ test('Alert frequency descriptions compile to secondary 13px text and medium lab
         assert.equal(style.fontFamily, family);
         assert.equal(style.color.toLowerCase(), color.toLowerCase());
     }
+});
+
+test('Alert switches use the compact phone sizing with a larger touch target', () => {
+    const ast = parse(sources[3], { sourceType: 'module', plugins: ['jsx'] });
+    const control = nodes(
+        ast,
+        (node) =>
+            node.type === 'JSXOpeningElement' && node.name.name === 'Switch',
+    )[0];
+    const classes = control.attributes.find(
+        (attribute) => attribute.name?.name === 'className',
+    ).value.value;
+    const style = styleFor(classes);
+    assert.equal(style.height, 34);
+    assert.equal(style.width, 48);
+    assert.equal(
+        control.attributes.find(
+            (attribute) => attribute.name?.name === 'hitSlop',
+        ).value.expression.value,
+        6,
+    );
+    assert.ok(
+        compiled.rules['dark:!bg-[#1A2027]'].i,
+        'Secondary buttons override the shared dark surface',
+    );
 });

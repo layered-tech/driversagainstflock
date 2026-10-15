@@ -7,6 +7,7 @@ use App\Http\Requests\Api\V1\StoreAreaSubscriptionRequest;
 use App\Http\Requests\Api\V1\UpdateAreaSubscriptionRequest;
 use App\Models\AreaDevice;
 use App\Models\AreaSubscription;
+use App\Models\OsmNode;
 use App\Services\Areas\AreaChanges;
 use Illuminate\Http\Client\HttpClientException;
 use Illuminate\Http\JsonResponse;
@@ -86,6 +87,18 @@ class AreaSubscriptionController extends Controller
         $changes = $query->orderByDesc('osm_updated_at')->orderByDesc('id')->paginate(50)->through(fn (object $change): array => $this->changes->normalize($change));
 
         return response()->json(['area' => $this->changes->summary($subscription), 'counts' => $counts, 'changes' => $changes, 'read_through_id' => $snapshot]);
+    }
+
+    public function cameras(Request $request, int $area): JsonResponse
+    {
+        $request->validate(['page' => ['sometimes', 'integer', 'min:1']]);
+        $subscription = $this->owned($request, $area);
+        $cameras = $this->changes->cameras($subscription->geometry)->orderBy('osm_id')
+            ->paginate(500, ['osm_id', 'longitude', 'latitude'])
+            ->through(fn (OsmNode $camera): array => ['id' => (int) $camera->osm_id, 'kind' => 'current',
+                'longitude' => (float) $camera->longitude, 'latitude' => (float) $camera->latitude]);
+
+        return response()->json(['area' => $subscription->only(['id', 'name', 'kind', 'geometry', 'bounds']), 'cameras' => $cameras]);
     }
 
     public function markRead(Request $request, int $area): JsonResponse
