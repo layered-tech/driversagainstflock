@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+import { runInNewContext } from 'node:vm';
 
 function readSource(relativePath) {
     return readFileSync(new URL(relativePath, import.meta.url), 'utf8');
@@ -65,6 +66,42 @@ const wazePoliceAlertsSource = readSource('../use-waze-police-alerts.js');
 const wazePoliceAlertStoreSource = readSource('../waze-police-alert-store.js');
 
 describe('in-house road-matched location integration', () => {
+    test('remounts the native puck when its image set changes on either platform', () => {
+        const keyExpression = mapCanvasSource.match(
+            /const locationPuckKey =\s*([\s\S]*?);/,
+        )?.[1];
+        assert.ok(keyExpression);
+        assert.match(
+            mapCanvasSource,
+            /<Mapbox\.LocationPuck\s+key=\{locationPuckKey\}/,
+        );
+
+        for (const platform of ['android', 'ios']) {
+            const key = (visible, bearingImage) =>
+                runInNewContext(keyExpression, {
+                    Platform: { OS: platform },
+                    navigationPuckIsVisible: visible,
+                    navigationPuckBearingImage: bearingImage,
+                });
+            const defaultKey = key(false, 'phone-arrow');
+            const navigationKey = key(true, 'phone-arrow');
+            const autoPlayKey = key(true, 'auto-arrow');
+
+            assert.notEqual(
+                defaultKey,
+                navigationKey,
+                `${platform}: default to navigation`,
+            );
+            assert.notEqual(
+                navigationKey,
+                autoPlayKey,
+                `${platform}: phone to car images`,
+            );
+            assert.equal(navigationKey, key(true, 'phone-arrow'));
+            assert.equal(defaultKey, key(false, 'auto-arrow'));
+        }
+    });
+
     test('exposes a unique native puck readiness value to Maestro', () => {
         assert.match(roadMatchingE2EProbeSource, /e2e-native-puck-proof/);
         assert.match(
