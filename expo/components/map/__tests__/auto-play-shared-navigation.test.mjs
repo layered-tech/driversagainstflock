@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 import { getAutoPlaySharedNavigationAction } from '../../auto-play-shared-navigation.js';
 
 const autoPlayPackageRoot = process.env.AUTO_PLAY_PACKAGE_ROOT
@@ -389,14 +390,64 @@ describe('shared phone and car navigation contract', () => {
         );
     });
 
-    test('always forwards an Android Auto host cancellation to JavaScript', () => {
+    test('forwards live Android Auto cancellations but keeps destruction from stopping the phone', () => {
         assert.match(
             androidAutoMapTemplateSource,
-            /override fun onStopNavigation\(\) \{\s*navigationEnded\(\)\s*config\.onStopNavigation\(\)\s*\}/,
+            /val sessionLifecycle = AndroidAutoSession\.getRootLifecycle\(\)/,
+        );
+        assert.match(
+            androidAutoMapTemplateSource,
+            /override fun onStopNavigation\(\) \{\s*navigationEnded\(\)[\s\S]*?if \(sessionLifecycle\?\.currentState == Lifecycle\.State\.DESTROYED\) \{\s*return\s*\}\s*config\.onStopNavigation\(\)/,
         );
         assert.doesNotMatch(
             androidAutoMapTemplateSource,
             /Lifecycle\.State\.RESUMED/,
         );
     });
+
+    for (const connection of [
+        'current',
+        'disconnected',
+        'reconnected',
+        'replaced',
+    ]) {
+        test(`host stop only ends navigation for its current template: ${connection}`, () => {
+            const mapTemplate = {};
+            const stops = [];
+            const context = {
+                autoPlayConnectionGeneration: 1,
+                connectionGeneration: 1,
+                logAutoPlayPlatformAction() {},
+                mapTemplate,
+                rootMapTemplate: mapTemplate,
+                stopAutoPlayNavigation: (options) => stops.push(options),
+            };
+            const callback = autoPlaySource.match(
+                /onStopNavigation: (\(\) => \{[\s\S]*?\n\s*\}),/,
+            )[1];
+            const onStopNavigation = vm.runInNewContext(
+                `(${callback})`,
+                context,
+            );
+
+            if (connection === 'disconnected') {
+                context.autoPlayConnectionGeneration += 1;
+                context.rootMapTemplate = null;
+            } else if (connection === 'reconnected') {
+                context.autoPlayConnectionGeneration += 2;
+                context.rootMapTemplate = {};
+            } else if (connection === 'replaced') {
+                context.rootMapTemplate = {};
+            }
+
+            onStopNavigation();
+
+            assert.equal(stops.length, connection === 'current' ? 1 : 0);
+
+            if (connection === 'current') {
+                assert.equal(stops[0].notifyTemplate, false);
+                assert.equal(stops[0].publishSharedState, undefined);
+            }
+        });
+    }
 });
