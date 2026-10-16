@@ -222,7 +222,7 @@ describe('Auto Play template state', () => {
         );
     });
 
-    test('shows only configured Home and Work shortcuts while idle', () => {
+    test('shows only configured Home and Work shortcuts regardless of route state', () => {
         assert.deepEqual(
             getAutoPlayPrimaryLocationTypes({
                 hasActiveNavigation: false,
@@ -262,11 +262,20 @@ describe('Auto Play template state', () => {
                     work: { id: 'work' },
                 },
             }),
-            [],
+            ['home', 'work'],
         );
     });
 
     test('uses Android Auto icon order and CarPlay display order', () => {
+        for (const hasActiveNavigation of [false, true]) {
+            assert.deepEqual(
+                getAutoPlayPrimaryLocationHeaderActionTypes({
+                    hasActiveNavigation,
+                    primaryLocations: { home: null, work: null },
+                }).android,
+                [],
+            );
+        }
         assert.deepEqual(
             getAutoPlayPrimaryLocationHeaderActionTypes({
                 hasActiveNavigation: false,

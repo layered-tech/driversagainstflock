@@ -42,7 +42,7 @@ test('Android Auto and CarPlay expose route mode in header actions', () => {
     );
     assert.match(
         headerActionsSource,
-        /android:[\s\S]*?usesSearchOnlyRootHeaderAction === true[\s\S]*?\[searchButton\][\s\S]*?drivingMapViewButton/,
+        /android: \[\s*searchButton,\s*\.\.\.androidPrimaryLocationButtons,\s*\.\.\.\(routeStepsButton \? \[routeStepsButton\] : \[\]\),\s*mapOptionsButton/,
     );
     assert.match(
         headerActionsSource,

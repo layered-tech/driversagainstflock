@@ -67,7 +67,6 @@ import {
     isLocationPuckCameraFollowActiveAsync,
     isLocationPuckCameraFollowSupported,
     isLocationPuckCameraIdleAsync,
-    isLocationPuckLocationProviderSupported,
     setLocationPuckCameraFollowAsync,
 } from './location-puck-3d';
 import { createLocationPuck3DLifecycle } from './location-puck-3d-lifecycle';
@@ -81,6 +80,7 @@ import {
 } from './location-puck-camera-follow-lifecycle';
 import {
     getLocationPuckCameraOwnershipKey,
+    isLocationPuckProviderReady,
     shouldShowNavigationPuck,
     shouldSuppressLocationPuck2DFallback,
     shouldUseAutoPlayNavigationPuckImages,
@@ -688,11 +688,7 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
     const [locationPuckCameraFollowStatus, setLocationPuckCameraFollowStatus] =
         useState('inactive');
     const [locationPuckProviderStatus, setLocationPuckProviderStatus] =
-        useState(() =>
-            isLocationPuckLocationProviderSupported()
-                ? 'inactive'
-                : 'unsupported',
-        );
+        useState('inactive');
     const [locationPuckMapLoadEpoch, setLocationPuckMapLoadEpoch] = useState(0);
     const userLocationPuckAboveLayer =
         directionsRouteIsVisible && locationPuckMapLoadEpoch > 0
@@ -700,6 +696,14 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
             : undefined;
     const locationPuckNativeProviderIsReady =
         locationPuckProviderStatus === 'native';
+    // Activating the puck early subscribes Mapbox's default provider, whose
+    // non-finite compass bearings can corrupt the persistent layer's JSON.
+    const locationPuckProviderIsReady = isLocationPuckProviderReady({
+        platform: Platform.OS,
+        usesSharedLocationProvider,
+        isDrivingMode,
+        providerStatus: locationPuckProviderStatus,
+    });
     const locationPuckProviderUsesFallback =
         locationPuckProviderStatus === 'fallback' ||
         locationPuckProviderStatus === 'unsupported';
@@ -744,7 +748,8 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
         getLocationPuckCameraFollowFallbackProps({
             followProps: locationBoundCameraFollowProps,
             followUserMode: drivingCameraFollowMode,
-            mapIsReady: locationPuckMapLoadEpoch > 0,
+            mapIsReady:
+                locationPuckMapLoadEpoch > 0 && locationPuckProviderIsReady,
             nativeFollowIsSupported:
                 nativeLocationPuckCameraControllerIsEligible,
             nativeFollowStatus: locationPuckCameraFollowStatus,
@@ -1636,7 +1641,8 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
             ))}
             {locationAccessGranted && userLocationPuckVisible ? (
                 <>
-                    {!locationPuck2DFallbackIsSuppressed ? (
+                    {locationPuckProviderIsReady &&
+                    !locationPuck2DFallbackIsSuppressed ? (
                         <>
                             <NavigationPuckImages
                                 autoPlayNavigationPuckSize={

@@ -2,12 +2,77 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
     getLocationPuckCameraOwnershipKey,
+    isLocationPuckProviderReady,
     shouldShowNavigationPuck,
     shouldSuppressLocationPuck2DFallback,
     shouldUseAutoPlayNavigationPuckImages,
 } from '../location-puck-state.js';
 
 describe('location puck state', () => {
+    test('holds Android puck and follow activation while shared location is unavailable', () => {
+        for (const providerStatus of [
+            'inactive',
+            'waiting-location',
+            'preparing-native',
+            'recovering',
+        ]) {
+            for (const isDrivingMode of [false, true]) {
+                assert.equal(
+                    isLocationPuckProviderReady({
+                        platform: 'android',
+                        usesSharedLocationProvider: true,
+                        isDrivingMode,
+                        providerStatus,
+                    }),
+                    false,
+                    providerStatus,
+                );
+            }
+        }
+        for (const providerStatus of ['native', 'fallback', 'unsupported']) {
+            assert.equal(
+                isLocationPuckProviderReady({
+                    platform: 'android',
+                    usesSharedLocationProvider: true,
+                    isDrivingMode: false,
+                    providerStatus,
+                }),
+                true,
+                providerStatus,
+            );
+        }
+    });
+
+    test('preserves iOS and maps that deliberately use the device provider', () => {
+        assert.equal(
+            isLocationPuckProviderReady({
+                platform: 'ios',
+                usesSharedLocationProvider: true,
+                isDrivingMode: true,
+                providerStatus: 'inactive',
+            }),
+            true,
+        );
+        assert.equal(
+            isLocationPuckProviderReady({
+                platform: 'android',
+                usesSharedLocationProvider: false,
+                isDrivingMode: false,
+                providerStatus: 'inactive',
+            }),
+            true,
+        );
+        assert.equal(
+            isLocationPuckProviderReady({
+                platform: 'android',
+                usesSharedLocationProvider: false,
+                isDrivingMode: true,
+                providerStatus: 'inactive',
+            }),
+            false,
+        );
+    });
+
     test('always uses the navigation arrow on Auto Play surfaces', () => {
         assert.equal(
             shouldShowNavigationPuck({

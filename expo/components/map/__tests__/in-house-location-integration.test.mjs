@@ -66,6 +66,29 @@ const wazePoliceAlertsSource = readSource('../use-waze-police-alerts.js');
 const wazePoliceAlertStoreSource = readSource('../waze-police-alert-store.js');
 
 describe('in-house road-matched location integration', () => {
+    test('gates Android puck and follow on shared provider readiness', () => {
+        assert.match(
+            mapCanvasSource,
+            /\[locationPuckProviderStatus, setLocationPuckProviderStatus\] =\s*useState\('inactive'\)/,
+        );
+        assert.match(
+            mapCanvasSource,
+            /const locationPuckProviderIsReady =\s*isLocationPuckProviderReady\(/,
+        );
+        assert.match(
+            mapCanvasSource,
+            /mapIsReady:\s*locationPuckMapLoadEpoch > 0 && locationPuckProviderIsReady/,
+        );
+        assert.match(
+            mapCanvasSource,
+            /locationPuckProviderIsReady &&[\s\S]*?!locationPuck2DFallbackIsSuppressed[\s\S]*?<Mapbox\.LocationPuck/,
+        );
+        assert.match(
+            drivingLocationProviderSource,
+            /enabled && !providerLocation\s*\? 'waiting-location'/,
+        );
+    });
+
     test('remounts the native puck when its image set changes on either platform', () => {
         const keyExpression = mapCanvasSource.match(
             /const locationPuckKey =\s*([\s\S]*?);/,

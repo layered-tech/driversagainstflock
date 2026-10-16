@@ -117,14 +117,7 @@ export function getAutoPlayHeaderButtonVisibility({
     };
 }
 
-export function getAutoPlayPrimaryLocationTypes({
-    hasActiveNavigation,
-    primaryLocations,
-}) {
-    if (hasActiveNavigation) {
-        return [];
-    }
-
+export function getAutoPlayPrimaryLocationTypes({ primaryLocations }) {
     return ['home', 'work'].filter((type) => Boolean(primaryLocations?.[type]));
 }
 
@@ -133,13 +126,12 @@ export function getAutoPlayPrimaryLocationHeaderActionTypes({
     primaryLocations,
 }) {
     const types = getAutoPlayPrimaryLocationTypes({
-        hasActiveNavigation,
         primaryLocations,
     });
 
     return {
-        android: types,
-        ios: [...types].reverse(),
+        android: hasActiveNavigation ? [] : types,
+        ios: hasActiveNavigation ? [] : [...types].reverse(),
     };
 }
 

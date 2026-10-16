@@ -354,7 +354,7 @@ describe('Android Auto E2E helpers', () => {
             portrait.dhuConfig,
             'config/android-auto-dhu-portrait.ini',
         );
-        assert.deepEqual(portrait.touchOffset, { x: 439, y: 0 });
+        assert.deepEqual(portrait.touchOffset, { x: 364, y: 0 });
         assert.notDeepEqual(portrait.layouts, landscape.layouts);
     });
 
@@ -376,10 +376,10 @@ describe('Android Auto E2E helpers', () => {
         runner.tapDhu({ x: 635, y: 123 });
         await runner.runStep({ type: 'tapMap' });
         assert.deepEqual(commands, [
-            'tap 43 1040',
-            'tap 419 1040',
-            'tap 196 123',
-            'tap 651 380',
+            'tap 118 1040',
+            'tap 494 1040',
+            'tap 271 123',
+            'tap 726 380',
         ]);
     });
 
@@ -402,12 +402,6 @@ describe('Android Auto E2E helpers', () => {
             maps,
             /resolution = 1280x720\ndpi = 160\nmarginheight = 220\ncropmargins = true/,
         );
-        for (const config of [basic, maps]) {
-            assert.match(
-                config,
-                /resolution = 1920x1080\ndpi = 160\nmarginwidth = 878\nnormalizedpi = true\ncropmargins = true/,
-            );
-        }
         for (const path of ['../../package.json', '../../../package.json']) {
             const { scripts } = JSON.parse(
                 readFileSync(new URL(path, import.meta.url), 'utf8'),
@@ -422,6 +416,39 @@ describe('Android Auto E2E helpers', () => {
             );
         }
     });
+
+    for (const version of ['2.0', '2.1']) {
+        test(`matches the captured Terrain primary display in DHU ${version}`, () => {
+            const config = readFileSync(
+                new URL(
+                    `../../config/android-auto-dhu-portrait${version === '2.1' ? '-2.1' : ''}.ini`,
+                    import.meta.url,
+                ),
+                'utf8',
+            );
+            const primary = config.split('[general]')[1].split('[display:')[0];
+            const settings = Object.fromEntries(
+                primary
+                    .trim()
+                    .split('\n')
+                    .map((line) => line.split(' = ')),
+            );
+            const [width, height] = settings.resolution.split('x').map(Number);
+            const [top, bottom, left, right] = settings.margins
+                .split(',')
+                .map(Number);
+
+            assert.deepEqual(
+                [width - left - right, height - top - bottom],
+                [1191, 1080],
+            );
+            assert.equal(settings.dpi, '159');
+            assert.equal(settings.contentinsets, '15,49,15,15');
+            assert.equal(settings.stablecontentinsets, settings.contentinsets);
+            assert.equal(settings.normalizedpi, 'true');
+            assert.equal(settings.cropmargins, 'true');
+        });
+    }
 
     test('finds semantic Android Auto menu nodes', () => {
         const xml = `

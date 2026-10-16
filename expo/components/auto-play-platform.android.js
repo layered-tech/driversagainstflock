@@ -37,7 +37,6 @@ export const autoPlayPlatform = {
     showsSearchResultsOnMap: true,
     maneuverCardAppearance: 'dark',
     maneuverCardIconColor: '#ffffff',
-    usesSearchOnlyRootHeaderAction: true,
     usesDrivingMapViewButtonForDebugging: true,
 
     // MapTemplate callbacks that only exist on Android Auto: double-tap zoom

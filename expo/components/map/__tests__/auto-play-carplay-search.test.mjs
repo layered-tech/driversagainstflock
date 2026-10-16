@@ -23,7 +23,7 @@ test('CarPlay opens saved destinations before starting voice input', async () =>
         'function openSavedDestinationsTemplate(',
     );
     const functionEnd = autoPlaySource.indexOf(
-        'function openSearchTemplate(',
+        'function makeRouteStepsSection(',
         functionStart,
     );
     assert.ok(functionStart >= 0);

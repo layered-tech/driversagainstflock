@@ -1,5 +1,6 @@
 import * as Location from 'expo-location';
 import { createAutoPlayArrivalDetector } from './auto-play-arrival-state';
+import { createAutoPlayMapOptionsTemplate } from './auto-play-map-options';
 import { getAutoPlayCompassNeedleImage } from './auto-play-compass-images';
 import {
     startAutoDriveSimulation,
@@ -50,7 +51,11 @@ import {
 import { resolveAutoPlayVoiceRequestType } from './auto-play-voice-request-type';
 import { getDirections, getPlaceDetails, searchTextPlaces } from './map/api';
 import { e2eMapApiMocksCanBeEnabled } from './map/api-mocks';
-import { PLACE_SEARCH_MIN_QUERY_LENGTH } from './map/constants';
+import {
+    MAP_LAYER_STYLES,
+    MAP_LIGHT_PRESET_OPTIONS,
+    PLACE_SEARCH_MIN_QUERY_LENGTH,
+} from './map/constants';
 import {
     createCurrentLocationDirectionsWaypoint,
     createDirectionsRouteProgressTracker,
@@ -66,6 +71,7 @@ import {
     getDirectionsDistanceEstimate,
     getDirectionsRouteOptions,
     getDirectionsRouteProgress,
+    getDirectionsSteps,
     getDirectionsWaypointApiCoord,
     getNextDirectionsManeuver,
     getRemainingDirectionsRouteValues,
@@ -97,7 +103,13 @@ import {
     loadSearchSavedLocations,
 } from './map/saved-locations';
 import { updateSharedNavigationLocation } from './map/shared-navigation-controller';
+import {
+    addSharedMapSettingsStateListener,
+    getSharedMapPreferencesState,
+    setSharedMapPreferencesState,
+} from './map/shared-map-preferences-sync';
 import { formatSearchResultDistance } from './map/search-formatters';
+import { weatherStore } from './map/weather-runtime';
 import {
     addSharedRoutingStateListener,
     getDirectionsRouteGeometrySyncKey,
@@ -122,6 +134,7 @@ const AUTO_PLAY_ICON_GLYPH_MAP = {
     'flag-checkered': 0xf11e,
     house: 0xf015,
     'level-up-alt': 0xf3bf,
+    'list-ul': 0xf0ca,
     location: 0xf3c5,
     'location-arrow': 0xf124,
     map: 0xf279,
@@ -130,6 +143,7 @@ const AUTO_PLAY_ICON_GLYPH_MAP = {
     plus: 0xf067,
     rotate: 0xf021,
     search: 0xf002,
+    sliders: 0xf1de,
     xmark: 0xf00d,
 };
 const AUTO_PLAY_GLYPH_COLOR = {
@@ -1232,6 +1246,136 @@ function openSavedDestinationsTemplate() {
         }),
         template,
     };
+}
+
+function makeRouteStepsSection(steps, page, onPageChange) {
+    // Four instructions leave room for both paging rows within the host's
+    // guaranteed minimum of six list items.
+    const pageSize = 4;
+    const start = page * pageSize;
+    const items = steps.slice(start, start + pageSize).map((step, index) => ({
+        detailedText: makeAutoText(
+            formatDirectionsManeuverDistance(step.displayDistance),
+        ),
+        title: makeAutoText(
+            `${start + index + 1}. ${getManeuverInstruction(step)}`,
+        ),
+        type: 'text',
+    }));
+
+    if (!steps.length) {
+        items.push(
+            makeDisabledSearchRow(
+                'No upcoming steps',
+                'Return to the map for guidance.',
+            ),
+        );
+    }
+    if (page > 0) {
+        items.unshift({
+            onPress: () => onPageChange(page - 1),
+            title: makeAutoText('Previous steps'),
+            type: 'default',
+        });
+    }
+    if (start + pageSize < steps.length) {
+        items.push({
+            onPress: () => onPageChange(page + 1),
+            title: makeAutoText('More steps'),
+            type: 'default',
+        });
+    }
+
+    return { items, type: 'default' };
+}
+
+function openRouteStepsTemplate() {
+    if (!activeNavigationRoute || !rootMapTemplate || !rootMapTemplateIsReady) {
+        return;
+    }
+
+    const route = activeNavigationRoute;
+    const rootTemplate = rootMapTemplate;
+    const routeProgress = navigationProgressTracker.update(
+        route,
+        lastNavigationGuidanceLocation,
+    );
+    const activeManeuver = getActiveDirectionsManeuver(
+        route,
+        lastNavigationGuidanceLocation,
+        routeProgress,
+    );
+    const routeSteps = getDirectionsSteps(route, activeManeuver);
+    const currentStepIndex = routeSteps.findIndex((step) => step.isCurrent);
+    const upcomingSteps = routeSteps.slice(Math.max(0, currentStepIndex));
+    const { ListTemplate } = loadAutoPlayModule();
+    let template;
+    let isActive = true;
+    const requestIsCurrent = () =>
+        isActive &&
+        activeNavigationRoute === route &&
+        rootMapTemplate === rootTemplate;
+    const dismiss = () => {
+        isActive = false;
+    };
+    const showPage = (page) => {
+        if (!requestIsCurrent()) {
+            return;
+        }
+        return updateSearchTemplateSection(
+            template,
+            makeRouteStepsSection(upcomingSteps, page, showPage),
+        );
+    };
+
+    try {
+        template = new ListTemplate({
+            headerActions: getBackHeaderAction(dismiss),
+            onPopped: dismiss,
+            sections: makeRouteStepsSection(upcomingSteps, 0, showPage),
+            title: makeAutoText('Route steps'),
+        });
+        return template.push().catch(() => {
+            if (requestIsCurrent()) {
+                showAutoPlayError(
+                    'Route steps unavailable',
+                    'The route steps could not be opened.',
+                );
+            }
+            dismiss();
+        });
+    } catch {
+        dismiss();
+        showAutoPlayError(
+            'Route steps unavailable',
+            'The route steps could not be opened.',
+        );
+    }
+}
+
+function openMapOptionsTemplate() {
+    if (!rootMapTemplate || !rootMapTemplateIsReady) {
+        return;
+    }
+    const rootTemplate = rootMapTemplate;
+    const presentation = createAutoPlayMapOptionsTemplate({
+        ListTemplate: loadAutoPlayModule().ListTemplate,
+        getBackHeaderAction,
+        getPreferences: getSharedMapPreferencesState,
+        setPreferences: setSharedMapPreferencesState,
+        subscribePreferences: addSharedMapSettingsStateListener,
+        weatherStore,
+        mapLayers: MAP_LAYER_STYLES,
+        lightPresets: MAP_LIGHT_PRESET_OPTIONS,
+        requestIsCurrent: () =>
+            rootMapTemplate === rootTemplate && rootMapTemplateIsReady,
+        onError: () =>
+            showAutoPlayError(
+                'Map settings unavailable',
+                'Map settings could not be opened.',
+            ),
+    });
+    return presentation.pushPromise;
 }
 
 function openSearchTemplate(
@@ -3161,7 +3305,7 @@ async function startAutoPlayNavigation(
 }
 
 function handleRootHeaderPrimaryLocationPress(type) {
-    if (activeNavigationRoute || !rootMapTemplate || !rootMapTemplateIsReady) {
+    if (!rootMapTemplate || !rootMapTemplateIsReady) {
         return;
     }
 
@@ -3235,6 +3379,12 @@ const ROOT_HEADER_SEARCH_IMAGE = makeGlyphImage('search', {
 const ROOT_HEADER_VOICE_SEARCH_IMAGE = makeGlyphImage('microphone', {
     backgroundColor: 'transparent',
 });
+const ROOT_HEADER_ROUTE_STEPS_IMAGE = makeGlyphImage('list-ul', {
+    backgroundColor: 'transparent',
+});
+const ROOT_HEADER_MAP_OPTIONS_IMAGE = makeGlyphImage('sliders', {
+    backgroundColor: 'transparent',
+});
 const ROOT_HEADER_PRIMARY_LOCATION_IMAGES = {
     home: makeGlyphImage('house', { backgroundColor: 'transparent' }),
     work: makeGlyphImage('briefcase', { backgroundColor: 'transparent' }),
@@ -3265,10 +3415,6 @@ let cachedRootMapHeaderActionsKey = '';
 
 function getRootMapHeaderActions() {
     const hasActiveNavigation = Boolean(activeNavigationRoute);
-    const androidHeaderActionsMode =
-        autoPlayPlatform?.usesSearchOnlyRootHeaderAction === true
-            ? 'search-only'
-            : 'default';
     const drivingMapViewModeKey = hasActiveNavigation
         ? rootMapButtonAppearance.drivingMapViewMode
         : 'hidden';
@@ -3284,7 +3430,7 @@ function getRootMapHeaderActions() {
             primaryLocations: autoPlayPrimaryLocations,
         });
     const primaryLocationTypes = primaryLocationHeaderActionTypes.android;
-    const rootMapHeaderActionsKey = `${androidHeaderActionsMode}:${drivingMapViewModeKey}:${navigationExitButtonIsVisible ? 'navigating' : 'ready'}:${trailingNavigationButtonIsVisible ? 'trailing' : 'search-only'}:${primaryLocationTypes.join(':')}`;
+    const rootMapHeaderActionsKey = `${drivingMapViewModeKey}:${navigationExitButtonIsVisible ? 'navigating' : 'ready'}:${trailingNavigationButtonIsVisible ? 'trailing' : 'search-only'}:${primaryLocationTypes.join(':')}`;
 
     if (
         cachedRootMapHeaderActions &&
@@ -3301,6 +3447,18 @@ function getRootMapHeaderActions() {
     const voiceSearchButton = {
         image: ROOT_HEADER_VOICE_SEARCH_IMAGE,
         onPress: handleRootHeaderVoiceSearchPress,
+        type: 'image',
+    };
+    const routeStepsButton = hasActiveNavigation
+        ? {
+              image: ROOT_HEADER_ROUTE_STEPS_IMAGE,
+              onPress: openRouteStepsTemplate,
+              type: 'image',
+          }
+        : null;
+    const mapOptionsButton = {
+        image: ROOT_HEADER_MAP_OPTIONS_IMAGE,
+        onPress: openMapOptionsTemplate,
         type: 'image',
     };
     const drivingMapViewButton = hasActiveNavigation
@@ -3327,17 +3485,12 @@ function getRootMapHeaderActions() {
         );
 
     cachedRootMapHeaderActions = {
-        android:
-            autoPlayPlatform?.usesSearchOnlyRootHeaderAction === true
-                ? [searchButton]
-                : [
-                      ...(drivingMapViewButton ? [drivingMapViewButton] : []),
-                      searchButton,
-                      ...androidPrimaryLocationButtons,
-                      ...(trailingNavigationButton
-                          ? [trailingNavigationButton]
-                          : []),
-                  ],
+        android: [
+            searchButton,
+            ...androidPrimaryLocationButtons,
+            ...(routeStepsButton ? [routeStepsButton] : []),
+            mapOptionsButton,
+        ],
         ios: {
             leadingNavigationBarButtons: [searchButton, voiceSearchButton],
             trailingNavigationBarButtons: trailingNavigationButton
