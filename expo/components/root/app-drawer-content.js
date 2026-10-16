@@ -211,7 +211,11 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
         props.navigation.closeDrawer();
     };
     const handleDrawerRoutePress = (routeName) => {
-        props.navigation.navigate(routeName);
+        if (routeName === 'areas') {
+            props.navigation.navigate('areas', { screen: 'index' });
+        } else {
+            props.navigation.navigate(routeName);
+        }
         props.navigation.closeDrawer();
     };
 
