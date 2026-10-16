@@ -3,6 +3,7 @@ name: OSM Changeset Editor
 ---
 - launchApp:
     stopApp: true
+- runFlow: subflows/dismiss-first-launch-support.yml
 - extendedWaitUntil:
     visible:
       id: map-contribute-button

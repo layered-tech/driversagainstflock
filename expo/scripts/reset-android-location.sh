@@ -28,7 +28,7 @@ adb_device=(adb -s "$serial")
 # Repeated mock-provider replacements can leave the emulator's fused service
 # looping on old fixes until Play services exhausts its heap. Restart the
 # service between flows without clearing its data or touching physical devices.
-if [[ "$serial" == emulator-* ]]; then
+if [[ "$serial" == emulator-* && "${ANDROID_E2E_RESTART_PLAY_SERVICES:-1}" != "0" ]]; then
   "${adb_device[@]}" shell am force-stop com.google.android.gms >/dev/null 2>&1 || true
 fi
 "${adb_device[@]}" emu geo fix "$RESET_LONGITUDE" "$RESET_LATITUDE" >/dev/null

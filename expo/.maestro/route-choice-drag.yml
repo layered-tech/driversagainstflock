@@ -26,6 +26,7 @@ tags:
 # The teardown guards below only check the current frame, so wait for the app
 # to finish booting into either the map or the driving shell first. A previous
 # flow can leave free drive running, and that state survives a relaunch.
+- runFlow: subflows/dismiss-first-launch-support.yml
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-(map|driving)'

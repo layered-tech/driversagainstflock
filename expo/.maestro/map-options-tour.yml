@@ -90,6 +90,7 @@ tags:
 # A restart preserves completion, while the modal remains fully usable.
 - launchApp:
     stopApp: true
+- runFlow: subflows/dismiss-first-launch-support.yml
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'

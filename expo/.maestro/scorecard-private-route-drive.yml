@@ -18,6 +18,7 @@ tags:
     when:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
     file: subflows/open-expo-dev-client-after-clear.yml
+- runFlow: subflows/dismiss-first-launch-support.yml
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'

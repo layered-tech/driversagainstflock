@@ -11,6 +11,7 @@ tags:
     stopApp: true
     permissions:
       all: allow
+- runFlow: subflows/dismiss-first-launch-support.yml
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
