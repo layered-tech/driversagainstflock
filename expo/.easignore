@@ -55,3 +55,8 @@ yarn-error.*
 !*-google-services.json
 !*-GoogleService-Info.plist
 !*-service-account-*.json
+
+!firebase-android-config.json
+/google-service-account-private.json
+
+!firebase-ios-*-config.plist

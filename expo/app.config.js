@@ -16,12 +16,12 @@ const environment = IS_E2E
 const autoPlayIconFont = './assets/auto-play/font_awesome.ttf';
 const androidGoogleServicesFile =
     process.env.FIREBASE_ANDROID_GOOGLE_SERVICES_FILE ||
-    './daf-firebase-google-services.json';
+    './firebase-android-config.json';
 const iosGoogleServicesFile =
     process.env.FIREBASE_IOS_GOOGLE_SERVICES_FILE ||
     (IS_DEV || IS_E2E
-        ? './dev-daf-firebase-GoogleService-Info.plist'
-        : './daf-firebase-GoogleService-Info.plist');
+        ? './firebase-ios-development-config.plist'
+        : './firebase-ios-production-config.plist');
 const nativeFirebasePlugins = [
     '@react-native-firebase/app',
     '@react-native-firebase/crashlytics',
