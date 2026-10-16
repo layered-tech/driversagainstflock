@@ -4,10 +4,17 @@ export async function saveAreaPushToken({
     devicePushToken,
     areaRequest,
     timezone,
+    platform,
+    application,
 }) {
+    const isIosSimulator =
+        platform === 'ios' &&
+        (await application.getIosApplicationReleaseTypeAsync()) ===
+            application.ApplicationReleaseType.SIMULATOR;
     const token = await notifications.getExpoPushTokenAsync({
         projectId,
         devicePushToken,
+        ...(isIosSimulator ? { development: true } : {}),
     });
     await areaRequest('/device', {
         method: 'PATCH',

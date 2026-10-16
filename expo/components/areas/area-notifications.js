@@ -1,3 +1,4 @@
+import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 import { requireOptionalNativeModule } from 'expo-modules-core';
 import { Platform } from 'react-native';
@@ -48,6 +49,8 @@ export async function registerAreaNotifications({
         Constants.expoConfig?.extra?.eas?.projectId ??
         Constants.easConfig?.projectId;
     await saveAreaPushToken({
+        platform: Platform.OS,
+        application: Application,
         notifications,
         projectId,
         devicePushToken,
