@@ -776,6 +776,7 @@ export class MaestroTestRunner {
             allowFailure: true,
             env: {
                 ...this.environment,
+                MAESTRO_ARTIFACTS_DIR: '.',
                 MAESTRO_DEVICE: this.target.id,
                 MAESTRO_EXPO_DEV_CLIENT_URL: this.devClientUrl,
                 MAESTRO_PLATFORM: this.target.platform,

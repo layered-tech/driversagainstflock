@@ -21,6 +21,7 @@ import {
     createExpoStartArgs,
     createManagedMetroExitMessage,
     createMetroNodeOptions,
+    MaestroTestRunner,
     parseAdbDevices,
     parseBootedIosSimulators,
     selectMaestroTarget,
@@ -43,6 +44,44 @@ const AUTO_PLAY_PACKAGE_ROOT = process.env.AUTO_PLAY_PACKAGE_ROOT
       );
 
 describe('Maestro managed development server', () => {
+    test('keeps screenshot paths inside the Maestro run artifact directory', () => {
+        const directory = mkdtempSync(
+            path.join(tmpdir(), 'maestro-artifacts-'),
+        );
+        const callsFile = path.join(directory, 'calls.json');
+        writeFileSync(
+            path.join(directory, 'maestro'),
+            '#!/usr/bin/env node\n' +
+                'require("node:fs").writeFileSync(process.env.MAESTRO_CALLS_FILE, JSON.stringify({ args: process.argv.slice(2), artifacts: process.env.MAESTRO_ARTIFACTS_DIR }));\n',
+            { mode: 0o755 },
+        );
+
+        try {
+            const debugDirectory = '/Volumes/PfeiferDev/maestro/debug';
+            const runner = new MaestroTestRunner({
+                environment: {
+                    ...process.env,
+                    PATH: `${directory}:${process.env.PATH}`,
+                    MAESTRO_CALLS_FILE: callsFile,
+                    MAESTRO_ARTIFACTS_DIR:
+                        '/Volumes/PfeiferDev/maestro/screenshots',
+                    MAESTRO_DEBUG_DIR: debugDirectory,
+                },
+            });
+            runner.target = { platform: 'android', id: 'emulator-5554' };
+
+            assert.equal(runner.runMaestroFlow('tour.yml'), 0);
+            const call = JSON.parse(readFileSync(callsFile, 'utf8'));
+            assert.equal(call.artifacts, '.');
+            assert.equal(
+                call.args[call.args.indexOf('--debug-output') + 1],
+                debugDirectory,
+            );
+        } finally {
+            rmSync(directory, { recursive: true, force: true });
+        }
+    });
+
     test('resets the emulator fused service after removing GPS mocks without clearing data', () => {
         const directory = mkdtempSync(
             path.join(tmpdir(), 'maestro-location-reset-'),
@@ -90,6 +129,47 @@ describe('Maestro managed development server', () => {
             rmSync(directory, { recursive: true, force: true });
         }
     });
+    test('can reset location without restarting Play services', () => {
+        const directory = mkdtempSync(
+            path.join(tmpdir(), 'maestro-location-reset-'),
+        );
+        const callsFile = path.join(directory, 'calls');
+        writeFileSync(
+            path.join(directory, 'adb'),
+            '#!/bin/sh\nprintf "%s\\n" "$*" >> "$ADB_CALLS_FILE"\n',
+            { mode: 0o755 },
+        );
+
+        try {
+            const result = spawnSync(
+                'bash',
+                [
+                    path.join(
+                        EXPO_DIRECTORY,
+                        'scripts/reset-android-location.sh',
+                    ),
+                ],
+                {
+                    env: {
+                        ...process.env,
+                        PATH: `${directory}:${process.env.PATH}`,
+                        ANDROID_SERIAL: 'emulator-5554',
+                        ANDROID_E2E_RESTART_PLAY_SERVICES: '0',
+                        ADB_CALLS_FILE: callsFile,
+                    },
+                    encoding: 'utf8',
+                },
+            );
+            assert.equal(result.status, 0, result.stderr);
+            const calls = readFileSync(callsFile, 'utf8');
+            assert.doesNotMatch(calls, /force-stop|pm clear/);
+            assert.match(calls, /remove-test-provider gps/);
+            assert.match(calls, /emu geo fix/);
+        } finally {
+            rmSync(directory, { recursive: true, force: true });
+        }
+    });
+
     test('parses only connected Android devices', () => {
         assert.deepEqual(
             parseAdbDevices(`List of devices attached
@@ -474,7 +554,7 @@ R58M offline
         );
         assert.match(
             source,
-            /file: subflows\/open-expo-dev-client-after-clear\.yml\s+- runFlow:\s+when:\s+visible:\s+id: 'exit-free-drive-button'\s+commands:\s+- tapOn:\s+id: 'exit-free-drive-button'[\s\S]*?- extendedWaitUntil:\s+visible:\s+id: 'map-search-input-map'/,
+            /file: subflows\/open-expo-dev-client-after-clear\.yml\s+- runFlow: subflows\/dismiss-first-launch-support\.yml\s+- runFlow:\s+when:\s+visible:\s+id: 'exit-free-drive-button'\s+commands:\s+- tapOn:\s+id: 'exit-free-drive-button'[\s\S]*?- extendedWaitUntil:\s+visible:\s+id: 'map-search-input-map'/,
         );
     });
 
@@ -984,3 +1064,39 @@ for (const flow of [
         assert.ok(skip >= 0 && dashboard > skip);
     });
 }
+
+test('every launch flow dismisses first-launch support before interacting with the app', () => {
+    for (const directory of ['.maestro', '.maestro/subflows']) {
+        for (const name of readdirSync(path.join(EXPO_DIRECTORY, directory))) {
+            if (!name.endsWith('.yml')) {
+                continue;
+            }
+            const source = readFileSync(
+                path.join(EXPO_DIRECTORY, directory, name),
+                'utf8',
+            );
+            const launch = source.indexOf('- launchApp:');
+            if (launch < 0) {
+                continue;
+            }
+            const startup = source.slice(launch).split(/(?=^- )/m);
+            let next = 1;
+            while (
+                startup[next]?.includes(
+                    'open-expo-dev-client-after-clear.yml',
+                ) ||
+                startup[next]?.includes("visible: 'Reload'")
+            ) {
+                next += 1;
+            }
+            const helper = directory.endsWith('subflows')
+                ? 'dismiss-first-launch-support.yml'
+                : 'subflows/dismiss-first-launch-support.yml';
+            assert.equal(
+                startup[next]?.trim(),
+                `- runFlow: ${helper}`,
+                `${directory}/${name}`,
+            );
+        }
+    }
+});

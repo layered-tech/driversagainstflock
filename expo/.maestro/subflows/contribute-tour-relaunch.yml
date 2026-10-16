@@ -5,6 +5,7 @@ appId: com.anonymous.drivefree.dev
     stopApp: true
     permissions:
       all: allow
+- runFlow: dismiss-first-launch-support.yml
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
