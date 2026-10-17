@@ -25,10 +25,9 @@ adb_device=(adb -s "$serial")
 # normal emulator GPS fix so fused/passive providers stop returning stale mocks.
 "${adb_device[@]}" shell appops set 2000 android:mock_location allow >/dev/null 2>&1 || true
 "${adb_device[@]}" shell cmd location providers remove-test-provider gps >/dev/null 2>&1 || true
-# Repeated mock-provider replacements can leave the emulator's fused service
-# looping on old fixes until Play services exhausts its heap. Restart the
-# service between flows without clearing its data or touching physical devices.
-if [[ "$serial" == emulator-* && "${ANDROID_E2E_RESTART_PLAY_SERVICES:-1}" != "0" ]]; then
+# Restarting Play services can deadlock the emulator GNSS HAL and trigger a
+# system-server watchdog. Keep stale fused-cache recovery explicitly opt-in.
+if [[ "$serial" == emulator-* && "${ANDROID_E2E_RESTART_PLAY_SERVICES:-0}" == "1" ]]; then
   "${adb_device[@]}" shell am force-stop com.google.android.gms >/dev/null 2>&1 || true
 fi
 "${adb_device[@]}" emu geo fix "$RESET_LONGITUDE" "$RESET_LATITUDE" >/dev/null

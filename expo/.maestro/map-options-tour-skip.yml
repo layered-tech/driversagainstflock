@@ -77,5 +77,5 @@ tags:
     selected: true
 - assertVisible:
     id: 'offline-map-section-toggle'
-- assertVisible: 'Not downloaded'
+- runFlow: subflows/assert-offline-map-not-downloaded.yml
 - takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-map-options-tour-skipped'}

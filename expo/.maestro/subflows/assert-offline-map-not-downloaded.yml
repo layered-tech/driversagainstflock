@@ -1,0 +1,14 @@
+appId: com.anonymous.drivefree.dev
+---
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible: 'Not downloaded'
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - copyTextFrom:
+          id: 'offline-map-section-toggle'
+      - assertTrue: ${maestro.copiedText == 'Not downloaded'}

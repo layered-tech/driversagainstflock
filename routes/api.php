@@ -95,8 +95,8 @@ Route::post('/sanctum/token', function (Request $request) {
     return $user->createToken($request->device_name)->plainTextToken;
 });
 
-Route::post('v1/area-devices', [AreaDeviceController::class, 'store'])->middleware('throttle:10,1');
-Route::prefix('v1/areas')->middleware([AuthenticateAreaDevice::class, 'throttle:60,1'])->group(function (): void {
+Route::post('v1/area-devices', [AreaDeviceController::class, 'store'])->middleware('throttle:area-device-registration');
+Route::prefix('v1/areas')->middleware([AuthenticateAreaDevice::class, 'throttle:area-requests'])->group(function (): void {
     $controller = AreaSubscriptionController::class;
     Route::patch('device', [AreaDeviceController::class, 'update']);
     Route::get('search', [$controller, 'search']);

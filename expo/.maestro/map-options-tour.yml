@@ -68,7 +68,7 @@ tags:
     selected: true
 - assertVisible:
     id: 'offline-map-section-toggle'
-- assertVisible: 'Not downloaded'
+- runFlow: subflows/assert-offline-map-not-downloaded.yml
 - assertNotVisible:
     id: 'offline-map-primary-action'
 - tapOn:

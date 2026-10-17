@@ -61,11 +61,15 @@ tags:
 - scrollUntilVisible:
     element:
       id: 'contribute-operator-input'
-    direction: UP
+    direction: DOWN
+    centerElement: true
 - tapOn:
     id: 'contribute-operator-input'
 - inputText: 'Maestro first camera operator'
-- hideKeyboard
+- pressKey: Enter
+- copyTextFrom:
+    id: 'contribute-operator-input'
+- assertTrue: ${maestro.copiedText == 'Maestro first camera operator'}
 # Scroll beside the interactive map/dial so it cannot consume the gesture.
 - swipe:
     start: '95%,80%'
@@ -139,7 +143,9 @@ tags:
 - tapOn:
     id: 'contribute-comment-input'
 - inputText: 'Added 2 Flock Safety ALPR cameras for the e2e flow.'
-- hideKeyboard
+- tapOn:
+    text: 'Say what changed and why — other mappers read this.'
+    retryTapIfNoChange: false
 - tapOn:
     id: 'contribute-source-local'
     retryTapIfNoChange: false

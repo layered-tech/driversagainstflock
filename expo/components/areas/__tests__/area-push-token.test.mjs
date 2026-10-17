@@ -108,3 +108,60 @@ test('failed Expo registration never overwrites the saved device token', async (
     );
     assert.equal(writes, 0);
 });
+
+test('retries a lost Expo connection before saving the successfully registered token', async () => {
+    let attempts = 0;
+    const writes = [];
+    await saveAreaPushToken({
+        notifications: {
+            async getExpoPushTokenAsync() {
+                attempts++;
+                if (attempts < 3) {
+                    const error = new Error('The network connection was lost.');
+                    error.code = 'ERR_NOTIFICATIONS_NETWORK_ERROR';
+                    throw error;
+                }
+                return { data: 'ExpoPushToken[recovered]' };
+            },
+        },
+        projectId: 'test-project',
+        areaRequest: async (...args) => writes.push(args),
+        timezone: 'UTC',
+    });
+    assert.equal(attempts, 3);
+    assert.deepEqual(writes, [
+        [
+            '/device',
+            {
+                method: 'PATCH',
+                body: {
+                    push_token: 'ExpoPushToken[recovered]',
+                    timezone: 'UTC',
+                },
+            },
+        ],
+    ]);
+});
+
+test('stops retrying a lost Expo connection without overwriting the saved token', async () => {
+    let attempts = 0;
+    let writes = 0;
+    const error = new Error('The network connection was lost.');
+    error.code = 'ERR_NOTIFICATIONS_NETWORK_ERROR';
+    await assert.rejects(
+        saveAreaPushToken({
+            notifications: {
+                async getExpoPushTokenAsync() {
+                    attempts++;
+                    throw error;
+                },
+            },
+            projectId: 'test-project',
+            areaRequest: async () => writes++,
+            timezone: 'UTC',
+        }),
+        (failure) => failure === error,
+    );
+    assert.equal(attempts, 3);
+    assert.equal(writes, 0);
+});

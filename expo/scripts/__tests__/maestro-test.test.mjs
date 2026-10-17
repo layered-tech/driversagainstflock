@@ -82,7 +82,7 @@ describe('Maestro managed development server', () => {
         }
     });
 
-    test('resets the emulator fused service after removing GPS mocks without clearing data', () => {
+    test('removes GPS mocks without restarting Play services or clearing data', () => {
         const directory = mkdtempSync(
             path.join(tmpdir(), 'maestro-location-reset-'),
         );
@@ -115,21 +115,14 @@ describe('Maestro managed development server', () => {
                 );
                 assert.equal(result.status, 0, result.stderr);
                 const calls = readFileSync(callsFile, 'utf8');
-                assert.doesNotMatch(calls, /pm clear/);
-                if (serial.startsWith('emulator-')) {
-                    assert.match(
-                        calls,
-                        /remove-test-provider gps\n.*force-stop com.google.android.gms\n.*emu geo fix/,
-                    );
-                } else {
-                    assert.doesNotMatch(calls, /force-stop/);
-                }
+                assert.doesNotMatch(calls, /pm clear|force-stop/);
+                assert.match(calls, /remove-test-provider gps\n.*emu geo fix/);
             }
         } finally {
             rmSync(directory, { recursive: true, force: true });
         }
     });
-    test('can reset location without restarting Play services', () => {
+    test('can explicitly restart emulator Play services to recover stale fused fixes', () => {
         const directory = mkdtempSync(
             path.join(tmpdir(), 'maestro-location-reset-'),
         );
@@ -154,7 +147,7 @@ describe('Maestro managed development server', () => {
                         ...process.env,
                         PATH: `${directory}:${process.env.PATH}`,
                         ANDROID_SERIAL: 'emulator-5554',
-                        ANDROID_E2E_RESTART_PLAY_SERVICES: '0',
+                        ANDROID_E2E_RESTART_PLAY_SERVICES: '1',
                         ADB_CALLS_FILE: callsFile,
                     },
                     encoding: 'utf8',
@@ -162,9 +155,11 @@ describe('Maestro managed development server', () => {
             );
             assert.equal(result.status, 0, result.stderr);
             const calls = readFileSync(callsFile, 'utf8');
-            assert.doesNotMatch(calls, /force-stop|pm clear/);
-            assert.match(calls, /remove-test-provider gps/);
-            assert.match(calls, /emu geo fix/);
+            assert.doesNotMatch(calls, /pm clear/);
+            assert.match(
+                calls,
+                /remove-test-provider gps\n.*force-stop com.google.android.gms\n.*emu geo fix/,
+            );
         } finally {
             rmSync(directory, { recursive: true, force: true });
         }
@@ -1064,6 +1059,28 @@ for (const flow of [
         assert.ok(skip >= 0 && dashboard > skip);
     });
 }
+
+test('first-launch readiness accepts the retained areas screen between lifecycle flows', () => {
+    const source = readFileSync(
+        path.join(
+            EXPO_DIRECTORY,
+            '.maestro/subflows/dismiss-first-launch-support.yml',
+        ),
+        'utf8',
+    );
+    const readiness = new RegExp(source.match(/id: '([^']+)'/)[1]);
+    for (const id of [
+        'first-launch-support-maybe-later',
+        'map-search-input-map',
+        'map-search-input-driving',
+        'areas-screen',
+        'add-area-screen',
+        'area-alerts-screen',
+        'area-feed-screen',
+    ]) {
+        assert.match(id, readiness);
+    }
+});
 
 test('every launch flow dismisses first-launch support before interacting with the app', () => {
     for (const directory of ['.maestro', '.maestro/subflows']) {

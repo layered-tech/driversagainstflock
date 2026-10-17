@@ -12,9 +12,14 @@ tags:
     permissions:
       all: allow
 - runFlow: subflows/dismiss-first-launch-support.yml
-- tapOn:
-    text: 'Close drawer'
-    optional: true
+- runFlow:
+    when:
+      visible:
+        id: 'app-drawer-open'
+    commands:
+      - tapOn:
+          point: '95%,50%'
+          retryTapIfNoChange: false
 - runFlow:
     when:
       visible:
@@ -74,10 +79,16 @@ tags:
     when:
       platform: iOS
     commands:
-      - tapOn: 'Close drawer'
+      - tapOn:
+          point: '95%,50%'
+          retryTapIfNoChange: false
 - extendedWaitUntil:
     notVisible:
       id: 'app-drawer-open'
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-driving'
     timeout: 10000
 - tapOn:
     id: 'exit-free-drive-button'

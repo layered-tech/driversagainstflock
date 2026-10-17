@@ -4,14 +4,7 @@ appId: "${typeof MAESTRO_APP_ID !== 'undefined' ? MAESTRO_APP_ID : 'com.anonymou
     stopApp: false
     permissions:
       all: allow
-- waitForAnimationToEnd
-- runFlow:
-    when:
-      visible:
-        id: 'first-launch-support-maybe-later'
-    commands:
-      - tapOn:
-          id: 'first-launch-support-maybe-later'
+- runFlow: dismiss-first-launch-support.yml
 - openLink: ${AREA_URL}
 - runFlow:
     when:
