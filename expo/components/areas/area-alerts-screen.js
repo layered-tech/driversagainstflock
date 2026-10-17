@@ -90,10 +90,9 @@ export default function AreaAlertsScreen() {
                             ].map(([key, label], index) => (
                                 <View
                                     key={key}
-                                    className={`min-h-[36px] flex-row items-center gap-[10px] ${index ? 'border-t border-daf-border dark:border-daf-border-dark' : ''}`}
+                                    className={`min-h-[48px] flex-row items-center gap-[10px] py-[8px] ${index ? 'border-t border-daf-border dark:border-daf-border-dark' : ''}`}
                                 >
                                     <Switch
-                                        className="h-[34px] w-[48px]"
                                         hitSlop={6}
                                         accessibilityLabel={label}
                                         disabled={busy}

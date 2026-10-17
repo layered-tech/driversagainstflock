@@ -27,7 +27,7 @@ export async function registerAreaNotifications({
     }
     if (Platform.OS === 'android') {
         await notifications.setNotificationChannelAsync('area-changes', {
-            name: 'Area camera changes',
+            name: 'Area Camera Changes',
             importance: notifications.AndroidImportance.DEFAULT,
         });
     }

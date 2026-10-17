@@ -1,0 +1,20 @@
+diff --git a/node_modules/expo-location/android/src/main/java/expo/modules/location/services/LocationTaskService.kt b/node_modules/expo-location/android/src/main/java/expo/modules/location/services/LocationTaskService.kt
+--- a/node_modules/expo-location/android/src/main/java/expo/modules/location/services/LocationTaskService.kt
++++ b/node_modules/expo-location/android/src/main/java/expo/modules/location/services/LocationTaskService.kt
+@@ -114,13 +114,13 @@
+   private fun prepareChannel(id: String?) {
+     val notificationManager = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager
+       ?: return
+-    val appName = applicationInfo.loadLabel(packageManager).toString()
+     var channel = notificationManager.getNotificationChannel(id)
+     if (channel == null) {
+-      channel = NotificationChannel(id, appName, NotificationManager.IMPORTANCE_LOW)
++      channel = NotificationChannel(id, "Background Location Tracking", NotificationManager.IMPORTANCE_LOW)
+       channel.description = "Background location notification channel"
+-      notificationManager.createNotificationChannel(channel)
+     }
++    channel.name = "Background Location Tracking"
++    notificationManager.createNotificationChannel(channel)
+   }
+ 
+   /**

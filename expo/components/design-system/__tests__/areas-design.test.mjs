@@ -243,19 +243,35 @@ test('Alert frequency descriptions compile to secondary 13px text and medium lab
     }
 });
 
-test('Alert switches use the compact phone sizing with a larger touch target', () => {
+test('Alert switches keep their native size and have room inside each row', () => {
     const ast = parse(sources[3], { sourceType: 'module', plugins: ['jsx'] });
     const control = nodes(
         ast,
         (node) =>
             node.type === 'JSXOpeningElement' && node.name.name === 'Switch',
     )[0];
-    const classes = control.attributes.find(
-        (attribute) => attribute.name?.name === 'className',
-    ).value.value;
+    const classes =
+        control.attributes.find(
+            (attribute) => attribute.name?.name === 'className',
+        )?.value.value ?? '';
     const style = styleFor(classes);
-    assert.equal(style.height, 34);
-    assert.equal(style.width, 48);
+    assert.equal(style.height, undefined);
+    assert.equal(style.width, undefined);
+    const row = nodes(
+        ast,
+        (node) =>
+            node.type === 'JSXElement' &&
+            node.openingElement.name.name === 'View' &&
+            node.children.some((child) => child.openingElement === control),
+    )[0];
+    const rowClasses = row.openingElement.attributes.find(
+        (attribute) => attribute.name?.name === 'className',
+    ).value.expression.quasis[0].value.raw;
+    const rowStyle = styleFor(rowClasses);
+    assert.ok(rowStyle.minHeight >= 48);
+    assert.ok(rowStyle.paddingTop >= 8);
+    assert.ok(rowStyle.paddingBottom >= 8);
+    assert.ok(rowStyle.columnGap >= 10);
     assert.equal(
         control.attributes.find(
             (attribute) => attribute.name?.name === 'hitSlop',

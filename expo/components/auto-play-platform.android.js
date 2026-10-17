@@ -35,6 +35,7 @@ export const autoPlayPlatform = {
         console.log(`[Android Auto] ${action}`, payload);
     },
     showsSearchResultsOnMap: true,
+    buttonIconColor: 'default',
     maneuverCardAppearance: 'dark',
     maneuverCardIconColor: '#ffffff',
     usesDrivingMapViewButtonForDebugging: true,

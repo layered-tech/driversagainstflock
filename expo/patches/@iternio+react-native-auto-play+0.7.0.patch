@@ -53,3 +53,28 @@ diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/
                      config.onStopNavigation()
                  }
              }
+diff --git a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt
+--- a/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt
++++ b/node_modules/@iternio/react-native-auto-play/android/src/main/java/com/margelo/nitro/swe/iternio/reactnativeautoplay/AndroidAutoService.kt
+@@ -22,7 +22,6 @@
+ import com.facebook.react.ReactApplication
+ import com.facebook.react.bridge.LifecycleEventListener
+ import com.margelo.nitro.NitroModules
+-import com.margelo.nitro.swe.iternio.reactnativeautoplay.utils.AppInfo
+
+ class AndroidAutoService : CarAppService() {
+     private lateinit var notificationManager: NotificationManager
+@@ -49,12 +48,11 @@
+         NitroModules.applicationContext?.addLifecycleEventListener(reactLifecycleObserver)
+
+         notificationManager = getSystemService(NotificationManager::class.java)
+-        val appLabel = AppInfo.getApplicationLabel(this)
+
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+             getSystemService(NotificationManager::class.java).createNotificationChannel(
+                 NotificationChannel(
+-                    CHANNEL_ID, appLabel, NotificationManager.IMPORTANCE_DEFAULT
++                    CHANNEL_ID, "Android Auto Navigation", NotificationManager.IMPORTANCE_DEFAULT
+                 )
+             )
+         }

@@ -146,7 +146,7 @@ const AUTO_PLAY_ICON_GLYPH_MAP = {
     sliders: 0xf1de,
     xmark: 0xf00d,
 };
-const AUTO_PLAY_GLYPH_COLOR = {
+const AUTO_PLAY_GLYPH_COLOR = autoPlayPlatform?.buttonIconColor ?? {
     darkColor: 'white',
     lightColor: 'black',
 };
@@ -176,6 +176,10 @@ const AUTO_PLAY_MANEUVER_CARD_BACKGROUND_COLOR = {
 };
 
 function getRootMapButtonDefaultIconColor() {
+    if (autoPlayPlatform?.buttonIconColor != null) {
+        return autoPlayPlatform.buttonIconColor;
+    }
+
     return rootMapButtonAppearance.isDarkMapLayer
         ? ROOT_MAP_BUTTON_DARK_ICON_COLOR
         : ROOT_MAP_BUTTON_LIGHT_ICON_COLOR;
@@ -2878,6 +2882,7 @@ function getRootHeaderDrivingMapViewButtonImage() {
         autoPlayPlatform?.usesDrivingMapViewButtonForDebugging === true
     ) {
         return {
+            color: autoPlayPlatform?.buttonIconColor,
             image: getAutoPlayCompassNeedleImage(
                 rootMapButtonAppearance.compassNorthDirection,
                 rootMapButtonAppearance.isDarkMapLayer,

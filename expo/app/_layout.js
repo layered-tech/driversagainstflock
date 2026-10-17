@@ -99,6 +99,7 @@ function RootLayout() {
                                             />
                                         )}
                                         screenOptions={{
+                                            drawerType: 'front',
                                             drawerActiveTintColor: isDarkMode
                                                 ? '#F5F7F9'
                                                 : '#11151B',

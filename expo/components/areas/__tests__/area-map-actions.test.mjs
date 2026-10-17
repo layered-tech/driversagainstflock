@@ -59,7 +59,7 @@ function renderScreen(
         ),
         './area-map': { AreaMap: 'AreaMap' },
         './areas-api': {},
-        './areas-context': { useAreas: () => ({ markRead() {} }) },
+        './areas-context': { useAreas: () => ({ areas: [], markRead() {} }) },
         './use-area-feed': { useAreaFeed: () => ({ payload, loading: false }) },
         ...overrides,
     };
@@ -157,6 +157,56 @@ test('area overlays remain visible under night lighting and fade removed camera 
         elements(tree, 'LineLayer')[0].props.style.lineDasharray,
         undefined,
     );
+});
+
+test('area details show the selected list name before the feed loads and prefer fresh details', () => {
+    const saved = {
+        id: 2,
+        name: 'Saved neighborhood',
+        kind: 'drawn',
+        camera_count: 4,
+    };
+    const fresh = { ...saved, name: 'Updated neighborhood', camera_count: 5 };
+    for (const [payload, expected] of [
+        [null, saved],
+        [
+            {
+                area: fresh,
+                counts: { added: 0, removed: 0 },
+                changes: { data: [], total: 0 },
+            },
+            fresh,
+        ],
+    ]) {
+        const { tree } = renderScreen('area-feed-screen.js', payload, false, {
+            './areas-context': {
+                useAreas: () => ({
+                    areas: [{ id: 1, name: 'Different area' }, saved],
+                    markRead() {},
+                }),
+            },
+        });
+        const header = elements(tree, 'AreaHeader')[0];
+        assert.equal(header.props.title, expected.name);
+        assert.equal(
+            header.props.subtitle,
+            `Drawn · ${expected.camera_count} cameras mapped`,
+        );
+        if (!payload) {
+            assert.equal(
+                elements(tree, 'View').some(
+                    (element) => element.props.testID === 'area-feed-footer',
+                ),
+                false,
+            );
+        }
+    }
+});
+
+test('area details retain a generic title for an unknown deep-linked area', () => {
+    const { tree } = renderScreen('area-feed-screen.js', null);
+    assert.equal(elements(tree, 'AreaHeader')[0].props.title, 'Area changes');
+    assert.equal(elements(tree, 'AreaHeader')[0].props.subtitle, undefined);
 });
 
 for (const total of [0, 1]) {

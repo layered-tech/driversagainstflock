@@ -30,7 +30,7 @@ export default function AreaFeedScreen() {
         areaId,
         window,
     );
-    const { markRead } = useAreas();
+    const { areas, markRead } = useAreas();
     const readThrough = useRef(null);
     const insets = useSafeAreaInsets();
     const dark = useColorScheme() === 'dark';
@@ -42,7 +42,9 @@ export default function AreaFeedScreen() {
             });
         }
     }, [areaId, payload, markRead]);
-    const area = payload?.area;
+    const area =
+        payload?.area ??
+        areas.find((item) => String(item.id) === String(areaId));
     const changes = payload?.changes.data ?? [];
     const groups = [];
     for (const change of changes) {

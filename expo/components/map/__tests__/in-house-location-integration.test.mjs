@@ -133,7 +133,7 @@ describe('in-house road-matched location integration', () => {
         );
     });
 
-    test('uses upstream Expo Location subscriptions without native patches', () => {
+    test('keeps upstream Expo Location subscriptions with only a channel label patch', () => {
         assert.match(
             useDeviceLocationSource,
             /import \* as Location from 'expo-location'/,
@@ -144,9 +144,19 @@ describe('in-house road-matched location integration', () => {
         const patches = readdirSync(
             new URL('../../../patches/', import.meta.url),
         );
-        assert.equal(
-            patches.some((name) => name.startsWith('expo-location+')),
-            false,
+        const locationPatches = patches.filter((name) =>
+            name.startsWith('expo-location+'),
+        );
+        assert.deepEqual(locationPatches, ['expo-location+57.0.20.patch']);
+        const channelPatch = readFileSync(
+            new URL(`../../../patches/${locationPatches[0]}`, import.meta.url),
+            'utf8',
+        );
+        assert.equal((channelPatch.match(/^diff --git /gm) ?? []).length, 1);
+        assert.match(channelPatch, /services\/LocationTaskService\.kt/);
+        assert.doesNotMatch(
+            channelPatch,
+            /watchPosition|watchHeading|requestLocationUpdates|removeLocationUpdates/,
         );
     });
 

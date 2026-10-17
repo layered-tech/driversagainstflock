@@ -4,6 +4,11 @@
     "main": "index.js",
     "expo": {
         "autolinking": {
+            "android": {
+                "buildFromSource": [
+                    "expo-location"
+                ]
+            },
             "ios": {
                 "exclude": [
                     "expo-file-system",

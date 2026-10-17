@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router/stack';
 import { useFonts } from 'expo-font';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, useColorScheme, View } from 'react-native';
+import { getDafTheme } from '../../components/design-system/tokens';
 
 const AREA_FONTS = {
     'HankenGrotesk-Regular': require('../../assets/fonts/HankenGrotesk-Regular.ttf'),
@@ -14,6 +15,7 @@ const AREA_FONTS = {
 };
 
 export default function AreasLayout() {
+    const theme = getDafTheme(useColorScheme());
     const [fontsLoaded, fontError] = useFonts(AREA_FONTS);
     return (
         <View className="flex-1 bg-daf-surface-page dark:bg-daf-surface-inverse">
@@ -23,7 +25,7 @@ export default function AreasLayout() {
                 <Stack
                     screenOptions={{
                         headerShown: false,
-                        contentStyle: { backgroundColor: 'transparent' },
+                        contentStyle: { backgroundColor: theme.surface.page },
                     }}
                 />
             )}
