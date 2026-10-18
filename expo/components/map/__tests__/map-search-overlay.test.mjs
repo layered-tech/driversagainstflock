@@ -12,6 +12,31 @@ const mapScreenSource = readFileSync(
 );
 
 describe('map search overlay', () => {
+    test('matches the Android reference search bar dimensions and accessories', () => {
+        const mainSearchRow = mapSearchOverlaySource.slice(
+            mapSearchOverlaySource.indexOf('{!searchModeIsDirections ? ('),
+            mapSearchOverlaySource.indexOf('</SearchGlassShell>'),
+        );
+
+        assert.match(mainSearchRow, /h-\[52px\].*gap-1 pl-3\.5 pr-1\.5/);
+        assert.equal(
+            (mainSearchRow.match(/h-9 w-9 shrink-0/g) ?? []).length,
+            4,
+        );
+        assert.match(
+            mainSearchRow,
+            /min-w-0 flex-1 flex-row items-center gap-1 pl-0\.5/,
+        );
+        assert.match(mainSearchRow, /h-6 w-px shrink-0/);
+        assert.match(mainSearchRow, /height: 36/);
+        assert.doesNotMatch(mainSearchRow, /\{searchIsFocused \? \(/);
+        assert.match(mainSearchRow, /name="mic"\s+size=\{20\}/);
+        assert.match(mainSearchRow, /name="search"\s+size=\{18\}/);
+        assert.match(mainSearchRow, /numberOfLines=\{1\}/);
+        assert.match(mainSearchRow, /onPress=\{handleDrawerPress\}/);
+        assert.match(mainSearchRow, /: handleDirectionsModePress/);
+    });
+
     test('sizes the directions row from its full field column', () => {
         assert.match(
             mapSearchOverlaySource,

@@ -1,4 +1,13 @@
 import {
+    ALPR_SYMBOL_ICON_OFFSETS,
+    ALPR_SYMBOL_ICON_SIZE_EXPRESSION,
+    ALPR_SYMBOL_IMAGE_PROPERTY_NAME,
+    ALPR_SYMBOL_IMAGE_SCALE,
+    ALPR_SYMBOL_MIN_ZOOM_LEVEL,
+    ALPR_SYMBOL_VISIBLE_PROPERTY_NAME,
+    GENERIC_ALPR_SYMBOL_IMAGE_NAME,
+} from '../../lib/osm/camera-marker-style.js';
+import {
     MAPBOX_STANDARD_LIGHT_PRESET_AUTO,
     MAPBOX_STANDARD_LIGHT_PRESET_DAWN,
     MAPBOX_STANDARD_LIGHT_PRESET_DAY,
@@ -7,6 +16,16 @@ import {
     MAPBOX_STANDARD_SATELLITE_STYLE_URL,
     MAPBOX_STANDARD_STYLE_URL,
 } from './config';
+
+export {
+    GENERIC_ALPR_SYMBOL_IMAGE_NAME,
+    ALPR_SYMBOL_IMAGE_PROPERTY_NAME,
+    ALPR_SYMBOL_VISIBLE_PROPERTY_NAME,
+    ALPR_SYMBOL_MIN_ZOOM_LEVEL,
+    ALPR_SYMBOL_IMAGE_SCALE,
+    ALPR_SYMBOL_ICON_OFFSETS,
+    ALPR_SYMBOL_ICON_SIZE_EXPRESSION,
+};
 
 export const DEFAULT_CENTER_COORDINATE = [-98.5795, 39.8283];
 export const DEFAULT_ZOOM_LEVEL = 3.5;
@@ -59,11 +78,8 @@ export const AXON_ALPR_SYMBOL_IMAGE_NAME = 'axon-alpr';
 export const LEONARDO_ALPR_SYMBOL_IMAGE_NAME = 'leonardo-alpr';
 export const NEOLOGY_ALPR_SYMBOL_IMAGE_NAME = 'neology-alpr';
 export const VERKADA_ALPR_SYMBOL_IMAGE_NAME = 'verkada-alpr';
-export const GENERIC_ALPR_SYMBOL_IMAGE_NAME = 'generic-alpr';
-export const ALPR_SYMBOL_IMAGE_PROPERTY_NAME = 'alprSymbolImage';
 // Keep unscaled quad corners inside Mapbox's signed 16-bit / 32 range.
 // Density changes logical image size, not the source PNG or displayed size.
-export const ALPR_SYMBOL_IMAGE_SCALE = 2;
 export const ALPR_SYMBOL_IMAGES = Object.fromEntries(
     Object.entries({
         [ALPR_SYMBOL_IMAGE_NAME]: ALPR_SYMBOL_IMAGE_SOURCE,
@@ -79,31 +95,6 @@ export const ALPR_SYMBOL_IMAGES = Object.fromEntries(
         { image, scale: ALPR_SYMBOL_IMAGE_SCALE },
     ]),
 );
-export const ALPR_SYMBOL_MIN_ZOOM_LEVEL = 16;
-export const ALPR_SYMBOL_VISIBLE_PROPERTY_NAME = 'showsAlprSymbol';
-// Offsets in source-image pixels align each pole base with the node.
-// Mapbox scales iconOffset with iconSize, preserving alignment at every zoom.
-export const ALPR_SYMBOL_ICON_OFFSETS = {
-    [ALPR_SYMBOL_IMAGE_NAME]: [-88, 27],
-    [MOTOROLA_ALPR_SYMBOL_IMAGE_NAME]: [6.5, 17],
-    [GENETEC_ALPR_SYMBOL_IMAGE_NAME]: [269, 12],
-    [AXON_ALPR_SYMBOL_IMAGE_NAME]: [-226.5, 61],
-    [LEONARDO_ALPR_SYMBOL_IMAGE_NAME]: [39, 30],
-    [NEOLOGY_ALPR_SYMBOL_IMAGE_NAME]: [-147.5, 53],
-    [VERKADA_ALPR_SYMBOL_IMAGE_NAME]: [203, 18],
-    [GENERIC_ALPR_SYMBOL_IMAGE_NAME]: [-196.5, 24],
-};
-export const ALPR_SYMBOL_ICON_SIZE_EXPRESSION = [
-    'interpolate',
-    ['linear'],
-    ['zoom'],
-    ALPR_SYMBOL_MIN_ZOOM_LEVEL,
-    0.063 * ALPR_SYMBOL_IMAGE_SCALE,
-    18,
-    0.0805 * ALPR_SYMBOL_IMAGE_SCALE,
-    MAX_ZOOM_LEVEL,
-    0.098 * ALPR_SYMBOL_IMAGE_SCALE,
-];
 export const MARKER_CLUSTER_CIRCLE_RADIUS_EXPRESSION = [
     'step',
     ['get', 'point_count'],

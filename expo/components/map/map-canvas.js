@@ -1,5 +1,11 @@
 import { renderAlprMarkerLayers } from './alpr-marker-layers';
+import {
+    CameraViewConeModels,
+    renderMarkerConeModelLayers,
+} from './camera-view-cone-model';
 import Mapbox from '@rnmapbox/maps';
+import { addCrashlyticsLog } from '../../lib/crashlytics';
+import { createLocationPuckDiagnostics } from './location-puck-diagnostics';
 import {
     memo,
     useCallback,
@@ -85,7 +91,6 @@ import {
 } from './location-puck-state';
 import {
     AlprMarkerImages,
-    MarkerConeImages,
     NavigationPuckImages,
     PoliceAlertImages,
 } from './map-assets';
@@ -370,7 +375,14 @@ function makeMarkerConeFilter(directionProperty, visible) {
     return ['all', INDIVIDUAL_MARKER_FILTER, ['has', directionProperty]];
 }
 
-export function renderMarkerConeLayers({ idPrefix, slot, sourceID, visible }) {
+export function renderMarkerConeLayers({
+    idPrefix,
+    slot,
+    sourceID,
+    visible,
+    iconImage = MARKER_CONE_ICON_IMAGE_EXPRESSION,
+    iconPitchAlignment = 'map',
+}) {
     return MARKER_CONE_DIRECTION_PROPERTY_NAMES.map((directionProperty) => (
         <Mapbox.SymbolLayer
             key={`${idPrefix}-cone-${directionProperty}`}
@@ -382,8 +394,8 @@ export function renderMarkerConeLayers({ idPrefix, slot, sourceID, visible }) {
                 iconAllowOverlap: true,
                 iconAnchor: 'center',
                 iconIgnorePlacement: true,
-                iconImage: MARKER_CONE_ICON_IMAGE_EXPRESSION,
-                iconPitchAlignment: 'map',
+                iconImage,
+                iconPitchAlignment,
                 iconRotate: ['get', directionProperty],
                 iconRotationAlignment: 'map',
             }}
@@ -753,6 +765,21 @@ export const MapCanvas = memo(function MapCanvas({
         [handleCameraChanged],
     );
     const locationPuckLifecycleRef = useRef(null);
+    const puckDiagnosticsRef = useRef(null);
+    if (puckDiagnosticsRef.current === null) {
+        puckDiagnosticsRef.current = createLocationPuckDiagnostics({
+            log: addCrashlyticsLog,
+            readState: () => getLocationPuck3DStateAsync(mapViewRef),
+        });
+    }
+    const recordPuckTransition = puckDiagnosticsRef.current;
+    const handleLocationPuckProviderStatus = useCallback(
+        (status) => {
+            recordPuckTransition('provider', status);
+            setLocationPuckProviderStatus(status);
+        },
+        [recordPuckTransition],
+    );
     const locationPuckCameraFallbackReleaseGateRef = useRef(null);
     const locationPuckCameraFollowLifecycleRef = useRef(null);
     const cameraUpdatesAreAllowedRef = useRef(cameraUpdatesAreAllowed);
@@ -770,7 +797,10 @@ export const MapCanvas = memo(function MapCanvas({
             },
             waitForPuckCommit: () =>
                 new Promise((resolve) => setTimeout(resolve, 50)),
-            onStatusChange: setLocationPuck3DStatus,
+            onStatusChange: (status) => {
+                recordPuckTransition('3d', status);
+                setLocationPuck3DStatus(status);
+            },
         });
     }
 
@@ -846,8 +876,9 @@ export const MapCanvas = memo(function MapCanvas({
         ],
     );
     const refreshLocationPuckAfterMapAttachment = useCallback(() => {
+        recordPuckTransition('map', 'attached');
         setLocationPuckMapLoadEpoch((epoch) => epoch + 1);
-    }, []);
+    }, [recordPuckTransition]);
     const handleMapFinishedLoading = useCallback(
         (event) => {
             handleMapLoaded(event);
@@ -1099,7 +1130,9 @@ export const MapCanvas = memo(function MapCanvas({
                     attachmentKey={locationPuckMapLoadEpoch}
                     isDrivingMode={isDrivingMode}
                     mapViewRef={mapViewRef}
-                    onNativeProviderStatusChange={setLocationPuckProviderStatus}
+                    onNativeProviderStatusChange={
+                        handleLocationPuckProviderStatus
+                    }
                     usesSharedLocationProvider={usesSharedLocationProvider}
                 />
             ) : null}
@@ -1527,8 +1560,8 @@ export const MapCanvas = memo(function MapCanvas({
                 </Mapbox.ShapeSource>
             ) : null}
             {surveillanceMarkersVisible && cameraConesVisible ? (
-                <MarkerConeImages
-                    key={`marker-cone-images-${locationPuckMapLoadEpoch}`}
+                <CameraViewConeModels
+                    key={`marker-cone-models-${locationPuckMapLoadEpoch}`}
                 />
             ) : null}
             {surveillanceMarkersVisible ? (
@@ -1551,7 +1584,7 @@ export const MapCanvas = memo(function MapCanvas({
                 >
                     {[
                         ...(cameraConesVisible
-                            ? renderMarkerConeLayers({
+                            ? renderMarkerConeModelLayers({
                                   idPrefix: 'map-markers-clustered',
                                   slot: mapLayerSlots.cameraCone,
                                   sourceID: markerClusteredSourceID,
@@ -1585,7 +1618,7 @@ export const MapCanvas = memo(function MapCanvas({
                 >
                     {[
                         ...(cameraConesVisible
-                            ? renderMarkerConeLayers({
+                            ? renderMarkerConeModelLayers({
                                   idPrefix: 'map-markers-unclustered',
                                   slot: mapLayerSlots.cameraCone,
                                   sourceID: markerUnclusteredSourceID,

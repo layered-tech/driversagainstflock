@@ -27,7 +27,7 @@ describe('Mapbox Standard layer slots', () => {
                 platform: 'android',
             }),
             {
-                cameraCone: 'top',
+                cameraCone: 'middle',
                 cameraNode: 'top',
                 mapProjection: undefined,
                 routeLineElevationReference: undefined,
@@ -47,7 +47,7 @@ describe('Mapbox Standard layer slots', () => {
                 platform: 'ios',
             }),
             {
-                cameraCone: undefined,
+                cameraCone: 'middle',
                 cameraNode: undefined,
                 mapProjection: 'mercator',
                 routeLineElevationReference: 'ground',
@@ -115,7 +115,7 @@ describe('Mapbox Standard layer slots', () => {
             { navigationPuckVariant: 'auto-play', platform: 'web' },
         ]) {
             assert.deepEqual(getMapLayerSlots(options), {
-                cameraCone: undefined,
+                cameraCone: 'middle',
                 cameraNode: undefined,
                 mapProjection: undefined,
                 routeLineElevationReference: undefined,
@@ -127,4 +127,22 @@ describe('Mapbox Standard layer slots', () => {
             });
         }
     });
+});
+
+test('both shared map inventory sources render 3D cones with the existing visibility and style reload lifecycle', () => {
+    assert.match(
+        mapCanvasSource,
+        /surveillanceMarkersVisible && cameraConesVisible[\s\S]*?<CameraViewConeModels[\s\S]*?locationPuckMapLoadEpoch/,
+    );
+    assert.equal(
+        (mapCanvasSource.match(/\? renderMarkerConeModelLayers\(/g) ?? [])
+            .length,
+        2,
+    );
+    assert.equal(
+        (mapCanvasSource.match(/slot: mapLayerSlots\.cameraCone/g) ?? [])
+            .length,
+        2,
+    );
+    assert.doesNotMatch(mapCanvasSource, /<MarkerConeImages/);
 });

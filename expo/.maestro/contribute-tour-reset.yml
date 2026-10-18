@@ -73,6 +73,14 @@ tags:
     timeout: 10000
 - scrollUntilVisible:
     element:
+      id: 'debug-drawer-section-tours'
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: 'debug-drawer-section-tours'
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
       id: 'debug-drawer-reset-contribution-tour'
     direction: DOWN
     centerElement: true

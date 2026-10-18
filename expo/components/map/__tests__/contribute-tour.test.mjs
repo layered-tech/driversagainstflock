@@ -144,8 +144,14 @@ function getTourOverlays(tree) {
     ];
 }
 
-function createDebugDrawerHarness(reset, featureTours = {}) {
+function createDebugDrawerHarness(
+    reset,
+    featureTours = {},
+    { openTours = true, overlays = {}, preferencesLoaded = true } = {},
+) {
     const hooks = createHookHarness();
+    const overlayChanges = [];
+    const routes = [];
     let closeCount = 0;
     const tour = { progress: createContributeTourProgress(), reset };
     const debugKeys = [
@@ -161,7 +167,9 @@ function createDebugDrawerHarness(reset, featureTours = {}) {
         'WAZE',
     ];
     const { DebugDrawer } = loadComponent('../root/debug-drawer.js', {
-        'expo-router': { useRouter: () => ({ push() {} }) },
+        'expo-router': {
+            useRouter: () => ({ push: (route) => routes.push(route) }),
+        },
         react: { ...hooks.react, Fragment: 'Fragment' },
         'react-native': {
             Animated: {
@@ -187,6 +195,8 @@ function createDebugDrawerHarness(reset, featureTours = {}) {
         '@fortawesome/free-solid-svg-icons': Object.fromEntries(
             [
                 'faCamera',
+                'faChevronDown',
+                'faChevronRight',
                 'faCodeBranch',
                 'faCrosshairs',
                 'faLocationDot',
@@ -217,8 +227,12 @@ function createDebugDrawerHarness(reset, featureTours = {}) {
         ),
         '../map/shared-map-state': {
             useSharedMapState: () => ({
-                mapPreferencesAreLoaded: true,
-                debugOverlayVisibility: {},
+                mapPreferencesAreLoaded: preferencesLoaded,
+                debugOverlayVisibility: overlays,
+                setDebugOverlayVisibility: (key, value) => {
+                    overlays[key] = value;
+                    overlayChanges.push([key, value]);
+                },
             }),
         },
         '../map/upcoming-alert-debug-pane': {
@@ -230,18 +244,24 @@ function createDebugDrawerHarness(reset, featureTours = {}) {
         },
     });
 
+    const render = () =>
+        hooks.render(() =>
+            DebugDrawer({
+                visible: true,
+                onClose: () => {
+                    closeCount += 1;
+                },
+            }),
+        );
+    if (openTours) {
+        findElement(render(), 'debug-drawer-section-tours').props.onPress();
+    }
     return {
         tour,
+        overlayChanges,
+        routes,
         closeCount: () => closeCount,
-        render: () =>
-            hooks.render(() =>
-                DebugDrawer({
-                    visible: true,
-                    onClose: () => {
-                        closeCount += 1;
-                    },
-                }),
-            ),
+        render,
     };
 }
 
@@ -624,6 +644,97 @@ describe('first contribution walkthrough', () => {
 
         assert.equal(harness.render().progress, null);
         assert.equal(harness.writes.length, 0);
+    });
+});
+
+describe('grouped debug menu', () => {
+    function rows(tree) {
+        if (!tree || typeof tree !== 'object') return [];
+        return [
+            ...(tree.type === 'DebugDrawerToggleRow' ? [tree] : []),
+            ...[tree.props?.children].flat(Infinity).flatMap(rows),
+        ];
+    }
+
+    test('starts compact, exposes every overlay once, and keeps enabled overlays on when collapsed', () => {
+        const harness = createDebugDrawerHarness(
+            async () => {},
+            {},
+            { openTours: false },
+        );
+        const groups = [
+            'camera',
+            'navigation',
+            'alerts',
+            'weather',
+            'app',
+            'tours',
+        ];
+        assert.equal(rows(harness.render()).length, 0);
+        for (const id of groups) {
+            const header = findElement(
+                harness.render(),
+                `debug-drawer-section-${id}`,
+            );
+            assert.equal(header.props.accessibilityState.expanded, false);
+            header.props.onPress();
+            assert.ok(
+                findElement(
+                    harness.render(),
+                    `debug-drawer-section-${id}-content`,
+                ),
+            );
+        }
+        const controls = rows(harness.render());
+        assert.equal(controls.length, 10);
+        assert.equal(
+            new Set(controls.map(({ props }) => props.item.key)).size,
+            10,
+        );
+        for (const control of controls) control.props.onValueChange(true);
+        assert.equal(harness.overlayChanges.length, 10);
+        assert.match(
+            findElement(harness.render(), 'debug-drawer-section-camera').props
+                .accessibilityLabel,
+            /2 overlays on/,
+        );
+        findElement(
+            harness.render(),
+            'debug-drawer-section-camera',
+        ).props.onPress();
+        assert.equal(
+            findElement(
+                harness.render(),
+                'debug-drawer-section-camera-content',
+            ),
+            null,
+        );
+        assert.equal(harness.overlayChanges.length, 10);
+        findElement(
+            harness.render(),
+            'debug-drawer-section-camera',
+        ).props.onPress();
+        assert.ok(rows(harness.render()).every(({ props }) => props.isEnabled));
+        findElement(
+            harness.render(),
+            'debug-camera-marker-preview',
+        ).props.onPress();
+        assert.deepEqual(harness.routes, ['/camera-marker-preview']);
+        assert.equal(harness.closeCount(), 1);
+    });
+
+    test('grouped overlays still wait for stored preferences before writing', () => {
+        const harness = createDebugDrawerHarness(
+            async () => {},
+            {},
+            { openTours: false, preferencesLoaded: false },
+        );
+        findElement(
+            harness.render(),
+            'debug-drawer-section-app',
+        ).props.onPress();
+        rows(harness.render())[0].props.onValueChange(true);
+        assert.deepEqual(harness.overlayChanges, []);
     });
 });
 

@@ -19,6 +19,11 @@ import {
     formatDirectionLabels,
     parseDirectionValues,
 } from '@/direction-values';
+import {
+    ALPR_WEB_LAYER_IDS,
+    getMarkerAlprSymbolImage,
+    loadAlprMarkerImages,
+} from '@/alpr-markers';
 import { makeMarkerConeFeatureCollection } from '@/marker-cones';
 import { normalizeMapboxColor } from '@/mapbox-colors';
 import axios from 'axios';
@@ -785,6 +790,8 @@ function initializeMap() {
     });
 }
 
+let markerImageLoadEpoch = 0;
+
 function refreshRuntimeLayers() {
     addRuntimeSourcesAndLayers();
     syncMapLayerColors();
@@ -795,6 +802,14 @@ function refreshRuntimeLayers() {
     syncSelectedMarkerSource();
     syncLocalityBoundarySource();
     updateRouteLayerStyles();
+    const instance = map.value;
+    const epoch = ++markerImageLoadEpoch;
+    if (instance) {
+        void loadAlprMarkerImages(
+            instance,
+            () => map.value === instance && markerImageLoadEpoch === epoch,
+        );
+    }
 }
 
 function bindMoveEndMarkerLoading() {
@@ -811,16 +826,18 @@ function bindMapInteractions() {
         return;
     }
 
-    map.value.on('click', 'daf-marker-dot', (event) => {
-        const feature = event.features?.[0] ?? null;
+    for (const layerId of ['daf-marker-dot', ...ALPR_WEB_LAYER_IDS]) {
+        map.value.on('click', layerId, (event) => {
+            const feature = event.features?.[0] ?? null;
 
-        if (!feature) {
-            return;
-        }
+            if (!feature) {
+                return;
+            }
 
-        clearPendingSelectedMarker();
-        setSelectedMarkerFromFeature(feature);
-    });
+            clearPendingSelectedMarker();
+            setSelectedMarkerFromFeature(feature);
+        });
+    }
 
     map.value.on('click', 'daf-marker-cluster', (event) => {
         const feature = event.features?.[0] ?? null;
@@ -844,13 +861,15 @@ function bindMapInteractions() {
         });
     });
 
-    map.value.on('mouseenter', 'daf-marker-dot', () => {
-        map.value.getCanvas().style.cursor = 'pointer';
-    });
+    for (const layerId of ['daf-marker-dot', ...ALPR_WEB_LAYER_IDS]) {
+        map.value.on('mouseenter', layerId, () => {
+            map.value.getCanvas().style.cursor = 'pointer';
+        });
 
-    map.value.on('mouseleave', 'daf-marker-dot', () => {
-        map.value.getCanvas().style.cursor = '';
-    });
+        map.value.on('mouseleave', layerId, () => {
+            map.value.getCanvas().style.cursor = '';
+        });
+    }
 
     interactionsAreBound = true;
 }
@@ -2939,6 +2958,7 @@ function normalizeMarkerFeature(point) {
         },
         properties: {
             ...properties,
+            alprSymbolImage: getMarkerAlprSymbolImage(point),
             heading: heading ?? '',
             hasHeading: heading !== null,
         },

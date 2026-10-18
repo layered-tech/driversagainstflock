@@ -1,4 +1,4 @@
-import { getCameraManufacturerMatches } from '../../lib/osm/camera-manufacturers.js';
+import { getMarkerAlprSymbolImage } from '../../lib/osm/camera-marker-style.js';
 import {
     ALPR_SYMBOL_IMAGE_PROPERTY_NAME,
     ALPR_SYMBOL_VISIBLE_PROPERTY_NAME,
@@ -7,7 +7,6 @@ import {
     DRIVING_COURSE_HEADING_SHARP_TURN_DEGREES,
     DRIVING_COURSE_HEADING_SHARP_TURN_FILTER_FACTOR,
     EMPTY_FEATURE_COLLECTION,
-    GENERIC_ALPR_SYMBOL_IMAGE_NAME,
     MARKER_CONE_DIRECTION_PROPERTY_NAMES,
     MAX_MARKER_CONE_DIRECTIONS,
     MAX_MARKER_REQUEST_LATITUDE_SPAN_DEGREES,
@@ -21,6 +20,12 @@ import {
     getMarkerDirectionValues,
     normalizeDirectionDegrees,
 } from './direction-values';
+
+export {
+    getMarkerAlprSymbolImage,
+    markerShowsAlprSymbol,
+    nodeShowsAlprSymbol,
+} from '../../lib/osm/camera-marker-style.js';
 
 export {
     getMarkerDirectionValue,
@@ -363,56 +368,6 @@ export function getMarkerCoordinate(marker) {
     return [longitude, latitude];
 }
 
-function getNodeAlprSymbolImage(node) {
-    const tags = node?.tags ?? {};
-    const type = String(tags['surveillance:type'] ?? '')
-        .trim()
-        .toLowerCase();
-
-    if (type && type !== 'alpr' && type !== 'anpr') {
-        return null;
-    }
-
-    const matchingImages = getCameraManufacturerMatches(tags).map(
-        ({ imageName }) => imageName,
-    );
-
-    if (matchingImages.length > 1) {
-        return GENERIC_ALPR_SYMBOL_IMAGE_NAME;
-    }
-    if (matchingImages.length === 1) {
-        return matchingImages[0];
-    }
-
-    return type === 'alpr' || type === 'anpr'
-        ? GENERIC_ALPR_SYMBOL_IMAGE_NAME
-        : null;
-}
-
-export function nodeShowsAlprSymbol(node) {
-    return getNodeAlprSymbolImage(node) !== null;
-}
-
-export function getMarkerAlprSymbolImage(marker) {
-    const osmNodes = marker?.properties?.osm_nodes;
-
-    if (!Array.isArray(osmNodes)) {
-        return null;
-    }
-
-    const images = [
-        ...new Set(osmNodes.map(getNodeAlprSymbolImage).filter(Boolean)),
-    ];
-
-    return images.length > 1
-        ? GENERIC_ALPR_SYMBOL_IMAGE_NAME
-        : (images[0] ?? null);
-}
-
-export function markerShowsAlprSymbol(marker) {
-    return getMarkerAlprSymbolImage(marker) !== null;
-}
-
 export function makeMarkerFeatureCollection(markers) {
     if (!Array.isArray(markers)) {
         return EMPTY_FEATURE_COLLECTION;
@@ -443,9 +398,14 @@ export function makeMarkerFeatureCollection(markers) {
             getMarkerDirectionValues(marker)
                 .slice(0, MAX_MARKER_CONE_DIRECTIONS)
                 .forEach((direction, directionIndex) => {
-                    properties[
-                        MARKER_CONE_DIRECTION_PROPERTY_NAMES[directionIndex]
-                    ] = direction;
+                    const directionProperty =
+                        MARKER_CONE_DIRECTION_PROPERTY_NAMES[directionIndex];
+                    properties[directionProperty] = direction;
+                    properties[`${directionProperty}Rotation`] = [
+                        0,
+                        0,
+                        direction,
+                    ];
                 });
 
             return {

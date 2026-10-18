@@ -87,6 +87,14 @@ test('phone and car share marker geometry and direction parsing for each publish
     assert.equal(phone.features.length, 1);
     assert.equal(phone.features[0].properties.coneDirection0, 90);
     assert.equal(phone.features[0].properties.coneDirection1, 270);
+    assert.deepEqual(
+        phone.features[0].properties.coneDirection0Rotation,
+        [0, 0, 90],
+    );
+    assert.deepEqual(
+        phone.features[0].properties.coneDirection1Rotation,
+        [0, 0, 270],
+    );
     assert.equal(phone.features[0].properties.showsAlprSymbol, true);
 
     const updated = makeMarkerFeatureCollection([
@@ -95,6 +103,33 @@ test('phone and car share marker geometry and direction parsing for each publish
     assert.notEqual(updated, phone);
     assert.deepEqual(updated.features[0].geometry.coordinates, [-96, 31]);
     assert.deepEqual(phone.features[0].geometry.coordinates, [-97, 30]);
+});
+
+test('3D cone rotations preserve normalization and the eight-direction limit without inventing unknown directions', () => {
+    const collection = makeMarkerFeatureCollection([
+        {
+            location: [-97, 30],
+            properties: {
+                id: 'many',
+                direction: '-90;0;45;90;135;180;225;315;22.5',
+            },
+        },
+        { location: [-97, 31], properties: { id: 'unknown' } },
+    ]);
+    const rotations = Object.entries(collection.features[0].properties).filter(
+        ([key]) => key.endsWith('Rotation'),
+    );
+    assert.equal(rotations.length, 8);
+    assert.deepEqual(
+        rotations.map(([, value]) => value[2]),
+        [270, 0, 45, 90, 135, 180, 225, 315],
+    );
+    assert.equal(
+        Object.keys(collection.features[1].properties).some((key) =>
+            key.endsWith('Rotation'),
+        ),
+        false,
+    );
 });
 
 test('police feature derivation reuses the shared alert snapshot and refreshes replacements', () => {

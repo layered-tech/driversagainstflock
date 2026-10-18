@@ -8,6 +8,7 @@ import {
     useState,
 } from 'react';
 import { AppState, Dimensions, Platform, View } from 'react-native';
+import { useAndroidAutoClusterMarkers } from './use-android-auto-cluster-markers';
 import { getAutoPlayAlertSurfaceVisibility } from './auto-play-alert-surface-visibility';
 import {
     AutoPlayPresenceDebugGeometry,
@@ -1845,6 +1846,13 @@ export function AutoPlayMapSurfaceContent({
         surveillanceMarkersVisible: mapPreferences.surveillanceMarkersVisible,
     });
     const markerLoader = useMarkerLoader();
+    useAndroidAutoClusterMarkers({
+        enabled:
+            isClusterMapSurface &&
+            alertSurfaceVisibility.surveillanceMarkersVisible,
+        userLocation: mapPreferences.userLocation,
+        scheduleMarkerLoad: markerLoader.scheduleMarkerLoad,
+    });
     const isDrivingMode = autoPlayState.drivingModeIsActive !== false;
     const drivingMapViewMode =
         autoPlayState.drivingMapViewMode ?? DRIVING_MAP_VIEW_PERSPECTIVE;

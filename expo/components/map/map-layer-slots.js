@@ -1,5 +1,5 @@
 const ANDROID_AUTO_MAP_LAYER_SLOTS = Object.freeze({
-    cameraCone: 'top',
+    cameraCone: 'middle',
     cameraNode: 'top',
     mapProjection: undefined,
     routeLineElevationReference: undefined,
@@ -11,7 +11,7 @@ const ANDROID_AUTO_MAP_LAYER_SLOTS = Object.freeze({
 });
 
 const CARPLAY_MAP_LAYER_SLOTS = Object.freeze({
-    cameraCone: undefined,
+    cameraCone: 'middle',
     cameraNode: undefined,
     mapProjection: 'mercator',
     routeLineElevationReference: 'ground',
@@ -23,7 +23,7 @@ const CARPLAY_MAP_LAYER_SLOTS = Object.freeze({
 });
 
 const DEFAULT_MAP_LAYER_SLOTS = Object.freeze({
-    cameraCone: undefined,
+    cameraCone: 'middle',
     cameraNode: undefined,
     mapProjection: undefined,
     routeLineElevationReference: undefined,

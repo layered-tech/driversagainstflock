@@ -1,6 +1,7 @@
 import Mapbox from '@rnmapbox/maps';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { ConeOfViewImage } from './cone-of-view-image';
+import { coneImageName } from './cone-view-styles';
 import { MAPBOX_ACCESS_TOKEN } from './config';
 import {
     ALPR_SYMBOL_IMAGES,
@@ -43,17 +44,24 @@ if (MAPBOX_ACCESS_TOKEN) {
     Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
 }
 
-export function MarkerConeImages() {
+const DEFAULT_CONE_VARIANTS = ['flat'];
+
+export function MarkerConeImages({ variants = DEFAULT_CONE_VARIANTS } = {}) {
     return (
         <Mapbox.Images>
-            {MARKER_CONE_ZOOM_STYLES.map((coneStyle) => (
-                <Mapbox.Image
-                    key={coneStyle.imageName}
-                    name={coneStyle.imageName}
-                >
-                    <ConeOfViewImage coneStyle={coneStyle} />
-                </Mapbox.Image>
-            ))}
+            {variants.flatMap((variant) =>
+                MARKER_CONE_ZOOM_STYLES.map((coneStyle) => (
+                    <Mapbox.Image
+                        key={coneImageName(coneStyle.imageName, variant)}
+                        name={coneImageName(coneStyle.imageName, variant)}
+                    >
+                        <ConeOfViewImage
+                            coneStyle={coneStyle}
+                            variant={variant}
+                        />
+                    </Mapbox.Image>
+                )),
+            )}
         </Mapbox.Images>
     );
 }
