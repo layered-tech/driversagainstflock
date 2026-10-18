@@ -1,3 +1,4 @@
+import { renderAlprMarkerLayers } from './alpr-marker-layers';
 import Mapbox from '@rnmapbox/maps';
 import {
     memo,
@@ -27,9 +28,6 @@ import {
     MAPBOX_TRAFFIC_SOURCE_URL,
 } from './config';
 import {
-    ALPR_SYMBOL_ICON_OFFSET,
-    ALPR_SYMBOL_ICON_SIZE_EXPRESSION,
-    ALPR_SYMBOL_IMAGE_NAME,
     ALPR_SYMBOL_MIN_ZOOM_LEVEL,
     ALPR_SYMBOL_VISIBLE_PROPERTY_NAME,
     ANDROID_AUTO_NAVIGATION_PUCK_BEARING_IMAGE,
@@ -230,11 +228,6 @@ const MAPBOX_STANDARD_DRIVING_BASEMAP_CONFIG = {
     showRoadLabels: true,
     showTransitLabels: false,
 };
-const ALPR_SYMBOL_FILTER = [
-    'all',
-    INDIVIDUAL_MARKER_FILTER,
-    ['==', ['get', ALPR_SYMBOL_VISIBLE_PROPERTY_NAME], true],
-];
 const MARKER_WITHOUT_ALPR_SYMBOL_FILTER = [
     'all',
     INDIVIDUAL_MARKER_FILTER,
@@ -377,7 +370,7 @@ function makeMarkerConeFilter(directionProperty, visible) {
     return ['all', INDIVIDUAL_MARKER_FILTER, ['has', directionProperty]];
 }
 
-function renderMarkerConeLayers({ idPrefix, slot, sourceID, visible }) {
+export function renderMarkerConeLayers({ idPrefix, slot, sourceID, visible }) {
     return MARKER_CONE_DIRECTION_PROPERTY_NAMES.map((directionProperty) => (
         <Mapbox.SymbolLayer
             key={`${idPrefix}-cone-${directionProperty}`}
@@ -443,7 +436,7 @@ function renderMarkerClusterLayers({
     ];
 }
 
-function renderMarkerPointLayers({
+export function renderMarkerPointLayers({
     emissiveStrength,
     idPrefix,
     mapRoutePalette,
@@ -476,28 +469,14 @@ function renderMarkerPointLayers({
             slot={slot}
             style={markerDotLayerStyle}
         />,
-        <Mapbox.SymbolLayer
-            key={`${idPrefix}-marker-alpr-symbols`}
-            id={`${idPrefix}-marker-alpr-symbols`}
-            sourceID={sourceID}
-            filter={ALPR_SYMBOL_FILTER}
-            minZoomLevel={ALPR_SYMBOL_MIN_ZOOM_LEVEL}
-            slot={slot}
-            style={{
-                iconAllowOverlap: true,
-                iconAnchor: 'bottom',
-                iconIgnorePlacement: true,
-                iconImage: ALPR_SYMBOL_IMAGE_NAME,
-                iconOffset: ALPR_SYMBOL_ICON_OFFSET,
-                iconPitchAlignment: 'viewport',
-                iconRotationAlignment: 'viewport',
-                iconSize: ALPR_SYMBOL_ICON_SIZE_EXPRESSION,
-            }}
-        />,
+        ...renderAlprMarkerLayers({ idPrefix, sourceID, slot }),
     ];
 }
 
-export const MapCanvas = memo(function MapCanvas({ children } = {}) {
+export const MapCanvas = memo(function MapCanvas({
+    children,
+    weatherEffectsEnabled = true,
+} = {}) {
     const {
         handleCameraChanged,
         handleMapLoaded,
@@ -1102,10 +1081,12 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
             styleURL={mapStyleURL}
             surfaceView={!mapTextureViewIsRequired}
         >
-            <WeatherEffect
-                car={navigationPuckVariant === 'auto-play'}
-                styleKey={`${mapStyleURL}-${locationPuckMapLoadEpoch}`}
-            />
+            {weatherEffectsEnabled ? (
+                <WeatherEffect
+                    car={navigationPuckVariant === 'auto-play'}
+                    styleKey={`${mapStyleURL}-${locationPuckMapLoadEpoch}`}
+                />
+            ) : null}
             <Mapbox.StyleImport
                 key={`${MAPBOX_STANDARD_STYLE_IMPORT_ID}-${mapStyleURL}-${mapLightPreset}`}
                 config={styleImportConfig}

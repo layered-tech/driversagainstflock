@@ -129,13 +129,13 @@ describe('Auto Play template state', () => {
         );
     });
 
-    test('keeps the Android Auto action strip stable while recenter appears', () => {
+    test('refreshes the car action strip when puck following changes', () => {
         const activeKey = getAutoPlayMapButtonAppearanceKey({
             isDarkMapLayer: false,
             trackingState: 'active',
         });
 
-        assert.equal(
+        assert.notEqual(
             getAutoPlayMapButtonAppearanceKey({
                 isDarkMapLayer: false,
                 trackingState: 'recenter',

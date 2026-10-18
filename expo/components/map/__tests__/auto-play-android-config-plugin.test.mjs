@@ -54,7 +54,7 @@ function getActions(component) {
 }
 
 describe('Android Auto config plugin', () => {
-    test('replaces inherited car filters without advertising an instrument cluster', () => {
+    test('replaces inherited car filters with navigation and instrument cluster support', () => {
         const manifest = applyAndroidAutoManifest(makeManifest());
         const service = manifest.manifest.application[0].service.find((entry) =>
             entry.$[ANDROID_NAME].endsWith('.AndroidAutoService'),
@@ -77,9 +77,37 @@ describe('Android Auto config plugin', () => {
         );
         assert.deepEqual(
             carFilter.category.map((category) => category.$[ANDROID_NAME]),
-            ['androidx.car.app.category.NAVIGATION'],
+            [
+                'androidx.car.app.category.NAVIGATION',
+                'androidx.car.app.category.FEATURE_CLUSTER',
+            ],
         );
-        assert.doesNotMatch(JSON.stringify(service), /FEATURE_CLUSTER/);
+    });
+
+    test('restores cluster support after an earlier prebuild removed it', () => {
+        const disabled = applyAndroidAutoManifest(makeManifest(), {
+            instrumentClusterEnabled: false,
+        });
+        assert.doesNotMatch(JSON.stringify(disabled), /FEATURE_CLUSTER/);
+
+        const enabled = applyAndroidAutoManifest(disabled);
+        const service = enabled.manifest.application[0].service.find((entry) =>
+            entry.$[ANDROID_NAME].endsWith('.AndroidAutoService'),
+        );
+        const categoryNames = service['intent-filter'].flatMap((filter) =>
+            (filter.category ?? []).map((category) => category.$[ANDROID_NAME]),
+        );
+
+        assert.equal(
+            categoryNames.filter((name) => name.endsWith('.FEATURE_CLUSTER'))
+                .length,
+            1,
+        );
+
+        const disabledAgain = applyAndroidAutoManifest(enabled, {
+            instrumentClusterEnabled: false,
+        });
+        assert.doesNotMatch(JSON.stringify(disabledAgain), /FEATURE_CLUSTER/);
     });
     test('keeps phone geo ownership on ACTION_VIEW only', () => {
         const inputManifest = makeManifest();
@@ -111,7 +139,9 @@ describe('Android Auto config plugin', () => {
 
     test('is idempotent and preserves unrelated service filters', () => {
         const firstResult = applyAndroidAutoManifest(makeManifest());
-        const secondResult = applyAndroidAutoManifest(firstResult);
+        const secondResult = applyAndroidAutoManifest(
+            structuredClone(firstResult),
+        );
         const application = secondResult.manifest.application[0];
 
         assert.deepEqual(secondResult, firstResult);

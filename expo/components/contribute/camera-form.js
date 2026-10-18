@@ -1,6 +1,8 @@
+import { CAMERA_REFERENCE_IMAGES } from './camera-reference-images';
 import { useRef, useState } from 'react';
 import {
     Image,
+    Modal,
     Platform,
     Pressable,
     ScrollView,
@@ -8,6 +10,10 @@ import {
     useColorScheme,
     View,
 } from 'react-native';
+import {
+    CAMERA_IDENTITY_TAG_KEYS,
+    CAMERA_MANUFACTURERS,
+} from '../../lib/osm/camera-manufacturers';
 import { CAMERA_MOUNT_OPTIONS } from '../../lib/osm/camera-schema';
 import {
     CAMERA_PRESETS,
@@ -37,6 +43,9 @@ const PRESET_IMAGES = {
     motorola: require('../../assets/camera-presets/motorola.jpg'),
     genetec: require('../../assets/camera-presets/genetec.webp'),
     axon: require('../../assets/camera-presets/axon.webp'),
+    leonardo: require('../../assets/camera-presets/leonardo.jpg'),
+    neology: require('../../assets/camera-presets/neology.jpg'),
+    verkada: require('../../assets/camera-presets/verkada.png'),
 };
 const COMMON_KEYS = ['surveillance:zone', 'camera:type', 'ref', 'start_date'];
 
@@ -133,6 +142,7 @@ export function CameraForm({
     const scrollRef = useRef(null);
     const contentRef = useRef(null);
     const [preview, setPreview] = useState(null);
+    const [referenceGalleryWidth, setReferenceGalleryWidth] = useState(0);
     const [selectedDirection, setSelectedDirection] = useState(0);
     const holdWasPreviewed = useRef(false);
     const details = pin.details;
@@ -142,7 +152,14 @@ export function CameraForm({
     const extraTags = details.extraTags ?? [];
     const directions = details.directions ?? [];
     const tags = getCameraFormTags({ ...details, preset });
-    const rowError = validateCameraTagRows(custom ? rawTags : extraTags);
+    const rowError =
+        validateCameraTagRows(custom ? rawTags : extraTags) ??
+        (!custom &&
+        extraTags.some(({ key }) =>
+            CAMERA_IDENTITY_TAG_KEYS.includes(key.trim()),
+        )
+            ? 'Manufacturer tags follow the preset. Use Custom tags to edit them directly.'
+            : null);
     const validationError =
         rowError ??
         (tags.man_made !== 'surveillance'
@@ -178,7 +195,26 @@ export function CameraForm({
     const choosePreset = (value) => {
         if (value === 'custom')
             onDetailsChange({ preset: value, rawTags: tagsToRows(tags) });
-        else onDetailsChange({ preset: value, manufacturer: value });
+        else
+            onDetailsChange({
+                preset: value,
+                manufacturer: value,
+                extraTags: tagsToRows(
+                    Object.fromEntries(
+                        Object.entries(tags).filter(
+                            ([key]) =>
+                                !CAMERA_IDENTITY_TAG_KEYS.includes(key) &&
+                                !Object.hasOwn(getPresetTags('generic'), key) &&
+                                ![
+                                    'operator',
+                                    'direction',
+                                    'camera:direction',
+                                    'camera:mount',
+                                ].includes(key),
+                        ),
+                    ),
+                ),
+            });
     };
     return (
         <View
@@ -255,7 +291,6 @@ export function CameraForm({
                                                     setPreview(item);
                                                 }
                                             }}
-                                            onPressOut={() => setPreview(null)}
                                             onPress={() => {
                                                 if (!holdWasPreviewed.current)
                                                     choosePreset(item.value);
@@ -584,45 +619,81 @@ export function CameraForm({
                     contentRef={contentRef}
                 />
             ) : null}
-            {preview ? (
-                <View className="absolute inset-0 z-50" pointerEvents="none">
+            <Modal
+                visible={Boolean(preview)}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setPreview(null)}
+                testID="contribute-brand-preview-modal"
+            >
+                {preview ? (
                     <View
                         className="flex-1 items-center justify-center bg-[rgba(11,14,18,0.62)] px-6"
-                        pointerEvents="none"
                         testID="contribute-preset-preview"
                     >
-                        {preview ? (
-                            <View className="w-full overflow-hidden rounded-dafLg bg-white shadow-[0px_8px_40px_rgba(11,14,18,0.24)] dark:bg-daf-surface-dark">
-                                <View className="aspect-[4/3] w-full overflow-hidden bg-daf-surface-alt">
-                                    <Image
-                                        className="h-full w-full"
-                                        source={PRESET_IMAGES[preview.value]}
-                                        resizeMode="cover"
+                        <View className="max-h-[85%] w-full overflow-hidden rounded-dafLg bg-white dark:bg-daf-surface-dark">
+                            <View className="flex-row items-center justify-between gap-2 px-4 py-2">
+                                <Text className="flex-1 font-dafDisplay text-lg font-bold text-daf-text-primary dark:text-white">
+                                    {preview.label} {preview.model}
+                                </Text>
+                                <Pressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Close brand preview"
+                                    className="h-11 w-11 items-center justify-center rounded-full bg-daf-surface-alt dark:bg-daf-surface-inverse"
+                                    onPress={() => setPreview(null)}
+                                    testID="contribute-brand-preview-close"
+                                >
+                                    <Icon
+                                        name="x"
+                                        size={22}
+                                        color={theme.text.tertiary}
                                     />
-                                </View>
-                                <View className="gap-1 px-[14px] pb-[14px] pt-3">
-                                    <View className="flex-row items-center justify-between">
-                                        <Text className="font-dafDisplay text-[18px] font-bold text-daf-text-primary dark:text-white">
-                                            {preview.label} {preview.model}
-                                        </Text>
-                                        <Text className="font-dafMono text-[11px] text-daf-text-tertiary dark:text-neutral-400">
-                                            ALPR
-                                        </Text>
-                                    </View>
-                                    <Text className="text-[13px] leading-5 text-daf-text-secondary dark:text-neutral-300">
-                                        {preview.description}
-                                    </Text>
-                                </View>
+                                </Pressable>
                             </View>
-                        ) : null}
-                        <View className="mt-4 rounded-full border border-white/30 bg-white/80 px-3 py-[7px]">
-                            <Text className="text-xs font-semibold text-daf-text-primary">
-                                Release to close
-                            </Text>
+                            <ScrollView
+                                className="flex-shrink"
+                                testID="contribute-reference-gallery"
+                                onLayout={({ nativeEvent }) => {
+                                    const width = nativeEvent.layout.width;
+                                    if (Number.isFinite(width) && width > 0)
+                                        setReferenceGalleryWidth(width);
+                                }}
+                            >
+                                <Text className="px-4 pb-3 text-sm leading-5 text-daf-text-secondary dark:text-neutral-300">
+                                    {preview.description}
+                                </Text>
+                                {(
+                                    CAMERA_MANUFACTURERS.find(
+                                        ({ value }) => value === preview.value,
+                                    )?.referenceImages ?? []
+                                ).map((reference, index) => {
+                                    const source =
+                                        CAMERA_REFERENCE_IMAGES[reference];
+                                    const dimensions =
+                                        Image.resolveAssetSource(source);
+                                    const aspectRatio =
+                                        dimensions.width / dimensions.height;
+                                    return (
+                                        <Image
+                                            key={reference}
+                                            source={source}
+                                            className="mb-3"
+                                            style={{
+                                                width: referenceGalleryWidth,
+                                                height:
+                                                    referenceGalleryWidth /
+                                                    aspectRatio,
+                                            }}
+                                            resizeMode="contain"
+                                            accessibilityLabel={`${preview.label} reference photo ${index + 1}`}
+                                        />
+                                    );
+                                })}
+                            </ScrollView>
                         </View>
                     </View>
-                </View>
-            ) : null}
+                ) : null}
+            </Modal>
         </View>
     );
 }

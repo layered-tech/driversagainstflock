@@ -11,6 +11,7 @@ import {
 } from './navigation-puck-layout';
 
 export function DrivingLocationRoadStack({
+    currentRoadPillIsCompact = false,
     currentRoadPillIsVisible = true,
     currentRoadPillIsDarkMode,
     currentRoadPillTestID,
@@ -73,6 +74,7 @@ export function DrivingLocationRoadStack({
             {currentRoadIsVisible ? (
                 <CurrentRoadPill
                     className="max-w-full"
+                    compact={currentRoadPillIsCompact}
                     isDarkMode={currentRoadPillIsDarkMode}
                     roadText={currentRoadText}
                     style={currentRoadPillStyle}

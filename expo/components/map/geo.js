@@ -1,10 +1,13 @@
+import { getCameraManufacturerMatches } from '../../lib/osm/camera-manufacturers.js';
 import {
+    ALPR_SYMBOL_IMAGE_PROPERTY_NAME,
     ALPR_SYMBOL_VISIBLE_PROPERTY_NAME,
     DRIVING_COURSE_HEADING_DEADBAND_DEGREES,
     DRIVING_COURSE_HEADING_FILTER_FACTOR,
     DRIVING_COURSE_HEADING_SHARP_TURN_DEGREES,
     DRIVING_COURSE_HEADING_SHARP_TURN_FILTER_FACTOR,
     EMPTY_FEATURE_COLLECTION,
+    GENERIC_ALPR_SYMBOL_IMAGE_NAME,
     MARKER_CONE_DIRECTION_PROPERTY_NAMES,
     MAX_MARKER_CONE_DIRECTIONS,
     MAX_MARKER_REQUEST_LATITUDE_SPAN_DEGREES,
@@ -33,11 +36,6 @@ export {
     shouldSkipMarkerLoadRequest,
 } from './marker-load-bounds';
 
-const FLOCK_ALPR_WIKIDATA_ID = 'Q108485435';
-const FLOCK_ALPR_WIKIDATA_TAG_NAMES = [
-    'brand:wikidata',
-    'manufacturer:wikidata',
-];
 const EARTH_RADIUS_METERS = 6371008.8;
 const markerFeatureCollectionCache = new WeakMap();
 
@@ -365,20 +363,54 @@ export function getMarkerCoordinate(marker) {
     return [longitude, latitude];
 }
 
-export function nodeShowsAlprSymbol(node) {
-    return FLOCK_ALPR_WIKIDATA_TAG_NAMES.some(
-        (tagName) => node?.tags?.[tagName] === FLOCK_ALPR_WIKIDATA_ID,
+function getNodeAlprSymbolImage(node) {
+    const tags = node?.tags ?? {};
+    const type = String(tags['surveillance:type'] ?? '')
+        .trim()
+        .toLowerCase();
+
+    if (type && type !== 'alpr' && type !== 'anpr') {
+        return null;
+    }
+
+    const matchingImages = getCameraManufacturerMatches(tags).map(
+        ({ imageName }) => imageName,
     );
+
+    if (matchingImages.length > 1) {
+        return GENERIC_ALPR_SYMBOL_IMAGE_NAME;
+    }
+    if (matchingImages.length === 1) {
+        return matchingImages[0];
+    }
+
+    return type === 'alpr' || type === 'anpr'
+        ? GENERIC_ALPR_SYMBOL_IMAGE_NAME
+        : null;
 }
 
-export function markerShowsAlprSymbol(marker) {
+export function nodeShowsAlprSymbol(node) {
+    return getNodeAlprSymbolImage(node) !== null;
+}
+
+export function getMarkerAlprSymbolImage(marker) {
     const osmNodes = marker?.properties?.osm_nodes;
 
     if (!Array.isArray(osmNodes)) {
-        return false;
+        return null;
     }
 
-    return osmNodes.some(nodeShowsAlprSymbol);
+    const images = [
+        ...new Set(osmNodes.map(getNodeAlprSymbolImage).filter(Boolean)),
+    ];
+
+    return images.length > 1
+        ? GENERIC_ALPR_SYMBOL_IMAGE_NAME
+        : (images[0] ?? null);
+}
+
+export function markerShowsAlprSymbol(marker) {
+    return getMarkerAlprSymbolImage(marker) !== null;
 }
 
 export function makeMarkerFeatureCollection(markers) {
@@ -401,10 +433,11 @@ export function makeMarkerFeatureCollection(markers) {
             }
 
             const markerId = marker?.properties?.id ?? `marker-${index}`;
+            const alprSymbolImage = getMarkerAlprSymbolImage(marker);
             const properties = {
+                [ALPR_SYMBOL_IMAGE_PROPERTY_NAME]: alprSymbolImage,
                 markerId: String(markerId),
-                [ALPR_SYMBOL_VISIBLE_PROPERTY_NAME]:
-                    markerShowsAlprSymbol(marker),
+                [ALPR_SYMBOL_VISIBLE_PROPERTY_NAME]: alprSymbolImage !== null,
             };
 
             getMarkerDirectionValues(marker)

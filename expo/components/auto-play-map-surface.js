@@ -37,6 +37,7 @@ export function createAutoPlayMapSurface(platformConfig) {
                         colorScheme={props?.colorScheme}
                         id={props?.id}
                         platformConfig={platformConfig}
+                        stateOverride={props?.stateOverride}
                         windowInfo={props?.window}
                     />
                 </SafeAreaInsetsOverrideProvider>

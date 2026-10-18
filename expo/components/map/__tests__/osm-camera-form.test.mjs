@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createHookHarness, loadTourModule } from './tour-test-helpers.mjs';
+import * as cameraManufacturers from '../../../lib/osm/camera-manufacturers.js';
 import * as cameraPresets from '../../../lib/osm/camera-presets.js';
 import { CAMERA_MOUNT_OPTIONS } from '../../../lib/osm/camera-schema.js';
 
@@ -20,9 +21,29 @@ function createForm(details) {
     const { CameraForm } = loadTourModule(
         new URL('../../contribute/camera-form.js', import.meta.url),
         {
+            './camera-reference-images': {
+                CAMERA_REFERENCE_IMAGES: Object.fromEntries(
+                    cameraManufacturers.CAMERA_MANUFACTURERS.flatMap(
+                        ({ referenceImages }) =>
+                            referenceImages.map((name) => [
+                                name,
+                                `bundled:${name}`,
+                            ]),
+                    ),
+                ),
+            },
             react: hooks.react,
+            '../../lib/osm/camera-manufacturers': cameraManufacturers,
             'react-native': {
-                Image: 'Image',
+                Image: Object.assign(function Image() {}, {
+                    resolveAssetSource: (source) =>
+                        source === 'bundled:axon-1.webp'
+                            ? { width: 1200, height: 600 }
+                            : source === 'bundled:axon-2.webp'
+                              ? { width: 600, height: 1200 }
+                              : { width: 1200, height: 900 },
+                }),
+                Modal: 'Modal',
                 Platform: { OS: 'android', Version: 36 },
                 Pressable: 'Pressable',
                 ScrollView: 'ScrollView',
@@ -54,6 +75,9 @@ function createForm(details) {
             '../../assets/camera-presets/motorola.jpg': 'motorola-image',
             '../../assets/camera-presets/genetec.webp': 'genetec-image',
             '../../assets/camera-presets/axon.webp': 'axon-image',
+            '../../assets/camera-presets/leonardo.jpg': 'leonardo-image',
+            '../../assets/camera-presets/neology.jpg': 'neology-image',
+            '../../assets/camera-presets/verkada.png': 'verkada-image',
         },
     );
     const render = () =>
@@ -79,7 +103,7 @@ function createForm(details) {
     };
 }
 
-test('holding a vendor photo previews it without selecting it, and release closes it', () => {
+test('long press opens a persistent brand gallery without selecting the brand', () => {
     const form = createForm({ preset: 'flock' });
     try {
         const photo = form.element('contribute-preset-axon');
@@ -87,9 +111,13 @@ test('holding a vendor photo previews it without selecting it, and release close
         photo.props.onLongPress();
         assert.ok(form.element('contribute-preset-preview'));
         assert.deepEqual(form.changes, []);
-        photo.props.onPressOut();
+        photo.props.onPressOut?.();
         photo.props.onPress();
+        assert.ok(form.element('contribute-preset-preview'));
+        assert.ok(form.element('contribute-reference-gallery'));
+        form.element('contribute-brand-preview-close').props.onPress();
         assert.equal(form.element('contribute-preset-preview'), null);
+        assert.equal(form.element('contribute-reference-gallery'), null);
         assert.equal(form.pin.details.preset, 'flock');
         photo.props.onPressIn();
         photo.props.onPress();
@@ -362,5 +390,94 @@ test('a queued camera focus event reads the latest committed pin instead of redi
         assert.deepEqual(routes, []);
     } finally {
         hooks.cleanup();
+    }
+});
+
+test('switching to Axon repairs both identity tags without exposing map preview', () => {
+    const form = createForm(
+        cameraPresets.getCameraDetailsFromTags({
+            ...cameraPresets.getPresetTags('flock'),
+            note: 'Preserve',
+        }),
+    );
+    try {
+        form.element('contribute-preset-axon').props.onPress();
+        const tags = cameraPresets.getCameraFormTags(form.pin.details);
+        assert.equal(tags.manufacturer, 'Axon Enterprise');
+        assert.equal(tags['manufacturer:wikidata'], 'Q690604');
+        assert.equal(tags.note, 'Preserve');
+        assert.equal(form.element('contribute-map-marker-preview'), null);
+        assert.equal(form.element('contribute-reference-gallery'), null);
+    } finally {
+        form.cleanup();
+    }
+});
+
+test('brand gallery shows all references for the held brand and closes with the system back action', () => {
+    const form = createForm({ preset: 'flock' });
+    try {
+        assert.equal(form.element('contribute-reference-gallery'), null);
+        form.element('contribute-preset-motorola').props.onLongPress();
+        const gallery = form.element('contribute-reference-gallery');
+        const photos = gallery.props.children[1];
+        assert.equal(
+            photos.length,
+            cameraManufacturers.CAMERA_MANUFACTURERS.find(
+                ({ value }) => value === 'motorola',
+            ).referenceImages.length,
+        );
+        assert.equal(photos[0].props.source, 'bundled:motorola-1.jpg');
+        assert.equal(form.pin.details.preset, 'flock');
+        form.element('contribute-brand-preview-modal').props.onRequestClose();
+        assert.equal(form.element('contribute-reference-gallery'), null);
+    } finally {
+        form.cleanup();
+    }
+});
+
+test('Axon gallery uses each distinct reference and fits each loaded image aspect ratio', () => {
+    const form = createForm({ preset: 'flock' });
+    try {
+        form.element('contribute-preset-axon').props.onLongPress();
+        const photos = () =>
+            form.element('contribute-reference-gallery').props.children[1];
+        const expected = cameraManufacturers.CAMERA_MANUFACTURERS.find(
+            ({ value }) => value === 'axon',
+        ).referenceImages;
+        assert.deepEqual(
+            photos().map(({ props }) => props.source),
+            expected.map((name) => `bundled:${name}`),
+        );
+        assert.equal(
+            new Set(photos().map(({ props }) => props.source)).size,
+            expected.length,
+        );
+        const layout = (width) =>
+            form
+                .element('contribute-reference-gallery')
+                .props.onLayout({ nativeEvent: { layout: { width } } });
+        layout(320);
+        assert.deepEqual(
+            photos().map(({ props }) => props.style),
+            [
+                { width: 320, height: 160 },
+                { width: 320, height: 640 },
+                { width: 320, height: 240 },
+            ],
+        );
+        layout(280);
+        assert.deepEqual(
+            photos().map(({ props }) => props.style),
+            [
+                { width: 280, height: 140 },
+                { width: 280, height: 560 },
+                { width: 280, height: 210 },
+            ],
+        );
+        assert.ok(
+            photos().every(({ props }) => props.resizeMode === 'contain'),
+        );
+    } finally {
+        form.cleanup();
     }
 });

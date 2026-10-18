@@ -161,6 +161,7 @@ function createDebugDrawerHarness(reset, featureTours = {}) {
         'WAZE',
     ];
     const { DebugDrawer } = loadComponent('../root/debug-drawer.js', {
+        'expo-router': { useRouter: () => ({ push() {} }) },
         react: { ...hooks.react, Fragment: 'Fragment' },
         'react-native': {
             Animated: {

@@ -287,6 +287,16 @@ function RootLayout() {
                                                 title: 'Your edits',
                                             }}
                                         />
+                                        <Drawer.Screen
+                                            name="camera-marker-preview"
+                                            options={{
+                                                drawerItemStyle: {
+                                                    display: 'none',
+                                                },
+                                                swipeEnabled: false,
+                                                title: 'Camera marker preview',
+                                            }}
+                                        />
                                     </Drawer>
                                     <DebugDrawer
                                         onClose={handleCloseDebugDrawer}

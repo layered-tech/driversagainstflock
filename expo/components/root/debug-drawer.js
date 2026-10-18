@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import {
     faCamera,
     faCodeBranch,
@@ -124,6 +125,7 @@ const DEBUG_DRAWER_ITEMS = [
 ];
 
 export function DebugDrawer({ onClose, visible }) {
+    const router = useRouter();
     const { tour } = useContribute();
     const mapOptionsTour = useUserTour('map-options');
     const scorecardTour = useUserTour('scorecard');
@@ -372,6 +374,19 @@ export function DebugDrawer({ onClose, visible }) {
                             </View>
                         );
                     })}
+                    <Pressable
+                        accessibilityRole="button"
+                        className="rounded-md border border-neutral-200 p-3 dark:border-neutral-800"
+                        testID="debug-camera-marker-preview"
+                        onPress={() => {
+                            onClose();
+                            router.push('/camera-marker-preview');
+                        }}
+                    >
+                        <Text className="font-semibold text-neutral-950 dark:text-white">
+                            Camera marker preview
+                        </Text>
+                    </Pressable>
                     {DEBUG_DRAWER_ITEMS.map((item) => (
                         <Fragment key={item.key}>
                             <DebugDrawerToggleRow

@@ -149,7 +149,8 @@ export function AutoPlayTopRightStatusOverlay({
  *
  * `rendersSpeedLimit` arrives already resolved by the surface, so the speed
  * badge can outlive the rest of the chrome: the CarPlay Dashboard keeps it
- * while leaving the road pill and loading indicator off.
+ * while leaving the road pill and loading indicator off. Cluster surfaces can
+ * show the road pill independently of the other status chrome.
  */
 export function AutoPlayMapStatusOverlay({
     confirmationIsActive = false,
@@ -166,6 +167,7 @@ export function AutoPlayMapStatusOverlay({
     rendersSpeedLimit = true,
     speedLimitBadge,
     statusChromeIsVisible = true,
+    currentRoadPillIsVisible = statusChromeIsVisible,
     userLocation,
     viewportMetrics,
 }) {
@@ -233,9 +235,12 @@ export function AutoPlayMapStatusOverlay({
                 >
                     <View className="flex-1" pointerEvents="none" />
                     <DrivingLocationRoadStack
+                        currentRoadPillIsCompact={
+                            currentRoadPill?.compact === true
+                        }
                         currentRoadPillIsDarkMode={resolvedIsDarkMode}
                         currentRoadPillIsVisible={
-                            statusChromeIsVisible && !confirmationIsActive
+                            currentRoadPillIsVisible && !confirmationIsActive
                         }
                         currentRoadPillTestID="android-auto-current-road-pill"
                         currentRoadPillStyle={

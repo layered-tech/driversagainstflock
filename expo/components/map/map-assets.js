@@ -3,8 +3,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { ConeOfViewImage } from './cone-of-view-image';
 import { MAPBOX_ACCESS_TOKEN } from './config';
 import {
-    ALPR_SYMBOL_IMAGE_NAME,
-    ALPR_SYMBOL_IMAGE_SOURCE,
+    ALPR_SYMBOL_IMAGES,
     ANDROID_AUTO_NAVIGATION_PUCK_BEARING_IMAGE,
     ANDROID_AUTO_NAVIGATION_PUCK_SHADOW_IMAGE,
     MARKER_CONE_ZOOM_STYLES,
@@ -60,13 +59,7 @@ export function MarkerConeImages() {
 }
 
 export function AlprMarkerImages() {
-    return (
-        <Mapbox.Images
-            images={{
-                [ALPR_SYMBOL_IMAGE_NAME]: ALPR_SYMBOL_IMAGE_SOURCE,
-            }}
-        />
-    );
+    return <Mapbox.Images images={ALPR_SYMBOL_IMAGES} />;
 }
 
 export function PoliceAlertImages() {

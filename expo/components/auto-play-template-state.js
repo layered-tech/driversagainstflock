@@ -340,12 +340,7 @@ export function getAutoPlayMapButtonAppearanceKey({
     isDarkMapLayer = false,
     trackingState,
 }) {
-    const trackingIsHighlighted =
-        trackingState === 'active' || trackingState === 'recenter';
-
-    return `${isDarkMapLayer ? 'dark' : 'light'}:${
-        trackingIsHighlighted ? 'highlighted' : 'inactive'
-    }`;
+    return `${isDarkMapLayer ? 'dark' : 'light'}:${trackingState ?? 'inactive'}`;
 }
 
 export function getAutoPlayNavigationPuckRefreshKey({

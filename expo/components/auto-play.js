@@ -2976,11 +2976,15 @@ function getRootMapButtons() {
             onPress: handleRootZoomOutPress,
             type: 'custom',
         },
-        {
-            image: getRootMapTrackingButtonImage(),
-            onPress: handleRootTrackingPress,
-            type: 'custom',
-        },
+        ...(rootMapButtonAppearance.trackingState !== 'active'
+            ? [
+                  {
+                      image: getRootMapTrackingButtonImage(),
+                      onPress: handleRootTrackingPress,
+                      type: 'custom',
+                  },
+              ]
+            : []),
     ];
     cachedRootMapButtonsKey = rootMapButtonsKey;
     return cachedRootMapButtons;

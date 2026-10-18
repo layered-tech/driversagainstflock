@@ -10,17 +10,20 @@ import {
 import { buildOsmChangeXML } from '../xml.js';
 import { parseNodeDetails } from '../edit-tags.js';
 
-test('vendor presets write six standard tags and generic omits the manufacturer', () => {
+test('vendor presets write the DeFlock tag pairs and generic omits identity', () => {
     for (const [preset, manufacturer] of Object.entries({
         flock: 'Flock Safety',
         motorola: 'Motorola Solutions',
         genetec: 'Genetec',
-        axon: 'Axon',
+        axon: 'Axon Enterprise',
+        leonardo: 'Leonardo',
+        neology: 'Neology, Inc.',
+        verkada: 'Verkada Inc.',
     })) {
         const tags = getPresetTags(preset);
         assert.equal(tags.manufacturer, manufacturer);
         assert.equal(tags['surveillance:type'], 'ALPR');
-        assert.equal(Object.keys(tags).length, 6);
+        assert.equal(Object.keys(tags).length, preset === 'neology' ? 6 : 7);
     }
     assert.equal(getPresetTags('generic').manufacturer, undefined);
 });
@@ -102,7 +105,16 @@ test('uploads additions edits and deletions in one changeset with correct versio
     assert.equal((xml.match(/<osmChange/g) ?? []).length, 1);
 });
 
-for (const preset of ['flock', 'motorola', 'genetec', 'axon', 'generic']) {
+for (const preset of [
+    'flock',
+    'motorola',
+    'genetec',
+    'axon',
+    'leonardo',
+    'neology',
+    'verkada',
+    'generic',
+]) {
     test(`existing ${preset} tags reselect the preset without changing original tags`, () => {
         const tags = {
             ...getPresetTags(preset),
@@ -131,4 +143,117 @@ test('a different surveillance profile remains custom and preserves every tag', 
     const details = getCameraDetailsFromTags(tags);
     assert.equal(details.preset, 'custom');
     assert.deepEqual(getCameraFormTags(details), tags);
+});
+
+test('switching a Flock node to Axon replaces the manufacturer identity pair', () => {
+    const details = getCameraDetailsFromTags({
+        ...getPresetTags('flock'),
+        'manufacturer:wikidata': 'Q108485435',
+        brand: 'Flock Safety',
+        'brand:wikidata': 'Q108485435',
+        note: 'Keep this note',
+    });
+    const tags = getCameraFormTags({ ...details, preset: 'axon' });
+    assert.equal(tags.manufacturer, 'Axon Enterprise');
+    assert.equal(tags['manufacturer:wikidata'], 'Q690604');
+    assert.equal(tags.brand, undefined);
+    assert.equal(tags['brand:wikidata'], undefined);
+    assert.equal(tags.note, 'Keep this note');
+});
+
+test('generic and Neology clear stale manufacturer Wikidata even in extra tags', () => {
+    for (const preset of ['generic', 'neology']) {
+        const tags = getCameraFormTags({
+            preset,
+            extraTags: [
+                { key: 'manufacturer:wikidata', value: 'Q108485435' },
+                { key: 'manufacturer', value: 'Flock Safety' },
+            ],
+        });
+        assert.equal(tags['manufacturer:wikidata'], undefined);
+        assert.equal(
+            tags.manufacturer,
+            preset === 'generic' ? undefined : 'Neology, Inc.',
+        );
+    }
+});
+
+test('every guide manufacturer writes its canonical name and Wikidata together', () => {
+    const expected = {
+        flock: ['Flock Safety', 'Q108485435'],
+        motorola: ['Motorola Solutions', 'Q634815'],
+        genetec: ['Genetec', 'Q30295174'],
+        leonardo: ['Leonardo', 'Q910379'],
+        neology: ['Neology, Inc.', undefined],
+        axon: ['Axon Enterprise', 'Q690604'],
+        verkada: ['Verkada Inc.', 'Q106059747'],
+    };
+    for (const [preset, [manufacturer, wikidata]] of Object.entries(expected)) {
+        const tags = getCameraFormTags({ preset });
+        assert.equal(tags.manufacturer, manufacturer);
+        assert.equal(tags['manufacturer:wikidata'], wikidata);
+    }
+});
+
+test('switching every preset to every other preset removes stale identities and preserves other tags', () => {
+    const presets = [
+        'flock',
+        'motorola',
+        'genetec',
+        'leonardo',
+        'neology',
+        'axon',
+        'verkada',
+        'generic',
+    ];
+    for (const from of presets) {
+        const original = {
+            ...getPresetTags(from),
+            note: 'Do not discard',
+            direction: '180',
+        };
+        for (const to of presets) {
+            const tags = getCameraFormTags({
+                ...getCameraDetailsFromTags(original),
+                preset: to,
+            });
+            assert.equal(
+                tags.manufacturer,
+                getPresetTags(to).manufacturer,
+                `${from} -> ${to}`,
+            );
+            assert.equal(
+                tags['manufacturer:wikidata'],
+                getPresetTags(to)['manufacturer:wikidata'],
+                `${from} -> ${to}`,
+            );
+            assert.equal(tags.note, original.note);
+            assert.equal(tags.direction, original.direction);
+        }
+    }
+});
+
+test('unchanged valid identities are preserved while conflicting identities stay custom', () => {
+    const original = {
+        ...getPresetTags('flock'),
+        brand: 'Flock Safety',
+        'brand:wikidata': 'Q108485435',
+    };
+    assert.deepEqual(
+        getCameraFormTags(getCameraDetailsFromTags(original)),
+        original,
+    );
+    const conflict = { ...original, brand: 'Axon' };
+    assert.equal(getCameraDetailsFromTags(conflict).preset, 'custom');
+    assert.deepEqual(
+        getCameraFormTags(getCameraDetailsFromTags(conflict)),
+        conflict,
+    );
+    const repaired = getCameraFormTags({
+        ...getCameraDetailsFromTags(conflict),
+        preset: 'axon',
+    });
+    assert.equal(repaired.manufacturer, 'Axon Enterprise');
+    assert.equal(repaired['manufacturer:wikidata'], 'Q690604');
+    assert.equal(repaired.brand, undefined);
 });

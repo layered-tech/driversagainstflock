@@ -1,3 +1,4 @@
+import { CAMERA_IDENTITY_TAG_KEYS } from './camera-manufacturers.js';
 import {
     CAMERA_MANUFACTURER_OPTIONS,
     CAMERA_MOUNT_OPTIONS,
@@ -58,7 +59,7 @@ function parseDirectionTagValue(directionValue) {
  * Maps a node's OSM tags onto the edit form's fields.
  *
  * @param {Record<string, string>} tags
- * @returns {{ directions: number[], isActive: boolean, manufacturer: 'flock'|'motorola'|'other', mount: string|null, operator: string, type: 'alpr'|'cctv'|'gantry' }}
+ * @returns {{ directions: number[], isActive: boolean, manufacturer: string, mount: string|null, operator: string, type: 'alpr'|'cctv'|'gantry' }}
  */
 export function parseNodeDetails(tags = {}) {
     const safeTags = tags && typeof tags === 'object' ? tags : {};
@@ -124,8 +125,9 @@ export function buildUpdatedNodeTags(
     }
 
     if (dirtyFieldSet.has('manufacturer')) {
-        delete tags.manufacturer;
-        delete tags['manufacturer:wikidata'];
+        for (const key of CAMERA_IDENTITY_TAG_KEYS) {
+            delete tags[key];
+        }
 
         const manufacturerTags = getCameraManufacturerTags(manufacturer);
 
