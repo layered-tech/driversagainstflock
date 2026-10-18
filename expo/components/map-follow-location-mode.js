@@ -33,6 +33,7 @@ export function useFollowLocationMode({
     followIsEnabled = true,
     followPitch = LOCATION_FOLLOW_CAMERA_PITCH,
     followSpeedZoomEnabled = false,
+    followZoomOffset = 0,
     followViewportAnchorY,
     isDrivingMode,
     locationTrackingMode,
@@ -57,11 +58,15 @@ export function useFollowLocationMode({
     navigationRouteRef.current = navigationRoute;
     const recenterReasonRef = useRef(null);
     const recenterIsNeededRef = useRef(false);
-    const nativeFollowZoomLevelRef = useRef(LOCATION_ZOOM_LEVEL);
+    const initialFollowZoomLevel = clampZoomLevel(
+        LOCATION_ZOOM_LEVEL + followZoomOffset,
+    );
+    const nativeFollowZoomLevelRef = useRef(initialFollowZoomLevel);
     const lastFollowSpeedZoomUpdateAtRef = useRef(null);
     const userZoomOverrideIsActiveRef = useRef(false);
-    const [nativeFollowZoomLevel, setNativeFollowZoomLevelState] =
-        useState(LOCATION_ZOOM_LEVEL);
+    const [nativeFollowZoomLevel, setNativeFollowZoomLevelState] = useState(
+        initialFollowZoomLevel,
+    );
     const [recenterIsNeeded, setRecenterIsNeeded] = useState(false);
     const [userZoomOverrideIsActive, setUserZoomOverrideIsActive] =
         useState(false);
@@ -130,7 +135,7 @@ export function useFollowLocationMode({
             const recordedAt = Number(location?.recordedAt);
             const now = Number.isFinite(recordedAt) ? recordedAt : Date.now();
             const speedZoom = getFollowZoomLevel(location, { force, now });
-            const nextZoomLevel = followSpeedZoomEnabled
+            const baseZoomLevel = followSpeedZoomEnabled
                 ? clampZoomLevel(
                       maneuverZoomController.update({
                           route: isDrivingMode
@@ -142,6 +147,9 @@ export function useFollowLocationMode({
                       }),
                   )
                 : speedZoom;
+            const nextZoomLevel = clampZoomLevel(
+                baseZoomLevel + followZoomOffset,
+            );
             const zoomUpdate = getFollowZoomUpdate({
                 currentZoomLevel: nativeFollowZoomLevelRef.current,
                 force,
@@ -170,6 +178,7 @@ export function useFollowLocationMode({
             clampZoomLevel,
             currentZoomRef,
             followSpeedZoomEnabled,
+            followZoomOffset,
             getFollowZoomLevel,
             isDrivingMode,
             maneuverZoomController,

@@ -7,8 +7,9 @@ const SEGMENTS = 24;
 const LENGTH = 60;
 const WIDTH_RADIUS = LENGTH * Math.tan((20 * Math.PI) / 180);
 const HEIGHT_RADIUS = LENGTH * Math.tan((10 * Math.PI) / 180);
-// Match the ModelLayer's 2.5 m translation: local Y = -2.5 is ground.
-const GROUND_Y = -2.5;
+// Sit 2 cm above ground after the ModelLayer's 2.5 m translation so the
+// filled underside does not flicker against the map's ground surface.
+const GROUND_Y = -2.48;
 
 function crc32(bytes) {
     let crc = 0xffffffff;
@@ -153,6 +154,67 @@ export function buildCameraViewCone() {
             );
         }
     }
+
+    // Close the two openings with translucent faces. Separate vertices keep
+    // the cap normals flat while the outer shell retains its smooth shading.
+    const shellPositions = Array.from(
+        { length: positions.length / 3 },
+        (_, index) => positions.slice(index * 3, index * 3 + 3),
+    );
+    function addCap(boundary, normal, axes, reverse = false) {
+        const unique = [
+            ...new Map(
+                boundary.map((position) => [
+                    position
+                        .map((value) => Math.round(value * 100000))
+                        .join(','),
+                    position,
+                ]),
+            ).values(),
+        ];
+        const center = axes.map(
+            (axis) =>
+                unique.reduce((sum, position) => sum + position[axis], 0) /
+                unique.length,
+        );
+        unique.sort(
+            (a, b) =>
+                Math.atan2(a[axes[1]] - center[1], a[axes[0]] - center[0]) -
+                Math.atan2(b[axes[1]] - center[1], b[axes[0]] - center[0]),
+        );
+        if (reverse) unique.reverse();
+        const cap = unique.map((position) =>
+            emitVertex({ position, normal, uv: [0, -position[2] / LENGTH] }),
+        );
+        const centerPosition = [0, 1, 2].map(
+            (axis) =>
+                unique.reduce((sum, position) => sum + position[axis], 0) /
+                unique.length,
+        );
+        const centerIndex = emitVertex({
+            position: centerPosition,
+            normal,
+            uv: [0, -centerPosition[2] / LENGTH],
+        });
+        for (let corner = 0; corner < cap.length; corner++) {
+            indices.push(
+                centerIndex,
+                cap[corner],
+                cap[(corner + 1) % cap.length],
+            );
+        }
+    }
+    addCap(
+        shellPositions.filter(([, , z]) => z === -LENGTH),
+        [0, 0, -1],
+        [0, 1],
+        true,
+    );
+    addCap(
+        shellPositions.filter(([, y]) => y === GROUND_Y),
+        [0, -1, 0],
+        [0, 2],
+    );
 
     const bufferViews = [];
     const buffers = [];

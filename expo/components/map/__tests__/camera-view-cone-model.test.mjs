@@ -129,7 +129,7 @@ test('bundled cone is a self-contained reproducible GLB with a lightweight clipp
     assert.equal(document.materials.length, 1);
     assert.equal(document.nodes.length, 1);
     assert.equal(document.meshes[0].primitives[0].mode, 4);
-    assert.equal(document.accessors[3].count / 3, 26);
+    assert.ok(document.accessors[3].count / 3 < 64);
     assert.ok(
         readAccessor(3)
             .flat()
@@ -148,7 +148,10 @@ test('bundled cone is a self-contained reproducible GLB with a lightweight clipp
 test('cone keeps its node-centered tip with 40-degree horizontal and 20-degree vertical spreads', () => {
     const positions = readAccessor(0);
     assert.deepEqual(positions[0], [0, 0, 0]);
-    const ring = positions.filter(([, y, z]) => y >= 0 && z === -60);
+    const normals = readAccessor(1);
+    const ring = positions.filter(
+        ([, y, z], index) => y >= 0 && z === -60 && normals[index][2] > 0,
+    );
     assert.ok(Math.max(...ring.map(([x]) => x)) > 21);
     assert.ok(Math.min(...ring.map(([x]) => x)) < -21);
     assert.ok(Math.max(...ring.map(([, y]) => y)) > 10);
@@ -188,12 +191,15 @@ test('cone keeps its node-centered tip with 40-degree horizontal and 20-degree v
     });
 });
 
-test('beam stops at ground without flattening its lower rays or leaving cracks in the shell', () => {
+test('filled beam closes both openings and clears the ground without flattening its lower rays', () => {
     const positions = readAccessor(0);
-    assert.ok(positions.every(([, y, z]) => y >= -2.5 && z >= -60 && z <= 0));
-    const ground = positions.filter(([, y]) => y === -2.5);
+    const isGround = ([, y]) => Math.abs(y + 2.48) < 0.00001;
+    assert.ok(
+        positions.every(([, y, z]) => y >= -2.48001 && z >= -60 && z <= 0),
+    );
+    const ground = positions.filter(isGround);
     assert.ok(ground.length > 2);
-    const firstContact = 2.5 / Math.tan((10 * Math.PI) / 180);
+    const firstContact = 2.48 / Math.tan((10 * Math.PI) / 180);
     assert.ok(
         Math.abs(Math.max(...ground.map(([, , z]) => z)) + firstContact) <
             0.00001,
@@ -208,6 +214,8 @@ test('beam stops at ground without flattening its lower rays or leaving cracks i
 
     const indices = readAccessor(3).flat();
     const edges = new Map();
+    let groundFaces = 0;
+    let endFaces = 0;
     const vertexKey = (position) =>
         position.map((value) => Math.round(value * 100000)).join(',');
     for (let offset = 0; offset < indices.length; offset += 3) {
@@ -224,14 +232,14 @@ test('beam stops at ground without flattening its lower rays or leaving cracks i
         ];
         assert.ok(Math.hypot(...cross) > 0.00001, 'no degenerate triangles');
         assert.ok(
-            cross[0] * (a[0] + b[0] + c[0]) + cross[1] * (a[1] + b[1] + c[1]) >
+            cross[0] * (a[0] + b[0] + c[0]) +
+                cross[1] * (a[1] + b[1] + c[1]) +
+                cross[2] * (a[2] + b[2] + c[2] + 90) >
                 0,
             'preserve outward winding',
         );
-        assert.ok(
-            !triangle.every(([, y]) => y === -2.5),
-            'no overlapping ground cap',
-        );
+        if (triangle.every(isGround)) groundFaces++;
+        if (triangle.every(([, , z]) => z === -60)) endFaces++;
         for (let edge = 0; edge < 3; edge++) {
             const endpoints = [triangle[edge], triangle[(edge + 1) % 3]];
             const key = endpoints.map(vertexKey).sort().join('|');
@@ -240,15 +248,14 @@ test('beam stops at ground without flattening its lower rays or leaving cracks i
             edges.set(key, entry);
         }
     }
-    for (const { count, endpoints } of edges.values()) {
-        assert.ok(count === 1 || count === 2);
-        if (count === 1) {
-            assert.ok(
-                endpoints.every(([, y]) => y === -2.5) ||
-                    endpoints.every(([, , z]) => z === -60),
-                'open edges occur only at the ground cut or far rim',
-            );
-        }
+    assert.ok(groundFaces > 0, 'the ground-cut underside is filled');
+    assert.ok(endFaces > 0, 'the wide end is filled');
+    for (const { count } of edges.values()) {
+        assert.equal(
+            count,
+            2,
+            'every welded edge belongs to exactly two faces',
+        );
     }
 });
 
@@ -321,9 +328,11 @@ test('native layer uses the bundled model and compass yaw without shadows or cam
         assert.deepEqual(layer.props.style.modelRotation, [0, 0, direction]);
         assert.deepEqual(layer.props.style.modelTranslation, [0, 0, 2.5]);
         const altitude = layer.props.style.modelTranslation[2];
-        assert.equal(
-            Math.min(...readAccessor(0).map(([, y]) => y + altitude)),
-            0,
+        assert.ok(
+            Math.abs(
+                Math.min(...readAccessor(0).map(([, y]) => y + altitude)) -
+                    0.02,
+            ) < 0.00001,
         );
         assert.equal(layer.props.style.modelCastShadows, false);
         assert.equal(layer.props.style.modelReceiveShadows, false);

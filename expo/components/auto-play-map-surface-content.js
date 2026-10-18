@@ -8,7 +8,7 @@ import {
     useState,
 } from 'react';
 import { AppState, Dimensions, Platform, View } from 'react-native';
-import { useAndroidAutoClusterMarkers } from './use-android-auto-cluster-markers';
+import { useAndroidAutoMarkers } from './use-android-auto-markers';
 import { getAutoPlayAlertSurfaceVisibility } from './auto-play-alert-surface-visibility';
 import {
     AutoPlayPresenceDebugGeometry,
@@ -447,6 +447,7 @@ function useAutoPlayMapController({
     cameraDebugStateUpdatesEnabled = false,
     drivingMapViewMode = DRIVING_MAP_VIEW_PERSPECTIVE,
     followPitch,
+    followZoomOffset,
     initialCameraSettings,
     isDrivingMode,
     locationUpdatesEnabled = true,
@@ -664,6 +665,7 @@ function useAutoPlayMapController({
         currentZoomRef,
         ...getDrivingMapViewFollowConfiguration(drivingMapViewMode),
         followPitch,
+        followZoomOffset,
         followIsEnabled:
             !presenceCameraIsLocked &&
             drivingMapViewMode !== DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
@@ -1801,6 +1803,7 @@ export function AutoPlayMapSurfaceContent({
         applyWindowScaleToMapGestures,
         currentRoadPill,
         followPitch,
+        followZoomOffset,
         hideCompassDuringNavigation,
         hideMapboxCompass,
         hostOwnsNavigationUI,
@@ -1845,10 +1848,11 @@ export function AutoPlayMapSurfaceContent({
             mapPreferences.policeAlertsVisible || mockWazePoliceAlertsEnabled,
         surveillanceMarkersVisible: mapPreferences.surveillanceMarkersVisible,
     });
-    const markerLoader = useMarkerLoader();
-    useAndroidAutoClusterMarkers({
+    const markerLoader = useMarkerLoader({ shared: Platform.OS === 'android' });
+    useAndroidAutoMarkers({
         enabled:
-            isClusterMapSurface &&
+            Platform.OS === 'android' &&
+            (isRootMapSurface || isClusterMapSurface) &&
             alertSurfaceVisibility.surveillanceMarkersVisible,
         userLocation: mapPreferences.userLocation,
         scheduleMarkerLoad: markerLoader.scheduleMarkerLoad,
@@ -1976,6 +1980,7 @@ export function AutoPlayMapSurfaceContent({
             }),
         drivingMapViewMode,
         followPitch,
+        followZoomOffset,
         initialCameraSettings: mapPreferences.initialCameraSettings,
         isDrivingMode,
         locationUpdatesEnabled: isRootMapSurface,

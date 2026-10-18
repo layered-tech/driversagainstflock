@@ -34,10 +34,8 @@ function loadModule(path, dependencies) {
     return module.exports;
 }
 
-function evaluateDeclaration(name, context) {
-    const pending = [
-        parse(surfaceSource, { sourceType: 'module', plugins: ['jsx'] }),
-    ];
+function evaluateDeclaration(name, context, source = surfaceSource) {
+    const pending = [parse(source, { sourceType: 'module', plugins: ['jsx'] })];
     while (pending.length) {
         const node = pending.pop();
         if (!node || typeof node !== 'object') continue;
@@ -49,7 +47,7 @@ function evaluateDeclaration(name, context) {
         ) {
             return new Function(
                 ...Object.keys(context),
-                `${surfaceSource.slice(node.start, node.end)}\nreturn ${name};`,
+                `${source.slice(node.start, node.end)}\nreturn ${name};`,
             )(...Object.values(context));
         }
         pending.push(
@@ -291,6 +289,7 @@ test('the cluster uses the shared speed and maneuver zoom hook with 60 degree pi
         drivingMapViewMode: 'perspective',
         DRIVING_MAP_VIEW_ROUTE_OVERVIEW: 'route-overview',
         followPitch: ANDROID_AUTO_CLUSTER_PLATFORM_CONFIG.followPitch,
+        followZoomOffset: ANDROID_AUTO_CLUSTER_PLATFORM_CONFIG.followZoomOffset,
         presenceCameraIsLocked: false,
         navigationRoute,
         followViewportAnchorY: 280,
@@ -302,6 +301,7 @@ test('the cluster uses the shared speed and maneuver zoom hook with 60 degree pi
         userLocationRef: {},
     });
     assert.equal(options.followPitch, 60);
+    assert.equal(options.followZoomOffset, -1);
     assert.equal(options.followIsEnabled, true);
     assert.equal(options.followSpeedZoomEnabled, true);
     assert.equal(options.navigationRoute, navigationRoute);
@@ -385,4 +385,49 @@ test('secondary surfaces update follow zoom for every shared location without pu
     context.locationUpdatesEnabled = true;
     run();
     assert.equal(locations.length, 2);
+});
+
+test('cluster automatic zoom stays one level farther out through speed and maneuver changes', () => {
+    const source = sourceAt('../../map-follow-location-mode.js');
+    for (const followSpeedZoomEnabled of [false, true]) {
+        for (const baseZoom of [13.75, 16.5, 18.5, 22]) {
+            const results = [];
+            for (const followZoomOffset of [
+                0,
+                ANDROID_AUTO_CLUSTER_PLATFORM_CONFIG.followZoomOffset,
+            ]) {
+                const currentZoomRef = { current: 0 };
+                const context = {
+                    useCallback: (fn) => fn,
+                    clampZoomLevel: (zoom) => Math.min(22, Math.max(0, zoom)),
+                    currentZoomRef,
+                    followSpeedZoomEnabled,
+                    followZoomOffset,
+                    getFollowZoomLevel: () =>
+                        followSpeedZoomEnabled ? 13.75 : baseZoom,
+                    isDrivingMode: true,
+                    navigationRouteRef: { current: {} },
+                    maneuverZoomController: { update: () => baseZoom },
+                    nativeFollowZoomLevelRef: { current: 0 },
+                    lastFollowSpeedZoomUpdateAtRef: { current: null },
+                    userZoomOverrideIsActiveRef: { current: false },
+                    getFollowZoomUpdate: () => ({ shouldUpdate: true }),
+                    setNativeFollowZoomLevel: (zoom) => {
+                        context.nativeFollowZoomLevelRef.current = zoom;
+                    },
+                };
+                const sync = evaluateDeclaration(
+                    'syncNativeFollowZoomLevel',
+                    context,
+                    source,
+                );
+                const expected = Math.min(22, baseZoom + followZoomOffset);
+                assert.equal(sync({ recordedAt: 1000 }), expected);
+                assert.equal(sync({ recordedAt: 2000 }), expected);
+                assert.equal(currentZoomRef.current, expected);
+                results.push(expected);
+            }
+            assert.equal(results[1], results[0] - 1);
+        }
+    }
 });
