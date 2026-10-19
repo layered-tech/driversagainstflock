@@ -1,0 +1,12 @@
+appId: com.anonymous.drivefree.dev
+---
+- runFlow:
+    when:
+      visible: '(Development Build|Enter URL manually|New development server)'
+    commands:
+      - openLink: ${MAESTRO_EXPO_DEV_CLIENT_URL}
+      - runFlow:
+          when:
+            visible: 'Just once'
+          commands:
+            - tapOn: 'Just once'

@@ -103,7 +103,7 @@ function ensureTile(tile, onMissing) {
             const records = await verifiedRecords(pending, tile);
             if (records.length !== tile.record_count)
                 throw new Error('Tile validation failed');
-            pending.move(file);
+            await pending.move(file);
             cacheRevision++;
             tileEvent(tile, 'SAVED_OFFLINE');
             return records;

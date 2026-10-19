@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
+import { createMarkerCache, MARKER_CACHE_FRESH_MS } from '../marker-cache.js';
 import * as boundsHelpers from '../marker-load-bounds.js';
 import { upsertMarkerPointList } from '../marker-point-merge.js';
 
@@ -29,7 +30,7 @@ const geo = new Function(
     `${geoFunctions}\nreturn { getMarkerBoundsKey, getMarkerRequestBoundsSpan, markerRequestBoundsAreLoadable };`,
 )(12, 12);
 
-function createHarness() {
+function createHarness({ stored = null, readCache } = {}) {
     const timers = new Map();
     const requests = [];
     const cleanups = [];
@@ -42,6 +43,13 @@ function createHarness() {
                 return getSnapshot;
             },
         },
+        '../../lib/private-cache-storage': {
+            getPrivateCacheItem: readCache ?? (async () => stored),
+            setPrivateCacheItem: async (_, value) => {
+                stored = value;
+            },
+        },
+        './marker-cache': { createMarkerCache, MARKER_CACHE_FRESH_MS },
         '../../lib/crashlytics': { addCrashlyticsLog: () => {} },
         './api-mocks': { mapApiMocksAreEnabled: () => false },
         './config': {
@@ -91,10 +99,11 @@ function createHarness() {
         requests,
         cleanups,
         timers,
-        flushTimers() {
+        async flushTimers() {
             const pending = [...timers.values()];
             timers.clear();
             pending.forEach((callback) => callback());
+            await new Promise(setImmediate);
         },
         async respond(index, points) {
             requests[index].resolve({
@@ -124,7 +133,7 @@ test('both car surfaces use one API request and the exact same marker snapshot',
     center().scheduleMarkerLoad(bounds, 0);
     cluster().scheduleMarkerLoad(bounds, 0);
     assert.equal(harness.timers.size, 1, 'coalesce pending requests');
-    harness.flushTimers();
+    await harness.flushTimers();
     cluster().scheduleMarkerLoad(bounds, 0);
     assert.equal(harness.requests.length, 1, 'coalesce in-flight requests');
     assert.equal(new URL(harness.requests[0].url).pathname, '/api/markers');
@@ -133,7 +142,7 @@ test('both car surfaces use one API request and the exact same marker snapshot',
     assert.deepEqual(center().markerPoints, [marker]);
     assert.ok(cluster().markerCoverage);
     center().scheduleMarkerLoad(bounds, 0);
-    harness.flushTimers();
+    await harness.flushTimers();
     assert.equal(harness.requests.length, 1, 'reuse loaded coverage');
     harness.cleanups.forEach((cleanup) => cleanup());
 });
@@ -144,7 +153,7 @@ test('either screen can disconnect during the shared request without aborting th
         const center = harness.useMarkerLoader({ shared: true });
         const cluster = harness.useMarkerLoader({ shared: true });
         center().scheduleMarkerLoad(bounds, 0);
-        harness.flushTimers();
+        await harness.flushTimers();
         harness.cleanups[disconnectIndex]();
         assert.equal(harness.requests[0].signal.aborted, false);
         await harness.respond(0, [marker]);
@@ -161,12 +170,12 @@ test('last disconnect cancels requests and stale responses cannot replace reconn
     const harness = createHarness();
     const center = harness.useMarkerLoader({ shared: true });
     center().scheduleMarkerLoad(bounds, 0);
-    harness.flushTimers();
+    await harness.flushTimers();
     harness.cleanups[0]();
     assert.equal(harness.requests[0].signal.aborted, true);
     const reconnected = harness.useMarkerLoader({ shared: true });
     reconnected().scheduleMarkerLoad(bounds, 0);
-    harness.flushTimers();
+    await harness.flushTimers();
     await harness.respond(1, [marker]);
     await harness.respond(0, []);
     assert.deepEqual(reconnected().markerPoints, [marker]);
@@ -179,12 +188,12 @@ test('request errors allow recovery through the other screen and local phone loa
     const cluster = harness.useMarkerLoader({ shared: true });
     const phone = harness.useMarkerLoader();
     center().scheduleMarkerLoad(bounds, 0);
-    harness.flushTimers();
+    await harness.flushTimers();
     harness.requests[0].reject(new Error('offline'));
     await new Promise(setImmediate);
     assert.equal(cluster().markerLoadError, 'Markers could not be loaded.');
     cluster().scheduleMarkerLoad(bounds, 0);
-    harness.flushTimers();
+    await harness.flushTimers();
     await harness.respond(1, [marker]);
     assert.equal(center().markerLoadError, '');
     assert.deepEqual(center().markerPoints, [marker]);
@@ -214,7 +223,7 @@ test('three display viewports can load and pan without cancelling or replacing e
     displays.forEach((display, index) =>
         display().scheduleMarkerLoad(viewports[index], 0),
     );
-    harness.flushTimers();
+    await harness.flushTimers();
     assert.equal(harness.requests.length, 3);
     assert.ok(harness.requests.every((request) => !request.signal.aborted));
     for (const index of [2, 0, 1]) {
@@ -230,7 +239,7 @@ test('three display viewports can load and pan without cancelling or replacing e
         }),
         0,
     );
-    harness.flushTimers();
+    await harness.flushTimers();
     await harness.respond(3, [{ ...marker, id: 'panned-phone' }]);
     assert.equal(displays[0]().markerPoints[0].id, 'panned-phone');
     assert.equal(displays[1]().markerPoints[0].id, 1);
@@ -243,9 +252,9 @@ test('panning back into loaded coverage cancels the obsolete viewport request', 
         const harness = createHarness();
         const phone = harness.useMarkerLoader();
         phone().scheduleMarkerLoad(bounds, 0);
-        harness.flushTimers();
+        await harness.flushTimers();
         await harness.respond(0, [marker]);
-        harness.flushTimers();
+        await harness.flushTimers();
         phone().scheduleMarkerLoad(
             boundsHelpers.getDrivingMarkerRequiredBounds({
                 latitude: 44,
@@ -253,9 +262,9 @@ test('panning back into loaded coverage cancels the obsolete viewport request', 
             }),
             0,
         );
-        if (inFlight) harness.flushTimers();
+        if (inFlight) await harness.flushTimers();
         phone().scheduleMarkerLoad(bounds, 0);
-        harness.flushTimers();
+        await harness.flushTimers();
         if (inFlight) {
             assert.equal(harness.requests[1].signal.aborted, true);
             await harness.respond(1, []);
@@ -268,7 +277,7 @@ test('panning back into loaded coverage cancels the obsolete viewport request', 
     }
 });
 
-test('shared marker updates notify both subscribers and reconnect refreshes old coverage', async () => {
+test('shared marker updates notify both subscribers and reconnect reuses fresh coverage', async () => {
     const harness = createHarness();
     const loader = harness.createMarkerLoader();
     let centerUpdates = 0;
@@ -276,11 +285,11 @@ test('shared marker updates notify both subscribers and reconnect refreshes old 
     const cleanupCenter = loader.subscribe(() => centerUpdates++);
     const cleanupCluster = loader.subscribe(() => clusterUpdates++);
     loader.getSnapshot().scheduleMarkerLoad(bounds, 0);
-    harness.flushTimers();
+    await harness.flushTimers();
     await harness.respond(0, [marker]);
     assert.ok(centerUpdates > 0);
     assert.equal(centerUpdates, clusterUpdates);
-    harness.flushTimers();
+    await harness.flushTimers();
     assert.equal(loader.getSnapshot().markerLoadingIndicatorIsVisible, false);
     loader.getSnapshot().handleMarkerLoadingIndicatorHidden();
     assert.equal(loader.getSnapshot().renderMarkerLoadingIndicator, false);
@@ -288,9 +297,149 @@ test('shared marker updates notify both subscribers and reconnect refreshes old 
     cleanupCluster();
     const cleanupReconnected = loader.subscribe(() => {});
     loader.getSnapshot().scheduleMarkerLoad(bounds, 0);
-    harness.flushTimers();
-    assert.equal(harness.requests.length, 2);
-    await harness.respond(1, []);
-    assert.deepEqual(loader.getSnapshot().markerPoints, []);
+    await harness.flushTimers();
+    assert.equal(harness.requests.length, 1);
+    assert.deepEqual(loader.getSnapshot().markerPoints, [marker]);
     cleanupReconnected();
+});
+
+test('another display reuses downloaded coverage without sharing viewport state', async () => {
+    const harness = createHarness();
+    const phone = harness.useMarkerLoader();
+    phone().scheduleMarkerLoad(bounds, 0);
+    await harness.flushTimers();
+    await harness.respond(0, [marker]);
+    const car = harness.useMarkerLoader();
+    car().scheduleMarkerLoad(bounds, 0);
+    await harness.flushTimers();
+    assert.equal(harness.requests.length, 1);
+    assert.deepEqual(car().markerPoints, [marker]);
+    assert.notStrictEqual(phone, car);
+    harness.cleanups.forEach((cleanup) => cleanup());
+});
+
+test('malformed responses preserve markers and remain retryable', async () => {
+    const harness = createHarness();
+    const phone = harness.useMarkerLoader();
+    phone().scheduleMarkerLoad(bounds, 0);
+    await harness.flushTimers();
+    await harness.respond(0, [marker]);
+    const elsewhere = boundsHelpers.getDrivingMarkerRequiredBounds({
+        latitude: 44,
+        longitude: -89,
+    });
+    phone().scheduleMarkerLoad(elsewhere, 0);
+    await harness.flushTimers();
+    harness.requests[1].resolve({
+        ok: true,
+        json: async () => ({ message: 'unavailable' }),
+    });
+    await new Promise(setImmediate);
+    assert.deepEqual(phone().markerPoints, [marker]);
+    assert.equal(phone().markerLoadError, 'Markers could not be loaded.');
+    phone().scheduleMarkerLoad(elsewhere, 0);
+    await harness.flushTimers();
+    assert.equal(harness.requests.length, 3);
+    harness.cleanups.forEach((cleanup) => cleanup());
+});
+
+test('a hung download times out and allows another request for the same bounds', async () => {
+    const harness = createHarness();
+    const phone = harness.useMarkerLoader();
+    phone().scheduleMarkerLoad(bounds, 0);
+    await harness.flushTimers();
+    await harness.flushTimers();
+    assert.equal(harness.requests[0].signal.aborted, true);
+    assert.equal(phone().markersAreLoading, false);
+    assert.equal(phone().markerLoadError, 'Markers could not be loaded.');
+    phone().scheduleMarkerLoad(bounds, 0);
+    await harness.flushTimers();
+    await harness.respond(1, [marker]);
+    await harness.respond(0, []);
+    assert.deepEqual(phone().markerPoints, [marker]);
+    harness.cleanups.forEach((cleanup) => cleanup());
+});
+
+test('contribution updates invalidate cached coverage before another display loads it', async () => {
+    const harness = createHarness();
+    const phone = harness.useMarkerLoader();
+    phone().scheduleMarkerLoad(bounds, 0);
+    await harness.flushTimers();
+    await harness.respond(0, [marker]);
+    phone().upsertMarkerPoints([
+        { ...marker, properties: { osm_id: 123, updated: true } },
+    ]);
+    assert.equal(phone().markerPoints[0].properties.updated, true);
+    const car = harness.useMarkerLoader();
+    car().scheduleMarkerLoad(bounds, 0);
+    await harness.flushTimers();
+    assert.equal(harness.requests.length, 2);
+    harness.cleanups.forEach((cleanup) => cleanup());
+});
+
+test('restart restores stale markers while an offline refresh fails, and retries without camera movement', async () => {
+    const entry = {
+        bounds: boundsHelpers.expandBoundsForMarkerRequest(bounds),
+        points: [marker],
+        loadedAt: Date.now() - MARKER_CACHE_FRESH_MS - 1000,
+    };
+    const harness = createHarness({ stored: JSON.stringify([entry]) });
+    const phone = harness.useMarkerLoader();
+    phone().scheduleMarkerLoad(bounds, 0);
+    await harness.flushTimers();
+    assert.deepEqual(phone().markerPoints, [marker]);
+    assert.equal(phone().markerCoverage.loadedAt, entry.loadedAt);
+    harness.requests[0].reject(Error('offline'));
+    await new Promise(setImmediate);
+    assert.deepEqual(phone().markerPoints, [marker]);
+    await harness.flushTimers();
+    assert.equal(
+        harness.requests.length,
+        2,
+        'automatic recovery without a pan',
+    );
+    await harness.respond(1, []);
+    assert.deepEqual(
+        phone().markerPoints,
+        [],
+        'successful empty area removes deleted cameras',
+    );
+    assert.equal(phone().markerLoadError, '');
+    harness.cleanups.forEach((cleanup) => cleanup());
+});
+
+test('late disk hydration cannot overwrite the newer viewport', async () => {
+    let resolveCache;
+    const harness = createHarness({
+        readCache: () =>
+            new Promise((resolve) => {
+                resolveCache = resolve;
+            }),
+    });
+    const phone = harness.useMarkerLoader();
+    phone().scheduleMarkerLoad(bounds, 0);
+    await harness.flushTimers();
+    const elsewhere = boundsHelpers.getDrivingMarkerRequiredBounds({
+        latitude: 44,
+        longitude: -89,
+    });
+    phone().scheduleMarkerLoad(elsewhere, 0);
+    await harness.flushTimers();
+    resolveCache(
+        JSON.stringify([
+            {
+                bounds: boundsHelpers.expandBoundsForMarkerRequest(bounds),
+                points: [marker],
+                loadedAt: Date.now(),
+            },
+        ]),
+    );
+    await new Promise(setImmediate);
+    assert.deepEqual(phone().markerPoints, []);
+    assert.equal(harness.requests.length, 1);
+    assert.equal(
+        new URL(harness.requests[0].url).searchParams.get('sw_lat'),
+        String(boundsHelpers.expandBoundsForMarkerRequest(elsewhere).sw_lat),
+    );
+    harness.cleanups.forEach((cleanup) => cleanup());
 });

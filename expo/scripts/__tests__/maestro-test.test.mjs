@@ -390,7 +390,7 @@ R58M offline
     test('collects the full suite without launcher UI readiness checks', () => {
         const flows = collectMaestroFlows(['.maestro'], EXPO_DIRECTORY);
 
-        assert.equal(flows.length, 41);
+        assert.equal(flows.length, 42);
         assert.deepEqual(
             flows.map((flow) => path.basename(flow)),
             [...flows.map((flow) => path.basename(flow))].sort(),
@@ -1102,6 +1102,7 @@ test('every launch flow dismisses first-launch support before interacting with t
                 startup[next]?.includes(
                     'open-expo-dev-client-after-clear.yml',
                 ) ||
+                startup[next]?.includes('resume-expo-dev-client.yml') ||
                 startup[next]?.includes("visible: 'Reload'")
             ) {
                 next += 1;

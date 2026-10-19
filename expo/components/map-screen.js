@@ -73,6 +73,7 @@ import {
 import { MapSearchOverlay } from './map/map-search-overlay';
 import { MarkerDetailsSheet } from './map/marker-details-sheet';
 import { getNavigationPuckSize } from './map/navigation-puck-layout';
+import { RoadCorridorE2EProbe } from './map/road-corridor-e2e-probe';
 import { RoadMatchingE2EProbe } from './map/road-matching-e2e-probe';
 import { RouteExportModal } from './map/route-export-modal';
 import { SearchResultsSheet } from './map/search-results-sheet';
@@ -789,6 +790,13 @@ export default function LocationMapScreen({
                 <MapCanvas />
                 {screenIsFocused ? (
                     <>
+                        {SHOW_MAP_DEBUG_CONTROLS &&
+                        process.env.EXPO_PUBLIC_E2E_CORRIDOR_PROBE === '1' ? (
+                            <RoadCorridorE2EProbe
+                                location={userLocation}
+                                roadLookAhead={electronicHorizon}
+                            />
+                        ) : null}
                         {e2eMapApiMocksAreRequested ? (
                             <RoadMatchingE2EProbe
                                 mapViewRef={locationController.mapViewRef}

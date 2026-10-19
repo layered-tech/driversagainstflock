@@ -239,6 +239,9 @@ function createDebugDrawerHarness(
             UpcomingAlertDebugPane: 'UpcomingAlertDebugPane',
         },
         '../map/weather-debug-pane': { WeatherDebugPane: 'WeatherDebugPane' },
+        '../map/road-corridor-status': {
+            RoadCorridorStatus: 'RoadCorridorStatus',
+        },
         './debug-drawer-toggle-row': {
             DebugDrawerToggleRow: 'DebugDrawerToggleRow',
         },

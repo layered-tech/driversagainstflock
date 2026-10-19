@@ -76,7 +76,12 @@ function harness({ signedGate } = {}) {
         delete() {
             files.delete(this.uri);
         }
-        move(file) {
+        async move(file) {
+            await new Promise((resolve) => setImmediate(resolve));
+            assert.ok(
+                files.has(this.uri),
+                'native move lost its source before completion',
+            );
             files.set(file.uri, files.get(this.uri));
             files.delete(this.uri);
             this.uri = file.uri;
