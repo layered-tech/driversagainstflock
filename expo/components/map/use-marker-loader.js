@@ -138,6 +138,10 @@ export function createMarkerLoader() {
     };
 
     const abortMarkerRequest = () => {
+        if (markerLoadDebounceRef.current) {
+            clearTimeout(markerLoadDebounceRef.current);
+            markerLoadDebounceRef.current = null;
+        }
         abortActiveMarkerRequest();
         pendingMarkerLoadRequestBoundsRef.current = null;
     };
@@ -328,6 +332,25 @@ export function createMarkerLoader() {
 
     const scheduleMarkerLoad = (bounds, delay = MARKER_LOAD_DEBOUNCE_MS) => {
         if (!bounds) {
+            return;
+        }
+
+        // Returning to cached coverage must also cancel a pending load for the
+        // area we just left, or its response will replace the visible markers.
+        if (
+            markerRequestBoundsContainCameraBounds(
+                lastLoadedMarkerRequestBoundsRef.current,
+                bounds,
+            )
+        ) {
+            if (
+                markerLoadDebounceRef.current ||
+                markerAbortControllerRef.current
+            ) {
+                abortMarkerRequest();
+                setMarkersAreLoading(false);
+            }
+            setMarkerLoadError('');
             return;
         }
 

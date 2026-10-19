@@ -11,16 +11,16 @@
         "y": 0
     },
     "hostLayoutCrop": {
-        "x": 466,
-        "y": 1024,
+        "x": 407,
+        "y": 973,
         "width": 32,
         "height": 36
     },
     "layouts": {
         "dashboard": {
             "activateTap": {
-                "x": 482,
-                "y": 1040
+                "x": 423,
+                "y": 991
             },
             "mapCrop": {
                 "x": 950,
@@ -38,7 +38,7 @@
         "fullscreen": {
             "activateTap": {
                 "x": 858,
-                "y": 1040
+                "y": 991
             },
             "mapCrop": {
                 "x": 950,

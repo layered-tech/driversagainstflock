@@ -310,6 +310,7 @@ export function useFollowLocationMode({
             }
 
             markerLoadsEnabledRef.current = true;
+            setTrackingMode(LOCATION_TRACKING_FOLLOW);
             setRecenterNeeded(false);
             clearUserZoomOverride();
             syncNativeFollowZoomLevel(location, {
@@ -321,6 +322,7 @@ export function useFollowLocationMode({
             cameraUpdatesAreAllowed,
             clearUserZoomOverride,
             markerLoadsEnabledRef,
+            setTrackingMode,
             setRecenterNeeded,
             syncNativeFollowZoomLevel,
             userLocationRef,

@@ -89,6 +89,12 @@ tags:
     timeout: 10000
     visibilityPercentage: 90
     centerElement: true
+- scrollUntilVisible:
+    element:
+      id: 'contribute-direction-dial-coordinates'
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 100
 
 # Visual contract: inset satellite cutout, full compass bezel, fixed marker,
 # fixed red indicator, active cone/readout, external controls, and GPS text.

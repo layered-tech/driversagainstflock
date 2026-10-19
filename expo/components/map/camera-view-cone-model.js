@@ -1,5 +1,5 @@
 import Mapbox from '@rnmapbox/maps';
-import { Image } from 'react-native';
+import { Image, Platform } from 'react-native';
 import { MARKER_CONE_DIRECTION_PROPERTY_NAMES } from './constants';
 
 const MODEL_ID = 'camera-view-cone';
@@ -10,6 +10,11 @@ const MODELS = {
 };
 
 function resolveModelAsset(asset) {
+    // Mapbox cannot open React Native's Android drawable/raw resource names.
+    // The config plugin packages the GLB in AssetManager for every build type.
+    if (Platform.OS === 'android') {
+        return 'asset://camera-view-cone.glb';
+    }
     const uri = Image.resolveAssetSource(asset)?.uri;
     if (!uri?.includes('/assets/?unstable_path=')) {
         return asset;

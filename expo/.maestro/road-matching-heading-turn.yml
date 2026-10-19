@@ -64,6 +64,7 @@ tags:
       - '30.266984040600367, -97.74049976967694'
       - '30.267200000000000, -97.73997972361234'
       - '30.2680998308318, -97.73973010150132'
+      - '30.2689996616636, -97.73973010150132'
     speed: 12
 - extendedWaitUntil:
     visible: 'e2e-branch:0:forward'
@@ -83,9 +84,12 @@ tags:
 - copyTextFrom:
     id: 'e2e-native-puck-heading-lock-proof'
 - assertTrue: ${maestro.copiedText == 'true'}
-- copyTextFrom:
-    id: 'e2e-native-puck-provider-heading'
-- assertTrue: ${Math.abs(Number(maestro.copiedText)) <= 0.5}
+- retry:
+    maxRetries: 3
+    commands:
+      - copyTextFrom:
+          id: 'e2e-native-puck-provider-heading'
+      - assertTrue: ${Math.abs(Number(maestro.copiedText)) <= 0.5}
 - copyTextFrom:
     id: 'e2e-native-puck-effective-heading'
 - assertTrue: ${Math.abs(Number(maestro.copiedText)) <= 0.5 || Math.abs(Number(maestro.copiedText) - 360) <= 0.5}

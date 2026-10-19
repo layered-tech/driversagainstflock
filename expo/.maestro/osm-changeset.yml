@@ -113,7 +113,7 @@ name: OSM Changeset Editor
     element:
       id: contribute-raw-tag-value-5
     direction: DOWN
-- assertVisible: Axon
+- assertVisible: Axon Enterprise
 - takeScreenshot: osm-custom-tags
 - tapOn:
     id: contribute-next-changeset-button

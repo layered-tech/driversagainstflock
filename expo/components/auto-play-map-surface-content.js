@@ -1848,15 +1848,7 @@ export function AutoPlayMapSurfaceContent({
             mapPreferences.policeAlertsVisible || mockWazePoliceAlertsEnabled,
         surveillanceMarkersVisible: mapPreferences.surveillanceMarkersVisible,
     });
-    const markerLoader = useMarkerLoader({ shared: Platform.OS === 'android' });
-    useAndroidAutoMarkers({
-        enabled:
-            Platform.OS === 'android' &&
-            (isRootMapSurface || isClusterMapSurface) &&
-            alertSurfaceVisibility.surveillanceMarkersVisible,
-        userLocation: mapPreferences.userLocation,
-        scheduleMarkerLoad: markerLoader.scheduleMarkerLoad,
-    });
+    const markerLoader = useMarkerLoader();
     const isDrivingMode = autoPlayState.drivingModeIsActive !== false;
     const drivingMapViewMode =
         autoPlayState.drivingMapViewMode ?? DRIVING_MAP_VIEW_PERSPECTIVE;
@@ -1994,6 +1986,16 @@ export function AutoPlayMapSurfaceContent({
         userLocation: mapPreferences.userLocation,
         followViewportAnchorY,
         viewportMetrics,
+    });
+    useAndroidAutoMarkers({
+        enabled:
+            Platform.OS === 'android' &&
+            (isRootMapSurface || isClusterMapSurface) &&
+            alertSurfaceVisibility.surveillanceMarkersVisible &&
+            !mapBrowsingContextIsActive &&
+            controller.nativeCameraFollowProps.enabled,
+        userLocation: mapPreferences.userLocation,
+        scheduleMarkerLoad: markerLoader.scheduleMarkerLoad,
     });
     const handleDrivingMapViewPress = useCallback(() => {
         if (

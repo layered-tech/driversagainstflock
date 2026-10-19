@@ -178,6 +178,7 @@ module.exports = {
             },
         ],
         'expo-web-browser',
+        './plugins/withCameraViewConeAsset',
         [
             'expo-secure-store',
             {

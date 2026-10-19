@@ -117,6 +117,8 @@ function mountSurface(
         isClusterMapSurface,
         visible = true,
         os = 'android',
+        following = true,
+        browsing = false,
         scheduleMarkerLoad,
     },
 ) {
@@ -134,6 +136,8 @@ function mountSurface(
         'alertSurfaceVisibility',
         'mapPreferences',
         'markerLoader',
+        'controller',
+        'mapBrowsingContextIsActive',
         `return ${call[0]}`,
     )(
         harness.mount,
@@ -143,6 +147,8 @@ function mountSurface(
         { surveillanceMarkersVisible: visible },
         { userLocation: location },
         { scheduleMarkerLoad },
+        { nativeCameraFollowProps: { enabled: following } },
+        browsing,
     );
 }
 
@@ -180,7 +186,12 @@ test('center and cluster independently recover markers and survive the other dis
 
 test('both displays respect hidden markers and recovery stays Android-only', () => {
     for (const isRootMapSurface of [true, false]) {
-        for (const options of [{ visible: false }, { os: 'ios' }]) {
+        for (const options of [
+            { visible: false },
+            { os: 'ios' },
+            { following: false },
+            { browsing: true },
+        ]) {
             const harness = createHarness();
             mountSurface(harness, {
                 isRootMapSurface,

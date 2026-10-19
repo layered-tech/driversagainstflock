@@ -25,6 +25,7 @@ name: Draw and remove a custom area
     point: '65%,40%'
 - tapOn:
     id: 'area-name-input'
+- eraseText
 - inputText: 'Drawn area test'
 - hideKeyboard
 - extendedWaitUntil:

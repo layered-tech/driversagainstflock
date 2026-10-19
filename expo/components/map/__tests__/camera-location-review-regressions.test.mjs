@@ -45,6 +45,77 @@ function deferred() {
     return { promise, resolve };
 }
 
+test('phone map attachment loads bounds reported before map readiness', () => {
+    const isMapReadyRef = { current: false };
+    const markerLoadsEnabledRef = { current: false };
+    const bounds = { sw: [-88, 41], ne: [-87, 42] };
+    const loads = [];
+    const loaded = callback(
+        readSource('../use-map-location-controller.js'),
+        'handleMapLoaded',
+        {
+            useCallback: (fn) => fn,
+            isMapReadyRef,
+            markerLoadsEnabledRef,
+            setIsMapReady() {},
+            latestMapBoundsRef: { current: bounds },
+            scheduleMarkerLoad: (...args) => {
+                assert.equal(isMapReadyRef.current, true);
+                assert.equal(markerLoadsEnabledRef.current, true);
+                loads.push(args);
+            },
+        },
+    );
+    loaded();
+    assert.deepEqual(loads, [[bounds, 0]]);
+});
+
+test('recenter restores follow mode even when tracking had been stopped', () => {
+    const tracking = [];
+    const ref = { current: false };
+    const recenter = callback(
+        readSource('../../map-follow-location-mode.js'),
+        'recenter',
+        {
+            useCallback: (fn) => fn,
+            cameraUpdatesAreAllowed: () => true,
+            clearUserZoomOverride() {},
+            markerLoadsEnabledRef: ref,
+            setTrackingMode: (mode) => tracking.push(mode),
+            LOCATION_TRACKING_FOLLOW: 'follow',
+            setRecenterNeeded() {},
+            syncNativeFollowZoomLevel() {},
+            userLocationRef: { current: { latitude: 41, longitude: -87 } },
+        },
+    );
+    assert.equal(recenter(), true);
+    assert.deepEqual(tracking, ['follow']);
+    assert.equal(ref.current, true);
+});
+
+test('a delayed recenter location lookup cannot override a newer camera gesture', async () => {
+    const fix = deferred();
+    const generation = { current: 0 };
+    const recenter = callback(
+        readSource('../use-map-location-controller.js'),
+        'handleDrivingRecenterPress',
+        {
+            useCallback: (fn) => fn,
+            manualCameraGenerationRef: generation,
+            locationAccessGranted: true,
+            userLocation: null,
+            findCurrentLocation: () => fix.promise,
+            applyManualCameraMove: () =>
+                assert.fail('stale recenter moved the camera'),
+            followLocationMode: {},
+        },
+    );
+    const pending = recenter();
+    generation.current++;
+    fix.resolve({ latitude: 41, longitude: -87 });
+    await pending;
+});
+
 test('a delayed current-position request cannot overwrite or recenter to an older fix', async () => {
     const source = readSource('../use-device-location.js');
     const fix = deferred();
@@ -314,6 +385,7 @@ test('a direction-step focus pauses phone following before moving and recenter r
     const followLocationMode = {
         pauseUntilRecenter: () => events.push('pause'),
         recenter: (location) => events.push(['recenter', location]),
+        nativeCameraFollowProps: { pitch: 55, padding: {} },
     };
     const releaseRef = {
         current: (options) => (options?.resumeFollow ? true : release.promise),
@@ -372,8 +444,26 @@ test('a direction-step focus pauses phone following before moving and recenter r
         findCurrentLocation() {},
         locationPuckCameraFollowReleaseRef: releaseRef,
         followLocationMode,
+        applyManualCameraMove,
+        cameraRef: { current: { setCamera: (stop) => cameraStops.push(stop) } },
+        isMapReadyRef: { current: true },
+        pendingCameraStopRef: { current: null },
+        markerLoadsEnabledRef: { current: true },
+        currentZoomRef: { current: 15 },
+        getLocationCoordinate: (location) => [
+            location.longitude,
+            location.latitude,
+        ],
+        LOCATION_CAMERA_USER_ANIMATION_DURATION_MS: 500,
+        LOCATION_ZOOM_LEVEL: 16,
+        clampZoomLevel: (zoom) => zoom,
     });
     await recenter();
+    assert.deepEqual(
+        cameraStops.at(-1).centerCoordinate,
+        [-88, 40],
+        'recenter moves immediately even when native follow does not move the camera',
+    );
     assert.deepEqual(events.at(-1), ['recenter', userLocation]);
     assert.match(
         readSource('../../map-screen.js'),

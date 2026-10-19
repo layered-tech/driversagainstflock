@@ -63,7 +63,7 @@ tags:
     element:
       id: 'drawer-debug-button'
     direction: DOWN
-    centerElement: true
+    centerElement: false
 - tapOn:
     id: 'drawer-debug-button'
     retryTapIfNoChange: false
@@ -125,6 +125,11 @@ tags:
 - tapOn:
     id: 'contribute-tour-skip-camera-details'
     retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
+      id: 'contribute-operator-input'
+    direction: DOWN
+    centerElement: true
 - assertVisible:
     id: 'contribute-operator-input'
 - assertVisible: 'Maestro tour reset operator'

@@ -316,7 +316,7 @@ function createDirectedSegment({
         start,
         targetNodeId,
         tunnel: way.tunnel === true,
-        wayId: String(way.id),
+        wayId: String(way.continuityId ?? way.id),
     });
 }
 

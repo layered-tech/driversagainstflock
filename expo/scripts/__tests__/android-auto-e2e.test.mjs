@@ -115,7 +115,8 @@ describe('Android Auto E2E helpers', () => {
             });
         runner.confirmationCameraFrames = ['a', 'b', 'c', 'd', 'e', 'f'];
         runner.report = () => {};
-        runner.mapCropPixelDifference = () => 0.001;
+        runner.mapCropPixelDifference = (first) =>
+            first === 'baseline' ? 0.1 : 0.001;
         runner.assertConfirmationCameraStable('baseline');
         runner.mapCropPixelDifference = (_, name) =>
             name === 'c' ? 0.2 : 0.001;
@@ -146,7 +147,13 @@ describe('Android Auto E2E helpers', () => {
         const runner = Object.create(Runner.prototype);
         const calls = [];
         runner.screenshots = new Map([
-            ['confirmation', { imagePath: '/tmp/current-confirmation.png' }],
+            [
+                'confirmation',
+                {
+                    imagePath: '/tmp/current-confirmation.png',
+                    textBounds: [{ text: 'Not there', x: 257, y: 224 }],
+                },
+            ],
         ]);
         runner.ocrBinary = '/tmp/ocr';
         runner.metroOutput = 'old native action';
@@ -165,10 +172,6 @@ describe('Android Auto E2E helpers', () => {
             waitForPresentation: '[E2E] presence:native-thanks-presented',
         });
         assert.deepEqual(calls, [
-            [
-                '/tmp/ocr',
-                ['--text-bounds', '/tmp/current-confirmation.png', 'Not there'],
-            ],
             'tap 257 224',
             [
                 '[E2E] presence:native-not-there-pressed',
@@ -181,6 +184,11 @@ describe('Android Auto E2E helpers', () => {
                 10000,
             ],
         ]);
+        await assert.rejects(
+            runner.tapOcrAction({ screenshot: 'confirmation', text: 'Ok' }),
+            /Text was not found in screenshot: Ok/,
+        );
+        assert.equal(calls.length, 3);
     });
 
     test('native reports must be unique, negative and identify the actual mapped camera', () => {
@@ -371,13 +379,18 @@ describe('Android Auto E2E helpers', () => {
         runner.carLayout = 'dashboard';
         const commands = [];
         runner.sendDhu = (command) => commands.push(command);
-        runner.tapDhu({ x: 482, y: 1040 });
-        runner.tapDhu({ x: 858, y: 1040 });
+        for (const layout of ['dashboard', 'fullscreen']) {
+            const target = runner.suite.layouts[layout].activateTap;
+            const toolbar = runner.suite.hostLayoutCrop;
+            assert.ok(target.y >= toolbar.y);
+            assert.ok(target.y <= toolbar.y + toolbar.height);
+            runner.tapDhu(target);
+        }
         runner.tapDhu({ x: 635, y: 123 });
         await runner.runStep({ type: 'tapMap' });
         assert.deepEqual(commands, [
-            'tap 118 1040',
-            'tap 494 1040',
+            'tap 59 991',
+            'tap 494 991',
             'tap 271 123',
             'tap 726 380',
         ]);

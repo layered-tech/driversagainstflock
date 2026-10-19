@@ -20,6 +20,31 @@ const jsonLength = model.readUInt32LE(12);
 const document = JSON.parse(model.subarray(20, 20 + jsonLength).toString());
 const binaryOffset = 28 + jsonLength;
 
+test('Android models use a packaged asset URI instead of an unresolvable drawable name', () => {
+    const { CameraViewConeModels } = loadTourModule(
+        new URL('../camera-view-cone-model.js', import.meta.url),
+        {
+            '@rnmapbox/maps': { Models: 'Models', ModelLayer: 'ModelLayer' },
+            './constants': {
+                MARKER_CONE_DIRECTION_PROPERTY_NAMES: directionProperties,
+            },
+            'react-native': {
+                Platform: { OS: 'android' },
+                Image: {
+                    resolveAssetSource: () => ({
+                        uri: 'assets_map_cameraviewcone',
+                    }),
+                },
+            },
+            '../../assets/map/camera-view-cone.glb': 123,
+        },
+    );
+    assert.equal(
+        CameraViewConeModels().props.models['camera-view-cone'],
+        'asset://camera-view-cone.glb',
+    );
+});
+
 test('shared model layers preserve every direction and exclude clusters and unknown directions', () => {
     const components = loadTourModule(
         new URL('../camera-view-cone-model.js', import.meta.url),
@@ -29,6 +54,7 @@ test('shared model layers preserve every direction and exclude clusters and unkn
                 MARKER_CONE_DIRECTION_PROPERTY_NAMES: directionProperties,
             },
             'react-native': {
+                Platform: { OS: 'ios' },
                 Image: {
                     resolveAssetSource: () => ({ uri: 'file:///cone.glb' }),
                 },
@@ -303,6 +329,7 @@ test('native layer uses the bundled model and compass yaw without shadows or cam
                 MARKER_CONE_DIRECTION_PROPERTY_NAMES: directionProperties,
             },
             'react-native': {
+                Platform: { OS: 'ios' },
                 Image: {
                     resolveAssetSource: () => ({
                         uri: 'file:///camera-view-cone.glb',
@@ -349,6 +376,7 @@ test('Metro model URLs retain the asset path after Mapbox strips their query str
                 MARKER_CONE_DIRECTION_PROPERTY_NAMES: directionProperties,
             },
             'react-native': {
+                Platform: { OS: 'ios' },
                 Image: {
                     resolveAssetSource: () => ({
                         uri: 'http://192.168.86.16:8081/assets/?unstable_path=.%2Fassets%2Fmap/camera-view-cone.glb?platform=android&hash=87e4a6124c52385650b3a58fcd68b8e8',

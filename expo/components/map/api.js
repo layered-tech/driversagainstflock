@@ -221,6 +221,10 @@ function normalizeRoadCorridorWay(way) {
         direction:
             way.direction === 'reverse' ? 'backward' : way.direction || 'both',
         id: String(way.id),
+        continuityId:
+            typeof way.continuity_id === 'string' && way.continuity_id.trim()
+                ? way.continuity_id
+                : String(way.id),
         isRoundabout:
             typeof way.is_roundabout === 'boolean' ? way.is_roundabout : null,
         layer: getStoredNumber(way.layer) ?? 0,

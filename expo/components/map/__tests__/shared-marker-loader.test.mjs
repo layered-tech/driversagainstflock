@@ -192,11 +192,80 @@ test('request errors allow recovery through the other screen and local phone loa
     harness.cleanups.forEach((cleanup) => cleanup());
 });
 
-test('the common car surface opts into the shared loader', () => {
+test('the common car surface owns an independent viewport loader', () => {
     assert.match(
         sourceAt('../../auto-play-map-surface-content.js'),
-        /const markerLoader = useMarkerLoader\(\{ shared: Platform\.OS === 'android' \}\)/,
+        /const markerLoader = useMarkerLoader\(\)/,
     );
+});
+
+test('three display viewports can load and pan without cancelling or replacing each other', async () => {
+    const harness = createHarness();
+    const displays = Array.from({ length: 3 }, () => harness.useMarkerLoader());
+    const viewports = [
+        bounds,
+        ...[42, 43].map((latitude) =>
+            boundsHelpers.getDrivingMarkerRequiredBounds({
+                latitude,
+                longitude: -88,
+            }),
+        ),
+    ];
+    displays.forEach((display, index) =>
+        display().scheduleMarkerLoad(viewports[index], 0),
+    );
+    harness.flushTimers();
+    assert.equal(harness.requests.length, 3);
+    assert.ok(harness.requests.every((request) => !request.signal.aborted));
+    for (const index of [2, 0, 1]) {
+        await harness.respond(index, [{ ...marker, id: index }]);
+    }
+    displays.forEach((display, index) =>
+        assert.equal(display().markerPoints[0].id, index),
+    );
+    displays[0]().scheduleMarkerLoad(
+        boundsHelpers.getDrivingMarkerRequiredBounds({
+            latitude: 44,
+            longitude: -89,
+        }),
+        0,
+    );
+    harness.flushTimers();
+    await harness.respond(3, [{ ...marker, id: 'panned-phone' }]);
+    assert.equal(displays[0]().markerPoints[0].id, 'panned-phone');
+    assert.equal(displays[1]().markerPoints[0].id, 1);
+    assert.equal(displays[2]().markerPoints[0].id, 2);
+    harness.cleanups.forEach((cleanup) => cleanup());
+});
+
+test('panning back into loaded coverage cancels the obsolete viewport request', async () => {
+    for (const inFlight of [false, true]) {
+        const harness = createHarness();
+        const phone = harness.useMarkerLoader();
+        phone().scheduleMarkerLoad(bounds, 0);
+        harness.flushTimers();
+        await harness.respond(0, [marker]);
+        harness.flushTimers();
+        phone().scheduleMarkerLoad(
+            boundsHelpers.getDrivingMarkerRequiredBounds({
+                latitude: 44,
+                longitude: -89,
+            }),
+            0,
+        );
+        if (inFlight) harness.flushTimers();
+        phone().scheduleMarkerLoad(bounds, 0);
+        harness.flushTimers();
+        if (inFlight) {
+            assert.equal(harness.requests[1].signal.aborted, true);
+            await harness.respond(1, []);
+        } else {
+            assert.equal(harness.requests.length, 1);
+        }
+        assert.deepEqual(phone().markerPoints, [marker]);
+        assert.equal(phone().markersAreLoading, false);
+        harness.cleanups.forEach((cleanup) => cleanup());
+    }
 });
 
 test('shared marker updates notify both subscribers and reconnect refreshes old coverage', async () => {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -108,6 +108,68 @@ test(
                 );
                 assert.equal(wrongCrop.layout, 'unknown');
             }
+            const portraitSuite = JSON.parse(
+                readFileSync(
+                    new URL(
+                        '../../.android-auto/suite-portrait.json',
+                        import.meta.url,
+                    ),
+                    'utf8',
+                ),
+            );
+            const crop = portraitSuite.hostLayoutCrop;
+            const thanksObservations = JSON.parse(
+                execFileSync(
+                    binary,
+                    [
+                        '--observations',
+                        fileURLToPath(
+                            new URL(
+                                './fixtures/android-auto-portrait-thanks.png',
+                                import.meta.url,
+                            ),
+                        ),
+                    ],
+                    { encoding: 'utf8', timeout: 30000 },
+                ),
+            );
+            assert.equal(
+                getOCRAssertionFailure(
+                    thanksObservations.map(({ text }) => text).join('\n'),
+                    {
+                        contains: ['Thanks', 'Ok'],
+                    },
+                ),
+                null,
+            );
+            const okButton = thanksObservations.find(
+                ({ text }) => text.toLowerCase() === 'ok',
+            );
+            assert.ok(okButton.x > 410 && okButton.x < 790);
+            assert.ok(okButton.y > 87 && okButton.y < 151);
+            const insetDashboard = JSON.parse(
+                execFileSync(
+                    binary,
+                    [
+                        '--host-layout',
+                        fileURLToPath(
+                            new URL(
+                                './fixtures/android-auto-portrait-dashboard-insets.png',
+                                import.meta.url,
+                            ),
+                        ),
+                        ...[crop.x, crop.y, crop.width, crop.height].map(
+                            String,
+                        ),
+                    ],
+                    { encoding: 'utf8', timeout: 30000 },
+                ),
+            );
+            assert.equal(
+                insetDashboard.layout,
+                'dashboard',
+                'current portrait host insets',
+            );
             const visible = JSON.parse(
                 execFileSync(
                     binary,
