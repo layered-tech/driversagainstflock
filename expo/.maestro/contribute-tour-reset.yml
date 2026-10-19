@@ -59,6 +59,15 @@ tags:
     retryTapIfNoChange: false
 - assertVisible:
     id: 'app-drawer-open'
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: 'drawer-debug-button'
+          direction: DOWN
+          centerElement: true
 - scrollUntilVisible:
     element:
       id: 'drawer-debug-button'

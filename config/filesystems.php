@@ -45,6 +45,15 @@ return [
             'throw' => false,
         ],
 
+        'road-corridors' => [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => 'us-east-1',
+            'bucket' => 'daf-routing-graphs-326364278889-us-east-1',
+            'throw' => true,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

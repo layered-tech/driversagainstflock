@@ -172,7 +172,7 @@ const ROAD_CLASS_PRIORITIES = Object.freeze({
     unclassified: 2,
 });
 
-function normalizeRoadCorridorWay(way) {
+export function normalizeRoadCorridorWay(way) {
     const coordinates = Array.isArray(way?.coordinates)
         ? way.coordinates
               .map((coordinate) => {

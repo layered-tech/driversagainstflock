@@ -605,7 +605,7 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(
             roadMatchingSessionSource,
-            /getRoadCorridor\(\{[\s\S]*?radiusMeters: ROAD_CORRIDOR_RADIUS_METERS[\s\S]*?createDirectedRoadGraph\(ways\)[\s\S]*?createRoadMatcherWithHistory/,
+            /getPilotRoadCorridor\(\{[\s\S]*?radiusMeters: ROAD_CORRIDOR_RADIUS_METERS[\s\S]*?createDirectedRoadGraph\(ways\)[\s\S]*?createRoadMatcherWithHistory/,
         );
         assert.match(
             roadMatchingSessionSource,

@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import { addCrashlyticsLog } from '../../lib/crashlytics';
 import * as TaskManager from 'expo-task-manager';
 import { AppState, Platform } from 'react-native';
 import { recordAndroidAutoPerformanceTrace } from '../android-auto-performance-trace';
@@ -8,7 +9,8 @@ import {
     getAutoPlaySessionState,
 } from '../auto-play-session-state';
 import { publishAcceptedDeviceLocation } from './accepted-device-location';
-import { getRoadCorridor } from './api';
+import { getPilotRoadCorridor } from './road-corridor-pilot';
+import { publishCorridorSource } from './road-corridor-source';
 import {
     refreshBackgroundAlertsForLocationAsync,
     settleBackgroundWorkWithinDeadlineAsync,
@@ -691,7 +693,7 @@ async function ensureRoadGraph(location, source) {
         { once: true },
     );
 
-    graphRequest = getRoadCorridor({
+    graphRequest = getPilotRoadCorridor({
         location: {
             latitude: coordinate[1],
             longitude: coordinate[0],
@@ -773,6 +775,21 @@ async function ensureRoadGraph(location, source) {
                 durationMs: historyReplayDurationMs,
                 edgeCount: nextRoadGraph.edges.length,
             });
+            const corridorSource = ways.corridorSource ?? {
+                source: 'service',
+                reason: 'Existing corridor response',
+            };
+            if (publishCorridorSource(corridorSource)) {
+                addCrashlyticsLog({
+                    category: 'map.road_corridor',
+                    message: 'Road corridor source changed',
+                    data: corridorSource,
+                });
+                recordAndroidAutoPerformanceTrace(
+                    'road_graph.source_changed',
+                    corridorSource,
+                );
+            }
             roadGraphLoadCount += 1;
             recordAndroidAutoPerformanceTrace('road_graph.loaded', {
                 edgeCount: nextRoadGraph.edges.length,
@@ -801,6 +818,15 @@ async function ensureRoadGraph(location, source) {
                 };
 
                 if (!requestContext.startedWithRoadGraph) {
+                    addCrashlyticsLog({
+                        category: 'map.road_corridor',
+                        message: 'Road corridor unavailable',
+                        data: { source: 'unavailable' },
+                    });
+                    publishCorridorSource({
+                        source: 'unavailable',
+                        reason: 'No usable road corridor',
+                    });
                     setSessionState('road-graph-error');
                 }
             }

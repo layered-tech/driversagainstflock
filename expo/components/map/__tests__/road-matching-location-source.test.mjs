@@ -186,6 +186,7 @@ function createRoadMatchingSessionHarness({
         sourceType: 'module',
     }).code;
     const mockedModules = {
+        '../../lib/crashlytics': { addCrashlyticsLog() {} },
         './shared-road-matched-location': { publishSharedRoadMatchedLocation },
         './accepted-device-location': {
             publishAcceptedDeviceLocation,
@@ -206,8 +207,9 @@ function createRoadMatchingSessionHarness({
                 return platform === 'android' && autoPlaySessionIsConnected;
             },
         },
-        './api': {
-            async getRoadCorridor(options) {
+        './road-corridor-source': { publishCorridorSource: () => false },
+        './road-corridor-pilot': {
+            async getPilotRoadCorridor(options) {
                 roadCorridorRequests.push(options);
 
                 return getRoadCorridor(options);

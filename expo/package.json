@@ -11,7 +11,6 @@
             },
             "ios": {
                 "exclude": [
-                    "expo-file-system",
                     "expo-image"
                 ]
             }
@@ -59,12 +58,15 @@
         "@react-native-async-storage/async-storage": "2.2.0",
         "@react-native-firebase/analytics": "^24.1.1",
         "@react-native-firebase/app": "^24.1.1",
+        "@react-native-firebase/crashlytics": "24.1.1",
         "@react-navigation/drawer": "^7.14.3",
         "@rnmapbox/maps": "10.3.5",
         "expo": "~57.0.26",
         "expo-build-properties": "~57.0.22",
         "expo-constants": "~57.0.20",
+        "expo-crypto": "~57.0.4",
         "expo-dev-client": "~57.0.19",
+        "expo-file-system": "~57.0.7",
         "expo-glass-effect": "~57.0.4",
         "expo-keep-awake": "~57.0.2",
         "expo-linking": "~57.0.11",
@@ -78,6 +80,7 @@
         "expo-system-ui": "~57.0.4",
         "expo-task-manager": "~57.0.21",
         "expo-web-browser": "~57.0.3",
+        "fflate": "^0.8.3",
         "nativewind": "^4.2.7",
         "react": "19.2.3",
         "react-dom": "19.2.3",
@@ -88,8 +91,7 @@
         "react-native-safe-area-context": "~5.7.0",
         "react-native-screens": "~4.29.0",
         "react-native-svg": "15.15.4",
-        "react-native-worklets": "0.10.1",
-        "@react-native-firebase/crashlytics": "24.1.1"
+        "react-native-worklets": "0.10.1"
     },
     "overrides": {
         "expo-modules-jsi": "57.1.1",
