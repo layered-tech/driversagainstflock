@@ -1,5 +1,5 @@
 locals {
-  graph_build_operation_objects = {
+  graph_build_operation_objects = merge({
     build = {
       content_type = "text/x-shellscript"
       key          = "operations/build/v1.3.0/build-initial-graph.sh"
@@ -17,10 +17,16 @@ locals {
     }
     scheduled_builder = {
       content_type = "text/x-shellscript"
-      key          = "operations/scheduled-builder/v1.0.0/run-build.sh"
-      source       = "operations/scheduled-builder/v1.0.0/run-build.sh"
+      key          = "operations/scheduled-builder/v1.1.0/run-build.sh"
+      source       = "operations/scheduled-builder/v1.1.0/run-build.sh"
     }
-  }
+    }, {
+    for name in ["assets.json", "run-corridor.sh", "publish-and-promote.mjs", "validate-road-corridor.mjs", "road-corridor-contract.mjs", "RoadCorridorExporter.java"] : "corridor_${name}" => {
+      content_type = endswith(name, ".json") ? "application/json" : "text/plain"
+      key          = "operations/corridor/v1.0.0/${name}"
+      source       = "operations/corridor/v1.0.0/${name}"
+    }
+  })
 }
 
 resource "aws_s3_object" "graph_build_operation" {

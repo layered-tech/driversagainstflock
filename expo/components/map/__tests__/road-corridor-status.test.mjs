@@ -28,10 +28,26 @@ test('corridor diagnostics render active source and fallback reason as drawer co
         { source: 'unavailable', reason: 'Waiting for roads' },
     ]) {
         const module = { exports: {} };
+        const selections = [];
         const element = (type, props) => ({ type, props });
         const mocks = {
-            react: { useSyncExternalStore: (_, get) => get() },
-            'react-native': { Text: 'Text', View: 'View' },
+            react: {
+                useEffect: () => {},
+                useSyncExternalStore: (_, get) => get(),
+            },
+            'react-native': { Text: 'Text', View: 'View', Switch: 'Switch' },
+            './road-corridor-pilot': {
+                getCorridorRelease: () => ({
+                    release: 'test',
+                    forceService: false,
+                    enabled: true,
+                }),
+                subscribeCorridorRelease() {},
+                initializeCorridorReleases: async () => {},
+                setCorridorServiceOnly: async (value) => {
+                    selections.push(value);
+                },
+            },
             'react/jsx-runtime': { jsx: element, jsxs: element },
             './road-corridor-source': {
                 corridorSourceLabel,
@@ -46,12 +62,19 @@ test('corridor diagnostics render active source and fallback reason as drawer co
         );
         const view = module.exports.RoadCorridorStatus();
         assert.ok(!view.props.className.includes('absolute'));
+        const toggle = view.props.children[1].props.children[1];
+        assert.equal(toggle.props.testID, 'road-corridor-service-only');
+        toggle.props.onValueChange(true);
+        assert.deepEqual(selections, [true]);
         assert.equal(view.props.style, undefined);
         assert.equal(
-            view.props.children.props.children,
+            view.props.children[0].props.children,
             corridorSourceLabel(snapshot),
         );
-        assert.equal(view.props.children.props.testID, 'road-corridor-source');
+        assert.equal(
+            view.props.children[0].props.testID,
+            'road-corridor-source',
+        );
     }
 });
 test('corridor status is mounted only inside its debug drawer section', () => {

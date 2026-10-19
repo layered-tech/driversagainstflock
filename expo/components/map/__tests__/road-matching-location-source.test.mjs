@@ -112,6 +112,7 @@ function createRoadMatchingSessionHarness({
     const foregroundLocationCallbacks = [];
     const roadCorridorRequests = [];
     const calls = {
+        corridorFailures: [],
         backgroundStartAppStates: [],
         backgroundStarts: 0,
         backgroundStops: 0,
@@ -208,8 +209,13 @@ function createRoadMatchingSessionHarness({
                 return platform === 'android' && autoPlaySessionIsConnected;
             },
         },
+        './road-corridor-diagnostics': {
+            reportCorridorFailure: (...args) =>
+                calls.corridorFailures.push(args),
+        },
         './road-corridor-source': { publishCorridorSource: () => false },
         './road-corridor-pilot': {
+            getCorridorRelease: () => ({ release: 'test-release' }),
             getPilotCacheRevision,
             async getPilotRoadCorridor(options) {
                 roadCorridorRequests.push(options);
@@ -1157,6 +1163,7 @@ describe('road matching location source integration', () => {
         abortError.name = 'AbortError';
         corridorRequest.reject(abortError);
         await new Promise((resolve) => setImmediate(resolve));
+        assert.deepEqual(harness.calls.corridorFailures, []);
 
         assert.equal(
             harness.calls.performanceSignposts.filter(
@@ -1394,6 +1401,11 @@ describe('road matching location source integration', () => {
 
         refreshRequest.reject(new Error('Refresh unavailable'));
         await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(harness.calls.corridorFailures[0][0], 'graph_load');
+        assert.equal(
+            harness.calls.corridorFailures[0][2].fallback,
+            'retained_graph',
+        );
         harness.foregroundLocationCallbacks[0](makeLocation(41.03, -87.03, 3));
         await new Promise((resolve) => setImmediate(resolve));
 

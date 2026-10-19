@@ -1,6 +1,12 @@
 <?php
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+
+beforeEach(function () {
+    config(['road-corridor.release_pointer_key' => null]);
+    Cache::flush();
+});
 
 test('issues a temporary URL only inside the fixed Wisconsin artifact', function () {
     $tile = '-895_430-'.str_repeat('a', 64).'.jsonl.gz';

@@ -1,3 +1,4 @@
+import { reportCorridorFailure } from './road-corridor-diagnostics';
 import * as Location from 'expo-location';
 import { addCrashlyticsLog } from '../../lib/crashlytics';
 import * as TaskManager from 'expo-task-manager';
@@ -10,6 +11,7 @@ import {
 } from '../auto-play-session-state';
 import { publishAcceptedDeviceLocation } from './accepted-device-location';
 import {
+    getCorridorRelease,
     getPilotCacheRevision,
     getPilotRoadCorridor,
 } from './road-corridor-pilot';
@@ -791,7 +793,7 @@ async function ensureRoadGraph(location, source) {
             };
             appliedPilotCacheRevision =
                 corridorSource.source === 'download'
-                    ? getPilotCacheRevision()
+                    ? (ways.corridorCacheRevision ?? getPilotCacheRevision())
                     : requestedCacheRevision;
             if (publishCorridorSource(corridorSource)) {
                 addCrashlyticsLog({
@@ -826,6 +828,17 @@ async function ensureRoadGraph(location, source) {
             });
 
             if (error?.name !== 'AbortError' || requestTimedOut) {
+                reportCorridorFailure(
+                    'graph_load',
+                    requestTimedOut ? new Error('Graph load timed out') : error,
+                    {
+                        release: getCorridorRelease().release,
+                        elapsedMs: Date.now() - requestStartedAt,
+                        fallback: requestContext.startedWithRoadGraph
+                            ? 'retained_graph'
+                            : 'unavailable',
+                    },
+                );
                 lastGraphRequestFailure = {
                     failedAt: Date.now(),
                     source: requestContext.originSource,
