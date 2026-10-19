@@ -61,6 +61,28 @@ function notifyNetworkDebugListeners() {
     });
 }
 
+function logNetworkDebugRequest(request) {
+    if (typeof __DEV__ === 'undefined' || !__DEV__) return;
+
+    // Match existing network-error logging: omit query strings, fragments and credentials.
+    const url = request.url
+        .split(/[?#]/, 1)[0]
+        .replace(/^(https?:\/\/)[^/]*@/i, '$1');
+    const outcome =
+        request.state === 'pending'
+            ? 'START'
+            : (request.errorName ??
+              `${request.ok ? 'OK' : 'BAD'} ${request.status ?? ''}`.trim());
+    const elapsed =
+        request.durationMs === null ? '' : ` (${request.durationMs}ms)`;
+
+    try {
+        console.log(
+            `[network #${request.id}] ${request.method} ${url} ${outcome}${elapsed}`,
+        );
+    } catch {}
+}
+
 function upsertNetworkDebugRequest(request) {
     const store = getNetworkDebugStore();
     const nextRequests = [
@@ -71,6 +93,7 @@ function upsertNetworkDebugRequest(request) {
     ].slice(0, MAX_NETWORK_DEBUG_REQUESTS);
 
     store.requests = nextRequests;
+    logNetworkDebugRequest(request);
     notifyNetworkDebugListeners();
 }
 
@@ -97,6 +120,9 @@ export function installNetworkDebugFetchMonitor() {
             return originalFetch(input, init);
         }
 
+        const method = String(
+            init?.method ?? input?.method ?? 'GET',
+        ).toUpperCase();
         const id = store.nextRequestId;
         const startedAt = getTimestampMs();
 
@@ -104,6 +130,8 @@ export function installNetworkDebugFetchMonitor() {
 
         upsertNetworkDebugRequest({
             durationMs: null,
+            method,
+            status: null,
             id,
             ok: null,
             startedAt,
@@ -120,6 +148,8 @@ export function installNetworkDebugFetchMonitor() {
 
             upsertNetworkDebugRequest({
                 durationMs,
+                method,
+                status: response?.status ?? null,
                 id,
                 ok: Boolean(response?.ok),
                 startedAt,
@@ -136,6 +166,14 @@ export function installNetworkDebugFetchMonitor() {
 
             upsertNetworkDebugRequest({
                 durationMs,
+                method,
+                status: null,
+                errorName: (init?.signal ?? input?.signal)?.aborted
+                    ? (init?.signal ?? input?.signal)?.reason?.name ===
+                      'TimeoutError'
+                        ? 'TIMEOUT'
+                        : 'CANCELLED'
+                    : (error?.name ?? 'NetworkError'),
                 id,
                 ok: false,
                 startedAt,

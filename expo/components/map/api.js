@@ -285,12 +285,12 @@ async function requestRoadCorridorWays(url, signal) {
     const deadline = new Promise((_, reject) => {
         timeoutId = setTimeout(() => {
             timedOut = true;
-            requestController.abort();
+            requestController.abort(timeoutError);
             reject(timeoutError);
         }, ROAD_CORRIDOR_RESPONSE_TIMEOUT_MS);
 
         handleAbort = () => {
-            requestController.abort();
+            requestController.abort(signal?.reason);
             const error = new Error('Request aborted.');
             error.name = 'AbortError';
             reject(error);

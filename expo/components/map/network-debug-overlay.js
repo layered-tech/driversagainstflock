@@ -11,7 +11,7 @@ function getRequestStatusText(request) {
         return '...';
     }
 
-    return `${request.ok ? 'OK' : 'BAD'} (${request.durationMs}ms)`;
+    return `${request.errorName ?? (request.ok ? 'OK' : 'BAD')} (${request.durationMs}ms)`;
 }
 
 function getRequestStatusClassName(request) {

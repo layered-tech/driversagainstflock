@@ -55,6 +55,7 @@ import {
 } from '../map/debug-overlays';
 import { useSharedMapState } from '../map/shared-map-state';
 import { UpcomingAlertDebugPane } from '../map/upcoming-alert-debug-pane';
+import { RoadCorridorStatus } from '../map/road-corridor-status';
 import { WeatherDebugPane } from '../map/weather-debug-pane';
 import { useUserTour } from '../user-tours';
 import { DebugDrawerToggleRow } from './debug-drawer-toggle-row';
@@ -513,6 +514,12 @@ export function DebugDrawer({ onClose, visible }) {
                             <AlprPresenceDebugPane />
                             <UpcomingAlertDebugPane />
                         </>,
+                    )}
+                    {renderSection(
+                        'road-corridors',
+                        'Road corridors',
+                        [],
+                        <RoadCorridorStatus />,
                     )}
                     {renderSection(
                         'weather',

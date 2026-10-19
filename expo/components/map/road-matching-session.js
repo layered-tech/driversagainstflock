@@ -9,7 +9,10 @@ import {
     getAutoPlaySessionState,
 } from '../auto-play-session-state';
 import { publishAcceptedDeviceLocation } from './accepted-device-location';
-import { getPilotRoadCorridor } from './road-corridor-pilot';
+import {
+    getPilotCacheRevision,
+    getPilotRoadCorridor,
+} from './road-corridor-pilot';
 import { publishCorridorSource } from './road-corridor-source';
 import {
     refreshBackgroundAlertsForLocationAsync,
@@ -88,6 +91,7 @@ let lastRoadMatchedLocation = null;
 let matcher = null;
 let roadGraph = null;
 let roadGraphLoadCount = 0;
+let appliedPilotCacheRevision = 0;
 let roadLookAheadMode = 'free-drive';
 let rawLocationHistory = [];
 let sessionState = 'idle';
@@ -598,7 +602,11 @@ async function publishRawLocationAsync(
 }
 
 function roadGraphNeedsRefresh(location) {
-    if (!roadGraph || !graphCenter) {
+    if (
+        !roadGraph ||
+        !graphCenter ||
+        getPilotCacheRevision() !== appliedPilotCacheRevision
+    ) {
         return true;
     }
 
@@ -623,6 +631,7 @@ async function ensureRoadGraph(location, source) {
     }
 
     if (
+        getPilotCacheRevision() === appliedPilotCacheRevision &&
         lastGraphRequestFailure?.source === source &&
         Date.now() - lastGraphRequestFailure.failedAt <
             ROAD_CORRIDOR_RETRY_DELAY_MS
@@ -643,6 +652,7 @@ async function ensureRoadGraph(location, source) {
         startedWithRoadGraph: roadGraph !== null,
     });
     const requestGeneration = graphRequestGeneration;
+    const requestedCacheRevision = getPilotCacheRevision();
     const requestStartedAt = Date.now();
     let requestTimedOut = false;
     const requestTimeoutId = setTimeout(() => {
@@ -779,6 +789,10 @@ async function ensureRoadGraph(location, source) {
                 source: 'service',
                 reason: 'Existing corridor response',
             };
+            appliedPilotCacheRevision =
+                corridorSource.source === 'download'
+                    ? getPilotCacheRevision()
+                    : requestedCacheRevision;
             if (publishCorridorSource(corridorSource)) {
                 addCrashlyticsLog({
                     category: 'map.road_corridor',

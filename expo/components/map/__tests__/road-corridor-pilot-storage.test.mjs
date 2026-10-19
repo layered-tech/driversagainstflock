@@ -15,7 +15,9 @@ const code = require('@babel/core').transformSync(
     },
 ).code;
 
-function harness() {
+function harness({ signedGate } = {}) {
+    const timers = new Map();
+    const events = [];
     const files = new Map();
     let requests = 0,
         services = 0,
@@ -102,11 +104,26 @@ function harness() {
     return import('../road-corridor-pilot-core.js').then((core) => {
         deps['./road-corridor-pilot-core'] = core;
         const module = { exports: {} };
-        new Function('require', 'module', 'exports', 'fetch', code)(
+        new Function(
+            'require',
+            'module',
+            'exports',
+            'fetch',
+            'setTimeout',
+            'clearTimeout',
+            'console',
+            '__DEV__',
+            code,
+        )(
             (name) => deps[name],
             module,
             module.exports,
-            async (url) => {
+            async (url, options) => {
+                if (url === 'sign' && signedGate) await signedGate;
+                if (options?.signal?.aborted)
+                    throw Object.assign(new Error('aborted'), {
+                        name: 'AbortError',
+                    });
                 requests++;
                 if (offline) throw new Error('offline');
                 return {
@@ -115,12 +132,26 @@ function harness() {
                     arrayBuffer: async () => bytes,
                 };
             },
+            (callback, delay) => {
+                const id = {};
+                timers.set(id, { callback, delay });
+                return id;
+            },
+            (id) => timers.delete(id),
+            { log: (...args) => events.push(args.join(' ')) },
+            true,
         );
         return {
-            load: () =>
+            fireWaitDeadline: () => {
+                for (const timer of [...timers.values()])
+                    if (timer.delay === 5000) timer.callback();
+            },
+            events,
+            load: (signal) =>
                 module.exports.getPilotRoadCorridor({
                     location: { longitude: -89.45, latitude: 43.05 },
                     radiusMeters: 100,
+                    signal,
                 }),
             files,
             offline: () => {
@@ -144,4 +175,53 @@ test('verified gzip downloads survive offline reuse; corrupt cache cannot feed m
         h.files.set(key, new Uint8Array(h.files.get(key).length));
     assert.equal((await h.load()).corridorSource.source, 'service');
     assert.equal(h.files.size, 0);
+});
+
+test('a download that outlives the matcher wait is saved and reused offline', async () => {
+    let release;
+    const signedGate = new Promise((resolve) => {
+        release = resolve;
+    });
+    const h = await harness({ signedGate });
+    const loading = h.load();
+    await new Promise((resolve) => setImmediate(resolve));
+    h.fireWaitDeadline();
+    assert.equal((await loading).corridorSource.source, 'service');
+    release();
+    for (let i = 0; i < 10; i++)
+        await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(
+        h.files.size,
+        1,
+        'verified tile must survive the matcher deadline',
+    );
+    h.offline();
+    assert.equal((await h.load()).corridorSource.source, 'download');
+    assert.ok(h.events.some((line) => line.includes('SAVED_OFFLINE')));
+});
+
+test('caller cancellation does not cancel a shared download or start duplicate transfers', async () => {
+    let release;
+    const signedGate = new Promise((resolve) => {
+        release = resolve;
+    });
+    const h = await harness({ signedGate });
+    const controller = new AbortController();
+    const first = h.load(controller.signal);
+    const rejected = assert.rejects(
+        first,
+        (error) => error.name === 'AbortError',
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+    const second = h.load();
+    controller.abort();
+    await rejected;
+    release();
+    assert.equal((await second).corridorSource.source, 'download');
+    assert.equal(
+        h.counts().requests,
+        2,
+        'one signing request and one S3 request',
+    );
+    assert.equal(h.files.size, 1);
 });
