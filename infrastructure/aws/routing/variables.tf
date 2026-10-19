@@ -96,3 +96,14 @@ variable "graph_volume_size_gib" {
     error_message = "graph_volume_size_gib must remain the reviewed 64 GiB size."
   }
 }
+
+variable "builder_ami_id" {
+  description = "Reviewed builder AMI, pinned so workflow updates do not also upgrade the operating system."
+  type        = string
+  default     = "ami-07987a01dcdb011ef"
+
+  validation {
+    condition     = can(regex("^ami-[0-9a-f]{17}$", var.builder_ami_id))
+    error_message = "builder_ami_id must be an EC2 AMI ID."
+  }
+}

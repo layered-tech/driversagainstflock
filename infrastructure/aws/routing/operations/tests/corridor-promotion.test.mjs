@@ -268,3 +268,24 @@ test('scheduled assets, workflow, and bootstrap are consistently checksum pinned
             readFileSync(new URL(source, root)),
         );
 });
+
+test('deployment preserves the old workflow and builder AMI, and uploads operations before switching the template', () => {
+    const root = new URL('../../', import.meta.url);
+    const operations = readFileSync(new URL('operations.tf', root), 'utf8');
+    const compute = readFileSync(new URL('compute.tf', root), 'utf8');
+    const variables = readFileSync(new URL('variables.tf', root), 'utf8');
+    assert.match(
+        operations,
+        /scheduled_builder\s*=\s*\{[^}]*scheduled-builder\/v1\.0\.0\/run-build\.sh/s,
+    );
+    assert.match(
+        operations,
+        /scheduled_builder_corridor\s*=\s*\{[^}]*scheduled-builder\/v1\.1\.0\/run-build\.sh/s,
+    );
+    assert.match(compute, /image_id\s*=\s*var\.builder_ami_id/);
+    assert.match(
+        compute,
+        /depends_on\s*=\s*\[aws_s3_object\.graph_build_operation\]/,
+    );
+    assert.match(variables, /variable "builder_ami_id"/);
+});

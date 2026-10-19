@@ -17,6 +17,11 @@ locals {
     }
     scheduled_builder = {
       content_type = "text/x-shellscript"
+      key          = "operations/scheduled-builder/v1.0.0/run-build.sh"
+      source       = "operations/scheduled-builder/v1.0.0/run-build.sh"
+    }
+    scheduled_builder_corridor = {
+      content_type = "text/x-shellscript"
       key          = "operations/scheduled-builder/v1.1.0/run-build.sh"
       source       = "operations/scheduled-builder/v1.1.0/run-build.sh"
     }
