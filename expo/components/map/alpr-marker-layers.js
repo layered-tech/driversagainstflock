@@ -9,12 +9,18 @@ import {
     INDIVIDUAL_MARKER_FILTER,
 } from './constants';
 
-export function renderAlprMarkerLayers({ idPrefix, sourceID, slot }) {
+export function renderAlprMarkerLayers({
+    aboveLayerID,
+    idPrefix,
+    sourceID,
+    slot,
+}) {
     return Object.entries(ALPR_SYMBOL_ICON_OFFSETS).map(
         ([imageName, offset]) => (
             <Mapbox.SymbolLayer
                 key={`${idPrefix}-${imageName}`}
                 id={`${idPrefix}-${imageName}`}
+                aboveLayerID={aboveLayerID}
                 sourceID={sourceID}
                 filter={[
                     'all',
@@ -28,6 +34,7 @@ export function renderAlprMarkerLayers({ idPrefix, sourceID, slot }) {
                     iconAllowOverlap: true,
                     iconAnchor: 'bottom',
                     iconIgnorePlacement: true,
+                    iconOcclusionOpacity: 1,
                     iconImage: imageName,
                     iconOffset: offset.map(
                         (value) => value / ALPR_SYMBOL_IMAGE_SCALE,

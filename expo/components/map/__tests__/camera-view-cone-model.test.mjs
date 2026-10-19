@@ -77,6 +77,9 @@ test('shared model layers preserve every direction and exclude clusters and unkn
         const layers = components.renderMarkerConeModelLayers({
             idPrefix: sourceID,
             sourceID,
+            aboveLayerID: 'puck-model-layer',
+            slot: 'top',
+            isDarkMode: true,
         });
         assert.equal(layers.length, 8);
         const properties = {
@@ -86,7 +89,9 @@ test('shared model layers preserve every direction and exclude clusters and unkn
         for (const [index, element] of layers.entries()) {
             const layer = components.CameraViewConeModelLayer(element.props);
             assert.equal(layer.props.sourceID, sourceID);
-            assert.equal(layer.props.slot, 'middle');
+            assert.equal(layer.props.slot, 'top');
+            assert.equal(layer.props.aboveLayerID, 'puck-model-layer');
+            assert.equal(layer.props.style.modelEmissiveStrength, 1);
             assert.equal(layer.props.style.modelAllowDensityReduction, false);
             const modelId = styleSpec.expression.createPropertyExpression(
                 layer.props.style.modelId,
@@ -350,7 +355,7 @@ test('native layer uses the bundled model and compass yaw without shadows or cam
         });
         assert.equal(layer.type, 'ModelLayer');
         assert.equal(layer.props.sourceID, 'markers');
-        assert.equal(layer.props.slot, 'middle');
+        assert.equal(layer.props.slot, undefined);
         assert.equal(layer.props.style.modelId, 'camera-view-cone');
         assert.deepEqual(layer.props.style.modelRotation, [0, 0, direction]);
         assert.deepEqual(layer.props.style.modelTranslation, [0, 0, 2.5]);
@@ -363,7 +368,13 @@ test('native layer uses the bundled model and compass yaw without shadows or cam
         );
         assert.equal(layer.props.style.modelCastShadows, false);
         assert.equal(layer.props.style.modelReceiveShadows, false);
-        assert.equal(layer.props.style.modelType, 'common-3d');
+        assert.equal(layer.props.style.modelType, 'location-indicator');
+        assert.equal(layer.props.style.modelEmissiveStrength, 0.95);
+        assert.equal(
+            CameraViewConeModelLayer({ isDarkMode: true }).props.style
+                .modelEmissiveStrength,
+            1,
+        );
     }
 });
 

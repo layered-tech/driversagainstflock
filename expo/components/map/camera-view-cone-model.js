@@ -37,15 +37,18 @@ export function CameraViewConeModels() {
 }
 
 export function CameraViewConeModelLayer({
+    aboveLayerID,
     id,
+    isDarkMode = false,
     sourceID,
     direction,
     directionProperty,
-    slot = 'middle',
+    slot,
 }) {
     const rotationProperty = `${directionProperty}Rotation`;
     return (
         <Mapbox.ModelLayer
+            aboveLayerID={aboveLayerID}
             id={id}
             sourceID={sourceID}
             slot={slot}
@@ -75,9 +78,9 @@ export function CameraViewConeModelLayer({
                 modelAllowDensityReduction: false,
                 modelScale: [1, 1, 1],
                 modelTranslation: [0, 0, 2.5],
-                modelType: 'common-3d',
+                modelType: 'location-indicator',
                 modelOpacity: 1,
-                modelEmissiveStrength: 0.85,
+                modelEmissiveStrength: isDarkMode ? 1 : 0.95,
                 modelCastShadows: false,
                 modelReceiveShadows: false,
             }}
@@ -86,9 +89,11 @@ export function CameraViewConeModelLayer({
 }
 
 export function renderMarkerConeModelLayers({
+    aboveLayerID,
     idPrefix,
+    isDarkMode = false,
     sourceID,
-    slot = 'middle',
+    slot,
     visible = true,
 }) {
     if (!visible) {
@@ -98,7 +103,9 @@ export function renderMarkerConeModelLayers({
     return MARKER_CONE_DIRECTION_PROPERTY_NAMES.map((directionProperty) => (
         <CameraViewConeModelLayer
             key={`${idPrefix}-cone-${directionProperty}`}
+            aboveLayerID={aboveLayerID}
             id={`${idPrefix}-cone-${directionProperty}`}
+            isDarkMode={isDarkMode}
             sourceID={sourceID}
             slot={slot}
             directionProperty={directionProperty}

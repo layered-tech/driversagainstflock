@@ -207,6 +207,7 @@ export function CameraMarkerPreviewScreen({ initialPreset, onClose } = {}) {
                             ? renderMarkerConeModelLayers({
                                   idPrefix: 'marker-preview',
                                   sourceID: 'marker-preview',
+                                  slot: 'middle',
                               })
                             : renderMarkerConeLayers({
                                   idPrefix: 'marker-preview',

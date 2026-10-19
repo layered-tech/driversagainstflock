@@ -93,6 +93,8 @@ module.exports = {
         supportsTablet: true,
         infoPlist: {
             ITSAppUsesNonExemptEncryption: false,
+            NSPhotoLibraryUsageDescription:
+                'Drivers Against Flock uses file storage to download and cache road-corridor data for navigation. The file-storage library includes photo library support, but the app does not access or upload your photos.',
             MGLMapboxMetricsEnabledSettingShownInApp: true,
             // CarPlay voice capture and navigation voice prompts must keep
             // running while the phone is locked. 'fetch' and 'location' are

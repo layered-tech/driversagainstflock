@@ -94,7 +94,11 @@ import {
     NavigationPuckImages,
     PoliceAlertImages,
 } from './map-assets';
-import { getMapLayerSlots } from './map-layer-slots';
+import {
+    getCameraOverlayLayerPlacement,
+    getMapLayerSlots,
+    waitForCameraOverlayPuck2D,
+} from './map-layer-slots';
 import { mapLightPresetUsesDarkAppearance } from './map-light-preset-appearance';
 import {
     getCoordinateKey,
@@ -449,6 +453,7 @@ function renderMarkerClusterLayers({
 }
 
 export function renderMarkerPointLayers({
+    aboveLayerID,
     emissiveStrength,
     idPrefix,
     mapRoutePalette,
@@ -481,7 +486,7 @@ export function renderMarkerPointLayers({
             slot={slot}
             style={markerDotLayerStyle}
         />,
-        ...renderAlprMarkerLayers({ idPrefix, sourceID, slot }),
+        ...renderAlprMarkerLayers({ aboveLayerID, idPrefix, sourceID, slot }),
     ];
 }
 
@@ -676,6 +681,8 @@ export const MapCanvas = memo(function MapCanvas({
     );
     const [locationPuck3DStatus, setLocationPuck3DStatus] =
         useState('inactive');
+    const [cameraOverlayLayerEpoch, setCameraOverlayLayerEpoch] = useState(0);
+    const [cameraOverlayPuck2DKey, setCameraOverlayPuck2DKey] = useState(null);
     const [locationPuckCameraFollowStatus, setLocationPuckCameraFollowStatus] =
         useState('inactive');
     const [locationPuckProviderStatus, setLocationPuckProviderStatus] =
@@ -791,9 +798,14 @@ export const MapCanvas = memo(function MapCanvas({
             clearLocationPuck: clearLocationPuck3DAsync,
             verifyLocationPuck: async (mapView) => {
                 const state = await getLocationPuck3DStateAsync(mapView);
-                return (
-                    state?.puckKind === '3d' && state.modelLayerExists === true
-                );
+                const puckIsReady =
+                    state?.puckKind === '3d' && state.modelLayerExists === true;
+                if (puckIsReady) {
+                    // Reinsert overlays after a native puck is recreated, even
+                    // when the lifecycle status remains active.
+                    setCameraOverlayLayerEpoch((epoch) => epoch + 1);
+                }
+                return puckIsReady;
             },
             waitForPuckCommit: () =>
                 new Promise((resolve) => setTimeout(resolve, 50)),
@@ -1063,6 +1075,42 @@ export const MapCanvas = memo(function MapCanvas({
     // puck rebinds its style layer for each individual image prop; iOS Fabric
     // also cannot clear an image prop back to undefined.
     const locationPuckKey = `location-puck-${navigationPuckIsVisible ? navigationPuckBearingImage : 'default'}`;
+    const cameraOverlayPuck2DRequestKey =
+        locationAccessGranted &&
+        userLocationPuckVisible &&
+        locationPuckProviderIsReady &&
+        !locationPuck2DFallbackIsSuppressed &&
+        locationPuckMapLoadEpoch > 0
+            ? `${locationPuckKey}-${locationPuckMapLoadEpoch}-${locationPuck3DStatus}`
+            : null;
+    const cameraOverlayPuck2DIsReady =
+        cameraOverlayPuck2DRequestKey !== null &&
+        cameraOverlayPuck2DKey === cameraOverlayPuck2DRequestKey;
+    useEffect(() => {
+        setCameraOverlayPuck2DKey(null);
+        if (!cameraOverlayPuck2DRequestKey) return;
+        let isCurrent = true;
+        void waitForCameraOverlayPuck2D({
+            readState: () => getLocationPuck3DStateAsync(mapViewRef),
+            isCurrent: () => isCurrent,
+        }).then((puckIsReady) => {
+            if (isCurrent && puckIsReady) {
+                setCameraOverlayPuck2DKey(cameraOverlayPuck2DRequestKey);
+                setCameraOverlayLayerEpoch((epoch) => epoch + 1);
+            }
+        });
+        return () => {
+            isCurrent = false;
+        };
+    }, [cameraOverlayPuck2DRequestKey, mapViewRef]);
+    const cameraOverlayPlacement = getCameraOverlayLayerPlacement({
+        platform: Platform.OS,
+        slots: mapLayerSlots,
+        puckIsReady:
+            (locationPuckRequests3D && locationPuck3DStatus === 'active') ||
+            cameraOverlayPuck2DIsReady,
+        puckKind: cameraOverlayPuck2DIsReady ? '2d' : '3d',
+    });
     const mapboxBrandingIsVisible = !isDrivingMode;
 
     if (!mapPreferencesAreLoaded) {
@@ -1573,7 +1621,7 @@ export const MapCanvas = memo(function MapCanvas({
             {surveillanceMarkersVisible && markerClustersEnabled ? (
                 <Mapbox.ShapeSource
                     id={markerClusteredSourceID}
-                    key={`${markerClusteredSourceID}-${locationPuckMapLoadEpoch}`}
+                    key={`${markerClusteredSourceID}-${locationPuckMapLoadEpoch}-${cameraOverlayLayerEpoch}-${cameraOverlayPlacement.aboveLayerID ?? 'unanchored'}`}
                     ref={markerShapeSourceRef}
                     cluster
                     clusterMaxZoomLevel={MARKER_CLUSTER_MAX_ZOOM_LEVEL}
@@ -1585,8 +1633,11 @@ export const MapCanvas = memo(function MapCanvas({
                     {[
                         ...(cameraConesVisible
                             ? renderMarkerConeModelLayers({
+                                  aboveLayerID:
+                                      cameraOverlayPlacement.aboveLayerID,
                                   idPrefix: 'map-markers-clustered',
-                                  slot: mapLayerSlots.cameraCone,
+                                  isDarkMode: isDuskNightMapLightPreset,
+                                  slot: cameraOverlayPlacement.coneSlot,
                                   sourceID: markerClusteredSourceID,
                                   visible: true,
                               })
@@ -1599,10 +1650,15 @@ export const MapCanvas = memo(function MapCanvas({
                             sourceID: markerClusteredSourceID,
                         }),
                         ...renderMarkerPointLayers({
+                            aboveLayerID:
+                                cameraOverlayPlacement.aboveLayerID &&
+                                cameraConesVisible
+                                    ? 'map-markers-clustered-cone-coneDirection0'
+                                    : cameraOverlayPlacement.aboveLayerID,
                             emissiveStrength: mapOverlayEmissiveStrength,
                             idPrefix: 'map-markers-clustered',
                             mapRoutePalette,
-                            slot: mapLayerSlots.cameraNode,
+                            slot: cameraOverlayPlacement.nodeSlot,
                             sourceID: markerClusteredSourceID,
                         }),
                     ]}
@@ -1611,7 +1667,7 @@ export const MapCanvas = memo(function MapCanvas({
             {surveillanceMarkersVisible && !markerClustersEnabled ? (
                 <Mapbox.ShapeSource
                     id={markerUnclusteredSourceID}
-                    key={`${markerUnclusteredSourceID}-${locationPuckMapLoadEpoch}`}
+                    key={`${markerUnclusteredSourceID}-${locationPuckMapLoadEpoch}-${cameraOverlayLayerEpoch}-${cameraOverlayPlacement.aboveLayerID ?? 'unanchored'}`}
                     hitbox={{ height: 48, width: 48 }}
                     onPress={handleMarkerSourcePress}
                     shape={markerFeatureCollection}
@@ -1619,17 +1675,25 @@ export const MapCanvas = memo(function MapCanvas({
                     {[
                         ...(cameraConesVisible
                             ? renderMarkerConeModelLayers({
+                                  aboveLayerID:
+                                      cameraOverlayPlacement.aboveLayerID,
                                   idPrefix: 'map-markers-unclustered',
-                                  slot: mapLayerSlots.cameraCone,
+                                  isDarkMode: isDuskNightMapLightPreset,
+                                  slot: cameraOverlayPlacement.coneSlot,
                                   sourceID: markerUnclusteredSourceID,
                                   visible: true,
                               })
                             : []),
                         ...renderMarkerPointLayers({
+                            aboveLayerID:
+                                cameraOverlayPlacement.aboveLayerID &&
+                                cameraConesVisible
+                                    ? 'map-markers-unclustered-cone-coneDirection0'
+                                    : cameraOverlayPlacement.aboveLayerID,
                             emissiveStrength: mapOverlayEmissiveStrength,
                             idPrefix: 'map-markers-unclustered',
                             mapRoutePalette,
-                            slot: mapLayerSlots.cameraNode,
+                            slot: cameraOverlayPlacement.nodeSlot,
                             sourceID: markerUnclusteredSourceID,
                         }),
                     ]}

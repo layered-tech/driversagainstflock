@@ -415,6 +415,7 @@ test('each map manufacturer has one aspect-preserving layer with its own fixed i
         idPrefix: 'preview',
         sourceID: 'preview',
         slot: 'top',
+        aboveLayerID: 'puck-model-layer',
     });
     assert.equal(layers.length, 8);
     assert.equal(
@@ -422,6 +423,8 @@ test('each map manufacturer has one aspect-preserving layer with its own fixed i
         8,
     );
     for (const { props } of layers) {
+        assert.equal(props.aboveLayerID, 'puck-model-layer');
+        assert.equal(props.style.iconOcclusionOpacity, 1);
         assert.ok(Object.hasOwn(ALPR_SYMBOL_IMAGES, props.style.iconImage));
         assert.deepEqual(
             props.style.iconOffset,

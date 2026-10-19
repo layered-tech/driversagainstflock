@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
-import { getMapLayerSlots } from '../map-layer-slots.js';
+import {
+    getCameraOverlayLayerPlacement,
+    getMapLayerSlots,
+    waitForCameraOverlayPuck2D,
+} from '../map-layer-slots.js';
 
 const mapCanvasSource = readFileSync(
     new URL('../map-canvas.js', import.meta.url),
-    'utf8',
-);
-const mapLayerSlotsSource = readFileSync(
-    new URL('../map-layer-slots.js', import.meta.url),
     'utf8',
 );
 const mapLocationPuckIOSSource = readFileSync(
@@ -18,6 +18,127 @@ const mapLocationPuckIOSSource = readFileSync(
     ),
     'utf8',
 );
+
+test('camera overlays share the verified puck slot and render above its platform layer', () => {
+    for (const platform of ['android', 'ios']) {
+        for (const navigationPuckVariant of ['default', 'auto-play']) {
+            const slots = getMapLayerSlots({ platform, navigationPuckVariant });
+            const placement = getCameraOverlayLayerPlacement({
+                platform,
+                slots,
+                puckIsReady: true,
+            });
+            assert.equal(placement.coneSlot, slots.userLocationPuck);
+            assert.equal(placement.nodeSlot, slots.userLocationPuck);
+            assert.equal(
+                placement.aboveLayerID,
+                platform === 'android'
+                    ? 'mapbox-location-model-layer'
+                    : 'puck-model-layer',
+            );
+        }
+    }
+});
+
+test('camera overlays have no missing puck dependency before readiness or on unsupported platforms', () => {
+    for (const platform of ['android', 'ios', 'web']) {
+        for (const puckIsReady of [false, true]) {
+            if (puckIsReady && platform !== 'web') continue;
+            const slots = getMapLayerSlots({
+                platform,
+                navigationPuckVariant: 'auto-play',
+            });
+            assert.deepEqual(
+                getCameraOverlayLayerPlacement({
+                    platform,
+                    slots,
+                    puckIsReady,
+                }),
+                {
+                    aboveLayerID: undefined,
+                    coneSlot: slots.cameraCone,
+                    nodeSlot: slots.cameraNode,
+                },
+            );
+        }
+    }
+});
+
+test('2D fallback overlays use the verified indicator layer outside the 3D puck slot', () => {
+    for (const platform of ['android', 'ios']) {
+        const slots = getMapLayerSlots({
+            platform,
+            navigationPuckVariant: 'auto-play',
+        });
+        assert.deepEqual(
+            getCameraOverlayLayerPlacement({
+                platform,
+                slots,
+                puckIsReady: true,
+                puckKind: '2d',
+            }),
+            {
+                aboveLayerID:
+                    platform === 'android'
+                        ? 'mapbox-location-indicator-layer'
+                        : 'puck',
+                coneSlot: undefined,
+                nodeSlot: undefined,
+            },
+        );
+    }
+});
+
+test('2D verification waits for native creation and stops when replaced or unavailable', async () => {
+    let reads = 0;
+    const options = { isCurrent: () => true, waitForCommit: async () => {} };
+    assert.equal(
+        await waitForCameraOverlayPuck2D({
+            ...options,
+            readState: async () => ({
+                puckKind: '2d',
+                indicatorLayerExists: ++reads === 3,
+            }),
+        }),
+        true,
+    );
+    assert.equal(reads, 3);
+    for (const readState of [
+        async () => null,
+        async () => {
+            throw new Error('unavailable');
+        },
+    ]) {
+        assert.equal(
+            await waitForCameraOverlayPuck2D({ ...options, readState }),
+            false,
+        );
+    }
+    reads = 0;
+    assert.equal(
+        await waitForCameraOverlayPuck2D({
+            ...options,
+            readState: async () => {
+                reads++;
+                return { puckKind: '3d', modelLayerExists: true };
+            },
+        }),
+        false,
+    );
+    assert.equal(reads, 10);
+    let isCurrent = true;
+    assert.equal(
+        await waitForCameraOverlayPuck2D({
+            ...options,
+            isCurrent: () => isCurrent,
+            readState: async () => {
+                isCurrent = false;
+                return { puckKind: '2d', indicatorLayerExists: true };
+            },
+        }),
+        false,
+    );
+});
 
 describe('Mapbox Standard layer slots', () => {
     test('keeps the Android Auto puck above routes without a transient layer anchor', () => {
@@ -103,7 +224,7 @@ describe('Mapbox Standard layer slots', () => {
         );
         assert.doesNotMatch(mapCanvasSource, /getReadyRouteBelowLayer/);
         assert.doesNotMatch(
-            mapLayerSlotsSource,
+            getMapLayerSlots.toString(),
             /routeBelowLayer|puck-model-layer/,
         );
     });
@@ -140,9 +261,22 @@ test('both shared map inventory sources render 3D cones with the existing visibi
         2,
     );
     assert.equal(
-        (mapCanvasSource.match(/slot: mapLayerSlots\.cameraCone/g) ?? [])
+        (mapCanvasSource.match(/slot: cameraOverlayPlacement\.coneSlot/g) ?? [])
             .length,
         2,
     );
     assert.doesNotMatch(mapCanvasSource, /<MarkerConeImages/);
+    assert.equal(
+        (mapCanvasSource.match(/isDarkMode: isDuskNightMapLightPreset/g) ?? [])
+            .length,
+        2,
+    );
+    assert.match(
+        mapCanvasSource,
+        /locationPuckRequests3D && locationPuck3DStatus === 'active'/,
+    );
+    assert.match(
+        mapCanvasSource,
+        /setCameraOverlayLayerEpoch\(\(epoch\) => epoch \+ 1\)/,
+    );
 });
