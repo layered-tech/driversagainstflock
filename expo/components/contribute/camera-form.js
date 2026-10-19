@@ -2,6 +2,7 @@ import { CAMERA_REFERENCE_IMAGES } from './camera-reference-images';
 import { useRef, useState } from 'react';
 import {
     Image,
+    KeyboardAvoidingView,
     Modal,
     Platform,
     Pressable,
@@ -217,7 +218,8 @@ export function CameraForm({
             });
     };
     return (
-        <View
+        <KeyboardAvoidingView
+            behavior="padding"
             className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
             testID="contribute-camera-details-screen"
         >
@@ -694,6 +696,6 @@ export function CameraForm({
                     </View>
                 ) : null}
             </Modal>
-        </View>
+        </KeyboardAvoidingView>
     );
 }

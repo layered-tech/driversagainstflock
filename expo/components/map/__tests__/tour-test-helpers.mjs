@@ -14,7 +14,11 @@ export function loadTourModule(fileUrl, mocks, scheduler = {}) {
         plugins: [[jsx, { runtime: 'automatic' }], commonjs],
     });
     const module = { exports: {} };
-    const createElement = (type, props) => ({ type, props });
+    const createElement = (type, props, key) => ({
+        type,
+        props,
+        ...(key === undefined ? {} : { key }),
+    });
 
     new Function(
         'require',

@@ -1,6 +1,7 @@
 import {
     ActivityIndicator,
     Alert,
+    KeyboardAvoidingView,
     Pressable,
     ScrollView,
     Text,
@@ -242,7 +243,8 @@ export function MapFullScreenSearch() {
         !submittedResultsAreVisible;
 
     return (
-        <View
+        <KeyboardAvoidingView
+            behavior="padding"
             className="absolute inset-0 z-[90] bg-daf-surface-page dark:bg-[#0B0E12]"
             testID={`map-full-screen-search-${searchSource}`}
         >
@@ -521,6 +523,6 @@ export function MapFullScreenSearch() {
                     </EmptyMessage>
                 ) : null}
             </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
     );
 }

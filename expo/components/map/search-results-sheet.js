@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { Icon } from '../design-system/icon';
 import { useSearchResultsContext } from './map-screen-context';
@@ -9,6 +10,7 @@ import { SubmittedSearchResultRow } from './submitted-search-result-row';
 import { useBottomSheetPresentedState } from './use-bottom-sheet-presented-state';
 
 export function SearchResultsSheet() {
+    const [modalGeneration, setModalGeneration] = useState(0);
     const {
         bottomSheetAnimatedPosition,
         bottomSheetBackgroundStyle,
@@ -33,6 +35,15 @@ export function SearchResultsSheet() {
         onChange: submittedSearchResultsSheetTrackingHandlers.onChange,
         onDismiss: submittedSearchResultsSheetTrackingHandlers.onDismiss,
     });
+    const handleModalDismiss = useCallback(
+        (...args) => {
+            // A fresh modal avoids reusing the portal while its old native sheet
+            // is still completing teardown after dismiss().
+            setModalGeneration((generation) => generation + 1);
+            handleBottomSheetDismiss(...args);
+        },
+        [handleBottomSheetDismiss],
+    );
 
     if (!mapPreferencesAreLoaded) {
         return null;
@@ -85,7 +96,7 @@ export function SearchResultsSheet() {
                 <View
                     accessibilityLabel="Searching places"
                     accessibilityRole="progressbar"
-                    className="dark:bg-daf-surface-dark flex-row items-center gap-3 rounded-dafMd bg-daf-surface-alt px-3 py-3"
+                    className="flex-row items-center gap-3 rounded-dafMd bg-daf-surface-alt px-3 py-3 dark:bg-daf-surface-dark"
                 >
                     <ActivityIndicator color={searchIconColor} size="small" />
                     <Text className="text-sm font-semibold text-daf-text-secondary dark:text-neutral-300">
@@ -105,7 +116,7 @@ export function SearchResultsSheet() {
             {!submittedSearchIsLoading &&
             !submittedSearchError &&
             submittedSearchResults.length === 0 ? (
-                <View className="dark:bg-daf-surface-dark rounded-dafMd bg-daf-surface-alt px-3 py-3">
+                <View className="rounded-dafMd bg-daf-surface-alt px-3 py-3 dark:bg-daf-surface-dark">
                     <Text className="text-sm font-medium text-daf-text-secondary dark:text-neutral-300">
                         No places found nearby
                     </Text>
@@ -116,6 +127,7 @@ export function SearchResultsSheet() {
 
     return (
         <NativeWindBottomSheetModal
+            key={modalGeneration}
             ref={submittedSearchResultsSheetRef}
             accessible={false}
             index={0}
@@ -128,7 +140,7 @@ export function SearchResultsSheet() {
             animatedPosition={bottomSheetAnimatedPosition}
             onAnimate={submittedSearchResultsSheetTrackingHandlers.onAnimate}
             onChange={handleBottomSheetChange}
-            onDismiss={handleBottomSheetDismiss}
+            onDismiss={handleModalDismiss}
         >
             <NativeWindBottomSheetFlatList
                 className="flex-1"

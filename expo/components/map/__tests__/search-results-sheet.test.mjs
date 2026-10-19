@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { createHookHarness, loadTourModule } from './tour-test-helpers.mjs';
 
 const mapSearchSource = readFileSync(
     new URL('../use-map-search.js', import.meta.url),
@@ -27,4 +28,91 @@ test('back from place details restores the submitted results sheet', () => {
         mapSearchSource,
         /const handleSelectedPlaceBackToSearchResults = useCallback\(\(\) => \{[\s\S]*?dismissPlaceSheet\(\);[\s\S]*?setSearchIsFocused\(false\);\s+setSearchPageIsVisible\(false\);/,
     );
+});
+
+test('dismissed search results remount their modal before returning from a place', () => {
+    const harness = createHookHarness();
+    const dismissals = [];
+    const sheetRef = { current: null };
+    const { SearchResultsSheet } = loadTourModule(
+        new URL('../search-results-sheet.js', import.meta.url),
+        {
+            react: harness.react,
+            'react-native': {},
+            '../design-system/icon': {},
+            './map-screen-context': {
+                useSearchResultsContext: () => ({
+                    insets: { bottom: 0 },
+                    mapPreferencesAreLoaded: true,
+                    submittedSearchResults: [],
+                    submittedSearchResultsSheetRef: sheetRef,
+                    submittedSearchResultsSheetTrackingHandlers: {
+                        onDismiss: (...args) => dismissals.push(args),
+                    },
+                }),
+            },
+            './native-components': { NativeWindBottomSheetModal: 'Modal' },
+            './submitted-search-result-row': {},
+            './use-bottom-sheet-presented-state': {
+                useBottomSheetPresentedState: ({ onDismiss }) => ({
+                    handleBottomSheetDismiss: onDismiss,
+                }),
+            },
+        },
+    );
+    const render = () => harness.render(SearchResultsSheet);
+    const first = render();
+    assert.equal(first.props.ref, sheetRef);
+    assert.equal(render().key, first.key);
+    first.props.onDismiss({ programmatic: true });
+    const second = render();
+    assert.notEqual(second.key, first.key);
+    assert.equal(second.props.ref, sheetRef);
+    assert.deepEqual(dismissals, [[{ programmatic: true }]]);
+    second.props.onDismiss({ programmatic: true });
+    assert.notEqual(render().key, second.key);
+});
+
+test('dismissed place details remount before returning from directions to the same place', () => {
+    const harness = createHookHarness();
+    const dismissals = [];
+    const sheetRef = { current: null };
+    const selectedResult = { id: 'same-place' };
+    const { SelectedPlaceSheet } = loadTourModule(
+        new URL('../selected-place-sheet.js', import.meta.url),
+        {
+            react: harness.react,
+            '@gorhom/bottom-sheet': {},
+            'react-native': { useWindowDimensions: () => ({ height: 800 }) },
+            '../design-system/icon': {},
+            '../design-system/primitives': {},
+            '../design-system/tokens': { dafSemanticColors: {} },
+            './map-screen-context': {
+                usePlaceSheetContext: () => ({
+                    insets: { bottom: 0 },
+                    mapPreferencesAreLoaded: true,
+                    placeSheetRef: sheetRef,
+                    selectedSearchResult: selectedResult,
+                    placeSheetTrackingHandlers: {
+                        onDismiss: (...args) => dismissals.push(args),
+                    },
+                }),
+            },
+            './native-components': { NativeWindBottomSheetModal: 'Modal' },
+            './primary-locations': { getPrimaryLocationLabel: () => '' },
+            './use-bottom-sheet-presented-state': {
+                useBottomSheetPresentedState: ({ onDismiss }) => ({
+                    handleBottomSheetDismiss: onDismiss,
+                }),
+            },
+        },
+    );
+    const render = () => harness.render(SelectedPlaceSheet);
+    const first = render();
+    assert.equal(render().key, first.key);
+    first.props.onDismiss({ programmatic: true });
+    const second = render();
+    assert.notEqual(second.key, first.key);
+    assert.equal(second.props.ref, sheetRef);
+    assert.deepEqual(dismissals, [[{ programmatic: true }]]);
 });

@@ -23,6 +23,7 @@ import {
 import {
     Animated,
     Easing,
+    KeyboardAvoidingView,
     Pressable,
     ScrollView,
     Text,
@@ -386,7 +387,8 @@ export function DebugDrawer({ onClose, visible }) {
     }
 
     return (
-        <View
+        <KeyboardAvoidingView
+            behavior="padding"
             className="absolute inset-0 z-[100]"
             pointerEvents={visible ? 'auto' : 'none'}
             testID="debug-drawer"
@@ -403,7 +405,7 @@ export function DebugDrawer({ onClose, visible }) {
                 />
             </Pressable>
             <Animated.View
-                className="absolute bottom-0 right-0 top-0 border-l border-neutral-200 bg-neutral-50 shadow-[0px_0px_24px_rgba(0,0,0,0.24)] dark:border-neutral-800 dark:bg-neutral-950"
+                className="flex-1 self-end border-l border-neutral-200 bg-neutral-50 shadow-[0px_0px_24px_rgba(0,0,0,0.24)] dark:border-neutral-800 dark:bg-neutral-950"
                 style={{
                     paddingBottom: Math.max(insets.bottom, 16),
                     paddingTop: Math.max(insets.top, 16),
@@ -430,6 +432,7 @@ export function DebugDrawer({ onClose, visible }) {
                     </Pressable>
                 </View>
                 <ScrollView
+                    keyboardShouldPersistTaps="handled"
                     contentContainerStyle={{
                         gap: 10,
                         padding: 16,
@@ -598,6 +601,6 @@ export function DebugDrawer({ onClose, visible }) {
                     )}
                 </ScrollView>
             </Animated.View>
-        </View>
+        </KeyboardAvoidingView>
     );
 }

@@ -146,6 +146,7 @@ export function MapSearchOverlay({
                     >
                         {searchModeIsDirections ? (
                             <ScrollView
+                                automaticallyAdjustKeyboardInsets
                                 className="shrink"
                                 contentContainerClassName="px-[14px] py-[14px]"
                                 keyboardShouldPersistTaps="handled"

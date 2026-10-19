@@ -172,6 +172,8 @@ function createDebugDrawerHarness(
         },
         react: { ...hooks.react, Fragment: 'Fragment' },
         'react-native': {
+            KeyboardAvoidingView: 'KeyboardAvoidingView',
+            Platform: { OS: 'android' },
             Animated: {
                 Value: class {
                     interpolate() {
@@ -336,6 +338,8 @@ function createScreenHarness() {
             useState: (initial) => [initial, () => {}],
         },
         'react-native': {
+            KeyboardAvoidingView: 'KeyboardAvoidingView',
+            Platform: { OS: 'android' },
             Alert: { alert() {} },
             BackHandler: { addEventListener: () => ({ remove() {} }) },
             Pressable: 'Pressable',

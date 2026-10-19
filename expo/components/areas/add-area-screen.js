@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     KeyboardAvoidingView,
-    Platform,
     Pressable,
     View,
 } from 'react-native';
@@ -164,7 +163,7 @@ export default function AddAreaScreen() {
     return (
         <KeyboardAvoidingView
             className="flex-1"
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior="padding"
             testID="add-area-screen"
         >
             <View className="-mb-[22px] min-h-[150px] flex-1">

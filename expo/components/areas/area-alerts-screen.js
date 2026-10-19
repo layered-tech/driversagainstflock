@@ -1,6 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, ScrollView, Switch, View } from 'react-native';
+import {
+    KeyboardAvoidingView,
+    Linking,
+    Pressable,
+    ScrollView,
+    Switch,
+    View,
+} from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
 import { DafTextInput } from '../design-system/primitives';
@@ -59,7 +66,11 @@ export default function AreaAlertsScreen() {
         }
     }
     return (
-        <View className="flex-1" testID="area-alerts-screen">
+        <KeyboardAvoidingView
+            behavior="padding"
+            className="flex-1"
+            testID="area-alerts-screen"
+        >
             <AreaHeader
                 title="Alerts"
                 subtitle={
@@ -67,6 +78,7 @@ export default function AreaAlertsScreen() {
                 }
             />
             <ScrollView
+                keyboardShouldPersistTaps="handled"
                 className="px-4"
                 contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
             >
@@ -229,6 +241,6 @@ export default function AreaAlertsScreen() {
                     </>
                 )}
             </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
     );
 }

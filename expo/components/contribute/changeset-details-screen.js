@@ -1,6 +1,12 @@
 import { router, useIsFocused } from 'expo-router';
 import { useCallback, useRef } from 'react';
-import { ScrollView, Text, useColorScheme, View } from 'react-native';
+import {
+    KeyboardAvoidingView,
+    ScrollView,
+    Text,
+    useColorScheme,
+    View,
+} from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
 import {
@@ -76,7 +82,8 @@ export default function ChangesetDetailsScreen() {
     }, [tour]);
 
     return (
-        <View
+        <KeyboardAvoidingView
+            behavior="padding"
             className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
             testID="contribute-changeset-details-screen"
         >
@@ -182,6 +189,6 @@ export default function ChangesetDetailsScreen() {
                 scrollRef={tourScrollRef}
                 restoreScrollOnFinish
             />
-        </View>
+        </KeyboardAvoidingView>
     );
 }

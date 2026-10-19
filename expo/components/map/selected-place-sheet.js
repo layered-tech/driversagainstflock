@@ -1,4 +1,5 @@
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
     Pressable,
@@ -21,6 +22,7 @@ import {
 import { useBottomSheetPresentedState } from './use-bottom-sheet-presented-state';
 
 export function SelectedPlaceSheet() {
+    const [modalGeneration, setModalGeneration] = useState(0);
     const { height: windowHeight } = useWindowDimensions();
     const {
         bottomSheetBackgroundStyle,
@@ -56,8 +58,16 @@ export function SelectedPlaceSheet() {
         onChange: placeSheetTrackingHandlers.onChange,
         onDismiss: placeSheetTrackingHandlers.onDismiss,
     });
-    const selectedPlaceSheetKey =
-        selectedSearchResult?.placeId || selectedSearchResult?.id || 'empty';
+    const handleModalDismiss = useCallback(
+        (...args) => {
+            // Returning from directions can reopen the same place, so its ID
+            // alone cannot reset a modal whose native sheet is tearing down.
+            setModalGeneration((generation) => generation + 1);
+            handleBottomSheetDismiss(...args);
+        },
+        [handleBottomSheetDismiss],
+    );
+    const selectedPlaceSheetKey = `${selectedSearchResult?.placeId || selectedSearchResult?.id || 'empty'}-${modalGeneration}`;
     const selectedPlacePrimaryLocationLabel = getPrimaryLocationLabel(
         selectedPlacePrimaryLocationType,
     );
@@ -87,7 +97,7 @@ export function SelectedPlaceSheet() {
             animatedPosition={bottomSheetAnimatedPosition}
             onAnimate={placeSheetTrackingHandlers.onAnimate}
             onChange={handleBottomSheetChange}
-            onDismiss={handleBottomSheetDismiss}
+            onDismiss={handleModalDismiss}
         >
             <NativeWindBottomSheetView
                 className="bg-white dark:bg-daf-surface-dark"

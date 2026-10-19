@@ -14,7 +14,7 @@ function find(tree, predicate) {
     }
     return null;
 }
-function createForm(details) {
+function createForm(details, platform = 'android') {
     const hooks = createHookHarness();
     const changes = [];
     const pin = { latitude: 30, longitude: -97, details };
@@ -43,8 +43,9 @@ function createForm(details) {
                               ? { width: 600, height: 1200 }
                               : { width: 1200, height: 900 },
                 }),
+                KeyboardAvoidingView: 'KeyboardAvoidingView',
                 Modal: 'Modal',
-                Platform: { OS: 'android', Version: 36 },
+                Platform: { OS: platform, Version: 36 },
                 Pressable: 'Pressable',
                 ScrollView: 'ScrollView',
                 Text: 'Text',
@@ -481,3 +482,24 @@ test('Axon gallery uses each distinct reference and fits each loaded image aspec
         form.cleanup();
     }
 });
+
+for (const platform of ['ios', 'android']) {
+    test(`camera form keeps the editable fields and save action within keyboard avoidance on ${platform}`, () => {
+        const tree = createForm(
+            { preset: 'flock', directions: [] },
+            platform,
+        ).render();
+        assert.equal(tree.type, 'KeyboardAvoidingView');
+        assert.equal(tree.props.behavior, 'padding');
+        const scroll = find(tree, (node) => node.type === 'ScrollView');
+        assert.equal(scroll.props.keyboardShouldPersistTaps, 'handled');
+        assert.ok(find(scroll, (node) => node.type === 'TextInput'));
+        assert.ok(
+            find(
+                tree,
+                (node) =>
+                    node.props?.testID === 'contribute-next-changeset-button',
+            ),
+        );
+    });
+}

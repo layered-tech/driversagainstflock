@@ -1,11 +1,12 @@
-import { Text, TextInput, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
 import { LocationAcquisitionView } from './location-acquisition-view';
 import { usePermissionSheetContext } from './map-screen-context';
 import {
     NativeWindBottomSheetModal,
-    NativeWindBottomSheetView,
+    NativeWindBottomSheetScrollView,
+    NativeWindBottomSheetTextInput,
 } from './native-components';
 
 export function LocationPermissionSheet() {
@@ -55,13 +56,18 @@ export function LocationPermissionSheet() {
             backgroundStyle={bottomSheetBackgroundStyle}
             handleIndicatorStyle={bottomSheetHandleIndicatorStyle}
             animatedPosition={bottomSheetAnimatedPosition}
+            keyboardBehavior="interactive"
+            keyboardBlurBehavior="restore"
+            android_keyboardInputMode="adjustResize"
             onAnimate={permissionSheetTrackingHandlers.onAnimate}
             onChange={permissionSheetTrackingHandlers.onChange}
             onDismiss={permissionSheetTrackingHandlers.onDismiss}
         >
-            <NativeWindBottomSheetView
-                className="dark:bg-daf-surface-dark flex-1 gap-[22px] bg-white px-[22px]"
-                style={{
+            <NativeWindBottomSheetScrollView
+                className="flex-1 bg-white dark:bg-daf-surface-dark"
+                contentContainerClassName="grow gap-[22px] px-[22px]"
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{
                     paddingBottom: insets.bottom + 16,
                     paddingTop: Math.max(insets.top + 46, 80),
                 }}
@@ -75,7 +81,7 @@ export function LocationPermissionSheet() {
                     />
                 ) : (
                     <>
-                        <View className="bg-daf-brand/12 dark:bg-daf-brand/15 h-[58px] w-[58px] items-center justify-center self-start rounded-dafLg">
+                        <View className="bg-daf-brand/12 h-[58px] w-[58px] items-center justify-center self-start rounded-dafLg dark:bg-daf-brand/15">
                             <Icon color="#0F7D45" name="map-pin" size={28} />
                         </View>
                         <View className="gap-3">
@@ -117,17 +123,17 @@ export function LocationPermissionSheet() {
                         </DafButton>
 
                         <View className="flex-row items-center gap-3">
-                            <View className="dark:bg-daf-border-dark h-px flex-1 bg-daf-border" />
+                            <View className="h-px flex-1 bg-daf-border dark:bg-daf-border-dark" />
                             <Text className="text-xs font-medium text-daf-text-tertiary dark:text-neutral-500">
                                 or look up an area
                             </Text>
-                            <View className="dark:bg-daf-border-dark h-px flex-1 bg-daf-border" />
+                            <View className="h-px flex-1 bg-daf-border dark:bg-daf-border-dark" />
                         </View>
 
                         <View className="flex-row gap-2">
-                            <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark flex-1 flex-row items-center gap-2 rounded-dafSm border border-daf-border bg-white px-[14px]">
+                            <View className="flex-1 flex-row items-center gap-2 rounded-dafSm border border-daf-border bg-white px-[14px] dark:border-daf-border-dark dark:bg-daf-surface-dark">
                                 <Icon color="#828D9B" name="search" size={18} />
-                                <TextInput
+                                <NativeWindBottomSheetTextInput
                                     accessibilityLabel="Search a place or ZIP"
                                     className="h-hitComfy min-w-0 flex-1 p-0 text-[15px] font-medium text-daf-text-primary dark:text-white"
                                     editable={!localitySearchIsLoading}
@@ -176,7 +182,7 @@ export function LocationPermissionSheet() {
                         </Text>
                     </>
                 )}
-            </NativeWindBottomSheetView>
+            </NativeWindBottomSheetScrollView>
         </NativeWindBottomSheetModal>
     );
 }
