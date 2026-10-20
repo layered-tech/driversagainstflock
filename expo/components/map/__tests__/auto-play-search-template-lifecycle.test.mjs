@@ -68,7 +68,7 @@ describe('Auto Play search-template lifecycle', () => {
         );
         assert.match(
             autoPlaySource,
-            /resultsTemplate\.push\(\)\.then\([\s\S]*?\(\) => \{\s*if \(requestIsCurrent\(\)\) \{[\s\S]*?clearAutoPlaySubmittedSearchResults\(\)[\s\S]*?updateSearchTemplateResults/,
+            /resultsTemplate\.push\(\)\.then\([\s\S]*?\(error\) => \{\s*if \(requestIsCurrent\(\)\) \{[\s\S]*?clearAutoPlaySubmittedSearchResults\(\)[\s\S]*?updateSearchTemplateResults/,
         );
         assert.match(
             autoPlaySource,

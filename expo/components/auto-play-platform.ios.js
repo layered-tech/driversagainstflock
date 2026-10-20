@@ -1,4 +1,5 @@
 import { createCarPlayVoiceSearchController } from './auto-play-carplay-voice-search';
+import { prepareCarPlaySearchMap } from './auto-play-search-template-lifecycle';
 import { CarPlayDashboardSurface } from './carplay-dashboard-surface';
 import { CarPlayMapSurface } from './carplay-map-surface';
 
@@ -19,6 +20,9 @@ function applyDashboardButtons(CarPlayDashboard, makeGlyphImage) {
 // CarPlay extension of the platform-agnostic auto-play core.
 export const autoPlayPlatform = {
     MapSurface: CarPlayMapSurface,
+    prepareSearchMap(options) {
+        return prepareCarPlaySearchMap(options);
+    },
     createErrorTemplate({ autoPlayModule, alertMessage, searchAction }) {
         const { HybridAutoPlay, MessageTemplate } = autoPlayModule;
         const recoverSearchAction = {
@@ -43,6 +47,7 @@ export const autoPlayPlatform = {
 
         console.log(`[CarPlay] ${action}`, payload);
     },
+    waitsForSubmittedSearchTransition: true,
     presentsVoiceSearchResultsInList: true,
     publishesSearchTemplateResultsToMap: true,
     opensSavedDestinationsBeforeSearch: true,
@@ -60,7 +65,7 @@ export const autoPlayPlatform = {
         // Double-tap zoom and the AUTO_DRIVE handshake are Android Auto concepts;
         // CarPlay zooms through the map buttons and pinch gesture callbacks.
         return {
-            automaticallyHidesNavigationBar: false,
+            automaticallyHidesNavigationBar: true,
             hidesButtonsWithNavigationBar: false,
         };
     },

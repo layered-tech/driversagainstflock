@@ -156,7 +156,7 @@ test('CarPlay and Android Auto voice searches load on the map before presenting 
     );
     const end = autoPlaySource.indexOf('function getRouteNumberDelta(', start);
     const source = autoPlaySource.slice(start, end);
-    assert.match(source, /popToRootTemplate\(false\)/);
+    assert.match(source, /prepareAutoPlaySearchMap\(\)/);
     assert.match(source, /runPlaceTextSearch/);
     assert.doesNotMatch(source, /new ListTemplate|new SearchTemplate/);
     assert.match(

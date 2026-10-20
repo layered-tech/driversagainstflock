@@ -3,10 +3,22 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import { autoPlaySearchRequestIsCurrent } from '../../auto-play-template-state.js';
+import * as searchLifecycle from '../../auto-play-search-template-lifecycle.js';
 
 const source = readFileSync(
     new URL('../../auto-play.js', import.meta.url),
     'utf8',
+);
+const iosPlatformSource = readFileSync(
+    new URL('../../auto-play-platform.ios.js', import.meta.url),
+    'utf8',
+);
+const iosPlatform = vm.runInNewContext(
+    `({${iosPlatformSource.slice(
+        iosPlatformSource.indexOf('    prepareSearchMap('),
+        iosPlatformSource.indexOf('    createErrorTemplate('),
+    )}})`,
+    { prepareCarPlaySearchMap: searchLifecycle.prepareCarPlaySearchMap },
 );
 const extract = (start, end) =>
     source.slice(
@@ -26,13 +38,19 @@ const flush = () => new Promise((resolve) => setImmediate(resolve));
 function harness({
     pop = () => Promise.resolve(),
     push = () => Promise.resolve(),
+    restoreRoot = () => Promise.resolve(),
+    platform = 'android',
 } = {}) {
     const requests = [],
         lists = [],
         errors = [],
+        logs = [],
         countdowns = [];
     const state = {};
     const context = vm.createContext({
+        autoPlayPlatform: platform === 'ios' ? iosPlatform : {},
+        rootMapTemplate: { setRootTemplate: restoreRoot },
+        rootMapTemplateIsReady: true,
         AbortController,
         searchAbortController: null,
         searchRequestSequence: 0,
@@ -65,7 +83,7 @@ function harness({
         makeSearchRows: (results, query) =>
             results.length ? results : [{ empty: query }],
         makeAutoText: (text) => text,
-        logAutoPlayPlatformAction() {},
+        logAutoPlayPlatformAction: (...args) => logs.push(args),
         showAutoPlayError: (...args) => errors.push(args),
         updateSearchTemplateResults() {
             throw new Error('Dismissed search template must not be updated');
@@ -89,12 +107,138 @@ function harness({
         requests,
         lists,
         errors,
+        logs,
         countdowns,
         run: (query, options) =>
             context.runPlaceTextSearch({}, query, undefined, options),
         cancel: () => context.abortSearchRequest(),
+        disconnect: () => {
+            context.rootMapTemplateIsReady = false;
+            context.abortSearchRequest();
+        },
     };
 }
+
+const emptyCarPlayStack = () =>
+    new Error(
+        'Error Domain=CarPlayErrorDomain Code=-1 "No templates were available to be popped." UserInfo={NSLocalizedDescription=No templates were available to be popped.}',
+    );
+
+test('CarPlay restores the existing root before searching after an empty-stack rejection', async () => {
+    const restored = deferred();
+    let restores = 0;
+    const h = harness({
+        platform: 'ios',
+        pop: () => Promise.reject(emptyCarPlayStack()),
+        restoreRoot: () => {
+            restores++;
+            return restored.promise;
+        },
+    });
+    const search = h.run('Coffee shop');
+    await flush();
+    assert.equal(restores, 1);
+    assert.equal(h.requests.length, 0);
+    restored.resolve();
+    await flush();
+    h.requests[0].resolve([{ label: 'Coffee shop' }]);
+    await search;
+    assert.equal(h.lists.length, 1);
+    assert.equal(h.errors.length, 0);
+});
+
+test('overlapping CarPlay searches share root recovery and only the latest query runs', async () => {
+    const popped = deferred();
+    let pops = 0;
+    let restores = 0;
+    const h = harness({
+        platform: 'ios',
+        pop: () => {
+            pops++;
+            return popped.promise;
+        },
+        restoreRoot: async () => {
+            restores++;
+        },
+    });
+    const first = h.run('Old destination');
+    const second = h.run('New destination');
+    popped.reject(emptyCarPlayStack());
+    await flush();
+    assert.equal(pops, 1);
+    assert.equal(restores, 1);
+    assert.equal(h.requests.length, 1);
+    assert.equal(h.requests[0].textQuery, 'New destination');
+    h.requests[0].resolve([]);
+    await Promise.all([first, second]);
+});
+
+test('a disconnected CarPlay search cannot restore the old root', async () => {
+    const popped = deferred();
+    const h = harness({
+        platform: 'ios',
+        pop: () => popped.promise,
+        restoreRoot: () =>
+            assert.fail('must not restore a disconnected template'),
+    });
+    const search = h.run('Coffee shop');
+    await flush();
+    h.disconnect();
+    popped.reject(emptyCarPlayStack());
+    await search;
+    assert.equal(h.requests.length, 0);
+    assert.equal(h.errors.length, 0);
+});
+
+for (const [platform, error] of [
+    ['android', emptyCarPlayStack()],
+    [
+        'ios',
+        new Error('Error Domain=CarPlayErrorDomain Code=-1 "Connection lost"'),
+    ],
+    ['ios', new Error('No templates were available to be popped.')],
+]) {
+    test(`${platform} does not hide unrelated navigation errors: ${error.message}`, async () => {
+        const h = harness({
+            platform,
+            pop: () => Promise.reject(error),
+            restoreRoot: () => assert.fail('must not reset the root'),
+        });
+        await h.run('Coffee shop');
+        assert.equal(h.requests.length, 0);
+        assert.equal(h.errors.length, 1);
+    });
+}
+
+test('CarPlay root restoration failures remain visible', async () => {
+    const h = harness({
+        platform: 'ios',
+        pop: () => Promise.reject(emptyCarPlayStack()),
+        restoreRoot: () => Promise.reject(new Error('Root unavailable')),
+    });
+    await h.run('Coffee shop');
+    assert.equal(h.errors[0][1], 'Root unavailable');
+    assert.equal(h.requests.length, 0);
+});
+
+test('CarPlay retries map preparation after a failed recovery', async () => {
+    let pops = 0;
+    const h = harness({
+        platform: 'ios',
+        pop: async () => {
+            if (++pops === 1) throw emptyCarPlayStack();
+        },
+        restoreRoot: () => Promise.reject(new Error('Root unavailable')),
+    });
+    await h.run('First query');
+    const retry = h.run('Second query');
+    await flush();
+    assert.equal(pops, 2);
+    assert.equal(h.requests[0].textQuery, 'Second query');
+    h.requests[0].resolve([]);
+    await retry;
+    assert.equal(h.lists.length, 1);
+});
 
 test('submission loads on the map, preserves a multiword query, then opens a mapped list', async () => {
     const popped = deferred();
@@ -170,6 +314,10 @@ for (const failure of ['lookup', 'map', 'list']) {
         await search;
         assert.equal(h.state.searchLoading, null);
         assert.equal(h.errors.length, 1);
+        if (failure === 'list') {
+            assert.equal(h.logs.at(-1)[0], 'search-results-push-failed');
+            assert.equal(h.logs.at(-1)[1].message, 'Unavailable');
+        }
     });
 }
 

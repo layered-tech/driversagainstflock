@@ -962,8 +962,11 @@ function presentAutoPlaySearchResults({
                 templateWasPushed = true;
                 return true;
             },
-            () => {
+            (error) => {
                 if (requestIsCurrent()) {
+                    logAutoPlayPlatformAction('search-results-push-failed', {
+                        message: error?.message || 'Unknown error',
+                    });
                     clearAutoPlaySubmittedSearchResults();
                     showAutoPlayError(
                         'Search unavailable',
@@ -993,6 +996,22 @@ function presentAutoPlaySearchResults({
     return null;
 }
 
+function prepareAutoPlaySearchMap() {
+    const { HybridAutoPlay } = loadAutoPlayModule();
+    const mapTemplate = rootMapTemplate;
+
+    if (autoPlayPlatform?.prepareSearchMap && mapTemplate) {
+        return autoPlayPlatform.prepareSearchMap({
+            hybridAutoPlay: HybridAutoPlay,
+            mapTemplate,
+            isCurrent: () =>
+                rootMapTemplate === mapTemplate && rootMapTemplateIsReady,
+        });
+    }
+
+    return HybridAutoPlay.popToRootTemplate(false);
+}
+
 async function runPlaceTextSearch(
     template,
     searchText,
@@ -1001,8 +1020,7 @@ async function runPlaceTextSearch(
         autoAdvanceSingleResult = false,
         onResultsTemplatePresented = () => {},
         requestIsCurrent: parentRequestIsCurrent = () => true,
-        prepareMap = () =>
-            loadAutoPlayModule().HybridAutoPlay.popToRootTemplate(false),
+        prepareMap = prepareAutoPlaySearchMap,
     } = {},
 ) {
     const textQuery = String(searchText ?? '').trim();
@@ -1390,6 +1408,10 @@ function openSearchTemplate(
     const { SearchTemplate } = loadAutoPlayModule();
     const templateLifecycle = createAutoPlaySearchTemplateLifecycle();
     const searchCallbackState = createAutoPlaySearchCallbackState();
+    const waitsForSubmittedSearchTransition =
+        autoPlayPlatform?.waitsForSubmittedSearchTransition === true;
+    let finishSubmittedSearchTransition = null;
+    let submissionGeneration = 0;
     let templateWasPushed = false;
     let template;
     let savedLocationsUnsubscribe = null;
@@ -1467,7 +1489,7 @@ function openSearchTemplate(
     };
     const runSubmittedSearch = (
         searchText,
-        { shouldAutoAdvanceSingleResult = false } = {},
+        { shouldAutoAdvanceSingleResult = false, nativeSubmission = true } = {},
     ) => {
         if (!searchIsActive || searchWasSubmitted || !requestIsCurrent()) {
             return Promise.resolve();
@@ -1501,6 +1523,15 @@ function openSearchTemplate(
         }
 
         searchWasSubmitted = true;
+        const generation = ++submissionGeneration;
+        const submissionIsCurrent = () =>
+            requestIsCurrent() && generation === submissionGeneration;
+        const nativeTransition =
+            waitsForSubmittedSearchTransition && nativeSubmission
+                ? new Promise((resolve) => {
+                      finishSubmittedSearchTransition = resolve;
+                  })
+                : Promise.resolve();
         savedLocationsUnsubscribe?.();
         savedLocationsUnsubscribe = null;
 
@@ -1515,7 +1546,15 @@ function openSearchTemplate(
                         presentation,
                     );
                 },
-                requestIsCurrent,
+                requestIsCurrent: submissionIsCurrent,
+                prepareMap: async () => {
+                    // CarPlay pushes a result list after the submit callback.
+                    // Wait for that transition before removing the search stack.
+                    await nativeTransition;
+                    if (submissionIsCurrent()) {
+                        await prepareAutoPlaySearchMap();
+                    }
+                },
             },
         ).finally(() => {
             searchCallbackState.handleSearchTextSubmissionCompleted(
@@ -1540,8 +1579,34 @@ function openSearchTemplate(
     clearAutoPlaySubmittedSearchResults();
 
     template = new SearchTemplate({
-        headerActions: getBackHeaderAction(dismissSearch),
+        headerActions: getBackHeaderAction(() => {
+            submissionGeneration += 1;
+            finishSubmittedSearchTransition?.();
+            finishSubmittedSearchTransition = null;
+            searchWasSubmitted = false;
+            dismissSearch();
+        }),
         initialSearchText,
+        onWillAppear: () => {
+            if (!waitsForSubmittedSearchTransition) {
+                return;
+            }
+
+            // Back from CarPlay's temporary result list cancels that submission.
+            if (searchWasSubmitted) {
+                submissionGeneration += 1;
+                finishSubmittedSearchTransition?.();
+                finishSubmittedSearchTransition = null;
+                cancelAutoPlaySearchWork();
+                clearAutoPlaySubmittedSearchResults();
+            }
+            searchIsActive = true;
+            searchWasSubmitted = false;
+        },
+        onDidDisappear: () => {
+            finishSubmittedSearchTransition?.();
+            finishSubmittedSearchTransition = null;
+        },
         onSearchTextChanged: (searchText) => {
             if (
                 !searchIsActive ||
@@ -1618,6 +1683,7 @@ function openSearchTemplate(
             if (initialSearchText && requestIsCurrent()) {
                 return runSubmittedSearch(initialSearchText, {
                     shouldAutoAdvanceSingleResult: autoAdvanceSingleResult,
+                    nativeSubmission: false,
                 });
             }
 
@@ -1657,10 +1723,9 @@ function openVoiceSearchResultsTemplate(
 ) {
     const lifecycle = createAutoPlaySearchTemplateLifecycle();
     let presentation = null;
-    const { HybridAutoPlay } = loadAutoPlayModule();
     cancelAutoPlaySearchWork();
     clearAutoPlaySubmittedSearchResults();
-    const pushPromise = HybridAutoPlay.popToRootTemplate(false);
+    const pushPromise = prepareAutoPlaySearchMap();
     void runPlaceTextSearch(null, searchQuery, preferredStartLocation, {
         autoAdvanceSingleResult,
         requestIsCurrent,

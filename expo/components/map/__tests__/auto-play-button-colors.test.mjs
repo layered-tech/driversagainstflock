@@ -121,12 +121,12 @@ for (const isDarkMapLayer of [false, true]) {
     }
 }
 
-test('CarPlay keeps header and map-button groups visible', () => {
+test('CarPlay allows automatic header visibility while keeping map buttons visible', () => {
     const evaluate = createHarness('ios', false);
     assert.deepEqual(
         evaluate('autoPlayPlatform.getMapTemplatePlatformConfig()'),
         {
-            automaticallyHidesNavigationBar: false,
+            automaticallyHidesNavigationBar: true,
             hidesButtonsWithNavigationBar: false,
         },
     );

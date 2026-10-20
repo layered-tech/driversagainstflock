@@ -36,6 +36,7 @@ const mapCanvasSource = readFileSync(
 function createSavedSearchTemplateHarness(
     loadSavedLocations,
     runPlaceTextSearch,
+    autoPlayPlatform = {},
 ) {
     const functionStart = autoPlaySource.indexOf(
         'function openSearchTemplate(',
@@ -52,6 +53,7 @@ function createSavedSearchTemplateHarness(
         template: null,
         unsubscribed: false,
         cancellations: 0,
+        preparations: 0,
     };
     class SearchTemplate {
         constructor(config) {
@@ -64,6 +66,7 @@ function createSavedSearchTemplateHarness(
         }
     }
     const openSearchTemplate = vm.runInNewContext(`(${functionSource})`, {
+        autoPlayPlatform,
         addSearchSavedLocationsListener(listener) {
             state.listener = listener;
             return () => {
@@ -79,6 +82,9 @@ function createSavedSearchTemplateHarness(
         }),
         createAutoPlaySearchCallbackState,
         PLACE_SEARCH_MIN_QUERY_LENGTH: 2,
+        prepareAutoPlaySearchMap: async () => {
+            state.preparations += 1;
+        },
         getBackHeaderAction: (onPress) => ({ onPress }),
         getAutoPlaySearchLoadingCopy: (query) => ({
             detailedText: `Looking for ${query}.`,
@@ -426,4 +432,57 @@ test('CarPlay publishes visible search results to the shared map context', () =>
         autoPlaySource,
         /template\s*\.push\(\)[\s\S]*?\.catch\(\(error\) => \{[\s\S]*?dismissSearch\(\)/,
     );
+});
+
+test('CarPlay waits for its native submit transition before opening map results', async () => {
+    const h = createSavedSearchTemplateHarness(
+        Promise.resolve({ places: [] }),
+        async (_template, _query, _location, options) => {
+            await options.prepareMap();
+        },
+        { waitsForSubmittedSearchTransition: true },
+    );
+    const opened = h.openSearchTemplate();
+    await opened.pushPromise;
+    opened.template.config.onWillAppear();
+    const submission = opened.template.config.onSearchTextSubmitted('walmart');
+    await Promise.resolve();
+    assert.equal(h.state.preparations, 0);
+    opened.template.config.onDidDisappear();
+    await submission;
+    assert.equal(h.state.preparations, 1);
+});
+
+test('back cancels a CarPlay submission before its native transition completes', async () => {
+    const h = createSavedSearchTemplateHarness(
+        Promise.resolve({ places: [] }),
+        async (_template, _query, _location, options) => {
+            await options.prepareMap();
+        },
+        { waitsForSubmittedSearchTransition: true },
+    );
+    const opened = h.openSearchTemplate();
+    await opened.pushPromise;
+    const submission = opened.template.config.onSearchTextSubmitted('walmart');
+    opened.template.config.headerActions.onPress();
+    await submission;
+    opened.template.config.onDidDisappear();
+    assert.equal(h.state.preparations, 0);
+    opened.template.config.onWillAppear();
+    const retry = opened.template.config.onSearchTextSubmitted('target');
+    opened.template.config.onDidDisappear();
+    await retry;
+    assert.equal(h.state.preparations, 1);
+});
+
+test('programmatic CarPlay search does not wait for a native submit transition', async () => {
+    const h = createSavedSearchTemplateHarness(
+        Promise.resolve({ places: [] }),
+        async (_template, _query, _location, options) => {
+            await options.prepareMap();
+        },
+        { waitsForSubmittedSearchTransition: true },
+    );
+    await h.openSearchTemplate('walmart').pushPromise;
+    assert.equal(h.state.preparations, 1);
 });
