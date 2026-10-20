@@ -84,7 +84,7 @@ test('CarPlay opens saved destinations before starting voice input', async () =>
     assert.equal(selections[0][0].id, 'home');
 });
 
-test('CarPlay keeps keyboard Search and voice input as separate header actions', () => {
+test('CarPlay keeps voice input available from the destinations screen', () => {
     assert.match(
         iosPlatformSource,
         /opensSavedDestinationsBeforeSearch:\s*true/,
@@ -97,14 +97,10 @@ test('CarPlay keeps keyboard Search and voice input as separate header actions',
         autoPlaySource,
         /const handleRootHeaderVoiceSearchPress = \(\) => \{[\s\S]*?startSearchVoiceInput[\s\S]*?onFallback:[\s\S]*?handleRootHeaderSearchPress\(\)/,
     );
-    assert.match(
-        autoPlaySource,
-        /ROOT_HEADER_VOICE_SEARCH_IMAGE = makeGlyphImage\('microphone'/,
-    );
     assert.match(autoPlaySource, /microphone:\s*0xf130,/);
     assert.match(
         autoPlaySource,
-        /leadingNavigationBarButtons:\s*\[searchButton, voiceSearchButton\]/,
+        /onPress: handleRootHeaderVoiceSearchPress,\s*title: 'Voice search'/,
     );
     assert.match(voiceSearchControllerSource, /hasVoiceInputPermission/);
     assert.match(voiceSearchControllerSource, /requestVoiceInputPermission/);

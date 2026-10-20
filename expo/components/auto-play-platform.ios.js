@@ -20,6 +20,7 @@ function applyDashboardButtons(CarPlayDashboard, makeGlyphImage) {
 // CarPlay extension of the platform-agnostic auto-play core.
 export const autoPlayPlatform = {
     MapSurface: CarPlayMapSurface,
+    usesHostButtonColors: true,
     prepareSearchMap(options) {
         return prepareCarPlaySearchMap(options);
     },
@@ -65,7 +66,7 @@ export const autoPlayPlatform = {
         // Double-tap zoom and the AUTO_DRIVE handshake are Android Auto concepts;
         // CarPlay zooms through the map buttons and pinch gesture callbacks.
         return {
-            automaticallyHidesNavigationBar: true,
+            automaticallyHidesNavigationBar: false,
             hidesButtonsWithNavigationBar: false,
         };
     },

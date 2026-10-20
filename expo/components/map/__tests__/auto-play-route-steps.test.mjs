@@ -84,7 +84,7 @@ test('the route steps icon uses the Font Awesome 4.7 list-ul glyph', () => {
     assert.match(source, /'list-ul': 0xf0ca/);
     assert.match(
         source,
-        /ROOT_HEADER_ROUTE_STEPS_IMAGE = makeGlyphImage\('list-ul'/,
+        /ROOT_HEADER_ROUTE_STEPS_IMAGE = makeButtonGlyphImage\('list-ul'/,
     );
 });
 

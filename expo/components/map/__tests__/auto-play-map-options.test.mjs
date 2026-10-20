@@ -227,7 +227,7 @@ test('the sliders button works with or without an active route', async () => {
     assert.match(source, /sliders: 0xf1de/);
     assert.match(
         source,
-        /ROOT_HEADER_MAP_OPTIONS_IMAGE = makeGlyphImage\('sliders'/,
+        /ROOT_HEADER_MAP_OPTIONS_IMAGE = makeButtonGlyphImage\('sliders'/,
     );
     const start = source.indexOf('function openMapOptionsTemplate(');
     const end = source.indexOf('function openSearchTemplate(', start);

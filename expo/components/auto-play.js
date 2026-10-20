@@ -216,6 +216,15 @@ function makeGlyphImage(name, options = {}) {
     };
 }
 
+function makeButtonGlyphImage(name, options = {}) {
+    return makeGlyphImage(
+        name,
+        autoPlayPlatform?.usesHostButtonColors
+            ? { ...options, color: 'default', backgroundColor: 'transparent' }
+            : options,
+    );
+}
+
 const ROOT_MAP_CONTROL_BUTTON_IMAGE = {
     fontScale: 0.78,
 };
@@ -2883,7 +2892,7 @@ function getAutoPlayDrivingModeIsActive() {
 
 function getRootMapPanButtonImage() {
     return {
-        ...makeGlyphImage('arrows', {
+        ...makeButtonGlyphImage('arrows', {
             color: getRootMapButtonDefaultIconColor(),
         }),
         fontScale: 0.78,
@@ -2892,7 +2901,7 @@ function getRootMapPanButtonImage() {
 
 function getRootMapZoomInButtonImage() {
     return {
-        ...makeGlyphImage('plus', {
+        ...makeButtonGlyphImage('plus', {
             color: getRootMapButtonDefaultIconColor(),
         }),
         ...ROOT_MAP_CONTROL_BUTTON_IMAGE,
@@ -2901,7 +2910,7 @@ function getRootMapZoomInButtonImage() {
 
 function getRootMapZoomOutButtonImage() {
     return {
-        ...makeGlyphImage('minus', {
+        ...makeButtonGlyphImage('minus', {
             color: getRootMapButtonDefaultIconColor(),
         }),
         ...ROOT_MAP_CONTROL_BUTTON_IMAGE,
@@ -2914,7 +2923,7 @@ function getRootMapTrackingButtonImage() {
         rootMapButtonAppearance.trackingState === 'recenter';
 
     return {
-        ...makeGlyphImage('crosshairs', {
+        ...makeButtonGlyphImage('crosshairs', {
             backgroundColor: trackingIsHighlighted
                 ? ROOT_MAP_BUTTON_ACTIVE_BACKGROUND_COLOR
                 : AUTO_PLAY_GLYPH_BACKGROUND_COLOR,
@@ -2928,7 +2937,7 @@ function getRootMapTrackingButtonImage() {
 
 function getRootHeaderExitNavigationButtonImage() {
     return {
-        ...makeGlyphImage('xmark', {
+        ...makeButtonGlyphImage('xmark', {
             backgroundColor: ROOT_MAP_BUTTON_EXIT_BACKGROUND_COLOR,
             color: ROOT_MAP_BUTTON_EXIT_ICON_COLOR,
         }),
@@ -2957,12 +2966,15 @@ function getRootHeaderDrivingMapViewButtonImage() {
     }
 
     return {
-        ...makeGlyphImage(routeOverviewIsActive ? 'map' : 'location-arrow', {
-            backgroundColor: 'transparent',
-            color: routeOverviewIsActive
-                ? ROOT_MAP_BUTTON_ACTIVE_ICON_COLOR
-                : AUTO_PLAY_GLYPH_COLOR,
-        }),
+        ...makeButtonGlyphImage(
+            routeOverviewIsActive ? 'map' : 'location-arrow',
+            {
+                backgroundColor: 'transparent',
+                color: routeOverviewIsActive
+                    ? ROOT_MAP_BUTTON_ACTIVE_ICON_COLOR
+                    : AUTO_PLAY_GLYPH_COLOR,
+            },
+        ),
         fontScale: 0.7,
     };
 }
@@ -3456,21 +3468,18 @@ const handleRootHeaderDrivingMapViewPress = () => {
 const handleRootHeaderExitNavigationPress = () => {
     stopAutoPlayNavigation();
 };
-const ROOT_HEADER_SEARCH_IMAGE = makeGlyphImage('search', {
+const ROOT_HEADER_SEARCH_IMAGE = makeButtonGlyphImage('search', {
     backgroundColor: 'transparent',
 });
-const ROOT_HEADER_VOICE_SEARCH_IMAGE = makeGlyphImage('microphone', {
+const ROOT_HEADER_ROUTE_STEPS_IMAGE = makeButtonGlyphImage('list-ul', {
     backgroundColor: 'transparent',
 });
-const ROOT_HEADER_ROUTE_STEPS_IMAGE = makeGlyphImage('list-ul', {
-    backgroundColor: 'transparent',
-});
-const ROOT_HEADER_MAP_OPTIONS_IMAGE = makeGlyphImage('sliders', {
+const ROOT_HEADER_MAP_OPTIONS_IMAGE = makeButtonGlyphImage('sliders', {
     backgroundColor: 'transparent',
 });
 const ROOT_HEADER_PRIMARY_LOCATION_IMAGES = {
-    home: makeGlyphImage('house', { backgroundColor: 'transparent' }),
-    work: makeGlyphImage('briefcase', { backgroundColor: 'transparent' }),
+    home: makeButtonGlyphImage('house', { backgroundColor: 'transparent' }),
+    work: makeButtonGlyphImage('briefcase', { backgroundColor: 'transparent' }),
 };
 
 function makeRootHeaderPrimaryLocationButton(type, { iconOnly = false } = {}) {
@@ -3528,11 +3537,6 @@ function getRootMapHeaderActions() {
         onPress: handleRootHeaderSearchPress,
         type: 'image',
     };
-    const voiceSearchButton = {
-        image: ROOT_HEADER_VOICE_SEARCH_IMAGE,
-        onPress: handleRootHeaderVoiceSearchPress,
-        type: 'image',
-    };
     const routeStepsButton = hasActiveNavigation
         ? {
               image: ROOT_HEADER_ROUTE_STEPS_IMAGE,
@@ -3563,10 +3567,6 @@ function getRootMapHeaderActions() {
         primaryLocationHeaderActionTypes.android.map((type) =>
             makeRootHeaderPrimaryLocationButton(type, { iconOnly: true }),
         );
-    const carPlayPrimaryLocationButtons =
-        primaryLocationHeaderActionTypes.ios.map((type) =>
-            makeRootHeaderPrimaryLocationButton(type),
-        );
 
     cachedRootMapHeaderActions = {
         android: [
@@ -3579,13 +3579,15 @@ function getRootMapHeaderActions() {
             flags: (button.flags ?? 0) | Flag.Persistent,
         })),
         ios: {
-            leadingNavigationBarButtons: [searchButton, voiceSearchButton],
-            trailingNavigationBarButtons: trailingNavigationButton
-                ? [
-                      ...(drivingMapViewButton ? [drivingMapViewButton] : []),
-                      trailingNavigationButton,
-                  ]
-                : carPlayPrimaryLocationButtons,
+            // Auto Play's native parser reverses the leading group.
+            leadingNavigationBarButtons: hasActiveNavigation
+                ? [trailingNavigationButton, drivingMapViewButton].filter(
+                      Boolean,
+                  )
+                : [mapOptionsButton, searchButton],
+            trailingNavigationBarButtons: hasActiveNavigation
+                ? [mapOptionsButton, routeStepsButton]
+                : androidPrimaryLocationButtons,
         },
     };
     cachedRootMapHeaderActionsKey = rootMapHeaderActionsKey;
@@ -4248,7 +4250,7 @@ export default function registerAutoPlay() {
     );
     autoPlayPlatform.registerPlatformListeners({
         autoPlayModule: loadAutoPlayModule(),
-        makeGlyphImage,
+        makeGlyphImage: makeButtonGlyphImage,
         onSessionRenderState: handleAutoPlaySessionRenderState,
         onVoiceNavigation: handleVoiceNavigationWhenReady,
     });

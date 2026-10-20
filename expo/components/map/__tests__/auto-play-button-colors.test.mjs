@@ -63,7 +63,6 @@ for (const isDarkMapLayer of [false, true]) {
         const evaluate = createHarness('android', isDarkMapLayer);
         const toolbarIcons = evaluate(`[
             ROOT_HEADER_SEARCH_IMAGE,
-            ROOT_HEADER_VOICE_SEARCH_IMAGE,
             ROOT_HEADER_ROUTE_STEPS_IMAGE,
             ROOT_HEADER_MAP_OPTIONS_IMAGE,
             ...Object.values(ROOT_HEADER_PRIMARY_LOCATION_IMAGES),
@@ -83,23 +82,51 @@ for (const isDarkMapLayer of [false, true]) {
         }
     });
 
-    test(`CarPlay keeps its existing icon colors on a ${mode} map`, () => {
+    test(`CarPlay requests host colors for all button states on a ${mode} map`, () => {
         const evaluate = createHarness('ios', isDarkMapLayer);
-        assert.deepEqual(evaluate('ROOT_HEADER_SEARCH_IMAGE.color'), {
-            darkColor: 'white',
-            lightColor: 'black',
-        });
+        const headerIcons = evaluate(`[
+            ROOT_HEADER_SEARCH_IMAGE,
+            ROOT_HEADER_ROUTE_STEPS_IMAGE,
+            ROOT_HEADER_MAP_OPTIONS_IMAGE,
+            ...Object.values(ROOT_HEADER_PRIMARY_LOCATION_IMAGES),
+            makeButtonGlyphImage('location'),
+        ]`);
+        for (const image of headerIcons) {
+            assert.equal(image.color, 'default', image.name);
+            assert.equal(image.backgroundColor, 'transparent', image.name);
+        }
+        for (const trackingState of ['inactive', 'active', 'recenter']) {
+            evaluate(
+                `rootMapButtonAppearance.trackingState = '${trackingState}'`,
+            );
+            for (const factory of [
+                'getRootMapPanButtonImage',
+                'getRootMapZoomInButtonImage',
+                'getRootMapZoomOutButtonImage',
+                'getRootMapTrackingButtonImage',
+                'getRootHeaderDrivingMapViewButtonImage',
+                'getRootHeaderExitNavigationButtonImage',
+            ]) {
+                const image = evaluate(`${factory}()`);
+                assert.equal(image.color, 'default', factory);
+                assert.equal(image.backgroundColor, 'transparent', factory);
+            }
+        }
+        evaluate('activeNavigationRoute = {}');
+        evaluate("rootMapButtonAppearance.drivingMapViewMode = 'overview'");
         assert.equal(
-            evaluate('getRootMapZoomInButtonImage().color'),
-            isDarkMapLayer ? '#ffffff' : '#171717',
+            evaluate('getRootHeaderDrivingMapViewButtonImage().color'),
+            'default',
         );
         assert.equal(
-            evaluate('getRootMapTrackingButtonImage().color'),
-            isDarkMapLayer ? '#ffffff' : '#171717',
+            evaluate(
+                'getRootHeaderDrivingMapViewButtonImage().backgroundColor',
+            ),
+            'transparent',
         );
     });
 
-    for (const platform of ['android', 'ios']) {
+    for (const platform of ['android']) {
         test(`${platform} retains blue active controls and red exit icons on a ${mode} map`, () => {
             const evaluate = createHarness(platform, isDarkMapLayer);
             evaluate("rootMapButtonAppearance.trackingState = 'active'");
@@ -121,12 +148,12 @@ for (const isDarkMapLayer of [false, true]) {
     }
 }
 
-test('CarPlay allows automatic header visibility while keeping map buttons visible', () => {
+test('CarPlay keeps the header and map buttons visible', () => {
     const evaluate = createHarness('ios', false);
     assert.deepEqual(
         evaluate('autoPlayPlatform.getMapTemplatePlatformConfig()'),
         {
-            automaticallyHidesNavigationBar: true,
+            automaticallyHidesNavigationBar: false,
             hidesButtonsWithNavigationBar: false,
         },
     );
