@@ -56,83 +56,122 @@ test('car recenter appears after manual zoom or releasing camera follow', () => 
 });
 
 for (const platform of ['android', 'ios']) {
-    test(`${platform} shows recenter when needed and refreshes cached buttons`, () => {
-        let refreshes = 0;
-        let recenterPresses = 0;
-        const context = vm.createContext({
-            DRIVING_MAP_VIEW_PERSPECTIVE: 'perspective',
-            ROOT_MAP_BUTTON_APPEARANCE_DEFAULTS: { trackingState: 'inactive' },
-            activeNavigationRoute: null,
-            autoPlayPlatform: {
-                usesDrivingMapViewButtonForDebugging: platform === 'ios',
-            },
-            getAutoPlayMapButtonAppearanceKey,
-            getAutoPlayMapControlHandlers: () => ({
-                handleLocationTrackingPress: () => recenterPresses++,
-            }),
-            getRootHeaderDrivingMapViewButtonImage: () => 'view',
-            getRootMapPanButtonImage: () => 'pan',
-            getRootMapZoomInButtonImage: () => 'zoom-in',
-            getRootMapZoomOutButtonImage: () => 'zoom-out',
-            getRootMapTrackingButtonImage: () => 'recenter',
-            handleRootHeaderDrivingMapViewPress() {},
-            logAutoPlayPlatformAction() {},
-            rootMapButtonAppearance: { trackingState: 'inactive' },
-            rootMapButtonAppearanceKey: '',
-            rootMapTemplate: {},
-            rootMapTemplateIsReady: true,
-            updateRootMapButtons: () => refreshes++,
-            updateRootTemplateHeaderActions() {},
-        });
-        vm.runInContext(
-            sourceBetween(
-                autoPlaySource,
-                'function updateRootMapButtonAppearance(',
-                'function handleRootMapPanningInterfaceChanged(',
-            ) +
+    for (const hasActiveNavigation of [false, true]) {
+        test(`${platform} orders map controls and refreshes recenter while ${hasActiveNavigation ? 'navigating' : 'browsing'}`, () => {
+            let refreshes = 0;
+            let recenterPresses = 0;
+            let zoomInPresses = 0;
+            let zoomOutPresses = 0;
+            const context = vm.createContext({
+                DRIVING_MAP_VIEW_PERSPECTIVE: 'perspective',
+                ROOT_MAP_BUTTON_APPEARANCE_DEFAULTS: {
+                    trackingState: 'inactive',
+                },
+                activeNavigationRoute: hasActiveNavigation ? {} : null,
+                autoPlayPlatform: {
+                    usesDrivingMapViewButtonForDebugging:
+                        platform === 'android',
+                },
+                getAutoPlayMapButtonAppearanceKey,
+                getAutoPlayMapControlHandlers: () => ({
+                    handleLocationTrackingPress: () => recenterPresses++,
+                    handleZoomInPress: () => zoomInPresses++,
+                    handleZoomOutPress: () => zoomOutPresses++,
+                }),
+                getRootHeaderDrivingMapViewButtonImage: () => 'view',
+                getRootMapPanButtonImage: () => 'pan',
+                getRootMapZoomInButtonImage: () => 'zoom-in',
+                getRootMapZoomOutButtonImage: () => 'zoom-out',
+                getRootMapTrackingButtonImage: () => 'recenter',
+                handleRootHeaderDrivingMapViewPress() {},
+                loadAutoPlayModule: () => ({ Flag: { Persistent: 2 } }),
+                logAutoPlayPlatformAction() {},
+                rootMapButtonAppearance: { trackingState: 'inactive' },
+                rootMapButtonAppearanceKey: '',
+                rootMapTemplate: {},
+                rootMapTemplateIsReady: true,
+                updateRootMapButtons: () => refreshes++,
+                updateRootTemplateHeaderActions() {},
+            });
+            vm.runInContext(
                 sourceBetween(
                     autoPlaySource,
-                    'const handleRootZoomInPress =',
-                    'let lastDeferredSharedNavigationStartKey',
-                ),
-            context,
-        );
-        const getButtons = () =>
-            vm.runInContext('getRootMapButtons()', context);
-        const update = (trackingState) =>
-            vm.runInContext(
-                `updateRootMapButtonAppearance({ trackingState: '${trackingState}' })`,
+                    'function updateRootMapButtonAppearance(',
+                    'function handleRootMapPanningInterfaceChanged(',
+                ) +
+                    sourceBetween(
+                        autoPlaySource,
+                        'const handleRootZoomInPress =',
+                        'let lastDeferredSharedNavigationStartKey',
+                    ),
                 context,
             );
-        const fixedImages = [
-            platform === 'ios' ? 'view' : 'pan',
-            'zoom-in',
-            'zoom-out',
-        ];
+            const getButtons = () =>
+                vm.runInContext('getRootMapButtons()', context);
+            const update = (trackingState) =>
+                vm.runInContext(
+                    `updateRootMapButtonAppearance({ trackingState: '${trackingState}' })`,
+                    context,
+                );
 
-        for (const trackingState of [
-            'inactive',
-            'active',
-            'recenter',
-            'active',
-        ]) {
-            const previousRefreshes = refreshes;
-            update(trackingState);
-            assert.equal(refreshes, previousRefreshes + 1);
-            const buttons = getButtons();
-            assert.deepEqual(
-                Array.from(buttons, (button) => button.image),
-                trackingState === 'active'
-                    ? fixedImages
-                    : [...fixedImages, 'recenter'],
-            );
-            assert.strictEqual(getButtons(), buttons);
-            update(trackingState);
-            assert.equal(refreshes, previousRefreshes + 1);
-            if (trackingState === 'recenter') {
-                buttons.at(-1).onPress();
-                assert.equal(recenterPresses, 1);
+            for (const trackingState of [
+                'inactive',
+                'active',
+                'recenter',
+                'active',
+            ]) {
+                const previousRefreshes = refreshes;
+                update(trackingState);
+                assert.equal(refreshes, previousRefreshes + 1);
+                const buttons = getButtons();
+                const recenterImages =
+                    trackingState === 'active' ? [] : ['recenter'];
+                assert.deepEqual(
+                    Array.from(buttons, (button) => button.image),
+                    platform === 'android'
+                        ? ['zoom-in', 'zoom-out', 'view', ...recenterImages]
+                        : ['pan', 'zoom-in', 'zoom-out', ...recenterImages],
+                );
+                for (const button of buttons) {
+                    assert.equal(
+                        button.flags,
+                        button.image.startsWith('zoom-') ? undefined : 2,
+                    );
+                }
+                if (platform === 'android') {
+                    // Keep the persistent controls together after the zoom controls.
+                    const persistentButtons = buttons.filter(
+                        (button) => button.flags === 2,
+                    );
+                    assert.deepEqual(
+                        Array.from(persistentButtons, (button) => button.image),
+                        ['view', ...recenterImages],
+                    );
+                    persistentButtons.forEach((button, index) =>
+                        assert.strictEqual(
+                            button,
+                            buttons[
+                                buttons.length -
+                                    persistentButtons.length +
+                                    index
+                            ],
+                        ),
+                    );
+                }
+                buttons.find((button) => button.image === 'zoom-in').onPress();
+                buttons.find((button) => button.image === 'zoom-out').onPress();
+                assert.equal(zoomInPresses, zoomOutPresses);
+                assert.ok(zoomInPresses > 0);
+                assert.strictEqual(getButtons(), buttons);
+                update(trackingState);
+                assert.equal(refreshes, previousRefreshes + 1);
+                if (trackingState === 'recenter') {
+                    buttons
+                        .find((button) => button.image === 'recenter')
+                        .onPress();
+                    assert.equal(recenterPresses, 1);
+                }
             }
-        }
-    });
+        });
+    }
 }

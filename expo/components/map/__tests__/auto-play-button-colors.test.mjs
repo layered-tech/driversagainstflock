@@ -120,3 +120,14 @@ for (const isDarkMapLayer of [false, true]) {
         });
     }
 }
+
+test('CarPlay keeps header and map-button groups visible', () => {
+    const evaluate = createHarness('ios', false);
+    assert.deepEqual(
+        evaluate('autoPlayPlatform.getMapTemplatePlatformConfig()'),
+        {
+            automaticallyHidesNavigationBar: false,
+            hidesButtonsWithNavigationBar: false,
+        },
+    );
+});

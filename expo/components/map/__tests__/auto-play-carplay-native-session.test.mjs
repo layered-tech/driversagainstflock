@@ -51,7 +51,12 @@ test('CarPlay app stops through the upstream no-argument API', () => {
     );
     assert.match(
         mapTemplateSource,
-        /func stopNavigation\(\)[\s\S]*?navigationSession\?\.finishTrip\(\)/,
+        /func stopNavigation\(\)[\s\S]*?finishNavigationSession\(\)/,
+    );
+
+    assert.match(
+        mapTemplateSource,
+        /private func finishNavigationSession\(\)[\s\S]*?navigationSession\.finishTrip\(\)/,
     );
 
     assert.match(

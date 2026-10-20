@@ -108,6 +108,7 @@ describe('Home and Work map search integration', () => {
                                 headerMode,
                         },
                         autoPlayPrimaryLocations: primaryLocations,
+                        loadAutoPlayModule: () => ({ Flag: { Persistent: 2 } }),
                         getAutoPlayHeaderButtonVisibility,
                         getAutoPlayPrimaryLocationHeaderActionTypes,
                         getRootHeaderDrivingMapViewButtonImage: () =>
@@ -135,6 +136,12 @@ describe('Home and Work map search integration', () => {
                     expectedButtons,
                 );
                 assert.ok(actions.android.length <= 4);
+                assert.ok(actions.android.every(({ flags }) => flags === 2));
+                assert.ok(
+                    actions.ios.leadingNavigationBarButtons.every(
+                        ({ flags }) => flags === undefined,
+                    ),
+                );
             }
         }
     });

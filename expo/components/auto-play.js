@@ -2955,37 +2955,46 @@ function getRootMapButtons() {
         return cachedRootMapButtons;
     }
 
-    cachedRootMapButtons = [
-        showsDrivingMapViewButton
-            ? {
-                  image: getRootHeaderDrivingMapViewButtonImage(),
-                  onPress: handleRootHeaderDrivingMapViewPress,
-                  type: 'custom',
-              }
-            : {
-                  image: getRootMapPanButtonImage(),
-                  type: 'pan',
-              },
-        {
-            image: getRootMapZoomInButtonImage(),
-            onPress: handleRootZoomInPress,
-            type: 'custom',
-        },
-        {
-            image: getRootMapZoomOutButtonImage(),
-            onPress: handleRootZoomOutPress,
-            type: 'custom',
-        },
-        ...(rootMapButtonAppearance.trackingState !== 'active'
+    const { Flag } = loadAutoPlayModule();
+
+    const mapViewButton = showsDrivingMapViewButton
+        ? {
+              flags: Flag.Persistent,
+              image: getRootHeaderDrivingMapViewButtonImage(),
+              onPress: handleRootHeaderDrivingMapViewPress,
+              type: 'custom',
+          }
+        : {
+              flags: Flag.Persistent,
+              image: getRootMapPanButtonImage(),
+              type: 'pan',
+          };
+    const zoomInButton = {
+        image: getRootMapZoomInButtonImage(),
+        onPress: handleRootZoomInPress,
+        type: 'custom',
+    };
+    const zoomOutButton = {
+        image: getRootMapZoomOutButtonImage(),
+        onPress: handleRootZoomOutPress,
+        type: 'custom',
+    };
+    const recenterButtons =
+        rootMapButtonAppearance.trackingState !== 'active'
             ? [
                   {
+                      flags: Flag.Persistent,
                       image: getRootMapTrackingButtonImage(),
                       onPress: handleRootTrackingPress,
                       type: 'custom',
                   },
               ]
-            : []),
-    ];
+            : [];
+
+    // Keep the compass and optional recenter together when zoom controls hide.
+    cachedRootMapButtons = showsDrivingMapViewButton
+        ? [zoomInButton, zoomOutButton, mapViewButton, ...recenterButtons]
+        : [mapViewButton, zoomInButton, zoomOutButton, ...recenterButtons];
     cachedRootMapButtonsKey = rootMapButtonsKey;
     return cachedRootMapButtons;
 }
@@ -3448,6 +3457,7 @@ function getRootMapHeaderActions() {
         return cachedRootMapHeaderActions;
     }
 
+    const { Flag } = loadAutoPlayModule();
     const searchButton = {
         image: ROOT_HEADER_SEARCH_IMAGE,
         onPress: handleRootHeaderSearchPress,
@@ -3499,7 +3509,10 @@ function getRootMapHeaderActions() {
             ...androidPrimaryLocationButtons,
             ...(routeStepsButton ? [routeStepsButton] : []),
             mapOptionsButton,
-        ],
+        ].map((button) => ({
+            ...button,
+            flags: (button.flags ?? 0) | Flag.Persistent,
+        })),
         ios: {
             leadingNavigationBarButtons: [searchButton, voiceSearchButton],
             trailingNavigationBarButtons: trailingNavigationButton
