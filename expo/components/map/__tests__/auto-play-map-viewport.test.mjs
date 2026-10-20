@@ -156,7 +156,7 @@ describe('Auto Play map viewport geometry', () => {
         );
         assert.match(
             mapStatusOverlaySource,
-            /currentRoadPillIsVisible=\{\s*statusChromeIsVisible && !confirmationIsActive\s*\}/,
+            /currentRoadPillIsVisible=\{\s*currentRoadPillIsVisible && !confirmationIsActive\s*\}/,
         );
     });
 

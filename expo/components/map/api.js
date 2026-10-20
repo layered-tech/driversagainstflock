@@ -172,7 +172,7 @@ const ROAD_CLASS_PRIORITIES = Object.freeze({
     unclassified: 2,
 });
 
-function normalizeRoadCorridorWay(way) {
+export function normalizeRoadCorridorWay(way) {
     const coordinates = Array.isArray(way?.coordinates)
         ? way.coordinates
               .map((coordinate) => {
@@ -221,6 +221,10 @@ function normalizeRoadCorridorWay(way) {
         direction:
             way.direction === 'reverse' ? 'backward' : way.direction || 'both',
         id: String(way.id),
+        continuityId:
+            typeof way.continuity_id === 'string' && way.continuity_id.trim()
+                ? way.continuity_id
+                : String(way.id),
         isRoundabout:
             typeof way.is_roundabout === 'boolean' ? way.is_roundabout : null,
         layer: getStoredNumber(way.layer) ?? 0,
@@ -281,12 +285,12 @@ async function requestRoadCorridorWays(url, signal) {
     const deadline = new Promise((_, reject) => {
         timeoutId = setTimeout(() => {
             timedOut = true;
-            requestController.abort();
+            requestController.abort(timeoutError);
             reject(timeoutError);
         }, ROAD_CORRIDOR_RESPONSE_TIMEOUT_MS);
 
         handleAbort = () => {
-            requestController.abort();
+            requestController.abort(signal?.reason);
             const error = new Error('Request aborted.');
             error.name = 'AbortError';
             reject(error);

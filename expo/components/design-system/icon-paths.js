@@ -1,10 +1,28 @@
 export const iconPaths = {
+    bell: [
+        ['path', { d: 'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9' }],
+        ['path', { d: 'M10 21h4' }],
+    ],
     server: [
         ['rect', { x: 2, y: 2, width: 20, height: 8, rx: 2, ry: 2 }],
         ['rect', { x: 2, y: 14, width: 20, height: 8, rx: 2, ry: 2 }],
         ['line', { x1: 6, x2: 6.01, y1: 6, y2: 6 }],
         ['line', { x1: 6, x2: 6.01, y1: 18, y2: 18 }],
     ],
+    tag: [
+        [
+            'path',
+            {
+                d: 'M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z',
+            },
+        ],
+        ['circle', { cx: 7, cy: 7, r: 1 }],
+    ],
+    'rotate-ccw': [
+        ['path', { d: 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8' }],
+        ['path', { d: 'M3 3v5h5' }],
+    ],
+    code: [['path', { d: 'm8 6-6 6 6 6m8-12 6 6-6 6m-2-16-4 20' }]],
     map: [
         [
             'path',
@@ -23,10 +41,7 @@ export const iconPaths = {
     'navigation-2': [['polygon', { points: '12 2 19 21 12 17 5 21 12 2' }]],
     route: [
         ['circle', { cx: 6, cy: 19, r: 3 }],
-        [
-            'path',
-            { d: 'M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15' },
-        ],
+        ['path', { d: 'M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15' }],
         ['circle', { cx: 18, cy: 5, r: 3 }],
     ],
     layers: [

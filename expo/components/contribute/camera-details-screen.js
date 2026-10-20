@@ -4,402 +4,69 @@ import {
     useIsFocused,
     useLocalSearchParams,
 } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
-import {
-    Pressable,
-    ScrollView,
-    Text,
-    useColorScheme,
-    View,
-} from 'react-native';
-import {
-    CAMERA_MANUFACTURER_OPTIONS,
-    CAMERA_MOUNT_OPTIONS,
-    CAMERA_TYPE_OPTIONS,
-} from '../../lib/osm/camera-schema.js';
-import { useSafeAreaInsets } from '../../lib/safe-area-insets';
-import { Icon } from '../design-system/icon';
-import {
-    DafButton,
-    DafChip,
-    DafSectionLabel,
-    DafSegmentedControl,
-    DafTextInput,
-} from '../design-system/primitives';
-import { getDafTheme } from '../design-system/tokens';
-import { CompassDial } from './compass-dial';
+import { useCallback, useRef } from 'react';
+import { BackHandler } from 'react-native';
+import { CameraForm } from './camera-form';
 import { useContribute } from './contribute-state';
-import { ContributeTourOverlay } from './contribute-tour-overlay';
-import { ContributeTourTarget } from './contribute-tour-target';
-import { formatBearingChip } from './osm-tags';
-import { ContributePageHeader } from './step-header';
-
-function parseCameraIndexParam(indexParam) {
-    const rawIndex = Array.isArray(indexParam) ? indexParam[0] : indexParam;
-    const cameraIndex = Number.parseInt(rawIndex, 10);
-
-    return Number.isInteger(cameraIndex) && cameraIndex >= 0
-        ? cameraIndex
-        : null;
-}
 
 export default function CameraDetailsScreen() {
-    const tourTargets = useRef({});
-    const tourScrollRef = useRef(null);
-    const tourContentRef = useRef(null);
-    const screenIsFocused = useIsFocused();
-    const colorScheme = useColorScheme();
-    const insets = useSafeAreaInsets();
     const params = useLocalSearchParams();
-    const { pins, removals, tour, updatePinDetails, updatePinLocation } =
-        useContribute();
-    const [rawSelectedDirectionIndex, setRawSelectedDirectionIndex] =
-        useState(0);
-    const cameraIndex =
-        params.index === undefined ? 0 : parseCameraIndexParam(params.index);
-    const pin = cameraIndex === null ? undefined : pins[cameraIndex];
-    const pinId = pin?.id ?? null;
-    const details = pin?.details ?? {};
-    const directions = Array.isArray(details.directions)
-        ? details.directions
-        : [];
-    const selectedDirectionIndex =
-        directions.length === 0
-            ? 0
-            : Math.min(rawSelectedDirectionIndex, directions.length - 1);
-    const selectedBearing = directions[selectedDirectionIndex] ?? 0;
-    const isLastCamera = cameraIndex === pins.length - 1;
-    const theme = getDafTheme(colorScheme);
-    const footerPaddingBottom = Math.max(insets.bottom + 12, 28);
-
+    const screenIsFocused = useIsFocused();
+    const {
+        pins,
+        removals,
+        updatePinDetails,
+        updatePinLocation,
+        removePin,
+        continueOnMap,
+        tour,
+    } = useContribute();
+    const index = Number(
+        Array.isArray(params.index) ? params.index[0] : (params.index ?? 0),
+    );
+    const pin = Number.isInteger(index) && index >= 0 ? pins[index] : undefined;
+    const currentCameraRef = useRef({ pin, removalCount: removals.length });
+    currentCameraRef.current = { pin, removalCount: removals.length };
+    const handleBackPress = useCallback(() => {
+        const currentPin = currentCameraRef.current.pin;
+        if (currentPin?.details.staged === false) removePin(currentPin.id);
+        continueOnMap();
+        router.navigate('/');
+    }, [removePin, continueOnMap]);
     useFocusEffect(
         useCallback(() => {
-            if (!pin) {
-                router.replace(removals.length ? '/contribute/changeset' : '/');
+            const currentCamera = currentCameraRef.current;
+            if (!currentCamera.pin) {
+                router.replace(
+                    currentCamera.removalCount ? '/contribute/changeset' : '/',
+                );
+                return undefined;
             }
-        }, [pin, removals.length]),
-    );
-
-    const handleBackPress = useCallback(() => {
-        router.back();
-    }, []);
-
-    const handleTypeChange = useCallback(
-        (type) => {
-            updatePinDetails(
-                pinId,
-                type === 'gantry' ? { mount: 'gantry', type } : { type },
+            const subscription = BackHandler.addEventListener(
+                'hardwareBackPress',
+                () => {
+                    handleBackPress();
+                    return true;
+                },
             );
-        },
-        [pinId, updatePinDetails],
+            return () => subscription.remove();
+        }, [pin, removals.length, handleBackPress]),
     );
-
-    const handleManufacturerChange = useCallback(
-        (manufacturer) => {
-            updatePinDetails(pinId, { manufacturer });
-        },
-        [pinId, updatePinDetails],
-    );
-
-    const handleOperatorChange = useCallback(
-        (operator) => {
-            updatePinDetails(pinId, { operator });
-        },
-        [pinId, updatePinDetails],
-    );
-
-    const handleLocationChange = useCallback(
-        (location) => {
-            updatePinLocation(pinId, location);
-        },
-        [pinId, updatePinLocation],
-    );
-
-    const handleDialChange = useCallback(
-        (degrees) => {
-            if (directions.length === 0) {
-                setRawSelectedDirectionIndex(0);
-                updatePinDetails(pinId, { directions: [degrees] });
-                return;
-            }
-
-            updatePinDetails(pinId, {
-                directions: directions.map((direction, directionIndex) =>
-                    directionIndex === selectedDirectionIndex
-                        ? degrees
-                        : direction,
-                ),
-            });
-        },
-        [directions, pinId, selectedDirectionIndex, updatePinDetails],
-    );
-
-    const handleAddDirection = useCallback(() => {
-        const currentBearing = directions[selectedDirectionIndex] ?? 0;
-        const nextDirections = [...directions, (currentBearing + 180) % 360];
-
-        setRawSelectedDirectionIndex(nextDirections.length - 1);
-        updatePinDetails(pinId, { directions: nextDirections });
-    }, [directions, pinId, selectedDirectionIndex, updatePinDetails]);
-
-    const handleRemoveDirection = useCallback(
-        (directionIndex) => {
-            const nextDirections = directions.filter(
-                (direction, currentIndex) => currentIndex !== directionIndex,
-            );
-
-            setRawSelectedDirectionIndex((currentIndex) =>
-                currentIndex > directionIndex
-                    ? currentIndex - 1
-                    : Math.min(
-                          currentIndex,
-                          Math.max(nextDirections.length - 1, 0),
-                      ),
-            );
-            updatePinDetails(pinId, { directions: nextDirections });
-        },
-        [directions, pinId, updatePinDetails],
-    );
-
-    const handleMountChange = useCallback(
-        (mount) => {
-            updatePinDetails(pinId, {
-                mount: details.mount === mount ? null : mount,
-            });
-        },
-        [details.mount, pinId, updatePinDetails],
-    );
-
-    const handleNextPress = useCallback(() => {
-        tour.dismissPhase('camera');
-
-        if (isLastCamera) {
-            router.push('/contribute/changeset');
-            return;
-        }
-
-        router.push(`/contribute/camera/${cameraIndex + 1}`);
-    }, [cameraIndex, isLastCamera, tour]);
-
-    if (!pin) {
-        return null;
-    }
-
+    if (!pin) return null;
     return (
-        <View
-            className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
-            testID="contribute-camera-details-screen"
-        >
-            <ContributePageHeader
-                onBack={handleBackPress}
-                step={2}
-                title="Camera details"
-            />
-            <View className="flex-row items-center gap-2 border-b border-daf-border bg-daf-surface-alt px-4 py-[9px] dark:border-daf-border-dark dark:bg-daf-surface-inverse">
-                <Text className="font-dafMono text-[11px] font-semibold tracking-[0.04em] text-daf-text-brand dark:text-daf-brand">
-                    Camera {cameraIndex + 1} of {pins.length}
-                </Text>
-                <Text
-                    className="ml-auto font-dafMono text-[11px] text-daf-text-tertiary dark:text-neutral-400"
-                    numberOfLines={1}
-                >
-                    {pin.latitude.toFixed(4)}, {pin.longitude.toFixed(4)}
-                </Text>
-            </View>
-            <ScrollView
-                className="flex-1"
-                keyboardShouldPersistTaps="handled"
-                ref={tourScrollRef}
-            >
-                <View
-                    className="gap-[18px] p-4"
-                    collapsable={false}
-                    ref={tourContentRef}
-                >
-                    <ContributeTourTarget
-                        id="camera-details"
-                        targets={tourTargets}
-                    >
-                        <DafSectionLabel className="mb-2">Type</DafSectionLabel>
-                        <DafSegmentedControl
-                            onChange={handleTypeChange}
-                            options={CAMERA_TYPE_OPTIONS}
-                            testIDPrefix="contribute-type"
-                            value={details.type}
-                        />
-                    </ContributeTourTarget>
-                    <ContributeTourTarget
-                        id="manufacturer"
-                        targets={tourTargets}
-                    >
-                        <DafSectionLabel className="mb-2">
-                            Manufacturer
-                        </DafSectionLabel>
-                        <DafSegmentedControl
-                            onChange={handleManufacturerChange}
-                            options={CAMERA_MANUFACTURER_OPTIONS}
-                            testIDPrefix="contribute-manufacturer"
-                            value={details.manufacturer}
-                        />
-                    </ContributeTourTarget>
-                    <ContributeTourTarget id="operator" targets={tourTargets}>
-                        <DafSectionLabel className="mb-2">
-                            Operator
-                        </DafSectionLabel>
-                        <DafTextInput
-                            onChangeText={handleOperatorChange}
-                            testID="contribute-operator-input"
-                            value={details.operator}
-                        />
-                    </ContributeTourTarget>
-                    <View>
-                        <DafSectionLabel className="mb-2">
-                            Directions faced
-                        </DafSectionLabel>
-                        <ContributeTourTarget
-                            id="directions"
-                            targets={tourTargets}
-                        >
-                            <CompassDial
-                                directions={directions}
-                                location={pin}
-                                onChange={handleDialChange}
-                                onLocationChange={handleLocationChange}
-                                selectedDirectionIndex={selectedDirectionIndex}
-                                testID="contribute-direction-dial"
-                                value={selectedBearing}
-                            />
-                        </ContributeTourTarget>
-                        <View className="mt-3.5 flex-row flex-wrap items-center gap-2">
-                            {directions.map((degrees, directionIndex) => {
-                                const selected =
-                                    directionIndex === selectedDirectionIndex;
-
-                                return (
-                                    <View
-                                        className={`h-8 flex-row items-center rounded-dafPill border pl-3 pr-1 ${
-                                            selected
-                                                ? 'bg-daf-brand/12 border-transparent dark:bg-daf-brand/15'
-                                                : 'border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark'
-                                        }`}
-                                        key={`direction-${directionIndex}`}
-                                    >
-                                        <Pressable
-                                            accessibilityLabel={`Edit direction ${formatBearingChip(degrees)}`}
-                                            accessibilityRole="button"
-                                            accessibilityState={{ selected }}
-                                            className="h-full justify-center"
-                                            onPress={() =>
-                                                setRawSelectedDirectionIndex(
-                                                    directionIndex,
-                                                )
-                                            }
-                                            testID={`contribute-direction-chip-${directionIndex}`}
-                                        >
-                                            <Text
-                                                className={`font-dafMono text-[13px] font-semibold ${
-                                                    selected
-                                                        ? 'text-daf-text-brand dark:text-daf-brand'
-                                                        : 'text-daf-text-secondary dark:text-neutral-300'
-                                                }`}
-                                                testID={`contribute-direction-chip-${directionIndex}-value`}
-                                            >
-                                                {formatBearingChip(degrees)}
-                                            </Text>
-                                        </Pressable>
-                                        <Pressable
-                                            accessibilityLabel="Remove direction"
-                                            accessibilityRole="button"
-                                            className="h-[22px] w-[22px] items-center justify-center"
-                                            hitSlop={6}
-                                            onPress={() =>
-                                                handleRemoveDirection(
-                                                    directionIndex,
-                                                )
-                                            }
-                                            testID={`contribute-direction-chip-${directionIndex}-remove`}
-                                        >
-                                            <Icon
-                                                color={
-                                                    selected
-                                                        ? theme.text.brand
-                                                        : theme.text.secondary
-                                                }
-                                                name="x"
-                                                size={13}
-                                                stroke={2.4}
-                                            />
-                                        </Pressable>
-                                    </View>
-                                );
-                            })}
-                            <Pressable
-                                accessibilityLabel="Add direction"
-                                accessibilityRole="button"
-                                className="h-8 flex-row items-center gap-1.5 rounded-dafPill border border-dashed border-daf-border-strong px-3.5 active:opacity-[0.82]"
-                                onPress={handleAddDirection}
-                                testID="contribute-add-direction-button"
-                            >
-                                <Icon
-                                    color={theme.text.secondary}
-                                    name="plus"
-                                    size={15}
-                                />
-                                <Text className="text-[13px] font-semibold text-daf-text-secondary dark:text-neutral-300">
-                                    Add direction
-                                </Text>
-                            </Pressable>
-                        </View>
-                        <Text className="mt-2.5 text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400">
-                            Drag the ring until the cone covers what the camera
-                            sees — poles often hold several directions. Slide
-                            the imagery to fine-tune where the pole sits.
-                        </Text>
-                    </View>
-                    <ContributeTourTarget id="mount" targets={tourTargets}>
-                        <DafSectionLabel className="mb-2">
-                            Mounted on
-                        </DafSectionLabel>
-                        <View className="flex-row flex-wrap gap-2">
-                            {CAMERA_MOUNT_OPTIONS.map((option) => (
-                                <DafChip
-                                    key={option.value}
-                                    onPress={() =>
-                                        handleMountChange(option.value)
-                                    }
-                                    selected={details.mount === option.value}
-                                    testID={`contribute-mount-${option.value}`}
-                                    tone="brand"
-                                >
-                                    {option.label}
-                                </DafChip>
-                            ))}
-                        </View>
-                    </ContributeTourTarget>
-                </View>
-            </ScrollView>
-            <View
-                className="border-t border-daf-border bg-white px-4 pt-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
-                style={{ paddingBottom: footerPaddingBottom }}
-            >
-                <DafButton
-                    onPress={handleNextPress}
-                    size="lg"
-                    testID="contribute-next-changeset-button"
-                >
-                    {isLastCamera ? 'Next: changeset details' : 'Next camera'}
-                </DafButton>
-            </View>
-            <ContributeTourOverlay
-                enabled={screenIsFocused && cameraIndex === 0}
-                insets={insets}
-                phase="camera"
-                targets={tourTargets}
-                tour={tour}
-                contentRef={tourContentRef}
-                scrollRef={tourScrollRef}
-                restoreScrollOnFinish
-            />
-        </View>
+        <CameraForm
+            pin={pin}
+            tour={tour}
+            screenIsFocused={screenIsFocused}
+            onDetailsChange={(patch) => updatePinDetails(pin.id, patch)}
+            onLocationChange={(location) => updatePinLocation(pin.id, location)}
+            onBack={handleBackPress}
+            onSave={() => {
+                updatePinDetails(pin.id, { staged: true });
+                tour.dismissPhase('camera');
+                continueOnMap();
+                router.navigate('/');
+            }}
+        />
     );
 }

@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+import vm from 'node:vm';
+import {
+    getAutoPlayHeaderButtonVisibility,
+    getAutoPlayPrimaryLocationHeaderActionTypes,
+} from '../../auto-play-template-state.js';
 
 const fullScreenSearchSource = readFileSync(
     new URL('../map-full-screen-search.js', import.meta.url),
@@ -22,6 +27,10 @@ const autoPlaySource = readFileSync(
     new URL('../../auto-play.js', import.meta.url),
     'utf8',
 );
+const androidPlatformSource = readFileSync(
+    new URL('../../auto-play-platform.android.js', import.meta.url),
+    'utf8',
+);
 const selectedPlaceSheetSource = readFileSync(
     new URL('../selected-place-sheet.js', import.meta.url),
     'utf8',
@@ -32,6 +41,153 @@ const useMapSearchSource = readFileSync(
 );
 
 describe('Home and Work map search integration', () => {
+    test('Android Auto keeps settings visible while switching saved shortcuts to route steps', () => {
+        const platform = vm.runInNewContext(
+            androidPlatformSource
+                .replace(/^import .*;\n/gm, '')
+                .replace(
+                    'export const autoPlayPlatform =',
+                    'const autoPlayPlatform =',
+                ) + '\nautoPlayPlatform;',
+            { AndroidAutoMapSurface: null },
+        );
+        const headerActionsSource = autoPlaySource.slice(
+            autoPlaySource.indexOf('function getRootMapHeaderActions() {'),
+            autoPlaySource.indexOf('function showAutoPlayError('),
+        );
+
+        for (const headerMode of [false, true]) {
+            for (const [
+                primaryLocations,
+                hasActiveNavigation,
+                expectedButtons,
+            ] of [
+                [
+                    { home: {}, work: {} },
+                    false,
+                    ['search', 'home', 'work', 'options'],
+                ],
+                [
+                    { home: {}, work: null },
+                    false,
+                    ['search', 'home', 'options'],
+                ],
+                [
+                    { home: null, work: {} },
+                    false,
+                    ['search', 'work', 'options'],
+                ],
+                [{ home: null, work: null }, false, ['search', 'options']],
+                [{ home: {}, work: {} }, true, ['search', 'steps', 'options']],
+                [
+                    { home: {}, work: null },
+                    true,
+                    ['search', 'steps', 'options'],
+                ],
+                [
+                    { home: null, work: {} },
+                    true,
+                    ['search', 'steps', 'options'],
+                ],
+                [
+                    { home: null, work: null },
+                    true,
+                    ['search', 'steps', 'options'],
+                ],
+            ]) {
+                const actions = vm.runInNewContext(
+                    `let cachedRootMapHeaderActions = null;
+                 let cachedRootMapHeaderActionsKey = '';
+                 ${headerActionsSource}
+                 getRootMapHeaderActions();`,
+                    {
+                        activeNavigationRoute: hasActiveNavigation ? {} : null,
+                        autoPlayPlatform: {
+                            ...platform,
+                            usesSearchAndPrimaryLocationRootHeaderActions:
+                                headerMode,
+                        },
+                        autoPlayPrimaryLocations: primaryLocations,
+                        loadAutoPlayModule: () => ({ Flag: { Persistent: 2 } }),
+                        getAutoPlayHeaderButtonVisibility,
+                        getAutoPlayPrimaryLocationHeaderActionTypes,
+                        getRootHeaderDrivingMapViewButtonImage: () =>
+                            'map-view',
+                        handleRootHeaderDrivingMapViewPress() {},
+                        handleRootHeaderSearchPress() {},
+                        handleRootHeaderVoiceSearchPress() {},
+                        openRouteStepsTemplate() {},
+                        openMapOptionsTemplate() {},
+                        makeRootHeaderPrimaryLocationButton: (type) => ({
+                            image: type,
+                        }),
+                        rootMapButtonAppearance: {
+                            drivingMapViewMode: 'perspective',
+                        },
+                        ROOT_HEADER_SEARCH_IMAGE: 'search',
+                        ROOT_HEADER_VOICE_SEARCH_IMAGE: 'voice',
+                        ROOT_HEADER_ROUTE_STEPS_IMAGE: 'steps',
+                        ROOT_HEADER_MAP_OPTIONS_IMAGE: 'options',
+                    },
+                );
+
+                assert.deepEqual(
+                    Array.from(actions.android, ({ image }) => image),
+                    expectedButtons,
+                );
+                assert.ok(actions.android.length <= 4);
+                assert.ok(actions.android.every(({ flags }) => flags === 2));
+                assert.ok(
+                    actions.ios.leadingNavigationBarButtons.every(
+                        ({ flags }) => flags === undefined,
+                    ),
+                );
+            }
+        }
+    });
+
+    test('saved shortcuts open their destination while a route is active', () => {
+        const handlerSource = autoPlaySource.slice(
+            autoPlaySource.indexOf(
+                'function handleRootHeaderPrimaryLocationPress(type)',
+            ),
+            autoPlaySource.indexOf('const handleRootHeaderSearchPress'),
+        );
+        for (const type of ['home', 'work']) {
+            for (const [template, ready, shouldOpen] of [
+                [{}, true, true],
+                [null, true, false],
+                [{}, false, false],
+            ]) {
+                const selected = [];
+                const result = { id: type };
+                const place = { name: type };
+                vm.runInNewContext(
+                    `${handlerSource}\nhandleRootHeaderPrimaryLocationPress('${type}');`,
+                    {
+                        activeNavigationRoute: {},
+                        rootMapTemplate: template,
+                        rootMapTemplateIsReady: ready,
+                        autoPlayPrimaryLocations: { home: {}, work: {} },
+                        createPrimaryLocationDirectionsWaypoint: () => ({
+                            result,
+                            place,
+                            label: type,
+                        }),
+                        logAutoPlayPlatformAction() {},
+                        handleSearchResultSelected: (destination) =>
+                            selected.push(destination),
+                    },
+                );
+                assert.equal(selected.length, shouldOpen ? 1 : 0);
+                if (shouldOpen) {
+                    assert.equal(selected[0].id, type);
+                    assert.equal(selected[0].place, place);
+                }
+            }
+        }
+    });
+
     test('hydrates pinned cards before presenting unset destinations', () => {
         assert.match(
             savedLocationsSource,

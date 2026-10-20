@@ -1,3 +1,5 @@
+import { CAMERA_MANUFACTURERS } from './camera-manufacturers.js';
+
 export const CAMERA_TYPE_OPTIONS = [
     { label: 'ALPR', value: 'alpr' },
     { label: 'CCTV', value: 'cctv' },
@@ -5,8 +7,7 @@ export const CAMERA_TYPE_OPTIONS = [
 ];
 
 export const CAMERA_MANUFACTURER_OPTIONS = [
-    { label: 'Flock', value: 'flock' },
-    { label: 'Motorola', value: 'motorola' },
+    ...CAMERA_MANUFACTURERS.map(({ label, value }) => ({ label, value })),
     { label: 'Other', value: 'other' },
 ];
 
@@ -34,22 +35,6 @@ const CCTV_SURVEILLANCE_TAGS = {
     'surveillance:type': 'camera',
 };
 
-const MANUFACTURER_TAGS = {
-    flock: {
-        manufacturer: 'Flock Safety',
-        'manufacturer:wikidata': 'Q108485435',
-    },
-    motorola: {
-        manufacturer: 'Motorola Solutions',
-        'manufacturer:wikidata': 'Q634815',
-    },
-};
-
-const MANUFACTURER_TAG_VALUES = {
-    'Flock Safety': 'flock',
-    'Motorola Solutions': 'motorola',
-};
-
 export function getCameraSurveillanceTags(type) {
     return type === 'cctv'
         ? { ...CCTV_SURVEILLANCE_TAGS }
@@ -57,13 +42,23 @@ export function getCameraSurveillanceTags(type) {
 }
 
 export function getCameraManufacturerTags(manufacturer) {
-    const tags = MANUFACTURER_TAGS[manufacturer];
+    const tags = CAMERA_MANUFACTURERS.find(
+        ({ value }) => value === manufacturer,
+    )?.tags;
 
     return tags ? { ...tags } : null;
 }
 
 export function getCameraManufacturerValue(manufacturerTag) {
-    return MANUFACTURER_TAG_VALUES[manufacturerTag] ?? 'other';
+    return (
+        CAMERA_MANUFACTURERS.find(({ aliases }) =>
+            aliases.includes(
+                String(manufacturerTag ?? '')
+                    .trim()
+                    .toLowerCase(),
+            ),
+        )?.value ?? 'other'
+    );
 }
 
 export function normalizeCameraDegrees(degrees) {

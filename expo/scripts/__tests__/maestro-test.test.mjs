@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import {
+    mkdtempSync,
+    readdirSync,
+    readFileSync,
+    rmSync,
+    writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +21,7 @@ import {
     createExpoStartArgs,
     createManagedMetroExitMessage,
     createMetroNodeOptions,
+    MaestroTestRunner,
     parseAdbDevices,
     parseBootedIosSimulators,
     selectMaestroTarget,
@@ -35,6 +44,127 @@ const AUTO_PLAY_PACKAGE_ROOT = process.env.AUTO_PLAY_PACKAGE_ROOT
       );
 
 describe('Maestro managed development server', () => {
+    test('keeps screenshot paths inside the Maestro run artifact directory', () => {
+        const directory = mkdtempSync(
+            path.join(tmpdir(), 'maestro-artifacts-'),
+        );
+        const callsFile = path.join(directory, 'calls.json');
+        writeFileSync(
+            path.join(directory, 'maestro'),
+            '#!/usr/bin/env node\n' +
+                'require("node:fs").writeFileSync(process.env.MAESTRO_CALLS_FILE, JSON.stringify({ args: process.argv.slice(2), artifacts: process.env.MAESTRO_ARTIFACTS_DIR }));\n',
+            { mode: 0o755 },
+        );
+
+        try {
+            const debugDirectory = '/Volumes/PfeiferDev/maestro/debug';
+            const runner = new MaestroTestRunner({
+                environment: {
+                    ...process.env,
+                    PATH: `${directory}:${process.env.PATH}`,
+                    MAESTRO_CALLS_FILE: callsFile,
+                    MAESTRO_ARTIFACTS_DIR:
+                        '/Volumes/PfeiferDev/maestro/screenshots',
+                    MAESTRO_DEBUG_DIR: debugDirectory,
+                },
+            });
+            runner.target = { platform: 'android', id: 'emulator-5554' };
+
+            assert.equal(runner.runMaestroFlow('tour.yml'), 0);
+            const call = JSON.parse(readFileSync(callsFile, 'utf8'));
+            assert.equal(call.artifacts, '.');
+            assert.equal(
+                call.args[call.args.indexOf('--debug-output') + 1],
+                debugDirectory,
+            );
+        } finally {
+            rmSync(directory, { recursive: true, force: true });
+        }
+    });
+
+    test('removes GPS mocks without restarting Play services or clearing data', () => {
+        const directory = mkdtempSync(
+            path.join(tmpdir(), 'maestro-location-reset-'),
+        );
+        const callsFile = path.join(directory, 'calls');
+        writeFileSync(
+            path.join(directory, 'adb'),
+            '#!/bin/sh\nprintf "%s\\n" "$*" >> "$ADB_CALLS_FILE"\n',
+            { mode: 0o755 },
+        );
+        try {
+            for (const serial of ['emulator-5554', 'physical-device']) {
+                writeFileSync(callsFile, '');
+                const result = spawnSync(
+                    'bash',
+                    [
+                        path.join(
+                            EXPO_DIRECTORY,
+                            'scripts/reset-android-location.sh',
+                        ),
+                    ],
+                    {
+                        env: {
+                            ...process.env,
+                            PATH: `${directory}:${process.env.PATH}`,
+                            ANDROID_SERIAL: serial,
+                            ADB_CALLS_FILE: callsFile,
+                        },
+                        encoding: 'utf8',
+                    },
+                );
+                assert.equal(result.status, 0, result.stderr);
+                const calls = readFileSync(callsFile, 'utf8');
+                assert.doesNotMatch(calls, /pm clear|force-stop/);
+                assert.match(calls, /remove-test-provider gps\n.*emu geo fix/);
+            }
+        } finally {
+            rmSync(directory, { recursive: true, force: true });
+        }
+    });
+    test('can explicitly restart emulator Play services to recover stale fused fixes', () => {
+        const directory = mkdtempSync(
+            path.join(tmpdir(), 'maestro-location-reset-'),
+        );
+        const callsFile = path.join(directory, 'calls');
+        writeFileSync(
+            path.join(directory, 'adb'),
+            '#!/bin/sh\nprintf "%s\\n" "$*" >> "$ADB_CALLS_FILE"\n',
+            { mode: 0o755 },
+        );
+
+        try {
+            const result = spawnSync(
+                'bash',
+                [
+                    path.join(
+                        EXPO_DIRECTORY,
+                        'scripts/reset-android-location.sh',
+                    ),
+                ],
+                {
+                    env: {
+                        ...process.env,
+                        PATH: `${directory}:${process.env.PATH}`,
+                        ANDROID_SERIAL: 'emulator-5554',
+                        ANDROID_E2E_RESTART_PLAY_SERVICES: '1',
+                        ADB_CALLS_FILE: callsFile,
+                    },
+                    encoding: 'utf8',
+                },
+            );
+            assert.equal(result.status, 0, result.stderr);
+            const calls = readFileSync(callsFile, 'utf8');
+            assert.doesNotMatch(calls, /pm clear/);
+            assert.match(
+                calls,
+                /remove-test-provider gps\n.*force-stop com.google.android.gms\n.*emu geo fix/,
+            );
+        } finally {
+            rmSync(directory, { recursive: true, force: true });
+        }
+    });
+
     test('parses only connected Android devices', () => {
         assert.deepEqual(
             parseAdbDevices(`List of devices attached
@@ -260,7 +390,7 @@ R58M offline
     test('collects the full suite without launcher UI readiness checks', () => {
         const flows = collectMaestroFlows(['.maestro'], EXPO_DIRECTORY);
 
-        assert.equal(flows.length, 38);
+        assert.equal(flows.length, 42);
         assert.deepEqual(
             flows.map((flow) => path.basename(flow)),
             [...flows.map((flow) => path.basename(flow))].sort(),
@@ -419,7 +549,7 @@ R58M offline
         );
         assert.match(
             source,
-            /file: subflows\/open-expo-dev-client-after-clear\.yml\s+- runFlow:\s+when:\s+visible:\s+id: 'exit-free-drive-button'\s+commands:\s+- tapOn:\s+id: 'exit-free-drive-button'[\s\S]*?- extendedWaitUntil:\s+visible:\s+id: 'map-search-input-map'/,
+            /file: subflows\/open-expo-dev-client-after-clear\.yml\s+- runFlow: subflows\/dismiss-first-launch-support\.yml\s+- runFlow:\s+when:\s+visible:\s+id: 'exit-free-drive-button'\s+commands:\s+- tapOn:\s+id: 'exit-free-drive-button'[\s\S]*?- extendedWaitUntil:\s+visible:\s+id: 'map-search-input-map'/,
         );
     });
 
@@ -624,6 +754,18 @@ R58M offline
         assert.doesNotMatch(source, /speed: 1(?:\s|$)/);
         assert.equal(source.match(/- travel:/g)?.length, 3);
         assert.equal(source.match(/speed: 12/g)?.length, 3);
+        for (const [latitude, longitude] of [
+            ['30.270606', '-97.749971'],
+            ['30.262520', '-97.745886'],
+            ['30.2654', '-97.7518'],
+        ]) {
+            assert.ok(
+                source.includes(
+                    `speed: 12\n- setLocation:\n    latitude: ${latitude}\n    longitude: ${longitude}\n- extendedWaitUntil:`,
+                ),
+                `Navigation must deliver the final GPS waypoint ${latitude}, ${longitude} before asserting it`,
+            );
+        }
         assert.equal(source.match(/waitToSettleTimeoutMs: 1000/g)?.length, 8);
         assert.match(
             source,
@@ -917,3 +1059,62 @@ for (const flow of [
         assert.ok(skip >= 0 && dashboard > skip);
     });
 }
+
+test('first-launch readiness accepts the retained areas screen between lifecycle flows', () => {
+    const source = readFileSync(
+        path.join(
+            EXPO_DIRECTORY,
+            '.maestro/subflows/dismiss-first-launch-support.yml',
+        ),
+        'utf8',
+    );
+    const readiness = new RegExp(source.match(/id: '([^']+)'/)[1]);
+    for (const id of [
+        'first-launch-support-maybe-later',
+        'map-search-input-map',
+        'map-search-input-driving',
+        'areas-screen',
+        'add-area-screen',
+        'area-alerts-screen',
+        'area-feed-screen',
+    ]) {
+        assert.match(id, readiness);
+    }
+});
+
+test('every launch flow dismisses first-launch support before interacting with the app', () => {
+    for (const directory of ['.maestro', '.maestro/subflows']) {
+        for (const name of readdirSync(path.join(EXPO_DIRECTORY, directory))) {
+            if (!name.endsWith('.yml')) {
+                continue;
+            }
+            const source = readFileSync(
+                path.join(EXPO_DIRECTORY, directory, name),
+                'utf8',
+            );
+            const launch = source.indexOf('- launchApp:');
+            if (launch < 0) {
+                continue;
+            }
+            const startup = source.slice(launch).split(/(?=^- )/m);
+            let next = 1;
+            while (
+                startup[next]?.includes(
+                    'open-expo-dev-client-after-clear.yml',
+                ) ||
+                startup[next]?.includes('resume-expo-dev-client.yml') ||
+                startup[next]?.includes("visible: 'Reload'")
+            ) {
+                next += 1;
+            }
+            const helper = directory.endsWith('subflows')
+                ? 'dismiss-first-launch-support.yml'
+                : 'subflows/dismiss-first-launch-support.yml';
+            assert.equal(
+                startup[next]?.trim(),
+                `- runFlow: ${helper}`,
+                `${directory}/${name}`,
+            );
+        }
+    }
+});

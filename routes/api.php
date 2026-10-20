@@ -9,14 +9,19 @@ use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\V1\AlprPresenceReportController;
+use App\Http\Controllers\Api\V1\AreaDeviceController;
+use App\Http\Controllers\Api\V1\AreaSubscriptionController;
 use App\Http\Controllers\Api\V1\DirectionsController as V1DirectionsController;
 use App\Http\Controllers\Api\V1\ElectronicHorizonAlprController;
 use App\Http\Controllers\Api\V1\PoliceAlertsController;
 use App\Http\Controllers\Api\V1\PublishedOsmNodeSyncController;
 use App\Http\Controllers\Api\V1\RoadCorridorController;
+use App\Http\Controllers\Api\V1\RoadCorridorManifestController;
+use App\Http\Controllers\Api\V1\RoadCorridorTileController;
 use App\Http\Controllers\Api\V1\SpeedLimitController;
 use App\Http\Controllers\Api\V1\StateGasPricesController;
 use App\Http\Controllers\HotlistController;
+use App\Http\Middleware\AuthenticateAreaDevice;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
@@ -54,6 +59,8 @@ Route::group(['middleware' => ['throttle:speed-limits']], function (Router $rout
 
 Route::group(['middleware' => ['throttle:road-corridors']], function (Router $route) {
     $route->get('v1/road-corridor', RoadCorridorController::class);
+    $route->get('v1/road-corridor-manifest', RoadCorridorManifestController::class);
+    $route->get('v1/road-corridor-tiles/{tile}', RoadCorridorTileController::class);
 });
 
 Route::group(['middleware' => ['throttle:police-alerts']], function (Router $route) {
@@ -90,4 +97,20 @@ Route::post('/sanctum/token', function (Request $request) {
     }
 
     return $user->createToken($request->device_name)->plainTextToken;
+});
+
+Route::post('v1/area-devices', [AreaDeviceController::class, 'store'])->middleware('throttle:area-device-registration');
+Route::prefix('v1/areas')->middleware([AuthenticateAreaDevice::class, 'throttle:area-requests'])->group(function (): void {
+    $controller = AreaSubscriptionController::class;
+    Route::patch('device', [AreaDeviceController::class, 'update']);
+    Route::get('search', [$controller, 'search']);
+    Route::post('preview', [$controller, 'preview']);
+    Route::get('/', [$controller, 'index']);
+    Route::post('/', [$controller, 'store']);
+    Route::patch('{area}', [$controller, 'update'])->whereNumber('area');
+    Route::delete('{area}', [$controller, 'destroy'])->whereNumber('area');
+    Route::get('{area}/changes', [$controller, 'feed'])->whereNumber('area');
+    Route::get('{area}/cameras', [$controller, 'cameras'])->whereNumber('area');
+    Route::get('{area}/changes/{change}', [$controller, 'change'])->whereNumber(['area', 'change']);
+    Route::post('{area}/read', [$controller, 'markRead'])->whereNumber('area');
 });

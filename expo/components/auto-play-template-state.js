@@ -117,14 +117,7 @@ export function getAutoPlayHeaderButtonVisibility({
     };
 }
 
-export function getAutoPlayPrimaryLocationTypes({
-    hasActiveNavigation,
-    primaryLocations,
-}) {
-    if (hasActiveNavigation) {
-        return [];
-    }
-
+export function getAutoPlayPrimaryLocationTypes({ primaryLocations }) {
     return ['home', 'work'].filter((type) => Boolean(primaryLocations?.[type]));
 }
 
@@ -133,13 +126,12 @@ export function getAutoPlayPrimaryLocationHeaderActionTypes({
     primaryLocations,
 }) {
     const types = getAutoPlayPrimaryLocationTypes({
-        hasActiveNavigation,
         primaryLocations,
     });
 
     return {
-        android: types,
-        ios: [...types].reverse(),
+        android: hasActiveNavigation ? [] : types,
+        ios: hasActiveNavigation ? [] : [...types].reverse(),
     };
 }
 
@@ -348,12 +340,7 @@ export function getAutoPlayMapButtonAppearanceKey({
     isDarkMapLayer = false,
     trackingState,
 }) {
-    const trackingIsHighlighted =
-        trackingState === 'active' || trackingState === 'recenter';
-
-    return `${isDarkMapLayer ? 'dark' : 'light'}:${
-        trackingIsHighlighted ? 'highlighted' : 'inactive'
-    }`;
+    return `${isDarkMapLayer ? 'dark' : 'light'}:${trackingState ?? 'inactive'}`;
 }
 
 export function getAutoPlayNavigationPuckRefreshKey({

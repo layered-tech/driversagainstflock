@@ -1,5 +1,8 @@
+import { useRouter } from 'expo-router';
 import {
     faCamera,
+    faChevronDown,
+    faChevronRight,
     faCodeBranch,
     faCrosshairs,
     faLocationDot,
@@ -20,6 +23,7 @@ import {
 import {
     Animated,
     Easing,
+    KeyboardAvoidingView,
     Pressable,
     ScrollView,
     Text,
@@ -52,6 +56,7 @@ import {
 } from '../map/debug-overlays';
 import { useSharedMapState } from '../map/shared-map-state';
 import { UpcomingAlertDebugPane } from '../map/upcoming-alert-debug-pane';
+import { RoadCorridorStatus } from '../map/road-corridor-status';
 import { WeatherDebugPane } from '../map/weather-debug-pane';
 import { useUserTour } from '../user-tours';
 import { DebugDrawerToggleRow } from './debug-drawer-toggle-row';
@@ -124,6 +129,7 @@ const DEBUG_DRAWER_ITEMS = [
 ];
 
 export function DebugDrawer({ onClose, visible }) {
+    const router = useRouter();
     const { tour } = useContribute();
     const mapOptionsTour = useUserTour('map-options');
     const scorecardTour = useUserTour('scorecard');
@@ -131,21 +137,18 @@ export function DebugDrawer({ onClose, visible }) {
         {
             id: 'contribution',
             tour,
-            title: 'Contribution walkthrough',
             label: 'Reset contribution tour',
             destination: 'Contribute',
         },
         {
             id: 'map-options',
             tour: mapOptionsTour,
-            title: 'Map options walkthrough',
             label: 'Reset map options tour',
             destination: 'Map settings',
         },
         {
             id: 'scorecard',
             tour: scorecardTour,
-            title: 'Scorecard walkthrough',
             label: 'Reset Scorecard tour',
             destination: 'Scorecard',
         },
@@ -165,6 +168,7 @@ export function DebugDrawer({ onClose, visible }) {
     const [cameraZoomInput, setCameraZoomInput] = useState('');
     const [cameraZoomError, setCameraZoomError] = useState('');
     const [tourResetStatus, setTourResetStatus] = useState({});
+    const [expandedSections, setExpandedSections] = useState({});
     const tourResetIsInProgress =
         Object.values(tourResetStatus).includes('resetting');
     const animationProgressRef = useRef(new Animated.Value(visible ? 1 : 0));
@@ -260,12 +264,131 @@ export function DebugDrawer({ onClose, visible }) {
         });
     }, [visible]);
 
+    function renderSection(id, title, keys, children = null) {
+        const expanded = expandedSections[id] === true;
+        const enabledCount = keys.filter(
+            (key) => debugOverlayVisibility?.[key] === true,
+        ).length;
+        return (
+            <View key={id} className="gap-2">
+                <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded }}
+                    accessibilityLabel={`${title}${enabledCount ? `, ${enabledCount} overlays on` : ''}`}
+                    className="min-h-hitComfy flex-row items-center gap-3 rounded-md border border-neutral-200 bg-white px-3 py-3 dark:border-neutral-800 dark:bg-neutral-900"
+                    onPress={() =>
+                        setExpandedSections((current) => ({
+                            ...current,
+                            [id]: !current[id],
+                        }))
+                    }
+                    testID={`debug-drawer-section-${id}`}
+                >
+                    <Text className="min-w-0 flex-1 text-sm font-semibold text-neutral-950 dark:text-white">
+                        {title}
+                    </Text>
+                    {enabledCount > 0 ? (
+                        <Text className="text-xs text-blue-600 dark:text-blue-400">
+                            {enabledCount} on
+                        </Text>
+                    ) : null}
+                    <FontAwesomeIcon
+                        icon={expanded ? faChevronDown : faChevronRight}
+                        color={iconColor}
+                        size={12}
+                    />
+                </Pressable>
+                {expanded ? (
+                    <View
+                        className="gap-2"
+                        testID={`debug-drawer-section-${id}-content`}
+                    >
+                        {DEBUG_DRAWER_ITEMS.filter((item) =>
+                            keys.includes(item.key),
+                        ).map((item) => (
+                            <Fragment key={item.key}>
+                                <DebugDrawerToggleRow
+                                    iconColor={iconColor}
+                                    isDarkMode={isDarkMode}
+                                    isEnabled={
+                                        debugOverlayVisibility?.[item.key] ===
+                                        true
+                                    }
+                                    item={item}
+                                    onValueChange={(isEnabled) => {
+                                        if (mapPreferencesAreLoaded) {
+                                            setDebugOverlayVisibility(
+                                                item.key,
+                                                isEnabled,
+                                            );
+                                        }
+                                    }}
+                                />
+                                {item.key === DEBUG_OVERLAY_CAMERA ? (
+                                    <View className="gap-2 rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+                                        <Text className="text-sm font-semibold text-neutral-950 dark:text-white">
+                                            Set camera zoom
+                                        </Text>
+                                        <View className="flex-row items-center gap-2">
+                                            <TextInput
+                                                accessibilityLabel="Camera zoom level"
+                                                className="min-w-0 flex-1 rounded-md border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-950 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"
+                                                keyboardType="decimal-pad"
+                                                onChangeText={(value) => {
+                                                    setCameraZoomInput(value);
+                                                    setCameraZoomError('');
+                                                }}
+                                                onSubmitEditing={
+                                                    handleSetCameraZoom
+                                                }
+                                                placeholder={`${MIN_ZOOM_LEVEL}–${MAX_ZOOM_LEVEL}`}
+                                                placeholderTextColor={
+                                                    isDarkMode
+                                                        ? '#a3a3a3'
+                                                        : '#737373'
+                                                }
+                                                returnKeyType="done"
+                                                testID="debug-drawer-camera-zoom-input"
+                                                value={cameraZoomInput}
+                                            />
+                                            <Pressable
+                                                accessibilityLabel="Set camera zoom"
+                                                accessibilityRole="button"
+                                                className="rounded-md bg-blue-600 px-4 py-2"
+                                                onPress={handleSetCameraZoom}
+                                                testID="debug-drawer-set-camera-zoom"
+                                            >
+                                                <Text className="text-sm font-semibold text-white">
+                                                    Set Zoom
+                                                </Text>
+                                            </Pressable>
+                                        </View>
+                                        {cameraZoomError ? (
+                                            <Text
+                                                className="text-xs text-red-600 dark:text-red-400"
+                                                testID="debug-drawer-camera-zoom-error"
+                                            >
+                                                {cameraZoomError}
+                                            </Text>
+                                        ) : null}
+                                    </View>
+                                ) : null}
+                            </Fragment>
+                        ))}
+                        {children}
+                    </View>
+                ) : null}
+            </View>
+        );
+    }
+
     if (!shouldRender || !SHOW_MAP_DEBUG_CONTROLS) {
         return null;
     }
 
     return (
-        <View
+        <KeyboardAvoidingView
+            behavior="padding"
             className="absolute inset-0 z-[100]"
             pointerEvents={visible ? 'auto' : 'none'}
             testID="debug-drawer"
@@ -282,7 +405,7 @@ export function DebugDrawer({ onClose, visible }) {
                 />
             </Pressable>
             <Animated.View
-                className="absolute bottom-0 right-0 top-0 border-l border-neutral-200 bg-neutral-50 shadow-[0px_0px_24px_rgba(0,0,0,0.24)] dark:border-neutral-800 dark:bg-neutral-950"
+                className="flex-1 self-end border-l border-neutral-200 bg-neutral-50 shadow-[0px_0px_24px_rgba(0,0,0,0.24)] dark:border-neutral-800 dark:bg-neutral-950"
                 style={{
                     paddingBottom: Math.max(insets.bottom, 16),
                     paddingTop: Math.max(insets.top, 16),
@@ -309,179 +432,175 @@ export function DebugDrawer({ onClose, visible }) {
                     </Pressable>
                 </View>
                 <ScrollView
+                    keyboardShouldPersistTaps="handled"
                     contentContainerStyle={{
                         gap: 10,
                         padding: 16,
                     }}
                 >
-                    {tourResets.map((item) => {
-                        const isResetting =
-                            tourResetStatus[item.id] === 'resetting';
-                        const isDisabled =
-                            tourResetIsInProgress || !item.tour.progress;
-                        return (
-                            <View
-                                key={item.id}
-                                className="gap-2 rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
+                    {renderSection(
+                        'camera',
+                        'Camera & markers',
+                        [DEBUG_OVERLAY_CAMERA_FOCUS, DEBUG_OVERLAY_CAMERA],
+                        <>
+                            <Pressable
+                                accessibilityRole="button"
+                                className="rounded-md border border-neutral-200 p-3 dark:border-neutral-800"
+                                testID="debug-camera-marker-preview"
+                                onPress={() => {
+                                    onClose();
+                                    router.push('/camera-marker-preview');
+                                }}
                             >
-                                <Text className="text-sm font-semibold text-neutral-950 dark:text-white">
-                                    {item.title}
+                                <Text className="font-semibold text-neutral-950 dark:text-white">
+                                    Camera marker preview
                                 </Text>
-                                <Text className="text-xs leading-4 text-neutral-600 dark:text-neutral-400">
-                                    Reset the tour to see the walkthrough again.
-                                </Text>
+                            </Pressable>
+                        </>,
+                    )}
+                    {renderSection(
+                        'navigation',
+                        'Navigation & Android Auto',
+                        [
+                            DEBUG_OVERLAY_DIRECTIONS_GEOMETRY,
+                            DEBUG_OVERLAY_ELECTRONIC_HORIZON,
+                            DEBUG_OVERLAY_ANDROID_AUTO_LOCATION,
+                        ],
+                        <>
+                            <View className="gap-2 rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+                                <View className="gap-1">
+                                    <Text className="text-sm font-semibold text-neutral-950 dark:text-white">
+                                        Android Auto performance trace
+                                    </Text>
+                                    <Text className="text-xs leading-4 text-neutral-600 dark:text-neutral-400">
+                                        Stores timing and state only—never
+                                        coordinates or route geometry.
+                                    </Text>
+                                </View>
                                 <Pressable
-                                    accessibilityLabel={item.label}
+                                    accessibilityLabel="Load Android Auto performance trace"
                                     accessibilityRole="button"
-                                    accessibilityState={{
-                                        busy: isResetting,
-                                        disabled: isDisabled,
-                                    }}
-                                    className="min-h-hitComfy items-center justify-center rounded-md bg-blue-600 px-3 py-2 disabled:opacity-50"
-                                    disabled={isDisabled}
-                                    onPress={() =>
-                                        handleResetTour(item.id, item.tour)
-                                    }
-                                    testID={`debug-drawer-reset-${item.id}-tour`}
+                                    className="items-center rounded-md bg-blue-600 px-3 py-2"
+                                    onPress={handleLoadAndroidAutoTrace}
+                                    testID="debug-drawer-load-android-auto-trace"
                                 >
                                     <Text className="text-sm font-semibold text-white">
-                                        {isResetting
-                                            ? 'Resetting…'
-                                            : item.label}
+                                        Load latest trace
                                     </Text>
                                 </Pressable>
-                                {tourResetStatus[item.id] === 'success' ? (
-                                    <Text
-                                        accessibilityLiveRegion="polite"
-                                        className="text-xs leading-4 text-neutral-600 dark:text-neutral-400"
-                                        testID={`debug-drawer-${item.id}-tour-reset-success`}
-                                    >
-                                        Tour reset. Open {item.destination} to
-                                        replay it.
+                                {androidAutoTraceStatus ? (
+                                    <Text className="text-xs leading-4 text-neutral-600 dark:text-neutral-400">
+                                        {androidAutoTraceStatus}
                                     </Text>
-                                ) : tourResetStatus[item.id] === 'error' ? (
+                                ) : null}
+                                {androidAutoTraceText ? (
                                     <Text
-                                        accessibilityLiveRegion="polite"
-                                        className="text-xs leading-4 text-red-600 dark:text-red-400"
-                                        testID={`debug-drawer-${item.id}-tour-reset-error`}
+                                        className="rounded bg-neutral-100 p-2 font-mono text-[10px] leading-4 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100"
+                                        selectable
+                                        testID="debug-drawer-android-auto-trace"
                                     >
-                                        Could not reset the tour. Please try
-                                        again.
+                                        {androidAutoTraceText}
                                     </Text>
                                 ) : null}
                             </View>
-                        );
-                    })}
-                    {DEBUG_DRAWER_ITEMS.map((item) => (
-                        <Fragment key={item.key}>
-                            <DebugDrawerToggleRow
-                                iconColor={iconColor}
-                                isDarkMode={isDarkMode}
-                                isEnabled={
-                                    debugOverlayVisibility?.[item.key] === true
-                                }
-                                item={item}
-                                onValueChange={(isEnabled) => {
-                                    if (mapPreferencesAreLoaded) {
-                                        setDebugOverlayVisibility(
-                                            item.key,
-                                            isEnabled,
-                                        );
-                                    }
-                                }}
-                            />
-                            {item.key === DEBUG_OVERLAY_CAMERA ? (
-                                <View className="gap-2 rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
-                                    <Text className="text-sm font-semibold text-neutral-950 dark:text-white">
-                                        Set camera zoom
-                                    </Text>
-                                    <View className="flex-row items-center gap-2">
-                                        <TextInput
-                                            accessibilityLabel="Camera zoom level"
-                                            className="min-w-0 flex-1 rounded-md border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-950 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"
-                                            keyboardType="decimal-pad"
-                                            onChangeText={(value) => {
-                                                setCameraZoomInput(value);
-                                                setCameraZoomError('');
-                                            }}
-                                            onSubmitEditing={
-                                                handleSetCameraZoom
-                                            }
-                                            placeholder={`${MIN_ZOOM_LEVEL}–${MAX_ZOOM_LEVEL}`}
-                                            placeholderTextColor={
-                                                isDarkMode
-                                                    ? '#a3a3a3'
-                                                    : '#737373'
-                                            }
-                                            returnKeyType="done"
-                                            testID="debug-drawer-camera-zoom-input"
-                                            value={cameraZoomInput}
-                                        />
+                        </>,
+                    )}
+                    {renderSection(
+                        'alerts',
+                        'Alerts & detection',
+                        [
+                            DEBUG_OVERLAY_UPCOMING_ALERTS,
+                            DEBUG_OVERLAY_ALPR_PRESENCE,
+                            DEBUG_OVERLAY_WAZE,
+                        ],
+                        <>
+                            <AlprPresenceDebugPane />
+                            <UpcomingAlertDebugPane />
+                        </>,
+                    )}
+                    {renderSection(
+                        'road-corridors',
+                        'Road corridors',
+                        [],
+                        <RoadCorridorStatus />,
+                    )}
+                    {renderSection(
+                        'weather',
+                        'Weather',
+                        [],
+                        <WeatherDebugPane />,
+                    )}
+                    {renderSection('app', 'App diagnostics', [
+                        DEBUG_OVERLAY_SAFE_AREA,
+                        DEBUG_OVERLAY_NETWORK,
+                    ])}
+                    {renderSection(
+                        'tours',
+                        'Walkthroughs',
+                        [],
+                        <>
+                            <Text className="text-xs text-neutral-600 dark:text-neutral-400">
+                                Reset a tour to replay its walkthrough.
+                            </Text>
+                            {tourResets.map((item) => {
+                                const isResetting =
+                                    tourResetStatus[item.id] === 'resetting';
+                                const isDisabled =
+                                    tourResetIsInProgress ||
+                                    !item.tour.progress;
+                                return (
+                                    <View key={item.id} className="gap-2">
                                         <Pressable
-                                            accessibilityLabel="Set camera zoom"
+                                            accessibilityLabel={item.label}
                                             accessibilityRole="button"
-                                            className="rounded-md bg-blue-600 px-4 py-2"
-                                            onPress={handleSetCameraZoom}
-                                            testID="debug-drawer-set-camera-zoom"
+                                            accessibilityState={{
+                                                busy: isResetting,
+                                                disabled: isDisabled,
+                                            }}
+                                            className="min-h-hitComfy items-center justify-center rounded-md bg-blue-600 px-3 py-2 disabled:opacity-50"
+                                            disabled={isDisabled}
+                                            onPress={() =>
+                                                handleResetTour(
+                                                    item.id,
+                                                    item.tour,
+                                                )
+                                            }
+                                            testID={`debug-drawer-reset-${item.id}-tour`}
                                         >
                                             <Text className="text-sm font-semibold text-white">
-                                                Set Zoom
+                                                {isResetting
+                                                    ? 'Resetting…'
+                                                    : item.label}
                                             </Text>
                                         </Pressable>
+                                        {tourResetStatus[item.id] ===
+                                        'success' ? (
+                                            <Text
+                                                accessibilityLiveRegion="polite"
+                                                className="text-xs leading-4 text-neutral-600 dark:text-neutral-400"
+                                                testID={`debug-drawer-${item.id}-tour-reset-success`}
+                                            >
+                                                Tour reset. Open{' '}
+                                                {item.destination} to replay it.
+                                            </Text>
+                                        ) : tourResetStatus[item.id] ===
+                                          'error' ? (
+                                            <Text
+                                                accessibilityLiveRegion="polite"
+                                                className="text-xs leading-4 text-red-600 dark:text-red-400"
+                                                testID={`debug-drawer-${item.id}-tour-reset-error`}
+                                            >
+                                                Could not reset the tour. Please
+                                                try again.
+                                            </Text>
+                                        ) : null}
                                     </View>
-                                    {cameraZoomError ? (
-                                        <Text
-                                            className="text-xs text-red-600 dark:text-red-400"
-                                            testID="debug-drawer-camera-zoom-error"
-                                        >
-                                            {cameraZoomError}
-                                        </Text>
-                                    ) : null}
-                                </View>
-                            ) : null}
-                        </Fragment>
-                    ))}
-                    <AlprPresenceDebugPane />
-                    <UpcomingAlertDebugPane />
-                    <WeatherDebugPane />
-                    <View className="gap-2 rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
-                        <View className="gap-1">
-                            <Text className="text-sm font-semibold text-neutral-950 dark:text-white">
-                                Android Auto performance trace
-                            </Text>
-                            <Text className="text-xs leading-4 text-neutral-600 dark:text-neutral-400">
-                                Stores timing and state only—never coordinates
-                                or route geometry.
-                            </Text>
-                        </View>
-                        <Pressable
-                            accessibilityLabel="Load Android Auto performance trace"
-                            accessibilityRole="button"
-                            className="items-center rounded-md bg-blue-600 px-3 py-2"
-                            onPress={handleLoadAndroidAutoTrace}
-                            testID="debug-drawer-load-android-auto-trace"
-                        >
-                            <Text className="text-sm font-semibold text-white">
-                                Load latest trace
-                            </Text>
-                        </Pressable>
-                        {androidAutoTraceStatus ? (
-                            <Text className="text-xs leading-4 text-neutral-600 dark:text-neutral-400">
-                                {androidAutoTraceStatus}
-                            </Text>
-                        ) : null}
-                        {androidAutoTraceText ? (
-                            <Text
-                                className="rounded bg-neutral-100 p-2 font-mono text-[10px] leading-4 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100"
-                                selectable
-                                testID="debug-drawer-android-auto-trace"
-                            >
-                                {androidAutoTraceText}
-                            </Text>
-                        ) : null}
-                    </View>
+                                );
+                            })}
+                        </>,
+                    )}
                 </ScrollView>
             </Animated.View>
-        </View>
+        </KeyboardAvoidingView>
     );
 }

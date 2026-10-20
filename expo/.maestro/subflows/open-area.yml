@@ -1,0 +1,18 @@
+appId: "${typeof MAESTRO_APP_ID !== 'undefined' ? MAESTRO_APP_ID : 'com.anonymous.drivefree.dev'}"
+---
+- launchApp:
+    stopApp: false
+    permissions:
+      all: allow
+- runFlow: dismiss-first-launch-support.yml
+- openLink: ${AREA_URL}
+- runFlow:
+    when:
+      visible: 'Open with.*'
+    commands:
+      - runFlow:
+          when:
+            visible: 'Open with'
+          commands:
+            - tapOn: "${typeof MAESTRO_APP_ID !== 'undefined' && MAESTRO_APP_ID === 'com.anonymous.drivefree' ? 'Drivers Against Flock' : 'Dev.*Drivers Against Flock'}"
+      - tapOn: 'Just once'

@@ -575,7 +575,8 @@ export class MaestroTestRunner {
                     ...this.environment,
                     APP_ENV: 'e2e',
                     CI: '1',
-                    EXPO_PUBLIC_E2E_MAP_API_MOCKS: '1',
+                    EXPO_PUBLIC_E2E_MAP_API_MOCKS:
+                        this.environment.EXPO_PUBLIC_E2E_MAP_API_MOCKS ?? '1',
                     FORCE_COLOR: '0',
                     NODE_OPTIONS: createMetroNodeOptions(
                         this.environment.NODE_OPTIONS,
@@ -776,6 +777,7 @@ export class MaestroTestRunner {
             allowFailure: true,
             env: {
                 ...this.environment,
+                MAESTRO_ARTIFACTS_DIR: '.',
                 MAESTRO_DEVICE: this.target.id,
                 MAESTRO_EXPO_DEV_CLIENT_URL: this.devClientUrl,
                 MAESTRO_PLATFORM: this.target.platform,

@@ -1,10 +1,10 @@
 import Mapbox from '@rnmapbox/maps';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { ConeOfViewImage } from './cone-of-view-image';
+import { coneImageName } from './cone-view-styles';
 import { MAPBOX_ACCESS_TOKEN } from './config';
 import {
-    ALPR_SYMBOL_IMAGE_NAME,
-    ALPR_SYMBOL_IMAGE_SOURCE,
+    ALPR_SYMBOL_IMAGES,
     ANDROID_AUTO_NAVIGATION_PUCK_BEARING_IMAGE,
     ANDROID_AUTO_NAVIGATION_PUCK_SHADOW_IMAGE,
     MARKER_CONE_ZOOM_STYLES,
@@ -44,29 +44,30 @@ if (MAPBOX_ACCESS_TOKEN) {
     Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
 }
 
-export function MarkerConeImages() {
+const DEFAULT_CONE_VARIANTS = ['flat'];
+
+export function MarkerConeImages({ variants = DEFAULT_CONE_VARIANTS } = {}) {
     return (
         <Mapbox.Images>
-            {MARKER_CONE_ZOOM_STYLES.map((coneStyle) => (
-                <Mapbox.Image
-                    key={coneStyle.imageName}
-                    name={coneStyle.imageName}
-                >
-                    <ConeOfViewImage coneStyle={coneStyle} />
-                </Mapbox.Image>
-            ))}
+            {variants.flatMap((variant) =>
+                MARKER_CONE_ZOOM_STYLES.map((coneStyle) => (
+                    <Mapbox.Image
+                        key={coneImageName(coneStyle.imageName, variant)}
+                        name={coneImageName(coneStyle.imageName, variant)}
+                    >
+                        <ConeOfViewImage
+                            coneStyle={coneStyle}
+                            variant={variant}
+                        />
+                    </Mapbox.Image>
+                )),
+            )}
         </Mapbox.Images>
     );
 }
 
 export function AlprMarkerImages() {
-    return (
-        <Mapbox.Images
-            images={{
-                [ALPR_SYMBOL_IMAGE_NAME]: ALPR_SYMBOL_IMAGE_SOURCE,
-            }}
-        />
-    );
+    return <Mapbox.Images images={ALPR_SYMBOL_IMAGES} />;
 }
 
 export function PoliceAlertImages() {

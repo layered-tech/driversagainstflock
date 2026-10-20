@@ -1,0 +1,64 @@
+appId: com.anonymous.drivefree.dev
+name: Sussex Wisconsin corridors cold download and offline drive
+tags:
+  - road-corridor
+  - live-api
+onFlowComplete:
+  - setAirplaneMode: disabled
+---
+- setAirplaneMode: disabled
+- setLocation:
+    latitude: 43.12152
+    longitude: -88.24447
+# The managed Maestro runner already clears app data and opens Metro.
+- launchApp:
+    clearState: false
+    permissions:
+      all: allow
+- runFlow: subflows/resume-expo-dev-client.yml
+- runFlow: subflows/dismiss-first-launch-support.yml
+- extendedWaitUntil:
+    visible:
+      id: start-free-drive-button
+    timeout: 120000
+- assertVisible:
+    id: e2e-corridor-mocks
+    text: 'false'
+- tapOn:
+    id: start-free-drive-button
+- extendedWaitUntil:
+    visible:
+      id: e2e-corridor-source
+      text: download
+    timeout: 120000
+- runFlow: subflows/sussex-corridor-trace.yml
+# A restart ensures this run cannot succeed from the previous in-memory graph.
+- stopApp
+- setLocation:
+    latitude: 43.12152
+    longitude: -88.24447
+- launchApp:
+    clearState: false
+- runFlow: subflows/resume-expo-dev-client.yml
+- runFlow: subflows/dismiss-first-launch-support.yml
+- extendedWaitUntil:
+    visible:
+      id: e2e-corridor-mocks
+    timeout: 120000
+- assertVisible:
+    id: e2e-corridor-mocks
+    text: 'false'
+- setAirplaneMode: enabled
+- runFlow:
+    when:
+      visible:
+        id: start-free-drive-button
+    commands:
+      - tapOn:
+          id: start-free-drive-button
+- extendedWaitUntil:
+    visible:
+      id: e2e-corridor-source
+      text: download
+    timeout: 30000
+- runFlow: subflows/sussex-corridor-trace.yml

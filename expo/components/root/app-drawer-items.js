@@ -2,6 +2,7 @@ export const PRIMARY_DRAWER_ITEMS = [
     { icon: 'map', label: 'Map', routeName: 'index' },
     { icon: 'gauge', label: 'Scorecard', routeName: 'scorecard' },
     { icon: 'flame', label: 'Hotlist', routeName: 'hotlist' },
+    { icon: 'map-pin', label: 'My areas', routeName: 'areas' },
 ];
 
 export const HELP_AND_LEGAL_DRAWER_ITEMS = [

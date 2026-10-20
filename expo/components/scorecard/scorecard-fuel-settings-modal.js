@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import {
     KeyboardAvoidingView,
     Modal,
-    Platform,
     Pressable,
+    ScrollView,
     Text,
     View,
 } from 'react-native';
@@ -78,7 +78,7 @@ export function ScorecardFuelSettingsModal({
             visible={visible}
         >
             <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                behavior="padding"
                 className="flex-1 justify-end"
             >
                 <Pressable
@@ -86,14 +86,18 @@ export function ScorecardFuelSettingsModal({
                     className="absolute inset-0 bg-black/35"
                     onPress={onDismiss}
                 />
-                <View
-                    className="dark:border-daf-border-dark dark:bg-daf-surface-dark gap-4 rounded-t-dafSheet border-t border-daf-border bg-white px-5 pt-3 shadow-2xl"
-                    style={{ paddingBottom: Math.max(insets.bottom + 16, 28) }}
+                <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    className="max-h-full grow-0 rounded-t-dafSheet bg-white dark:bg-daf-surface-dark"
+                    contentContainerClassName="dark:border-daf-border-dark dark:bg-daf-surface-dark gap-4 rounded-t-dafSheet border-t border-daf-border bg-white px-5 pt-3 shadow-2xl"
+                    contentContainerStyle={{
+                        paddingBottom: Math.max(insets.bottom + 16, 28),
+                    }}
                     testID="scorecard-fuel-settings-modal"
                 >
-                    <View className="dark:bg-daf-border-dark mx-auto h-1 w-10 rounded-dafPill bg-daf-border-strong" />
+                    <View className="mx-auto h-1 w-10 rounded-dafPill bg-daf-border-strong dark:bg-daf-border-dark" />
                     <View className="flex-row items-start gap-3">
-                        <View className="bg-daf-brand/10 h-10 w-10 items-center justify-center rounded-dafSm">
+                        <View className="h-10 w-10 items-center justify-center rounded-dafSm bg-daf-brand/10">
                             <Icon name="fuel" size={19} />
                         </View>
                         <View className="min-w-0 flex-1 gap-1">
@@ -170,7 +174,7 @@ export function ScorecardFuelSettingsModal({
                             Cancel
                         </DafButton>
                     </View>
-                </View>
+                </ScrollView>
             </KeyboardAvoidingView>
         </Modal>
     );

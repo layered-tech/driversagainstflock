@@ -10,6 +10,7 @@ import {
     initialWindowMetrics,
     SafeAreaProvider,
 } from 'react-native-safe-area-context';
+import { AreasProvider } from '../components/areas/areas-context';
 import { ContributeProvider } from '../components/contribute/contribute-state';
 import { Icon } from '../components/design-system/icon';
 import { FirstLaunchSupportGate } from '../components/information/first-launch-support-gate';
@@ -41,7 +42,9 @@ function ScorecardContributeProvider({ children }) {
     return (
         <ScorecardProvider>
             <ContributeProvider>
-                <UserToursProvider>{children}</UserToursProvider>
+                <AreasProvider>
+                    <UserToursProvider>{children}</UserToursProvider>
+                </AreasProvider>
             </ContributeProvider>
         </ScorecardProvider>
     );
@@ -96,6 +99,7 @@ function RootLayout() {
                                             />
                                         )}
                                         screenOptions={{
+                                            drawerType: 'front',
                                             drawerActiveTintColor: isDarkMode
                                                 ? '#F5F7F9'
                                                 : '#11151B',
@@ -150,6 +154,13 @@ function RootLayout() {
                                                 ),
                                                 popToTopOnBlur: true,
                                                 title: 'Scorecard',
+                                            }}
+                                        />
+                                        <Drawer.Screen
+                                            name="areas"
+                                            options={{
+                                                title: 'My areas',
+                                                popToTopOnBlur: true,
                                             }}
                                         />
                                         <Drawer.Screen
@@ -274,6 +285,16 @@ function RootLayout() {
                                                 popToTopOnBlur: true,
                                                 swipeEnabled: false,
                                                 title: 'Your edits',
+                                            }}
+                                        />
+                                        <Drawer.Screen
+                                            name="camera-marker-preview"
+                                            options={{
+                                                drawerItemStyle: {
+                                                    display: 'none',
+                                                },
+                                                swipeEnabled: false,
+                                                title: 'Camera marker preview',
                                             }}
                                         />
                                     </Drawer>

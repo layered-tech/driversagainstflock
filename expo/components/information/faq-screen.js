@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+    KeyboardAvoidingView,
     Linking,
     Pressable,
     ScrollView,
@@ -31,13 +32,14 @@ export function FaqScreen() {
     };
 
     return (
-        <View
+        <KeyboardAvoidingView
+            behavior="padding"
             className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
             testID="faq-screen"
         >
             <InformationHeader answerCount={faqItems.length} title="FAQ" />
-            <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark border-b border-daf-border bg-white px-4 py-3">
-                <View className="dark:border-daf-border-dark h-[46px] flex-row items-center gap-2.5 rounded-dafPill border border-daf-border bg-daf-surface-alt px-4 dark:bg-daf-surface-inverse">
+            <View className="border-b border-daf-border bg-white px-4 py-3 dark:border-daf-border-dark dark:bg-daf-surface-dark">
+                <View className="h-[46px] flex-row items-center gap-2.5 rounded-dafPill border border-daf-border bg-daf-surface-alt px-4 dark:border-daf-border-dark dark:bg-daf-surface-inverse">
                     <Icon color="#828D9B" name="search" size={18} />
                     <TextInput
                         accessibilityLabel="Search help"
@@ -51,7 +53,7 @@ export function FaqScreen() {
                     />
                 </View>
             </View>
-            <ScrollView>
+            <ScrollView keyboardShouldPersistTaps="handled">
                 <ScrollView
                     className="flex-grow-0"
                     contentContainerClassName="gap-2 px-4 pb-1 pt-3"
@@ -77,7 +79,7 @@ export function FaqScreen() {
 
                         return (
                             <View
-                                className="dark:border-daf-border-dark dark:bg-daf-surface-dark overflow-hidden rounded-dafMd border border-daf-border bg-white"
+                                className="overflow-hidden rounded-dafMd border border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark"
                                 key={faq.question}
                             >
                                 <Pressable
@@ -91,7 +93,7 @@ export function FaqScreen() {
                                     }
                                     testID={`faq-item-${index}`}
                                 >
-                                    <Text className="font-dafDisplay min-w-0 flex-1 text-base font-semibold leading-[22px] text-daf-text-primary dark:text-white">
+                                    <Text className="min-w-0 flex-1 font-dafDisplay text-base font-semibold leading-[22px] text-daf-text-primary dark:text-white">
                                         {faq.question}
                                     </Text>
                                     <Icon
@@ -125,7 +127,7 @@ export function FaqScreen() {
 
                     {visibleFaqItems.length === 0 ? (
                         <View
-                            className="dark:border-daf-border-dark dark:bg-daf-surface-dark rounded-dafMd border border-daf-border bg-white p-4"
+                            className="rounded-dafMd border border-daf-border bg-white p-4 dark:border-daf-border-dark dark:bg-daf-surface-dark"
                             testID="faq-empty-state"
                         >
                             <Text className="font-dafDisplay text-base font-semibold text-daf-text-primary dark:text-white">
@@ -149,7 +151,7 @@ export function FaqScreen() {
                         <Pressable
                             accessibilityLabel={`Email ${SUPPORT_EMAIL}`}
                             accessibilityRole="link"
-                            className="dark:active:bg-daf-surface-dark min-h-[34px] items-center justify-center rounded-dafPill px-2.5 active:bg-white"
+                            className="min-h-[34px] items-center justify-center rounded-dafPill px-2.5 active:bg-white dark:active:bg-daf-surface-dark"
                             onPress={handleSupportPress}
                             testID="faq-support-email"
                         >
@@ -160,6 +162,6 @@ export function FaqScreen() {
                     </View>
                 </View>
             </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
     );
 }

@@ -470,3 +470,31 @@ describe('edit option lists', () => {
         }
     });
 });
+
+test('manufacturer edits update the complete identity for all DeFlock presets', () => {
+    for (const [manufacturer, name, id] of [
+        ['genetec', 'Genetec', 'Q30295174'],
+        ['axon', 'Axon Enterprise', 'Q690604'],
+        ['leonardo', 'Leonardo', 'Q910379'],
+        ['neology', 'Neology, Inc.', undefined],
+        ['verkada', 'Verkada Inc.', 'Q106059747'],
+        ['other', undefined, undefined],
+    ]) {
+        const tags = buildUpdatedNodeTags(
+            {
+                manufacturer: 'Flock Safety',
+                'manufacturer:wikidata': 'Q108485435',
+                brand: 'Flock',
+                'brand:wikidata': 'Q108485435',
+                note: 'Keep',
+            },
+            { manufacturer },
+            { dirtyFields: ['manufacturer'] },
+        );
+        assert.equal(tags.manufacturer, name);
+        assert.equal(tags['manufacturer:wikidata'], id);
+        assert.equal(tags.brand, undefined);
+        assert.equal(tags['brand:wikidata'], undefined);
+        assert.equal(tags.note, 'Keep');
+    }
+});

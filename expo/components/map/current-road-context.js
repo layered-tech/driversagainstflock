@@ -47,6 +47,7 @@ export function useStableCurrentRoadText(userLocation) {
 
 export function CurrentRoadPill({
     className = '',
+    compact = false,
     isDarkMode,
     roadText: roadTextOverride,
     style,
@@ -67,13 +68,13 @@ export function CurrentRoadPill({
 
     return (
         <View
-            className={`max-w-full rounded-full border px-3 py-1.5 shadow-sm ${resolvedIsDarkMode ? 'border-white/15 bg-neutral-900/95' : 'border-black/10 bg-white/95'} ${className}`}
+            className={`max-w-full rounded-full border shadow-sm ${compact ? 'px-2.5 py-1' : 'px-3 py-1.5'} ${resolvedIsDarkMode ? 'border-white/15 bg-neutral-900/95' : 'border-black/10 bg-white/95'} ${className}`}
             pointerEvents="none"
             style={style}
             testID={testID}
         >
             <Text
-                className={`max-w-full text-center text-[16px] font-semibold leading-[22px] ${resolvedIsDarkMode ? 'text-neutral-100' : 'text-neutral-900'}`}
+                className={`max-w-full text-center font-semibold ${compact ? 'text-[14px] leading-[20px]' : 'text-[16px] leading-[22px]'} ${resolvedIsDarkMode ? 'text-neutral-100' : 'text-neutral-900'}`}
                 ellipsizeMode="tail"
                 numberOfLines={1}
                 style={textStyle}

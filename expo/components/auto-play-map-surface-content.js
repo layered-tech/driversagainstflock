@@ -8,6 +8,7 @@ import {
     useState,
 } from 'react';
 import { AppState, Dimensions, Platform, View } from 'react-native';
+import { useAndroidAutoMarkers } from './use-android-auto-markers';
 import { getAutoPlayAlertSurfaceVisibility } from './auto-play-alert-surface-visibility';
 import {
     AutoPlayPresenceDebugGeometry,
@@ -445,6 +446,8 @@ function useAutoPlayMapController({
     navigationRoute = null,
     cameraDebugStateUpdatesEnabled = false,
     drivingMapViewMode = DRIVING_MAP_VIEW_PERSPECTIVE,
+    followPitch,
+    followZoomOffset,
     initialCameraSettings,
     isDrivingMode,
     locationUpdatesEnabled = true,
@@ -661,6 +664,8 @@ function useAutoPlayMapController({
         clampZoomLevel,
         currentZoomRef,
         ...getDrivingMapViewFollowConfiguration(drivingMapViewMode),
+        followPitch,
+        followZoomOffset,
         followIsEnabled:
             !presenceCameraIsLocked &&
             drivingMapViewMode !== DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
@@ -922,18 +927,26 @@ function useAutoPlayMapController({
             !cameraUpdatesAreAllowed() ||
             !locationAccessGranted ||
             !userLocation ||
-            mapBrowsingContextIsActiveRef.current ||
-            locationTrackingModeRef.current !== LOCATION_TRACKING_NONE
+            mapBrowsingContextIsActiveRef.current
         ) {
             return;
         }
 
         if (isDrivingMode) {
-            followLocationMode.start(userLocation);
+            if (locationTrackingModeRef.current === LOCATION_TRACKING_NONE) {
+                followLocationMode.start(userLocation);
+            } else {
+                followLocationMode.handleLocationUpdate(
+                    locationTrackingModeRef.current,
+                    userLocation,
+                );
+            }
             return;
         }
 
-        lockOnLocationMode.start(userLocation);
+        if (locationTrackingModeRef.current === LOCATION_TRACKING_NONE) {
+            lockOnLocationMode.start(userLocation);
+        }
     }, [
         cameraUpdatesAreAllowed,
         followLocationMode,
@@ -1738,8 +1751,8 @@ function useAutoPlayMapController({
     const isFollowing = locationTrackingMode === LOCATION_TRACKING_FOLLOW;
     const drivingRecenterIsVisible =
         isDrivingMode &&
-        isFollowing &&
-        followLocationMode.recenterActionIsNeeded;
+        (!nativeCameraFollowProps.enabled ||
+            followLocationMode.recenterActionIsNeeded);
 
     return {
         cameraRef,
@@ -1783,14 +1796,18 @@ export function AutoPlayMapSurfaceContent({
     colorScheme,
     id,
     platformConfig,
+    stateOverride,
     windowInfo,
 }) {
     const {
         applyWindowScaleToMapGestures,
         currentRoadPill,
+        followPitch,
+        followZoomOffset,
         hideCompassDuringNavigation,
         hideMapboxCompass,
         hostOwnsNavigationUI,
+        isClusterMapSurface = false,
         ornamentSafeAreaLeftScale,
         speedLimitBadge,
         usesHostColorSchemeForAutomaticMapPreset,
@@ -1798,7 +1815,8 @@ export function AutoPlayMapSurfaceContent({
         ...DEFAULT_AUTO_PLAY_SURFACE_PLATFORM_CONFIG,
         ...platformConfig,
     };
-    const autoPlayState = useAutoPlayState();
+    const sharedAutoPlayState = useAutoPlayState();
+    const autoPlayState = stateOverride ?? sharedAutoPlayState;
     const isRootMapSurface = !id || id === AUTO_PLAY_ROOT_MODULE_ID;
     const isDashboardMapSurface = id === AUTO_PLAY_CARPLAY_DASHBOARD_MODULE_ID;
     const { rendersDrivingStatus, rendersSpeedLimit } =
@@ -1824,6 +1842,7 @@ export function AutoPlayMapSurfaceContent({
     const mockWazePoliceAlertsEnabled = useMockWazePoliceAlertsEnabled();
     const alertSurfaceVisibility = getAutoPlayAlertSurfaceVisibility({
         isDashboardMapSurface,
+        isClusterMapSurface,
         isRootMapSurface,
         policeAlertsVisible:
             mapPreferences.policeAlertsVisible || mockWazePoliceAlertsEnabled,
@@ -1952,6 +1971,8 @@ export function AutoPlayMapSurfaceContent({
                 debugOverlaysAreVisible,
             }),
         drivingMapViewMode,
+        followPitch,
+        followZoomOffset,
         initialCameraSettings: mapPreferences.initialCameraSettings,
         isDrivingMode,
         locationUpdatesEnabled: isRootMapSurface,
@@ -1965,6 +1986,16 @@ export function AutoPlayMapSurfaceContent({
         userLocation: mapPreferences.userLocation,
         followViewportAnchorY,
         viewportMetrics,
+    });
+    useAndroidAutoMarkers({
+        enabled:
+            Platform.OS === 'android' &&
+            (isRootMapSurface || isClusterMapSurface) &&
+            alertSurfaceVisibility.surveillanceMarkersVisible &&
+            !mapBrowsingContextIsActive &&
+            controller.nativeCameraFollowProps.enabled,
+        userLocation: mapPreferences.userLocation,
+        scheduleMarkerLoad: markerLoader.scheduleMarkerLoad,
     });
     const handleDrivingMapViewPress = useCallback(() => {
         if (
@@ -2123,10 +2154,20 @@ export function AutoPlayMapSurfaceContent({
             viewport: viewportMetrics,
             controller,
         });
-    const directionsRouteFeatureCollection = useMemo(
-        () => makeDirectionsRouteFeatureCollection(displayedDirectionsRoute),
-        [displayedDirectionsRoute],
-    );
+    const directionsRouteFeatureCollection = useMemo(() => {
+        const collection = makeDirectionsRouteFeatureCollection(
+            displayedDirectionsRoute,
+        );
+
+        return isClusterMapSurface
+            ? {
+                  ...collection,
+                  features: collection.features.filter(
+                      (feature) => feature.properties.selected === true,
+                  ),
+              }
+            : collection;
+    }, [displayedDirectionsRoute, isClusterMapSurface]);
     const directionsDebugFeatureCollection = useMemo(
         () =>
             makeDirectionsDebugFeatureCollection(
@@ -2152,8 +2193,13 @@ export function AutoPlayMapSurfaceContent({
         [debugOverlayVisibility, electronicHorizon],
     );
     const directionsWaypointMarkers = useMemo(
-        () => makeAutoPlayDirectionsWaypointMarkers(displayedDirectionsRoute),
-        [displayedDirectionsRoute],
+        () =>
+            isClusterMapSurface
+                ? []
+                : makeAutoPlayDirectionsWaypointMarkers(
+                      displayedDirectionsRoute,
+                  ),
+        [displayedDirectionsRoute, isClusterMapSurface],
     );
     const initialCameraSettings = useMemo(
         () =>
@@ -2198,7 +2244,9 @@ export function AutoPlayMapSurfaceContent({
         isDrivingMode,
         mapLightPreset,
         // Keep the Android Auto status views in the map's render hierarchy.
-        mapTextureViewIsRequired: Platform.OS === 'android' && isRootMapSurface,
+        mapTextureViewIsRequired:
+            Platform.OS === 'android' &&
+            (isRootMapSurface || isClusterMapSurface),
         mapPreferences,
         markerFeatureCollection,
         navigationPuckSize,
@@ -2557,7 +2605,7 @@ export function AutoPlayMapSurfaceContent({
                         : '#f5f5f5',
                 }}
             >
-                <MapCanvas>
+                <MapCanvas weatherEffectsEnabled={!isClusterMapSurface}>
                     <AutoPlayPresenceHighlight node={presenceNode} />
                     <AutoPlayPresenceDebugGeometry
                         shape={presenceDebugGeometry}
@@ -2570,6 +2618,10 @@ export function AutoPlayMapSurfaceContent({
                     confirmationIsActive={controller.presenceCameraIsLocked}
                     activeDirectionsRoute={activeDirectionsRoute}
                     currentRoadPill={currentRoadPill}
+                    currentRoadPillIsVisible={
+                        (rendersAppOverlays || isClusterMapSurface) &&
+                        !searchResultsMapIsActive
+                    }
                     drivingStatusIsVisible={
                         mapContentVisibility.drivingStatusIsVisible &&
                         shouldShowDrivingMapStatus(drivingMapViewMode)

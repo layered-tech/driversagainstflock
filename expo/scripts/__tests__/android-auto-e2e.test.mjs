@@ -115,7 +115,8 @@ describe('Android Auto E2E helpers', () => {
             });
         runner.confirmationCameraFrames = ['a', 'b', 'c', 'd', 'e', 'f'];
         runner.report = () => {};
-        runner.mapCropPixelDifference = () => 0.001;
+        runner.mapCropPixelDifference = (first) =>
+            first === 'baseline' ? 0.1 : 0.001;
         runner.assertConfirmationCameraStable('baseline');
         runner.mapCropPixelDifference = (_, name) =>
             name === 'c' ? 0.2 : 0.001;
@@ -146,7 +147,13 @@ describe('Android Auto E2E helpers', () => {
         const runner = Object.create(Runner.prototype);
         const calls = [];
         runner.screenshots = new Map([
-            ['confirmation', { imagePath: '/tmp/current-confirmation.png' }],
+            [
+                'confirmation',
+                {
+                    imagePath: '/tmp/current-confirmation.png',
+                    textBounds: [{ text: 'Not there', x: 257, y: 224 }],
+                },
+            ],
         ]);
         runner.ocrBinary = '/tmp/ocr';
         runner.metroOutput = 'old native action';
@@ -165,10 +172,6 @@ describe('Android Auto E2E helpers', () => {
             waitForPresentation: '[E2E] presence:native-thanks-presented',
         });
         assert.deepEqual(calls, [
-            [
-                '/tmp/ocr',
-                ['--text-bounds', '/tmp/current-confirmation.png', 'Not there'],
-            ],
             'tap 257 224',
             [
                 '[E2E] presence:native-not-there-pressed',
@@ -181,6 +184,11 @@ describe('Android Auto E2E helpers', () => {
                 10000,
             ],
         ]);
+        await assert.rejects(
+            runner.tapOcrAction({ screenshot: 'confirmation', text: 'Ok' }),
+            /Text was not found in screenshot: Ok/,
+        );
+        assert.equal(calls.length, 3);
     });
 
     test('native reports must be unique, negative and identify the actual mapped camera', () => {
@@ -354,7 +362,7 @@ describe('Android Auto E2E helpers', () => {
             portrait.dhuConfig,
             'config/android-auto-dhu-portrait.ini',
         );
-        assert.deepEqual(portrait.touchOffset, { x: 439, y: 0 });
+        assert.deepEqual(portrait.touchOffset, { x: 364, y: 0 });
         assert.notDeepEqual(portrait.layouts, landscape.layouts);
     });
 
@@ -371,15 +379,20 @@ describe('Android Auto E2E helpers', () => {
         runner.carLayout = 'dashboard';
         const commands = [];
         runner.sendDhu = (command) => commands.push(command);
-        runner.tapDhu({ x: 482, y: 1040 });
-        runner.tapDhu({ x: 858, y: 1040 });
+        for (const layout of ['dashboard', 'fullscreen']) {
+            const target = runner.suite.layouts[layout].activateTap;
+            const toolbar = runner.suite.hostLayoutCrop;
+            assert.ok(target.y >= toolbar.y);
+            assert.ok(target.y <= toolbar.y + toolbar.height);
+            runner.tapDhu(target);
+        }
         runner.tapDhu({ x: 635, y: 123 });
         await runner.runStep({ type: 'tapMap' });
         assert.deepEqual(commands, [
-            'tap 43 1040',
-            'tap 419 1040',
-            'tap 196 123',
-            'tap 651 380',
+            'tap 59 991',
+            'tap 494 991',
+            'tap 271 123',
+            'tap 726 380',
         ]);
     });
 
@@ -402,12 +415,6 @@ describe('Android Auto E2E helpers', () => {
             maps,
             /resolution = 1280x720\ndpi = 160\nmarginheight = 220\ncropmargins = true/,
         );
-        for (const config of [basic, maps]) {
-            assert.match(
-                config,
-                /resolution = 1920x1080\ndpi = 160\nmarginwidth = 878\nnormalizedpi = true\ncropmargins = true/,
-            );
-        }
         for (const path of ['../../package.json', '../../../package.json']) {
             const { scripts } = JSON.parse(
                 readFileSync(new URL(path, import.meta.url), 'utf8'),
@@ -422,6 +429,39 @@ describe('Android Auto E2E helpers', () => {
             );
         }
     });
+
+    for (const version of ['2.0', '2.1']) {
+        test(`matches the captured Terrain primary display in DHU ${version}`, () => {
+            const config = readFileSync(
+                new URL(
+                    `../../config/android-auto-dhu-portrait${version === '2.1' ? '-2.1' : ''}.ini`,
+                    import.meta.url,
+                ),
+                'utf8',
+            );
+            const primary = config.split('[general]')[1].split('[display:')[0];
+            const settings = Object.fromEntries(
+                primary
+                    .trim()
+                    .split('\n')
+                    .map((line) => line.split(' = ')),
+            );
+            const [width, height] = settings.resolution.split('x').map(Number);
+            const [top, bottom, left, right] = settings.margins
+                .split(',')
+                .map(Number);
+
+            assert.deepEqual(
+                [width - left - right, height - top - bottom],
+                [1191, 1080],
+            );
+            assert.equal(settings.dpi, '159');
+            assert.equal(settings.contentinsets, '15,49,15,15');
+            assert.equal(settings.stablecontentinsets, settings.contentinsets);
+            assert.equal(settings.normalizedpi, 'true');
+            assert.equal(settings.cropmargins, 'true');
+        });
+    }
 
     test('finds semantic Android Auto menu nodes', () => {
         const xml = `

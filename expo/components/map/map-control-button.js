@@ -7,6 +7,8 @@ export function MapControlButton({
     children,
     className,
     glassTintColor = '#ffffffcc',
+    glassColorScheme = 'auto',
+    glassBorderClassName = 'border-white/45',
     style,
     ...pressableProps
 }) {
@@ -29,8 +31,8 @@ export function MapControlButton({
 
     return (
         <NativeWindGlassView
-            className="border-hairline h-12 w-12 items-center justify-center overflow-hidden rounded-dafSm border-white/45 shadow-[0px_4px_14px_rgba(11,14,18,0.18)]"
-            colorScheme="auto"
+            className={`h-12 w-12 items-center justify-center overflow-hidden rounded-dafSm border-hairline shadow-[0px_4px_14px_rgba(11,14,18,0.18)] ${glassBorderClassName}`}
+            colorScheme={glassColorScheme}
             glassEffectStyle="regular"
             isInteractive
             style={dimensionStyle}

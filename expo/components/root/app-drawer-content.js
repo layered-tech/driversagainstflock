@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { useAreas } from '../areas/areas-context';
 import {
     DrawerContentScrollView,
     DrawerItem,
@@ -102,6 +103,7 @@ function DrawerNavigationItem({
 }
 
 export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
+    const { unreadCount } = useAreas();
     const { debugOverlayIsVisible, mapPreferencesAreLoaded } =
         useSharedMapState();
     const {
@@ -209,7 +211,11 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
         props.navigation.closeDrawer();
     };
     const handleDrawerRoutePress = (routeName) => {
-        props.navigation.navigate(routeName);
+        if (routeName === 'areas') {
+            props.navigation.navigate('areas', { screen: 'index' });
+        } else {
+            props.navigation.navigate(routeName);
+        }
         props.navigation.closeDrawer();
     };
 
@@ -268,6 +274,11 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                             activeRouteName={activeRouteName}
                             isDarkMode={isDarkMode}
                             key={item.routeName}
+                            badge={
+                                item.routeName === 'areas' && unreadCount
+                                    ? `${unreadCount} new`
+                                    : undefined
+                            }
                             onPress={() =>
                                 handleDrawerRoutePress(item.routeName)
                             }

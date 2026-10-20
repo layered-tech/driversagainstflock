@@ -1062,10 +1062,14 @@ export class Runner {
         if (recognizeText)
             await this.waitFor(
                 () => {
-                    const result = this.run(this.ocrBinary, [imagePath], {
-                        allowFailure: true,
-                        timeout: 90000,
-                    });
+                    const result = this.run(
+                        this.ocrBinary,
+                        ['--observations', imagePath],
+                        {
+                            allowFailure: true,
+                            timeout: 90000,
+                        },
+                    );
 
                     if (result.error || result.status !== 0) {
                         return false;
@@ -1077,13 +1081,17 @@ export class Runner {
                 `decodable screenshot ${name}`,
                 120000,
             );
-        const ocr = ocrResult?.stdout.trim() ?? '';
+        const textBounds = ocrResult ? JSON.parse(ocrResult.stdout) : [];
+        const ocr = textBounds
+            .map((observation) => observation.text)
+            .join('\n');
         if (recognizeText)
             writeFileSync(
                 join(this.runDirectory, `${prefix}-${name}.ocr.txt`),
                 `${ocr}\n`,
             );
         const screenshot = {
+            textBounds,
             hash: createHash('sha256')
                 .update(readFileSync(imagePath))
                 .digest('hex'),
@@ -1443,7 +1451,7 @@ export class Runner {
         );
     }
 
-    assertConfirmationCameraStable(name) {
+    assertConfirmationCameraStable() {
         const marker = '[E2E] presence-camera-released ';
         const line = this.metroOutput
             .slice(this.confirmationCameraOutputStart ?? 0)
@@ -1457,10 +1465,11 @@ export class Runner {
         if (this.confirmationCameraFrames.length < 6)
             throw new Error('Missing continuous DHU confirmation frames.');
         let maximumDifference = 0;
+        const baseline = this.confirmationCameraFrames[0];
         for (const frame of this.confirmationCameraFrames) {
             maximumDifference = Math.max(
                 maximumDifference,
-                this.mapCropPixelDifference(name, frame),
+                this.mapCropPixelDifference(baseline, frame),
             );
         }
         if (maximumDifference > 0.01)
@@ -1528,12 +1537,12 @@ export class Runner {
         const screenshot = this.screenshots.get(step.screenshot);
         if (!screenshot)
             throw new Error(`Screenshot was not captured: ${step.screenshot}`);
-        const result = this.run(this.ocrBinary, [
-            '--text-bounds',
-            screenshot.imagePath,
-            step.text,
-        ]);
-        const target = JSON.parse(result.stdout);
+        const target = screenshot.textBounds?.find((observation) =>
+            observation.text.toLowerCase().includes(step.text.toLowerCase()),
+        );
+        if (!target) {
+            throw new Error(`Text was not found in screenshot: ${step.text}`);
+        }
         const outputStart = this.metroOutput.length;
         this.tapDhu(target);
         if (step.waitForMetro)
@@ -1753,7 +1762,7 @@ export class Runner {
                 await this.assertPuckIsVisible(step.screenshot);
                 break;
             case 'assertConfirmationCameraStable':
-                this.assertConfirmationCameraStable(step.screenshot);
+                this.assertConfirmationCameraStable();
                 break;
             case 'carLayout':
                 await this.setCarLayout(step.layout);

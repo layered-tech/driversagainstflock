@@ -1,6 +1,8 @@
 <?php
 
 use App\Console\Commands\RefreshMarkerFileCommand;
+use App\Jobs\CheckAreaPushReceipts;
+use App\Jobs\ProcessAreaAlerts;
 use App\Jobs\ReconcileAlprPresenceReports;
 use Illuminate\Support\Facades\Schedule;
 
@@ -26,3 +28,6 @@ foreach (config('moderation.schedules', []) as $kind => $settings) {
 Schedule::job(new ReconcileAlprPresenceReports)->everyFiveMinutes()->withoutOverlapping();
 
 Schedule::command('horizon:snapshot')->everyFiveMinutes();
+
+Schedule::job(new ProcessAreaAlerts)->everyMinute()->withoutOverlapping();
+Schedule::job(new CheckAreaPushReceipts)->everyFiveMinutes()->withoutOverlapping();

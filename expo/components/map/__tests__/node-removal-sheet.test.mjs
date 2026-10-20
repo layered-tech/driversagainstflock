@@ -5,6 +5,7 @@ import { createHookHarness, loadTourModule } from './tour-test-helpers.mjs';
 test('a closed removal sheet can open, cancel, reopen, and close', () => {
     const harness = createHookHarness();
     const calls = [];
+    let colorScheme = 'light';
     const modal = {
         dismiss: () => calls.push('dismiss'),
         present: () => calls.push('present'),
@@ -15,6 +16,7 @@ test('a closed removal sheet can open, cancel, reopen, and close', () => {
             '@gorhom/bottom-sheet': { BottomSheetBackdrop: 'Backdrop' },
             react: harness.react,
             'react-native': {
+                useColorScheme: () => colorScheme,
                 Text: 'Text',
                 View: 'View',
                 useWindowDimensions: () => ({ height: 900 }),
@@ -63,6 +65,15 @@ test('a closed removal sheet can open, cancel, reopen, and close', () => {
         'Do not dismiss a modal before its first presentation',
     );
     const sheet = render(true);
+    assert.equal(sheet.props.backgroundStyle.backgroundColor, '#ffffff');
+    assert.equal(sheet.props.handleIndicatorStyle.backgroundColor, '#D4D9DF');
+    colorScheme = 'dark';
+    const darkSheet = render(true);
+    assert.equal(darkSheet.props.backgroundStyle.backgroundColor, '#161B22');
+    assert.equal(
+        darkSheet.props.handleIndicatorStyle.backgroundColor,
+        '#3A434E',
+    );
     assert.deepEqual(calls, ['present']);
 
     sheet.props.onDismiss();

@@ -45,6 +45,77 @@ function deferred() {
     return { promise, resolve };
 }
 
+test('phone map attachment loads bounds reported before map readiness', () => {
+    const isMapReadyRef = { current: false };
+    const markerLoadsEnabledRef = { current: false };
+    const bounds = { sw: [-88, 41], ne: [-87, 42] };
+    const loads = [];
+    const loaded = callback(
+        readSource('../use-map-location-controller.js'),
+        'handleMapLoaded',
+        {
+            useCallback: (fn) => fn,
+            isMapReadyRef,
+            markerLoadsEnabledRef,
+            setIsMapReady() {},
+            latestMapBoundsRef: { current: bounds },
+            scheduleMarkerLoad: (...args) => {
+                assert.equal(isMapReadyRef.current, true);
+                assert.equal(markerLoadsEnabledRef.current, true);
+                loads.push(args);
+            },
+        },
+    );
+    loaded();
+    assert.deepEqual(loads, [[bounds, 0]]);
+});
+
+test('recenter restores follow mode even when tracking had been stopped', () => {
+    const tracking = [];
+    const ref = { current: false };
+    const recenter = callback(
+        readSource('../../map-follow-location-mode.js'),
+        'recenter',
+        {
+            useCallback: (fn) => fn,
+            cameraUpdatesAreAllowed: () => true,
+            clearUserZoomOverride() {},
+            markerLoadsEnabledRef: ref,
+            setTrackingMode: (mode) => tracking.push(mode),
+            LOCATION_TRACKING_FOLLOW: 'follow',
+            setRecenterNeeded() {},
+            syncNativeFollowZoomLevel() {},
+            userLocationRef: { current: { latitude: 41, longitude: -87 } },
+        },
+    );
+    assert.equal(recenter(), true);
+    assert.deepEqual(tracking, ['follow']);
+    assert.equal(ref.current, true);
+});
+
+test('a delayed recenter location lookup cannot override a newer camera gesture', async () => {
+    const fix = deferred();
+    const generation = { current: 0 };
+    const recenter = callback(
+        readSource('../use-map-location-controller.js'),
+        'handleDrivingRecenterPress',
+        {
+            useCallback: (fn) => fn,
+            manualCameraGenerationRef: generation,
+            locationAccessGranted: true,
+            userLocation: null,
+            findCurrentLocation: () => fix.promise,
+            applyManualCameraMove: () =>
+                assert.fail('stale recenter moved the camera'),
+            followLocationMode: {},
+        },
+    );
+    const pending = recenter();
+    generation.current++;
+    fix.resolve({ latitude: 41, longitude: -87 });
+    await pending;
+});
+
 test('a delayed current-position request cannot overwrite or recenter to an older fix', async () => {
     const source = readSource('../use-device-location.js');
     const fix = deferred();
@@ -314,6 +385,7 @@ test('a direction-step focus pauses phone following before moving and recenter r
     const followLocationMode = {
         pauseUntilRecenter: () => events.push('pause'),
         recenter: (location) => events.push(['recenter', location]),
+        nativeCameraFollowProps: { pitch: 55, padding: {} },
     };
     const releaseRef = {
         current: (options) => (options?.resumeFollow ? true : release.promise),
@@ -356,12 +428,13 @@ test('a direction-step focus pauses phone following before moving and recenter r
         paddingLeft: 12,
         paddingRight: 12,
     };
-    const pending = focus([-87, 41], { padding });
+    const pending = focus([-87, 41], { padding, heading: 270 });
     assert.deepEqual(events, ['pause']);
     release.resolve(true);
     assert.equal(await pending, true);
     assert.deepEqual(events, ['pause', ['focus', [-87, 41]]]);
     assert.deepEqual(cameraStops[0].padding, padding);
+    assert.equal(cameraStops[0].heading, 270);
     const userLocation = { latitude: 40, longitude: -88 };
     const recenter = callback(source, 'handleDrivingRecenterPress', {
         useCallback: (fn) => fn,
@@ -371,8 +444,26 @@ test('a direction-step focus pauses phone following before moving and recenter r
         findCurrentLocation() {},
         locationPuckCameraFollowReleaseRef: releaseRef,
         followLocationMode,
+        applyManualCameraMove,
+        cameraRef: { current: { setCamera: (stop) => cameraStops.push(stop) } },
+        isMapReadyRef: { current: true },
+        pendingCameraStopRef: { current: null },
+        markerLoadsEnabledRef: { current: true },
+        currentZoomRef: { current: 15 },
+        getLocationCoordinate: (location) => [
+            location.longitude,
+            location.latitude,
+        ],
+        LOCATION_CAMERA_USER_ANIMATION_DURATION_MS: 500,
+        LOCATION_ZOOM_LEVEL: 16,
+        clampZoomLevel: (zoom) => zoom,
     });
     await recenter();
+    assert.deepEqual(
+        cameraStops.at(-1).centerCoordinate,
+        [-88, 40],
+        'recenter moves immediately even when native follow does not move the camera',
+    );
     assert.deepEqual(events.at(-1), ['recenter', userLocation]);
     assert.match(
         readSource('../../map-screen.js'),
@@ -391,6 +482,9 @@ test('step previews frame the turn between the measured guidance and collapsed d
         'handleStepFocus',
         {
             useCallback: (fn) => fn,
+            directionsRoute: {},
+            getDirectionsStepHeading: (_route, stepIndex) =>
+                stepIndex === 2 ? 90 : null,
             collapsedHeight: 190,
             guidanceHeight: 88,
             insets: { top: 46, bottom: 34, left: 0, right: 0 },
@@ -412,6 +506,7 @@ test('step previews frame the turn between the measured guidance and collapsed d
             'focus',
             [-87, 41],
             {
+                heading: 90,
                 padding: {
                     paddingTop: 146,
                     paddingBottom: 202,
@@ -553,4 +648,44 @@ test('returning to the phone app refreshes car permission without polling', asyn
     assert.equal(checks, 1);
     cleanup();
     assert.equal(removals, 1);
+});
+
+test('the native map stays mounted when form navigation blurs the map screen', () => {
+    const source = readSource('../../map-screen.js');
+    const ast = parse(source, { sourceType: 'module', plugins: ['jsx'] });
+    let found = false;
+    function visit(node, ancestors = []) {
+        if (!node || typeof node !== 'object') return;
+        if (
+            node.type === 'JSXElement' &&
+            node.openingElement.name?.name === 'MapCanvas'
+        ) {
+            found = true;
+            assert.equal(
+                ancestors.some(
+                    (parent) =>
+                        parent.type === 'ConditionalExpression' &&
+                        parent.test?.name === 'screenIsFocused',
+                ),
+                false,
+            );
+        }
+        for (const value of Object.values(node).flat()) {
+            if (value && typeof value === 'object')
+                visit(value, [...ancestors, node]);
+        }
+    }
+    visit(ast);
+    assert.ok(found);
+    const controller = readSource('../use-map-location-controller.js');
+    assert.doesNotMatch(
+        controller,
+        /isMapReadyRef.current = false/,
+        'blurring a retained map must not reset its camera readiness',
+    );
+    assert.match(
+        controller,
+        /screenIsFocused && appStateIsActive/,
+        'background location updates remain focus-gated',
+    );
 });

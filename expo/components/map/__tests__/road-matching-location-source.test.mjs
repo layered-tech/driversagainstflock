@@ -95,6 +95,7 @@ function createRoadMatchingSessionHarness({
     createRoadMatcherWithHistory = () => null,
     getRoadCoordinateDistanceMeters = () => 0,
     getRoadCorridor = async () => [],
+    getPilotCacheRevision = () => 0,
     predictRoadLookAhead = () => null,
     publishSharedRoadMatchedLocation = () => {},
     publishAcceptedDeviceLocation = () => {},
@@ -111,6 +112,7 @@ function createRoadMatchingSessionHarness({
     const foregroundLocationCallbacks = [];
     const roadCorridorRequests = [];
     const calls = {
+        corridorFailures: [],
         backgroundStartAppStates: [],
         backgroundStarts: 0,
         backgroundStops: 0,
@@ -186,6 +188,7 @@ function createRoadMatchingSessionHarness({
         sourceType: 'module',
     }).code;
     const mockedModules = {
+        '../../lib/crashlytics': { addCrashlyticsLog() {} },
         './shared-road-matched-location': { publishSharedRoadMatchedLocation },
         './accepted-device-location': {
             publishAcceptedDeviceLocation,
@@ -206,8 +209,15 @@ function createRoadMatchingSessionHarness({
                 return platform === 'android' && autoPlaySessionIsConnected;
             },
         },
-        './api': {
-            async getRoadCorridor(options) {
+        './road-corridor-diagnostics': {
+            reportCorridorFailure: (...args) =>
+                calls.corridorFailures.push(args),
+        },
+        './road-corridor-source': { publishCorridorSource: () => false },
+        './road-corridor-pilot': {
+            getCorridorRelease: () => ({ release: 'test-release' }),
+            getPilotCacheRevision,
+            async getPilotRoadCorridor(options) {
                 roadCorridorRequests.push(options);
 
                 return getRoadCorridor(options);
@@ -1153,6 +1163,7 @@ describe('road matching location source integration', () => {
         abortError.name = 'AbortError';
         corridorRequest.reject(abortError);
         await new Promise((resolve) => setImmediate(resolve));
+        assert.deepEqual(harness.calls.corridorFailures, []);
 
         assert.equal(
             harness.calls.performanceSignposts.filter(
@@ -1390,6 +1401,11 @@ describe('road matching location source integration', () => {
 
         refreshRequest.reject(new Error('Refresh unavailable'));
         await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(harness.calls.corridorFailures[0][0], 'graph_load');
+        assert.equal(
+            harness.calls.corridorFailures[0][2].fallback,
+            'retained_graph',
+        );
         harness.foregroundLocationCallbacks[0](makeLocation(41.03, -87.03, 3));
         await new Promise((resolve) => setImmediate(resolve));
 
@@ -1413,4 +1429,34 @@ describe('road matching location source integration', () => {
 
         sessionHandle.remove();
     });
+});
+
+test('new offline tiles refresh a stationary session without waiting for distance movement', async () => {
+    let revision = 0;
+    const harness = createRoadMatchingSessionHarness({
+        createDirectedRoadGraph: createUsableRoadGraph,
+        createRoadMatcherWithHistory: createUpdatingRoadMatcher,
+        getPilotCacheRevision: () => revision,
+        getRoadCorridor: async () => [],
+    });
+    const handle =
+        await harness.roadMatchingSession.retainRoadMatchingSessionAsync();
+    try {
+        await waitFor(() => harness.foregroundLocationCallbacks.length === 1);
+        const update = harness.foregroundLocationCallbacks[0];
+        update(makeLocation(43.05, -89.45, 1000));
+        await waitFor(
+            () =>
+                harness.roadMatchingSession.getRoadMatchingSessionDiagnostics()
+                    .roadGraphLoadCount === 1,
+        );
+        update(makeLocation(43.05, -89.45, 2000));
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(harness.roadCorridorRequests.length, 1);
+        revision++;
+        update(makeLocation(43.05, -89.45, 3000));
+        await waitFor(() => harness.roadCorridorRequests.length === 2);
+    } finally {
+        handle.remove();
+    }
 });

@@ -5,6 +5,7 @@ import { logMapDrivingStopped } from './analytics';
 import {
     createDirectionsRouteProgressTracker,
     getActiveDirectionsManeuver,
+    getDirectionsStepHeading,
     getDirectionsSteps,
     getDirectionsWaypointCoordinate,
     getNextDirectionsManeuver,
@@ -112,31 +113,6 @@ export function DrivingGuidanceOverlay({
     const [containerHeight, setContainerHeight] = useState(windowHeight);
     const [collapsedHeight, setCollapsedHeight] = useState(156 + insets.bottom);
     const [guidanceHeight, setGuidanceHeight] = useState(88);
-    const handleStepFocus = useCallback(
-        (coordinate, stepIndex) => {
-            const didFocus = onStepFocus(coordinate, {
-                padding: {
-                    paddingTop: insets.top + guidanceHeight + 12,
-                    paddingBottom: collapsedHeight + 12,
-                    paddingLeft: insets.left + 12,
-                    paddingRight: insets.right + 12,
-                },
-            });
-            if (didFocus !== false) {
-                setFocusedStepIndex(stepIndex);
-                stepsSheetRef.current?.snapToIndex(0);
-            }
-            return didFocus;
-        },
-        [
-            collapsedHeight,
-            guidanceHeight,
-            insets.top,
-            insets.left,
-            insets.right,
-            onStepFocus,
-        ],
-    );
     const rerouteIsLoading = useSharedNavigationRerouting();
     const [routeProgressTracker] = useState(
         createDirectionsRouteProgressTracker,
@@ -151,6 +127,33 @@ export function DrivingGuidanceOverlay({
     } = useSharedMapState();
     const { userLocation } = useSharedMapLocationState();
     const e2eDrivingAlertsFixture = useE2EDrivingAlertsFixture();
+    const handleStepFocus = useCallback(
+        (coordinate, stepIndex) => {
+            const didFocus = onStepFocus(coordinate, {
+                heading: getDirectionsStepHeading(directionsRoute, stepIndex),
+                padding: {
+                    paddingTop: insets.top + guidanceHeight + 12,
+                    paddingBottom: collapsedHeight + 12,
+                    paddingLeft: insets.left + 12,
+                    paddingRight: insets.right + 12,
+                },
+            });
+            if (didFocus !== false) {
+                setFocusedStepIndex(stepIndex);
+                stepsSheetRef.current?.snapToIndex(0);
+            }
+            return didFocus;
+        },
+        [
+            directionsRoute,
+            collapsedHeight,
+            guidanceHeight,
+            insets.top,
+            insets.left,
+            insets.right,
+            onStepFocus,
+        ],
+    );
     const routeOption = getSelectedDirectionsRouteOption(directionsRoute);
     const routeProgress = useMemo(
         () => routeProgressTracker.update(directionsRoute, userLocation),

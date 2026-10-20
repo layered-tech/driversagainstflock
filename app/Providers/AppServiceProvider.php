@@ -65,6 +65,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->ip());
         });
 
+        RateLimiter::for('area-device-registration', function (Request $request): Limit {
+            return Limit::perMinute(10)->by($request->ip());
+        });
+
+        RateLimiter::for('area-requests', function (Request $request): Limit {
+            return Limit::perMinute(60)->by($request->attributes->get('area_device')->id);
+        });
+
         RateLimiter::for('hotlist', function (Request $request) {
             if ($user = $request->user('sanctum') ?? $request->user()) {
                 return Limit::perMinute(100)->by($user->id);

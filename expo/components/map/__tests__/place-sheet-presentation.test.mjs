@@ -26,3 +26,18 @@ test('does not restart place-sheet presentation retries for detail state changes
         /if \(placeSheetIsOpenRef\.current\) \{\s+placeSheetRef\.current\?\.snapToIndex\(0\);/,
     );
 });
+
+test('queues returning to results until the native place sheet finishes dismissing', () => {
+    assert.match(
+        source,
+        /const requestResultsAfterPlaceDismiss = useCallback\(\(\) => \{[\s\S]*?resultsAfterPlaceDismissRef\.current = true;/,
+    );
+    const dismiss = source.slice(
+        source.indexOf('const handlePlaceSheetDismiss'),
+        source.indexOf('const handleSubmittedSearchResultsSheetDismiss'),
+    );
+    assert.match(
+        dismiss,
+        /if \(resultsAfterPlaceDismissRef\.current\) \{\s+resultsAfterPlaceDismissRef\.current = false;\s+presentSubmittedSearchResultsSheet\(\);/,
+    );
+});

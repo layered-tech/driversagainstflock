@@ -1,0 +1,88 @@
+appId: "${typeof MAESTRO_APP_ID !== 'undefined' ? MAESTRO_APP_ID : 'com.anonymous.drivefree.dev'}"
+name: Anonymous area subscription lifecycle
+---
+- setLocation:
+    latitude: 37.8044
+    longitude: -122.2712
+- runFlow:
+    file: subflows/open-area.yml
+    env:
+      AREA_URL: 'driversagainstflock://areas/add?mode=around'
+- extendedWaitUntil:
+    visible:
+      id: 'area-name-input'
+    timeout: 20000
+- tapOn:
+    id: 'area-name-input'
+- eraseText
+- inputText: 'Area subscription test'
+- hideKeyboard
+- extendedWaitUntil:
+    visible: '.*cameras mapped inside'
+    timeout: 30000
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-area-radius'}
+- tapOn:
+    id: 'watch-area-button'
+- extendedWaitUntil:
+    visible:
+      id: 'area-feed-screen'
+    timeout: 30000
+- assertVisible: 'Area subscription test'
+- tapOn:
+    id: 'area-alert-settings'
+- extendedWaitUntil:
+    visible:
+      id: 'area-alert-mode-off'
+    timeout: 20000
+- assertVisible: 'A camera is added'
+- assertVisible: 'A camera is removed'
+- tapOn:
+    id: 'area-alert-mode-off'
+- runFlow:
+    file: subflows/assert-area-alert-mode.yml
+    env:
+      AREA_ALERT_MODE: 'off'
+- tapOn:
+    id: 'area-alert-mode-instant'
+- runFlow:
+    file: subflows/assert-area-alert-mode.yml
+    env:
+      AREA_ALERT_MODE: 'instant'
+- tapOn:
+    id: 'area-alert-mode-daily'
+- runFlow:
+    file: subflows/assert-area-alert-mode.yml
+    env:
+      AREA_ALERT_MODE: 'daily'
+- tapOn: 'Change digest time'
+- tapOn:
+    id: 'area-digest-time-input'
+- eraseText
+- inputText: '09:15'
+- copyTextFrom:
+    id: 'area-digest-time-input'
+- assertTrue: ${maestro.copiedText == '09:15'}
+- pressKey: Enter
+- scrollUntilVisible:
+    element: 'Save time'
+    direction: DOWN
+    timeout: 10000
+- tapOn: 'Save time'
+- extendedWaitUntil:
+    notVisible:
+      id: 'area-digest-time-input'
+    timeout: 20000
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-area-alerts-saved'}
+- tapOn:
+    id: 'area-alert-mode-off'
+- runFlow:
+    file: subflows/assert-area-alert-mode.yml
+    env:
+      AREA_ALERT_MODE: 'off'
+- tapOn:
+    id: 'stop-watching-area'
+- extendedWaitUntil:
+    visible:
+      id: 'areas-screen'
+    timeout: 20000
+- assertNotVisible: 'Area subscription test'

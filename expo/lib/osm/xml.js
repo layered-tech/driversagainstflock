@@ -75,6 +75,7 @@ export function buildOsmChangeXML({
     changesetId,
     generator,
     nodes = [],
+    modifiedNodes = [],
     deletedNodes = [],
 }) {
     const created = nodes.length
@@ -83,8 +84,11 @@ export function buildOsmChangeXML({
     const deleted = deletedNodes.length
         ? `<delete>${deletedNodes.map((node) => buildDeletedNodeElement(changesetId, node)).join('')}</delete>`
         : '';
+    const modified = modifiedNodes.length
+        ? `<modify>${modifiedNodes.map((node) => `<node id="${escapeXML(node.id)}" changeset="${escapeXML(changesetId)}" version="${escapeXML(node.version)}" lat="${Number(node.latitude).toFixed(7)}" lon="${Number(node.longitude).toFixed(7)}">${buildTagElements(node.tags)}</node>`).join('')}</modify>`
+        : '';
 
-    return `<osmChange version="0.6" generator="${escapeXML(generator)}">${created}${deleted}</osmChange>`;
+    return `<osmChange version="0.6" generator="${escapeXML(generator)}">${created}${modified}${deleted}</osmChange>`;
 }
 
 export function parseChangesetCreateResponse(text) {

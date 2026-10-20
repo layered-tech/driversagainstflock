@@ -1,6 +1,6 @@
 import { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Text, useWindowDimensions, View } from 'react-native';
+import { Text, useColorScheme, useWindowDimensions, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
 import { REMOVAL_REASONS } from '../../lib/osm/edit-tags';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
@@ -33,6 +33,7 @@ function getRemoveSheetSubtitle(node) {
 export function RemoveCameraSheet({ isOpen, node, onDismiss, onStaged }) {
     const { height: windowHeight } = useWindowDimensions();
     const insets = useSafeAreaInsets();
+    const isDarkMode = useColorScheme() === 'dark';
     const { user } = useAuth();
     const { stageRemoval } = useContribute();
     const sheetRef = useRef(null);
@@ -111,11 +112,15 @@ export function RemoveCameraSheet({ isOpen, node, onDismiss, onStaged }) {
         <NativeWindBottomSheetModal
             ref={sheetRef}
             backdropComponent={renderBackdrop}
-            backgroundClassName="dark:bg-daf-surface-dark bg-white"
+            backgroundStyle={{
+                backgroundColor: isDarkMode ? '#161B22' : '#ffffff',
+            }}
             enableDynamicSizing
             enableOverDrag={false}
             enablePanDownToClose={!isRemoving}
-            handleIndicatorClassName="bg-daf-border-strong dark:bg-[#3A434E]"
+            handleIndicatorStyle={{
+                backgroundColor: isDarkMode ? '#3A434E' : '#D4D9DF',
+            }}
             index={0}
             maxDynamicContentSize={windowHeight * 0.85}
             onDismiss={handleSheetDismiss}
@@ -125,12 +130,12 @@ export function RemoveCameraSheet({ isOpen, node, onDismiss, onStaged }) {
                 testID="remove-camera-sheet"
             >
                 <View
-                    className="gap-4 px-6 pt-1"
+                    className="gap-4 px-4 pt-1"
                     style={{ paddingBottom: Math.max(insets.bottom + 12, 20) }}
                 >
                     <View className="gap-1">
                         <Text className="font-dafDisplay text-[21px] font-bold leading-7 text-daf-text-primary dark:text-white">
-                            Remove this camera?
+                            Delete this camera?
                         </Text>
                         <Text
                             className="font-dafMono text-[13px] text-daf-text-secondary dark:text-neutral-300"
@@ -141,7 +146,7 @@ export function RemoveCameraSheet({ isOpen, node, onDismiss, onStaged }) {
                     </View>
                     <View>
                         <DafSectionLabel className="mb-2">
-                            Why remove it?
+                            Why delete it?
                         </DafSectionLabel>
                         <View className="flex-row flex-wrap gap-2">
                             {REMOVAL_REASONS.map((removalReason) => (
@@ -170,12 +175,13 @@ export function RemoveCameraSheet({ isOpen, node, onDismiss, onStaged }) {
                             />
                         </View>
                         <Text className="min-w-0 flex-1 text-xs leading-[18px] text-daf-text-secondary dark:text-neutral-300">
-                            This removal will be published with your other
-                            changes after review, credited to{' '}
+                            Staged in your changeset — it leaves OpenStreetMap
+                            only when you publish. Deletions are public and
+                            credited to{' '}
                             <Text className="font-bold text-daf-text-primary dark:text-white">
                                 @{userName}
                             </Text>
-                            . You can undo it before publishing.
+                            .
                         </Text>
                     </View>
                     {removeError ? (
@@ -195,7 +201,7 @@ export function RemoveCameraSheet({ isOpen, node, onDismiss, onStaged }) {
                             testID="remove-camera-confirm-button"
                             variant="danger"
                         >
-                            Add to changeset
+                            Stage deletion
                         </DafButton>
                         <View className="h-2.5" />
                         <DafButton

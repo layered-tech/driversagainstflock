@@ -18,6 +18,11 @@ import {
 
 import { createHookHarness, loadTourModule } from './tour-test-helpers.mjs';
 import { getVisibleTourStep } from '../../tour-progress.js';
+import { getChangesetSummary } from '../../contribute/changeset-summary.js';
+import {
+    getCameraChangeLabel,
+    getCameraFormTags,
+} from '../../../lib/osm/camera-presets.js';
 
 function loadComponent(file, mocks, scheduler) {
     return loadTourModule(
@@ -139,8 +144,14 @@ function getTourOverlays(tree) {
     ];
 }
 
-function createDebugDrawerHarness(reset, featureTours = {}) {
+function createDebugDrawerHarness(
+    reset,
+    featureTours = {},
+    { openTours = true, overlays = {}, preferencesLoaded = true } = {},
+) {
     const hooks = createHookHarness();
+    const overlayChanges = [];
+    const routes = [];
     let closeCount = 0;
     const tour = { progress: createContributeTourProgress(), reset };
     const debugKeys = [
@@ -156,8 +167,13 @@ function createDebugDrawerHarness(reset, featureTours = {}) {
         'WAZE',
     ];
     const { DebugDrawer } = loadComponent('../root/debug-drawer.js', {
+        'expo-router': {
+            useRouter: () => ({ push: (route) => routes.push(route) }),
+        },
         react: { ...hooks.react, Fragment: 'Fragment' },
         'react-native': {
+            KeyboardAvoidingView: 'KeyboardAvoidingView',
+            Platform: { OS: 'android' },
             Animated: {
                 Value: class {
                     interpolate() {
@@ -181,6 +197,8 @@ function createDebugDrawerHarness(reset, featureTours = {}) {
         '@fortawesome/free-solid-svg-icons': Object.fromEntries(
             [
                 'faCamera',
+                'faChevronDown',
+                'faChevronRight',
                 'faCodeBranch',
                 'faCrosshairs',
                 'faLocationDot',
@@ -211,31 +229,44 @@ function createDebugDrawerHarness(reset, featureTours = {}) {
         ),
         '../map/shared-map-state': {
             useSharedMapState: () => ({
-                mapPreferencesAreLoaded: true,
-                debugOverlayVisibility: {},
+                mapPreferencesAreLoaded: preferencesLoaded,
+                debugOverlayVisibility: overlays,
+                setDebugOverlayVisibility: (key, value) => {
+                    overlays[key] = value;
+                    overlayChanges.push([key, value]);
+                },
             }),
         },
         '../map/upcoming-alert-debug-pane': {
             UpcomingAlertDebugPane: 'UpcomingAlertDebugPane',
         },
         '../map/weather-debug-pane': { WeatherDebugPane: 'WeatherDebugPane' },
+        '../map/road-corridor-status': {
+            RoadCorridorStatus: 'RoadCorridorStatus',
+        },
         './debug-drawer-toggle-row': {
             DebugDrawerToggleRow: 'DebugDrawerToggleRow',
         },
     });
 
+    const render = () =>
+        hooks.render(() =>
+            DebugDrawer({
+                visible: true,
+                onClose: () => {
+                    closeCount += 1;
+                },
+            }),
+        );
+    if (openTours) {
+        findElement(render(), 'debug-drawer-section-tours').props.onPress();
+    }
     return {
         tour,
+        overlayChanges,
+        routes,
         closeCount: () => closeCount,
-        render: () =>
-            hooks.render(() =>
-                DebugDrawer({
-                    visible: true,
-                    onClose: () => {
-                        closeCount += 1;
-                    },
-                }),
-            ),
+        render,
     };
 }
 
@@ -258,6 +289,9 @@ function createScreenHarness() {
         removals: [],
         continueOnMap() {},
         removeRemoval() {},
+        removePin() {},
+        updatePinDetails() {},
+        updatePinLocation() {},
         pins: [
             {
                 id: 'camera-1',
@@ -291,6 +325,12 @@ function createScreenHarness() {
         },
     };
     const mocks = {
+        './changeset-summary': { getChangesetSummary },
+        '../../lib/osm/camera-presets': {
+            getCameraChangeLabel,
+            getCameraFormTags,
+        },
+        './camera-form': { CameraForm: 'CameraForm' },
         react: {
             useCallback: (callback) => callback,
             useEffect() {},
@@ -298,6 +338,8 @@ function createScreenHarness() {
             useState: (initial) => [initial, () => {}],
         },
         'react-native': {
+            KeyboardAvoidingView: 'KeyboardAvoidingView',
+            Platform: { OS: 'android' },
             Alert: { alert() {} },
             BackHandler: { addEventListener: () => ({ remove() {} }) },
             Pressable: 'Pressable',
@@ -349,6 +391,7 @@ function createScreenHarness() {
         '../map/native-components': {
             NativeWindBottomSheetModal: 'BottomSheetModal',
             NativeWindBottomSheetView: 'View',
+            NativeWindBottomSheetScrollView: 'ScrollView',
         },
         '../map/use-bottom-sheet-presented-state': {
             useBottomSheetPresentedState: () => ({
@@ -608,6 +651,97 @@ describe('first contribution walkthrough', () => {
 
         assert.equal(harness.render().progress, null);
         assert.equal(harness.writes.length, 0);
+    });
+});
+
+describe('grouped debug menu', () => {
+    function rows(tree) {
+        if (!tree || typeof tree !== 'object') return [];
+        return [
+            ...(tree.type === 'DebugDrawerToggleRow' ? [tree] : []),
+            ...[tree.props?.children].flat(Infinity).flatMap(rows),
+        ];
+    }
+
+    test('starts compact, exposes every overlay once, and keeps enabled overlays on when collapsed', () => {
+        const harness = createDebugDrawerHarness(
+            async () => {},
+            {},
+            { openTours: false },
+        );
+        const groups = [
+            'camera',
+            'navigation',
+            'alerts',
+            'weather',
+            'app',
+            'tours',
+        ];
+        assert.equal(rows(harness.render()).length, 0);
+        for (const id of groups) {
+            const header = findElement(
+                harness.render(),
+                `debug-drawer-section-${id}`,
+            );
+            assert.equal(header.props.accessibilityState.expanded, false);
+            header.props.onPress();
+            assert.ok(
+                findElement(
+                    harness.render(),
+                    `debug-drawer-section-${id}-content`,
+                ),
+            );
+        }
+        const controls = rows(harness.render());
+        assert.equal(controls.length, 10);
+        assert.equal(
+            new Set(controls.map(({ props }) => props.item.key)).size,
+            10,
+        );
+        for (const control of controls) control.props.onValueChange(true);
+        assert.equal(harness.overlayChanges.length, 10);
+        assert.match(
+            findElement(harness.render(), 'debug-drawer-section-camera').props
+                .accessibilityLabel,
+            /2 overlays on/,
+        );
+        findElement(
+            harness.render(),
+            'debug-drawer-section-camera',
+        ).props.onPress();
+        assert.equal(
+            findElement(
+                harness.render(),
+                'debug-drawer-section-camera-content',
+            ),
+            null,
+        );
+        assert.equal(harness.overlayChanges.length, 10);
+        findElement(
+            harness.render(),
+            'debug-drawer-section-camera',
+        ).props.onPress();
+        assert.ok(rows(harness.render()).every(({ props }) => props.isEnabled));
+        findElement(
+            harness.render(),
+            'debug-camera-marker-preview',
+        ).props.onPress();
+        assert.deepEqual(harness.routes, ['/camera-marker-preview']);
+        assert.equal(harness.closeCount(), 1);
+    });
+
+    test('grouped overlays still wait for stored preferences before writing', () => {
+        const harness = createDebugDrawerHarness(
+            async () => {},
+            {},
+            { openTours: false, preferencesLoaded: false },
+        );
+        findElement(
+            harness.render(),
+            'debug-drawer-section-app',
+        ).props.onPress();
+        rows(harness.render())[0].props.onValueChange(true);
+        assert.deepEqual(harness.overlayChanges, []);
     });
 });
 
@@ -1168,7 +1302,8 @@ describe('contribution screen integration', () => {
         );
         const tree = CameraDetailsScreen();
         harness.focusEffects.forEach((effect) => effect());
-        assert.ok(findElement(tree, 'contribute-camera-details-screen'));
+        assert.equal(tree.type, 'CameraForm');
+        assert.equal(tree.props.pin.id, 'camera-1');
         assert.deepEqual(harness.routes, []);
     });
     test('an empty camera screen opens the pending removal changeset', () => {
@@ -1255,7 +1390,7 @@ describe('contribution screen integration', () => {
         assert.deepEqual(harness.dismissals, ['start']);
     });
 
-    test('placement guidance follows actual pins and the existing Next action', () => {
+    test('staged changes proceed directly to changeset details', () => {
         const harness = createScreenHarness();
         const { ContributePlacementSheet } = harness.screen(
             'contribute-placement-sheet.js',
@@ -1265,6 +1400,7 @@ describe('contribution screen integration', () => {
                 insets: { bottom: 10 },
                 mapPreferencesAreLoaded: true,
                 screenIsFocused: true,
+                tourTargets: { current: {} },
             });
         const pins = harness.contribution.pins;
         harness.contribution.pins = [];
@@ -1277,47 +1413,28 @@ describe('contribution screen integration', () => {
         harness.contribution.pins = pins;
         assert.equal(getTourOverlays(render())[0].enabled, true);
         findElement(render(), 'contribute-next-details-button').props.onPress();
-
-        assert.deepEqual(harness.routes, ['/contribute/camera/0']);
-        assert.deepEqual(harness.dismissals, [
-            'placement-map',
-            'placement',
-            'placed',
-        ]);
+        assert.deepEqual(harness.routes, ['/contribute/changeset']);
+        assert.deepEqual(harness.dismissals, ['placed']);
     });
 
-    test('teaches camera details and directions once while retaining per-camera navigation', () => {
+    test('saving a camera stages it and returns to map editing', () => {
         const harness = createScreenHarness();
+        let patch;
+        harness.contribution.updatePinDetails = (id, next) => {
+            patch = { id, next };
+        };
         const { default: CameraDetailsScreen } = harness.screen(
             'camera-details-screen.js',
         );
-        assert.ok(
-            getTourOverlays(CameraDetailsScreen()).every(
-                (card) =>
-                    card.enabled && card.tour === harness.contribution.tour,
-            ),
-        );
-        findElement(
-            CameraDetailsScreen(),
-            'contribute-next-changeset-button',
-        ).props.onPress();
-
-        assert.deepEqual(harness.routes, ['/contribute/camera/1']);
+        const tree = CameraDetailsScreen();
+        assert.equal(tree.props.tour, harness.contribution.tour);
+        tree.props.onSave();
+        assert.deepEqual(patch, { id: 'camera-1', next: { staged: true } });
+        assert.deepEqual(harness.routes, ['/']);
         assert.deepEqual(
             harness.dismissals,
             CONTRIBUTE_TOUR_PHASE_STEPS.camera,
         );
-        harness.params.index = '1';
-        assert.ok(
-            getTourOverlays(CameraDetailsScreen()).every(
-                (card) => !card.enabled,
-            ),
-        );
-        findElement(
-            CameraDetailsScreen(),
-            'contribute-next-changeset-button',
-        ).props.onPress();
-        assert.equal(harness.routes.at(-1), '/contribute/changeset');
     });
 
     test('requires the real comment before proceeding to review', () => {
@@ -1352,26 +1469,23 @@ describe('contribution screen integration', () => {
         assert.deepEqual(harness.dismissals, ['changeset', 'source']);
     });
 
-    test('changeset details count removals and retain additions-only wording', () => {
+    test('changeset details summarize added and deleted nodes', () => {
         const harness = createScreenHarness();
         const { default: ChangesetDetailsScreen } = harness.screen(
             'changeset-details-screen.js',
         );
-        assert.match(
-            JSON.stringify(ChangesetDetailsScreen()),
-            /will be added to OpenStreetMap/,
-        );
+        assert.match(JSON.stringify(ChangesetDetailsScreen()), /added/);
         harness.contribution.pins = [];
         harness.contribution.removals = [
             { id: 123, version: 2, reason: 'gone' },
         ];
         harness.contribution.changeset.comment = 'Removed a missing camera';
         const tree = ChangesetDetailsScreen();
-        assert.equal(
+        assert.deepEqual(
             findElement(tree, 'contribute-node-count').props.children,
-            '1 node',
+            [1, ' changes'],
         );
-        assert.match(JSON.stringify(tree), /will be changed on OpenStreetMap/);
+        assert.match(JSON.stringify(tree), /deleted/);
         assert.equal(
             findElement(tree, 'contribute-next-review-button').props.disabled,
             false,
@@ -1409,7 +1523,7 @@ describe('contribution screen integration', () => {
         );
     });
 
-    test('undoing the last removal disables publishing the empty changeset', () => {
+    test('undoing the last staged removal disables publishing the empty changeset', () => {
         const harness = createScreenHarness();
         harness.contribution.pins = [];
         harness.contribution.removals = [
@@ -1426,7 +1540,7 @@ describe('contribution screen integration', () => {
             findElement(tree, 'contribute-publish-button').props.disabled,
             false,
         );
-        findElement(tree, 'contribute-undo-removal-123').props.onPress();
+        harness.contribution.removeRemoval(123);
         assert.equal(
             findElement(ReviewPublishScreen(), 'contribute-publish-button')
                 .props.disabled,

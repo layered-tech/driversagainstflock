@@ -17,6 +17,7 @@ tags:
     when:
       true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
     file: subflows/open-expo-dev-client-after-clear.yml
+- runFlow: subflows/dismiss-first-launch-support.yml
 - extendedWaitUntil:
     visible:
       id: 'map-search-input-map'
@@ -105,6 +106,9 @@ tags:
       - '30.2672, -97.7431'
       - '30.270606, -97.749971'
     speed: 12
+- setLocation:
+    latitude: 30.270606
+    longitude: -97.749971
 - extendedWaitUntil:
     visible: '-97.7499710,30.2706060'
     timeout: 30000
@@ -114,6 +118,9 @@ tags:
       - '30.262012, -97.744842'
       - '30.262520, -97.745886'
     speed: 12
+- setLocation:
+    latitude: 30.262520
+    longitude: -97.745886
 - extendedWaitUntil:
     visible: '-97.7458860,30.2625200'
     timeout: 30000
@@ -125,6 +132,9 @@ tags:
       - '30.262520, -97.745886'
       - '30.2654, -97.7518'
     speed: 12
+- setLocation:
+    latitude: 30.2654
+    longitude: -97.7518
 - extendedWaitUntil:
     visible: '-97.7518000,30.2654000'
     timeout: 30000

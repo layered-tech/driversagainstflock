@@ -39,7 +39,8 @@
       <span style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; font-weight:600; color:var(--text-brand); background:var(--brand-soft); border:1px solid transparent; padding:6px 13px; border-radius:var(--radius-pill);">Scorecard</span>
       <a href="MobileContribute.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Contribute</a>
       <a href="MobileSettings.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Settings</a>
-      <span style="margin-left:auto; display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-pill);"><span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; color:var(--surface-card); background:var(--text-primary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Phone</span><a href="FoldScorecard.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Foldable</a><a href="TabletScorecard.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Tablet</a></span>
+      <a href="MobileAreas.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Areas</a>
+      <span style="margin-left:auto; display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-pill);"><span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; color:var(--surface-card); background:var(--text-primary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Phone</span><a href="FoldScorecard.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Foldable</a><a href="TabletScorecard.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Tablet</a></span><span style="display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-pill);"><button aria-label="Light theme" aria-pressed="{{ isLight }}" onClick="{{ setLight }}" style="display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; border:none; cursor:pointer; color:{{ lightFg }}; background:{{ lightBg }}; padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;" type="button"><svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="14"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>Light</button><button aria-label="Dark theme" aria-pressed="{{ isDark }}" onClick="{{ setDark }}" style="display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; border:none; cursor:pointer; color:{{ darkFg }}; background:{{ darkBg }}; padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;" type="button"><svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="14"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>Dark</button></span>
     </div>
 
     <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">iOS · Scorecard &amp; exposure</div>
@@ -410,15 +411,27 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1600,&quot;height&quot;:900},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;,&quot;section&quot;:&quot;Display&quot;},&quot;score&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:82,&quot;min&quot;:0,&quot;max&quot;:100,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Data&quot;},&quot;mpg&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:28,&quot;min&quot;:10,&quot;max&quot;:60,&quot;unit&quot;:&quot;mpg&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Fuel model&quot;},&quot;gasPrice&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:4.6,&quot;min&quot;:1,&quot;max&quot;:8,&quot;step&quot;:0.05,&quot;unit&quot;:&quot;$/gal&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Fuel model&quot;}}">
 class Component extends DCLogic {
+
+  themeVals() {
+    const theme = this.state.themeOverride ?? this.props.theme ?? 'light';
+    const dark = theme === 'dark';
+    const on = { fg: 'var(--surface-card)', bg: 'var(--text-primary)' }, off = { fg: 'var(--text-secondary)', bg: 'transparent' };
+    return { theme, isDark: dark, isLight: !dark,
+      lightFg: dark ? off.fg : on.fg, lightBg: dark ? off.bg : on.bg, darkFg: dark ? on.fg : off.fg, darkBg: dark ? on.bg : off.bg,
+      setLight: () => this.setTheme('light'), setDark: () => this.setTheme('dark') };
+  }
+  setTheme(t) { try { sessionStorage.setItem('daf-gallery-theme', t); } catch (_) {} this.setState({ themeOverride: t }); }
+  componentDidMount() { try { const t = sessionStorage.getItem('daf-gallery-theme'); if (t && t !== (this.props.theme ?? 'light')) this.setState({ themeOverride: t }); } catch (_) {} if (super.componentDidMount) super.componentDidMount(); }
+  state = { themeOverride: null };
   renderVals() {
-    const theme = this.props.theme ?? 'light';
+    const __tv = this.themeVals(); const theme = __tv.theme;
     const score = Math.max(0, Math.min(100, this.props.score ?? 82));
     const C = 2 * Math.PI * 52;
     const mpg = Math.max(5, this.props.mpg ?? 28);
     const gas = Math.max(0.5, this.props.gasPrice ?? 4.6);
     const monthMi = 14.2, tripMi = 1.0, monthAvoided = 41;
     const brandSoft = 'var(--brand-soft)';
-    return {
+    return { ...__tv,
       theme,
       isDark: theme === 'dark',
       w: 390, h: 844,

@@ -42,12 +42,18 @@ function parseStoredPins(pins) {
             !pin.id ||
             !Number.isFinite(pin.latitude) ||
             !Number.isFinite(pin.longitude) ||
-            !isPlainObject(pin.details)
+            !isPlainObject(pin.details) ||
+            (pin.nodeId !== undefined &&
+                (!Number.isInteger(pin.nodeId) ||
+                    pin.nodeId <= 0 ||
+                    !Number.isInteger(pin.version) ||
+                    pin.version <= 0))
         ) {
             return null;
         }
 
         parsedPins.push({
+            ...(pin.nodeId ? { nodeId: pin.nodeId, version: pin.version } : {}),
             details: pin.details,
             id: pin.id,
             latitude: pin.latitude,

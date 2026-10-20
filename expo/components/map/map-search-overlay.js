@@ -146,6 +146,7 @@ export function MapSearchOverlay({
                     >
                         {searchModeIsDirections ? (
                             <ScrollView
+                                automaticallyAdjustKeyboardInsets
                                 className="shrink"
                                 contentContainerClassName="px-[14px] py-[14px]"
                                 keyboardShouldPersistTaps="handled"
@@ -384,12 +385,12 @@ export function MapSearchOverlay({
                         ) : null}
 
                         {!searchModeIsDirections ? (
-                            <View className="h-[52px] flex-row items-center gap-1 px-1.5">
+                            <View className="h-[52px] flex-row items-center gap-1 pl-3.5 pr-1.5">
                                 <Pressable
                                     accessibilityHint="Opens or closes the navigation drawer."
                                     accessibilityLabel="Toggle menu"
                                     accessibilityRole="button"
-                                    className="h-9 w-9 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
+                                    className="h-9 w-9 shrink-0 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
                                     onPress={handleDrawerPress}
                                     testID={`map-search-drawer-button-${searchSource}`}
                                 >
@@ -400,11 +401,11 @@ export function MapSearchOverlay({
                                     />
                                 </Pressable>
 
-                                <View className="min-w-0 flex-1 flex-row items-center gap-2">
+                                <View className="min-w-0 flex-1 flex-row items-center gap-1 pl-0.5">
                                     <Icon
                                         color={searchIconColor}
                                         name="search"
-                                        size={17}
+                                        size={18}
                                     />
                                     {selectedSearchResult &&
                                     !searchIsFocused ? (
@@ -418,7 +419,7 @@ export function MapSearchOverlay({
                                             testID={`map-search-input-${searchSource}`}
                                         >
                                             <Text
-                                                className="min-w-0 text-base font-medium leading-5 text-daf-text-primary dark:text-white"
+                                                className="min-w-0 text-[15px] font-medium leading-5 text-daf-text-primary dark:text-white"
                                                 ellipsizeMode="tail"
                                                 numberOfLines={1}
                                             >
@@ -473,38 +474,35 @@ export function MapSearchOverlay({
                                             />
                                         </Pressable>
                                     ) : null}
-
-                                    {searchIsFocused ? (
-                                        <Pressable
-                                            accessibilityHint={
-                                                voiceSearchIsListening
-                                                    ? 'Stops listening and uses the current transcript.'
-                                                    : 'Starts speech-to-text for location search.'
-                                            }
-                                            accessibilityLabel={
-                                                voiceSearchIsListening
-                                                    ? 'Stop voice search'
-                                                    : 'Voice search'
-                                            }
-                                            accessibilityRole="button"
-                                            accessibilityState={{
-                                                selected:
-                                                    voiceSearchIsListening,
-                                            }}
-                                            className="h-9 w-9 shrink-0 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
-                                            onPress={handleVoiceSearchPress}
-                                            testID={`map-search-voice-button-${searchSource}`}
-                                        >
-                                            <Icon
-                                                color={voiceSearchIconColor}
-                                                name="mic"
-                                                size={18}
-                                            />
-                                        </Pressable>
-                                    ) : null}
                                 </View>
 
-                                <View className="h-6 w-px bg-daf-border-glass dark:bg-daf-border-glass-dark" />
+                                <Pressable
+                                    accessibilityHint={
+                                        voiceSearchIsListening
+                                            ? 'Stops listening and uses the current transcript.'
+                                            : 'Starts speech-to-text for location search.'
+                                    }
+                                    accessibilityLabel={
+                                        voiceSearchIsListening
+                                            ? 'Stop voice search'
+                                            : 'Voice search'
+                                    }
+                                    accessibilityRole="button"
+                                    accessibilityState={{
+                                        selected: voiceSearchIsListening,
+                                    }}
+                                    className="h-9 w-9 shrink-0 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
+                                    onPress={handleVoiceSearchPress}
+                                    testID={`map-search-voice-button-${searchSource}`}
+                                >
+                                    <Icon
+                                        color={voiceSearchIconColor}
+                                        name="mic"
+                                        size={20}
+                                    />
+                                </Pressable>
+
+                                <View className="h-6 w-px shrink-0 bg-daf-border-glass dark:bg-daf-border-glass-dark" />
                                 <Pressable
                                     accessibilityLabel={
                                         searchRightActionIsClear
@@ -519,7 +517,7 @@ export function MapSearchOverlay({
                                             ? { busy: submittedSearchIsLoading }
                                             : undefined
                                     }
-                                    className="h-9 w-9 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
+                                    className="h-9 w-9 shrink-0 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
                                     onPress={
                                         searchRightActionIsClear
                                             ? handleClearSelectedSearchResult

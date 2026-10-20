@@ -75,6 +75,7 @@ export function DafButton({
     onPress,
     pressableComponent: PressableComponent = Pressable,
     size = 'md',
+    textClassName = 'font-semibold',
     testID,
     variant = 'primary',
 }) {
@@ -127,7 +128,7 @@ export function DafButton({
                 <Icon color={iconColor} name={icon} size={17} stroke={2.4} />
             ) : null}
             <Text
-                className={`${textSizeClassNames[size] ?? textSizeClassNames.md} font-semibold ${textClassNames[resolvedVariant]}`}
+                className={`${textSizeClassNames[size] ?? textSizeClassNames.md} ${textClassName} ${textClassNames[resolvedVariant]}`}
                 numberOfLines={1}
             >
                 {children}

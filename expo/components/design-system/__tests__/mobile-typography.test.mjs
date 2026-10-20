@@ -131,7 +131,7 @@ const cases = [
     [
         '../../contribute/contribute-start-sheet.js',
         'ContributeStartSheet',
-        'Add camera data to OpenStreetMap',
+        'Edit camera data on OpenStreetMap',
         13,
         '400',
     ],

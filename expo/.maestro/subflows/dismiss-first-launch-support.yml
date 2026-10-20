@@ -1,0 +1,19 @@
+appId: com.anonymous.drivefree.dev
+---
+- extendedWaitUntil:
+    visible:
+      id: '(first-launch-support-maybe-later|map-search-input-(map|driving)|areas-screen|add-area-screen|area-alerts-screen|area-feed-screen)'
+    timeout: 120000
+- runFlow:
+    when:
+      visible:
+        id: 'first-launch-support-maybe-later'
+    commands:
+      - tapOn:
+          id: 'first-launch-support-maybe-later'
+          retryTapIfNoChange: false
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          notVisible:
+            id: 'first-launch-support-screen'
+          timeout: 10000

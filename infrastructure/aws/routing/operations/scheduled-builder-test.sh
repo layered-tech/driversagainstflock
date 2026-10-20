@@ -5,7 +5,7 @@ set -euo pipefail
 readonly OPERATIONS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly ROUTING_DIR="${OPERATIONS_DIR}/.."
 readonly IAM_DIR="${ROUTING_DIR}/../iam"
-readonly WORKFLOW="${OPERATIONS_DIR}/scheduled-builder/v1.0.0/run-build.sh"
+readonly WORKFLOW="${OPERATIONS_DIR}/scheduled-builder/v1.1.0/run-build.sh"
 readonly BUILD="${OPERATIONS_DIR}/build/v1.3.0/build-initial-graph.sh"
 readonly SCHEDULED_USER_DATA="${OPERATIONS_DIR}/scheduled-builder-user-data.sh"
 readonly MANUAL_USER_DATA="${OPERATIONS_DIR}/builder-user-data.sh"

@@ -541,3 +541,32 @@ describe('navigation progress continuity', () => {
         );
     });
 });
+
+test('step preview headings follow each outgoing segment and the final arrival approach', () => {
+    const route = makeRoute(
+        [
+            [0, 0],
+            [0, 0],
+            [0.01, 0],
+            [0.01, -0.01],
+        ],
+        [
+            { way_points: [0, 2], type: 11 },
+            { way_points: [2, 3], type: 1 },
+            { way_points: [3, 3], type: 10 },
+        ],
+    );
+    assert.equal(directions.getDirectionsStepHeading(route, 0), 90);
+    assert.equal(directions.getDirectionsStepHeading(route, 1), 180);
+    assert.equal(directions.getDirectionsStepHeading(route, 2), 180);
+    assert.equal(directions.getDirectionsStepHeading(route, 99), null);
+    assert.equal(directions.getDirectionsStepHeading(null, 0), null);
+    const stationary = makeRoute(
+        [
+            [0, 0],
+            [0, 0],
+        ],
+        [{ way_points: [0, 1], type: 11 }],
+    );
+    assert.equal(directions.getDirectionsStepHeading(stationary, 0), null);
+});

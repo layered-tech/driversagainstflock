@@ -185,16 +185,6 @@ export function useMapLocationController({
     }, [initialCameraSettings]);
 
     useEffect(() => {
-        if (screenIsFocused) {
-            return;
-        }
-
-        isMapReadyRef.current = false;
-        setIsMapReady(false);
-        setRemountCameraSettings(latestCameraSettingsRef.current);
-    }, [screenIsFocused]);
-
-    useEffect(() => {
         if (!mapBearingUpdatesEnabled) {
             return;
         }
@@ -547,7 +537,7 @@ export function useMapLocationController({
     );
 
     const moveCameraToCoordinate = useCallback(
-        (coordinate, { padding } = {}) => {
+        (coordinate, { padding, heading } = {}) => {
             if (!Array.isArray(coordinate) || coordinate.length < 2) {
                 return false;
             }
@@ -568,6 +558,7 @@ export function useMapLocationController({
             const cameraStop = {
                 centerCoordinate: [normalizeLongitude(longitude), latitude],
                 ...(padding ? { padding } : {}),
+                ...(Number.isFinite(heading) ? { heading } : {}),
                 zoomLevel: nextZoomLevel,
                 animationDuration: MARKER_FOCUS_CAMERA_ANIMATION_DURATION_MS,
                 animationMode: 'flyTo',
@@ -708,8 +699,12 @@ export function useMapLocationController({
 
     const handleMapLoaded = useCallback(() => {
         isMapReadyRef.current = true;
+        markerLoadsEnabledRef.current = true;
         setIsMapReady(true);
-    }, []);
+        if (latestMapBoundsRef.current) {
+            scheduleMarkerLoad(latestMapBoundsRef.current, 0);
+        }
+    }, [scheduleMarkerLoad]);
 
     const handleCompassHeadingUpdate = useCallback(
         (nextHeading) => {
@@ -1011,7 +1006,7 @@ export function useMapLocationController({
     ]);
 
     const handleDrivingRecenterPress = useCallback(async () => {
-        manualCameraGenerationRef.current += 1;
+        const generation = ++manualCameraGenerationRef.current;
         if (!locationAccessGranted) {
             bottomSheetRef.current?.present();
             return;
@@ -1019,18 +1014,44 @@ export function useMapLocationController({
 
         const currentLocation = userLocation ?? (await findCurrentLocation());
 
+        if (generation !== manualCameraGenerationRef.current) {
+            return;
+        }
+
         if (!currentLocation) {
             bottomSheetRef.current?.present();
             return;
         }
 
-        void Promise.resolve(
-            locationPuckCameraFollowReleaseRef.current?.({
-                resumeFollow: true,
-            }),
-        ).catch(() => {});
-        followLocationMode.recenter(currentLocation);
+        await applyManualCameraMove(() => {
+            const cameraStop = {
+                centerCoordinate: getLocationCoordinate(currentLocation),
+                zoomLevel: clampZoomLevel(LOCATION_ZOOM_LEVEL),
+                pitch: followLocationMode.nativeCameraFollowProps.pitch,
+                padding: followLocationMode.nativeCameraFollowProps.padding,
+                animationDuration: LOCATION_CAMERA_USER_ANIMATION_DURATION_MS,
+                animationMode: 'easeTo',
+            };
+            markerLoadsEnabledRef.current = true;
+            currentZoomRef.current = cameraStop.zoomLevel;
+            if (isMapReadyRef.current && cameraRef.current) {
+                cameraRef.current.setCamera(cameraStop);
+            } else {
+                pendingCameraStopRef.current = {
+                    camera: cameraStop,
+                    enableMarkerLoads: true,
+                };
+            }
+            followLocationMode.recenter(currentLocation);
+            void Promise.resolve(
+                locationPuckCameraFollowReleaseRef.current?.({
+                    resumeFollow: true,
+                }),
+            ).catch(() => {});
+            return true;
+        });
     }, [
+        applyManualCameraMove,
         findCurrentLocation,
         followLocationMode,
         locationAccessGranted,

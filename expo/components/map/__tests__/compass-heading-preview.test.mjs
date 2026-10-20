@@ -10,6 +10,10 @@ const cameraDetailsScreenSource = readFileSync(
     new URL('../../contribute/camera-details-screen.js', import.meta.url),
     'utf8',
 );
+const cameraFormSource = readFileSync(
+    new URL('../../contribute/camera-form.js', import.meta.url),
+    'utf8',
+);
 const editCameraScreenSource = readFileSync(
     new URL('../../edits/edit-camera-screen.js', import.meta.url),
     'utf8',
@@ -195,16 +199,19 @@ describe('CompassDial heading preview', () => {
         assert.doesNotMatch(compassDialSource, /recenter/i);
     });
 
-    test('receives the edited node location on both screens', () => {
+    test('both camera screens pass their edited location into the shared form and dial', () => {
+        assert.match(
+            cameraFormSource,
+            /<CompassDial[\s\S]*?location=\{pin\}[\s\S]*?selectedDirectionIndex=\{directionIndex\}[\s\S]*?onLocationChange=\{onLocationChange\}/,
+        );
         assert.match(
             cameraDetailsScreenSource,
-            /<CompassDial[\s\S]*?directions=\{directions\}[\s\S]*?location=\{pin\}[\s\S]*?onLocationChange=\{handleLocationChange\}[\s\S]*?selectedDirectionIndex=\{selectedDirectionIndex\}/,
+            /onLocationChange=\{\(location\) =>[\s\S]*?updatePinLocation\(pin.id, location\)/,
         );
         assert.match(
             editCameraScreenSource,
-            /<CompassDial[\s\S]*?directions=\{directions\}[\s\S]*?location=\{nodeLocation\}[\s\S]*?onLocationChange=\{handleLocationChange\}[\s\S]*?selectedDirectionIndex=\{[\s\S]*?selectedDirectionIndex[\s\S]*?\}/,
+            /onLocationChange=\{setLocation\}/,
         );
-        assert.match(cameraDetailsScreenSource, /Slide[\s\S]*?the imagery/);
-        assert.match(editCameraScreenSource, /Slide[\s\S]*?the imagery/);
+        assert.match(cameraFormSource, /Slide the imagery/);
     });
 });

@@ -2,6 +2,7 @@ import {
     BottomSheetFlatList,
     BottomSheetModal,
     BottomSheetScrollView,
+    BottomSheetTextInput,
     BottomSheetView,
     default as BottomSheet,
     TouchableOpacity as BottomSheetTouchableOpacity,
@@ -105,6 +106,10 @@ export const NativeWindBottomSheetModal = forwardRef(
         );
     },
 );
+
+export const NativeWindBottomSheetTextInput = cssInterop(BottomSheetTextInput, {
+    className: 'style',
+});
 
 export const NativeWindBottomSheetView = cssInterop(BottomSheetView, {
     className: 'style',

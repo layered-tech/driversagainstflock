@@ -37,7 +37,7 @@ export const CONTRIBUTE_TOUR_STEPS = {
         step: 1,
         title: 'Put the camera in the right place',
         description:
-            'Tap + to add a camera at the crosshair. First move the map to the location you can verify.',
+            'Tap Add a camera here to describe the camera at the crosshair. First move the map to the location you can verify.',
     },
     placed: {
         target: 'placed',
@@ -45,7 +45,7 @@ export const CONTRIBUTE_TOUR_STEPS = {
         step: 1,
         title: 'Your camera is in the draft',
         description:
-            'Your pin is in the draft. Add more with +, or use this button to describe the cameras you’ve placed.',
+            'Your change is staged. Keep editing to add, edit or delete more cameras, or use Review to describe the changeset.',
     },
     'camera-details': {
         target: 'camera-details',
@@ -53,7 +53,7 @@ export const CONTRIBUTE_TOUR_STEPS = {
         step: 2,
         title: 'Describe what you can verify',
         description:
-            'Check the selected type. ALPR cameras read license plates; CCTV cameras record video. Choose the type you can verify.',
+            'Choose the make you can verify from the camera photos. Use Generic for an unknown ALPR reader, or Custom tags to write every tag.',
     },
     manufacturer: {
         target: 'manufacturer',
@@ -85,7 +85,7 @@ export const CONTRIBUTE_TOUR_STEPS = {
         step: 2,
         title: 'What is it mounted on?',
         description:
-            'Select the mount only if you can verify it. Now fill in the camera’s details, then use Next camera or Next: changeset details.',
+            'Select the mount only if you can verify it. Add to changeset stages this camera and returns you to the map.',
     },
     changeset: {
         target: 'changeset',

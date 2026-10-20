@@ -35,14 +35,14 @@ const mapPresentationSource = readFileSync(
     'utf8',
 );
 
-test('the Android Auto main map composites road and speed overlays', () => {
+test('the Android Auto main and cluster maps composite their status overlays', () => {
     assert.match(
         autoPlayMapSurfaceContentSource,
         /import \{[^}]*\bPlatform\b[^}]*\} from 'react-native';/,
     );
     assert.match(
         autoPlayMapSurfaceContentSource,
-        /mapTextureViewIsRequired:\s*Platform\.OS === 'android' && isRootMapSurface/,
+        /mapTextureViewIsRequired:\s*Platform\.OS === 'android' &&\s*\(isRootMapSurface \|\| isClusterMapSurface\)/,
     );
     assert.match(
         mapScreenContextSource,

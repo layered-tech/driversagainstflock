@@ -1,796 +1,142 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-    ActivityIndicator,
-    Platform,
-    Pressable,
-    ScrollView,
-    Text,
-    useColorScheme,
-    View,
-} from 'react-native';
-import { useAuth } from '../../lib/auth';
-import { fetchNode, publishNodeUpdate } from '../../lib/osm/client';
-import {
-    buildEditChangesetComment,
-    buildUpdatedNodeTags,
-    EDIT_CAMERA_TYPE_OPTIONS,
-    EDIT_MANUFACTURER_OPTIONS,
-    EDIT_MOUNT_OPTIONS,
-    parseNodeDetails,
-} from '../../lib/osm/edit-tags';
-import { normalizeNodeLocation } from '../../lib/osm/node-location';
-import { useSafeAreaInsets } from '../../lib/safe-area-insets';
-import { usePreventRemove } from '../../lib/use-prevent-remove';
-import { CompassDial } from '../contribute/compass-dial';
-import { buildChangesetTags, formatBearingChip } from '../contribute/osm-tags';
-import { Icon } from '../design-system/icon';
-import {
-    DafButton,
-    DafChip,
-    DafSectionLabel,
-    DafSegmentedControl,
-    DafTextInput,
-} from '../design-system/primitives';
-import {
-    dafColors,
-    dafSemanticColors,
-    getDafTheme,
-} from '../design-system/tokens';
+import { useCallback, useRef, useState } from 'react';
+import { Text, View } from 'react-native';
+import { getCameraDetailsFromTags } from '../../lib/osm/camera-presets';
+import { CameraForm } from '../contribute/camera-form';
+import { useContribute } from '../contribute/contribute-state';
+import { ContributePageHeader } from '../contribute/step-header';
+import { DafButton } from '../design-system/primitives';
 import { RemoveCameraSheet } from './remove-camera-sheet';
 
-const EDIT_CHANGESET_HASHTAGS = '#flock #alpr #surveillance';
-
-const SHORT_MONTH_NAMES = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-];
-
-function getRouteParamValue(param) {
-    return Array.isArray(param) ? param[0] : param;
-}
-
-function parseNodeIdParam(nodeIdParam) {
-    const nodeId = Number.parseInt(getRouteParamValue(nodeIdParam), 10);
-
-    return Number.isInteger(nodeId) && nodeId > 0 ? nodeId : null;
-}
-
-function formatShortDate(timestamp, { includeYear = true } = {}) {
-    const date = new Date(timestamp ?? '');
-
-    if (Number.isNaN(date.getTime())) {
-        return '';
-    }
-
-    const dayAndMonth = `${date.getDate()} ${SHORT_MONTH_NAMES[date.getMonth()]}`;
-
-    return includeYear ? `${dayAndMonth} ${date.getFullYear()}` : dayAndMonth;
-}
-
-function getEditedByLabel(node, currentUserId) {
-    if (!node) {
-        return '';
-    }
-
-    const dateLabel = formatShortDate(node.timestamp);
-    const editorLabel =
-        node.uid === currentUserId
-            ? 'edited by you'
-            : node.user
-              ? `edited by @${node.user}`
-              : 'edited';
-
-    return dateLabel ? `${editorLabel} · ${dateLabel}` : editorLabel;
-}
-
-function EditCameraHeader({ onBack, versionLabel }) {
-    const colorScheme = useColorScheme();
-    const insets = useSafeAreaInsets();
-    const isDarkMode = colorScheme === 'dark';
-    const headerPaddingTop =
-        Platform.OS === 'ios'
-            ? Math.max(insets.top + 10, 54)
-            : Math.max(insets.top + 10, 16);
-
-    return (
-        <View
-            className="flex-row items-center gap-1.5 border-b border-daf-border bg-white px-3 pb-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
-            style={{ paddingTop: headerPaddingTop }}
-        >
-            <Pressable
-                accessibilityLabel="Back"
-                accessibilityRole="button"
-                className="h-[50px] w-[50px] items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
-                hitSlop={6}
-                onPress={onBack}
-                testID="edit-camera-back-button"
-            >
-                <Icon
-                    color={isDarkMode ? '#F4F7FA' : '#0B0E12'}
-                    name="chevron-left"
-                    size={20}
-                />
-            </Pressable>
-            <Text
-                className="min-w-0 flex-1 font-dafDisplay text-lg font-bold leading-6 text-daf-text-primary dark:text-white"
-                numberOfLines={1}
-            >
-                Edit camera
-            </Text>
-            {versionLabel ? (
-                <View
-                    className="h-[26px] items-center justify-center rounded-dafPill border border-daf-border bg-daf-surface-alt px-[9px] dark:border-daf-border-dark dark:bg-daf-surface-inverse"
-                    testID="edit-camera-version-pill"
-                >
-                    <Text
-                        className="font-dafMono text-[11px] font-semibold tracking-[0.04em] text-daf-text-secondary dark:text-neutral-300"
-                        numberOfLines={1}
-                    >
-                        {versionLabel}
-                    </Text>
-                </View>
-            ) : null}
-        </View>
-    );
-}
-
-function EditCameraSubheader({ metaLabel, nodeId }) {
-    return (
-        <View className="flex-row items-center gap-2 border-b border-daf-border bg-daf-surface-alt px-4 py-[9px] dark:border-daf-border-dark dark:bg-daf-surface-inverse">
-            {nodeId ? (
-                <Text
-                    className="font-dafMono text-[11px] font-semibold tracking-[0.04em] text-daf-text-brand dark:text-daf-brand"
-                    numberOfLines={1}
-                >
-                    node/{nodeId}
-                </Text>
-            ) : null}
-            {metaLabel ? (
-                <Text
-                    className="ml-auto font-dafMono text-[11px] text-daf-text-tertiary dark:text-neutral-400"
-                    numberOfLines={1}
-                >
-                    {metaLabel}
-                </Text>
-            ) : null}
-        </View>
-    );
-}
-
 export default function EditCameraScreen() {
-    const colorScheme = useColorScheme();
-    const insets = useSafeAreaInsets();
     const params = useLocalSearchParams();
-    const { ensureWriteAccess, openStreetMapAccessToken, user } = useAuth();
-    const [details, setDetails] = useState(null);
-    const [loadAttempt, setLoadAttempt] = useState(0);
-    const [loadError, setLoadError] = useState(null);
-    const [loadStatus, setLoadStatus] = useState('loading');
+    const { pins, stageNodeEdit, continueOnMap, getEditingNode } =
+        useContribute();
+    const pinsRef = useRef(pins);
+    pinsRef.current = pins;
     const [node, setNode] = useState(null);
-    const [nodeLocation, setNodeLocation] = useState(null);
-    const [publishError, setPublishError] = useState(null);
-    const [publishStatus, setPublishStatus] = useState('idle');
-    const [rawSelectedDirectionIndex, setRawSelectedDirectionIndex] =
-        useState(0);
-    const [removeSheetIsOpen, setRemoveSheetIsOpen] = useState(false);
-    const removeActionHandledRef = useRef(false);
-    const saveIsInFlightRef = useRef(false);
-    const dirtyDetailFieldsRef = useRef(new Set());
-    const action = getRouteParamValue(params.action);
-    const nodeId = parseNodeIdParam(params.nodeId);
-    const isSaving = publishStatus === 'publishing';
-    const theme = getDafTheme(colorScheme);
-    const footerPaddingBottom = Math.max(insets.bottom + 12, 28);
-    const currentUserId = Number(user?.id);
-    const directions = Array.isArray(details?.directions)
-        ? details.directions
-        : [];
-    const selectedDirectionIndex =
-        directions.length === 0
-            ? 0
-            : Math.min(rawSelectedDirectionIndex, directions.length - 1);
-    const selectedBearing = directions[selectedDirectionIndex] ?? 0;
-    const versionLabel = node
-        ? `v${node.version} → v${node.version + 1}`
-        : null;
-    const editedByLabel = getEditedByLabel(node, currentUserId);
-    const showsOverwriteNotice =
-        Boolean(node?.user) && node?.uid !== currentUserId;
-    const overwriteDateLabel = node
-        ? formatShortDate(node.timestamp, { includeYear: false })
-        : '';
-
-    usePreventRemove(isSaving, () => {});
-
+    const [details, setDetails] = useState(null);
+    const [location, setLocation] = useState(null);
+    const [error, setError] = useState(null);
+    const [removeOpen, setRemoveOpen] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const stagingRef = useRef(false);
+    const deletionStagedRef = useRef(false);
+    const nodeId = Number(
+        Array.isArray(params.nodeId) ? params.nodeId[0] : params.nodeId,
+    );
+    const action = Array.isArray(params.action)
+        ? params.action[0]
+        : params.action;
     useFocusEffect(
         useCallback(() => {
-            if (nodeId === null) {
-                setLoadError('This camera link is invalid.');
-                setLoadStatus('error');
-                return undefined;
-            }
-
-            const abortController = new AbortController();
-            let isActive = true;
-
-            setLoadError(null);
-            setLoadStatus('loading');
-
-            fetchNode({ nodeId, signal: abortController.signal })
-                .then((fetchedNode) => {
-                    if (!isActive) {
-                        return;
-                    }
-
-                    if (fetchedNode?.visible === false) {
-                        setLoadStatus('deleted');
-                        return;
-                    }
-
-                    const fetchedNodeLocation =
-                        normalizeNodeLocation(fetchedNode);
-
-                    if (!fetchedNodeLocation) {
-                        throw new Error(
-                            'OpenStreetMap returned this camera without a valid location.',
-                        );
-                    }
-
-                    dirtyDetailFieldsRef.current.clear();
-                    removeActionHandledRef.current = false;
-                    setDetails(parseNodeDetails(fetchedNode?.tags ?? {}));
-                    setNode(fetchedNode);
-                    setNodeLocation(fetchedNodeLocation);
-                    setRawSelectedDirectionIndex(0);
-                    setLoadStatus('loaded');
-                })
-                .catch((error) => {
-                    if (!isActive) {
-                        return;
-                    }
-
-                    if (error?.code === 'gone' || error?.status === 410) {
-                        setLoadStatus('deleted');
-                        return;
-                    }
-
-                    setLoadError(
-                        error?.message ??
-                            'Loading this camera from OpenStreetMap failed.',
-                    );
-                    setLoadStatus('error');
-                });
-
-            return () => {
-                isActive = false;
-                abortController.abort();
-            };
-        }, [loadAttempt, nodeId]),
-    );
-
-    useEffect(() => {
-        if (
-            loadStatus === 'loaded' &&
-            action === 'remove' &&
-            !removeActionHandledRef.current
-        ) {
-            removeActionHandledRef.current = true;
-            setRemoveSheetIsOpen(true);
-        }
-    }, [action, loadStatus]);
-
-    // Navigating back inside handleSavePress would still be blocked by
-    // usePreventRemove — its prevention flag only clears in an effect after
-    // the isSaving re-render. Leaving from an effect runs after that update.
-    useEffect(() => {
-        if (publishStatus === 'success') {
-            router.back();
-        }
-    }, [publishStatus]);
-
-    const updateDetails = useCallback((detailsPatch) => {
-        setDetails((currentDetails) => {
-            Object.entries(detailsPatch).forEach(([field, value]) => {
-                if (currentDetails?.[field] !== value) {
-                    dirtyDetailFieldsRef.current.add(field);
-                }
-            });
-
-            return {
-                ...currentDetails,
-                ...detailsPatch,
-            };
-        });
-    }, []);
-
-    const handleBackPress = useCallback(() => {
-        if (isSaving) {
-            return;
-        }
-
-        router.back();
-    }, [isSaving]);
-
-    const handleRetryPress = useCallback(() => {
-        setLoadAttempt((currentAttempt) => currentAttempt + 1);
-    }, []);
-
-    const handleTypeChange = useCallback(
-        (type) => {
-            updateDetails(
-                type === 'gantry' ? { mount: 'gantry', type } : { type },
-            );
-        },
-        [updateDetails],
-    );
-
-    const handleManufacturerChange = useCallback(
-        (manufacturer) => {
-            updateDetails({ manufacturer });
-        },
-        [updateDetails],
-    );
-
-    const handleOperatorChange = useCallback(
-        (operator) => {
-            updateDetails({ operator });
-        },
-        [updateDetails],
-    );
-
-    const handleLocationChange = useCallback((location) => {
-        setNodeLocation(location);
-    }, []);
-
-    const handleDialChange = useCallback(
-        (degrees) => {
-            if (directions.length === 0) {
-                setRawSelectedDirectionIndex(0);
-                updateDetails({ directions: [degrees] });
+            setError(null);
+            setNode(null);
+            setDetails(null);
+            if (!Number.isInteger(nodeId) || nodeId <= 0) {
+                setError('This camera link is invalid.');
                 return;
             }
-
-            updateDetails({
-                directions: directions.map((direction, directionIndex) =>
-                    directionIndex === selectedDirectionIndex
-                        ? degrees
-                        : direction,
-                ),
-            });
-        },
-        [directions, selectedDirectionIndex, updateDetails],
+            const staged = pinsRef.current.find((pin) => pin.nodeId === nodeId);
+            const next =
+                getEditingNode(nodeId) ??
+                (staged
+                    ? {
+                          id: staged.nodeId,
+                          version: staged.version,
+                          latitude: staged.latitude,
+                          longitude: staged.longitude,
+                      }
+                    : null);
+            if (!next || next.visible === false) {
+                setError(
+                    next?.visible === false
+                        ? 'This camera has already been deleted.'
+                        : 'Open this camera from the map or Your edits to edit it.',
+                );
+                return;
+            }
+            if (
+                !Number.isFinite(next.latitude) ||
+                !Number.isFinite(next.longitude)
+            ) {
+                setError('This camera has no valid location.');
+                return;
+            }
+            setNode(next);
+            setDetails(staged?.details ?? getCameraDetailsFromTags(next.tags));
+            setLocation(staged ?? next);
+            setRemoveOpen(action === 'remove');
+            deletionStagedRef.current = false;
+        }, [nodeId, action, getEditingNode]),
     );
-
-    const handleAddDirection = useCallback(() => {
-        const currentBearing = directions[selectedDirectionIndex] ?? 0;
-        const nextDirections = [...directions, (currentBearing + 180) % 360];
-
-        setRawSelectedDirectionIndex(nextDirections.length - 1);
-        updateDetails({ directions: nextDirections });
-    }, [directions, selectedDirectionIndex, updateDetails]);
-
-    const handleRemoveDirection = useCallback(
-        (directionIndex) => {
-            const nextDirections = directions.filter(
-                (direction, currentIndex) => currentIndex !== directionIndex,
-            );
-
-            setRawSelectedDirectionIndex((currentIndex) =>
-                currentIndex > directionIndex
-                    ? currentIndex - 1
-                    : Math.min(
-                          currentIndex,
-                          Math.max(nextDirections.length - 1, 0),
-                      ),
-            );
-            updateDetails({ directions: nextDirections });
-        },
-        [directions, updateDetails],
-    );
-
-    const handleMountChange = useCallback(
-        (mount) => {
-            updateDetails({ mount: details?.mount === mount ? null : mount });
-        },
-        [details?.mount, updateDetails],
-    );
-
-    const handleRemoveRowPress = useCallback(() => {
-        if (isSaving) {
-            return;
-        }
-
-        setRemoveSheetIsOpen(true);
-    }, [isSaving]);
-
-    const handleRemoveSheetDismiss = useCallback(() => {
-        setRemoveSheetIsOpen(false);
-    }, []);
-
-    const handleRemovalStaged = useCallback(() => {
-        router.replace('/contribute/changeset');
-    }, []);
-
-    const handleSavePress = useCallback(async () => {
-        if (saveIsInFlightRef.current || !node || !nodeLocation || !details) {
-            return;
-        }
-
-        saveIsInFlightRef.current = true;
-        setPublishError(null);
-        setPublishStatus('publishing');
-
+    const backToMap = () => {
+        continueOnMap();
+        router.navigate('/');
+    };
+    const save = async () => {
+        if (stagingRef.current || !node || !details) return;
+        stagingRef.current = true;
+        setSaving(true);
         try {
-            const session = await ensureWriteAccess();
-
-            if (!session) {
-                setPublishStatus('idle');
-                return;
-            }
-
-            const accessToken =
-                session.token ??
-                session.accessToken ??
-                openStreetMapAccessToken;
-
-            await publishNodeUpdate({
-                accessToken,
-                changesetTags: buildChangesetTags({
-                    comment: buildEditChangesetComment(details),
-                    hashtags: EDIT_CHANGESET_HASHTAGS,
-                    source: 'survey',
-                }),
-                node: {
-                    id: node.id,
-                    latitude: nodeLocation.latitude,
-                    longitude: nodeLocation.longitude,
-                    tags: buildUpdatedNodeTags(node.tags, details, {
-                        dirtyFields: dirtyDetailFieldsRef.current,
-                    }),
-                    version: node.version,
-                },
-            });
-
-            setPublishStatus('success');
-        } catch (error) {
-            setPublishError(
-                error?.message ?? 'Publishing to OpenStreetMap failed.',
-            );
-            setPublishStatus('error');
+            await stageNodeEdit(node, details, location);
+            backToMap();
+        } catch (failure) {
+            setError(failure.message);
         } finally {
-            saveIsInFlightRef.current = false;
+            stagingRef.current = false;
+            setSaving(false);
         }
-    }, [
-        details,
-        ensureWriteAccess,
-        node,
-        nodeLocation,
-        openStreetMapAccessToken,
-    ]);
-
-    return (
-        <View
-            className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
-            testID="edit-camera-screen"
-        >
-            <EditCameraHeader
-                onBack={handleBackPress}
-                versionLabel={versionLabel}
-            />
-            <EditCameraSubheader metaLabel={editedByLabel} nodeId={nodeId} />
-            {loadStatus === 'loading' ? (
-                <View className="flex-1 items-center justify-center">
-                    <ActivityIndicator color={dafSemanticColors.brand} />
-                </View>
-            ) : loadStatus === 'deleted' ? (
-                <View className="flex-1 items-center justify-center gap-4 px-6">
-                    <Text
-                        className="text-center text-sm leading-[21px] text-daf-text-secondary dark:text-neutral-300"
-                        testID="edit-camera-deleted-message"
-                    >
-                        This camera was already removed from the map.
-                    </Text>
-                    <DafButton
-                        onPress={handleBackPress}
-                        testID="edit-camera-deleted-back-button"
-                        variant="secondary"
-                    >
-                        Back
-                    </DafButton>
-                </View>
-            ) : loadStatus === 'error' ? (
-                <View className="flex-1 items-center justify-center gap-4 px-6">
-                    <Text
-                        className="text-center text-sm leading-[21px] text-daf-text-secondary dark:text-neutral-300"
-                        testID="edit-camera-load-error"
-                    >
-                        {loadError}
-                    </Text>
-                    <DafButton
-                        onPress={handleRetryPress}
-                        testID="edit-camera-retry-button"
-                        variant="secondary"
-                    >
-                        Retry
-                    </DafButton>
-                </View>
-            ) : (
-                <>
-                    <ScrollView
-                        className="flex-1"
-                        keyboardShouldPersistTaps="handled"
-                    >
-                        <View className="gap-[18px] p-4">
-                            {showsOverwriteNotice ? (
-                                <View
-                                    className="bg-daf-amber/12 flex-row items-start gap-[9px] rounded-dafSm px-3 py-[11px] dark:bg-daf-amber/15"
-                                    testID="edit-camera-overwrite-notice"
-                                >
-                                    <View className="mt-px">
-                                        <Icon
-                                            color={dafColors.amber[600]}
-                                            name="triangle-alert"
-                                            size={16}
-                                        />
-                                    </View>
-                                    <Text className="min-w-0 flex-1 text-xs leading-[18px] text-daf-text-secondary dark:text-neutral-300">
-                                        <Text className="font-bold text-daf-text-primary dark:text-white">
-                                            @{node.user}
-                                        </Text>{' '}
-                                        {overwriteDateLabel
-                                            ? `updated this camera on ${overwriteDateLabel}.`
-                                            : 'updated this camera.'}{' '}
-                                        Review the tags below — saving
-                                        overwrites theirs.
-                                    </Text>
-                                </View>
-                            ) : null}
-                            <View>
-                                <DafSectionLabel className="mb-2">
-                                    Type
-                                </DafSectionLabel>
-                                <DafSegmentedControl
-                                    onChange={handleTypeChange}
-                                    options={EDIT_CAMERA_TYPE_OPTIONS}
-                                    testIDPrefix="edit-camera-type"
-                                    value={details.type}
-                                />
-                            </View>
-                            <View>
-                                <DafSectionLabel className="mb-2">
-                                    Manufacturer
-                                </DafSectionLabel>
-                                <DafSegmentedControl
-                                    onChange={handleManufacturerChange}
-                                    options={EDIT_MANUFACTURER_OPTIONS}
-                                    testIDPrefix="edit-camera-manufacturer"
-                                    value={details.manufacturer}
-                                />
-                            </View>
-                            <View>
-                                <DafSectionLabel className="mb-2">
-                                    Operator
-                                </DafSectionLabel>
-                                <DafTextInput
-                                    onChangeText={handleOperatorChange}
-                                    testID="edit-camera-operator-input"
-                                    value={details.operator}
-                                />
-                            </View>
-                            <View>
-                                <DafSectionLabel className="mb-2">
-                                    Directions faced
-                                </DafSectionLabel>
-                                <CompassDial
-                                    directions={directions}
-                                    location={nodeLocation}
-                                    onChange={handleDialChange}
-                                    onLocationChange={handleLocationChange}
-                                    selectedDirectionIndex={
-                                        selectedDirectionIndex
-                                    }
-                                    testID="edit-camera-direction-dial"
-                                    value={selectedBearing}
-                                />
-                                <View className="mt-3.5 flex-row flex-wrap items-center gap-2">
-                                    {directions.map(
-                                        (degrees, directionIndex) => {
-                                            const selected =
-                                                directionIndex ===
-                                                selectedDirectionIndex;
-
-                                            return (
-                                                <View
-                                                    className={`h-8 flex-row items-center rounded-dafPill border pl-3 pr-1 ${
-                                                        selected
-                                                            ? 'bg-daf-brand/12 border-transparent dark:bg-daf-brand/15'
-                                                            : 'border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark'
-                                                    }`}
-                                                    key={`direction-${directionIndex}`}
-                                                >
-                                                    <Pressable
-                                                        accessibilityLabel={`Edit direction ${formatBearingChip(degrees)}`}
-                                                        accessibilityRole="button"
-                                                        accessibilityState={{
-                                                            selected,
-                                                        }}
-                                                        className="h-full justify-center"
-                                                        onPress={() =>
-                                                            setRawSelectedDirectionIndex(
-                                                                directionIndex,
-                                                            )
-                                                        }
-                                                        testID={`edit-camera-direction-chip-${directionIndex}`}
-                                                    >
-                                                        <Text
-                                                            className={`font-dafMono text-[13px] font-semibold ${
-                                                                selected
-                                                                    ? 'text-daf-text-brand dark:text-daf-brand'
-                                                                    : 'text-daf-text-secondary dark:text-neutral-300'
-                                                            }`}
-                                                            testID={`edit-camera-direction-chip-${directionIndex}-value`}
-                                                        >
-                                                            {formatBearingChip(
-                                                                degrees,
-                                                            )}
-                                                        </Text>
-                                                    </Pressable>
-                                                    <Pressable
-                                                        accessibilityLabel="Remove direction"
-                                                        accessibilityRole="button"
-                                                        className="h-[22px] w-[22px] items-center justify-center"
-                                                        hitSlop={6}
-                                                        onPress={() =>
-                                                            handleRemoveDirection(
-                                                                directionIndex,
-                                                            )
-                                                        }
-                                                        testID={`edit-camera-direction-chip-${directionIndex}-remove`}
-                                                    >
-                                                        <Icon
-                                                            color={
-                                                                selected
-                                                                    ? theme.text
-                                                                          .brand
-                                                                    : theme.text
-                                                                          .secondary
-                                                            }
-                                                            name="x"
-                                                            size={13}
-                                                            stroke={2.4}
-                                                        />
-                                                    </Pressable>
-                                                </View>
-                                            );
-                                        },
-                                    )}
-                                    <Pressable
-                                        accessibilityLabel="Add direction"
-                                        accessibilityRole="button"
-                                        className="h-8 flex-row items-center gap-1.5 rounded-dafPill border border-dashed border-daf-border-strong px-3.5 active:opacity-[0.82]"
-                                        onPress={handleAddDirection}
-                                        testID="edit-camera-add-direction-button"
-                                    >
-                                        <Icon
-                                            color={theme.text.secondary}
-                                            name="plus"
-                                            size={15}
-                                        />
-                                        <Text className="text-[13px] font-semibold text-daf-text-secondary dark:text-neutral-300">
-                                            Add direction
-                                        </Text>
-                                    </Pressable>
-                                </View>
-                                <Text className="mt-2.5 text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400">
-                                    Drag the ring until the cone covers what the
-                                    camera sees — poles often hold several
-                                    directions. Slide the imagery to fine-tune
-                                    where the pole sits.
-                                </Text>
-                            </View>
-                            <View>
-                                <DafSectionLabel className="mb-2">
-                                    Mounted on
-                                </DafSectionLabel>
-                                <View className="flex-row flex-wrap gap-2">
-                                    {EDIT_MOUNT_OPTIONS.map((option) => (
-                                        <DafChip
-                                            key={option.value}
-                                            onPress={() =>
-                                                handleMountChange(option.value)
-                                            }
-                                            selected={
-                                                details.mount === option.value
-                                            }
-                                            testID={`edit-camera-mount-${option.value}`}
-                                            tone="brand"
-                                        >
-                                            {option.label}
-                                        </DafChip>
-                                    ))}
-                                </View>
-                            </View>
-                            <Pressable
-                                accessibilityLabel="Remove from map"
-                                accessibilityRole="button"
-                                className="flex-row items-center gap-3 rounded-dafMd border border-daf-border bg-white px-3.5 py-3 active:opacity-[0.82] dark:border-daf-border-dark dark:bg-daf-surface-dark"
-                                onPress={handleRemoveRowPress}
-                                testID="edit-camera-remove-row"
-                            >
-                                <View className="bg-daf-alert/14 h-[34px] w-[34px] items-center justify-center rounded-dafSm dark:bg-daf-alert/20">
-                                    <Icon
-                                        color={dafSemanticColors.danger}
-                                        name="trash"
-                                        size={18}
-                                    />
-                                </View>
-                                <View className="min-w-0 flex-1">
-                                    <Text className="text-[13px] font-semibold text-daf-alert">
-                                        Remove from map
-                                    </Text>
-                                    <Text className="mt-px text-xs text-daf-text-tertiary dark:text-neutral-400">
-                                        Add a removal to your changeset
-                                    </Text>
-                                </View>
-                                <Icon
-                                    color={theme.text.tertiary}
-                                    name="chevron-right"
-                                    size={18}
-                                />
-                            </Pressable>
-                        </View>
-                    </ScrollView>
-                    <View
-                        className="border-t border-daf-border bg-white px-4 pt-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
-                        style={{ paddingBottom: footerPaddingBottom }}
-                    >
-                        {publishError ? (
-                            <View
-                                className="mb-2.5 rounded-dafSm border border-daf-alert/30 bg-daf-alert/10 p-3 dark:bg-daf-alert/15"
-                                testID="edit-camera-error-banner"
-                            >
-                                <Text className="text-[13px] leading-[18px] text-daf-alert">
-                                    {publishError}
-                                </Text>
-                            </View>
-                        ) : null}
-                        <DafButton
-                            disabled={isSaving}
-                            loading={isSaving}
-                            onPress={handleSavePress}
-                            size="lg"
-                            testID="edit-camera-save-button"
-                        >
-                            {publishStatus === 'error'
-                                ? 'Try again'
-                                : 'Save changes'}
-                        </DafButton>
-                        <Text className="mt-[9px] text-center text-xs text-daf-text-tertiary dark:text-neutral-400">
-                            Publishes v{node.version + 1} of this node as a new
-                            changeset — your original stays in history.
-                        </Text>
-                    </View>
-                </>
-            )}
-            {node ? (
-                <RemoveCameraSheet
-                    isOpen={removeSheetIsOpen}
-                    node={node}
-                    onDismiss={handleRemoveSheetDismiss}
-                    onStaged={handleRemovalStaged}
+    };
+    if (!node || !details)
+        return (
+            <View
+                className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
+                testID="edit-camera-screen"
+            >
+                <ContributePageHeader
+                    onBack={() => router.back()}
+                    title="Edit camera"
                 />
-            ) : null}
+                <View className="gap-4 p-6">
+                    <Text className="text-[13px] text-daf-text-secondary dark:text-neutral-300">
+                        {error ?? 'Opening camera…'}
+                    </Text>
+                    <DafButton onPress={() => router.back()}>Go back</DafButton>
+                </View>
+            </View>
+        );
+    return (
+        <View className="flex-1" testID="edit-camera-screen">
+            <CameraForm
+                pin={{
+                    ...location,
+                    nodeId: node.id,
+                    version: node.version,
+                    details,
+                }}
+                onBack={() => router.back()}
+                onDetailsChange={(patch) =>
+                    setDetails((value) => ({ ...value, ...patch }))
+                }
+                onLocationChange={setLocation}
+                onSave={save}
+                saving={saving}
+                error={error}
+            />
+            <RemoveCameraSheet
+                isOpen={removeOpen}
+                node={node}
+                onDismiss={() => {
+                    setRemoveOpen(false);
+                    if (action === 'remove' && !deletionStagedRef.current)
+                        backToMap();
+                }}
+                onStaged={() => {
+                    deletionStagedRef.current = true;
+                    backToMap();
+                }}
+            />
         </View>
     );
 }

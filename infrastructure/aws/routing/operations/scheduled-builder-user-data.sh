@@ -4,11 +4,11 @@ set -euo pipefail
 
 readonly AWS_REGION="us-east-1"
 readonly ARTIFACT_BUCKET="daf-routing-graphs-326364278889-us-east-1"
-readonly BOOTSTRAP_VERSION="v1.0.0"
+readonly BOOTSTRAP_VERSION="v1.1.0"
 readonly ALERTS_TOPIC_ARN="arn:aws:sns:us-east-1:326364278889:daf-routing-alerts"
 readonly BOOTSTRAP_KEY="operations/scheduled-builder/${BOOTSTRAP_VERSION}/run-build.sh"
 readonly BOOTSTRAP_PATH="/var/lib/daf-routing-build/run-build.sh"
-readonly BOOTSTRAP_SHA256="188cff6dc39bb1587102426ef877074dcf1ce79a49cd40d0216988e5d83a06df"
+readonly BOOTSTRAP_SHA256="6911444890fd73b9a418f7aefc9d05fc35dc7145857ff25e9c32b9d8969bed00"
 readonly LOGGING_VERSION="v1.0.0"
 readonly LOGGING_KEY="operations/logging/${LOGGING_VERSION}/install-cloudwatch-logs.sh"
 readonly LOGGING_PATH="/var/lib/daf-routing-build/install-cloudwatch-logs.sh"

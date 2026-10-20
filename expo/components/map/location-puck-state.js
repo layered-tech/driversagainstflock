@@ -15,6 +15,19 @@ export function getLocationPuckCameraOwnershipKey(followUserLocation) {
         : 'external-or-idle-camera';
 }
 
+export function isLocationPuckProviderReady({
+    platform,
+    usesSharedLocationProvider,
+    isDrivingMode,
+    providerStatus,
+}) {
+    return (
+        platform !== 'android' ||
+        (!usesSharedLocationProvider && !isDrivingMode) ||
+        ['native', 'fallback', 'unsupported'].includes(providerStatus)
+    );
+}
+
 export function shouldSuppressLocationPuck2DFallback({
     locationPuck3DStatus,
     locationPuckRequests3D,

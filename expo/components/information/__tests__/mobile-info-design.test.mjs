@@ -43,6 +43,7 @@ describe('Mobile help and legal design', () => {
             { icon: 'map', label: 'Map', routeName: 'index' },
             { icon: 'gauge', label: 'Scorecard', routeName: 'scorecard' },
             { icon: 'flame', label: 'Hotlist', routeName: 'hotlist' },
+            { icon: 'map-pin', label: 'My areas', routeName: 'areas' },
         ]);
         assert.deepEqual(
             HELP_AND_LEGAL_DRAWER_ITEMS.map(({ label, routeName }) => ({

@@ -210,6 +210,7 @@ export function useMapControlsContextValue({
 }) {
     return useMemo(
         () => ({
+            isDarkMapLayer: presentation.isDarkMapLayer,
             defaultMapControlClassName: presentation.defaultMapControlClassName,
             defaultMapControlGlassTintColor:
                 presentation.defaultMapControlGlassTintColor,
@@ -264,6 +265,7 @@ export function useMapControlsContextValue({
             mapPreferencesAreLoaded,
             markerLoadError,
             markerLoadingIndicatorIsVisible,
+            presentation.isDarkMapLayer,
             presentation.defaultMapControlClassName,
             presentation.defaultMapControlGlassTintColor,
             presentation.defaultMapControlIconColor,

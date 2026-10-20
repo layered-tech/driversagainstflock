@@ -1,0 +1,26 @@
+appId: com.anonymous.drivefree.dev
+---
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: ${'area-alert-mode-' + AREA_ALERT_MODE}
+            checked: true
+          timeout: 45000
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - retry:
+          maxRetries: 15
+          commands:
+            - extendedWaitUntil:
+                visible:
+                  id: ${'area-alert-mode-' + AREA_ALERT_MODE}
+                  enabled: true
+                timeout: 45000
+            - copyTextFrom:
+                id: ${'area-alert-mode-' + AREA_ALERT_MODE}
+            - assertTrue: ${maestro.copiedText == 'radio button, checked'}

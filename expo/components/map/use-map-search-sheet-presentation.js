@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 export function useMapSearchSheetPresentation({ selectedSearchResult }) {
     const placeSheetIsOpenRef = useRef(false);
     const placeSheetRef = useRef(null);
+    const resultsAfterPlaceDismissRef = useRef(false);
     const placeSheetPresentationFrameRef = useRef(null);
     const placeSheetPresentationRetryRef = useRef(null);
     const placeSheetSnapFrameRef = useRef(null);
@@ -51,11 +52,6 @@ export function useMapSearchSheetPresentation({ selectedSearchResult }) {
             placeSheetSnapFrameRef.current = null;
         }
     }, []);
-
-    const handlePlaceSheetDismiss = useCallback(() => {
-        clearScheduledPlaceSheetPresentation();
-        placeSheetIsOpenRef.current = false;
-    }, [clearScheduledPlaceSheetPresentation]);
 
     const schedulePlaceSheetPresentation = useCallback(() => {
         clearScheduledPlaceSheetPresentation();
@@ -111,6 +107,23 @@ export function useMapSearchSheetPresentation({ selectedSearchResult }) {
         );
     }, []);
 
+    const requestResultsAfterPlaceDismiss = useCallback(() => {
+        clearScheduledPlaceSheetPresentation();
+        resultsAfterPlaceDismissRef.current = true;
+    }, [clearScheduledPlaceSheetPresentation]);
+
+    const handlePlaceSheetDismiss = useCallback(() => {
+        clearScheduledPlaceSheetPresentation();
+        placeSheetIsOpenRef.current = false;
+        if (resultsAfterPlaceDismissRef.current) {
+            resultsAfterPlaceDismissRef.current = false;
+            presentSubmittedSearchResultsSheet();
+        }
+    }, [
+        clearScheduledPlaceSheetPresentation,
+        presentSubmittedSearchResultsSheet,
+    ]);
+
     const handleSubmittedSearchResultsSheetDismiss = useCallback(() => {
         submittedSearchResultsSheetIsOpenRef.current = false;
 
@@ -124,6 +137,7 @@ export function useMapSearchSheetPresentation({ selectedSearchResult }) {
 
     return {
         handlePlaceSheetDismiss,
+        requestResultsAfterPlaceDismiss,
         handleSubmittedSearchResultsSheetDismiss,
         placeSheetIsOpenRef,
         placeSheetRef,

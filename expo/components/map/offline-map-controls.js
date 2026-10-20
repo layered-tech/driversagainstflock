@@ -126,6 +126,7 @@ export function OfflineMapControls({
                     accessibilityLabel="Offline map download options"
                     accessibilityRole="button"
                     accessibilityState={{ expanded: isExpanded }}
+                    accessibilityValue={{ text: statusLabel }}
                     className={`min-h-[76px] flex-row items-center justify-between gap-3 p-4 active:opacity-[0.82] ${
                         isExpanded
                             ? 'border-b border-daf-border dark:border-daf-border-dark'

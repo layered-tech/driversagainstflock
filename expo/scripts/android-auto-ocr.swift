@@ -263,14 +263,15 @@ if CommandLine.arguments.count == 8,
 }
 
 let findsTextBounds = CommandLine.arguments.count == 4 && CommandLine.arguments[1] == "--text-bounds"
+let listsTextBounds = CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--observations"
 
-guard CommandLine.arguments.count == 2 || findsTextBounds else {
+guard CommandLine.arguments.count == 2 || findsTextBounds || listsTextBounds else {
     fail(
         "Usage: android-auto-ocr.swift <screenshot.png> | --mean-luminance <screenshot.png> <x> <y> <width> <height> | --mean-pixel-difference <first.png> <second.png> <x> <y> <width> <height>"
     )
 }
 
-let image = loadImage(at: CommandLine.arguments[findsTextBounds ? 2 : 1])
+let image = loadImage(at: CommandLine.arguments[findsTextBounds || listsTextBounds ? 2 : 1])
 
 let request = VNRecognizeTextRequest()
 request.recognitionLevel = .fast
@@ -293,8 +294,16 @@ let observations = (request.results ?? []).sorted { first, second in
     return first.boundingBox.minX < second.boundingBox.minX
 }
 
+var textBounds: [[String: Any]] = []
 for observation in observations {
     if let candidate = observation.topCandidates(1).first {
+        if listsTextBounds {
+            let bounds = observation.boundingBox
+            textBounds.append(["text": candidate.string,
+                "x": Int(bounds.midX * Double(image.width)),
+                "y": Int((1 - bounds.midY) * Double(image.height))])
+            continue
+        }
         if findsTextBounds {
             if candidate.string.localizedCaseInsensitiveContains(CommandLine.arguments[3]) {
                 let bounds = observation.boundingBox
@@ -309,5 +318,9 @@ for observation in observations {
         }
         print(candidate.string)
     }
+}
+if listsTextBounds {
+    let data = try! JSONSerialization.data(withJSONObject: textBounds, options: [.sortedKeys])
+    print(String(data: data, encoding: .utf8)!)
 }
 if findsTextBounds { fail("Text was not found in screenshot: \(CommandLine.arguments[3])") }

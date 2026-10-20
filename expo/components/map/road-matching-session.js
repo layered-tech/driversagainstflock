@@ -1,4 +1,6 @@
+import { reportCorridorFailure } from './road-corridor-diagnostics';
 import * as Location from 'expo-location';
+import { addCrashlyticsLog } from '../../lib/crashlytics';
 import * as TaskManager from 'expo-task-manager';
 import { AppState, Platform } from 'react-native';
 import { recordAndroidAutoPerformanceTrace } from '../android-auto-performance-trace';
@@ -8,7 +10,12 @@ import {
     getAutoPlaySessionState,
 } from '../auto-play-session-state';
 import { publishAcceptedDeviceLocation } from './accepted-device-location';
-import { getRoadCorridor } from './api';
+import {
+    getCorridorRelease,
+    getPilotCacheRevision,
+    getPilotRoadCorridor,
+} from './road-corridor-pilot';
+import { publishCorridorSource } from './road-corridor-source';
 import {
     refreshBackgroundAlertsForLocationAsync,
     settleBackgroundWorkWithinDeadlineAsync,
@@ -86,6 +93,7 @@ let lastRoadMatchedLocation = null;
 let matcher = null;
 let roadGraph = null;
 let roadGraphLoadCount = 0;
+let appliedPilotCacheRevision = 0;
 let roadLookAheadMode = 'free-drive';
 let rawLocationHistory = [];
 let sessionState = 'idle';
@@ -596,7 +604,11 @@ async function publishRawLocationAsync(
 }
 
 function roadGraphNeedsRefresh(location) {
-    if (!roadGraph || !graphCenter) {
+    if (
+        !roadGraph ||
+        !graphCenter ||
+        getPilotCacheRevision() !== appliedPilotCacheRevision
+    ) {
         return true;
     }
 
@@ -621,6 +633,7 @@ async function ensureRoadGraph(location, source) {
     }
 
     if (
+        getPilotCacheRevision() === appliedPilotCacheRevision &&
         lastGraphRequestFailure?.source === source &&
         Date.now() - lastGraphRequestFailure.failedAt <
             ROAD_CORRIDOR_RETRY_DELAY_MS
@@ -641,6 +654,7 @@ async function ensureRoadGraph(location, source) {
         startedWithRoadGraph: roadGraph !== null,
     });
     const requestGeneration = graphRequestGeneration;
+    const requestedCacheRevision = getPilotCacheRevision();
     const requestStartedAt = Date.now();
     let requestTimedOut = false;
     const requestTimeoutId = setTimeout(() => {
@@ -691,7 +705,7 @@ async function ensureRoadGraph(location, source) {
         { once: true },
     );
 
-    graphRequest = getRoadCorridor({
+    graphRequest = getPilotRoadCorridor({
         location: {
             latitude: coordinate[1],
             longitude: coordinate[0],
@@ -773,6 +787,25 @@ async function ensureRoadGraph(location, source) {
                 durationMs: historyReplayDurationMs,
                 edgeCount: nextRoadGraph.edges.length,
             });
+            const corridorSource = ways.corridorSource ?? {
+                source: 'service',
+                reason: 'Existing corridor response',
+            };
+            appliedPilotCacheRevision =
+                corridorSource.source === 'download'
+                    ? (ways.corridorCacheRevision ?? getPilotCacheRevision())
+                    : requestedCacheRevision;
+            if (publishCorridorSource(corridorSource)) {
+                addCrashlyticsLog({
+                    category: 'map.road_corridor',
+                    message: 'Road corridor source changed',
+                    data: corridorSource,
+                });
+                recordAndroidAutoPerformanceTrace(
+                    'road_graph.source_changed',
+                    corridorSource,
+                );
+            }
             roadGraphLoadCount += 1;
             recordAndroidAutoPerformanceTrace('road_graph.loaded', {
                 edgeCount: nextRoadGraph.edges.length,
@@ -795,12 +828,32 @@ async function ensureRoadGraph(location, source) {
             });
 
             if (error?.name !== 'AbortError' || requestTimedOut) {
+                reportCorridorFailure(
+                    'graph_load',
+                    requestTimedOut ? new Error('Graph load timed out') : error,
+                    {
+                        release: getCorridorRelease().release,
+                        elapsedMs: Date.now() - requestStartedAt,
+                        fallback: requestContext.startedWithRoadGraph
+                            ? 'retained_graph'
+                            : 'unavailable',
+                    },
+                );
                 lastGraphRequestFailure = {
                     failedAt: Date.now(),
                     source: requestContext.originSource,
                 };
 
                 if (!requestContext.startedWithRoadGraph) {
+                    addCrashlyticsLog({
+                        category: 'map.road_corridor',
+                        message: 'Road corridor unavailable',
+                        data: { source: 'unavailable' },
+                    });
+                    publishCorridorSource({
+                        source: 'unavailable',
+                        reason: 'No usable road corridor',
+                    });
                     setSessionState('road-graph-error');
                 }
             }

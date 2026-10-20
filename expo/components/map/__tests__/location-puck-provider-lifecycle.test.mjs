@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { createLocationPuckProviderLifecycle } from '../location-puck-provider-lifecycle.js';
+import { isLocationPuckProviderReady } from '../location-puck-state.js';
 
 function makeProviderLocation(longitude, latitude, heading, recordedAt) {
     return {
@@ -35,6 +36,50 @@ function requestProvider(
 }
 
 describe('location puck provider lifecycle', () => {
+    test('does not activate the Android puck until the validated provider is installed', async () => {
+        const updateStarted = makeDeferred();
+        const finishUpdate = makeDeferred();
+        let providerStatus = 'inactive';
+        const isReady = () =>
+            isLocationPuckProviderReady({
+                platform: 'android',
+                usesSharedLocationProvider: true,
+                isDrivingMode: false,
+                providerStatus,
+            });
+        const lifecycle = createLocationPuckProviderLifecycle({
+            clearLocationPuck: async () => true,
+            onStatusChange: (status) => {
+                providerStatus = status;
+            },
+            updateLocationPuck: async () => {
+                updateStarted.resolve();
+                await finishUpdate.promise;
+                return true;
+            },
+        });
+
+        assert.equal(
+            isReady(),
+            false,
+            'mounting now would activate the raw sensor provider',
+        );
+        const request = requestProvider(
+            lifecycle,
+            { id: 'map-a' },
+            makeProviderLocation(-97.1, 30.1, 90, 1_000),
+        );
+        await updateStarted.promise;
+        assert.equal(
+            isReady(),
+            false,
+            'an in-flight native update is not provider ownership',
+        );
+        finishUpdate.resolve();
+        await request;
+        assert.equal(isReady(), true);
+    });
+
     test('updates one installed provider without clearing between fixes', async () => {
         const calls = [];
         const mapView = { id: 'map-a' };

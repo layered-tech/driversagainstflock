@@ -1,0 +1,277 @@
+appId: com.anonymous.drivefree.dev
+name: OSM Changeset Editor
+---
+- launchApp:
+    stopApp: true
+- runFlow: subflows/dismiss-first-launch-support.yml
+- extendedWaitUntil:
+    visible:
+      id: map-contribute-button
+    timeout: 30000
+- openLink: 'driversagainstflock://e2e-mocks?auth=1'
+- extendedWaitUntil:
+    visible:
+      id: map-contribute-button
+    timeout: 30000
+- tapOn:
+    id: map-contribute-button
+    retryTapIfNoChange: false
+- runFlow:
+    when:
+      visible:
+        id: contribute-tour-skip-start
+    commands:
+      - tapOn:
+          id: contribute-tour-skip-start
+          retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-start-editing-button
+    timeout: 15000
+- tapOn:
+    id: contribute-start-editing-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-add-camera-button
+    timeout: 15000
+- takeScreenshot: osm-editor
+- extendedWaitUntil:
+    visible:
+      id: map-marker-0-map
+    timeout: 15000
+- tapOn:
+    id: map-marker-0-map
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: editing-camera-details
+    timeout: 15000
+- assertVisible:
+    id: marker-details-edit-node-button
+- assertVisible:
+    id: marker-details-delete-node-button
+- takeScreenshot: osm-editing-camera-details
+- tapOn:
+    id: marker-details-edit-node-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-preset-custom
+    timeout: 15000
+- takeScreenshot: osm-edit-camera
+- tapOn:
+    id: contribute-back-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-add-camera-button
+    timeout: 15000
+- tapOn:
+    id: contribute-add-camera-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-preset-flock
+    timeout: 15000
+- assertVisible:
+    id: contribute-preset-flock
+- assertVisible:
+    id: contribute-preset-motorola
+- assertVisible:
+    id: contribute-preset-genetec
+- assertVisible:
+    id: contribute-preset-axon
+- tapOn:
+    id: contribute-preset-genetec
+    retryTapIfNoChange: false
+- takeScreenshot: osm-genetec-preset
+- tapOn:
+    id: contribute-next-changeset-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-placement-sheet-title
+    timeout: 15000
+- tapOn:
+    id: contribute-keep-editing
+    retryTapIfNoChange: false
+- tapOn:
+    id: contribute-add-camera-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-preset-flock
+    timeout: 15000
+- tapOn:
+    id: contribute-preset-axon
+    retryTapIfNoChange: false
+- tapOn:
+    id: contribute-preset-custom
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
+      id: contribute-raw-tag-value-5
+    direction: DOWN
+- assertVisible: Axon Enterprise
+- takeScreenshot: osm-custom-tags
+- tapOn:
+    id: contribute-next-changeset-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-placement-sheet-title
+    timeout: 15000
+- assertVisible: '2 changes staged'
+- extendedWaitUntil:
+    visible:
+      id: contribute-keep-editing
+    timeout: 15000
+- takeScreenshot: osm-staged-tray
+- tapOn:
+    id: contribute-keep-editing
+    retryTapIfNoChange: false
+- tapOn:
+    id: contribute-back-button
+    retryTapIfNoChange: false
+- assertVisible: 'Close the editor?'
+- takeScreenshot: osm-close-editor
+- tapOn:
+    id: contribute-keep-draft
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: map-contribute-button
+    timeout: 15000
+- assertVisible: '.*2 changes pending.*'
+- takeScreenshot: osm-draft-badge
+- tapOn:
+    id: contribute-coach-mark
+    retryTapIfNoChange: false
+- assertNotVisible:
+    id: contribute-coach-mark
+- assertVisible:
+    id: map-contribute-button
+- tapOn:
+    id: map-contribute-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-placement-sheet-title
+    timeout: 15000
+- tapOn:
+    id: contribute-keep-editing
+    retryTapIfNoChange: false
+- openLink: 'driversagainstflock://edits/1234567890'
+- extendedWaitUntil:
+    visible:
+      id: contribute-preset-flock
+    timeout: 15000
+- tapOn:
+    id: contribute-next-changeset-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-placement-sheet-title
+    timeout: 15000
+- tapOn:
+    id: contribute-keep-editing
+    retryTapIfNoChange: false
+- openLink: 'driversagainstflock://edits'
+- extendedWaitUntil:
+    visible:
+      id: your-edits-row-11640217-menu-button
+    timeout: 15000
+- tapOn:
+    id: your-edits-row-11640217-menu-button
+    retryTapIfNoChange: false
+- tapOn:
+    id: your-edits-row-11640217-delete-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: remove-camera-confirm-button
+    timeout: 15000
+- takeScreenshot: osm-delete-camera
+- tapOn:
+    id: remove-camera-confirm-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-placement-sheet-title
+    timeout: 15000
+- tapOn:
+    id: contribute-next-details-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-comment-input
+    timeout: 15000
+- tapOn:
+    id: contribute-comment-input
+    retryTapIfNoChange: false
+- inputText: 'Surveyed cameras for emulator design validation'
+- tapOn:
+    text: 'Say what changed and why — other mappers read this.'
+    retryTapIfNoChange: false
+- takeScreenshot: osm-changeset-details
+- tapOn:
+    id: contribute-next-review-button
+    retryTapIfNoChange: false
+- assertVisible: '.*Create.*Genetec.*'
+- assertVisible: '.*Modify.*'
+- assertVisible: '.*Delete.*'
+- takeScreenshot: osm-review
+- tapOn:
+    id: contribute-publish-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-published-screen
+    timeout: 15000
+- assertVisible: '4 changes.*'
+- assertVisible: created
+- assertVisible: modified
+- assertVisible: deleted
+- takeScreenshot: osm-published
+- tapOn:
+    id: contribute-see-on-map-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: map-contribute-button
+    timeout: 15000
+- tapOn:
+    id: map-contribute-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-account-card-signed-in
+    timeout: 15000
+- takeScreenshot: osm-start-sheet
+- tapOn:
+    id: contribute-account-card-signed-in
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: your-edits-row-12100881
+    timeout: 15000
+- assertVisible: Deleted
+- assertNotVisible:
+    id: your-edits-row-11640217-menu-button
+- takeScreenshot: osm-your-edits
+- tapOn:
+    id: your-edits-row-12100881-menu-button
+    retryTapIfNoChange: false
+- assertVisible:
+    id: your-edits-row-12100881-edit-button
+- assertVisible:
+    id: your-edits-row-12100881-delete-button
+- takeScreenshot: osm-your-edits-actions
+- tapOn:
+    id: your-edits-back-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: map-contribute-button
+    timeout: 15000

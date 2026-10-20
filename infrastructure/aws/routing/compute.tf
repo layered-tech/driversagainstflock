@@ -4,7 +4,9 @@ resource "aws_launch_template" "builder" {
   instance_initiated_shutdown_behavior = "terminate"
   update_default_version               = true
 
-  image_id      = data.aws_ssm_parameter.amazon_linux_2023_arm64.value
+  depends_on = [aws_s3_object.graph_build_operation]
+
+  image_id      = var.builder_ami_id
   instance_type = var.builder_instance_type
 
   user_data = base64encode(file("${path.module}/operations/scheduled-builder-user-data.sh"))

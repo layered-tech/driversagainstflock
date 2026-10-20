@@ -1,4 +1,13 @@
 import {
+    ALPR_SYMBOL_ICON_OFFSETS,
+    ALPR_SYMBOL_ICON_SIZE_EXPRESSION,
+    ALPR_SYMBOL_IMAGE_PROPERTY_NAME,
+    ALPR_SYMBOL_IMAGE_SCALE,
+    ALPR_SYMBOL_MIN_ZOOM_LEVEL,
+    ALPR_SYMBOL_VISIBLE_PROPERTY_NAME,
+    GENERIC_ALPR_SYMBOL_IMAGE_NAME,
+} from '../../lib/osm/camera-marker-style.js';
+import {
     MAPBOX_STANDARD_LIGHT_PRESET_AUTO,
     MAPBOX_STANDARD_LIGHT_PRESET_DAWN,
     MAPBOX_STANDARD_LIGHT_PRESET_DAY,
@@ -7,6 +16,16 @@ import {
     MAPBOX_STANDARD_SATELLITE_STYLE_URL,
     MAPBOX_STANDARD_STYLE_URL,
 } from './config';
+
+export {
+    GENERIC_ALPR_SYMBOL_IMAGE_NAME,
+    ALPR_SYMBOL_IMAGE_PROPERTY_NAME,
+    ALPR_SYMBOL_VISIBLE_PROPERTY_NAME,
+    ALPR_SYMBOL_MIN_ZOOM_LEVEL,
+    ALPR_SYMBOL_IMAGE_SCALE,
+    ALPR_SYMBOL_ICON_OFFSETS,
+    ALPR_SYMBOL_ICON_SIZE_EXPRESSION,
+};
 
 export const DEFAULT_CENTER_COORDINATE = [-98.5795, 39.8283];
 export const DEFAULT_ZOOM_LEVEL = 3.5;
@@ -53,20 +72,29 @@ export const ANDROID_AUTO_NAVIGATION_PUCK_SHADOW_IMAGE =
     'android-auto-navigation-puck-shadow';
 export const ALPR_SYMBOL_IMAGE_NAME = 'falcon-alpr';
 export const ALPR_SYMBOL_IMAGE_SOURCE = require('../../assets/map/falcon-alpr.png');
-export const ALPR_SYMBOL_MIN_ZOOM_LEVEL = 16;
-export const ALPR_SYMBOL_VISIBLE_PROPERTY_NAME = 'showsAlprSymbol';
-export const ALPR_SYMBOL_ICON_OFFSET = [-35, 0];
-export const ALPR_SYMBOL_ICON_SIZE_EXPRESSION = [
-    'interpolate',
-    ['linear'],
-    ['zoom'],
-    ALPR_SYMBOL_MIN_ZOOM_LEVEL,
-    0.09,
-    18,
-    0.115,
-    MAX_ZOOM_LEVEL,
-    0.14,
-];
+export const MOTOROLA_ALPR_SYMBOL_IMAGE_NAME = 'motorola-alpr';
+export const GENETEC_ALPR_SYMBOL_IMAGE_NAME = 'genetec-alpr';
+export const AXON_ALPR_SYMBOL_IMAGE_NAME = 'axon-alpr';
+export const LEONARDO_ALPR_SYMBOL_IMAGE_NAME = 'leonardo-alpr';
+export const NEOLOGY_ALPR_SYMBOL_IMAGE_NAME = 'neology-alpr';
+export const VERKADA_ALPR_SYMBOL_IMAGE_NAME = 'verkada-alpr';
+// Keep unscaled quad corners inside Mapbox's signed 16-bit / 32 range.
+// Density changes logical image size, not the source PNG or displayed size.
+export const ALPR_SYMBOL_IMAGES = Object.fromEntries(
+    Object.entries({
+        [ALPR_SYMBOL_IMAGE_NAME]: ALPR_SYMBOL_IMAGE_SOURCE,
+        [MOTOROLA_ALPR_SYMBOL_IMAGE_NAME]: require('../../assets/map/motorola-alpr.png'),
+        [GENETEC_ALPR_SYMBOL_IMAGE_NAME]: require('../../assets/map/genetec-alpr.png'),
+        [AXON_ALPR_SYMBOL_IMAGE_NAME]: require('../../assets/map/axon-alpr.png'),
+        [LEONARDO_ALPR_SYMBOL_IMAGE_NAME]: require('../../assets/map/leonardo-alpr.png'),
+        [NEOLOGY_ALPR_SYMBOL_IMAGE_NAME]: require('../../assets/map/neology-alpr.png'),
+        [VERKADA_ALPR_SYMBOL_IMAGE_NAME]: require('../../assets/map/verkada-alpr.png'),
+        [GENERIC_ALPR_SYMBOL_IMAGE_NAME]: require('../../assets/map/generic-alpr.png'),
+    }).map(([name, image]) => [
+        name,
+        { image, scale: ALPR_SYMBOL_IMAGE_SCALE },
+    ]),
+);
 export const MARKER_CLUSTER_CIRCLE_RADIUS_EXPRESSION = [
     'step',
     ['get', 'point_count'],

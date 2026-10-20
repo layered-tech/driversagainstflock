@@ -8,12 +8,29 @@ const autoPlayMapSurfaceSource = readFileSync(
     'utf8',
 );
 
-test('the Android Auto cluster hides ALPR and police alerts', () => {
+test('the Android Auto cluster keeps passive ALPR nodes without police or upcoming alerts', () => {
     assert.deepEqual(
         getAutoPlayAlertSurfaceVisibility({
             isRootMapSurface: false,
+            isClusterMapSurface: true,
             policeAlertsVisible: true,
             surveillanceMarkersVisible: true,
+        }),
+        {
+            policeAlertsVisible: false,
+            surveillanceMarkersVisible: true,
+            upcomingAlertsVisible: false,
+        },
+    );
+});
+
+test('the Android Auto cluster respects the ALPR marker preference', () => {
+    assert.deepEqual(
+        getAutoPlayAlertSurfaceVisibility({
+            isRootMapSurface: false,
+            isClusterMapSurface: true,
+            policeAlertsVisible: true,
+            surveillanceMarkersVisible: false,
         }),
         {
             policeAlertsVisible: false,
@@ -70,7 +87,7 @@ test('the main in-car map keeps its configured alerts', () => {
 test('the automotive map renderer applies the surface alert policy', () => {
     assert.match(
         autoPlayMapSurfaceSource,
-        /getAutoPlayAlertSurfaceVisibility\(\{[\s\S]*?isDashboardMapSurface,[\s\S]*?isRootMapSurface,[\s\S]*?policeAlertsVisible:[\s\S]*?surveillanceMarkersVisible:/,
+        /getAutoPlayAlertSurfaceVisibility\(\{[\s\S]*?isClusterMapSurface,[\s\S]*?isRootMapSurface,[\s\S]*?policeAlertsVisible:[\s\S]*?surveillanceMarkersVisible:/,
     );
     assert.match(
         autoPlayMapSurfaceSource,

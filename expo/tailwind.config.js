@@ -11,6 +11,13 @@ module.exports = {
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
+      boxShadow: {
+        areaCard: '0 6px 20px rgba(11, 14, 18, 0.08)',
+        areaCardDark: '0 8px 26px rgba(0, 0, 0, 0.45)',
+        areaSheet: '0 -8px 40px rgba(11, 14, 18, 0.20)',
+        areaSheetDark: '0 -10px 44px rgba(0, 0, 0, 0.55)',
+        areaControl: '0 3px 10px rgba(11, 14, 18, 0.12)',
+      },
       borderWidth: {
         hairline: hairlineWidth(),
       },
@@ -76,6 +83,14 @@ module.exports = {
         },
       },
       fontFamily: {
+        areaRegular: ['HankenGrotesk-Regular'],
+        areaMedium: ['HankenGrotesk-Medium'],
+        areaSemibold: ['HankenGrotesk-SemiBold'],
+        areaBold: ['HankenGrotesk-Bold'],
+        areaDisplay: ['Geist-Bold'],
+        areaMono: ['JetBrainsMono-Regular'],
+        areaMonoSemibold: ['JetBrainsMono-SemiBold'],
+        areaMonoBold: ['JetBrainsMono-Bold'],
         dafDisplay: ['System'],
         dafUi: ['System'],
         dafMono: ['monospace'],

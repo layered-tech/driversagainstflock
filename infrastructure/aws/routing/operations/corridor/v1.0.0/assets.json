@@ -1,0 +1,27 @@
+[
+  {
+    "name": "run-corridor.sh",
+    "key": "operations/corridor/v1.0.0/run-corridor.sh",
+    "sha256": "bc5ec20095ac49793019fc4e1b5498a92880be09b69d0fe0ef34ceb23561b02d"
+  },
+  {
+    "name": "publish-and-promote.mjs",
+    "key": "operations/corridor/v1.0.0/publish-and-promote.mjs",
+    "sha256": "d50bb59c6893245f15ca537045b1df94a6018d23671f59783c28453ff5ed0fec"
+  },
+  {
+    "name": "validate-road-corridor.mjs",
+    "key": "operations/corridor/v1.0.0/validate-road-corridor.mjs",
+    "sha256": "8ab39eee4a76435913f0391ea73b4d6cc56215b6ea1c8f644400fedfef4a2bf3"
+  },
+  {
+    "name": "road-corridor-contract.mjs",
+    "key": "operations/corridor/v1.0.0/road-corridor-contract.mjs",
+    "sha256": "98e1e52fb1112b96a4644af6d227de10820057a8b2bc8e33eadf433f088f48f7"
+  },
+  {
+    "name": "RoadCorridorExporter.java",
+    "key": "operations/corridor/v1.0.0/RoadCorridorExporter.java",
+    "sha256": "ce4d8fa7f5311faa35e0d4da33e3d7c17edd9cd9d04afee27246f65d69a5f0ad"
+  }
+]

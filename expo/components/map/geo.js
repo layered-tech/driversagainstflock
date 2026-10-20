@@ -1,4 +1,6 @@
+import { getMarkerAlprSymbolImage } from '../../lib/osm/camera-marker-style.js';
 import {
+    ALPR_SYMBOL_IMAGE_PROPERTY_NAME,
     ALPR_SYMBOL_VISIBLE_PROPERTY_NAME,
     DRIVING_COURSE_HEADING_DEADBAND_DEGREES,
     DRIVING_COURSE_HEADING_FILTER_FACTOR,
@@ -20,6 +22,12 @@ import {
 } from './direction-values';
 
 export {
+    getMarkerAlprSymbolImage,
+    markerShowsAlprSymbol,
+    nodeShowsAlprSymbol,
+} from '../../lib/osm/camera-marker-style.js';
+
+export {
     getMarkerDirectionValue,
     getMarkerDirectionValues,
     normalizeDirectionDegrees,
@@ -33,11 +41,6 @@ export {
     shouldSkipMarkerLoadRequest,
 } from './marker-load-bounds';
 
-const FLOCK_ALPR_WIKIDATA_ID = 'Q108485435';
-const FLOCK_ALPR_WIKIDATA_TAG_NAMES = [
-    'brand:wikidata',
-    'manufacturer:wikidata',
-];
 const EARTH_RADIUS_METERS = 6371008.8;
 const markerFeatureCollectionCache = new WeakMap();
 
@@ -365,22 +368,6 @@ export function getMarkerCoordinate(marker) {
     return [longitude, latitude];
 }
 
-export function nodeShowsAlprSymbol(node) {
-    return FLOCK_ALPR_WIKIDATA_TAG_NAMES.some(
-        (tagName) => node?.tags?.[tagName] === FLOCK_ALPR_WIKIDATA_ID,
-    );
-}
-
-export function markerShowsAlprSymbol(marker) {
-    const osmNodes = marker?.properties?.osm_nodes;
-
-    if (!Array.isArray(osmNodes)) {
-        return false;
-    }
-
-    return osmNodes.some(nodeShowsAlprSymbol);
-}
-
 export function makeMarkerFeatureCollection(markers) {
     if (!Array.isArray(markers)) {
         return EMPTY_FEATURE_COLLECTION;
@@ -401,18 +388,24 @@ export function makeMarkerFeatureCollection(markers) {
             }
 
             const markerId = marker?.properties?.id ?? `marker-${index}`;
+            const alprSymbolImage = getMarkerAlprSymbolImage(marker);
             const properties = {
+                [ALPR_SYMBOL_IMAGE_PROPERTY_NAME]: alprSymbolImage,
                 markerId: String(markerId),
-                [ALPR_SYMBOL_VISIBLE_PROPERTY_NAME]:
-                    markerShowsAlprSymbol(marker),
+                [ALPR_SYMBOL_VISIBLE_PROPERTY_NAME]: alprSymbolImage !== null,
             };
 
             getMarkerDirectionValues(marker)
                 .slice(0, MAX_MARKER_CONE_DIRECTIONS)
                 .forEach((direction, directionIndex) => {
-                    properties[
-                        MARKER_CONE_DIRECTION_PROPERTY_NAMES[directionIndex]
-                    ] = direction;
+                    const directionProperty =
+                        MARKER_CONE_DIRECTION_PROPERTY_NAMES[directionIndex];
+                    properties[directionProperty] = direction;
+                    properties[`${directionProperty}Rotation`] = [
+                        0,
+                        0,
+                        direction,
+                    ];
                 });
 
             return {

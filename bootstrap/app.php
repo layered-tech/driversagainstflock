@@ -1,11 +1,14 @@
 <?php
 
+use App\Http\Middleware\AuthenticateAreaDevice;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\LogApiRequest;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Routing\Middleware\ThrottleRequestsWithRedis;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -27,6 +30,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectUsersTo('/');
 
         $middleware->throttleWithRedis();
+        $middleware->prependToPriorityList(
+            before: [ThrottleRequests::class, ThrottleRequestsWithRedis::class],
+            prepend: AuthenticateAreaDevice::class,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

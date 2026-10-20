@@ -7,45 +7,6 @@ tags:
 ---
 - runFlow: subflows/contribute-tour-setup.yml
 - runFlow: subflows/contribute-tour-place-camera.yml
-- tapOn:
-    id: 'contribute-next-details-button'
-    retryTapIfNoChange: false
-- runFlow:
-    file: subflows/contribute-tour-tip.yml
-    env:
-      TOUR_STEP: camera-details
-      TOUR_TITLE: Describe what you can verify
-- extendedWaitUntil:
-    visible:
-      id: 'contribute-tour-manufacturer'
-    timeout: 10000
-- waitForAnimationToEnd
-- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-contribute-tour-before-resume'}
-# Restart with a real autosaved draft and a partially dismissed camera phase.
-- runFlow: subflows/contribute-tour-relaunch.yml
-- assertVisible:
-    id: 'contribute-resume-draft-button'
-- assertNotVisible:
-    id: 'contribute-tour-start'
-- tapOn:
-    id: 'contribute-resume-draft-button'
-    retryTapIfNoChange: false
-- assertVisible: '1 camera placed'
-- assertNotVisible:
-    id: 'contribute-tour-placement-map|contribute-tour-placement|contribute-tour-placed'
-- tapOn:
-    id: 'contribute-next-details-button'
-    retryTapIfNoChange: false
-- extendedWaitUntil:
-    visible:
-      id: 'contribute-tour-manufacturer'
-    timeout: 10000
-- assertNotVisible:
-    id: 'contribute-tour-camera-details'
-# Back reopens the earlier tip even when it was dismissed before restart.
-- tapOn:
-    id: 'contribute-tour-back-manufacturer'
-    retryTapIfNoChange: false
 - runFlow:
     file: subflows/contribute-tour-tip.yml
     env:
@@ -71,9 +32,29 @@ tags:
     env:
       TOUR_STEP: mount
       TOUR_TITLE: What is it mounted on?
-- assertVisible: 'Camera 1 of 1'
 - tapOn:
     id: 'contribute-next-changeset-button'
+    retryTapIfNoChange: false
+- tapOn:
+    id: 'contribute-next-details-button'
+    retryTapIfNoChange: false
+- runFlow:
+    file: subflows/contribute-tour-tip.yml
+    env:
+      TOUR_STEP: changeset
+      TOUR_TITLE: Tell other mappers what changed
+- assertVisible:
+    id: 'contribute-tour-source'
+- runFlow: subflows/contribute-tour-relaunch.yml
+- tapOn:
+    id: 'contribute-next-details-button'
+    retryTapIfNoChange: false
+- assertVisible:
+    id: 'contribute-tour-source'
+- assertNotVisible:
+    id: 'contribute-tour-changeset'
+- tapOn:
+    id: 'contribute-tour-back-source'
     retryTapIfNoChange: false
 - runFlow:
     file: subflows/contribute-tour-tip.yml

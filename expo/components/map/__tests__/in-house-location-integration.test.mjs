@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+import { runInNewContext } from 'node:vm';
 
 function readSource(relativePath) {
     return readFileSync(new URL(relativePath, import.meta.url), 'utf8');
@@ -65,6 +66,65 @@ const wazePoliceAlertsSource = readSource('../use-waze-police-alerts.js');
 const wazePoliceAlertStoreSource = readSource('../waze-police-alert-store.js');
 
 describe('in-house road-matched location integration', () => {
+    test('gates Android puck and follow on shared provider readiness', () => {
+        assert.match(
+            mapCanvasSource,
+            /\[locationPuckProviderStatus, setLocationPuckProviderStatus\] =\s*useState\('inactive'\)/,
+        );
+        assert.match(
+            mapCanvasSource,
+            /const locationPuckProviderIsReady =\s*isLocationPuckProviderReady\(/,
+        );
+        assert.match(
+            mapCanvasSource,
+            /mapIsReady:\s*locationPuckMapLoadEpoch > 0 && locationPuckProviderIsReady/,
+        );
+        assert.match(
+            mapCanvasSource,
+            /locationPuckProviderIsReady &&[\s\S]*?!locationPuck2DFallbackIsSuppressed[\s\S]*?<Mapbox\.LocationPuck/,
+        );
+        assert.match(
+            drivingLocationProviderSource,
+            /enabled && !providerLocation\s*\? 'waiting-location'/,
+        );
+    });
+
+    test('remounts the native puck when its image set changes on either platform', () => {
+        const keyExpression = mapCanvasSource.match(
+            /const locationPuckKey =\s*([\s\S]*?);/,
+        )?.[1];
+        assert.ok(keyExpression);
+        assert.match(
+            mapCanvasSource,
+            /<Mapbox\.LocationPuck\s+key=\{locationPuckKey\}/,
+        );
+
+        for (const platform of ['android', 'ios']) {
+            const key = (visible, bearingImage) =>
+                runInNewContext(keyExpression, {
+                    Platform: { OS: platform },
+                    navigationPuckIsVisible: visible,
+                    navigationPuckBearingImage: bearingImage,
+                });
+            const defaultKey = key(false, 'phone-arrow');
+            const navigationKey = key(true, 'phone-arrow');
+            const autoPlayKey = key(true, 'auto-arrow');
+
+            assert.notEqual(
+                defaultKey,
+                navigationKey,
+                `${platform}: default to navigation`,
+            );
+            assert.notEqual(
+                navigationKey,
+                autoPlayKey,
+                `${platform}: phone to car images`,
+            );
+            assert.equal(navigationKey, key(true, 'phone-arrow'));
+            assert.equal(defaultKey, key(false, 'auto-arrow'));
+        }
+    });
+
     test('exposes a unique native puck readiness value to Maestro', () => {
         assert.match(roadMatchingE2EProbeSource, /e2e-native-puck-proof/);
         assert.match(
@@ -73,7 +133,7 @@ describe('in-house road-matched location integration', () => {
         );
     });
 
-    test('uses upstream Expo Location subscriptions without native patches', () => {
+    test('keeps upstream Expo Location subscriptions with only a channel label patch', () => {
         assert.match(
             useDeviceLocationSource,
             /import \* as Location from 'expo-location'/,
@@ -84,9 +144,19 @@ describe('in-house road-matched location integration', () => {
         const patches = readdirSync(
             new URL('../../../patches/', import.meta.url),
         );
-        assert.equal(
-            patches.some((name) => name.startsWith('expo-location+')),
-            false,
+        const locationPatches = patches.filter((name) =>
+            name.startsWith('expo-location+'),
+        );
+        assert.deepEqual(locationPatches, ['expo-location+57.0.20.patch']);
+        const channelPatch = readFileSync(
+            new URL(`../../../patches/${locationPatches[0]}`, import.meta.url),
+            'utf8',
+        );
+        assert.equal((channelPatch.match(/^diff --git /gm) ?? []).length, 1);
+        assert.match(channelPatch, /services\/LocationTaskService\.kt/);
+        assert.doesNotMatch(
+            channelPatch,
+            /watchPosition|watchHeading|requestLocationUpdates|removeLocationUpdates/,
         );
     });
 
@@ -535,7 +605,7 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(
             roadMatchingSessionSource,
-            /getRoadCorridor\(\{[\s\S]*?radiusMeters: ROAD_CORRIDOR_RADIUS_METERS[\s\S]*?createDirectedRoadGraph\(ways\)[\s\S]*?createRoadMatcherWithHistory/,
+            /getPilotRoadCorridor\(\{[\s\S]*?radiusMeters: ROAD_CORRIDOR_RADIUS_METERS[\s\S]*?createDirectedRoadGraph\(ways\)[\s\S]*?createRoadMatcherWithHistory/,
         );
         assert.match(
             roadMatchingSessionSource,

@@ -2,6 +2,7 @@ import { router, useFocusEffect, useIsFocused } from 'expo-router';
 import { useCallback, useRef } from 'react';
 import { ScrollView, Text, useColorScheme, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
+import { getCameraChangeLabel } from '../../lib/osm/camera-presets';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { usePreventRemove } from '../../lib/use-prevent-remove';
 import { Icon } from '../design-system/icon';
@@ -11,88 +12,36 @@ import { useContribute } from './contribute-state';
 import { ContributeTourOverlay } from './contribute-tour-overlay';
 import { ContributeTourTarget } from './contribute-tour-target';
 
-const MANUFACTURER_LABELS = {
-    flock: 'Flock Safety',
-    motorola: 'Motorola Solutions',
-};
-
-function getPublishedNodeLabel(details = {}) {
-    const typeLabel = details.type === 'cctv' ? 'CCTV camera' : 'ALPR camera';
-    const manufacturerLabel = MANUFACTURER_LABELS[details.manufacturer];
-
-    return manufacturerLabel
-        ? `${typeLabel} · ${manufacturerLabel}`
-        : typeLabel;
-}
-
-function formatChangesetId(changesetId) {
-    const numericId = Number(changesetId);
-
-    return Number.isFinite(numericId)
-        ? numericId.toLocaleString()
-        : `${changesetId}`;
-}
-
 export default function PublishedScreen() {
-    const tourTargets = useRef({});
+    const targets = useRef({});
     const screenIsFocused = useIsFocused();
-    const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
+    const theme = getDafTheme(useColorScheme());
     const { user } = useAuth();
-    const { finishContribute, pins, publishResult, resetForMoreCameras, tour } =
-        useContribute();
-    const theme = getDafTheme(colorScheme);
-    const userName = user?.name ?? 'you';
-    const publishResultIsMissing = !publishResult;
-    const contentPaddingTop = Math.max(insets.top + 24, 60);
-    const footerPaddingBottom = Math.max(insets.bottom + 12, 28);
-
-    usePreventRemove(!publishResultIsMissing, () => {});
-
+    const { finishContribute, pins, publishResult, tour } = useContribute();
+    usePreventRemove(Boolean(publishResult), () => {});
     useFocusEffect(
         useCallback(() => {
-            // A focused published screen without a result (deep link, stale
-            // stack) has nothing to show — send it back to the map.
-            if (publishResultIsMissing) {
-                router.replace('/');
-            }
-        }, [publishResultIsMissing]),
+            if (!publishResult) router.replace('/');
+        }, [publishResult]),
     );
-
-    const handleSeeOnMapPress = useCallback(() => {
-        finishContribute();
-        router.replace('/');
-    }, [finishContribute]);
-
-    const handleAddMorePress = useCallback(() => {
-        resetForMoreCameras();
-        router.replace('/');
-    }, [resetForMoreCameras]);
-
-    if (!publishResult) {
-        return null;
-    }
-
-    const publishedNodes = (publishResult.nodes ?? []).map((node) => {
-        const publishedPin = pins.find((pin) => pin.id === node.pinId);
-
-        return {
-            details: publishedPin?.details,
-            nodeId: node.nodeId,
-            removed: false,
-        };
-    });
-    publishedNodes.push(
+    if (!publishResult) return null;
+    const rows = [
+        ...(publishResult.nodes ?? []).map((node) => ({
+            ...node,
+            action: 'created',
+        })),
+        ...(publishResult.modifiedNodes ?? []).map((node) => ({
+            ...node,
+            action: 'modified',
+        })),
         ...(publishResult.removedNodes ?? []).map((node) => ({
             nodeId: node.id,
-            removed: true,
+            version: node.version + 1,
+            action: 'deleted',
+            tags: node.tags,
         })),
-    );
-    const cameraCountLabel =
-        publishedNodes.length === 1
-            ? '1 camera'
-            : `${publishedNodes.length} cameras`;
-
+    ];
     return (
         <View
             className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
@@ -104,100 +53,97 @@ export default function PublishedScreen() {
             >
                 <View
                     className="flex-1 items-center justify-center px-6 pb-6"
-                    style={{ paddingTop: contentPaddingTop }}
+                    style={{ paddingTop: Math.max(insets.top + 24, 60) }}
                 >
-                    <View className="bg-daf-brand/12 h-[72px] w-[72px] items-center justify-center rounded-dafPill dark:bg-daf-brand/15">
-                        <Icon
-                            color={theme.text.brand}
-                            name="check"
-                            size={34}
-                            stroke={2.4}
-                        />
+                    <View className="h-[72px] w-[72px] items-center justify-center rounded-full bg-daf-brand/15">
+                        <Icon name="check" size={34} color={theme.text.brand} />
                     </View>
-                    <Text className="mt-[18px] text-center font-dafDisplay text-[21px] font-bold leading-[26px] text-daf-text-primary dark:text-white">
+                    <Text className="mt-[18px] text-center font-dafDisplay text-[21px] font-bold text-daf-text-primary dark:text-white">
                         Changeset published
                     </Text>
                     <Text
-                        className="mt-1.5 text-center font-dafMono text-xs text-daf-text-brand dark:text-daf-brand"
+                        className="mt-1.5 font-dafMono text-xs text-daf-text-brand dark:text-daf-brand"
                         testID="contribute-changeset-id"
                     >
-                        changeset/{formatChangesetId(publishResult.changesetId)}
+                        changeset/
+                        {Number(publishResult.changesetId).toLocaleString()}
                     </Text>
-                    <Text className="mt-3 max-w-[260px] text-center text-[13px] leading-[19px] text-daf-text-secondary dark:text-neutral-300">
-                        {cameraCountLabel}{' '}
-                        {publishResult.removedNodes?.length
-                            ? 'changed'
-                            : 'added'}
-                        , credited to{' '}
+                    <Text className="mt-3 text-center text-[13px] text-daf-text-secondary dark:text-neutral-300">
+                        {rows.length} changes, credited to{' '}
                         <Text className="font-bold text-daf-text-primary dark:text-white">
-                            @{userName}
+                            @{user?.name ?? 'you'}
                         </Text>
                         .
                     </Text>
                     <View className="mt-5 w-full rounded-dafMd border border-daf-border bg-white px-3.5 dark:border-daf-border-dark dark:bg-daf-surface-dark">
-                        {publishedNodes.map((node, nodeIndex) => (
+                        {rows.map((node, index) => (
                             <View
-                                className={`flex-row items-center gap-3 py-3 ${
-                                    nodeIndex < publishedNodes.length - 1
-                                        ? 'border-b border-daf-border dark:border-daf-border-dark'
-                                        : ''
-                                }`}
-                                key={`${node.nodeId}-${nodeIndex}`}
-                                testID={`contribute-published-node-${nodeIndex}`}
+                                key={`${node.action}-${node.nodeId}`}
+                                className={`flex-row items-center gap-3 py-3 ${index < rows.length - 1 ? 'border-b border-daf-border dark:border-daf-border-dark' : ''}`}
+                                testID={`contribute-published-node-${index}`}
                             >
-                                <View className="h-[17px] w-[17px] items-center justify-center rounded-dafPill bg-daf-marker-alpr/15">
-                                    <View className="h-[9px] w-[9px] rounded-dafPill bg-daf-marker-alpr" />
+                                <View
+                                    className={`h-[17px] w-[17px] items-center justify-center rounded-full ${node.action === 'deleted' ? 'bg-daf-surface-alt dark:bg-daf-surface-inverse' : 'bg-daf-marker-alpr/15'}`}
+                                >
+                                    <View
+                                        className={`h-[9px] w-[9px] rounded-full ${node.action === 'deleted' ? 'bg-daf-border-strong' : 'bg-daf-marker-alpr'}`}
+                                    />
+                                </View>
+                                <View className="min-w-0 flex-1">
+                                    <Text
+                                        className="text-[13px] font-medium text-daf-text-primary dark:text-white"
+                                        numberOfLines={1}
+                                    >
+                                        {node.action === 'deleted'
+                                            ? `ALPR reader${node.tags?.manufacturer ? ` · ${node.tags.manufacturer}` : ''}`
+                                            : getCameraChangeLabel(
+                                                  pins.find(
+                                                      (pin) =>
+                                                          pin.id === node.pinId,
+                                                  )?.details,
+                                              )}
+                                    </Text>
+                                    <Text className="mt-0.5 font-dafMono text-[11px] text-daf-text-tertiary dark:text-neutral-400">
+                                        node/{node.nodeId} · v
+                                        {node.version ?? 1}
+                                    </Text>
                                 </View>
                                 <Text
-                                    className="min-w-0 flex-1 text-[13px] font-medium text-daf-text-primary dark:text-white"
-                                    numberOfLines={1}
+                                    className={`font-dafMono text-[10px] ${node.action === 'deleted' ? 'text-daf-alert' : 'text-daf-text-brand dark:text-daf-brand'}`}
                                 >
-                                    {node.removed
-                                        ? 'Removed camera'
-                                        : getPublishedNodeLabel(node.details)}
-                                </Text>
-                                <Text
-                                    className="font-dafMono text-[11px] text-daf-text-tertiary dark:text-neutral-400"
-                                    numberOfLines={1}
-                                >
-                                    node/{node.nodeId}
+                                    {node.action}
                                 </Text>
                             </View>
                         ))}
                     </View>
                     <Text className="mt-3.5 text-center text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400">
-                        Map updates will appear in Explore and on the Hotlist
-                        within minutes.
+                        Live on OpenStreetMap. Explore and the Hotlist pick it
+                        up within minutes.
                     </Text>
                 </View>
             </ScrollView>
             <View
                 className="border-t border-daf-border bg-white px-4 pt-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
-                style={{ paddingBottom: footerPaddingBottom }}
+                style={{ paddingBottom: Math.max(insets.bottom + 12, 20) }}
             >
-                <ContributeTourTarget id="published" targets={tourTargets}>
+                <ContributeTourTarget id="published" targets={targets}>
                     <DafButton
-                        onPress={handleSeeOnMapPress}
                         size="lg"
+                        onPress={() => {
+                            finishContribute();
+                            router.replace('/');
+                        }}
                         testID="contribute-see-on-map-button"
                     >
-                        See them on the map
+                        Done
                     </DafButton>
                 </ContributeTourTarget>
-                <View className="h-2.5" />
-                <DafButton
-                    onPress={handleAddMorePress}
-                    testID="contribute-add-more-button"
-                    variant="ghost"
-                >
-                    Add more cameras
-                </DafButton>
             </View>
             <ContributeTourOverlay
                 enabled={screenIsFocused}
                 insets={insets}
                 phase="published"
-                targets={tourTargets}
+                targets={targets}
                 tour={tour}
             />
         </View>

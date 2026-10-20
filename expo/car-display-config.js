@@ -1,2 +1,5 @@
 // Keep native scene declarations and runtime registration in agreement.
-module.exports = { instrumentClusterEnabled: false };
+module.exports = {
+    androidInstrumentClusterEnabled: true,
+    carPlayInstrumentClusterEnabled: false,
+};

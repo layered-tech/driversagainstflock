@@ -2,10 +2,11 @@
  * Decides which alert layers a car map surface may show. The root in-car map
  * and the CarPlay Dashboard both act as the driver's primary map, so they keep
  * the configured ALPR markers, police nodes, and upcoming alerts. The Android
- * Auto instrument cluster is a glanceable secondary view and stays quiet.
+ * Auto instrument cluster keeps passive ALPR nodes but stays quiet.
  */
 export function getAutoPlayAlertSurfaceVisibility({
     isDashboardMapSurface = false,
+    isClusterMapSurface = false,
     isRootMapSurface,
     policeAlertsVisible,
     surveillanceMarkersVisible,
@@ -17,7 +18,8 @@ export function getAutoPlayAlertSurfaceVisibility({
     if (!surfaceShowsAlerts) {
         return {
             policeAlertsVisible: false,
-            surveillanceMarkersVisible: false,
+            surveillanceMarkersVisible:
+                isClusterMapSurface && surveillanceMarkersVisible === true,
             upcomingAlertsVisible: false,
         };
     }

@@ -1,5 +1,7 @@
 const { createRequire } = require('module');
-const { instrumentClusterEnabled } = require('../car-display-config');
+const {
+    carPlayInstrumentClusterEnabled: instrumentClusterEnabled,
+} = require('../car-display-config');
 
 function requireConfigPlugins() {
     try {

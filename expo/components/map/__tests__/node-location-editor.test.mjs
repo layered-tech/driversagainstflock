@@ -10,6 +10,10 @@ const cameraDetailsScreenSource = readFileSync(
     new URL('../../contribute/camera-details-screen.js', import.meta.url),
     'utf8',
 );
+const cameraFormSource = readFileSync(
+    new URL('../../contribute/camera-form.js', import.meta.url),
+    'utf8',
+);
 const editCameraScreenSource = readFileSync(
     new URL('../../edits/edit-camera-screen.js', import.meta.url),
     'utf8',
@@ -212,6 +216,11 @@ describe('CompassDial location editing', () => {
         ].map((match) => match[1]);
 
         assert.deepEqual(controlNames, ['zoom-in', 'zoom-out']);
+        assert.match(
+            compassDialSource,
+            /COMPASS_MIN_ZOOM_LEVEL = 0;/,
+            'zoom out must reach the world view',
+        );
         assert.match(compassDialSource, /handleZoomPress\(ZOOM_STEP\)/);
         assert.match(compassDialSource, /handleZoomPress\(-ZOOM_STEP\)/);
         assert.match(
@@ -223,7 +232,7 @@ describe('CompassDial location editing', () => {
         assert.doesNotMatch(compassDialSource, /expo-location/);
     });
 
-    test('replaces the standalone editor on both create and edit screens', () => {
+    test('uses the shared camera form for create and edit location changes', () => {
         assert.equal(
             existsSync(
                 new URL(
@@ -233,41 +242,22 @@ describe('CompassDial location editing', () => {
             ),
             false,
         );
-
-        const createDial = getCompassDialInvocation(cameraDetailsScreenSource);
-
-        assert.match(createDial, /directions=\{directions\}/);
-        assert.match(createDial, /location=\{pin\}/);
-        assert.match(createDial, /onChange=\{handleDialChange\}/);
-        assert.match(createDial, /onLocationChange=\{handleLocationChange\}/);
-        assert.match(createDial, /testID="contribute-direction-dial"/);
-        assert.match(
-            createDial,
-            /selectedDirectionIndex=\{selectedDirectionIndex\}/,
-        );
-        assert.match(createDial, /value=\{selectedBearing\}/);
-
-        const editDial = getCompassDialInvocation(editCameraScreenSource);
-
-        assert.match(editDial, /directions=\{directions\}/);
-        assert.match(editDial, /location=\{nodeLocation\}/);
-        assert.match(editDial, /onChange=\{handleDialChange\}/);
-        assert.match(editDial, /onLocationChange=\{handleLocationChange\}/);
-        assert.match(editDial, /testID="edit-camera-direction-dial"/);
-        assert.match(
-            editDial,
-            /selectedDirectionIndex=\{[\s\S]*?selectedDirectionIndex[\s\S]*?\}/,
-        );
-        assert.match(editDial, /value=\{selectedBearing\}/);
-
-        assert.doesNotMatch(cameraDetailsScreenSource, /NodeLocationEditor/);
-        assert.doesNotMatch(editCameraScreenSource, /NodeLocationEditor/);
+        const dial = getCompassDialInvocation(cameraFormSource);
+        assert.match(dial, /directions=\{directions\}/);
+        assert.match(dial, /location=\{pin\}/);
+        assert.match(dial, /onLocationChange=\{onLocationChange\}/);
+        assert.match(dial, /selectedDirectionIndex=\{directionIndex\}/);
+        assert.match(cameraDetailsScreenSource, /<CameraForm/);
+        assert.match(editCameraScreenSource, /<CameraForm/);
     });
-
-    test('publishes edited coordinates for existing nodes', () => {
+    test('stages edited coordinates for the shared changeset', () => {
         assert.match(
             editCameraScreenSource,
-            /latitude: nodeLocation\.latitude,[\s\S]*?longitude: nodeLocation\.longitude/,
+            /stageNodeEdit\(node, details, location\)/,
+        );
+        assert.match(
+            editCameraScreenSource,
+            /onLocationChange=\{setLocation\}/,
         );
     });
 });

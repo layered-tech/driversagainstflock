@@ -141,9 +141,12 @@ export function DrivingLocationProvider({
     }
 
     const providerLifecycle = providerLifecycleRef.current;
-    const reportedNativeProviderStatus = nativeProviderIsSupported
-        ? nativeProviderStatus
-        : 'unsupported';
+    const reportedNativeProviderStatus =
+        enabled && !providerLocation
+            ? 'waiting-location'
+            : nativeProviderIsSupported
+              ? nativeProviderStatus
+              : 'unsupported';
     const heading = Number.isFinite(providerLocation?.heading)
         ? providerLocation.heading
         : 0;

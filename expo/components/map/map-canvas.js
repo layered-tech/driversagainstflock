@@ -1,4 +1,11 @@
+import { renderAlprMarkerLayers } from './alpr-marker-layers';
+import {
+    CameraViewConeModels,
+    renderMarkerConeModelLayers,
+} from './camera-view-cone-model';
 import Mapbox from '@rnmapbox/maps';
+import { addCrashlyticsLog } from '../../lib/crashlytics';
+import { createLocationPuckDiagnostics } from './location-puck-diagnostics';
 import {
     memo,
     useCallback,
@@ -27,9 +34,6 @@ import {
     MAPBOX_TRAFFIC_SOURCE_URL,
 } from './config';
 import {
-    ALPR_SYMBOL_ICON_OFFSET,
-    ALPR_SYMBOL_ICON_SIZE_EXPRESSION,
-    ALPR_SYMBOL_IMAGE_NAME,
     ALPR_SYMBOL_MIN_ZOOM_LEVEL,
     ALPR_SYMBOL_VISIBLE_PROPERTY_NAME,
     ANDROID_AUTO_NAVIGATION_PUCK_BEARING_IMAGE,
@@ -67,7 +71,6 @@ import {
     isLocationPuckCameraFollowActiveAsync,
     isLocationPuckCameraFollowSupported,
     isLocationPuckCameraIdleAsync,
-    isLocationPuckLocationProviderSupported,
     setLocationPuckCameraFollowAsync,
 } from './location-puck-3d';
 import { createLocationPuck3DLifecycle } from './location-puck-3d-lifecycle';
@@ -81,17 +84,21 @@ import {
 } from './location-puck-camera-follow-lifecycle';
 import {
     getLocationPuckCameraOwnershipKey,
+    isLocationPuckProviderReady,
     shouldShowNavigationPuck,
     shouldSuppressLocationPuck2DFallback,
     shouldUseAutoPlayNavigationPuckImages,
 } from './location-puck-state';
 import {
     AlprMarkerImages,
-    MarkerConeImages,
     NavigationPuckImages,
     PoliceAlertImages,
 } from './map-assets';
-import { getMapLayerSlots } from './map-layer-slots';
+import {
+    getCameraOverlayLayerPlacement,
+    getMapLayerSlots,
+    waitForCameraOverlayPuck2D,
+} from './map-layer-slots';
 import { mapLightPresetUsesDarkAppearance } from './map-light-preset-appearance';
 import {
     getCoordinateKey,
@@ -230,11 +237,6 @@ const MAPBOX_STANDARD_DRIVING_BASEMAP_CONFIG = {
     showRoadLabels: true,
     showTransitLabels: false,
 };
-const ALPR_SYMBOL_FILTER = [
-    'all',
-    INDIVIDUAL_MARKER_FILTER,
-    ['==', ['get', ALPR_SYMBOL_VISIBLE_PROPERTY_NAME], true],
-];
 const MARKER_WITHOUT_ALPR_SYMBOL_FILTER = [
     'all',
     INDIVIDUAL_MARKER_FILTER,
@@ -377,7 +379,14 @@ function makeMarkerConeFilter(directionProperty, visible) {
     return ['all', INDIVIDUAL_MARKER_FILTER, ['has', directionProperty]];
 }
 
-function renderMarkerConeLayers({ idPrefix, slot, sourceID, visible }) {
+export function renderMarkerConeLayers({
+    idPrefix,
+    slot,
+    sourceID,
+    visible,
+    iconImage = MARKER_CONE_ICON_IMAGE_EXPRESSION,
+    iconPitchAlignment = 'map',
+}) {
     return MARKER_CONE_DIRECTION_PROPERTY_NAMES.map((directionProperty) => (
         <Mapbox.SymbolLayer
             key={`${idPrefix}-cone-${directionProperty}`}
@@ -389,8 +398,8 @@ function renderMarkerConeLayers({ idPrefix, slot, sourceID, visible }) {
                 iconAllowOverlap: true,
                 iconAnchor: 'center',
                 iconIgnorePlacement: true,
-                iconImage: MARKER_CONE_ICON_IMAGE_EXPRESSION,
-                iconPitchAlignment: 'map',
+                iconImage,
+                iconPitchAlignment,
                 iconRotate: ['get', directionProperty],
                 iconRotationAlignment: 'map',
             }}
@@ -443,7 +452,8 @@ function renderMarkerClusterLayers({
     ];
 }
 
-function renderMarkerPointLayers({
+export function renderMarkerPointLayers({
+    aboveLayerID,
     emissiveStrength,
     idPrefix,
     mapRoutePalette,
@@ -476,28 +486,14 @@ function renderMarkerPointLayers({
             slot={slot}
             style={markerDotLayerStyle}
         />,
-        <Mapbox.SymbolLayer
-            key={`${idPrefix}-marker-alpr-symbols`}
-            id={`${idPrefix}-marker-alpr-symbols`}
-            sourceID={sourceID}
-            filter={ALPR_SYMBOL_FILTER}
-            minZoomLevel={ALPR_SYMBOL_MIN_ZOOM_LEVEL}
-            slot={slot}
-            style={{
-                iconAllowOverlap: true,
-                iconAnchor: 'bottom',
-                iconIgnorePlacement: true,
-                iconImage: ALPR_SYMBOL_IMAGE_NAME,
-                iconOffset: ALPR_SYMBOL_ICON_OFFSET,
-                iconPitchAlignment: 'viewport',
-                iconRotationAlignment: 'viewport',
-                iconSize: ALPR_SYMBOL_ICON_SIZE_EXPRESSION,
-            }}
-        />,
+        ...renderAlprMarkerLayers({ aboveLayerID, idPrefix, sourceID, slot }),
     ];
 }
 
-export const MapCanvas = memo(function MapCanvas({ children } = {}) {
+export const MapCanvas = memo(function MapCanvas({
+    children,
+    weatherEffectsEnabled = true,
+} = {}) {
     const {
         handleCameraChanged,
         handleMapLoaded,
@@ -507,6 +503,7 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
         cameraRef,
         cameraUpdatesAreAllowed,
         cameraIsLocked = false,
+        contributePlacementIsActive = false,
         directionsDebugFeatureCollection,
         directionsRouteFeatureCollection,
         electronicHorizonDebugFeatureCollection,
@@ -684,14 +681,12 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
     );
     const [locationPuck3DStatus, setLocationPuck3DStatus] =
         useState('inactive');
+    const [cameraOverlayLayerEpoch, setCameraOverlayLayerEpoch] = useState(0);
+    const [cameraOverlayPuck2DKey, setCameraOverlayPuck2DKey] = useState(null);
     const [locationPuckCameraFollowStatus, setLocationPuckCameraFollowStatus] =
         useState('inactive');
     const [locationPuckProviderStatus, setLocationPuckProviderStatus] =
-        useState(() =>
-            isLocationPuckLocationProviderSupported()
-                ? 'inactive'
-                : 'unsupported',
-        );
+        useState('inactive');
     const [locationPuckMapLoadEpoch, setLocationPuckMapLoadEpoch] = useState(0);
     const userLocationPuckAboveLayer =
         directionsRouteIsVisible && locationPuckMapLoadEpoch > 0
@@ -699,6 +694,14 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
             : undefined;
     const locationPuckNativeProviderIsReady =
         locationPuckProviderStatus === 'native';
+    // Activating the puck early subscribes Mapbox's default provider, whose
+    // non-finite compass bearings can corrupt the persistent layer's JSON.
+    const locationPuckProviderIsReady = isLocationPuckProviderReady({
+        platform: Platform.OS,
+        usesSharedLocationProvider,
+        isDrivingMode,
+        providerStatus: locationPuckProviderStatus,
+    });
     const locationPuckProviderUsesFallback =
         locationPuckProviderStatus === 'fallback' ||
         locationPuckProviderStatus === 'unsupported';
@@ -743,7 +746,8 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
         getLocationPuckCameraFollowFallbackProps({
             followProps: locationBoundCameraFollowProps,
             followUserMode: drivingCameraFollowMode,
-            mapIsReady: locationPuckMapLoadEpoch > 0,
+            mapIsReady:
+                locationPuckMapLoadEpoch > 0 && locationPuckProviderIsReady,
             nativeFollowIsSupported:
                 nativeLocationPuckCameraControllerIsEligible,
             nativeFollowStatus: locationPuckCameraFollowStatus,
@@ -768,6 +772,21 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
         [handleCameraChanged],
     );
     const locationPuckLifecycleRef = useRef(null);
+    const puckDiagnosticsRef = useRef(null);
+    if (puckDiagnosticsRef.current === null) {
+        puckDiagnosticsRef.current = createLocationPuckDiagnostics({
+            log: addCrashlyticsLog,
+            readState: () => getLocationPuck3DStateAsync(mapViewRef),
+        });
+    }
+    const recordPuckTransition = puckDiagnosticsRef.current;
+    const handleLocationPuckProviderStatus = useCallback(
+        (status) => {
+            recordPuckTransition('provider', status);
+            setLocationPuckProviderStatus(status);
+        },
+        [recordPuckTransition],
+    );
     const locationPuckCameraFallbackReleaseGateRef = useRef(null);
     const locationPuckCameraFollowLifecycleRef = useRef(null);
     const cameraUpdatesAreAllowedRef = useRef(cameraUpdatesAreAllowed);
@@ -779,13 +798,21 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
             clearLocationPuck: clearLocationPuck3DAsync,
             verifyLocationPuck: async (mapView) => {
                 const state = await getLocationPuck3DStateAsync(mapView);
-                return (
-                    state?.puckKind === '3d' && state.modelLayerExists === true
-                );
+                const puckIsReady =
+                    state?.puckKind === '3d' && state.modelLayerExists === true;
+                if (puckIsReady) {
+                    // Reinsert overlays after a native puck is recreated, even
+                    // when the lifecycle status remains active.
+                    setCameraOverlayLayerEpoch((epoch) => epoch + 1);
+                }
+                return puckIsReady;
             },
             waitForPuckCommit: () =>
                 new Promise((resolve) => setTimeout(resolve, 50)),
-            onStatusChange: setLocationPuck3DStatus,
+            onStatusChange: (status) => {
+                recordPuckTransition('3d', status);
+                setLocationPuck3DStatus(status);
+            },
         });
     }
 
@@ -861,8 +888,9 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
         ],
     );
     const refreshLocationPuckAfterMapAttachment = useCallback(() => {
+        recordPuckTransition('map', 'attached');
         setLocationPuckMapLoadEpoch((epoch) => epoch + 1);
-    }, []);
+    }, [recordPuckTransition]);
     const handleMapFinishedLoading = useCallback(
         (event) => {
             handleMapLoaded(event);
@@ -1043,14 +1071,46 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
             locationPuckCameraFallbackReleaseGate.invalidate();
         };
     }, [locationPuckCameraFallbackReleaseGate]);
-    // iOS Fabric never applies image props back to undefined (rnmapbox
-    // FabricOptionalProp limitation), so switching between the navigation
-    // arrow and the default dot requires remounting the puck there. Android
-    // clears null image props correctly, so it keeps the update-in-place path.
-    const locationPuckKey =
-        Platform.OS === 'ios'
-            ? `location-puck-${navigationPuckIsVisible ? 'navigation' : 'default'}`
-            : 'location-puck';
+    // Apply image sets to a fresh native puck. Updating an attached Android
+    // puck rebinds its style layer for each individual image prop; iOS Fabric
+    // also cannot clear an image prop back to undefined.
+    const locationPuckKey = `location-puck-${navigationPuckIsVisible ? navigationPuckBearingImage : 'default'}`;
+    const cameraOverlayPuck2DRequestKey =
+        locationAccessGranted &&
+        userLocationPuckVisible &&
+        locationPuckProviderIsReady &&
+        !locationPuck2DFallbackIsSuppressed &&
+        locationPuckMapLoadEpoch > 0
+            ? `${locationPuckKey}-${locationPuckMapLoadEpoch}-${locationPuck3DStatus}`
+            : null;
+    const cameraOverlayPuck2DIsReady =
+        cameraOverlayPuck2DRequestKey !== null &&
+        cameraOverlayPuck2DKey === cameraOverlayPuck2DRequestKey;
+    useEffect(() => {
+        setCameraOverlayPuck2DKey(null);
+        if (!cameraOverlayPuck2DRequestKey) return;
+        let isCurrent = true;
+        void waitForCameraOverlayPuck2D({
+            readState: () => getLocationPuck3DStateAsync(mapViewRef),
+            isCurrent: () => isCurrent,
+        }).then((puckIsReady) => {
+            if (isCurrent && puckIsReady) {
+                setCameraOverlayPuck2DKey(cameraOverlayPuck2DRequestKey);
+                setCameraOverlayLayerEpoch((epoch) => epoch + 1);
+            }
+        });
+        return () => {
+            isCurrent = false;
+        };
+    }, [cameraOverlayPuck2DRequestKey, mapViewRef]);
+    const cameraOverlayPlacement = getCameraOverlayLayerPlacement({
+        platform: Platform.OS,
+        slots: mapLayerSlots,
+        puckIsReady:
+            (locationPuckRequests3D && locationPuck3DStatus === 'active') ||
+            cameraOverlayPuck2DIsReady,
+        puckKind: cameraOverlayPuck2DIsReady ? '2d' : '3d',
+    });
     const mapboxBrandingIsVisible = !isDrivingMode;
 
     if (!mapPreferencesAreLoaded) {
@@ -1100,10 +1160,12 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
             styleURL={mapStyleURL}
             surfaceView={!mapTextureViewIsRequired}
         >
-            <WeatherEffect
-                car={navigationPuckVariant === 'auto-play'}
-                styleKey={`${mapStyleURL}-${locationPuckMapLoadEpoch}`}
-            />
+            {weatherEffectsEnabled ? (
+                <WeatherEffect
+                    car={navigationPuckVariant === 'auto-play'}
+                    styleKey={`${mapStyleURL}-${locationPuckMapLoadEpoch}`}
+                />
+            ) : null}
             <Mapbox.StyleImport
                 key={`${MAPBOX_STANDARD_STYLE_IMPORT_ID}-${mapStyleURL}-${mapLightPreset}`}
                 config={styleImportConfig}
@@ -1116,7 +1178,9 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
                     attachmentKey={locationPuckMapLoadEpoch}
                     isDrivingMode={isDrivingMode}
                     mapViewRef={mapViewRef}
-                    onNativeProviderStatusChange={setLocationPuckProviderStatus}
+                    onNativeProviderStatusChange={
+                        handleLocationPuckProviderStatus
+                    }
                     usesSharedLocationProvider={usesSharedLocationProvider}
                 />
             ) : null}
@@ -1544,8 +1608,8 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
                 </Mapbox.ShapeSource>
             ) : null}
             {surveillanceMarkersVisible && cameraConesVisible ? (
-                <MarkerConeImages
-                    key={`marker-cone-images-${locationPuckMapLoadEpoch}`}
+                <CameraViewConeModels
+                    key={`marker-cone-models-${locationPuckMapLoadEpoch}`}
                 />
             ) : null}
             {surveillanceMarkersVisible ? (
@@ -1557,7 +1621,7 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
             {surveillanceMarkersVisible && markerClustersEnabled ? (
                 <Mapbox.ShapeSource
                     id={markerClusteredSourceID}
-                    key={`${markerClusteredSourceID}-${locationPuckMapLoadEpoch}`}
+                    key={`${markerClusteredSourceID}-${locationPuckMapLoadEpoch}-${cameraOverlayLayerEpoch}-${cameraOverlayPlacement.aboveLayerID ?? 'unanchored'}`}
                     ref={markerShapeSourceRef}
                     cluster
                     clusterMaxZoomLevel={MARKER_CLUSTER_MAX_ZOOM_LEVEL}
@@ -1568,9 +1632,12 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
                 >
                     {[
                         ...(cameraConesVisible
-                            ? renderMarkerConeLayers({
+                            ? renderMarkerConeModelLayers({
+                                  aboveLayerID:
+                                      cameraOverlayPlacement.aboveLayerID,
                                   idPrefix: 'map-markers-clustered',
-                                  slot: mapLayerSlots.cameraCone,
+                                  isDarkMode: isDuskNightMapLightPreset,
+                                  slot: cameraOverlayPlacement.coneSlot,
                                   sourceID: markerClusteredSourceID,
                                   visible: true,
                               })
@@ -1583,10 +1650,15 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
                             sourceID: markerClusteredSourceID,
                         }),
                         ...renderMarkerPointLayers({
+                            aboveLayerID:
+                                cameraOverlayPlacement.aboveLayerID &&
+                                cameraConesVisible
+                                    ? 'map-markers-clustered-cone-coneDirection0'
+                                    : cameraOverlayPlacement.aboveLayerID,
                             emissiveStrength: mapOverlayEmissiveStrength,
                             idPrefix: 'map-markers-clustered',
                             mapRoutePalette,
-                            slot: mapLayerSlots.cameraNode,
+                            slot: cameraOverlayPlacement.nodeSlot,
                             sourceID: markerClusteredSourceID,
                         }),
                     ]}
@@ -1595,25 +1667,33 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
             {surveillanceMarkersVisible && !markerClustersEnabled ? (
                 <Mapbox.ShapeSource
                     id={markerUnclusteredSourceID}
-                    key={`${markerUnclusteredSourceID}-${locationPuckMapLoadEpoch}`}
+                    key={`${markerUnclusteredSourceID}-${locationPuckMapLoadEpoch}-${cameraOverlayLayerEpoch}-${cameraOverlayPlacement.aboveLayerID ?? 'unanchored'}`}
                     hitbox={{ height: 48, width: 48 }}
                     onPress={handleMarkerSourcePress}
                     shape={markerFeatureCollection}
                 >
                     {[
                         ...(cameraConesVisible
-                            ? renderMarkerConeLayers({
+                            ? renderMarkerConeModelLayers({
+                                  aboveLayerID:
+                                      cameraOverlayPlacement.aboveLayerID,
                                   idPrefix: 'map-markers-unclustered',
-                                  slot: mapLayerSlots.cameraCone,
+                                  isDarkMode: isDuskNightMapLightPreset,
+                                  slot: cameraOverlayPlacement.coneSlot,
                                   sourceID: markerUnclusteredSourceID,
                                   visible: true,
                               })
                             : []),
                         ...renderMarkerPointLayers({
+                            aboveLayerID:
+                                cameraOverlayPlacement.aboveLayerID &&
+                                cameraConesVisible
+                                    ? 'map-markers-unclustered-cone-coneDirection0'
+                                    : cameraOverlayPlacement.aboveLayerID,
                             emissiveStrength: mapOverlayEmissiveStrength,
                             idPrefix: 'map-markers-unclustered',
                             mapRoutePalette,
-                            slot: mapLayerSlots.cameraNode,
+                            slot: cameraOverlayPlacement.nodeSlot,
                             sourceID: markerUnclusteredSourceID,
                         }),
                     ]}
@@ -1639,7 +1719,8 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
             ))}
             {locationAccessGranted && userLocationPuckVisible ? (
                 <>
-                    {!locationPuck2DFallbackIsSuppressed ? (
+                    {locationPuckProviderIsReady &&
+                    !locationPuck2DFallbackIsSuppressed ? (
                         <>
                             <NavigationPuckImages
                                 autoPlayNavigationPuckSize={
@@ -1713,7 +1794,7 @@ export const MapCanvas = memo(function MapCanvas({ children } = {}) {
                     </Pressable>
                 </Mapbox.MarkerView>
             ) : null}
-            <ContributeDraftPinMarkers />
+            {contributePlacementIsActive ? <ContributeDraftPinMarkers /> : null}
             {children}
         </NativeWindMapView>
     );
