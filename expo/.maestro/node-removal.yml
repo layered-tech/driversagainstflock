@@ -12,15 +12,27 @@ tags:
 - tapOn:
     id: 'contribute-start-editing-button'
     retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-placement-sheet'
+    timeout: 10000
 - tapOn:
     id: 'map-marker-0-map'
     retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'editing-camera-details'
+    timeout: 10000
 - tapOn:
     id: 'marker-details-delete-node-button'
     retryTapIfNoChange: false
 - assertVisible:
     id: 'remove-camera-sheet'
-- assertVisible: 'Delete this camera?'
+- assertVisible:
+    id: 'remove-camera-title'
+- copyTextFrom:
+    id: 'remove-camera-title'
+- assertTrue: ${maestro.copiedText == 'Delete this camera?'}
 - tapOn:
     id: 'remove-camera-cancel-button'
     retryTapIfNoChange: false

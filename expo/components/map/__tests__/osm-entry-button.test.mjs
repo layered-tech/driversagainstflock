@@ -65,6 +65,11 @@ test('the draft tip dismisses without resuming; only the pencil resumes', () => 
         assert.deepEqual(entry.actions, ['dismiss']);
         assert.equal(find(entry.render(), 'contribute-coach-mark'), undefined);
         assert.ok(find(entry.render(), 'contribute-draft-count'));
+        assert.equal(
+            find(entry.render(), 'map-contribute-button').props
+                .accessibilityLabel,
+            'Resume draft changeset, 3 pending changes',
+        );
         find(entry.render(), 'map-contribute-button').props.onPress();
         assert.deepEqual(entry.actions, ['dismiss', 'resume']);
     } finally {

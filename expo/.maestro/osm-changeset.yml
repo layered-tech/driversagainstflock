@@ -2,7 +2,14 @@ appId: com.anonymous.drivefree.dev
 name: OSM Changeset Editor
 ---
 - launchApp:
+    clearState: true
     stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    file: subflows/open-expo-dev-client-after-clear.yml
 - runFlow: subflows/dismiss-first-launch-support.yml
 - extendedWaitUntil:
     visible:
@@ -70,6 +77,7 @@ name: OSM Changeset Editor
 - tapOn:
     id: contribute-add-camera-button
     retryTapIfNoChange: false
+- waitForAnimationToEnd
 - extendedWaitUntil:
     visible:
       id: contribute-preset-flock
@@ -85,6 +93,9 @@ name: OSM Changeset Editor
 - tapOn:
     id: contribute-preset-genetec
     retryTapIfNoChange: false
+- assertVisible:
+    id: contribute-preset-genetec
+    selected: true
 - takeScreenshot: osm-genetec-preset
 - tapOn:
     id: contribute-next-changeset-button
@@ -99,6 +110,7 @@ name: OSM Changeset Editor
 - tapOn:
     id: contribute-add-camera-button
     retryTapIfNoChange: false
+- waitForAnimationToEnd
 - extendedWaitUntil:
     visible:
       id: contribute-preset-flock
@@ -106,6 +118,9 @@ name: OSM Changeset Editor
 - tapOn:
     id: contribute-preset-axon
     retryTapIfNoChange: false
+- assertVisible:
+    id: contribute-preset-axon
+    selected: true
 - tapOn:
     id: contribute-preset-custom
     retryTapIfNoChange: false
@@ -143,7 +158,9 @@ name: OSM Changeset Editor
     visible:
       id: map-contribute-button
     timeout: 15000
-- assertVisible: '.*2 changes pending.*'
+- assertVisible:
+    id: map-contribute-button
+    text: 'Resume draft changeset, 2 pending changes'
 - takeScreenshot: osm-draft-badge
 - tapOn:
     id: contribute-coach-mark

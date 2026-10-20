@@ -932,6 +932,9 @@ export default function LocationMapScreen({
                                 ) : null}
                                 {e2eMarkerTapTargets.map((marker, index) => (
                                     <E2EMarkerTapOverlay
+                                        contributePlacementIsActive={
+                                            contributePlacementIsActive
+                                        }
                                         key={`e2e-marker-${marker?.id ?? index}`}
                                         index={index}
                                         marker={marker}

@@ -147,7 +147,12 @@ export function SubmittedSearchResultMarker({ index, onPress, result }) {
     );
 }
 
-export function E2EMarkerTapOverlay({ index, marker, onPress }) {
+export function E2EMarkerTapOverlay({
+    contributePlacementIsActive = false,
+    index,
+    marker,
+    onPress,
+}) {
     const coordinate = getMarkerCoordinate(marker);
 
     if (!Array.isArray(coordinate)) {
@@ -175,7 +180,7 @@ export function E2EMarkerTapOverlay({ index, marker, onPress }) {
             accessibilityHint="Opens the mocked marker details panel."
             accessibilityLabel={`Open ALPR marker ${markerId}`}
             accessibilityRole="button"
-            className="absolute bottom-24 left-3 z-50 h-12 w-12"
+            className={`absolute left-3 z-50 h-12 w-12 ${contributePlacementIsActive ? 'top-1/2' : 'bottom-24'}`}
             collapsable={false}
             onPress={handlePress}
             testID={`map-marker-${index}-map`}

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+    existsSync,
     mkdtempSync,
     readdirSync,
     readFileSync,
@@ -390,7 +391,18 @@ R58M offline
     test('collects the full suite without launcher UI readiness checks', () => {
         const flows = collectMaestroFlows(['.maestro'], EXPO_DIRECTORY);
 
-        assert.equal(flows.length, 42);
+        assert.equal(flows.length, 41);
+        assert.ok(
+            !flows.some((flow) => flow.endsWith('road-corridor-sussex.yml')),
+            'The live API corridor flow requires its dedicated Metro environment',
+        );
+        assert.equal(
+            collectMaestroFlows(
+                ['.maestro/live-api/road-corridor-sussex.yml'],
+                EXPO_DIRECTORY,
+            ).length,
+            1,
+        );
         assert.deepEqual(
             flows.map((flow) => path.basename(flow)),
             [...flows.map((flow) => path.basename(flow))].sort(),
@@ -415,6 +427,7 @@ R58M offline
             'map-settings-first-open-driving.yml',
             'marker-osm-details-toggle.yml',
             'moving-navigation.yml',
+            'osm-changeset.yml',
             'road-matching-free-drive.yml',
             'road-matching-parallel-road.yml',
             'scorecard-gamification.yml',
@@ -533,6 +546,52 @@ R58M offline
         );
     });
 
+    test('scrolls map layer cards fully into view before selecting them', () => {
+        const source = readFileSync(
+            path.join(EXPO_DIRECTORY, '.maestro', 'map-layer-options.yml'),
+            'utf8',
+        );
+
+        for (const layer of ['standard-satellite', 'standard']) {
+            assert.ok(
+                source.includes(
+                    `- scrollUntilVisible:\n    element:\n      id: 'map-layer-option-${layer}'\n    direction: DOWN\n    centerElement: true\n    timeout: 20000\n- tapOn:\n    id: 'map-layer-option-${layer}'`,
+                ),
+                `${layer} must be fully visible before tapping`,
+            );
+        }
+    });
+
+    test('centers the compass drag handle when returning from direction controls', () => {
+        const source = readFileSync(
+            path.join(EXPO_DIRECTORY, '.maestro', 'node-location-editor.yml'),
+            'utf8',
+        );
+
+        assert.equal(
+            source.match(
+                /scrollUntilVisible:\s+element:\s+id: 'contribute-direction-dial-heading-handle'\s+direction: UP\s+timeout: 10000\s+visibilityPercentage: 100\s+centerElement: true/g,
+            )?.length,
+            2,
+        );
+    });
+
+    test('waits for placement and marker details before removing a camera', () => {
+        const source = readFileSync(
+            path.join(EXPO_DIRECTORY, '.maestro', 'node-removal.yml'),
+            'utf8',
+        );
+
+        assert.match(
+            source,
+            /id: 'contribute-start-editing-button'[\s\S]*?extendedWaitUntil:\s+visible:\s+id: 'contribute-placement-sheet'\s+timeout: 10000[\s\S]*?id: 'map-marker-0-map'[\s\S]*?extendedWaitUntil:\s+visible:\s+id: 'editing-camera-details'\s+timeout: 10000[\s\S]*?id: 'marker-details-delete-node-button'/,
+        );
+        assert.ok(source.includes("id: 'remove-camera-title'"));
+        assert.ok(
+            source.includes("maestro.copiedText == 'Delete this camera?'"),
+        );
+    });
+
     test('restores browsing after the first driving settings presentation', () => {
         const source = readFileSync(
             path.join(
@@ -600,7 +659,8 @@ R58M offline
         );
         assert.match(voiceSearchSource, /\.requestPermissionsAsync\(\)/);
         assert.match(voiceSearchSource, /speechRecognition\.start\(/);
-        const patches = readdirSync(path.join(EXPO_DIRECTORY, 'patches'));
+        const directory = path.join(EXPO_DIRECTORY, 'patches');
+        const patches = existsSync(directory) ? readdirSync(directory) : [];
         assert.equal(
             patches.some((name) => name.startsWith('expo-speech-recognition+')),
             false,

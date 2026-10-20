@@ -5,8 +5,8 @@ import { createHash } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
 import { createRequire } from 'node:module';
 import {
-    parseEmulatorRoute,
     buildEmulatorRouteReplay,
+    parseEmulatorRoute,
 } from '../../../scripts/emulator-route-replay.mjs';
 import { loadPilotCorridor } from '../road-corridor-pilot-core.js';
 import {
@@ -16,6 +16,7 @@ import {
 import { predictRoadLookAhead } from '../road-look-ahead.js';
 import { getUpcomingElectronicHorizonAlerts } from '../electronic-horizon.js';
 import { createRoadMatcher } from '../road-matching.js';
+
 const require = createRequire(import.meta.url);
 const route = parseEmulatorRoute(
     JSON.parse(
@@ -162,7 +163,10 @@ test('Maestro trace uses every saved Sussex geometry vertex with live APIs', () 
     );
     assert.deepEqual(uniqueAdjacent, expected);
     const flow = readFileSync(
-        new URL('../../../.maestro/road-corridor-sussex.yml', import.meta.url),
+        new URL(
+            '../../../.maestro/live-api/road-corridor-sussex.yml',
+            import.meta.url,
+        ),
         'utf8',
     );
     assert.ok(!flow.includes('e2e-mocks'));

@@ -165,6 +165,12 @@ tags:
     id: 'map-police-alerts-toggle'
     checked: false
 
+- scrollUntilVisible:
+    element:
+      id: 'map-layer-option-standard-satellite'
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
 - tapOn:
     id: 'map-layer-option-standard-satellite'
     retryTapIfNoChange: false
@@ -187,6 +193,12 @@ tags:
 - assertVisible:
     id: 'map-layer-option-standard-satellite'
     selected: true
+- scrollUntilVisible:
+    element:
+      id: 'map-layer-option-standard'
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
 - tapOn:
     id: 'map-layer-option-standard'
     retryTapIfNoChange: false

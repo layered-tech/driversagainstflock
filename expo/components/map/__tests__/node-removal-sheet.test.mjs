@@ -2,6 +2,19 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createHookHarness, loadTourModule } from './tour-test-helpers.mjs';
 
+function findTitle(node) {
+    if (node?.props?.children === 'Delete this camera?') {
+        return node;
+    }
+    for (const child of [node?.props?.children].flat(Infinity)) {
+        if (child && typeof child === 'object') {
+            const title = findTitle(child);
+            if (title) return title;
+        }
+    }
+    return null;
+}
+
 test('a closed removal sheet can open, cancel, reopen, and close', () => {
     const harness = createHookHarness();
     const calls = [];
@@ -65,6 +78,9 @@ test('a closed removal sheet can open, cancel, reopen, and close', () => {
         'Do not dismiss a modal before its first presentation',
     );
     const sheet = render(true);
+    assert.equal(findTitle(sheet)?.props.accessible, true);
+    assert.equal(findTitle(sheet)?.props.accessibilityRole, 'header');
+    assert.equal(findTitle(sheet)?.props.testID, 'remove-camera-title');
     assert.equal(sheet.props.backgroundStyle.backgroundColor, '#ffffff');
     assert.equal(sheet.props.handleIndicatorStyle.backgroundColor, '#D4D9DF');
     colorScheme = 'dark';

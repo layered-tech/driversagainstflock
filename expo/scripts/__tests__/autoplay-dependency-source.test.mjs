@@ -49,8 +49,9 @@ test('the generated Auto Play package exposes runtime and native entrypoints', (
 });
 
 test('Auto Play is installed without local patches', () => {
-    const patches = readdirSync(new URL('patches/', expoRoot)).filter((name) =>
-        name.startsWith('@iternio+react-native-auto-play+'),
-    );
+    const directory = new URL('patches/', expoRoot);
+    const patches = (
+        existsSync(directory) ? readdirSync(directory) : []
+    ).filter((name) => name.startsWith('@iternio+react-native-auto-play+'));
     assert.deepEqual(patches, []);
 });

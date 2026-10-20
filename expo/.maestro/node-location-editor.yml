@@ -267,10 +267,10 @@ tags:
 
 - scrollUntilVisible:
     element:
-      id: 'contribute-direction-dial'
+      id: 'contribute-direction-dial-heading-handle'
     direction: UP
     timeout: 10000
-    visibilityPercentage: 90
+    visibilityPercentage: 100
     centerElement: true
 - assertVisible:
     id: 'contribute-direction-dial-direction-cone-0'
@@ -315,10 +315,10 @@ tags:
 - evalScript: ${output.direction0BeforeSecondRing = maestro.copiedText}
 - scrollUntilVisible:
     element:
-      id: 'contribute-direction-dial'
+      id: 'contribute-direction-dial-heading-handle'
     direction: UP
     timeout: 10000
-    visibilityPercentage: 90
+    visibilityPercentage: 100
     centerElement: true
 - retry:
     maxRetries: 3

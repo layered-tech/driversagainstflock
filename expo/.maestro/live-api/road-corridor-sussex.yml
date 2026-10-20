@@ -15,8 +15,8 @@ onFlowComplete:
     clearState: false
     permissions:
       all: allow
-- runFlow: subflows/resume-expo-dev-client.yml
-- runFlow: subflows/dismiss-first-launch-support.yml
+- runFlow: ../subflows/resume-expo-dev-client.yml
+- runFlow: ../subflows/dismiss-first-launch-support.yml
 - extendedWaitUntil:
     visible:
       id: start-free-drive-button
@@ -31,7 +31,7 @@ onFlowComplete:
       id: e2e-corridor-source
       text: download
     timeout: 120000
-- runFlow: subflows/sussex-corridor-trace.yml
+- runFlow: ../subflows/sussex-corridor-trace.yml
 # A restart ensures this run cannot succeed from the previous in-memory graph.
 - stopApp
 - setLocation:
@@ -39,8 +39,8 @@ onFlowComplete:
     longitude: -88.24447
 - launchApp:
     clearState: false
-- runFlow: subflows/resume-expo-dev-client.yml
-- runFlow: subflows/dismiss-first-launch-support.yml
+- runFlow: ../subflows/resume-expo-dev-client.yml
+- runFlow: ../subflows/dismiss-first-launch-support.yml
 - extendedWaitUntil:
     visible:
       id: e2e-corridor-mocks
@@ -61,4 +61,4 @@ onFlowComplete:
       id: e2e-corridor-source
       text: download
     timeout: 30000
-- runFlow: subflows/sussex-corridor-trace.yml
+- runFlow: ../subflows/sussex-corridor-trace.yml

@@ -134,7 +134,12 @@ export function RemoveCameraSheet({ isOpen, node, onDismiss, onStaged }) {
                     style={{ paddingBottom: Math.max(insets.bottom + 12, 20) }}
                 >
                     <View className="gap-1">
-                        <Text className="font-dafDisplay text-[21px] font-bold leading-7 text-daf-text-primary dark:text-white">
+                        <Text
+                            accessible
+                            accessibilityRole="header"
+                            className="font-dafDisplay text-[21px] font-bold leading-7 text-daf-text-primary dark:text-white"
+                            testID="remove-camera-title"
+                        >
                             Delete this camera?
                         </Text>
                         <Text

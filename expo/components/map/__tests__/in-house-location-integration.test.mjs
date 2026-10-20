@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { runInNewContext } from 'node:vm';
 
@@ -133,7 +133,7 @@ describe('in-house road-matched location integration', () => {
         );
     });
 
-    test('keeps upstream Expo Location subscriptions with only a channel label patch', () => {
+    test('keeps Expo Location subscriptions with the forked channel label', () => {
         assert.match(
             useDeviceLocationSource,
             /import \* as Location from 'expo-location'/,
@@ -141,22 +141,20 @@ describe('in-house road-matched location integration', () => {
         assert.match(useDeviceLocationSource, /Location\.watchPositionAsync\(/);
         assert.match(useDeviceLocationSource, /Location\.watchHeadingAsync\(/);
         assert.match(useDeviceLocationSource, /subscription\.remove\(\)/);
-        const patches = readdirSync(
-            new URL('../../../patches/', import.meta.url),
-        );
-        const locationPatches = patches.filter((name) =>
-            name.startsWith('expo-location+'),
-        );
-        assert.deepEqual(locationPatches, ['expo-location+57.0.20.patch']);
-        const channelPatch = readFileSync(
-            new URL(`../../../patches/${locationPatches[0]}`, import.meta.url),
+        const locationService = readFileSync(
+            new URL(
+                '../../../node_modules/expo-location/android/src/main/java/expo/modules/location/services/LocationTaskService.kt',
+                import.meta.url,
+            ),
             'utf8',
         );
-        assert.equal((channelPatch.match(/^diff --git /gm) ?? []).length, 1);
-        assert.match(channelPatch, /services\/LocationTaskService\.kt/);
-        assert.doesNotMatch(
-            channelPatch,
-            /watchPosition|watchHeading|requestLocationUpdates|removeLocationUpdates/,
+        assert.match(
+            locationService,
+            /NotificationChannel\(id, "Background Location Tracking", NotificationManager\.IMPORTANCE_LOW\)/,
+        );
+        assert.match(
+            locationService,
+            /channel\.name = "Background Location Tracking"\s+notificationManager\.createNotificationChannel\(channel\)/,
         );
     });
 
