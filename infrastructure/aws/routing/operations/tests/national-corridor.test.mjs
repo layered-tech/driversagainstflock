@@ -536,8 +536,13 @@ test('national operation assets and scheduled bootstrap are pinned end to end', 
         path.join(operation, '../../scheduled-builder-national-user-data.sh'),
         'utf8',
     );
-    assert.ok(bootstrap.includes('BOOTSTRAP_VERSION="v1.2.0"'));
-    assert.ok(bootstrap.includes(`BOOTSTRAP_SHA256="${hash(workflow)}"`));
+    const currentWorkflow = readFileSync(
+        path.join(operation, '../../scheduled-builder/v1.3.0/run-build.sh'),
+    );
+    assert.ok(bootstrap.includes('BOOTSTRAP_VERSION="v1.3.0"'));
+    assert.ok(
+        bootstrap.includes(`BOOTSTRAP_SHA256="${hash(currentWorkflow)}"`),
+    );
     const compute = readFileSync(
         path.join(operation, '../../../compute.tf'),
         'utf8',
@@ -549,7 +554,7 @@ test('national operation assets and scheduled bootstrap are pinned end to end', 
     assert.match(compute, /var.national_corridor_builds_enabled/);
     assert.match(
         variables,
-        /variable "national_corridor_builds_enabled"\s*\{[^}]*default\s*=\s*false/s,
+        /variable "national_corridor_builds_enabled"\s*\{[^}]*default\s*=\s*true/s,
     );
 });
 

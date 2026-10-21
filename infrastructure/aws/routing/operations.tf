@@ -22,8 +22,8 @@ locals {
     }
     scheduled_builder_national = {
       content_type = "text/x-shellscript"
-      key          = "operations/scheduled-builder/v1.2.0/run-build.sh"
-      source       = "operations/scheduled-builder/v1.2.0/run-build.sh"
+      key          = "operations/scheduled-builder/v1.3.0/run-build.sh"
+      source       = "operations/scheduled-builder/v1.3.0/run-build.sh"
     }
     scheduled_builder_corridor = {
       content_type = "text/x-shellscript"
@@ -37,10 +37,10 @@ locals {
       source       = "operations/corridor/v1.0.0/${name}"
     }
     }, {
-    for name in ["assets.json", "run-corridor.sh", "publish-and-promote.mjs", "object-store.mjs", "regional-catalogs.mjs", "validate-road-corridor.mjs", "road-corridor-contract.mjs", "RoadCorridorExporter.java"] : "national_corridor_${name}" => {
+    for name in ["assets.json", "run-corridor.sh", "run-reviewed-corridor.sh", "publish-and-promote.mjs", "publish-tiles.py", "object-store.mjs", "regional-catalogs.mjs", "validate-road-corridor.mjs", "road-corridor-contract.mjs", "RoadCorridorExporter.java", "source-geometry-review.mjs", "automatic-source-geometry-review.mjs", "national-build-diagnostics.sh"] : "national_corridor_${name}" => {
       content_type = endswith(name, ".json") ? "application/json" : "text/plain"
-      key          = "operations/corridor/v1.1.0/${name}"
-      source       = "operations/corridor/v1.1.0/${name}"
+      key          = "operations/corridor/v1.3.0/${name}"
+      source       = "operations/corridor/v1.3.0/${name}"
     }
   })
 }

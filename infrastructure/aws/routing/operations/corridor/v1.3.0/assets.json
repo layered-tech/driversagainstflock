@@ -1,0 +1,62 @@
+[
+  {
+    "name": "RoadCorridorExporter.java",
+    "key": "operations/corridor/v1.3.0/RoadCorridorExporter.java",
+    "sha256": "226f18bb15cabbd16776e5574af695e90b86db262283f3185ce872f849261e37"
+  },
+  {
+    "name": "automatic-source-geometry-review.mjs",
+    "key": "operations/corridor/v1.3.0/automatic-source-geometry-review.mjs",
+    "sha256": "b49021bb3861eff264cdbc4583af15faf69dfbc7d9bf091be7d17b52bdfc2233"
+  },
+  {
+    "name": "national-build-diagnostics.sh",
+    "key": "operations/corridor/v1.3.0/national-build-diagnostics.sh",
+    "sha256": "79ed8fa36da4cfd72679a68616e9132dda8ec6cff69aa1682a9801130bc8d081"
+  },
+  {
+    "name": "object-store.mjs",
+    "key": "operations/corridor/v1.3.0/object-store.mjs",
+    "sha256": "5a82cc43b82f7b3fb08303d36dd00b0c016d34e9d3f0216aede78325e1c998e0"
+  },
+  {
+    "name": "publish-and-promote.mjs",
+    "key": "operations/corridor/v1.3.0/publish-and-promote.mjs",
+    "sha256": "8db797ab871b635e864351a1e24e3d0fcb585dc91e3cdf7b9f941dd86dd17455"
+  },
+  {
+    "name": "publish-tiles.py",
+    "key": "operations/corridor/v1.3.0/publish-tiles.py",
+    "sha256": "0700ba3398aa25579b5a6a678584d427b2745bb898384d371b06da2ffca400f6"
+  },
+  {
+    "name": "regional-catalogs.mjs",
+    "key": "operations/corridor/v1.3.0/regional-catalogs.mjs",
+    "sha256": "8ba932757a07b4abeabded26a499848e9bd8185b0de0c61ecbd95c2752efc898"
+  },
+  {
+    "name": "road-corridor-contract.mjs",
+    "key": "operations/corridor/v1.3.0/road-corridor-contract.mjs",
+    "sha256": "98e1e52fb1112b96a4644af6d227de10820057a8b2bc8e33eadf433f088f48f7"
+  },
+  {
+    "name": "run-corridor.sh",
+    "key": "operations/corridor/v1.3.0/run-corridor.sh",
+    "sha256": "253a965fd29729b7417d74d1fb3f0779dd2895207f516af41dd90f8b0dd4f439"
+  },
+  {
+    "name": "run-reviewed-corridor.sh",
+    "key": "operations/corridor/v1.3.0/run-reviewed-corridor.sh",
+    "sha256": "d8fe64169d6133a14ed6f234f7a51b09dd8aca2cddd7137676d9f0531d34964e"
+  },
+  {
+    "name": "source-geometry-review.mjs",
+    "key": "operations/corridor/v1.3.0/source-geometry-review.mjs",
+    "sha256": "d281d7438f8d2191831bfcf6dc1f92d92fe72f0bee14312e719d22552776ebae"
+  },
+  {
+    "name": "validate-road-corridor.mjs",
+    "key": "operations/corridor/v1.3.0/validate-road-corridor.mjs",
+    "sha256": "7496b5a850b3e1ec6b14a1eff5789058ab09d2751ef78672fe817853e2af9eb3"
+  }
+]

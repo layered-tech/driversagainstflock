@@ -38,7 +38,7 @@ variable "graph_build_schedule_timezone" {
 }
 
 variable "national_corridor_builds_enabled" {
-  description = "Enable nationwide corridor export after regional validation, preserving the Wisconsin publication for existing clients."
+  description = "Export and validate nationwide corridors with bounded source-defect quarantine, preserving the Wisconsin publication for existing clients."
   type        = bool
-  default     = false
+  default     = true
 }
