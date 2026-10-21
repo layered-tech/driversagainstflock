@@ -26,7 +26,7 @@ const aws = (service, operation, ...args) =>
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function buildBundle() {
-    const directory = path.join(root, 'corridor/v1.1.0');
+    const directory = path.join(root, 'corridor/v1.2.0');
     const assets = JSON.parse(
         readFileSync(path.join(directory, 'assets.json')),
     );
@@ -36,7 +36,10 @@ export function buildBundle() {
         assert.equal(hash(readFileSync(filename)), asset.sha256);
         return { name: asset.name, filename, sha256: asset.sha256 };
     });
-    for (const name of ['build-national-source.sh']) {
+    for (const name of [
+        'build-national-source.sh',
+        'national-build-diagnostics.sh',
+    ]) {
         const filename = path.join(root, name);
         files.push({ name, filename, sha256: hash(readFileSync(filename)) });
     }

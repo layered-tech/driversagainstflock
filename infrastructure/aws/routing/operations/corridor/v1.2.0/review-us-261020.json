@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "source": {
+    "name": "us-261020.osm.pbf",
+    "md5": "1c98192251a69cb9fd652d8bc3b97f36"
+  },
+  "quarantine_sha256": "e041aed912f52b65032a0cf3ea80acc6c7187408d83a575b8a7352d7df36a68b",
+  "reviewed_at": "2026-10-21T15:18:58.235Z",
+  "entries": [
+    {
+      "osm_way_id": 20307681,
+      "reason": "coincident_distinct_nodes",
+      "record_sha256": "5f2a7429314d9f90cd881503fcd34632469fe15c0ec44af0f9e318d3ecfa6651",
+      "rationale": "Independent PBF coordinate audit confirms distinct source nodes 470053593 and 215422093 occupy [-79.745354,36.673281]. Quarantine this entire 5302.5 m tertiary way; preserve source node identities without welding.",
+      "impact": {
+        "name": "Old Liberty Drive",
+        "road_class": "tertiary",
+        "length_m": 5302.5,
+        "node_count": 186
+      }
+    },
+    {
+      "osm_way_id": 262923851,
+      "reason": "coincident_distinct_nodes",
+      "record_sha256": "6f56124fdd381a03ac81b498130fe5476050fc603031f1d51f7936709d844d2b",
+      "rationale": "Independent PBF coordinate audit confirms distinct source nodes 14280918381 and 2685705493 occupy [-114.0405463,46.8728746]. Quarantine this entire 116.9 m residential way; preserve source node identities without welding.",
+      "impact": {
+        "name": "Chance Lane",
+        "road_class": "residential",
+        "length_m": 116.9,
+        "node_count": 5
+      }
+    },
+    {
+      "osm_way_id": 1314894639,
+      "reason": "coincident_distinct_nodes",
+      "record_sha256": "1bd4b3b03abccea02a0e58cc3b8c5d8064546ea0f98219086fb519c93eb02df8",
+      "rationale": "Independent PBF coordinate audit confirms distinct source nodes 14288541633 and 12170317457 occupy [-114.14699440000001,46.8685642]. Quarantine this entire 89.2 m service way; preserve source node identities without welding.",
+      "impact": {
+        "name": null,
+        "road_class": "service",
+        "length_m": 89.2,
+        "node_count": 5
+      }
+    },
+    {
+      "osm_way_id": 1527260664,
+      "reason": "coincident_distinct_nodes",
+      "record_sha256": "2b69c74bcb283002f807a273018175f36eb616f672d12345f155f67fa3cc5bbb",
+      "rationale": "Independent PBF coordinate audit confirms distinct source nodes 1030242716 and 13917829752 occupy [-83.3392355,43.0640993]. Quarantine this entire 208.7 m residential way; preserve source node identities without welding.",
+      "impact": {
+        "name": "Buddy Street",
+        "road_class": "residential",
+        "length_m": 208.7,
+        "node_count": 7
+      }
+    },
+    {
+      "osm_way_id": 1527653079,
+      "reason": "coincident_distinct_nodes",
+      "record_sha256": "1ff47601c7d65d7153bf97cfa04a03456de6b105c2f741bf7423ed24e8dbf596",
+      "rationale": "Independent PBF coordinate audit confirms distinct source nodes 13921145160 and 13921145161 occupy [-83.01864690000001,42.783636800000004]. Quarantine this entire 204.1 m residential way; preserve source node identities without welding.",
+      "impact": {
+        "name": "Greg Drive",
+        "road_class": "residential",
+        "length_m": 204.1,
+        "node_count": 8
+      }
+    },
+    {
+      "osm_way_id": 1527653080,
+      "reason": "coincident_distinct_nodes",
+      "record_sha256": "9ae6862383f55872d51dbda27d9b473ef77e7ea44b84c91a7a52763269f57392",
+      "rationale": "Independent PBF coordinate audit confirms distinct source nodes 13921145167 and 13921145168 occupy [-83.0162296,42.7818362]. Quarantine this entire 213.7 m residential way; preserve source node identities without welding.",
+      "impact": {
+        "name": "Terry Drive",
+        "road_class": "residential",
+        "length_m": 213.7,
+        "node_count": 7
+      }
+    },
+    {
+      "osm_way_id": 1527653084,
+      "reason": "coincident_distinct_nodes",
+      "record_sha256": "61829c141dff72a02412a823377fa058e7d15072922992af064696417250c2dc",
+      "rationale": "Independent PBF coordinate audit confirms distinct source nodes 13921145184 and 13921145185 occupy [-83.0173039,42.7844397]. Quarantine this entire 144 m residential way; preserve source node identities without welding.",
+      "impact": {
+        "name": "Calista Drive",
+        "road_class": "residential",
+        "length_m": 144,
+        "node_count": 5
+      }
+    },
+    {
+      "osm_way_id": 1540333514,
+      "reason": "coincident_distinct_nodes",
+      "record_sha256": "d49f9cd2678d8911ad909be2675718dea1cf0fd9c0647944790af6beb448da84",
+      "rationale": "Independent PBF coordinate audit confirms distinct source nodes 470053593 and 215422093 occupy [-79.745354,36.673281]. Quarantine this entire 493.9 m trunk way; preserve source node identities without welding.",
+      "impact": {
+        "name": "A L Philpott Highway",
+        "road_class": "trunk",
+        "length_m": 493.9,
+        "node_count": 16
+      }
+    },
+    {
+      "osm_way_id": 1567426238,
+      "reason": "coincident_distinct_nodes",
+      "record_sha256": "4318ed0d2a0cab0905a8ba70fdfdffee463ddeb138d796ec1887a9a9157f017e",
+      "rationale": "Independent PBF coordinate audit confirms distinct source nodes 14274868908 and 14274869066 occupy [-114.13410950000001,46.871563]. Quarantine this entire 111.6 m service way; preserve source node identities without welding.",
+      "impact": {
+        "name": null,
+        "road_class": "service",
+        "length_m": 111.6,
+        "node_count": 8
+      }
+    },
+    {
+      "osm_way_id": 1568403299,
+      "reason": "coincident_distinct_nodes",
+      "record_sha256": "071e9f2c7081c61b55a048bbda43fbb906ddce50d2ec4dc93a14db8e1e864d3e",
+      "rationale": "Independent PBF coordinate audit confirms distinct source nodes 14285502880 and 87609959 occupy [-119.8222157,36.7213318]. Quarantine this entire 15.7 m secondary way; preserve source node identities without welding.",
+      "impact": {
+        "name": "West California Avenue",
+        "road_class": "secondary",
+        "length_m": 15.7,
+        "node_count": 3
+      }
+    }
+  ],
+  "review_summary": {
+    "excluded_ways": 10,
+    "estimated_omitted_length_m": 6900.3,
+    "scope": "Only these exact original-source ways and JSONL evidence fingerprints; every exported tile still requires full validation."
+  }
+}

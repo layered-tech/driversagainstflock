@@ -12,11 +12,6 @@ import {
     createRegionalCatalogs,
     hash,
 } from '../corridor/v1.1.0/regional-catalogs.mjs';
-import { validateRoadCorridorArtifact } from '../corridor/v1.1.0/validate-road-corridor.mjs';
-import {
-    POINTER_KEY,
-    publishAndPromote,
-} from '../corridor/v1.1.0/publish-and-promote.mjs';
 import {
     corridorCatalogIdentity,
     corridorRegion,
@@ -29,8 +24,17 @@ import {
 } from '../../../../../expo/components/map/road-corridor-pilot-core.js';
 import { createDirectedRoadGraph } from '../../../../../expo/components/map/road-graph.js';
 
-const operation = fileURLToPath(
-    new URL('../corridor/v1.1.0/', import.meta.url),
+const operationVersion = process.env.NATIONAL_CORRIDOR_TEST_VERSION ?? 'v1.1.0';
+const operationUrl = new URL(
+    `../corridor/${operationVersion}/`,
+    import.meta.url,
+);
+const operation = fileURLToPath(operationUrl);
+const { validateRoadCorridorArtifact } = await import(
+    new URL('validate-road-corridor.mjs', operationUrl)
+);
+const { POINTER_KEY, publishAndPromote } = await import(
+    new URL('publish-and-promote.mjs', operationUrl)
 );
 const jar = process.env.GRAPHHOPPER_TEST_JAR;
 const graphSha =
@@ -281,6 +285,160 @@ test('national publication verifies all readbacks before advancing its separate 
         ),
     );
 });
+
+test(
+    'reviewed source exclusions retain full validation and are published with immutable evidence',
+    { skip: operationVersion === 'v1.1.0' },
+    (t) => {
+        const manifestFile = path.join(output, 'manifest.json'),
+            reportFile = path.join(output, 'source-geometry.jsonl'),
+            originalManifest = readFileSync(manifestFile),
+            originalReport = readFileSync(reportFile);
+        const record = {
+            osm_way_id: 999999999,
+            reason: 'coincident_distinct_nodes',
+            node_index: 1,
+            node_ids: [777, 778],
+            source_coordinates: [
+                [-89, 43],
+                [-89, 43],
+            ],
+        };
+        const line = JSON.stringify(record),
+            bytes = Buffer.from(line + '\n'),
+            changed = structuredClone(manifest);
+        changed.invalid_source_geometry_count = 1;
+        changed.quarantine = {
+            key: 'source-geometry.jsonl',
+            sha256: hash(bytes),
+            record_count: 1,
+        };
+        const review = {
+            schema_version: 1,
+            source: manifest.source,
+            quarantine_sha256: hash(bytes),
+            entries: [
+                {
+                    osm_way_id: record.osm_way_id,
+                    reason: record.reason,
+                    record_sha256: hash(Buffer.from(line)),
+                    rationale:
+                        'Reviewed identical original source coordinates for these distinct nodes.',
+                },
+            ],
+        };
+        try {
+            writeFileSync(manifestFile, JSON.stringify(changed));
+            writeFileSync(reportFile, bytes);
+            const blocked = storeFixture();
+            assert.throws(
+                () =>
+                    publishAndPromote({
+                        directory: output,
+                        readbackDirectory: blocked.readback,
+                        release,
+                        sourceMd5,
+                        store: blocked.store,
+                    }),
+                /unreviewed/,
+            );
+            assert.equal(blocked.events.length, 0);
+            const allowed = storeFixture();
+            const result = publishAndPromote({
+                directory: output,
+                readbackDirectory: allowed.readback,
+                release,
+                sourceMd5,
+                store: allowed.store,
+                geometryReview: review,
+            });
+            assert.equal(result.quarantined_ways, 1);
+            assert.equal(result.ways, manifest.record_count);
+            assert.equal(allowed.events.at(-1), 'promoted');
+            assert.ok(
+                allowed.events.some((key) =>
+                    key.endsWith('/source-geometry.jsonl'),
+                ),
+            );
+            assert.ok(
+                allowed.events.some((key) =>
+                    /\/geometry-review-[a-f0-9]{64}\.json$/.test(key),
+                ),
+            );
+            const saved = JSON.parse(readFileSync(manifestFile));
+            writeFileSync(path.join(output, saved.quarantine.review_key), '{}');
+            assert.throws(() =>
+                validateRoadCorridorArtifact(output, {}, review),
+            );
+        } finally {
+            writeFileSync(manifestFile, originalManifest);
+            writeFileSync(reportFile, originalReport);
+        }
+    },
+);
+
+test(
+    'an excluded way cannot remain in any exported tile',
+    { skip: operationVersion === 'v1.1.0' },
+    () => {
+        const manifestFile = path.join(output, 'manifest.json'),
+            reportFile = path.join(output, 'source-geometry.jsonl'),
+            originalManifest = readFileSync(manifestFile),
+            originalReport = readFileSync(reportFile),
+            way = JSON.parse(
+                gunzipSync(
+                    readFileSync(path.join(output, manifest.tiles[0].key)),
+                )
+                    .toString()
+                    .trimEnd()
+                    .split('\n')[0],
+            ),
+            record = {
+                osm_way_id: way.osm_way_id,
+                reason: 'coincident_distinct_nodes',
+                node_index: 1,
+                node_ids: [777, 778],
+                source_coordinates: [
+                    [-89, 43],
+                    [-89, 43],
+                ],
+            },
+            line = JSON.stringify(record),
+            bytes = Buffer.from(line + '\n'),
+            changed = structuredClone(manifest);
+        changed.invalid_source_geometry_count = 1;
+        changed.quarantine = {
+            key: 'source-geometry.jsonl',
+            sha256: hash(bytes),
+            record_count: 1,
+        };
+        const review = {
+            schema_version: 1,
+            source: manifest.source,
+            quarantine_sha256: hash(bytes),
+            entries: [
+                {
+                    osm_way_id: way.osm_way_id,
+                    reason: record.reason,
+                    record_sha256: hash(Buffer.from(line)),
+                    rationale:
+                        'Reviewed the two identical original source coordinate values.',
+                },
+            ],
+        };
+        try {
+            writeFileSync(manifestFile, JSON.stringify(changed));
+            writeFileSync(reportFile, bytes);
+            assert.throws(
+                () => validateRoadCorridorArtifact(output, {}, review),
+                /Quarantined way .* appears/,
+            );
+        } finally {
+            writeFileSync(manifestFile, originalManifest);
+            writeFileSync(reportFile, originalReport);
+        }
+    },
+);
 for (const failure of ['upload', 'readback', 'cas'])
     test(`national ${failure} failure never advances the pointer`, (t) => {
         const fixture = storeFixture(failure);
@@ -295,6 +453,29 @@ for (const failure of ['upload', 'readback', 'cas'])
         );
         assert.ok(!fixture.events.includes('promoted'));
     });
+
+test(
+    'parallel tile publication failure cannot publish the manifest or pointer',
+    { skip: operationVersion === 'v1.1.0' },
+    () => {
+        const fixture = storeFixture();
+        fixture.store.putTilesVerified = () => {
+            throw Error('tile readback failed');
+        };
+        assert.throws(
+            () =>
+                publishAndPromote({
+                    directory: output,
+                    readbackDirectory: fixture.readback,
+                    release,
+                    sourceMd5,
+                    store: fixture.store,
+                }),
+            /tile readback failed/,
+        );
+        assert.equal(fixture.events.length, 0);
+    },
+);
 
 test('national validation rejects conflicting geometry even with valid checksums', () => {
     const tile = manifest.tiles[0],
@@ -336,7 +517,10 @@ test('national operation assets and scheduled bootstrap are pinned end to end', 
             asset.sha256,
             hash(readFileSync(path.join(operation, asset.name))),
         );
-        assert.equal(asset.key, `operations/corridor/v1.1.0/${asset.name}`);
+        assert.equal(
+            asset.key,
+            `operations/corridor/${operationVersion}/${asset.name}`,
+        );
     }
     const workflow = readFileSync(
         path.join(operation, '../../scheduled-builder/v1.2.0/run-build.sh'),
@@ -344,7 +528,9 @@ test('national operation assets and scheduled bootstrap are pinned end to end', 
     assert.ok(
         workflow
             .toString()
-            .includes(`NATIONAL_CORRIDOR_ASSETS_SHA256="${hash(assetsBytes)}"`),
+            .includes(
+                `NATIONAL_CORRIDOR_ASSETS_SHA256="${hash(readFileSync(path.join(operation, '../v1.1.0/assets.json')))}"`,
+            ),
     );
     const bootstrap = readFileSync(
         path.join(operation, '../../scheduled-builder-national-user-data.sh'),

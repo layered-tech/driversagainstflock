@@ -84,6 +84,13 @@ test('national launcher pins inputs and hands off only corridor work with automa
             .startsWith('bash build-national-source.sh vol-'),
     );
     assert.ok(
+        parameters.commands.some(
+            (cmd) =>
+                cmd.includes('national-build-diagnostics.sh') &&
+                cmd.includes('sha256sum --check'),
+        ),
+    );
+    assert.ok(
         parameters.commands.some((cmd) => cmd.includes('shutdown -h +1')),
     );
     assert.ok(
