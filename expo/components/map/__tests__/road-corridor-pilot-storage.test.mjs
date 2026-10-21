@@ -15,10 +15,15 @@ const code = require('@babel/core').transformSync(
     },
 ).code;
 
-function harness({ signedGate, control } = {}) {
+function harness({
+    signedGate,
+    control,
+    files = new Map(),
+    storage = new Map(),
+    noV2 = false,
+} = {}) {
     const timers = new Map();
     const events = [];
-    const files = new Map();
     let requests = 0,
         services = 0,
         offline = false;
@@ -121,7 +126,7 @@ function harness({ signedGate, control } = {}) {
             this.uri = file.uri;
         }
     }
-    const storage = new Map();
+    const httpRequests = [];
     const deps = {
         './road-corridor-diagnostics': {
             reportCorridorFailure: (stage) => events.push(`reported:${stage}`),
@@ -152,8 +157,10 @@ function harness({ signedGate, control } = {}) {
             createDirectedRoadGraph: (ways) => ({ edges: ways }),
         },
         './config': {
-            buildApiURL: (path) =>
-                path.endsWith('manifest') ? 'manifest' : 'sign',
+            buildApiURL: (path, query) =>
+                path.endsWith('manifest')
+                    ? `manifest:${path}:${query?.region ?? ''}`
+                    : `${path.startsWith('v2') ? 'sign-v2' : 'sign'}:${JSON.stringify(query)}`,
         },
         './road-corridor-pilot-core': null,
         './road-corridor-releases': null,
@@ -178,7 +185,10 @@ function harness({ signedGate, control } = {}) {
             module,
             module.exports,
             async (url, options) => {
-                if (url === 'manifest')
+                httpRequests.push({ url, headers: options?.headers });
+                if (url.startsWith('manifest:') && url.includes('v2/') && noV2)
+                    return { ok: false, status: 404 };
+                if (url.startsWith('manifest:'))
                     return control
                         ? {
                               ok: true,
@@ -186,7 +196,7 @@ function harness({ signedGate, control } = {}) {
                                   control({ schema_version: 1, ...catalog }),
                           }
                         : { ok: false };
-                if (url === 'sign' && signedGate) await signedGate;
+                if (url.startsWith('sign:') && signedGate) await signedGate;
                 if (options?.signal?.aborted)
                     throw Object.assign(new Error('aborted'), {
                         name: 'AbortError',
@@ -224,6 +234,8 @@ function harness({ signedGate, control } = {}) {
                     signal,
                 }),
             files,
+            storage,
+            httpRequests,
             offline: () => {
                 offline = true;
             },
@@ -342,4 +354,57 @@ test('a real verified replacement keeps separate files and does not mark an olde
     assert.ok(initial.corridorCacheRevision < h.getRevision());
     h.offline();
     assert.equal((await h.load()).corridorSource.source, 'download');
+});
+
+test('regional downloads sign v2 URLs and restore verified files and metadata offline', async () => {
+    const h = await harness({
+        control: (catalog) => ({
+            enabled: true,
+            catalog: { ...catalog, release: 'national', region: '-45_21' },
+        }),
+    });
+    await h.load();
+    for (let i = 0; i < 20; i++) await new Promise(setImmediate);
+    assert.equal(h.getRelease().release, 'national');
+    assert.ok(
+        h.httpRequests.some(({ url }) =>
+            url.includes('v2/road-corridor-manifest:-45_21'),
+        ),
+    );
+    assert.ok(
+        h.httpRequests.some(
+            ({ url }) =>
+                url.startsWith('sign-v2:') && url.includes('"region":"-45_21"'),
+        ),
+    );
+    assert.ok(
+        [...h.storage.keys()].some((key) =>
+            key.endsWith('.catalog.national.-45_21'),
+        ),
+    );
+    const restored = await harness({ files: h.files, storage: h.storage });
+    restored.offline();
+    const result = await restored.load();
+    assert.equal(restored.getRelease().release, 'national');
+    assert.equal(result.corridorSource.source, 'download');
+    assert.equal(restored.counts().requests, 0);
+});
+
+test('new clients discover the legacy release when v2 is not deployed yet', async () => {
+    const h = await harness({
+        noV2: true,
+        control: (catalog) => ({
+            enabled: true,
+            catalog: { ...catalog, release: 'legacy-new' },
+        }),
+    });
+    await h.load();
+    for (let i = 0; i < 20; i++) await new Promise(setImmediate);
+    assert.equal(h.getRelease().release, 'legacy-new');
+    assert.ok(
+        h.httpRequests.some(({ url }) =>
+            url.includes('v1/road-corridor-manifest'),
+        ),
+    );
+    assert.ok(!h.httpRequests.some(({ url }) => url.startsWith('sign-v2:')));
 });

@@ -9,7 +9,7 @@ resource "aws_launch_template" "builder" {
   image_id      = var.builder_ami_id
   instance_type = var.builder_instance_type
 
-  user_data = base64encode(file("${path.module}/operations/scheduled-builder-user-data.sh"))
+  user_data = base64encode(file("${path.module}/operations/${var.national_corridor_builds_enabled ? "scheduled-builder-national-user-data.sh" : "scheduled-builder-user-data.sh"}"))
 
   iam_instance_profile {
     name = aws_iam_instance_profile.builder.name

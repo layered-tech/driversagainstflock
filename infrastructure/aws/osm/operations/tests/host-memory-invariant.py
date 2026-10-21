@@ -2,6 +2,7 @@
 """Exercise service memory accounting and the shared-host tuning contract."""
 
 import importlib.util
+import configparser
 import tempfile
 import subprocess
 import unittest
@@ -15,6 +16,15 @@ SPEC.loader.exec_module(collector)
 
 
 class HostMemoryInvariant(unittest.TestCase):
+    def test_historical_backfill_has_a_cpu_budget_and_no_runtime_deadline(self) -> None:
+        unit = configparser.ConfigParser(interpolation=None)
+        unit.read(ROOT / "systemd/daf-osm-changeset-backfill.service")
+        service = unit["Service"]
+        self.assertEqual("25%", service["CPUQuota"])
+        self.assertEqual("infinity", service["TimeoutStartSec"])
+        self.assertEqual("15", service["Nice"])
+        self.assertEqual("idle", service["IOSchedulingClass"])
+
     def test_shared_memory_counted_once_and_reclaimable_cache_excluded(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

@@ -5,6 +5,8 @@ import bundledCatalog from '../../assets/map/wisconsin-corridor.json';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     corridorCacheDeletions,
+    corridorCatalogIdentity,
+    corridorRegion,
     createCorridorReleaseManager,
 } from './road-corridor-releases';
 import { getRoadCorridor, normalizeRoadCorridorWay } from './api';
@@ -114,8 +116,11 @@ function ensureTile(catalog, tile, onMissing = () => {}) {
             tileEvent(tile, 'DOWNLOAD_STARTED');
             const signed = await fetch(
                 buildApiURL(
-                    `v1/road-corridor-tiles/${tile.key.split('/').at(-1)}`,
-                    { release: catalog.release },
+                    `${catalog.region ? 'v2' : 'v1'}/road-corridor-tiles/${tile.key.split('/').at(-1)}`,
+                    {
+                        release: catalog.release,
+                        ...(catalog.region ? { region: catalog.region } : {}),
+                    },
                 ),
                 { signal: controller.signal },
             );
@@ -185,7 +190,7 @@ async function readSavedCatalog(release) {
         return null;
     }
 }
-let manifestEtag, lastManifest;
+let manifestEtag, lastManifest, manifestRegion;
 const releaseManager = createCorridorReleaseManager({
     bundled: { schema_version: 1, ...bundledCatalog },
     onError: reportCorridorFailure,
@@ -204,29 +209,37 @@ const releaseManager = createCorridorReleaseManager({
     },
     write: async (state) => {
         await AsyncStorage.setItem(
-            catalogKey(state.active.release),
+            catalogKey(corridorCatalogIdentity(state.active)),
             JSON.stringify(state.active),
         );
         if (state.previous)
             await AsyncStorage.setItem(
-                catalogKey(state.previous.release),
+                catalogKey(corridorCatalogIdentity(state.previous)),
                 JSON.stringify(state.previous),
             );
         await AsyncStorage.setItem(
             storagePrefix,
             JSON.stringify({
                 ...state,
-                active: state.active.release,
-                previous: state.previous?.release ?? null,
+                active: corridorCatalogIdentity(state.active),
+                previous: state.previous
+                    ? corridorCatalogIdentity(state.previous)
+                    : null,
             }),
         );
     },
-    fetchControl: async () => {
+    fetchControl: async (options) => {
+        const region = corridorRegion(options.location);
+        if (region !== manifestRegion) {
+            manifestEtag = undefined;
+            lastManifest = undefined;
+            manifestRegion = region;
+        }
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000);
         try {
-            const response = await fetch(
-                buildApiURL('v1/road-corridor-manifest'),
+            let response = await fetch(
+                buildApiURL('v2/road-corridor-manifest', { region }),
                 {
                     signal: controller.signal,
                     headers: manifestEtag
@@ -234,6 +247,14 @@ const releaseManager = createCorridorReleaseManager({
                         : {},
                 },
             );
+            if (response.status === 404) {
+                response = await fetch(
+                    buildApiURL('v1/road-corridor-manifest'),
+                    {
+                        signal: controller.signal,
+                    },
+                );
+            }
             if (response.status === 304 && lastManifest) return lastManifest;
             if (!response.ok)
                 throw new Error(
@@ -320,7 +341,9 @@ const releaseManager = createCorridorReleaseManager({
             )
                 directory.delete();
         }
-        const keep = new Set(retained.map((c) => catalogKey(c.release)));
+        const keep = new Set(
+            retained.map((c) => catalogKey(corridorCatalogIdentity(c))),
+        );
         const obsolete = (await AsyncStorage.getAllKeys()).filter(
             (key) =>
                 key.startsWith(`${storagePrefix}.catalog.`) && !keep.has(key),

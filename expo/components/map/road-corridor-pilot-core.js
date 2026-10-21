@@ -25,7 +25,10 @@ export function selectCorridorTiles(catalog, location, radiusMeters = 3200) {
             insideRing(point, rings[0]) &&
             !rings.slice(1).some((ring) => insideRing(point, ring)),
     );
-    if (!polygon) throw new Error('Outside Wisconsin extract');
+    if (!polygon)
+        throw new Error(
+            catalog.region ? 'Outside extract' : 'Outside Wisconsin extract',
+        );
     for (const ring of polygon) {
         for (let i = 0; i < ring.length; i++) {
             const a = ring[i],

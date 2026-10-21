@@ -14,6 +14,7 @@ RuntimeDirectoryPreserve=yes
 ExecStart=/usr/bin/flock --nonblock /run/daf-osm/global-changeset-backfill.lock /opt/daf-osm/bin/changeset-backfill.sh
 TimeoutStartSec=infinity
 Nice=15
+CPUQuota=25%
 IOSchedulingClass=idle
 UMask=0027
 NoNewPrivileges=true

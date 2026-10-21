@@ -660,13 +660,13 @@ resource "aws_cloudwatch_metric_alarm" "changeset_metadata_missing" {
   }
 
   alarm_name          = "daf-infrastructure-osm-changeset-metadata-missing"
-  alarm_description   = "Tracked OSM changesets have lacked metadata for 24 hours"
+  alarm_description   = "Tracked OSM changesets have lacked metadata for 48 hours"
   namespace           = "DAF/OSM"
   metric_name         = "ChangesetsMissingMetadata"
   statistic           = "Minimum"
   period              = 3600
-  evaluation_periods  = 24
-  datapoints_to_alarm = 24
+  evaluation_periods  = 48
+  datapoints_to_alarm = 48
   threshold           = 0
   comparison_operator = "GreaterThanThreshold"
   treat_missing_data  = "notBreaching"

@@ -36,3 +36,9 @@ variable "graph_build_schedule_timezone" {
     error_message = "graph_build_schedule_timezone must not be empty."
   }
 }
+
+variable "national_corridor_builds_enabled" {
+  description = "Enable nationwide corridor export after regional validation, preserving the Wisconsin publication for existing clients."
+  type        = bool
+  default     = false
+}

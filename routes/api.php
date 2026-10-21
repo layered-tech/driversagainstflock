@@ -15,6 +15,8 @@ use App\Http\Controllers\Api\V1\DirectionsController as V1DirectionsController;
 use App\Http\Controllers\Api\V1\ElectronicHorizonAlprController;
 use App\Http\Controllers\Api\V1\PoliceAlertsController;
 use App\Http\Controllers\Api\V1\PublishedOsmNodeSyncController;
+use App\Http\Controllers\Api\V1\RegionalRoadCorridorManifestController;
+use App\Http\Controllers\Api\V1\RegionalRoadCorridorTileController;
 use App\Http\Controllers\Api\V1\RoadCorridorController;
 use App\Http\Controllers\Api\V1\RoadCorridorManifestController;
 use App\Http\Controllers\Api\V1\RoadCorridorTileController;
@@ -58,6 +60,8 @@ Route::group(['middleware' => ['throttle:speed-limits']], function (Router $rout
 });
 
 Route::group(['middleware' => ['throttle:road-corridors']], function (Router $route) {
+    $route->get('v2/road-corridor-manifest', RegionalRoadCorridorManifestController::class);
+    $route->get('v2/road-corridor-tiles/{tile}', RegionalRoadCorridorTileController::class);
     $route->get('v1/road-corridor', RoadCorridorController::class);
     $route->get('v1/road-corridor-manifest', RoadCorridorManifestController::class);
     $route->get('v1/road-corridor-tiles/{tile}', RoadCorridorTileController::class);

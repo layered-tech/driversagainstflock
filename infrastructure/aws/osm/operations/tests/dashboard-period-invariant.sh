@@ -60,6 +60,15 @@ def alarm_resource(name: str) -> str:
 
 alarms = Path(sys.argv[2]).read_text(encoding="utf-8")
 
+metadata_alarm = alarm_resource("changeset_metadata_missing")
+for name, expected in (("period", 3600), ("evaluation_periods", 48), ("datapoints_to_alarm", 48)):
+    if not re.search(rf"\b{name}\s*=\s*{expected}\b", metadata_alarm):
+        raise SystemExit(f"Metadata alarm must use {name}={expected} for a 48-hour allowance")
+if 'statistic           = "Minimum"' not in metadata_alarm:
+    raise SystemExit("Metadata alarm must tolerate temporary metadata gaps")
+if 'alarm_description   = "Tracked OSM changesets have lacked metadata for 48 hours"' not in metadata_alarm:
+    raise SystemExit("Metadata alarm description must match its 48-hour allowance")
+
 for title in metric_widget_titles:
     title_match = re.search(rf'\btitle\s*=\s*"{re.escape(title)}"', monitoring)
     if title_match is None:

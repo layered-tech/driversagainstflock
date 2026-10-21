@@ -296,3 +296,67 @@ test('failed updates and cleanup report retained-release context without changin
     );
     assert.equal(h.manager.getState().active.release, bundled.release);
 });
+
+test('a regional catalog can switch within a release and keeps distinct offline metadata', async () => {
+    const { corridorCatalogIdentity, corridorRegion } =
+        await import('../road-corridor-releases.js');
+    const region = corridorRegion(options.location);
+    const regional = { ...bundled, region };
+    const h = harness({
+        bundled: regional,
+        fetchControl: async () => ({
+            enabled: true,
+            catalog: { ...bundled, region: '-44_21' },
+        }),
+    });
+    await h.manager.refresh({
+        ...options,
+        location: { ...options.location, longitude: -87.99 },
+    });
+    assert.equal(h.manager.getState().active.region, '-44_21');
+    assert.equal(h.saved().previous.region, region);
+    const restarted = harness({ read: async () => h.saved() });
+    await restarted.manager.ready();
+    assert.equal(restarted.manager.getState().active.region, '-44_21');
+    assert.notEqual(
+        corridorCatalogIdentity(regional),
+        corridorCatalogIdentity({ ...regional, region: '-44_21' }),
+    );
+});
+
+test('regional discovery rejects mismatched regions and still observes the global kill switch', async () => {
+    const h = harness({
+        fetchControl: async () => ({
+            enabled: true,
+            catalog: { ...bundled, region: '-10_10' },
+        }),
+    });
+    await h.manager.refresh(options);
+    assert.equal(h.manager.getState().active.region, undefined);
+    assert.match(h.manager.getSnapshot().error, /Unexpected corridor region/);
+    const disabled = harness({
+        bundled: { ...bundled, region: '-45_21' },
+        fetchControl: async () => ({ enabled: false }),
+    });
+    await disabled.manager.refresh(options);
+    assert.equal(disabled.manager.getState().enabled, false);
+});
+
+test('regional rollback drops a cached national catalog even outside Wisconsin', async () => {
+    const regional = { ...bundled, region: '-45_21', release: 'national' };
+    const h = harness({
+        read: async () => ({ active: regional, enabled: true }),
+        fetchControl: async () => ({
+            enabled: true,
+            regional_enabled: false,
+            catalog: bundled,
+        }),
+    });
+    await h.manager.refresh({
+        location: { longitude: -122.33, latitude: 47.6 },
+        radiusMeters: 3200,
+    });
+    assert.equal(h.manager.getState().active.region, undefined);
+    assert.equal(h.manager.getState().active.release, bundled.release);
+    assert.equal(h.saved().active.region, undefined);
+});

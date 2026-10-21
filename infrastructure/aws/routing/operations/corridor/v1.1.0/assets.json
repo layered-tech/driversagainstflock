@@ -1,0 +1,37 @@
+[
+  {
+    "name": "run-corridor.sh",
+    "key": "operations/corridor/v1.1.0/run-corridor.sh",
+    "sha256": "9d886449bec9840deeb142191ecca5fe1678327a149210ea000c4b4e6c78c151"
+  },
+  {
+    "name": "publish-and-promote.mjs",
+    "key": "operations/corridor/v1.1.0/publish-and-promote.mjs",
+    "sha256": "7e20b6430eae16bcea11bfea326ed40f3788ef5a5f3e072b095fbce5149a7ac6"
+  },
+  {
+    "name": "object-store.mjs",
+    "key": "operations/corridor/v1.1.0/object-store.mjs",
+    "sha256": "ebf73e22d2c6fbc5be5297fdb81d0b7be915ecd69b4eb2b256faf7d732a07ccd"
+  },
+  {
+    "name": "regional-catalogs.mjs",
+    "key": "operations/corridor/v1.1.0/regional-catalogs.mjs",
+    "sha256": "8ba932757a07b4abeabded26a499848e9bd8185b0de0c61ecbd95c2752efc898"
+  },
+  {
+    "name": "validate-road-corridor.mjs",
+    "key": "operations/corridor/v1.1.0/validate-road-corridor.mjs",
+    "sha256": "be1ab208839264841d47ccb6d674a77f904b4b95bfa6ef9ef02a1bd70057ca45"
+  },
+  {
+    "name": "road-corridor-contract.mjs",
+    "key": "operations/corridor/v1.1.0/road-corridor-contract.mjs",
+    "sha256": "98e1e52fb1112b96a4644af6d227de10820057a8b2bc8e33eadf433f088f48f7"
+  },
+  {
+    "name": "RoadCorridorExporter.java",
+    "key": "operations/corridor/v1.1.0/RoadCorridorExporter.java",
+    "sha256": "bf34888d9878635a9a238ca6ed0f42d586b2b74b89f25fc1a34b97cd0634e8a9"
+  }
+]

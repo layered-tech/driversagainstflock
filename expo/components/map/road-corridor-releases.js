@@ -3,10 +3,29 @@ import { selectCorridorTiles } from './road-corridor-pilot-core.js';
 export const CORRIDOR_UPDATE_INTERVAL_MS = 60000;
 export const CORRIDOR_CACHE_MAX_BYTES = 256 * 1024 * 1024;
 
+export function corridorRegion(location) {
+    if (
+        !Number.isFinite(location?.longitude) ||
+        !Number.isFinite(location?.latitude) ||
+        Math.abs(location.longitude) > 180 ||
+        Math.abs(location.latitude) > 90
+    )
+        throw new Error('Location unavailable');
+    return `${Math.min(89, Math.floor(location.longitude / 2))}_${Math.min(44, Math.floor(location.latitude / 2))}`;
+}
+
+export function corridorCatalogIdentity(catalog) {
+    return catalog.region
+        ? `${catalog.release}.${catalog.region}`
+        : catalog.release;
+}
+
 export function validateCorridorCatalog(catalog) {
     if (
         catalog?.schema_version !== 1 ||
         !/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(catalog?.release ?? '') ||
+        (catalog.region !== undefined &&
+            !/^-?\d{1,2}_-?\d{1,2}$/.test(catalog.region)) ||
         !Array.isArray(catalog.coverage) ||
         !catalog.coverage.length ||
         !Array.isArray(catalog.tiles) ||
@@ -112,7 +131,7 @@ export function createCorridorReleaseManager({
         nextCheck = 0,
         pending,
         hydration;
-    let locationOptions;
+    let locationOptions, discoveryRegion;
     let writes = Promise.resolve();
     const listeners = new Set();
     const report = (stage, error) => {
@@ -185,11 +204,16 @@ export function createCorridorReleaseManager({
     const refresh = (options) => {
         if (options) locationOptions = options;
         if (pending) return pending;
-        if (!locationOptions || now() < nextCheck) return Promise.resolve();
+        if (!locationOptions) return Promise.resolve();
+        const region = corridorRegion(locationOptions.location);
+        if (region === discoveryRegion && now() < nextCheck)
+            return Promise.resolve();
+        discoveryRegion = region;
+        const optionsAtStart = locationOptions;
         nextCheck = now() + CORRIDOR_UPDATE_INTERVAL_MS;
         pending = (async () => {
             await ready();
-            const control = await fetchControl();
+            const control = await fetchControl(optionsAtStart);
             if (typeof control?.enabled !== 'boolean')
                 throw new Error('Invalid corridor control');
             if (state.enabled !== control.enabled) {
@@ -198,15 +222,25 @@ export function createCorridorReleaseManager({
                 publish();
                 await persist(state);
             }
+            if (control.regional_enabled === false && state.active.region) {
+                state = { ...state, active: bundled, previous: null };
+                revision++;
+                publish();
+                await persist(state);
+            }
             if (!state.enabled || state.forceService) return;
             const candidate = validateCorridorCatalog(control.catalog);
-            if (candidate.release === state.active.release) {
+            if (candidate.region !== undefined && candidate.region !== region)
+                throw new Error('Unexpected corridor region');
+            if (
+                corridorCatalogIdentity(candidate) ===
+                corridorCatalogIdentity(state.active)
+            ) {
                 if (JSON.stringify(candidate) !== JSON.stringify(state.active))
                     throw new Error('Published release changed');
                 publish();
                 return;
             }
-            const optionsAtStart = locationOptions;
             // Every required tile must pass the same normalization/graph input checks.
             const preparedTiles = new Set(
                 selectCorridorTiles(
@@ -246,7 +280,7 @@ export function createCorridorReleaseManager({
         })()
             .catch((error) => {
                 if (
-                    !/Outside Wisconsin extract|Near extract boundary|Location changed during update/.test(
+                    !/Outside (?:Wisconsin )?extract|Near extract boundary|Location changed during update/.test(
                         error.message ?? '',
                     )
                 )
