@@ -1,3 +1,5 @@
+import { getMapPresentationScale } from './map-presentation-scale.js';
+
 const BASE_NAVIGATION_PUCK_SIZE = 50;
 const AUTO_PLAY_NAVIGATION_PUCK_VIEWPORT_RATIO = 0.13;
 const AUTO_PLAY_NAVIGATION_PUCK_MINIMUM_SIZE = 44;
@@ -46,6 +48,7 @@ function getPositiveDimension(value) {
  * visible map surface. The native 3D puck has its own map-relative scale.
  */
 export function getNavigationPuckSize({
+    platform,
     variant = 'default',
     viewportHeight,
     viewportWidth,
@@ -58,7 +61,7 @@ export function getNavigationPuckSize({
             : NAVIGATION_PUCK_SIZE;
 
     if (height === null || width === null) {
-        return fallbackSize;
+        return fallbackSize * getMapPresentationScale(platform);
     }
 
     const shortestViewportSide = Math.min(height, width);
@@ -75,9 +78,11 @@ export function getNavigationPuckSize({
     const proportionalSize = shortestViewportSide * viewportRatio;
 
     return (
-        Math.round(
+        (Math.round(
             Math.min(maximumSize, Math.max(minimumSize, proportionalSize)) * 2,
-        ) / 2
+        ) /
+            2) *
+        getMapPresentationScale(platform)
     );
 }
 
@@ -93,6 +98,7 @@ export function getNavigationPuck3DScaleExpression({
         platform === 'ios' && variant !== 'auto-play'
             ? IOS_NAVIGATION_PUCK_3D_SCALE_FACTOR
             : 1;
+    const presentationScale = getMapPresentationScale(platform);
 
     return JSON.stringify([
         'interpolate',
@@ -100,7 +106,12 @@ export function getNavigationPuck3DScaleExpression({
         ['zoom'],
         ...zoomScales.flatMap(({ mapScale, zoomLevel }) => [
             zoomLevel,
-            ['literal', Array(3).fill(mapScale * platformScaleFactor)],
+            [
+                'literal',
+                Array(3).fill(
+                    mapScale * (platformScaleFactor * presentationScale),
+                ),
+            ],
         ]),
     ]);
 }

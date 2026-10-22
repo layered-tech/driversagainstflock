@@ -1,3 +1,5 @@
+import { AutoPlayClusterSurface } from './auto-play-cluster-surface';
+import { carPlayInstrumentClusterEnabled } from '../car-display-config';
 import { createCarPlayVoiceSearchController } from './auto-play-carplay-voice-search';
 import { prepareCarPlaySearchMap } from './auto-play-search-template-lifecycle';
 import { CarPlayDashboardSurface } from './carplay-dashboard-surface';
@@ -88,6 +90,12 @@ export const autoPlayPlatform = {
                 onVoiceNavigation,
             });
         voiceSearchController = registeredVoiceSearchController;
+
+        if (carPlayInstrumentClusterEnabled) {
+            autoPlayModule.AutoPlayCluster.setComponent(
+                AutoPlayClusterSurface,
+            ).catch(() => {});
+        }
 
         // Dashboard runs in a secondary CarPlay scene, so it owns a surface
         // that waits for that scene before mounting Mapbox. A shortcut is still

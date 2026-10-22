@@ -1,5 +1,5 @@
 import { AndroidAutoMapSurface } from './android-auto-map-surface';
-import { AndroidAutoClusterSurface } from './android-auto-cluster-surface';
+import { AutoPlayClusterSurface } from './auto-play-cluster-surface';
 import { androidInstrumentClusterEnabled } from '../car-display-config';
 
 // Android Auto extension of the platform-agnostic auto-play core.
@@ -58,7 +58,7 @@ export const autoPlayPlatform = {
     }) {
         if (androidInstrumentClusterEnabled) {
             autoPlayModule.AutoPlayCluster.setComponent(
-                AndroidAutoClusterSurface,
+                AutoPlayClusterSurface,
             ).catch(() => {});
         }
         autoPlayModule.HybridAutoPlay.addListenerRenderState(

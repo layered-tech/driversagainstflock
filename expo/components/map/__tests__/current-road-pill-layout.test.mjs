@@ -102,7 +102,7 @@ describe('current road pill layout', () => {
         }
     });
 
-    test('scales only the iOS phone 3D puck', () => {
+    test('applies the shared iOS map overlay scale to phone and CarPlay 3D pucks', () => {
         const getExpressionScales = ({ platform, variant = 'default' }) =>
             JSON.parse(
                 getNavigationPuck3DScaleExpression({ platform, variant }),
@@ -119,7 +119,7 @@ describe('current road pill layout', () => {
 
         assert.deepEqual(
             getExpressionScales({ platform: 'ios' }),
-            defaultScales.map((mapScale) => mapScale * 0.6),
+            defaultScales.map((mapScale) => mapScale * (0.6 * 0.85)),
         );
         assert.deepEqual(
             getExpressionScales({ platform: 'android' }),
@@ -127,7 +127,7 @@ describe('current road pill layout', () => {
         );
         assert.deepEqual(
             getExpressionScales({ platform: 'ios', variant: 'auto-play' }),
-            autoPlayScales,
+            autoPlayScales.map((mapScale) => mapScale * 0.85),
         );
         assert.deepEqual(
             getExpressionScales({

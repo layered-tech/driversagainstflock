@@ -202,6 +202,7 @@ module.exports = {
                 RNMapboxMapsVersion: '11.24.1',
             },
         ],
+        './plugins/withMapboxImageScale',
         [
             'expo-location',
             {

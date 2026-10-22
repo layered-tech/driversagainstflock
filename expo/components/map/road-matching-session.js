@@ -919,10 +919,10 @@ async function ensurePersistentLocationPermission() {
         return false;
     }
 
-    // Android's user-initiated foreground location service can continue after
-    // the app backgrounds. Requiring "Allow all the time" here would prevent
-    // that service from starting for otherwise valid foreground-only users.
-    if (Platform.OS !== 'ios') {
+    // Android's foreground service and a visible CarPlay scene support
+    // user-initiated location use with While Using authorization. CarPlay still
+    // needs Expo's persistent task when the phone scene is backgrounded.
+    if (Platform.OS !== 'ios' || automotiveLocationOwnerIsActive()) {
         return true;
     }
 

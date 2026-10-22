@@ -149,7 +149,34 @@ describe('Auto Play speed-limit layout', () => {
         );
         // The dial belongs to both car hosts. Gating it on Platform.OS left
         // CarPlay with no speed readout at all on unmapped roads.
-        assert.doesNotMatch(mapStatusOverlaySource, /Platform\.OS/);
+        const speedVisibilitySource = mapStatusOverlaySource.slice(
+            mapStatusOverlaySource.indexOf(
+                'const currentSpeedWithoutLimitIsVisible',
+            ),
+            mapStatusOverlaySource.indexOf('const markerLoadingIsVisible'),
+        );
+        assert.doesNotMatch(speedVisibilitySource, /Platform\.OS/);
+    });
+
+    test('measures the CarPlay alignment frame using the same density as its badge', () => {
+        const size = AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE;
+        const layout = getAutoPlaySpeedLimitOverlayLayout({
+            mapControlLayoutInsets: { bottom: 24, right: 24 },
+            platform: 'ios',
+            size,
+        });
+        const badge = getSpeedLimitBadgeLayout(size, { platform: 'ios' });
+        assert.equal(
+            layout.alignmentFrameStyle.width,
+            Math.max(
+                badge.signOuterWidth,
+                badge.containerWidth + badge.currentSpeedCornerOverhang,
+            ),
+        );
+        assert.equal(
+            layout.alignmentFrameStyle.height,
+            Math.max(badge.containerHeight, badge.signOuterHeight),
+        );
     });
 });
 

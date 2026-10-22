@@ -22,9 +22,10 @@ export function getAutoPlayTopRightStatusOverlayLayout({
 
 export function getAutoPlaySpeedLimitOverlayLayout({
     mapControlLayoutInsets,
+    platform,
     size,
 }) {
-    const badgeLayout = getSpeedLimitBadgeLayout(size);
+    const badgeLayout = getSpeedLimitBadgeLayout(size, { platform });
 
     return {
         alignmentFrameStyle: {
@@ -76,6 +77,7 @@ export function getAutoPlaySpeedLimitBadgeSize({
 export function getAutoPlayCurrentRoadPillLayout({
     gap = AUTO_PLAY_CURRENT_ROAD_PILL_SPEED_LIMIT_GAP,
     mapControlLayoutInsets,
+    platform,
     size,
     viewportMetrics,
 }) {
@@ -104,6 +106,7 @@ export function getAutoPlayCurrentRoadPillLayout({
 
     const speedLimitOverlayLayout = getAutoPlaySpeedLimitOverlayLayout({
         mapControlLayoutInsets,
+        platform,
         size,
     });
     const roadPillCenterX = (visibleLeft + visibleRight) / 2;

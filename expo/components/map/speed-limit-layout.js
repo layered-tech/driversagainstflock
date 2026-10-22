@@ -1,3 +1,5 @@
+import { getMapPresentationScale } from './map-presentation-scale.js';
+
 export const SPEED_LIMIT_BADGE_SIZES = Object.freeze({
     sm: 44,
     md: 58,
@@ -10,9 +12,10 @@ export const AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE = 62;
 export function getSpeedLimitBadgeLayout(size = 'md', { platform } = {}) {
     const namedSize = SPEED_LIMIT_BADGE_SIZES[size];
     const signWidth =
-        typeof size === 'number' && Number.isFinite(size) && size > 0
+        (typeof size === 'number' && Number.isFinite(size) && size > 0
             ? size
-            : (namedSize ?? SPEED_LIMIT_BADGE_SIZES.md);
+            : (namedSize ?? SPEED_LIMIT_BADGE_SIZES.md)) *
+        getMapPresentationScale(platform);
     const signHeight = signWidth * 1.2;
     const signBorderWidth = Math.max(2, signWidth * 0.045);
     const currentSpeedContentDiameter = signWidth * 0.46;

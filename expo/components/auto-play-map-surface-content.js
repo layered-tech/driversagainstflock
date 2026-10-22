@@ -1928,6 +1928,7 @@ export function AutoPlayMapSurfaceContent({
     const navigationPuckSize = useMemo(
         () =>
             getNavigationPuckSize({
+                platform: Platform.OS,
                 variant: 'auto-play',
                 viewportHeight: viewportMetrics.visibleHeight,
                 viewportWidth: viewportMetrics.visibleWidth,
@@ -2619,7 +2620,9 @@ export function AutoPlayMapSurfaceContent({
                     activeDirectionsRoute={activeDirectionsRoute}
                     currentRoadPill={currentRoadPill}
                     currentRoadPillIsVisible={
-                        (rendersAppOverlays || isClusterMapSurface) &&
+                        (rendersAppOverlays ||
+                            isClusterMapSurface ||
+                            isDashboardMapSurface) &&
                         !searchResultsMapIsActive
                     }
                     drivingStatusIsVisible={

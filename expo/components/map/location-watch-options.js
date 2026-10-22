@@ -57,23 +57,16 @@ export function shouldRefreshLocationData({
 export function getRoadMatchingLocationSourcePolicy({
     activeRetainerCount,
     appState,
-    automotiveLocationOwnerIsActive = false,
     persistentRetainerCount,
-    platformOS,
 }) {
     const sessionIsRetained = activeRetainerCount > 0;
-    // Android holds only while-in-use location permission, so a connected car
-    // session must keep the location foreground service running or the OS
-    // stops GPS delivery once the phone locks. iOS CarPlay keeps the app
-    // foreground while its scene is visible, so ownership replaces the task.
-    const automotiveOwnerReplacesBackgroundTask =
-        automotiveLocationOwnerIsActive && platformOS !== 'android';
+    // A visible car scene does not enable background delivery on Expo's
+    // foreground-only CLLocationManager. Keep persistent delivery armed on
+    // both platforms, including when the phone has never entered driving mode.
 
     return {
         backgroundTaskIsNeeded:
-            sessionIsRetained &&
-            persistentRetainerCount > 0 &&
-            !automotiveOwnerReplacesBackgroundTask,
+            sessionIsRetained && persistentRetainerCount > 0,
         foregroundWatchIsNeeded: sessionIsRetained && appState === 'active',
     };
 }

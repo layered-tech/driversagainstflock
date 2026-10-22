@@ -12,6 +12,36 @@ function assertApproximatelyEqual(actual, expected) {
 }
 
 describe('getSpeedLimitBadgeLayout', () => {
+    test('shares the same modest iOS reduction across phone and CarPlay badges and fallback pucks', async () => {
+        const { getNavigationPuckSize } =
+            await import('../navigation-puck-layout.js');
+        for (const size of ['sm', 'md', 'lg', 62]) {
+            const android = getSpeedLimitBadgeLayout(size, {
+                platform: 'android',
+            });
+            const ios = getSpeedLimitBadgeLayout(size, { platform: 'ios' });
+            assertApproximatelyEqual(ios.signWidth, android.signWidth * 0.85);
+            assert.deepEqual(android, getSpeedLimitBadgeLayout(size));
+        }
+        for (const variant of ['default', 'auto-play']) {
+            for (const viewport of [
+                {},
+                { viewportHeight: 480, viewportWidth: 800 },
+            ]) {
+                const options = { variant, ...viewport };
+                const android = getNavigationPuckSize({
+                    ...options,
+                    platform: 'android',
+                });
+                const ios = getNavigationPuckSize({
+                    ...options,
+                    platform: 'ios',
+                });
+                assertApproximatelyEqual(ios, android * 0.85);
+                assert.equal(android, getNavigationPuckSize(options));
+            }
+        }
+    });
     test('matches every named design-system size', () => {
         assert.equal(getSpeedLimitBadgeLayout('sm').signWidth, 44);
         assert.equal(getSpeedLimitBadgeLayout('md').signWidth, 58);

@@ -1,6 +1,6 @@
 const EMPTY_SEARCH_RESULTS = [];
 
-export const ANDROID_AUTO_CLUSTER_PLATFORM_CONFIG = {
+export const AUTO_PLAY_CLUSTER_PLATFORM_CONFIG = {
     currentRoadPill: { compact: true },
     followPitch: 60,
     followZoomOffset: -1,
@@ -10,7 +10,7 @@ export const ANDROID_AUTO_CLUSTER_PLATFORM_CONFIG = {
     usesHostColorSchemeForAutomaticMapPreset: true,
 };
 
-export function getAndroidAutoClusterState(routingState) {
+export function getAutoPlayClusterState(routingState) {
     const isNavigating = Boolean(
         routingState.drivingModeIsActive && routingState.directionsRoute,
     );

@@ -1,8 +1,8 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import {
-    ANDROID_AUTO_CLUSTER_PLATFORM_CONFIG,
-    getAndroidAutoClusterState,
-} from './android-auto-cluster-state';
+    AUTO_PLAY_CLUSTER_PLATFORM_CONFIG,
+    getAutoPlayClusterState,
+} from './auto-play-cluster-state';
 import {
     createAutoPlayMapSurface,
     setAutoPlayMapColorScheme,
@@ -15,10 +15,10 @@ import {
 } from './map/shared-routing-state';
 
 const ClusterMapSurface = createAutoPlayMapSurface(
-    ANDROID_AUTO_CLUSTER_PLATFORM_CONFIG,
+    AUTO_PLAY_CLUSTER_PLATFORM_CONFIG,
 );
 
-export function AndroidAutoClusterSurface(props) {
+export function AutoPlayClusterSurface(props) {
     const routingState = useSyncExternalStore(
         addSharedRoutingStateListener,
         getSharedRoutingState,
@@ -61,8 +61,8 @@ export function AndroidAutoClusterSurface(props) {
     return (
         <ClusterMapSurface
             {...props}
-            id={props?.id ?? 'AndroidAutoCluster'}
-            stateOverride={getAndroidAutoClusterState(routingState)}
+            id={props?.id ?? 'AutoPlayCluster'}
+            stateOverride={getAutoPlayClusterState(routingState)}
         />
     );
 }

@@ -91,6 +91,8 @@ function createUpdatingRoadMatcher() {
 }
 
 function createRoadMatchingSessionHarness({
+    platformOS = 'android',
+    backgroundPermissionGranted = true,
     createDirectedRoadGraph = () => ({ edges: [] }),
     createRoadMatcherWithHistory = () => null,
     getRoadCoordinateDistanceMeters = () => 0,
@@ -119,6 +121,7 @@ function createRoadMatchingSessionHarness({
         foregroundRemovals: 0,
         hasStartedChecks: 0,
         performanceSignposts: [],
+        backgroundPermissionRequests: 0,
     };
     let backgroundTaskIsStarted = false;
     let backgroundLocationTask = null;
@@ -146,6 +149,13 @@ function createRoadMatchingSessionHarness({
         },
         async getForegroundPermissionsAsync() {
             return { granted: true };
+        },
+        async getBackgroundPermissionsAsync() {
+            return { granted: backgroundPermissionGranted };
+        },
+        async requestBackgroundPermissionsAsync() {
+            calls.backgroundPermissionRequests += 1;
+            return { granted: backgroundPermissionGranted };
         },
         async hasStartedLocationUpdatesAsync() {
             calls.hasStartedChecks += 1;
@@ -206,7 +216,10 @@ function createRoadMatchingSessionHarness({
                 };
             },
             autoPlaySessionOwnsForegroundLocation(platform) {
-                return platform === 'android' && autoPlaySessionIsConnected;
+                return (
+                    ['android', 'ios'].includes(platform) &&
+                    autoPlaySessionIsConnected
+                );
             },
         },
         './road-corridor-diagnostics': {
@@ -302,7 +315,7 @@ function createRoadMatchingSessionHarness({
         'expo-task-manager': taskManager,
         'react-native': {
             AppState,
-            Platform: { OS: 'android' },
+            Platform: { OS: platformOS },
         },
     };
     const loadModule = new Function(
@@ -354,6 +367,55 @@ function createRoadMatchingSessionHarness({
         },
     };
 }
+
+test('CarPlay alone starts matching on iOS with the phone backgrounded and While Using permission', async () => {
+    const sharedFixes = [];
+    const harness = createRoadMatchingSessionHarness({
+        platformOS: 'ios',
+        backgroundPermissionGranted: false,
+        createDirectedRoadGraph: createUsableRoadGraph,
+        createRoadMatcherWithHistory: createUpdatingRoadMatcher,
+        publishSharedRoadMatchedLocation: (fix) => sharedFixes.push(fix),
+    });
+    harness.transitionAppState('background');
+    harness.transitionAutoPlayConnection(true);
+    const handle =
+        await harness.roadMatchingSession.retainRoadMatchingSessionAsync({
+            persistent: true,
+        });
+    try {
+        await waitFor(() => harness.calls.backgroundStarts === 1);
+        harness.backgroundTaskStart.resolve();
+        await waitFor(() => harness.backgroundTaskIsStarted);
+        await harness.backgroundLocationTask.callback({
+            data: { locations: [makeLocation(41, -87, 1000)] },
+        });
+        assert.equal(sharedFixes.at(-1)?.roadMatch?.isOffRoad, false);
+        assert.equal(harness.calls.backgroundPermissionRequests, 0);
+    } finally {
+        harness.backgroundTaskStart.resolve();
+        harness.transitionAutoPlayConnection(false);
+        handle.remove();
+    }
+    await waitFor(() => harness.calls.backgroundStops === 1);
+});
+
+test('iOS phone driving still requests background permission when no CarPlay scene is visible', async () => {
+    const harness = createRoadMatchingSessionHarness({
+        platformOS: 'ios',
+        backgroundPermissionGranted: false,
+    });
+    const handle =
+        await harness.roadMatchingSession.retainRoadMatchingSessionAsync({
+            persistent: true,
+        });
+    try {
+        await waitFor(() => harness.calls.backgroundPermissionRequests === 1);
+        assert.equal(harness.calls.backgroundStarts, 0);
+    } finally {
+        handle.remove();
+    }
+});
 
 describe('road matching location source policy', () => {
     test('keeps the background task armed while foreground owns active driving', () => {
@@ -425,7 +487,7 @@ describe('road matching location source policy', () => {
         );
     });
 
-    test('uses the visible CarPlay scene instead of arming a second background service on iOS', () => {
+    test('keeps persistent iOS location delivery armed while CarPlay is visible', () => {
         assert.deepEqual(
             getRoadMatchingLocationSourcePolicy({
                 activeRetainerCount: 1,
@@ -435,7 +497,7 @@ describe('road matching location source policy', () => {
                 platformOS: 'ios',
             }),
             {
-                backgroundTaskIsNeeded: false,
+                backgroundTaskIsNeeded: true,
                 foregroundWatchIsNeeded: true,
             },
         );

@@ -1,4 +1,10 @@
-import { ActivityIndicator, Text, useColorScheme, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Platform,
+    Text,
+    useColorScheme,
+    View,
+} from 'react-native';
 import {
     getAutoPlayCurrentRoadPillLayout,
     getAutoPlaySpeedLimitBadgeSize,
@@ -148,9 +154,9 @@ export function AutoPlayTopRightStatusOverlay({
  * falls back to centring the puck in the viewport.
  *
  * `rendersSpeedLimit` arrives already resolved by the surface, so the speed
- * badge can outlive the rest of the chrome: the CarPlay Dashboard keeps it
- * while leaving the road pill and loading indicator off. Cluster surfaces can
- * show the road pill independently of the other status chrome.
+ * badge can outlive the rest of the chrome. The CarPlay Dashboard keeps both
+ * the badge and current road pill while leaving the loading indicator off.
+ * Cluster surfaces can also show the road pill independently.
  */
 export function AutoPlayMapStatusOverlay({
     confirmationIsActive = false,
@@ -211,6 +217,7 @@ export function AutoPlayMapStatusOverlay({
         viewportMetrics,
     });
     const speedLimitOverlayLayout = getAutoPlaySpeedLimitOverlayLayout({
+        platform: Platform.OS,
         mapControlLayoutInsets: presentation.mapControlLayoutInsets,
         size: speedLimitBadgeSize,
     });
@@ -219,6 +226,7 @@ export function AutoPlayMapStatusOverlay({
         speedStatusIsVisible &&
         currentRoadPill?.reserveSpeedLimitSpace
             ? getAutoPlayCurrentRoadPillLayout({
+                  platform: Platform.OS,
                   gap: currentRoadPill.speedLimitGap,
                   mapControlLayoutInsets: presentation.mapControlLayoutInsets,
                   size: speedLimitBadgeSize,

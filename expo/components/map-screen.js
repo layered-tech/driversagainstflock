@@ -1,7 +1,7 @@
 import { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useIsFocused, useNavigation } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from '../lib/safe-area-insets';
 import { ContributeCrosshair } from './contribute/contribute-crosshair';
@@ -131,6 +131,7 @@ export default function LocationMapScreen({
     const navigationPuckSize = useMemo(
         () =>
             getNavigationPuckSize({
+                platform: Platform.OS,
                 viewportHeight: windowHeight,
                 viewportWidth: windowWidth,
             }),

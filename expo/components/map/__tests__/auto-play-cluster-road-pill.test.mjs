@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
-import { ANDROID_AUTO_CLUSTER_PLATFORM_CONFIG } from '../../android-auto-cluster-state.js';
+import { AUTO_PLAY_CLUSTER_PLATFORM_CONFIG } from '../../auto-play-cluster-state.js';
 import * as roadState from '../current-road-state.js';
 import { shouldShowCurrentRoadPill } from '../current-road-pill-layout.js';
 
@@ -20,6 +20,7 @@ const common = {
         useRef: (current) => ({ current }),
     },
     'react-native': {
+        Platform: { OS: 'android' },
         useColorScheme: () => 'light',
         Text: 'Text',
         View: 'View',
@@ -104,8 +105,7 @@ const userLocation = {
 function renderOverlay(overrides = {}) {
     return flatten(
         AutoPlayMapStatusOverlay({
-            currentRoadPill:
-                ANDROID_AUTO_CLUSTER_PLATFORM_CONFIG.currentRoadPill,
+            currentRoadPill: AUTO_PLAY_CLUSTER_PLATFORM_CONFIG.currentRoadPill,
             currentRoadPillIsVisible: true,
             statusChromeIsVisible: false,
             rendersSpeedLimit: false,
@@ -159,6 +159,28 @@ test('the cluster hides the road pill without a known road or during confirmatio
     }
 });
 
+test('the Dashboard shows its current road and speed badge while other status chrome is hidden', () => {
+    const nodes = renderOverlay({
+        currentRoadPill: { textStyle: { fontSize: 11, lineHeight: 16 } },
+        freeDriveIsActive: true,
+        rendersSpeedLimit: true,
+    });
+    assert.ok(
+        nodes.find(
+            (node) => node.props.testID === 'android-auto-current-road-pill',
+        ),
+    );
+    assert.equal(
+        nodes.find((node) => node.type === 'Text').props.children,
+        'Main Street',
+    );
+    assert.ok(nodes.find((node) => node.type === 'SpeedLimitSign'));
+    assert.equal(
+        nodes.some((node) => node.type === 'MarkerLoadingIndicator'),
+        false,
+    );
+});
+
 test('other surfaces retain their road-pill visibility and size defaults', () => {
     const hidden = renderOverlay({
         currentRoadPillIsVisible: undefined,
@@ -192,7 +214,7 @@ test('the cluster enables its road pill independently of other overlays', () => 
     );
     assert.match(
         source,
-        /currentRoadPillIsVisible=\{\s*\(rendersAppOverlays \|\| isClusterMapSurface\) &&\s*!searchResultsMapIsActive/,
+        /currentRoadPillIsVisible=\{\s*\(rendersAppOverlays \|\|\s*isClusterMapSurface \|\|\s*isDashboardMapSurface\) &&\s*!searchResultsMapIsActive/,
     );
     assert.match(
         source,

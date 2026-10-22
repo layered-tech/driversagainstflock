@@ -3,9 +3,9 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import {
-    ANDROID_AUTO_CLUSTER_PLATFORM_CONFIG,
-    getAndroidAutoClusterState,
-} from '../../android-auto-cluster-state.js';
+    AUTO_PLAY_CLUSTER_PLATFORM_CONFIG,
+    getAutoPlayClusterState,
+} from '../../auto-play-cluster-state.js';
 
 const require = createRequire(import.meta.url);
 const { transformSync } = require('@babel/core');
@@ -59,15 +59,15 @@ function evaluateDeclaration(name, context, source = surfaceSource) {
     assert.fail(`missing declaration: ${name}`);
 }
 
-test('only Android advertises cluster rendering', () => {
+test('both platforms advertise cluster rendering', () => {
     const config = require('../../../car-display-config.js');
     assert.equal(config.androidInstrumentClusterEnabled, true);
-    assert.equal(config.carPlayInstrumentClusterEnabled, false);
+    assert.equal(config.carPlayInstrumentClusterEnabled, true);
 });
 
 test('the cluster shows only an active shared route and always follows in perspective', () => {
     const route = { selectedRouteKey: 'private', requestedAt: 1000 };
-    const active = getAndroidAutoClusterState({
+    const active = getAutoPlayClusterState({
         directionsRoute: route,
         drivingModeIsActive: true,
     });
@@ -83,7 +83,7 @@ test('the cluster shows only an active shared route and always follows in perspe
         { directionsRoute: null, drivingModeIsActive: true },
         { directionsRoute: null, drivingModeIsActive: false },
     ]) {
-        const idle = getAndroidAutoClusterState(state);
+        const idle = getAutoPlayClusterState(state);
         assert.equal(idle.isNavigating, false);
         assert.equal(idle.directionsRoute, null);
         assert.equal(idle.drivingModeIsActive, true);
@@ -97,8 +97,8 @@ test('the Android adapter registers the cluster component through the public API
         '../../auto-play-platform.android.js',
         {
             './android-auto-map-surface': { AndroidAutoMapSurface() {} },
-            './android-auto-cluster-surface': {
-                AndroidAutoClusterSurface: ClusterSurface,
+            './auto-play-cluster-surface': {
+                AutoPlayClusterSurface: ClusterSurface,
             },
             '../car-display-config': require('../../../car-display-config.js'),
         },
@@ -139,8 +139,8 @@ function makeClusterSurface({ delayedSession = false } = {}) {
         : Promise.resolve(session);
     const getSharedRoutingState = () => sharedState;
     const addSharedRoutingStateListener = () => {};
-    const { AndroidAutoClusterSurface } = loadModule(
-        '../../android-auto-cluster-surface.js',
+    const { AutoPlayClusterSurface } = loadModule(
+        '../../auto-play-cluster-surface.js',
         {
             react: {
                 useEffect: (effect) => effects.push(effect),
@@ -150,9 +150,9 @@ function makeClusterSurface({ delayedSession = false } = {}) {
                 },
             },
             'react/jsx-runtime': { jsx: (type, props) => ({ type, props }) },
-            './android-auto-cluster-state': {
-                ANDROID_AUTO_CLUSTER_PLATFORM_CONFIG,
-                getAndroidAutoClusterState,
+            './auto-play-cluster-state': {
+                AUTO_PLAY_CLUSTER_PLATFORM_CONFIG,
+                getAutoPlayClusterState,
             },
             './auto-play-map-surface': {
                 setAutoPlayMapColorScheme: (colorScheme) =>
@@ -194,7 +194,7 @@ function makeClusterSurface({ delayedSession = false } = {}) {
         sessionOptions,
         releases: () => releases,
         resolveSession: () => resolveSession(session),
-        render: () => AndroidAutoClusterSurface({ id: 'cluster-1' }).props,
+        render: () => AutoPlayClusterSurface({ id: 'cluster-1' }).props,
         setRoutingState: (state) => {
             sharedState = state;
         },
@@ -288,8 +288,8 @@ test('the cluster uses the shared speed and maneuver zoom hook with 60 degree pi
         getDrivingMapViewFollowConfiguration: () => ({ pitch: 55 }),
         drivingMapViewMode: 'perspective',
         DRIVING_MAP_VIEW_ROUTE_OVERVIEW: 'route-overview',
-        followPitch: ANDROID_AUTO_CLUSTER_PLATFORM_CONFIG.followPitch,
-        followZoomOffset: ANDROID_AUTO_CLUSTER_PLATFORM_CONFIG.followZoomOffset,
+        followPitch: AUTO_PLAY_CLUSTER_PLATFORM_CONFIG.followPitch,
+        followZoomOffset: AUTO_PLAY_CLUSTER_PLATFORM_CONFIG.followZoomOffset,
         presenceCameraIsLocked: false,
         navigationRoute,
         followViewportAnchorY: 280,
@@ -394,7 +394,7 @@ test('cluster automatic zoom stays one level farther out through speed and maneu
             const results = [];
             for (const followZoomOffset of [
                 0,
-                ANDROID_AUTO_CLUSTER_PLATFORM_CONFIG.followZoomOffset,
+                AUTO_PLAY_CLUSTER_PLATFORM_CONFIG.followZoomOffset,
             ]) {
                 const currentZoomRef = { current: 0 };
                 const context = {
@@ -430,4 +430,42 @@ test('cluster automatic zoom stays one level farther out through speed and maneu
             assert.equal(results[1], results[0] - 1);
         }
     }
+});
+
+test('the CarPlay adapter registers the shared cluster renderer', () => {
+    const registrations = [];
+    const ClusterSurface = () => {};
+    const { autoPlayPlatform } = loadModule('../../auto-play-platform.ios.js', {
+        './auto-play-carplay-voice-search': {
+            createCarPlayVoiceSearchController: () => ({ cancel() {} }),
+        },
+        './auto-play-search-template-lifecycle': {
+            prepareCarPlaySearchMap() {},
+        },
+        './carplay-dashboard-surface': { CarPlayDashboardSurface() {} },
+        './carplay-map-surface': { CarPlayMapSurface() {} },
+        './auto-play-cluster-surface': {
+            AutoPlayClusterSurface: ClusterSurface,
+        },
+        '../car-display-config': require('../../../car-display-config.js'),
+    });
+    autoPlayPlatform.registerPlatformListeners({
+        autoPlayModule: {
+            AutoPlayCluster: {
+                setComponent: async (component) =>
+                    registrations.push(component),
+            },
+            CarPlayDashboard: {
+                setComponent() {},
+                setButtons() {},
+                addListener() {},
+            },
+            ErrorUtil: { isVoiceInputCanceledError() {} },
+            HybridAutoPlay: { addListenerRenderState() {} },
+        },
+        makeGlyphImage: (name) => name,
+        onSessionRenderState() {},
+        onVoiceNavigation() {},
+    });
+    assert.deepEqual(registrations, [ClusterSurface]);
 });

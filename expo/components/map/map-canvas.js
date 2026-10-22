@@ -94,6 +94,7 @@ import {
     NavigationPuckImages,
     PoliceAlertImages,
 } from './map-assets';
+import { getMapPresentationScale } from './map-presentation-scale';
 import {
     getCameraOverlayLayerPlacement,
     getMapLayerSlots,
@@ -670,7 +671,7 @@ export const MapCanvas = memo(function MapCanvas({
         : NAVIGATION_PUCK_SIZE;
     const navigationPuckSize = Number.isFinite(requestedNavigationPuckSize)
         ? requestedNavigationPuckSize
-        : fallbackNavigationPuckSize;
+        : fallbackNavigationPuckSize * getMapPresentationScale(Platform.OS);
     const navigationPuck3DScaleExpression = useMemo(
         () =>
             getNavigationPuck3DScaleExpression({

@@ -126,6 +126,17 @@ test('CarPlay Dashboard keeps the speed badge while the host draws the rest', ()
     );
 });
 
+test('CarPlay Dashboard keeps the current road pill independently of other status chrome', () => {
+    assert.match(
+        autoPlayMapSurfaceContentSource,
+        /currentRoadPillIsVisible=\{\s*\(rendersAppOverlays \|\|\s*isClusterMapSurface \|\|\s*isDashboardMapSurface\) &&\s*!searchResultsMapIsActive/,
+    );
+    assert.match(
+        autoPlayMapSurfaceContentSource,
+        /statusChromeIsVisible=\{\s*rendersAppOverlays && !searchResultsMapIsActive/,
+    );
+});
+
 // Regression: the head-unit surface once set `hostOwnsNavigationUI`, which
 // suppressed the whole app overlay layer on CarPlay. That took the current road
 // pill, the speed limit badge and the navigation alert banner with it, and
