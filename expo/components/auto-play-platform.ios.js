@@ -68,8 +68,7 @@ export const autoPlayPlatform = {
         // Double-tap zoom and the AUTO_DRIVE handshake are Android Auto concepts;
         // CarPlay zooms through the map buttons and pinch gesture callbacks.
         return {
-            automaticallyHidesNavigationBar: false,
-            hidesButtonsWithNavigationBar: false,
+            hideControls: 'none',
         };
     },
 

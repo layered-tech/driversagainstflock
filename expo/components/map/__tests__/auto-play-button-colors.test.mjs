@@ -153,8 +153,18 @@ test('CarPlay keeps the header and map buttons visible', () => {
     assert.deepEqual(
         evaluate('autoPlayPlatform.getMapTemplatePlatformConfig()'),
         {
-            automaticallyHidesNavigationBar: false,
-            hidesButtonsWithNavigationBar: false,
+            hideControls: 'none',
         },
+    );
+});
+
+test('Android Auto retains per-button visibility with the default group policy', () => {
+    const evaluate = createHarness('android', false);
+    assert.equal(
+        evaluate(`autoPlayPlatform.getMapTemplatePlatformConfig({
+            onAutoDriveEnabled: () => {},
+            onDoubleClickZoomIn: () => {},
+        }).hideControls ?? 'all'`),
+        'all',
     );
 });

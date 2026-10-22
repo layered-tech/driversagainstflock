@@ -393,7 +393,7 @@ describe('shared phone and car navigation contract', () => {
     test('forwards live Android Auto cancellations but keeps destruction from stopping the phone', () => {
         assert.match(
             androidAutoMapTemplateSource,
-            /val sessionLifecycle = AndroidAutoSession\.getRootLifecycle\(\)/,
+            /val sessionLifecycle = AndroidAutoSession\.getLifecycle\(config\.id\)/,
         );
         assert.match(
             androidAutoMapTemplateSource,

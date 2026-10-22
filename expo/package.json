@@ -54,7 +54,7 @@
         "@fortawesome/free-solid-svg-icons": "^7.3.1",
         "@fortawesome/react-native-fontawesome": "^1.0.0",
         "@gorhom/bottom-sheet": "^5.2.14",
-        "@iternio/react-native-auto-play": "github:layered-tech/react-native-auto-play#navigation-controls",
+        "@iternio/react-native-auto-play": "github:layered-tech/react-native-auto-play#map-button-persistence-package",
         "@react-native-async-storage/async-storage": "2.2.0",
         "@react-native-firebase/analytics": "^24.1.1",
         "@react-native-firebase/app": "git+https://github.com/layered-tech/react-native-firebase.git#e7b068897da77256a99d1e01c3788f8d755848ce",

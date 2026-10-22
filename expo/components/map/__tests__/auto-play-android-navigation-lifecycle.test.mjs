@@ -37,7 +37,7 @@ test(
             'utf8',
         );
         const lifecycleGetter = sessionSource.match(
-            /fun getRootLifecycle\(\): Lifecycle\? \{[\s\S]*?\n        \}/,
+            /fun getLifecycle\(marker: String\): Lifecycle\? \{[\s\S]*?\n        \}/,
         )?.[0];
         assert.ok(
             lifecycleGetter,
@@ -71,7 +71,7 @@ interface NavigationManagerCallback {
     fun onAutoDriveEnabled()
     fun onStopNavigation()
 }
-class Config {
+class Config(val id: String = AndroidAutoSession.ROOT_SESSION) {
     var stops = 0
     val onAutoDriveEnabled: (() -> Unit)? = null
     fun onStopNavigation() { stops += 1 }
@@ -112,6 +112,17 @@ fun main() {
         check(config.stops == 0) { "Destruction must preserve the phone route, including after reconnect" }
         check(template.nativeStops == 1) { "Car guidance must still be cleaned up" }
     }
+
+    val rootSession = AndroidAutoSession(Lifecycle(Lifecycle.State.RESUMED))
+    val clusterSession = AndroidAutoSession(Lifecycle(Lifecycle.State.DESTROYED))
+    AndroidAutoSession.sessions[AndroidAutoSession.ROOT_SESSION] = AndroidAutoSession.ScreenContext(rootSession)
+    AndroidAutoSession.sessions["cluster"] = AndroidAutoSession.ScreenContext(clusterSession)
+    val clusterConfig = Config("cluster")
+    val clusterTemplate = Template(clusterConfig)
+    clusterTemplate.createCallback().onStopNavigation()
+    check(clusterConfig.stops == 0) { "The owning session lifecycle must be used instead of the root" }
+    check(clusterTemplate.nativeStops == 1)
+
     println("Android navigation lifecycle behavior passed")
 }
 `;
