@@ -3,6 +3,8 @@ set -Eeuo pipefail
 
 exec 9> /run/daf-osm/backup.lock
 flock --nonblock 9 || exit 75
+exec 4> /run/daf-osm/global-changeset-backfill.lock
+flock --exclusive 4
 exec 8> /run/daf-osm/global.lock
 flock --exclusive 8
 exec 7> /run/daf-osm/global-current.lock
@@ -11,8 +13,6 @@ exec 6> /run/daf-osm/global-history.lock
 flock --exclusive 6
 exec 5> /run/daf-osm/global-changeset.lock
 flock --exclusive 5
-exec 4> /run/daf-osm/global-changeset-backfill.lock
-flock --exclusive 4
 
 # The core captures one immutable cursor/count observation before pg_dump,
 # then performs the verified S3 upload and local archive cleanup.

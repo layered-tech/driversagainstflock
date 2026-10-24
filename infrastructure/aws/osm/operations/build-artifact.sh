@@ -502,13 +502,15 @@ backup_unit = (
 
 backup_lock_positions = [
     backup_wrapper.find("/run/daf-osm/backup.lock"),
+    backup_wrapper.find("/run/daf-osm/global-changeset-backfill.lock"),
     backup_wrapper.find("/run/daf-osm/global.lock"),
     backup_wrapper.find("/run/daf-osm/global-current.lock"),
     backup_wrapper.find("/run/daf-osm/global-history.lock"),
+    backup_wrapper.find("/run/daf-osm/global-changeset.lock"),
     backup_wrapper.find("source /opt/daf-osm/bin/backup-core.sh"),
 ]
 if any(position < 0 for position in backup_lock_positions) or backup_lock_positions != sorted(backup_lock_positions):
-    raise SystemExit("Backup must freeze backup/shared/current/history before snapshot capture")
+    raise SystemExit("Backup must wait for backfill before freezing replication for snapshot capture")
 if "flock" in backup_unit:
     raise SystemExit("Backup service must delegate the complete lock order to backup.sh")
 
