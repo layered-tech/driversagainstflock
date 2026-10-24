@@ -74,6 +74,7 @@ export function useAutoPlayScorecardArrivalAlert({ enabled }) {
                         dismissScorecardArrivalAlert(mapTemplate, alertId),
                     title: 'Dismiss',
                 },
+                priority: 'medium',
                 subtitle: { text: content.subtitle },
                 title: { text: content.title },
             });

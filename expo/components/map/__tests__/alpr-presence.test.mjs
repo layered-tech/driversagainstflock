@@ -1092,7 +1092,7 @@ test('simultaneous car surfaces reserve one budget slot without poisoning encryp
     await runtime.presented(results.find(Boolean));
     assert.equal(runtime.state.drive.count, 1);
 });
-test('automotive alert history survives remounts, coordinates surfaces, and resets with a new drive', async () => {
+test('automotive alert history is session-scoped, coordinates surfaces, and resets with a new drive', async () => {
     let stored = null;
     let time = 107000;
     const makeCoordinator = () =>
@@ -1142,7 +1142,18 @@ test('automotive alert history survives remounts, coordinates surfaces, and rese
 
     const restarted = makeCoordinator();
     await restarted.hydrate();
-    assert.equal(restarted.claimAutomotiveAlert(alprEntry), null);
+    assert.deepEqual(restarted.automotiveAlertHistory.entries, []);
+    assert.ok(
+        restarted.claimAutomotiveAlert(alprEntry)?.release(),
+        'a prior session does not suppress this session first announcement',
+    );
+    assert.equal(restarted.claimAutomotiveAlert(alprEntry)?.commit(), true);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(
+        restarted.claimAutomotiveAlert(alprEntry),
+        null,
+        'same-session history still prevents duplicate announcements',
+    );
     assert.equal(restarted.claimAutomotiveAlert(laterAlprEntry), null);
     time += 2 * 60 * 1000;
     assert.ok(
