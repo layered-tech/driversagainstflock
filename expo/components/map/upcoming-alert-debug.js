@@ -2,6 +2,7 @@ import {
     AUTOMOTIVE_ALERT_MAXIMUM_RANGE_METERS,
     AUTOMOTIVE_ALERT_MINIMUM_RANGE_METERS,
     automotiveAlertHistoryAllowsEntry,
+    automotiveAlertHistoryHasRecentEntry,
     getAutomotiveAlertDistanceMeters,
     getAutomotiveAlertHistoryEntry,
 } from './automotive-alert-policy.js';
@@ -61,10 +62,12 @@ export function buildUpcomingAlertDebugSnapshot(
             blockers.push(
                 !alertHistory
                     ? 'Warning history unavailable'
-                    : alertHistory.entries.some(
-                            (shown) => shown.alertKey === entry?.alertKey,
+                    : automotiveAlertHistoryHasRecentEntry(
+                            alertHistory,
+                            entry,
+                            now,
                         )
-                      ? 'Already shown this drive'
+                      ? 'Same warning shown within 5 minutes'
                       : 'Another warning shown within 2 minutes',
             );
         }

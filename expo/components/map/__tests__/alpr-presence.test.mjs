@@ -16,6 +16,8 @@ import {
 import { createPresencePrompt } from '../alpr-presence-prompt.js';
 import { getAutomotiveAlertHistoryEntry } from '../automotive-alert-policy.js';
 
+const AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS = 5 * 60 * 1000;
+
 const node = {
     id: 'osm-node-8',
     osm_id: 987654321,
@@ -1137,7 +1139,9 @@ test('automotive alert history is session-scoped, coordinates surfaces, and rese
     assert.equal(unacceptedClaim, null);
     assert.equal(acceptedClaim.commit(), true);
     await new Promise((resolve) => setImmediate(resolve));
-    assert.deepEqual(coordinator.automotiveAlertHistory.entries, [alprEntry]);
+    assert.deepEqual(coordinator.automotiveAlertHistory.entries, [
+        { ...alprEntry, shownAt: time },
+    ]);
     assert.equal(coordinator.automotiveAlertHistory.lastShownAt, time);
 
     const restarted = makeCoordinator();
@@ -1153,6 +1157,28 @@ test('automotive alert history is session-scoped, coordinates surfaces, and rese
         restarted.claimAutomotiveAlert(alprEntry),
         null,
         'same-session history still prevents duplicate announcements',
+    );
+    time += AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS;
+    const pendingRepeatClaim = restarted.claimAutomotiveAlert(alprEntry);
+    assert.ok(
+        pendingRepeatClaim,
+        'the same alert can repeat after five minutes',
+    );
+    time += AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS + 1;
+    assert.equal(
+        restarted.claimAutomotiveAlert(alprEntry),
+        null,
+        'a pending presentation keeps ownership beyond the cooldown',
+    );
+    assert.equal(pendingRepeatClaim.release(), true);
+    const repeatedClaim = restarted.claimAutomotiveAlert(alprEntry);
+    assert.ok(repeatedClaim);
+    assert.equal(repeatedClaim.commit(), true);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(
+        restarted.automotiveAlertHistory.entries[0].shownAt,
+        time,
+        'a repeated presentation refreshes its cooldown timestamp',
     );
     assert.equal(restarted.claimAutomotiveAlert(laterAlprEntry), null);
     time += 2 * 60 * 1000;

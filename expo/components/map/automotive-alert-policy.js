@@ -1,6 +1,7 @@
 export const AUTOMOTIVE_ALERT_MINIMUM_RANGE_METERS = 1609.344 * 0.5;
 export const AUTOMOTIVE_ALERT_MAXIMUM_RANGE_METERS = 1609.344 * 2;
 export const AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS = 2 * 60 * 1000;
+export const AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS = 5 * 60 * 1000;
 
 const EARTH_RADIUS_METERS = 6371008.8;
 const AUTOMOTIVE_ALERT_TYPES = new Set(['alpr', 'police']);
@@ -122,14 +123,30 @@ export function normalizeAutomotiveAlertHistory(
         throw new Error('Invalid automotive alert history');
     }
 
+    const storedLastShownAt =
+        value.lastShownAt === undefined
+            ? value.entries.length > 0
+                ? now
+                : null
+            : value.lastShownAt;
+
+    if (!(storedLastShownAt === null || Number.isFinite(storedLastShownAt))) {
+        throw new Error('Invalid automotive alert history');
+    }
+
     const entries = value.entries.map((entry) => {
         const coordinate = getAutomotiveAlertCoordinate(entry?.coordinate);
+        const shownAt =
+            entry?.shownAt === undefined
+                ? (storedLastShownAt ?? now)
+                : entry.shownAt;
 
         if (
             !coordinate ||
             !AUTOMOTIVE_ALERT_TYPES.has(entry?.type) ||
             typeof entry?.alertKey !== 'string' ||
-            !entry.alertKey.startsWith(`${entry.type}:`)
+            !entry.alertKey.startsWith(`${entry.type}:`) ||
+            !Number.isFinite(shownAt)
         ) {
             throw new Error('Invalid automotive alert history');
         }
@@ -137,6 +154,7 @@ export function normalizeAutomotiveAlertHistory(
         return {
             alertKey: entry.alertKey,
             coordinate,
+            shownAt,
             type: entry.type,
         };
     });
@@ -147,17 +165,14 @@ export function normalizeAutomotiveAlertHistory(
         throw new Error('Invalid automotive alert history');
     }
 
-    const lastShownAt =
-        value.lastShownAt === undefined
-            ? entries.length > 0
-                ? now
-                : null
-            : value.lastShownAt;
-    if (!(lastShownAt === null || Number.isFinite(lastShownAt))) {
-        throw new Error('Invalid automotive alert history');
-    }
-
-    return { driveId, entries, lastShownAt };
+    return {
+        driveId,
+        entries: entries.filter(
+            ({ shownAt }) =>
+                now - shownAt < AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS,
+        ),
+        lastShownAt: storedLastShownAt,
+    };
 }
 
 export function recordAutomotiveAlertHistoryEntry(
@@ -165,18 +180,63 @@ export function recordAutomotiveAlertHistoryEntry(
     entry,
     shownAt = Date.now(),
 ) {
-    if (
-        !entry ||
-        history.entries.some(({ alertKey }) => alertKey === entry.alertKey)
-    ) {
-        return history;
-    }
+    if (!history || !entry) return history;
 
     return {
         ...history,
-        entries: [...history.entries, entry],
+        entries: [
+            ...history.entries.filter(
+                (shown) =>
+                    shown.alertKey !== entry.alertKey &&
+                    shownAt - shown.shownAt <
+                        AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS,
+            ),
+            { ...entry, shownAt },
+        ],
         lastShownAt: shownAt,
     };
+}
+
+export function automotiveAlertHistoryHasRecentEntry(
+    history,
+    entry,
+    now = Date.now(),
+) {
+    if (!history || !entry) return false;
+
+    const shown = history.entries.find(
+        (candidate) => candidate.alertKey === entry.alertKey,
+    );
+
+    if (!shown) return false;
+
+    const shownAt = Number.isFinite(shown.shownAt)
+        ? shown.shownAt
+        : Number.isFinite(history.lastShownAt)
+          ? history.lastShownAt
+          : now;
+
+    return now - shownAt < AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS;
+}
+
+export function getAutomotiveAlertHistoryNextEligibleAt(history, entry) {
+    if (!history || !entry) return null;
+
+    const shown = history.entries.find(
+        (candidate) => candidate.alertKey === entry.alertKey,
+    );
+    const nextRepeatAt = shown
+        ? (Number.isFinite(shown.shownAt)
+              ? shown.shownAt
+              : (history.lastShownAt ?? Date.now())) +
+          AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS
+        : Number.NEGATIVE_INFINITY;
+    const nextSpacingAt = Number.isFinite(history.lastShownAt)
+        ? history.lastShownAt + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS
+        : Number.NEGATIVE_INFINITY;
+    const nextEligibleAt = Math.max(nextRepeatAt, nextSpacingAt);
+
+    return Number.isFinite(nextEligibleAt) ? nextEligibleAt : null;
 }
 
 export function automotiveAlertHistoryAllowsEntry(
@@ -194,7 +254,7 @@ export function automotiveAlertHistoryAllowsEntry(
     }
 
     return (
-        history.entries.every((shown) => shown.alertKey !== entry.alertKey) &&
+        !automotiveAlertHistoryHasRecentEntry(history, entry, now) &&
         (history.lastShownAt === null ||
             now - history.lastShownAt >= AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS)
     );

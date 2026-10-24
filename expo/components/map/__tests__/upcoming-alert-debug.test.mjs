@@ -7,6 +7,7 @@ import { createPresenceState } from '../alpr-presence-policy.js';
 import {
     createAutomotiveAlertHistory,
     getAutomotiveAlertHistoryEntry,
+    recordAutomotiveAlertHistoryEntry,
 } from '../automotive-alert-policy.js';
 import {
     DEBUG_OVERLAY_UPCOMING_ALERTS,
@@ -51,17 +52,21 @@ test('diagnostics report direct range, route range, history and missing data sep
         upcomingAlerts: [{ ...node, coordinate: [0, 0.04] }],
     });
     assert.deepEqual(far.candidates[0].blockers, ['Outside 2 mile maximum']);
-    const recorded = buildUpcomingAlertDebugSnapshot({
-        ...input,
-        alertHistory: {
-            ...history,
-            entries: [getAutomotiveAlertHistoryEntry(node)],
+    const recorded = buildUpcomingAlertDebugSnapshot(
+        {
+            ...input,
+            alertHistory: recordAutomotiveAlertHistoryEntry(
+                history,
+                getAutomotiveAlertHistoryEntry(node),
+                1000,
+            ),
         },
-    });
+        1001,
+    );
     assert.equal(recorded.eligibleCount, 0);
     assert.match(
         recorded.candidates[0].blockers[0],
-        /Already shown this drive/,
+        /Same warning shown within 5 minutes/,
     );
     const missing = buildUpcomingAlertDebugSnapshot({
         ...input,
@@ -79,6 +84,37 @@ test('diagnostics report direct range, route range, history and missing data sep
     assert.ok(missing.candidates[0].blockers.includes('Location unavailable'));
     assert.ok(!JSON.stringify(snapshot).includes('coordinate'));
     assert.ok(!JSON.stringify(snapshot).includes('latitude'));
+});
+
+test('diagnostics separate same-alert cooldown from the global spacing window', () => {
+    const shownAlert = getAutomotiveAlertHistoryEntry(node);
+    const historyWithRecentWarning = recordAutomotiveAlertHistoryEntry(
+        history,
+        shownAlert,
+        1000,
+    );
+    const otherAlert = { ...node, id: 'another-reader' };
+    const spacingSnapshot = buildUpcomingAlertDebugSnapshot(
+        {
+            ...input,
+            upcomingAlerts: [otherAlert],
+            alertHistory: historyWithRecentWarning,
+        },
+        1001,
+    );
+    const expiredSnapshot = buildUpcomingAlertDebugSnapshot(
+        {
+            ...input,
+            alertHistory: historyWithRecentWarning,
+        },
+        1000 + 5 * 60 * 1000,
+    );
+
+    assert.deepEqual(spacingSnapshot.candidates[0].blockers, [
+        'Another warning shown within 2 minutes',
+    ]);
+    assert.deepEqual(expiredSnapshot.candidates[0].blockers, []);
+    assert.equal(expiredSnapshot.eligibleCount, 1);
 });
 
 test('diagnostics exempt only the active banner from the half-mile minimum', () => {

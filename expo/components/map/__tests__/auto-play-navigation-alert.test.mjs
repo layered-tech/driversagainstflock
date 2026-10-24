@@ -35,6 +35,7 @@ import {
 // 20 m/s ≈ 45 mph, so time-to-pass stays inside the duration clamps.
 const CRUISING_SPEED_MPS = 20;
 const EARTH_RADIUS_METERS = 6371008.8;
+const AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS = 5 * 60 * 1000;
 const vehicleLocation = { latitude: 0, longitude: 0 };
 
 const coordinateAtDistance = (distanceMeters) => [
@@ -200,6 +201,7 @@ describe('car navigation alert content', () => {
         assert.equal(
             makeContent([alprAlert], CRUISING_SPEED_MPS, {
                 alertHistory: history,
+                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
             }),
             null,
         );
@@ -800,46 +802,113 @@ describe('car navigation alert suppression ownership', () => {
 });
 
 describe('car navigation alert drive history', () => {
-    test('suppresses one node across disappearance, object churn, reroute, and range jitter', () => {
-        const history = recordAutomotiveAlertHistoryEntry(
-            emptyAlertHistory,
-            getAutomotiveAlertHistoryEntry(alprAlert),
-        );
-        const freshAlprObject = {
-            ...alprAlert,
-            coordinate: [...alprAlert.coordinate],
-            source: { tags: { manufacturer: 'Flock Safety' } },
-        };
+    test('same ALPR and police alerts can repeat after five minutes on a reroute', () => {
+        const firstShownAt = 1000;
 
-        assert.equal(
-            makeContent([freshAlprObject], CRUISING_SPEED_MPS, {
-                alertHistory: history,
+        for (const alert of [alprAlert, policeAlert]) {
+            const entry = getAutomotiveAlertHistoryEntry(alert);
+            const history = recordAutomotiveAlertHistoryEntry(
+                emptyAlertHistory,
+                entry,
+                firstShownAt,
+            );
+            const freshAlertObject = {
+                ...alert,
+                coordinate: [...alert.coordinate],
+            };
+
+            assert.equal(
+                makeContent([freshAlertObject], CRUISING_SPEED_MPS, {
+                    alertHistory: history,
+                    now: firstShownAt + AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS - 1,
+                }),
+                null,
+                'the same alert remains suppressed just before its cooldown expires',
+            );
+            assert.equal(
+                makeContent([], CRUISING_SPEED_MPS, {
+                    alertHistory: history,
+                    now: firstShownAt + AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS,
+                }),
+                null,
+                'an alert absent from the rerouted candidates is not selected',
+            );
+            assert.equal(
+                makeContent([freshAlertObject], CRUISING_SPEED_MPS, {
+                    alertHistory: history,
+                    now: firstShownAt + AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS,
+                })?.alertKey,
+                entry.alertKey,
+                'the same alert is eligible again at five minutes',
+            );
+
+            const repeatedHistory = recordAutomotiveAlertHistoryEntry(
+                history,
+                entry,
+                firstShownAt + AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS,
+            );
+
+            assert.equal(
+                repeatedHistory.entries.find(
+                    (shown) => shown.alertKey === entry.alertKey,
+                )?.shownAt,
+                firstShownAt + AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS,
+            );
+            assert.equal(
+                makeContent([freshAlertObject], CRUISING_SPEED_MPS, {
+                    alertHistory: repeatedHistory,
+                    now:
+                        firstShownAt +
+                        2 * AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS -
+                        1,
+                }),
+                null,
+                'a repeat presentation starts a fresh five-minute cooldown',
+            );
+        }
+    });
+
+    test('expires alert records independently and refreshes a repeated entry', () => {
+        const alprEntry = getAutomotiveAlertHistoryEntry(alprAlert);
+        const policeEntry = getAutomotiveAlertHistoryEntry(policeAlert);
+        const history = recordAutomotiveAlertHistoryEntry(
+            recordAutomotiveAlertHistoryEntry(
+                emptyAlertHistory,
+                alprEntry,
+                1000,
+            ),
+            policeEntry,
+            1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+        );
+        const now = 1000 + AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS;
+
+        assert.deepEqual(
+            getAutomotiveAlertsAllowedByHistory({
+                alerts: [alprAlert],
+                history,
+                now,
             }),
-            null,
+            [alprAlert],
         );
-        assert.equal(
-            makeContent([], CRUISING_SPEED_MPS, { alertHistory: history }),
-            null,
+
+        const repeatedHistory = recordAutomotiveAlertHistoryEntry(
+            history,
+            alprEntry,
+            now,
         );
-        assert.equal(
-            makeContent([freshAlprObject], CRUISING_SPEED_MPS, {
-                alertHistory: history,
-                userLocation: {
-                    latitude: coordinateAtDistance(-600)[1],
-                    longitude: 0,
+
+        assert.deepEqual(
+            repeatedHistory.entries.map(({ alertKey, shownAt }) => ({
+                alertKey,
+                shownAt,
+            })),
+            [
+                {
+                    alertKey: policeEntry.alertKey,
+                    shownAt: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
                 },
-            }),
-            null,
-        );
-        assert.equal(
-            makeContent([freshAlprObject], CRUISING_SPEED_MPS, {
-                alertHistory: history,
-                userLocation: {
-                    latitude: coordinateAtDistance(1600)[1],
-                    longitude: 0,
-                },
-            }),
-            null,
+                { alertKey: alprEntry.alertKey, shownAt: now },
+            ],
         );
     });
 
@@ -871,7 +940,7 @@ describe('car navigation alert drive history', () => {
         );
     });
 
-    test('distinct nearby ALPR nodes can alert after the gap but the same node cannot repeat', () => {
+    test('distinct nearby ALPR nodes can alert after the gap while recent repeats stay blocked', () => {
         const shown = { coordinate: [0, 0], id: 'shown', type: 'alpr' };
         const history = recordAutomotiveAlertHistoryEntry(
             emptyAlertHistory,
@@ -891,6 +960,14 @@ describe('car navigation alert drive history', () => {
                 now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
             }),
             [nearbyNode],
+        );
+        assert.deepEqual(
+            getAutomotiveAlertsAllowedByHistory({
+                alerts: [shown],
+                history,
+                now: 1000 + AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS - 1,
+            }),
+            [],
         );
     });
 
@@ -918,7 +995,7 @@ describe('car navigation alert drive history', () => {
         );
     });
 
-    test('older stored warning history starts a two-minute gap on migration', () => {
+    test('legacy history starts a five-minute repeat cooldown on migration', () => {
         const legacyHistory = {
             driveId: 'drive-1',
             entries: [getAutomotiveAlertHistoryEntry(alprAlert)],
@@ -929,22 +1006,38 @@ describe('car navigation alert drive history', () => {
             1000,
         );
         assert.equal(history.lastShownAt, 1000);
+        assert.equal(history.entries[0].shownAt, 1000);
         assert.deepEqual(
             getAutomotiveAlertsAllowedByHistory({
-                alerts: [policeAlert],
+                alerts: [alprAlert],
                 history,
-                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS - 1,
+                now: 1000 + AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS - 1,
             }),
             [],
         );
         assert.deepEqual(
             getAutomotiveAlertsAllowedByHistory({
-                alerts: [policeAlert],
+                alerts: [alprAlert],
                 history,
-                now: 1000 + AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+                now: 1000 + AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS,
             }),
-            [policeAlert],
+            [alprAlert],
         );
+    });
+
+    test('legacy history with an old shown time is pruned during normalization', () => {
+        const history = normalizeAutomotiveAlertHistory(
+            {
+                driveId: 'drive-1',
+                entries: [getAutomotiveAlertHistoryEntry(alprAlert)],
+                lastShownAt: 1000,
+            },
+            'drive-1',
+            1000 + AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS,
+        );
+
+        assert.deepEqual(history.entries, []);
+        assert.equal(history.lastShownAt, 1000);
     });
 
     test('keeps ALPR and police history separate at the same coordinates', () => {

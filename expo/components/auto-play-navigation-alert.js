@@ -325,8 +325,8 @@ function navigationAlertTextChanged(state, content) {
  * Maps the alert the driver should hear about next onto a single car-host call.
  * A new closest alert becomes its own announcement with a fresh host id, an
  * announcement still on screen only gets its text refreshed, and the banner is
- * dismissed once nothing is upcoming. Durable drive history owns once-per-drive
- * delivery; this short-lived state only coordinates the current host banner.
+ * dismissed once nothing is upcoming. Durable drive history owns repeat
+ * cooldowns; this short-lived state only coordinates the current host banner.
  *
  * @param {object} options
  * @param {{alertKey: string, distance: object|null, durationMs: number, priority: string, priorityRank: number, subtitle: string, title: string}|null} options.content

@@ -11,8 +11,8 @@ import {
     startPresenceRuntime,
 } from './alpr-presence-runtime';
 import {
-    AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
     getAutomotiveAlertHistoryEntry,
+    getAutomotiveAlertHistoryNextEligibleAt,
     getAutomotiveAlertKey,
 } from './automotive-alert-policy';
 import {
@@ -68,7 +68,7 @@ function SingleDrivingAlertCard({ onDismiss, presentation }) {
 
     return (
         <View
-            className="dark:border-daf-border-dark dark:bg-daf-surface-dark relative gap-[9px] overflow-hidden rounded-dafLg border border-daf-border bg-daf-surface-card px-[14px] pb-4 pt-[14px] shadow-[0px_4px_18px_rgba(11,14,18,0.18)]"
+            className="relative gap-[9px] overflow-hidden rounded-dafLg border border-daf-border bg-daf-surface-card px-[14px] pb-4 pt-[14px] shadow-[0px_4px_18px_rgba(11,14,18,0.18)] dark:border-daf-border-dark dark:bg-daf-surface-dark"
             testID="driving-upcoming-alert"
         >
             <View className="flex-row items-center gap-[11px]">
@@ -158,11 +158,11 @@ function CombinedDrivingAlertsCard({ onDismiss, presentation }) {
 
     return (
         <View
-            className="dark:border-daf-border-dark dark:bg-daf-surface-dark relative flex-row overflow-hidden rounded-dafLg border border-daf-border bg-daf-surface-card shadow-[0px_4px_18px_rgba(11,14,18,0.18)]"
+            className="relative flex-row overflow-hidden rounded-dafLg border border-daf-border bg-daf-surface-card shadow-[0px_4px_18px_rgba(11,14,18,0.18)] dark:border-daf-border-dark dark:bg-daf-surface-dark"
             testID="driving-upcoming-alert"
         >
             <View
-                className="dark:bg-daf-border-dark absolute left-1/2 top-[-25%] h-[150%] w-px rotate-[11deg] bg-daf-border"
+                className="absolute left-1/2 top-[-25%] h-[150%] w-px rotate-[11deg] bg-daf-border dark:bg-daf-border-dark"
                 pointerEvents="none"
             />
             <View className="absolute right-[7px] top-[7px] z-10">
@@ -286,18 +286,36 @@ function GatedDrivingAlertsOverlay({ alerts, bottomInset, routeIsActive }) {
     }, []);
 
     useEffect(() => {
-        if (active || carConnected || history?.lastShownAt == null) return;
-        const remaining =
-            history.lastShownAt +
-            AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS -
-            Date.now();
-        if (remaining <= 0) return;
+        if (active || carConnected || !history) return;
+        const currentTime = Date.now();
+        const nextEligibilityAt = (alerts ?? []).reduce((soonestAt, alert) => {
+            if (dismissedAlertIds.has(alert?.id)) return soonestAt;
+
+            const nextEligibleAt = getAutomotiveAlertHistoryNextEligibleAt(
+                history,
+                getAutomotiveAlertHistoryEntry(alert),
+            );
+
+            return Number.isFinite(nextEligibleAt) &&
+                nextEligibleAt > currentTime
+                ? Math.min(soonestAt, nextEligibleAt)
+                : soonestAt;
+        }, Number.POSITIVE_INFINITY);
+        if (!Number.isFinite(nextEligibilityAt)) return;
+        const remaining = nextEligibilityAt - currentTime;
         const timer = setTimeout(
             () => setTimeRevision((revision) => revision + 1),
             remaining,
         );
         return () => clearTimeout(timer);
-    }, [active, carConnected, history?.lastShownAt]);
+    }, [
+        active,
+        alerts,
+        carConnected,
+        dismissedAlertIds,
+        history,
+        timeRevision,
+    ]);
 
     const candidate = useMemo(
         () =>

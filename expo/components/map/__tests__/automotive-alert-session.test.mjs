@@ -135,7 +135,9 @@ test('repeated hydration preserves active session alert claims and unrelated dur
     assert.ok(pendingClaim);
     await coordinator.hydrate();
     assert.equal(coordinator.claimAutomotiveAlert(entry), null);
-    assert.deepEqual(coordinator.automotiveAlertHistory.entries, [entry]);
+    assert.deepEqual(coordinator.automotiveAlertHistory.entries, [
+        { ...entry, shownAt: now },
+    ]);
     assert.equal(pendingClaim.commit(), true);
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(coordinator.claimAutomotiveAlert(entry), null);
@@ -143,4 +145,47 @@ test('repeated hydration preserves active session alert claims and unrelated dur
     assert.equal(coordinator.state.lastPromptAt, savedState.lastPromptAt);
     assert.deepEqual(coordinator.state.nodeTimes, savedState.nodeTimes);
     assert.deepEqual(coordinator.state.outbox, savedState.outbox);
+});
+
+test('coordinator permits a repeat after five minutes and retains pending ownership', async () => {
+    const repeatCooldownMs = 5 * 60 * 1000;
+    let time = now;
+    const coordinator = createPresenceCoordinator({
+        load: async () => null,
+        save: async () => {},
+        randomId: () => 'r'.repeat(32),
+        now: () => time,
+        send: async () => {},
+    });
+    await coordinator.hydrate();
+    const entry = getAutomotiveAlertHistoryEntry(alerts[0]);
+    const firstClaim = coordinator.claimAutomotiveAlert(entry);
+
+    assert.ok(firstClaim);
+    assert.equal(firstClaim.commit(), true);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(
+        coordinator.claimAutomotiveAlert(entry),
+        null,
+        'the first presentation blocks an immediate repeat',
+    );
+
+    time += repeatCooldownMs;
+    const pendingRepeat = coordinator.claimAutomotiveAlert(entry);
+    assert.ok(pendingRepeat, 'the alert can be claimed at five minutes');
+    time += repeatCooldownMs + 1;
+    assert.equal(
+        coordinator.claimAutomotiveAlert(entry),
+        null,
+        'the pending claim remains exclusive even after its provisional history ages out',
+    );
+    assert.equal(pendingRepeat.release(), true);
+
+    const acceptedRepeat = coordinator.claimAutomotiveAlert(entry);
+    assert.ok(acceptedRepeat);
+    assert.equal(acceptedRepeat.commit(), true);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(coordinator.automotiveAlertHistory.entries, [
+        { ...entry, shownAt: time },
+    ]);
 });

@@ -179,7 +179,7 @@ function createOverlayHarness(
     };
 }
 
-test('phone card records its shown alert and shares once-per-drive history with car', async () => {
+test('phone card records its shown alert and shares cooldown history with car', async () => {
     let stored = null;
     const coordinator = createPresenceCoordinator({
         load: async () => stored,
@@ -289,6 +289,50 @@ test('phone card waits two minutes before presenting a different upcoming alert'
         nextCard.props.children.props.presentation.alerts[0].id,
         'alpr-1',
     );
+    harness.unmount();
+});
+
+test('phone card wakes when a same-alert five-minute cooldown expires', async () => {
+    const cooldownMs = 5 * 60 * 1000;
+    const clock = { now: 1000, timers: [] };
+    const coordinator = createPresenceCoordinator({
+        load: async () => null,
+        save: async () => {},
+        randomId: () => 'd'.repeat(32),
+        now: () => clock.now,
+        send: async () => {},
+    });
+    await coordinator.hydrate();
+    const alert = {
+        coordinate: [0, 0.01],
+        distanceMeters: 500,
+        id: 'camera-1',
+        type: 'alpr',
+    };
+    assert.equal(
+        coordinator.recordAutomotiveAlertShown(
+            automotivePolicy.getAutomotiveAlertHistoryEntry(alert),
+        ),
+        true,
+    );
+    const harness = createOverlayHarness(coordinator, clock);
+    harness.render([alert]);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(harness.render([alert]), null);
+
+    harness.advance(automotivePolicy.AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS);
+    assert.equal(harness.render([alert]), null);
+    assert.ok(
+        clock.timers.some(
+            (timer) => !timer.cancelled && timer.dueAt === 1000 + cooldownMs,
+        ),
+        'a follow-up timer remains scheduled for the repeat cooldown',
+    );
+
+    harness.advance(
+        cooldownMs - automotivePolicy.AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+    );
+    assert.ok(harness.render([alert]));
     harness.unmount();
 });
 
