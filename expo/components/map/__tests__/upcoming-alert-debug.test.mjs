@@ -81,6 +81,24 @@ test('diagnostics report direct range, route range, history and missing data sep
     assert.ok(!JSON.stringify(snapshot).includes('latitude'));
 });
 
+test('diagnostics exempt only the active banner from the half-mile minimum', () => {
+    const activeAlert = { ...node, coordinate: [0, 0.001] };
+    const newNearbyAlert = { ...activeAlert, id: 'new-reader' };
+    const activeEntry = getAutomotiveAlertHistoryEntry(activeAlert);
+    const snapshot = buildUpcomingAlertDebugSnapshot({
+        ...input,
+        upcomingAlerts: [activeAlert, newNearbyAlert],
+        alertHistory: { ...history, entries: [activeEntry] },
+        currentAlertKey: activeEntry.alertKey,
+    });
+
+    assert.deepEqual(snapshot.candidates[0].blockers, []);
+    assert.deepEqual(snapshot.candidates[1].blockers, [
+        'Inside 0.5 mile minimum',
+    ]);
+    assert.equal(snapshot.eligibleCount, 1);
+});
+
 test('debug recording defaults off, throttles snapshots, caps events and retains paused state', () => {
     assert.equal(
         getDebugOverlayVisibilityWithDefaults({})[

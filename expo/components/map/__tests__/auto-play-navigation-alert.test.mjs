@@ -275,6 +275,54 @@ describe('car navigation alert content', () => {
         }
     });
 
+    test('keeps the active alert eligible inside the minimum but blocks new nearby alerts', () => {
+        for (const alert of [alprAlert, policeAlert]) {
+            const currentAlert = {
+                ...alert,
+                coordinate: coordinateAtDistance(500),
+                distanceMeters: 500,
+            };
+            const history = recordAutomotiveAlertHistoryEntry(
+                emptyAlertHistory,
+                getAutomotiveAlertHistoryEntry(currentAlert),
+                1000,
+            );
+            const nearbyAlert = {
+                ...currentAlert,
+                id: `${currentAlert.id}-new`,
+            };
+            const currentAlertKey =
+                getAutomotiveAlertHistoryEntry(currentAlert).alertKey;
+            const content = makeContent(
+                [currentAlert, nearbyAlert],
+                CRUISING_SPEED_MPS,
+                {
+                    alertHistory: history,
+                    currentAlertKey,
+                    userLocation: vehicleLocation,
+                },
+            );
+
+            assert.equal(content?.alertKey, currentAlertKey);
+            assert.equal(
+                makeContent([currentAlert], CRUISING_SPEED_MPS, {
+                    alertHistory: history,
+                    userLocation: vehicleLocation,
+                }),
+                null,
+                'an expired or dismissed alert cannot start again inside the minimum',
+            );
+            assert.equal(
+                makeContent([], CRUISING_SPEED_MPS, {
+                    alertHistory: history,
+                    currentAlertKey,
+                }),
+                null,
+                'an active alert is cleared when it leaves upcoming candidates',
+            );
+        }
+    });
+
     test('filters by geographic radius before choosing the closest alert', () => {
         const content = makeContent([
             {
@@ -479,36 +527,87 @@ describe('car navigation alert transitions', () => {
         assert.deepEqual(result.state.distance, { unit: 'feet', value: 350 });
     });
 
-    test('dismisses the visible banner when vehicle movement leaves either range boundary', () => {
+    test('dismisses the visible banner when vehicle movement leaves the maximum range', () => {
         const alert = {
             ...alprAlert,
             coordinate: coordinateAtDistance(1609.344),
         };
         const initialContent = makeContent([alert]);
 
-        for (const userLocation of [
-            {
-                latitude: coordinateAtDistance(1000)[1],
-                longitude: 0,
-            },
-            {
-                latitude: coordinateAtDistance(-2000)[1],
-                longitude: 0,
-            },
-        ]) {
-            const content = makeContent([alert], CRUISING_SPEED_MPS, {
-                userLocation,
-            });
+        const userLocation = {
+            latitude: coordinateAtDistance(-2000)[1],
+            longitude: 0,
+        };
+        const content = makeContent([alert], CRUISING_SPEED_MPS, {
+            currentAlertKey: initialContent.alertKey,
+            userLocation,
+        });
 
-            assert.equal(content, null);
-            assert.deepEqual(
-                transition(content, { state: shown(initialContent) }),
-                {
-                    action: 'dismiss',
-                    alertId: 7,
-                    state: null,
-                },
+        assert.equal(content, null);
+        assert.deepEqual(
+            transition(content, { state: shown(initialContent) }),
+            {
+                action: 'dismiss',
+                alertId: 7,
+                state: null,
+            },
+        );
+    });
+
+    test('updates active ALPR and police banners as vehicle movement crosses the minimum', () => {
+        const now = 1780000000000;
+
+        for (const alert of [alprAlert, policeAlert]) {
+            const alertAtOneThousandMeters = {
+                ...alert,
+                coordinate: coordinateAtDistance(1000),
+                distanceMeters: 1000,
+            };
+            const initialContent = makeContent([alertAtOneThousandMeters]);
+            const initialState = transition(initialContent, { now }).state;
+            const history = recordAutomotiveAlertHistoryEntry(
+                emptyAlertHistory,
+                initialContent.historyEntry,
+                now,
             );
+            const steps = [
+                AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_RANGE_METERS,
+                500,
+            ];
+            let state = initialState;
+
+            for (const [index, distanceMeters] of steps.entries()) {
+                const content = makeContent(
+                    [
+                        {
+                            ...alertAtOneThousandMeters,
+                            distanceMeters,
+                        },
+                    ],
+                    CRUISING_SPEED_MPS,
+                    {
+                        alertHistory: history,
+                        currentAlertKey: initialContent.alertKey,
+                        now: now + index + 1,
+                        userLocation: {
+                            latitude: coordinateAtDistance(
+                                1000 - distanceMeters,
+                            )[1],
+                            longitude: 0,
+                        },
+                    },
+                );
+                const result = transition(content, {
+                    nextAlertId: 8,
+                    now: now + index + 1,
+                    state,
+                });
+
+                assert.equal(content?.alertKey, initialContent.alertKey);
+                assert.equal(result.action, 'update');
+                assert.equal(result.alertId, initialState.alertId);
+                state = result.state;
+            }
         }
     });
 

@@ -75,6 +75,7 @@ function getUserLocationCoordinate(userLocation) {
 export function getAutoPlayNavigationAlertEligibleAlerts({
     upcomingAlerts,
     userLocation,
+    currentAlertKey = null,
 } = {}) {
     const userCoordinate = getUserLocationCoordinate(userLocation);
 
@@ -88,10 +89,14 @@ export function getAutoPlayNavigationAlertEligibleAlerts({
             userCoordinate,
             alertCoordinate,
         );
+        const isCurrentAlert =
+            currentAlertKey && getAutomotiveAlertKey(alert) === currentAlertKey;
 
         return (
             Number.isFinite(distanceMeters) &&
-            distanceMeters >= AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_RANGE_METERS &&
+            (isCurrentAlert ||
+                distanceMeters >=
+                    AUTO_PLAY_NAVIGATION_ALERT_MINIMUM_RANGE_METERS) &&
             distanceMeters <= AUTO_PLAY_NAVIGATION_ALERT_MAXIMUM_RANGE_METERS
         );
     });
@@ -246,6 +251,7 @@ export function getAutoPlayNavigationAlertContent({
     const eligibleAlerts = getAutoPlayNavigationAlertEligibleAlerts({
         upcomingAlerts,
         userLocation,
+        currentAlertKey,
     });
 
     if (
