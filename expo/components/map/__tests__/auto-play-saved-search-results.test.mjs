@@ -39,119 +39,103 @@ new Function('require', 'module', 'exports', code)(
 const { getAutoPlaySavedSearchResults } = module.exports;
 const place = (id) => ({ id, name: `Place ${id}` });
 
-test('saved Home comes first, followed by distinct favorites and recents', () => {
+test('the saved-place menu shows Recents and Favorites before Home and Work', () => {
     const suggestions = getAutoPlaySavedSearchResults({
-        favoriteLocations: [
-            place('home'),
-            place('favorite-1'),
-            place('favorite-2'),
-            place('favorite-3'),
-            place('favorite-4'),
-        ],
-        primaryLocations: { home: place('home'), work: null },
-        recentLocations: [
-            place('favorite-2'),
-            place('recent-1'),
-            place('recent-2'),
-            place('recent-3'),
-            place('recent-4'),
-        ],
-    });
-
-    assert.deepEqual(
-        suggestions.map(({ category, result }) => [category, result.id]),
-        [
-            ['Home', 'home'],
-            ['Favorite', 'favorite-1'],
-            ['Favorite', 'favorite-2'],
-            ['Favorite', 'favorite-3'],
-            ['Recent', 'recent-1'],
-            ['Recent', 'recent-2'],
-        ],
-    );
-});
-
-test('Home and Work stay above both groups when they are set', () => {
-    const suggestions = getAutoPlaySavedSearchResults({
-        favoriteLocations: [
-            place('work'),
-            place('favorite-1'),
-            place('favorite-2'),
-            place('favorite-3'),
-        ],
+        favoriteLocations: [place('favorite-1')],
         primaryLocations: { home: place('home'), work: place('work') },
-        recentLocations: [
-            place('home'),
-            place('recent-1'),
-            place('recent-2'),
-            place('recent-3'),
-        ],
+        recentLocations: [place('recent-1'), place('recent-2')],
     });
 
     assert.deepEqual(
-        suggestions.map(({ category, result }) => [category, result.id]),
+        suggestions.map(({ category, count, icon, isCategory, result }) => [
+            category,
+            isCategory,
+            count ?? result?.id,
+            icon,
+        ]),
         [
-            ['Home', 'home'],
-            ['Work', 'work'],
-            ['Favorite', 'favorite-1'],
-            ['Favorite', 'favorite-2'],
-            ['Recent', 'recent-1'],
-            ['Recent', 'recent-2'],
+            ['Recents', true, 2, 'clock'],
+            ['Favorites', true, 1, 'star'],
+            ['Home', false, 'home', 'house'],
+            ['Work', false, 'work', 'briefcase'],
         ],
     );
 });
 
-test('one saved-place group fills unused car search rows', () => {
-    const favoriteLocations = Array.from({ length: 7 }, (_, index) =>
-        place(`favorite-${index}`),
-    );
-    const favoriteOnly = getAutoPlaySavedSearchResults({ favoriteLocations });
-    assert.equal(favoriteOnly.length, 6);
-    assert.deepEqual(
-        favoriteOnly.map(({ result }) => result.id),
-        favoriteLocations.slice(0, 6).map(({ id }) => id),
-    );
+test('Recents and Favorites remain separate even when a place is in both', () => {
+    const savedLocations = {
+        favoriteLocations: [place('favorite-1'), place('overlap')],
+        recentLocations: [place('overlap'), place('recent-1')],
+    };
 
-    const workAndFavorites = getAutoPlaySavedSearchResults({
-        favoriteLocations,
-        primaryLocations: { home: null, work: place('work') },
-    });
-    assert.equal(workAndFavorites[0].category, 'Work');
     assert.deepEqual(
-        workAndFavorites.slice(1).map(({ result }) => result.id),
-        favoriteLocations.slice(0, 5).map(({ id }) => id),
+        getAutoPlaySavedSearchResults(savedLocations, 'Recents').map(
+            ({ result }) => result.id,
+        ),
+        ['overlap', 'recent-1'],
     );
-
-    const recentOnly = getAutoPlaySavedSearchResults({
-        recentLocations: [null, place('recent-1'), place('recent-2')],
-    });
     assert.deepEqual(
-        recentOnly.map(({ category, result }) => [category, result.id]),
-        [
-            ['Recent', 'recent-1'],
-            ['Recent', 'recent-2'],
-        ],
+        getAutoPlaySavedSearchResults(savedLocations, 'Favorites').map(
+            ({ result }) => result.id,
+        ),
+        ['favorite-1', 'overlap'],
     );
-    assert.deepEqual(getAutoPlaySavedSearchResults(), []);
-    assert.deepEqual(getAutoPlaySavedSearchResults(null), []);
+    assert.deepEqual(
+        getAutoPlaySavedSearchResults({
+            primaryLocations: { home: place('home') },
+        })
+            .slice(2)
+            .map(({ category }) => category),
+        ['Home'],
+    );
 });
 
-test('initial car rows identify saved places and keep them selectable', () => {
+test('nested saved-place pages stay within six host rows and expose both directions', () => {
+    const { getAutoPlaySavedSearchPage } = module.exports;
+    const entries = Array.from({ length: 10 }, (_, index) => index);
+    const firstPage = getAutoPlaySavedSearchPage(entries, 0);
+    const secondPage = getAutoPlaySavedSearchPage(entries, 1);
+    const lastPage = getAutoPlaySavedSearchPage(entries, 2);
+
+    assert.deepEqual(firstPage, {
+        hasNextPage: true,
+        hasPreviousPage: false,
+        page: 0,
+        results: [0, 1, 2, 3],
+    });
+    assert.deepEqual(secondPage, {
+        hasNextPage: true,
+        hasPreviousPage: true,
+        page: 1,
+        results: [4, 5, 6, 7],
+    });
+    assert.deepEqual(lastPage, {
+        hasNextPage: false,
+        hasPreviousPage: true,
+        page: 2,
+        results: [8, 9],
+    });
+    assert.deepEqual(getAutoPlaySavedSearchPage([], 0).results, []);
+});
+
+test('saved-place category rows open nested lists and keep entries selectable', () => {
     const appSource = readFileSync(
         new URL('../../auto-play.js', import.meta.url),
         'utf8',
     );
     const start = appSource.indexOf('function makeInitialSavedSearchRows(');
     const end = appSource.indexOf(
-        'function updateSearchTemplateResults(',
+        'function makeSavedSearchCategoryRows(',
         start,
     );
     const makeRows = vm.runInNewContext(`(${appSource.slice(start, end)})`, {
         getAutoPlaySavedSearchResults,
         makeAutoText: (text) => ({ text }),
+        makeGlyphImage: (name) => ({ name }),
         makeDisabledSearchRow: (title) => ({ title: { text: title } }),
     });
     const selected = [];
+    const openedCategories = [];
     const rows = makeRows(
         {
             primaryLocations: {
@@ -164,22 +148,93 @@ test('initial car rows identify saved places and keep them selectable', () => {
             recentLocations: [{ id: 'recent', name: 'Museum' }],
         },
         (result) => selected.push(result.id),
+        (category) => openedCategories.push(category),
     );
 
-    assert.equal(rows[0].title.text, 'Home');
-    assert.equal(rows[0].detailedText.text, 'My house - Oak Street');
-    assert.equal(rows[1].title.text, 'Work');
-    assert.equal(rows[1].detailedText.text, 'Office - Market Street');
-    assert.equal(rows[2].title.text, 'Library');
-    assert.equal(rows[2].detailedText.text, 'Favorite - Main Street');
-    assert.equal(rows[3].detailedText.text, 'Recent');
+    assert.deepEqual(
+        rows.map(({ title, image }) => [title.text, image.name]),
+        [
+            ['Recents', 'clock'],
+            ['Favorites', 'star'],
+            ['Home', 'house'],
+            ['Work', 'briefcase'],
+        ],
+    );
     rows[0].onPress();
     rows[1].onPress();
     rows[2].onPress();
     rows[3].onPress();
-    assert.deepEqual(selected, ['home', 'work', 'favorite', 'recent']);
-    assert.equal(
-        makeRows({}, () => {})[0].title.text,
-        'No favorites or recents',
+    assert.deepEqual(openedCategories, ['Recents', 'Favorites']);
+    assert.deepEqual(selected, ['home', 'work']);
+
+    const categoryStart = appSource.indexOf(
+        'function makeSavedSearchCategoryRows(',
     );
+    const categoryEnd = appSource.indexOf(
+        'function updateSearchTemplateResults(',
+        categoryStart,
+    );
+    const makeCategoryRows = vm.runInNewContext(
+        `(${appSource.slice(categoryStart, categoryEnd)})`,
+        {
+            getAutoPlaySavedSearchPage:
+                module.exports.getAutoPlaySavedSearchPage,
+            getAutoPlaySavedSearchResults,
+            getSearchResultSubtitle: (result) => result.secondaryText,
+            makeAutoText: (text) => ({ text }),
+            makeGlyphImage: (name) => ({ name }),
+            makeDisabledSearchRow: (title) => ({ title: { text: title } }),
+        },
+    );
+    const pageChanges = [];
+    const recentRows = makeCategoryRows(
+        { recentLocations: [{ id: 'recent', name: 'Museum' }] },
+        'Recents',
+        0,
+        (result) => selected.push(result.id),
+        (page) => pageChanges.push(page),
+    );
+    assert.equal(recentRows[0].title.text, 'Museum');
+    assert.equal(recentRows[0].image.name, 'clock');
+    recentRows[0].onPress();
+    assert.deepEqual(selected, ['home', 'work', 'recent']);
+
+    const emptyRows = makeCategoryRows(
+        {},
+        'Favorites',
+        0,
+        () => {},
+        () => {},
+    );
+    assert.equal(emptyRows[0].title.text, 'No favorite destinations');
+
+    const manyRecentLocations = Array.from({ length: 9 }, (_, index) =>
+        place(`recent-${index}`),
+    );
+    const pagedRows = makeCategoryRows(
+        { recentLocations: manyRecentLocations },
+        'Recents',
+        0,
+        () => {},
+        (page) => pageChanges.push(page),
+    );
+    assert.equal(pagedRows.length, 5);
+    assert.equal(pagedRows.at(-1).title.text, 'More destinations');
+    pagedRows.at(-1).onPress();
+    const previousPageRows = makeCategoryRows(
+        { recentLocations: manyRecentLocations },
+        'Recents',
+        1,
+        () => {},
+        (page) => pageChanges.push(page),
+    );
+    assert.equal(previousPageRows[0].title.text, 'Previous destinations');
+    previousPageRows[0].onPress();
+
+    const appSourceHasNestedBackNavigation =
+        /function openSavedSearchCategoryTemplate[\s\S]*?headerActions:\s*getBackHeaderAction[\s\S]*?onPopped/.test(
+            appSource,
+        );
+    assert.equal(appSourceHasNestedBackNavigation, true);
+    assert.deepEqual(pageChanges, [1, 0]);
 });

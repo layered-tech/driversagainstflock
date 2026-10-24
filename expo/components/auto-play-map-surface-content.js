@@ -35,6 +35,7 @@ import {
     getAutoPlayViewportMetrics,
 } from './auto-play-map-viewport';
 import { useAutoPlayNavigationAlerts } from './auto-play-navigation-alert-announcer';
+import { useAutoPlayScorecardArrivalAlert } from './auto-play-scorecard-arrival-alert-announcer';
 import { setAutoPlayState, useAutoPlayState } from './auto-play-state';
 import {
     getAutoPlayAppOverlayVisibility,
@@ -2131,6 +2132,13 @@ export function AutoPlayMapSurfaceContent({
             !searchResultsMapIsActive,
         upcomingAlerts,
         userLocation: mapPreferences.userLocation,
+    });
+    useAutoPlayScorecardArrivalAlert({
+        enabled:
+            isRootMapSurface &&
+            rendersAppOverlays &&
+            !routePreviewIsActive &&
+            !searchResultsMapIsActive,
     });
     const { node: presenceNode, debugGeometry: presenceDebugGeometry } =
         useAutoPlayAlprPresence({

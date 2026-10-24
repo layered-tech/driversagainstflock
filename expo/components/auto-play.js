@@ -12,7 +12,11 @@ import {
     setAutoPlayMapButtonAppearanceListener,
     setAutoPlayMapColorScheme,
 } from './auto-play-map-surface';
-import { getAutoPlaySavedSearchResults } from './auto-play-saved-search-results';
+import {
+    getAutoPlaySavedSearchPage,
+    getAutoPlaySavedSearchResults,
+} from './auto-play-saved-search-results';
+import { getAutoPlayInitialRouteKey } from './auto-play-route-preference';
 import { createAutoPlaySearchTemplateLifecycle } from './auto-play-search-template-lifecycle';
 import {
     setAutoPlaySessionConnected,
@@ -130,6 +134,7 @@ const AUTO_PLAY_ICON_GLYPH_MAP = {
     'arrow-up': 0xf062,
     arrows: 0xf047,
     briefcase: 0xf0b1,
+    clock: 0xf017,
     crosshairs: 0xf05b,
     'flag-checkered': 0xf11e,
     house: 0xf015,
@@ -144,6 +149,7 @@ const AUTO_PLAY_ICON_GLYPH_MAP = {
     rotate: 0xf021,
     search: 0xf002,
     sliders: 0xf1de,
+    star: 0xf005,
     xmark: 0xf00d,
 };
 const AUTO_PLAY_GLYPH_COLOR = autoPlayPlatform?.buttonIconColor ?? {
@@ -633,37 +639,91 @@ function makeSearchRows(results, query, onPress) {
     }));
 }
 
-function makeInitialSavedSearchRows(savedLocations, onPress) {
+function makeInitialSavedSearchRows(savedLocations, onPress, onCategoryPress) {
     const suggestions = getAutoPlaySavedSearchResults(savedLocations);
 
-    if (!suggestions.length) {
-        return [
-            makeDisabledSearchRow(
-                'No favorites or recents',
-                'Search for a destination.',
+    return suggestions.map(
+        ({ category, count, icon, isCategory = false, result }) => ({
+            detailedText: makeAutoText(
+                isCategory
+                    ? count > 0
+                        ? `${count} saved ${count === 1 ? 'destination' : 'destinations'}`
+                        : 'No saved destinations yet'
+                    : [
+                          result.primaryText !== category && result.primaryText,
+                          result.secondaryText,
+                      ]
+                          .filter(Boolean)
+                          .join(' - '),
             ),
-        ];
-    }
+            image: makeGlyphImage(icon, { backgroundColor: 'transparent' }),
+            onPress: () => {
+                if (isCategory) {
+                    onCategoryPress(category);
+                    return;
+                }
 
-    return suggestions.map(({ category, isPrimary = false, result }) => ({
-        detailedText: makeAutoText(
-            isPrimary
-                ? [
-                      result.primaryText !== category && result.primaryText,
-                      result.secondaryText,
-                  ]
-                      .filter(Boolean)
-                      .join(' - ')
-                : [category, result.secondaryText].filter(Boolean).join(' - '),
-        ),
+                onPress(result);
+            },
+            title: makeAutoText(category),
+            type: 'default',
+        }),
+    );
+}
+
+function makeSavedSearchCategoryRows(
+    savedLocations,
+    category,
+    page,
+    onPress,
+    onPageChange,
+) {
+    const savedSearchResults = getAutoPlaySavedSearchResults(
+        savedLocations,
+        category,
+    );
+    const savedSearchPage = getAutoPlaySavedSearchPage(
+        savedSearchResults,
+        page,
+    );
+    const items = savedSearchPage.results.map(({ icon, result }) => ({
+        detailedText: makeAutoText(getSearchResultSubtitle(result)),
+        image: makeGlyphImage(icon, { backgroundColor: 'transparent' }),
         onPress: () => onPress(result),
-        title: makeAutoText(
-            isPrimary
-                ? category
-                : result.primaryText || result.label || 'Place',
-        ),
+        title: makeAutoText(result.primaryText || result.label || 'Place'),
         type: 'default',
     }));
+
+    if (items.length === 0) {
+        items.push(
+            makeDisabledSearchRow(
+                category === 'Favorites'
+                    ? 'No favorite destinations'
+                    : 'No recent destinations',
+                category === 'Favorites'
+                    ? 'Save a destination as a favorite to find it here.'
+                    : 'Destinations you search for will appear here.',
+            ),
+        );
+    }
+
+    if (savedSearchPage.hasPreviousPage) {
+        items.unshift({
+            onPress: () => onPageChange(savedSearchPage.page - 1),
+            title: makeAutoText('Previous destinations'),
+            type: 'default',
+        });
+    }
+
+    if (savedSearchPage.hasNextPage) {
+        items.push({
+            onPress: () => onPageChange(savedSearchPage.page + 1),
+            title: makeAutoText('More destinations'),
+            type: 'default',
+        });
+    }
+
+    return items;
 }
 
 function updateSearchTemplateResults(template, results, query, startLocation) {
@@ -1175,6 +1235,88 @@ function getBackHeaderAction(onBeforePop) {
     };
 }
 
+function openSavedSearchCategoryTemplate(category, onSelect) {
+    const { ListTemplate } = loadAutoPlayModule();
+    let template;
+    let savedLocationsUnsubscribe = null;
+    let latestSavedLocations = null;
+    let isActive = true;
+    let currentPage = 0;
+    const dismiss = () => {
+        isActive = false;
+        savedLocationsUnsubscribe?.();
+        savedLocationsUnsubscribe = null;
+    };
+    const showPage = (savedLocations, page = currentPage) => {
+        if (!isActive) {
+            return;
+        }
+
+        latestSavedLocations = savedLocations;
+        currentPage = page;
+
+        void updateSearchTemplateSection(template, {
+            items: makeSavedSearchCategoryRows(
+                savedLocations,
+                category,
+                currentPage,
+                (result) => onSelect(result, template),
+                (nextPage) => showPage(latestSavedLocations, nextPage),
+            ),
+            type: 'default',
+        });
+    };
+
+    template = new ListTemplate({
+        headerActions: getBackHeaderAction(dismiss),
+        onPopped: dismiss,
+        sections: {
+            items: [
+                makeDisabledSearchRow(
+                    `Loading ${category.toLowerCase()}`,
+                    'Saved destinations are being loaded.',
+                ),
+            ],
+            type: 'default',
+        },
+        title: makeAutoText(category),
+    });
+
+    savedLocationsUnsubscribe = addSearchSavedLocationsListener(
+        (savedLocations) => showPage(savedLocations),
+    );
+    loadSearchSavedLocations()
+        .then((loadedLocations) => {
+            showPage(latestSavedLocations ?? loadedLocations);
+        })
+        .catch(() => {
+            if (!isActive || latestSavedLocations) {
+                return;
+            }
+
+            void updateSearchTemplateSection(template, {
+                items: [
+                    makeDisabledSearchRow(
+                        'Saved places unavailable',
+                        'Use Voice search or Keyboard.',
+                    ),
+                ],
+                type: 'default',
+            });
+        });
+
+    return template.push().catch((error) => {
+        dismiss();
+        logAutoPlayPlatformAction('saved-destinations-push-failed', {
+            message: error?.message || 'Unknown error',
+        });
+        showAutoPlayError(
+            'Search unavailable',
+            error?.message || 'Saved destinations could not be opened.',
+        );
+    });
+}
+
 function openSavedDestinationsTemplate() {
     const { ListTemplate } = loadAutoPlayModule();
     let template;
@@ -1193,14 +1335,36 @@ function openSavedDestinationsTemplate() {
         }
 
         void updateSearchTemplateSection(template, {
-            items: makeInitialSavedSearchRows(savedLocations, (result) => {
-                if (!isActive) {
-                    return;
-                }
+            items: makeInitialSavedSearchRows(
+                savedLocations,
+                (result) => {
+                    if (!isActive) {
+                        return;
+                    }
 
-                savedLocationWasSelected = true;
-                handleSearchResultSelected(result, { template });
-            }),
+                    savedLocationWasSelected = true;
+                    handleSearchResultSelected(result, { template });
+                },
+                (category) => {
+                    if (!isActive) {
+                        return;
+                    }
+
+                    openSavedSearchCategoryTemplate(
+                        category,
+                        (result, categoryTemplate) => {
+                            if (!isActive) {
+                                return;
+                            }
+
+                            savedLocationWasSelected = true;
+                            handleSearchResultSelected(result, {
+                                template: categoryTemplate,
+                            });
+                        },
+                    );
+                },
+            ),
             type: 'default',
         });
     };
@@ -1488,6 +1652,29 @@ function openSearchTemplate(
                                 preferredStartLocation,
                                 template,
                             });
+                        },
+                        (category) => {
+                            if (!searchIsActive || !requestIsCurrent()) {
+                                return;
+                            }
+
+                            openSavedSearchCategoryTemplate(
+                                category,
+                                (result, categoryTemplate) => {
+                                    if (
+                                        !searchIsActive ||
+                                        !requestIsCurrent()
+                                    ) {
+                                        return;
+                                    }
+
+                                    savedLocationWasSelected = true;
+                                    handleSearchResultSelected(result, {
+                                        preferredStartLocation,
+                                        template: categoryTemplate,
+                                    });
+                                },
+                            );
                         },
                     ),
                     type: 'default',
@@ -2073,8 +2260,15 @@ async function handleSearchResultSelected(
 
         routeLoadAbortController = null;
 
+        const initialRouteKey = getAutoPlayInitialRouteKey(
+            getDirectionsRouteOptions(route),
+            getSharedMapPreferencesState().preferPrivateRoutes,
+        );
+        const initiallySelectedRoute = initialRouteKey
+            ? selectDirectionsRoute(route, initialRouteKey)
+            : route;
         const resolvedRoute = {
-            ...route,
+            ...initiallySelectedRoute,
             destination: destinationWaypoint,
             requestedAt: Date.now(),
             start: startWaypoint,
