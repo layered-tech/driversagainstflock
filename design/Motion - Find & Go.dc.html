@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1" name="viewport">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- page name="Motion · Find & go" description="9:16 marketing clip — search a place, read the sheet, pick the private route, drive." -->
+<helmet>
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css" rel="stylesheet">
+  <script src="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js"></script>
+  <script>window.OM_SCENES = '[{"name":"Home","dur":5,"desc":"The phone floats in on the map home; cameras and places pop onto the map","nat":2.5},{"name":"Search","dur":5,"desc":"Tap the search bar and type a destination; results appear","nat":4.5},{"name":"Place","dur":4.5,"desc":"Pick the result; the pin drops and the place sheet rises","nat":4},{"name":"Routes","dur":6,"desc":"Night falls; two routes draw and the private one skips the cameras","nat":4.5},{"name":"Drive","dur":8,"desc":"Start the drive; turn-by-turn guidance takes over","nat":2.8},{"name":"Outro","dur":1.5,"desc":"The phone settles out and the DAF mark takes the frame","nat":1.7}]';</script>
+  <script>window.OM_PLAYBACK = '{"mode":"times","count":1}';</script>
+  <script>window.TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "motionEditor": true,
+    "nightFlip": true,
+    "showSteps": true,
+    "captions": "on",
+    "tiles": "mapbox"
+  }/*EDITMODE-END*/;</script>
+  <style>
+    *{ box-sizing:border-box; }
+    .daf-slb, .daf-slb *{ box-sizing:content-box; }
+    html, body{ margin:0; height:100%; background:#0a0a0a; }
+    a{ color:#1FBF6B; } a:hover{ color:#2FC177; }
+    [data-route-cards] button[aria-pressed] span[aria-hidden="true"]{ display:none; }
+  </style>
+</helmet>
+<x-import component-from-global-scope="DafClipSearch" from="./animations-v3.jsx ./tweaks-panel.jsx ./ios-frame.jsx ./clips/geo.js ./clips/map-config.js ./clips/daf-motion.jsx ./clips/clip-search.jsx" hint-size="100%,100vh"></x-import>
+</x-dc>
+</body>
+</html>

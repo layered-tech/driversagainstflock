@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1" name="viewport">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- page name="Duo · Areas & alerts" description="Subscribe to an area (city/ZIP, around you, or drawn) to see recent ALPR node changes and get alerts." -->
+<helmet>
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css" rel="stylesheet">
+  <script src="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js"></script>
+  <style>
+    *{ box-sizing:border-box; }
+    body{ margin:0; background:var(--surface-card-alt); }
+    a{ color:var(--text-brand); }
+    a:hover{ color:var(--text-primary); }
+  </style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="font-family:var(--font-ui); background:var(--surface-card-alt); min-height:100vh; padding:48px 40px 80px; color:var(--text-primary);">
+  <div style="max-width:1500px; margin:0 auto;">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px;">
+      <img alt="DAF" src="assets/logo-mark.png" style="width:36px; height:36px; object-fit:contain;">
+      <span style="font-family:var(--font-display); font-weight:700; font-size:24px; letter-spacing:var(--ls-heading);">Drivers Against Flock — Duo · Areas &amp; alerts</span>
+    </div>
+    <p style="font-size:15px; color:var(--text-secondary); margin:0 0 18px; max-width:72ch;">Drivers subscribe to areas the same way moderators do — a city, county or ZIP, a radius around them, or a shape drawn on the map — then see recent ALPR node changes there and choose how they're alerted. No account: areas are tied to the phone.</p>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin:0 0 40px;">
+      <a href="DuoApp.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">All screens</a>
+      <a href="DuoExplore.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Explore</a>
+      <a href="DuoNavigate.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Navigate</a>
+      <a href="DuoScorecard.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Scorecard</a>
+      <a href="DuoContribute.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Contribute</a>
+      <a href="DuoSettings.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Settings</a>
+      <span style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; font-weight:600; color:var(--text-brand); background:var(--brand-soft); border:1px solid transparent; padding:6px 13px; border-radius:var(--radius-pill);">Areas</span>
+      <span style="display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-pill);"><button aria-label="Light theme" aria-pressed="{{ isLight }}" onClick="{{ setLight }}" style="display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; border:none; cursor:pointer; color:{{ lightFg }}; background:{{ lightBg }}; padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;" type="button"><svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="14"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>Light</button><button aria-label="Dark theme" aria-pressed="{{ isDark }}" onClick="{{ setDark }}" style="display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; border:none; cursor:pointer; color:{{ darkFg }}; background:{{ darkBg }}; padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;" type="button"><svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="14"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>Dark</button></span><span style="margin-left:auto; display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-pill);"><a href="MobileAreas.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Phone</a><a href="FoldAreas.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Foldable</a><a href="TabletAreas.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Tablet</a><span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; color:var(--surface-card); background:var(--text-primary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Duo</span></span><a href="Moderation.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Moderator areas (web) →</a>
+    </div>
+
+    <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">Duo · outer display 466 × 678 · Entry, empty state &amp; adding an area</div>
+    <div style="display:flex; flex-wrap:wrap; gap:44px 40px; margin-bottom:56px;">
+
+      <!-- 24 DRAWER -->
+      <div data-screen-label="24 · Drawer" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">24 · Drawer — My areas entry</div>
+<div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
+            <div style="position:absolute; left:56%; top:56%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="30" hint-size="64px,64px" variant="user"></x-import></div>
+            <div style="position:absolute; inset:0; background:rgba(11,14,18,0.44); z-index:8;"></div>
+            <div style="position:absolute; left:0; top:0; bottom:0; width:308px; z-index:10; background:var(--surface-card); border-right:1px solid var(--border); border-radius:0 var(--radius-2xl) var(--radius-2xl) 0; box-shadow:var(--shadow-sheet); display:flex; flex-direction:column; padding:66px 0 18px;">
+              <div style="padding:0 20px 16px; border-bottom:1px solid var(--border);">
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+                  <span style="width:46px; height:46px; border-radius:50%; background:var(--brand-soft); color:var(--text-brand); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="24"><path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z"></path><path d="M9 10h.01M15 10h.01"></path></svg></span>
+                  <div style="flex:1; min-width:0;">
+                    <div style="font-family:var(--font-display); font-size:17px; font-weight:700; letter-spacing:var(--ls-heading);">Ghost</div>
+                    <div style="font-size:12.5px; color:var(--text-tertiary);">Level 4 · 480 XP to Phantom</div>
+                  </div>
+                  <span style="font-family:var(--font-mono); font-size:15px; font-weight:700; color:#fff; background:var(--brand); padding:5px 11px; border-radius:var(--radius-pill); flex:0 0 auto;">82</span>
+                </div>
+                <div style="height:5px; border-radius:3px; background:var(--surface-card-alt); overflow:hidden;"><span style="display:block; width:84%; height:100%; border-radius:3px; background:var(--brand);"></span></div>
+              </div>
+              <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:10px 12px; display:flex; flex-direction:column;">
+                <div style="display:flex; align-items:center; gap:13px; padding:12px 12px; border-radius:var(--radius-md); color:var(--text-primary);">
+                  <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block; flex:0 0 auto; color:var(--text-secondary);" viewBox="0 0 24 24" width="20"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"></path><path d="M15 5.764V20"></path><path d="M9 3.236v15"></path></svg>
+                  <span style="font-size:15px; font-weight:600;">Map</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:13px; padding:12px 12px; border-radius:var(--radius-md); color:var(--text-primary);">
+                  <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block; flex:0 0 auto; color:var(--text-secondary);" viewBox="0 0 24 24" width="20"><path d="m12 14 4-4"></path><path d="M3.34 19a10 10 0 1 1 17.32 0"></path></svg>
+                  <span style="font-size:15px; font-weight:600;">Scorecard</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:13px; padding:12px 12px; border-radius:var(--radius-md); color:var(--text-primary);">
+                  <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block; flex:0 0 auto; color:var(--text-secondary);" viewBox="0 0 24 24" width="20"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+                  <span style="font-size:15px; font-weight:600;">Hotlist</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:13px; padding:12px 12px; background:var(--brand-soft); border-radius:var(--radius-md); color:var(--text-brand);">
+                  <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block; flex:0 0 auto;" viewBox="0 0 24 24" width="20"><path d="M18 8c0 3.613-3.869 7.429-5.393 8.795a1 1 0 0 1-1.214 0C9.87 15.429 6 11.613 6 8a6 6 0 0 1 12 0"></path><circle cx="12" cy="8" r="2"></circle><path d="M8.714 14h-3.71a1 1 0 0 0-.948.683l-2.004 6A1 1 0 0 0 3 22h18a1 1 0 0 0 .948-1.316l-2-6a1 1 0 0 0-.949-.684h-3.712"></path></svg>
+                  <span style="font-size:15px; font-weight:700;">My areas</span>
+                  <span style="flex:1;"></span>
+                  <span style="font-family:var(--font-mono); font-size:11px; font-weight:600; background:var(--alert-500); color:#fff; padding:2px 8px; border-radius:var(--radius-pill);">5 new</span>
+                </div>
+                <div style="height:1px; background:var(--border); margin:10px 12px;"></div>
+                <div style="padding:2px 12px 6px; font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); font-weight:var(--fw-bold);">Help &amp; legal</div>
+                <div style="display:flex; align-items:center; gap:13px; padding:12px 12px; border-radius:var(--radius-md); color:var(--text-primary);">
+                  <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block; flex:0 0 auto; color:var(--text-secondary);" viewBox="0 0 24 24" width="20"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg>
+                  <span style="font-size:15px; font-weight:600;">FAQ</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:13px; padding:12px 12px; border-radius:var(--radius-md); color:var(--text-primary);">
+                  <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block; flex:0 0 auto; color:var(--text-secondary);" viewBox="0 0 24 24" width="20"><path d="M10 2v2"></path><path d="M14 2v2"></path><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"></path><path d="M6 2v2"></path></svg>
+                  <span style="font-size:15px; font-weight:600;">Support Us</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:13px; padding:12px 12px; border-radius:var(--radius-md); color:var(--text-primary);">
+                  <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block; flex:0 0 auto; color:var(--text-secondary);" viewBox="0 0 24 24" width="20"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg>
+                  <span style="font-size:15px; font-weight:600;">Privacy Policy</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:13px; padding:12px 12px; border-radius:var(--radius-md); color:var(--text-primary);">
+                  <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block; flex:0 0 auto; color:var(--text-secondary);" viewBox="0 0 24 24" width="20"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" x2="4" y1="22" y2="15"></line></svg>
+                  <span style="font-size:15px; font-weight:600;">Terms of Use</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:13px; padding:12px 12px; border-radius:var(--radius-md); color:var(--text-primary);">
+                  <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block; flex:0 0 auto; color:var(--text-secondary);" viewBox="0 0 24 24" width="20"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                  <span style="font-size:15px; font-weight:600;">About &amp; Legal</span>
+                </div>
+              </div>
+              <div style="padding:10px 22px 0; display:flex; flex-direction:column; align-items:center; gap:5px;">
+                <span style="font-family:var(--font-ui); font-size:11px; font-weight:700; letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--route-fast); background:rgba(46,139,255,0.12); padding:3px 12px; border-radius:var(--radius-pill);">Development</span>
+                <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary);">2.9.0</span>
+              </div>
+            </div>
+          </div>
+        <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+      <!-- 25 EMPTY STATE -->
+      <div data-screen-label="25 · My areas — empty" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">25 · My areas — empty state</div>
+<div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
+          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); font-family:var(--font-ui); display:flex; flex-direction:column; overflow:hidden; padding-right:84px;">
+            <div style="display:flex; align-items:center; gap:4px; padding:18px 16px 6px;">
+              <div style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:22px; letter-spacing:var(--ls-heading);">My areas</div>
+            </div>
+            <div style="flex:1; display:flex; flex-direction:column; padding:28px 22px 0;">
+              <div style="display:inline-flex; align-self:flex-start; align-items:center; justify-content:center; width:58px; height:58px; border-radius:var(--radius-lg); background:var(--brand-soft); color:var(--text-brand); margin-bottom:20px;"><svg fill="none" height="28" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="28"><path d="M18 8c0 3.613-3.869 7.429-5.393 8.795a1 1 0 0 1-1.214 0C9.87 15.429 6 11.613 6 8a6 6 0 0 1 12 0"></path><circle cx="12" cy="8" r="2"></circle><path d="M8.714 14h-3.71a1 1 0 0 0-.948.683l-2.004 6A1 1 0 0 0 3 22h18a1 1 0 0 0 .948-1.316l-2-6a1 1 0 0 0-.949-.684h-3.712"></path></svg></div>
+              <h2 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h1); letter-spacing:var(--ls-heading); margin:0 0 12px; line-height:1.15; text-wrap:balance;">Keep an eye on the places you drive</h2>
+              <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); margin:0 0 26px;">Pick a city, a ZIP, or a shape on the map. We'll tell you when a camera shows up there — or comes down.</p>
+
+              <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin:0 0 8px;">Add an area</div>
+              <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); overflow:hidden;">
+                <div style="display:flex; align-items:center; gap:14px; padding:14px 16px; min-height:64px;">
+                  <span style="flex:0 0 auto; width:38px; height:38px; border-radius:var(--radius-sm); background:var(--surface-card-alt); color:var(--text-secondary); display:inline-flex; align-items:center; justify-content:center;"><svg fill="none" height="19" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="19"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg></span>
+                  <div style="flex:1; min-width:0;">
+                    <div style="font-size:15px; font-weight:var(--fw-semibold); color:var(--text-primary);">Search a city, county or ZIP</div>
+                    <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:2px;">Oakland, Alameda County, 94601…</div>
+                  </div>
+                  <span style="flex:0 0 auto; color:var(--text-tertiary);"><svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="18"><path d="m9 18 6-6-6-6"></path></svg></span>
+                </div>
+                <div style="height:1px; background:var(--border); margin:0 16px;"></div>
+                <div style="display:flex; align-items:center; gap:14px; padding:14px 16px; min-height:64px;">
+                  <span style="flex:0 0 auto; width:38px; height:38px; border-radius:var(--radius-sm); background:var(--surface-card-alt); color:var(--text-secondary); display:inline-flex; align-items:center; justify-content:center;"><svg fill="none" height="19" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="19"><line x1="2" x2="5" y1="12" y2="12"></line><line x1="19" x2="22" y1="12" y2="12"></line><line x1="12" x2="12" y1="2" y2="5"></line><line x1="12" x2="12" y1="19" y2="22"></line><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="3"></circle></svg></span>
+                  <div style="flex:1; min-width:0;">
+                    <div style="font-size:15px; font-weight:var(--fw-semibold); color:var(--text-primary);">Around your location</div>
+                    <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:2px;">A radius you choose, 1–25 mi</div>
+                  </div>
+                  <span style="flex:0 0 auto; color:var(--text-tertiary);"><svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="18"><path d="m9 18 6-6-6-6"></path></svg></span>
+                </div>
+                <div style="height:1px; background:var(--border); margin:0 16px;"></div>
+                <div style="display:flex; align-items:center; gap:14px; padding:14px 16px; min-height:64px;">
+                  <span style="flex:0 0 auto; width:38px; height:38px; border-radius:var(--radius-sm); background:var(--surface-card-alt); color:var(--text-secondary); display:inline-flex; align-items:center; justify-content:center;"><svg fill="none" height="19" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="19"><path d="M10.83 2.38a2 2 0 0 1 2.34 0l8 5.74a2 2 0 0 1 .73 2.25l-3.04 9.26a2 2 0 0 1-1.9 1.37H7.04a2 2 0 0 1-1.9-1.37L2.1 10.37a2 2 0 0 1 .73-2.25z"></path></svg></span>
+                  <div style="flex:1; min-width:0;">
+                    <div style="font-size:15px; font-weight:var(--fw-semibold); color:var(--text-primary);">Draw on the map</div>
+                    <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:2px;">Your neighborhood, your commute, your call</div>
+                  </div>
+                  <span style="flex:0 0 auto; color:var(--text-tertiary);"><svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="18"><path d="m9 18 6-6-6-6"></path></svg></span>
+                </div>
+              </div>
+
+              <div style="flex:1;"></div>
+              <div style="display:flex; align-items:flex-start; gap:10px; padding:0 2px 40px; color:var(--text-tertiary);">
+                <span style="flex:0 0 auto; margin-top:1px;"><svg fill="none" height="15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="15"><rect height="20" rx="2" ry="2" width="14" x="5" y="2"></rect><path d="M12 18h.01"></path></svg></span>
+                <span style="font-size:var(--fs-caption); line-height:1.45;">No account needed. Your areas live on this phone — we never learn who's watching where.</span>
+              </div>
+            </div>
+            <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Back" size="md" variant="glass"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="22"><path d="m15 18-6-6 6-6"></path></svg></x-import></div>
+          </div>
+        <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+      <!-- 26 ADD — SEARCH -->
+      <div data-screen-label="26 · Add area — search" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">26 · Add area — search a city, county or ZIP</div>
+<div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
+            <div style="position:absolute; inset:0; background:rgba(11,14,18,0.28);"></div>
+            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+              <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,620px" subtitle="Watch a place for camera changes" title="Add an area">
+                <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" hint-size="100%,40px" onChange="{{ noop }}" options="{{ addOpts }}" style="width:100%;" tone="light" value="{{ addSearch }}"></x-import>
+                <div style="height:14px;"></div>
+                <x-import component-from-global-scope="DesignSystem_c71fad.Input" hint-size="100%,46px" leading="{{ searchGlyph }}" onChange="{{ noop }}" placeholder="City, county or ZIP" size="md" tone="light" value="Oakl"></x-import>
+                <div style="display:flex; flex-direction:column; margin-top:6px;">
+                  <sc-for as="r" hint-placeholder-count="5" list="{{ addResults }}">
+                    <div style="display:flex; align-items:center; gap:12px; padding:12px 4px; border-bottom:1px solid var(--border); min-height:56px;">
+                      <span style="flex:0 0 auto; width:44px; text-align:center; font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-secondary); border:1px solid var(--border); border-radius:var(--radius-pill); padding:3px 0;">{{ r.kind }}</span>
+                      <div style="flex:1; min-width:0;">
+                        <div style="font-size:15px; font-weight:var(--fw-semibold); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ r.name }}</div>
+                        <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ r.sub }}</div>
+                      </div>
+                      <span style="flex:0 0 auto; width:32px; height:32px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); display:inline-flex; align-items:center; justify-content:center;"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" style="display:block;" viewBox="0 0 24 24" width="16"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></span>
+                    </div>
+                  </sc-for>
+                </div>
+                <p style="font-size:var(--fs-caption); color:var(--text-tertiary); margin:12px 0 0; line-height:1.4;">Counts are cameras currently mapped in OpenStreetMap. Tap a result to start watching it.</p>
+              </x-import>
+            </div>
+            <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Close" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import></div>
+          </div>
+        <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+      <!-- 26B ADD — AROUND ME -->
+      <div data-screen-label="26b · Add area — around me" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">26b · Add area — around your location</div>
+<div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
+            <div style="position:absolute; left:50%; top:36%; width:236px; height:236px; transform:translate(-50%,-50%); border-radius:50%; background:color-mix(in oklab, var(--brand) 14%, transparent); border:2px solid var(--brand); box-shadow:0 0 0 1px rgba(255,255,255,0.6) inset; z-index:2;"></div>
+            <div style="position:absolute; left:50%; top:36%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="30" hint-size="64px,64px" variant="user"></x-import></div>
+            <div style="position:absolute; left:34%; top:28%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
+            <div style="position:absolute; left:66%; top:44%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
+            <div style="position:absolute; left:58%; top:24%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
+            <div style="position:absolute; left:50%; top:36%; transform:translate(-50%, -134px); z-index:5; font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:0.04em; color:#fff; background:var(--brand); padding:3px 9px; border-radius:var(--radius-pill); box-shadow:var(--shadow-marker);">5 mi</div>
+            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+              <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,420px" subtitle="Watch a place for camera changes" title="Add an area">
+                <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" hint-size="100%,40px" onChange="{{ noop }}" options="{{ addOpts }}" style="width:100%;" tone="light" value="{{ addAround }}"></x-import>
+                <div style="height:16px;"></div>
+                <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); padding:16px; margin-bottom:12px;">
+                  <x-import component-from-global-scope="DesignSystem_c71fad.Slider" format-value="{{ fmtMi }}" hint-size="100%,56px" label="Radius" max="{{ n25 }}" min="{{ n1 }}" onChange="{{ setRadius }}" show-value="{{ true }}" step="{{ n1 }}" value="{{ radius }}"></x-import>
+                  <div style="display:flex; align-items:center; gap:8px; margin-top:12px; font-size:var(--fs-caption); color:var(--text-secondary);">
+                    <span style="width:8px; height:8px; border-radius:50%; background:var(--alert-500); box-shadow:0 0 0 3px rgba(255,77,79,0.18); flex:0 0 auto;"></span>
+                    <span><span style="font-family:var(--font-mono); font-weight:700; color:var(--text-primary);">{{ camerasInRadius }}</span> cameras mapped inside this circle</span>
+                  </div>
+                </div>
+                <x-import component-from-global-scope="DesignSystem_c71fad.Input" hint-size="100%,46px" onChange="{{ noop }}" placeholder="Name this area" size="md" tone="light" value="Around home"></x-import>
+                <p style="font-size:var(--fs-caption); color:var(--text-tertiary); margin:10px 0 14px; line-height:1.4;">We save the circle's center, not your live location. It won't follow you.</p>
+                <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,52px" size="lg" variant="primary">Watch this area</x-import>
+              </x-import>
+            </div>
+            <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Close" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import></div>
+          </div>
+        <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+      <!-- 26C ADD — DRAW -->
+      <div data-screen-label="26c · Add area — draw" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">26c · Add area — draw on the map</div>
+<div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
+            <svg preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; display:block; z-index:2;" viewBox="0 0 390 844">
+              <path d="M86 196 L298 172 L326 404 L214 468 L118 420 Z" fill="color-mix(in oklab, var(--brand) 16%, transparent)" stroke="var(--brand)" stroke-dasharray="8 6" stroke-linejoin="round" stroke-width="2.5"></path>
+              <g fill="#fff" stroke="var(--brand)" stroke-width="3">
+                <circle cx="86" cy="196" r="9"></circle>
+                <circle cx="298" cy="172" r="9"></circle>
+                <circle cx="326" cy="404" r="9"></circle>
+                <circle cx="214" cy="468" fill="var(--brand)" r="11" stroke="#fff"></circle>
+                <circle cx="118" cy="420" r="9"></circle>
+              </g>
+              <g fill="rgba(255,255,255,0.85)" stroke="var(--brand)" stroke-width="1.5">
+                <circle cx="192" cy="184" r="5"></circle>
+                <circle cx="312" cy="288" r="5"></circle>
+                <circle cx="270" cy="436" r="5"></circle>
+                <circle cx="166" cy="444" r="5"></circle>
+                <circle cx="102" cy="308" r="5"></circle>
+              </g>
+            </svg>
+            <div style="position:absolute; left:34%; top:30%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
+            <div style="position:absolute; left:62%; top:40%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
+            <div style="position:absolute; left:44%; top:52%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
+            <div style="position:absolute; left:12px; right:96px; top:14px; z-index:10; display:flex; align-items:center; gap:10px; min-height:44px; padding:0 14px; background:var(--surface-glass); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid var(--border-glass); border-radius:var(--radius-pill); box-shadow:var(--shadow-float); color:var(--text-primary);">
+              <span style="color:var(--text-brand); display:inline-flex; flex:0 0 auto;"><svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="18"><path d="M10.83 2.38a2 2 0 0 1 2.34 0l8 5.74a2 2 0 0 1 .73 2.25l-3.04 9.26a2 2 0 0 1-1.9 1.37H7.04a2 2 0 0 1-1.9-1.37L2.1 10.37a2 2 0 0 1 .73-2.25z"></path></svg></span>
+              <span style="font-size:13.5px; font-weight:var(--fw-semibold);">Tap to add corners · drag to move</span>
+            </div>
+            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+              <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,330px" subtitle="Watch a place for camera changes" title="Add an area">
+                <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" hint-size="100%,40px" onChange="{{ noop }}" options="{{ addOpts }}" style="width:100%;" tone="light" value="{{ addDraw }}"></x-import>
+                <div style="height:16px;"></div>
+                <div style="display:flex; align-items:center; gap:12px; border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); padding:14px 16px; margin-bottom:12px;">
+                  <div style="flex:1; min-width:0;">
+                    <div style="font-size:15px; font-weight:var(--fw-semibold); color:var(--text-primary);">5 corners · 3.8 sq mi</div>
+                    <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:2px;">3 cameras mapped inside</div>
+                  </div>
+                  <x-import component-from-global-scope="DesignSystem_c71fad.Badge" hint-size="auto,24px" tone="brand">Closed shape</x-import>
+                </div>
+                <x-import component-from-global-scope="DesignSystem_c71fad.Input" hint-size="100%,46px" onChange="{{ noop }}" placeholder="Name this area" size="md" tone="light" value="Fruitvale"></x-import>
+                <div style="height:14px;"></div>
+                <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,52px" size="lg" variant="primary">Watch this area</x-import>
+              </x-import>
+            </div>
+            <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Close" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Undo last corner" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"></path></svg></x-import>
+              <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Clear shape" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></x-import></div>
+          </div>
+        <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+    </div>
+
+    <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">Duo · outer display 466 × 678 · Watching, changes &amp; alerts</div>
+    <div style="display:flex; flex-wrap:wrap; gap:44px 40px;">
+
+      <!-- 27 MY AREAS LIST -->
+      <div data-screen-label="27 · My areas" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">27 · My areas — three subscriptions</div>
+<div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
+          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); font-family:var(--font-ui); display:flex; flex-direction:column; overflow:hidden; padding-right:84px;">
+            <div style="display:flex; align-items:center; gap:4px; padding:18px 16px 6px;">
+              <div style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:22px; letter-spacing:var(--ls-heading);">My areas</div>
+              </div>
+            <div style="padding:6px 16px 0; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+              <span style="font-size:var(--fs-caption); color:var(--text-tertiary);">3 areas · 5 changes this week</span>
+              <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" hint-size="170px,32px" onChange="{{ noop }}" options="{{ winOpts }}" tone="light" value="{{ win }}"></x-import>
+            </div>
+            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:14px 16px 40px; display:flex; flex-direction:column; gap:10px;">
+
+              <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); padding:14px 16px; display:flex; flex-direction:column; gap:12px; box-shadow:var(--shadow-card);">
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                      <span style="font-size:16px; font-weight:var(--fw-semibold); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Oakland, CA</span>
+                      <span style="flex:none; font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-secondary); border:1px solid var(--border); border-radius:var(--radius-pill); padding:2px 7px;">City</span>
+                    </div>
+                    <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:3px;">Alameda County · 116 cameras mapped</div>
+                  </div>
+                  <span style="flex:0 0 auto; color:var(--text-tertiary);"><svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="18"><path d="m9 18 6-6-6-6"></path></svg></span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:var(--radius-pill); background:color-mix(in oklab, var(--alert-500) 12%, transparent); color:var(--alert-600); font-size:var(--fs-caption); font-weight:var(--fw-semibold);"><span style="font-family:var(--font-mono); font-weight:700;">+4</span> added</span>
+                  <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-size:var(--fs-caption); font-weight:var(--fw-semibold);"><span style="font-family:var(--font-mono); font-weight:700;">−1</span> removed</span>
+                  <span style="margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-size:var(--fs-caption); color:var(--text-tertiary);"><svg fill="none" height="13" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="13"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg>Instant</span>
+                </div>
+              </div>
+
+              <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); padding:14px 16px; display:flex; flex-direction:column; gap:12px; box-shadow:var(--shadow-card);">
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                      <span style="font-size:16px; font-weight:var(--fw-semibold); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Around home</span>
+                      <span style="flex:none; font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-secondary); border:1px solid var(--border); border-radius:var(--radius-pill); padding:2px 7px;">5 mi</span>
+                    </div>
+                    <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:3px;">Centered on Grand Lake · 23 cameras mapped</div>
+                  </div>
+                  <span style="flex:0 0 auto; color:var(--text-tertiary);"><svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="18"><path d="m9 18 6-6-6-6"></path></svg></span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:var(--radius-pill); background:color-mix(in oklab, var(--alert-500) 12%, transparent); color:var(--alert-600); font-size:var(--fs-caption); font-weight:var(--fw-semibold);"><span style="font-family:var(--font-mono); font-weight:700;">+1</span> added</span>
+                  <span style="margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-size:var(--fs-caption); color:var(--text-tertiary);"><svg fill="none" height="13" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="13"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg>Daily digest</span>
+                </div>
+              </div>
+
+              <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); padding:14px 16px; display:flex; flex-direction:column; gap:12px; box-shadow:var(--shadow-card);">
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                      <span style="font-size:16px; font-weight:var(--fw-semibold); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Fruitvale</span>
+                      <span style="flex:none; font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-secondary); border:1px solid var(--border); border-radius:var(--radius-pill); padding:2px 7px;">Drawn</span>
+                    </div>
+                    <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:3px;">3.8 sq mi · 3 cameras mapped</div>
+                  </div>
+                  <span style="flex:0 0 auto; color:var(--text-tertiary);"><svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="18"><path d="m9 18 6-6-6-6"></path></svg></span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <span style="font-size:var(--fs-caption); color:var(--text-tertiary);">Quiet week. Zero new boxes.</span>
+                  <span style="margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-size:var(--fs-caption); color:var(--text-tertiary);"><svg fill="none" height="13" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="13"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg>Weekly digest</span>
+                </div>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:10px; padding:10px 2px 0; color:var(--text-tertiary);">
+                <span style="flex:0 0 auto; margin-top:1px;"><svg fill="none" height="15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="15"><rect height="20" rx="2" ry="2" width="14" x="5" y="2"></rect><path d="M12 18h.01"></path></svg></span>
+                <span style="font-size:var(--fs-caption); line-height:1.45;">Saved on this phone only. Delete the app and they're gone — there's nothing on our side to delete.</span>
+              </div>
+            </div>
+            <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Back" size="md" variant="glass"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="22"><path d="m15 18-6-6 6-6"></path></svg></x-import><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Action" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></x-import></div>
+          </div>
+        <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+      <!-- 28 AREA FEED -->
+      <div data-screen-label="28 · Area feed" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">28 · Area feed — recent changes in Oakland</div>
+<div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
+          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); font-family:var(--font-ui); display:flex; flex-direction:column; overflow:hidden; padding-right:84px;">
+            <div style="display:flex; align-items:center; gap:4px; padding:18px 16px 6px;">
+              <div style="flex:1; min-width:0;">
+                <div style="font-family:var(--font-display); font-weight:700; font-size:22px; letter-spacing:var(--ls-heading); line-height:1.1;">Oakland, CA</div>
+                <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:2px;">City · 116 cameras mapped</div>
+              </div>
+              </div>
+            <div style="padding:8px 16px 0;">
+              <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" hint-size="100%,36px" onChange="{{ noop }}" options="{{ winOpts }}" style="width:100%;" tone="light" value="{{ win }}"></x-import>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:14px 16px 4px;">
+              <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-md); padding:12px 14px;">
+                <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:6px;">Added</div>
+                <div style="font-family:var(--font-mono); font-size:28px; line-height:1; font-weight:600; letter-spacing:-0.02em; color:var(--alert-600);">4</div>
+              </div>
+              <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-md); padding:12px 14px;">
+                <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:6px;">Removed</div>
+                <div style="font-family:var(--font-mono); font-size:28px; line-height:1; font-weight:600; letter-spacing:-0.02em; color:var(--text-brand);">1</div>
+              </div>
+            </div>
+            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:8px 16px 40px;">
+              <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin:10px 0 6px;">Today</div>
+              <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); overflow:hidden;">
+                <sc-for as="f" hint-placeholder-count="2" list="{{ feedToday }}">
+                  <div style="display:flex; align-items:center; gap:12px; padding:12px 14px; min-height:60px; border-top:1px solid var(--border);">
+                    <span style="flex:0 0 auto; width:32px; height:32px; border-radius:var(--radius-sm); display:inline-flex; align-items:center; justify-content:center; background:{{ f.tileBg }}; color:{{ f.tileFg }};">
+                      <sc-if hint-placeholder-val="{{ true }}" value="{{ f.isAdded }}"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.6" style="display:block;" viewBox="0 0 24 24" width="16"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></sc-if>
+                      <sc-if hint-placeholder-val="{{ false }}" value="{{ f.isRemoved }}"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.6" style="display:block;" viewBox="0 0 24 24" width="16"><path d="M5 12h14"></path></svg></sc-if>
+                    </span>
+                    <div style="flex:1; min-width:0;">
+                      <div style="font-size:15px; font-weight:var(--fw-semibold); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ f.street }}</div>
+                      <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ f.verb }} · {{ f.operator }}</div>
+                    </div>
+                    <span style="flex:0 0 auto; font-family:var(--font-mono); font-size:12px; color:var(--text-tertiary);">{{ f.time }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin:16px 0 6px;">Earlier this week</div>
+              <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); overflow:hidden;">
+                <sc-for as="f" hint-placeholder-count="3" list="{{ feedWeek }}">
+                  <div style="display:flex; align-items:center; gap:12px; padding:12px 14px; min-height:60px; border-top:1px solid var(--border);">
+                    <span style="flex:0 0 auto; width:32px; height:32px; border-radius:var(--radius-sm); display:inline-flex; align-items:center; justify-content:center; background:{{ f.tileBg }}; color:{{ f.tileFg }};">
+                      <sc-if hint-placeholder-val="{{ true }}" value="{{ f.isAdded }}"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.6" style="display:block;" viewBox="0 0 24 24" width="16"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></sc-if>
+                      <sc-if hint-placeholder-val="{{ false }}" value="{{ f.isRemoved }}"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.6" style="display:block;" viewBox="0 0 24 24" width="16"><path d="M5 12h14"></path></svg></sc-if>
+                    </span>
+                    <div style="flex:1; min-width:0;">
+                      <div style="font-size:15px; font-weight:var(--fw-semibold); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ f.street }}</div>
+                      <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ f.verb }} · {{ f.operator }}</div>
+                    </div>
+                    <span style="flex:0 0 auto; font-family:var(--font-mono); font-size:12px; color:var(--text-tertiary);">{{ f.time }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="flex:0 0 auto; padding:10px 16px 18px; border-top:1px solid var(--border); background:var(--surface-card);">
+              <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,46px" size="md" variant="secondary">Show all 5 on the map</x-import>
+            </div>
+            <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Back" size="md" variant="glass"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="22"><path d="m15 18-6-6 6-6"></path></svg></x-import><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Action" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg></x-import></div>
+          </div>
+        <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+      <!-- 28B AREA ON THE MAP -->
+      <div data-screen-label="28b · Area on the map" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">28b · Area on the map — all 5 changes</div>
+<div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
+            <svg preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; display:block; z-index:2; pointer-events:none; overflow:visible;" viewBox="0 0 100 100">
+              <path d="M16 18 L50 12 L84 20 L90 40 L78 56 L44 62 L18 54 L10 36 Z" fill="color-mix(in oklab, var(--brand) 10%, transparent)" stroke="var(--brand)" stroke-linejoin="round" stroke-width="2.5" vector-effect="non-scaling-stroke"></path>
+            </svg>
+            <div style="position:absolute; left:30%; top:24%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
+            <div style="position:absolute; left:30%; top:24%; transform:translate(-50%, -30px); z-index:5; width:20px; height:20px; border-radius:50%; background:var(--alert-500); color:#fff; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:13px; font-weight:700; line-height:1; box-shadow:var(--shadow-marker);">+</div>
+            <div style="position:absolute; left:60%; top:21%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
+            <div style="position:absolute; left:60%; top:21%; transform:translate(-50%, -30px); z-index:5; width:20px; height:20px; border-radius:50%; background:var(--alert-500); color:#fff; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:13px; font-weight:700; line-height:1; box-shadow:var(--shadow-marker);">+</div>
+            <div style="position:absolute; left:74%; top:38%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
+            <div style="position:absolute; left:74%; top:38%; transform:translate(-50%, -30px); z-index:5; width:20px; height:20px; border-radius:50%; background:var(--alert-500); color:#fff; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:13px; font-weight:700; line-height:1; box-shadow:var(--shadow-marker);">+</div>
+            <div style="position:absolute; left:48%; top:46%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
+            <div style="position:absolute; left:48%; top:46%; transform:translate(-50%, -30px); z-index:5; width:20px; height:20px; border-radius:50%; background:var(--alert-500); color:#fff; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:13px; font-weight:700; line-height:1; box-shadow:var(--shadow-marker);">+</div>
+            <div style="position:absolute; left:32%; top:50%; transform:translate(-50%,-50%); z-index:4; opacity:0.45;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
+            <div style="position:absolute; left:32%; top:50%; transform:translate(-50%, -30px); z-index:5; width:20px; height:20px; border-radius:50%; background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:13px; font-weight:700; line-height:1; box-shadow:var(--shadow-marker);">−</div>
+            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+              <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,300px" subtitle="Oakland, CA · last 7 days" title="5 changes on the map">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
+                  <span style="display:inline-flex; align-items:center; gap:7px; padding:5px 11px; border-radius:var(--radius-pill); background:color-mix(in oklab, var(--alert-500) 12%, transparent); color:var(--alert-600); font-size:var(--fs-caption); font-weight:var(--fw-semibold);"><span style="width:8px; height:8px; border-radius:50%; background:var(--alert-500);"></span><span style="font-family:var(--font-mono); font-weight:700;">4</span> added</span>
+                  <span style="display:inline-flex; align-items:center; gap:7px; padding:5px 11px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); font-size:var(--fs-caption); font-weight:var(--fw-semibold);"><span style="width:8px; height:8px; border-radius:50%; background:var(--brand);"></span><span style="font-family:var(--font-mono); font-weight:700;">1</span> removed</span>
+                  <span style="margin-left:auto; display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap;"><span style="width:14px; height:10px; border:2px solid var(--brand); border-radius:3px; background:color-mix(in oklab, var(--brand) 10%, transparent);"></span>City limits</span>
+                </div>
+                <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" hint-size="100%,36px" onChange="{{ noop }}" options="{{ winOpts }}" style="width:100%;" tone="light" value="{{ win }}"></x-import>
+                <p style="font-size:var(--fs-caption); color:var(--text-tertiary); margin:12px 0 0; line-height:1.4;">Tap a camera for details. Faded ones were taken down.</p>
+              </x-import>
+            </div>
+            <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Back" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="m15 18-6-6 6-6"></path></svg></x-import></div>
+          </div>
+        <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+      <!-- 29 CHANGE DETAIL -->
+      <div data-screen-label="29 · Change detail" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">29 · Change detail — a camera added</div>
+<div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
+            <div style="position:absolute; left:50%; top:30%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="200" hint-size="60px,60px" selected="{{ true }}" variant="camera"></x-import></div>
+            <div style="position:absolute; left:50%; top:30%; transform:translate(-50%, -62px); z-index:5; font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#fff; background:var(--alert-500); padding:3px 9px; border-radius:var(--radius-pill); box-shadow:var(--shadow-marker);">New</div>
+            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+              <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,470px" subtitle="Oakland, CA · 2 hours ago" title="Camera added">
+                <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+                  <x-import component-from-global-scope="DesignSystem_c71fad.Badge" hint-size="auto,24px" tone="alert">ALPR</x-import>
+                  <x-import component-from-global-scope="DesignSystem_c71fad.Badge" hint-size="auto,24px" tone="neutral">Flock Safety</x-import>
+
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px 16px; margin-bottom:16px;">
+                  <div style="grid-column:1 / -1;"><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">Where</div><div style="font-size:var(--fs-body-sm); font-weight:var(--fw-medium);">International Blvd &amp; 35th Ave, southbound side</div></div>
+                  <div><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">Direction</div><div style="font-size:var(--fs-body-sm); font-weight:var(--fw-medium);">200° · facing SSW</div></div>
+                  <div><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">Added</div><div style="font-size:var(--fs-body-sm); font-family:var(--font-mono);">Oct 13 · 07:52</div></div>
+                  <div><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">OSM ID</div><div style="font-size:var(--fs-body-sm); font-family:var(--font-mono);">node/11832104</div></div>
+                  <div><div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:3px;">Mapped by</div><div style="font-size:var(--fs-body-sm); font-weight:var(--fw-medium);">eastbay_mapper</div></div>
+                </div>
+                <div style="display:flex; align-items:center; gap:9px; padding:10px 12px; background:var(--surface-card-alt); border-radius:var(--radius-sm); margin-bottom:14px;">
+                  <span style="color:var(--text-tertiary); flex:0 0 auto;"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="16"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg></span>
+                  <span style="font-size:var(--fs-caption); color:var(--text-secondary);">Private routes already avoid this one.</span>
+                </div>
+                <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,52px" size="lg" variant="primary">Show on the map</x-import>
+                <div style="height:8px;"></div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+
+                  <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,46px" size="md" variant="ghost">OpenStreetMap ↗</x-import>
+                </div>
+              </x-import>
+            </div>
+            <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Back" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="m15 18-6-6 6-6"></path></svg></x-import></div>
+          </div>
+        <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+      <!-- 30 ALERT SETTINGS -->
+      <div data-screen-label="30 · Alert settings" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">30 · Alert settings — per area</div>
+<div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
+          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); font-family:var(--font-ui); display:flex; flex-direction:column; overflow:hidden; padding-right:84px;">
+            <div style="display:flex; align-items:center; gap:4px; padding:18px 16px 6px;">
+              <div style="flex:1; min-width:0;">
+                <div style="font-family:var(--font-display); font-weight:700; font-size:22px; letter-spacing:var(--ls-heading); line-height:1.1;">Alerts</div>
+                <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:2px;">Oakland, CA · City</div>
+              </div>
+            </div>
+            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:14px 16px 40px;">
+              <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin:0 0 8px;">Tell me when</div>
+              <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); padding:4px 16px; margin-bottom:18px;">
+                <x-import checked="{{ true }}" component-from-global-scope="DesignSystem_c71fad.Switch" hint-size="100%,48px" label="A camera is added" onChange="{{ noop }}"></x-import>
+                <div style="height:1px; background:var(--border);"></div>
+                <x-import checked="{{ true }}" component-from-global-scope="DesignSystem_c71fad.Switch" hint-size="100%,48px" label="A camera is removed" onChange="{{ noop }}"></x-import>
+              </div>
+
+              <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin:0 0 8px;">How often</div>
+              <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); padding:14px 16px; margin-bottom:18px;">
+                <x-import component-from-global-scope="DesignSystem_c71fad.RadioGroup" hint-size="100%,200px" onChange="{{ setAlertMode }}" options="{{ freqOpts }}" value="{{ alertMode }}"></x-import>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:12px; border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); padding:14px 16px; margin-bottom:18px;">
+                <div style="flex:1; min-width:0;">
+                  <div style="font-size:15px; font-weight:var(--fw-semibold); color:var(--text-primary);">Digest time</div>
+                  <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:2px;">Applies to daily and weekly</div>
+                </div>
+                <span style="flex:0 0 auto; display:inline-flex; align-items:center; padding:5px 11px; border-radius:var(--radius-pill); background:var(--surface-card-alt); border:1px solid var(--border); font-family:var(--font-mono); font-size:13px; font-weight:var(--fw-semibold); color:var(--text-primary);">8:00 AM</span>
+                <span aria-hidden="true" style="flex:0 0 auto; color:var(--text-tertiary);"><svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="18"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:10px; padding:0 2px 22px; color:var(--text-tertiary);">
+                <span style="flex:0 0 auto; margin-top:1px;"><svg fill="none" height="15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="15"><rect height="20" rx="2" ry="2" width="14" x="5" y="2"></rect><path d="M12 18h.01"></path></svg></span>
+                <span style="font-size:var(--fs-caption); line-height:1.45;">Pushes go to this phone through an anonymous device token. No account, no email, nothing tied to you.</span>
+              </div>
+
+              <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,46px" size="md" style="color:var(--alert-500);" variant="ghost">Stop watching Oakland</x-import>
+            </div>
+            <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Back" size="md" variant="glass"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="22"><path d="m15 18-6-6 6-6"></path></svg></x-import></div>
+          </div>
+        <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+      <!-- 31 LOCK SCREEN -->
+      <div data-screen-label="31 · Lock screen" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">31 · Lock screen — instant alert and a weekly digest</div>
+<div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:#fff; font-family:var(--font-ui);">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:-apple-system, system-ui, sans-serif; color:#fff;">
+            <div data-theme="dark" style="position:absolute; inset:0;"><dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import></div>
+            <div style="position:absolute; inset:0; background:rgba(8,10,14,0.55);"></div>
+            <div style="position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; padding-top:44px; padding-right:84px;">
+              <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block; opacity:0.9;" viewBox="0 0 24 24" width="20"><rect height="11" rx="2" ry="2" width="18" x="3" y="11"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+              <div style="font-size:21px; font-weight:600; margin-top:14px; letter-spacing:-0.01em;">Monday, October 13</div>
+              <div style="font-size:88px; font-weight:600; line-height:1; letter-spacing:-0.03em; margin-top:4px; font-variant-numeric:tabular-nums;">9:41</div>
+            </div>
+            <div style="position:absolute; left:12px; right:96px; top:236px; z-index:2; display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; gap:12px; padding:12px 14px; background:rgba(255,255,255,0.18); backdrop-filter:blur(28px); -webkit-backdrop-filter:blur(28px); border-radius:24px; border:1px solid rgba(255,255,255,0.08);">
+                <span style="flex:0 0 auto; width:38px; height:38px; border-radius:10px; background:#fff; display:inline-flex; align-items:center; justify-content:center; overflow:hidden;"><img alt="" src="assets/logo-mark.png" style="width:30px; height:30px; object-fit:contain;"></span>
+                <div style="flex:1; min-width:0;">
+                  <div style="display:flex; align-items:baseline; gap:8px;">
+                    <span style="flex:1; min-width:0; font-size:15px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">New camera in Oakland</span>
+                    <span style="flex:0 0 auto; font-size:13px; opacity:0.7;">2m ago</span>
+                  </div>
+                  <div style="font-size:15px; line-height:1.3; margin-top:1px;">An ALPR reader was added at International Blvd &amp; 35th Ave. Tap to see it on the map.</div>
+                </div>
+              </div>
+              <div style="display:flex; gap:12px; padding:12px 14px; background:rgba(255,255,255,0.18); backdrop-filter:blur(28px); -webkit-backdrop-filter:blur(28px); border-radius:24px; border:1px solid rgba(255,255,255,0.08);">
+                <span style="flex:0 0 auto; width:38px; height:38px; border-radius:10px; background:#fff; display:inline-flex; align-items:center; justify-content:center; overflow:hidden;"><img alt="" src="assets/logo-mark.png" style="width:30px; height:30px; object-fit:contain;"></span>
+                <div style="flex:1; min-width:0;">
+                  <div style="display:flex; align-items:baseline; gap:8px;">
+                    <span style="flex:1; min-width:0; font-size:15px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Your week around home</span>
+                    <span style="flex:0 0 auto; font-size:13px; opacity:0.7;">8:00 AM</span>
+                  </div>
+                  <div style="font-size:15px; line-height:1.3; margin-top:1px;">1 camera added, 0 removed within 5 mi of home. Fruitvale stayed quiet.</div>
+                </div>
+              </div>
+            </div>
+            <div style="position:absolute; right:0; width:84px; bottom:28px; z-index:2; display:flex; flex-direction:column; align-items:center; gap:14px;">
+              <span style="width:50px; height:50px; border-radius:50%; background:rgba(255,255,255,0.18); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); display:inline-flex; align-items:center; justify-content:center;"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="22"><path d="M18 6c0 2-2 2-2 4v10a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V10c0-2-2-2-2-4V2h12z"></path><line x1="6" x2="18" y1="6" y2="6"></line><line x1="12" x2="12" y1="12" y2="12"></line></svg></span>
+              <span style="width:50px; height:50px; border-radius:50%; background:rgba(255,255,255,0.18); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); display:inline-flex; align-items:center; justify-content:center;"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="22"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg></span>
+            </div>
+          </div>
+        <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1500,&quot;height&quot;:900},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;alertMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;instant&quot;,&quot;daily&quot;,&quot;weekly&quot;,&quot;off&quot;],&quot;default&quot;:&quot;instant&quot;,&quot;tsType&quot;:&quot;'instant' | 'daily' | 'weekly' | 'off'&quot;,&quot;section&quot;:&quot;Alert settings screen&quot;}}" type="text/x-dc">
+class Component extends DCLogic {
+
+  themeVals() {
+    const theme = this.state.themeOverride ?? this.props.theme ?? 'light';
+    const dark = theme === 'dark';
+    const on = { fg: 'var(--surface-card)', bg: 'var(--text-primary)' }, off = { fg: 'var(--text-secondary)', bg: 'transparent' };
+    return { theme, isDark: dark, isLight: !dark,
+      lightFg: dark ? off.fg : on.fg, lightBg: dark ? off.bg : on.bg, darkFg: dark ? on.fg : off.fg, darkBg: dark ? on.bg : off.bg,
+      setLight: () => this.setTheme('light'), setDark: () => this.setTheme('dark') };
+  }
+  setTheme(t) { try { sessionStorage.setItem('daf-gallery-theme', t); } catch (_) {} this.setState({ themeOverride: t }); }
+  componentDidMount() { try { const t = sessionStorage.getItem('daf-gallery-theme'); if (t && t !== (this.props.theme ?? 'light')) this.setState({ themeOverride: t }); } catch (_) {} if (super.componentDidMount) super.componentDidMount(); }
+  state = { themeOverride: null, radius: 5, alertMode: null };
+  renderVals() { return { ...this.renderValsBase(), duoSheet: { style: { paddingRight: 'calc(var(--space-4) + 84px)', maxHeight: 568, overflowX: 'hidden', overflowY: 'auto', scrollbarWidth: 'none' } } }; }
+  renderValsBase() {
+    const R = React.createElement;
+    const __tv = this.themeVals(); const theme = __tv.theme;
+    const radius = this.state.radius;
+    const alertMode = this.state.alertMode ?? this.props.alertMode ?? 'instant';
+    const searchGlyph = R('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block', color: 'var(--text-tertiary)' } },
+      R('circle', { key: 1, cx: 11, cy: 11, r: 8 }), R('path', { key: 2, d: 'm21 21-4.3-4.3' }));
+    const addedTile = { tileBg: 'color-mix(in oklab, var(--alert-500) 12%, transparent)', tileFg: 'var(--alert-600)', isAdded: true, isRemoved: false, verb: 'Added' };
+    const removedTile = { tileBg: 'var(--brand-soft)', tileFg: 'var(--text-brand)', isAdded: false, isRemoved: true, verb: 'Removed' };
+    return { ...__tv,
+      theme,
+      isDark: theme === 'dark',
+      w: 390, h: 844,
+      n1: 1, n25: 25,
+      noop: () => {},
+      searchGlyph,
+      addOpts: [ { value: 'search', label: 'Search' }, { value: 'around', label: 'Around me' }, { value: 'draw', label: 'Draw' } ],
+      addSearch: 'search', addAround: 'around', addDraw: 'draw',
+      addResults: [
+        { kind: 'City', name: 'Oakland, CA', sub: 'Alameda County · 116 cameras mapped' },
+        { kind: 'County', name: 'Oakland County, MI', sub: '58 cameras mapped' },
+        { kind: 'ZIP', name: '94601', sub: 'Oakland, CA · 14 cameras mapped' },
+        { kind: 'ZIP', name: '94602', sub: 'Oakland, CA · 9 cameras mapped' },
+        { kind: 'ZIP', name: '94603', sub: 'Oakland, CA · 11 cameras mapped' },
+      ],
+      radius,
+      setRadius: (v) => this.setState({ radius: Number(v) }),
+      fmtMi: (v) => v + ' mi',
+      camerasInRadius: String(Math.round(23 * (radius / 5) * (radius / 5))),
+      winOpts: [ { value: '24', label: '24h' }, { value: '7', label: '7 days' }, { value: '30', label: '30 days' } ],
+      win: '7',
+      feedToday: [
+        { ...addedTile, street: 'International Blvd & 35th Ave', operator: 'Flock Safety', time: '07:52' },
+        { ...addedTile, street: 'MacArthur Blvd & High St', operator: 'Flock Safety', time: '06:10' },
+      ],
+      feedWeek: [
+        { ...removedTile, street: 'Broadway & 27th St', operator: 'Flock Safety', time: 'Sat' },
+        { ...addedTile, street: 'Hegenberger Rd & I-880', operator: 'Motorola Solutions', time: 'Fri' },
+        { ...addedTile, street: 'Telegraph Ave & 51st St', operator: 'Flock Safety', time: 'Thu' },
+      ],
+      freqOpts: [
+        { value: 'instant', label: 'Instant', description: 'A push for every change' },
+        { value: 'daily', label: 'Daily digest', description: 'One summary each morning' },
+        { value: 'weekly', label: 'Weekly digest', description: 'One summary every Monday' },
+        { value: 'off', label: 'In-app only', description: 'No pushes. Just the badge.' },
+      ],
+      alertMode,
+      setAlertMode: (v) => this.setState({ alertMode: v }),
+    };
+  }
+}
+</script>
+</body>
+</html>

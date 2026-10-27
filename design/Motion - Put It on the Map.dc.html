@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1" name="viewport">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- page name="Motion · Put it on the map" description="9:16 marketing clip — open the editor, pick the camera preset, aim the cone, publish to OpenStreetMap." -->
+<helmet>
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css" rel="stylesheet">
+  <script src="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js"></script>
+  <script>window.OM_SCENES = '[{"name":"Spot","dur":4.5,"desc":"Map home; the pencil opens the editor","nat":2.4},{"name":"Aim","dur":5.5,"desc":"Editing mode: the map glides so the crosshair lands on the pole","nat":3.6},{"name":"Preset","dur":5,"desc":"Pick the Flock Safety preset; the standard OSM tags fill in","nat":4.6},{"name":"Direction","dur":6,"desc":"Night; the form scrolls to the dial and the cone turns to 250°","nat":3.6},{"name":"Publish","dur":4.1,"desc":"Add to the changeset and publish — the confirmation lands"},{"name":"Outro","dur":4.9,"desc":"The phone settles out and the DAF mark takes the frame","nat":1.7}]';</script>
+  <script>window.OM_PLAYBACK = '{"mode":"times","count":1}';</script>
+  <script>window.TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{"motionEditor":true,"nightFlip":true,"showSteps":true,"captions":"on","tiles":"mapbox"}/*EDITMODE-END*/;</script>
+  <style>
+    *{ box-sizing:border-box; }
+    .daf-slb, .daf-slb *{ box-sizing:content-box; }
+    html, body{ margin:0; height:100%; background:#0a0a0a; }
+    a{ color:#1FBF6B; } a:hover{ color:#2FC177; }
+    [data-route-cards] button[aria-pressed] span[aria-hidden="true"]{ display:none; }
+  </style>
+</helmet>
+<x-import component-from-global-scope="DafClipContribute" from="./animations-v3.jsx ./tweaks-panel.jsx ./ios-frame.jsx ./clips/geo.js ./clips/map-config.js ./clips/daf-motion.jsx ./clips/clip-contribute.jsx" hint-size="100%,100vh"></x-import>
+</x-dc>
+<script data-dc-script type="text/x-dc"></script>
+</body>
+</html>

@@ -217,7 +217,7 @@ function chip(href,label,on){
            :`<a href="${href}" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">${label}</a>`;
 }
 function switcher(page,active,auto=true){
-  return `<span style="${auto?'margin-left:auto; ':''}display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-pill);">${chip('Mobile'+page+'.dc.html','Phone',active==='Mobile')}${chip('Fold'+page+'.dc.html','Foldable',active==='Fold')}${chip('Tablet'+page+'.dc.html','Tablet',active==='Tablet')}</span>`;
+  return `<span style="${auto?'margin-left:auto; ':''}display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-pill);">${chip('Mobile'+page+'.dc.html','Phone',active==='Mobile')}${chip('Fold'+page+'.dc.html','Foldable',active==='Fold')}${chip('Tablet'+page+'.dc.html','Tablet',active==='Tablet')}${chip('Duo'+page+'.dc.html','Duo',active==='Duo')}</span>`;
 }
 function convertFile(src,page,F){
   const ctx={warn:[],steps:null};
@@ -228,7 +228,7 @@ function convertFile(src,page,F){
   s=s.replace(/— Mobile/g,'— '+F.label);
   s=s.replace(/Mobile · /g,F.label+' · ');
   s=s.replace(/href="Mobile(\w+)\.dc\.html"/g,(m,p)=>`href="${F.key}${p}.dc.html"`);
-  s=s.replace(/<span style="margin-left:auto; display:inline-flex; align-items:center; gap:2px; padding:2px;.*?<\/span><\/span>/m,()=>switcher(page,F.key));
+  s=s.replace(/<span style="margin-left:auto; display:inline-flex; align-items:center; gap:2px; padding:2px;[\s\S]*?>(?:Tablet|Duo)<\/(?:a|span)><\/span>/,()=>switcher(page,F.key));
   // the Areas gallery has no device switcher of its own: slot one in ahead of the moderator link
   s=s.replace('<a href="Moderation.dc.html" style="margin-left:auto; ',()=>switcher(page,F.key)+'<a href="Moderation.dc.html" style="');
   s=s.replace(/>iOS · /g,()=>`>${F.label} · ${F.sub} · `);
@@ -249,7 +249,7 @@ function convertIndex(src,F){
   s=s.replace('— Mobile</span>',()=>'— '+F.label+'</span>');
   s=s.replace(/· iOS</g,()=>'· '+F.label+'<');
   s=s.replace(/<p style="font-size:15px; color:var\(--text-secondary\); margin:0 0 18px; max-width:70ch;">[^<]*<\/p>/,()=>`<p style="font-size:15px; color:var(--text-secondary); margin:0 0 18px; max-width:70ch;">${F.blurb}</p>`);
-  s=s.replace(/<span style="display:inline-flex; align-items:center; gap:2px; padding:2px;.*?<\/span><\/span>/,()=>switcher('App',F.key,false));
+  s=s.replace(/<span style="display:inline-flex; align-items:center; gap:2px; padding:2px;[\s\S]*?>(?:Tablet|Duo)<\/(?:a|span)><\/span>/,()=>switcher('App',F.key,false));
   s=s.replace('page name="Mobile app screens"',()=>`page name="${F.label} app screens"`);
   s=s.replace(/Screens keep their original numbering \(01–23\) across the split pages\./,()=>`Same screens and numbering as the phone set, re-laid for a ${F.sub} display.`);
   return s;
