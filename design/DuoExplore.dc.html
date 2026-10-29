@@ -84,12 +84,11 @@
       <div style="display:flex; flex-direction:column; gap:14px;">
         <div style="font-size:13px; font-weight:600;">02 · Search — empty, Home &amp; Work pinned</div>
 <div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
-          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui); padding-right:84px;">
-            <div style="padding:14px 12px 12px; display:flex; gap:10px; align-items:center; background:var(--surface-card); border-bottom:1px solid var(--border);">
+          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
+            <div style="padding:14px 96px 12px 12px; display:flex; gap:10px; align-items:center; background:var(--surface-card); border-bottom:1px solid var(--border);">
               <div style="flex:1; min-width:0;"><x-import component-from-global-scope="DesignSystem_c71fad.SearchBar" hint-size="100%,44px" placeholder="Where to?"></x-import></div>
-              <span style="color:var(--text-brand); font-weight:600; font-size:15px; flex:0 0 auto;">Cancel</span>
-            </div>
-            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none;">
+              </div>
+            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding-right:84px;">
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:14px 16px 8px;">
                 <div style="display:flex; flex-direction:column; gap:10px; padding:12px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md);">
                   <span style="width:34px; height:34px; border-radius:var(--radius-sm); background:var(--brand-soft); color:var(--text-brand); display:inline-flex; align-items:center; justify-content:center;"><svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="18"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></span>
@@ -111,6 +110,7 @@
                 <div style="flex:1; min-width:0;"><div style="font-size:15px; font-weight:600;">Ferry Building Marketplace</div><div style="font-size:13px; color:var(--text-tertiary);">Yesterday</div></div>
               </div>
             </div>
+            <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Close" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import></div>
           </div>
         <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div style="position:absolute; left:0; right:0; bottom:0; z-index:40;"><x-import component="IOSKeyboard" dark="{{ isDark }}" from="./ios-frame.jsx" hint-size="100%,300px"></x-import></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
       </div>
@@ -119,16 +119,15 @@
       <div style="display:flex; flex-direction:column; gap:14px;">
         <div style="font-size:13px; font-weight:600;">02b · Set Work — tapping the empty card</div>
 <div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
-          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui); padding-right:84px;">
-            <div style="padding:14px 12px 12px; background:var(--surface-card); border-bottom:1px solid var(--border);">
+          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
+            <div style="padding:14px 96px 12px 12px; background:var(--surface-card); border-bottom:1px solid var(--border);">
               <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
                 <span style="color:var(--text-brand); display:inline-flex; flex:0 0 auto;"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="22"><path d="m15 18-6-6 6-6"></path></svg></span>
                 <span style="font-family:var(--font-display); font-size:17px; font-weight:600; flex:1; min-width:0;">Set Work</span>
-                <span style="color:var(--text-brand); font-weight:600; font-size:15px; flex:0 0 auto;">Cancel</span>
-              </div>
+                </div>
               <x-import component-from-global-scope="DesignSystem_c71fad.SearchBar" hint-size="100%,44px" placeholder="Search or enter address"></x-import>
             </div>
-            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none;">
+            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding-right:84px;">
               <div style="display:flex; align-items:center; gap:13px; padding:14px 16px 10px;">
                 <span style="width:38px; height:38px; border-radius:var(--radius-sm); background:var(--brand-soft); color:var(--text-brand); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="18"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg></span>
                 <div style="flex:1; min-width:0;"><div style="font-size:15px; font-weight:600;">Use current location</div><div style="font-size:13px; color:var(--text-tertiary);">Embarcadero &amp; Market St</div></div>
@@ -151,6 +150,7 @@
                 <span>Home &amp; Work are saved on this device. They never leave it.</span>
               </div>
             </div>
+            <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Close" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import></div>
           </div>
         <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div style="position:absolute; left:0; right:0; bottom:0; z-index:40;"><x-import component="IOSKeyboard" dark="{{ isDark }}" from="./ios-frame.jsx" hint-size="100%,300px"></x-import></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
       </div>
@@ -162,7 +162,7 @@
           <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
             <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
             <div style="position:absolute; left:50%; top:30%; transform:translate(-50%,-100%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="46px,72px" icon-name="flag" selected="{{ true }}" variant="destination"></x-import></div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10;">
               <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,360px" subtitle="Marketplace · Food hall" title="Ferry Building Marketplace">
                 <div style="display:flex; align-items:center; gap:8px; font-size:var(--fs-body-sm); margin-bottom:14px; flex-wrap:wrap;">
                   <span style="display:inline-flex; align-items:center; gap:4px; color:var(--amber-600); font-weight:var(--fw-semibold);"><svg fill="currentColor" height="15" style="display:block;" viewBox="0 0 24 24" width="15"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>4.6</span>
@@ -201,7 +201,7 @@
           <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
             <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
             <div style="position:absolute; left:50%; top:32%; transform:translate(-50%,-100%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="46px,72px" icon-name="home" selected="{{ true }}" variant="destination"></x-import></div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10;">
               <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,320px" subtitle="Residential · Rockridge" title="2140 Cypress Ave">
                 <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
                   <div style="display:flex; gap:11px; align-items:flex-start;"><span style="color:var(--text-tertiary); flex:0 0 auto;"><svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="18"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg></span><span style="font-size:var(--fs-body-sm); color:var(--text-secondary);">2140 Cypress Ave, Oakland, CA 94618</span></div>
@@ -230,7 +230,7 @@
           <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
             <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
             <div style="position:absolute; left:50%; top:30%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="160" hint-size="60px,60px" selected="{{ true }}" variant="camera"></x-import></div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10;">
               <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,420px" subtitle="37.7841, -122.4194" title="ALPR camera">
                 <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
                   <x-import component-from-global-scope="DesignSystem_c71fad.Badge" hint-size="auto,24px" tone="alert">ALPR</x-import>
@@ -278,7 +278,7 @@ class Component extends DCLogic {
   setTheme(t) { try { sessionStorage.setItem('daf-gallery-theme', t); } catch (_) {} this.setState({ themeOverride: t }); }
   componentDidMount() { try { const t = sessionStorage.getItem('daf-gallery-theme'); if (t && t !== (this.props.theme ?? 'light')) this.setState({ themeOverride: t }); } catch (_) {} if (super.componentDidMount) super.componentDidMount(); }
   state = { themeOverride: null };
-  renderVals() { return { ...this.renderValsBase(), duoSheet: { style: { paddingRight: 'calc(var(--space-4) + 84px)', maxHeight: 568, overflowX: 'hidden', overflowY: 'auto', scrollbarWidth: 'none' } } }; }
+  renderVals() { return { ...this.renderValsBase(), duoSheet: { style: { maxHeight: 447, overflowX: 'hidden', overflowY: 'auto', scrollbarWidth: 'none' } } }; }
   renderValsBase() {
     const R = React.createElement;
     const svg = (w, kids, opts) => R('svg', { width: w, height: w, viewBox: '0 0 24 24', fill: (opts && opts.fill) || 'none', stroke: (opts && opts.fill) ? 'none' : 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, kids);

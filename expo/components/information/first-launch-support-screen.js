@@ -1,15 +1,18 @@
 import { vars } from 'nativewind';
 import {
+    Platform,
     Pressable,
     ScrollView,
-    Text,
     useColorScheme,
     useWindowDimensions,
     View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
 import { getFirstLaunchSupportLayout } from './first-launch-support-layout';
+import { useDuoDevice } from '../root/duo-device-context';
+import { AreaMap } from '../areas/area-map';
+import { DuoText as Text } from '../design-system/duo-typography';
 
 const supportCosts = [
     'OpenStreetMap data sync',
@@ -20,7 +23,13 @@ const supportCosts = [
 export function FirstLaunchSupportScreen({ busy, error, onDonate, onDismiss }) {
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
-    const layout = getFirstLaunchSupportLayout(width, insets);
+    const duo = useDuoDevice();
+    const layout = getFirstLaunchSupportLayout(
+        width,
+        insets,
+        duo,
+        Platform.isPad,
+    );
     const isDark = useColorScheme() === 'dark';
     const brandColor = isDark ? '#1FBF6B' : '#0F7D45';
 
@@ -30,14 +39,30 @@ export function FirstLaunchSupportScreen({ busy, error, onDonate, onDismiss }) {
             style={vars(layout.variables)}
             testID="first-launch-support-screen"
         >
+            {layout.centered ? (
+                <View className="absolute inset-0">
+                    <AreaMap />
+                    <View className="absolute inset-0 bg-[rgba(11,14,18,0.32)]" />
+                </View>
+            ) : null}
             <ScrollView
-                contentContainerClassName="grow"
+                contentContainerClassName={
+                    layout.centered ? 'grow justify-center' : 'grow'
+                }
                 contentContainerStyle={{
                     paddingTop: layout.paddingTop,
+                    paddingLeft: insets.left,
+                    paddingRight: insets.right,
                     paddingBottom: layout.paddingBottom,
                 }}
             >
-                <View className="mx-auto w-full max-w-[560px] grow px-[var(--support-22)]">
+                <View
+                    className={
+                        layout.centered
+                            ? 'mx-auto w-full max-w-[480px] rounded-daf2xl bg-white px-[28px] pb-[28px] pt-[34px] dark:bg-[#11151B]'
+                            : 'mx-auto w-full max-w-[560px] grow px-[var(--support-22)]'
+                    }
+                >
                     <View className="mb-[var(--support-22)] flex-row items-center justify-between">
                         <View className="h-[var(--support-58)] w-[var(--support-58)] items-center justify-center rounded-[var(--support-18)] bg-daf-brand/10 dark:bg-daf-brand/15">
                             <Icon
@@ -54,7 +79,8 @@ export function FirstLaunchSupportScreen({ busy, error, onDonate, onDismiss }) {
                         accessibilityRole="header"
                         className="mb-[var(--support-12)] font-dafDisplay text-[length:var(--support-32)] font-bold leading-[var(--support-36-8)] tracking-[var(--support-heading-tracking)] text-daf-text-primary dark:text-white"
                     >
-                        Your routes stay ours{'\n'}to run
+                        Your routes stay ours{layout.centered ? ' ' : '\n'}to
+                        run
                     </Text>
                     <Text className="mb-[var(--support-18)] text-[length:var(--support-17)] leading-[var(--support-25-5)] text-daf-text-secondary dark:text-neutral-300">
                         We keep our own synced copy of OpenStreetMap and run a
@@ -92,7 +118,7 @@ export function FirstLaunchSupportScreen({ busy, error, onDonate, onDismiss }) {
                     <Text className="mb-[var(--support-18)] text-[length:var(--support-15)] font-semibold leading-[var(--support-22-5)] text-daf-text-primary dark:text-white">
                         A few dollars from a few drivers covers it.
                     </Text>
-                    <View className="flex-1" />
+                    <View className={layout.centered ? 'h-6' : 'flex-1'} />
                     {error ? (
                         <Text
                             accessibilityLiveRegion="polite"

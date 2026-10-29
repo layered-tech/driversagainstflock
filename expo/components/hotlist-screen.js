@@ -1,3 +1,10 @@
+import { useDuoPaneContent } from './root/duo-device-context';
+import { DuoText as Text } from './design-system/duo-typography';
+import {
+    FullWidthSafeAreaBand,
+    NativeNavigationAction,
+    useDuoRailEdge,
+} from './root/native-navigation';
 import { useNavigation } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -6,7 +13,6 @@ import {
     Pressable,
     RefreshControl,
     ScrollView,
-    Text,
     useColorScheme,
     View,
 } from 'react-native';
@@ -90,7 +96,7 @@ function formatCount(value) {
 
 function HotlistStatTile({ stat }) {
     return (
-        <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark flex-1 rounded-dafMd border border-daf-border bg-white px-3.5 py-3">
+        <View className="flex-1 rounded-dafMd border border-daf-border bg-white px-3.5 py-3 dark:border-daf-border-dark dark:bg-daf-surface-dark">
             <Text
                 className="mb-2 text-[11px] font-bold uppercase leading-[13px] tracking-[0.06em] text-daf-text-tertiary dark:text-neutral-400"
                 numberOfLines={2}
@@ -98,7 +104,7 @@ function HotlistStatTile({ stat }) {
                 {formatStatLabel(stat.label)}
             </Text>
             <Text
-                className="font-dafMono mb-1.5 text-[28px] font-semibold leading-[28px] text-daf-text-primary dark:text-white"
+                className="mb-1.5 font-dafMono text-[28px] font-semibold leading-[28px] text-daf-text-primary dark:text-white"
                 numberOfLines={1}
             >
                 {stat.value}
@@ -116,10 +122,10 @@ function HotlistStatTile({ stat }) {
 function HotlistNodeRow({ node, testID }) {
     return (
         <View
-            className="dark:border-daf-border-dark flex-row items-center gap-[13px] border-t border-daf-border px-4 py-[13px]"
+            className="flex-row items-center gap-[13px] border-t border-daf-border px-4 py-[13px] dark:border-daf-border-dark"
             testID={testID}
         >
-            <View className="bg-daf-marker-alpr/15 h-[17px] w-[17px] flex-none items-center justify-center rounded-dafPill">
+            <View className="h-[17px] w-[17px] flex-none items-center justify-center rounded-dafPill bg-daf-marker-alpr/15">
                 <View className="h-[9px] w-[9px] rounded-dafPill bg-daf-marker-alpr" />
             </View>
 
@@ -137,7 +143,7 @@ function HotlistNodeRow({ node, testID }) {
                     {node.street}
                 </Text>
                 <Text
-                    className="font-dafMono mt-0.5 text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400"
+                    className="mt-0.5 font-dafMono text-xs leading-[17px] text-daf-text-tertiary dark:text-neutral-400"
                     numberOfLines={1}
                 >
                     {node.osm}
@@ -164,7 +170,7 @@ function HotlistNodeRow({ node, testID }) {
 
 function HotlistAttribution() {
     return (
-        <View className="dark:border-daf-border-dark flex-row items-center gap-[7px] border-t border-daf-border px-4 py-4">
+        <View className="flex-row items-center gap-[7px] border-t border-daf-border px-4 py-4 dark:border-daf-border-dark">
             <Icon color={dafSemanticColors.speedOk} name="map-pin" size={14} />
             <Text className="text-xs text-daf-text-tertiary dark:text-neutral-400">
                 Data from OpenStreetMap contributors
@@ -175,7 +181,7 @@ function HotlistAttribution() {
 
 function HotlistEmptyState() {
     return (
-        <View className="dark:border-daf-border-dark border-t border-daf-border px-4 py-8">
+        <View className="border-t border-daf-border px-4 py-8 dark:border-daf-border-dark">
             <Text className="text-center text-[15px] font-semibold text-daf-text-primary dark:text-white">
                 No recent nodes
             </Text>
@@ -188,7 +194,7 @@ function HotlistEmptyState() {
 
 function HotlistErrorState({ message, onRetry }) {
     return (
-        <View className="dark:border-daf-border-dark border-t border-daf-border px-4 py-8">
+        <View className="border-t border-daf-border px-4 py-8 dark:border-daf-border-dark">
             <Text className="text-center text-[15px] font-semibold text-daf-text-primary dark:text-white">
                 Hotlist unavailable
             </Text>
@@ -208,6 +214,8 @@ function HotlistErrorState({ message, onRetry }) {
 
 export default function HotlistScreen() {
     const colorScheme = useColorScheme();
+    const railEdge = useDuoRailEdge();
+    const inDuoPane = useDuoPaneContent();
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
     const [errorMessage, setErrorMessage] = useState('');
@@ -223,7 +231,7 @@ export default function HotlistScreen() {
     const isDarkMode = colorScheme === 'dark';
     const headerPaddingTop =
         Platform.OS === 'ios'
-            ? Math.max(insets.top + 10, 54)
+            ? Math.max(insets.top + 10, railEdge || inDuoPane ? 14 : 54)
             : Math.max(insets.top + 10, 16);
     const scrollPaddingBottom = Math.max(insets.bottom + 28, 28);
     const latestLabel = formatRelativeTime(hotlist?.latestSyncedAt);
@@ -377,34 +385,44 @@ export default function HotlistScreen() {
             className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
             testID="hotlist-screen"
         >
-            <View
-                className="dark:border-daf-border-dark dark:bg-daf-surface-dark border-b border-daf-border bg-white px-4 pb-3.5"
+            <FullWidthSafeAreaBand
+                gutter={16}
+                className="border-b border-daf-border bg-white pb-3.5 dark:border-daf-border-dark dark:bg-daf-surface-dark"
                 style={{ paddingTop: headerPaddingTop }}
             >
                 <View className="mb-3.5 flex-row items-start justify-between gap-2.5">
-                    <Pressable
-                        accessibilityLabel="Open menu"
-                        accessibilityRole="button"
-                        className="dark:border-daf-border-dark mt-0.5 h-10 w-10 items-center justify-center rounded-dafPill border border-daf-border bg-daf-surface-alt active:opacity-[0.82] dark:bg-daf-surface-inverse"
-                        onPress={handleDrawerPress}
-                        testID="hotlist-drawer-button"
+                    <NativeNavigationAction
+                        railOnly
+                        kind="tool"
+                        symbol="line.3.horizontal"
                     >
-                        <Icon
-                            color={isDarkMode ? '#F4F7FA' : '#0B0E12'}
-                            name="menu"
-                            size={20}
-                        />
-                    </Pressable>
+                        <Pressable
+                            accessibilityLabel="Open menu"
+                            accessibilityRole="button"
+                            className="mt-0.5 h-10 w-10 items-center justify-center rounded-dafPill border border-daf-border bg-daf-surface-alt active:opacity-[0.82] dark:border-daf-border-dark dark:bg-daf-surface-inverse"
+                            onPress={handleDrawerPress}
+                            testID="hotlist-drawer-button"
+                        >
+                            <Icon
+                                color={isDarkMode ? '#F4F7FA' : '#0B0E12'}
+                                name="menu"
+                                size={20}
+                            />
+                        </Pressable>
+                    </NativeNavigationAction>
                     <View className="min-w-0 flex-1">
                         <Text className="mb-1 text-[11px] font-bold uppercase tracking-[0.06em] text-daf-text-brand dark:text-daf-brand">
                             Hotlist
                         </Text>
-                        <Text className="font-dafDisplay text-lg font-bold leading-5 text-daf-text-primary dark:text-white">
+                        <Text
+                            numberOfLines={1}
+                            className="font-dafDisplay text-lg font-bold leading-5 text-daf-text-primary dark:text-white"
+                        >
                             Recently added
                         </Text>
                     </View>
 
-                    <View className="dark:border-daf-border-dark mt-0.5 h-[31px] flex-row items-center gap-[7px] rounded-dafPill border border-daf-border bg-daf-surface-alt px-[11px] dark:bg-daf-surface-inverse">
+                    <View className="mt-0.5 h-[31px] flex-row items-center gap-[7px] rounded-dafPill border border-daf-border bg-daf-surface-alt px-[11px] dark:border-daf-border-dark dark:bg-daf-surface-inverse">
                         <View className="h-1.5 w-1.5 rounded-dafPill bg-daf-text-brand dark:bg-daf-brand" />
                         <Text
                             className="text-xs font-semibold text-daf-text-secondary dark:text-neutral-300"
@@ -422,11 +440,15 @@ export default function HotlistScreen() {
                     testIDPrefix="hotlist-window"
                     value={timeWindow}
                 />
-            </View>
+            </FullWidthSafeAreaBand>
 
             <ScrollView
                 className="flex-1"
-                contentContainerStyle={{ paddingBottom: scrollPaddingBottom }}
+                contentContainerStyle={{
+                    paddingBottom: scrollPaddingBottom,
+                    paddingLeft: insets.left,
+                    paddingRight: insets.right,
+                }}
                 refreshControl={
                     <RefreshControl
                         colors={[dafSemanticColors.brand]}
@@ -460,7 +482,7 @@ export default function HotlistScreen() {
                                     className={`h-[34px] flex-row items-center rounded-dafPill border px-3 active:opacity-[0.82] ${
                                         selected
                                             ? 'border-daf-brand bg-daf-brand'
-                                            : 'dark:border-daf-border-dark dark:bg-daf-surface-dark border-daf-border bg-white'
+                                            : 'border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark'
                                     }`}
                                     testID={`hotlist-chip-${chip.value}`}
                                 >
@@ -481,7 +503,7 @@ export default function HotlistScreen() {
                 </ScrollView>
 
                 {isLoading && !hotlist ? (
-                    <View className="dark:border-daf-border-dark items-center border-t border-daf-border px-4 py-10">
+                    <View className="items-center border-t border-daf-border px-4 py-10 dark:border-daf-border-dark">
                         <ActivityIndicator
                             color={
                                 isDarkMode
@@ -506,7 +528,7 @@ export default function HotlistScreen() {
                                 testID={`hotlist-row-${index}`}
                             />
                         ))}
-                        <View className="dark:border-daf-border-dark items-center gap-2 border-t border-daf-border px-4 py-4">
+                        <View className="items-center gap-2 border-t border-daf-border px-4 py-4 dark:border-daf-border-dark">
                             <Text className="text-xs text-daf-text-tertiary dark:text-neutral-400">
                                 Showing {formatCount(nodes.length)} of{' '}
                                 {formatCount(hotlist?.nodes?.total)}

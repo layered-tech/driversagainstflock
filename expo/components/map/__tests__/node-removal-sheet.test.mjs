@@ -58,6 +58,7 @@ test('a closed removal sheet can open, cancel, reopen, and close', () => {
             '../map/native-components': {
                 NativeWindBottomSheetModal: 'Modal',
                 NativeWindBottomSheetView: 'SheetView',
+                NativeWindBottomSheetScrollView: 'SheetView',
             },
         },
     );
@@ -78,6 +79,7 @@ test('a closed removal sheet can open, cancel, reopen, and close', () => {
         'Do not dismiss a modal before its first presentation',
     );
     const sheet = render(true);
+    assert.equal(sheet.props.tabletPresentation, 'confirmation');
     assert.equal(findTitle(sheet)?.props.accessible, true);
     assert.equal(findTitle(sheet)?.props.accessibilityRole, 'header');
     assert.equal(findTitle(sheet)?.props.testID, 'remove-camera-title');

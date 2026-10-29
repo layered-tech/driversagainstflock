@@ -121,11 +121,11 @@
       <div data-screen-label="25 · My areas — empty" style="display:flex; flex-direction:column; gap:14px;">
         <div style="font-size:13px; font-weight:600;">25 · My areas — empty state</div>
 <div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
-          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); font-family:var(--font-ui); display:flex; flex-direction:column; overflow:hidden; padding-right:84px;">
-            <div style="display:flex; align-items:center; gap:4px; padding:18px 16px 6px;">
+          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); font-family:var(--font-ui); display:flex; flex-direction:column; overflow:hidden;">
+            <div style="display:flex; align-items:center; gap:4px; padding:18px 100px 6px 16px;">
               <div style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:22px; letter-spacing:var(--ls-heading);">My areas</div>
             </div>
-            <div style="flex:1; display:flex; flex-direction:column; padding:28px 22px 0;">
+            <div style="flex:1; display:flex; flex-direction:column; padding:28px 22px 0; padding-right:84px;">
               <div style="display:inline-flex; align-self:flex-start; align-items:center; justify-content:center; width:58px; height:58px; border-radius:var(--radius-lg); background:var(--brand-soft); color:var(--text-brand); margin-bottom:20px;"><svg fill="none" height="28" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="28"><path d="M18 8c0 3.613-3.869 7.429-5.393 8.795a1 1 0 0 1-1.214 0C9.87 15.429 6 11.613 6 8a6 6 0 0 1 12 0"></path><circle cx="12" cy="8" r="2"></circle><path d="M8.714 14h-3.71a1 1 0 0 0-.948.683l-2.004 6A1 1 0 0 0 3 22h18a1 1 0 0 0 .948-1.316l-2-6a1 1 0 0 0-.949-.684h-3.712"></path></svg></div>
               <h2 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h1); letter-spacing:var(--ls-heading); margin:0 0 12px; line-height:1.15; text-wrap:balance;">Keep an eye on the places you drive</h2>
               <p style="font-size:var(--fs-body-lg); line-height:var(--lh-body-lg); color:var(--text-secondary); margin:0 0 26px;">Pick a city, a ZIP, or a shape on the map. We'll tell you when a camera shows up there — or comes down.</p>
@@ -178,7 +178,7 @@
           <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
             <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
             <div style="position:absolute; inset:0; background:rgba(11,14,18,0.28);"></div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10;">
               <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,620px" subtitle="Watch a place for camera changes" title="Add an area">
                 <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" hint-size="100%,40px" onChange="{{ noop }}" options="{{ addOpts }}" style="width:100%;" tone="light" value="{{ addSearch }}"></x-import>
                 <div style="height:14px;"></div>
@@ -209,17 +209,17 @@
 <div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
           <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
             <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
-            <div style="position:absolute; left:50%; top:36%; width:236px; height:236px; transform:translate(-50%,-50%); border-radius:50%; background:color-mix(in oklab, var(--brand) 14%, transparent); border:2px solid var(--brand); box-shadow:0 0 0 1px rgba(255,255,255,0.6) inset; z-index:2;"></div>
-            <div style="position:absolute; left:50%; top:36%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="30" hint-size="64px,64px" variant="user"></x-import></div>
-            <div style="position:absolute; left:34%; top:28%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
-            <div style="position:absolute; left:66%; top:44%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
-            <div style="position:absolute; left:58%; top:24%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
-            <div style="position:absolute; left:50%; top:36%; transform:translate(-50%, -134px); z-index:5; font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:0.04em; color:#fff; background:var(--brand); padding:3px 9px; border-radius:var(--radius-pill); box-shadow:var(--shadow-marker);">5 mi</div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+            <div style="position:absolute; left:50%; top:20%; width:180px; height:180px; transform:translate(-50%,-50%); border-radius:50%; background:color-mix(in oklab, var(--brand) 14%, transparent); border:2px solid var(--brand); box-shadow:0 0 0 1px rgba(255,255,255,0.6) inset; z-index:2;"></div>
+            <div style="position:absolute; left:50%; top:20%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="30" hint-size="64px,64px" variant="user"></x-import></div>
+            <div style="position:absolute; left:34%; top:14%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
+            <div style="position:absolute; left:66%; top:30%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
+            <div style="position:absolute; left:58%; top:10%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
+            <div style="position:absolute; left:50%; top:20%; transform:translate(-50%, -106px); z-index:5; font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:0.04em; color:#fff; background:var(--brand); padding:3px 9px; border-radius:var(--radius-pill); box-shadow:var(--shadow-marker); white-space:nowrap;">5 mi</div>
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10;">
               <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,420px" subtitle="Watch a place for camera changes" title="Add an area">
                 <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" hint-size="100%,40px" onChange="{{ noop }}" options="{{ addOpts }}" style="width:100%;" tone="light" value="{{ addAround }}"></x-import>
-                <div style="height:16px;"></div>
-                <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); padding:16px; margin-bottom:12px;">
+                <div style="height:10px;"></div>
+                <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); padding:12px 14px; margin-bottom:10px;">
                   <x-import component-from-global-scope="DesignSystem_c71fad.Slider" format-value="{{ fmtMi }}" hint-size="100%,56px" label="Radius" max="{{ n25 }}" min="{{ n1 }}" onChange="{{ setRadius }}" show-value="{{ true }}" step="{{ n1 }}" value="{{ radius }}"></x-import>
                   <div style="display:flex; align-items:center; gap:8px; margin-top:12px; font-size:var(--fs-caption); color:var(--text-secondary);">
                     <span style="width:8px; height:8px; border-radius:50%; background:var(--alert-500); box-shadow:0 0 0 3px rgba(255,77,79,0.18); flex:0 0 auto;"></span>
@@ -227,7 +227,7 @@
                   </div>
                 </div>
                 <x-import component-from-global-scope="DesignSystem_c71fad.Input" hint-size="100%,46px" onChange="{{ noop }}" placeholder="Name this area" size="md" tone="light" value="Around home"></x-import>
-                <p style="font-size:var(--fs-caption); color:var(--text-tertiary); margin:10px 0 14px; line-height:1.4;">We save the circle's center, not your live location. It won't follow you.</p>
+                <p style="font-size:var(--fs-caption); color:var(--text-tertiary); margin:8px 0 10px; line-height:1.4;">We save the circle's center, not your live location. It won't follow you.</p>
                 <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,52px" size="lg" variant="primary">Watch this area</x-import>
               </x-import>
             </div>
@@ -242,7 +242,7 @@
 <div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
           <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
             <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
-            <svg preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; display:block; z-index:2;" viewBox="0 0 390 844">
+            <svg preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; display:block; z-index:2;" viewBox="0 0 390 1400">
               <path d="M86 196 L298 172 L326 404 L214 468 L118 420 Z" fill="color-mix(in oklab, var(--brand) 16%, transparent)" stroke="var(--brand)" stroke-dasharray="8 6" stroke-linejoin="round" stroke-width="2.5"></path>
               <g fill="#fff" stroke="var(--brand)" stroke-width="3">
                 <circle cx="86" cy="196" r="9"></circle>
@@ -259,14 +259,14 @@
                 <circle cx="102" cy="308" r="5"></circle>
               </g>
             </svg>
-            <div style="position:absolute; left:34%; top:30%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
-            <div style="position:absolute; left:62%; top:40%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
-            <div style="position:absolute; left:44%; top:52%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
+            <div style="position:absolute; left:34%; top:18%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
+            <div style="position:absolute; left:62%; top:26%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
+            <div style="position:absolute; left:44%; top:30%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
             <div style="position:absolute; left:12px; right:96px; top:14px; z-index:10; display:flex; align-items:center; gap:10px; min-height:44px; padding:0 14px; background:var(--surface-glass); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid var(--border-glass); border-radius:var(--radius-pill); box-shadow:var(--shadow-float); color:var(--text-primary);">
               <span style="color:var(--text-brand); display:inline-flex; flex:0 0 auto;"><svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="18"><path d="M10.83 2.38a2 2 0 0 1 2.34 0l8 5.74a2 2 0 0 1 .73 2.25l-3.04 9.26a2 2 0 0 1-1.9 1.37H7.04a2 2 0 0 1-1.9-1.37L2.1 10.37a2 2 0 0 1 .73-2.25z"></path></svg></span>
               <span style="font-size:13.5px; font-weight:var(--fw-semibold);">Tap to add corners · drag to move</span>
             </div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10;">
               <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,330px" subtitle="Watch a place for camera changes" title="Add an area">
                 <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" hint-size="100%,40px" onChange="{{ noop }}" options="{{ addOpts }}" style="width:100%;" tone="light" value="{{ addDraw }}"></x-import>
                 <div style="height:16px;"></div>
@@ -297,15 +297,15 @@
       <div data-screen-label="27 · My areas" style="display:flex; flex-direction:column; gap:14px;">
         <div style="font-size:13px; font-weight:600;">27 · My areas — three subscriptions</div>
 <div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
-          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); font-family:var(--font-ui); display:flex; flex-direction:column; overflow:hidden; padding-right:84px;">
-            <div style="display:flex; align-items:center; gap:4px; padding:18px 16px 6px;">
+          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); font-family:var(--font-ui); display:flex; flex-direction:column; overflow:hidden;">
+            <div style="display:flex; align-items:center; gap:4px; padding:18px 100px 6px 16px;">
               <div style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:22px; letter-spacing:var(--ls-heading);">My areas</div>
               </div>
-            <div style="padding:6px 16px 0; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <div style="padding:6px 16px 0; display:flex; align-items:center; justify-content:space-between; gap:12px; padding-right:84px;">
               <span style="font-size:var(--fs-caption); color:var(--text-tertiary);">3 areas · 5 changes this week</span>
               <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" hint-size="170px,32px" onChange="{{ noop }}" options="{{ winOpts }}" tone="light" value="{{ win }}"></x-import>
             </div>
-            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:14px 16px 40px; display:flex; flex-direction:column; gap:10px;">
+            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:14px 100px 40px 16px; display:flex; flex-direction:column; gap:10px;">
 
               <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); padding:14px 16px; display:flex; flex-direction:column; gap:12px; box-shadow:var(--shadow-card);">
                 <div style="display:flex; align-items:center; gap:12px;">
@@ -373,17 +373,17 @@
       <div data-screen-label="28 · Area feed" style="display:flex; flex-direction:column; gap:14px;">
         <div style="font-size:13px; font-weight:600;">28 · Area feed — recent changes in Oakland</div>
 <div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
-          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); font-family:var(--font-ui); display:flex; flex-direction:column; overflow:hidden; padding-right:84px;">
-            <div style="display:flex; align-items:center; gap:4px; padding:18px 16px 6px;">
+          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); font-family:var(--font-ui); display:flex; flex-direction:column; overflow:hidden;">
+            <div style="display:flex; align-items:center; gap:4px; padding:18px 100px 6px 16px;">
               <div style="flex:1; min-width:0;">
                 <div style="font-family:var(--font-display); font-weight:700; font-size:22px; letter-spacing:var(--ls-heading); line-height:1.1;">Oakland, CA</div>
                 <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:2px;">City · 116 cameras mapped</div>
               </div>
               </div>
-            <div style="padding:8px 16px 0;">
+            <div style="padding:8px 16px 0; padding-right:84px;">
               <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" hint-size="100%,36px" onChange="{{ noop }}" options="{{ winOpts }}" style="width:100%;" tone="light" value="{{ win }}"></x-import>
             </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:14px 16px 4px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:14px 100px 4px 16px;">
               <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-md); padding:12px 14px;">
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:6px;">Added</div>
                 <div style="font-family:var(--font-mono); font-size:28px; line-height:1; font-weight:600; letter-spacing:-0.02em; color:var(--alert-600);">4</div>
@@ -393,7 +393,7 @@
                 <div style="font-family:var(--font-mono); font-size:28px; line-height:1; font-weight:600; letter-spacing:-0.02em; color:var(--text-brand);">1</div>
               </div>
             </div>
-            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:8px 16px 40px;">
+            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:8px 100px 40px 16px;">
               <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin:10px 0 6px;">Today</div>
               <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); overflow:hidden;">
                 <sc-for as="f" hint-placeholder-count="2" list="{{ feedToday }}">
@@ -427,7 +427,7 @@
                 </sc-for>
               </div>
             </div>
-            <div style="flex:0 0 auto; padding:10px 16px 18px; border-top:1px solid var(--border); background:var(--surface-card);">
+            <div style="flex:0 0 auto; padding:10px 100px 18px 16px; border-top:1px solid var(--border); background:var(--surface-card);">
               <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,46px" size="md" variant="secondary">Show all 5 on the map</x-import>
             </div>
             <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Back" size="md" variant="glass"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="22"><path d="m15 18-6-6 6-6"></path></svg></x-import><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Action" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg></x-import></div>
@@ -454,7 +454,7 @@
             <div style="position:absolute; left:48%; top:46%; transform:translate(-50%, -30px); z-index:5; width:20px; height:20px; border-radius:50%; background:var(--alert-500); color:#fff; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:13px; font-weight:700; line-height:1; box-shadow:var(--shadow-marker);">+</div>
             <div style="position:absolute; left:32%; top:50%; transform:translate(-50%,-50%); z-index:4; opacity:0.45;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="20px,20px" variant="alpr"></x-import></div>
             <div style="position:absolute; left:32%; top:50%; transform:translate(-50%, -30px); z-index:5; width:20px; height:20px; border-radius:50%; background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:13px; font-weight:700; line-height:1; box-shadow:var(--shadow-marker);">−</div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10;">
               <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,300px" subtitle="Oakland, CA · last 7 days" title="5 changes on the map">
                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
                   <span style="display:inline-flex; align-items:center; gap:7px; padding:5px 11px; border-radius:var(--radius-pill); background:color-mix(in oklab, var(--alert-500) 12%, transparent); color:var(--alert-600); font-size:var(--fs-caption); font-weight:var(--fw-semibold);"><span style="width:8px; height:8px; border-radius:50%; background:var(--alert-500);"></span><span style="font-family:var(--font-mono); font-weight:700;">4</span> added</span>
@@ -478,7 +478,7 @@
             <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
             <div style="position:absolute; left:50%; top:30%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="200" hint-size="60px,60px" selected="{{ true }}" variant="camera"></x-import></div>
             <div style="position:absolute; left:50%; top:30%; transform:translate(-50%, -62px); z-index:5; font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#fff; background:var(--alert-500); padding:3px 9px; border-radius:var(--radius-pill); box-shadow:var(--shadow-marker);">New</div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10;">
               <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,470px" subtitle="Oakland, CA · 2 hours ago" title="Camera added">
                 <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
                   <x-import component-from-global-scope="DesignSystem_c71fad.Badge" hint-size="auto,24px" tone="alert">ALPR</x-import>
@@ -513,14 +513,14 @@
       <div data-screen-label="30 · Alert settings" style="display:flex; flex-direction:column; gap:14px;">
         <div style="font-size:13px; font-weight:600;">30 · Alert settings — per area</div>
 <div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
-          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); font-family:var(--font-ui); display:flex; flex-direction:column; overflow:hidden; padding-right:84px;">
-            <div style="display:flex; align-items:center; gap:4px; padding:18px 16px 6px;">
+          <div style="position:relative; width:100%; height:100%; background:var(--surface-page); font-family:var(--font-ui); display:flex; flex-direction:column; overflow:hidden;">
+            <div style="display:flex; align-items:center; gap:4px; padding:18px 100px 6px 16px;">
               <div style="flex:1; min-width:0;">
                 <div style="font-family:var(--font-display); font-weight:700; font-size:22px; letter-spacing:var(--ls-heading); line-height:1.1;">Alerts</div>
                 <div style="font-size:var(--fs-caption); color:var(--text-tertiary); margin-top:2px;">Oakland, CA · City</div>
               </div>
             </div>
-            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:14px 16px 40px;">
+            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:14px 100px 40px 16px;">
               <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin:0 0 8px;">Tell me when</div>
               <div style="border:1px solid var(--border); background:var(--surface-card); border-radius:var(--radius-lg); padding:4px 16px; margin-bottom:18px;">
                 <x-import checked="{{ true }}" component-from-global-scope="DesignSystem_c71fad.Switch" hint-size="100%,48px" label="A camera is added" onChange="{{ noop }}"></x-import>
@@ -614,7 +614,7 @@ class Component extends DCLogic {
   setTheme(t) { try { sessionStorage.setItem('daf-gallery-theme', t); } catch (_) {} this.setState({ themeOverride: t }); }
   componentDidMount() { try { const t = sessionStorage.getItem('daf-gallery-theme'); if (t && t !== (this.props.theme ?? 'light')) this.setState({ themeOverride: t }); } catch (_) {} if (super.componentDidMount) super.componentDidMount(); }
   state = { themeOverride: null, radius: 5, alertMode: null };
-  renderVals() { return { ...this.renderValsBase(), duoSheet: { style: { paddingRight: 'calc(var(--space-4) + 84px)', maxHeight: 568, overflowX: 'hidden', overflowY: 'auto', scrollbarWidth: 'none' } } }; }
+  renderVals() { return { ...this.renderValsBase(), duoSheet: { style: { maxHeight: 447, overflowX: 'hidden', overflowY: 'auto', scrollbarWidth: 'none' } } }; }
   renderValsBase() {
     const R = React.createElement;
     const __tv = this.themeVals(); const theme = __tv.theme;

@@ -1,9 +1,10 @@
-import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { DuoText as Text } from '../design-system/duo-typography';
+import { NativeNavigationAction } from '../root/native-navigation';
 import { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
+    Platform,
     Pressable,
-    Text,
     useWindowDimensions,
     View,
 } from 'react-native';
@@ -13,7 +14,7 @@ import { dafSemanticColors } from '../design-system/tokens';
 import { usePlaceSheetContext } from './map-screen-context';
 import {
     NativeWindBottomSheetModal,
-    NativeWindBottomSheetView,
+    NativeWindBottomSheetScrollView,
 } from './native-components';
 import {
     getPrimaryLocationLabel,
@@ -23,11 +24,13 @@ import { useBottomSheetPresentedState } from './use-bottom-sheet-presented-state
 
 export function SelectedPlaceSheet() {
     const [modalGeneration, setModalGeneration] = useState(0);
-    const { height: windowHeight } = useWindowDimensions();
+    const { height: windowHeight, width } = useWindowDimensions();
+    const tablet = Platform?.isPad && width >= 768;
     const {
         bottomSheetBackgroundStyle,
         bottomSheetHandleIndicatorStyle,
         bottomSheetAnimatedPosition,
+        handleClearSelectedSearchResult,
         handleGetDirectionsToSelectedPlace,
         handleSetSelectedPlaceAsPrimaryLocation,
         handleSelectedPlaceBackToSearchResults,
@@ -81,6 +84,7 @@ export function SelectedPlaceSheet() {
 
     return (
         <NativeWindBottomSheetModal
+            nativeCloseAction={false}
             key={selectedPlaceSheetKey}
             ref={placeSheetRef}
             accessible={false}
@@ -99,25 +103,28 @@ export function SelectedPlaceSheet() {
             onChange={handleBottomSheetChange}
             onDismiss={handleModalDismiss}
         >
-            <NativeWindBottomSheetView
-                className="bg-white dark:bg-daf-surface-dark"
-                testID={
-                    bottomSheetIsPresented
-                        ? 'selected-place-sheet-presented'
-                        : undefined
-                }
-            >
-                {selectedSearchResult ? (
-                    <BottomSheetScrollView
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{
-                            gap: contentGap,
-                            paddingBottom: bottomContentPadding,
-                            paddingHorizontal: 24,
-                            paddingTop: 4,
-                        }}
-                    >
-                        {selectedPlaceCanReturnToSearchResults ? (
+            {selectedSearchResult ? (
+                <NativeWindBottomSheetScrollView
+                    className="bg-white dark:bg-daf-surface-dark"
+                    testID={
+                        bottomSheetIsPresented
+                            ? 'selected-place-sheet-presented'
+                            : undefined
+                    }
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{
+                        gap: contentGap,
+                        paddingBottom: bottomContentPadding,
+                        paddingHorizontal: 24,
+                        paddingTop: 4,
+                    }}
+                >
+                    {selectedPlaceCanReturnToSearchResults ? (
+                        <NativeNavigationAction
+                            railOnly
+                            kind="back"
+                            priority={10}
+                        >
                             <Pressable
                                 accessibilityHint="Returns to the expanded search results list."
                                 accessibilityLabel="Back to search results"
@@ -136,9 +143,11 @@ export function SelectedPlaceSheet() {
                                     Back to results
                                 </Text>
                             </Pressable>
-                        ) : null}
+                        </NativeNavigationAction>
+                    ) : null}
 
-                        <View className="gap-1">
+                    <View className="flex-row items-start gap-3">
+                        <View className="min-w-0 flex-1 gap-1">
                             <Text
                                 className="font-dafDisplay text-[21px] font-bold leading-7 text-daf-text-primary dark:text-white"
                                 numberOfLines={2}
@@ -156,138 +165,148 @@ export function SelectedPlaceSheet() {
                                 </Text>
                             ) : null}
                         </View>
-
-                        <View className="gap-3">
-                            {selectedPlaceAddress ? (
-                                <View className="flex-row items-start gap-3">
-                                    <Icon
-                                        color="#828D9B"
-                                        name="map-pin"
-                                        size={18}
-                                    />
-                                    <Text
-                                        className="min-w-0 flex-1 text-[13px] font-normal leading-5 text-daf-text-secondary dark:text-neutral-300"
-                                        selectable
-                                        testID="selected-place-address"
-                                    >
-                                        {selectedPlaceAddress}
-                                    </Text>
-                                </View>
-                            ) : null}
-                        </View>
-
-                        {selectedPlacePrimaryLocationType ? (
+                        {tablet ? (
                             <Pressable
-                                accessibilityHint={`Saves this destination on this device as ${selectedPlacePrimaryLocationLabel}.`}
-                                accessibilityLabel={`Set as ${selectedPlacePrimaryLocationLabel}`}
+                                accessibilityLabel="Close place details"
                                 accessibilityRole="button"
-                                accessibilityState={{
-                                    busy: primaryLocationSaveIsLoading,
-                                    disabled: primaryLocationSaveIsLoading,
-                                }}
-                                className={`flex-row items-center gap-3 rounded-dafMd border border-daf-border bg-white p-3 active:bg-daf-surface-alt dark:border-daf-border-dark dark:bg-daf-surface-dark dark:active:bg-daf-surface-inverse ${
-                                    primaryLocationSaveIsLoading
-                                        ? 'opacity-60'
-                                        : ''
-                                }`}
-                                disabled={primaryLocationSaveIsLoading}
-                                onPress={
-                                    handleSetSelectedPlaceAsPrimaryLocation
-                                }
-                                testID={`selected-place-set-${selectedPlacePrimaryLocationType}-button`}
+                                className="h-10 w-10 items-center justify-center rounded-dafPill bg-daf-surface-alt active:opacity-70 dark:bg-daf-surface-inverse"
+                                onPress={handleClearSelectedSearchResult}
+                                testID="tablet-place-details-close-button"
                             >
-                                <View className="bg-daf-brand/12 h-[34px] w-[34px] items-center justify-center rounded-dafSm dark:bg-daf-brand/20">
-                                    <Icon
-                                        color="#167C47"
-                                        name={
-                                            selectedPlacePrimaryLocationType ===
-                                            PRIMARY_LOCATION_HOME
-                                                ? 'home'
-                                                : 'briefcase'
-                                        }
-                                        size={18}
-                                    />
-                                </View>
-                                <View className="min-w-0 flex-1">
-                                    <Text className="text-[14.5px] font-semibold text-daf-text-primary dark:text-white">
-                                        Set as{' '}
-                                        {selectedPlacePrimaryLocationLabel}
-                                    </Text>
-                                    <Text className="mt-0.5 text-[12.5px] font-normal text-daf-text-tertiary dark:text-neutral-400">
-                                        {primaryLocationTypeBeingSet ===
-                                        selectedPlacePrimaryLocationType
-                                            ? 'Save for one-tap directions'
-                                            : selectedPlacePrimaryLocationType ===
-                                                PRIMARY_LOCATION_HOME
-                                              ? 'Suggested for residential addresses'
-                                              : 'Suggested for businesses'}
-                                    </Text>
-                                </View>
-                                {primaryLocationSaveIsLoading ? (
-                                    <ActivityIndicator
-                                        color={searchPrimaryIconColor}
-                                        size="small"
-                                    />
-                                ) : (
-                                    <Icon
-                                        color="#828D9B"
-                                        name="chevron-right"
-                                        size={18}
-                                    />
-                                )}
+                                <Icon
+                                    name="x"
+                                    size={20}
+                                    color={searchPrimaryIconColor}
+                                />
                             </Pressable>
                         ) : null}
+                    </View>
 
-                        {primaryLocationSaveError ? (
-                            <Text
-                                accessibilityLiveRegion="polite"
-                                className="rounded-dafMd bg-red-50 px-3 py-3 text-sm font-medium leading-5 text-red-700 dark:bg-red-950/30 dark:text-red-200"
-                                selectable
-                                testID="selected-place-primary-location-error"
-                            >
-                                {primaryLocationSaveError}
-                            </Text>
+                    <View className="gap-3">
+                        {selectedPlaceAddress ? (
+                            <View className="flex-row items-start gap-3">
+                                <Icon
+                                    color="#828D9B"
+                                    name="map-pin"
+                                    size={18}
+                                />
+                                <Text
+                                    className="min-w-0 flex-1 text-[13px] font-normal leading-5 text-daf-text-secondary dark:text-neutral-300"
+                                    selectable
+                                    testID="selected-place-address"
+                                >
+                                    {selectedPlaceAddress}
+                                </Text>
+                            </View>
                         ) : null}
+                    </View>
 
-                        <View className="flex-row gap-2">
-                            <DafButton
-                                accessibilityLabel="Get directions to this place"
-                                className="min-w-0 flex-1"
-                                disabled={
-                                    selectedPlaceIsLoading ||
-                                    !selectedPlaceDetails?.location
-                                }
-                                icon="navigation"
-                                onPress={handleGetDirectionsToSelectedPlace}
-                                testID="selected-place-get-directions-button"
-                            >
-                                Directions
-                            </DafButton>
-                            <DafIconButton
-                                accessibilityHint={
-                                    selectedPlaceIsFavorite
-                                        ? 'Removes this place from favorites.'
-                                        : 'Adds this place to favorites.'
-                                }
-                                accessibilityLabel={
-                                    selectedPlaceIsFavorite
-                                        ? 'Remove place from favorites'
-                                        : 'Add place to favorites'
-                                }
-                                color={
-                                    selectedPlaceIsFavorite
-                                        ? dafSemanticColors.danger
-                                        : searchPrimaryIconColor
-                                }
-                                icon="heart"
-                                onPress={handleToggleSelectedPlaceFavorite}
-                                selected={selectedPlaceIsFavorite}
-                                tone="alert"
-                            />
-                        </View>
-                    </BottomSheetScrollView>
-                ) : null}
-            </NativeWindBottomSheetView>
+                    {selectedPlacePrimaryLocationType ? (
+                        <Pressable
+                            accessibilityHint={`Saves this destination on this device as ${selectedPlacePrimaryLocationLabel}.`}
+                            accessibilityLabel={`Set as ${selectedPlacePrimaryLocationLabel}`}
+                            accessibilityRole="button"
+                            accessibilityState={{
+                                busy: primaryLocationSaveIsLoading,
+                                disabled: primaryLocationSaveIsLoading,
+                            }}
+                            className={`flex-row items-center gap-3 rounded-dafMd border border-daf-border bg-white p-3 active:bg-daf-surface-alt dark:border-daf-border-dark dark:bg-daf-surface-dark dark:active:bg-daf-surface-inverse ${
+                                primaryLocationSaveIsLoading ? 'opacity-60' : ''
+                            }`}
+                            disabled={primaryLocationSaveIsLoading}
+                            onPress={handleSetSelectedPlaceAsPrimaryLocation}
+                            testID={`selected-place-set-${selectedPlacePrimaryLocationType}-button`}
+                        >
+                            <View className="bg-daf-brand/12 h-[34px] w-[34px] items-center justify-center rounded-dafSm dark:bg-daf-brand/20">
+                                <Icon
+                                    color="#167C47"
+                                    name={
+                                        selectedPlacePrimaryLocationType ===
+                                        PRIMARY_LOCATION_HOME
+                                            ? 'home'
+                                            : 'briefcase'
+                                    }
+                                    size={18}
+                                />
+                            </View>
+                            <View className="min-w-0 flex-1">
+                                <Text className="text-[14.5px] font-semibold text-daf-text-primary dark:text-white">
+                                    Set as {selectedPlacePrimaryLocationLabel}
+                                </Text>
+                                <Text className="mt-0.5 text-[12.5px] font-normal text-daf-text-tertiary dark:text-neutral-400">
+                                    {primaryLocationTypeBeingSet ===
+                                    selectedPlacePrimaryLocationType
+                                        ? 'Save for one-tap directions'
+                                        : selectedPlacePrimaryLocationType ===
+                                            PRIMARY_LOCATION_HOME
+                                          ? 'Suggested for residential addresses'
+                                          : 'Suggested for businesses'}
+                                </Text>
+                            </View>
+                            {primaryLocationSaveIsLoading ? (
+                                <ActivityIndicator
+                                    color={searchPrimaryIconColor}
+                                    size="small"
+                                />
+                            ) : (
+                                <Icon
+                                    color="#828D9B"
+                                    name="chevron-right"
+                                    size={18}
+                                />
+                            )}
+                        </Pressable>
+                    ) : null}
+
+                    {primaryLocationSaveError ? (
+                        <Text
+                            accessibilityLiveRegion="polite"
+                            className="rounded-dafMd bg-red-50 px-3 py-3 text-sm font-medium leading-5 text-red-700 dark:bg-red-950/30 dark:text-red-200"
+                            selectable
+                            testID="selected-place-primary-location-error"
+                        >
+                            {primaryLocationSaveError}
+                        </Text>
+                    ) : null}
+
+                    <View className="flex-row gap-2">
+                        <DafButton
+                            accessibilityLabel="Get directions to this place"
+                            className="min-w-0 flex-1"
+                            disabled={
+                                selectedPlaceIsLoading ||
+                                !selectedPlaceDetails?.location
+                            }
+                            icon="navigation"
+                            onPress={handleGetDirectionsToSelectedPlace}
+                            testID="selected-place-get-directions-button"
+                        >
+                            Directions
+                        </DafButton>
+                        <DafIconButton
+                            accessibilityHint={
+                                selectedPlaceIsFavorite
+                                    ? 'Removes this place from favorites.'
+                                    : 'Adds this place to favorites.'
+                            }
+                            accessibilityLabel={
+                                selectedPlaceIsFavorite
+                                    ? 'Remove place from favorites'
+                                    : 'Add place to favorites'
+                            }
+                            color={
+                                selectedPlaceIsFavorite
+                                    ? dafSemanticColors.danger
+                                    : searchPrimaryIconColor
+                            }
+                            icon="heart"
+                            onPress={handleToggleSelectedPlaceFavorite}
+                            selected={selectedPlaceIsFavorite}
+                            tone="alert"
+                        />
+                    </View>
+                </NativeWindBottomSheetScrollView>
+            ) : null}
         </NativeWindBottomSheetModal>
     );
 }

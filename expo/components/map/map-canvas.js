@@ -493,6 +493,7 @@ export function renderMarkerPointLayers({
 
 export const MapCanvas = memo(function MapCanvas({
     children,
+    onLayout,
     weatherEffectsEnabled = true,
 } = {}) {
     const {
@@ -1134,6 +1135,7 @@ export const MapCanvas = memo(function MapCanvas({
 
     return (
         <NativeWindMapView
+            onLayout={onLayout}
             attributionEnabled={mapboxBrandingIsVisible}
             attributionPosition={mapboxAttributionPosition}
             className="flex-1"

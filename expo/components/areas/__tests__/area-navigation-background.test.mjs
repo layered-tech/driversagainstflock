@@ -46,6 +46,9 @@ for (const [scheme, background] of [
         });
         const { default: Layout } = load('../../../app/areas/_layout.js', {
             'react/jsx-runtime': require('react/jsx-runtime'),
+            '../../components/root/duo-pane-screen': {
+                DuoPaneScreen: 'DuoPaneScreen',
+            },
             'expo-router/stack': { Stack: 'Stack' },
             'expo-font': { useFonts: () => [true, null] },
             'react-native': {

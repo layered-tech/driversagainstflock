@@ -6,6 +6,29 @@ export function getDisplayedMapStyleURL({
     return contributePlacementIsActive ? contributionMapStyleURL : mapStyleURL;
 }
 
+export function refitDuoMapViewport({
+    duoDevice,
+    isDrivingMode,
+    selectedPlace,
+    selectedMarker,
+    routeBounds,
+    cameraPadding,
+    locationController,
+}) {
+    if (!duoDevice || isDrivingMode) return;
+    if (routeBounds) {
+        locationController.fitCameraToBounds(routeBounds, {
+            padding: cameraPadding,
+        });
+    } else if (selectedPlace?.location) {
+        locationController.moveCameraToPlace(selectedPlace);
+    } else if (selectedMarker?.geometry?.coordinates) {
+        locationController.moveCameraToCoordinate(
+            selectedMarker.geometry.coordinates,
+        );
+    }
+}
+
 export function fitRouteComparisonCamera({
     bounds,
     cameraPadding,

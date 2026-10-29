@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Platform } from 'react-native';
 import {
     DIRECTIONS_ROUTE_CAMERA_BOTTOM_GAP,
     DIRECTIONS_ROUTE_CAMERA_HORIZONTAL_PADDING,
@@ -12,7 +13,12 @@ import {
     SEARCH_RESULTS_CAMERA_TOP_GAP,
     SEARCH_RESULTS_SHEET_EXPANDED_COVERAGE_RATIO,
 } from './constants';
-import { mapUsesSideSheetLayout } from './responsive-map-layout';
+import {
+    getTabletPaneLayout,
+    mapUsesSideSheetLayout,
+} from './responsive-map-layout';
+import { useDuoDevice } from '../root/duo-device-context';
+import { getDuoPaneLayout } from './duo-bottom-sheet-layout';
 
 const CAMERA_FOCUS_SIDE_VISIBLE_WIDTH_RATIO = 0.5;
 const CAMERA_FOCUS_TOP_VIEWPORT_RATIO = 0.4;
@@ -129,7 +135,13 @@ export function useMapCameraPadding({
     windowHeight,
     windowWidth,
 }) {
-    const sideSheetLayoutIsActive = mapUsesSideSheetLayout(windowWidth);
+    const duo = useDuoDevice();
+    const tabletPane =
+        Platform?.isPad && getTabletPaneLayout(windowWidth, safeAreaInsets);
+    const pane =
+        tabletPane || (duo && getDuoPaneLayout(windowWidth, safeAreaInsets));
+    const sideSheetLayoutIsActive =
+        Boolean(pane) || mapUsesSideSheetLayout(windowWidth);
     const searchBarTopPadding =
         safeAreaInsets.top +
         MAP_SEARCH_TOP_OFFSET +
@@ -202,10 +214,31 @@ export function useMapCameraPadding({
         ],
     );
 
+    const tabletCameraPadding = useMemo(
+        () =>
+            tabletPane
+                ? [
+                      safeAreaInsets.top + 24,
+                      safeAreaInsets.right + 24,
+                      safeAreaInsets.bottom + 24,
+                      tabletPane.left + tabletPane.width + 24,
+                  ]
+                : null,
+        [
+            tabletPane?.left,
+            tabletPane?.width,
+            safeAreaInsets.top,
+            safeAreaInsets.right,
+            safeAreaInsets.bottom,
+        ],
+    );
+
     return {
-        cameraFocusPadding,
-        directionsRouteCameraPadding,
-        searchResultsCameraPadding,
+        cameraFocusPadding: tabletCameraPadding ?? cameraFocusPadding,
+        directionsRouteCameraPadding:
+            tabletCameraPadding ?? directionsRouteCameraPadding,
+        searchResultsCameraPadding:
+            tabletCameraPadding ?? searchResultsCameraPadding,
         sideSheetLayoutIsActive,
     };
 }

@@ -37,6 +37,7 @@ function findByTestID(tree, testID) {
 }
 
 function createDashboardHarness({
+    duo = false,
     focused = true,
     hydrated = true,
     state = createE2EScorecardFixture().state,
@@ -77,6 +78,7 @@ function createDashboardHarness({
         new URL('../scorecard-dashboard-screen.js', import.meta.url),
         {
             react: hooks.react,
+            '../root/duo-device-context': { useDuoDevice: () => duo },
             'expo-router': {
                 router: { push: (route) => routes.push(route) },
                 useIsFocused: () => screenIsFocused,
@@ -99,7 +101,8 @@ function createDashboardHarness({
                 dafSemanticColors: { brand: '#34D399' },
                 getDafTheme: () => ({
                     border: { strong: '#333' },
-                    text: { brand: '#34D399' },
+                    surface: { cardAlt: '#EFF2F5' },
+                    text: { brand: '#0F7D45' },
                 }),
             },
             '../tour-overlay': { TourOverlay: 'TourOverlay' },
@@ -134,6 +137,32 @@ function createDashboardHarness({
 }
 
 describe('scorecard first visit tour', () => {
+    test('Duo uses the primary design green for the score ring and roomier content padding', () => {
+        for (const duo of [false, true]) {
+            const tree = createDashboardHarness({ duo }).render();
+            const ring = allElements(
+                tree,
+                (node) => node.type?.name === 'PrivacyScoreRing',
+            )[0];
+            const circles = allElements(
+                ring.type(ring.props),
+                (node) => node.type === 'Circle',
+            );
+            assert.equal(circles[1].props.stroke, duo ? '#34D399' : '#0F7D45');
+            const overlay = allElements(
+                tree,
+                (node) => node.type === 'TourOverlay',
+            )[0];
+            const content = allElements(
+                tree,
+                (node) => node.props?.ref === overlay.props.contentRef,
+            )[0];
+            assert.ok(content, 'the tour measures the dashboard content');
+            const classes = content.props.className.split(/\s+/);
+            assert.ok(classes.includes('px-[16px]'));
+            assert.ok(classes.includes(duo ? 'py-[20px]' : 'py-[18px]'));
+        }
+    });
     test('replays a debug reset while the hydrated dashboard stays mounted', () => {
         const harness = createDashboardHarness({
             tourProgress: { status: 'skipped', dismissedSteps: [] },

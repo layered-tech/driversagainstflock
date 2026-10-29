@@ -24,6 +24,7 @@ const iosGoogleServicesFile =
         : './firebase-ios-production-config.plist');
 const nativeFirebasePlugins = [
     '@react-native-firebase/app',
+    './plugins/withFirebaseSceneBootstrap',
     '@react-native-firebase/crashlytics',
     './plugins/withCrashlyticsNativeSymbols',
     [
@@ -81,7 +82,7 @@ module.exports = {
     slug: 'driversagainstflock',
     scheme: 'driversagainstflock',
     version: require('./package.json').version,
-    orientation: 'portrait',
+    orientation: 'default',
     icon,
     userInterfaceStyle: 'automatic',
     splash: {
@@ -123,6 +124,8 @@ module.exports = {
         ['expo-notifications', { defaultChannel: 'area-changes' }],
         './plugins/withCocoaPodsHttp1',
         './plugins/withUniqueCocoaPodsUuids',
+        './plugins/withExpoSdk58Compat',
+        './plugins/withDuoMapToolbar',
         './plugins/withGradleJvmMemory',
         './plugins/withCanonicalReactNativeWorkletsPath',
         './plugins/withAndroidAuto',
@@ -203,6 +206,7 @@ module.exports = {
             },
         ],
         './plugins/withMapboxImageScale',
+        './plugins/withLocationChannelName',
         [
             'expo-location',
             {

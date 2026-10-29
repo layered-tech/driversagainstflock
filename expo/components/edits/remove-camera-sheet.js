@@ -1,6 +1,12 @@
 import { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Text, useColorScheme, useWindowDimensions, View } from 'react-native';
+import {
+    Platform,
+    Text,
+    useColorScheme,
+    useWindowDimensions,
+    View,
+} from 'react-native';
 import { useAuth } from '../../lib/auth';
 import { REMOVAL_REASONS } from '../../lib/osm/edit-tags';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
@@ -14,7 +20,7 @@ import {
 import { dafColors } from '../design-system/tokens';
 import {
     NativeWindBottomSheetModal,
-    NativeWindBottomSheetView,
+    NativeWindBottomSheetScrollView,
 } from '../map/native-components';
 
 function getRemoveSheetSubtitle(node) {
@@ -63,7 +69,7 @@ export function RemoveCameraSheet({ isOpen, node, onDismiss, onStaged }) {
                 {...backdropProps}
                 appearsOnIndex={0}
                 disappearsOnIndex={-1}
-                opacity={0.45}
+                opacity={Platform.isPad ? 0.28 : 0.45}
                 pressBehavior={isRemoving ? 'none' : 'close'}
             />
         ),
@@ -111,6 +117,7 @@ export function RemoveCameraSheet({ isOpen, node, onDismiss, onStaged }) {
     return (
         <NativeWindBottomSheetModal
             ref={sheetRef}
+            tabletPresentation="confirmation"
             backdropComponent={renderBackdrop}
             backgroundStyle={{
                 backgroundColor: isDarkMode ? '#161B22' : '#ffffff',
@@ -125,14 +132,14 @@ export function RemoveCameraSheet({ isOpen, node, onDismiss, onStaged }) {
             maxDynamicContentSize={windowHeight * 0.85}
             onDismiss={handleSheetDismiss}
         >
-            <NativeWindBottomSheetView
+            <NativeWindBottomSheetScrollView
                 className="bg-white dark:bg-daf-surface-dark"
+                contentContainerStyle={{
+                    paddingBottom: Math.max(insets.bottom + 12, 20),
+                }}
                 testID="remove-camera-sheet"
             >
-                <View
-                    className="gap-4 px-4 pt-1"
-                    style={{ paddingBottom: Math.max(insets.bottom + 12, 20) }}
-                >
+                <View className="gap-4 px-4 pt-1">
                     <View className="gap-1">
                         <Text
                             accessible
@@ -219,7 +226,7 @@ export function RemoveCameraSheet({ isOpen, node, onDismiss, onStaged }) {
                         </DafButton>
                     </View>
                 </View>
-            </NativeWindBottomSheetView>
+            </NativeWindBottomSheetScrollView>
         </NativeWindBottomSheetModal>
     );
 }

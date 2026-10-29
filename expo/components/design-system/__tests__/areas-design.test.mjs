@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
+import { loadTourModule } from '../../map/__tests__/tour-test-helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { parse } = require('@babel/parser');
@@ -167,30 +168,61 @@ for (const [classes, family] of [
     });
 }
 
-test('Area sheets fit their content, cap scrolling and keep 22px rounded top corners', () => {
-    const ast = parse(sources[0], { sourceType: 'module', plugins: ['jsx'] });
-    const sheet = nodes(
-        ast,
-        (node) =>
-            node.type === 'FunctionDeclaration' &&
-            node.id?.name === 'AreaSheet',
-    )[0];
-    const elements = nodes(sheet, (node) => node.type === 'JSXOpeningElement');
-    const classFor = (name) =>
-        elements
-            .find((node) => node.name.name === name)
-            ?.attributes.find((attr) => attr.name?.name === 'className')?.value
-            .value;
-    const sheetStyle = styleFor(classFor('View'));
-    assert.equal(sheetStyle.borderTopLeftRadius, 22);
-    assert.equal(sheetStyle.borderTopRightRadius, 22);
-    assert.equal(sheetStyle.maxHeight, '75%');
-    assert.equal(sheetStyle.overflow, 'hidden');
-    assert.equal(styleFor(classFor('ScrollView')).flexGrow, 0);
+test('Area sheets fit content, cap scrolling and use the reference corners for each Duo size', () => {
+    let width = 466;
+    const { AreaSheet } = loadTourModule(
+        new URL('../../areas/area-ui.js', import.meta.url),
+        {
+            'react-native': {
+                View: 'View',
+                ScrollView: 'ScrollView',
+                useWindowDimensions: () => ({ width, height: 678 }),
+            },
+            'expo-router': { router: {} },
+            '../../lib/safe-area-insets': {
+                useSafeAreaInsets: () => ({
+                    left: 0,
+                    right: 84,
+                    top: 0,
+                    bottom: 16,
+                }),
+            },
+            '../root/native-navigation': {
+                NativeNavigationAction: 'NativeAction',
+                useDuoRailEdge: () => 'trailing',
+            },
+            '../root/duo-device-context': { useDuoDevice: () => true },
+            '../design-system/icon': { Icon: 'Icon' },
+            '../design-system/primitives': { DafButton: 'Button' },
+            './area-typography': { areaTextClassName },
+        },
+    );
+    for (const nextWidth of [466, 982]) {
+        width = nextWidth;
+        const sheet = AreaSheet({ title: 'Add an area' });
+        const sheetStyle = styleFor(sheet.props.className);
+        assert.equal(
+            sheetStyle.borderTopLeftRadius ?? sheetStyle.borderRadius,
+            24,
+        );
+        assert.equal(
+            sheetStyle.borderTopRightRadius ?? sheetStyle.borderRadius,
+            24,
+        );
+        assert.equal(sheet.props.style.bottom, width === 466 ? 0 : undefined);
+        assert.equal(sheetStyle.maxHeight, '75%');
+        assert.equal(sheetStyle.overflow, 'hidden');
+        assert.equal(
+            styleFor(sheet.props.children.props.className).flexGrow,
+            0,
+        );
+        assert.equal(sheet.props.style.marginRight, width === 466 ? 84 : 545);
+        assert.equal(sheet.props.style.maxHeight, width === 466 ? '66%' : 650);
+    }
     for (const screen of sources.slice(1, 3)) {
         assert.ok(
             screen.includes('-mb-[22px]'),
-            'Map continues behind the sheet corners',
+            'Ordinary phone maps continue behind sheet corners',
         );
         assert.ok(screen.includes('<AreaSheet'));
     }

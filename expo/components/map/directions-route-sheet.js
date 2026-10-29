@@ -1,6 +1,6 @@
-import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { DuoText as Text } from '../design-system/duo-typography';
 import { useEffect } from 'react';
-import { Text, View } from 'react-native';
+import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
 import { getAvoidableRouteCameraCount } from '../scorecard/scorecard-engine';
@@ -16,12 +16,14 @@ import {
 import { useDirectionsRouteContext } from './map-screen-context';
 import {
     NativeWindBottomSheetModal,
-    NativeWindBottomSheetView,
+    NativeWindBottomSheetScrollView,
 } from './native-components';
 import { RouteOptionCard } from './route-option-card';
 import { useBottomSheetPresentedState } from './use-bottom-sheet-presented-state';
 
 export function DirectionsRouteSheet() {
+    const { width } = useWindowDimensions();
+    const tablet = Platform?.isPad && width >= 768;
     const {
         bottomSheetBackgroundStyle,
         bottomSheetHandleIndicatorStyle,
@@ -33,6 +35,7 @@ export function DirectionsRouteSheet() {
         directionsRouteSheetTrackingHandlers,
         directionsRouteError,
         directionsRouteIsLoading,
+        handleDirectionsModeDismiss,
         handleDirectionsAdvancedSettingsApply,
         handleDirectionsRouteSelect,
         handleRouteExportPress,
@@ -126,6 +129,7 @@ export function DirectionsRouteSheet() {
 
     return (
         <NativeWindBottomSheetModal
+            nativeCloseAction={false}
             ref={directionsRouteSheetRef}
             accessible={false}
             index={0}
@@ -143,25 +147,24 @@ export function DirectionsRouteSheet() {
             onChange={handleBottomSheetChange}
             onDismiss={handleBottomSheetDismiss}
         >
-            <NativeWindBottomSheetView
-                className="bg-white dark:bg-daf-surface-dark"
-                testID={
-                    bottomSheetIsPresented
-                        ? 'directions-route-sheet-presented'
-                        : undefined
-                }
-            >
-                {directionsRoute ? (
-                    <BottomSheetScrollView
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{
-                            gap: contentGap,
-                            paddingBottom: bottomContentPadding,
-                            paddingHorizontal: 16,
-                            paddingTop: topContentPadding,
-                        }}
-                    >
-                        <View className="gap-1">
+            {directionsRoute ? (
+                <NativeWindBottomSheetScrollView
+                    className="bg-white dark:bg-daf-surface-dark"
+                    testID={
+                        bottomSheetIsPresented
+                            ? 'directions-route-sheet-presented'
+                            : undefined
+                    }
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{
+                        gap: contentGap,
+                        paddingBottom: bottomContentPadding,
+                        paddingHorizontal: 16,
+                        paddingTop: topContentPadding,
+                    }}
+                >
+                    <View className="flex-row items-start gap-3">
+                        <View className="min-w-0 flex-1 gap-1">
                             <Text className="font-dafDisplay text-[21px] font-bold text-daf-text-primary dark:text-white">
                                 Choose your route
                             </Text>
@@ -169,81 +172,88 @@ export function DirectionsRouteSheet() {
                                 {routeSubtitle}
                             </Text>
                         </View>
-
-                        {routeOptions.length > 0 ? (
-                            <View className="gap-2">
-                                <View className="gap-2">
-                                    {routeOptions.map((routeOption) => (
-                                        <RouteOptionCard
-                                            key={routeOption.routeKey}
-                                            directRoute={directRoute}
-                                            fastestRouteNodeCount={
-                                                directionsRoute?.fastestRouteNodeCount ??
-                                                0
-                                            }
-                                            onPress={() =>
-                                                handleDirectionsRouteSelect(
-                                                    routeOption.routeKey,
-                                                )
-                                            }
-                                            routeOption={routeOption}
-                                            selected={
-                                                routeOption.routeKey ===
-                                                selectedRouteKey
-                                            }
-                                        />
-                                    ))}
-                                </View>
-                            </View>
-                        ) : null}
-
-                        <AdvancedRouteSettings
-                            settings={appliedAdvancedSettings}
-                            onApply={handleDirectionsAdvancedSettingsApply}
-                            loading={directionsRouteIsLoading}
-                            error={directionsRouteError}
-                        />
-
-                        <View className="flex-row items-center gap-2">
-                            <Icon
-                                color="#FFB02E"
-                                name="triangle-alert"
-                                size={15}
-                            />
-                            <Text className="min-w-0 flex-1 text-xs font-medium text-daf-text-secondary dark:text-neutral-300">
-                                Private adds{' '}
-                                <Text className="font-bold text-daf-text-primary dark:text-white">
-                                    {privateAddsDuration || 'a few minutes'}
-                                </Text>{' '}
-                                to skip {skippedCameraCount} monitored points
-                            </Text>
-                        </View>
-
-                        {routeExportIsAvailable ? (
-                            <DafButton
-                                accessibilityLabel="Export route as GPX or KML text"
-                                icon="download"
-                                onPress={handleRouteExportPress}
-                                testID="directions-route-export-button"
-                                variant="secondary"
+                        {tablet ? (
+                            <Pressable
+                                accessibilityLabel="Back from route choices"
+                                accessibilityRole="button"
+                                className="h-10 w-10 items-center justify-center rounded-dafPill bg-daf-surface-alt active:opacity-70 dark:bg-daf-surface-inverse"
+                                onPress={handleDirectionsModeDismiss}
+                                testID="tablet-route-choices-close-button"
                             >
-                                Export route
-                            </DafButton>
+                                <Icon name="x" size={20} />
+                            </Pressable>
                         ) : null}
+                    </View>
 
+                    {routeOptions.length > 0 ? (
+                        <View className="gap-2">
+                            <View className="gap-2">
+                                {routeOptions.map((routeOption) => (
+                                    <RouteOptionCard
+                                        key={routeOption.routeKey}
+                                        directRoute={directRoute}
+                                        fastestRouteNodeCount={
+                                            directionsRoute?.fastestRouteNodeCount ??
+                                            0
+                                        }
+                                        onPress={() =>
+                                            handleDirectionsRouteSelect(
+                                                routeOption.routeKey,
+                                            )
+                                        }
+                                        routeOption={routeOption}
+                                        selected={
+                                            routeOption.routeKey ===
+                                            selectedRouteKey
+                                        }
+                                    />
+                                ))}
+                            </View>
+                        </View>
+                    ) : null}
+
+                    <AdvancedRouteSettings
+                        settings={appliedAdvancedSettings}
+                        onApply={handleDirectionsAdvancedSettingsApply}
+                        loading={directionsRouteIsLoading}
+                        error={directionsRouteError}
+                    />
+
+                    <View className="flex-row items-center gap-2">
+                        <Icon color="#FFB02E" name="triangle-alert" size={15} />
+                        <Text className="min-w-0 flex-1 text-xs font-medium text-daf-text-secondary dark:text-neutral-300">
+                            Private adds{' '}
+                            <Text className="font-bold text-daf-text-primary dark:text-white">
+                                {privateAddsDuration || 'a few minutes'}
+                            </Text>{' '}
+                            to skip {skippedCameraCount} monitored points
+                        </Text>
+                    </View>
+
+                    {routeExportIsAvailable ? (
                         <DafButton
-                            accessibilityLabel="Start driving"
-                            disabled={directionsRouteIsLoading}
-                            icon="navigation"
-                            onPress={handleStartDriving}
-                            size="lg"
-                            testID="directions-route-start-driving-button"
+                            accessibilityLabel="Export route as GPX or KML text"
+                            icon="download"
+                            onPress={handleRouteExportPress}
+                            testID="directions-route-export-button"
+                            variant="secondary"
                         >
-                            Start drive
+                            Export route
                         </DafButton>
-                    </BottomSheetScrollView>
-                ) : null}
-            </NativeWindBottomSheetView>
+                    ) : null}
+
+                    <DafButton
+                        accessibilityLabel="Start driving"
+                        disabled={directionsRouteIsLoading}
+                        icon="navigation"
+                        onPress={handleStartDriving}
+                        size="lg"
+                        testID="directions-route-start-driving-button"
+                    >
+                        Start drive
+                    </DafButton>
+                </NativeWindBottomSheetScrollView>
+            ) : null}
         </NativeWindBottomSheetModal>
     );
 }

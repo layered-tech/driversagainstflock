@@ -574,7 +574,7 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(indexSource, /map\/road-matching-session/);
         assert.equal(
-            packageJson.dependencies['expo-task-manager']?.startsWith('~57.'),
+            packageJson.dependencies['expo-task-manager']?.startsWith('~58.'),
             true,
         );
         assert.match(roadMatchingSessionSource, /createRoadMatcher/);
@@ -686,7 +686,7 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(
             roadMatchingSessionSource,
-            /if \(Platform\.OS !== 'ios'\) \{\s*return true;\s*\}/,
+            /if \(Platform\.OS !== 'ios' \|\| automotiveLocationOwnerIsActive\(\)\) \{\s*return true;\s*\}/,
         );
         assert.match(roadMatchingSessionSource, /Platform\.OS === 'android'/);
         assert.match(roadMatchingSessionSource, /foregroundService:/);

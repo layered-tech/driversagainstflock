@@ -1,8 +1,9 @@
+import { DuoText as Text } from '../design-system/duo-typography';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+    Platform,
     Pressable,
     Switch,
-    Text,
     useWindowDimensions,
     View,
 } from 'react-native';
@@ -63,6 +64,9 @@ export function MapLayerButton() {
 
     return (
         <MapControlButton
+            nativeGroup="map"
+            nativeOrder={0}
+            nativeVisibilityPriority="low"
             accessibilityHint="Opens map layer options."
             accessibilityLabel={mapLayerAccessibilityLabel}
             accessibilityRole="button"
@@ -85,7 +89,8 @@ export function MapLayerSheet() {
     const tourTargets = useRef({});
     const tourScrollRef = useRef(null);
     const tourContentRef = useRef(null);
-    const { height: windowHeight } = useWindowDimensions();
+    const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+    const tablet = Platform?.isPad === true && windowWidth >= 768;
     const [mapSettingsSheetIsPresented, setMapSettingsSheetIsPresented] =
         useState(false);
     const mapSettingsSheetSnapPoints = useMemo(
@@ -174,11 +179,39 @@ export function MapLayerSheet() {
         setMapTrafficEnabled(false);
         setPoliceAlertsVisible(false);
     };
+    const heading = (
+        <View
+            className={
+                tablet ? 'flex-row items-start gap-2 px-4 pb-2 pt-3.5' : 'gap-1'
+            }
+        >
+            <View className={tablet ? 'min-w-0 flex-1 gap-1 pt-1' : 'gap-1'}>
+                <Text className="font-dafDisplay text-[21px] font-bold text-daf-text-primary dark:text-white">
+                    Map settings
+                </Text>
+                <Text className="text-[13px] font-normal text-daf-text-secondary dark:text-neutral-300">
+                    Customize what you see
+                </Text>
+            </View>
+            {tablet ? (
+                <Pressable
+                    accessibilityLabel="Close map settings"
+                    accessibilityRole="button"
+                    className="h-11 w-11 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
+                    onPress={() => layerSheetRef.current?.dismiss()}
+                    testID="map-settings-close-button"
+                >
+                    <Icon color="#828D9B" name="x" size={20} />
+                </Pressable>
+            ) : null}
+        </View>
+    );
 
     return (
         <NativeWindBottomSheetModal
             ref={layerSheetRef}
             accessible={false}
+            nativeCloseAction={!tablet}
             enableDynamicSizing={false}
             snapPoints={mapSettingsSheetSnapPoints}
             enablePanDownToClose
@@ -189,12 +222,13 @@ export function MapLayerSheet() {
             onChange={handleMapSettingsSheetChange}
             onDismiss={handleMapSettingsSheetDismiss}
         >
+            {tablet ? heading : null}
             <NativeWindBottomSheetScrollView
                 ref={tourScrollRef}
                 className="bg-white dark:bg-daf-surface-dark"
                 contentContainerStyle={{
-                    paddingBottom: insets.bottom + 16,
-                    paddingHorizontal: 24,
+                    paddingBottom: tablet ? 24 : insets.bottom + 16,
+                    paddingHorizontal: tablet ? 16 : 24,
                 }}
                 showsVerticalScrollIndicator={false}
                 testID={
@@ -208,14 +242,7 @@ export function MapLayerSheet() {
                     collapsable={false}
                     className="gap-[16px]"
                 >
-                    <View className="gap-1">
-                        <Text className="font-dafDisplay text-[21px] font-bold text-daf-text-primary dark:text-white">
-                            Map settings
-                        </Text>
-                        <Text className="text-[13px] font-normal text-daf-text-secondary dark:text-neutral-300">
-                            Customize what you see
-                        </Text>
-                    </View>
+                    {!tablet ? heading : null}
 
                     <View className="gap-0.5">
                         <SettingSwitchRow
@@ -278,7 +305,7 @@ export function MapLayerSheet() {
                                     accessibilityState={{
                                         selected: isSelected,
                                     }}
-                                    className={`min-h-[104px] flex-row items-center gap-3 rounded-dafMd border p-2 active:opacity-[0.82] ${
+                                    className={`${tablet ? 'min-h-[80px] rounded-dafLg p-3' : 'min-h-[104px] rounded-dafMd p-2'} flex-row items-center gap-3 border active:opacity-[0.82] ${
                                         isSelected
                                             ? 'border-daf-brand bg-daf-brand/10 dark:border-daf-brand dark:bg-daf-brand/15'
                                             : 'border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark'
@@ -288,7 +315,9 @@ export function MapLayerSheet() {
                                     }
                                     testID={`map-layer-option-${mapLayer.key}`}
                                 >
-                                    <View className="h-[84px] w-32 overflow-hidden rounded-dafSm border border-daf-border bg-daf-surface-alt dark:border-daf-border-dark dark:bg-daf-surface-inverse">
+                                    <View
+                                        className={`${tablet ? 'h-14 w-14' : 'h-[84px] w-32'} overflow-hidden rounded-dafSm border border-daf-border bg-daf-surface-alt dark:border-daf-border-dark dark:bg-daf-surface-inverse`}
+                                    >
                                         <MapLayerPreview mapLayer={mapLayer} />
                                     </View>
 

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+import { createRequire } from 'node:module';
 import {
     HELP_AND_LEGAL_DRAWER_ITEMS,
     PRIMARY_DRAWER_ITEMS,
@@ -170,4 +171,42 @@ describe('Mobile help and legal design', () => {
         assert.doesNotMatch(aboutLegalScreenSource, /Open-source licenses/);
         assert.doesNotMatch(aboutLegalScreenSource, /Linking/);
     });
+});
+
+test('header backgrounds escape horizontal safe-area gutters while content retains padding', () => {
+    const require = createRequire(import.meta.url);
+    const { parse } = require('@babel/parser');
+    const hotlist = readFileSync(
+        new URL('../../hotlist-screen.js', import.meta.url),
+        'utf8',
+    );
+    for (const [source, bandClasses] of [
+        [hotlist, ['bg-white']],
+        [faqScreenSource, ['bg-white']],
+        [legalScreenSource, ['bg-white', 'bg-daf-surface-alt']],
+    ]) {
+        const bands = [];
+        function visit(node) {
+            if (!node || typeof node !== 'object') return;
+            if (
+                node.type === 'JSXOpeningElement' &&
+                node.name.name === 'FullWidthSafeAreaBand'
+            ) {
+                bands.push(
+                    node.attributes.find(
+                        (attribute) => attribute.name?.name === 'className',
+                    )?.value?.value ?? '',
+                );
+            }
+            for (const value of Object.values(node)) {
+                if (Array.isArray(value)) value.forEach(visit);
+                else if (value && typeof value === 'object') visit(value);
+            }
+        }
+        visit(parse(source, { sourceType: 'module', plugins: ['jsx'] }));
+        for (const className of bandClasses)
+            assert.ok(
+                bands.some((classes) => classes.split(' ').includes(className)),
+            );
+    }
 });

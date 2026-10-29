@@ -6,11 +6,30 @@ import { test } from 'node:test';
 
 const require = createRequire(import.meta.url);
 
+test('the repository EAS archive regenerates native projects for the installed SDK', () => {
+    const ignore = require('ignore')().add(
+        readFileSync(new URL('../../../.easignore', import.meta.url), 'utf8'),
+    );
+    assert.equal(
+        ignore.ignores('expo/ios/App.xcodeproj/project.pbxproj'),
+        true,
+    );
+    assert.equal(ignore.ignores('expo/android/app/build.gradle'), true);
+    assert.equal(ignore.ignores('expo/plugins/withCarPlayAutoPlay.js'), false);
+});
+
 test('navigation query parsing decodes Unicode and handles malformed input', () => {
-    const queryString = require('query-string');
+    const {
+        parseQueryParams,
+    } = require('expo-router/build/fork/getStateFromPath-forks');
 
     assert.deepEqual(
-        { ...queryString.parse('name=%E2%9C%93&broken=%C2&repeat=a&repeat=b') },
+        {
+            ...parseQueryParams(
+                '/?name=%E2%9C%93&broken=%C2&repeat=a&repeat=b',
+                {},
+            ),
+        },
         { name: '✓', broken: '�', repeat: ['a', 'b'] },
     );
 });
@@ -18,7 +37,10 @@ test('navigation query parsing decodes Unicode and handles malformed input', () 
 test('navigation query parsing handles long malformed percent sequences', () => {
     const result = require('node:child_process').spawnSync(
         process.execPath,
-        ['-e', "require('query-string').parse('value=' + '%C2'.repeat(20000))"],
+        [
+            '-e',
+            "require('expo-router/build/fork/getStateFromPath-forks').parseQueryParams('/?value=' + '%C2'.repeat(20000), {})",
+        ],
         { cwd: new URL('../..', import.meta.url), timeout: 3000 },
     );
 

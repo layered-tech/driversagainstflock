@@ -1,10 +1,12 @@
+import { FullWidthSafeAreaBand } from '../root/native-navigation';
+import { useDuoPaneContentSize } from '../root/duo-pane-content-size';
+import { DuoText as Text } from '../design-system/duo-typography';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
     Pressable,
     ScrollView,
     Switch,
-    Text,
     useColorScheme,
     View,
 } from 'react-native';
@@ -127,7 +129,7 @@ function StandardEventRow({ event }) {
         <Pressable
             accessibilityLabel={`${event.label}, ${eventSummary}`}
             accessibilityRole="button"
-            className="dark:border-daf-border-dark dark:bg-daf-surface-dark flex-row items-center gap-3 rounded-dafMd border border-daf-border bg-white px-[13px] py-3 active:opacity-70"
+            className="flex-row items-center gap-3 rounded-dafMd border border-daf-border bg-white px-[13px] py-3 active:opacity-70 dark:border-daf-border-dark dark:bg-daf-surface-dark"
             onPress={() =>
                 router.push({
                     params: { eventId: event.id },
@@ -191,7 +193,7 @@ function OperatorEventRow({ event }) {
                     {formatOperatorTimestamp(event.occurredAt)}
                 </Text>
                 <Text
-                    className="font-dafMono ml-auto text-[11px] text-[#828D9B]"
+                    className="ml-auto font-dafMono text-[11px] text-[#828D9B]"
                     numberOfLines={1}
                 >
                     {event.osmId ? `OSM ${event.osmId}` : 'NO OSM ID'}
@@ -200,7 +202,7 @@ function OperatorEventRow({ event }) {
             <Text className="font-dafMono text-[12px] font-semibold uppercase text-white">
                 {event.label}
             </Text>
-            <Text className="font-dafMono mt-1 text-[11px] leading-[16px] text-[#A9B2BD]">
+            <Text className="mt-1 font-dafMono text-[11px] leading-[16px] text-[#A9B2BD]">
                 {event.certainty === 'confirmed'
                     ? 'LOCAL MATCH: DIRECTIONAL CONE CROSSED'
                     : 'LOCAL MATCH: DIRECTION UNKNOWN · POSSIBLE ONLY'}
@@ -224,7 +226,7 @@ function DriveTrailButton({ driveId, operatorView }) {
             className={`min-h-hitComfy flex-row items-center justify-center gap-2 rounded-dafPill border px-[18px] active:opacity-75 ${
                 operatorView
                     ? 'border-[#3A434E] bg-[#11151B]'
-                    : 'dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95 border-daf-border-glass bg-white/95'
+                    : 'border-daf-border-glass bg-white/95 dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/95'
             }`}
             onPress={() =>
                 router.push({
@@ -258,6 +260,7 @@ function DriveTrailButton({ driveId, operatorView }) {
 }
 
 export default function ScorecardTimelineScreen() {
+    const sizing = useDuoPaneContentSize({ footer: false });
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
     const theme = getDafTheme(colorScheme);
@@ -279,80 +282,85 @@ export default function ScorecardTimelineScreen() {
             }`}
             testID="scorecard-timeline"
         >
-            <ScorecardScreenHeader
-                back
-                backRoute="index"
-                operatorView={operatorView}
-                subtitle={
-                    operatorView
-                        ? `OPERATOR VIEW · ${windowStats.confirmedReadCount} CONFIRMED · 30 DAYS`
-                        : `${windowStats.confirmedReadCount} confirmed · ${windowStats.possibleReadCount} possible · ${windowStats.avoidedCameraCount} avoided`
-                }
-                title="Exposure timeline"
-            />
-            <View
-                className={`flex-row items-center gap-3 border-b px-4 py-3 ${
-                    operatorView
-                        ? 'border-[#262E37] bg-[#161B22]'
-                        : 'dark:border-daf-border-dark dark:bg-daf-surface-dark border-daf-border bg-white'
-                }`}
-            >
-                <View
-                    className={`h-[34px] w-[34px] items-center justify-center rounded-dafSm ${
+            <View onLayout={sizing.onHeaderLayout}>
+                <ScorecardScreenHeader
+                    back
+                    backRoute="index"
+                    operatorView={operatorView}
+                    subtitle={
                         operatorView
-                            ? 'bg-daf-alert/15'
-                            : 'bg-daf-surface-alt dark:bg-daf-surface-inverse'
+                            ? `OPERATOR VIEW · ${windowStats.confirmedReadCount} CONFIRMED · 30 DAYS`
+                            : `${windowStats.confirmedReadCount} confirmed · ${windowStats.possibleReadCount} possible · ${windowStats.avoidedCameraCount} avoided`
+                    }
+                    title="Exposure timeline"
+                />
+                <FullWidthSafeAreaBand
+                    gutter={16}
+                    testID="scorecard-operator-header"
+                    className={`flex-row items-center gap-3 border-b py-3 ${
+                        operatorView
+                            ? 'border-[#262E37] bg-[#161B22]'
+                            : 'border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark'
                     }`}
                 >
-                    <Icon
-                        color={
+                    <View
+                        className={`h-[34px] w-[34px] items-center justify-center rounded-dafSm ${
                             operatorView
-                                ? dafSemanticColors.danger
-                                : dafSemanticColors.speedOk
-                        }
-                        name="eye"
-                        size={18}
+                                ? 'bg-daf-alert/15'
+                                : 'bg-daf-surface-alt dark:bg-daf-surface-inverse'
+                        }`}
+                    >
+                        <Icon
+                            color={
+                                operatorView
+                                    ? dafSemanticColors.danger
+                                    : dafSemanticColors.speedOk
+                            }
+                            name="eye"
+                            size={18}
+                        />
+                    </View>
+                    <View className="min-w-0 flex-1">
+                        <Text
+                            className={`text-[14.5px] font-semibold ${
+                                operatorView
+                                    ? 'text-white'
+                                    : 'text-daf-text-primary dark:text-white'
+                            }`}
+                        >
+                            See it like they do
+                        </Text>
+                        <Text
+                            className={`text-xs ${
+                                operatorView
+                                    ? 'text-[#828D9B]'
+                                    : 'text-daf-text-tertiary dark:text-neutral-400'
+                            }`}
+                        >
+                            A truthful local simulation—no invented plate data
+                        </Text>
+                    </View>
+                    <Switch
+                        accessibilityLabel="See exposures in operator style"
+                        onValueChange={setOperatorView}
+                        trackColor={{
+                            false: theme.border.strong,
+                            true: dafSemanticColors.danger,
+                        }}
+                        value={operatorView}
+                        testID="scorecard-operator-view-toggle"
                     />
-                </View>
-                <View className="min-w-0 flex-1">
-                    <Text
-                        className={`text-[14.5px] font-semibold ${
-                            operatorView
-                                ? 'text-white'
-                                : 'text-daf-text-primary dark:text-white'
-                        }`}
-                    >
-                        See it like they do
-                    </Text>
-                    <Text
-                        className={`text-xs ${
-                            operatorView
-                                ? 'text-[#828D9B]'
-                                : 'text-daf-text-tertiary dark:text-neutral-400'
-                        }`}
-                    >
-                        A truthful local simulation—no invented plate data
-                    </Text>
-                </View>
-                <Switch
-                    accessibilityLabel="See exposures in operator style"
-                    onValueChange={setOperatorView}
-                    trackColor={{
-                        false: theme.border.strong,
-                        true: dafSemanticColors.danger,
-                    }}
-                    value={operatorView}
-                    testID="scorecard-operator-view-toggle"
-                />
+                </FullWidthSafeAreaBand>
             </View>
 
             <ScrollView
+                onContentSizeChange={sizing.onContentSizeChange}
                 className="flex-1"
                 contentContainerStyle={{ paddingBottom: bottomPadding }}
             >
                 <View className="gap-3 px-4 py-3">
                     {operatorView ? (
-                        <View className="border-daf-alert/35 bg-daf-alert/10 flex-row items-start gap-2 rounded-dafMd border px-3 py-2.5">
+                        <View className="flex-row items-start gap-2 rounded-dafMd border border-daf-alert/35 bg-daf-alert/10 px-3 py-2.5">
                             <Icon
                                 color={dafSemanticColors.danger}
                                 name="triangle-alert"
@@ -372,7 +380,7 @@ export default function ScorecardTimelineScreen() {
                             className={`rounded-dafLg border px-5 py-10 ${
                                 operatorView
                                     ? 'border-[#262E37] bg-[#161B22]'
-                                    : 'dark:border-daf-border-dark dark:bg-daf-surface-dark border-daf-border bg-white'
+                                    : 'border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark'
                             }`}
                         >
                             <Icon
@@ -420,7 +428,7 @@ export default function ScorecardTimelineScreen() {
                                         {dayGroup.day}
                                     </Text>
                                     <Text
-                                        className={`font-dafMono ml-auto text-[11px] ${
+                                        className={`ml-auto font-dafMono text-[11px] ${
                                             operatorView
                                                 ? 'text-[#828D9B]'
                                                 : 'text-daf-text-tertiary dark:text-neutral-400'
@@ -438,7 +446,7 @@ export default function ScorecardTimelineScreen() {
                                             className={`overflow-hidden rounded-dafLg border ${
                                                 operatorView
                                                     ? 'border-[#262E37] bg-[#11151B]'
-                                                    : 'dark:border-daf-border-dark border-daf-border bg-daf-surface-alt dark:bg-daf-surface-inverse'
+                                                    : 'border-daf-border bg-daf-surface-alt dark:border-daf-border-dark dark:bg-daf-surface-inverse'
                                             }`}
                                             key={driveGroup.driveId}
                                             testID={`scorecard-drive-group-${driveGroup.driveId}`}
@@ -447,7 +455,7 @@ export default function ScorecardTimelineScreen() {
                                                 className={`gap-1 border-b px-3.5 py-3 ${
                                                     operatorView
                                                         ? 'border-[#262E37]'
-                                                        : 'dark:border-daf-border-dark border-daf-border'
+                                                        : 'border-daf-border dark:border-daf-border-dark'
                                                 }`}
                                             >
                                                 <View className="flex-row items-baseline gap-3">
@@ -507,7 +515,7 @@ export default function ScorecardTimelineScreen() {
                                                 className={`border-t p-2.5 ${
                                                     operatorView
                                                         ? 'border-[#262E37]'
-                                                        : 'dark:border-daf-border-dark border-daf-border'
+                                                        : 'border-daf-border dark:border-daf-border-dark'
                                                 }`}
                                             >
                                                 <DriveTrailButton

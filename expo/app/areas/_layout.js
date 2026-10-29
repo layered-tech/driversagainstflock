@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router/stack';
+import { DuoPaneScreen } from '../../components/root/duo-pane-screen';
 import { useFonts } from 'expo-font';
 import { ActivityIndicator, useColorScheme, View } from 'react-native';
 import { getDafTheme } from '../../components/design-system/tokens';
@@ -14,6 +15,16 @@ const AREA_FONTS = {
     'JetBrainsMono-Bold': require('../../assets/fonts/JetBrainsMono-Bold.ttf'),
 };
 
+function screenLayout({ children, route }) {
+    return ['index', '[areaId]/index', '[areaId]/alerts'].includes(
+        route.name,
+    ) ? (
+        <DuoPaneScreen>{children}</DuoPaneScreen>
+    ) : (
+        children
+    );
+}
+
 export default function AreasLayout() {
     const theme = getDafTheme(useColorScheme());
     const [fontsLoaded, fontError] = useFonts(AREA_FONTS);
@@ -23,6 +34,7 @@ export default function AreasLayout() {
                 <ActivityIndicator className="flex-1" color="#1FBF6B" />
             ) : (
                 <Stack
+                    screenLayout={screenLayout}
                     screenOptions={{
                         headerShown: false,
                         contentStyle: { backgroundColor: theme.surface.page },

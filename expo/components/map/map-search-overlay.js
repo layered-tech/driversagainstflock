@@ -1,9 +1,16 @@
 import {
+    DuoText as Text,
+    DuoTextInput as TextInput,
+} from '../design-system/duo-typography';
+import { NativeNavigationAction } from '../root/native-navigation';
+import { useDuoDevice } from '../root/duo-device-context';
+import { getDuoPaneLayout } from './duo-bottom-sheet-layout';
+import { getTabletPaneLayout } from './responsive-map-layout';
+import {
     ActivityIndicator,
+    Platform,
     Pressable,
     ScrollView,
-    Text,
-    TextInput,
     useWindowDimensions,
     View,
 } from 'react-native';
@@ -19,6 +26,7 @@ import {
     DIRECTIONS_MODE_DIRECTIONS,
 } from './directions';
 import { DirectionsField } from './directions-field';
+import { getDuoRailIcon } from './duo-rail-icons';
 import { MAP_OVERLAY_LAYOUT_ANIMATION } from './layout-animations';
 import { useMapSearchContext } from './map-screen-context';
 import { SearchGlassShell } from './search-glass-shell';
@@ -27,7 +35,8 @@ export function MapSearchOverlay({
     mapControls = null,
     showDestinationCategories = true,
 }) {
-    const { height: windowHeight } = useWindowDimensions();
+    const { height: windowHeight, width } = useWindowDimensions();
+    const duo = useDuoDevice();
     const {
         advancedRouteSettings,
         setAdvancedRouteSettings,
@@ -92,6 +101,8 @@ export function MapSearchOverlay({
         voiceSearchIconColor,
         voiceSearchIsListening,
     } = useMapSearchContext();
+    const tabletPane = Platform?.isPad && getTabletPaneLayout(width, insets);
+    const pane = tabletPane || (duo && getDuoPaneLayout(width, insets));
     const searchModeIsDirections = searchMode === DIRECTIONS_MODE_DIRECTIONS;
     const fullScreenSearchIsVisible = searchModeIsDirections
         ? directionsSearchPageIsVisible
@@ -132,11 +143,26 @@ export function MapSearchOverlay({
         return null;
     }
 
+    const directionsSubmitButton = (
+        <DafButton
+            accessibilityLabel="Get directions on the map"
+            disabled={!directionsRouteCanSubmit}
+            icon="navigation"
+            loading={directionsRouteIsLoading}
+            onPress={handleDirectionsSubmit}
+            size="lg"
+            testID={`map-directions-submit-button-${searchSource}`}
+        >
+            Get directions
+        </DafButton>
+    );
+
     return (
         <>
             {!fullScreenSearchIsVisible ? (
                 <Animated.View
                     className="z-50"
+                    style={pane ? { width: pane.width } : undefined}
                     layout={MAP_OVERLAY_LAYOUT_ANIMATION}
                     pointerEvents="box-none"
                 >
@@ -161,19 +187,27 @@ export function MapSearchOverlay({
                                 }}
                             >
                                 <View className="mb-[14px] flex-row items-center gap-2.5">
-                                    <Pressable
-                                        accessibilityLabel="Close directions mode"
-                                        accessibilityRole="button"
-                                        className="h-10 w-10 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
-                                        onPress={handleDirectionsModeDismiss}
-                                        testID={`map-directions-close-button-${searchSource}`}
+                                    <NativeNavigationAction
+                                        railOnly
+                                        kind="close"
+                                        priority={10}
                                     >
-                                        <Icon
-                                            color={searchPrimaryIconColor}
-                                            name="chevron-left"
-                                            size={22}
-                                        />
-                                    </Pressable>
+                                        <Pressable
+                                            accessibilityLabel="Close directions mode"
+                                            accessibilityRole="button"
+                                            className="h-10 w-10 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
+                                            onPress={
+                                                handleDirectionsModeDismiss
+                                            }
+                                            testID={`map-directions-close-button-${searchSource}`}
+                                        >
+                                            <Icon
+                                                color={searchPrimaryIconColor}
+                                                name="chevron-left"
+                                                size={22}
+                                            />
+                                        </Pressable>
+                                    </NativeNavigationAction>
                                     <Text
                                         className="font-dafDisplay text-lg font-bold text-daf-text-primary dark:text-white"
                                         testID={`map-directions-title-${searchSource}`}
@@ -381,25 +415,39 @@ export function MapSearchOverlay({
                                         </Text>
                                     </View>
                                 ) : null}
+                                {pane ? (
+                                    <View className="mt-[12px]">
+                                        {directionsSubmitButton}
+                                    </View>
+                                ) : null}
                             </ScrollView>
                         ) : null}
 
                         {!searchModeIsDirections ? (
                             <View className="h-[52px] flex-row items-center gap-1 pl-3.5 pr-1.5">
-                                <Pressable
-                                    accessibilityHint="Opens or closes the navigation drawer."
-                                    accessibilityLabel="Toggle menu"
-                                    accessibilityRole="button"
-                                    className="h-9 w-9 shrink-0 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
-                                    onPress={handleDrawerPress}
-                                    testID={`map-search-drawer-button-${searchSource}`}
+                                <NativeNavigationAction
+                                    railOnly
+                                    kind="tool"
+                                    group="navigation"
+                                    symbol="line.3.horizontal"
+                                    icon={getDuoRailIcon('line.3.horizontal')}
+                                    visibilityPriority="high"
                                 >
-                                    <Icon
-                                        color={searchPrimaryIconColor}
-                                        name="menu"
-                                        size={20}
-                                    />
-                                </Pressable>
+                                    <Pressable
+                                        accessibilityHint="Opens or closes the navigation drawer."
+                                        accessibilityLabel="Toggle menu"
+                                        accessibilityRole="button"
+                                        className="h-9 w-9 shrink-0 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
+                                        onPress={handleDrawerPress}
+                                        testID={`map-search-drawer-button-${searchSource}`}
+                                    >
+                                        <Icon
+                                            color={searchPrimaryIconColor}
+                                            name="menu"
+                                            size={20}
+                                        />
+                                    </Pressable>
+                                </NativeNavigationAction>
 
                                 <View className="min-w-0 flex-1 flex-row items-center gap-1 pl-0.5">
                                     <Icon
@@ -457,22 +505,30 @@ export function MapSearchOverlay({
                                     )}
 
                                     {searchInputClearIsVisible ? (
-                                        <Pressable
-                                            accessibilityLabel="Clear search"
-                                            accessibilityRole="button"
-                                            className="h-9 w-9 shrink-0 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
-                                            hitSlop={6}
-                                            onPress={
-                                                handleClearSelectedSearchResult
-                                            }
-                                            testID={`map-search-inline-clear-button-${searchSource}`}
+                                        <NativeNavigationAction
+                                            railOnly
+                                            kind="close"
+                                            priority={10}
                                         >
-                                            <Icon
-                                                color={searchPlaceholderColor}
-                                                name="x"
-                                                size={16}
-                                            />
-                                        </Pressable>
+                                            <Pressable
+                                                accessibilityLabel="Clear search"
+                                                accessibilityRole="button"
+                                                className="h-9 w-9 shrink-0 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
+                                                hitSlop={6}
+                                                onPress={
+                                                    handleClearSelectedSearchResult
+                                                }
+                                                testID={`map-search-inline-clear-button-${searchSource}`}
+                                            >
+                                                <Icon
+                                                    color={
+                                                        searchPlaceholderColor
+                                                    }
+                                                    name="x"
+                                                    size={16}
+                                                />
+                                            </Pressable>
+                                        </NativeNavigationAction>
                                     ) : null}
                                 </View>
 
@@ -563,12 +619,14 @@ export function MapSearchOverlay({
             (destinationCategoriesAreVisible || mapControlsAreVisible) ? (
                 <Animated.View
                     className="z-50 mt-2.5 flex-row items-start gap-3"
+                    style={pane ? { width: pane.width } : undefined}
                     collapsable={false}
                     layout={MAP_OVERLAY_LAYOUT_ANIMATION}
                     pointerEvents="box-none"
                 >
                     {destinationCategoriesAreVisible ? (
                         <DestinationCategoryPills
+                            compact={Boolean(tabletPane)}
                             onCategoryPress={handleDestinationCategoryPress}
                             searchSource={searchSource}
                         />
@@ -576,7 +634,7 @@ export function MapSearchOverlay({
                         <View className="min-w-0 flex-1" pointerEvents="none" />
                     )}
 
-                    {mapControlsAreVisible ? (
+                    {mapControlsAreVisible && !tabletPane ? (
                         <View
                             className="shrink-0 items-center"
                             pointerEvents="box-none"
@@ -587,24 +645,35 @@ export function MapSearchOverlay({
                 </Animated.View>
             ) : null}
 
-            {searchModeIsDirections && !fullScreenSearchIsVisible ? (
+            {tabletPane &&
+            mapControlsAreVisible &&
+            !fullScreenSearchIsVisible ? (
+                <View
+                    className="absolute z-50 items-center"
+                    style={{ top: insets.top + 36, right: insets.right + 12 }}
+                    pointerEvents="box-none"
+                    testID="tablet-map-control-rail"
+                >
+                    {mapControls}
+                </View>
+            ) : null}
+
+            {searchModeIsDirections && !fullScreenSearchIsVisible && !pane ? (
                 <Animated.View
                     className="absolute bottom-0 left-3 right-3 z-50"
                     layout={MAP_OVERLAY_LAYOUT_ANIMATION}
                     pointerEvents="box-none"
-                    style={{ paddingBottom: bottomCtaPadding }}
+                    style={
+                        pane
+                            ? {
+                                  left: pane.left,
+                                  right: pane.right,
+                                  paddingBottom: Math.max(insets.bottom, 14),
+                              }
+                            : { paddingBottom: bottomCtaPadding }
+                    }
                 >
-                    <DafButton
-                        accessibilityLabel="Get directions on the map"
-                        disabled={!directionsRouteCanSubmit}
-                        icon="navigation"
-                        loading={directionsRouteIsLoading}
-                        onPress={handleDirectionsSubmit}
-                        size="lg"
-                        testID={`map-directions-submit-button-${searchSource}`}
-                    >
-                        Get directions
-                    </DafButton>
+                    {directionsSubmitButton}
                 </Animated.View>
             ) : null}
         </>

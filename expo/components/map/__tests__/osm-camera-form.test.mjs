@@ -1,3 +1,5 @@
+import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createHookHarness, loadTourModule } from './tour-test-helpers.mjs';
@@ -14,7 +16,12 @@ function find(tree, predicate) {
     }
     return null;
 }
-function createForm(details, platform = 'android') {
+function createForm(
+    details,
+    platform = 'android',
+    duo = false,
+    tablet = false,
+) {
     const hooks = createHookHarness();
     const changes = [];
     const pin = { latitude: 30, longitude: -97, details };
@@ -33,7 +40,13 @@ function createForm(details, platform = 'android') {
                 ),
             },
             react: hooks.react,
+            '../root/duo-device-context': { useDuoDevice: () => duo },
             '../../lib/osm/camera-manufacturers': cameraManufacturers,
+            '../root/native-navigation': {
+                FullWidthSafeAreaBand: 'FullWidthSafeAreaBand',
+                NativeNavigationAction: 'NativeNavigationAction',
+                NativeModalContent: 'NativeModalContent',
+            },
             'react-native': {
                 Image: Object.assign(function Image() {}, {
                     resolveAssetSource: (source) =>
@@ -45,12 +58,13 @@ function createForm(details, platform = 'android') {
                 }),
                 KeyboardAvoidingView: 'KeyboardAvoidingView',
                 Modal: 'Modal',
-                Platform: { OS: platform, Version: 36 },
+                Platform: { OS: platform, Version: 36, isPad: tablet },
                 Pressable: 'Pressable',
                 ScrollView: 'ScrollView',
                 Text: 'Text',
                 View: 'View',
                 useColorScheme: () => 'light',
+                useWindowDimensions: () => ({ width: duo ? 982 : 390 }),
             },
             '../../lib/osm/camera-schema': { CAMERA_MOUNT_OPTIONS },
             '../../lib/osm/camera-presets': cameraPresets,
@@ -210,140 +224,187 @@ test('blocks duplicate or incomplete tags and protects the camera identity tag',
     }
 });
 
-test('opening a new camera waits until the returned pin is committed to shared state', async () => {
-    const hooks = createHookHarness();
-    const routes = [];
-    const pin = {
-        id: 'new-pin',
-        latitude: 30,
-        longitude: -97,
-        details: { preset: 'flock' },
-    };
-    const contribution = {
-        contributePlacementIsActive: true,
-        pins: [],
-        removals: [],
-        addPinAtCoordinate: () => pin,
-        tour: { dismissPhase() {}, dismissStep() {} },
-    };
-    const { ContributePlacementSheet } = loadTourModule(
-        new URL(
-            '../../contribute/contribute-placement-sheet.js',
-            import.meta.url,
-        ),
-        {
-            react: hooks.react,
-            'react-native': {
-                Pressable: 'Pressable',
-                Text: 'Text',
-                View: 'View',
-                useWindowDimensions: () => ({ height: 800 }),
+for (const width of [390, 466, 982, 1194])
+    test(`camera placement targets the visible map and waits for shared state at width ${width}`, async () => {
+        const hooks = createHookHarness();
+        const routes = [];
+        const points = [];
+        const coordinates = [];
+        const pin = {
+            id: 'new-pin',
+            latitude: 30,
+            longitude: -97,
+            details: { preset: 'flock' },
+        };
+        const contribution = {
+            contributePlacementIsActive: true,
+            pins: [],
+            removals: [],
+            addPinAtCoordinate: (coordinate) => {
+                coordinates.push(coordinate);
+                return pin;
             },
-            '@gorhom/bottom-sheet': { BottomSheetScrollView: 'ScrollView' },
-            'expo-router': {
-                router: { push: (route) => routes.push(route) },
-                useFocusEffect: (callback) =>
-                    hooks.react.useEffect(callback, [callback]),
-            },
-            '../../lib/osm/camera-presets': cameraPresets,
-            '../../lib/osm/edit-tags': { REMOVAL_REASONS: [] },
-            '../design-system/icon': { Icon: 'Icon' },
-            '../design-system/primitives': {
-                DafButton: 'Button',
-                DafIconButton: 'IconButton',
-            },
-            '../design-system/tokens': { dafSemanticColors: {} },
-            '../map/native-components': {
-                NativeWindBottomSheetModal: 'Modal',
-                NativeWindBottomSheetView: 'View',
-                NativeWindBottomSheetScrollView: 'ScrollView',
-            },
-            '../map/use-bottom-sheet-presented-state': {
-                useBottomSheetPresentedState: () => ({
-                    bottomSheetIsPresented: true,
-                }),
-            },
-            './changeset-summary': {
-                getChangesetSummary: (pins) => ({
-                    total: pins.length,
-                    label: 'added',
-                }),
-            },
-            './contribute-state': { useContribute: () => contribution },
-            './contribute-tour-target': { ContributeTourTarget: 'Target' },
-            './contribute-tour-overlay': { ContributeTourOverlay: 'Overlay' },
-        },
-    );
-    const render = () =>
-        hooks.render(() =>
-            ContributePlacementSheet({
-                insets: { bottom: 10 },
-                mapPreferencesAreLoaded: true,
-                screenIsFocused: true,
-                tourTargets: { current: {} },
-                locationController: {
-                    mapViewRef: {
-                        current: { getCenter: async () => [-97, 30] },
-                    },
-                },
-            }),
-        );
-    try {
-        await find(
-            render(),
-            (node) => node.props?.testID === 'contribute-add-camera-button',
-        ).props.onPress();
-        render();
-        assert.deepEqual(
-            routes,
-            [],
-            'the route must not open while its pin is missing',
-        );
-        contribution.pins = [pin];
-        render();
-        assert.deepEqual(routes, ['/contribute/camera/0']);
-        assert.ok(
-            find(
-                render(),
-                (node) =>
-                    node.props?.testID === 'contribute-placement-sheet-title',
+            tour: { dismissPhase() {}, dismissStep() {} },
+        };
+        const { ContributePlacementSheet } = loadTourModule(
+            new URL(
+                '../../contribute/contribute-placement-sheet.js',
+                import.meta.url,
             ),
-            'staged changes automatically expand the list',
+            {
+                react: hooks.react,
+                '../root/duo-device-context': {
+                    useDuoDevice: () => width === 466 || width === 982,
+                },
+                '../root/native-navigation': {
+                    FullWidthSafeAreaBand: 'FullWidthSafeAreaBand',
+                    NativeNavigationAction: 'NativeNavigationAction',
+                    NativeModalContent: 'NativeModalContent',
+                },
+                'react-native': {
+                    Platform: { isPad: width === 1194 },
+                    Pressable: 'Pressable',
+                    Text: 'Text',
+                    View: 'View',
+                    useWindowDimensions: () => ({ width, height: 800 }),
+                },
+                '@gorhom/bottom-sheet': { BottomSheetScrollView: 'ScrollView' },
+                'expo-router': {
+                    router: { push: (route) => routes.push(route) },
+                    useFocusEffect: (callback) =>
+                        hooks.react.useEffect(callback, [callback]),
+                },
+                '../../lib/osm/camera-presets': cameraPresets,
+                '../../lib/osm/edit-tags': { REMOVAL_REASONS: [] },
+                '../design-system/icon': { Icon: 'Icon' },
+                '../design-system/primitives': {
+                    DafButton: 'Button',
+                    DafIconButton: 'IconButton',
+                },
+                '../design-system/tokens': { dafSemanticColors: {} },
+                '../map/native-components': {
+                    NativeWindBottomSheetModal: 'Modal',
+                    NativeWindBottomSheetView: 'View',
+                    NativeWindBottomSheetScrollView: 'ScrollView',
+                },
+                '../map/use-bottom-sheet-presented-state': {
+                    useBottomSheetPresentedState: () => ({
+                        bottomSheetIsPresented: true,
+                    }),
+                },
+                './changeset-summary': {
+                    getChangesetSummary: (pins) => ({
+                        total: pins.length,
+                        label: 'added',
+                    }),
+                },
+                './contribute-state': { useContribute: () => contribution },
+                './contribute-tour-target': { ContributeTourTarget: 'Target' },
+                './contribute-tour-overlay': {
+                    ContributeTourOverlay: 'Overlay',
+                },
+            },
         );
-        assert.equal(
-            find(
+        const render = () =>
+            hooks.render(() =>
+                ContributePlacementSheet({
+                    insets: {
+                        bottom: 10,
+                        left: 0,
+                        right: width === 466 ? 84 : 0,
+                    },
+                    mapPreferencesAreLoaded: true,
+                    screenIsFocused: true,
+                    tourTargets: { current: {} },
+                    locationController: {
+                        mapViewRef: {
+                            current: {
+                                getCenter: async () => [-97, 30],
+                                getCoordinateFromView: async (point) => {
+                                    points.push(point);
+                                    return [-97, 30];
+                                },
+                            },
+                        },
+                    },
+                }),
+            );
+        try {
+            if (width === 466) {
+                const tray = find(
+                    render(),
+                    (node) =>
+                        node.props?.testID === 'contribute-placement-sheet',
+                );
+                assert.equal(tray.props.style.left, 12);
+                assert.equal(tray.props.style.right, 96);
+            }
+            await find(
                 render(),
                 (node) => node.props?.testID === 'contribute-add-camera-button',
-            ),
-            null,
-        );
-        const placedTarget = find(
-            render(),
-            (node) => node.type === 'Target' && node.props.id === 'placed',
-        );
-        assert.ok(
+            ).props.onPress();
+            assert.deepEqual(coordinates, [{ latitude: 30, longitude: -97 }]);
+            assert.deepEqual(
+                points,
+                width === 1194
+                    ? [[812, 400]]
+                    : width === 982
+                      ? [[736.5, 400]]
+                      : [],
+            );
+            render();
+            assert.deepEqual(
+                routes,
+                [],
+                'the route must not open while its pin is missing',
+            );
+            contribution.pins = [pin];
+            render();
+            assert.deepEqual(routes, ['/contribute/camera/0']);
+            assert.ok(
+                find(
+                    render(),
+                    (node) =>
+                        node.props?.testID ===
+                        'contribute-placement-sheet-title',
+                ),
+                'staged changes automatically expand the list',
+            );
+            assert.equal(
+                find(
+                    render(),
+                    (node) =>
+                        node.props?.testID === 'contribute-add-camera-button',
+                ),
+                null,
+            );
+            const placedTarget = find(
+                render(),
+                (node) => node.type === 'Target' && node.props.id === 'placed',
+            );
+            assert.ok(
+                find(
+                    placedTarget,
+                    (node) =>
+                        node.props?.testID === 'contribute-next-details-button',
+                ),
+                'the staged tour targets the visible tray Review button',
+            );
+            const modal = find(render(), (node) => node.type === 'Modal');
+            modal.props.ref.current = { dismiss: () => routes.push('dismiss') };
             find(
-                placedTarget,
-                (node) =>
-                    node.props?.testID === 'contribute-next-details-button',
-            ),
-            'the staged tour targets the visible tray Review button',
-        );
-        const modal = find(render(), (node) => node.type === 'Modal');
-        modal.props.ref.current = { dismiss: () => routes.push('dismiss') };
-        find(
-            render(),
-            (node) => node.props?.testID === 'contribute-pin-row-0',
-        ).props.onPress();
-        assert.deepEqual(
-            routes.slice(-2),
-            ['dismiss', '/contribute/camera/0'],
-            'dismiss the native tray before navigating to the form',
-        );
-    } finally {
-        hooks.cleanup();
-    }
-});
+                render(),
+                (node) => node.props?.testID === 'contribute-pin-row-0',
+            ).props.onPress();
+            assert.deepEqual(
+                routes.slice(-2),
+                ['dismiss', '/contribute/camera/0'],
+                'dismiss the native tray before navigating to the form',
+            );
+        } finally {
+            hooks.cleanup();
+        }
+    });
 
 test('a queued camera focus event reads the latest committed pin instead of redirecting with an old empty draft', () => {
     const hooks = createHookHarness();
@@ -360,6 +421,12 @@ test('a queued camera focus event reads the latest committed pin instead of redi
         new URL('../../contribute/camera-details-screen.js', import.meta.url),
         {
             react: hooks.react,
+            '../root/duo-device-context': { useDuoDevice: () => duo },
+            '../root/native-navigation': {
+                FullWidthSafeAreaBand: 'FullWidthSafeAreaBand',
+                NativeNavigationAction: 'NativeNavigationAction',
+                NativeModalContent: 'NativeModalContent',
+            },
             'react-native': {
                 BackHandler: { addEventListener: () => ({ remove() {} }) },
             },
@@ -503,3 +570,112 @@ for (const platform of ['ios', 'android']) {
         );
     });
 }
+
+test('Duo preview shows all references in a vertical gallery inside its compact card', () => {
+    const form = createForm({ preset: 'flock' }, 'ios', true);
+    try {
+        form.element('contribute-preset-axon').props.onLongPress();
+        const gallery = form.element('contribute-reference-gallery');
+        assert.equal(gallery.props.horizontal, undefined);
+        assert.equal(gallery.props.pagingEnabled, undefined);
+        assert.equal(
+            gallery.props.children[1].length,
+            cameraManufacturers.CAMERA_MANUFACTURERS.find(
+                ({ value }) => value === 'axon',
+            ).referenceImages.length,
+        );
+        gallery.props.onLayout({ nativeEvent: { layout: { width: 320 } } });
+        assert.ok(
+            form
+                .element('contribute-reference-gallery')
+                .props.children[1].every(
+                    ({ props }) => props.style.width === 320,
+                ),
+        );
+        assert.match(
+            form.element('contribute-preset-preview').props.children.props
+                .className,
+            /max-w-\[360px\]/,
+        );
+    } finally {
+        form.cleanup();
+    }
+});
+
+test('camera content resolves to the design 16px padding and 20px section spacing', async () => {
+    const require = createRequire(import.meta.url);
+    const form = createForm({ preset: 'flock' }, 'ios', true);
+    try {
+        const className =
+            form.type('ScrollView').props.children.props.className;
+        const css = await require('postcss')([
+            require('tailwindcss')({
+                ...require('../../../tailwind.config.js'),
+                content: [
+                    {
+                        raw: readFileSync(
+                            new URL(
+                                '../../contribute/camera-form.js',
+                                import.meta.url,
+                            ),
+                            'utf8',
+                        ),
+                    },
+                ],
+            }),
+        ]).process('@tailwind utilities;', { from: undefined });
+        const compiled =
+            require('react-native-css-interop/css-to-rn').cssToReactNativeRuntime(
+                css.css,
+                { inlineRem: 14 },
+            );
+        const style = Object.assign(
+            {},
+            ...className
+                .split(/\s+/)
+                .flatMap((name) =>
+                    (compiled.rules[name]?.n ?? []).flatMap((rule) =>
+                        (rule.d ?? [])
+                            .filter((d) => d.length === 1)
+                            .map((d) => d[0]),
+                    ),
+                ),
+        );
+        assert.equal(style.padding, 16);
+        assert.equal(style.rowGap, 20);
+        assert.equal(style.columnGap, 20);
+    } finally {
+        form.cleanup();
+    }
+});
+
+test('camera form coordinates and save footer use full-width safe-area bands', () => {
+    const form = createForm({ preset: 'flock' }, 'ios', true);
+    try {
+        for (const id of [
+            'contribute-camera-coordinate-header',
+            'contribute-camera-footer',
+        ]) {
+            const band = form.element(id);
+            assert.equal(band.type, 'FullWidthSafeAreaBand');
+            assert.equal(band.props.gutter, 16);
+        }
+    } finally {
+        form.cleanup();
+    }
+});
+
+test('iPad preset preview stays centered in a readable 420px card', () => {
+    const form = createForm({ preset: 'flock' }, 'ios', false, true);
+    try {
+        form.element('contribute-preset-axon').props.onLongPress();
+        const preview = form.element('contribute-preset-preview');
+        assert.match(preview.props.className, /items-center/);
+        assert.match(preview.props.children.props.className, /max-w-\[420px\]/);
+        assert.equal(form.pin.details.preset, 'flock');
+        form.element('contribute-brand-preview-close').props.onPress();
+        assert.equal(form.element('contribute-preset-preview'), null);
+    } finally {
+        form.cleanup();
+    }
+});

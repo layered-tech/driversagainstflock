@@ -1,3 +1,8 @@
+import {
+    FullWidthSafeAreaBand,
+    NativeNavigationAction,
+    useDuoRailEdge,
+} from '../root/native-navigation';
 import { useNavigation } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
@@ -26,62 +31,76 @@ const PUBLIC_SITE_URL = 'https://driversagainstflock.com';
 export function InformationHeader({ answerCount, onShare, title }) {
     const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
+    const railEdge = useDuoRailEdge();
     const navigation = useNavigation();
     const isDarkMode = colorScheme === 'dark';
     const headerPaddingTop =
         Platform.OS === 'ios'
-            ? Math.max(insets.top + 10, 54)
+            ? Math.max(insets.top + 10, railEdge ? 14 : 54)
             : Math.max(insets.top + 10, 16);
 
     return (
-        <View
-            className="dark:border-daf-border-dark dark:bg-daf-surface-dark border-b border-daf-border bg-white px-3 pb-3"
+        <FullWidthSafeAreaBand
+            gutter={12}
+            className="border-b border-daf-border bg-white pb-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
             style={{ paddingTop: headerPaddingTop }}
         >
             <View className="flex-row items-center gap-1">
-                <Pressable
-                    accessibilityLabel="Open menu"
-                    accessibilityRole="button"
-                    className="h-10 w-10 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
-                    onPress={() => toggleNearestDrawer(navigation)}
-                    testID="information-drawer-button"
+                <NativeNavigationAction
+                    railOnly
+                    kind="tool"
+                    symbol="line.3.horizontal"
                 >
-                    <Icon
-                        color={isDarkMode ? '#F4F7FA' : '#0B0E12'}
-                        name="menu"
-                        size={20}
-                    />
-                </Pressable>
+                    <Pressable
+                        accessibilityLabel="Open menu"
+                        accessibilityRole="button"
+                        className="h-10 w-10 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
+                        onPress={() => toggleNearestDrawer(navigation)}
+                        testID="information-drawer-button"
+                    >
+                        <Icon
+                            color={isDarkMode ? '#F4F7FA' : '#0B0E12'}
+                            name="menu"
+                            size={20}
+                        />
+                    </Pressable>
+                </NativeNavigationAction>
                 <Text
-                    className="font-dafDisplay min-w-0 flex-1 text-lg font-bold leading-5 text-daf-text-primary dark:text-white"
+                    className="min-w-0 flex-1 font-dafDisplay text-lg font-bold leading-5 text-daf-text-primary dark:text-white"
                     numberOfLines={1}
                 >
                     {title}
                 </Text>
                 {answerCount ? (
-                    <View className="dark:border-daf-border-dark rounded-dafPill border border-daf-border bg-daf-surface-alt px-2.5 py-1 dark:bg-daf-surface-inverse">
+                    <View className="rounded-dafPill border border-daf-border bg-daf-surface-alt px-2.5 py-1 dark:border-daf-border-dark dark:bg-daf-surface-inverse">
                         <Text className="font-dafMono text-[11px] font-semibold text-daf-text-secondary dark:text-neutral-300">
                             {answerCount} answers
                         </Text>
                     </View>
                 ) : null}
                 {onShare ? (
-                    <Pressable
-                        accessibilityLabel={`Share ${title}`}
-                        accessibilityRole="button"
-                        className="h-10 w-10 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
-                        onPress={onShare}
-                        testID="information-share-button"
+                    <NativeNavigationAction
+                        railOnly
+                        kind="tool"
+                        symbol="square.and.arrow.up"
                     >
-                        <Icon
-                            color={isDarkMode ? '#F4F7FA' : '#0B0E12'}
-                            name="upload"
-                            size={19}
-                        />
-                    </Pressable>
+                        <Pressable
+                            accessibilityLabel={`Share ${title}`}
+                            accessibilityRole="button"
+                            className="h-10 w-10 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
+                            onPress={onShare}
+                            testID="information-share-button"
+                        >
+                            <Icon
+                                color={isDarkMode ? '#F4F7FA' : '#0B0E12'}
+                                name="upload"
+                                size={19}
+                            />
+                        </Pressable>
+                    </NativeNavigationAction>
                 ) : null}
             </View>
-        </View>
+        </FullWidthSafeAreaBand>
     );
 }
 
@@ -107,10 +126,10 @@ function LegalSummary({ items }) {
         <View className="gap-2.5">
             {items.map((item) => (
                 <View
-                    className="dark:border-daf-border-dark dark:bg-daf-surface-dark flex-row gap-3 rounded-dafMd border border-daf-border bg-white p-[14px]"
+                    className="flex-row gap-3 rounded-dafMd border border-daf-border bg-white p-[14px] dark:border-daf-border-dark dark:bg-daf-surface-dark"
                     key={item.title}
                 >
-                    <View className="bg-daf-brand/12 dark:bg-daf-brand/15 h-8 w-8 items-center justify-center rounded-dafSm">
+                    <View className="bg-daf-brand/12 h-8 w-8 items-center justify-center rounded-dafSm dark:bg-daf-brand/15">
                         <Icon
                             color={dafSemanticColors.brand}
                             name="check"
@@ -119,7 +138,7 @@ function LegalSummary({ items }) {
                         />
                     </View>
                     <View className="min-w-0 flex-1">
-                        <Text className="font-dafDisplay mb-1 text-base font-semibold leading-5 text-daf-text-primary dark:text-white">
+                        <Text className="mb-1 font-dafDisplay text-base font-semibold leading-5 text-daf-text-primary dark:text-white">
                             {item.title}
                         </Text>
                         <Text className="text-[13px] leading-5 text-daf-text-secondary dark:text-neutral-300">
@@ -135,7 +154,7 @@ function LegalSummary({ items }) {
 function LegalTableOfContents({ isOpen, items, onSectionPress, onToggle }) {
     return (
         <View
-            className="dark:border-daf-border-dark overflow-hidden rounded-dafMd border border-daf-border bg-daf-surface-alt dark:bg-daf-surface-inverse"
+            className="overflow-hidden rounded-dafMd border border-daf-border bg-daf-surface-alt dark:border-daf-border-dark dark:bg-daf-surface-inverse"
             testID="legal-table-of-contents"
         >
             <Pressable
@@ -160,14 +179,14 @@ function LegalTableOfContents({ isOpen, items, onSectionPress, onToggle }) {
                 />
             </Pressable>
             {isOpen ? (
-                <View className="dark:border-daf-border-dark border-t border-daf-border px-[15px] pb-2.5 pt-1">
+                <View className="border-t border-daf-border px-[15px] pb-2.5 pt-1 dark:border-daf-border-dark">
                     {items.map((item, index) => (
                         <Pressable
                             accessibilityLabel={`Jump to ${item.title}`}
                             accessibilityRole="button"
                             className={`min-h-[44px] flex-row items-center gap-2.5 py-2.5 ${
                                 index < items.length - 1
-                                    ? 'dark:border-daf-border-dark border-b border-daf-border'
+                                    ? 'border-b border-daf-border dark:border-daf-border-dark'
                                     : ''
                             }`}
                             key={item.id}
@@ -194,11 +213,11 @@ function LegalSection({ isFirst, onLayout, section }) {
             className={`py-7 ${
                 isFirst
                     ? ''
-                    : 'dark:border-daf-border-dark border-t border-daf-border'
+                    : 'border-t border-daf-border dark:border-daf-border-dark'
             }`}
             onLayout={onLayout}
         >
-            <Text className="font-dafDisplay mb-3 text-[21px] font-bold leading-[25px] text-daf-text-primary dark:text-white">
+            <Text className="mb-3 font-dafDisplay text-[21px] font-bold leading-[25px] text-daf-text-primary dark:text-white">
                 {section.title}
             </Text>
             <View className="gap-[13px]">
@@ -206,7 +225,7 @@ function LegalSection({ isFirst, onLayout, section }) {
                     if (block.type === 'heading') {
                         return (
                             <Text
-                                className="font-dafDisplay mt-1 text-[17px] font-semibold leading-[22px] text-daf-text-primary dark:text-white"
+                                className="mt-1 font-dafDisplay text-[17px] font-semibold leading-[22px] text-daf-text-primary dark:text-white"
                                 key={`${section.id}-${index}`}
                             >
                                 {block.text}
@@ -243,8 +262,8 @@ function ContactCard({ heading, text }) {
     };
 
     return (
-        <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark rounded-dafMd border border-daf-border bg-white p-5">
-            <Text className="font-dafDisplay mb-2 text-[19px] font-bold leading-6 text-daf-text-primary dark:text-white">
+        <View className="rounded-dafMd border border-daf-border bg-white p-5 dark:border-daf-border-dark dark:bg-daf-surface-dark">
+            <Text className="mb-2 font-dafDisplay text-[19px] font-bold leading-6 text-daf-text-primary dark:text-white">
                 {heading}
             </Text>
             <Text className="text-[15px] leading-[22px] text-daf-text-secondary dark:text-neutral-300">
@@ -270,7 +289,7 @@ function ContactCard({ heading, text }) {
 
 function SafetyNotice({ children }) {
     return (
-        <View className="bg-daf-amber/12 dark:bg-daf-amber/15 mb-4 flex-row gap-2.5 rounded-dafMd p-[13px]">
+        <View className="bg-daf-amber/12 mb-4 flex-row gap-2.5 rounded-dafMd p-[13px] dark:bg-daf-amber/15">
             <View className="pt-0.5">
                 <Icon
                     color={dafSemanticColors.warning}
@@ -335,14 +354,17 @@ export function LegalScreen({ page, testID }) {
             testID={testID}
         >
             <InformationHeader onShare={handleSharePress} title={page.title} />
-            <View className="dark:border-daf-border-dark flex-row items-center gap-2 border-b border-daf-border bg-daf-surface-alt px-4 py-[9px] dark:bg-daf-surface-inverse">
+            <FullWidthSafeAreaBand
+                gutter={16}
+                className="flex-row items-center gap-2 border-b border-daf-border bg-daf-surface-alt py-[9px] dark:border-daf-border-dark dark:bg-daf-surface-inverse"
+            >
                 <Text className="font-dafMono text-[11px] font-semibold text-daf-text-brand dark:text-daf-brand">
                     {metadata.updatedLabel}
                 </Text>
-                <Text className="font-dafMono ml-auto text-[11px] text-daf-text-tertiary dark:text-neutral-400">
+                <Text className="ml-auto font-dafMono text-[11px] text-daf-text-tertiary dark:text-neutral-400">
                     {metadata.sectionCountLabel}
                 </Text>
-            </View>
+            </FullWidthSafeAreaBand>
             <ScrollView ref={scrollViewRef}>
                 <View className="px-4 pb-10 pt-[18px]">
                     {page.safetyNotice ? (

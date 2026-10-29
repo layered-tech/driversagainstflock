@@ -16,7 +16,12 @@ function find(tree, type) {
     return null;
 }
 
-function createScreen() {
+function createScreen({
+    duo = false,
+    tablet = false,
+    width = 390,
+    action,
+} = {}) {
     const hooks = createHookHarness();
     const contribution = { pins: [], continueOnMap() {}, stageNodeEdit() {} };
     const node = {
@@ -32,10 +37,15 @@ function createScreen() {
         new URL('../../edits/edit-camera-screen.js', import.meta.url),
         {
             react: hooks.react,
-            'react-native': { Text: 'Text', View: 'View' },
+            'react-native': {
+                Platform: { isPad: tablet },
+                Text: 'Text',
+                View: 'View',
+                useWindowDimensions: () => ({ width }),
+            },
             'expo-router': {
                 router: { back() {}, navigate() {} },
-                useLocalSearchParams: () => ({ nodeId: '123' }),
+                useLocalSearchParams: () => ({ nodeId: '123', action }),
                 useFocusEffect: (callback) => {
                     focus = callback;
                 },
@@ -48,6 +58,7 @@ function createScreen() {
             '../contribute/step-header': { ContributePageHeader: 'Header' },
             '../design-system/primitives': { DafButton: 'Button' },
             './remove-camera-sheet': { RemoveCameraSheet: 'RemoveSheet' },
+            '../root/duo-device-context': { useDuoDevice: () => duo },
         },
     ).default;
     const render = () => hooks.render(() => Screen());
@@ -78,6 +89,48 @@ test('opening a cached camera selects its preset immediately without an OSM clie
     } finally {
         screen.cleanup();
     }
+});
+
+test('Duo deletion keeps the working modal without an underlying edit form', () => {
+    for (const duo of [false, true]) {
+        const screen = createScreen({ duo, action: 'remove' });
+        try {
+            screen.render();
+            screen.focus();
+            const tree = screen.render();
+            assert.equal(Boolean(find(tree, 'CameraForm')), !duo);
+            assert.equal(find(tree, 'RemoveSheet').props.isOpen, true);
+            assert.equal(find(tree, 'RemoveSheet').props.node.id, 123);
+        } finally {
+            screen.cleanup();
+        }
+    }
+});
+
+test('delete routes use a map modal scene while normal editing keeps its content pane', () => {
+    const { editScreenLayout } = loadTourModule(
+        new URL('../../../app/edits/_layout.js', import.meta.url),
+        {
+            'expo-router/stack': { Stack: 'Stack' },
+            '../../components/root/duo-pane-screen': {
+                DuoMapModalScreen: 'MapModal',
+                duoPaneScreenLayout: ({ children }) => ({
+                    type: 'Pane',
+                    props: { children },
+                }),
+            },
+        },
+    );
+    const remove = editScreenLayout({
+        children: 'sheet',
+        route: { params: { action: 'remove' } },
+    });
+    assert.equal(remove.type, 'MapModal');
+    assert.equal(remove.props.children, 'sheet');
+    assert.equal(
+        editScreenLayout({ children: 'form', route: {} }).type,
+        'Pane',
+    );
 });
 
 test('a link without cached data explains how to open the camera without fetching OSM', () => {
@@ -126,5 +179,33 @@ test('refocusing uses the latest staged tags rather than the original focus snap
         );
     } finally {
         screen.cleanup();
+    }
+});
+
+test('wide tablet deletion exposes the map while editing and narrow layouts retain their form', () => {
+    for (const [width, action, expectsForm] of [
+        [1194, 'remove', false],
+        [768, 'remove', false],
+        [767, 'remove', true],
+        [600, 'remove', true],
+        [1194, undefined, true],
+        [1194, 'edit', true],
+    ]) {
+        const screen = createScreen({ tablet: true, width, action });
+        try {
+            screen.render();
+            screen.focus();
+            const tree = screen.render();
+            assert.equal(
+                Boolean(find(tree, 'CameraForm')),
+                expectsForm,
+                `${width}:${action}`,
+            );
+            const removal = find(tree, 'RemoveSheet');
+            assert.equal(removal.props.isOpen, action === 'remove');
+            assert.equal(removal.props.node.id, 123);
+        } finally {
+            screen.cleanup();
+        }
     }
 });

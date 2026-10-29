@@ -1,13 +1,60 @@
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { useRef, useState } from 'react';
+import {
+    Linking,
+    Platform,
+    Pressable,
+    ScrollView,
+    Text,
+    useWindowDimensions,
+    View,
+} from 'react-native';
 import { Icon } from '../design-system/icon';
 import { dafSemanticColors } from '../design-system/tokens';
 import { contributePage } from './community-content';
 import { InformationHeader } from './information-screen';
+import { FirstLaunchSupportScreen } from './first-launch-support-screen';
+
+function TabletSupportScreen() {
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState(null);
+    const openingRef = useRef(false);
+    const handleDonatePress = async () => {
+        if (openingRef.current) return;
+        openingRef.current = true;
+        setBusy(true);
+        setError(null);
+        try {
+            await Linking.openURL(contributePage.donationUrl);
+        } catch {
+            setError(
+                'Could not open the support page. Please try again or choose Maybe later.',
+            );
+        } finally {
+            openingRef.current = false;
+            setBusy(false);
+        }
+    };
+
+    return (
+        <FirstLaunchSupportScreen
+            busy={busy}
+            error={error}
+            onDismiss={() => router.replace('/')}
+            onDonate={handleDonatePress}
+        />
+    );
+}
 
 export function ContributeScreen() {
+    const { width } = useWindowDimensions();
     const handleDonatePress = () => {
         Linking.openURL(contributePage.donationUrl).catch(() => {});
     };
+
+    if (Platform?.isPad === true && width >= 768) {
+        return <TabletSupportScreen />;
+    }
 
     return (
         <View
@@ -16,11 +63,11 @@ export function ContributeScreen() {
         >
             <InformationHeader title="Support Us" />
             <ScrollView>
-                <View className="dark:border-daf-border-dark border-b border-daf-border px-4 pb-5 pt-[22px]">
+                <View className="border-b border-daf-border px-4 pb-5 pt-[22px] dark:border-daf-border-dark">
                     <Text className="text-[11px] font-bold uppercase tracking-[0.06em] text-daf-text-brand dark:text-daf-brand">
                         {contributePage.label}
                     </Text>
-                    <Text className="font-dafDisplay mt-2.5 text-[27px] font-bold leading-[31px] text-daf-text-primary dark:text-white">
+                    <Text className="mt-2.5 font-dafDisplay text-[27px] font-bold leading-[31px] text-daf-text-primary dark:text-white">
                         {contributePage.title}
                     </Text>
                     <Text className="mt-2.5 text-[14px] leading-[22px] text-daf-text-secondary dark:text-neutral-300">
@@ -30,8 +77,8 @@ export function ContributeScreen() {
                 </View>
 
                 <View className="px-4 pb-2 pt-[18px]">
-                    <View className="dark:border-daf-border-dark dark:bg-daf-surface-dark gap-[14px] rounded-dafLg border border-daf-border bg-white px-4 py-[18px] shadow-[0px_4px_18px_rgba(11,14,18,0.12)]">
-                        <View className="bg-daf-brand/12 dark:bg-daf-brand/15 h-[46px] w-[46px] items-center justify-center rounded-dafMd">
+                    <View className="gap-[14px] rounded-dafLg border border-daf-border bg-white px-4 py-[18px] shadow-[0px_4px_18px_rgba(11,14,18,0.12)] dark:border-daf-border-dark dark:bg-daf-surface-dark">
+                        <View className="bg-daf-brand/12 h-[46px] w-[46px] items-center justify-center rounded-dafMd dark:bg-daf-brand/15">
                             <Icon
                                 color={dafSemanticColors.brand}
                                 name="coffee"

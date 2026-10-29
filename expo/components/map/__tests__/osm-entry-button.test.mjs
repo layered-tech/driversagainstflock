@@ -10,7 +10,7 @@ function find(tree, id) {
         .map((child) => find(child, id))
         .find(Boolean);
 }
-function createEntry() {
+function createEntry(railEdge = null) {
     const hooks = createHookHarness();
     const actions = [];
     const contribution = {
@@ -29,6 +29,11 @@ function createEntry() {
         new URL('../../contribute/contribute-entry-button.js', import.meta.url),
         {
             react: hooks.react,
+            '../root/native-navigation': {
+                NativeNavigationAction: 'NativeNavigationAction',
+                NativeModalContent: 'NativeModalContent',
+                useDuoRailEdge: () => railEdge,
+            },
             'react-native': {
                 View: 'View',
                 Text: 'Text',
@@ -115,8 +120,13 @@ test('liquid glass receives the map theme and contribution border', () => {
     const { MapControlButton } = loadTourModule(
         new URL('../map-control-button.js', import.meta.url),
         {
+            '../root/native-navigation': {
+                NativeNavigationAction: 'NativeNavigationAction',
+                NativeModalContent: 'NativeModalContent',
+            },
             'react-native': { Pressable: 'Pressable' },
             './constants': { MAP_CONTROL_BUTTON_SIZE: 48 },
+            './duo-rail-icons': { getDuoRailIcon: () => undefined },
             './map-liquid-glass': { mapLiquidGlassIsAvailable: () => true },
             './native-components': { NativeWindGlassView: 'Glass' },
         },
@@ -125,9 +135,26 @@ test('liquid glass receives the map theme and contribution border', () => {
         glassColorScheme: 'dark',
         glassBorderClassName: 'border-daf-brand',
         glassTintColor: 'black',
-    });
+    }).props.children;
+    assert.doesNotMatch(tree.props.className, /shadow-/);
     assert.equal(tree.props.colorScheme, 'dark');
     assert.equal(tree.props.tintColor, 'black');
     assert.match(tree.props.className, /border-daf-brand/);
     assert.equal(tree.props.children.props.glassColorScheme, undefined);
+});
+
+test('Duo keeps the draft count on the native pencil without an orphan custom badge', () => {
+    const entry = createEntry('trailing');
+    try {
+        const tree = entry.render();
+        assert.equal(find(tree, 'map-contribute-button').props.nativeBadge, 3);
+        assert.equal(find(tree, 'contribute-draft-count'), undefined);
+        assert.match(
+            find(tree, 'contribute-coach-mark').props.className,
+            /right-0/,
+        );
+        assert.equal(find(tree, 'contribute-coach-mark').props.style.top, 0);
+    } finally {
+        entry.cleanup();
+    }
 });

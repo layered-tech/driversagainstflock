@@ -1,6 +1,8 @@
+import { NativeNavigationAction } from '../root/native-navigation';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, View } from 'react-native';
+import { Linking, Platform, useWindowDimensions, View } from 'react-native';
+import { getTabletPaneLayout } from '../map/responsive-map-layout';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { DafIconButton } from '../design-system/primitives';
 import { AreaMap } from './area-map';
@@ -19,7 +21,12 @@ export default function AreaChangeScreen() {
     const [payload, setPayload] = useState(null);
     const [error, setError] = useState(null);
     const [attempt, setAttempt] = useState(0);
+    const [sheetHeight, setSheetHeight] = useState(0);
     const insets = useSafeAreaInsets();
+    const { width } = useWindowDimensions();
+    const tabletPane = Platform?.isPad
+        ? getTabletPaneLayout(width, insets)
+        : null;
     useEffect(() => {
         const controller = new AbortController();
         setError(null);
@@ -38,6 +45,8 @@ export default function AreaChangeScreen() {
             <View className="-mb-[22px] min-h-[150px] flex-1">
                 {change ? (
                     <AreaMap
+                        showDirectionCones
+                        sheetHeight={sheetHeight}
                         bottomOverlap={22}
                         zoomLevel={16}
                         center={[change.longitude, change.latitude]}
@@ -46,18 +55,29 @@ export default function AreaChangeScreen() {
                 ) : (
                     <AreaLoading />
                 )}
-                <View
-                    className="absolute left-3"
-                    style={{ top: insets.top + 8 }}
-                >
-                    <DafIconButton
-                        icon="chevron-left"
-                        accessibilityLabel="Back"
-                        onPress={() => router.back()}
-                    />
-                </View>
+                {!tabletPane ? (
+                    <View
+                        className="absolute left-3"
+                        style={{ top: insets.top + 8 }}
+                    >
+                        <NativeNavigationAction
+                            railOnly
+                            kind="back"
+                            priority={100}
+                        >
+                            <DafIconButton
+                                icon="chevron-left"
+                                accessibilityLabel="Back"
+                                onPress={() => router.back()}
+                            />
+                        </NativeNavigationAction>
+                    </View>
+                ) : null}
             </View>
             <AreaSheet
+                onLayout={(event) =>
+                    setSheetHeight(event.nativeEvent.layout.height)
+                }
                 title={change ? `Camera ${change.kind}` : 'Camera change'}
                 subtitle={
                     change
@@ -65,6 +85,15 @@ export default function AreaChangeScreen() {
                         : undefined
                 }
                 testID="area-change-sheet"
+                leading={
+                    tabletPane ? (
+                        <DafIconButton
+                            icon="chevron-left"
+                            accessibilityLabel="Back"
+                            onPress={() => router.back()}
+                        />
+                    ) : undefined
+                }
             >
                 <AreaError
                     message={error}

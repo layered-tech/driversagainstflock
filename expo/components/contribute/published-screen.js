@@ -1,6 +1,9 @@
+import { DuoText as Text } from '../design-system/duo-typography';
+import { useDuoPaneContent } from '../root/duo-device-context';
+import { useDuoPaneContentSize } from '../root/duo-pane-content-size';
 import { router, useFocusEffect, useIsFocused } from 'expo-router';
 import { useCallback, useRef } from 'react';
-import { ScrollView, Text, useColorScheme, View } from 'react-native';
+import { ScrollView, useColorScheme, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
 import { getCameraChangeLabel } from '../../lib/osm/camera-presets';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
@@ -13,6 +16,8 @@ import { ContributeTourOverlay } from './contribute-tour-overlay';
 import { ContributeTourTarget } from './contribute-tour-target';
 
 export default function PublishedScreen() {
+    const sizing = useDuoPaneContentSize({ header: false });
+    const inDuoPane = useDuoPaneContent();
     const targets = useRef({});
     const screenIsFocused = useIsFocused();
     const insets = useSafeAreaInsets();
@@ -49,11 +54,16 @@ export default function PublishedScreen() {
         >
             <ScrollView
                 className="flex-1"
-                contentContainerStyle={{ flexGrow: 1 }}
+                contentContainerStyle={{ flexGrow: inDuoPane ? 0 : 1 }}
+                onContentSizeChange={sizing.onContentSizeChange}
             >
                 <View
-                    className="flex-1 items-center justify-center px-6 pb-6"
-                    style={{ paddingTop: Math.max(insets.top + 24, 60) }}
+                    className={`${inDuoPane ? '' : 'flex-1'} items-center justify-center px-[24px] pb-[24px]`}
+                    style={{
+                        paddingTop: inDuoPane
+                            ? 34
+                            : Math.max(insets.top + 24, 60),
+                    }}
                 >
                     <View className="h-[72px] w-[72px] items-center justify-center rounded-full bg-daf-brand/15">
                         <Icon name="check" size={34} color={theme.text.brand} />
@@ -123,7 +133,8 @@ export default function PublishedScreen() {
                 </View>
             </ScrollView>
             <View
-                className="border-t border-daf-border bg-white px-4 pt-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
+                onLayout={sizing.onFooterLayout}
+                className="border-t border-daf-border bg-white px-[16px] pt-[12px] dark:border-daf-border-dark dark:bg-daf-surface-dark"
                 style={{ paddingBottom: Math.max(insets.bottom + 12, 20) }}
             >
                 <ContributeTourTarget id="published" targets={targets}>

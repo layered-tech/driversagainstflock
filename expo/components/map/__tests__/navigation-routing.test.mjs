@@ -557,6 +557,7 @@ function loadGuidanceCards(
         },
         '../design-system/icon': { Icon: 'Icon' },
         '../design-system/primitives': { DafButton: 'Button' },
+        '../design-system/duo-typography': { DuoText: 'Text' },
         '../design-system/tokens': {
             dafSemanticColors: {},
             getDafTheme: (scheme) => ({

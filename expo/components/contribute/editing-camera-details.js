@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native';
+import { DuoText as Text } from '../design-system/duo-typography';
+import { View } from 'react-native';
 import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
 

@@ -1,4 +1,4 @@
-import { Text } from 'react-native';
+import { DuoText as Text } from '../design-system/duo-typography';
 import { getSearchHighlightRanges } from './search-formatters';
 
 export function HighlightedSearchText({

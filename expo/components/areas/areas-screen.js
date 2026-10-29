@@ -1,5 +1,8 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
+import { DuoPaneMap } from '../root/duo-pane-screen';
+import { useDuoPaneContentSize } from '../root/duo-pane-content-size';
+import { AreaMap } from './area-map';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
@@ -18,9 +21,25 @@ import {
 import { useAreas } from './areas-context';
 
 export default function AreasScreen() {
+    const sizing = useDuoPaneContentSize({ footer: false });
     const { areas, loading, error, refresh, timeWindow, setTimeWindow } =
         useAreas();
     const insets = useSafeAreaInsets();
+    const areaMap = useMemo(() => {
+        const polygons = areas.flatMap((area) =>
+            area.geometry?.type === 'Polygon'
+                ? [area.geometry.coordinates]
+                : area.geometry?.type === 'MultiPolygon'
+                  ? area.geometry.coordinates
+                  : [],
+        );
+        return polygons.length ? (
+            <AreaMap
+                geometry={{ type: 'MultiPolygon', coordinates: polygons }}
+                overview
+            />
+        ) : null;
+    }, [areas]);
     useFocusEffect(
         useCallback(() => {
             refresh();
@@ -32,14 +51,17 @@ export default function AreasScreen() {
     );
     return (
         <View className="flex-1" testID="areas-screen">
+            <DuoPaneMap>{areaMap}</DuoPaneMap>
             <AreaHeader
+                onLayout={sizing.onHeaderLayout}
                 root
                 title="My areas"
                 trailing={areas.length ? <AreaAddButton /> : null}
             />
             <ScrollView
+                onContentSizeChange={sizing.onContentSizeChange}
                 contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
-                className={areas.length ? 'px-4' : 'px-[22px]'}
+                className={areas.length ? 'px-[16px]' : 'px-[22px]'}
                 refreshControl={
                     <RefreshControl
                         refreshing={loading && areas.length > 0}
@@ -52,8 +74,8 @@ export default function AreasScreen() {
                 {loading && !areas.length ? <AreaLoading /> : null}
                 {!loading && !error && !areas.length ? (
                     <>
-                        <View className="pb-[26px] pt-7">
-                            <View className="mb-5 h-[58px] w-[58px] items-center justify-center rounded-dafLg bg-daf-brand/10">
+                        <View className="pb-[26px] pt-[20px]">
+                            <View className="mb-[20px] h-[58px] w-[58px] items-center justify-center rounded-dafLg bg-daf-brand/10">
                                 <Icon
                                     name="map-pin"
                                     size={28}
@@ -72,7 +94,7 @@ export default function AreasScreen() {
                         <Text className="mb-2 text-[11px] uppercase tracking-[1px] text-daf-text-tertiary dark:text-daf-text-tertiary">
                             Add an area
                         </Text>
-                        <View className={`${areaCardClass} px-4`}>
+                        <View className={`${areaCardClass} px-[16px]`}>
                             {[
                                 [
                                     'search',

@@ -1,5 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { DuoPaneMap } from '../root/duo-pane-screen';
+import { useDuoPaneContentSize } from '../root/duo-pane-content-size';
+import { AreaMap } from './area-map';
 import {
     KeyboardAvoidingView,
     Linking,
@@ -25,9 +28,14 @@ import {
 import { useAreas } from './areas-context';
 
 export default function AreaAlertsScreen() {
+    const sizing = useDuoPaneContentSize({ footer: false });
     const { areaId } = useLocalSearchParams();
     const { areas, loading, refresh, updateArea, removeArea } = useAreas();
     const area = areas.find((item) => item.id === Number(areaId));
+    const areaMap = useMemo(
+        () => (area?.geometry ? <AreaMap geometry={area.geometry} /> : null),
+        [area?.geometry],
+    );
     const [error, setError] = useState(null);
     const [busy, setBusy] = useState(false);
     const [time, setTime] = useState('08:00');
@@ -71,13 +79,16 @@ export default function AreaAlertsScreen() {
             className="flex-1"
             testID="area-alerts-screen"
         >
+            <DuoPaneMap>{areaMap}</DuoPaneMap>
             <AreaHeader
+                onLayout={sizing.onHeaderLayout}
                 title="Alerts"
                 subtitle={
                     area ? `${area.name} · ${AREA_KINDS[area.kind]}` : undefined
                 }
             />
             <ScrollView
+                onContentSizeChange={sizing.onContentSizeChange}
                 keyboardShouldPersistTaps="handled"
                 className="px-4"
                 contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}

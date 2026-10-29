@@ -1,14 +1,18 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Platform, Text, useWindowDimensions, View } from 'react-native';
 import { getCameraDetailsFromTags } from '../../lib/osm/camera-presets';
 import { CameraForm } from '../contribute/camera-form';
 import { useContribute } from '../contribute/contribute-state';
 import { ContributePageHeader } from '../contribute/step-header';
 import { DafButton } from '../design-system/primitives';
 import { RemoveCameraSheet } from './remove-camera-sheet';
+import { useDuoDevice } from '../root/duo-device-context';
 
 export default function EditCameraScreen() {
+    const duo = useDuoDevice();
+    const { width } = useWindowDimensions();
+    const wideTablet = Platform.isPad && width >= 768;
     const params = useLocalSearchParams();
     const { pins, stageNodeEdit, continueOnMap, getEditingNode } =
         useContribute();
@@ -108,22 +112,24 @@ export default function EditCameraScreen() {
         );
     return (
         <View className="flex-1" testID="edit-camera-screen">
-            <CameraForm
-                pin={{
-                    ...location,
-                    nodeId: node.id,
-                    version: node.version,
-                    details,
-                }}
-                onBack={() => router.back()}
-                onDetailsChange={(patch) =>
-                    setDetails((value) => ({ ...value, ...patch }))
-                }
-                onLocationChange={setLocation}
-                onSave={save}
-                saving={saving}
-                error={error}
-            />
+            {!(duo || wideTablet) || action !== 'remove' ? (
+                <CameraForm
+                    pin={{
+                        ...location,
+                        nodeId: node.id,
+                        version: node.version,
+                        details,
+                    }}
+                    onBack={() => router.back()}
+                    onDetailsChange={(patch) =>
+                        setDetails((value) => ({ ...value, ...patch }))
+                    }
+                    onLocationChange={setLocation}
+                    onSave={save}
+                    saving={saving}
+                    error={error}
+                />
+            ) : null}
             <RemoveCameraSheet
                 isOpen={removeOpen}
                 node={node}

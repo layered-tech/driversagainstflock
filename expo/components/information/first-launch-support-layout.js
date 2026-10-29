@@ -3,14 +3,33 @@ const designSizes = [
     28, 32, 36.8, 46, 52, 58,
 ];
 
-export function getFirstLaunchSupportLayout(windowWidth, insets) {
-    const width = Math.min(windowWidth, 560);
-    const scale = width / 390;
+export function getFirstLaunchSupportLayout(
+    windowWidth,
+    insets,
+    duo = false,
+    tablet = false,
+) {
+    const centered = (duo || tablet) && windowWidth >= 768;
+    const width = Math.min(
+        windowWidth - (insets.left || 0) - (insets.right || 0),
+        560,
+    );
+    const scale = duo || centered ? 1 : width / 390;
 
     return {
         scale,
-        paddingTop: Math.max(insets.top + 24 * scale, 68 * scale),
-        paddingBottom: Math.max(insets.bottom + 16 * scale, 36 * scale),
+        centered,
+        paddingTop: centered
+            ? Math.max(insets.top, 24)
+            : duo
+              ? Math.max(insets.top + 24, 68)
+              : Math.max(
+                    insets.top + 24 * scale,
+                    (insets.left > 44 || insets.right > 44 ? 24 : 68) * scale,
+                ),
+        paddingBottom: centered
+            ? Math.max(insets.bottom, 24)
+            : Math.max(insets.bottom + 16 * scale, 36 * scale),
         variables: {
             ...Object.fromEntries(
                 designSizes.map((size) => [

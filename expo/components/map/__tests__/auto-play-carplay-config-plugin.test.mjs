@@ -26,6 +26,36 @@ public class AppDelegate: ExpoAppDelegate {
 `;
 
 describe('CarPlay Auto Play config plugin', () => {
+    test('injects the Expo factory-provider AppDelegate idempotently', () => {
+        const declaration =
+            'class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {';
+        const fixture = currentExpoAppDelegateFixture.replace(
+            'public class AppDelegate: ExpoAppDelegate {',
+            declaration,
+        );
+        const firstResult = addAutoPlayRootViewToAppDelegate(fixture);
+
+        assert.equal(
+            addAutoPlayRootViewToAppDelegate(firstResult),
+            firstResult,
+        );
+        assert.ok(firstResult.includes(declaration));
+        assert.ok(
+            firstResult.indexOf('getRootViewForAutoplay') >
+                firstResult.indexOf(declaration),
+        );
+        assert.ok(
+            firstResult.indexOf('getRootViewForAutoplay') <
+                firstResult.indexOf('public override func application'),
+        );
+        assert.equal(
+            firstResult.match(
+                /@generated begin react-native-auto-play-root-view/g,
+            ).length,
+            1,
+        );
+    });
+
     test('merges CarPlay scenes without replacing unrelated manifest entries', () => {
         const existingManifest = {
             CustomManifestValue: 'preserved',

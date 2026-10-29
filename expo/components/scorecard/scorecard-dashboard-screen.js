@@ -1,3 +1,6 @@
+import { DuoText as Text } from '../design-system/duo-typography';
+import { useDuoDevice } from '../root/duo-device-context';
+import { useDuoPaneContentSize } from '../root/duo-pane-content-size';
 import { router, useIsFocused } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -5,7 +8,6 @@ import {
     Pressable,
     ScrollView,
     Switch,
-    Text,
     useColorScheme,
     View,
 } from 'react-native';
@@ -66,6 +68,7 @@ function getWeeklyCameraCrossings(exposures, now = Date.now()) {
 }
 
 function PrivacyScoreRing({ score, theme }) {
+    const duo = useDuoDevice();
     const radius = 52;
     const circumference = 2 * Math.PI * radius;
     const resolvedScore = Number.isFinite(score) ? score : 0;
@@ -94,7 +97,7 @@ function PrivacyScoreRing({ score, theme }) {
                     cy="60"
                     fill="none"
                     r={radius}
-                    stroke={theme.text.brand}
+                    stroke={duo ? dafSemanticColors.brand : theme.text.brand}
                     strokeDasharray={`${(circumference * resolvedScore) / 100} ${circumference}`}
                     strokeLinecap="round"
                     strokeWidth="11"
@@ -173,6 +176,8 @@ function BadgeCard({ badge }) {
 }
 
 export default function ScorecardDashboardScreen() {
+    const sizing = useDuoPaneContentSize({ footer: false });
+    const duo = useDuoDevice();
     const tour = useUserTour('scorecard');
     const tourTargets = useRef({});
     const tourScrollRef = useRef(null);
@@ -359,14 +364,19 @@ export default function ScorecardDashboardScreen() {
             className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
             testID="scorecard-dashboard"
         >
-            <ScorecardScreenHeader subtitle="Last 30 days" title="Scorecard" />
+            <ScorecardScreenHeader
+                subtitle="Last 30 days"
+                title="Scorecard"
+                onLayout={sizing.onHeaderLayout}
+            />
             <ScrollView
                 className="flex-1"
                 contentContainerStyle={{ paddingBottom: bottomPadding }}
                 ref={tourScrollRef}
+                onContentSizeChange={sizing.onContentSizeChange}
             >
                 <View
-                    className="gap-3.5 px-4 py-[18px]"
+                    className={`gap-3.5 px-[16px] ${duo ? 'py-[20px]' : 'py-[18px]'}`}
                     collapsable={false}
                     ref={tourContentRef}
                 >
@@ -384,7 +394,7 @@ export default function ScorecardDashboardScreen() {
                         </View>
                     ) : null}
 
-                    <View className="items-center rounded-dafLg border border-daf-border bg-white px-4 pb-[18px] pt-5 shadow-sm dark:border-daf-border-dark dark:bg-daf-surface-dark">
+                    <View className="items-center rounded-dafLg border border-daf-border bg-white px-[16px] pb-[18px] pt-5 shadow-sm dark:border-daf-border-dark dark:bg-daf-surface-dark">
                         <TourTarget id="privacy-score" targets={tourTargets}>
                             <PrivacyScoreRing
                                 score={
@@ -671,7 +681,7 @@ export default function ScorecardDashboardScreen() {
                         </Pressable>
                     </TourTarget>
 
-                    <View className="rounded-dafLg border border-daf-border bg-white px-4 py-3.5 dark:border-daf-border-dark dark:bg-daf-surface-dark">
+                    <View className="rounded-dafLg border border-daf-border bg-white px-[16px] py-3.5 dark:border-daf-border-dark dark:bg-daf-surface-dark">
                         <TourTarget
                             className="flex-row items-center gap-3"
                             id="recording"

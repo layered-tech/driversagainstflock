@@ -3,12 +3,52 @@ import { describe, test } from 'node:test';
 import {
     fitRouteComparisonCamera,
     getDisplayedMapStyleURL,
+    refitDuoMapViewport,
 } from '../../map-screen-behavior.js';
 
 const MAPBOX_STANDARD_SATELLITE_STYLE_URL = 'mapbox://styles/satellite';
 const MAPBOX_STANDARD_STYLE_URL = 'mapbox://styles/standard';
 
 describe('map screen behavior', () => {
+    test('a resized Duo refits the active place, marker, or route into its updated viewport', () => {
+        const calls = [];
+        const locationController = Object.fromEntries(
+            [
+                'fitCameraToBounds',
+                'moveCameraToPlace',
+                'moveCameraToCoordinate',
+            ].map((method) => [
+                method,
+                (...args) => calls.push([method, ...args]),
+            ]),
+        );
+        const options = {
+            duoDevice: true,
+            isDrivingMode: false,
+            locationController,
+            cameraPadding: [20, 24, 240, 24],
+        };
+        const selectedPlace = { location: { longitude: -122, latitude: 37 } };
+        refitDuoMapViewport({ ...options, selectedPlace });
+        refitDuoMapViewport({
+            ...options,
+            selectedMarker: { geometry: { coordinates: [-122, 37] } },
+        });
+        const bounds = { sw: [-123, 36], ne: [-121, 38] };
+        refitDuoMapViewport({ ...options, routeBounds: bounds, selectedPlace });
+        assert.deepEqual(calls, [
+            ['moveCameraToPlace', selectedPlace],
+            ['moveCameraToCoordinate', [-122, 37]],
+            ['fitCameraToBounds', bounds, { padding: options.cameraPadding }],
+        ]);
+        refitDuoMapViewport({ ...options, duoDevice: false, selectedPlace });
+        refitDuoMapViewport({ ...options, isDrivingMode: true, selectedPlace });
+        assert.equal(
+            calls.length,
+            3,
+            'Ordinary phone resizing and active guidance retain their existing camera ownership',
+        );
+    });
     test('temporarily displays satellite imagery during contribution placement', () => {
         assert.equal(
             getDisplayedMapStyleURL({

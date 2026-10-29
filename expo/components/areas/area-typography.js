@@ -7,7 +7,9 @@ const uiFonts = {
 
 export function areaTextClassName(className = '') {
     const classes = className.split(/\s+/);
-    const weight = classes.includes('font-bold')
+    const weight = classes.some((name) =>
+        ['font-bold', 'font-extrabold', 'font-black'].includes(name),
+    )
         ? 'Bold'
         : classes.includes('font-semibold')
           ? 'Semibold'
@@ -26,7 +28,7 @@ export function areaTextClassName(className = '') {
     return [
         ...classes.filter(
             (name) =>
-                !/^font-(dafDisplay|dafUi|dafMono|normal|medium|semibold|bold)$/.test(
+                !/^font-(dafDisplay|dafUi|dafMono|normal|medium|semibold|bold|extrabold|black)$/.test(
                     name,
                 ),
         ),

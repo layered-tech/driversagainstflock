@@ -1,3 +1,7 @@
+import { NativeNavigationAction } from './root/native-navigation';
+import { useDuoDevice } from './root/duo-device-context';
+import { getDuoPaneLayout } from './map/duo-bottom-sheet-layout';
+import { getTabletPaneLayout } from './map/responsive-map-layout';
 import { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useIsFocused, useNavigation } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -12,6 +16,7 @@ import { useContribute } from './contribute/contribute-state';
 import {
     fitRouteComparisonCamera,
     getDisplayedMapStyleURL,
+    refitDuoMapViewport,
 } from './map-screen-behavior';
 import { logMapDrivingStarted, logMapDrivingStopped } from './map/analytics';
 import { getMockMarkerPointsSnapshot } from './map/api-mocks';
@@ -128,6 +133,7 @@ export default function LocationMapScreen({
     );
     const [routeExportIsVisible, setRouteExportIsVisible] = useState(false);
     const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+    const duoDevice = useDuoDevice();
     const navigationPuckSize = useMemo(
         () =>
             getNavigationPuckSize({
@@ -140,6 +146,26 @@ export default function LocationMapScreen({
     const bottomSheetAnimatedPosition = useSharedValue(windowHeight);
     const navigation = useNavigation();
     const safeAreaInsets = useSafeAreaInsets();
+    const drivingCameraViewportInsets = useMemo(() => {
+        const pane = Platform.isPad
+            ? getTabletPaneLayout(windowWidth, safeAreaInsets)
+            : duoDevice && getDuoPaneLayout(windowWidth, safeAreaInsets);
+        return pane
+            ? {
+                  paddingLeft: pane.left + pane.width + 12,
+                  paddingRight: safeAreaInsets.right,
+                  paddingTop: safeAreaInsets.top,
+                  paddingBottom: safeAreaInsets.bottom,
+              }
+            : undefined;
+    }, [
+        duoDevice,
+        windowWidth,
+        safeAreaInsets.left,
+        safeAreaInsets.right,
+        safeAreaInsets.top,
+        safeAreaInsets.bottom,
+    ]);
     const screenIsFocused = useIsFocused();
     const contributeTourTargets = useRef({});
     const { contributePlacementIsActive, pins: contributePins } =
@@ -245,6 +271,7 @@ export default function LocationMapScreen({
         cameraFocusPadding,
         cameraDebugStateUpdatesEnabled,
         drivingCameraFollowViewportAnchorY: drivingLocationAnchorY,
+        drivingCameraViewportInsets,
         drivingMapViewMode,
         initialCameraSettings,
         isDrivingMode,
@@ -368,6 +395,23 @@ export default function LocationMapScreen({
         !markerDetailsModeIsActive &&
         !placeDetailsModeIsActive &&
         !routeComparisonIsActive;
+    const viewportRefit = useRef(null);
+    viewportRefit.current = () =>
+        refitDuoMapViewport({
+            duoDevice: duoDevice || (Platform.isPad && windowWidth >= 768),
+            isDrivingMode,
+            selectedPlace: searchController.selectedPlaceDetails,
+            selectedMarker,
+            routeBounds: routeComparisonIsActive
+                ? (getDirectionsRouteOptionsBounds(directionsRoute) ??
+                  getDirectionsRouteBounds(directionsRoute))
+                : null,
+            cameraPadding: directionsRouteCameraPadding,
+            locationController,
+        });
+    const handleMapViewportLayout = useCallback(() => {
+        requestAnimationFrame(() => viewportRefit.current?.());
+    }, []);
     const freeDriveSearchOverlayIsVisible =
         freeDriveIsActive && resolvedMapSearchOverlayIsVisible;
 
@@ -788,7 +832,7 @@ export default function LocationMapScreen({
             searchValue={searchValue}
         >
             <View className="flex-1 bg-white dark:bg-neutral-950">
-                <MapCanvas />
+                <MapCanvas onLayout={handleMapViewportLayout} />
                 {screenIsFocused ? (
                     <>
                         {SHOW_MAP_DEBUG_CONTROLS &&
@@ -824,6 +868,7 @@ export default function LocationMapScreen({
                                     setDrivingLocationAnchorY
                                 }
                                 onRouteExport={handleRouteExportPress}
+                                onResumeGuidance={handleDrivingRecenterPress}
                                 onStepFocus={
                                     locationController.moveCameraToCoordinate
                                 }
@@ -853,7 +898,9 @@ export default function LocationMapScreen({
                                 style={{
                                     paddingLeft: safeAreaInsets.left + 12,
                                     paddingRight: safeAreaInsets.right + 12,
-                                    paddingTop: safeAreaInsets.top + 12,
+                                    paddingTop:
+                                        safeAreaInsets.top +
+                                        (Platform.isPad ? 36 : 12),
                                 }}
                             >
                                 {contributePlacementIsActive ? (
@@ -872,63 +919,88 @@ export default function LocationMapScreen({
                                         }
                                     />
                                 ) : null}
-                                {routeComparisonIsActive ? (
-                                    <Pressable
-                                        accessibilityLabel="Back from route choices"
-                                        accessibilityRole="button"
-                                        className="h-[55px] w-[55px] items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82] dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90"
-                                        onPress={
-                                            searchController.handleDirectionsModeDismiss
-                                        }
-                                        testID="directions-route-back-button"
+                                {routeComparisonIsActive &&
+                                !(Platform.isPad && windowWidth >= 768) ? (
+                                    <NativeNavigationAction
+                                        railOnly
+                                        kind="back"
+                                        priority={10}
                                     >
-                                        <MapControlIcon
-                                            color={
-                                                presentation.searchPrimaryIconColor
+                                        <Pressable
+                                            accessibilityLabel="Back from route choices"
+                                            accessibilityRole="button"
+                                            className="h-[55px] w-[55px] items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82] dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90"
+                                            onPress={
+                                                searchController.handleDirectionsModeDismiss
                                             }
-                                            name="chevron-left"
-                                        />
-                                    </Pressable>
+                                            testID="directions-route-back-button"
+                                        >
+                                            <MapControlIcon
+                                                color={
+                                                    presentation.searchPrimaryIconColor
+                                                }
+                                                name="chevron-left"
+                                            />
+                                        </Pressable>
+                                    </NativeNavigationAction>
                                 ) : null}
                                 {markerDetailsModeIsActive &&
-                                !contributePlacementIsActive ? (
+                                !(Platform.isPad && windowWidth >= 768) &&
+                                (!contributePlacementIsActive || duoDevice) ? (
                                     <View className="items-end">
-                                        <Pressable
-                                            accessibilityLabel="Close marker details"
-                                            accessibilityRole="button"
-                                            className="h-[55px] w-[55px] items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82] dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90"
-                                            onPress={
-                                                handleMarkerDetailsClosePress
+                                        <NativeNavigationAction
+                                            railOnly
+                                            kind="close"
+                                            priority={
+                                                contributePlacementIsActive
+                                                    ? 200
+                                                    : 10
                                             }
-                                            testID="marker-details-close-button"
                                         >
-                                            <MapControlIcon
-                                                color={
-                                                    presentation.searchPrimaryIconColor
+                                            <Pressable
+                                                accessibilityLabel="Close marker details"
+                                                accessibilityRole="button"
+                                                className="h-[55px] w-[55px] items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82] dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90"
+                                                onPress={
+                                                    handleMarkerDetailsClosePress
                                                 }
-                                                name="x"
-                                            />
-                                        </Pressable>
+                                                testID="marker-details-close-button"
+                                            >
+                                                <MapControlIcon
+                                                    color={
+                                                        presentation.searchPrimaryIconColor
+                                                    }
+                                                    name="x"
+                                                />
+                                            </Pressable>
+                                        </NativeNavigationAction>
                                     </View>
                                 ) : null}
-                                {placeDetailsModeIsActive ? (
+                                {placeDetailsModeIsActive &&
+                                !(Platform.isPad && windowWidth >= 768) ? (
                                     <View className="items-end">
-                                        <Pressable
-                                            accessibilityLabel="Close place details"
-                                            accessibilityRole="button"
-                                            className="h-[55px] w-[55px] items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82] dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90"
-                                            onPress={
-                                                searchController.handleClearSelectedSearchResult
-                                            }
-                                            testID="place-details-close-button"
+                                        <NativeNavigationAction
+                                            railOnly
+                                            kind="close"
+                                            priority={10}
                                         >
-                                            <MapControlIcon
-                                                color={
-                                                    presentation.searchPrimaryIconColor
+                                            <Pressable
+                                                accessibilityLabel="Close place details"
+                                                accessibilityRole="button"
+                                                className="h-[55px] w-[55px] items-center justify-center rounded-dafPill border border-daf-border-glass bg-white/90 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] active:opacity-[0.82] dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90"
+                                                onPress={
+                                                    searchController.handleClearSelectedSearchResult
                                                 }
-                                                name="x"
-                                            />
-                                        </Pressable>
+                                                testID="place-details-close-button"
+                                            >
+                                                <MapControlIcon
+                                                    color={
+                                                        presentation.searchPrimaryIconColor
+                                                    }
+                                                    name="x"
+                                                />
+                                            </Pressable>
+                                        </NativeNavigationAction>
                                     </View>
                                 ) : null}
                                 {e2eMarkerTapTargets.map((marker, index) => (

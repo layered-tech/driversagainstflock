@@ -13,9 +13,15 @@ import {
 import { AreasProvider } from '../components/areas/areas-context';
 import { ContributeProvider } from '../components/contribute/contribute-state';
 import { Icon } from '../components/design-system/icon';
+import { DuoTypographyProvider } from '../components/design-system/duo-typography';
+import {
+    DuoDeviceProvider,
+    useDuoDevice,
+} from '../components/root/duo-device-context';
 import { FirstLaunchSupportGate } from '../components/information/first-launch-support-gate';
 import { SharedMapStateProvider } from '../components/map/shared-map-state';
 import { APP_ENVIRONMENT } from '../components/map/config';
+import { nativeNavigationScreenLayout } from '../components/root/native-navigation';
 import { AppDrawerContent } from '../components/root/app-drawer-content';
 import { AndroidGeoIntentHandler } from '../components/root/android-geo-intent-handler';
 import { AuthCallbackHandler } from '../components/root/auth-callback-handler';
@@ -43,15 +49,20 @@ function ScorecardContributeProvider({ children }) {
         <ScorecardProvider>
             <ContributeProvider>
                 <AreasProvider>
-                    <UserToursProvider>{children}</UserToursProvider>
+                    <UserToursProvider>
+                        <DuoTypographyProvider>
+                            {children}
+                        </DuoTypographyProvider>
+                    </UserToursProvider>
                 </AreasProvider>
             </ContributeProvider>
         </ScorecardProvider>
     );
 }
 
-function RootLayout() {
+function RootLayoutContents() {
     const colorScheme = useColorScheme();
+    const duoDevice = useDuoDevice();
     const pathname = usePathname();
     const [debugDrawerIsVisible, setDebugDrawerIsVisible] = useState(false);
     const isDarkMode = colorScheme === 'dark';
@@ -90,6 +101,9 @@ function RootLayout() {
                             <ScorecardContributeProvider>
                                 <FirstLaunchSupportGate>
                                     <Drawer
+                                        screenLayout={
+                                            nativeNavigationScreenLayout
+                                        }
                                         drawerContent={(props) => (
                                             <AppDrawerContent
                                                 {...props}
@@ -112,6 +126,12 @@ function RootLayout() {
                                             drawerStyle: {
                                                 backgroundColor:
                                                     systemBarBackground,
+                                                borderTopRightRadius: duoDevice
+                                                    ? 22
+                                                    : 0,
+                                                borderBottomRightRadius:
+                                                    duoDevice ? 22 : 0,
+                                                overflow: 'hidden',
                                                 width: 308,
                                             },
                                             headerShown: false,
@@ -313,4 +333,10 @@ function RootLayout() {
     );
 }
 
-export default RootLayout;
+export default function RootLayout() {
+    return (
+        <DuoDeviceProvider>
+            <RootLayoutContents />
+        </DuoDeviceProvider>
+    );
+}

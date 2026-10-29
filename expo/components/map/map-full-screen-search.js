@@ -1,11 +1,19 @@
 import {
+    DuoText as Text,
+    DuoTextInput as TextInput,
+} from '../design-system/duo-typography';
+import { NativeNavigationAction } from '../root/native-navigation';
+import { useDuoDevice } from '../root/duo-device-context';
+import { getDuoPaneLayout } from './duo-bottom-sheet-layout';
+import { getTabletPaneLayout } from './responsive-map-layout';
+import {
     ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
+    Platform,
     Pressable,
     ScrollView,
-    Text,
-    TextInput,
+    useWindowDimensions,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
@@ -51,6 +59,10 @@ function EmptyMessage({ children }) {
 
 export function MapFullScreenSearch() {
     const insets = useSafeAreaInsets();
+    const duo = useDuoDevice();
+    const { width, height } = useWindowDimensions();
+    const tabletPane = Platform?.isPad && getTabletPaneLayout(width, insets);
+    const pane = tabletPane || (duo && getDuoPaneLayout(width, insets));
     const {
         directionsActiveField,
         directionsCurrentLocationWaypoint,
@@ -245,31 +257,55 @@ export function MapFullScreenSearch() {
     return (
         <KeyboardAvoidingView
             behavior="padding"
-            className="absolute inset-0 z-[90] bg-daf-surface-page dark:bg-[#0B0E12]"
+            className={`${pane ? 'absolute border border-daf-border-glass shadow-areaControl dark:border-daf-border-glass-dark' : 'absolute inset-0'} z-[90] bg-daf-surface-page dark:bg-[#0B0E12]`}
             testID={`map-full-screen-search-${searchSource}`}
+            style={
+                pane
+                    ? {
+                          left: pane.left,
+                          right: pane.right,
+                          top: insets.top + (tabletPane ? 32 : 14),
+                          maxHeight:
+                              height -
+                              insets.top -
+                              (tabletPane ? 32 : 14) -
+                              Math.max(insets.bottom, 14),
+                          borderRadius: 24,
+                          overflow: 'hidden',
+                      }
+                    : undefined
+            }
         >
             <View
                 className="gap-4 border-b border-daf-border bg-white px-4 dark:border-daf-border-dark dark:bg-daf-surface-dark"
                 style={{
                     paddingBottom: 14,
-                    paddingTop: insets.top + 12,
+                    paddingLeft: pane ? 16 : insets.left + 16,
+                    paddingRight: pane ? 16 : insets.right + 16,
+                    paddingTop: pane ? 12 : insets.top + 12,
                 }}
             >
                 {primaryLocationSetupIsActive ? (
                     <View className="flex-row items-center gap-2">
-                        <Pressable
-                            accessibilityLabel="Back to saved locations"
-                            accessibilityRole="button"
-                            className="h-11 w-11 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
-                            onPress={handlePrimaryLocationSetupDismiss}
-                            testID={`map-primary-location-setup-back-${searchSource}`}
+                        <NativeNavigationAction
+                            railOnly
+                            kind="back"
+                            priority={300}
                         >
-                            <Icon
-                                color={searchPrimaryIconColor}
-                                name="chevron-left"
-                                size={22}
-                            />
-                        </Pressable>
+                            <Pressable
+                                accessibilityLabel="Back to saved locations"
+                                accessibilityRole="button"
+                                className="h-11 w-11 items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
+                                onPress={handlePrimaryLocationSetupDismiss}
+                                testID={`map-primary-location-setup-back-${searchSource}`}
+                            >
+                                <Icon
+                                    color={searchPrimaryIconColor}
+                                    name="chevron-left"
+                                    size={22}
+                                />
+                            </Pressable>
+                        </NativeNavigationAction>
                         <Text
                             className="min-w-0 flex-1 font-dafDisplay text-[17px] font-semibold text-daf-text-primary dark:text-white"
                             numberOfLines={1}
@@ -279,26 +315,34 @@ export function MapFullScreenSearch() {
                                 primaryLocationTypeBeingSet,
                             )}
                         </Text>
-                        <Pressable
-                            accessibilityLabel="Cancel setting saved location"
-                            accessibilityRole="button"
-                            className="min-h-11 justify-center px-1"
-                            onPress={handleSearchDismiss}
+                        <NativeNavigationAction
+                            railOnly
+                            kind="close"
+                            priority={300}
                         >
-                            <Text className="text-[15px] font-semibold text-daf-text-brand dark:text-daf-brand">
-                                Cancel
-                            </Text>
-                        </Pressable>
+                            <Pressable
+                                accessibilityLabel="Cancel setting saved location"
+                                accessibilityRole="button"
+                                className="min-h-11 justify-center px-1"
+                                onPress={handleSearchDismiss}
+                            >
+                                <Text className="text-[15px] font-semibold text-daf-text-brand dark:text-daf-brand">
+                                    Cancel
+                                </Text>
+                            </Pressable>
+                        </NativeNavigationAction>
                     </View>
                 ) : null}
 
                 <View className="flex-row items-center gap-2">
-                    <View className="min-w-0 flex-1 flex-row items-center gap-2 rounded-dafPill border border-daf-border bg-daf-surface-alt px-3 dark:border-daf-border-dark dark:bg-daf-surface-inverse">
+                    <View className="min-w-0 flex-1 flex-row items-center gap-2 rounded-dafPill border border-daf-border bg-white px-3 shadow-areaControl dark:border-daf-border-dark dark:bg-daf-surface-dark">
                         <Icon color={searchIconColor} name="search" size={18} />
                         <TextInput
                             accessibilityLabel={inputAccessibilityLabel}
                             autoFocus
-                            className="h-11 min-w-0 flex-1 p-0 text-[16px] font-medium text-daf-text-primary dark:text-white"
+                            className="h-11 min-w-0 flex-1 p-0 text-[16px] font-medium leading-6 text-daf-text-primary dark:text-white"
+                            multiline={false}
+                            numberOfLines={1}
                             onChangeText={changeHandler}
                             onSubmitEditing={submitHandler}
                             placeholder={inputPlaceholder}
@@ -332,25 +376,33 @@ export function MapFullScreenSearch() {
                         ) : null}
                     </View>
                     {!primaryLocationSetupIsActive ? (
-                        <Pressable
-                            accessibilityLabel="Cancel search"
-                            accessibilityRole="button"
-                            className="min-h-11 justify-center px-1"
-                            onPress={cancelHandler}
-                            testID={`map-full-screen-search-cancel-${searchSource}`}
+                        <NativeNavigationAction
+                            railOnly
+                            kind="close"
+                            priority={300}
                         >
-                            <Text className="text-[15px] font-semibold text-daf-text-brand dark:text-daf-brand">
-                                Cancel
-                            </Text>
-                        </Pressable>
+                            <Pressable
+                                accessibilityLabel="Cancel search"
+                                accessibilityRole="button"
+                                className="min-h-11 justify-center px-1"
+                                onPress={cancelHandler}
+                                testID={`map-full-screen-search-cancel-${searchSource}`}
+                            >
+                                <Text className="text-[15px] font-semibold text-daf-text-brand dark:text-daf-brand">
+                                    Cancel
+                                </Text>
+                            </Pressable>
+                        </NativeNavigationAction>
                     ) : null}
                 </View>
             </View>
 
             <ScrollView
-                className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
+                className={`${pane ? 'shrink grow-0' : 'flex-1'} bg-daf-surface-page dark:bg-[#0B0E12]`}
                 contentContainerStyle={{
-                    paddingBottom: Math.max(insets.bottom + 24, 38),
+                    paddingBottom: pane ? 24 : Math.max(insets.bottom + 24, 38),
+                    paddingLeft: pane ? 0 : insets.left,
+                    paddingRight: pane ? 0 : insets.right,
                 }}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}

@@ -32,4 +32,20 @@ test('drawer navigation keeps page coordinates stationary for iOS scroll indicat
         'front',
         'A sliding scene moves window measurements and iOS automatic scroll indicator insets',
     );
+    const drawerStyle = options.find(
+        (property) => property.key.name === 'drawerStyle',
+    ).value.properties;
+    for (const corner of ['borderTopRightRadius', 'borderBottomRightRadius']) {
+        const radius = drawerStyle.find(
+            (property) => property.key.name === corner,
+        ).value;
+        assert.equal(radius.test.name, 'duoDevice');
+        assert.equal(radius.consequent.value, 22);
+        assert.equal(radius.alternate.value, 0);
+    }
+    assert.equal(
+        drawerStyle.find((property) => property.key.name === 'overflow').value
+            .value,
+        'hidden',
+    );
 });

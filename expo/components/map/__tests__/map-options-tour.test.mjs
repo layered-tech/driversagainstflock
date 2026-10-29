@@ -23,7 +23,11 @@ function elements(node, predicate) {
     ];
 }
 
-function createMapSheetHarness({ progress = { status: 'pending' } } = {}) {
+function createMapSheetHarness({
+    progress = { status: 'pending' },
+    tablet = false,
+    width = tablet ? 1194 : 390,
+} = {}) {
     const hooks = createHookHarness();
     const changes = [];
     const tour = { progress, start: () => changes.push('start-tour') };
@@ -66,11 +70,12 @@ function createMapSheetHarness({ progress = { status: 'pending' } } = {}) {
         {
             react: hooks.react,
             'react-native': {
+                Platform: { OS: 'ios', isPad: tablet },
                 Pressable: 'Pressable',
                 Switch: 'Switch',
                 Text: 'Text',
                 View: 'View',
-                useWindowDimensions: () => ({ width: 390, height: 844 }),
+                useWindowDimensions: () => ({ width, height: 844 }),
             },
             '../design-system/icon': { Icon: 'Icon' },
             '../design-system/primitives': {
@@ -121,6 +126,56 @@ function createMapSheetHarness({ progress = { status: 'pending' } } = {}) {
         render: () => hooks.render(MapLayerSheet),
     };
 }
+
+test('iPad settings keeps a close action outside its compact scrollable content', () => {
+    const harness = createMapSheetHarness({ tablet: true });
+    harness.context.layerSheetRef.current = {
+        dismiss: () => harness.changes.push('close-settings'),
+    };
+    const sheet = harness.render();
+    assert.equal(sheet.props.nativeCloseAction, false);
+    const close = elements(
+        sheet,
+        (node) => node.props?.testID === 'map-settings-close-button',
+    )[0];
+    assert.ok(close);
+    close.props.onPress();
+    assert.equal(harness.changes.at(-1), 'close-settings');
+    const scroll = elements(
+        sheet,
+        (node) => node.type === 'BottomSheetScrollView',
+    )[0];
+    assert.equal(scroll.props.contentContainerStyle.paddingHorizontal, 16);
+    assert.equal(elements(scroll, (node) => node === close).length, 0);
+    const option = elements(
+        scroll,
+        (node) => node.props?.testID === 'map-layer-option-standard',
+    )[0];
+    assert.match(option.props.className, /min-h-\[80px\]/);
+    assert.ok(
+        elements(option, (node) => node.props?.className?.includes('h-14 w-14'))
+            .length,
+    );
+});
+
+test('phone and narrow iPad settings retain the existing sheet and preview sizing', () => {
+    for (const options of [{}, { tablet: true, width: 600 }]) {
+        const sheet = createMapSheetHarness(options).render();
+        assert.equal(sheet.props.nativeCloseAction, true);
+        assert.equal(
+            elements(
+                sheet,
+                (node) => node.props?.testID === 'map-settings-close-button',
+            ).length,
+            0,
+        );
+        const option = elements(
+            sheet,
+            (node) => node.props?.testID === 'map-layer-option-standard',
+        )[0];
+        assert.match(option.props.className, /min-h-\[104px\]/);
+    }
+});
 
 describe('Map options first-visit tour', () => {
     test('starts only when the real sheet opens and disables its overlay when dismissed', () => {

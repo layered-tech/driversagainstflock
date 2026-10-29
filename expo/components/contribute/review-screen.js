@@ -1,6 +1,9 @@
+import { FullWidthSafeAreaBand } from '../root/native-navigation';
+import { DuoText as Text } from '../design-system/duo-typography';
+import { useDuoPaneContentSize } from '../root/duo-pane-content-size';
 import { router, useIsFocused } from 'expo-router';
 import { useCallback, useRef } from 'react';
-import { Alert, ScrollView, Text, useColorScheme, View } from 'react-native';
+import { Alert, ScrollView, useColorScheme, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
 import {
     getCameraChangeLabel,
@@ -37,6 +40,7 @@ function formatSourceLabel(source) {
 }
 
 export default function ReviewPublishScreen() {
+    const sizing = useDuoPaneContentSize();
     const tourTargets = useRef({});
     const tourScrollRef = useRef(null);
     const tourContentRef = useRef(null);
@@ -94,13 +98,18 @@ export default function ReviewPublishScreen() {
             testID="contribute-review-screen"
         >
             <ContributePageHeader
+                onLayout={sizing.onHeaderLayout}
                 onBack={handleBackPress}
                 badge={`${pins.length + removals.length} changes`}
                 title="Review & publish"
             />
-            <ScrollView className="flex-1" ref={tourScrollRef}>
+            <ScrollView
+                className="flex-1"
+                ref={tourScrollRef}
+                onContentSizeChange={sizing.onContentSizeChange}
+            >
                 <View
-                    className="gap-4 p-4"
+                    className="gap-[16px] p-[16px]"
                     collapsable={false}
                     ref={tourContentRef}
                 >
@@ -238,8 +247,11 @@ export default function ReviewPublishScreen() {
                     </View>
                 </View>
             </ScrollView>
-            <View
-                className="border-t border-daf-border bg-white px-4 pt-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
+            <FullWidthSafeAreaBand
+                gutter={16}
+                testID="contribute-review-footer"
+                onLayout={sizing.onFooterLayout}
+                className="border-t border-daf-border bg-white pt-[12px] dark:border-daf-border-dark dark:bg-daf-surface-dark"
                 style={{ paddingBottom: footerPaddingBottom }}
             >
                 {publishError ? (
@@ -277,7 +289,7 @@ export default function ReviewPublishScreen() {
                 >
                     Save as draft
                 </DafButton>
-            </View>
+            </FullWidthSafeAreaBand>
             <ContributeTourOverlay
                 enabled={screenIsFocused && !isPublishing}
                 insets={insets}

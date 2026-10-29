@@ -57,6 +57,39 @@ const require = createRequire(import.meta.url);
 const { transformSync } = require('@babel/core');
 const element = (type, props) => ({ type, props });
 
+test('ETA summary keeps bottom safe-area space at the list end instead of before steps', () => {
+    const { DestinationCard } = loadComponent(
+        readFileSync(
+            new URL('../driving-guidance-cards.js', import.meta.url),
+            'utf8',
+        ),
+        {
+            '../design-system/icon': { Icon: 'Icon' },
+            '../design-system/tokens': {
+                dafSemanticColors: { routeFast: 'blue' },
+                getDafTheme: () => ({
+                    text: { brand: 'green', primary: 'black' },
+                }),
+            },
+            './directions': {
+                formatDirectionsArrivalTime: () => '',
+                formatDirectionsDistance: () => '',
+                formatDirectionsDuration: () => '',
+            },
+            './native-components': {
+                NativeWindBottomSheetTouchableOpacity: 'Button',
+            },
+            './constants': { DRIVING_DESTINATION_BOTTOM_PADDING: 16 },
+        },
+    );
+    for (const bottomInset of [0, 16, 84]) {
+        const summary = DestinationCard({ bottomInset });
+        assert.equal(summary.props.style?.paddingBottom, undefined);
+        assert.match(summary.props.className, /pb-\[8px\]/);
+    }
+    assert.match(DestinationCard({ pane: {} }).props.className, /pb-\[16px\]/);
+});
+
 function loadComponent(source, dependencies) {
     const module = { exports: {} };
     const code = transformSync(source, {
@@ -71,6 +104,13 @@ function loadComponent(source, dependencies) {
         ],
     }).code;
     const mocks = {
+        '../root/duo-device-context': { useDuoDevice: () => false },
+        './duo-bottom-sheet-layout': { getDuoPaneLayout: () => null },
+        './duo-typography': { DuoText: 'Text', DuoTextInput: 'TextInput' },
+        '../design-system/duo-typography': {
+            DuoText: 'Text',
+            DuoTextInput: 'TextInput',
+        },
         react: {
             useCallback: (fn) => fn,
             useMemo: (fn) => fn(),
@@ -152,6 +192,47 @@ function loadOverlay(overrides = {}) {
         ...overrides,
     });
 }
+
+test('open Duo maneuver banner shares the steps pane top inset without native top padding', () => {
+    for (const open of [true, false]) {
+        const { DrivingGuidanceOverlay } = loadOverlay({
+            './shared-map-state': {
+                useSharedMapState: () => ({ directionsRoute: {} }),
+                useSharedMapLocationState: () => ({}),
+            },
+            '../root/duo-device-context': { useDuoDevice: () => open },
+            './duo-bottom-sheet-layout': {
+                getDuoPaneLayout: () =>
+                    open ? { left: 36, width: 380 } : null,
+            },
+            './directions': {
+                createDirectionsRouteProgressTracker: () => ({
+                    update: () => null,
+                }),
+                getSelectedDirectionsRouteOption: () => ({}),
+                getActiveDirectionsManeuver: () => null,
+                getNextDirectionsManeuver: () => null,
+                getDirectionsSteps: () => [],
+                getRemainingDirectionsRouteValues: () => ({}),
+            },
+            './driving-guidance-cards': { ManeuverCard: 'ManeuverCard' },
+            './driving-steps-sheet': { DrivingStepsSheet: 'StepsSheet' },
+        });
+        const tree = nodes(DrivingGuidanceOverlay({}));
+        const banner = tree.find((node) => node.type === 'SafeArea');
+        const steps = tree.find((node) => node.type === 'StepsSheet');
+        if (open) {
+            assert.equal(banner.props.style.top, steps.props.paneTop);
+            assert.equal(banner.props.style.top, 46 + 14);
+            assert.deepEqual(banner.props.edges, ['right']);
+            assert.equal(banner.props.children[0].props.className, 'px-3');
+        } else {
+            assert.equal(banner.props.style, undefined);
+            assert.deepEqual(banner.props.edges, ['top', 'right', 'left']);
+            assert.equal(banner.props.children[0].props.className, 'px-3 pt-3');
+        }
+    }
+});
 
 function loadButton() {
     return loadComponent(
@@ -459,142 +540,162 @@ test('hiding the road pill preserves its contents and location anchor layout', (
     assert.equal(anchors[0], anchors[1]);
 });
 
-test('step focus survives progress and paging until recenter or a replacement route', () => {
-    const state = [];
-    const effects = [];
-    let index = 0;
-    let dirty = false;
-    const hooks = {
-        useState(initial) {
-            const slot = index++;
-            if (!(slot in state))
-                state[slot] =
-                    typeof initial === 'function' ? initial() : initial;
-            return [
-                state[slot],
-                (value) => {
-                    const next =
-                        typeof value === 'function'
-                            ? value(state[slot])
-                            : value;
-                    dirty ||= next !== state[slot];
-                    state[slot] = next;
-                },
-            ];
-        },
-        useRef: (value) => ({ current: value }),
-        useCallback: (fn) => fn,
-        useMemo: (fn) => fn(),
-        useEffect(fn, deps) {
-            const slot = index++;
-            if (
-                !state[slot] ||
-                deps.some((value, i) => value !== state[slot][i])
-            ) {
-                effects.push(fn);
-                state[slot] = deps;
-            }
-        },
-    };
-    const steps = [0, 1, 2].map((stepIndex) => ({
-        stepIndex,
-        instruction: `Step ${stepIndex}`,
-        coordinate: [-87, 41 + stepIndex],
-        displayDistance: 100,
-    }));
-    let route = { steps };
-    let activeIndex = 1;
-    let following = true;
-    let focusSucceeds = true;
-    const focusedCoordinates = [];
-    const { DrivingGuidanceOverlay } = loadOverlay({
-        react: hooks,
-        './directions': {
-            createDirectionsRouteProgressTracker: () => ({
-                update: () => null,
-            }),
-            getSelectedDirectionsRouteOption: () => route,
-            getActiveDirectionsManeuver: () => steps[activeIndex],
-            getNextDirectionsManeuver: () => steps[activeIndex + 1],
-            getDirectionsSteps: () => steps,
-            getDirectionsStepHeading: () => 90,
-            getRemainingDirectionsRouteValues: () => ({}),
-        },
-        './shared-map-state': {
-            useSharedMapState: () => ({ directionsRoute: route }),
-            useSharedMapLocationState: () => ({}),
-        },
-        './driving-guidance-cards': { ManeuverCard: 'ManeuverCard' },
-        './driving-steps-sheet': { DrivingStepsSheet: 'StepsSheet' },
-    });
-    function render() {
-        let tree;
-        do {
-            dirty = false;
-            index = 0;
-            tree = nodes(
-                DrivingGuidanceOverlay({
-                    cameraIsFollowingUser: following,
-                    onStepFocus(coordinate) {
-                        if (!focusSucceeds) return false;
-                        focusedCoordinates.push(coordinate);
-                        following = false;
-                        return true;
+for (const { duo, paneVisible, label } of [
+    { duo: false, paneVisible: false, label: 'ordinary phones' },
+    { duo: true, paneVisible: true, label: 'open Duo' },
+    { duo: true, paneVisible: false, label: 'compact Duo' },
+])
+    test(`step focus survives progress, paging and resume on ${label}`, () => {
+        const state = [];
+        const effects = [];
+        let index = 0;
+        let dirty = false;
+        const hooks = {
+            useState(initial) {
+                const slot = index++;
+                if (!(slot in state))
+                    state[slot] =
+                        typeof initial === 'function' ? initial() : initial;
+                return [
+                    state[slot],
+                    (value) => {
+                        const next =
+                            typeof value === 'function'
+                                ? value(state[slot])
+                                : value;
+                        dirty ||= next !== state[slot];
+                        state[slot] = next;
                     },
-                }),
-            );
-            effects.splice(0).forEach((effect) => effect());
-        } while (dirty);
-        return {
-            card: tree.find((node) => node.type === 'ManeuverCard').props,
-            sheet: tree.find((node) => node.type === 'StepsSheet').props,
-            speed: tree.find(
-                (node) => node.props.testID === 'driving-speed-status',
-            ).props,
-            road: tree.find((node) => node.type === 'RoadStack').props,
+                ];
+            },
+            useRef: (value) => ({ current: value }),
+            useCallback: (fn) => fn,
+            useMemo: (fn) => fn(),
+            useEffect(fn, deps) {
+                const slot = index++;
+                if (
+                    !state[slot] ||
+                    deps.some((value, i) => value !== state[slot][i])
+                ) {
+                    effects.push(fn);
+                    state[slot] = deps;
+                }
+            },
         };
-    }
-    let view = render();
-    assert.equal(view.card.isFocused, false);
-    view.card.onStepFocus(steps[1].coordinate, 1);
-    view = render();
-    assert.equal(view.card.isFocused, true);
-    assert.equal(view.speed.className, 'opacity-0');
-    assert.equal(view.road.isHidden, true);
-    assert.equal(view.card.nextManeuver, null);
-    activeIndex = 2;
-    assert.equal(render().card.maneuver.stepIndex, 1);
-    view.card.onPreviousStep();
-    view = render();
-    assert.equal(view.card.maneuver.stepIndex, 0);
-    assert.equal(view.card.onPreviousStep, undefined);
-    view.card.onNextStep();
-    view = render();
-    view.card.onNextStep();
-    view = render();
-    assert.equal(view.card.maneuver.stepIndex, 2);
-    assert.equal(view.card.onNextStep, undefined);
-    activeIndex = 1;
-    following = true;
-    view = render();
-    assert.equal(view.card.isFocused, false);
-    assert.equal(view.card.maneuver.stepIndex, activeIndex);
-    assert.equal(view.speed.className, 'opacity-100');
-    assert.equal(view.road.isHidden, false);
-    assert.equal(view.card.nextManeuver, steps[2]);
-    focusSucceeds = false;
-    view.card.onStepFocus(steps[0].coordinate, 0);
-    assert.equal(render().card.isFocused, false);
-    focusSucceeds = true;
-    view.sheet.onStepFocus(steps[0].coordinate, 0);
-    assert.equal(render().card.maneuver.stepIndex, 0);
-    route = { steps: [...steps] };
-    assert.equal(render().card.isFocused, false);
-    assert.deepEqual(focusedCoordinates, [
-        steps[1].coordinate,
-        steps[0].coordinate,
-        steps[1].coordinate,
-        steps[2].coordinate,
-        steps[0].coordinate,
-    ]);
-});
+        const steps = [0, 1, 2].map((stepIndex) => ({
+            stepIndex,
+            instruction: `Step ${stepIndex}`,
+            coordinate: [-87, 41 + stepIndex],
+            displayDistance: 100,
+        }));
+        let route = { steps };
+        let activeIndex = 1;
+        let following = true;
+        let focusSucceeds = true;
+        const focusedCoordinates = [];
+        const { DrivingGuidanceOverlay } = loadOverlay({
+            '../root/duo-device-context': { useDuoDevice: () => duo },
+            './duo-bottom-sheet-layout': {
+                getDuoPaneLayout: () =>
+                    paneVisible ? { left: 12, width: 380 } : null,
+            },
+            react: hooks,
+            './directions': {
+                createDirectionsRouteProgressTracker: () => ({
+                    update: () => null,
+                }),
+                getSelectedDirectionsRouteOption: () => route,
+                getActiveDirectionsManeuver: () => steps[activeIndex],
+                getNextDirectionsManeuver: () => steps[activeIndex + 1],
+                getDirectionsSteps: () => steps,
+                getDirectionsStepHeading: () => 90,
+                getRemainingDirectionsRouteValues: () => ({}),
+            },
+            './shared-map-state': {
+                useSharedMapState: () => ({ directionsRoute: route }),
+                useSharedMapLocationState: () => ({}),
+            },
+            './driving-guidance-cards': { ManeuverCard: 'ManeuverCard' },
+            './driving-steps-sheet': { DrivingStepsSheet: 'StepsSheet' },
+        });
+        function render() {
+            let tree;
+            do {
+                dirty = false;
+                index = 0;
+                tree = nodes(
+                    DrivingGuidanceOverlay({
+                        cameraIsFollowingUser: following,
+                        onResumeGuidance() {
+                            following = true;
+                        },
+                        onStepFocus(coordinate) {
+                            if (!focusSucceeds) return false;
+                            focusedCoordinates.push(coordinate);
+                            following = false;
+                            return true;
+                        },
+                    }),
+                );
+                effects.splice(0).forEach((effect) => effect());
+            } while (dirty);
+            return {
+                card: tree.find((node) => node.type === 'ManeuverCard').props,
+                sheet: tree.find((node) => node.type === 'StepsSheet').props,
+                speed: tree.find(
+                    (node) => node.props.testID === 'driving-speed-status',
+                ).props,
+                road: tree.find((node) => node.type === 'RoadStack').props,
+            };
+        }
+        let view = render();
+        assert.equal(Boolean(view.sheet.pane), paneVisible);
+        assert.equal(view.card.isFocused, false);
+        view.card.onStepFocus(steps[1].coordinate, 1);
+        view = render();
+        assert.equal(view.card.isFocused, true);
+        assert.equal(view.speed.className, 'opacity-0');
+        assert.equal(view.road.isHidden, true);
+        assert.equal(view.card.nextManeuver, null);
+        activeIndex = 2;
+        assert.equal(render().card.maneuver.stepIndex, 1);
+        view.card.onPreviousStep();
+        view = render();
+        assert.equal(view.card.maneuver.stepIndex, 0);
+        assert.equal(view.card.onPreviousStep, undefined);
+        view.card.onNextStep();
+        view = render();
+        view.card.onNextStep();
+        view = render();
+        assert.equal(view.card.maneuver.stepIndex, 2);
+        assert.equal(view.card.onNextStep, undefined);
+        activeIndex = 1;
+        if (duo) {
+            assert.equal(typeof view.sheet.onResumeGuidance, 'function');
+            view.sheet.onResumeGuidance();
+        } else {
+            assert.equal(view.sheet.onResumeGuidance, undefined);
+            following = true;
+        }
+        view = render();
+        assert.equal(view.card.isFocused, false);
+        assert.equal(view.card.maneuver.stepIndex, activeIndex);
+        assert.equal(view.speed.className, 'opacity-100');
+        assert.equal(view.road.isHidden, false);
+        assert.equal(view.card.nextManeuver, steps[2]);
+        focusSucceeds = false;
+        view.card.onStepFocus(steps[0].coordinate, 0);
+        assert.equal(render().card.isFocused, false);
+        focusSucceeds = true;
+        view.sheet.onStepFocus(steps[0].coordinate, 0);
+        assert.equal(render().card.maneuver.stepIndex, 0);
+        route = { steps: [...steps] };
+        assert.equal(render().card.isFocused, false);
+        assert.deepEqual(focusedCoordinates, [
+            steps[1].coordinate,
+            steps[0].coordinate,
+            steps[1].coordinate,
+            steps[2].coordinate,
+            steps[0].coordinate,
+        ]);
+    });

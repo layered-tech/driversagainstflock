@@ -1,5 +1,12 @@
+import {
+    FullWidthSafeAreaBand,
+    NativeNavigationAction,
+} from '../root/native-navigation';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { DuoPaneMap } from '../root/duo-pane-screen';
+import { useDuoPaneContentSize } from '../root/duo-pane-content-size';
+import { AreaMap } from './area-map';
 import {
     Pressable,
     RefreshControl,
@@ -31,6 +38,7 @@ export default function AreaFeedScreen() {
         window,
     );
     const { areas, markRead } = useAreas();
+    const sizing = useDuoPaneContentSize({ footer: Boolean(payload) });
     const readThrough = useRef(null);
     const insets = useSafeAreaInsets();
     const dark = useColorScheme() === 'dark';
@@ -46,6 +54,16 @@ export default function AreaFeedScreen() {
         payload?.area ??
         areas.find((item) => String(item.id) === String(areaId));
     const changes = payload?.changes.data ?? [];
+    const areaMap = useMemo(
+        () =>
+            area?.geometry ? (
+                <AreaMap
+                    geometry={area.geometry}
+                    changes={payload?.changes.data ?? []}
+                />
+            ) : null,
+        [area?.geometry, payload?.changes.data],
+    );
     const groups = [];
     for (const change of changes) {
         const date = new Date(change.changed_at);
@@ -66,64 +84,76 @@ export default function AreaFeedScreen() {
     }
     return (
         <View className="flex-1" testID="area-feed-screen">
-            <AreaHeader
-                title={area?.name ?? 'Area changes'}
-                subtitle={
-                    area
-                        ? `${AREA_KINDS[area.kind]} · ${area.camera_count} cameras mapped`
-                        : undefined
-                }
-                trailing={
-                    <Pressable
-                        accessibilityRole="button"
-                        className="h-[40px] w-[40px] items-center justify-center"
-                        accessibilityLabel="Area alert settings"
-                        testID="area-alert-settings"
-                        onPress={() => router.push(`/areas/${areaId}/alerts`)}
-                    >
-                        <Icon
-                            name="bell"
-                            size={20}
-                            color={dark ? '#F5F7F9' : '#11151B'}
-                        />
-                    </Pressable>
-                }
-            />
-            <View className="px-[16px] pt-[8px]">
-                <DafSegmentedControl
-                    options={AREA_WINDOWS}
-                    value={window}
-                    onChange={setWindow}
-                    testIDPrefix="area-window"
-                />
-            </View>
-            {payload ? (
-                <View className="flex-row gap-[10px] px-[16px] pb-[4px] pt-[14px]">
-                    {[
-                        ['added', 'Added', 'text-[#E5383B]'],
-                        [
-                            'removed',
-                            'Removed',
-                            'text-daf-text-brand dark:text-daf-brand-hover',
-                        ],
-                    ].map(([key, label, tone]) => (
-                        <View
-                            key={key}
-                            className="flex-1 rounded-dafMd border border-daf-border bg-white px-[14px] py-[12px] dark:border-daf-border-dark dark:bg-daf-surface-dark"
+            <DuoPaneMap>{areaMap}</DuoPaneMap>
+            <View onLayout={sizing.onHeaderLayout}>
+                <AreaHeader
+                    title={area?.name ?? 'Area changes'}
+                    subtitle={
+                        area
+                            ? `${AREA_KINDS[area.kind]} · ${area.camera_count} cameras mapped`
+                            : undefined
+                    }
+                    trailing={
+                        <NativeNavigationAction
+                            railOnly
+                            kind="tool"
+                            symbol="bell"
                         >
-                            <Text className="mb-[6px] text-[11px] uppercase tracking-[0.66px] text-daf-text-tertiary">
-                                {label}
-                            </Text>
-                            <Text
-                                className={`font-dafMono text-[28px] font-semibold leading-[28px] tracking-[-0.56px] ${tone}`}
+                            <Pressable
+                                accessibilityRole="button"
+                                className="h-[40px] w-[40px] items-center justify-center"
+                                accessibilityLabel="Area alert settings"
+                                testID="area-alert-settings"
+                                onPress={() =>
+                                    router.push(`/areas/${areaId}/alerts`)
+                                }
                             >
-                                {payload.counts[key]}
-                            </Text>
-                        </View>
-                    ))}
+                                <Icon
+                                    name="bell"
+                                    size={20}
+                                    color={dark ? '#F5F7F9' : '#11151B'}
+                                />
+                            </Pressable>
+                        </NativeNavigationAction>
+                    }
+                />
+                <View className="px-[16px] pt-[8px]">
+                    <DafSegmentedControl
+                        options={AREA_WINDOWS}
+                        value={window}
+                        onChange={setWindow}
+                        testIDPrefix="area-window"
+                    />
                 </View>
-            ) : null}
+                {payload ? (
+                    <View className="flex-row gap-[10px] px-[16px] pb-[4px] pt-[14px]">
+                        {[
+                            ['added', 'Added', 'text-[#E5383B]'],
+                            [
+                                'removed',
+                                'Removed',
+                                'text-daf-text-brand dark:text-daf-brand-hover',
+                            ],
+                        ].map(([key, label, tone]) => (
+                            <View
+                                key={key}
+                                className="flex-1 rounded-dafMd border border-daf-border bg-white px-[14px] py-[12px] dark:border-daf-border-dark dark:bg-daf-surface-dark"
+                            >
+                                <Text className="mb-[6px] text-[11px] uppercase tracking-[0.66px] text-daf-text-tertiary">
+                                    {label}
+                                </Text>
+                                <Text
+                                    className={`font-dafMono text-[28px] font-semibold leading-[28px] tracking-[-0.56px] ${tone}`}
+                                >
+                                    {payload.counts[key]}
+                                </Text>
+                            </View>
+                        ))}
+                    </View>
+                ) : null}
+            </View>
             <ScrollView
+                onContentSizeChange={sizing.onContentSizeChange}
                 className="flex-1 px-[16px] pt-[8px]"
                 contentContainerStyle={{ paddingBottom: 40 }}
                 refreshControl={
@@ -247,8 +277,10 @@ export default function AreaFeedScreen() {
                 ) : null}
             </ScrollView>
             {payload ? (
-                <View
-                    className="border-t border-daf-border bg-white px-[16px] pt-[10px] dark:border-daf-border-dark dark:bg-daf-surface-dark"
+                <FullWidthSafeAreaBand
+                    onLayout={sizing.onFooterLayout}
+                    gutter={16}
+                    className="border-t border-daf-border bg-white pt-[10px] dark:border-daf-border-dark dark:bg-daf-surface-dark"
                     style={{ paddingBottom: insets.bottom + 10 }}
                     testID="area-feed-footer"
                 >
@@ -275,7 +307,7 @@ export default function AreaFeedScreen() {
                             {`Show ${payload.changes.total} ${payload.changes.total === 1 ? 'change' : 'changes'} on the map`}
                         </DafButton>
                     ) : null}
-                </View>
+                </FullWidthSafeAreaBand>
             ) : null}
         </View>
     );

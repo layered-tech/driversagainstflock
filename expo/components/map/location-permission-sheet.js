@@ -1,4 +1,7 @@
-import { Text, View } from 'react-native';
+import { useDuoRailEdge } from '../root/native-navigation';
+import { Platform, useWindowDimensions, View } from 'react-native';
+import { DuoText as Text } from '../design-system/duo-typography';
+import { useDuoDevice } from '../root/duo-device-context';
 import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
 import { LocationAcquisitionView } from './location-acquisition-view';
@@ -10,6 +13,10 @@ import {
 } from './native-components';
 
 export function LocationPermissionSheet() {
+    const railEdge = useDuoRailEdge();
+    const duo = useDuoDevice();
+    const { width } = useWindowDimensions();
+    const centered = (duo || Platform?.isPad === true) && width >= 768;
     const {
         bottomSheetBackgroundStyle,
         bottomSheetHandleIndicatorStyle,
@@ -64,12 +71,18 @@ export function LocationPermissionSheet() {
             onDismiss={permissionSheetTrackingHandlers.onDismiss}
         >
             <NativeWindBottomSheetScrollView
-                className="flex-1 bg-white dark:bg-daf-surface-dark"
-                contentContainerClassName="grow gap-[22px] px-[22px]"
+                automaticallyAdjustKeyboardInsets
+                className={`${centered ? 'grow-0' : 'flex-1'} bg-white dark:bg-daf-surface-dark`}
+                contentContainerClassName={`${centered ? 'px-[28px]' : 'grow px-[22px]'} gap-[22px]`}
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={{
-                    paddingBottom: insets.bottom + 16,
-                    paddingTop: Math.max(insets.top + 46, 80),
+                    paddingBottom: centered ? 28 : insets.bottom + 16,
+                    paddingTop: centered
+                        ? 20
+                        : Math.max(
+                              insets.top + (railEdge ? 24 : 46),
+                              railEdge ? 24 : 80,
+                          ),
                 }}
             >
                 {locationAccessGranted ? (
@@ -81,7 +94,7 @@ export function LocationPermissionSheet() {
                     />
                 ) : (
                     <>
-                        <View className="bg-daf-brand/12 h-[58px] w-[58px] items-center justify-center self-start rounded-dafLg dark:bg-daf-brand/15">
+                        <View className="h-[58px] w-[58px] items-center justify-center self-start rounded-dafLg bg-daf-brand/10 dark:bg-daf-brand/15">
                             <Icon color="#0F7D45" name="map-pin" size={28} />
                         </View>
                         <View className="gap-3">

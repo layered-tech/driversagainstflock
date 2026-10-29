@@ -138,7 +138,7 @@ function ensureTile(catalog, tile, onMissing = () => {}) {
             // even if the requesting matcher has moved on or been cancelled.
             clearTimeout(timeout);
             tileEvent(tile, 'DOWNLOAD_COMPLETE');
-            pending.write(bytes);
+            await pending.write(bytes);
             const records = await verifiedRecords(pending, tile);
             if (records.length !== tile.record_count)
                 throw new Error('Tile validation failed');

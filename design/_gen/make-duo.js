@@ -5,7 +5,7 @@
 //   outer display 466 × 678 pt (1398 × 2034 px @3x), aspect 1.45:1 — wider and shorter than a phone
 //   the status bar, Dynamic Island (vertical), back/close, toolbar items and the tab bar stack in an 84 pt rail on the RIGHT edge
 //   content is inset from the rail by the horizontal safe area; full-bleed backgrounds (the map) may run under it
-//   sheets keep their full width and move their controls into the rail; wide items (text buttons, segmented controls) stay in the bar
+//   sheets span the safe area only (the rail stays open to the map); back/close/cancel and toolbar glyphs move into the rail; wide items (segmented controls) stay in the bar
 const PAGES = ['Explore','Navigate','Scorecard','Contribute','Settings','Areas'];
 const F = { key:'Duo', label:'Duo', W:466, H:678, RAIL:84, bezel:10, radius:40, ri:30, pw:1500, ph:900, maxW:1500, sub:'outer display 466 × 678',
   blurb:'iPhone Duo, closed. The 5.4″ outer display is wider and shorter than a phone, so the status bar, back/close and the map\'s control stack move into the 84 pt rail on the right — where the thumb already is. The map runs edge to edge under the rail; everything tappable stays left of it. Same screens, same numbering as the phone set; Android cover screens can follow the same rail.' };
@@ -13,7 +13,12 @@ const RAIL_IN = F.W - F.RAIL;          // 382 — content column width
 const RAIL_GUTTER = F.RAIL + 12;       // 96  — right offset for floating bars (rail + screen gutter)
 const CTRL_TOP = 140;                  // rail app controls start below the island + status cluster
 // BottomSheet takes its inset as a real style prop (an x-import style attr only positions the mount), so it rides in via dc-props from the logic class
-const SHEET_PROPS = `{ style: { paddingRight: 'calc(var(--space-4) + ${F.RAIL}px)', maxHeight: ${F.H-110}, overflowX: 'hidden', overflowY: 'auto', scrollbarWidth: 'none' } }`; // content clears the rail; tall sheets scroll inside instead of running off the shorter display
+// sheets span the safe area only (the rail stays exposed to the map beneath); tall sheets cap at ~60% of the shorter display and scroll inside
+const SHEET_MAX = Math.round(F.H*0.66); // 447 — the ⅔ rule from the system
+const SHEET_PROPS = `{ style: { maxHeight: ${SHEET_MAX}, overflowX: 'hidden', overflowY: 'auto', scrollbarWidth: 'none' } }`;
+const iconBtn = (label,svg) => `<x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="${label}" variant="glass" size="md" hint-size="44px,44px">${svg}</x-import>`;
+const X_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg>';
+const MENU_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg>';
 
 const STATUS = `<div aria-hidden="true" style="position:absolute; top:0; right:0; width:${F.RAIL}px; height:${CTRL_TOP}px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;">`
   + `<span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span>`
@@ -87,21 +92,37 @@ function transformBlock(attrs,inner,page,ctx){
 
   let kids=splitChildren(body);
   if(isPage){
-    // the page column is inset from the rail; its background still fills the display
-    rootAttrs=rootAttrs.replace(/style="([^"]*)"/,(m,s)=>`style="${padRight(s,F.RAIL)}"`);
-    rootAttrs=rootAttrs.replace(/padding:(80|116)px/,(m,p)=>`padding:${p-40}px`);
-    // header back/close tiles move to the rail (Apple: navigation controls go to the side; text buttons like Cancel stay put)
+    // page bands (headers, CTA bars, scroll columns) run edge to edge under the rail; only their content is inset.
+    // a root that pads itself (first-launch cards) insets as a whole instead.
+    const rootPads=/padding:/.test(rootAttrs);
+    if(rootPads){
+      rootAttrs=rootAttrs.replace(/style="([^"]*)"/,(m,s)=>`style="${padRight(s,F.RAIL)}"`);
+      rootAttrs=rootAttrs.replace(/padding:(80|116)px/,(m,p)=>`padding:${p-40}px`);
+    }
+    // header back/close tiles move to the rail (Apple: navigation controls go to the side)
     kids=kids.map((k,i)=>{
+      if(!rootPads && /^<div style="/.test(k)) k=k.replace(/^<div style="([^"]*)"/,(m,s)=>`<div style="${padRight(s,F.RAIL)}"`);
+      if(i===0 && /background:var\(--surface-card\)/.test(k.slice(0,k.indexOf('>')))){
+        // Cancel text → the rail's close tile
+        const cancelRe=/<span style="color:var\(--text-brand\); font-weight:600; font-size:15px; flex:0 0 auto;">Cancel<\/span>\s*/;
+        if(cancelRe.test(k)){ k=k.replace(cancelRe,''); rail.unshift(iconBtn('Close',X_SVG)); ctx.moved++; }
+        // plain chevron / action glyphs in a title bar → rail (first is Back, the rest are toolbar items)
+        const spanRe=/<span style="color:var\(--text-secondary\); display:inline-flex;">\s*(<svg[\s\S]*?<\/svg>)\s*<\/span>\s*/g;
+        let n=0;
+        k=k.replace(spanRe,(mm,svg)=>{ rail.push(iconBtn(n++===0?'Back':'Action',svg)); ctx.moved++; return ''; });
+        // a top-level screen reached from the drawer gets the drawer's menu tile
+        if(/>Recently added<\/div>/.test(k)){ rail.unshift(iconBtn('Menu',MENU_SVG)); ctx.moved++; k=k.replace('line-height:1.1;">Recently added','line-height:1.1; white-space:nowrap;">Recently added'); }
+      }
       if(i>0 && !/^<div style="padding:14px /.test(k)) return k;
       const re=/<x-import component-from-global-scope="DesignSystem_c71fad\.IconButton" label="(Back|Close)"[^>]*>[\s\S]*?<\/x-import>\s*/;
       const m=k.match(re);
       if(m){ rail.push(toRailBtn(m[0].trim())); ctx.moved++; return k.replace(re,''); }
       // large-title headers draw their own 40px chevron / action circles: those are toolbar items, so they go to the rail too
-      if(i===0 && /^<div style="display:flex; align-items:center; gap:4px; padding:14px 10px 6px;">/.test(k)){
+      if(i===0 && /^<div style="display:flex; align-items:center; gap:4px; padding:14px \d+px 6px(?: 10px)?;">/.test(k)){
         const re2=/<span style="width:40px; height:40px; border-radius:var\(--radius-pill\);[^"]*">\s*(<svg[\s\S]*?<\/svg>)\s*<\/span>\s*/g;
         let n=0;
         k=k.replace(re2,(mm,svg)=>{ rail.push(`<x-import component-from-global-scope="DesignSystem_c71fad.IconButton" label="${n++===0?'Back':'Action'}" variant="glass" size="md" hint-size="44px,44px">${svg}</x-import>`); ctx.moved++; return ''; });
-        if(n) k=k.replace('padding:14px 10px 6px;','padding:18px 16px 6px;');
+        if(n) k=k.replace(/padding:14px (\d+)px 6px(?: 10px)?;/,(m,r)=>`padding:18px ${+r+6}px 6px 16px;`);
       }
       return k;
     });
@@ -118,8 +139,17 @@ function transformBlock(attrs,inner,page,ctx){
     if(/^<div style="position:absolute; (left|right):12px; top:60px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad\.IconButton" label="(Back|Close)"/.test(k)){ rail.unshift(innerOf(k)); ctx.moved++; return null; }
     // right-edge control stacks (filters/zoom/recenter/add, undo/clear) → the rail's toolbar
     if(/^<div style="position: ?absolute; right: ?12px; top: ?(122|182|200|116)px; z-index: ?1[01]; display: ?flex; flex-direction: ?column;/.test(k)){ rail.push(innerOf(k)); ctx.moved++; return null; }
-    // top bars (search, nav banner, editing bar, directions form) stop at the rail
-    if(/^<div style="position:absolute; top:(56|60)px; left:12px; right:12px;/.test(k)) return k.replace(/top:(56|60)px; left:12px; right:12px;/,`top:14px; left:12px; right:${RAIL_GUTTER}px;`);
+    // top bars (search, nav banner, editing bar, directions form) stop at the rail; their close tile / × glyph moves into it
+    if(/^<div style="position:absolute; top:(56|60)px; left:12px; right:12px;/.test(k)){
+      let s=k.replace(/top:(56|60)px; left:12px; right:12px;/,`top:14px; left:12px; right:${RAIL_GUTTER}px;`);
+      const re=/<x-import component-from-global-scope="DesignSystem_c71fad\.IconButton" label="(Back|Close)[^"]*"[^>]*>[\s\S]*?<\/x-import>\s*/;
+      const m=s.match(re);
+      if(m){ rail.unshift(toRailBtn(m[0].trim())); s=s.replace(re,'').replace('padding:7px 8px 7px 6px;','padding:7px 8px 7px 14px;'); ctx.moved++; }
+      const xre=/<span style="color:var\(--text-secondary\); flex:0 0 auto; display:inline-flex;">\s*(<svg[^>]*>\s*<path d="M18 6 6 18"><\/path>\s*<path d="M6 6l12 12"><\/path>\s*<\/svg>)\s*<\/span>\s*/;
+      const xm=s.match(xre);
+      if(xm){ rail.unshift(iconBtn('Close',xm[1])); s=s.replace(xre,''); ctx.moved++; }
+      return s;
+    }
     if(/^<div style="position:absolute; left:16px; right:68px; top:60px;/.test(k)) return k.replace('left:16px; right:68px; top:60px;',`left:12px; right:${RAIL_GUTTER}px; top:14px;`);
     // bottom-anchored CTAs stop at the rail
     if(/^<div style="position:absolute; left:12px; right:12px; bottom:\d+px;/.test(k)) return k.replace('left:12px; right:12px;',`left:12px; right:${RAIL_GUTTER}px;`);
@@ -127,30 +157,28 @@ function transformBlock(attrs,inner,page,ctx){
     if(/^<div class="daf-slb" style="position:absolute; left:12px; top:182px;/.test(k)) return k.replace('top:182px;','top:140px;');
     // the control-stack tooltip now points at the rail
     if(/^<div style="position:absolute; right:70px; top:354px;/.test(k)) return k.replace('right:70px; top:354px;',`right:${F.RAIL+8}px; top:${CTRL_TOP+4*60-6}px;`);
-    // bottom sheets keep the full width (Apple) and inset their content by the rail
+    // bottom sheets (and the ETA bar / alert stack) span the safe area only — the rail stays open to the map beneath
     if(/^<div style="position:absolute; left:0; right:0; bottom:0; z-index:10;/.test(k)){
-      let s=k;
-      if(s.includes('DesignSystem_c71fad.BottomSheet')){
-        s=s.replace(/<x-import component-from-global-scope="DesignSystem_c71fad\.BottomSheet"([^>]*)>/,(m,a)=>`<x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet"${a} dc-props="{{ duoSheet }}">`);
-        ctx.sheets++;
-      } else if(/^<div style="[^"]*height:\{\{ sheetH \}\}px/.test(s)){
-        s=s.replace(/^<div style="([^"]*)"/,(m,st)=>`<div style="${st} padding-right:${F.RAIL}px;"`);
-        ctx.sheets++;
-      } else if(/^<div style="[^"]*background:var\(--surface-sheet\); border-top-left-radius/.test(s)){
-        s=s.replace(/^<div style="([^"]*)"/,(m,st)=>`<div style="${padRight(st,F.RAIL)}"`);
-        ctx.sheets++;
-      } else {
-        // alert stack over the ETA bar: alerts and the bar both clear the rail
-        s=s.split('margin:0 12px;').join(`margin:0 ${RAIL_GUTTER}px 0 12px;`);
-        s=s.replace(/(<div style="[^"]*border-top-left-radius:var\(--radius-sheet\)[^"]*)"/,(m,st)=>padRight(st,F.RAIL)+'"');
-        ctx.sheets++;
-      }
+      let s=k.replace('position:absolute; left:0; right:0; bottom:0; z-index:10;',`position:absolute; left:0; right:${F.RAIL}px; bottom:0; z-index:10;`);
+      if(s.includes('DesignSystem_c71fad.BottomSheet')) s=s.replace(/<x-import component-from-global-scope="DesignSystem_c71fad\.BottomSheet"([^>]*)>/,(m,a)=>`<x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet"${a} dc-props="{{ duoSheet }}">`);
+      ctx.sheets++;
       return s;
     }
     // centred dialogs centre in the content column, clear of the rail
     if(/^<div style="position:absolute; inset:0; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center;/.test(k)) return k.replace('position:absolute; inset:0;',`position:absolute; left:0; top:0; bottom:0; right:${F.RAIL}px;`);
     return k;
   }).filter(Boolean);
+  // add-area compositions sit higher so the shorter sheet leaves the circle / polygon in view
+  if(body.includes('>5 mi</div>')){
+    const sw={'top:36%':'top:20%','top:28%':'top:14%','top:44%':'top:30%','top:24%':'top:10%'};
+    kids=kids.map(k=>k.replace(/top:(36|28|44|24)%/g,m=>sw[m]).split('width:236px; height:236px;').join('width:180px; height:180px;').replace('translate(-50%, -134px)','translate(-50%, -106px)').replace('box-shadow:var(--shadow-marker);">5 mi','box-shadow:var(--shadow-marker); white-space:nowrap;">5 mi')
+      // tighter sheet so the CTA clears the cap without scrolling
+      .replace('<div style="height:16px;"></div>','<div style="height:10px;"></div>').replace('border-radius:var(--radius-lg); padding:16px; margin-bottom:12px;','border-radius:var(--radius-lg); padding:12px 14px; margin-bottom:10px;').replace('margin:10px 0 14px; line-height:1.4;','margin:8px 0 10px; line-height:1.4;'));
+  }
+  if(body.includes('Tap to add corners')){
+    const sw={'top:30%':'top:18%','top:40%':'top:26%','top:52%':'top:30%'};
+    kids=kids.map(k=>k.replace('viewBox="0 0 390 844" preserveAspectRatio="none"','viewBox="0 0 390 1400" preserveAspectRatio="none"').replace(/top:(30|40|52)%/g,m=>sw[m]));
+  }
   const rs=railStack(rail);
   if(rs) kids.push(rs);
   return frameOpen(false)+'\n          '+`<div ${rootAttrs}>`+ind+kids.join(ind)+'\n          </div>\n        '+frameClose(kb);

@@ -1,6 +1,13 @@
 import Mapbox from '@rnmapbox/maps';
-import { useMemo } from 'react';
-import { Text, useColorScheme, useWindowDimensions, View } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import {
+    Platform,
+    useColorScheme,
+    useWindowDimensions,
+    View,
+} from 'react-native';
+import { DuoText as Text } from '../design-system/duo-typography';
+import { useDuoDevice } from '../root/duo-device-context';
 import { getBoundsFitCameraStop } from '../map/camera-state';
 import {
     MAPBOX_ACCESS_TOKEN,
@@ -14,13 +21,22 @@ import { getScorecardExposureMapData } from './scorecard-map-data';
 
 const MAP_HORIZONTAL_INSET = 32;
 
-function getCameraSettings({ bounds, mappedExposures }, height, width) {
+function getCameraSettings(
+    { bounds, mappedExposures },
+    height,
+    width,
+    cameraPadding,
+    fullViewport,
+) {
     if (bounds) {
         return getBoundsFitCameraStop({
             bounds,
-            padding: 48,
+            padding: cameraPadding ?? 48,
             viewportHeight: height,
-            viewportWidth: Math.max(1, width - MAP_HORIZONTAL_INSET),
+            viewportWidth: Math.max(
+                1,
+                width - (fullViewport ? 0 : MAP_HORIZONTAL_INSET),
+            ),
         });
     }
 
@@ -29,6 +45,16 @@ function getCameraSettings({ bounds, mappedExposures }, height, width) {
               centerCoordinate: mappedExposures[0].cameraCoordinate,
               pitch: 0,
               zoomLevel: 16,
+              ...(cameraPadding
+                  ? {
+                        padding: {
+                            paddingTop: cameraPadding[0],
+                            paddingRight: cameraPadding[1],
+                            paddingBottom: cameraPadding[2],
+                            paddingLeft: cameraPadding[3],
+                        },
+                    }
+                  : {}),
           }
         : null;
 }
@@ -36,6 +62,8 @@ function getCameraSettings({ bounds, mappedExposures }, height, width) {
 export function ScorecardExposureMap({
     exposures,
     height,
+    cameraPadding,
+    fullViewport = false,
     lineCollection = null,
     lineColor = '#FF4D4F',
     numbered = false,
@@ -43,7 +71,9 @@ export function ScorecardExposureMap({
     testID,
 }) {
     const colorScheme = useColorScheme();
+    const duoDevice = useDuoDevice();
     const { width } = useWindowDimensions();
+    const duo = duoDevice || (Boolean(Platform?.isPad) && width >= 768);
     const mapData = useMemo(
         () =>
             getScorecardExposureMapData(exposures, {
@@ -56,11 +86,24 @@ export function ScorecardExposureMap({
         coneCollection,
         lineCollection: resolvedLineCollection,
         pointCollection,
+        mappedExposures,
     } = mapData;
     const cameraSettings = useMemo(
-        () => getCameraSettings(mapData, height, width),
-        [height, mapData, width],
+        () =>
+            getCameraSettings(
+                mapData,
+                height,
+                width,
+                cameraPadding,
+                fullViewport,
+            ),
+        [height, mapData, width, cameraPadding, fullViewport],
     );
+    const camera = useRef(null);
+    const initialCamera = useRef(cameraSettings);
+    useEffect(() => {
+        if (cameraSettings) camera.current?.setCamera(cameraSettings);
+    }, [cameraSettings]);
     const styleImportConfig = useMemo(
         () => ({
             lightPreset:
@@ -99,6 +142,9 @@ export function ScorecardExposureMap({
             rotateEnabled={false}
             scaleBarEnabled={false}
             style={{ height }}
+            onLayout={() => {
+                if (cameraSettings) camera.current?.setCamera(cameraSettings);
+            }}
             styleURL={MAPBOX_STANDARD_STYLE_URL}
             surfaceView={false}
             testID={testID}
@@ -109,7 +155,10 @@ export function ScorecardExposureMap({
                 id={MAPBOX_STANDARD_STYLE_IMPORT_ID}
             />
             {cameraSettings ? (
-                <Mapbox.Camera defaultSettings={cameraSettings} />
+                <Mapbox.Camera
+                    ref={camera}
+                    defaultSettings={initialCamera.current}
+                />
             ) : null}
             {showCones && coneCollection.features.length > 0 ? (
                 <Mapbox.ShapeSource
@@ -163,7 +212,10 @@ export function ScorecardExposureMap({
                             lineEmissiveStrength: emissiveStrength,
                             lineJoin: 'round',
                             lineOpacity: 1,
-                            lineWidth: 4,
+                            lineWidth: numbered && duo ? 2 : 4,
+                            ...(numbered && duo
+                                ? { lineDasharray: [3, 3] }
+                                : {}),
                         }}
                     />
                 </Mapbox.ShapeSource>
@@ -207,6 +259,31 @@ export function ScorecardExposureMap({
                     />
                 ) : null}
             </Mapbox.ShapeSource>
+            {numbered && duo
+                ? mappedExposures
+                      .filter((exposure) =>
+                          Number.isFinite(exposure.occurredAt),
+                      )
+                      .map((exposure) => (
+                          <Mapbox.MarkerView
+                              key={`capture-time-${exposure.id}`}
+                              id={`capture-time-${exposure.id}`}
+                              coordinate={exposure.cameraCoordinate}
+                              anchor={{ x: 0.5, y: 0 }}
+                              allowOverlap
+                          >
+                              <View className="pt-4">
+                                  <Text className="rounded-full bg-white px-2 py-0.5 font-dafMono text-[10px] font-semibold text-daf-text-primary dark:bg-[#11151B] dark:text-white">
+                                      {new Intl.DateTimeFormat(undefined, {
+                                          weekday: 'short',
+                                          hour: 'numeric',
+                                          minute: '2-digit',
+                                      }).format(new Date(exposure.occurredAt))}
+                                  </Text>
+                              </View>
+                          </Mapbox.MarkerView>
+                      ))
+                : null}
         </NativeWindMapView>
     );
 }

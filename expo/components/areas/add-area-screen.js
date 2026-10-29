@@ -1,13 +1,19 @@
+import { NativeNavigationAction } from '../root/native-navigation';
+import { useDuoDevice } from '../root/duo-device-context';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     KeyboardAvoidingView,
+    Platform,
     Pressable,
+    useWindowDimensions,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
+import { getDuoPaneLayout } from '../map/duo-bottom-sheet-layout';
+import { getTabletPaneLayout } from '../map/responsive-map-layout';
 import { Icon } from '../design-system/icon';
 import { DafIconButton, DafTextInput } from '../design-system/primitives';
 import {
@@ -35,6 +41,7 @@ const MODES = [
     { value: 'draw', label: 'Draw' },
 ];
 export default function AddAreaScreen() {
+    const duoDevice = useDuoDevice();
     const params = useLocalSearchParams();
     const [mode, setMode] = useState(
         MODES.some((item) => item.value === params.mode)
@@ -52,11 +59,18 @@ export default function AddAreaScreen() {
     const [name, setName] = useState('');
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
+    const [sheetHeight, setSheetHeight] = useState(0);
     const [count, setCount] = useState(null);
     const [cameras, setCameras] = useState([]);
     const [previewError, setPreviewError] = useState(null);
     const { saveArea } = useAreas();
     const insets = useSafeAreaInsets();
+    const { width } = useWindowDimensions();
+    const tabletPane = Platform?.isPad
+        ? getTabletPaneLayout(width, insets)
+        : null;
+    const pane =
+        tabletPane ?? (duoDevice ? getDuoPaneLayout(width, insets) : null);
     const geometry = useMemo(
         () =>
             mode === 'around'
@@ -166,8 +180,15 @@ export default function AddAreaScreen() {
             behavior="padding"
             testID="add-area-screen"
         >
-            <View className="-mb-[22px] min-h-[150px] flex-1">
+            <View
+                className={
+                    duoDevice || tabletPane
+                        ? 'absolute inset-0'
+                        : '-mb-[22px] min-h-[150px] flex-1'
+                }
+            >
                 <AreaMap
+                    sheetHeight={sheetHeight}
                     bottomOverlap={22}
                     geometry={geometry}
                     changes={cameras}
@@ -195,7 +216,13 @@ export default function AddAreaScreen() {
                 />
                 <View
                     className="absolute left-4 right-3 flex-row items-center justify-end gap-3"
-                    style={{ top: insets.top + 10 }}
+                    style={{
+                        top: insets.top + 10,
+                        left: pane
+                            ? pane.left + pane.width + 12
+                            : insets.left + 16,
+                        right: insets.right + 12,
+                    }}
                 >
                     {mode === 'draw' ? (
                         <View className="min-w-0 flex-1 rounded-dafPill border border-daf-border bg-white/95 px-4 py-3 dark:border-daf-border-dark dark:bg-daf-surface-dark">
@@ -204,43 +231,87 @@ export default function AddAreaScreen() {
                             </Text>
                         </View>
                     ) : null}
-                    <DafIconButton
-                        icon="x"
-                        accessibilityLabel="Close"
-                        onPress={() => router.back()}
-                    />
+                    {!tabletPane ? (
+                        <NativeNavigationAction
+                            railOnly
+                            kind="close"
+                            priority={100}
+                        >
+                            <DafIconButton
+                                icon="x"
+                                accessibilityLabel="Close"
+                                onPress={() => router.back()}
+                            />
+                        </NativeNavigationAction>
+                    ) : null}
                 </View>
                 {mode === 'draw' ? (
                     <View
                         className="absolute right-3 gap-3"
                         style={{ top: insets.top + 68 }}
                     >
-                        <DafIconButton
-                            icon="rotate-ccw"
-                            accessibilityLabel="Undo last corner"
-                            disabled={!points.length}
-                            onPress={() =>
-                                setPoints((current) => current.slice(0, -1))
-                            }
-                        />
-                        <DafIconButton
-                            icon="trash"
-                            accessibilityLabel="Clear shape"
-                            disabled={!points.length}
-                            onPress={() => setPoints([])}
-                        />
-                        <DafIconButton
-                            icon="locate-fixed"
-                            accessibilityLabel="Center map on my location"
-                            onPress={locate}
-                        />
+                        <NativeNavigationAction
+                            railOnly
+                            kind="tool"
+                            symbol="arrow.uturn.backward"
+                            priority={100}
+                            order={1}
+                        >
+                            <DafIconButton
+                                icon="rotate-ccw"
+                                accessibilityLabel="Undo last corner"
+                                disabled={!points.length}
+                                onPress={() =>
+                                    setPoints((current) => current.slice(0, -1))
+                                }
+                            />
+                        </NativeNavigationAction>
+                        <NativeNavigationAction
+                            railOnly
+                            kind="tool"
+                            symbol="trash"
+                            priority={100}
+                            order={2}
+                        >
+                            <DafIconButton
+                                icon="trash"
+                                accessibilityLabel="Clear shape"
+                                disabled={!points.length}
+                                onPress={() => setPoints([])}
+                            />
+                        </NativeNavigationAction>
+                        <NativeNavigationAction
+                            railOnly
+                            kind="tool"
+                            symbol="scope"
+                            priority={100}
+                            order={3}
+                        >
+                            <DafIconButton
+                                icon="locate-fixed"
+                                accessibilityLabel="Center map on my location"
+                                onPress={locate}
+                            />
+                        </NativeNavigationAction>
                     </View>
                 ) : null}
             </View>
             <AreaSheet
+                onLayout={(event) =>
+                    setSheetHeight(event.nativeEvent.layout.height)
+                }
                 title="Add an area"
                 subtitle="Watch a place for camera changes"
                 testID="add-area-sheet"
+                trailing={
+                    tabletPane ? (
+                        <DafIconButton
+                            icon="x"
+                            accessibilityLabel="Close"
+                            onPress={() => router.back()}
+                        />
+                    ) : undefined
+                }
             >
                 <DafSegmentedControl
                     options={MODES}

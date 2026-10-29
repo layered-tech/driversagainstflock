@@ -1,5 +1,11 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Platform,
+    Pressable,
+    Text,
+    View,
+} from 'react-native';
 import { Icon } from '../design-system/icon';
 import { useSearchResultsContext } from './map-screen-context';
 import {
@@ -90,6 +96,19 @@ export function SearchResultsSheet() {
                         {resultCountLabel}
                     </Text>
                 </View>
+                {Platform.isPad ? (
+                    <Pressable
+                        accessibilityLabel="Close search results"
+                        accessibilityRole="button"
+                        className="h-11 w-11 items-center justify-center rounded-full active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
+                        onPress={() =>
+                            submittedSearchResultsSheetRef.current?.dismiss()
+                        }
+                        testID="submitted-search-results-close"
+                    >
+                        <Icon color={searchIconColor} name="x" size={20} />
+                    </Pressable>
+                ) : null}
             </View>
 
             {submittedSearchIsLoading ? (

@@ -1,5 +1,6 @@
+import { DuoText as Text } from '../design-system/duo-typography';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import {
     addAutoPlaySessionStateListener,
     getAutoPlaySessionState,

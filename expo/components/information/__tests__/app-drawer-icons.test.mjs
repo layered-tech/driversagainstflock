@@ -1,3 +1,4 @@
+import { openDrawerRoot } from '../../root/app-drawer-navigation.js';
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { iconPaths } from '../../design-system/icon-paths.js';
@@ -83,6 +84,7 @@ describe('Navigation drawer icons', () => {
                     ),
                     {
                         'expo-constants': { nativeAppVersion: 'test' },
+                        './app-drawer-navigation': { openDrawerRoot },
                         'expo-router/drawer': {
                             DrawerContentScrollView: 'ScrollView',
                             DrawerItem: 'DrawerItem',

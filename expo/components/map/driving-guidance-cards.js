@@ -1,7 +1,7 @@
+import { DuoText as Text } from '../design-system/duo-typography';
 import { useMemo } from 'react';
 import {
     Pressable,
-    Text,
     useColorScheme,
     useWindowDimensions,
     View,
@@ -10,7 +10,6 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
 import { dafSemanticColors, getDafTheme } from '../design-system/tokens';
-import { DRIVING_DESTINATION_BOTTOM_PADDING } from './constants';
 import {
     DIRECTIONS_ROUTE_PRIVATE,
     formatDirectionsArrivalTime,
@@ -335,9 +334,10 @@ export function ReroutingCard() {
 }
 
 export function DestinationCard({
-    bottomInset = 0,
+    pane,
     directionsRoute,
     onCancelRoute,
+    onResumeGuidance,
     onExportRoute,
     routeExportIsAvailable,
     routeOption,
@@ -366,34 +366,30 @@ export function DestinationCard({
 
     return (
         <View
-            className="w-full gap-3 px-4 pt-1"
-            style={{
-                paddingBottom: Math.max(
-                    bottomInset + DRIVING_DESTINATION_BOTTOM_PADDING,
-                    24,
-                ),
-            }}
+            className={`w-full gap-3 px-4 ${pane ? 'pb-[16px] pt-4' : 'pb-[8px] pt-1'}`}
             testID="driving-destination-card"
         >
             <View className="flex-row items-center gap-3">
-                <View
-                    className={`h-[46px] w-[46px] shrink-0 items-center justify-center rounded-dafSm ${
-                        isPrivateRoute
-                            ? 'bg-[#E6F9EF] dark:bg-daf-brand/[0.16]'
-                            : 'bg-daf-azure/10 dark:bg-daf-azure/[0.16]'
-                    }`}
-                >
-                    <Icon
-                        color={
+                {!pane ? (
+                    <View
+                        className={`h-[46px] w-[46px] shrink-0 items-center justify-center rounded-dafSm ${
                             isPrivateRoute
-                                ? theme.text.brand
-                                : dafSemanticColors.routeFast
-                        }
-                        name={isPrivateRoute ? 'shield-check' : 'zap'}
-                        size={24}
-                        stroke={2.2}
-                    />
-                </View>
+                                ? 'bg-[#E6F9EF] dark:bg-daf-brand/[0.16]'
+                                : 'bg-daf-azure/10 dark:bg-daf-azure/[0.16]'
+                        }`}
+                    >
+                        <Icon
+                            color={
+                                isPrivateRoute
+                                    ? theme.text.brand
+                                    : dafSemanticColors.routeFast
+                            }
+                            name={isPrivateRoute ? 'shield-check' : 'zap'}
+                            size={24}
+                            stroke={2.2}
+                        />
+                    </View>
+                ) : null}
                 <View className="min-w-0 flex-1">
                     <View className="flex-row items-baseline gap-2.5 overflow-hidden">
                         <Text
@@ -447,15 +443,29 @@ export function DestinationCard({
                         </Text>
                     </View>
                 </View>
-                <NativeWindBottomSheetTouchableOpacity
-                    accessibilityLabel="End route guidance"
-                    accessibilityRole="button"
-                    className="h-[46px] w-[46px] shrink-0 items-center justify-center rounded-dafSm bg-daf-alert active:scale-[0.97]"
-                    onPress={onCancelRoute}
-                    testID="driving-cancel-route-button"
-                >
-                    <Icon color="#FFFFFF" name="x" size={22} stroke={2.4} />
-                </NativeWindBottomSheetTouchableOpacity>
+                {onResumeGuidance ? (
+                    <DafButton
+                        onPress={onResumeGuidance}
+                        pressableComponent={
+                            pane
+                                ? Pressable
+                                : NativeWindBottomSheetTouchableOpacity
+                        }
+                        testID="driving-resume-guidance"
+                    >
+                        Resume
+                    </DafButton>
+                ) : (
+                    <NativeWindBottomSheetTouchableOpacity
+                        accessibilityLabel="End route guidance"
+                        accessibilityRole="button"
+                        className="h-[46px] w-[46px] shrink-0 items-center justify-center rounded-dafSm bg-daf-alert active:scale-[0.97]"
+                        onPress={onCancelRoute}
+                        testID="driving-cancel-route-button"
+                    >
+                        <Icon color="#FFFFFF" name="x" size={22} stroke={2.4} />
+                    </NativeWindBottomSheetTouchableOpacity>
+                )}
             </View>
             {routeExportIsAvailable ? (
                 <DafButton

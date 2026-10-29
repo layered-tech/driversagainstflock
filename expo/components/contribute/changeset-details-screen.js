@@ -1,9 +1,12 @@
+import { FullWidthSafeAreaBand } from '../root/native-navigation';
+import { DuoText as Text } from '../design-system/duo-typography';
+import { useDuoPaneContentSize } from '../root/duo-pane-content-size';
+import { useDuoDevice } from '../root/duo-device-context';
 import { router, useIsFocused } from 'expo-router';
 import { useCallback, useRef } from 'react';
 import {
     KeyboardAvoidingView,
     ScrollView,
-    Text,
     useColorScheme,
     View,
 } from 'react-native';
@@ -37,6 +40,8 @@ const SOURCE_OPTIONS = [
 ];
 
 export default function ChangesetDetailsScreen() {
+    const duo = useDuoDevice();
+    const sizing = useDuoPaneContentSize();
     const tourTargets = useRef({});
     const tourScrollRef = useRef(null);
     const tourContentRef = useRef(null);
@@ -88,17 +93,19 @@ export default function ChangesetDetailsScreen() {
             testID="contribute-changeset-details-screen"
         >
             <ContributePageHeader
+                onLayout={sizing.onHeaderLayout}
                 onBack={handleBackPress}
                 badge={`${changeCount} changes`}
                 title="Changeset details"
             />
             <ScrollView
+                onContentSizeChange={sizing.onContentSizeChange}
                 className="flex-1"
                 keyboardShouldPersistTaps="handled"
                 ref={tourScrollRef}
             >
                 <View
-                    className="gap-[18px] p-4"
+                    className="gap-[18px] p-[16px]"
                     collapsable={false}
                     ref={tourContentRef}
                 >
@@ -123,6 +130,16 @@ export default function ChangesetDetailsScreen() {
                         <View className="flex-row flex-wrap gap-2">
                             {SOURCE_OPTIONS.map((option) => (
                                 <DafChip
+                                    className={
+                                        duo && changeset.source === option.value
+                                            ? '!border-transparent !bg-daf-brand'
+                                            : ''
+                                    }
+                                    textClassName={
+                                        duo && changeset.source === option.value
+                                            ? '!text-daf-text-primary'
+                                            : ''
+                                    }
                                     key={option.value}
                                     onPress={() =>
                                         handleSourceChange(option.value)
@@ -166,8 +183,11 @@ export default function ChangesetDetailsScreen() {
                     </View>
                 </View>
             </ScrollView>
-            <View
-                className="border-t border-daf-border bg-white px-4 pt-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
+            <FullWidthSafeAreaBand
+                gutter={16}
+                testID="contribute-changeset-footer"
+                onLayout={sizing.onFooterLayout}
+                className="border-t border-daf-border bg-white pt-[12px] dark:border-daf-border-dark dark:bg-daf-surface-dark"
                 style={{ paddingBottom: footerPaddingBottom }}
             >
                 <DafButton
@@ -178,7 +198,7 @@ export default function ChangesetDetailsScreen() {
                 >
                     Next: review & publish
                 </DafButton>
-            </View>
+            </FullWidthSafeAreaBand>
             <ContributeTourOverlay
                 enabled={screenIsFocused}
                 insets={insets}

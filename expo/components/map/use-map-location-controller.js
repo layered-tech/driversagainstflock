@@ -86,6 +86,7 @@ export function useMapLocationController({
     cameraFocusPadding = EMPTY_CAMERA_PADDING,
     cameraDebugStateUpdatesEnabled = false,
     drivingCameraFollowViewportAnchorY,
+    drivingCameraViewportInsets,
     drivingMapViewMode = DRIVING_MAP_VIEW_PERSPECTIVE,
     initialCameraSettings,
     isDrivingMode,
@@ -278,6 +279,9 @@ export function useMapLocationController({
         followSpeedZoomEnabled: true,
         navigationRoute,
         followViewportAnchorY: drivingCameraFollowViewportAnchorY,
+        cameraViewportInsets: isDrivingMode
+            ? drivingCameraViewportInsets
+            : undefined,
         isDrivingMode,
         locationTrackingMode,
         locationTrackingModeRef,

@@ -1,4 +1,7 @@
-import { View } from 'react-native';
+import { Platform, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from '../../lib/safe-area-insets';
+import { useDuoDevice } from '../root/duo-device-context';
+import { getContributeMapLayout } from './contribute-layout';
 import Svg, { Circle, Line } from 'react-native-svg';
 import { dafSemanticColors } from '../design-system/tokens';
 import { ContributeTourTarget } from './contribute-tour-target';
@@ -6,11 +9,26 @@ import { ContributeTourTarget } from './contribute-tour-target';
 const CROSSHAIR_SIZE = 58;
 
 export function ContributeCrosshair({ tourTargets }) {
+    const { width, height } = useWindowDimensions();
+    const insets = useSafeAreaInsets();
+    const duo = useDuoDevice();
+    const { pane } = getContributeMapLayout({
+        width,
+        height,
+        insets,
+        duoDevice: duo,
+        tabletDevice: Platform.isPad,
+    });
     return (
         <View
             className="absolute inset-0 items-center justify-center"
             pointerEvents="none"
             testID="contribute-crosshair"
+            style={
+                pane
+                    ? { left: pane.left + pane.width + 12, right: insets.right }
+                    : undefined
+            }
         >
             <ContributeTourTarget
                 className="h-[58px] w-[58px]"

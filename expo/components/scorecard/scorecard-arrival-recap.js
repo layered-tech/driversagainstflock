@@ -1,5 +1,15 @@
 import { router } from 'expo-router';
-import { Pressable, Text, View } from 'react-native';
+import {
+    Platform,
+    Pressable,
+    ScrollView,
+    useWindowDimensions,
+    View,
+} from 'react-native';
+import { DuoText as Text } from '../design-system/duo-typography';
+import { useDuoDevice } from '../root/duo-device-context';
+import { getDuoPaneLayout } from '../map/duo-bottom-sheet-layout';
+import { getTabletPaneLayout } from '../map/responsive-map-layout';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
@@ -54,6 +64,12 @@ function RecapStat({ label, testID, tone = 'default', value }) {
 
 export function ScorecardArrivalRecap() {
     const insets = useSafeAreaInsets();
+    const duo = useDuoDevice();
+    const { width, height } = useWindowDimensions();
+    const tabletPane = Platform?.isPad
+        ? getTabletPaneLayout(width, insets)
+        : null;
+    const pane = tabletPane ?? (duo ? getDuoPaneLayout(width, insets) : null);
     const { dismissRecap, level, pendingRecap, scorecardState, windowStats } =
         useScorecard();
 
@@ -99,157 +115,194 @@ export function ScorecardArrivalRecap() {
             style={{ zIndex: 120 }}
             testID="scorecard-arrival-recap"
         >
-            <Pressable
-                accessibilityLabel="Arrival recap backdrop"
-                className="absolute inset-0 bg-black/25"
-            />
+            {!pane ? (
+                <Pressable
+                    accessibilityLabel="Arrival recap backdrop"
+                    className="absolute inset-0 bg-black/25"
+                />
+            ) : null}
             <View
-                className="dark:border-daf-border-dark dark:bg-daf-surface-dark rounded-t-dafSheet border-t border-daf-border bg-white px-4 pt-4 shadow-2xl"
-                style={{ paddingBottom: Math.max(insets.bottom + 12, 24) }}
+                className={`overflow-hidden border border-daf-border-glass bg-white shadow-areaSheet dark:border-daf-border-glass-dark dark:bg-daf-surface-dark ${duo || tabletPane ? 'rounded-dafXl' : 'rounded-t-dafSheet'}`}
+                style={
+                    duo || tabletPane
+                        ? {
+                              position: 'absolute',
+                              left: pane ? pane.left : insets.left,
+                              right: pane ? pane.right : insets.right,
+                              top: pane ? insets.top + 14 : undefined,
+                              bottom: pane ? undefined : 0,
+                              maxHeight: height - insets.top - 28,
+                          }
+                        : undefined
+                }
             >
-                <View className="dark:bg-daf-border-dark mx-auto mb-3 h-1 w-10 rounded-dafPill bg-daf-border-strong" />
-                <Text
-                    className="font-dafDisplay text-xl font-bold text-daf-text-primary dark:text-white"
-                    testID="scorecard-arrival-recap-title"
+                <ScrollView
+                    className="shrink grow-0"
+                    showsVerticalScrollIndicator={false}
                 >
-                    {title}
-                </Text>
-                <Text
-                    className="font-dafMono mt-1 text-xs text-daf-text-tertiary dark:text-neutral-400"
-                    testID="scorecard-arrival-recap-trip-summary"
-                >
-                    {formatDuration(trip.durationSeconds)} ·{' '}
-                    {formatNumber(trip.distanceMiles)} mi · explicit guided
-                    drive
-                </Text>
-
-                <View
-                    className={`mt-3 flex-row items-center gap-3 rounded-dafMd px-3.5 py-3 ${
-                        cleanDrive
-                            ? 'bg-daf-brand/12'
-                            : 'bg-daf-surface-alt dark:bg-daf-surface-inverse'
-                    }`}
-                >
-                    <Text className="font-dafMono text-[25px] font-bold text-daf-text-brand dark:text-daf-brand">
-                        {scoreDelta === null
-                            ? '—'
-                            : `${scoreDelta >= 0 ? '+' : ''}${scoreDelta}`}
-                    </Text>
-                    <View className="min-w-0 flex-1">
-                        <Text
-                            className="text-sm font-bold text-daf-text-primary dark:text-white"
-                            testID="scorecard-arrival-recap-score"
-                        >
-                            {currentScore === null
-                                ? 'Privacy score pending'
-                                : `Privacy score → ${currentScore}`}
-                        </Text>
-                        <Text
-                            className="text-xs text-daf-text-secondary dark:text-neutral-300"
-                            testID="scorecard-arrival-recap-result"
-                        >
-                            {cleanDrive
-                                ? `Clean drive · streak is now ${windowStats.cleanDriveStreak}`
-                                : 'Camera crossings reduce score'}
-                        </Text>
-                    </View>
-                    <Icon
-                        color={
-                            cleanDrive
-                                ? dafSemanticColors.brand
-                                : dafSemanticColors.warning
-                        }
-                        name={cleanDrive ? 'shield-check' : 'triangle-alert'}
-                        size={21}
-                    />
-                </View>
-
-                <View className="mt-3 flex-row gap-2">
-                    <RecapStat
-                        label="avoided"
-                        testID="scorecard-arrival-recap-avoided"
-                        tone="brand"
-                        value={trip.avoidedCameraCount}
-                    />
-                    <RecapStat
-                        label="crossings"
-                        testID="scorecard-arrival-recap-crossings"
-                        tone={cameraCrossingCount > 0 ? 'alert' : 'default'}
-                        value={cameraCrossingCount}
-                    />
-                    <RecapStat
-                        label="for privacy"
-                        testID="scorecard-arrival-recap-extra-time"
-                        value={`+${Math.round(trip.extraDurationSeconds / 60)} min`}
-                    />
-                </View>
-
-                <View className="mt-3 flex-row items-center gap-2 rounded-dafMd bg-daf-surface-alt px-3 py-2.5 dark:bg-daf-surface-inverse">
-                    <Icon
-                        color={dafSemanticColors.speedOk}
-                        name="fuel"
-                        size={16}
-                    />
-                    <Text className="min-w-0 flex-1 text-xs font-semibold text-daf-text-secondary dark:text-neutral-300">
-                        Detour fuel ·{' '}
-                        {formatNumber(fuelEstimate.fuelEconomyMpg)} mpg
-                    </Text>
-                    <Text
-                        className="font-dafMono text-xs font-semibold text-daf-text-primary dark:text-white"
-                        testID="scorecard-arrival-recap-fuel-cost"
+                    <View
+                        className="px-4 pt-4"
+                        style={{
+                            paddingBottom: pane
+                                ? 20
+                                : Math.max(insets.bottom + 12, 24),
+                        }}
                     >
-                        +{formatNumber(trip.extraMiles)} mi ·{' '}
-                        {Number.isFinite(fuelEstimate.extraFuelCost)
-                            ? `≈$${formatNumber(fuelEstimate.extraFuelCost, 2)}`
-                            : trip.extraMiles > 0
-                              ? 'price unavailable'
-                              : '$0.00'}
-                    </Text>
-                </View>
+                        {!pane ? (
+                            <View className="mx-auto mb-3 h-1 w-10 rounded-dafPill bg-daf-border-strong dark:bg-daf-border-dark" />
+                        ) : null}
+                        <Text
+                            className="font-dafDisplay text-xl font-bold text-daf-text-primary dark:text-white"
+                            testID="scorecard-arrival-recap-title"
+                        >
+                            {title}
+                        </Text>
+                        <Text
+                            className="mt-1 font-dafMono text-xs text-daf-text-tertiary dark:text-neutral-400"
+                            testID="scorecard-arrival-recap-trip-summary"
+                        >
+                            {formatDuration(trip.durationSeconds)} ·{' '}
+                            {formatNumber(trip.distanceMiles)} mi · explicit
+                            guided drive
+                        </Text>
 
-                <View className="mt-3">
-                    <View className="mb-1.5 flex-row justify-between">
-                        <Text
-                            className="text-xs font-semibold text-daf-text-secondary dark:text-neutral-300"
-                            testID="scorecard-arrival-recap-xp"
-                        >
-                            +{trip.xpEarned} XP
-                        </Text>
-                        <Text
-                            className="font-dafMono text-xs text-daf-text-tertiary dark:text-neutral-400"
-                            testID="scorecard-arrival-recap-level-next"
-                        >
-                            {level.nextLevel
-                                ? `${level.xpToNext} to ${level.nextLevel.name}`
-                                : 'Maximum level'}
-                        </Text>
-                    </View>
-                    <View className="h-1.5 overflow-hidden rounded-dafPill bg-daf-surface-alt dark:bg-daf-surface-inverse">
                         <View
-                            className="h-full rounded-dafPill bg-daf-brand"
-                            style={{
-                                width: `${Math.round(level.progress * 100)}%`,
-                            }}
-                        />
-                    </View>
-                </View>
+                            className={`mt-3 flex-row items-center gap-3 rounded-dafMd px-3.5 py-3 ${
+                                cleanDrive
+                                    ? 'bg-daf-brand/10'
+                                    : 'bg-daf-surface-alt dark:bg-daf-surface-inverse'
+                            }`}
+                        >
+                            <Text className="font-dafMono text-[25px] font-bold text-daf-text-brand dark:text-daf-brand">
+                                {scoreDelta === null
+                                    ? '—'
+                                    : `${scoreDelta >= 0 ? '+' : ''}${scoreDelta}`}
+                            </Text>
+                            <View className="min-w-0 flex-1">
+                                <Text
+                                    className="text-sm font-bold text-daf-text-primary dark:text-white"
+                                    testID="scorecard-arrival-recap-score"
+                                >
+                                    {currentScore === null
+                                        ? 'Privacy score pending'
+                                        : `Privacy score → ${currentScore}`}
+                                </Text>
+                                <Text
+                                    className="text-xs text-daf-text-secondary dark:text-neutral-300"
+                                    testID="scorecard-arrival-recap-result"
+                                >
+                                    {cleanDrive
+                                        ? `Clean drive · streak is now ${windowStats.cleanDriveStreak}`
+                                        : 'Camera crossings reduce score'}
+                                </Text>
+                            </View>
+                            <Icon
+                                color={
+                                    cleanDrive
+                                        ? dafSemanticColors.brand
+                                        : dafSemanticColors.warning
+                                }
+                                name={
+                                    cleanDrive
+                                        ? 'shield-check'
+                                        : 'triangle-alert'
+                                }
+                                size={21}
+                            />
+                        </View>
 
-                <DafButton
-                    className="mt-4"
-                    onPress={dismissRecap}
-                    size="lg"
-                    testID="scorecard-arrival-recap-done"
-                >
-                    Done
-                </DafButton>
-                <DafButton
-                    className="mt-2"
-                    onPress={handleTimelinePress}
-                    testID="scorecard-arrival-recap-timeline"
-                    variant="ghost"
-                >
-                    View exposure timeline
-                </DafButton>
+                        <View className="mt-3 flex-row gap-2">
+                            <RecapStat
+                                label="avoided"
+                                testID="scorecard-arrival-recap-avoided"
+                                tone="brand"
+                                value={trip.avoidedCameraCount}
+                            />
+                            <RecapStat
+                                label="crossings"
+                                testID="scorecard-arrival-recap-crossings"
+                                tone={
+                                    cameraCrossingCount > 0
+                                        ? 'alert'
+                                        : 'default'
+                                }
+                                value={cameraCrossingCount}
+                            />
+                            <RecapStat
+                                label="for privacy"
+                                testID="scorecard-arrival-recap-extra-time"
+                                value={`+${Math.round(trip.extraDurationSeconds / 60)} min`}
+                            />
+                        </View>
+
+                        <View className="mt-3 flex-row items-center gap-2 rounded-dafMd bg-daf-surface-alt px-3 py-2.5 dark:bg-daf-surface-inverse">
+                            <Icon
+                                color={dafSemanticColors.speedOk}
+                                name="fuel"
+                                size={16}
+                            />
+                            <Text className="min-w-0 flex-1 text-xs font-semibold text-daf-text-secondary dark:text-neutral-300">
+                                Detour fuel ·{' '}
+                                {formatNumber(fuelEstimate.fuelEconomyMpg)} mpg
+                            </Text>
+                            <Text
+                                className="font-dafMono text-xs font-semibold text-daf-text-primary dark:text-white"
+                                testID="scorecard-arrival-recap-fuel-cost"
+                            >
+                                +{formatNumber(trip.extraMiles)} mi ·{' '}
+                                {Number.isFinite(fuelEstimate.extraFuelCost)
+                                    ? `≈$${formatNumber(fuelEstimate.extraFuelCost, 2)}`
+                                    : trip.extraMiles > 0
+                                      ? 'price unavailable'
+                                      : '$0.00'}
+                            </Text>
+                        </View>
+
+                        <View className="mt-3">
+                            <View className="mb-1.5 flex-row justify-between">
+                                <Text
+                                    className="text-xs font-semibold text-daf-text-secondary dark:text-neutral-300"
+                                    testID="scorecard-arrival-recap-xp"
+                                >
+                                    +{trip.xpEarned} XP
+                                </Text>
+                                <Text
+                                    className="font-dafMono text-xs text-daf-text-tertiary dark:text-neutral-400"
+                                    testID="scorecard-arrival-recap-level-next"
+                                >
+                                    {level.nextLevel
+                                        ? `${level.xpToNext} to ${level.nextLevel.name}`
+                                        : 'Maximum level'}
+                                </Text>
+                            </View>
+                            <View className="h-1.5 overflow-hidden rounded-dafPill bg-daf-surface-alt dark:bg-daf-surface-inverse">
+                                <View
+                                    className="h-full rounded-dafPill bg-daf-brand"
+                                    style={{
+                                        width: `${Math.round(level.progress * 100)}%`,
+                                    }}
+                                />
+                            </View>
+                        </View>
+
+                        <DafButton
+                            className="mt-4"
+                            onPress={dismissRecap}
+                            size="lg"
+                            testID="scorecard-arrival-recap-done"
+                        >
+                            Done
+                        </DafButton>
+                        <DafButton
+                            className="mt-2"
+                            onPress={handleTimelinePress}
+                            testID="scorecard-arrival-recap-timeline"
+                            variant="ghost"
+                        >
+                            View exposure timeline
+                        </DafButton>
+                    </View>
+                </ScrollView>
             </View>
         </View>
     );

@@ -204,7 +204,7 @@ test('mounts the launch gate around the phone navigator and uses a scrollable sc
     assert.match(screen, /paddingTop: layout.paddingTop/);
     assert.match(screen, /paddingBottom: layout.paddingBottom/);
     assert.match(screen, /Maybe later/);
-    assert.match(screen, /Your routes stay ours\{'\\n'\}to run/);
+    assert.match(screen, /Your routes stay ours/);
     assert.doesNotMatch(screen, /StyleSheet/);
 });
 
@@ -235,4 +235,190 @@ test('scales spacing, type and icon sizes together from the 390-point design', (
         getFirstLaunchSupportLayout(1000, { top: 44, bottom: 20 }),
         getFirstLaunchSupportLayout(560, { top: 44, bottom: 20 }),
     );
+});
+
+test('Duo support sizing excludes either rail and does not keep the phone notch gap', () => {
+    for (const horizontal of [
+        { left: 0, right: 84 },
+        { left: 84, right: 0 },
+    ]) {
+        const layout = getFirstLaunchSupportLayout(466, {
+            top: 0,
+            bottom: 20,
+            ...horizontal,
+        });
+        assert.equal(layout.scale, 382 / 390);
+        assert.equal(layout.paddingTop, 24 * layout.scale);
+        assert.equal(layout.variables['--support-28'], 28 * layout.scale);
+    }
+});
+
+test('open Duo onboarding keeps the design type scale inside its centered card', () => {
+    const layout = getFirstLaunchSupportLayout(
+        982,
+        { top: 0, bottom: 0, left: 0, right: 84 },
+        true,
+    );
+    assert.equal(layout.centered, true);
+    assert.equal(layout.scale, 1);
+    assert.equal(layout.variables['--support-32'], 32);
+    assert.equal(layout.variables['--support-22'], 22);
+    assert.equal(
+        getFirstLaunchSupportLayout(466, { top: 0, bottom: 0, right: 84 }, true)
+            .centered,
+        false,
+    );
+});
+
+test('open portrait Duo onboarding follows the closed layout', () => {
+    const insets = { top: 44, bottom: 20, left: 0, right: 0 };
+    assert.deepEqual(
+        getFirstLaunchSupportLayout(678, insets, true),
+        getFirstLaunchSupportLayout(466, insets, true),
+    );
+});
+
+test('iPad onboarding keeps the unscaled centered card in portrait and landscape', () => {
+    for (const width of [834, 1194, 1376]) {
+        const layout = getFirstLaunchSupportLayout(
+            width,
+            { top: 24, bottom: 20, left: 0, right: 0 },
+            false,
+            true,
+        );
+        assert.equal(layout.centered, true);
+        assert.equal(layout.scale, 1);
+        assert.equal(layout.paddingTop, 24);
+        assert.equal(layout.paddingBottom, 24);
+        assert.equal(layout.variables['--support-32'], 32);
+    }
+    assert.equal(
+        getFirstLaunchSupportLayout(600, { top: 24, bottom: 20 }, false, true)
+            .centered,
+        false,
+        'a narrow multitasking window keeps the phone flow',
+    );
+});
+
+test('iPad support renders a map behind the centered card and a fixed action gap', () => {
+    const { FirstLaunchSupportScreen } = loadTourModule(
+        new URL('../first-launch-support-screen.js', import.meta.url),
+        {
+            nativewind: { vars: (values) => values },
+            'react-native': {
+                Platform: { OS: 'ios', isPad: true },
+                Pressable: 'Pressable',
+                ScrollView: 'ScrollView',
+                View: 'View',
+                useColorScheme: () => 'light',
+                useWindowDimensions: () => ({ width: 1194, height: 834 }),
+            },
+            '../../lib/safe-area-insets': {
+                useSafeAreaInsets: () => ({ top: 24, bottom: 20 }),
+            },
+            '../design-system/icon': { Icon: 'Icon' },
+            './first-launch-support-layout': { getFirstLaunchSupportLayout },
+            '../areas/area-map': { AreaMap: 'AreaMap' },
+        },
+    );
+    const tree = FirstLaunchSupportScreen({ busy: false });
+    const [backdrop, scroll] = tree.props.children;
+    assert.equal(backdrop.props.children[0].type, 'AreaMap');
+    assert.equal(scroll.props.contentContainerClassName, 'grow justify-center');
+    const card = scroll.props.children;
+    assert.match(card.props.className, /max-w-\[480px\]/);
+    assert.match(card.props.className, /rounded-daf2xl/);
+    assert.ok(
+        card.props.children.some((child) => child?.props?.className === 'h-6'),
+    );
+});
+
+function createSupportRoute({
+    tablet = true,
+    width = 1194,
+    openURL = async () => {},
+} = {}) {
+    const hooks = createHookHarness();
+    const routes = [];
+    const { ContributeScreen } = loadTourModule(
+        new URL('../contribute-screen.js', import.meta.url),
+        {
+            react: hooks.react,
+            'expo-router': {
+                router: { replace: (route) => routes.push(route) },
+            },
+            'react-native': {
+                Linking: { openURL },
+                Platform: { OS: 'ios', isPad: tablet },
+                Pressable: 'Pressable',
+                ScrollView: 'ScrollView',
+                Text: 'Text',
+                View: 'View',
+                useWindowDimensions: () => ({ width, height: 834 }),
+            },
+            '../design-system/icon': { Icon: 'Icon' },
+            '../design-system/tokens': { dafSemanticColors: {} },
+            './community-content': { contributePage },
+            './information-screen': { InformationHeader: 'InformationHeader' },
+            './first-launch-support-screen': {
+                FirstLaunchSupportScreen: 'SupportScreen',
+            },
+        },
+    );
+    const route = ContributeScreen();
+    return {
+        route,
+        routes,
+        render: () => hooks.render(() => route.type(route.props)),
+    };
+}
+
+test('drawer support on iPad reuses the designed card and returns to the map', async () => {
+    const opened = [];
+    let finishOpen;
+    const route = createSupportRoute({
+        openURL: (url) => {
+            opened.push(url);
+            return new Promise((resolve) => {
+                finishOpen = resolve;
+            });
+        },
+    });
+    let screen = route.render();
+    assert.equal(screen.type, 'SupportScreen');
+    const opening = screen.props.onDonate();
+    await screen.props.onDonate();
+    assert.deepEqual(opened, [contributePage.donationUrl]);
+    assert.equal(route.render().props.busy, true);
+    finishOpen();
+    await opening;
+    screen = route.render();
+    assert.equal(screen.props.busy, false);
+    screen.props.onDismiss();
+    assert.deepEqual(route.routes, ['/']);
+});
+
+test('drawer support keeps the tablet card available after a failed browser launch', async () => {
+    const route = createSupportRoute({
+        openURL: async () => {
+            throw new Error('No browser');
+        },
+    });
+    await route.render().props.onDonate();
+    const screen = route.render();
+    assert.equal(screen.props.busy, false);
+    assert.match(screen.props.error, /Please try again/);
+});
+
+test('phone, Duo and narrow iPad drawer support retain the existing funding page', () => {
+    for (const options of [
+        { tablet: false, width: 390 },
+        { tablet: false, width: 982 },
+        { tablet: true, width: 600 },
+    ]) {
+        const { route } = createSupportRoute(options);
+        assert.equal(route.props.testID, 'contribute-info-screen');
+        assert.equal(route.props.children[0].type, 'InformationHeader');
+        assert.equal(route.props.children[0].props.title, 'Support Us');
+    }
 });

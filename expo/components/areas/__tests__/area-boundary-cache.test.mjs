@@ -161,3 +161,50 @@ test('identical boundary refreshes have identical camera targets and point views
         },
     );
 });
+
+test('Duo area boundaries fit outside either horizontal system rail', () => {
+    const bounds = area().bounds;
+    for (const insets of [
+        { left: 0, right: 84 },
+        { left: 84, right: 0 },
+    ]) {
+        const target = areaCameraSettings({ bounds, insets });
+        assert.equal(target.bounds.paddingLeft, 40 + insets.left);
+        assert.equal(target.bounds.paddingRight, 40 + insets.right);
+        assert.equal(target.bounds.paddingTop, 40);
+        assert.equal(target.bounds.paddingBottom, 40);
+    }
+});
+
+test('Duo single-camera detail centers in the map space beside the system rail', () => {
+    const target = areaCameraSettings({
+        center: [-122.27, 37.8],
+        zoomLevel: 16,
+        insets: { left: 0, right: 84 },
+    });
+    assert.deepEqual(target.centerCoordinate, [-122.27, 37.8]);
+    assert.equal(target.zoomLevel, 16);
+    assert.deepEqual(target.padding, {
+        paddingTop: 0,
+        paddingBottom: 0,
+        paddingLeft: 0,
+        paddingRight: 84,
+    });
+});
+
+test('Duo map fitting leaves the measured sheet below its geometry and single-camera target', () => {
+    const insets = { left: 0, right: 84 };
+    const bounds = areaCameraSettings({
+        bounds: area().bounds,
+        insets,
+        bottomInset: 350,
+    });
+    assert.equal(bounds.bounds.paddingBottom, 390);
+    const point = areaCameraSettings({
+        center: [-122.27, 37.8],
+        insets,
+        bottomInset: 350,
+    });
+    assert.equal(point.padding.paddingBottom, 350);
+    assert.equal(point.padding.paddingRight, 84);
+});

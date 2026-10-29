@@ -1,16 +1,25 @@
+import {
+    NativeNavigationAction,
+    useDuoRailEdge,
+} from '../root/native-navigation';
 import { router } from 'expo-router';
 import {
     ActivityIndicator,
+    Platform,
     Pressable,
     ScrollView,
     Text,
     useColorScheme,
+    useWindowDimensions,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
 import { areaTextClassName } from './area-typography';
+import { useDuoDevice } from '../root/duo-device-context';
+import { getDuoPaneLayout } from '../map/duo-bottom-sheet-layout';
+import { getTabletPaneLayout } from '../map/responsive-map-layout';
 
 export function AreaText({ className = '', ...props }) {
     return <Text {...props} className={areaTextClassName(className)} />;
@@ -89,29 +98,75 @@ export function AreaSegmentedControl({
     );
 }
 
-export function AreaSheet({ title, subtitle, children, onLayout, testID }) {
+export function AreaSheet({
+    title,
+    subtitle,
+    children,
+    onLayout,
+    testID,
+    leading,
+    trailing,
+}) {
     const insets = useSafeAreaInsets();
+    const railEdge = useDuoRailEdge();
+    const duoDevice = useDuoDevice();
+    const { width, height } = useWindowDimensions();
+    const pane = Platform?.isPad
+        ? getTabletPaneLayout(width, insets)
+        : duoDevice
+          ? getDuoPaneLayout(width, insets)
+          : null;
     return (
         <View
-            className="max-h-[75%] overflow-hidden rounded-t-dafSheet border-t border-daf-border-glass bg-white shadow-areaSheet dark:border-daf-border-glass-dark dark:bg-[#11151B] dark:shadow-areaSheetDark"
+            className={`max-h-[75%] overflow-hidden border-daf-border-glass bg-white shadow-areaSheet dark:border-daf-border-glass-dark dark:bg-[#11151B] dark:shadow-areaSheetDark ${duoDevice || pane ? 'rounded-dafXl border' : 'rounded-t-dafSheet border-t'}`}
+            style={
+                railEdge || pane
+                    ? {
+                          marginLeft: pane ? pane.left : insets.left,
+                          marginRight: pane ? pane.right : insets.right,
+                          maxHeight: pane ? height - insets.top - 28 : '66%',
+                          position: 'absolute',
+                          left: 0,
+                          right: 0,
+                          top: pane ? insets.top + 14 : undefined,
+                          bottom: pane ? undefined : 0,
+                      }
+                    : undefined
+            }
             onLayout={onLayout}
             testID={testID}
         >
             <ScrollView
                 className="grow-0"
                 keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+                contentContainerStyle={{
+                    paddingBottom: duoDevice || pane ? 20 : insets.bottom + 20,
+                    paddingLeft: railEdge || pane ? 0 : insets.left,
+                    paddingRight: railEdge || pane ? 0 : insets.right,
+                }}
             >
-                <View className="px-[16px] pt-[8px]">
-                    <View className="mb-[12px] h-[5px] w-[32px] self-center rounded-full bg-daf-border-strong dark:bg-[#3A434E]" />
-                    <AreaText className="font-dafDisplay text-[21px] font-bold tracking-[-0.42px] text-daf-text-primary dark:text-daf-text-inverse">
-                        {title}
-                    </AreaText>
-                    {subtitle ? (
-                        <AreaText className="mb-[14px] mt-[2px] text-[13px] text-daf-text-secondary dark:text-[#A9B2BD]">
-                            {subtitle}
-                        </AreaText>
+                <View
+                    className={`px-[16px] ${pane ? 'pt-[18px]' : 'pt-[8px]'}`}
+                >
+                    {!pane ? (
+                        <View className="mb-[12px] h-[5px] w-[32px] self-center rounded-full bg-daf-border-strong dark:bg-[#3A434E]" />
                     ) : null}
+                    <View
+                        className={`${subtitle ? 'mb-[14px]' : ''} flex-row items-start gap-2`}
+                    >
+                        {leading}
+                        <View className="min-w-0 flex-1">
+                            <AreaText className="font-dafDisplay text-[21px] font-bold tracking-[-0.42px] text-daf-text-primary dark:text-daf-text-inverse">
+                                {title}
+                            </AreaText>
+                            {subtitle ? (
+                                <AreaText className="mt-[2px] text-[13px] text-daf-text-secondary dark:text-[#A9B2BD]">
+                                    {subtitle}
+                                </AreaText>
+                            ) : null}
+                        </View>
+                        {trailing}
+                    </View>
                     {children}
                 </View>
             </ScrollView>
@@ -121,32 +176,45 @@ export function AreaSheet({ title, subtitle, children, onLayout, testID }) {
 
 export const areaCardClass =
     'rounded-dafLg border border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark';
-export function AreaHeader({ title, subtitle, root = false, trailing }) {
+export function AreaHeader({
+    title,
+    subtitle,
+    root = false,
+    trailing,
+    onLayout,
+}) {
     const insets = useSafeAreaInsets();
+    const railEdge = useDuoRailEdge();
     const dark = useColorScheme() === 'dark';
     return (
         <View
+            onLayout={onLayout}
             className="flex-row items-center gap-[4px] px-[10px] pb-[6px]"
-            style={{ paddingTop: insets.top + 8 }}
+            style={{
+                paddingTop: insets.top + (railEdge ? 18 : 8),
+                paddingLeft: railEdge ? 16 : 10,
+            }}
         >
-            <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={root ? 'Back to map' : 'Back'}
-                className="h-[40px] w-[40px] items-center justify-center"
-                onPress={() =>
-                    root
-                        ? router.replace('/')
-                        : router.canGoBack()
-                          ? router.back()
-                          : router.replace('/areas')
-                }
-            >
-                <Icon
-                    name="chevron-left"
-                    size={22}
-                    color={dark ? '#F5F7F9' : '#11151B'}
-                />
-            </Pressable>
+            <NativeNavigationAction railOnly kind="back" symbol="chevron.left">
+                <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={root ? 'Back to map' : 'Back'}
+                    className="h-[40px] w-[40px] items-center justify-center"
+                    onPress={() =>
+                        root
+                            ? router.replace('/')
+                            : router.canGoBack()
+                              ? router.back()
+                              : router.replace('/areas')
+                    }
+                >
+                    <Icon
+                        name="chevron-left"
+                        size={22}
+                        color={dark ? '#F5F7F9' : '#11151B'}
+                    />
+                </Pressable>
+            </NativeNavigationAction>
             <View className="min-w-0 flex-1">
                 <AreaText
                     className="font-dafDisplay text-[22px] font-bold leading-[25px] tracking-[-0.44px] text-daf-text-primary dark:text-daf-text-inverse"
@@ -206,14 +274,16 @@ export function AreaPrivacy({ alerts = false }) {
 }
 export function AreaAddButton() {
     return (
-        <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add an area"
-            className="h-[40px] w-[40px] items-center justify-center rounded-full bg-daf-brand/10"
-            testID="areas-add-button"
-            onPress={() => router.push('/areas/add')}
-        >
-            <Icon name="plus" color="#0F7D45" size={20} />
-        </Pressable>
+        <NativeNavigationAction railOnly kind="tool" symbol="plus">
+            <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add an area"
+                className="h-[40px] w-[40px] items-center justify-center rounded-full bg-daf-brand/10"
+                testID="areas-add-button"
+                onPress={() => router.push('/areas/add')}
+            >
+                <Icon name="plus" color="#0F7D45" size={20} />
+            </Pressable>
+        </NativeNavigationAction>
     );
 }

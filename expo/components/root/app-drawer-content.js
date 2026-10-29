@@ -1,3 +1,5 @@
+import { DuoText as Text } from '../design-system/duo-typography';
+import { useDuoDevice } from './duo-device-context';
 import Constants from 'expo-constants';
 import { useAreas } from '../areas/areas-context';
 import {
@@ -5,7 +7,7 @@ import {
     DrawerItem,
     useDrawerStatus,
 } from 'expo-router/drawer';
-import { Alert, Text, useColorScheme, View } from 'react-native';
+import { Alert, Platform, useColorScheme, View } from 'react-native';
 import { useAuth } from '../../lib/auth';
 import { APP_ENVIRONMENT } from '../../lib/auth/constants';
 import {
@@ -17,6 +19,7 @@ import { SHOW_MAP_DEBUG_CONTROLS } from '../map/config';
 import { useSharedMapState } from '../map/shared-map-state';
 import { useScorecard } from '../scorecard/scorecard-context';
 import { AppDrawerIcon } from './app-drawer-icon';
+import { openDrawerRoot } from './app-drawer-navigation';
 import {
     getDrawerActiveRouteName,
     HELP_AND_LEGAL_DRAWER_ITEMS,
@@ -103,6 +106,7 @@ function DrawerNavigationItem({
 }
 
 export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
+    const duo = useDuoDevice();
     const { unreadCount } = useAreas();
     const { debugOverlayIsVisible, mapPreferencesAreLoaded } =
         useSharedMapState();
@@ -207,15 +211,14 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
         });
     };
     const handleYourEditsPress = () => {
-        props.navigation.navigate('edits', { screen: 'index' });
-        props.navigation.closeDrawer();
+        openDrawerRoot(props.navigation, props.state, 'edits');
     };
     const handleDrawerRoutePress = (routeName) => {
-        if (routeName === 'areas') {
-            props.navigation.navigate('areas', { screen: 'index' });
-        } else {
-            props.navigation.navigate(routeName);
+        if (routeName === 'areas' || routeName === 'scorecard') {
+            openDrawerRoot(props.navigation, props.state, routeName);
+            return;
         }
+        props.navigation.navigate(routeName);
         props.navigation.closeDrawer();
     };
 
@@ -229,9 +232,11 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                 contentContainerStyle={{ paddingBottom: 8 }}
             >
                 {scorecardIsHydrated && secureStorageIsAvailable ? (
-                    <View className="border-b border-daf-border px-5 pb-4 pt-2 dark:border-daf-border-dark">
+                    <View
+                        className={`border-b border-daf-border px-5 pb-4 pt-2 dark:border-daf-border-dark ${duo ? '-mx-3' : ''}`}
+                    >
                         <View className="flex-row items-center gap-3">
-                            <View className="bg-daf-brand/12 h-[46px] w-[46px] items-center justify-center rounded-dafPill dark:bg-daf-brand/15">
+                            <View className="h-[46px] w-[46px] items-center justify-center rounded-dafPill bg-daf-brand/10 dark:bg-daf-brand/15">
                                 <Icon
                                     color={isDarkMode ? '#2FC177' : '#0F7D45'}
                                     name="ghost"
@@ -244,7 +249,10 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                                 </Text>
                                 <Text
                                     className="text-[12.5px] text-daf-text-tertiary dark:text-neutral-400"
-                                    numberOfLines={1}
+                                    numberOfLines={
+                                        Platform?.isPad === true ? 2 : 1
+                                    }
+                                    testID="drawer-scorecard-level-progress"
                                 >
                                     Level {scorecardLevel.level}
                                     {scorecardLevel.nextLevel
