@@ -1,11 +1,19 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { getOCRAssertionFailure } from '../android-auto-e2e.mjs';
+import {
+    getAndroidAutoKeyboardDismissPoint,
+    getAndroidAutoKeyboardPoints,
+} from '../android-auto-navigation-suite.mjs';
+import {
+    makeRoutePixelProbe,
+    routeOverviewFailure,
+} from '../automotive-route-overview.mjs';
 
 test(
     'host OCR recognizes Android Auto navigation and speed labels',
@@ -29,6 +37,92 @@ test(
                 ],
                 { timeout: 30000 },
             );
+            for (const name of [
+                'android-auto-route-overview',
+                'carplay-route-overview',
+            ]) {
+                const fixture = JSON.parse(
+                    readFileSync(
+                        new URL(`./fixtures/${name}.json`, import.meta.url),
+                    ),
+                );
+                assert.equal(
+                    routeOverviewFailure(fixture.snapshot, fixture.baseline),
+                    null,
+                );
+                const probe = makeRoutePixelProbe(
+                    fixture.snapshot,
+                    fixture.appBounds,
+                );
+                const probeFile = join(directory, 'route-probe.json');
+                writeFileSync(probeFile, JSON.stringify(probe));
+                const pixels = JSON.parse(
+                    execFileSync(
+                        binary,
+                        [
+                            '--route-pixels',
+                            fileURLToPath(
+                                new URL(
+                                    `./fixtures/${name}.png`,
+                                    import.meta.url,
+                                ),
+                            ),
+                            probeFile,
+                        ],
+                        { encoding: 'utf8' },
+                    ),
+                );
+                assert.ok(
+                    pixels.matched / pixels.total > 0.55,
+                    `${name} route must be visibly drawn`,
+                );
+                assert.ok(pixels.span > 60);
+                const missing = JSON.parse(
+                    execFileSync(
+                        binary,
+                        [
+                            '--route-pixels',
+                            fileURLToPath(
+                                new URL(
+                                    './fixtures/android-auto-pewaukee-puck.png',
+                                    import.meta.url,
+                                ),
+                            ),
+                            probeFile,
+                        ],
+                        { encoding: 'utf8' },
+                    ),
+                );
+                assert.ok(
+                    missing.matched / missing.total < 0.55,
+                    'A puck-only map cannot satisfy the route line proof',
+                );
+                if (name.startsWith('android')) {
+                    // Dashboard occludes the full Mapbox canvas; it does not resize it.
+                    const wrong = makeRoutePixelProbe(fixture.snapshot, {
+                        ...fixture.appBounds,
+                        width: 770,
+                    });
+                    writeFileSync(probeFile, JSON.stringify(wrong));
+                    const offset = JSON.parse(
+                        execFileSync(
+                            binary,
+                            [
+                                '--route-pixels',
+                                fileURLToPath(
+                                    new URL(
+                                        `./fixtures/${name}.png`,
+                                        import.meta.url,
+                                    ),
+                                ),
+                                probeFile,
+                            ],
+                            { encoding: 'utf8' },
+                        ),
+                    );
+                    assert.equal(offset.matched, 0);
+                }
+            }
             const text = execFileSync(
                 binary,
                 [
@@ -47,6 +141,217 @@ test(
                 }),
                 null,
             );
+            const carplay = JSON.parse(
+                execFileSync(
+                    binary,
+                    [
+                        '--observations',
+                        fileURLToPath(
+                            new URL(
+                                './fixtures/carplay-upcoming.png',
+                                import.meta.url,
+                            ),
+                        ),
+                    ],
+                    {
+                        encoding: 'utf8',
+                        timeout: 30000,
+                        env: { ...process.env, DAF_E2E_OCR_CARPLAY: '1' },
+                    },
+                ),
+            );
+            const keyboard = JSON.parse(
+                execFileSync(
+                    binary,
+                    [
+                        '--observations',
+                        fileURLToPath(
+                            new URL(
+                                './fixtures/android-auto-search-keyboard.png',
+                                import.meta.url,
+                            ),
+                        ),
+                    ],
+                    {
+                        encoding: 'utf8',
+                        env: { ...process.env, DAF_E2E_OCR_KEYBOARD: '1' },
+                    },
+                ),
+            );
+            const points = getAndroidAutoKeyboardPoints(
+                { height: 720, textBounds: keyboard },
+                'walmart',
+            );
+            for (const [index, [x, y]] of [
+                [185, 507],
+                [149, 562],
+                [708, 562],
+                [605, 618],
+                [149, 562],
+                [325, 507],
+                [395, 507],
+            ].entries()) {
+                assert.ok(
+                    Math.abs(points[index].x - x) < 25,
+                    `keyboard x for ${'walmart'[index]}`,
+                );
+                assert.ok(
+                    Math.abs(points[index].y - y) < 25,
+                    `keyboard y for ${'walmart'[index]}`,
+                );
+            }
+            assert.ok(
+                carplay.some(({ text }) => text.toLowerCase() === 'ok'),
+                'CarPlay OK button must be recognized',
+            );
+            assert.ok(carplay.some(({ text }) => text.includes('ahead')));
+            const fullscreenKeyboard = JSON.parse(
+                execFileSync(
+                    binary,
+                    [
+                        '--observations',
+                        fileURLToPath(
+                            new URL(
+                                './fixtures/android-auto-search-keyboard-fullscreen.png',
+                                import.meta.url,
+                            ),
+                        ),
+                    ],
+                    {
+                        encoding: 'utf8',
+                        env: { ...process.env, DAF_E2E_OCR_KEYBOARD: '1' },
+                    },
+                ),
+            );
+            const fullscreenPoints = getAndroidAutoKeyboardPoints(
+                { height: 720, textBounds: fullscreenKeyboard },
+                'walmart',
+            );
+            for (const [index, [x, y]] of [
+                [395, 508],
+                [359, 562],
+                [919, 562],
+                [815, 620],
+                [359, 562],
+                [535, 508],
+                [605, 508],
+            ].entries()) {
+                assert.ok(
+                    Math.abs(fullscreenPoints[index].x - x) < 25,
+                    `fullscreen x for ${'walmart'[index]}`,
+                );
+                assert.ok(
+                    Math.abs(fullscreenPoints[index].y - y) < 25,
+                    `fullscreen y for ${'walmart'[index]}`,
+                );
+            }
+            const destinations = JSON.parse(
+                execFileSync(
+                    binary,
+                    [
+                        '--observations',
+                        fileURLToPath(
+                            new URL(
+                                './fixtures/carplay-destinations.png',
+                                import.meta.url,
+                            ),
+                        ),
+                    ],
+                    {
+                        encoding: 'utf8',
+                        timeout: 30000,
+                        env: { ...process.env, DAF_E2E_OCR_CARPLAY: '1' },
+                    },
+                ),
+            );
+            const portraitKeyboard = JSON.parse(
+                execFileSync(
+                    binary,
+                    [
+                        '--observations',
+                        fileURLToPath(
+                            new URL(
+                                './fixtures/android-auto-search-keyboard-portrait.png',
+                                import.meta.url,
+                            ),
+                        ),
+                    ],
+                    {
+                        encoding: 'utf8',
+                        env: { ...process.env, DAF_E2E_OCR_KEYBOARD: '1' },
+                    },
+                ),
+            );
+            const portraitPoints = getAndroidAutoKeyboardPoints(
+                { height: 1080, textBounds: portraitKeyboard },
+                'walmart',
+            );
+            for (const [textBounds, height, x, y] of [
+                [keyboard, 720, 115, 674],
+                [fullscreenKeyboard, 720, 325, 676],
+                [portraitKeyboard, 1080, 622, 912],
+            ]) {
+                const hide = getAndroidAutoKeyboardDismissPoint({
+                    textBounds,
+                    height,
+                });
+                assert.ok(
+                    Math.abs(hide.x - x) < 25,
+                    'Hide-key x must match the recorded native keyboard',
+                );
+                assert.ok(
+                    Math.abs(hide.y - y) < 25,
+                    'Hide-key y must match the recorded native keyboard',
+                );
+            }
+            const sparseKeyboard = JSON.parse(
+                execFileSync(
+                    binary,
+                    [
+                        '--observations',
+                        fileURLToPath(
+                            new URL(
+                                './fixtures/android-auto-search-keyboard-sparse.png',
+                                import.meta.url,
+                            ),
+                        ),
+                    ],
+                    {
+                        encoding: 'utf8',
+                        env: { ...process.env, DAF_E2E_OCR_KEYBOARD: '1' },
+                    },
+                ),
+            );
+            const sparseHide = getAndroidAutoKeyboardDismissPoint({
+                textBounds: sparseKeyboard,
+                height: 720,
+            });
+            assert.ok(Math.abs(sparseHide.x - 325) < 25);
+            assert.ok(Math.abs(sparseHide.y - 674) < 25);
+            for (const [index, [x, y]] of [
+                [691, 757],
+                [655, 808],
+                [1192, 808],
+                [1094, 860],
+                [655, 808],
+                [825, 757],
+                [893, 757],
+            ].entries()) {
+                assert.ok(
+                    Math.abs(portraitPoints[index].x - x) < 25,
+                    `portrait x for ${'walmart'[index]}`,
+                );
+                assert.ok(
+                    Math.abs(portraitPoints[index].y - y) < 25,
+                    `portrait y for ${'walmart'[index]}`,
+                );
+            }
+            for (const label of ['Home', 'Work', 'Recents', 'Favorites']) {
+                assert.ok(
+                    destinations.some(({ text }) => text === label),
+                    `CarPlay saved-place label ${label} must be recognized`,
+                );
+            }
             for (const [fixture, expected] of [
                 ['android-auto-pewaukee-puck.png', 'dashboard'],
                 ['android-auto-dashboard-loading.png', 'dashboard'],
@@ -257,6 +562,8 @@ test(
                     ),
                 );
                 assert.ok(target.text.includes(text));
+                assert.ok(target.width > 0);
+                assert.ok(target.height > 0);
                 assert.ok(target.x > 100 && target.x < 440);
                 assert.ok(target.y > 90 && target.y < 260);
             }

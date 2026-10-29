@@ -25,10 +25,10 @@ test('Android Auto remounts route and marker sources after map attachment', () =
     );
     assert.match(
         mapCanvasSource,
-        /key=\{`\$\{markerClusteredSourceID\}-\$\{locationPuckMapLoadEpoch\}`\}/,
+        /key=\{`\$\{markerClusteredSourceID\}-\$\{locationPuckMapLoadEpoch\}-/,
     );
     assert.match(
         mapCanvasSource,
-        /key=\{`\$\{markerUnclusteredSourceID\}-\$\{locationPuckMapLoadEpoch\}`\}/,
+        /key=\{`\$\{markerUnclusteredSourceID\}-\$\{locationPuckMapLoadEpoch\}-/,
     );
 });

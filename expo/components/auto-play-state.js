@@ -14,7 +14,6 @@ export const DEFAULT_AUTO_PLAY_STATE = {
     routeLoading: null,
     searchLoading: null,
     routeName: '',
-    singleResultCountdown: null,
     statusLabel: 'Ready',
     submittedSearchQuery: '',
     submittedSearchResults: [],

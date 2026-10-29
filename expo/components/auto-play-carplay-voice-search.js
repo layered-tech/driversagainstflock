@@ -1,4 +1,4 @@
-const DEFAULT_SILENCE_THRESHOLD_MS = 1500;
+const DEFAULT_SILENCE_THRESHOLD_MS = 3000;
 const DEFAULT_MAX_DURATION_MS = 10000;
 
 export function createCarPlayVoiceSearchController({

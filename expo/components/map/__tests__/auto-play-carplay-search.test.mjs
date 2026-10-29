@@ -52,6 +52,7 @@ test('CarPlay opens saved destinations before starting voice input', async () =>
         {
             addSearchSavedLocationsListener: () => () => {},
             getBackHeaderAction: () => ({ ios: { backButton: {} } }),
+            getSearchSavedLocationsSnapshot: () => null,
             handleRootHeaderVoiceSearchPress: () => opened.push('voice'),
             handleSearchResultSelected: (...args) => selections.push(args),
             loadAutoPlayModule: () => ({ ListTemplate }),
@@ -129,7 +130,7 @@ test('CarPlay keeps keyboard Search as a no-voice fallback', () => {
     );
     assert.match(
         autoPlaySource,
-        /const runSubmittedSearch[\s\S]*?runPlaceTextSearch[\s\S]*?onSearchTextSubmitted:[\s\S]*?runSubmittedSearch\(searchText\)/,
+        /const runSubmittedSearch[\s\S]*?placeSearch\.submit[\s\S]*?onSearchTextSubmitted:[\s\S]*?runSubmittedSearch\(searchText\)/,
     );
 });
 
@@ -433,7 +434,7 @@ test('CarPlay submits the HybridVoice transcription as a search', async () => {
             listeningText: 'Where would you like to go?',
             maxDurationMs: 10000,
             preferSpeechToText: true,
-            silenceThresholdMs: 1500,
+            silenceThresholdMs: 3000,
         },
     ]);
     assert.deepEqual(searches, [[undefined, 'Milwaukee', 'search']]);

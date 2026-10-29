@@ -7,6 +7,76 @@ function getDeepLinkPath(url) {
         .replace(/^\/+/, '');
 }
 
+export function getE2ECarPlayCommandFromURL(value) {
+    try {
+        const url = new URL(value);
+        if (
+            url.protocol !== 'driversagainstflock:' ||
+            getDeepLinkPath(url) !== 'e2e-carplay'
+        )
+            return null;
+        const command = url.searchParams.get('command');
+        const transcript = url.searchParams.get('transcript');
+        const locations = url.searchParams.get('locations');
+        if (
+            ![
+                'seed',
+                'state',
+                'route-render',
+                'voice',
+                'reset',
+                'locations',
+            ].includes(command) ||
+            (command === 'locations' &&
+                !['both', 'home', 'work', 'none'].includes(locations)) ||
+            (command === 'voice' &&
+                !['Walmart', 'Walmart Delafield'].includes(transcript))
+        )
+            return null;
+        return {
+            requestType: 'carplay',
+            query: JSON.stringify({ command, transcript, locations }),
+        };
+    } catch {
+        return null;
+    }
+}
+
+export function getE2EAndroidAutoCommandFromURL(value) {
+    try {
+        const url = new URL(value);
+        if (
+            url.protocol !== 'driversagainstflock:' ||
+            getDeepLinkPath(url) !== 'e2e-android-auto'
+        )
+            return null;
+        const command = url.searchParams.get('command');
+        const locations = url.searchParams.get('locations');
+        const query = url.searchParams.get('query');
+        if (
+            ![
+                'seed',
+                'state',
+                'route-render',
+                'reset',
+                'locations',
+                'search',
+            ].includes(command) ||
+            (command === 'locations' &&
+                !['both', 'home', 'work', 'none'].includes(locations)) ||
+            (command === 'search' &&
+                !['Walmart', 'Walmart Delafield'].includes(query))
+        )
+            return null;
+        return {
+            requestType: 'android-auto',
+            query: JSON.stringify({ command, locations, query }),
+        };
+    } catch {
+        return null;
+    }
+}
+
 const E2E_DRIVING_ALERT_FIXTURES = new Set(['alpr', 'combined', 'police']);
 const E2E_AUTO_PLAY_REQUEST_TYPES = new Set([
     'presence',

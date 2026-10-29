@@ -14,7 +14,10 @@ const source = transformSync(
 const storagePrefix = 'driversagainstflock.mapSearch.';
 const place = (id) => ({ id, name: id, latitude: 43, longitude: -88 });
 
-function createHarness({ beforeRead = async () => {} } = {}) {
+function createHarness({
+    beforeRead = async () => {},
+    environment = 'development',
+} = {}) {
     const storage = new Map();
     const reads = [];
     const writes = [];
@@ -22,6 +25,7 @@ function createHarness({ beforeRead = async () => {} } = {}) {
     let failWrite = false;
     const module = { exports: {} };
     const modules = {
+        './config': { APP_ENVIRONMENT: environment },
         './primary-locations': primaryLocations,
         '../../lib/private-cache-storage': {
             async getPrivateCacheItem(key) {
@@ -62,6 +66,19 @@ function createHarness({ beforeRead = async () => {} } = {}) {
     };
 }
 
+test('E2E saved places use separate keys from the user Home, Work, favorites and recents', async () => {
+    const store = createHarness({ environment: 'e2e' });
+    await store.savePrimaryLocation('home', place('test-home'));
+    await store.addRecentLocation(place('test-recent'));
+    await store.toggleFavoriteLocation(place('test-favorite'));
+    assert.ok(
+        store.reads.every((key) => key.startsWith(`${storagePrefix}e2e.`)),
+    );
+    assert.ok(
+        store.writes.every((key) => key.startsWith(`${storagePrefix}e2e.`)),
+    );
+});
+
 test('phone and car share one hydration and normalized saved-place snapshot', async () => {
     const store = createHarness();
     const [phone, car] = await Promise.all([
@@ -73,6 +90,85 @@ test('phone and car share one hydration and normalized saved-place snapshot', as
     assert.equal(phone.primaryLocations, car);
     assert.equal(reopened.favoriteLocations, phone.favoriteLocations);
     assert.equal(reopened.recentLocations, phone.recentLocations);
+});
+
+test('warm saved-place snapshots are synchronous and track every committed change', async () => {
+    const store = createHarness();
+    assert.equal(store.getSearchSavedLocationsSnapshot(), null);
+    assert.equal(store.reads.length, 0);
+    await store.loadSearchSavedLocations();
+    assert.deepEqual(
+        store.getSearchSavedLocationsSnapshot().recentLocations,
+        [],
+    );
+    await store.addRecentLocation(place('recent'));
+    await store.toggleFavoriteLocation(place('favorite'));
+    assert.equal(
+        store.getSearchSavedLocationsSnapshot('Recents').recentLocations[0].id,
+        'recent',
+    );
+    assert.equal(
+        store.getSearchSavedLocationsSnapshot('Favorites').favoriteLocations[0]
+            .id,
+        'favorite',
+    );
+    assert.equal(store.reads.length, 3);
+});
+
+test('hydrated categories stay available while unrelated primary storage is pending', async () => {
+    let releasePrimary;
+    const store = createHarness({
+        beforeRead: (key) =>
+            key.endsWith('primaryLocations.v1')
+                ? new Promise((resolve) => {
+                      releasePrimary = resolve;
+                  })
+                : undefined,
+    });
+    store.storage.set(
+        `${storagePrefix}favoriteLocations.v1`,
+        JSON.stringify([place('favorite')]),
+    );
+    const hydration = store.loadSearchSavedLocations();
+    await store.toggleFavoriteLocation(place('second'));
+    assert.equal(
+        store.getSearchSavedLocationsSnapshot('Favorites').favoriteLocations[0]
+            .id,
+        'second',
+    );
+    assert.equal(
+        store.getSearchSavedLocationsSnapshot().favoriteLocations.length,
+        2,
+    );
+    releasePrimary();
+    await hydration;
+});
+
+test('a failed primary read does not hide loaded favorites and can retry', async () => {
+    let shouldFail = true;
+    const store = createHarness({
+        beforeRead: (key) => {
+            if (key.endsWith('primaryLocations.v1') && shouldFail) {
+                shouldFail = false;
+                throw new Error('primary unavailable');
+            }
+        },
+    });
+    store.storage.set(
+        `${storagePrefix}favoriteLocations.v1`,
+        JSON.stringify([place('favorite')]),
+    );
+    await assert.rejects(
+        store.loadSearchSavedLocations(),
+        /primary unavailable/,
+    );
+    assert.equal(
+        store.getSearchSavedLocationsSnapshot('Favorites').favoriteLocations[0]
+            .id,
+        'favorite',
+    );
+    await store.loadSearchSavedLocations();
+    assert.equal(store.reads.length, 4);
 });
 
 test('slow initial hydration cannot replace a favorite committed by another surface', async () => {

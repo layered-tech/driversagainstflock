@@ -2,6 +2,7 @@ import {
     AUTOMOTIVE_ALERT_MAXIMUM_RANGE_METERS,
     AUTOMOTIVE_ALERT_MINIMUM_RANGE_METERS,
     automotiveAlertHistoryAllowsEntry,
+    automotiveAlertHistoryHasRecentEntry,
     getAutomotiveAlertDistanceMeters,
     getAutomotiveAlertHistoryEntry,
 } from './automotive-alert-policy.js';
@@ -15,7 +16,7 @@ export function buildUpcomingAlertDebugSnapshot(
         upcomingAlerts = [],
         userLocation,
         alertHistory,
-        currentAlertKey,
+        currentAlertKey = null,
         content,
         transition,
         pathSource,
@@ -37,11 +38,19 @@ export function buildUpcomingAlertDebugSnapshot(
             alert.coordinate,
         );
         const blockers = [];
-        if (!Number.isFinite(distance)) blockers.push('Location unavailable');
-        else if (distance < AUTOMOTIVE_ALERT_MINIMUM_RANGE_METERS)
-            blockers.push('Inside 0.5 mile minimum');
-        else if (distance > AUTOMOTIVE_ALERT_MAXIMUM_RANGE_METERS)
-            blockers.push('Outside 2 mile maximum');
+        if (!Number.isFinite(distance)) {
+            blockers.push('Location unavailable');
+        } else {
+            if (
+                distance < AUTOMOTIVE_ALERT_MINIMUM_RANGE_METERS &&
+                entry?.alertKey !== currentAlertKey
+            ) {
+                blockers.push('Inside 0.5 mile minimum');
+            }
+            if (distance > AUTOMOTIVE_ALERT_MAXIMUM_RANGE_METERS) {
+                blockers.push('Outside 2 mile maximum');
+            }
+        }
         if (
             !automotiveAlertHistoryAllowsEntry(
                 alertHistory,
@@ -53,10 +62,12 @@ export function buildUpcomingAlertDebugSnapshot(
             blockers.push(
                 !alertHistory
                     ? 'Warning history unavailable'
-                    : alertHistory.entries.some(
-                            (shown) => shown.alertKey === entry?.alertKey,
+                    : automotiveAlertHistoryHasRecentEntry(
+                            alertHistory,
+                            entry,
+                            now,
                         )
-                      ? 'Already shown this drive'
+                      ? 'Same warning shown within 5 minutes'
                       : 'Another warning shown within 2 minutes',
             );
         }

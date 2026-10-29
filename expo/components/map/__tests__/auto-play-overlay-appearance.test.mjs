@@ -72,11 +72,7 @@ test('AutoPlay status cards use an explicit car appearance with a handset fallba
     );
     assert.match(
         autoPlayStatusOverlaySource,
-        /<AutoPlaySingleResultCountdownCard[\s\S]*?isDarkMode=\{resolvedIsDarkMode\}/,
-    );
-    assert.match(
-        autoPlayStatusOverlaySource,
-        /<AutoPlayRouteLoadingCard[\s\S]*?isDarkMode=\{resolvedIsDarkMode\}/,
+        /<AutoPlaySearchLoadingCard[\s\S]*?isDarkMode=\{resolvedIsDarkMode\}/,
     );
     assert.match(
         autoPlayStatusOverlaySource,

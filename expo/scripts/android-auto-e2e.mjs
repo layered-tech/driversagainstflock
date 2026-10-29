@@ -26,6 +26,24 @@ import {
     getAndroidGpsLocation,
 } from './emulator-gps-client.mjs';
 
+import {
+    androidAutoKeyboardIsVisible,
+    autoPlayStateMatches,
+    findAndroidAutoInputDisplay,
+    findAndroidAutoText,
+    getAndroidAutoControlPoint,
+    getAndroidAutoKeyboardDismissPoint,
+    getAndroidAutoKeyboardPoints,
+    getAndroidAutoNavigationUIFailure,
+    selectAndroidAutoSuite,
+} from './android-auto-navigation-suite.mjs';
+import { stripVTControlCharacters } from 'node:util';
+
+import {
+    assertRouteOverview,
+    captureRouteOverviewBaseline,
+} from './automotive-route-overview.mjs';
+
 const SCRIPT_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const EXPO_DIRECTORY = resolve(SCRIPT_DIRECTORY, '..');
 const DEFAULT_SUITE = join(EXPO_DIRECTORY, '.android-auto', 'suite.json');
@@ -133,6 +151,15 @@ export function findNodeBounds(xml, label) {
     }
 
     return null;
+}
+
+export function getAndroidAutoMapMode(xml) {
+    for (const node of String(xml).matchAll(/<node\b[^>]*>/g)) {
+        if (!/checked="true"/.test(node[0])) continue;
+        const label = node[0].match(/\btext="([^"]*)"/)?.[1];
+        if (['Day', 'Night', 'Automatic'].includes(label)) return label;
+    }
+    throw new Error('Android Auto map mode selection is unavailable');
 }
 
 export function findNodeByResourceId(xml, resourceId) {
@@ -351,7 +378,10 @@ export class Runner {
     constructor(suitePath, environment = process.env) {
         this.environment = environment;
         this.suitePath = resolve(suitePath);
-        this.suite = loadSuite(this.suitePath);
+        this.suite = selectAndroidAutoSuite(
+            loadSuite(this.suitePath),
+            environment,
+        );
         this.serial = detectDevice(environment);
         this.androidSdkRoot = detectAndroidSdkRoot(environment);
         this.dhuBinary = resolve(
@@ -400,6 +430,7 @@ export class Runner {
         this.emulatorGpsClient = null;
         this.confirmationCameraFrames = [];
         this.carLayout = 'dashboard';
+        this.results = [];
     }
 
     report(message) {
@@ -813,6 +844,89 @@ export class Runner {
         this.ensureHeadUnitForward();
     }
 
+    async openMapModeDialog() {
+        this.adb([
+            'shell',
+            'am',
+            'start',
+            '--display',
+            '0',
+            '-W',
+            '-n',
+            ANDROID_AUTO_SETTINGS,
+        ]);
+        await delay(600);
+        let xml = this.dumpUi();
+        const dimensions = xml.match(/bounds="\[0,0\]\[(\d+),(\d+)\]"/);
+        if (!dimensions)
+            throw new Error(
+                'Android Auto phone settings bounds are unavailable',
+            );
+        const width = Number(dimensions[1]),
+            height = Number(dimensions[2]);
+        const swipe = (up) =>
+            this.adb([
+                'shell',
+                'input',
+                'swipe',
+                String(Math.round(width / 2)),
+                String(Math.round(height * (up ? 0.3 : 0.8))),
+                String(Math.round(width / 2)),
+                String(Math.round(height * (up ? 0.8 : 0.3))),
+                '400',
+            ]);
+        for (let attempt = 0; attempt < 2; attempt++) swipe(true);
+        for (let attempt = 0; attempt < 8; attempt++) {
+            xml = this.dumpUi();
+            if (findNodeBounds(xml, 'Day/Night mode for maps')) {
+                this.tapPhoneNode(xml, 'Day/Night mode for maps');
+                await delay(400);
+                return this.dumpUi();
+            }
+            swipe(false);
+        }
+        throw new Error(
+            'Android Auto Day/Night mode for maps setting is unavailable',
+        );
+    }
+
+    async prepareMapMode() {
+        if (
+            !this.suite.tests.some(({ steps }) =>
+                steps.some(({ command }) => ['day', 'night'].includes(command)),
+            )
+        )
+            return;
+        const xml = await this.openMapModeDialog();
+        const mode = getAndroidAutoMapMode(xml);
+        if (mode === 'Automatic') {
+            this.adb(['shell', 'input', 'keyevent', 'KEYCODE_BACK']);
+            return;
+        }
+        this.previousMapMode = mode;
+        this.tapPhoneNode(xml, 'Automatic');
+        this.report(
+            `Temporarily set Android Auto maps to Automatic (was ${mode}) so DHU controls day/night`,
+        );
+    }
+
+    async restoreMapMode() {
+        if (!this.previousMapMode) return;
+        const xml = await this.openMapModeDialog();
+        if (getAndroidAutoMapMode(xml) === 'Automatic') {
+            this.tapPhoneNode(xml, this.previousMapMode);
+            this.report(
+                `Restored Android Auto map mode: ${this.previousMapMode}`,
+            );
+        } else {
+            this.adb(['shell', 'input', 'keyevent', 'KEYCODE_BACK']);
+            this.report(
+                'Preserving Android Auto map mode changed during the run',
+            );
+        }
+        this.previousMapMode = null;
+    }
+
     displayDump() {
         return this.adb(['shell', 'dumpsys', 'display'], {
             logOutput: false,
@@ -1027,7 +1141,11 @@ export class Runner {
 
     async captureScreenshot(
         name,
-        { recognizeText = true, verifyLayout = true } = {},
+        {
+            recognizeText = true,
+            verifyLayout = true,
+            recognizeKeyboard = false,
+        } = {},
     ) {
         this.screenshotNumber += 1;
         const prefix = String(this.screenshotNumber).padStart(2, '0');
@@ -1068,6 +1186,12 @@ export class Runner {
                         {
                             allowFailure: true,
                             timeout: 90000,
+                            env: {
+                                ...this.environment,
+                                DAF_E2E_OCR_KEYBOARD: recognizeKeyboard
+                                    ? '1'
+                                    : '0',
+                            },
                         },
                     );
 
@@ -1097,6 +1221,10 @@ export class Runner {
                 .digest('hex'),
             imagePath,
             ocr,
+            width: this.suite.display.width,
+            height: this.suite.display.height,
+            capturedAt: Date.now(),
+            verifyLayout,
         };
         if (this.suite.layouts) {
             const crop = this.suite.hostLayoutCrop;
@@ -1359,7 +1487,9 @@ export class Runner {
             }
 
             await delay(retryDelayMilliseconds);
-            screenshot = await this.captureScreenshot(name);
+            screenshot = await this.captureScreenshot(name, {
+                verifyLayout: screenshot.verifyLayout !== false,
+            });
         }
     }
 
@@ -1534,19 +1664,36 @@ export class Runner {
     }
 
     async tapOcrAction(step) {
-        const screenshot = this.screenshots.get(step.screenshot);
+        let screenshot = this.screenshots.get(step.screenshot);
         if (!screenshot)
             throw new Error(`Screenshot was not captured: ${step.screenshot}`);
-        const target = screenshot.textBounds?.find((observation) =>
-            observation.text.toLowerCase().includes(step.text.toLowerCase()),
-        );
+        if (
+            (step.exact || step.match) &&
+            Date.now() - screenshot.capturedAt > 1500
+        ) {
+            screenshot = await this.captureScreenshot(step.screenshot, {
+                verifyLayout: screenshot.verifyLayout !== false,
+            });
+        }
+        const target =
+            step.exact || step.match
+                ? findAndroidAutoText(screenshot, step)
+                : screenshot.textBounds?.find((observation) =>
+                      observation.text
+                          .toLowerCase()
+                          .includes(step.text.toLowerCase()),
+                  );
         if (!target) {
             throw new Error(`Text was not found in screenshot: ${step.text}`);
         }
         const outputStart = this.metroOutput.length;
         this.tapDhu(target);
         if (step.waitForMetro)
-            await this.waitForMetroMarker(step.waitForMetro, outputStart, 2000);
+            await this.waitForMetroMarker(
+                step.waitForMetro,
+                outputStart,
+                step.timeout ?? 2000,
+            );
         if (step.waitForPresentation)
             await this.waitForMetroMarker(
                 step.waitForPresentation,
@@ -1672,6 +1819,131 @@ export class Runner {
         this.phoneSleeping = false;
     }
 
+    async autoPlayCommand(command, parameters = {}) {
+        const offset = this.metroOutput.length;
+        const query = new URLSearchParams({ command, ...parameters });
+        const url = `driversagainstflock://e2e-android-auto?${query}`;
+        this.adb([
+            'shell',
+            `am start -a android.intent.action.VIEW -d "${url}" ${this.suite.appId}`,
+        ]);
+        const markers = {
+            seed: 'seeded',
+            reset: 'ui-reset',
+            locations: 'locations-set ',
+            state: 'state ',
+            'route-render': 'route-render ',
+        };
+        const marker =
+            command === 'search'
+                ? '[Android Auto] search-results-presented'
+                : `[E2E] android-auto-${markers[command]}`;
+        await this.waitForMetroMarker(marker, offset, 60000);
+        if (['state', 'route-render'].includes(command)) {
+            const line = stripVTControlCharacters(
+                this.metroOutput.slice(offset),
+            )
+                .split('\n')
+                .findLast((line) => line.includes(marker));
+            const snapshot = JSON.parse(
+                line.slice(line.indexOf(marker) + marker.length),
+            );
+            if (command === 'state') this.autoPlayState = snapshot;
+            return snapshot;
+        }
+    }
+
+    async assertAutoPlayState(expected) {
+        let actual;
+        await this.waitFor(
+            async () => {
+                actual = await this.autoPlayCommand('state');
+                if (actual.errorText)
+                    throw new Error(`Android Auto: ${actual.errorText}`);
+                return autoPlayStateMatches(actual, expected);
+            },
+            `Android Auto state ${JSON.stringify(expected)}`,
+            45000,
+        );
+        return actual;
+    }
+
+    currentAppBounds() {
+        const bounds = this.suite.layouts?.[this.carLayout]?.appBounds;
+        if (!bounds)
+            throw new Error(
+                `Missing Android Auto app bounds for ${this.carLayout}`,
+            );
+        return bounds;
+    }
+
+    async dragDisplay(from, to) {
+        const bounds = this.currentAppBounds();
+        const display = findAndroidAutoInputDisplay(this.displayDump());
+        const coordinates = [from, to].flatMap(([x, y]) => [
+            Math.round(bounds.width * x),
+            Math.round(bounds.height * y),
+        ]);
+        if (
+            !coordinates.every(
+                (value, index) =>
+                    Number.isFinite(value) &&
+                    value >= 0 &&
+                    value < (index % 2 === 0 ? display.width : display.height),
+            )
+        ) {
+            throw new Error('Drag is outside the Android Auto input display');
+        }
+        this.report(
+            `Direct Android Auto touch: display=${display.id}, ${coordinates.join(',')}`,
+        );
+        this.adb([
+            'shell',
+            'input',
+            'touchscreen',
+            '-d',
+            String(display.id),
+            'swipe',
+            ...coordinates.map(String),
+            '600',
+        ]);
+    }
+
+    async assertMapAppearanceChanged(step) {
+        await this.waitFor(
+            async () => {
+                await this.captureScreenshot(step.after);
+                return (
+                    this.mapCropPixelDifference(step.before, step.after) >=
+                    MINIMUM_MAP_CROP_PIXEL_DIFFERENCE
+                );
+            },
+            `visible map appearance change: ${step.before} to ${step.after}`,
+            20000,
+        );
+    }
+
+    async assertNavigationUI(name) {
+        const actual = await this.assertAutoPlayState({
+            isNavigating: true,
+            maneuverText: { nonempty: true },
+        });
+        await this.waitFor(
+            async () => {
+                const shot = await this.captureScreenshot(name);
+                return (
+                    getAndroidAutoNavigationUIFailure(
+                        shot,
+                        actual,
+                        this.currentAppBounds(),
+                    ) === null
+                );
+            },
+            'visible Android Auto maneuver, arrival, remaining time and distance',
+            20000,
+        );
+    }
+
     async runStep(step) {
         if (
             this.suite.mapApiMocks === false &&
@@ -1697,6 +1969,221 @@ export class Runner {
                 }
                 break;
             }
+            case 'captureRouteOverviewBaseline':
+                this.routeOverviewBaseline = await captureRouteOverviewBaseline(
+                    () => this.autoPlayCommand('route-render'),
+                );
+                return;
+            case 'assertRouteOverview':
+                return assertRouteOverview({
+                    name: step.name,
+                    evidenceName: `${this.carLayout}-${step.name}`,
+                    baseline: this.routeOverviewBaseline,
+                    sample: () => this.autoPlayCommand('route-render'),
+                    capture: (name) =>
+                        this.captureScreenshot(name, { verifyLayout: false }),
+                    // Mapbox retains the full canvas behind Dashboard widgets;
+                    // host insets describe the exposed map slot.
+                    appBounds: () => this.suite.layouts.fullscreen.appBounds,
+                    directory: this.runDirectory,
+                    report: (message) => this.report(message),
+                    runPixelProbe: (shot, probe) => {
+                        const file = join(
+                            this.runDirectory,
+                            `${this.carLayout}-${step.name}-pixel-probe.json`,
+                        );
+                        writeFileSync(file, JSON.stringify(probe));
+                        return JSON.parse(
+                            this.run(this.ocrBinary, [
+                                '--route-pixels',
+                                shot.imagePath,
+                                file,
+                            ]).stdout,
+                        );
+                    },
+                });
+            case 'assertAutoPlayState':
+                await this.assertAutoPlayState(step.expected);
+                break;
+            case 'setPrimaryLocations':
+                await this.autoPlayCommand('locations', {
+                    locations: step.locations,
+                });
+                break;
+            case 'resetUI':
+                await this.autoPlayCommand('reset');
+                break;
+            case 'recognizedSearch':
+                await this.autoPlayCommand('search', { query: step.query });
+                break;
+            case 'waitForMetro':
+                await this.waitForMetroMarker(
+                    step.marker,
+                    this.scenarioOffset ?? 0,
+                    step.timeout ?? 30000,
+                );
+                break;
+            case 'hostBack':
+                this.tapDhu({
+                    x: this.currentAppBounds().x + 44,
+                    y: this.currentAppBounds().y + 40,
+                });
+                await delay(500);
+                break;
+            case 'tapControl': {
+                if (step.expectText) {
+                    let attempts = 0;
+                    await this.waitFor(
+                        async () => {
+                            const shot = await this.captureScreenshot(
+                                `opened-${step.name}`,
+                                { verifyLayout: false },
+                            );
+                            if (
+                                !getOCRAssertionFailure(shot.ocr, {
+                                    contains: step.expectText,
+                                })
+                            )
+                                return true;
+                            if (attempts >= 3) return false;
+                            attempts++;
+                            await this.runStep({ ...step, expectText: null });
+                            return false;
+                        },
+                        `native ${step.name} panel (alerts can intercept a tap)`,
+                        20000,
+                    );
+                    return;
+                }
+                const actual = await this.autoPlayCommand('state');
+                if (step.name !== 'searchMap')
+                    await this.runStep({ type: 'tapMap' });
+                const shot = await this.captureScreenshot(
+                    `before-${step.name}`,
+                    {
+                        verifyLayout: false,
+                    },
+                );
+                if (
+                    /\balpr\b/i.test(shot?.ocr || '') &&
+                    /\bahead\b/i.test(shot.ocr)
+                ) {
+                    const dismiss = shot.textBounds?.find(
+                        ({ text }) => text.trim().toLowerCase() === 'ok',
+                    );
+                    if (dismiss) {
+                        this.tapDhu(dismiss);
+                        await delay(400);
+                        await this.runStep({ type: 'tapMap' });
+                        await delay(300);
+                    }
+                }
+                if (actual.isNavigating) {
+                    // Native controls can auto-hide while OCR processes the
+                    // captured frame. Reveal them immediately before input.
+                    await this.runStep({ type: 'tapMap' });
+                    await delay(150);
+                }
+                const bounds = this.currentAppBounds();
+                const offset = this.metroOutput.length;
+                this.tapDhu(
+                    bounds.controls?.[step.name] ??
+                        getAndroidAutoControlPoint(bounds, step.name, actual),
+                );
+                if (step.waitForMetro)
+                    await this.waitForMetroMarker(
+                        step.waitForMetro,
+                        offset,
+                        10000,
+                    );
+                break;
+            }
+            case 'dragMap':
+                await this.dragDisplay(step.from, step.to);
+                break;
+            case 'scrollList':
+                await this.dragDisplay(
+                    step.from || [0.5, 0.8],
+                    step.to || [0.5, 0.25],
+                );
+                break;
+            case 'dismissSearchKeyboard':
+                if (androidAutoKeyboardIsVisible(this.displayDump())) {
+                    let hide;
+                    await this.waitFor(
+                        async () => {
+                            if (
+                                !androidAutoKeyboardIsVisible(
+                                    this.displayDump(),
+                                )
+                            )
+                                return true;
+                            const keyboard = await this.captureScreenshot(
+                                'saved-list-keyboard',
+                                {
+                                    verifyLayout: false,
+                                    recognizeKeyboard: true,
+                                },
+                            );
+                            hide = getAndroidAutoKeyboardDismissPoint(keyboard);
+                            return true;
+                        },
+                        'visible Android Auto keyboard hide button',
+                        10000,
+                    );
+                    if (hide) this.tapDhu(hide);
+                    await this.waitFor(
+                        () => !androidAutoKeyboardIsVisible(this.displayDump()),
+                        'Android Auto search keyboard to close',
+                        10000,
+                    );
+                    this.report(
+                        'Dismissed native Android Auto search keyboard',
+                    );
+                }
+                break;
+            case 'enterSearchText': {
+                const shot = await this.captureScreenshot('keyboard-field', {
+                    verifyLayout: false,
+                    recognizeKeyboard: true,
+                });
+                const target = findAndroidAutoText(shot, {
+                    text: 'Where to?',
+                    exact: true,
+                });
+                this.tapDhu(target);
+                let points;
+                await this.waitFor(
+                    async () => {
+                        const keyboard = await this.captureScreenshot(
+                            'keyboard-visible',
+                            { verifyLayout: false, recognizeKeyboard: true },
+                        );
+                        try {
+                            points = getAndroidAutoKeyboardPoints(
+                                keyboard,
+                                step.text,
+                            );
+                            return true;
+                        } catch {
+                            return false;
+                        }
+                    },
+                    'native Android Auto keyboard keys',
+                    20000,
+                );
+                for (const point of points) {
+                    this.tapDhu(point);
+                    await delay(120);
+                }
+                break;
+            }
+            case 'assertMapAppearanceChanged':
+                await this.assertMapAppearanceChanged(step);
+                break;
+            case 'assertNavigationUI':
+                await this.assertNavigationUI(step.name);
+                break;
             case 'sleep':
                 await delay(step.milliseconds);
                 break;
@@ -1706,7 +2193,9 @@ export class Runner {
                 break;
             }
             case 'screenshot':
-                await this.captureScreenshot(step.name);
+                await this.captureScreenshot(step.name, {
+                    verifyLayout: step.verifyLayout !== false,
+                });
 
                 if (step.requireVisibleMapCrop) {
                     await this.ensureMapCropIsVisible(step.name, step);
@@ -1835,12 +2324,59 @@ export class Runner {
             this.report(
                 `[${index + 1}/${this.suite.tests.length}] ${test.name}`,
             );
-
-            for (const step of test.steps) {
-                await this.runStep(step);
+            try {
+                if (test.stationary) {
+                    this.setEmulatorLocation({
+                        ...(this.suite.stationaryLocation ||
+                            this.suite.location),
+                        velocityKnots: 0,
+                    });
+                    this.sendDhu('restrict none');
+                    await this.autoPlayCommand('reset');
+                    this.screenshots.clear();
+                    await this.autoPlayCommand('seed');
+                    const initialState = await this.assertAutoPlayState({
+                        home: true,
+                        work: true,
+                        isNavigating: false,
+                    });
+                    await this.setCarLayout(test.layout);
+                    if (
+                        initialState?.trackingState &&
+                        initialState.trackingState !== 'active'
+                    ) {
+                        await this.runStep({
+                            type: 'tapControl',
+                            name: 'recenter',
+                        });
+                        await this.assertAutoPlayState({
+                            trackingState: 'active',
+                        });
+                    }
+                }
+                this.scenarioOffset = this.metroOutput.length;
+                for (const step of test.steps) await this.runStep(step);
+                this.results.push({ name: test.name, passed: true });
+                this.report(`PASS ${test.name}`);
+            } catch (error) {
+                this.report(`FAIL ${test.name}: ${error.message}`);
+                this.results.push({
+                    name: test.name,
+                    passed: false,
+                    error: error.message,
+                });
+                try {
+                    await this.captureScreenshot('failure', {
+                        verifyLayout: false,
+                    });
+                } catch {}
+                throw error;
+            } finally {
+                writeFileSync(
+                    join(this.runDirectory, 'results.json'),
+                    JSON.stringify(this.results, null, 2),
+                );
             }
-
-            this.report(`PASS ${test.name}`);
         }
     }
 
@@ -2056,6 +2592,7 @@ export class Runner {
                 await attempt('wake phone', () => this.wakePhone());
             }
             await attempt('stop DHU', () => this.stopDhu());
+            await attempt('restore map mode', () => this.restoreMapMode());
             await attempt('stop head-unit server', () => this.stopServer());
             await attempt('remove ADB forward', () =>
                 this.removeOwnedForward(),
@@ -2127,6 +2664,7 @@ export class Runner {
             await this.startMetro();
             this.prepareDevice();
             await this.wakePhone();
+            await this.prepareMapMode();
             await this.startServer();
             const outputStart = await this.launchApp();
             await this.startDhu();
@@ -2149,7 +2687,24 @@ export class Runner {
 }
 
 async function main() {
-    const runner = new Runner(process.argv[2] || DEFAULT_SUITE);
+    const suitePath =
+        process.argv.slice(2).find((arg) => !arg.startsWith('--')) ||
+        DEFAULT_SUITE;
+    if (process.argv.includes('--help')) {
+        console.log(
+            'Android Auto E2E: [suite.json] [--list]. ANDROID_AUTO_E2E_SUITE=all|alpr|navigation|route-choices; ANDROID_AUTO_E2E_SCENARIO filters by name. Navigation runs stationary native controls and keyboard input; voice cases inject recognized queries. Requires an installed development app and DHU; gestures use Android display input without desktop cursor control.',
+        );
+        return;
+    }
+    if (process.argv.includes('--list')) {
+        for (const test of selectAndroidAutoSuite(
+            loadSuite(suitePath),
+            process.env,
+        ).tests)
+            console.log(test.name);
+        return;
+    }
+    const runner = new Runner(suitePath);
 
     for (const [signal, code] of [
         ['SIGINT', 130],

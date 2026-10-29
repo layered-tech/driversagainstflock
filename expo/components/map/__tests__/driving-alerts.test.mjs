@@ -16,6 +16,8 @@ import {
 } from '../driving-alerts.js';
 import { getUpcomingElectronicHorizonAlerts } from '../electronic-horizon.js';
 
+const AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS = 5 * 60 * 1000;
+
 describe('driving alert presentation', () => {
     test('formats short and long upcoming distances for the driving card', () => {
         assert.equal(formatUpcomingAlertDistance(244), '801 ft');
@@ -273,7 +275,7 @@ describe('driving alert presentation', () => {
         ]);
     });
 
-    test('phone cards share the two-minute gap and once-per-drive alert history', () => {
+    test('phone cards share spacing and can repeat the same warning after five minutes', () => {
         const police = {
             coordinate: [0, 0.01],
             distanceMeters: 300,
@@ -334,9 +336,19 @@ describe('driving alert presentation', () => {
                 new Set(),
                 history,
                 null,
-                1000 + 2 * AUTOMOTIVE_ALERT_MINIMUM_SPACING_MS,
+                1000 + AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS - 1,
             ),
             null,
+        );
+        assert.equal(
+            getNextPhoneDrivingAlert(
+                [police],
+                new Set(),
+                history,
+                null,
+                1000 + AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS,
+            ),
+            police,
         );
     });
 });

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -12,6 +14,8 @@ const locationPuckModuleDirectory = path.resolve(
 );
 const expectedModelHash =
     'ab6a662ad8d0696f4a763ce364a1f73c0d4c5a56361baa4ab57644e85381fccc';
+const require = createRequire(import.meta.url);
+const { transformSync } = require('@babel/core');
 
 async function readGlb(relativePath) {
     const buffer = await readFile(
@@ -79,6 +83,30 @@ function verticalBounds(model, materialName) {
     };
 }
 
+function loadNavigationPuckLayout() {
+    const source = readFileSync(
+        path.join(testDirectory, '..', 'navigation-puck-layout.js'),
+        'utf8',
+    );
+    const { code } = transformSync(source, {
+        babelrc: false,
+        configFile: false,
+        plugins: [require.resolve('@babel/plugin-transform-modules-commonjs')],
+    });
+    const module = { exports: {} };
+
+    new Function('require', 'module', 'exports', code)(
+        (name) => {
+            assert.equal(name, './map-presentation-scale.js');
+            return { getMapPresentationScale: () => 1 };
+        },
+        module,
+        module.exports,
+    );
+
+    return module.exports;
+}
+
 test('the exact Maps-only 3D puck is packaged for Android and iOS', async () => {
     const androidModel = await readGlb(
         'android/src/main/assets/navigation_puck.glb',
@@ -107,9 +135,36 @@ test('the 3D puck keeps its flush face, white rim, and centered origin', async (
     assert.equal(blueFace.minimum, borderTop.maximum);
     assert.equal(blueFace.maximum, borderTop.maximum);
     assert.equal(blueThickness.maximum, blueFace.maximum);
+    assert.ok(Math.abs(blueThickness.minimum) < 0.000001);
     assert.equal(borderThickness.maximum, borderChamfer.minimum);
     assert.equal(borderChamfer.maximum, borderTop.minimum);
     assert.deepEqual(puckNode.translation, [0, 0, -0.078056034471642]);
+    assert.ok(
+        Math.abs(verticalBounds(model, 'Blue thickness').maximum - 0.075) <
+            0.000001,
+    );
+});
+
+test('the 3D puck preserves its map footprint while compressing its height', () => {
+    const { getNavigationPuck3DScaleExpression } = loadNavigationPuckLayout();
+
+    for (const options of [
+        { platform: 'android' },
+        { platform: 'ios' },
+        { platform: 'android', variant: 'auto-play' },
+    ]) {
+        const expression = JSON.parse(
+            getNavigationPuck3DScaleExpression(options),
+        );
+
+        for (let index = 3; index < expression.length; index += 2) {
+            const [horizontalX, horizontalY, vertical] =
+                expression[index + 1][1];
+
+            assert.equal(horizontalX, horizontalY);
+            assert.ok(Math.abs(vertical - horizontalX * 0.02) < 0.000001);
+        }
+    }
 });
 
 test('the blue face uses the baked 4x256 emissive gradient', async () => {

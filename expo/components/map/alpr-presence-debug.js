@@ -36,6 +36,8 @@ export function createPresenceCameraDiagnostics({ now = Date.now } = {}) {
             focusedAt = now();
             snapshot = {
                 samples: 0,
+                preFocusEventsIgnored: 0,
+                maximumPreFocusOffsetMeters: null,
                 offTargetSamples: 0,
                 centerOffsetMeters: null,
                 maximumCenterOffsetMeters: null,
@@ -57,10 +59,30 @@ export function createPresenceCameraDiagnostics({ now = Date.now } = {}) {
                 return;
             const offset = presenceDistance(center, focus.centerCoordinate);
             if (!Number.isFinite(offset)) return;
+            // Mapbox stamps events on the native thread. A pre-lock frame can
+            // reach JS after setCamera has requested the confirmation focus.
+            if (
+                source === 'camera-event' &&
+                Number.isFinite(state?.timestamp) &&
+                state.timestamp < focusedAt
+            ) {
+                snapshot = {
+                    ...snapshot,
+                    preFocusEventsIgnored: snapshot.preFocusEventsIgnored + 1,
+                    maximumPreFocusOffsetMeters: rounded(
+                        Math.max(
+                            snapshot.maximumPreFocusOffsetMeters ?? 0,
+                            offset,
+                        ),
+                    ),
+                };
+                return;
+            }
             const zoomDelta = Number.isFinite(camera?.zoom)
                 ? Math.abs(camera.zoom - focus.zoomLevel)
                 : null;
             snapshot = {
+                ...snapshot,
                 samples: snapshot.samples + 1,
                 offTargetSamples:
                     snapshot.offTargetSamples + (offset > 5 ? 1 : 0),
@@ -84,6 +106,12 @@ export function createPresenceCameraDiagnostics({ now = Date.now } = {}) {
                               index: snapshot.samples + 1,
                               elapsedMs: now() - focusedAt,
                               source,
+                              ...(Number.isFinite(state?.timestamp)
+                                  ? {
+                                        eventGeneratedAfterFocusMs:
+                                            state.timestamp - focusedAt,
+                                    }
+                                  : {}),
                           }
                         : null),
             };

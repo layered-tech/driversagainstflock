@@ -74,7 +74,7 @@ test('Dashboard setup works with the upstream void-returning setButtons method',
     assert.equal(buttons[0].titleVariants[0], 'Open map');
 });
 
-test('typing clears saved suggestions and clearing text restores them', () => {
+test('typing requests autocomplete and clearing text restores saved places', () => {
     const source = readFileSync(
         new URL('../../auto-play.js', import.meta.url),
         'utf8',
@@ -85,6 +85,7 @@ test('typing clears saved suggestions and clearing text restores them', () => {
     const template = {};
     const initialResults = { type: 'default', items: [] };
     const calls = [];
+    const queries = [];
     let initialResultsRefreshed = 0;
     const handler = vm.runInNewContext(`(${callback})`, {
         cancelAutoPlaySearchWork() {},
@@ -98,11 +99,14 @@ test('typing clears saved suggestions and clearing text restores them', () => {
         searchWasSubmitted: false,
         searchCallbackState: createAutoPlaySearchCallbackState(),
         searchTextValue: '',
+        PLACE_SEARCH_MIN_QUERY_LENGTH: 2,
+        placeSearch: { change: (query) => queries.push(query), cancel() {} },
         template,
         updateSearchTemplateSection: (...args) => calls.push(args),
     });
     handler('Austin');
-    assert.deepEqual(calls, [[template, initialResults]]);
+    assert.deepEqual(queries, ['Austin']);
+    assert.deepEqual(calls, []);
     handler('');
     assert.equal(initialResultsRefreshed, 1);
 });

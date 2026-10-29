@@ -9,6 +9,7 @@ import {
     envFileHasNonEmptyValue,
     findNodeBounds,
     findNodeByResourceId,
+    getAndroidAutoMapMode,
     getConfirmationCameraStabilityAssertionFailure,
     getMapCropPixelDifferenceAssertionFailure,
     getMapSurfaceVisibilityAssertionFailure,
@@ -25,6 +26,50 @@ import {
 } from '../android-auto-e2e.mjs';
 
 describe('Android Auto E2E helpers', () => {
+    test('day/night tests temporarily use car-controlled maps and restore the prior setting on cleanup', async () => {
+        const runner = Object.create(Runner.prototype);
+        runner.suite = { tests: [{ steps: [{ command: 'day' }] }] };
+        let mode = 'Night';
+        const selections = [];
+        runner.openMapModeDialog = async () =>
+            `<node text="${mode}" checked="true" />`;
+        runner.tapPhoneNode = (_, label) => {
+            selections.push(label);
+            mode = label;
+        };
+        runner.report = () => {};
+        runner.adb = () => {};
+        await runner.prepareMapMode();
+        assert.equal(mode, 'Automatic');
+        assert.equal(runner.previousMapMode, 'Night');
+        await runner.restoreMapMode();
+        assert.equal(mode, 'Night');
+        assert.deepEqual(selections, ['Automatic', 'Night']);
+        assert.equal(runner.previousMapMode, null);
+        assert.throws(
+            () =>
+                getAndroidAutoMapMode('<node text="Night" checked="false" />'),
+            /unavailable/,
+        );
+    });
+
+    test('route-only runs preserve map mode and cleanup preserves user changes made during the run', async () => {
+        const runner = Object.create(Runner.prototype);
+        runner.suite = {
+            tests: [{ steps: [{ type: 'assertRouteOverview' }] }],
+        };
+        runner.openMapModeDialog = () =>
+            assert.fail('No day/night controls in this suite');
+        await runner.prepareMapMode();
+        runner.previousMapMode = 'Night';
+        runner.openMapModeDialog = async () =>
+            '<node text="Day" checked="true" />';
+        runner.tapPhoneNode = () => assert.fail('Preserve external change');
+        runner.adb = () => {};
+        runner.report = () => {};
+        await runner.restoreMapMode();
+        assert.equal(runner.previousMapMode, null);
+    });
     for (const reportsWereQueued of [false, true]) {
         test(`cleanup removes isolated report data only when this run queued reports (${reportsWereQueued})`, async () => {
             const runner = Object.create(Runner.prototype);
@@ -1198,6 +1243,7 @@ describe('Android Auto E2E helpers', () => {
             'stopExistingDhu',
             'startMetro',
             'prepareDevice',
+            'prepareMapMode',
             'wakePhone',
             'startServer',
             'launchApp',

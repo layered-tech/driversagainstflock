@@ -291,7 +291,7 @@ describe('Home and Work map search integration', () => {
         );
         assert.match(
             autoPlaySource,
-            /carPlayPrimaryLocationButtons\s*=\s*primaryLocationHeaderActionTypes\.ios/,
+            /trailingNavigationBarButtons:\s*hasActiveNavigation[\s\S]*?:\s*androidPrimaryLocationButtons/,
         );
         assert.match(
             autoPlaySource,

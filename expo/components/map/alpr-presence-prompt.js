@@ -75,14 +75,21 @@ export function createPresencePrompt({
                     title: 'Ok',
                     onPress: () => {
                         trace('native-thanks-ok-pressed');
-                        if (followUp === pending) clearFollowUp();
+                        if (followUp === pending)
+                            clearFollowUp(platform !== 'carplay');
                     },
                 },
                 onWillShow: () => {
                     trace('native-thanks-presented');
                     if (followUp === pending) pending.shownAt = now();
                 },
-                onDidDismiss: () => {
+                onDidDismiss: (reason) => {
+                    trace(`native-thanks-dismissed:${reason}`, {
+                        shownForMs:
+                            pending.shownAt === null
+                                ? null
+                                : now() - pending.shownAt,
+                    });
                     if (followUp === pending) clearFollowUp(false);
                 },
             });
@@ -90,7 +97,7 @@ export function createPresencePrompt({
             clearFollowUp();
         }
     };
-    const clear = (manual = false, reason) => {
+    const clear = (manual = false, reason, dismissNative = true) => {
         const previous = active;
         if (previous) {
             const time = now();
@@ -135,10 +142,12 @@ export function createPresencePrompt({
         highlight(null);
         if (previous) {
             camera.restore(manual);
-            try {
-                host.dismissAlert(previous.id);
-            } catch {
-                /* A disconnected host has nothing to dismiss. */
+            if (dismissNative) {
+                try {
+                    host.dismissAlert(previous.id);
+                } catch {
+                    /* A disconnected host has nothing to dismiss. */
+                }
             }
             if (previous.reservation && !previous.reservation.consumed)
                 void coordinator.refused(previous.reservation).catch(() => {});
@@ -257,7 +266,12 @@ export function createPresencePrompt({
                             suppression,
                         };
                         followUp = acknowledgement;
-                        if (isCurrent) clear(false, 'report-missing-action');
+                        if (isCurrent)
+                            clear(
+                                false,
+                                'report-missing-action',
+                                platform !== 'carplay',
+                            );
                         // Persist/upload independently of banner and camera teardown.
                         void coordinator
                             .reportMissing(prompt.reservation, platform)

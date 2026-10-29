@@ -88,6 +88,11 @@ export function createPresenceCoordinator({
                             value === null
                                 ? createPresenceState(randomId(), now())
                                 : parsePresenceState(value, randomId, now());
+                        state = {
+                            ...state,
+                            automotiveAlertHistory:
+                                createAutomotiveAlertHistory(state.drive.id),
+                        };
                         // A killed process cannot establish when the cable was disconnected.
                         // Retain its budget until an observed disconnection establishes an end.
                         await save(JSON.stringify(state));
@@ -156,10 +161,16 @@ export function createPresenceCoordinator({
         },
         claimAutomotiveAlert(entry) {
             const current = this.state;
+            const hasPendingClaim = [...pendingAutomotiveAlerts.values()].some(
+                (pending) =>
+                    pending.driveId === current?.drive.id &&
+                    pending.entry.alertKey === entry?.alertKey,
+            );
 
             if (
                 !current ||
                 automotiveHistoryResetting ||
+                hasPendingClaim ||
                 !automotiveAlertHistoryAllowsEntry(
                     this.automotiveAlertHistory,
                     entry,

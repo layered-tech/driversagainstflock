@@ -84,6 +84,39 @@ func parseCrop(_ values: ArraySlice<String>, image: CGImage) -> [Int] {
     return parsed
 }
 
+if CommandLine.arguments.count == 4, CommandLine.arguments[1] == "--route-pixels" {
+    let image = loadImage(at: CommandLine.arguments[2])
+    let data = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[3]))
+    guard let probe = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+        let points = probe["points"] as? [[Double]],
+        let color = probe["color"] as? [Int], color.count == 3,
+        let radius = probe["radius"] as? Int, radius > 0, radius <= 32
+    else { fail("Invalid route pixel probe") }
+    let (pixels, stride) = decodePixels(image)
+    var matchedPoints = [[Double]]()
+    for point in points {
+        guard point.count == 2, point.allSatisfy({ $0.isFinite }) else { fail("Invalid route point") }
+        let cx = Int(point[0].rounded()), cy = Int(point[1].rounded())
+        if cx < 0 || cy < 0 || cx >= image.width || cy >= image.height { continue }
+        var matched = false
+        for y in max(0, cy - radius)...max(0, min(image.height - 1, cy + radius)) {
+            for x in max(0, cx - radius)...max(0, min(image.width - 1, cx + radius)) {
+                let offset = y * stride + x * 4
+                if (0..<3).allSatisfy({ abs(Int(pixels[offset + $0]) - color[$0]) <= 50 }) {
+                    matched = true
+                }
+            }
+        }
+        if matched { matchedPoints.append(point) }
+    }
+    let xs = matchedPoints.map { $0[0] }, ys = matchedPoints.map { $0[1] }
+    let span = hypot((xs.max() ?? 0) - (xs.min() ?? 0), (ys.max() ?? 0) - (ys.min() ?? 0))
+    let result: [String: Any] = ["matched": matchedPoints.count, "total": points.count, "span": span]
+    let output = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+    print(String(data: output, encoding: .utf8)!)
+    exit(0)
+}
+
 if [3, 7].contains(CommandLine.arguments.count), CommandLine.arguments[1] == "--host-layout" {
     let image = loadImage(at: CommandLine.arguments[2])
     let crop = parseCrop(
@@ -274,8 +307,10 @@ guard CommandLine.arguments.count == 2 || findsTextBounds || listsTextBounds els
 let image = loadImage(at: CommandLine.arguments[findsTextBounds || listsTextBounds ? 2 : 1])
 
 let request = VNRecognizeTextRequest()
-request.recognitionLevel = .fast
-request.usesLanguageCorrection = true
+let recognizesKeyboard = ProcessInfo.processInfo.environment["DAF_E2E_OCR_KEYBOARD"] == "1"
+request.recognitionLevel = recognizesKeyboard ? .accurate : .fast
+request.usesLanguageCorrection = !recognizesKeyboard
+if recognizesKeyboard { request.minimumTextHeight = 0.005 }
 request.recognitionLanguages = ["en-US"]
 
 do {
@@ -301,7 +336,9 @@ for observation in observations {
             let bounds = observation.boundingBox
             textBounds.append(["text": candidate.string,
                 "x": Int(bounds.midX * Double(image.width)),
-                "y": Int((1 - bounds.midY) * Double(image.height))])
+                "y": Int((1 - bounds.midY) * Double(image.height)),
+                "width": Int(bounds.width * Double(image.width)),
+                "height": Int(bounds.height * Double(image.height))])
             continue
         }
         if findsTextBounds {
@@ -309,7 +346,9 @@ for observation in observations {
                 let bounds = observation.boundingBox
                 let result: [String: Any] = ["text": candidate.string,
                     "x": Int(bounds.midX * Double(image.width)),
-                    "y": Int((1 - bounds.midY) * Double(image.height))]
+                    "y": Int((1 - bounds.midY) * Double(image.height)),
+                    "width": Int(bounds.width * Double(image.width)),
+                    "height": Int(bounds.height * Double(image.height))]
                 let data = try! JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
                 print(String(data: data, encoding: .utf8)!)
                 exit(0)
@@ -317,6 +356,30 @@ for observation in observations {
             continue
         }
         print(candidate.string)
+    }
+}
+if listsTextBounds && ProcessInfo.processInfo.environment["DAF_E2E_OCR_CARPLAY"] == "1" {
+    // Native CarPlay cards can lose short action labels during full-display text segmentation.
+    let regions = [
+        CGRect(x: 0, y: Int(Double(image.height) * 0.7), width: Int(Double(image.width) * 0.65), height: image.height - Int(Double(image.height) * 0.7)),
+        CGRect(x: Int(Double(image.width) * 0.18), y: Int(Double(image.height) * 0.08), width: Int(Double(image.width) * 0.64), height: Int(Double(image.height) * 0.6))
+    ]
+    for crop in regions {
+        guard let card = image.cropping(to: crop) else { continue }
+        let cardRequest = VNRecognizeTextRequest()
+        cardRequest.recognitionLevel = .fast
+        cardRequest.recognitionLanguages = ["en-US"]
+        try VNImageRequestHandler(cgImage: card, options: [:]).perform([cardRequest])
+        for observation in cardRequest.results ?? [] {
+            guard let candidate = observation.topCandidates(1).first else { continue }
+            let x = Int(crop.minX) + Int(observation.boundingBox.midX * Double(card.width))
+            let y = Int(crop.minY) + Int((1 - observation.boundingBox.midY) * Double(card.height))
+            let duplicate = textBounds.contains {
+                ($0["text"] as? String)?.caseInsensitiveCompare(candidate.string) == .orderedSame &&
+                abs(($0["x"] as? Int ?? 0) - x) < 16 && abs(($0["y"] as? Int ?? 0) - y) < 16
+            }
+            if !duplicate { textBounds.append(["text": candidate.string, "x": x, "y": y]) }
+        }
     }
 }
 if listsTextBounds {

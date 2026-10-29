@@ -26,6 +26,8 @@ const markerCache = createMarkerCache({
     read: () => getPrivateCacheItem(cacheKey),
     write: (value) => setPrivateCacheItem(cacheKey, value),
 });
+const inFlightMarkerRequests = new Set();
+let markerCacheRevision = 0;
 
 const MARKER_REQUEST_BOUND_KEYS = ['sw_lng', 'sw_lat', 'ne_lng', 'ne_lat'];
 
@@ -66,6 +68,92 @@ function addMarkerBreadcrumb({ bounds, message, reason }) {
         },
         message,
     });
+}
+
+function createMarkerAbortError() {
+    const error = new Error('Markers request cancelled');
+    error.name = 'AbortError';
+    return error;
+}
+
+function acquireMarkerRequest(bounds, requestBounds, requestURL) {
+    let request = [...inFlightMarkerRequests].find(
+        (candidate) =>
+            candidate.revision === markerCacheRevision &&
+            markerRequestBoundsContainCameraBounds(candidate.bounds, bounds),
+    );
+
+    if (!request) {
+        const abortController = new AbortController();
+        request = {
+            bounds: requestBounds,
+            revision: markerCacheRevision,
+            consumers: 0,
+            settled: false,
+        };
+        const responseData = (async () => {
+            const response = await fetch(requestURL, {
+                signal: abortController.signal,
+            });
+            if (!response.ok)
+                throw new Error(
+                    `Markers request failed with ${response.status}`,
+                );
+            return response.json();
+        })();
+        const cancellation = new Promise((_, reject) => {
+            request.cancel = () => {
+                clearTimeout(request.timeout);
+                reject(createMarkerAbortError());
+                abortController.abort();
+            };
+            request.timeout = setTimeout(() => {
+                reject(new Error('Markers request timed out'));
+                abortController.abort();
+            }, 15000);
+        });
+        request.promise = Promise.race([responseData, cancellation])
+            .then((data) => {
+                if (
+                    abortController.signal.aborted ||
+                    request.revision !== markerCacheRevision
+                )
+                    throw createMarkerAbortError();
+                const points = data?.points?.data ?? data?.points;
+                if (!Array.isArray(points))
+                    throw new Error('Invalid marker response');
+                const entry = {
+                    bounds: request.bounds,
+                    points,
+                    loadedAt: Date.now(),
+                };
+                markerCache.put(entry);
+                return entry;
+            })
+            .finally(() => {
+                request.settled = true;
+                clearTimeout(request.timeout);
+                inFlightMarkerRequests.delete(request);
+            });
+        inFlightMarkerRequests.add(request);
+    }
+
+    request.consumers++;
+    let released = false;
+    return {
+        bounds: request.bounds,
+        revision: request.revision,
+        promise: request.promise,
+        release() {
+            if (released) return;
+            released = true;
+            request.consumers--;
+            if (!request.settled && request.consumers === 0) {
+                inFlightMarkerRequests.delete(request);
+                request.cancel();
+            }
+        },
+    };
 }
 
 export function createMarkerLoader() {
@@ -125,14 +213,12 @@ export function createMarkerLoader() {
     const lastLoadedMarkerRequestBoundsRef = { current: null };
     const pendingMarkerLoadRequestBoundsRef = { current: null };
 
-    let requestTimeout = null;
     let retryTimeout = null;
+    let queuedMarkerLoad = null;
     const coverageIsFresh = () =>
         state.markerCoverage &&
         Date.now() - state.markerCoverage.loadedAt < MARKER_CACHE_FRESH_MS;
     const clearActiveMarkerRequest = () => {
-        clearTimeout(requestTimeout);
-        requestTimeout = null;
         activeMarkerBoundsKeyRef.current = '';
         activeMarkerRequestBoundsRef.current = null;
         markerAbortControllerRef.current = null;
@@ -164,6 +250,7 @@ export function createMarkerLoader() {
         }
         abortActiveMarkerRequest();
         pendingMarkerLoadRequestBoundsRef.current = null;
+        queuedMarkerLoad = null;
     };
 
     const upsertMarkerPoints = (incomingMarkerPoints) => {
@@ -176,6 +263,7 @@ export function createMarkerLoader() {
 
         abortMarkerRequest();
         setMarkersAreLoading(false);
+        markerCacheRevision++;
         markerCache.clear();
         lastLoadedMarkerBoundsKeyRef.current = '';
         lastLoadedMarkerRequestBoundsRef.current = null;
@@ -284,7 +372,8 @@ export function createMarkerLoader() {
                 await markerCache.hydrate();
                 if (
                     !isProviderMountedRef.current ||
-                    markerRequestIdRef.current !== requestId
+                    markerRequestIdRef.current !== requestId ||
+                    queuedMarkerLoad
                 )
                     return;
                 const cached = markerCache.find(bounds);
@@ -308,7 +397,8 @@ export function createMarkerLoader() {
 
                 if (
                     isProviderMountedRef.current &&
-                    markerRequestIdRef.current === requestId
+                    markerRequestIdRef.current === requestId &&
+                    !queuedMarkerLoad
                 ) {
                     setMarkerPoints(nextMarkerPoints);
                     setMarkerCoverage({
@@ -322,53 +412,52 @@ export function createMarkerLoader() {
                 return;
             }
 
-            const responseData = (async () => {
-                const response = await fetch(requestURL, {
-                    signal: abortController.signal,
-                });
-                if (!response.ok)
-                    throw new Error(
-                        `Markers request failed with ${response.status}`,
-                    );
-                return response.json();
-            })();
-            const data = await Promise.race([
-                responseData,
-                new Promise((_, reject) => {
-                    requestTimeout = setTimeout(() => {
-                        reject(new Error('Markers request timed out'));
-                        abortController.abort();
-                    }, 15000);
-                }),
-            ]);
-
-            const pointsData = data?.points?.data ?? data?.points;
-            if (!Array.isArray(pointsData))
-                throw new Error('Invalid marker response');
-            const nextMarkerPoints = pointsData;
+            const markerRequest = acquireMarkerRequest(
+                bounds,
+                requestBounds,
+                requestURL,
+            );
+            activeMarkerRequestBoundsRef.current = markerRequest.bounds;
+            activeMarkerBoundsKeyRef.current = getMarkerBoundsKey(
+                markerRequest.bounds,
+            );
+            abortController.signal.addEventListener(
+                'abort',
+                markerRequest.release,
+                { once: true },
+            );
+            let entry;
+            try {
+                entry = await markerRequest.promise;
+            } finally {
+                abortController.signal.removeEventListener(
+                    'abort',
+                    markerRequest.release,
+                );
+                markerRequest.release();
+            }
 
             addMarkerBreadcrumb({
-                bounds: requestBounds,
+                bounds: entry.bounds,
                 message: 'Marker load completed',
-                reason: `count:${nextMarkerPoints.length}`,
+                reason: `count:${entry.points.length}`,
             });
 
             if (
                 isProviderMountedRef.current &&
-                markerRequestIdRef.current === requestId
+                markerRequestIdRef.current === requestId &&
+                markerRequest.revision === markerCacheRevision &&
+                !queuedMarkerLoad
             ) {
-                markerCache.put({
-                    bounds: requestBounds,
-                    points: nextMarkerPoints,
-                    loadedAt: Date.now(),
-                });
-                setMarkerPoints(nextMarkerPoints);
+                setMarkerPoints(entry.points);
                 setMarkerCoverage({
-                    bounds: requestBounds,
-                    loadedAt: Date.now(),
+                    bounds: entry.bounds,
+                    loadedAt: entry.loadedAt,
                 });
-                lastLoadedMarkerBoundsKeyRef.current = boundsKey;
-                lastLoadedMarkerRequestBoundsRef.current = requestBounds;
+                lastLoadedMarkerBoundsKeyRef.current = getMarkerBoundsKey(
+                    entry.bounds,
+                );
+                lastLoadedMarkerRequestBoundsRef.current = entry.bounds;
             }
         } catch (error) {
             if (error?.name === 'AbortError') {
@@ -385,21 +474,23 @@ export function createMarkerLoader() {
                     message: 'Marker load failed',
                     reason: error?.message ?? 'unknown',
                 });
-                if (retriesRemaining > 0) {
-                    retryTimeout = setTimeout(() => {
-                        retryTimeout = null;
-                        if (
-                            isProviderMountedRef.current &&
-                            markerRequestIdRef.current === requestId
-                        ) {
-                            loadMarkersForBounds(
-                                bounds,
-                                requestBounds,
-                                retriesRemaining - 1,
-                            );
-                        }
-                    }, 15000);
-                }
+                retryTimeout = setTimeout(() => {
+                    retryTimeout = null;
+                    const queued = queuedMarkerLoad;
+                    queuedMarkerLoad = null;
+                    pendingMarkerLoadRequestBoundsRef.current = null;
+                    if (
+                        retriesRemaining > 0 &&
+                        isProviderMountedRef.current &&
+                        markerRequestIdRef.current === requestId
+                    ) {
+                        loadMarkersForBounds(
+                            queued?.bounds ?? bounds,
+                            queued?.requestBounds ?? requestBounds,
+                            retriesRemaining - 1,
+                        );
+                    }
+                }, 15000);
             }
         } finally {
             if (
@@ -407,7 +498,14 @@ export function createMarkerLoader() {
                 markerRequestIdRef.current === requestId
             ) {
                 clearActiveMarkerRequest();
-                setMarkersAreLoading(false);
+                const queued = queuedMarkerLoad;
+                if (queued && !retryTimeout) {
+                    queuedMarkerLoad = null;
+                    pendingMarkerLoadRequestBoundsRef.current = null;
+                    loadMarkersForBounds(queued.bounds, queued.requestBounds);
+                } else {
+                    setMarkersAreLoading(false);
+                }
             }
         }
     };
@@ -459,6 +557,18 @@ export function createMarkerLoader() {
             boundsKey,
         );
 
+        if (activeRequestContainsBounds) {
+            queuedMarkerLoad = null;
+            pendingMarkerLoadRequestBoundsRef.current = null;
+            return;
+        }
+
+        if (markerAbortControllerRef.current || retryTimeout) {
+            queuedMarkerLoad = { bounds, requestBounds };
+            pendingMarkerLoadRequestBoundsRef.current = requestBounds;
+            return;
+        }
+
         if (
             shouldSkipMarkerLoadRequest({
                 activeRequestContainsBounds,
@@ -471,10 +581,6 @@ export function createMarkerLoader() {
         ) {
             return;
         }
-
-        clearTimeout(retryTimeout);
-        retryTimeout = null;
-        abortActiveMarkerRequest();
 
         if (markerLoadDebounceRef.current) {
             clearTimeout(markerLoadDebounceRef.current);

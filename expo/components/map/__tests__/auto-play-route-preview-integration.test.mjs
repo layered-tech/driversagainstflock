@@ -103,6 +103,17 @@ test('route previews clear search-map context before presenting route choices', 
     );
 });
 
+test('new route previews select their first route from the shared preference', () => {
+    assert.match(
+        autoPlaySource,
+        /getAutoPlayInitialRouteKey\(\s*getDirectionsRouteOptions\(route\),\s*getSharedMapPreferencesState\(\)\.preferPrivateRoutes,?\s*\)/,
+    );
+    assert.match(
+        autoPlaySource,
+        /selectDirectionsRoute\(route, initialRouteKey\)/,
+    );
+});
+
 test('a newer voice request clears a superseded route preview', () => {
     assert.match(
         autoPlaySource,

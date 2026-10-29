@@ -64,11 +64,15 @@ for (const platform of ['android', 'ios']) {
             let zoomOutPresses = 0;
             const context = vm.createContext({
                 DRIVING_MAP_VIEW_PERSPECTIVE: 'perspective',
+                DRIVING_MAP_VIEW_ROUTE_OVERVIEW: 'route-overview',
                 ROOT_MAP_BUTTON_APPEARANCE_DEFAULTS: {
                     trackingState: 'inactive',
                 },
                 activeNavigationRoute: hasActiveNavigation ? {} : null,
+                autoPlaySearchWorkflowIsActive: false,
+                routePreviewIsVisible: false,
                 autoPlayPlatform: {
+                    usesPanZoomControlsOnly: platform === 'ios',
                     usesDrivingMapViewButtonForDebugging:
                         platform === 'android',
                 },
@@ -90,6 +94,7 @@ for (const platform of ['android', 'ios']) {
                 rootMapButtonAppearanceKey: '',
                 rootMapTemplate: {},
                 rootMapTemplateIsReady: true,
+                rootMapPanningInterfaceIsVisible: false,
                 updateRootMapButtons: () => refreshes++,
                 updateRootTemplateHeaderActions() {},
             });
@@ -130,7 +135,7 @@ for (const platform of ['android', 'ios']) {
                     Array.from(buttons, (button) => button.image),
                     platform === 'android'
                         ? ['zoom-in', 'zoom-out', 'view', ...recenterImages]
-                        : ['pan', 'zoom-in', 'zoom-out', ...recenterImages],
+                        : ['pan', ...recenterImages],
                 );
                 for (const button of buttons) {
                     assert.equal(
@@ -158,10 +163,16 @@ for (const platform of ['android', 'ios']) {
                         ),
                     );
                 }
-                buttons.find((button) => button.image === 'zoom-in').onPress();
-                buttons.find((button) => button.image === 'zoom-out').onPress();
-                assert.equal(zoomInPresses, zoomOutPresses);
-                assert.ok(zoomInPresses > 0);
+                if (platform === 'android') {
+                    buttons
+                        .find((button) => button.image === 'zoom-in')
+                        .onPress();
+                    buttons
+                        .find((button) => button.image === 'zoom-out')
+                        .onPress();
+                    assert.equal(zoomInPresses, zoomOutPresses);
+                    assert.ok(zoomInPresses > 0);
+                }
                 assert.strictEqual(getButtons(), buttons);
                 update(trackingState);
                 assert.equal(refreshes, previousRefreshes + 1);

@@ -1,6 +1,6 @@
 {
     "name": "driversagainstflock",
-    "version": "2.9.2",
+    "version": "2.9.3",
     "main": "index.js",
     "expo": {
         "autolinking": {
@@ -30,6 +30,9 @@
         "android:auto:2.1": "bash ./scripts/android-auto.sh 2.1 landscape",
         "android:auto:portrait": "bash ./scripts/android-auto.sh 2.0 portrait",
         "android:auto:portrait:2.1": "bash ./scripts/android-auto.sh 2.1 portrait",
+        "carplay:gpx": "uv run --no-project --with pymobiledevice3==11.45.0 pymobiledevice3 developer dvt simulate-location play --userspace ./.android-auto/route-pewaukee.gpx",
+        "carplay:gps:clear": "uv run --no-project --with pymobiledevice3==11.45.0 pymobiledevice3 developer dvt simulate-location clear --userspace",
+        "carplay:screenshot": "node ./scripts/carplay-e2e.mjs --screenshot",
         "android:no-bundler": "expo run:android --no-bundler",
         "ios": "expo run:ios",
         "ios:no-bundler": "expo run:ios --no-bundler --device",
@@ -38,6 +41,10 @@
         "e2e": "./scripts/maestro-test.sh .maestro",
         "e2e:android": "MAESTRO_PLATFORM=android ./scripts/maestro-test.sh .maestro",
         "e2e:android-auto": "./scripts/android-auto-e2e.sh",
+        "e2e:carplay": "node ./scripts/carplay-e2e.mjs",
+        "e2e:carplay:route-choices": "CARPLAY_E2E_SUITE=route-choices node ./scripts/carplay-e2e.mjs",
+        "e2e:carplay:ui": "CARPLAY_E2E_SUITE=navigation node ./scripts/carplay-e2e.mjs",
+        "e2e:carplay:alpr": "CARPLAY_E2E_SUITE=alpr node ./scripts/carplay-e2e.mjs",
         "e2e:android-auto:portrait": "ANDROID_AUTO_E2E_DHU_BINARY=\"${ANDROID_AUTO_DHU_ROOT:-$HOME/Library/Android/dhu}/2.1/desktop-head-unit\" ./scripts/android-auto-e2e.sh ./.android-auto/suite-portrait.json",
         "e2e:ios": "MAESTRO_PLATFORM=ios ./scripts/maestro-test.sh .maestro",
         "e2e:contribute-tour": "./scripts/maestro-test.sh .maestro/contribute-wizard.yml .maestro/contribute-signed-out.yml .maestro/contribute-tour-skip.yml .maestro/contribute-tour-resume.yml .maestro/contribute-tour-reset.yml",
@@ -47,7 +54,12 @@
         "e2e-reset": "./scripts/reset-android-location.sh",
         "test": "npm run test:unit",
         "test:unit": "node --test lib/osm/__tests__/*.test.mjs components/design-system/__tests__/*.test.mjs components/information/__tests__/*.test.mjs components/map/__tests__/*.test.mjs components/scorecard/__tests__/*.test.mjs scripts/__tests__/*.test.mjs components/areas/__tests__/*.test.mjs",
-        "e2e:road-corridor": "MAESTRO_PLATFORM=android EXPO_PUBLIC_E2E_MAP_API_MOCKS=0 EXPO_PUBLIC_E2E_CORRIDOR_PROBE=1 EXPO_PUBLIC_API_BASE_URL=https://staging.driversagainstflock.org/api ./scripts/maestro-test.sh .maestro/live-api/road-corridor-sussex.yml"
+        "e2e:road-corridor": "MAESTRO_PLATFORM=android EXPO_PUBLIC_E2E_MAP_API_MOCKS=0 EXPO_PUBLIC_E2E_CORRIDOR_PROBE=1 EXPO_PUBLIC_API_BASE_URL=https://staging.driversagainstflock.org/api ./scripts/maestro-test.sh .maestro/live-api/road-corridor-sussex.yml",
+        "e2e:android-auto:route-choices": "ANDROID_AUTO_E2E_SUITE=route-choices ./scripts/android-auto-e2e.sh",
+        "e2e:android-auto:ui": "ANDROID_AUTO_E2E_SUITE=navigation ./scripts/android-auto-e2e.sh",
+        "e2e:android-auto:alpr": "ANDROID_AUTO_E2E_SUITE=alpr ./scripts/android-auto-e2e.sh",
+        "e2e:android-auto:route-choices:portrait": "ANDROID_AUTO_E2E_SUITE=route-choices ANDROID_AUTO_E2E_DHU_BINARY=\"${ANDROID_AUTO_DHU_ROOT:-$HOME/Library/Android/dhu}/2.1/desktop-head-unit\" ./scripts/android-auto-e2e.sh ./.android-auto/suite-portrait.json",
+        "e2e:android-auto:ui:portrait": "ANDROID_AUTO_E2E_SUITE=navigation ANDROID_AUTO_E2E_DHU_BINARY=\"${ANDROID_AUTO_DHU_ROOT:-$HOME/Library/Android/dhu}/2.1/desktop-head-unit\" ./scripts/android-auto-e2e.sh ./.android-auto/suite-portrait.json"
     },
     "dependencies": {
         "@fortawesome/fontawesome-svg-core": "^7.3.1",
