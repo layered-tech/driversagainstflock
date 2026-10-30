@@ -1166,3 +1166,72 @@ describe('scorecard process runtime', () => {
         );
     });
 });
+
+describe('read-only active drive summary', () => {
+    test('preserves accumulated distance across reroutes without changing state', async () => {
+        let fraction = 0.5;
+        const { runtime, setNow } = createRuntimeHarness({
+            getRouteProgress: () => ({
+                alongRouteDistance: fraction * 140,
+                routeDistance: 140,
+            }),
+        });
+        assert.equal(runtime.getActiveDriveSummary().status, 'initializing');
+        await runtime.hydrate();
+        runtime.setTrackingEnabled(true);
+        runtime.setRoutingState({
+            drivingModeIsActive: true,
+            directionsRoute: route(),
+        });
+        runtime.handleAcceptedLocation(location(0, 0.0004, 11000));
+        setNow(12000);
+        const before = runtime.getSnapshot();
+        const first = runtime.getActiveDriveSummary();
+        assert.equal(first.status, 'active');
+        assert.ok(first.distanceMeters > 0);
+        assert.equal(first.elapsedSeconds, 2);
+        assert.equal(runtime.getSnapshot(), before);
+        fraction = 0;
+        runtime.setRoutingState({
+            drivingModeIsActive: true,
+            directionsRoute: { ...route(), requestedAt: 20000 },
+        });
+        runtime.handleAcceptedLocation(location(0, 0.0004, 12000));
+        const rerouted = runtime.getActiveDriveSummary();
+        assert.equal(rerouted.sessionId, first.sessionId);
+        assert.equal(rerouted.distanceMeters, first.distanceMeters);
+        fraction = 0.25;
+        runtime.handleAcceptedLocation(location(0, 0.0005, 13000));
+        assert.ok(
+            runtime.getActiveDriveSummary().distanceMeters >
+                first.distanceMeters,
+        );
+        runtime.setRoutingState({
+            drivingModeIsActive: false,
+            directionsRoute: null,
+        });
+        assert.deepEqual(runtime.getActiveDriveSummary(), {
+            status: 'no-active-drive',
+        });
+    });
+    test('preserves tracking opt-out and secure-storage unavailability', async () => {
+        const { runtime } = createRuntimeHarness();
+        await runtime.hydrate();
+        runtime.setTrackingEnabled(false);
+        runtime.setRoutingState({
+            drivingModeIsActive: true,
+            directionsRoute: route(),
+        });
+        assert.deepEqual(runtime.getActiveDriveSummary(), {
+            status: 'tracking-off',
+        });
+        const unavailable = createRuntimeHarness({
+            secureStorageIsAvailable: false,
+        }).runtime;
+        await unavailable.hydrate();
+        unavailable.setTrackingEnabled(true);
+        assert.deepEqual(unavailable.getActiveDriveSummary(), {
+            status: 'unavailable',
+        });
+    });
+});

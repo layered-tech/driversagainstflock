@@ -1015,8 +1015,53 @@ export function createScorecardRuntime({
         }
     }
 
+    function getActiveDriveSummary() {
+        const session = scorecardState.activeSession;
+        if (!isHydrated) {
+            return { status: 'initializing' };
+        }
+        if (!scorecardState.settings.enabled) {
+            return { status: 'tracking-off' };
+        }
+        if (!secureStorageIsAvailable || pendingStateReplacementCount > 0) {
+            return { status: 'unavailable' };
+        }
+        if (
+            !session ||
+            session.mode !== 'guided' ||
+            !routingState.drivingModeIsActive
+        ) {
+            return { status: 'no-active-drive' };
+        }
+        const exposures = scorecardState.exposures.filter(
+            (event) => event.sessionId === session.id,
+        );
+        const confirmedCrossings = exposures.filter(
+            (event) => event.certainty === 'confirmed',
+        ).length;
+        const possibleCrossings = exposures.filter(
+            (event) => event.certainty === 'possible',
+        ).length;
+        return {
+            status: 'active',
+            sessionId: session.id,
+            sourceAt: lastAcceptedLocation?.timestamp ?? null,
+            elapsedSeconds: Math.max(0, (now() - session.startedAt) / 1000),
+            distanceMeters:
+                (session.completedDistanceMeters ?? 0) +
+                (routeSnapshot
+                    ? routeSnapshot.distanceMeters *
+                      routeSnapshot.progressFraction
+                    : 0),
+            confirmedCrossings,
+            possibleCrossings,
+            cameraCrossings: confirmedCrossings + possibleCrossings,
+        };
+    }
+
     return {
         deleteHistory,
+        getActiveDriveSummary,
         getSnapshot: () => snapshot,
         handleAcceptedLocation,
         hydrate,

@@ -1,0 +1,36 @@
+{
+  "protocolVersion": 1,
+  "publisherId": "fixture-phone",
+  "publisherStartedAt": 1000,
+  "revision": 1,
+  "publishedAt": 2000,
+  "environment": "staging",
+  "phoneVersion": "2.9.3",
+  "navigation": {
+    "status": "active",
+    "sessionId": "drive-1",
+    "routeRevision": 1,
+    "sourceAt": 2000,
+    "destination": "Ferry Building",
+    "maneuver": {
+      "id": "1:2",
+      "kind": "right",
+      "instruction": "Turn right onto Market St",
+      "distanceMeters": 120,
+      "exitNumber": null
+    },
+    "distanceRemainingMeters": 21000,
+    "durationRemainingSeconds": 1620,
+    "arrivalAt": 1622000
+  },
+  "scorecard": {
+    "status": "active",
+    "sessionId": "score-1",
+    "sourceAt": 2000,
+    "elapsedSeconds": 1122,
+    "distanceMeters": 6400,
+    "confirmedCrossings": 1,
+    "possibleCrossings": 2,
+    "cameraCrossings": 3
+  }
+}
