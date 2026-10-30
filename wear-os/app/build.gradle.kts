@@ -8,7 +8,7 @@ val watchVersionCode = releaseVersionCode?.toIntOrNull() ?: 1
 require(releaseVersionCode == null || (releaseVersionCode.matches(Regex("[1-9][0-9]*")) && releaseVersionCode.toIntOrNull() in 1..2_100_000_000)) {
     "WEAR_VERSION_CODE must be an integer between 1 and 2100000000."
 }
-val watchVersionName = providers.environmentVariable("WEAR_VERSION_NAME").orElse("0.1.0").get()
+val watchVersionName = providers.environmentVariable("WEAR_VERSION_NAME").orElse("0.2.0").get()
 val watchBuildEnvironment = providers.environmentVariable("WEAR_BUILD_ENV").orElse("production").get()
 require(watchBuildEnvironment in setOf("staging", "production")) { "WEAR_BUILD_ENV must be staging or production." }
 require(watchVersionName.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?"))) {

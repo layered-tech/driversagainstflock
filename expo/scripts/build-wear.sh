@@ -19,10 +19,13 @@ expo/credentials.json automatically. Download them once with eas credentials
 (Android > production > credentials.json > Download credentials from EAS).
 The credentials file and keystore are ignored by Git.
 
-Both npm commands increment wear-os/version-code.json after a successful
-build (starting after code 1). Commit that file to share the counter across checkouts.
-This local counter does not synchronize with EAS or Play; keep phone codes distinct.
-WEAR_VERSION_CODE can override the next code with a higher unused value.
+Both npm commands read the phone's EAS Android version counter, reserve the next
+code in EAS, and save it in wear-os/version-code.json before Gradle starts.
+Failed builds retain their reserved code. Keep phone and watch builds sequential;
+EAS version read/write operations are not an atomic allocation across machines.
+Log in with eas login or set EXPO_TOKEN. EAS failures stop the build.
+Use --check-version on either npm command to preview without reserving or building.
+WEAR_VERSION_CODE can override the next code with a value above both counters.
 To override local credentials, supply
 all four WEAR_RELEASE_* variables below together. Direct invocation of this
 shell script also requires these exported environment variables:

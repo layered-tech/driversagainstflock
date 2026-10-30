@@ -40,6 +40,31 @@ function fixture(t) {
         new URL('../build-wear-staging.mjs', import.meta.url),
         join(expo, 'scripts/build-wear-staging.mjs'),
     );
+    copyFileSync(
+        new URL('../wear-eas-version.mjs', import.meta.url),
+        join(expo, 'scripts/wear-eas-version.mjs'),
+    );
+    writeFileSync(
+        join(expo, 'eas.json'),
+        JSON.stringify({ cli: { appVersionSource: 'remote' } }),
+    );
+    writeFileSync(
+        join(expo, 'app.config.js'),
+        "module.exports={extra:{eas:{projectId:'project'}},android:{package:'com.anonymous.drivefree'},version:'2.9.3'};",
+    );
+    const mockApi = join(root, 'mock-eas.mjs');
+    writeFileSync(
+        mockApi,
+        `let code=346; let id='current'; globalThis.fetch=async (url, options) => {
+        const {query,variables}=JSON.parse(options.body);
+        if(query.includes('mutation')) {code=Number(variables.appVersionInput.buildVersion);id='reserved';return {ok:true,json:async()=>({data:{appVersion:{createAppVersion:{id}}}})};}
+        return {ok:true,json:async()=>({data:{app:{byId:{latestAppVersionByPlatformAndApplicationIdentifier:{id,buildVersion:String(code)}}}}})};
+    };`,
+    );
+    const easEnvironment = {
+        EXPO_TOKEN: 'fixture-token',
+        NODE_OPTIONS: `--import=${mockApi}`,
+    };
     writeFileSync(
         join(expo, 'android/app/debug.keystore'),
         'fixture debug key',
@@ -83,7 +108,7 @@ printf '%s' "$3" > "$output"
             env: { ...cleanEnv, ...env },
         });
     };
-    return { root, watch, expo, release, run };
+    return { root, watch, expo, release, run, easEnvironment };
 }
 
 test('staging uses the phone signing key and copies its AAB to the requested path', (t) => {
@@ -220,7 +245,7 @@ function writePhoneCredentials(expo) {
 }
 
 test('production wrapper loads the phone credentials without requiring signing exports', (t) => {
-    const { expo, watch } = fixture(t);
+    const { expo, watch, easEnvironment } = fixture(t);
     const keystore = writePhoneCredentials(expo);
     const environment = Object.fromEntries(
         Object.entries(process.env).filter(([key]) => !key.startsWith('WEAR_')),
@@ -230,7 +255,7 @@ test('production wrapper loads the phone credentials without requiring signing e
         [join(expo, 'scripts/build-wear-production.mjs')],
         {
             encoding: 'utf8',
-            env: { ...environment, WEAR_VERSION_CODE: '1' },
+            env: { ...environment, ...easEnvironment },
         },
     );
     assert.equal(result.status, 0, result.stderr);
@@ -258,18 +283,21 @@ test('production wrapper loads the phone credentials without requiring signing e
 });
 
 test('staging wrapper uses the same phone credentials as the EAS staging app', (t) => {
-    const { expo, watch } = fixture(t);
+    const { expo, watch, easEnvironment } = fixture(t);
     writePhoneCredentials(expo);
     const result = spawnSync(
         process.execPath,
         [join(expo, 'scripts/build-wear-staging.mjs')],
         {
             encoding: 'utf8',
-            env: Object.fromEntries(
-                Object.entries(process.env).filter(
-                    ([key]) => !key.startsWith('WEAR_'),
+            env: {
+                ...Object.fromEntries(
+                    Object.entries(process.env).filter(
+                        ([key]) => !key.startsWith('WEAR_'),
+                    ),
                 ),
-            ),
+                ...easEnvironment,
+            },
         },
     );
     assert.equal(result.status, 0, result.stderr);
@@ -284,11 +312,14 @@ test('staging wrapper uses the same phone credentials as the EAS staging app', (
         readFileSync(join(watch, 'signing'), 'utf8'),
         `${realpathSync(resolve(expo, '../upload key.jks'))}\nphone-upload\n`,
     );
-    assert.equal(readFileSync(join(watch, 'profile'), 'utf8'), 'staging\n1\n');
+    assert.equal(
+        readFileSync(join(watch, 'profile'), 'utf8'),
+        'staging\n347\n',
+    );
     assert.equal(
         JSON.parse(readFileSync(join(watch, 'version-code.json')))
             .lastVersionCode,
-        1,
+        347,
     );
 });
 
@@ -345,18 +376,21 @@ test('local phone credentials cannot refer to missing keystores or debug keys', 
 });
 
 test('checking signing configuration never starts Gradle', (t) => {
-    const { expo, watch } = fixture(t);
+    const { expo, watch, easEnvironment } = fixture(t);
     writePhoneCredentials(expo);
     const result = spawnSync(
         process.execPath,
         [join(expo, 'scripts/build-wear-production.mjs'), '--check-signing'],
         {
             encoding: 'utf8',
-            env: Object.fromEntries(
-                Object.entries(process.env).filter(
-                    ([key]) => !key.startsWith('WEAR_'),
+            env: {
+                ...Object.fromEntries(
+                    Object.entries(process.env).filter(
+                        ([key]) => !key.startsWith('WEAR_'),
+                    ),
                 ),
-            ),
+                ...easEnvironment,
+            },
         },
     );
     assert.equal(result.status, 0, result.stderr);
@@ -364,46 +398,135 @@ test('checking signing configuration never starts Gradle', (t) => {
     assert.equal(existsSync(join(watch, 'invocation')), false);
 });
 
-test('release codes advance on success, survive failure, and allow higher overrides', (t) => {
+function remoteCounter(initial = 346) {
+    let code = initial;
+    return {
+        latest: async () => ({ id: String(code), code }),
+        reserve: async (next) => {
+            code = next;
+        },
+    };
+}
+
+test('shared EAS codes are reserved before builds and retained after failure', async (t) => {
     const { watch } = fixture(t);
+    const versionClient = remoteCounter();
+    const options = { versionClient };
     const seen = [];
-    const build = (status) => (env) => {
+    const build = (status) => async (env) => {
         seen.push(env.WEAR_VERSION_CODE);
+        assert.equal(
+            (await versionClient.latest()).code,
+            Number(env.WEAR_VERSION_CODE),
+        );
+        assert.equal(
+            JSON.parse(readFileSync(join(watch, 'version-code.json')))
+                .lastVersionCode,
+            Number(env.WEAR_VERSION_CODE),
+        );
         return status;
     };
-    assert.equal(withWearVersion(watch, {}, build(0)), 0);
-    assert.equal(withWearVersion(watch, {}, build(17)), 17);
-    assert.equal(withWearVersion(watch, {}, build(0)), 0);
+    assert.equal(await withWearVersion(watch, {}, build(0), options), 0);
+    assert.equal(await withWearVersion(watch, {}, build(17), options), 17);
+    assert.equal(await withWearVersion(watch, {}, build(0), options), 0);
     assert.equal(
-        withWearVersion(watch, { WEAR_VERSION_CODE: '10' }, build(0)),
+        await withWearVersion(
+            watch,
+            { WEAR_VERSION_CODE: '500' },
+            build(0),
+            options,
+        ),
         0,
     );
-    assert.equal(withWearVersion(watch, {}, build(0)), 0);
-    assert.deepEqual(seen, ['1', '2', '2', '10', '11']);
-    assert.throws(
-        () => withWearVersion(watch, { WEAR_VERSION_CODE: '11' }, build(0)),
-        /greater than 11/,
+    assert.deepEqual(seen, ['347', '348', '349', '500']);
+    await assert.rejects(
+        withWearVersion(watch, { WEAR_VERSION_CODE: '499' }, build(0), options),
+        /greater than 500/,
     );
     assert.equal(existsSync(join(watch, '.version-code.lock')), false);
 });
 
-test('parallel releases are rejected and exceptions release the lock', (t) => {
+test('parallel watch builds are rejected and exceptions release the lock without reusing reservations', async (t) => {
     const { watch } = fixture(t);
-    assert.throws(
-        () =>
-            withWearVersion(watch, {}, () => {
-                assert.throws(
-                    () => withWearVersion(watch, {}, () => 0),
+    const options = { versionClient: remoteCounter() };
+    await assert.rejects(
+        withWearVersion(
+            watch,
+            {},
+            async () => {
+                await assert.rejects(
+                    withWearVersion(watch, {}, () => 0, options),
                     /Another Wear release/,
                 );
                 throw new Error('build failed');
-            }),
+            },
+            options,
+        ),
         /build failed/,
     );
     assert.equal(existsSync(join(watch, '.version-code.lock')), false);
     assert.equal(
         JSON.parse(readFileSync(join(watch, 'version-code.json')))
             .lastVersionCode,
+        347,
+    );
+});
+
+test('remote lookup or reservation failure never starts Gradle or advances the local code', async (t) => {
+    const { watch } = fixture(t);
+    for (const method of ['latest', 'reserve']) {
+        const versionClient = remoteCounter();
+        versionClient[method] = async () => {
+            throw new Error('offline');
+        };
+        await assert.rejects(
+            withWearVersion(watch, {}, () => assert.fail('build started'), {
+                versionClient,
+            }),
+            /offline/,
+        );
+        assert.equal(
+            JSON.parse(readFileSync(join(watch, 'version-code.json')))
+                .lastVersionCode,
+            0,
+        );
+    }
+});
+
+test('version preview reads EAS without reserving a code or building', async (t) => {
+    const { watch } = fixture(t);
+    const versionClient = remoteCounter();
+    versionClient.reserve = async () => assert.fail('reserved');
+    await withWearVersion(watch, {}, () => assert.fail('built'), {
+        versionClient,
+        checkOnly: true,
+    });
+    assert.equal(
+        JSON.parse(readFileSync(join(watch, 'version-code.json')))
+            .lastVersionCode,
         0,
+    );
+});
+
+test('local higher codes and the Play maximum are respected', async (t) => {
+    const { watch } = fixture(t);
+    writeFileSync(
+        join(watch, 'version-code.json'),
+        JSON.stringify({ lastVersionCode: 700 }),
+    );
+    await withWearVersion(
+        watch,
+        {},
+        (env) => {
+            assert.equal(env.WEAR_VERSION_CODE, '701');
+            return 0;
+        },
+        { versionClient: remoteCounter() },
+    );
+    await assert.rejects(
+        withWearVersion(watch, {}, () => assert.fail('built'), {
+            versionClient: remoteCounter(2100000000),
+        }),
+        /2100000000/,
     );
 });

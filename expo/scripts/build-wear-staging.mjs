@@ -9,10 +9,14 @@ import {
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
 
 try {
-    const environment = getWearReleaseEnvironment(
-        resolve(scriptsDirectory, '..'),
-    );
-    process.exitCode = withWearVersion(
+    const args = process.argv.slice(2);
+    if (args.length && !(args.length === 1 && args[0] === '--check-version'))
+        throw new Error('Usage: build-wear-staging.mjs [--check-version]');
+    const checkOnly = args[0] === '--check-version';
+    const environment = checkOnly
+        ? process.env
+        : getWearReleaseEnvironment(resolve(scriptsDirectory, '..'));
+    process.exitCode = await withWearVersion(
         resolve(scriptsDirectory, '../../wear-os'),
         environment,
         (buildEnvironment) => {
@@ -28,6 +32,7 @@ try {
             }
             return result.status ?? 1;
         },
+        { profile: 'staging', checkOnly },
     );
 } catch (error) {
     console.error(error.message);

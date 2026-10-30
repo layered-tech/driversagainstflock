@@ -10,6 +10,7 @@ import {
 import { spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadEasVersionClient } from './wear-eas-version.mjs';
 
 const signingFields = {
     WEAR_RELEASE_STORE_FILE: 'keystorePath',
@@ -18,7 +19,12 @@ const signingFields = {
     WEAR_RELEASE_KEY_PASSWORD: 'keyPassword',
 };
 
-export function withWearVersion(watchDirectory, environment, build) {
+export async function withWearVersion(
+    watchDirectory,
+    environment,
+    build,
+    { profile = 'production', versionClient, checkOnly = false } = {},
+) {
     const versionFile = resolve(watchDirectory, 'version-code.json');
     const lockFile = resolve(watchDirectory, '.version-code.lock');
     try {
@@ -41,31 +47,40 @@ export function withWearVersion(watchDirectory, environment, build) {
                 'Invalid lastVersionCode in wear-os/version-code.json.',
             );
         }
+        const remote =
+            versionClient ??
+            loadEasVersionClient(
+                resolve(watchDirectory, '../expo'),
+                environment,
+                profile,
+            );
+        const latest = await remote.latest();
+        const previousCode = Math.max(lastVersionCode, latest.code);
         const rawCode =
-            environment.WEAR_VERSION_CODE ?? String(lastVersionCode + 1);
+            environment.WEAR_VERSION_CODE ?? String(previousCode + 1);
         const code = Number(rawCode);
         if (
             !/^[1-9][0-9]*$/.test(rawCode) ||
             !Number.isInteger(code) ||
-            code <= lastVersionCode ||
+            code <= previousCode ||
             code > 2100000000
         ) {
             throw new Error(
-                `WEAR_VERSION_CODE must be greater than ${lastVersionCode} and at most 2100000000.`,
+                `WEAR_VERSION_CODE must be greater than ${previousCode} and at most 2100000000.`,
             );
         }
-        const status = build({
-            ...environment,
-            WEAR_VERSION_CODE: String(code),
-        });
-        if (status === 0) {
-            writeFileSync(
-                `${versionFile}.tmp`,
-                JSON.stringify({ lastVersionCode: code }, null, 4) + '\n',
-            );
-            renameSync(`${versionFile}.tmp`, versionFile);
-        }
-        return status;
+        console.log(
+            `EAS Android versionCode: ${latest.code}; next Wear versionCode: ${code}.`,
+        );
+        if (checkOnly) return 0;
+        await remote.reserve(code, latest);
+        // Persist the reservation before Gradle: failed builds must not reuse it.
+        writeFileSync(
+            `${versionFile}.tmp`,
+            JSON.stringify({ lastVersionCode: code }, null, 4) + '\n',
+        );
+        renameSync(`${versionFile}.tmp`, versionFile);
+        return await build({ ...environment, WEAR_VERSION_CODE: String(code) });
     } finally {
         unlinkSync(lockFile);
     }
@@ -145,15 +160,19 @@ if (
         if (
             args.length &&
             !helpOnly &&
-            !(args.length === 1 && args[0] === '--check-signing')
+            !(
+                args.length === 1 &&
+                ['--check-signing', '--check-version'].includes(args[0])
+            )
         ) {
             throw new Error(
-                'Usage: build-wear-production.mjs [--help|--check-signing]',
+                'Usage: build-wear-production.mjs [--help|--check-signing|--check-version]',
             );
         }
-        const environment = helpOnly
-            ? process.env
-            : getWearReleaseEnvironment(resolve(scriptsDirectory, '..'));
+        const environment =
+            helpOnly || args[0] === '--check-version'
+                ? process.env
+                : getWearReleaseEnvironment(resolve(scriptsDirectory, '..'));
         if (args[0] === '--check-signing') {
             console.log(
                 'Wear OS upload credentials are configured. No build was started.',
@@ -179,10 +198,14 @@ if (
             };
             process.exitCode = helpOnly
                 ? run(environment)
-                : withWearVersion(
+                : await withWearVersion(
                       resolve(scriptsDirectory, '../../wear-os'),
                       environment,
                       run,
+                      {
+                          profile: 'production',
+                          checkOnly: args[0] === '--check-version',
+                      },
                   );
         }
     } catch (error) {
