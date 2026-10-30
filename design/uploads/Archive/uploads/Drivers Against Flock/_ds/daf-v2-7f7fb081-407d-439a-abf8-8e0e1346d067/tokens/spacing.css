@@ -1,0 +1,38 @@
+/* ============================================================
+   Drivers Against Flock — Spacing & layout tokens
+   4px base grid. Tuned tight: dense, command-surface rhythm —
+   floating UI should feel compact, not airy.
+   ============================================================ */
+
+:root {
+  --space-0:  0;
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-7:  32px;
+  --space-8:  40px;
+  --space-9:  48px;
+  --space-10: 64px;
+  --space-11: 80px;
+  --space-12: 96px;
+  --space-13: 128px;
+
+  /* Touch targets — driving UI: nothing tappable below 44px,
+     but chrome sits tighter than before. */
+  --hit-min:    44px;
+  --hit-comfy:  46px;
+  --hit-large:  52px;
+
+  /* Map-overlay rhythm — tightened */
+  --gutter-screen: 12px;   /* edge inset for floating controls */
+  --gap-stack:     8px;    /* between stacked floating controls */
+  --sheet-grab:    32px;   /* bottom-sheet grabber width */
+
+  /* Content widths */
+  --width-prose:   66ch;
+  --width-content: 1180px;
+  --width-wide:    1320px;
+}
