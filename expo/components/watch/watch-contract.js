@@ -64,6 +64,7 @@ export function createWatchSnapshot({
     maneuver,
     remaining,
     scorecard,
+    hapticsEnabled = true,
 }) {
     const normalizedManeuver = semanticWatchManeuver(maneuver, routeRevision);
     const navigationStatus = !active
@@ -84,6 +85,7 @@ export function createWatchSnapshot({
         publishedAt: now,
         environment,
         phoneVersion,
+        hapticsEnabled: hapticsEnabled === true,
         navigation: {
             status: navigationStatus,
             sessionId: active ? sessionId : null,
@@ -150,6 +152,7 @@ export function watchSnapshotStateKey(snapshot) {
         nav.maneuver?.id,
         scorecard.status,
         scorecard.cameraCrossings,
+        snapshot.hapticsEnabled,
     ]);
 }
 

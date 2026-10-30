@@ -42,7 +42,7 @@ private val Muted = Color(0xFFB3B3B3)
 
 @Composable
 fun WatchApp(repository: WatchPresentation, ambient: Boolean, resumed: Boolean = true, resumeRevision: Int = 0) {
-    val pager = rememberPagerState(pageCount = { 3 })
+    val pager = rememberPagerState(pageCount = { 4 })
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val snapshot = repository.snapshot
     LaunchedEffect(ambient, resumed) {
@@ -66,7 +66,7 @@ fun WatchApp(repository: WatchPresentation, ambient: Boolean, resumed: Boolean =
                     when (page) {
                         0 -> item { NavigationPage(repository, snapshot, now, ambient) }
                         1 -> item { ScorecardPage(repository, snapshot, now, ambient) }
-                        else -> {
+                        2 -> {
                             item { Label("Diagnostics", 18, Color.White) }
                             val nav = snapshot?.navigation
                             val rows = listOf(
@@ -84,18 +84,30 @@ fun WatchApp(repository: WatchPresentation, ambient: Boolean, resumed: Boolean =
                                 "Received / dropped" to "${repository.received} / ${repository.dropped}",
                                 "Last error" to repository.lastError,
                                 "Ping" to repository.pingStatus,
+                                "Haptics" to if (snapshot?.hapticsEnabled == false) "Off on phone" else repository.hapticStatus,
                             )
                             rows.forEach { (key, value) -> item { Metric(key, value) } }
                             item { Chip(onClick = { repository.refresh(request = true) }, label = { Text("Retry / ping phone") }, modifier = Modifier.fillMaxWidth()) }
                             item { Label("Recent diagnostics", 12, Muted) }
                             repository.history.takeLast(8).reversed().forEach { event -> item { Label(event, 12, Muted) } }
                         }
+                        else -> {
+                            item { Label("Haptic cues", 18, if (ambient) Muted else Color.White) }
+                            item { Label("One advance cue for each maneuver", 12, Muted) }
+                            item { Label(if (snapshot?.hapticsEnabled == false) "Turn vibrations are off" else repository.hapticStatus, 12, Muted) }
+                            if (!ambient) {
+                                listOf("left" to "Left · one tap", "right" to "Right · two taps", "neutral" to "Roundabout / U-turn · long pulse").forEach { (pattern, description) ->
+                                    item { Chip(onClick = { repository.preview(pattern) }, label = { Text(description) }, modifier = Modifier.fillMaxWidth()) }
+                                }
+                                item { Label("Turn vibrations on or off in the phone app.", 12, Muted) }
+                            }
+                        }
                     }
                 }
             }
             if (!ambient) {
                 Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    repeat(3) { page -> Box(Modifier.size(4.dp).background(if (pager.currentPage == page) Brand else Color.DarkGray, CircleShape)) }
+                    repeat(4) { page -> Box(Modifier.size(4.dp).background(if (pager.currentPage == page) Brand else Color.DarkGray, CircleShape)) }
                 }
             }
         }
@@ -107,7 +119,8 @@ private fun NavigationPage(repository: WatchPresentation, snapshot: WatchSnapsho
     val nav = snapshot?.navigation ?: JSONObject()
     val status = nav?.optString("status")
     val stale = snapshot?.stale(now) != false
-    val liveColor = if (ambient || stale) Color.White else Brand
+    val liveColor = if (ambient) Muted else if (stale) Color.White else Brand
+    val contentColor = if (ambient) Muted else Color.White
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
         when {
             repository.incompatible -> Message("Update needed", "Incompatible companion", "Update the phone and watch apps together.", Muted)
@@ -132,11 +145,11 @@ private fun NavigationPage(repository: WatchPresentation, snapshot: WatchSnapsho
                 val maneuver = nav.optJSONObject("maneuver")
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ManeuverIcon(maneuver?.optString("kind") ?: "straight", maneuver?.optionalLong("exitNumber"), liveColor)
-                    Label(distance(maneuver?.optionalDouble("distanceMeters")), 26, Color.White, mono = true)
+                    Label(distance(maneuver?.optionalDouble("distanceMeters")), 26, contentColor, mono = true)
                 }
                 var expanded by remember(maneuver?.optString("id")) { mutableStateOf(false) }
                 val instruction = maneuver?.optString("instruction")?.takeIf { it.isNotBlank() } ?: "Follow the road"
-                Text(instruction, fontFamily = WatchSans, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
+                Text(instruction, fontFamily = WatchSans, fontSize = 16.sp, color = contentColor, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
                     maxLines = if (expanded) Int.MAX_VALUE else 2, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.semantics { contentDescription = instruction })
                 if (stale) Label("Showing the last update", 12, Muted)
@@ -166,10 +179,10 @@ private fun ScorecardPage(repository: WatchPresentation, snapshot: WatchSnapshot
             else -> {
                 val age = score.optionalLong("sourceAt")?.let { now - it }
                 val stale = !repository.connected || age == null || age >= STALE_AFTER_MS || age < -5_000
-                Status(if (stale) "Metrics paused" else "Active drive", if (stale && !ambient) Amber else if (ambient) Color.White else Brand)
-                Metric("Elapsed", elapsed(score.optionalDouble("elapsedSeconds")))
-                Metric("Distance traveled", traveledDistance(score.optionalDouble("distanceMeters")))
-                Metric("Camera crossings", score.optionalLong("cameraCrossings")?.toString() ?: "—")
+                Status(if (stale) "Metrics paused" else "Active drive", if (stale && !ambient) Amber else if (ambient) Muted else Brand)
+                Metric("Elapsed", elapsed(score.optionalDouble("elapsedSeconds")), ambient)
+                Metric("Distance traveled", traveledDistance(score.optionalDouble("distanceMeters")), ambient)
+                Metric("Camera crossings", score.optionalLong("cameraCrossings")?.toString() ?: "—", ambient)
                 Label("${score.optionalLong("confirmedCrossings")?.toString() ?: "—"} confirmed · ${score.optionalLong("possibleCrossings")?.toString() ?: "—"} possible", 12, Muted)
             }
         }
@@ -190,9 +203,9 @@ private fun ScorecardPage(repository: WatchPresentation, snapshot: WatchSnapshot
     Text(text, color = color, fontSize = size.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
         fontFamily = if (mono) WatchMono else WatchSans)
 }
-@Composable private fun Metric(label: String, value: String) {
+@Composable private fun Metric(label: String, value: String, ambient: Boolean = false) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-        Label(label, 12, Muted); Label(value, 16, Color.White, mono = true)
+        Label(label, 12, Muted); Label(value, 16, if (ambient) Muted else Color.White, mono = true)
     }
 }
 @Composable private fun ManeuverIcon(kind: String, exit: Long?, color: Color) {

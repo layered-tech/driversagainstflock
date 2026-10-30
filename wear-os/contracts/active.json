@@ -6,6 +6,7 @@
   "publishedAt": 2000,
   "environment": "staging",
   "phoneVersion": "2.9.3",
+  "hapticsEnabled": true,
   "navigation": {
     "status": "active",
     "sessionId": "drive-1",

@@ -26,10 +26,12 @@ class WatchUiTest {
         override val dropped = 2
         override val lastError = "none"
         override val pingStatus = "42 ms"
+        override val hapticStatus = "Ready"
         override var endedAt by mutableStateOf<Long?>(null)
         override var endedByArrival by mutableStateOf(false)
         override val history = listOf("Accepted revision 12", "Ping 42 ms")
         override fun refresh(request: Boolean) {}
+        override fun preview(pattern: String) {}
     }
     private fun snapshot(navStatus: String = "active", scoreStatus: String = "active", stale: Boolean = false, instruction: String? = null): WatchSnapshot {
         val context = InstrumentationRegistry.getInstrumentation().context

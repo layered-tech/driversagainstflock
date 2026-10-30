@@ -22,7 +22,6 @@
         "prebuild:staging": "APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- expo prebuild --clean",
         "prebuild:production": "APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- expo prebuild --clean",
         "build:android:staging": "APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- ./scripts/eas-local-build.sh -p android --profile staging --no-wait",
-        "build:android:watch-staging": "./scripts/build-watch-staging.sh",
         "build:android:e2e": "APP_ENV=e2e EXPO_NO_DOTENV=1 ./scripts/eas-local-build.sh -p android --profile e2e-test --non-interactive --no-wait",
         "build:android:production": "APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p android --profile production --non-interactive --no-wait",
         "build:ios:production": "APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p ios --profile production --no-wait",

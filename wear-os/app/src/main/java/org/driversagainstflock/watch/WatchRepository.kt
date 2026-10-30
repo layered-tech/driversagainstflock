@@ -22,10 +22,12 @@ interface WatchPresentation {
     val dropped: Int
     val lastError: String
     val pingStatus: String
+    val hapticStatus: String
     val endedAt: Long?
     val endedByArrival: Boolean
     val history: List<String>
     fun refresh(request: Boolean = false)
+    fun preview(pattern: String)
 }
 
 class WatchRepository private constructor(private val context: Context) : WatchPresentation {
@@ -38,6 +40,10 @@ class WatchRepository private constructor(private val context: Context) : WatchP
     private val handler = Handler(Looper.getMainLooper())
     private val prefs = context.getSharedPreferences("watch_state", 0)
     private val gate = SnapshotGate()
+    private val haptics = WatchHaptics(context)
+    private val ongoingActivity = WatchOngoingActivity(context)
+    private var pendingCue: WatchCue? = null
+    private var lastPlayedCueId = prefs.getString("last_cue_id", null)
     override var snapshot by mutableStateOf<WatchSnapshot?>(null); private set
     override var connected by mutableStateOf(false); private set
     override var remoteProtocolVersion by mutableStateOf<Int?>(null); private set
@@ -48,6 +54,7 @@ class WatchRepository private constructor(private val context: Context) : WatchP
     override var lastError by mutableStateOf("none"); private set
     var pingMs by mutableStateOf<Long?>(null); private set
     override var pingStatus by mutableStateOf("Not measured"); private set
+    override var hapticStatus by mutableStateOf(haptics.suppressionReason() ?: "Ready"); private set
     override var endedAt by mutableStateOf<Long?>(null); private set
     override var endedByArrival by mutableStateOf(false); private set
     override var history by mutableStateOf<List<String>>(emptyList()); private set
@@ -80,12 +87,47 @@ class WatchRepository private constructor(private val context: Context) : WatchP
             endedByArrival = previous.navigation.optJSONObject("maneuver")?.optString("kind") == "arrive"
         } else if (next.sessionId != null) endedAt = null
         snapshot = next
+        ongoingActivity.update(next)
+        playPendingCue()
         incompatible = false
         lastError = "none"
         prefs.edit().putString("snapshot", payload).apply()
         record("Accepted revision ${next.revision}")
     }
+    fun acceptCue(payload: String) = handler.post {
+        val cue = runCatching { WatchCue.parse(payload) }.getOrElse {
+            dropped += 1; record("Invalid haptic cue"); return@post
+        }
+        if (cue.id == lastPlayedCueId || !cue.eligible(snapshot, System.currentTimeMillis()) && cue.preview) {
+            dropped += 1; return@post
+        }
+        pendingCue = cue
+        playPendingCue()
+    }
+    private fun playPendingCue() {
+        val cue = pendingCue ?: return
+        val now = System.currentTimeMillis()
+        if (now >= cue.expiresAt || cue.id == lastPlayedCueId) {
+            pendingCue = null; dropped += 1; record("Expired or duplicate cue"); return
+        }
+        if (!cue.eligible(snapshot, now)) return
+        pendingCue = null
+        lastPlayedCueId = cue.id
+        prefs.edit().putString("last_cue_id", cue.id).apply()
+        haptics.play(cue.pattern)?.let { hapticStatus = it; record("Cue suppressed: $it"); return }
+        hapticStatus = "Ready"
+        record("Played ${cue.pattern} cue")
+    }
+    override fun preview(pattern: String) {
+        haptics.play(pattern)?.let { hapticStatus = it; record("Preview suppressed: $it"); return }
+        hapticStatus = "Ready"
+        record("Previewed $pattern")
+    }
+    fun refreshOngoingActivity() {
+        snapshot?.let(ongoingActivity::update)
+    }
     override fun refresh(request: Boolean) {
+        hapticStatus = haptics.suppressionReason() ?: "Ready"
         if (refreshing) return
         pingStartedAt?.let { if (SystemClock.elapsedRealtime() - it >= 5_000) {
             pingStartedAt = null; pingToken = null; connected = false

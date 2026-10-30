@@ -12,6 +12,7 @@ data class WatchSnapshot(val json: JSONObject) {
     val navigation = json.getJSONObject("navigation")
     val scorecard = json.getJSONObject("scorecard")
     val publishedAt = json.getLong("publishedAt")
+    val hapticsEnabled = json.optBoolean("hapticsEnabled", true)
     val sessionId: String? = navigation.optionalString("sessionId")
     fun sourceAge(now: Long): Long? = navigation.optionalLong("sourceAt")?.let { now - it }
     fun stale(now: Long): Boolean = sourceAge(now)?.let { it >= STALE_AFTER_MS || it < -5_000 } ?: true

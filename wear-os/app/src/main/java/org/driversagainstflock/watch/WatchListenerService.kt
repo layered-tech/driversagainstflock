@@ -18,6 +18,7 @@ class WatchListenerService : WearableListenerService() {
         when (event.path) {
             "/daf/watch/state" -> if (event.data.size <= 65_536) WatchRepository.get(this).accept(event.data.toString(Charsets.UTF_8))
             "/daf/watch/pong" -> WatchRepository.get(this).pong(event.sourceNodeId, event.data)
+            "/daf/watch/haptic-cue" -> if (event.data.size <= 2048) WatchRepository.get(this).acceptCue(event.data.toString(Charsets.UTF_8))
         }
     }
 }

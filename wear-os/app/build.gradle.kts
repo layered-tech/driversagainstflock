@@ -9,6 +9,8 @@ require(releaseVersionCode == null || (releaseVersionCode.matches(Regex("[1-9][0
     "WEAR_VERSION_CODE must be an integer between 1 and 2100000000."
 }
 val watchVersionName = providers.environmentVariable("WEAR_VERSION_NAME").orElse("0.1.0").get()
+val watchBuildEnvironment = providers.environmentVariable("WEAR_BUILD_ENV").orElse("production").get()
+require(watchBuildEnvironment in setOf("staging", "production")) { "WEAR_BUILD_ENV must be staging or production." }
 require(watchVersionName.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?"))) {
     "WEAR_VERSION_NAME must be a version such as 0.1.0."
 }
@@ -70,8 +72,8 @@ android {
         }
         release {
             signingConfig = signingConfigs.getByName("playUpload")
-            resValue("string", "app_name", "Drivers Against Flock")
-            buildConfigField("String", "APP_ENVIRONMENT", "\"production\"")
+            resValue("string", "app_name", if (watchBuildEnvironment == "staging") "Staging | DAF" else "Drivers Against Flock")
+            buildConfigField("String", "APP_ENVIRONMENT", "\"$watchBuildEnvironment\"")
         }
     }
     buildFeatures { compose = true; buildConfig = true; resValues = true }
@@ -87,6 +89,7 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.wear.compose:compose-material:1.5.6")
     implementation("androidx.wear:wear:1.3.0")
+    implementation("androidx.wear:wear-ongoing:1.1.0")
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.8.3")

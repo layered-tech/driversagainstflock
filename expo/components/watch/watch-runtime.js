@@ -32,6 +32,12 @@ import {
     watchEnvironmentIsSupported,
 } from './watch-contract';
 import { createWatchPublisher } from './watch-publisher';
+import { createWatchCuePlanner } from './watch-cues';
+import {
+    loadWatchHapticPreferences,
+    subscribeWatchHaptics,
+    watchHapticsEnabled,
+} from './watch-haptic-preferences';
 
 let initialized = false;
 export function initializeWatchRuntime() {
@@ -49,6 +55,7 @@ export function initializeWatchRuntime() {
     let sessionId = null;
     let routeKey = null;
     let routeRevision = 0;
+    const cuePlanner = createWatchCuePlanner();
     const publisher = createWatchPublisher({
         readSnapshot(revision) {
             const state = getSharedRoutingState();
@@ -83,6 +90,7 @@ export function initializeWatchRuntime() {
                 now: Date.now(),
                 environment: APP_ENVIRONMENT,
                 phoneVersion: Constants.expoConfig?.version ?? 'unknown',
+                hapticsEnabled: watchHapticsEnabled(),
                 sessionId,
                 routeRevision,
                 active,
@@ -104,8 +112,21 @@ export function initializeWatchRuntime() {
                 scorecard: getScorecardActiveDriveSummary(),
             });
         },
-        publish: (snapshot) =>
-            transport.publishSnapshot(JSON.stringify(snapshot)),
+        async publish(snapshot) {
+            const latestLocation = getLatestAcceptedDeviceLocation();
+            const speed =
+                latestLocation?.timestamp === snapshot.navigation.sourceAt
+                    ? getLocationUpdate(latestLocation)?.speed
+                    : null;
+            const cue = cuePlanner.consume(
+                snapshot,
+                speed,
+                watchHapticsEnabled(),
+                Date.now(),
+            );
+            await transport.publishSnapshot(JSON.stringify(snapshot));
+            if (cue) await transport.sendHapticCue(JSON.stringify(cue));
+        },
     });
     // Let the Scorecard runtime finish its atomic route/location update before reading it.
     let pending = false;
@@ -121,6 +142,10 @@ export function initializeWatchRuntime() {
     addAcceptedDeviceLocationListener(update);
     subscribeSharedNavigationRerouting(update);
     subscribeScorecardRuntime(update);
+    subscribeWatchHaptics(update);
+    loadWatchHapticPreferences()
+        .then(update)
+        .catch(() => {});
     transport.addListener('onStateRequested', () => {
         if (sharedRoutingStateCanPublish()) publisher.update({ force: true });
     });

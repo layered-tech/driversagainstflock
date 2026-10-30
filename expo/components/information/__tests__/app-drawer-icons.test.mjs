@@ -99,6 +99,7 @@ describe('Navigation drawer icons', () => {
                         },
                         'react-native': {
                             Alert: {},
+                            Platform: { OS: 'android', isPad: false },
                             Text: 'Text',
                             View: 'View',
                             useColorScheme: () => theme,

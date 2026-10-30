@@ -38,6 +38,7 @@ Complete this design package before coding begins. Keep the deliverables togethe
 - **Phone companion settings:** maneuver-haptics toggle and access to pattern previews.
 - **Annotated maneuver sequences:** when the advance cue occurs, visual state at cue time, and progression after the maneuver.
 - **Behavior states:** haptics disabled, system-suppressed, disconnected, stale, rerouting, and unsupported capability.
+- **Always-visible guidance:** during routed navigation, keep the watch app visible and prevent automatic locking. Show the designed muted navigation and Scorecard screens when the display dims or enters ambient mode, then restore their active appearance on wake.
 - **Background navigation surface:** Wear OS ongoing-activity indicator and return-to-guidance flow.
 - Specify cue priority and suppression behavior for closely spaced maneuvers.
 
@@ -100,7 +101,7 @@ No backend changes, watch login, independent watch GPS, or standalone routing ar
 | Phase | Deliverable | Exit gate |
 |---|---|---|
 | **1 — Visual PoC** | Display-only navigation, active Scorecard, explicit idle/connection states, and diagnostics. | Watch8 follows route progress, reroutes, reconnects, cancellation, and arrival; Scorecard agrees with the phone. |
-| **2 — Maneuver haptics** | One advance cue per maneuver: one short tap left, two right, longer neutral pulse for roundabouts/U-turns. | Patterns are distinguishable, including with the screen off; no duplicate, expired, or previous-route cues. |
+| **2 — Maneuver haptics** | One advance cue per maneuver: one short tap left, two right, longer neutral pulse for roundabouts/U-turns; always-visible routed guidance with muted ambient screens. | Patterns are distinguishable, including with the screen off; no duplicate, expired, or previous-route cues; the watch remains on guidance without automatically locking during a route. |
 | **3 — Camera alerts** | Camera information, distinct haptic pattern, existing eligibility/suppression policies, and car-audio coordination preferences. | Correct road/route relevance, repeat suppression, stale-event rejection, and phone/car/watch coordination. |
 | **4 — My areas** | Idle Area summaries, unread changes, notifications, and phone handoff for detail. | Correct summary/read-state synchronization, notification deduplication, and handoff. |
 | **5 — Recap and quick access** | Finalized drive recaps, complications, and Wear OS tile. | Recaps match phone records; quick-access surfaces handle freshness and route to the correct screen. |
@@ -124,6 +125,7 @@ For Phase 2:
 - Centralize these testable constants for Watch8 tuning.
 - Include slight/sharp turns and keep-left/right. Straight/departure steps remain visual-only.
 - Maneuver cues take priority over camera haptics. Expire conflicting camera cues rather than replaying them late.
+- Keep routed guidance visible without automatic watch locking. Use the muted screen variants while dimmed or ambient, and restore normal presentation when the watch wakes; return to normal lock behavior when navigation ends.
 - Respect system interruption settings and validate the active-navigation background lifecycle using [Wear OS ongoing activities](https://developer.android.com/training/wearables/notifications/ongoing-activity).
 
 ## Validation and rollout

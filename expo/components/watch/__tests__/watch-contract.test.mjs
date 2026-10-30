@@ -5,6 +5,7 @@ import {
     createWatchSnapshot,
     semanticWatchManeuver,
     watchEnvironmentIsSupported,
+    watchSnapshotStateKey,
     watchSourceIsStale,
 } from '../watch-contract.js';
 import { createWatchPublisher } from '../watch-publisher.js';
@@ -135,6 +136,16 @@ test('privacy opt-out and missing numbers never become zero-valued metrics', () 
             }),
         ).includes('secret'),
         false,
+    );
+});
+test('haptic preference is explicit and changes the immediate state key', () => {
+    const enabled = createWatchSnapshot(base);
+    const disabled = createWatchSnapshot({ ...base, hapticsEnabled: false });
+    assert.equal(enabled.hapticsEnabled, true);
+    assert.equal(disabled.hapticsEnabled, false);
+    assert.notEqual(
+        watchSnapshotStateKey(enabled),
+        watchSnapshotStateKey(disabled),
     );
 });
 test('republication never refreshes source age; staleness starts at 15 seconds', () => {

@@ -6,11 +6,12 @@ import {
     mkdirSync,
     mkdtempSync,
     readFileSync,
+    realpathSync,
     rmSync,
     writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { test } from 'node:test';
 import {
     getWearReleaseEnvironment,
@@ -35,6 +36,10 @@ function fixture(t) {
         new URL('../build-wear-production.mjs', import.meta.url),
         join(expo, 'scripts/build-wear-production.mjs'),
     );
+    copyFileSync(
+        new URL('../build-wear-staging.mjs', import.meta.url),
+        join(expo, 'scripts/build-wear-staging.mjs'),
+    );
     writeFileSync(
         join(expo, 'android/app/debug.keystore'),
         'fixture debug key',
@@ -46,6 +51,8 @@ function fixture(t) {
         `#!/usr/bin/env bash
 set -eu
 printf '%s\\n' "$@" > "$2/invocation"
+printf '%s\\n' "\${WEAR_RELEASE_STORE_FILE:-}" "\${WEAR_RELEASE_KEY_ALIAS:-}" > "$2/signing"
+printf '%s\\n' "\${WEAR_BUILD_ENV:-}" "\${WEAR_VERSION_CODE:-}" > "$2/profile"
 if [[ "\${FAKE_GRADLE_FAIL:-}" == 1 ]]; then exit 17; fi
 case "$3" in
   :app:assembleDebug) output="$2/app/build/outputs/apk/debug/app-debug.apk" ;;
@@ -79,18 +86,26 @@ printf '%s' "$3" > "$output"
     return { root, watch, expo, release, run };
 }
 
-test('staging builds only the watch and copies its APK to the requested path', (t) => {
-    const { root, watch, run } = fixture(t);
+test('staging uses the phone signing key and copies its AAB to the requested path', (t) => {
+    const { root, watch, release, run } = fixture(t);
     const output = join(root, 'output with spaces');
-    const result = run(['staging'], { WEAR_OUTPUT_DIR: output });
+    const result = run(['staging'], { ...release, WEAR_OUTPUT_DIR: output });
     assert.equal(result.status, 0, result.stderr);
     assert.equal(
-        readFileSync(join(output, 'daf-watch-staging.apk'), 'utf8'),
-        ':app:assembleDebug',
+        readFileSync(join(output, 'daf-watch-staging.aab'), 'utf8'),
+        ':app:bundleRelease',
     );
     assert.equal(
         readFileSync(join(watch, 'invocation'), 'utf8'),
-        `-p\n${watch}\n:app:assembleDebug\n--console=plain\n`,
+        `-p\n${watch}\n:app:bundleRelease\n--console=plain\n`,
+    );
+    assert.equal(
+        readFileSync(join(watch, 'signing'), 'utf8'),
+        `${release.WEAR_RELEASE_STORE_FILE}\n${release.WEAR_RELEASE_KEY_ALIAS}\n`,
+    );
+    assert.equal(
+        readFileSync(join(watch, 'profile'), 'utf8'),
+        'staging\n100001\n',
     );
 });
 
@@ -104,6 +119,10 @@ test('production builds the signed bundle without exposing signing secrets in ar
             'utf8',
         ),
         ':app:bundleRelease',
+    );
+    assert.equal(
+        readFileSync(join(watch, 'profile'), 'utf8'),
+        'production\n100001\n',
     );
     const output =
         result.stdout +
@@ -153,10 +172,11 @@ test('invalid Play version codes fail before Gradle starts', (t) => {
 test('missing keystores fail with actionable errors', (t) => {
     const { root, release, run } = fixture(t);
     const staging = run(['staging'], {
-        WEAR_STAGING_STORE_FILE: join(root, 'missing'),
+        ...release,
+        WEAR_RELEASE_STORE_FILE: join(root, 'missing'),
     });
     assert.equal(staging.status, 1);
-    assert.match(staging.stderr, /prebuild:staging/);
+    assert.match(staging.stderr, /existing upload keystore/);
     const production = run(['production'], {
         ...release,
         WEAR_RELEASE_STORE_FILE: join(root, 'missing'),
@@ -166,11 +186,11 @@ test('missing keystores fail with actionable errors', (t) => {
 });
 
 test('failed Gradle invocation does not copy or claim an artifact', (t) => {
-    const { watch, run } = fixture(t);
-    const result = run(['staging'], { FAKE_GRADLE_FAIL: '1' });
+    const { watch, release, run } = fixture(t);
+    const result = run(['staging'], { ...release, FAKE_GRADLE_FAIL: '1' });
     assert.equal(result.status, 17);
     assert.equal(
-        existsSync(join(watch, 'build/artifacts/daf-watch-staging.apk')),
+        existsSync(join(watch, 'build/artifacts/daf-watch-staging.aab')),
         false,
     );
     assert.doesNotMatch(result.stdout, /artifact:/);
@@ -235,6 +255,41 @@ test('production wrapper loads the phone credentials without requiring signing e
     );
     assert.equal(resolved.WEAR_RELEASE_KEY_ALIAS, keystore.keyAlias);
     assert.equal(resolved.WEAR_RELEASE_KEY_PASSWORD, keystore.keyPassword);
+});
+
+test('staging wrapper uses the same phone credentials as the EAS staging app', (t) => {
+    const { expo, watch } = fixture(t);
+    writePhoneCredentials(expo);
+    const result = spawnSync(
+        process.execPath,
+        [join(expo, 'scripts/build-wear-staging.mjs')],
+        {
+            encoding: 'utf8',
+            env: Object.fromEntries(
+                Object.entries(process.env).filter(
+                    ([key]) => !key.startsWith('WEAR_'),
+                ),
+            ),
+        },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(
+        readFileSync(
+            join(watch, 'build/artifacts/daf-watch-staging.aab'),
+            'utf8',
+        ),
+        ':app:bundleRelease',
+    );
+    assert.equal(
+        readFileSync(join(watch, 'signing'), 'utf8'),
+        `${realpathSync(resolve(expo, '../upload key.jks'))}\nphone-upload\n`,
+    );
+    assert.equal(readFileSync(join(watch, 'profile'), 'utf8'), 'staging\n1\n');
+    assert.equal(
+        JSON.parse(readFileSync(join(watch, 'version-code.json')))
+            .lastVersionCode,
+        1,
+    );
 });
 
 test('complete explicit signing overrides take precedence and partial overrides are rejected', (t) => {

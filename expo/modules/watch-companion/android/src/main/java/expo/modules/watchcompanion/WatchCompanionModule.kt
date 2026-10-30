@@ -27,5 +27,29 @@ class WatchCompanionModule : Module() {
                 .addOnSuccessListener { promise.resolve(null) }
                 .addOnFailureListener { promise.reject("PUBLISH_FAILED", "Watch state delivery failed", it) }
         }
+        AsyncFunction("sendHapticCue") { payload: String, promise: Promise ->
+            val context = appContext.reactContext ?: run {
+                promise.reject("NO_CONTEXT", "Phone runtime unavailable", null)
+                return@AsyncFunction
+            }
+            val cue = JSONObject(payload)
+            require(payload.toByteArray().size <= 2048 && cue.getInt("version") == 1)
+            require(cue.getString("pattern") in setOf("left", "right", "neutral"))
+            require(cue.getLong("expiresAt") > cue.getLong("issuedAt"))
+            Wearable.getNodeClient(context).connectedNodes
+                .addOnSuccessListener { nodes ->
+                    if (nodes.isEmpty()) {
+                        promise.reject("NO_WATCH", "No connected watch", null)
+                        return@addOnSuccessListener
+                    }
+                    val deliveries = nodes.map { node ->
+                        Wearable.getMessageClient(context).sendMessage(node.id, "/daf/watch/haptic-cue", payload.toByteArray())
+                    }
+                    com.google.android.gms.tasks.Tasks.whenAll(deliveries)
+                        .addOnSuccessListener { promise.resolve(null) }
+                        .addOnFailureListener { promise.reject("CUE_FAILED", "Watch cue delivery failed", it) }
+                }
+                .addOnFailureListener { promise.reject("NODE_FAILED", "Watch connection unavailable", it) }
+        }
     }
 }

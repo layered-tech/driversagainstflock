@@ -216,6 +216,7 @@ export function useDuoRailEdge() {
 const INFORMATION_ROUTES = new Set([
     'faqs',
     'about-and-legal',
+    'watch-settings',
     'privacy-policy',
     'terms-of-use',
     'contribute-to-daf',
