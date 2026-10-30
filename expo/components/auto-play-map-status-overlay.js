@@ -23,26 +23,16 @@ import {
 } from './map/speed-limit';
 import { AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE } from './map/speed-limit-layout';
 
-function AutoPlayRouteLoadingCard({ isDarkMode, routeLoading, searchLoading }) {
-    const destinationLabel = String(
-        searchLoading?.query ?? routeLoading?.destinationLabel ?? '',
-    ).trim();
-    const loadingText = searchLoading
-        ? `Searching for ${destinationLabel}`
-        : destinationLabel
-          ? `Finding route to ${destinationLabel}`
-          : 'Finding route';
+function AutoPlaySearchLoadingCard({ isDarkMode, searchLoading }) {
+    const destinationLabel = String(searchLoading.query ?? '').trim();
+    const loadingText = `Searching for ${destinationLabel}`;
 
     return (
         <View
             accessibilityLabel={loadingText}
             accessibilityRole="progressbar"
             className={`${isDarkMode ? 'border-daf-border-glass-dark bg-daf-surface-dark/95' : 'border-daf-border-glass bg-white/95'} max-w-[360px] flex-row items-center gap-2 rounded-dafPill border px-3 py-2`}
-            testID={
-                searchLoading
-                    ? 'auto-play-search-loading-card'
-                    : 'auto-play-route-loading-card'
-            }
+            testID="auto-play-search-loading-card"
         >
             <ActivityIndicator color={dafSemanticColors.brand} size="small" />
             <Text
@@ -55,64 +45,15 @@ function AutoPlayRouteLoadingCard({ isDarkMode, routeLoading, searchLoading }) {
     );
 }
 
-function AutoPlaySingleResultCountdownCard({ countdown, isDarkMode }) {
-    const destinationLabel = String(countdown.destinationLabel ?? '').trim();
-    const remainingSeconds = Math.max(
-        1,
-        Math.round(Number(countdown.remainingSeconds) || 1),
-    );
-    const accessibilityLabel = destinationLabel
-        ? `Opening route options for ${destinationLabel} in ${remainingSeconds} seconds.`
-        : `Opening route options in ${remainingSeconds} seconds.`;
-
-    return (
-        <View
-            accessibilityLabel={accessibilityLabel}
-            accessibilityLiveRegion="polite"
-            accessibilityRole="timer"
-            className={`${isDarkMode ? 'border-daf-border-glass-dark bg-daf-surface-dark/95' : 'border-daf-border-glass bg-white/95'} max-w-[360px] flex-row items-center gap-3 rounded-dafMd border px-4 py-3 shadow-[0px_4px_18px_rgba(11,14,18,0.22)]`}
-            testID="auto-play-single-result-countdown-card"
-        >
-            <View
-                className={`${isDarkMode ? 'bg-daf-azure/20' : 'bg-daf-azure/15'} h-10 w-10 items-center justify-center rounded-full`}
-            >
-                <Text
-                    className={`font-dafMono text-[19px] font-extrabold leading-[22px] ${isDarkMode ? 'text-blue-300' : 'text-daf-azure'}`}
-                >
-                    {remainingSeconds}
-                </Text>
-            </View>
-            <View className="min-w-0 flex-shrink gap-0.5">
-                <Text
-                    className={`text-[14px] font-semibold leading-[18px] ${isDarkMode ? 'text-white' : 'text-daf-text-primary'}`}
-                    numberOfLines={1}
-                >
-                    Route options in {remainingSeconds}s
-                </Text>
-                {destinationLabel ? (
-                    <Text
-                        className={`text-[12px] leading-[16px] ${isDarkMode ? 'text-neutral-400' : 'text-daf-text-tertiary'}`}
-                        numberOfLines={1}
-                    >
-                        {destinationLabel}
-                    </Text>
-                ) : null}
-            </View>
-        </View>
-    );
-}
-
 export function AutoPlayTopRightStatusOverlay({
     isDarkMode,
     mapControlLayoutInsets,
-    routeLoading,
     searchLoading,
-    singleResultCountdown,
 }) {
     const systemColorScheme = useColorScheme();
     const resolvedIsDarkMode = isDarkMode ?? systemColorScheme === 'dark';
 
-    if (!routeLoading && !searchLoading && !singleResultCountdown) {
+    if (!searchLoading) {
         return null;
     }
 
@@ -127,19 +68,10 @@ export function AutoPlayTopRightStatusOverlay({
             style={layout.positionStyle}
             testID="auto-play-top-right-status-overlay"
         >
-            {singleResultCountdown ? (
-                <AutoPlaySingleResultCountdownCard
-                    countdown={singleResultCountdown}
-                    isDarkMode={resolvedIsDarkMode}
-                />
-            ) : null}
-            {routeLoading || searchLoading ? (
-                <AutoPlayRouteLoadingCard
-                    isDarkMode={resolvedIsDarkMode}
-                    routeLoading={routeLoading}
-                    searchLoading={searchLoading}
-                />
-            ) : null}
+            <AutoPlaySearchLoadingCard
+                isDarkMode={resolvedIsDarkMode}
+                searchLoading={searchLoading}
+            />
         </View>
     );
 }

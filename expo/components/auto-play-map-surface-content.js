@@ -35,6 +35,7 @@ import {
     getAutoPlayViewportMetrics,
 } from './auto-play-map-viewport';
 import { useAutoPlayNavigationAlerts } from './auto-play-navigation-alert-announcer';
+import { useAutoPlayScorecardArrivalAlert } from './auto-play-scorecard-arrival-alert-announcer';
 import { setAutoPlayState, useAutoPlayState } from './auto-play-state';
 import {
     getAutoPlayAppOverlayVisibility,
@@ -96,6 +97,7 @@ import {
     shouldShowDrivingMapStatus,
 } from './map/driving-map-view';
 import { getDrivingMotionState } from './map/driving-motion-state';
+import { getAutomotiveE2EMapSnapshot } from './map/automotive-e2e-map-snapshot';
 import { ELECTRONIC_HORIZON_ALERT_PATH_LENGTH_METERS } from './map/electronic-horizon';
 import { makeElectronicHorizonDebugFeatureCollection } from './map/electronic-horizon-debug';
 import {
@@ -2132,6 +2134,13 @@ export function AutoPlayMapSurfaceContent({
         upcomingAlerts,
         userLocation: mapPreferences.userLocation,
     });
+    useAutoPlayScorecardArrivalAlert({
+        enabled:
+            isRootMapSurface &&
+            rendersAppOverlays &&
+            !routePreviewIsActive &&
+            !searchResultsMapIsActive,
+    });
     const { node: presenceNode, debugGeometry: presenceDebugGeometry } =
         useAutoPlayAlprPresence({
             debugEnabled:
@@ -2293,6 +2302,13 @@ export function AutoPlayMapSurfaceContent({
         }
 
         return registerAutoPlayMapControlHandlers({
+            getE2EMapSnapshot: () =>
+                getAutomotiveE2EMapSnapshot({
+                    mapView: controller.mapViewRef.current,
+                    route: displayedDirectionsRoute,
+                    previewVisible: routePreviewIsActive,
+                    viewport: viewportMetrics,
+                }),
             handleDrivingMapViewPress,
             handleLocationTrackingPress:
                 drivingMapViewMode === DRIVING_MAP_VIEW_ROUTE_OVERVIEW
@@ -2310,6 +2326,10 @@ export function AutoPlayMapSurfaceContent({
         });
     }, [
         controller.handleDrivingRecenterPress,
+        controller.mapViewRef,
+        displayedDirectionsRoute,
+        routePreviewIsActive,
+        viewportMetrics,
         controller.handleLocationTrackingPress,
         controller.handlePan,
         controller.handlePanningInterfaceChanged,
@@ -2480,6 +2500,7 @@ export function AutoPlayMapSurfaceContent({
             ) {
                 if (!isCancelled) {
                     fittedSearchResultsKeyRef.current = searchResultsFitKey;
+                    logAutoPlayMapSurfaceAction('search-results-fitted');
                 }
 
                 return true;
@@ -2652,11 +2673,7 @@ export function AutoPlayMapSurfaceContent({
                         mapControlLayoutInsets={
                             presentation.mapControlLayoutInsets
                         }
-                        routeLoading={autoPlayState.routeLoading}
                         searchLoading={autoPlayState.searchLoading}
-                        singleResultCountdown={
-                            autoPlayState.singleResultCountdown
-                        }
                     />
                 ) : null}
                 <AutoPlayDebugOverlays

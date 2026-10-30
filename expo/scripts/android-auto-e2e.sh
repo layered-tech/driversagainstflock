@@ -8,7 +8,14 @@ source "$SCRIPT_DIR/external-build-storage.sh"
 build_root="${DAF_EAS_LOCAL_BUILD_ROOT:-/Volumes/PfeiferDev/DevCaches/chris/expo-builds}"
 artifacts_root="$build_root/android-auto-e2e"
 tmp_dir="$build_root/tmp"
+if [[ "${1:-}" == "--list" || "${1:-}" == "--help" ]]; then
+    exec node "$SCRIPT_DIR/android-auto-e2e.mjs" "$@"
+fi
 suite="${1:-$EXPO_DIR/.android-auto/suite.json}"
+if [[ $# -gt 0 ]]; then shift; fi
+if [[ "${1:-}" == "--list" || "${1:-}" == "--help" ]]; then
+    exec node "$SCRIPT_DIR/android-auto-e2e.mjs" "$suite" "$@"
+fi
 
 require_external_build_root "$build_root"
 mkdir -p "$artifacts_root" "$tmp_dir"
@@ -22,4 +29,4 @@ done
 
 export ANDROID_AUTO_E2E_ARTIFACTS_DIR="$artifacts_root"
 export TMPDIR="$tmp_dir"
-exec node "$SCRIPT_DIR/android-auto-e2e.mjs" "$suite"
+exec node "$SCRIPT_DIR/android-auto-e2e.mjs" "$suite" "$@"

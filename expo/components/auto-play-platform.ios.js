@@ -4,19 +4,45 @@ import { createCarPlayVoiceSearchController } from './auto-play-carplay-voice-se
 import { prepareCarPlaySearchMap } from './auto-play-search-template-lifecycle';
 import { CarPlayDashboardSurface } from './carplay-dashboard-surface';
 import { CarPlayMapSurface } from './carplay-map-surface';
+import { getCarPlayE2EVoice } from './map/carplay-e2e-fixture';
 
 let voiceSearchController;
+let refreshDashboardButtons;
 
-function applyDashboardButtons(CarPlayDashboard, makeGlyphImage) {
-    CarPlayDashboard.setButtons([
+function applyDashboardButtons({
+    CarPlayDashboard,
+    makeGlyphImage,
+    onDashboardAction,
+    primaryLocations,
+}) {
+    const buttons = [
         {
-            image: makeGlyphImage('location'),
+            image: makeGlyphImage('search'),
             launchHeadUnitScene: true,
-            onPress: () => {},
-            subtitleVariants: ['Find a destination'],
-            titleVariants: ['Open map'],
+            onPress: () => onDashboardAction('search'),
+            subtitleVariants: [],
+            titleVariants: ['Search'],
         },
-    ]);
+    ];
+    const primaryType = primaryLocations?.home
+        ? 'home'
+        : primaryLocations?.work
+          ? 'work'
+          : null;
+
+    if (primaryType) {
+        buttons.push({
+            image: makeGlyphImage(
+                primaryType === 'home' ? 'house' : 'briefcase',
+            ),
+            launchHeadUnitScene: true,
+            onPress: () => onDashboardAction(primaryType),
+            subtitleVariants: [],
+            titleVariants: [primaryType === 'home' ? 'Home' : 'Work'],
+        });
+    }
+
+    CarPlayDashboard.setButtons(buttons);
 }
 
 // CarPlay extension of the platform-agnostic auto-play core.
@@ -50,11 +76,15 @@ export const autoPlayPlatform = {
 
         console.log(`[CarPlay] ${action}`, payload);
     },
-    waitsForSubmittedSearchTransition: true,
     presentsVoiceSearchResultsInList: true,
-    publishesSearchTemplateResultsToMap: true,
     opensSavedDestinationsBeforeSearch: true,
     usesHeaderExitNavigationButton: true,
+    usesPanZoomControlsOnly: true,
+    autoHidesNavigationHeader: true,
+
+    updateDashboardButtons() {
+        refreshDashboardButtons?.();
+    },
 
     cancelSearchVoiceInput() {
         voiceSearchController?.cancel();
@@ -74,7 +104,9 @@ export const autoPlayPlatform = {
 
     registerPlatformListeners({
         autoPlayModule,
+        getPrimaryLocations,
         makeGlyphImage,
+        onDashboardAction,
         onSessionRenderState,
         onVoiceNavigation,
     }) {
@@ -84,7 +116,7 @@ export const autoPlayPlatform = {
         voiceSearchController?.cancel();
         const registeredVoiceSearchController =
             createCarPlayVoiceSearchController({
-                getHybridVoice: () => HybridVoice,
+                getHybridVoice: () => getCarPlayE2EVoice(HybridVoice),
                 isVoiceInputCanceledError: ErrorUtil.isVoiceInputCanceledError,
                 onVoiceNavigation,
             });
@@ -100,9 +132,17 @@ export const autoPlayPlatform = {
         // that waits for that scene before mounting Mapbox. A shortcut is still
         // required for visibility.
         CarPlayDashboard.setComponent(CarPlayDashboardSurface);
-        applyDashboardButtons(CarPlayDashboard, makeGlyphImage);
+        refreshDashboardButtons = () => {
+            applyDashboardButtons({
+                CarPlayDashboard,
+                makeGlyphImage,
+                onDashboardAction,
+                primaryLocations: getPrimaryLocations(),
+            });
+        };
+        refreshDashboardButtons();
         CarPlayDashboard.addListener('didConnect', () => {
-            applyDashboardButtons(CarPlayDashboard, makeGlyphImage);
+            refreshDashboardButtons();
         });
         HybridAutoPlay.addListenerRenderState(
             'AutoPlayRoot',

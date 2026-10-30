@@ -1,105 +1,60 @@
 import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
-import {
-    AUTO_PLAY_SINGLE_RESULT_COUNTDOWN_SECONDS,
-    createAutoPlaySingleResultCountdown,
-} from '../../auto-play-single-result-countdown.js';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+import { loadTourModule } from './tour-test-helpers.mjs';
 
-function createManualTimer() {
-    const scheduled = [];
-
-    return {
-        clearTimeoutFn(timeout) {
-            timeout.cancelled = true;
+const { AutoPlayTopRightStatusOverlay } = loadTourModule(
+    new URL('../../auto-play-map-status-overlay.js', import.meta.url),
+    {
+        'react-native': {
+            useColorScheme: () => 'light',
+            View: 'View',
+            Text: 'Text',
+            ActivityIndicator: 'ActivityIndicator',
         },
-        runNext() {
-            const timeout = scheduled.shift();
-
-            if (timeout && !timeout.cancelled) {
-                timeout.callback();
-            }
+        './auto-play-map-status-layout': {
+            getAutoPlayTopRightStatusOverlayLayout: () => ({
+                positionStyle: {},
+            }),
         },
-        setTimeoutFn(callback, delay) {
-            const timeout = { callback, cancelled: false, delay };
-            scheduled.push(timeout);
+        './design-system/tokens': { dafSemanticColors: { brand: '#7A5CFF' } },
+        './map/driving-location-road-stack': {},
+        './map/marker-loading-indicator': {},
+        './map/navigation-puck-layout': {},
+        './map/speed-limit': {},
+        './map/speed-limit-layout': {},
+    },
+);
 
-            return timeout;
-        },
-    };
-}
+test('the automotive search flow has no automatic advancement hooks', () => {
+    const source = readFileSync(
+        new URL('../../auto-play.js', import.meta.url),
+        'utf8',
+    );
+    assert.doesNotMatch(
+        source,
+        /autoAdvanceSingleResult|singleResultCountdown|scheduleAutoPlaySingleResultAutoAdvance/,
+    );
+});
 
-describe('Auto Play single-result countdown', () => {
-    test('shows three seconds before advancing the result', () => {
-        const timer = createManualTimer();
-        const ticks = [];
-        let completions = 0;
-
-        createAutoPlaySingleResultCountdown({
-            ...timer,
-            onComplete: () => {
-                completions += 1;
+test('route loading and retired countdown data cannot display a floating card', () => {
+    assert.equal(
+        AutoPlayTopRightStatusOverlay({
+            routeLoading: { destinationLabel: 'Coffee' },
+            singleResultCountdown: {
+                destinationLabel: 'Coffee',
+                remainingSeconds: 1,
             },
-            onTick: (remainingSeconds) => {
-                ticks.push(remainingSeconds);
-            },
-        });
+        }),
+        null,
+    );
+});
 
-        assert.equal(AUTO_PLAY_SINGLE_RESULT_COUNTDOWN_SECONDS, 3);
-        assert.deepEqual(ticks, [3]);
-
-        timer.runNext();
-        timer.runNext();
-
-        assert.deepEqual(ticks, [3, 2, 1]);
-        assert.equal(completions, 0);
-
-        timer.runNext();
-
-        assert.equal(completions, 1);
+test('search progress still renders its query and only its search card', () => {
+    const overlay = AutoPlayTopRightStatusOverlay({
+        searchLoading: { query: 'Coffee' },
     });
-
-    test('cancels without advancing when the user acts first', () => {
-        const timer = createManualTimer();
-        let cancellations = 0;
-        let completions = 0;
-        const countdown = createAutoPlaySingleResultCountdown({
-            ...timer,
-            onCancel: () => {
-                cancellations += 1;
-            },
-            onComplete: () => {
-                completions += 1;
-            },
-        });
-
-        countdown.cancel();
-        timer.runNext();
-
-        assert.equal(cancellations, 1);
-        assert.equal(completions, 0);
-    });
-
-    test('cancels a stale voice request before advancing', () => {
-        const timer = createManualTimer();
-        let requestIsCurrent = true;
-        let cancellations = 0;
-        let completions = 0;
-
-        createAutoPlaySingleResultCountdown({
-            ...timer,
-            onCancel: () => {
-                cancellations += 1;
-            },
-            onComplete: () => {
-                completions += 1;
-            },
-            requestIsCurrent: () => requestIsCurrent,
-        });
-
-        requestIsCurrent = false;
-        timer.runNext();
-
-        assert.equal(cancellations, 1);
-        assert.equal(completions, 0);
-    });
+    const card = overlay.props.children.type(overlay.props.children.props);
+    assert.equal(card.props.testID, 'auto-play-search-loading-card');
+    assert.equal(card.props.accessibilityLabel, 'Searching for Coffee');
 });

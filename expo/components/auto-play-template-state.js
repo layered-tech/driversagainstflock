@@ -1,3 +1,9 @@
+const AUTO_PLAY_SEARCH_RESULT_LIMIT = 6;
+
+export function getAutoPlayVisibleSearchResults(results) {
+    return results.slice(0, AUTO_PLAY_SEARCH_RESULT_LIMIT);
+}
+
 export const AUTO_PLAY_TRIP_PREVIEW_TEXT_CONFIGURATION = Object.freeze({
     additionalRoutesButtonTitle: 'Route options',
     overviewButtonTitle: 'Overview',

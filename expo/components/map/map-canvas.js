@@ -1764,6 +1764,7 @@ export const MapCanvas = memo(function MapCanvas({
                 <SubmittedSearchResultMarker
                     key={`submitted-search-result-${result.id}-${index}`}
                     index={index}
+                    numbered={navigationPuckVariant === 'auto-play'}
                     onPress={handleSubmittedSearchResultPress}
                     result={result}
                 />

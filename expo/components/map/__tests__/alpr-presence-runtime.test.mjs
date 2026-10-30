@@ -34,6 +34,7 @@ function runtime(
         '../../lib/place-search-session': {},
         '../../lib/private-cache-storage': {
             privateCacheStorageIsEncrypted: () => encrypted,
+            getPrivateCacheItemStrict: async (key) => key,
             setPrivateCacheItem: save,
         },
         '../auto-play-session-state': {},
@@ -124,7 +125,7 @@ test('E2E write diagnostics await encrypted persistence without exposing private
     });
     const pending = h.options.save('private-reporter-state');
     assert.deepEqual(saved, [
-        ['driversagainstflock.alprPresence.v1', 'private-reporter-state'],
+        ['driversagainstflock.alprPresence.e2e.v1', 'private-reporter-state'],
     ]);
     assert.deepEqual(h.logs, ['[E2E] presence-write-start:1']);
     finish();
@@ -134,6 +135,22 @@ test('E2E write diagnostics await encrypted persistence without exposing private
         '[E2E] presence-write-complete:1',
     ]);
     assert.doesNotMatch(h.logs.join('\n'), /private-reporter-state/);
+});
+
+test('E2E reports cannot be loaded from or saved into the ordinary device outbox', async () => {
+    for (const environment of ['e2e', 'development', 'production']) {
+        const saved = [];
+        const h = runtime(environment, false, {
+            save: async (key) => saved.push(key),
+        });
+        const key =
+            environment === 'e2e'
+                ? 'driversagainstflock.alprPresence.e2e.v1'
+                : 'driversagainstflock.alprPresence.v1';
+        assert.equal(await h.options.load(), key);
+        await h.options.save({ outbox: [] });
+        assert.deepEqual(saved, [key]);
+    }
 });
 
 test('write diagnostics preserve storage rejection and the encrypted-storage requirement', async () => {

@@ -18,6 +18,26 @@ const source = JSON.parse(
 );
 const route = parseEmulatorRoute(source);
 
+test('CarPlay GPX matches every Android replay fix and its timing', () => {
+    const gpx = readFileSync(
+        new URL('../../.android-auto/route-pewaukee.gpx', import.meta.url),
+        'utf8',
+    );
+    const points = [
+        ...gpx.matchAll(
+            /<trkpt lat="([^"]+)" lon="([^"]+)"><time>([^<]+)<\/time><\/trkpt>/g,
+        ),
+    ];
+    const fixes = buildEmulatorRouteReplay(route);
+    assert.equal(points.length, fixes.length);
+    const startedAt = Date.parse(points[0][3]);
+    points.forEach((point, index) => {
+        assert.equal(Number(point[1]), fixes[index].latitude);
+        assert.equal(Number(point[2]), fixes[index].longitude);
+        assert.equal(Date.parse(point[3]) - startedAt, fixes[index].atMs);
+    });
+});
+
 test('uses all 104 detailed road points rather than the simplified overview or an endpoint line', () => {
     assert.equal(route.name, 'WI-164 S/Pewaukee Rd');
     assert.equal(route.durationMs, 147000);

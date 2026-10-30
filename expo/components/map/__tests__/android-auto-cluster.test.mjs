@@ -436,6 +436,9 @@ test('the CarPlay adapter registers the shared cluster renderer', () => {
     const registrations = [];
     const ClusterSurface = () => {};
     const { autoPlayPlatform } = loadModule('../../auto-play-platform.ios.js', {
+        './map/carplay-e2e-fixture': {
+            getCarPlayE2EVoice: (voice) => voice,
+        },
         './auto-play-carplay-voice-search': {
             createCarPlayVoiceSearchController: () => ({ cancel() {} }),
         },
@@ -463,7 +466,9 @@ test('the CarPlay adapter registers the shared cluster renderer', () => {
             ErrorUtil: { isVoiceInputCanceledError() {} },
             HybridAutoPlay: { addListenerRenderState() {} },
         },
+        getPrimaryLocations: () => ({}),
         makeGlyphImage: (name) => name,
+        onDashboardAction() {},
         onSessionRenderState() {},
         onVoiceNavigation() {},
     });

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
-import { createAutoPlaySearchCallbackState } from '../../auto-play-template-state.js';
+import { createAutoPlayPlaceSearch } from '../../auto-play-place-search.js';
+import { getAutoPlayVisibleSearchResults } from '../../auto-play-template-state.js';
 
 const autoPlaySource = readFileSync(
     new URL('../../auto-play.js', import.meta.url),
@@ -37,6 +38,7 @@ function createSavedSearchTemplateHarness(
     loadSavedLocations,
     runPlaceTextSearch,
     autoPlayPlatform = {},
+    warmSavedLocations = null,
 ) {
     const functionStart = autoPlaySource.indexOf(
         'function openSearchTemplate(',
@@ -54,6 +56,9 @@ function createSavedSearchTemplateHarness(
         unsubscribed: false,
         cancellations: 0,
         preparations: 0,
+        searchCancellations: 0,
+        queries: [],
+        pinPublications: [],
     };
     class SearchTemplate {
         constructor(config) {
@@ -67,6 +72,50 @@ function createSavedSearchTemplateHarness(
     }
     const openSearchTemplate = vm.runInNewContext(`(${functionSource})`, {
         autoPlayPlatform,
+        activeAutoPlayPlaceSearch: null,
+        getRootMapButtons: () => [],
+        setAutoPlaySearchWorkflowIsActive() {},
+        getSearchResultsHeaderActions: (onBack, onMap) => ({ onBack, onMap }),
+        presentAutoPlaySearchResults: (options) => {
+            state.mapPresentation = options;
+            state.pinPublications.push({
+                query: options.query,
+                results: getAutoPlayVisibleSearchResults(options.results),
+            });
+            return { pushPromise: Promise.resolve(true) };
+        },
+        setAutoPlaySubmittedSearchResults: (value) =>
+            state.pinPublications.push(value),
+        createPlaceSearchSessionToken: () => 'session',
+        getAutoPlaySearchLocation: async () => [1, 2],
+        searchPlaces: async () => [],
+        searchTextPlaces: async ({ textQuery }) => {
+            state.queries.push(textQuery);
+            const results = await runPlaceTextSearch?.(
+                state.template,
+                textQuery,
+            );
+            return results ?? [];
+        },
+        createAutoPlayPlaceSearch(options) {
+            state.placeSearchOptions = options;
+            const search = createAutoPlayPlaceSearch(options);
+            return {
+                ...search,
+                cancel() {
+                    state.searchCancellations++;
+                    search.cancel();
+                },
+            };
+        },
+        updateSearchTemplateResults(_template, results, query) {
+            updates.push({
+                items: results.length
+                    ? results
+                    : [{ title: { text: `No results for ${query}` } }],
+            });
+            return Promise.resolve(true);
+        },
         addSearchSavedLocationsListener(listener) {
             state.listener = listener;
             return () => {
@@ -80,12 +129,13 @@ function createSavedSearchTemplateHarness(
         createAutoPlaySearchTemplateLifecycle: () => ({
             waitForResultTemplatePushes() {},
         }),
-        createAutoPlaySearchCallbackState,
         PLACE_SEARCH_MIN_QUERY_LENGTH: 2,
         prepareAutoPlaySearchMap: async () => {
             state.preparations += 1;
+            state.onPrepare?.();
         },
         getBackHeaderAction: (onPress) => ({ onPress }),
+        getSearchSavedLocationsSnapshot: () => warmSavedLocations,
         getAutoPlaySearchLoadingCopy: (query) => ({
             detailedText: `Looking for ${query}.`,
             title: 'Searching...',
@@ -140,13 +190,15 @@ test('late search callbacks cannot reset a submitted search', async () => {
     harness.state.template.config.onSearchTextChanged('');
     assert.equal(harness.updates.at(-1).items[0].title.text, 'Searching...');
 
+    await new Promise((resolve) => setImmediate(resolve));
     finishSearch();
     await search;
+    const completedResults = harness.updates.at(-1);
     harness.state.template.config.onSearchTextChanged('');
-    assert.equal(harness.updates.at(-1).items[0].title.text, 'Searching...');
+    assert.strictEqual(harness.updates.at(-1), completedResults);
 });
 
-test('submission survives native dismissal and ignores late voice callbacks', async () => {
+test('native results keep the search alive until the template is popped', async () => {
     let finish;
     let searches = 0;
     const harness = createSavedSearchTemplateHarness(
@@ -162,7 +214,7 @@ test('submission survives native dismissal and ignores late voice callbacks', as
     const cancellations = harness.state.cancellations;
     const search =
         harness.state.template.config.onSearchTextSubmitted('New York coffee');
-    harness.state.template.config.onPopped();
+    // Disappearing under the package results list does not pop SearchTemplate.
     harness.state.template.config.onSearchTextChanged('');
     harness.state.template.config.onSearchTextChanged('New York');
     await harness.state.template.config.onSearchTextSubmitted(
@@ -170,9 +222,12 @@ test('submission survives native dismissal and ignores late voice callbacks', as
     );
     assert.equal(searches, 1);
     assert.equal(harness.state.cancellations, cancellations);
-    assert.equal(harness.state.unsubscribed, true);
+    assert.equal(harness.state.unsubscribed, false);
+    await new Promise((resolve) => setImmediate(resolve));
     finish();
     await search;
+    harness.state.template.config.onPopped();
+    assert.equal(harness.state.unsubscribed, true);
 });
 
 test('an initial voice query opens with a processing row', async () => {
@@ -201,7 +256,7 @@ test('car search shows saved places before typing and selects through the route 
 
     assert.equal(harness.updates.at(-1).items[0].title.text, favorite.name);
     harness.state.template.config.onSearchTextChanged('Austin');
-    assert.equal(harness.updates.at(-1).items[0].title.text, 'Search');
+    assert.equal(harness.updates.at(-1).items[0].title.text, favorite.name);
     harness.state.template.config.onSearchTextChanged('');
     assert.equal(harness.updates.at(-1).items[0].title.text, favorite.name);
 
@@ -214,6 +269,41 @@ test('car search shows saved places before typing and selects through the route 
 
     harness.state.template.config.onPopped();
     assert.equal(harness.state.unsubscribed, true);
+});
+
+test('warm car keyboard search is constructed with saved destinations immediately', async () => {
+    const harness = createSavedSearchTemplateHarness(
+        new Promise(() => {}),
+        undefined,
+        {},
+        { places: [{ id: 'favorite', name: 'Favorite place' }] },
+    );
+    const opened = harness.openSearchTemplate();
+    assert.equal(
+        harness.state.template.config.results.items[0].title.text,
+        'Favorite place',
+    );
+    assert.equal(harness.updates.length, 0);
+    await opened.pushPromise;
+    assert.equal(harness.updates.at(-1).items[0].title.text, 'Favorite place');
+});
+
+test('car keyboard search preserves available saved places after unrelated storage fails', async () => {
+    let failLoad;
+    const harness = createSavedSearchTemplateHarness(
+        new Promise((_resolve, reject) => {
+            failLoad = reject;
+        }),
+    );
+    const opened = harness.openSearchTemplate();
+    await opened.pushPromise;
+    harness.state.listener({
+        places: [{ id: 'favorite', name: 'Favorite place' }],
+    });
+    failLoad(new Error('primary unavailable'));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(harness.updates.at(-1).items[0].title.text, 'Favorite place');
 });
 
 test('late saved-place hydration does not update a dismissed car search', async () => {
@@ -247,10 +337,13 @@ test('car search stays usable when saved places cannot be loaded', async () => {
         'Saved places unavailable',
     );
     harness.state.template.config.onSearchTextChanged('Austin');
-    assert.equal(harness.updates.at(-1).items[0].title.text, 'Search');
+    assert.equal(
+        harness.updates.at(-1).items[0].title.text,
+        'Saved places unavailable',
+    );
 });
 
-test('Android Auto presents submitted place results with the host map', () => {
+test('programmatic voice results offer an optional map-backed list', () => {
     assert.match(androidPlatformSource, /showsSearchResultsOnMap:\s*true/);
     assert.match(
         autoPlaySource,
@@ -270,22 +363,15 @@ test('Android Auto presents submitted place results with the host map', () => {
     );
 });
 
-test('Android Auto searches only after explicit submission', () => {
-    assert.doesNotMatch(autoPlaySource, /supportsSearchAutocomplete/);
-    assert.doesNotMatch(autoPlaySource, /schedulePlaceAutocomplete/);
-    assert.doesNotMatch(autoPlaySource, /runPlaceAutocomplete/);
-    assert.doesNotMatch(autoPlaySource, /createPlaceSearchSessionToken/);
-    assert.match(autoPlaySource, /createAutoPlaySearchCallbackState/);
-    assert.doesNotMatch(autoPlaySource, /SEARCH_DEBOUNCE_MS/);
-    assert.doesNotMatch(autoPlaySource, /\bsearchPlaces\b/);
-    assert.match(
-        autoPlaySource,
-        /const runSubmittedSearch[\s\S]*?return runPlaceTextSearch\(/,
+test('both platforms share native autocomplete and submit callbacks', () => {
+    const keyboard = autoPlaySource.slice(
+        autoPlaySource.indexOf('function openSearchTemplate('),
+        autoPlaySource.indexOf('function openVoiceSearchResultsTemplate('),
     );
-    assert.match(
-        autoPlaySource,
-        /onSearchTextSubmitted: \(searchText\) => \{\s*return runSubmittedSearch\(searchText\);\s*\}/,
-    );
+    assert.match(keyboard, /createAutoPlayPlaceSearch/);
+    assert.match(keyboard, /placeSearch\.change\(searchTextValue\)/);
+    assert.match(keyboard, /placeSearch\.submit\(searchTextValue\)/);
+    assert.doesNotMatch(keyboard, /nativeTransition|new ListTemplate/);
 });
 
 test('Auto Play omits the unreachable header driving-mode toggle', () => {
@@ -296,7 +382,7 @@ test('Auto Play omits the unreachable header driving-mode toggle', () => {
     assert.match(autoPlaySource, /function setAutoPlayDrivingModeIsActive/);
 });
 
-test('submitted results open without updating the dismissed search template', () => {
+test('voice results retain map presentation and tolerate removed templates', () => {
     assert.match(
         autoPlaySource,
         /await prepareMap\(\)[\s\S]*?searchTextPlaces\([\s\S]*?presentAutoPlaySearchResults\(/,
@@ -307,55 +393,14 @@ test('submitted results open without updating the dismissed search template', ()
     );
 });
 
-test('voice searches visibly count down before advancing a sole result', () => {
-    assert.equal(
-        autoPlaySource.match(/autoAdvanceSingleResult:\s*true/g)?.length,
-        1,
-    );
-    assert.match(
+test('submitted searches never schedule automatic result selection', () => {
+    assert.doesNotMatch(
         autoPlaySource,
-        /resolvedRequestType === 'search'[\s\S]*?autoAdvanceSingleResult:\s*true/,
-    );
-    assert.match(
-        autoPlaySource,
-        /await resultTemplatePresentation\.pushPromise[\s\S]*?results\.length === 1[\s\S]*?scheduleAutoPlaySingleResultAutoAdvance/,
-    );
-    assert.match(
-        autoPlaySource,
-        /function scheduleAutoPlaySingleResultAutoAdvance[\s\S]*?handleSearchResultSelected\(result,[\s\S]*?template:\s*resultTemplate/,
-    );
-    assert.match(
-        autoPlaySource,
-        /function cancelAutoPlaySearchWork[\s\S]*?clearAutoPlaySingleResultCountdown\(\)/,
-    );
-    assert.match(
-        autoPlaySource,
-        /async function handleSearchResultSelected[\s\S]*?clearAutoPlaySingleResultCountdown\(\)[\s\S]*?startRouteLoadRequest/,
+        /autoAdvanceSingleResult|scheduleAutoPlaySingleResultAutoAdvance|singleResultCountdown/,
     );
     assert.match(
         autoPlaySource,
         /onSearchTextSubmitted: \(searchText\) => \{\s*return runSubmittedSearch\(searchText\);\s*\}/,
-    );
-    assert.match(
-        autoPlaySource,
-        /runSubmittedSearch\(initialSearchText, \{\s*shouldAutoAdvanceSingleResult: autoAdvanceSingleResult/,
-    );
-    assert.match(
-        autoPlaySource,
-        /async function runPlaceTextSearch[\s\S]*?clearAutoPlaySingleResultCountdown\(\)[\s\S]*?abortSearchRequest\(\)/,
-    );
-
-    const countdownStart = autoPlaySource.indexOf(
-        'function scheduleAutoPlaySingleResultAutoAdvance(',
-    );
-    const countdownEnd = autoPlaySource.indexOf(
-        'function cancelAutoPlaySearchWork(',
-        countdownStart,
-    );
-
-    assert.doesNotMatch(
-        autoPlaySource.slice(countdownStart, countdownEnd),
-        /startNavigationImmediately/,
     );
 });
 
@@ -415,74 +460,213 @@ test('Android Auto supplies submitted result markers and frames them on its map'
     );
 });
 
-test('CarPlay publishes visible search results to the shared map context', () => {
-    assert.match(
-        iosPlatformSource,
-        /publishesSearchTemplateResultsToMap:\s*true/,
-    );
-    assert.match(
-        autoPlaySource,
-        /function updateSearchTemplateResults[\s\S]*?publishesSearchTemplateResultsToMap[\s\S]*?setAutoPlaySubmittedSearchResults/,
-    );
-    assert.match(
-        autoPlaySource,
-        /function openSearchTemplate[\s\S]*?const dismissSearch[\s\S]*?clearAutoPlaySubmittedSearchResults[\s\S]*?onPopped:\s*dismissSearch/,
-    );
-    assert.match(
-        autoPlaySource,
-        /template\s*\.push\(\)[\s\S]*?\.catch\(\(error\) => \{[\s\S]*?dismissSearch\(\)/,
+test('keyboard uses native submitted results and only the Map header action opens the short map list', async () => {
+    const h = createSavedSearchTemplateHarness(Promise.resolve({ places: [] }));
+    await h.openSearchTemplate().pushPromise;
+    const results = Array.from({ length: 20 }, (_, id) => ({
+        id,
+        coordinate: [id, 2],
+    }));
+    assert.equal(h.state.template.config.mapConfig, undefined);
+    await h.state.placeSearchOptions.onResults(results, 'Coffee', false);
+    assert.equal(h.state.pinPublications.length, 0);
+    await h.state.template.config.onSearchTextSubmitted('Coffee');
+    await h.state.placeSearchOptions.onResults(results, 'Coffee', true);
+    assert.equal(h.state.pinPublications.length, 0);
+    assert.equal(h.updates.at(-1).items.length, 20);
+    await h.state.template.config.headerActions.onMap();
+    assert.equal(h.state.preparations, 1);
+    assert.equal(h.state.mapPresentation.includesMap, true);
+    assert.equal(h.state.pinPublications[0].results.length, 6);
+    assert.deepEqual(
+        h.state.pinPublications[0].results.map(({ id }) => id),
+        [0, 1, 2, 3, 4, 5],
     );
 });
 
-test('CarPlay waits for its native submit transition before opening map results', async () => {
+test('the native list keeps every result while numbered map rows match exactly the published pins', () => {
+    const state = {};
+    const context = vm.createContext({
+        getAutoPlayVisibleSearchResults,
+        makeAutoText: (text) => text,
+        getSearchResultSubtitle: () => '',
+        setAutoPlayState: (value) => Object.assign(state, value),
+    });
+    vm.runInContext(
+        [
+            autoPlaySource.slice(
+                autoPlaySource.indexOf('function makeSearchRows('),
+                autoPlaySource.indexOf('function makeInitialSavedSearchRows('),
+            ),
+            autoPlaySource.slice(
+                autoPlaySource.indexOf(
+                    'function setAutoPlaySubmittedSearchResults(',
+                ),
+                autoPlaySource.indexOf(
+                    'function getSearchResultsHeaderActions(',
+                ),
+            ),
+        ].join('\n'),
+        context,
+    );
+    const results = Array.from({ length: 20 }, (_, id) => ({
+        id,
+        label: `Place ${id}`,
+    }));
+    assert.equal(
+        context.makeSearchRows(results, 'places', () => {}).length,
+        20,
+    );
+    const selected = [];
+    const rows = context.makeSearchRows(
+        getAutoPlayVisibleSearchResults(results),
+        'places',
+        (result) => selected.push(result),
+        { numbered: true },
+    );
+    rows.forEach(({ onPress }) => onPress());
+    context.setAutoPlaySubmittedSearchResults({ query: 'places', results });
+    assert.deepEqual(state.submittedSearchResults, selected);
+    assert.equal(rows.length, 6);
+    rows.forEach((row, index) =>
+        assert.equal(row.title, `${index + 1}. Place ${index}`),
+    );
+});
+
+test('selecting a destination cancels autocomplete before route loading can be overwritten', () => {
+    let cancelled = 0;
+    const context = vm.createContext({
+        activeAutoPlayPlaceSearch: { cancel: () => cancelled++ },
+        searchAbortController: null,
+        searchRequestSequence: 0,
+        setAutoPlayState() {},
+    });
+    vm.runInContext(
+        autoPlaySource.slice(
+            autoPlaySource.indexOf('function abortSearchRequest()'),
+            autoPlaySource.indexOf('function abortRouteLoadRequest()'),
+        ),
+        context,
+    );
+    context.abortSearchRequest();
+    assert.equal(cancelled, 1);
+    assert.equal(context.activeAutoPlayPlaceSearch, null);
+    const selection = autoPlaySource.slice(
+        autoPlaySource.indexOf('async function handleSearchResultSelected('),
+        autoPlaySource.indexOf('function getTripPointFromCoordinate('),
+    );
+    assert.ok(
+        selection.indexOf('abortSearchRequest()') <
+            selection.indexOf('startRouteLoadRequest()'),
+    );
+});
+
+for (const platform of ['ios', 'android']) {
+    test(`${platform} submits immediately without waiting for disappearance or rebuilding the stack`, async () => {
+        const h = createSavedSearchTemplateHarness(
+            Promise.resolve({ places: [] }),
+        );
+        const opened = h.openSearchTemplate();
+        await opened.pushPromise;
+        await opened.template.config.onSearchTextSubmitted('walmart');
+        assert.deepEqual(h.state.queries, ['walmart']);
+        assert.equal(h.state.preparations, 0);
+        assert.equal(
+            h.updates.at(-1).items[0].title.text,
+            'No results for walmart',
+        );
+    });
+}
+
+test('back cancels submitted work and ignores its late response', async () => {
+    let finish;
     const h = createSavedSearchTemplateHarness(
         Promise.resolve({ places: [] }),
-        async (_template, _query, _location, options) => {
-            await options.prepareMap();
-        },
-        { waitsForSubmittedSearchTransition: true },
+        () =>
+            new Promise((resolve) => {
+                finish = resolve;
+            }),
     );
     const opened = h.openSearchTemplate();
     await opened.pushPromise;
-    opened.template.config.onWillAppear();
     const submission = opened.template.config.onSearchTextSubmitted('walmart');
-    await Promise.resolve();
-    assert.equal(h.state.preparations, 0);
-    opened.template.config.onDidDisappear();
+    await new Promise((resolve) => setImmediate(resolve));
+    opened.template.config.headerActions.onBack();
+    const updates = h.updates.length;
+    finish([{ title: { text: 'stale' } }]);
     await submission;
-    assert.equal(h.state.preparations, 1);
+    assert.equal(h.updates.length, updates);
+    assert.equal(h.state.searchCancellations, 1);
 });
 
-test('back cancels a CarPlay submission before its native transition completes', async () => {
+test('moving from native results to the map survives the keyboard being popped and ignores duplicate Map taps', async () => {
     const h = createSavedSearchTemplateHarness(
         Promise.resolve({ places: [] }),
-        async (_template, _query, _location, options) => {
-            await options.prepareMap();
-        },
-        { waitsForSubmittedSearchTransition: true },
+        async () => [{ id: 'coffee' }],
     );
-    const opened = h.openSearchTemplate();
-    await opened.pushPromise;
-    const submission = opened.template.config.onSearchTextSubmitted('walmart');
-    opened.template.config.headerActions.onPress();
-    await submission;
-    opened.template.config.onDidDisappear();
-    assert.equal(h.state.preparations, 0);
-    opened.template.config.onWillAppear();
-    const retry = opened.template.config.onSearchTextSubmitted('target');
-    opened.template.config.onDidDisappear();
-    await retry;
+    await h.openSearchTemplate().pushPromise;
+    await h.state.template.config.onSearchTextSubmitted('Coffee');
+    const cancellations = h.state.searchCancellations;
+    h.state.onPrepare = () => h.state.template.config.onPopped();
+    await h.state.template.config.headerActions.onMap();
+    await h.state.template.config.headerActions.onMap();
     assert.equal(h.state.preparations, 1);
+    assert.equal(h.state.searchCancellations, cancellations);
+    assert.equal(h.state.unsubscribed, true);
+    assert.equal(h.state.mapPresentation.requestIsCurrent(), true);
+    assert.equal(h.state.queries.length, 1);
 });
 
-test('programmatic CarPlay search does not wait for a native submit transition', async () => {
+test('the Map header action is wired for both platforms', () => {
+    const makeHeaders = vm.runInNewContext(
+        `(${autoPlaySource.slice(autoPlaySource.indexOf('function getSearchResultsHeaderActions('), autoPlaySource.indexOf('function presentAutoPlaySearchResults('))})`,
+        {
+            getBackHeaderAction: () => ({
+                android: { startHeaderAction: { type: 'back' } },
+                ios: { backButton: { type: 'back' } },
+            }),
+            makeButtonGlyphImage: (name) => name,
+        },
+    );
+    let maps = 0;
+    const headers = makeHeaders(
+        () => {},
+        () => maps++,
+    );
+    const android = headers.android.endHeaderActions[0];
+    const ios = headers.ios.trailingNavigationBarButtons[0];
+    assert.equal(android.image, 'map');
+    assert.strictEqual(android, ios);
+    android.onPress();
+    ios.onPress();
+    assert.equal(maps, 2);
+    assert.equal(headers.android.startHeaderAction.type, 'back');
+    assert.equal(headers.ios.backButton.type, 'back');
+});
+
+test('Back from native submitted results keeps the keyboard search usable', async () => {
     const h = createSavedSearchTemplateHarness(
         Promise.resolve({ places: [] }),
-        async (_template, _query, _location, options) => {
-            await options.prepareMap();
-        },
-        { waitsForSubmittedSearchTransition: true },
+        async () => [{ id: 'place' }],
     );
-    await h.openSearchTemplate('walmart').pushPromise;
-    assert.equal(h.state.preparations, 1);
+    await h.openSearchTemplate().pushPromise;
+    await h.state.template.config.onSearchTextSubmitted('Coffee');
+    h.state.template.config.headerActions.onBack();
+    assert.equal(h.state.unsubscribed, false);
+    h.state.template.config.onWillAppear();
+    await h.state.template.config.onSearchTextSubmitted('Tea');
+    assert.deepEqual(h.state.queries, ['Coffee', 'Tea']);
+});
+
+test('Map does not leave search before submission or for an empty result set', async () => {
+    const h = createSavedSearchTemplateHarness(
+        Promise.resolve({ places: [] }),
+        async () => [],
+    );
+    await h.openSearchTemplate().pushPromise;
+    await h.state.template.config.headerActions.onMap();
+    await h.state.template.config.onSearchTextSubmitted('Coffee');
+    await h.state.template.config.headerActions.onMap();
+    assert.equal(h.state.preparations, 0);
+    assert.equal(h.state.pinPublications.length, 0);
 });

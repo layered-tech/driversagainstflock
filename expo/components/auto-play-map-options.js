@@ -1,6 +1,24 @@
+import {
+    AVOID_BUFFER_STEP_METERS,
+    AVOIDANCE_MODE_OPTIONS,
+    getStoredAdvancedRouteSettings,
+    MAX_AVOID_BUFFER_METERS,
+    MIN_AVOID_BUFFER_METERS,
+    normalizeAdvancedRouteSettings,
+} from './map/advanced-route-settings.js';
+
+const CHOICE_TITLES = {
+    layer: 'Map layer',
+    light: "Map's Time of Day",
+    route: 'Route Options',
+    avoidance: 'ALPR avoidance shape',
+    buffer: 'Avoid cameras by',
+};
+
 const MAP_OPTION_TOGGLES = [
     ['weatherEnabled', 'Rain and snow effects', true],
     ['policeAlertsVisible', 'Police reports (Waze)', false],
+    ['preferPrivateRoutes', 'Prefer private routes', false],
 ];
 
 export function createAutoPlayMapOptionsTemplate({
@@ -44,8 +62,134 @@ export function createAutoPlayMapOptionsTemplate({
         }
     };
 
-    function makeChoiceSection(kind, choiceIsActive) {
+    function updateRouteSettings(patch) {
+        setPreferences({
+            advancedRouteSettings: normalizeAdvancedRouteSettings({
+                ...getStoredAdvancedRouteSettings(getPreferences()),
+                ...patch,
+            }),
+        });
+    }
+
+    function makeChoiceSection(choice) {
         const preferences = getPreferences();
+        const { kind } = choice;
+        const canChange = () =>
+            current() &&
+            choices.has(choice) &&
+            getPreferences().mapPreferencesAreLoaded;
+        const routeSettings = getStoredAdvancedRouteSettings(preferences);
+        if (!preferences.mapPreferencesAreLoaded) {
+            return {
+                type: 'default',
+                items: [
+                    {
+                        type: 'text',
+                        title: {
+                            text:
+                                kind === 'layer' || kind === 'light'
+                                    ? 'Loading map settings'
+                                    : 'Loading route settings',
+                        },
+                    },
+                ],
+            };
+        }
+        if (kind === 'route') {
+            return {
+                type: 'default',
+                items: [
+                    {
+                        type: 'default',
+                        browsable: true,
+                        title: { text: CHOICE_TITLES.avoidance },
+                        detailedText: {
+                            text: AVOIDANCE_MODE_OPTIONS.find(
+                                (option) =>
+                                    option.value ===
+                                    routeSettings.avoidanceMode,
+                            ).label,
+                        },
+                        onPress: () => openChoices('avoidance', choice),
+                    },
+                    {
+                        type: 'default',
+                        browsable: true,
+                        title: { text: CHOICE_TITLES.buffer },
+                        detailedText: {
+                            text: `${routeSettings.avoidBufferMeters} m`,
+                        },
+                        onPress: () => openChoices('buffer', choice),
+                    },
+                    {
+                        type: 'toggle',
+                        title: { text: 'Allow ALPR near start & destination' },
+                        checked: routeSettings.allowAlprNearStartDestination,
+                        onPress: (_template, checked) => {
+                            if (canChange()) {
+                                updateRouteSettings({
+                                    allowAlprNearStartDestination: checked,
+                                });
+                            }
+                        },
+                    },
+                ],
+            };
+        }
+        if (kind === 'avoidance') {
+            return {
+                type: 'radio',
+                items: AVOIDANCE_MODE_OPTIONS.map((option) => ({
+                    type: 'radio',
+                    title: { text: option.label },
+                    selected: routeSettings.avoidanceMode === option.value,
+                    onPress: () => {
+                        if (canChange()) {
+                            updateRouteSettings({
+                                avoidanceMode: option.value,
+                            });
+                        }
+                    },
+                })),
+            };
+        }
+        if (kind === 'buffer') {
+            return {
+                type: 'default',
+                items: [
+                    {
+                        type: 'text',
+                        title: { text: `${routeSettings.avoidBufferMeters} m` },
+                        detailedText: {
+                            text: `${MIN_AVOID_BUFFER_METERS}–${MAX_AVOID_BUFFER_METERS} m`,
+                        },
+                    },
+                    ...[-1, 1].map((direction) => ({
+                        type: 'default',
+                        title: {
+                            text: `${direction < 0 ? 'Decrease' : 'Increase'} by ${AVOID_BUFFER_STEP_METERS} m`,
+                        },
+                        enabled:
+                            direction < 0
+                                ? routeSettings.avoidBufferMeters >
+                                  MIN_AVOID_BUFFER_METERS
+                                : routeSettings.avoidBufferMeters <
+                                  MAX_AVOID_BUFFER_METERS,
+                        onPress: () => {
+                            if (canChange()) {
+                                updateRouteSettings({
+                                    avoidBufferMeters:
+                                        getStoredAdvancedRouteSettings(
+                                            getPreferences(),
+                                        ).avoidBufferMeters +
+                                        direction * AVOID_BUFFER_STEP_METERS,
+                                });
+                            }
+                        },
+                    })),
+                ],
+            };
+        }
         const options = kind === 'layer' ? mapLayers : lightPresets;
         const selected =
             options.find((option) =>
@@ -61,11 +205,7 @@ export function createAutoPlayMapOptionsTemplate({
                 type: 'radio',
                 selected: option === selected,
                 onPress: () => {
-                    if (
-                        !current() ||
-                        !choiceIsActive() ||
-                        !getPreferences().mapPreferencesAreLoaded
-                    ) {
+                    if (!canChange()) {
                         return;
                     }
                     setPreferences(
@@ -82,20 +222,30 @@ export function createAutoPlayMapOptionsTemplate({
         };
     }
 
-    function openChoices(kind) {
-        if (!current()) {
+    function closeChoice(choice) {
+        choices.delete(choice);
+        for (const child of choices) {
+            if (child.parent === choice) {
+                closeChoice(child);
+            }
+        }
+    }
+
+    function openChoices(kind, parent = null) {
+        if (
+            !current() ||
+            !getPreferences().mapPreferencesAreLoaded ||
+            (parent && !choices.has(parent))
+        ) {
             return;
         }
-        const choice = {};
-        const close = () => choices.delete(choice);
+        const choice = { kind, parent };
+        const close = () => closeChoice(choice);
         try {
-            const section = makeChoiceSection(kind, () => choices.has(choice));
+            const section = makeChoiceSection(choice);
             choice.key = JSON.stringify(section);
-            choice.kind = kind;
             choice.template = new ListTemplate({
-                title: {
-                    text: kind === 'layer' ? 'Map layer' : "Map's Time of Day",
-                },
+                title: { text: CHOICE_TITLES[kind] },
                 headerActions: getBackHeaderAction(close),
                 onPopped: close,
                 sections: section,
@@ -175,6 +325,15 @@ export function createAutoPlayMapOptionsTemplate({
                 onPress: () => openChoices('light'),
             },
             ...toggles,
+            {
+                type: 'default',
+                browsable: true,
+                title: { text: CHOICE_TITLES.route },
+                detailedText: {
+                    text: `${getStoredAdvancedRouteSettings(preferences).avoidBufferMeters} m`,
+                },
+                onPress: () => openChoices('route'),
+            },
         ];
         return { type: 'default', items };
     }
@@ -191,14 +350,12 @@ export function createAutoPlayMapOptionsTemplate({
             void updateSection(template, section);
         }
         for (const choice of choices) {
-            const choiceSection = makeChoiceSection(choice.kind, () =>
-                choices.has(choice),
-            );
+            const choiceSection = makeChoiceSection(choice);
             const choiceKey = JSON.stringify(choiceSection);
             if (choiceKey !== choice.key) {
                 choice.key = choiceKey;
                 void updateSection(choice.template, choiceSection, () =>
-                    choices.delete(choice),
+                    closeChoice(choice),
                 );
             }
         }

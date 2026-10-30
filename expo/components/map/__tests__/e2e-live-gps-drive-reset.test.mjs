@@ -31,7 +31,7 @@ function loadModule(path, modules, logs = []) {
     return module.exports;
 }
 
-function createHandler(enabled, resetError = null) {
+function createHandler(enabled, resetError = null, environment = 'e2e') {
     const calls = [];
     const logs = [];
     let listener;
@@ -55,6 +55,7 @@ function createHandler(enabled, resetError = null) {
             '../auto-play': { dispatchAutoPlayE2ECommand: record('autoPlay') },
             '../map/alpr-presence-runtime': {
                 presenceCoordinator: {
+                    state: { outbox: [] },
                     async resetLimits() {
                         calls.push(['limits']);
                         if (resetError) throw resetError;
@@ -71,8 +72,15 @@ function createHandler(enabled, resetError = null) {
             '../map/e2e-driving-alert-fixture': {
                 setE2EDrivingAlertsFixture: record('fixture'),
             },
+            '../map/config': { APP_ENVIRONMENT: environment },
             '../map/electronic-horizon-alpr-store': {},
-            '../map/road-matching-session': {},
+            '../map/road-matching-session': {
+                getLastRoadLookAheadAsync: async () => null,
+                getRoadMatchingSessionDiagnostics: () => ({}),
+            },
+            '../map/upcoming-alert-debug': {
+                upcomingAlertDebugStore: { getSnapshot: () => null },
+            },
             '../map/scorecard-drive-e2e-fixture': {},
             './e2e-map-api-mock-url': urlHelpers,
         },
@@ -83,7 +91,7 @@ function createHandler(enabled, resetError = null) {
 }
 
 test('live drive reset clears cooldowns and warning history without injecting mocks or auth', async () => {
-    const { calls, listener } = createHandler(true);
+    const { calls, listener, logs } = createHandler(true);
     listener({ url: resetURL });
     await new Promise((resolve) => setImmediate(resolve));
     assert.deepEqual(calls, [
@@ -91,6 +99,11 @@ test('live drive reset clears cooldowns and warning history without injecting mo
         ['osm', false],
         ['limits'],
         ['history'],
+    ]);
+    assert.deepEqual(logs, [
+        '[E2E] live-gps-drive-state {"environment":"e2e","queuedReports":0}',
+        '[E2E] live-gps-drive-reset',
+        '[E2E] live-gps-drive-diagnostics {"road":{},"horizonPointCount":0,"warning":null}',
     ]);
 });
 
@@ -131,6 +144,11 @@ test('native intent routing keeps live drive reset from enabling API mocks', () 
             redirectSystemPath({ path: resetURL }),
             environment === 'production' ? resetURL : '/',
         );
+        const carPlayURL = 'driversagainstflock://e2e-carplay?command=seed';
+        assert.equal(
+            redirectSystemPath({ path: carPlayURL }),
+            environment === 'e2e' ? '/' : carPlayURL,
+        );
         if (environment !== 'production') {
             assert.equal(
                 redirectSystemPath({
@@ -139,5 +157,20 @@ test('native intent routing keeps live drive reset from enabling API mocks', () 
                 '/?e2eMapApiMocks=1&e2eAuthMock=1',
             );
         }
+    }
+});
+
+test('CarPlay setup commands dispatch only in E2E and leave live map APIs enabled', async () => {
+    const url = 'driversagainstflock://e2e-carplay?command=seed';
+    for (const environment of ['e2e', 'development', 'production']) {
+        const handler = createHandler(true, null, environment);
+        handler.listener({ url });
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.deepEqual(
+            handler.calls,
+            environment === 'e2e'
+                ? [['autoPlay', urlHelpers.getE2ECarPlayCommandFromURL(url)]]
+                : [],
+        );
     }
 });

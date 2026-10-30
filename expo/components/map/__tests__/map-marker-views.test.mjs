@@ -62,3 +62,64 @@ describe('E2E marker tap target', () => {
         }
     });
 });
+
+test('search pins render their list number and keep the same destination on press', () => {
+    const { SubmittedSearchResultMarker } = loadTourModule(
+        new URL('../map-marker-views.js', import.meta.url),
+        {
+            '@rnmapbox/maps': { MarkerView: 'MarkerView' },
+            'react-native': { Pressable: 'Pressable', View: 'View' },
+            'react-native-svg': {
+                default: 'Svg',
+                Circle: 'Circle',
+                Path: 'Path',
+                Text: 'SvgText',
+            },
+            './geo': {
+                getStoredNumber: (value) => Number(value),
+                normalizeLongitude: (value) => value,
+            },
+        },
+    );
+    for (let index = 0; index < 6; index++) {
+        const result = { coordinate: [-88, 43], primaryText: `Place ${index}` };
+        let selected;
+        const pin = SubmittedSearchResultMarker({
+            index,
+            numbered: true,
+            result,
+            onPress: (value) => {
+                selected = value;
+            },
+        });
+        const button = pin.props.children;
+        const label = button.props.children.props.children.find(
+            ({ type }) => type === 'SvgText',
+        );
+        assert.equal(label.props.children, index + 1);
+        assert.equal(
+            button.props.accessibilityLabel,
+            `Search result ${index + 1}: Place ${index}`,
+        );
+        button.props.onPress();
+        assert.strictEqual(selected, result);
+    }
+    const phonePin = SubmittedSearchResultMarker({
+        index: 0,
+        result: { coordinate: [-88, 43], primaryText: 'Coffee' },
+        onPress() {},
+    });
+    assert.equal(
+        phonePin.props.children.props.accessibilityLabel,
+        'Search result: Coffee',
+    );
+    const dot = phonePin.props.children.props.children.props.children[1];
+    assert.deepEqual(
+        dot.props.children.map(({ type }) => type),
+        ['Circle', 'Circle'],
+    );
+    assert.match(
+        mapCanvasSource,
+        /numbered=\{navigationPuckVariant === 'auto-play'\}/,
+    );
+});

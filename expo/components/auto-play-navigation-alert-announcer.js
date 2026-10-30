@@ -49,7 +49,7 @@ function getActiveAutoPlayNavigationAlertKey(state, now = Date.now()) {
     return state?.isVisible && now < state.expiresAt ? state.alertKey : null;
 }
 
-function useAutoPlayMapTemplate() {
+export function useAutoPlayMapTemplate() {
     if (!AUTO_PLAY_IS_SUPPORTED) {
         return null;
     }

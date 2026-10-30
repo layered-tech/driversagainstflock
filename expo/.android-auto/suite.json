@@ -14,6 +14,10 @@
         "latitude": 43.12152,
         "longitude": -88.24447
     },
+    "stationaryLocation": {
+        "latitude": 43.11028,
+        "longitude": -88.24481
+    },
     "tests": [
         {
             "name": "connects and renders the Mapbox map",
@@ -851,8 +855,10 @@
         }
     ],
     "mapApiMocks": false,
+    "navigation": true,
     "layouts": {
         "dashboard": {
+            "appBounds": { "x": 80, "y": 10, "width": 770, "height": 700 },
             "mapCrop": {
                 "x": 430,
                 "y": 220,
@@ -867,6 +873,7 @@
             }
         },
         "fullscreen": {
+            "appBounds": { "x": 80, "y": 10, "width": 1190, "height": 700 },
             "mapCrop": {
                 "x": 620,
                 "y": 220,

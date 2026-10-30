@@ -64,12 +64,12 @@ test('CarPlay idle header opens Search, Options, Home, and Work', () => {
     assert.deepEqual(h.pressed, ['search', 'options', 'home', 'work']);
 });
 
-test('CarPlay navigating header opens Overview, Cancel, Options, and Steps', () => {
+test('CarPlay navigating header opens Cancel, Options, Overview, and Steps', () => {
     const h = harness();
     h.actions();
     h.context.activeNavigationRoute = {};
     h.pressCarPlayHeader();
-    assert.deepEqual(h.pressed, ['overview', 'cancel', 'options', 'steps']);
+    assert.deepEqual(h.pressed, ['cancel', 'options', 'overview', 'steps']);
     h.pressed.length = 0;
     h.context.activeNavigationRoute = null;
     h.pressCarPlayHeader();

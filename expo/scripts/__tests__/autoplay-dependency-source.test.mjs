@@ -5,7 +5,7 @@ import test from 'node:test';
 const expoRoot = new URL('../../', import.meta.url);
 const packageName = '@iternio/react-native-auto-play';
 const dependency =
-    'github:layered-tech/react-native-auto-play#navigation-controls';
+    'github:layered-tech/react-native-auto-play#map-button-persistence-package';
 const readJson = (path) =>
     JSON.parse(readFileSync(new URL(path, expoRoot), 'utf8'));
 

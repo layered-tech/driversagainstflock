@@ -1,5 +1,9 @@
 import { APP_ENVIRONMENT } from '../components/map/config';
-import { isE2ELiveGpsDriveResetURL } from '../components/root/e2e-map-api-mock-url';
+import {
+    getE2EAndroidAutoCommandFromURL,
+    getE2ECarPlayCommandFromURL,
+    isE2ELiveGpsDriveResetURL,
+} from '../components/root/e2e-map-api-mock-url';
 
 function getPathFromURL(url) {
     return [url.hostname, url.pathname]
@@ -9,6 +13,12 @@ function getPathFromURL(url) {
 }
 
 export function redirectSystemPath({ path }) {
+    if (
+        APP_ENVIRONMENT === 'e2e' &&
+        (getE2ECarPlayCommandFromURL(path) ||
+            getE2EAndroidAutoCommandFromURL(path))
+    )
+        return '/';
     try {
         const url = new URL(path);
         const deepLinkPath = getPathFromURL(url);

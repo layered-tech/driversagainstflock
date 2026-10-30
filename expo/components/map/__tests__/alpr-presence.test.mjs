@@ -16,6 +16,8 @@ import {
 import { createPresencePrompt } from '../alpr-presence-prompt.js';
 import { getAutomotiveAlertHistoryEntry } from '../automotive-alert-policy.js';
 
+const AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS = 5 * 60 * 1000;
+
 const node = {
     id: 'osm-node-8',
     osm_id: 987654321,
@@ -723,6 +725,11 @@ for (const platform of ['android_auto', 'carplay']) {
         original.secondaryAction.onPress();
         original.secondaryAction.onPress();
         await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(
+            h.dismissed.includes(original.id),
+            platform !== 'carplay',
+            'CarPlay dismisses tapped native actions automatically',
+        );
         assert.equal(h.prompt.ownsCamera, false);
         assert.equal(h.restores.at(-1), false);
         assert.equal(h.sent.length, 1);
@@ -742,7 +749,13 @@ for (const platform of ['android_auto', 'carplay']) {
         assert.notEqual(thanks.id, original.id);
         assert.equal(h.frames.length, 1);
         thanks.primaryAction.onPress();
-        assert.equal(h.dismissed.at(-1), thanks.id);
+        assert.equal(h.dismissed.includes(thanks.id), platform !== 'carplay');
+        thanks.onDidDismiss('user');
+        assert.ok(
+            h.traces.some(
+                ({ event }) => event === 'native-thanks-dismissed:user',
+            ),
+        );
         assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
     });
 
@@ -808,6 +821,24 @@ test('failed report persistence does not show a success acknowledgement', async 
     assert.equal(h.shown.length, 1);
     assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
 });
+
+test('CarPlay native acknowledgement dismissal releases suppression without a duplicate report', async () => {
+    for (const lateAction of [true, false]) {
+        const h = promptHarness({ platform: 'carplay' });
+        await h.start();
+        h.shown[0].secondaryAction.onPress();
+        h.shown[0].onDidDismiss('system');
+        await new Promise((resolve) => setImmediate(resolve));
+        const thanks = h.shown[1];
+        thanks.onDidDismiss('user');
+        assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
+        if (lateAction) thanks.primaryAction.onPress();
+        await h.step(-96.9994, 108000);
+        assert.deepEqual(h.suppressionEvents, ['acquire:1', 'release:1']);
+        assert.equal(h.sent.length, 1);
+    }
+});
+
 test('approach tracking stays ownerless and async presentation setup owns suppression', async () => {
     const h = promptHarness({ reservationDelay: true });
     await h.step(-97.0004, 100000);
@@ -1092,7 +1123,7 @@ test('simultaneous car surfaces reserve one budget slot without poisoning encryp
     await runtime.presented(results.find(Boolean));
     assert.equal(runtime.state.drive.count, 1);
 });
-test('automotive alert history survives remounts, coordinates surfaces, and resets with a new drive', async () => {
+test('automotive alert history is session-scoped, coordinates surfaces, and resets with a new drive', async () => {
     let stored = null;
     let time = 107000;
     const makeCoordinator = () =>
@@ -1137,12 +1168,47 @@ test('automotive alert history survives remounts, coordinates surfaces, and rese
     assert.equal(unacceptedClaim, null);
     assert.equal(acceptedClaim.commit(), true);
     await new Promise((resolve) => setImmediate(resolve));
-    assert.deepEqual(coordinator.automotiveAlertHistory.entries, [alprEntry]);
+    assert.deepEqual(coordinator.automotiveAlertHistory.entries, [
+        { ...alprEntry, shownAt: time },
+    ]);
     assert.equal(coordinator.automotiveAlertHistory.lastShownAt, time);
 
     const restarted = makeCoordinator();
     await restarted.hydrate();
-    assert.equal(restarted.claimAutomotiveAlert(alprEntry), null);
+    assert.deepEqual(restarted.automotiveAlertHistory.entries, []);
+    assert.ok(
+        restarted.claimAutomotiveAlert(alprEntry)?.release(),
+        'a prior session does not suppress this session first announcement',
+    );
+    assert.equal(restarted.claimAutomotiveAlert(alprEntry)?.commit(), true);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(
+        restarted.claimAutomotiveAlert(alprEntry),
+        null,
+        'same-session history still prevents duplicate announcements',
+    );
+    time += AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS;
+    const pendingRepeatClaim = restarted.claimAutomotiveAlert(alprEntry);
+    assert.ok(
+        pendingRepeatClaim,
+        'the same alert can repeat after five minutes',
+    );
+    time += AUTOMOTIVE_ALERT_REPEAT_COOLDOWN_MS + 1;
+    assert.equal(
+        restarted.claimAutomotiveAlert(alprEntry),
+        null,
+        'a pending presentation keeps ownership beyond the cooldown',
+    );
+    assert.equal(pendingRepeatClaim.release(), true);
+    const repeatedClaim = restarted.claimAutomotiveAlert(alprEntry);
+    assert.ok(repeatedClaim);
+    assert.equal(repeatedClaim.commit(), true);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(
+        restarted.automotiveAlertHistory.entries[0].shownAt,
+        time,
+        'a repeated presentation refreshes its cooldown timestamp',
+    );
     assert.equal(restarted.claimAutomotiveAlert(laterAlprEntry), null);
     time += 2 * 60 * 1000;
     assert.ok(

@@ -18,11 +18,23 @@ import {
     getAutoPlaySearchResultsMapIsActive,
     getAutoPlaySpeedLimitVisibility,
     getAutoPlayTripEstimateValues,
+    getAutoPlayVisibleSearchResults,
     makeAutoPlayTripSelectorTrips,
     makeAutoPlayTripSteps,
 } from '../../auto-play-template-state.js';
 
 describe('Auto Play template state', () => {
+    test('limits map pins and list rows to the same ordered search results', () => {
+        const results = Array.from({ length: 20 }, (_, id) => ({ id }));
+        const visible = getAutoPlayVisibleSearchResults(results);
+        assert.deepEqual(
+            visible.map(({ id }) => id),
+            [0, 1, 2, 3, 4, 5],
+        );
+        assert.strictEqual(visible[0], results[0]);
+        assert.equal(results.length, 20);
+        assert.deepEqual(getAutoPlayVisibleSearchResults([]), []);
+    });
     test('lets a car host own navigation overlays without changing map content', () => {
         assert.equal(
             getAutoPlayAppOverlayVisibility({

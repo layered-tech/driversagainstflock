@@ -16,7 +16,7 @@ const CARPLAY_SURFACE_PLATFORM_CONFIG = {
             lineHeight: 16,
         },
     },
-    hideCompassDuringNavigation: true,
+    hideMapboxCompass: true,
     ornamentSafeAreaLeftScale: 1,
     usesHostColorSchemeForAutomaticMapPreset: false,
 };

@@ -22,7 +22,10 @@ import {
     getSharedMapPreferencesState,
 } from './shared-map-preferences-sync';
 
-const STORAGE_KEY = 'driversagainstflock.alprPresence.v1';
+const STORAGE_KEY =
+    APP_ENVIRONMENT === 'e2e'
+        ? 'driversagainstflock.alprPresence.e2e.v1'
+        : 'driversagainstflock.alprPresence.v1';
 let writeSequence = 0;
 export const presenceCoordinator = createPresenceCoordinator({
     load: () => getPrivateCacheItemStrict(STORAGE_KEY),

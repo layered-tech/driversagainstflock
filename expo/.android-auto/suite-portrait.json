@@ -33,6 +33,12 @@
                 "y": 500,
                 "width": 700,
                 "height": 300
+            },
+            "appBounds": {
+                "x": 389,
+                "y": 25,
+                "width": 1140,
+                "height": 732
             }
         },
         "fullscreen": {
@@ -51,6 +57,12 @@
                 "y": 650,
                 "width": 700,
                 "height": 350
+            },
+            "appBounds": {
+                "x": 389,
+                "y": 25,
+                "width": 1140,
+                "height": 927
             }
         }
     }

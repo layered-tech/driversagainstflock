@@ -46,7 +46,7 @@ test('Android Auto and CarPlay expose route mode in header actions', () => {
     );
     assert.match(
         headerActionsSource,
-        /leadingNavigationBarButtons:[\s\S]*?trailingNavigationButton, drivingMapViewButton/,
+        /leadingNavigationBarButtons:[\s\S]*?mapOptionsButton, trailingNavigationButton/,
     );
     assert.match(
         autoPlaySource,

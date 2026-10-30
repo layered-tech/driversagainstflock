@@ -3,6 +3,10 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import { createAutoPlayMapOptionsTemplate } from '../../auto-play-map-options.js';
+import {
+    AVOIDANCE_MODE_OPTIONS,
+    getAdvancedRouteSettingsRequestPayload,
+} from '../advanced-route-settings.js';
 
 function createHarness({ loaded = true, failPush = false } = {}) {
     let preferences = {
@@ -98,7 +102,7 @@ async function open(harness) {
     return presentation;
 }
 
-test('car map options show layer and time first, then only weather and Waze toggles', async () => {
+test('car map options show shared toggles and Route Options within six rows', async () => {
     const harness = createHarness();
     const { template } = await open(harness);
     assert.equal(template.config.title.text, 'Map settings');
@@ -110,6 +114,8 @@ test('car map options show layer and time first, then only weather and Waze togg
             "Map's Time of Day",
             'Rain and snow effects',
             'Police reports (Waze)',
+            'Prefer private routes',
+            'Route Options',
         ],
     );
     const labels = items
@@ -123,14 +129,21 @@ test('car map options show layer and time first, then only weather and Waze togg
         ...phoneSource.matchAll(/<SettingSwitchRow\s+label="([^"]+)"/g),
     ].map((match) => match[1]);
     assert.deepEqual(
-        labels,
-        phoneLabels.filter((label) =>
-            ['Rain and snow effects', 'Police reports (Waze)'].includes(label),
-        ),
+        labels.toSorted(),
+        phoneLabels
+            .filter((label) =>
+                [
+                    'Rain and snow effects',
+                    'Police reports (Waze)',
+                    'Prefer private routes',
+                ].includes(label),
+            )
+            .toSorted(),
     );
+    assert.equal(items.length, 6);
 });
 
-test('car settings preserve the phone-only marker, routing, and traffic preferences', async () => {
+test('car settings preserve the phone-only marker and traffic preferences', async () => {
     const harness = createHarness();
     const { template } = await open(harness);
     for (const row of template.config.sections.items.filter(
@@ -138,17 +151,19 @@ test('car settings preserve the phone-only marker, routing, and traffic preferen
     )) {
         await row.onPress(null, !row.checked);
     }
-    assert.deepEqual(harness.writes, [{ policeAlertsVisible: true }]);
+    assert.deepEqual(harness.writes, [
+        { policeAlertsVisible: true },
+        { preferPrivateRoutes: true },
+    ]);
     const preferences = harness.options.getPreferences();
     assert.deepEqual(
         [
             preferences.surveillanceMarkersVisible,
             preferences.markerClustersEnabled,
             preferences.cameraConesVisible,
-            preferences.preferPrivateRoutes,
             preferences.mapTrafficEnabled,
         ],
-        [true, true, true, false, false],
+        [true, true, true, false],
     );
     assert.equal(
         harness.options.getPreferences().mapStyleURL,
@@ -159,13 +174,18 @@ test('car settings preserve the phone-only marker, routing, and traffic preferen
 test('all toggles update their shared preference and remain set when reopened', async () => {
     const harness = createHarness();
     const { template } = await open(harness);
-    for (const label of ['Rain and snow effects', 'Police reports (Waze)']) {
+    for (const label of [
+        'Rain and snow effects',
+        'Police reports (Waze)',
+        'Prefer private routes',
+    ]) {
         const row = template.config.sections.items.find(
             (item) => item.title.text === label,
         );
         await row.onPress(null, !row.checked);
     }
     assert.equal(harness.options.getPreferences().policeAlertsVisible, true);
+    assert.equal(harness.options.getPreferences().preferPrivateRoutes, true);
     assert.equal(
         harness.options.weatherStore.getSnapshot().preferences.enabled,
         false,
@@ -176,8 +196,28 @@ test('all toggles update their shared preference and remain set when reopened', 
         reopened.template.config.sections.items
             .filter((item) => item.type === 'toggle')
             .map((item) => item.checked),
-        [false, true],
+        [false, true, true],
     );
+});
+
+test('private-route toggle follows phone changes and stops writing after dismissal', async () => {
+    const harness = createHarness();
+    const { template } = await open(harness);
+    const readToggle = () =>
+        template.config.sections.items.find(
+            (item) => item.title.text === 'Prefer private routes',
+        );
+    assert.equal(readToggle().checked, false);
+    harness.setPreferences({ preferPrivateRoutes: true });
+    assert.equal(readToggle().checked, true);
+    readToggle().onPress(null, false);
+    assert.equal(harness.options.getPreferences().preferPrivateRoutes, false);
+    assert.deepEqual(harness.writes.at(-1), { preferPrivateRoutes: false });
+    const staleToggle = readToggle();
+    template.config.onPopped();
+    const writes = harness.writes.length;
+    staleToggle.onPress(null, true);
+    assert.equal(harness.writes.length, writes);
 });
 
 test('phone changes update the open list, while unrelated weather updates are deduplicated', async () => {
@@ -316,4 +356,198 @@ test('map layer and time-of-day choices match the phone and update shared prefer
         1,
     );
     assert.equal(light.config.sections.items[4].selected, true);
+});
+
+async function openRow(harness, template, label) {
+    await template.config.sections.items
+        .find((row) => row.title.text === label)
+        .onPress();
+    return harness.templates.at(-1);
+}
+
+test('Route Options match phone settings and preserve them across car changes and reopening', async () => {
+    const harness = createHarness();
+    const { template } = await open(harness);
+    const route = await openRow(harness, template, 'Route Options');
+    assert.equal(route.config.title.text, 'Route Options');
+    assert.deepEqual(
+        route.config.sections.items.map((row) => row.title.text),
+        [
+            'ALPR avoidance shape',
+            'Avoid cameras by',
+            'Allow ALPR near start & destination',
+        ],
+    );
+    const avoidance = await openRow(harness, route, 'ALPR avoidance shape');
+    assert.equal(avoidance.config.sections.type, 'radio');
+    assert.deepEqual(
+        avoidance.config.sections.items.map((row) => row.title.text),
+        AVOIDANCE_MODE_OPTIONS.map((option) => option.label),
+    );
+    avoidance.config.sections.items[1].onPress();
+    assert.deepEqual(
+        avoidance.config.sections.items.map((row) => row.selected),
+        [false, true],
+    );
+    avoidance.config.onPopped();
+    const buffer = await openRow(harness, route, 'Avoid cameras by');
+    assert.equal(buffer.config.sections.items[0].title.text, '50 m');
+    buffer.config.sections.items[2].onPress();
+    assert.equal(buffer.config.sections.items[0].title.text, '75 m');
+    buffer.config.onPopped();
+    route.config.sections.items[2].onPress(null, false);
+    const settings = harness.options.getPreferences().advancedRouteSettings;
+    assert.deepEqual(settings, {
+        avoidanceMode: 'circular',
+        avoidBufferMeters: 75,
+        allowAlprNearStartDestination: false,
+    });
+    assert.deepEqual(getAdvancedRouteSettingsRequestPayload(settings), {
+        avoidance_mode: 'circular',
+        avoid_buffer: 75,
+        allow_alpr_near_start_destination: false,
+    });
+    assert.ok(
+        harness.writes.every(
+            (patch) =>
+                Object.keys(patch).length === 1 && patch.advancedRouteSettings,
+        ),
+    );
+    route.config.onPopped();
+    const reopened = await openRow(harness, template, 'Route Options');
+    assert.equal(
+        reopened.config.sections.items[0].detailedText.text,
+        'Circular radius',
+    );
+    assert.equal(reopened.config.sections.items[1].detailedText.text, '75 m');
+    assert.equal(reopened.config.sections.items[2].checked, false);
+});
+
+test('buffer controls cover the phone range in 25 m steps and respect both bounds', async () => {
+    const harness = createHarness();
+    const { template } = await open(harness);
+    const route = await openRow(harness, template, 'Route Options');
+    const buffer = await openRow(harness, route, 'Avoid cameras by');
+    const readRows = () => buffer.config.sections.items;
+    readRows()[1].onPress();
+    assert.equal(readRows()[0].title.text, '25 m');
+    assert.equal(readRows()[1].enabled, false);
+    readRows()[1].onPress();
+    assert.equal(
+        harness.options.getPreferences().advancedRouteSettings
+            .avoidBufferMeters,
+        25,
+    );
+    const values = [25];
+    for (let i = 0; i < 39; i += 1) {
+        readRows()[2].onPress();
+        values.push(
+            harness.options.getPreferences().advancedRouteSettings
+                .avoidBufferMeters,
+        );
+    }
+    assert.deepEqual(
+        values,
+        Array.from({ length: 40 }, (_, i) => 25 + 25 * i),
+    );
+    assert.equal(readRows()[0].title.text, '1000 m');
+    assert.equal(readRows()[2].enabled, false);
+    readRows()[2].onPress();
+    assert.equal(
+        harness.options.getPreferences().advancedRouteSettings
+            .avoidBufferMeters,
+        1000,
+    );
+});
+
+test('phone changes refresh route and child lists and edits merge the latest shared fields', async () => {
+    const harness = createHarness();
+    const { template } = await open(harness);
+    const route = await openRow(harness, template, 'Route Options');
+    const buffer = await openRow(harness, route, 'Avoid cameras by');
+    const oldIncrease = buffer.config.sections.items[2];
+    harness.setPreferences({
+        advancedRouteSettings: {
+            avoidanceMode: 'circular',
+            avoidBufferMeters: 375,
+            allowAlprNearStartDestination: false,
+        },
+    });
+    assert.equal(buffer.config.sections.items[0].title.text, '375 m');
+    assert.equal(
+        route.config.sections.items[0].detailedText.text,
+        'Circular radius',
+    );
+    assert.equal(route.config.sections.items[2].checked, false);
+    oldIncrease.onPress();
+    assert.deepEqual(harness.options.getPreferences().advancedRouteSettings, {
+        avoidanceMode: 'circular',
+        avoidBufferMeters: 400,
+        allowAlprNearStartDestination: false,
+    });
+    buffer.config.onPopped();
+    const avoidance = await openRow(harness, route, 'ALPR avoidance shape');
+    harness.setPreferences({
+        advancedRouteSettings: {
+            avoidanceMode: 'directional',
+            avoidBufferMeters: 200,
+            allowAlprNearStartDestination: true,
+        },
+    });
+    assert.deepEqual(
+        avoidance.config.sections.items.map((row) => row.selected),
+        [true, false],
+    );
+    const updates = harness.updates.length;
+    for (const listener of harness.weatherListeners) listener();
+    assert.equal(harness.updates.length, updates);
+});
+
+test('route descendants stop updating or writing after their parent is dismissed', async () => {
+    const harness = createHarness();
+    const { template } = await open(harness);
+    const route = await openRow(harness, template, 'Route Options');
+    const buffer = await openRow(harness, route, 'Avoid cameras by');
+    const increase = buffer.config.sections.items[2];
+    route.config.headerActions.android.startHeaderAction.onPress();
+    const updates = harness.updates.length;
+    const writes = harness.writes.length;
+    increase.onPress();
+    route.config.sections.items[2].onPress(null, false);
+    assert.equal(harness.writes.length, writes);
+    harness.setPreferences({
+        advancedRouteSettings: { avoidBufferMeters: 500 },
+    });
+    assert.equal(harness.updates.length, updates + 1);
+    const reopened = await openRow(harness, template, 'Route Options');
+    const avoidance = await openRow(harness, reopened, 'ALPR avoidance shape');
+    template.config.onPopped();
+    const count = harness.writes.length;
+    avoidance.config.sections.items[1].onPress();
+    assert.equal(harness.writes.length, count);
+    assert.equal(harness.preferenceListeners.size, 0);
+});
+
+test('route actions are inert while preferences are not loaded and failed child pushes are released', async () => {
+    const harness = createHarness();
+    const { template } = await open(harness);
+    const route = await openRow(harness, template, 'Route Options');
+    const buffer = await openRow(harness, route, 'Avoid cameras by');
+    const increase = buffer.config.sections.items[2];
+    harness.setPreferences({ mapPreferencesAreLoaded: false });
+    const count = harness.writes.length;
+    increase.onPress();
+    assert.equal(harness.writes.length, count);
+    assert.equal(
+        route.config.sections.items[0].title.text,
+        'Loading route settings',
+    );
+    harness.setPreferences({ mapPreferencesAreLoaded: true });
+    harness.options.ListTemplate.prototype.push = () =>
+        Promise.reject(new Error('Child push failed'));
+    const failed = await openRow(harness, route, 'ALPR avoidance shape');
+    assert.equal(harness.errors.length, 1);
+    const writes = harness.writes.length;
+    failed.config.sections.items[1].onPress();
+    assert.equal(harness.writes.length, writes);
 });

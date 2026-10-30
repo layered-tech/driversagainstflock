@@ -7,19 +7,28 @@ import {
     parseStoredPrimaryLocations,
     updatePrimaryLocations,
 } from './primary-locations';
+import { APP_ENVIRONMENT } from './config';
 
-const RECENT_LOCATIONS_STORAGE_KEY =
-    'driversagainstflock.mapSearch.recentLocations.v1';
-const FAVORITE_LOCATIONS_STORAGE_KEY =
-    'driversagainstflock.mapSearch.favoriteLocations.v1';
-const PRIMARY_LOCATIONS_STORAGE_KEY =
-    'driversagainstflock.mapSearch.primaryLocations.v1';
+const savedLocationsStorageKey = (key) =>
+    APP_ENVIRONMENT === 'e2e'
+        ? key.replace('.mapSearch.', '.mapSearch.e2e.')
+        : key;
+const RECENT_LOCATIONS_STORAGE_KEY = savedLocationsStorageKey(
+    'driversagainstflock.mapSearch.recentLocations.v1',
+);
+const FAVORITE_LOCATIONS_STORAGE_KEY = savedLocationsStorageKey(
+    'driversagainstflock.mapSearch.favoriteLocations.v1',
+);
+const PRIMARY_LOCATIONS_STORAGE_KEY = savedLocationsStorageKey(
+    'driversagainstflock.mapSearch.primaryLocations.v1',
+);
 const RECENT_LOCATIONS_LIMIT = 5;
 
 const primaryLocationsListeners = new Set();
 const searchSavedLocationsListeners = new Set();
 const locationLoads = new Map();
 const locationWrites = new Map();
+const loadedLocationKeys = new Set();
 const locationStateKeys = {
     [RECENT_LOCATIONS_STORAGE_KEY]: 'recentLocations',
     [FAVORITE_LOCATIONS_STORAGE_KEY]: 'favoriteLocations',
@@ -32,6 +41,7 @@ let savedLocationsSnapshot = {
 };
 
 function publishLocations(key, locations) {
+    loadedLocationKeys.add(key);
     savedLocationsSnapshot = {
         ...savedLocationsSnapshot,
         [locationStateKeys[key]]: locations,
@@ -278,6 +288,25 @@ export async function loadSearchSavedLocations() {
         loadLocations(FAVORITE_LOCATIONS_STORAGE_KEY),
         loadPrimaryLocations(),
     ]);
+
+    return savedLocationsSnapshot;
+}
+
+export function getSearchSavedLocationsSnapshot(category = null) {
+    const categoryKey =
+        category === 'Recents'
+            ? RECENT_LOCATIONS_STORAGE_KEY
+            : category === 'Favorites'
+              ? FAVORITE_LOCATIONS_STORAGE_KEY
+              : null;
+
+    if (
+        categoryKey
+            ? !loadedLocationKeys.has(categoryKey)
+            : loadedLocationKeys.size === 0
+    ) {
+        return null;
+    }
 
     return savedLocationsSnapshot;
 }

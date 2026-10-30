@@ -1,6 +1,6 @@
 import Mapbox from '@rnmapbox/maps';
 import { Pressable, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
 import {
     getMarkerCoordinate,
     getStoredNumber,
@@ -110,7 +110,12 @@ function getSubmittedSearchResultCoordinate(result) {
     return [normalizeLongitude(longitude), latitude];
 }
 
-export function SubmittedSearchResultMarker({ index, onPress, result }) {
+export function SubmittedSearchResultMarker({
+    index,
+    numbered = false,
+    onPress,
+    result,
+}) {
     const coordinate = getSubmittedSearchResultCoordinate(result);
 
     if (!coordinate) {
@@ -125,7 +130,7 @@ export function SubmittedSearchResultMarker({ index, onPress, result }) {
             coordinate={coordinate}
         >
             <Pressable
-                accessibilityLabel={`Search result: ${result.primaryText || result.label}`}
+                accessibilityLabel={`Search result${numbered ? ` ${index + 1}` : ''}: ${result.primaryText || result.label}`}
                 accessibilityRole="button"
                 className="h-14 w-12 items-center justify-start"
                 hitSlop={8}
@@ -139,8 +144,23 @@ export function SubmittedSearchResultMarker({ index, onPress, result }) {
                         stroke="#ffffff"
                         strokeWidth={3}
                     />
-                    <Circle cx={24} cy={23} fill="#ffffff" r={8.5} />
-                    <Circle cx={24} cy={23} fill="#7A5CFF" r={4} />
+                    {numbered ? (
+                        <SvgText
+                            fill="#ffffff"
+                            fontSize={20}
+                            fontWeight="700"
+                            textAnchor="middle"
+                            x={24}
+                            y={30}
+                        >
+                            {index + 1}
+                        </SvgText>
+                    ) : (
+                        <>
+                            <Circle cx={24} cy={23} fill="#ffffff" r={8.5} />
+                            <Circle cx={24} cy={23} fill="#7A5CFF" r={4} />
+                        </>
+                    )}
                 </Svg>
             </Pressable>
         </Mapbox.MarkerView>

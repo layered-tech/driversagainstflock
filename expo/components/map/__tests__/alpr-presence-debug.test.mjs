@@ -21,6 +21,58 @@ import {
 
 const now = 100000;
 
+test('queued camera events generated before focus do not count as locked-camera movement', () => {
+    let clock = 1000;
+    const diagnostics = createPresenceCameraDiagnostics({ now: () => clock });
+    diagnostics.reset({
+        centerCoordinate: [-97, 30],
+        zoomLevel: 17,
+        pitch: 55,
+    });
+    clock = 1001;
+    diagnostics.record({
+        timestamp: 990,
+        properties: { center: [-97, 30.001], zoom: 17 },
+    });
+    assert.equal(diagnostics.getSnapshot().samples, 0);
+    assert.equal(diagnostics.getSnapshot().preFocusEventsIgnored, 1);
+    diagnostics.record({
+        timestamp: 1000,
+        properties: { center: [-97, 30], zoom: 17 },
+    });
+    assert.equal(diagnostics.getSnapshot().samples, 1);
+    diagnostics.record({
+        timestamp: 999,
+        properties: { center: [-97, 30.001], zoom: 17 },
+    });
+    assert.equal(diagnostics.getSnapshot().samples, 1);
+    assert.equal(diagnostics.getSnapshot().preFocusEventsIgnored, 2);
+    assert.equal(diagnostics.getSnapshot().offTargetSamples, 0);
+});
+
+test('a genuine current camera event one millisecond after focus still fails stability', () => {
+    let clock = 1000;
+    const diagnostics = createPresenceCameraDiagnostics({ now: () => clock });
+    diagnostics.reset({
+        centerCoordinate: [-97, 30],
+        zoomLevel: 17,
+        pitch: 55,
+    });
+    clock = 1001;
+    diagnostics.record({
+        timestamp: 1001,
+        properties: { center: [-97, 30.001], zoom: 17 },
+    });
+    assert.equal(diagnostics.getSnapshot().offTargetSamples, 1);
+    assert.ok(diagnostics.getSnapshot().maximumCenterOffsetMeters > 100);
+    assert.equal(diagnostics.getSnapshot().firstOffTargetSample.elapsedMs, 1);
+    assert.equal(
+        diagnostics.getSnapshot().firstOffTargetSample
+            .eventGeneratedAfterFocusMs,
+        1,
+    );
+});
+
 test('native sampling records camera excursions without camera-change events and ignores released owners', async () => {
     let clock = 0;
     const diagnostics = createPresenceCameraDiagnostics({ now: () => clock });

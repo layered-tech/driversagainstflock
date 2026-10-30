@@ -9,14 +9,22 @@ import {
     setMapApiMocksEnabled,
 } from '../map/api-mocks';
 import { setE2EDrivingAlertsFixture } from '../map/e2e-driving-alert-fixture';
+import { APP_ENVIRONMENT } from '../map/config';
 import { getSharedElectronicHorizonAlprNodes } from '../map/electronic-horizon-alpr-store';
-import { invalidateRoadMatchingGraphForE2E } from '../map/road-matching-session';
+import {
+    getLastRoadLookAheadAsync,
+    getRoadMatchingSessionDiagnostics,
+    invalidateRoadMatchingGraphForE2E,
+} from '../map/road-matching-session';
+import { upcomingAlertDebugStore } from '../map/upcoming-alert-debug';
 import {
     scorecardDriveE2ECameraInventoryIsReady,
     setScorecardDriveE2EScenario,
 } from '../map/scorecard-drive-e2e-fixture';
 import {
+    getE2EAndroidAutoCommandFromURL,
     getE2EAutoPlayCommandFromURL,
+    getE2ECarPlayCommandFromURL,
     getE2EMockFlagsFromURL,
     isE2ELiveGpsDriveResetURL,
 } from './e2e-map-api-mock-url';
@@ -33,13 +41,49 @@ const E2E_MOCK_AUTH_SESSION = {
 };
 
 function applyE2EMocksFromURL(value) {
+    const automotiveCommand =
+        getE2ECarPlayCommandFromURL(value) ??
+        getE2EAndroidAutoCommandFromURL(value);
+    if (automotiveCommand && APP_ENVIRONMENT === 'e2e') {
+        void Promise.resolve(
+            dispatchAutoPlayE2ECommand(automotiveCommand),
+        ).catch((error) =>
+            console.info(
+                `[E2E] ${automotiveCommand.requestType}-command-failed:${error.message}`,
+            ),
+        );
+        return;
+    }
     if (isE2ELiveGpsDriveResetURL(value)) {
         setMapApiMocksEnabled(false);
         setOSMApiMocksEnabled(false);
         void presenceCoordinator
             .resetLimits()
             .then(() => presenceCoordinator.resetAutomotiveAlertHistory())
-            .then(() => console.info('[E2E] live-gps-drive-reset'))
+            .then(async () => {
+                console.info(
+                    '[E2E] live-gps-drive-state ' +
+                        JSON.stringify({
+                            environment: APP_ENVIRONMENT,
+                            queuedReports:
+                                presenceCoordinator.state.outbox.length,
+                        }),
+                );
+                console.info('[E2E] live-gps-drive-reset');
+                if (APP_ENVIRONMENT === 'e2e') {
+                    const horizon = await getLastRoadLookAheadAsync();
+                    console.info(
+                        '[E2E] live-gps-drive-diagnostics ' +
+                            JSON.stringify({
+                                road: getRoadMatchingSessionDiagnostics(),
+                                horizonPointCount:
+                                    horizon?.primaryPath?.coordinates?.length ??
+                                    0,
+                                warning: upcomingAlertDebugStore.getSnapshot(),
+                            }),
+                    );
+                }
+            })
             .catch((error) =>
                 console.info(`[E2E] live-gps-drive-failed:${error.message}`),
             );

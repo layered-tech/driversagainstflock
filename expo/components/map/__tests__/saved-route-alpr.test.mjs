@@ -120,10 +120,23 @@ test('saved road warns on approach, decreases distance, and removes the passed r
                 warning.historyEntry,
                 baseTime,
             ),
-            baseTime + 300000,
+            baseTime + 5 * 60 * 1000 - 1,
         ),
         null,
-        'replaying cannot repeat a warning in the same drive',
+        'replaying cannot repeat the warning before five minutes',
+    );
+    assert.equal(
+        content(
+            start,
+            recordAutomotiveAlertHistoryEntry(
+                history,
+                warning.historyEntry,
+                baseTime,
+            ),
+            baseTime + 5 * 60 * 1000,
+        )?.alertKey,
+        warning.alertKey,
+        'the warning can repeat after five minutes on the same route',
     );
 });
 

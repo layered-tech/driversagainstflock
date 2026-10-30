@@ -99,35 +99,32 @@ describe('Auto Play route-loading state', () => {
     });
 });
 
-describe('Auto Play route-loading overlay', () => {
-    test('renders on shared driving maps even while search results own the map', () => {
-        assert.match(
+describe('Auto Play loading presentation', () => {
+    test('does not expose route-loading or automatic-advance cards on the map', () => {
+        assert.doesNotMatch(
             mapSurfaceSource,
-            /<AutoPlayMapStatusOverlay[\s\S]*?statusChromeIsVisible=\{\s*rendersAppOverlays && !searchResultsMapIsActive\s*\}[\s\S]*?\/>[\s\S]*?rendersAppOverlays \? \([\s\S]*?<AutoPlayTopRightStatusOverlay[\s\S]*?routeLoading=\{autoPlayState\.routeLoading\}/,
+            /routeLoading=|singleResultCountdown=/,
+        );
+        assert.doesNotMatch(
+            mapStatusOverlaySource,
+            /AutoPlayRouteLoadingCard|AutoPlaySingleResultCountdownCard|Finding route|Route options in/,
+        );
+        assert.doesNotMatch(autoPlayStateSource, /singleResultCountdown/);
+    });
+
+    test('keeps request tracking and native list loading feedback', () => {
+        assert.match(autoPlayStateSource, /routeLoading: null/);
+        assert.match(
+            autoPlaySource,
+            /updateSearchTemplateLoadingRoute\(template, title\)/,
         );
         assert.match(
-            mapStatusOverlaySource,
-            /function AutoPlayRouteLoadingCard[\s\S]*?Finding route[\s\S]*?accessibilityRole="progressbar"[\s\S]*?<ActivityIndicator/,
+            autoPlaySource,
+            /makeDisabledSearchRow\(\s*'Loading route'/,
         );
     });
 
-    test('renders the single-result timer on the same visible status rail', () => {
-        assert.match(autoPlayStateSource, /singleResultCountdown: null/);
-        assert.match(
-            mapSurfaceSource,
-            /singleResultCountdown=\{\s*autoPlayState\.singleResultCountdown\s*\}/,
-        );
-        assert.match(
-            mapStatusOverlaySource,
-            /function AutoPlaySingleResultCountdownCard[\s\S]*?accessibilityRole="timer"[\s\S]*?Route options in \{remainingSeconds\}s/,
-        );
-        assert.match(
-            mapStatusOverlaySource,
-            /singleResultCountdown \? \([\s\S]*?<AutoPlaySingleResultCountdownCard/,
-        );
-    });
-
-    test('shares the status rail at the host-safe top-right edge', () => {
+    test('keeps search progress at the host-safe top-right edge', () => {
         assert.deepEqual(
             getAutoPlayTopRightStatusOverlayLayout({
                 mapControlLayoutInsets: {
@@ -137,27 +134,20 @@ describe('Auto Play route-loading overlay', () => {
                     top: 24,
                 },
             }).positionStyle,
-            {
-                right: 30,
-                top: 24,
-            },
+            { right: 30, top: 24 },
         );
         assert.match(
             mapStatusOverlaySource,
-            /function AutoPlayTopRightStatusOverlay[\s\S]*?pointerEvents="none"[\s\S]*?<AutoPlaySingleResultCountdownCard[\s\S]*?<AutoPlayRouteLoadingCard/,
+            /function AutoPlayTopRightStatusOverlay[\s\S]*?pointerEvents="none"[\s\S]*?<AutoPlaySearchLoadingCard/,
         );
     });
 });
 
-test('search and route loading use the same compact destination pill', () => {
+test('search alone uses the compact destination pill', () => {
     assert.match(autoPlayStateSource, /searchLoading: null/);
     assert.match(
         mapSurfaceSource,
         /searchLoading=\{autoPlayState\.searchLoading\}/,
-    );
-    assert.match(
-        mapStatusOverlaySource,
-        /searchLoading\?\.query \?\? routeLoading\?\.destinationLabel/,
     );
     assert.match(
         mapStatusOverlaySource,
@@ -169,6 +159,6 @@ test('search and route loading use the same compact destination pill', () => {
     );
     assert.match(
         mapStatusOverlaySource,
-        /routeLoading \|\| searchLoading \? \(/,
+        /if \(!searchLoading\) \{\s*return null/,
     );
 });
