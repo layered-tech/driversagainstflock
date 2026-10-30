@@ -71,7 +71,7 @@ fun WatchApp(repository: WatchPresentation, ambient: Boolean, resumed: Boolean =
                             val nav = snapshot?.navigation
                             val rows = listOf(
                                 "Connection" to if (repository.connected) "Connected" else "Disconnected",
-                                "Environment" to (snapshot?.json?.optString("environment") ?: "staging"),
+                                "Environment" to (snapshot?.json?.optString("environment") ?: BuildConfig.APP_ENVIRONMENT),
                                 "Phone app" to (snapshot?.json?.optString("phoneVersion") ?: "—"),
                                 "Watch app" to BuildConfig.VERSION_NAME,
                                 "Protocol" to "Watch v$PROTOCOL_VERSION / phone ${repository.remoteProtocolVersion ?: "—"}",

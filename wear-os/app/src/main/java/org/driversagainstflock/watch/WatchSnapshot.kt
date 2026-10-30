@@ -24,7 +24,7 @@ data class WatchSnapshot(val json: JSONObject) {
             require(json.getString("publisherId").length in 1..80)
             require(json.getLong("publisherStartedAt") > 0 && json.getLong("revision") > 0)
             require(json.getLong("publishedAt") > 0)
-            require(json.getString("environment") in setOf("staging", "development", "e2e"))
+            require(json.getString("environment") in setOf("production", "staging", "development", "e2e"))
             val nav = json.getJSONObject("navigation")
             require(nav.getString("status") in setOf("idle", "active", "rerouting", "waiting-for-location", "missing-maneuver"))
             require(nav.getLong("routeRevision") >= 0)

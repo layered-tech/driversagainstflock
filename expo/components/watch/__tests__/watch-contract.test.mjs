@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import {
     createWatchSnapshot,
     semanticWatchManeuver,
+    watchEnvironmentIsSupported,
     watchSourceIsStale,
 } from '../watch-contract.js';
 import { createWatchPublisher } from '../watch-publisher.js';
@@ -38,6 +39,19 @@ const base = {
         cameraCrossings: 3,
     },
 };
+
+test('watch publishing supports production and staging while rejecting unknown environments', () => {
+    for (const environment of ['production', 'staging', 'development', 'e2e']) {
+        assert.equal(watchEnvironmentIsSupported(environment), true);
+        assert.equal(
+            createWatchSnapshot({ ...base, environment }).environment,
+            environment,
+        );
+    }
+    for (const environment of [undefined, '', 'unknown']) {
+        assert.equal(watchEnvironmentIsSupported(environment), false);
+    }
+});
 
 test('shared native fixture equals the phone projection', () => {
     const fixture = JSON.parse(

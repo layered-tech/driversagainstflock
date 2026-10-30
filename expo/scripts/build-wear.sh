@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    cat <<'HELP'
+Usage: bash scripts/build-wear.sh staging|production
+
+staging    Build only the watch APK, signed like the local staging phone.
+production Build a signed Android App Bundle for the existing app's Wear OS Play track.
+
+Prerequisites: JDK 17+, Android SDK platform 37, and the SDK's accepted licenses.
+ANDROID_HOME (or ANDROID_SDK_ROOT) and JAVA_HOME override local discovery.
+
+Staging uses expo/android/app/debug.keystore from npm run prebuild:staging.
+WEAR_STAGING_STORE_FILE can point to that same debug key elsewhere.
+The phone and watch must have the same application ID and signing certificate.
+
+Use npm run build:wear:production to load the phone's EAS credentials from
+expo/credentials.json automatically. Download them once with eas credentials
+(Android > production > credentials.json > Download credentials from EAS).
+The credentials file and keystore are ignored by Git.
+
+The npm production command increments wear-os/version-code.json after a successful
+build (starting after code 1). Commit that file to share the counter across checkouts.
+This local counter does not synchronize with EAS or Play; keep phone codes distinct.
+WEAR_VERSION_CODE can override the next code with a higher unused value.
+To override local credentials, supply
+all four WEAR_RELEASE_* variables below together. Direct invocation of this
+shell script also requires these exported environment variables:
+  WEAR_VERSION_CODE            Unused Play code across phone AND watch (1..2100000000).
+  WEAR_RELEASE_STORE_FILE      Absolute path to the existing Play upload keystore.
+  WEAR_RELEASE_STORE_PASSWORD  Keystore password.
+  WEAR_RELEASE_KEY_ALIAS       Upload key alias (not androiddebugkey).
+  WEAR_RELEASE_KEY_PASSWORD    Upload key password.
+Optional: WEAR_VERSION_NAME (default 0.1.0), WEAR_OUTPUT_DIR.
+
+Use the existing phone app's Play listing and app signing key. The upload key
+signs the AAB; Google Play signs installed APKs. A locally debug-signed phone
+cannot communicate with a Play-signed watch.
+
+Outputs: wear-os/build/artifacts/daf-watch-staging.apk or daf-watch-production.aab.
+These commands do not build the phone, install apps, or upload to Google Play.
+HELP
+}
+
+if [[ "${1:-}" == '--help' || "${1:-}" == '-h' ]]; then usage; exit 0; fi
+if [[ "$#" != 1 || ( "$1" != staging && "$1" != production ) ]]; then usage >&2; exit 1; fi
+
+expo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+watch_dir="$(cd -- "$expo_dir/../wear-os" && pwd)"
+profile="$1"
+artifacts_dir="${WEAR_OUTPUT_DIR:-$watch_dir/build/artifacts}"
+
+if [[ -n "${WEAR_VERSION_CODE:-}" ]] && ! [[ "$WEAR_VERSION_CODE" =~ ^[1-9][0-9]{0,9}$ && "$WEAR_VERSION_CODE" -le 2100000000 ]]; then
+    echo 'WEAR_VERSION_CODE must be an integer between 1 and 2100000000.' >&2
+    exit 1
+fi
+if [[ "$profile" == production ]]; then
+    for variable in WEAR_VERSION_CODE WEAR_RELEASE_STORE_FILE WEAR_RELEASE_STORE_PASSWORD WEAR_RELEASE_KEY_ALIAS WEAR_RELEASE_KEY_PASSWORD; do
+        if [[ -z "${!variable:-}" ]]; then echo "Set $variable before building a Play bundle." >&2; exit 1; fi
+    done
+    if [[ "$WEAR_RELEASE_STORE_FILE" != /* || ! -f "$WEAR_RELEASE_STORE_FILE" ]]; then
+        echo 'WEAR_RELEASE_STORE_FILE must be an absolute path to an existing upload keystore.' >&2; exit 1
+    fi
+    if [[ "$WEAR_RELEASE_KEY_ALIAS" == androiddebugkey ]]; then
+        echo 'Play bundles must use your upload key, not the Android debug key.' >&2; exit 1
+    fi
+    task=':app:bundleRelease'
+    source_artifact="$watch_dir/app/build/outputs/bundle/release/app-release.aab"
+    output_artifact="$artifacts_dir/daf-watch-production.aab"
+else
+    export WEAR_STAGING_STORE_FILE="${WEAR_STAGING_STORE_FILE:-$expo_dir/android/app/debug.keystore}"
+    if [[ "$WEAR_STAGING_STORE_FILE" != /* || ! -f "$WEAR_STAGING_STORE_FILE" ]]; then
+        echo 'Missing staging debug keystore. Run npm run prebuild:staging in expo, or set WEAR_STAGING_STORE_FILE to its absolute path.' >&2
+        exit 1
+    fi
+    task=':app:assembleDebug'
+    source_artifact="$watch_dir/app/build/outputs/apk/debug/app-debug.apk"
+    output_artifact="$artifacts_dir/daf-watch-staging.apk"
+fi
+
+if [[ -z "${JAVA_HOME:-}" && -d '/Applications/Android Studio.app/Contents/jbr/Contents/Home' ]]; then
+    export JAVA_HOME='/Applications/Android Studio.app/Contents/jbr/Contents/Home'
+fi
+if [[ -z "${ANDROID_HOME:-}" ]]; then
+    if [[ -n "${ANDROID_SDK_ROOT:-}" ]]; then
+        export ANDROID_HOME="$ANDROID_SDK_ROOT"
+    elif [[ -d "$HOME/Library/Android/sdk" ]]; then
+        export ANDROID_HOME="$HOME/Library/Android/sdk"
+    elif [[ -d "$HOME/Android/Sdk" ]]; then
+        export ANDROID_HOME="$HOME/Android/Sdk"
+    fi
+fi
+
+"$watch_dir/gradlew" -p "$watch_dir" "$task" --console=plain
+mkdir -p "$artifacts_dir"
+cp "$source_artifact" "$output_artifact"
+printf 'Wear OS %s artifact: %s\n' "$profile" "$output_artifact"

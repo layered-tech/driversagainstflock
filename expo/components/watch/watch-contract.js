@@ -2,6 +2,12 @@ export const WATCH_PROTOCOL_VERSION = 1;
 export const WATCH_STALE_AFTER_MS = 15_000;
 export const WATCH_PROGRESS_INTERVAL_MS = 1_000;
 
+export function watchEnvironmentIsSupported(environment) {
+    return ['production', 'staging', 'development', 'e2e'].includes(
+        environment,
+    );
+}
+
 const MANEUVERS = [
     'left',
     'right',

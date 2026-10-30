@@ -16,6 +16,12 @@ class WatchSnapshotTest {
         assertEquals(3, state.scorecard.getInt("cameraCrossings"))
         assertEquals("drive-1", state.sessionId)
     }
+    @Test fun productionPhonePayloadIsSupportedAndUnknownEnvironmentsAreRejected() {
+        val json = JSONObject(fixture()).put("environment", "production")
+        assertEquals("drive-1", WatchSnapshot.parse(json.toString()).sessionId)
+        json.put("environment", "unknown")
+        assertTrue(runCatching { WatchSnapshot.parse(json.toString()) }.isFailure)
+    }
     @Test fun staleUsesSourceTimeNotReceiptOrPublishTime() {
         val json = JSONObject(fixture()).put("publishedAt", 90_000)
         val state = WatchSnapshot.parse(json.toString())

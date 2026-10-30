@@ -27,7 +27,10 @@ import {
     getScorecardActiveDriveSummary,
     subscribeScorecardRuntime,
 } from '../scorecard/scorecard-runtime-instance';
-import { createWatchSnapshot } from './watch-contract';
+import {
+    createWatchSnapshot,
+    watchEnvironmentIsSupported,
+} from './watch-contract';
 import { createWatchPublisher } from './watch-publisher';
 
 let initialized = false;
@@ -35,7 +38,7 @@ export function initializeWatchRuntime() {
     if (
         initialized ||
         Platform.OS !== 'android' ||
-        !['staging', 'development', 'e2e'].includes(APP_ENVIRONMENT)
+        !watchEnvironmentIsSupported(APP_ENVIRONMENT)
     )
         return;
     const transport = requireOptionalNativeModule('WatchCompanion');
