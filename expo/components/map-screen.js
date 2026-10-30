@@ -1,3 +1,4 @@
+import { usePersistentMapEnabled } from './map/persistent-map-host';
 import { NativeNavigationAction } from './root/native-navigation';
 import { useDuoDevice } from './root/duo-device-context';
 import { getDuoPaneLayout } from './map/duo-bottom-sheet-layout';
@@ -115,6 +116,7 @@ export default function LocationMapScreen({
     searchOverlayVisible,
     searchSource,
 } = {}) {
+    const persistentMap = usePersistentMapEnabled();
     const lockOnLocationUpdateAnimationDurationRef = useRef(null);
     const fittedDirectionsRouteChoicesKeyRef = useRef('');
     const fittedDrivingRouteOverviewKeyRef = useRef('');
@@ -834,7 +836,14 @@ export default function LocationMapScreen({
             searchResultsValue={searchResultsValue}
             searchValue={searchValue}
         >
-            <View className="flex-1 bg-white dark:bg-neutral-950">
+            <View
+                pointerEvents={persistentMap ? 'box-none' : 'auto'}
+                className={
+                    persistentMap
+                        ? 'flex-1'
+                        : 'flex-1 bg-white dark:bg-neutral-950'
+                }
+            >
                 <MapCanvas onLayout={handleMapViewportLayout} />
                 {screenIsFocused ? (
                     <>

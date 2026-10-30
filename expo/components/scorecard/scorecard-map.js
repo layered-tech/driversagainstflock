@@ -64,6 +64,7 @@ export function ScorecardExposureMap({
     height,
     cameraPadding,
     fullViewport = false,
+    persistent = fullViewport,
     lineCollection = null,
     lineColor = '#FF4D4F',
     numbered = false,
@@ -134,6 +135,7 @@ export function ScorecardExposureMap({
 
     return (
         <NativeWindMapView
+            persistent={duo && persistent}
             attributionEnabled
             className="w-full"
             compassEnabled={false}

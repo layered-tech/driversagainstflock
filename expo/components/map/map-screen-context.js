@@ -926,3 +926,11 @@ export function useDirectionsRouteContext() {
 export function useSearchResultsContext() {
     return useRequiredContext(SearchResultsContext, 'useSearchResultsContext');
 }
+
+export function MapCanvasContextBridge({ value, children }) {
+    return (
+        <MapCanvasContext.Provider value={value}>
+            {children}
+        </MapCanvasContext.Provider>
+    );
+}

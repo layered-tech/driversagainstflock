@@ -1,3 +1,4 @@
+import { usePersistentMapEnabled } from './persistent-map-host';
 import {
     Platform,
     Pressable,
@@ -25,6 +26,7 @@ export function DuoMapSheet({
     onFooterLayout,
     tabletDevice = false,
 }) {
+    const persistentMap = usePersistentMapEnabled();
     const insets = useSafeAreaInsets();
     const dark = useColorScheme() === 'dark';
     const { width } = useWindowDimensions();
@@ -36,10 +38,17 @@ export function DuoMapSheet({
     );
     return (
         <View
-            className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
+            pointerEvents={persistentMap ? 'box-none' : 'auto'}
+            className={
+                persistentMap
+                    ? 'flex-1'
+                    : 'flex-1 bg-daf-surface-page dark:bg-[#0B0E12]'
+            }
             testID={testID}
         >
-            <View className="absolute inset-0">{map}</View>
+            <View className="absolute inset-0" pointerEvents="box-none">
+                {map}
+            </View>
             {header ? (
                 <View
                     className="absolute overflow-hidden rounded-dafLg border border-daf-border-glass bg-white shadow-areaControl dark:border-daf-border-glass-dark dark:bg-[#11151B]"

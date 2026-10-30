@@ -50,7 +50,7 @@ export default function AreasScreen() {
         0,
     );
     return (
-        <View className="flex-1" testID="areas-screen">
+        <View pointerEvents="box-none" className="flex-1" testID="areas-screen">
             <DuoPaneMap>{areaMap}</DuoPaneMap>
             <AreaHeader
                 onLayout={sizing.onHeaderLayout}

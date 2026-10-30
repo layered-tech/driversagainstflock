@@ -10,6 +10,7 @@ let scorecardState = { isHydrated: false };
 const { AppDrawerContent } = loadTourModule(
     new URL('../../root/app-drawer-content.js', import.meta.url),
     {
+        react: { useContext: () => () => {}, useEffect() {} },
         'expo-constants': { nativeAppVersion: 'test' },
         './app-drawer-navigation': { openDrawerRoot },
         'expo-router/drawer': {

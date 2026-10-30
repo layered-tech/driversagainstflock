@@ -1,3 +1,4 @@
+import { PersistentMapScene } from '../map/persistent-map-host';
 import { useIsFocused } from 'expo-router';
 import { useVerticalBarEdgeIOS } from 'expo-status-bar';
 import { cssInterop } from 'nativewind';
@@ -221,7 +222,7 @@ const INFORMATION_ROUTES = new Set([
 ]);
 
 export function nativeNavigationScreenLayout({ children, route }) {
-    return (
+    const content = (
         <NativeNavigationContainer>
             {INFORMATION_ROUTES.has(route?.name) ? (
                 <HorizontalSafeAreaContent>
@@ -231,6 +232,13 @@ export function nativeNavigationScreenLayout({ children, route }) {
                 children
             )}
         </NativeNavigationContainer>
+    );
+    return ['scorecard', 'areas', 'contribute', 'edits'].includes(
+        route?.name,
+    ) ? (
+        content
+    ) : (
+        <PersistentMapScene>{content}</PersistentMapScene>
     );
 }
 

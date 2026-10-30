@@ -344,6 +344,7 @@ export default function ScorecardTrailScreen() {
                 }
                 map={
                     <ScorecardExposureMap
+                        persistent
                         fullViewport={paneHeaderControls}
                         exposures={trailExposures}
                         height={windowHeight}

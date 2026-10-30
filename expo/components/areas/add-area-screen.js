@@ -179,11 +179,13 @@ export default function AddAreaScreen() {
     }
     return (
         <KeyboardAvoidingView
+            pointerEvents="box-none"
             className="flex-1"
             behavior="padding"
             testID="add-area-screen"
         >
             <View
+                pointerEvents="box-none"
                 className={
                     duoDevice || tabletPane
                         ? 'absolute inset-0'

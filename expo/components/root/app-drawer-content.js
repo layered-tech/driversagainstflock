@@ -1,3 +1,5 @@
+import { PersistentDrawerStateContext } from '../map/persistent-map-host';
+import { useContext, useEffect } from 'react';
 import { DuoText as Text } from '../design-system/duo-typography';
 import { useDuoDevice } from './duo-device-context';
 import Constants from 'expo-constants';
@@ -126,6 +128,22 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
     } = useScorecard();
     const colorScheme = useColorScheme();
     const drawerIsOpen = useDrawerStatus() === 'open';
+    const activeRoute = props.state?.routes[props.state.index];
+    const drawerSwipeEnabled =
+        props.descriptors?.[activeRoute?.key]?.options?.swipeEnabled !== false;
+    const setPersistentDrawerOpen = useContext(PersistentDrawerStateContext);
+    useEffect(() => {
+        setPersistentDrawerOpen({
+            open: drawerIsOpen,
+            navigation: props.navigation,
+            swipeEnabled: drawerSwipeEnabled,
+        });
+    }, [
+        drawerIsOpen,
+        drawerSwipeEnabled,
+        props.navigation,
+        setPersistentDrawerOpen,
+    ]);
     const isDarkMode = colorScheme === 'dark';
     const drawerTintColor = isDarkMode ? '#F5F7F9' : '#11151B';
     const authButtonBackgroundColor = isDarkMode

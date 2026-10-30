@@ -7,7 +7,7 @@ import {
     default as BottomSheet,
     TouchableOpacity as BottomSheetTouchableOpacity,
 } from '@gorhom/bottom-sheet';
-import Mapbox from '@rnmapbox/maps';
+import { PersistentMapView } from './persistent-map-host';
 import { GlassView } from 'expo-glass-effect';
 import { cssInterop, remapProps } from 'nativewind';
 import {
@@ -405,7 +405,7 @@ export const NativeWindBottomSheetFlatList = withDuoSheetSurface(
     StyledBottomSheetFlatList,
 );
 
-export const NativeWindMapView = cssInterop(Mapbox.MapView, {
+export const NativeWindMapView = cssInterop(PersistentMapView, {
     className: 'style',
 });
 

@@ -46,8 +46,15 @@ export default function AreaChangeScreen() {
     }, [areaId, changeId, attempt]);
     const change = payload?.change;
     return (
-        <View className="flex-1" testID="area-change-screen">
-            <View className="-mb-[22px] min-h-[150px] flex-1">
+        <View
+            pointerEvents="box-none"
+            className="flex-1"
+            testID="area-change-screen"
+        >
+            <View
+                pointerEvents="box-none"
+                className="-mb-[22px] min-h-[150px] flex-1"
+            >
                 {change ? (
                     <AreaMap
                         showDirectionCones

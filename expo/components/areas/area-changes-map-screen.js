@@ -125,8 +125,15 @@ export default function AreaChangesMapScreen() {
         rememberAreaBoundary,
     ]);
     return (
-        <View className="flex-1" testID="area-changes-map-screen">
-            <View className="-mb-[22px] min-h-[150px] flex-1">
+        <View
+            pointerEvents="box-none"
+            className="flex-1"
+            testID="area-changes-map-screen"
+        >
+            <View
+                pointerEvents="box-none"
+                className="-mb-[22px] min-h-[150px] flex-1"
+            >
                 {(changeId ? selectedChange : area?.geometry) ? (
                     <AreaMap
                         sheetHeight={sheetHeight}

@@ -20,11 +20,14 @@ export function loadTourModule(fileUrl, mocks, scheduler = {}) {
         plugins: [[jsx, { runtime: 'automatic' }], commonjs],
     });
     const module = { exports: {} };
-    const createElement = (type, props, key) => ({
-        type,
-        props,
-        ...(key === undefined ? {} : { key }),
-    });
+    const createElement = (type, props, key) =>
+        type === 'PersistentMapScene'
+            ? props.children
+            : {
+                  type,
+                  props,
+                  ...(key === undefined ? {} : { key }),
+              };
 
     new Function(
         'require',
@@ -38,6 +41,15 @@ export function loadTourModule(fileUrl, mocks, scheduler = {}) {
             if (specifier === 'react-native' && specifier in mocks) {
                 return { Platform: { isPad: false }, ...mocks[specifier] };
             }
+            if (
+                specifier.endsWith('/persistent-map-host') &&
+                !(specifier in mocks)
+            )
+                return {
+                    usePersistentMapEnabled: () => false,
+                    PersistentMapScene: 'PersistentMapScene',
+                    PersistentDrawerStateContext: {},
+                };
             if (specifier === './contribute-layout') {
                 return { getContributeMapLayout };
             }

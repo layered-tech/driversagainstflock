@@ -24,6 +24,7 @@ import { getBoundsFitCameraStop } from '../map/camera-state';
 import { areaCameraCones } from './area-camera-cones';
 
 export function AreaMap({
+    preserveCamera = false,
     geometry,
     center,
     changes = [],
@@ -121,6 +122,8 @@ export function AreaMap({
         );
     return (
         <NativeWindMapView
+            persistent={floatingMap}
+            persistentPreserveCamera={preserveCamera}
             className="flex-1"
             styleURL={MAPBOX_STANDARD_STYLE_URL}
             surfaceView={false}

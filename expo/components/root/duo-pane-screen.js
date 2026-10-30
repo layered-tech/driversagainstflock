@@ -1,3 +1,4 @@
+import { usePersistentMapEnabled } from '../map/persistent-map-host';
 import { Platform, useWindowDimensions, View } from 'react-native';
 import {
     createContext,
@@ -41,6 +42,7 @@ export function DuoPaneMap({ children }) {
 }
 
 function DuoSceneMap() {
+    const persistentMap = usePersistentMapEnabled();
     const { userLocation } = useSharedMapLocationState();
     const { markerPoints, initialCameraSettings } = useSharedMapState();
     const cameras = useMemo(
@@ -64,10 +66,18 @@ function DuoSceneMap() {
     const center = userLocation
         ? [userLocation.longitude, userLocation.latitude]
         : initialCameraSettings?.centerCoordinate;
-    return <AreaMap center={center} changes={cameras} zoomLevel={12} />;
+    return (
+        <AreaMap
+            preserveCamera={persistentMap}
+            center={center}
+            changes={cameras}
+            zoomLevel={12}
+        />
+    );
 }
 
 export function DuoPaneScreen({ children }) {
+    const persistentMap = usePersistentMapEnabled();
     const [map, setMap] = useState(null);
     const [contentSize, setContentSize] = useState({
         header: null,
@@ -91,7 +101,12 @@ export function DuoPaneScreen({ children }) {
         );
     return (
         <View
-            className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
+            pointerEvents={persistentMap ? 'box-none' : 'auto'}
+            className={
+                persistentMap
+                    ? 'flex-1'
+                    : 'flex-1 bg-daf-surface-page dark:bg-[#0B0E12]'
+            }
             testID={
                 tablet && pane
                     ? 'tablet-split-screen'
@@ -100,7 +115,7 @@ export function DuoPaneScreen({ children }) {
                       : 'duo-page-screen'
             }
         >
-            <View className="absolute inset-0">
+            <View className="absolute inset-0" pointerEvents="box-none">
                 {pane ? (map ?? <DuoSceneMap />) : null}
             </View>
             <View
@@ -154,6 +169,7 @@ export function DuoPaneScreen({ children }) {
 }
 
 export function DuoMapModalScreen({ children }) {
+    const persistentMap = usePersistentMapEnabled();
     const duo = useDuoDevice();
     if (!duo && Platform?.isPad !== true)
         return (
@@ -161,10 +177,15 @@ export function DuoMapModalScreen({ children }) {
         );
     return (
         <View
-            className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
+            pointerEvents={persistentMap ? 'box-none' : 'auto'}
+            className={
+                persistentMap
+                    ? 'flex-1'
+                    : 'flex-1 bg-daf-surface-page dark:bg-[#0B0E12]'
+            }
             testID="duo-map-modal-screen"
         >
-            <View className="absolute inset-0">
+            <View className="absolute inset-0" pointerEvents="box-none">
                 <DuoSceneMap />
             </View>
             {children}

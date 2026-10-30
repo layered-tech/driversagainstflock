@@ -23,6 +23,14 @@ function getInsetValue(value) {
     return Number.isFinite(numericValue) ? Math.max(0, numericValue) : 0;
 }
 
+function getCornerSafeAreaInset(value, cornerPadding) {
+    const inset = getInsetValue(value);
+
+    return Platform.OS === 'android'
+        ? Math.max(inset, cornerPadding)
+        : inset + cornerPadding;
+}
+
 function normalizeInsets(insets) {
     if (!insets) {
         return null;
@@ -65,13 +73,13 @@ export function useSafeAreaInsets({ ignoreOverride = false } = {}) {
 
     return useMemo(
         () => ({
-            bottom:
-                getInsetValue(sourceInsets.bottom) +
-                resolvedBottomOffset +
+            bottom: getCornerSafeAreaInset(
+                getInsetValue(sourceInsets.bottom) + resolvedBottomOffset,
                 cornerPadding,
-            left: getInsetValue(sourceInsets.left) + cornerPadding,
-            right: getInsetValue(sourceInsets.right) + cornerPadding,
-            top: getInsetValue(sourceInsets.top) + cornerPadding,
+            ),
+            left: getCornerSafeAreaInset(sourceInsets.left, cornerPadding),
+            right: getCornerSafeAreaInset(sourceInsets.right, cornerPadding),
+            top: getCornerSafeAreaInset(sourceInsets.top, cornerPadding),
         }),
         [
             resolvedBottomOffset,

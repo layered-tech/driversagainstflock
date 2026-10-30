@@ -1,0 +1,89 @@
+appId: com.anonymous.drivefree.dev
+name: Persistent map across expanded route navigation
+---
+- launchApp:
+    stopApp: true
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    file: ../subflows/resume-expo-dev-client.yml
+- openLink: 'driversagainstflock://e2e-mocks?scorecard=populated'
+- extendedWaitUntil:
+    visible:
+      id: map-search-input-map
+    timeout: 30000
+- assertVisible:
+    id: persistent-map-host
+- tapOn:
+    id: map-search-drawer-button-map
+- extendedWaitUntil:
+    visible:
+      id: drawer-scorecard-button
+    timeout: 10000
+- back
+- extendedWaitUntil:
+    notVisible:
+      id: app-drawer-open
+    timeout: 10000
+- swipe:
+    start: '5%,50%'
+    end: '45%,50%'
+    duration: 500
+- extendedWaitUntil:
+    visible:
+      id: drawer-scorecard-button
+    timeout: 10000
+- tapOn:
+    id: drawer-scorecard-button
+- runFlow:
+    when:
+      visible:
+        id: scorecard-tour-skip-privacy-score
+    file: ../subflows/scorecard-tour-skip-first-visit.yml
+- extendedWaitUntil:
+    visible:
+      id: scorecard-dashboard
+    timeout: 15000
+- assertVisible:
+    id: persistent-map-host
+- openLink: 'driversagainstflock://areas/add?mode=draw'
+- extendedWaitUntil:
+    visible: 'Tap to add corners · drag to move'
+    timeout: 15000
+- tapOn:
+    point: '60%,35%'
+- tapOn:
+    point: '85%,35%'
+- tapOn:
+    point: '85%,65%'
+- tapOn:
+    point: '60%,65%'
+- assertVisible: '4 corners.*'
+- takeScreenshot: persistent-map-draw
+- tapOn: Close
+- openLink: 'driversagainstflock://hotlist'
+- extendedWaitUntil:
+    visible:
+      id: duo-content-pane
+    timeout: 15000
+- openLink: 'driversagainstflock://areas'
+- extendedWaitUntil:
+    visible:
+      id: areas-screen
+    timeout: 15000
+- openLink: 'driversagainstflock://e2e-mocks?scorecard=populated'
+- openLink: 'driversagainstflock://scorecard/timeline'
+- extendedWaitUntil:
+    visible:
+      id: scorecard-timeline
+    timeout: 15000
+- tapOn:
+    id: scorecard-event-read-e2e-confirmed-east
+- extendedWaitUntil:
+    visible:
+      id: scorecard-event-detail
+    timeout: 15000
+- assertVisible:
+    id: persistent-map-host
+- takeScreenshot: persistent-map-event
+- tapOn: Close

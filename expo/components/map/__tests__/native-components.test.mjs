@@ -42,6 +42,7 @@ function loadNativeComponents(overrides = {}) {
             BottomSheetView: 'BottomSheetView',
             TouchableOpacity: 'BottomSheetTouchableOpacity',
         },
+        './persistent-map-host': { PersistentMapView: 'MapView' },
         '@rnmapbox/maps': { MapView: 'MapView' },
         'expo-glass-effect': { GlassView: 'GlassView' },
         nativewind: {

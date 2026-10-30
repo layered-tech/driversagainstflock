@@ -220,6 +220,7 @@ export default function ScorecardEventDetailScreen() {
                 onClose={() => router.navigate('/scorecard/timeline')}
                 map={
                     <ScorecardExposureMap
+                        persistent
                         fullViewport={tabletDevice}
                         exposures={[event]}
                         height={windowHeight}

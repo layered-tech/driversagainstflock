@@ -41,10 +41,14 @@ for (const [scheme, background] of [
 ]) {
     test(`Areas screens have an opaque background during transitions in ${scheme} mode`, () => {
         let colorScheme = scheme;
+        let persistentMap = false;
         const tokens = load('../../design-system/tokens.js', {
             'react-native': { Platform: { select: (values) => values.ios } },
         });
         const { default: Layout } = load('../../../app/areas/_layout.js', {
+            '../../components/map/persistent-map-host': {
+                usePersistentMapEnabled: () => persistentMap,
+            },
             'react/jsx-runtime': require('react/jsx-runtime'),
             '../../components/root/duo-pane-screen': {
                 DuoPaneScreen: 'DuoPaneScreen',
@@ -60,6 +64,10 @@ for (const [scheme, background] of [
         });
         const options = () => Layout().props.children.props.screenOptions;
         assert.equal(options().contentStyle.backgroundColor, background);
+        persistentMap = true;
+        assert.equal(options().contentStyle.backgroundColor, 'transparent');
+        assert.equal(Layout().props.className, 'flex-1');
+        persistentMap = false;
         colorScheme = scheme === 'dark' ? 'light' : 'dark';
         assert.equal(
             options().contentStyle.backgroundColor,

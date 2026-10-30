@@ -83,7 +83,11 @@ export default function AreaFeedScreen() {
         group.records.push(change);
     }
     return (
-        <View className="flex-1" testID="area-feed-screen">
+        <View
+            pointerEvents="box-none"
+            className="flex-1"
+            testID="area-feed-screen"
+        >
             <DuoPaneMap>{areaMap}</DuoPaneMap>
             <View onLayout={sizing.onHeaderLayout}>
                 <AreaHeader

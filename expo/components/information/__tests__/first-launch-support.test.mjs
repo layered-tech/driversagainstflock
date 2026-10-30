@@ -199,7 +199,10 @@ test('mounts the launch gate around the phone navigator and uses a scrollable sc
         new URL('../first-launch-support-screen.js', import.meta.url),
         'utf8',
     );
-    assert.match(layout, /<FirstLaunchSupportGate>\s*<Drawer/);
+    assert.match(
+        layout,
+        /<FirstLaunchSupportGate>\s*<PersistentMapHost>\s*<Drawer/,
+    );
     assert.match(screen, /<ScrollView/);
     assert.match(screen, /paddingTop: layout.paddingTop/);
     assert.match(screen, /paddingBottom: layout.paddingBottom/);

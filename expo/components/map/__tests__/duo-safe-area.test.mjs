@@ -87,3 +87,57 @@ test('only open Duo corners add 24px beyond native insets, exactly once', () => 
         right: 84,
     });
 });
+
+test('expanded Android corners use native insets as part of the 24dp minimum', () => {
+    let dimensions = { width: 852, height: 880 };
+    let override = null;
+    let nativeInsets = { top: 52, bottom: 24, left: 0, right: 0 };
+    const { useSafeAreaInsets } = loadTourModule(
+        new URL('../../../lib/safe-area-insets.js', import.meta.url),
+        {
+            react: {
+                createContext: () => ({}),
+                createElement() {},
+                useContext: () => override,
+                useMemo: (calculate) => calculate(),
+            },
+            'react-native': {
+                Platform: { OS: 'android' },
+                useWindowDimensions: () => dimensions,
+            },
+            'react-native-safe-area-context': {
+                useSafeAreaInsets: () => nativeInsets,
+            },
+            '../components/root/duo-device-context': {
+                useDuoDevice: () => true,
+            },
+        },
+    );
+    assert.deepEqual(useSafeAreaInsets(), {
+        top: 52,
+        bottom: 24,
+        left: 24,
+        right: 24,
+    });
+    nativeInsets = { top: 0, bottom: 8, left: 48, right: 0 };
+    dimensions = { width: 880, height: 852 };
+    assert.deepEqual(useSafeAreaInsets(), {
+        top: 24,
+        bottom: 24,
+        left: 48,
+        right: 24,
+    });
+    override = { top: 0, bottom: 0, left: 0, right: 0 };
+    assert.deepEqual(useSafeAreaInsets(), override);
+    assert.deepEqual(useSafeAreaInsets({ ignoreOverride: true }), {
+        top: 24,
+        bottom: 24,
+        left: 48,
+        right: 24,
+    });
+    override = null;
+    dimensions = { width: 420, height: 900 };
+    assert.deepEqual(useSafeAreaInsets(), nativeInsets);
+    dimensions = { width: 900, height: 420 };
+    assert.deepEqual(useSafeAreaInsets(), nativeInsets);
+});
