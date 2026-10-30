@@ -114,7 +114,11 @@ export function ContributeScreen() {
                                 size={14}
                             />
                             <Text className="flex-1 text-[12px] leading-[17px] text-daf-text-tertiary dark:text-neutral-400">
-                                Opens Buy Me a Coffee in Safari.
+                                Opens Buy Me a Coffee in{' '}
+                                {Platform.OS === 'ios'
+                                    ? 'Safari'
+                                    : 'your browser'}
+                                .
                             </Text>
                         </View>
                     </View>

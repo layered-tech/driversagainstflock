@@ -1,3 +1,4 @@
+import { useDuoDevice } from '../root/duo-device-context';
 import { NativeNavigationAction } from '../root/native-navigation';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -24,9 +25,13 @@ export default function AreaChangeScreen() {
     const [sheetHeight, setSheetHeight] = useState(0);
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
+    const duoDevice = useDuoDevice();
     const tabletPane = Platform?.isPad
         ? getTabletPaneLayout(width, insets)
         : null;
+    const paneHeaderControls = Boolean(
+        tabletPane || (Platform.OS === 'android' && duoDevice && width >= 768),
+    );
     useEffect(() => {
         const controller = new AbortController();
         setError(null);
@@ -55,7 +60,7 @@ export default function AreaChangeScreen() {
                 ) : (
                     <AreaLoading />
                 )}
-                {!tabletPane ? (
+                {!paneHeaderControls ? (
                     <View
                         className="absolute left-3"
                         style={{ top: insets.top + 8 }}
@@ -86,7 +91,7 @@ export default function AreaChangeScreen() {
                 }
                 testID="area-change-sheet"
                 leading={
-                    tabletPane ? (
+                    paneHeaderControls ? (
                         <DafIconButton
                             icon="chevron-left"
                             accessibilityLabel="Back"

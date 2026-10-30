@@ -1,3 +1,4 @@
+import { useDuoDevice } from '../root/duo-device-context';
 import { NativeNavigationAction } from '../root/native-navigation';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -46,9 +47,13 @@ export default function AreaChangesMapScreen() {
     const [sheetHeight, setSheetHeight] = useState(0);
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
+    const duoDevice = useDuoDevice();
     const tabletPane = Platform?.isPad
         ? getTabletPaneLayout(width, insets)
         : null;
+    const paneHeaderControls = Boolean(
+        tabletPane || (Platform.OS === 'android' && duoDevice && width >= 768),
+    );
     const counts = changes.reduce(
         (totals, change) => ({
             ...totals,
@@ -154,7 +159,7 @@ export default function AreaChangesMapScreen() {
                         <AreaLoading />
                     </View>
                 )}
-                {!tabletPane ? (
+                {!paneHeaderControls ? (
                     <View
                         className="absolute left-3"
                         style={{ top: insets.top + 8 }}
@@ -192,7 +197,7 @@ export default function AreaChangesMapScreen() {
                 subtitle={`${area?.name ?? 'Area'} · ${showAllCameras ? boundary : period}`}
                 testID="area-map-sheet"
                 leading={
-                    tabletPane ? (
+                    paneHeaderControls ? (
                         <DafIconButton
                             icon="chevron-left"
                             accessibilityLabel="Back"

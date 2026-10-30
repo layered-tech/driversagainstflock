@@ -134,6 +134,9 @@ export default function LocationMapScreen({
     const [routeExportIsVisible, setRouteExportIsVisible] = useState(false);
     const { height: windowHeight, width: windowWidth } = useWindowDimensions();
     const duoDevice = useDuoDevice();
+    const paneHeaderControls =
+        windowWidth >= 768 &&
+        (Platform.isPad || (Platform.OS === 'android' && duoDevice));
     const navigationPuckSize = useMemo(
         () =>
             getNavigationPuckSize({
@@ -920,7 +923,7 @@ export default function LocationMapScreen({
                                     />
                                 ) : null}
                                 {routeComparisonIsActive &&
-                                !(Platform.isPad && windowWidth >= 768) ? (
+                                !paneHeaderControls ? (
                                     <NativeNavigationAction
                                         railOnly
                                         kind="back"
@@ -945,7 +948,7 @@ export default function LocationMapScreen({
                                     </NativeNavigationAction>
                                 ) : null}
                                 {markerDetailsModeIsActive &&
-                                !(Platform.isPad && windowWidth >= 768) &&
+                                !paneHeaderControls &&
                                 (!contributePlacementIsActive || duoDevice) ? (
                                     <View className="items-end">
                                         <NativeNavigationAction
@@ -977,7 +980,7 @@ export default function LocationMapScreen({
                                     </View>
                                 ) : null}
                                 {placeDetailsModeIsActive &&
-                                !(Platform.isPad && windowWidth >= 768) ? (
+                                !paneHeaderControls ? (
                                     <View className="items-end">
                                         <NativeNavigationAction
                                             railOnly

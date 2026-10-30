@@ -69,6 +69,9 @@ export default function AddAreaScreen() {
     const tabletPane = Platform?.isPad
         ? getTabletPaneLayout(width, insets)
         : null;
+    const paneHeaderControls = Boolean(
+        tabletPane || (Platform.OS === 'android' && duoDevice && width >= 768),
+    );
     const pane =
         tabletPane ?? (duoDevice ? getDuoPaneLayout(width, insets) : null);
     const geometry = useMemo(
@@ -231,7 +234,7 @@ export default function AddAreaScreen() {
                             </Text>
                         </View>
                     ) : null}
-                    {!tabletPane ? (
+                    {!paneHeaderControls ? (
                         <NativeNavigationAction
                             railOnly
                             kind="close"
@@ -304,7 +307,7 @@ export default function AddAreaScreen() {
                 subtitle="Watch a place for camera changes"
                 testID="add-area-sheet"
                 trailing={
-                    tabletPane ? (
+                    paneHeaderControls ? (
                         <DafIconButton
                             icon="x"
                             accessibilityLabel="Close"

@@ -27,6 +27,7 @@ import {
 } from './native-components';
 import { OfflineMapControls } from './offline-map-controls';
 import { useWeatherState, weatherStore } from './weather-runtime';
+import { useDuoDevice } from '../root/duo-device-context';
 
 function SettingSwitchRow({ label, onValueChange, testID, value }) {
     return (
@@ -91,6 +92,9 @@ export function MapLayerSheet() {
     const tourContentRef = useRef(null);
     const { width: windowWidth, height: windowHeight } = useWindowDimensions();
     const tablet = Platform?.isPad === true && windowWidth >= 768;
+    const duo = useDuoDevice();
+    const paneHeaderControls =
+        tablet || (Platform.OS === 'android' && duo && windowWidth >= 768);
     const [mapSettingsSheetIsPresented, setMapSettingsSheetIsPresented] =
         useState(false);
     const mapSettingsSheetSnapPoints = useMemo(
@@ -182,10 +186,16 @@ export function MapLayerSheet() {
     const heading = (
         <View
             className={
-                tablet ? 'flex-row items-start gap-2 px-4 pb-2 pt-3.5' : 'gap-1'
+                paneHeaderControls
+                    ? 'flex-row items-start gap-2 px-4 pb-2 pt-3.5'
+                    : 'gap-1'
             }
         >
-            <View className={tablet ? 'min-w-0 flex-1 gap-1 pt-1' : 'gap-1'}>
+            <View
+                className={
+                    paneHeaderControls ? 'min-w-0 flex-1 gap-1 pt-1' : 'gap-1'
+                }
+            >
                 <Text className="font-dafDisplay text-[21px] font-bold text-daf-text-primary dark:text-white">
                     Map settings
                 </Text>
@@ -193,7 +203,7 @@ export function MapLayerSheet() {
                     Customize what you see
                 </Text>
             </View>
-            {tablet ? (
+            {paneHeaderControls ? (
                 <Pressable
                     accessibilityLabel="Close map settings"
                     accessibilityRole="button"
@@ -211,7 +221,7 @@ export function MapLayerSheet() {
         <NativeWindBottomSheetModal
             ref={layerSheetRef}
             accessible={false}
-            nativeCloseAction={!tablet}
+            nativeCloseAction={!paneHeaderControls}
             enableDynamicSizing={false}
             snapPoints={mapSettingsSheetSnapPoints}
             enablePanDownToClose
@@ -222,7 +232,7 @@ export function MapLayerSheet() {
             onChange={handleMapSettingsSheetChange}
             onDismiss={handleMapSettingsSheetDismiss}
         >
-            {tablet ? heading : null}
+            {paneHeaderControls ? heading : null}
             <NativeWindBottomSheetScrollView
                 ref={tourScrollRef}
                 className="bg-white dark:bg-daf-surface-dark"
@@ -242,7 +252,7 @@ export function MapLayerSheet() {
                     collapsable={false}
                     className="gap-[16px]"
                 >
-                    {!tablet ? heading : null}
+                    {!paneHeaderControls ? heading : null}
 
                     <View className="gap-0.5">
                         <SettingSwitchRow

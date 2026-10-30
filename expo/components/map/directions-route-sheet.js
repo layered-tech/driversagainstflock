@@ -1,4 +1,5 @@
 import { DuoText as Text } from '../design-system/duo-typography';
+import { useDuoDevice } from '../root/duo-device-context';
 import { useEffect } from 'react';
 import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import { Icon } from '../design-system/icon';
@@ -23,7 +24,10 @@ import { useBottomSheetPresentedState } from './use-bottom-sheet-presented-state
 
 export function DirectionsRouteSheet() {
     const { width } = useWindowDimensions();
-    const tablet = Platform?.isPad && width >= 768;
+    const duo = useDuoDevice();
+    const paneHeaderControls =
+        width >= 768 &&
+        (Platform?.isPad || (Platform?.OS === 'android' && duo));
     const {
         bottomSheetBackgroundStyle,
         bottomSheetHandleIndicatorStyle,
@@ -172,15 +176,19 @@ export function DirectionsRouteSheet() {
                                 {routeSubtitle}
                             </Text>
                         </View>
-                        {tablet ? (
+                        {paneHeaderControls ? (
                             <Pressable
                                 accessibilityLabel="Back from route choices"
                                 accessibilityRole="button"
                                 className="h-10 w-10 items-center justify-center rounded-dafPill bg-daf-surface-alt active:opacity-70 dark:bg-daf-surface-inverse"
                                 onPress={handleDirectionsModeDismiss}
-                                testID="tablet-route-choices-close-button"
+                                testID={
+                                    Platform.isPad
+                                        ? 'tablet-route-choices-close-button'
+                                        : 'directions-route-back-button'
+                                }
                             >
-                                <Icon name="x" size={20} />
+                                <Icon name="x" size={20} color="#697583" />
                             </Pressable>
                         ) : null}
                     </View>

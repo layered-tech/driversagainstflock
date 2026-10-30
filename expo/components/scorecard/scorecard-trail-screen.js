@@ -65,6 +65,9 @@ export default function ScorecardTrailScreen() {
     const duoDevice = useDuoDevice();
     const { height: windowHeight, width: windowWidth } = useWindowDimensions();
     const tabletDevice = Boolean(Platform?.isPad) && windowWidth >= 768;
+    const foldDevice =
+        Platform.OS === 'android' && duoDevice && windowWidth >= 768;
+    const paneHeaderControls = tabletDevice || foldDevice;
     const railEdge = duoDevice || tabletDevice;
     const duoLayout = getDuoMapSheetLayout(
         windowHeight,
@@ -82,6 +85,7 @@ export default function ScorecardTrailScreen() {
                 trailFooterHeight,
                 windowWidth,
                 tabletDevice,
+                foldDevice,
             ),
         [
             insets.top,
@@ -92,6 +96,7 @@ export default function ScorecardTrailScreen() {
             trailFooterHeight,
             windowWidth,
             tabletDevice,
+            foldDevice,
         ],
     );
     const { driveId: requestedDriveId } = useLocalSearchParams();
@@ -284,7 +289,7 @@ export default function ScorecardTrailScreen() {
                 }
                 header={
                     <View
-                        className={`flex-row items-center gap-2.5 py-3.5 ${tabletDevice ? 'pl-4 pr-16' : 'px-4'}`}
+                        className={`flex-row items-center gap-2.5 py-3.5 ${paneHeaderControls ? 'pl-4 pr-16' : 'px-4'}`}
                     >
                         <Icon
                             color={dafSemanticColors.danger}
@@ -339,7 +344,7 @@ export default function ScorecardTrailScreen() {
                 }
                 map={
                     <ScorecardExposureMap
-                        fullViewport={tabletDevice}
+                        fullViewport={paneHeaderControls}
                         exposures={trailExposures}
                         height={windowHeight}
                         cameraPadding={trailCameraPadding}

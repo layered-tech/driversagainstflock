@@ -12,6 +12,7 @@ const flatten = (node) =>
 
 function modules({
     isPad,
+    platform = 'ios',
     duo = false,
     width = 1194,
     searchMode = 'search',
@@ -35,7 +36,7 @@ function modules({
     };
     const mocks = {
         'react-native': {
-            Platform: { OS: 'ios', isPad },
+            Platform: { OS: platform, isPad },
             ActivityIndicator: 'Indicator',
             Pressable: 'Pressable',
             ScrollView: 'ScrollView',
@@ -122,6 +123,28 @@ test('phone and Duo search retain their established geometry', () => {
         const shell = nodes.find((node) => node.type === 'AnimatedView');
         assert.equal(shell.props.style?.width, device.duo ? 467 : undefined);
     }
+});
+
+test('unfolded Android keeps search left and all map controls at the right edge', () => {
+    const { MapSearchOverlay } = modules({
+        platform: 'android',
+        duo: true,
+        width: 852,
+    });
+    const controls = { type: 'MapControls', props: {} };
+    const nodes = flatten(MapSearchOverlay({ mapControls: controls }));
+    const rail = nodes.find(
+        (node) => node.props.testID === 'fold-map-control-rail',
+    );
+    assert.equal(rail.props.style.right, 12);
+    assert.equal(rail.props.style.top, 36);
+    assert.equal(rail.props.children, controls);
+    assert.equal(nodes.filter((node) => node === controls).length, 1);
+    assert.equal(
+        nodes.find((node) => node.type === 'Categories').props.compact,
+        true,
+    );
+    assert.ok(nodes.some((node) => node.props.style?.width === 402));
 });
 
 test('tablet search, saved-address setup, and directions lookup keep a bounded scrollable pane', () => {

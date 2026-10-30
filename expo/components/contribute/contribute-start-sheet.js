@@ -15,6 +15,7 @@ import { ContributeAuthProgress } from './contribute-auth-progress';
 import { useContribute } from './contribute-state';
 import { ContributeTourOverlay } from './contribute-tour-overlay';
 import { ContributeTourTarget } from './contribute-tour-target';
+import { useDuoDevice } from '../root/duo-device-context';
 
 const CONTRIBUTE_STEPS = [
     'Add, edit or delete cameras — as many as you need',
@@ -108,7 +109,11 @@ export function ContributeStartSheet({
     renderBackdrop,
 }) {
     const screenIsFocused = useIsFocused();
-    const { height: windowHeight } = useWindowDimensions();
+    const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+    const duo = useDuoDevice();
+    const paneHeaderControls =
+        Platform.isPad ||
+        (Platform.OS === 'android' && duo && windowWidth >= 768);
     const {
         ensureWriteAccess,
         hasWriteScope,
@@ -236,7 +241,7 @@ export function ContributeStartSheet({
                         collapsable={false}
                         ref={tourContentRef}
                     >
-                        {Platform.isPad ? (
+                        {paneHeaderControls ? (
                             <View className="flex-row items-start gap-2">
                                 <View className="min-w-0 flex-1 gap-1">
                                     <Text
@@ -277,7 +282,7 @@ export function ContributeStartSheet({
                             />
                         ) : (
                             <>
-                                {!Platform.isPad ? (
+                                {!paneHeaderControls ? (
                                     <View className="gap-1">
                                         <Text
                                             className="font-dafDisplay text-[21px] font-bold leading-7 text-daf-text-primary dark:text-white"

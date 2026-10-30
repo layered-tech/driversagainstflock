@@ -118,7 +118,7 @@ describe('Mobile help and legal design', () => {
         assert.match(faqScreenSource, /faq-search-input/);
         assert.match(faqScreenSource, /Still stuck\? Email us/);
         assert.match(contributeScreenSource, /What it covers/);
-        assert.match(contributeScreenSource, /Opens Buy Me a Coffee in Safari/);
+        assert.match(contributeScreenSource, /Opens Buy Me a Coffee in/);
     });
 
     test('builds concise legal metadata and jump lists from legal content', () => {

@@ -275,7 +275,7 @@ function createDebugDrawerHarness(
     };
 }
 
-function createScreenHarness({ tablet = false } = {}) {
+function createScreenHarness({ tablet = false, fold = false } = {}) {
     const dismissals = [];
     const routes = [];
     const focusEffects = [];
@@ -333,6 +333,10 @@ function createScreenHarness({ tablet = false } = {}) {
         },
     };
     const mocks = {
+        '../root/duo-device-context': {
+            useDuoDevice: () => fold,
+            useDuoPaneContent: () => false,
+        },
         './changeset-summary': { getChangesetSummary },
         '../../lib/osm/camera-presets': {
             getCameraChangeLabel,
@@ -355,7 +359,10 @@ function createScreenHarness({ tablet = false } = {}) {
             Text: 'Text',
             View: 'View',
             useColorScheme: () => 'light',
-            useWindowDimensions: () => ({ height: 800 }),
+            useWindowDimensions: () => ({
+                height: 883,
+                width: fold ? 852 : 412,
+            }),
         },
         'expo-router': {
             router: {
@@ -1585,37 +1592,40 @@ describe('contribution screen integration', () => {
     });
 });
 
-test('tablet start panel has a close action that cannot interrupt OpenStreetMap sign-in', () => {
-    const harness = createScreenHarness({ tablet: true });
-    const { ContributeStartSheet } = harness.screen(
-        'contribute-start-sheet.js',
-    );
-    let dismissals = 0;
-    const render = () => {
-        const tree = ContributeStartSheet({
-            insets: { bottom: 10 },
-            mapPreferencesAreLoaded: true,
-        });
-        const sheet = tree.props.children[0];
-        sheet.props.ref.current = {
-            dismiss: () => {
-                dismissals += 1;
-                sheet.props.onDismiss();
-            },
+for (const device of [{ tablet: true }, { fold: true }]) {
+    test(`${device.fold ? 'Android Fold' : 'tablet'} start panel has a close action that cannot interrupt OpenStreetMap sign-in`, () => {
+        const harness = createScreenHarness(device);
+        const { ContributeStartSheet } = harness.screen(
+            'contribute-start-sheet.js',
+        );
+        let dismissals = 0;
+        const render = () => {
+            const tree = ContributeStartSheet({
+                insets: { bottom: 10 },
+                mapPreferencesAreLoaded: true,
+            });
+            const sheet = tree.props.children[0];
+            sheet.props.ref.current = {
+                dismiss: () => {
+                    dismissals += 1;
+                    sheet.props.onDismiss();
+                },
+            };
+            return tree;
         };
-        return tree;
-    };
-    const close = () => findElement(render(), 'contribute-start-sheet-close');
-    assert.equal(close().props.disabled, undefined);
-    close().props.onPress();
-    assert.equal(harness.contribution.contributeStatus, 'idle');
-    harness.contribution.contributeStatus = 'start-sheet';
-    harness.auth.isSigningIn = true;
-    assert.equal(close().props.disabled, true);
-    close().props.onPress();
-    assert.equal(harness.contribution.contributeStatus, 'start-sheet');
-    harness.auth.isSigningIn = false;
-    close().props.onPress();
-    assert.equal(harness.contribution.contributeStatus, 'idle');
-    assert.equal(dismissals, 2);
-});
+        const close = () =>
+            findElement(render(), 'contribute-start-sheet-close');
+        assert.equal(close().props.disabled, undefined);
+        close().props.onPress();
+        assert.equal(harness.contribution.contributeStatus, 'idle');
+        harness.contribution.contributeStatus = 'start-sheet';
+        harness.auth.isSigningIn = true;
+        assert.equal(close().props.disabled, true);
+        close().props.onPress();
+        assert.equal(harness.contribution.contributeStatus, 'start-sheet');
+        harness.auth.isSigningIn = false;
+        close().props.onPress();
+        assert.equal(harness.contribution.contributeStatus, 'idle');
+        assert.equal(dismissals, 2);
+    });
+}

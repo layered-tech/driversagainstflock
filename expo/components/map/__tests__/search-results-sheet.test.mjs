@@ -176,3 +176,54 @@ test('tablet submitted search results offer a working close without changing pho
         harness.cleanup();
     }
 });
+
+test('unfolded Android place details provide an in-pane Close action', () => {
+    const hooks = createHookHarness();
+    let closes = 0;
+    const { SelectedPlaceSheet } = loadTourModule(
+        new URL('../selected-place-sheet.js', import.meta.url),
+        {
+            react: hooks.react,
+            'react-native': {
+                Platform: { OS: 'android' },
+                View: 'View',
+                Pressable: 'Pressable',
+                useWindowDimensions: () => ({ width: 852, height: 883 }),
+            },
+            '../root/duo-device-context': { useDuoDevice: () => true },
+            '../root/native-navigation': {},
+            '../design-system/icon': {},
+            '../design-system/primitives': {},
+            '../design-system/tokens': { dafSemanticColors: {} },
+            './map-screen-context': {
+                usePlaceSheetContext: () => ({
+                    insets: { bottom: 24 },
+                    mapPreferencesAreLoaded: true,
+                    selectedSearchResult: { id: 'test-place' },
+                    selectedPlaceName: 'A place with a long title',
+                    placeSheetTrackingHandlers: {},
+                    handleClearSelectedSearchResult: () => closes++,
+                }),
+            },
+            './native-components': { NativeWindBottomSheetModal: 'Modal' },
+            './primary-locations': { getPrimaryLocationLabel: () => '' },
+            './use-bottom-sheet-presented-state': {
+                useBottomSheetPresentedState: () => ({
+                    bottomSheetIsPresented: true,
+                }),
+            },
+        },
+    );
+    const nodes = (node) =>
+        !node || typeof node !== 'object'
+            ? []
+            : Array.isArray(node)
+              ? node.flatMap(nodes)
+              : [node, ...nodes(node.props?.children)];
+    const close = nodes(hooks.render(SelectedPlaceSheet)).find(
+        (node) => node.props.testID === 'place-details-close-button',
+    );
+    assert.equal(close.props.accessibilityLabel, 'Close place details');
+    close.props.onPress();
+    assert.equal(closes, 1);
+});

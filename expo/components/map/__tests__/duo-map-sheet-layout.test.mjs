@@ -83,69 +83,92 @@ test('open portrait Scorecard details stay below the map like the closed Duo', (
 
 for (const scheme of ['light', 'dark']) {
     for (const floatingHeader of [false, true]) {
-        test(`map-sheet Close stays above the ${floatingHeader ? 'trail header' : 'detail sheet'} in ${scheme} mode`, () => {
-            let closeCount = 0;
-            const onClose = () => closeCount++;
-            const { DuoMapSheet } = loadTourModule(
-                new URL('../duo-map-sheet.js', import.meta.url),
-                {
-                    'react-native': {
-                        Pressable: 'Pressable',
-                        ScrollView: 'ScrollView',
-                        View: 'View',
-                        useColorScheme: () => scheme,
-                        useWindowDimensions: () => ({
-                            width: 1194,
-                            height: 834,
-                        }),
+        for (const platform of ['ios', 'android']) {
+            test(`${platform} map-sheet Close stays above the ${floatingHeader ? 'trail header' : 'detail sheet'} in ${scheme} mode`, () => {
+                let closeCount = 0;
+                const onClose = () => closeCount++;
+                const { DuoMapSheet } = loadTourModule(
+                    new URL('../duo-map-sheet.js', import.meta.url),
+                    {
+                        'react-native': {
+                            Platform: { OS: platform },
+                            Pressable: 'Pressable',
+                            ScrollView: 'ScrollView',
+                            View: 'View',
+                            useColorScheme: () => scheme,
+                            useWindowDimensions: () => ({
+                                width: 1194,
+                                height: 834,
+                            }),
+                        },
+                        '../../lib/safe-area-insets': {
+                            useSafeAreaInsets: () => ({
+                                top: 42,
+                                bottom: 20,
+                                left: 0,
+                                right: 0,
+                            }),
+                        },
+                        '../root/native-navigation': {
+                            NativeNavigationAction: 'NativeNavigationAction',
+                        },
+                        '../root/duo-device-context': {
+                            DuoPaneContentContext: { Provider: 'PaneProvider' },
+                        },
+                        '../design-system/icon': { Icon: 'Icon' },
                     },
-                    '../../lib/safe-area-insets': {
-                        useSafeAreaInsets: () => ({
-                            top: 42,
-                            bottom: 20,
-                            left: 0,
-                            right: 0,
-                        }),
-                    },
-                    '../root/native-navigation': {
-                        NativeNavigationAction: 'NativeNavigationAction',
-                    },
-                    '../root/duo-device-context': {
-                        DuoPaneContentContext: { Provider: 'PaneProvider' },
-                    },
-                    '../design-system/icon': { Icon: 'Icon' },
-                },
-            );
-            const tree = DuoMapSheet({
-                tabletDevice: true,
-                onClose,
-                header: floatingHeader ? 'Long trail heading' : undefined,
-                footer: floatingHeader ? 'Legend' : undefined,
-                children: 'Long camera title',
-                map: 'Map',
-                sheetHeight: 758,
+                );
+                const tree = DuoMapSheet({
+                    tabletDevice: platform === 'ios',
+                    onClose,
+                    header: floatingHeader ? 'Long trail heading' : undefined,
+                    footer: floatingHeader ? 'Legend' : undefined,
+                    children: 'Long camera title',
+                    map: 'Map',
+                    sheetHeight: 758,
+                });
+                const layers = tree.props.children.filter(Boolean);
+                const action = layers.at(-1);
+                assert.equal(
+                    action.type,
+                    'NativeNavigationAction',
+                    'Close renders after every floating surface',
+                );
+                assert.equal(action.props.kind, 'close');
+                const button = action.props.children;
+                assert.equal(button.props.accessibilityLabel, 'Close');
+                assert.equal(button.props.style.top, 64);
+                assert.equal(
+                    button.props.style.right,
+                    platform === 'ios' ? 784 : 617,
+                );
+                assert.equal(button.props.style.zIndex, 10);
+                assert.equal(
+                    button.props.children.props.color,
+                    scheme === 'dark' ? '#F5F7F9' : '#11151B',
+                );
+                button.props.onPress();
+                assert.equal(closeCount, 1);
+                action.props.onPress();
+                assert.equal(
+                    closeCount,
+                    2,
+                    'native Close uses the same callback',
+                );
             });
-            const layers = tree.props.children.filter(Boolean);
-            const action = layers.at(-1);
-            assert.equal(
-                action.type,
-                'NativeNavigationAction',
-                'Close renders after every floating surface',
-            );
-            assert.equal(action.props.kind, 'close');
-            const button = action.props.children;
-            assert.equal(button.props.accessibilityLabel, 'Close');
-            assert.equal(button.props.style.top, 64);
-            assert.equal(button.props.style.right, 784);
-            assert.equal(button.props.style.zIndex, 10);
-            assert.equal(
-                button.props.children.props.color,
-                scheme === 'dark' ? '#F5F7F9' : '#11151B',
-            );
-            button.props.onPress();
-            assert.equal(closeCount, 1);
-            action.props.onPress();
-            assert.equal(closeCount, 2, 'native Close uses the same callback');
-        });
+        }
     }
 }
+
+test('Android Fold trail camera leaves the complete left pane clear', () => {
+    const padding = getDuoTrailCameraPadding(
+        { top: 24, bottom: 24, left: 0, right: 0 },
+        76,
+        110,
+        852,
+        false,
+        true,
+    );
+    assert.deepEqual(padding, [48, 64, 48, 478]);
+    assert.ok(852 - padding[1] - padding[3] > 300);
+});

@@ -103,6 +103,9 @@ export function MapSearchOverlay({
     } = useMapSearchContext();
     const tabletPane = Platform?.isPad && getTabletPaneLayout(width, insets);
     const pane = tabletPane || (duo && getDuoPaneLayout(width, insets));
+    const mapEdgeControls = Boolean(
+        tabletPane || (Platform?.OS === 'android' && pane),
+    );
     const searchModeIsDirections = searchMode === DIRECTIONS_MODE_DIRECTIONS;
     const fullScreenSearchIsVisible = searchModeIsDirections
         ? directionsSearchPageIsVisible
@@ -626,7 +629,7 @@ export function MapSearchOverlay({
                 >
                     {destinationCategoriesAreVisible ? (
                         <DestinationCategoryPills
-                            compact={Boolean(tabletPane)}
+                            compact={mapEdgeControls}
                             onCategoryPress={handleDestinationCategoryPress}
                             searchSource={searchSource}
                         />
@@ -634,7 +637,7 @@ export function MapSearchOverlay({
                         <View className="min-w-0 flex-1" pointerEvents="none" />
                     )}
 
-                    {mapControlsAreVisible && !tabletPane ? (
+                    {mapControlsAreVisible && !mapEdgeControls ? (
                         <View
                             className="shrink-0 items-center"
                             pointerEvents="box-none"
@@ -645,14 +648,21 @@ export function MapSearchOverlay({
                 </Animated.View>
             ) : null}
 
-            {tabletPane &&
+            {mapEdgeControls &&
             mapControlsAreVisible &&
             !fullScreenSearchIsVisible ? (
                 <View
                     className="absolute z-50 items-center"
-                    style={{ top: insets.top + 36, right: insets.right + 12 }}
+                    style={{
+                        top: insets.top + (tabletPane ? 36 : 12),
+                        right: insets.right + 12,
+                    }}
                     pointerEvents="box-none"
-                    testID="tablet-map-control-rail"
+                    testID={
+                        tabletPane
+                            ? 'tablet-map-control-rail'
+                            : 'fold-map-control-rail'
+                    }
                 >
                     {mapControls}
                 </View>

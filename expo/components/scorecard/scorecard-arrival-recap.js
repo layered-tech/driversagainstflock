@@ -235,18 +235,18 @@ export function ScorecardArrivalRecap() {
                             />
                         </View>
 
-                        <View className="mt-3 flex-row items-center gap-2 rounded-dafMd bg-daf-surface-alt px-3 py-2.5 dark:bg-daf-surface-inverse">
+                        <View className="mt-3 flex-row flex-wrap items-center gap-x-2 gap-y-1 rounded-dafMd bg-daf-surface-alt px-3 py-2.5 dark:bg-daf-surface-inverse">
                             <Icon
                                 color={dafSemanticColors.speedOk}
                                 name="fuel"
                                 size={16}
                             />
-                            <Text className="min-w-0 flex-1 text-xs font-semibold text-daf-text-secondary dark:text-neutral-300">
+                            <Text className="text-xs font-semibold text-daf-text-secondary dark:text-neutral-300">
                                 Detour fuel ·{' '}
                                 {formatNumber(fuelEstimate.fuelEconomyMpg)} mpg
                             </Text>
                             <Text
-                                className="font-dafMono text-xs font-semibold text-daf-text-primary dark:text-white"
+                                className="ml-auto max-w-full font-dafMono text-xs font-semibold text-daf-text-primary dark:text-white"
                                 testID="scorecard-arrival-recap-fuel-cost"
                             >
                                 +{formatNumber(trip.extraMiles)} mi ·{' '}

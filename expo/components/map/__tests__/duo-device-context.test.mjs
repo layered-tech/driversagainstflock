@@ -31,7 +31,10 @@ for (const [name, platform, isPad, width, height, expected] of [
     ['fresh open portrait Duo', 'ios', false, 678, 982, true],
     ['ordinary landscape iPhone', 'ios', false, 932, 430, false],
     ['iPad', 'ios', true, 834, 1194, false],
-    ['Android foldable', 'android', false, 800, 844, false],
+    ['open Android foldable', 'android', false, 800, 844, true],
+    ['Pixel Fold inner display', 'android', false, 852, 883, true],
+    ['closed Android foldable', 'android', false, 412, 915, false],
+    ['landscape Android phone', 'android', false, 915, 412, false],
 ]) {
     test(`${name} selects its intended layout without a vertical rail`, () => {
         const hooks = createHookHarness();
@@ -56,3 +59,29 @@ for (const [name, platform, isPad, width, height, expected] of [
         );
     });
 }
+
+test('Android returns to phone layout when folded and restores panes when reopened', () => {
+    const hooks = createHookHarness();
+    let dimensions = { width: 852, height: 883 };
+    const { DuoDeviceProvider } = loadTourModule(
+        new URL('../../root/duo-device-context.js', import.meta.url),
+        {
+            react: {
+                ...hooks.react,
+                createContext: () => ({ Provider: 'Provider' }),
+            },
+            'react-native': {
+                Platform: { OS: 'android', isPad: false },
+                useWindowDimensions: () => dimensions,
+            },
+            'expo-status-bar': { useVerticalBarEdgeIOS: () => null },
+        },
+    );
+    const render = () =>
+        hooks.render(() => DuoDeviceProvider({ children: 'App' }));
+    assert.equal(render().props.value, true);
+    dimensions = { width: 412, height: 915 };
+    assert.equal(render().props.value, false);
+    dimensions = { width: 883, height: 852 };
+    assert.equal(render().props.value, true);
+});

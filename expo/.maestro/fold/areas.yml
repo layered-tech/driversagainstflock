@@ -1,0 +1,138 @@
+appId: com.anonymous.drivefree.dev
+name: Fold Areas and local API lifecycle
+---
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    file: ../subflows/resume-expo-dev-client.yml
+- runFlow: ../subflows/dismiss-first-launch-support.yml
+- setLocation:
+    latitude: 42.1826775
+    longitude: -88.0382029
+- openLink: 'driversagainstflock://areas'
+- extendedWaitUntil:
+    visible: 'Keep an eye on the places you drive'
+    timeout: 30000
+- assertVisible:
+    id: duo-content-pane
+- takeScreenshot: fold-25-areas-empty
+- tapOn: 'Search a city, county or ZIP.*'
+- extendedWaitUntil:
+    visible:
+      id: area-search-input
+    timeout: 15000
+- assertVisible: Close
+- tapOn:
+    id: area-search-input
+- inputText: 'Palatine'
+- tapOn: 'Search areas'
+- hideKeyboard
+- extendedWaitUntil:
+    visible: 'Watch Palatine.*'
+    timeout: 30000
+- takeScreenshot: fold-26-area-search
+- tapOn:
+    text: 'Watch Palatine.*'
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: area-feed-screen
+    timeout: 30000
+- openLink: 'driversagainstflock://areas/add?mode=draw'
+- extendedWaitUntil:
+    visible: 'Tap to add corners · drag to move'
+    timeout: 15000
+- tapOn: 'Center map on my location'
+- tapOn:
+    point: '60%,35%'
+- tapOn:
+    point: '85%,35%'
+- tapOn:
+    point: '85%,65%'
+- tapOn:
+    point: '60%,65%'
+- assertVisible: '4 corners.*'
+- tapOn:
+    id: area-name-input
+- eraseText
+- inputText: 'Fold drawn review'
+- hideKeyboard
+- extendedWaitUntil:
+    visible: '.*cameras mapped inside'
+    timeout: 30000
+- takeScreenshot: fold-26c-draw-area
+- tapOn:
+    id: watch-area-button
+- extendedWaitUntil:
+    visible:
+      id: area-feed-screen
+    timeout: 30000
+- openLink: 'driversagainstflock://areas/add?mode=around'
+- extendedWaitUntil:
+    visible:
+      id: area-name-input
+    timeout: 15000
+- tapOn:
+    id: area-name-input
+- eraseText
+- inputText: 'Fold radius review'
+- hideKeyboard
+- extendedWaitUntil:
+    visible: '.*cameras mapped inside'
+    timeout: 30000
+- takeScreenshot: fold-26b-around-area
+- tapOn:
+    id: watch-area-button
+- extendedWaitUntil:
+    visible:
+      id: area-feed-screen
+    timeout: 30000
+- extendedWaitUntil:
+    visible: 'Camera added,.*'
+    timeout: 30000
+- takeScreenshot: fold-28-area-feed
+- tapOn:
+    id: area-view-map
+- extendedWaitUntil:
+    visible:
+      id: area-map-sheet
+    timeout: 30000
+- assertVisible: Back
+- extendedWaitUntil:
+    visible: '[1-9][0-9]* changes on the map'
+    timeout: 30000
+- takeScreenshot: fold-28b-area-map
+- tapOn: Back
+- extendedWaitUntil:
+    visible:
+      id: area-feed-screen
+    timeout: 15000
+- tapOn:
+    text: 'Camera added,.*'
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: area-change-screen
+    timeout: 30000
+- assertVisible: 'Camera added'
+- assertVisible: Back
+- takeScreenshot: fold-29-area-change
+- tapOn: Back
+- tapOn:
+    id: area-alert-settings
+- extendedWaitUntil:
+    visible:
+      id: area-alert-mode-off
+    timeout: 15000
+- takeScreenshot: fold-30-area-alerts
+- tapOn:
+    id: area-alert-mode-off
+- openLink: 'driversagainstflock://areas'
+- extendedWaitUntil:
+    visible: 'View Fold radius review'
+    timeout: 30000
+- takeScreenshot: fold-27-my-areas

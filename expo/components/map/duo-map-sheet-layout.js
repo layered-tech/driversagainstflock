@@ -7,8 +7,13 @@ export function getDuoTrailCameraPadding(
     footerHeight = 110,
     width = 0,
     tabletDevice = false,
+    foldDevice = false,
 ) {
-    const pane = tabletDevice && getTabletPaneLayout(width, insets);
+    const pane = tabletDevice
+        ? getTabletPaneLayout(width, insets)
+        : foldDevice
+          ? getDuoPaneLayout(width, insets)
+          : null;
     if (pane)
         return [
             insets.top + 24,

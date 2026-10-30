@@ -12,13 +12,17 @@ export function DuoDeviceProvider({ children }) {
     const expandedPhone = !Platform.isPad && Math.min(width, height) >= 600;
     const identifiedDuo =
         Platform.OS === 'ios' && (Boolean(edge) || expandedPhone);
+    const expandedAndroid = Platform.OS === 'android' && expandedPhone;
     const [observedDuo, setObservedDuo] = useState(false);
     useEffect(() => {
         if (identifiedDuo) setObservedDuo(true);
     }, [identifiedDuo]);
     return (
         <DuoDeviceContext.Provider
-            value={Platform.OS === 'ios' && (observedDuo || identifiedDuo)}
+            value={
+                expandedAndroid ||
+                (Platform.OS === 'ios' && (observedDuo || identifiedDuo))
+            }
         >
             {children}
         </DuoDeviceContext.Provider>

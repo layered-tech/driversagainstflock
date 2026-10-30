@@ -1,0 +1,92 @@
+appId: com.anonymous.drivefree.dev
+name: Fold Explore and saved-place panes
+---
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    file: ../subflows/resume-expo-dev-client.yml
+- runFlow: ../subflows/dismiss-first-launch-support.yml
+- extendedWaitUntil:
+    visible:
+      id: map-search-input-map
+    timeout: 120000
+- openLink: 'driversagainstflock://e2e-mocks'
+- tapOn:
+    id: 'driving-cancel-route-button'
+    optional: true
+- tapOn:
+    id: 'place-details-close-button'
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 30000
+- assertVisible:
+    id: 'fold-map-control-rail'
+    rightOf:
+      id: 'map-search-input-map'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/fold-01-home'}
+- tapOn:
+    id: 'map-search-input-map'
+- assertVisible:
+    id: 'map-search-primary-location-work-map'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/fold-02-search'}
+- tapOn:
+    id: 'map-search-primary-location-work-map'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/fold-02b-set-work'}
+- tapOn:
+    text: 'Cancel setting saved location'
+- tapOn:
+    id: 'map-search-input-map'
+- inputText: 'Walmart'
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-result-0-map'
+    timeout: 15000
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/fold-02-keyboard'}
+- tapOn:
+    id: 'map-search-result-0-map'
+- extendedWaitUntil:
+    visible:
+      id: 'selected-place-set-work-button'
+    timeout: 15000
+- assertVisible:
+    id: 'place-details-close-button'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/fold-03-business'}
+- tapOn:
+    id: 'place-details-close-button'
+- tapOn:
+    id: 'map-search-input-map'
+- inputText: '2140 Cypress'
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-result-0-map'
+    timeout: 15000
+- tapOn:
+    id: 'map-search-result-0-map'
+- extendedWaitUntil:
+    visible:
+      id: 'selected-place-set-home-button'
+    timeout: 15000
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/fold-03b-residential'}
+- tapOn:
+    id: 'place-details-close-button'
+- extendedWaitUntil:
+    visible:
+      id: 'map-marker-0-map'
+    timeout: 30000
+- tapOn:
+    id: 'map-marker-0-map'
+- extendedWaitUntil:
+    visible:
+      id: 'marker-details-title'
+    timeout: 15000
+- assertVisible:
+    id: 'marker-details-close-button'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/fold-04-marker'}
+- tapOn:
+    id: 'marker-details-close-button'

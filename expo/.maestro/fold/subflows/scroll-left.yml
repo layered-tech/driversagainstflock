@@ -1,0 +1,26 @@
+appId: com.anonymous.drivefree.dev
+---
+- evalScript: ${output.foldScrollAttempts = 0; output.foldTargetFound = false}
+- runFlow:
+    when:
+      visible:
+        id: ${TARGET_ID}
+    commands:
+      - evalScript: ${output.foldTargetFound = true}
+- repeat:
+    while:
+      true: ${!output.foldTargetFound && output.foldScrollAttempts < 10}
+    commands:
+      - swipe:
+          start: '30%,78%'
+          end: '30%,35%'
+          duration: 500
+      - evalScript: ${output.foldScrollAttempts++}
+      - runFlow:
+          when:
+            visible:
+              id: ${TARGET_ID}
+          commands:
+            - evalScript: ${output.foldTargetFound = true}
+- assertVisible:
+    id: ${TARGET_ID}

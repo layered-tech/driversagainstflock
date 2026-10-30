@@ -1,0 +1,189 @@
+appId: com.anonymous.drivefree.dev
+name: Fold Scorecard and exposure panes
+tags:
+  - scorecard
+  - privacy
+  - visual
+---
+- setLocation:
+    latitude: 30.2672
+    longitude: -97.7431
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    file: ../subflows/resume-expo-dev-client.yml
+- tapOn:
+    id: 'driving-cancel-route-button'
+    optional: true
+- tapOn:
+    id: 'place-details-close-button'
+    optional: true
+- runFlow: ../subflows/dismiss-first-launch-support.yml
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 120000
+- openLink: 'driversagainstflock://e2e-mocks?scorecard=populated'
+- extendedWaitUntil:
+    visible:
+      id: 'map-search-input-map'
+    timeout: 10000
+
+# The scorecard is discoverable from the normal drawer and exposes only the
+# deterministic state saved through the encrypted device-local cache.
+- tapOn:
+    id: 'map-search-drawer-button-map'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'app-drawer-open'
+    timeout: 10000
+- assertVisible:
+    id: 'drawer-scorecard-button'
+- assertVisible: 'Ghost'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/fold-18-drawer'}
+- tapOn:
+    id: 'drawer-scorecard-button'
+    retryTapIfNoChange: true
+- runFlow: ../subflows/scorecard-tour-skip-first-visit.yml
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-dashboard'
+    timeout: 10000
+- assertVisible:
+    id: 'duo-content-pane'
+- assertVisible: 'Level 4 · Ghost'
+- assertVisible: '86'
+- assertVisible: '27'
+- assertVisible: '3'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-dashboard'}
+
+- runFlow:
+    file: subflows/scroll-left.yml
+    env:
+      TARGET_ID: scorecard-privacy-costs
+- assertVisible: '25.2 mpg · AAA state rates'
+- assertVisible: '6.7 mi'
+- runFlow:
+    file: subflows/scroll-left.yml
+    env:
+      TARGET_ID: scorecard-badge-count
+- assertVisible: '4 of 6'
+- runFlow:
+    file: subflows/scroll-left.yml
+    env:
+      TARGET_ID: scorecard-open-timeline
+- tapOn:
+    id: 'scorecard-open-timeline'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-timeline'
+    timeout: 10000
+- assertVisible:
+    id: 'scorecard-event-read-e2e-confirmed-east'
+- assertVisible:
+    id: 'scorecard-event-read-e2e-confirmed-west'
+- assertVisible:
+    id: 'scorecard-event-read-e2e-possible'
+
+# Unknown-direction events remain visibly qualified while still counting as
+# game crossings. Operator view
+# never invents plate, vehicle, hotlist, or agency-sharing data.
+- assertVisible: 'ALPR camera · OSM 91003, Possible crossing · camera direction unknown'
+- assertVisible:
+    id: 'scorecard-operator-view-toggle'
+    checked: false
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/fold-20-timeline'}
+- tapOn:
+    id: 'scorecard-operator-view-toggle'
+- assertVisible:
+    id: 'scorecard-operator-view-toggle'
+    checked: true
+- assertVisible: 'OPERATOR VIEW · 2 CONFIRMED · 30 DAYS'
+- assertVisible: 'Built locally from your recorded DAF drives and public camera nodes. DAF has no plate image, vehicle description, hotlist result, or access to an operator database.'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-operator-view'}
+- tapOn:
+    id: 'scorecard-operator-view-toggle'
+- assertVisible:
+    id: 'scorecard-operator-view-toggle'
+    checked: false
+
+- tapOn:
+    id: 'scorecard-event-read-e2e-confirmed-east'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-event-detail'
+    timeout: 10000
+- assertVisible: 'OSM node 91002 · public camera data'
+- assertVisible: "You drove through this camera's reported view"
+- assertVisible: 'Not reported in OSM'
+- runFlow:
+    file: subflows/scroll-left.yml
+    env:
+      TARGET_ID: scorecard-confirmed-read-disclaimer
+- assertVisible:
+    id: 'scorecard-confirmed-read-disclaimer'
+- assertVisible: 'Crossing a known directional cone is treated as a confirmed plate read for this scorecard. DAF does not receive a plate image or confirmation from the camera operator.'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-event-detail'}
+- tapOn:
+    text: 'Close'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-timeline'
+    timeout: 10000
+- runFlow:
+    file: subflows/scroll-left.yml
+    env:
+      TARGET_ID: scorecard-open-trail-drive-e2e-exposed
+- tapOn:
+    id: 'scorecard-open-trail-drive-e2e-exposed'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-trail'
+    timeout: 10000
+- assertVisible: 'What 2 reads reveal'
+- assertVisible: 'Your drive, reconstructed from camera hits alone.'
+- assertVisible: '1 unknown-direction camera event is omitted because they are not confirmed reads.'
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-reconstructed-trail'}
+
+# Arrival is surfaced on the map, then the recap hands off into the local
+# timeline without sending the trip anywhere.
+- openLink: 'driversagainstflock://e2e-mocks?scorecard=arrival'
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-arrival-recap'
+    timeout: 10000
+- assertVisible: 'Arrived, unseen'
+- assertVisible:
+    id: 'scorecard-arrival-recap-trip-summary'
+- copyTextFrom:
+    id: 'scorecard-arrival-recap-trip-summary'
+- assertTrue: ${maestro.copiedText.includes('explicit guided drive')}
+- assertVisible:
+    id: 'scorecard-arrival-recap-fuel-cost'
+- copyTextFrom:
+    id: 'scorecard-arrival-recap-fuel-cost'
+- assertTrue: ${maestro.copiedText.includes('+3.2 mi')}
+- assertVisible:
+    id: 'scorecard-arrival-recap-xp'
+- copyTextFrom:
+    id: 'scorecard-arrival-recap-xp'
+- assertTrue: ${maestro.copiedText == '+360 XP'}
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-scorecard-arrival-recap'}
+- tapOn:
+    id: 'scorecard-arrival-recap-timeline'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: 'scorecard-timeline'
+    timeout: 10000
+- assertNotVisible:
+    id: 'scorecard-arrival-recap'

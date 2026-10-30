@@ -1,4 +1,5 @@
 import { DuoText as Text } from '../design-system/duo-typography';
+import { useDuoDevice } from '../root/duo-device-context';
 import { NativeNavigationAction } from '../root/native-navigation';
 import { useCallback, useState } from 'react';
 import {
@@ -25,7 +26,10 @@ import { useBottomSheetPresentedState } from './use-bottom-sheet-presented-state
 export function SelectedPlaceSheet() {
     const [modalGeneration, setModalGeneration] = useState(0);
     const { height: windowHeight, width } = useWindowDimensions();
-    const tablet = Platform?.isPad && width >= 768;
+    const duo = useDuoDevice();
+    const paneHeaderControls =
+        width >= 768 &&
+        (Platform?.isPad || (Platform?.OS === 'android' && duo));
     const {
         bottomSheetBackgroundStyle,
         bottomSheetHandleIndicatorStyle,
@@ -165,13 +169,17 @@ export function SelectedPlaceSheet() {
                                 </Text>
                             ) : null}
                         </View>
-                        {tablet ? (
+                        {paneHeaderControls ? (
                             <Pressable
                                 accessibilityLabel="Close place details"
                                 accessibilityRole="button"
                                 className="h-10 w-10 items-center justify-center rounded-dafPill bg-daf-surface-alt active:opacity-70 dark:bg-daf-surface-inverse"
                                 onPress={handleClearSelectedSearchResult}
-                                testID="tablet-place-details-close-button"
+                                testID={
+                                    Platform.isPad
+                                        ? 'tablet-place-details-close-button'
+                                        : 'place-details-close-button'
+                                }
                             >
                                 <Icon
                                     name="x"

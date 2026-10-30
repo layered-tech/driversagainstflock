@@ -1,4 +1,5 @@
 import {
+    Platform,
     Pressable,
     ScrollView,
     useColorScheme,
@@ -30,6 +31,9 @@ export function DuoMapSheet({
     const pane = tabletDevice
         ? getTabletPaneLayout(width, insets)
         : getDuoPaneLayout(width, insets);
+    const paneClose = Boolean(
+        pane && (tabletDevice || Platform.OS === 'android'),
+    );
     return (
         <View
             className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
@@ -104,11 +108,8 @@ export function DuoMapSheet({
                     onPress={onClose}
                     className="absolute right-3 top-3 h-11 w-11 items-center justify-center rounded-full bg-white dark:bg-daf-surface-dark"
                     style={{
-                        top: insets.top + (tabletDevice ? 22 : 12),
-                        right:
-                            tabletDevice && pane
-                                ? pane.right + 8
-                                : insets.right + 12,
+                        top: insets.top + (paneClose ? 22 : 12),
+                        right: paneClose ? pane.right + 8 : insets.right + 12,
                         zIndex: 10,
                     }}
                 >

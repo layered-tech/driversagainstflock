@@ -336,6 +336,7 @@ test('iPad support renders a map behind the centered card and a fixed action gap
 function createSupportRoute({
     tablet = true,
     width = 1194,
+    platform = 'ios',
     openURL = async () => {},
 } = {}) {
     const hooks = createHookHarness();
@@ -349,7 +350,7 @@ function createSupportRoute({
             },
             'react-native': {
                 Linking: { openURL },
-                Platform: { OS: 'ios', isPad: tablet },
+                Platform: { OS: platform, isPad: tablet },
                 Pressable: 'Pressable',
                 ScrollView: 'ScrollView',
                 Text: 'Text',
@@ -420,5 +421,49 @@ test('phone, Duo and narrow iPad drawer support retain the existing funding page
         assert.equal(route.props.testID, 'contribute-info-screen');
         assert.equal(route.props.children[0].type, 'InformationHeader');
         assert.equal(route.props.children[0].props.title, 'Support Us');
+    }
+});
+
+test('support browser wording follows the native platform', () => {
+    const textContent = (node) => {
+        if (typeof node === 'string' || typeof node === 'number')
+            return String(node);
+        if (Array.isArray(node)) return node.map(textContent).join('');
+        return node?.props ? textContent(node.props.children) : '';
+    };
+    for (const platform of ['ios', 'android']) {
+        const { FirstLaunchSupportScreen } = loadTourModule(
+            new URL('../first-launch-support-screen.js', import.meta.url),
+            {
+                nativewind: { vars: (values) => values },
+                'react-native': {
+                    Platform: { OS: platform, isPad: false },
+                    Pressable: 'Pressable',
+                    ScrollView: 'ScrollView',
+                    View: 'View',
+                    useColorScheme: () => 'light',
+                    useWindowDimensions: () => ({ width: 852, height: 883 }),
+                },
+                '../../lib/safe-area-insets': {
+                    useSafeAreaInsets: () => ({ top: 24, bottom: 20 }),
+                },
+                '../design-system/icon': { Icon: 'Icon' },
+                './first-launch-support-layout': {
+                    getFirstLaunchSupportLayout,
+                },
+                '../areas/area-map': { AreaMap: 'AreaMap' },
+            },
+        );
+        for (const screen of [
+            FirstLaunchSupportScreen({ busy: false }),
+            createSupportRoute({ tablet: false, width: 852, platform }).route,
+        ]) {
+            assert.match(
+                textContent(screen),
+                new RegExp(
+                    `Opens Buy Me a Coffee in ${platform === 'ios' ? 'Safari' : 'your browser'}\\.`,
+                ),
+            );
+        }
     }
 });

@@ -1,4 +1,5 @@
 import { DuoText as Text } from '../design-system/duo-typography';
+import { useDuoDevice } from '../root/duo-device-context';
 import { getMarkerOsmNode } from '../../lib/osm/marker-node';
 import { router } from 'expo-router';
 import {
@@ -156,7 +157,10 @@ function AlprMarkerField({
 export function MarkerDetailsSheet() {
     const { user } = useAuth();
     const { height: windowHeight, width } = useWindowDimensions();
-    const tablet = Platform?.isPad && width >= 768;
+    const duo = useDuoDevice();
+    const paneHeaderControls =
+        width >= 768 &&
+        (Platform?.isPad || (Platform?.OS === 'android' && duo));
     const { contributePlacementIsActive, cacheEditingNode } = useContribute();
     const {
         bottomSheetAnimatedPosition,
@@ -263,6 +267,11 @@ export function MarkerDetailsSheet() {
                             currentUser={user}
                             onEdit={handleEditNodePress}
                             onDelete={handleDeleteNodePress}
+                            onClose={
+                                paneHeaderControls
+                                    ? handleMarkerDetailsClosePress
+                                    : undefined
+                            }
                         />
                     ) : (
                         <>
@@ -286,15 +295,23 @@ export function MarkerDetailsSheet() {
                                         </Text>
                                     ) : null}
                                 </View>
-                                {tablet ? (
+                                {paneHeaderControls ? (
                                     <Pressable
                                         accessibilityLabel="Close marker details"
                                         accessibilityRole="button"
                                         className="h-10 w-10 items-center justify-center rounded-dafPill bg-daf-surface-alt active:opacity-70 dark:bg-daf-surface-inverse"
                                         onPress={handleMarkerDetailsClosePress}
-                                        testID="tablet-marker-details-close-button"
+                                        testID={
+                                            Platform.isPad
+                                                ? 'tablet-marker-details-close-button'
+                                                : 'marker-details-close-button'
+                                        }
                                     >
-                                        <Icon name="x" size={20} />
+                                        <Icon
+                                            name="x"
+                                            size={20}
+                                            color="#697583"
+                                        />
                                     </Pressable>
                                 ) : null}
                             </View>

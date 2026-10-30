@@ -505,7 +505,7 @@ export default function ScorecardDashboardScreen() {
                         id="weekly-crossings"
                         targets={tourTargets}
                     >
-                        <View className="mb-3 flex-row items-baseline">
+                        <View className="mb-3 flex-row flex-wrap items-baseline gap-x-3 gap-y-1">
                             <Text className="text-[14.5px] font-bold text-daf-text-primary dark:text-white">
                                 Camera crossings per week
                             </Text>

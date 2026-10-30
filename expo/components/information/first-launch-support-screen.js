@@ -159,9 +159,10 @@ export function FirstLaunchSupportScreen({ busy, error, onDonate, onDismiss }) {
                         </Text>
                     </Pressable>
                     <Text className="mt-[var(--support-12)] text-center text-[length:var(--support-12)] leading-[var(--support-17)] text-daf-text-tertiary dark:text-neutral-400">
-                        Opens Buy Me a Coffee in Safari. Any amount, one time or
-                        monthly. You can always find this later under Support
-                        DAF.
+                        Opens Buy Me a Coffee in{' '}
+                        {Platform.OS === 'ios' ? 'Safari' : 'your browser'}. Any
+                        amount, one time or monthly. You can always find this
+                        later under Support DAF.
                     </Text>
                 </View>
             </ScrollView>
