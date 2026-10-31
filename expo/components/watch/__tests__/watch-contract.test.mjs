@@ -38,6 +38,7 @@ const base = {
         confirmedCrossings: 1,
         possibleCrossings: 2,
         cameraCrossings: 3,
+        avoidedCameras: 4,
     },
 };
 
@@ -125,6 +126,7 @@ test('privacy opt-out and missing numbers never become zero-valued metrics', () 
     });
     assert.equal(snapshot.scorecard.status, 'tracking-off');
     assert.equal(snapshot.scorecard.cameraCrossings, null);
+    assert.equal(snapshot.scorecard.avoidedCameras, null);
     assert.equal(snapshot.navigation.durationRemainingSeconds, null);
     assert.equal(snapshot.navigation.arrivalAt, null);
     assert.equal(

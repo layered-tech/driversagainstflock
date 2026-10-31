@@ -28,4 +28,9 @@ class WatchFormattingTest {
         assertEquals("18:42", elapsed(1122.0))
         assertEquals("—", elapsed(null))
     }
+    @Test fun ambientAndOngoingUseTheRoadName() {
+        assertEquals("Market St", roadName("Turn right onto Market St"))
+        assertEquals("I-80", roadName("Keep left toward I-80"))
+        assertEquals("Make a U-turn", roadName("Make a U-turn"))
+    }
 }

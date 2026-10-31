@@ -21,7 +21,6 @@ import { SHOW_MAP_DEBUG_CONTROLS } from '../map/config';
 import { useSharedMapState } from '../map/shared-map-state';
 import { useScorecard } from '../scorecard/scorecard-context';
 import { AppDrawerIcon } from './app-drawer-icon';
-import { useConnectedWatch } from '../watch/use-connected-watch';
 import { openDrawerRoot } from './app-drawer-navigation';
 import {
     getDrawerActiveRouteName,
@@ -129,7 +128,6 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
     } = useScorecard();
     const colorScheme = useColorScheme();
     const drawerIsOpen = useDrawerStatus() === 'open';
-    const watchIsConnected = useConnectedWatch(drawerIsOpen);
     const activeRoute = props.state?.routes[props.state.index];
     const drawerSwipeEnabled =
         props.descriptors?.[activeRoute?.key]?.options?.swipeEnabled !== false;
@@ -300,7 +298,7 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                     {PRIMARY_DRAWER_ITEMS.filter(
                         (item) =>
                             item.routeName !== 'watch-settings' ||
-                            (Platform.OS === 'android' && watchIsConnected),
+                            Platform.OS === 'android',
                     ).map((item) => (
                         <DrawerNavigationItem
                             activeRouteName={activeRouteName}

@@ -155,11 +155,9 @@ describe('Navigation drawer icons', () => {
                         theme === 'light',
                     );
                     const expectedNames = [
-                        ...drawerItems.PRIMARY_DRAWER_ITEMS.filter(
-                            (item) =>
-                                item.routeName !== 'watch-settings' ||
-                                watchIsConnected,
-                        ).map(({ icon }) => icon),
+                        ...drawerItems.PRIMARY_DRAWER_ITEMS.map(
+                            ({ icon }) => icon,
+                        ),
                         ...drawerItems.HELP_AND_LEGAL_DRAWER_ITEMS.map(
                             ({ icon }) => icon,
                         ),

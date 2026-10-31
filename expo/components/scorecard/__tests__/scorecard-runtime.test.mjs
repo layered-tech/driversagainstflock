@@ -1188,6 +1188,7 @@ describe('read-only active drive summary', () => {
         const before = runtime.getSnapshot();
         const first = runtime.getActiveDriveSummary();
         assert.equal(first.status, 'active');
+        assert.equal(first.avoidedCameras, 1);
         assert.ok(first.distanceMeters > 0);
         assert.equal(first.elapsedSeconds, 2);
         assert.equal(runtime.getSnapshot(), before);

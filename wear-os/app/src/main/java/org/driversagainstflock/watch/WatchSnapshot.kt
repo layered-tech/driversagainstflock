@@ -76,7 +76,7 @@ data class WatchSnapshot(val json: JSONObject) {
                 }
             }
             listOf(nav to listOf("sourceAt", "distanceRemainingMeters", "durationRemainingSeconds", "arrivalAt"),
-                score to listOf("sourceAt", "elapsedSeconds", "distanceMeters", "confirmedCrossings", "possibleCrossings", "cameraCrossings"),
+                score to listOf("sourceAt", "elapsedSeconds", "distanceMeters", "confirmedCrossings", "possibleCrossings", "cameraCrossings", "avoidedCameras"),
                 (maneuver ?: JSONObject()) to listOf("distanceMeters", "exitNumber")).forEach { (obj, keys) ->
                 keys.forEach { key -> if (!obj.isNull(key)) require(obj.getDouble(key).isFinite() && obj.getDouble(key) >= 0) }
             }

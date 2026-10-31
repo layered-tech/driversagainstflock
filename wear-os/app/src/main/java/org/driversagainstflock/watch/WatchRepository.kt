@@ -76,7 +76,7 @@ class WatchRepository private constructor(private val context: Context) : WatchP
     private var handoffRequestId: String? = null
     private var handoffAttempts = 0
     private var lastManeuverCueAt = 0L
-    private var lastQuickAccessKey: String? = null
+    private var lastQuickAccessState: QuickAccess? = null
     private var nodeId: String? = null
     private var pingStartedAt: Long? = null
     private var pingToken: String? = null
@@ -124,16 +124,15 @@ class WatchRepository private constructor(private val context: Context) : WatchP
             cameraNotification.show(alert)
         }
         ongoingActivity.update(next)
-        val quickKey = listOf(next.navigation.optString("status"), next.navigation.optJSONObject("maneuver")?.optString("id"),
-            next.areas?.optionalLong("sourceAt"), next.recap?.optString("id")).joinToString(":")
-        if (quickKey != lastQuickAccessKey) {
-            lastQuickAccessKey = quickKey
+        prefs.edit().putString("snapshot", payload).apply()
+        val quickState = quickAccess(next, System.currentTimeMillis(), connected)
+        if (quickState != lastQuickAccessState) {
+            lastQuickAccessState = quickState
             requestQuickAccessUpdate(context)
         }
         playPendingCue()
         incompatible = false
         lastError = "none"
-        prefs.edit().putString("snapshot", payload).apply()
         record("Accepted revision ${next.revision}")
     }
     fun acceptCue(payload: String) = handler.post {

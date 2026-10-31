@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1" name="viewport">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- page name="Watch · Shared foundations" description="Wear OS round + Apple Watch rectangular foundations: layout, tokens, reusable components, system states, hierarchy, ambient, haptic vocabulary." -->
+<helmet>
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css" rel="stylesheet">
+  <script src="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js"></script>
+  <style>
+    *{ box-sizing:border-box; }
+    body{ margin:0; background:var(--surface-card-alt); }
+    a{ color:var(--text-brand); } a:hover{ color:var(--brand-hover); }
+  </style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="font-family:var(--font-ui); background:var(--surface-card-alt); min-height:100vh; padding:48px 40px 80px; color:var(--text-primary);">
+  <div style="max-width:1600px; margin:0 auto;">
+    <div style="display:grid; grid-template-columns:36px 1fr; align-items:center; gap:12px; margin-bottom:6px;">
+      <img alt="DAF" src="assets/logo-mark.png" style="width:36px; height:36px; object-fit:contain;">
+      <span style="font-family:var(--font-display); font-weight:700; font-size:24px; letter-spacing:var(--ls-heading);">Drivers Against Flock — Watch · Shared foundations</span>
+    </div>
+    <p style="font-size:15px; color:var(--text-secondary); margin:0 0 18px; max-width:78ch; text-wrap:pretty;">One wrist language for Wear OS (round, Galaxy Watch 450px) and Apple Watch (45mm rectangular). Every screen on <a href="WatchApp.dc.html">Watch app</a> composes from the pieces on this page. Wear values are dp/sp on a 225dp canvas; Apple values are pt on a 198 × 242pt canvas — the two frames are drawn at the same physical scale, so 1pt ≈ 1dp. Apple screens use SF with the system toolbar (title left, clock right) and stacked rounded cards; Wear screens are centered in the round.</p>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin:0 0 40px; align-items:center;">
+      <a href="MobileApp.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill); white-space:nowrap;">All screens</a>
+      <span style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; font-weight:600; color:var(--text-brand); background:var(--brand-soft); border:1px solid transparent; padding:6px 13px; border-radius:var(--radius-pill); white-space:nowrap;">Foundations</span>
+      <a href="WatchApp.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill); white-space:nowrap;">Watch app</a>
+      <span style="margin-left:auto; display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-pill);"><button onClick="{{ setLight }}" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; border:none; cursor:pointer; color:{{ lightFg }}; background:{{ lightBg }}; padding:5px 11px; border-radius:var(--radius-pill);" type="button">Light</button><button onClick="{{ setDark }}" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; border:none; cursor:pointer; color:{{ darkFg }}; background:{{ darkBg }}; padding:5px 11px; border-radius:var(--radius-pill);" type="button">Dark</button></span>
+    </div>
+
+    <!-- A · LAYOUT -->
+    <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">A · Layout canvases &amp; safe areas</div>
+    <div style="display:flex; flex-wrap:wrap; gap:28px; margin-bottom:56px; align-items:flex-start;">
+      <div data-screen-label="A1 · Wear OS round canvas" style="display:flex; flex-direction:column; gap:14px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px;">
+        <div style="font-size:13px; font-weight:600;">A1 · Wear OS — 225dp round (450px @2x)</div>
+        <div style="position:relative; align-self:flex-start;">
+          <x-import component-from-global-scope="WearRound" from="./watch-kit.jsx" hint-size="400px,400px" scale="{{ scale }}" show-time="{{ false }}">
+            <div style="position:absolute; inset:0;">
+              <div style="position:absolute; inset:12px; border:1px dashed rgba(31,191,107,0.75); border-radius:50%;"></div>
+              <div style="position:absolute; left:33px; top:33px; width:159px; height:159px; border:1px dashed rgba(46,139,255,0.8);"></div>
+              <div style="position:absolute; left:0; right:0; top:0; height:24px; background:rgba(255,255,255,0.06); border-bottom:1px solid rgba(255,255,255,0.14);"><span style="position:absolute; left:50%; top:7px; transform:translateX(-50%); font-size:9px; color:rgba(255,255,255,0.6); font-family:var(--font-mono);">time · 24dp</span></div>
+              <div style="position:absolute; left:0; right:0; bottom:0; height:44px; background:rgba(255,255,255,0.06); border-top:1px solid rgba(255,255,255,0.14);"><span style="position:absolute; left:50%; top:16px; transform:translateX(-50%); font-size:9px; color:rgba(255,255,255,0.6); font-family:var(--font-mono);">action · 44dp</span></div>
+              <div style="position:absolute; left:33px; right:33px; top:50%; transform:translateY(-50%); text-align:center; font-size:10px; color:rgba(255,255,255,0.75); line-height:1.35;">inscribed square<br>159 × 159dp</div>
+              <div style="position:absolute; left:50%; top:112px; width:1px; height:1px;"></div>
+            </div>
+          </x-import>
+          <sc-if hint-placeholder-val="{{ true }}" value="{{ showCallouts }}">
+            <span style="position:absolute; left:9%; top:50%; transform:translate(-50%,-50%); width:22px; height:22px; border-radius:50%; background:var(--brand); color:#fff; font:700 11.5px var(--font-mono); display:inline-flex; align-items:center; justify-content:center; box-shadow:0 0 0 2px #fff; z-index:5;">1</span>
+            <span style="position:absolute; left:20%; top:20%; transform:translate(-50%,-50%); width:22px; height:22px; border-radius:50%; background:var(--brand); color:#fff; font:700 11.5px var(--font-mono); display:inline-flex; align-items:center; justify-content:center; box-shadow:0 0 0 2px #fff; z-index:5;">2</span>
+            <span style="position:absolute; left:50%; top:4%; transform:translate(-50%,-50%); width:22px; height:22px; border-radius:50%; background:var(--brand); color:#fff; font:700 11.5px var(--font-mono); display:inline-flex; align-items:center; justify-content:center; box-shadow:0 0 0 2px #fff; z-index:5;">3</span>
+            <span style="position:absolute; left:50%; top:93%; transform:translate(-50%,-50%); width:22px; height:22px; border-radius:50%; background:var(--brand); color:#fff; font:700 11.5px var(--font-mono); display:inline-flex; align-items:center; justify-content:center; box-shadow:0 0 0 2px #fff; z-index:5;">4</span>
+          </sc-if>
+        </div>
+        <ol style="margin:0; padding-left:18px; font-size:12.5px; color:var(--text-secondary); line-height:1.5; max-width:40ch;">
+          <li>Outer margin 5.2% (12dp): nothing touches the bezel.</li>
+          <li>Text lives inside the inscribed square; centered alignment; max 2 lines.</li>
+          <li>System time is always visible at top (11sp mono) except in full-screen alerts.</li>
+          <li>One action per screen, pinned to the bottom arc, min 48dp tall.</li>
+        </ol>
+      </div>
+
+      <div data-screen-label="A2 · Apple Watch canvas" style="display:flex; flex-direction:column; gap:14px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px;">
+        <div style="font-size:13px; font-weight:600;">A2 · Apple Watch — 198 × 242pt (45mm · 396 × 484px @2x)</div>
+        <div style="position:relative; align-self:flex-start;">
+          <x-import component-from-global-scope="AppleWatch" from="./watch-kit.jsx" hint-size="400px,500px" scale="{{ scale }}" show-time="{{ false }}">
+            <div style="position:absolute; inset:0;">
+              <div style="position:absolute; left:0; right:0; top:0; height:30px; background:rgba(255,255,255,0.06); border-bottom:1px solid rgba(255,255,255,0.14);"><span style="position:absolute; left:12px; top:9px; font-size:9px; color:rgba(31,191,107,0.9); font-family:var(--font-mono);">‹ title · 16pt</span><span style="position:absolute; right:12px; top:9px; font-size:9px; color:rgba(255,255,255,0.6); font-family:var(--font-mono);">time · 15pt</span></div>
+              <div style="position:absolute; left:10px; right:10px; top:32px; bottom:60px; border:1px dashed rgba(46,139,255,0.8);"><span style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:10px; color:rgba(255,255,255,0.75); text-align:center; line-height:1.4; white-space:nowrap;">content<br>178pt wide · crown scrolls<br>cards radius 20 · rows 44–52pt</span></div>
+              <div style="position:absolute; left:0; right:0; bottom:0; height:54px; background:rgba(255,255,255,0.06); border-top:1px solid rgba(255,255,255,0.14);"><span style="position:absolute; left:10px; right:10px; bottom:10px; height:44px; border-radius:22px; border:1px dashed rgba(31,191,107,0.75); display:flex; align-items:center; justify-content:center; font-size:9px; color:rgba(255,255,255,0.6); font-family:var(--font-mono);">action · 44pt · 10 inset</span></div>
+              <div style="position:absolute; left:10px; top:30px; bottom:54px; width:0; border-left:1px dashed rgba(31,191,107,0.75);"></div>
+              <div style="position:absolute; right:10px; top:30px; bottom:54px; width:0; border-left:1px dashed rgba(31,191,107,0.75);"></div>
+            </div>
+          </x-import>
+          <sc-if hint-placeholder-val="{{ true }}" value="{{ showCallouts }}">
+            <span style="position:absolute; left:10%; top:50%; transform:translate(-50%,-50%); width:22px; height:22px; border-radius:50%; background:var(--brand); color:#fff; font:700 11.5px var(--font-mono); display:inline-flex; align-items:center; justify-content:center; box-shadow:0 0 0 2px #fff; z-index:5;">1</span>
+            <span style="position:absolute; left:50%; top:12%; transform:translate(-50%,-50%); width:22px; height:22px; border-radius:50%; background:var(--brand); color:#fff; font:700 11.5px var(--font-mono); display:inline-flex; align-items:center; justify-content:center; box-shadow:0 0 0 2px #fff; z-index:5;">2</span>
+            <span style="position:absolute; left:50%; top:88%; transform:translate(-50%,-50%); width:22px; height:22px; border-radius:50%; background:var(--brand); color:#fff; font:700 11.5px var(--font-mono); display:inline-flex; align-items:center; justify-content:center; box-shadow:0 0 0 2px #fff; z-index:5;">3</span>
+          </sc-if>
+        </div>
+        <ol style="margin:0; padding-left:18px; font-size:12.5px; color:var(--text-secondary); line-height:1.5; max-width:40ch;">
+          <li>Edge insets 10pt; leading-aligned text (not centered) — the rectangle reads like a list. Content is a stack of full-width rounded cards (white 14%, radius 20).</li>
+          <li>Toolbar 30pt: NavigationStack title or back chevron + parent title in brand green, system clock top-right. Never draw over it; the title shrinks away on scroll.</li>
+          <li>Primary action is a full-width 44pt pill; secondary actions scroll below the fold via the crown. 1pt here is the same physical size as 1dp on the Galaxy canvas (A1).</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- B · TOKEN SHEET -->
+    <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">B · Token sheet — watch sizes</div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:20px; margin-bottom:56px;">
+      <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px;">
+        <div style="font-size:13px; font-weight:600; margin-bottom:12px;">Type scale</div>
+        <div style="display:grid; grid-template-columns:1fr auto auto; gap:0; font-size:12.5px;">
+          <div style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-tertiary); font-family:var(--font-mono); font-size:11px;">Role</div><div style="padding:6px 10px; border-bottom:1px solid var(--border); color:var(--text-tertiary); font-family:var(--font-mono); font-size:11px;">Wear sp</div><div style="padding:6px 0 6px 10px; border-bottom:1px solid var(--border); color:var(--text-tertiary); font-family:var(--font-mono); font-size:11px;">Apple pt</div>
+          <sc-for as="r" hint-placeholder-count="5" list="{{ typeRows }}">
+            <div style="padding:9px 0; border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:2px;"><span style="font-family:{{ r.font }}; font-size:{{ r.size }}px; font-weight:{{ r.weight }}; line-height:1.1;">{{ r.sample }}</span><span style="color:var(--text-tertiary); font-size:11.5px;">{{ r.role }}</span></div>
+            <div style="padding:9px 10px; border-bottom:1px solid var(--border); font-family:var(--font-mono); color:var(--text-secondary); align-self:center;">{{ r.wear }}</div>
+            <div style="padding:9px 0 9px 10px; border-bottom:1px solid var(--border); font-family:var(--font-mono); color:var(--text-secondary); align-self:center;">{{ r.apple }}</div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px;">
+        <div style="font-size:13px; font-weight:600; margin-bottom:12px;">Spacing, targets, radii</div>
+        <div style="display:grid; grid-template-columns:1fr auto auto; font-size:12.5px;">
+          <div style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-tertiary); font-family:var(--font-mono); font-size:11px;">Token</div><div style="padding:6px 10px; border-bottom:1px solid var(--border); color:var(--text-tertiary); font-family:var(--font-mono); font-size:11px;">Wear dp</div><div style="padding:6px 0 6px 10px; border-bottom:1px solid var(--border); color:var(--text-tertiary); font-family:var(--font-mono); font-size:11px;">Apple pt</div>
+          <sc-for as="r" hint-placeholder-count="8" list="{{ spaceRows }}">
+            <div style="padding:8px 0; border-bottom:1px solid var(--border); color:var(--text-secondary);">{{ r.name }}</div>
+            <div style="padding:8px 10px; border-bottom:1px solid var(--border); font-family:var(--font-mono); color:var(--text-secondary);">{{ r.wear }}</div>
+            <div style="padding:8px 0 8px 10px; border-bottom:1px solid var(--border); font-family:var(--font-mono); color:var(--text-secondary);">{{ r.apple }}</div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px;">
+        <div style="font-size:13px; font-weight:600; margin-bottom:12px;">Color on OLED black</div>
+        <div style="display:flex; flex-direction:column; gap:8px; font-size:12.5px;">
+          <sc-for as="c" hint-placeholder-count="7" list="{{ colorRows }}">
+            <div style="display:flex; align-items:center; gap:10px;"><span style="width:26px; height:26px; border-radius:var(--radius-xs); background:{{ c.swatch }}; border:1px solid var(--border); flex:0 0 auto;"></span><span style="flex:1; min-width:0;"><span style="display:block; font-weight:600;">{{ c.name }}</span><span style="display:block; color:var(--text-tertiary); font-size:11.5px;">{{ c.use }}</span></span><span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary);">{{ c.token }}</span></div>
+          </sc-for>
+        </div>
+        <p style="margin:14px 0 0; font-size:12px; color:var(--text-secondary); line-height:1.5; text-wrap:pretty;">Screens are always true black (#000) for OLED and ambient parity. Text on black: primary #FFF, secondary 70%, tertiary 50%. Brand green and alert red are used at full opacity only — never muted type on color. Icons on watch render at 1 of 3 sizes: 20 inline, 28 status, 56 maneuver.</p>
+      </div>
+    </div>
+
+    <!-- C · COMPONENTS -->
+    <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">C · Reusable components — Wear (left) · Apple (right)</div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(480px, 1fr)); gap:20px; margin-bottom:56px;">
+
+      <div data-screen-label="C1 · Maneuver indicator" style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; display:flex; flex-direction:column; gap:12px;">
+        <div><div style="font-size:13px; font-weight:600;">C1 · Maneuver indicator</div><div style="font-size:12.5px; color:var(--text-secondary); margin-top:2px;">Glyph 56 + distance (mono) + instruction (max 2 lines). Roundabout carries exit number inside the glyph.</div></div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <div style="width:225px; background:#000; border-radius:var(--radius-md); padding:18px 16px; color:#fff; display:flex; flex-direction:column; align-items:center; gap:6px;">
+            <div style="display:flex; align-items:center; gap:12px;"><span style="color:var(--brand);"><x-import component-from-global-scope="Maneuver" from="./watch-kit.jsx" hint-size="56px,56px" kind="right" size="56"></x-import></span><span style="font-family:var(--font-mono); font-size:34px; font-weight:700; line-height:1;">400<span style="font-size:14px; font-weight:600; margin-left:3px; color:rgba(255,255,255,0.7);">ft</span></span></div>
+            <div style="font-size:16px; font-weight:600; text-align:center; line-height:1.2;">Turn right onto Market St</div>
+          </div>
+          <div style="width:240px; background:#000; border-radius:var(--radius-md); padding:18px 20px; color:#fff; display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; align-items:center; gap:14px;"><span style="color:var(--brand);"><x-import component-from-global-scope="Maneuver" exit="2" from="./watch-kit.jsx" hint-size="56px,56px" kind="roundabout" size="56"></x-import></span><span style="font-family:var(--font-mono); font-size:34px; font-weight:700; line-height:1;">0.3<span style="font-size:14px; font-weight:600; margin-left:3px; color:rgba(255,255,255,0.7);">mi</span></span></div>
+            <div style="font-size:17px; font-weight:600; line-height:1.2;">2nd exit onto Ashby Ave</div>
+          </div>
+        </div>
+      </div>
+
+      <div data-screen-label="C2 · Distance display" style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; display:flex; flex-direction:column; gap:12px;">
+        <div><div style="font-size:13px; font-weight:600;">C2 · Distance display</div><div style="font-size:12.5px; color:var(--text-secondary); margin-top:2px;">Tabular mono. ≥ 0.1 mi shows one decimal; under 500 ft rounds to 50; "Now" at ≤ 60 ft. Unit is 40% size, secondary.</div></div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <div style="background:#000; border-radius:var(--radius-md); padding:14px 18px; color:#fff; display:flex; gap:22px; align-items:baseline; font-family:var(--font-mono); font-weight:700;">
+            <span style="font-size:30px;">2.4<span style="font-size:12px; color:rgba(255,255,255,0.7); margin-left:3px;">mi</span></span>
+            <span style="font-size:30px;">850<span style="font-size:12px; color:rgba(255,255,255,0.7); margin-left:3px;">ft</span></span>
+            <span style="font-size:30px;">150<span style="font-size:12px; color:rgba(255,255,255,0.7); margin-left:3px;">ft</span></span>
+            <span style="font-size:30px; color:var(--brand);">Now</span>
+          </div>
+        </div>
+      </div>
+
+      <div data-screen-label="C3 · Trip summary" style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; display:flex; flex-direction:column; gap:12px;">
+        <div><div style="font-size:13px; font-weight:600;">C3 · Trip summary</div><div style="font-size:12.5px; color:var(--text-secondary); margin-top:2px;">ETA · remaining duration · remaining distance. Wear curves along the bottom arc as one line; Apple is a bottom card with the ETA as the lead value.</div></div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <div style="width:225px; background:#000; border-radius:var(--radius-md); padding:14px 12px; color:#fff; text-align:center; font-family:var(--font-mono); font-size:12px;"><span style="color:var(--brand); font-weight:700;">6:15</span><span style="color:rgba(255,255,255,0.45); margin:0 6px;">·</span><span style="font-weight:600;">27 min</span><span style="color:rgba(255,255,255,0.45); margin:0 6px;">·</span><span style="color:rgba(255,255,255,0.7);">13.1 mi</span></div>
+          <div style="width:240px; background:#000; border-radius:var(--radius-md); padding:12px; color:#fff;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 13px; background:rgba(255,255,255,0.12); border-radius:18px;"><span style="display:flex; flex-direction:column; gap:3px;"><span style="font-family:var(--font-mono); font-size:17px; font-weight:700; color:var(--brand); line-height:1;">6:15</span><span style="font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:rgba(255,255,255,0.5); line-height:1;">arrive</span></span><span style="display:flex; flex-direction:column; align-items:flex-end; gap:3px; text-align:right;"><span style="font-family:var(--font-mono); font-size:12px; font-weight:600; color:rgba(255,255,255,0.75); line-height:1;">27 min</span><span style="font-family:var(--font-mono); font-size:12px; font-weight:600; color:rgba(255,255,255,0.55); line-height:1;">13.1 mi</span></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div data-screen-label="C4 · Metric tile" style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; display:flex; flex-direction:column; gap:12px;">
+        <div><div style="font-size:13px; font-weight:600;">C4 · Metric tile</div><div style="font-size:12.5px; color:var(--text-secondary); margin-top:2px;">Value (mono 24) over label (11 uppercase). Tone colors the value only: brand = avoided, alert = crossed, neutral = time/distance. "—" when unavailable.</div></div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <div style="background:#000; border-radius:var(--radius-md); padding:12px; color:#fff; display:flex; gap:8px;">
+            <div style="width:68px; padding:10px 6px; background:rgba(255,255,255,0.08); border-radius:14px; text-align:center;"><div style="font-family:var(--font-mono); font-size:22px; font-weight:700;">18:42</div><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:rgba(255,255,255,0.55); margin-top:2px;">time</div></div>
+            <div style="width:68px; padding:10px 6px; background:rgba(255,255,255,0.08); border-radius:14px; text-align:center;"><div style="font-family:var(--font-mono); font-size:22px; font-weight:700; color:var(--brand);">4</div><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:rgba(255,255,255,0.55); margin-top:2px;">avoided</div></div>
+            <div style="width:68px; padding:10px 6px; background:rgba(255,255,255,0.08); border-radius:14px; text-align:center;"><div style="font-family:var(--font-mono); font-size:22px; font-weight:700; color:var(--alert-500);">1</div><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:rgba(255,255,255,0.55); margin-top:2px;">crossed</div></div>
+            <div style="width:68px; padding:10px 6px; background:rgba(255,255,255,0.08); border-radius:14px; text-align:center;"><div style="font-family:var(--font-mono); font-size:22px; font-weight:700; color:rgba(255,255,255,0.4);">—</div><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:rgba(255,255,255,0.55); margin-top:2px;">n/a</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div data-screen-label="C5 · Status indicator" style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; display:flex; flex-direction:column; gap:12px;">
+        <div><div style="font-size:13px; font-weight:600;">C5 · Status indicator</div><div style="font-size:12.5px; color:var(--text-secondary); margin-top:2px;">Pill, 24dp/22pt tall, icon 14 + label. Sits under the time. Only one shows at a time, by priority: disconnected › incompatible › stale › rerouting › connecting › live.</div></div>
+        <div style="background:#000; border-radius:var(--radius-md); padding:14px; display:flex; gap:8px; flex-wrap:wrap;">
+          <sc-for as="c" hint-placeholder-count="6" list="{{ statusChips }}">
+            <span style="display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 10px; border-radius:999px; background:{{ c.bg }}; color:{{ c.fg }}; font-size:11px; font-weight:600;"><x-import component-from-global-scope="WIcon" from="./watch-kit.jsx" hint-size="13px,13px" name="{{ c.icon }}" size="13"></x-import>{{ c.label }}</span>
+          </sc-for>
+        </div>
+      </div>
+
+      <div data-screen-label="C6 · Notification card" style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; display:flex; flex-direction:column; gap:12px;">
+        <div><div style="font-size:13px; font-weight:600;">C6 · Notification card</div><div style="font-size:12.5px; color:var(--text-secondary); margin-top:2px;">App glyph + title + one line of body + timestamp. Wear uses a 22dp card radius; Apple uses the system long-look with our tint.</div></div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <div style="width:225px; background:#000; border-radius:var(--radius-md); padding:12px; color:#fff;">
+            <div style="background:rgba(255,255,255,0.1); border-radius:22px; padding:14px 16px; display:flex; flex-direction:column; gap:6px;">
+              <div style="display:flex; align-items:center; gap:7px;"><span style="width:16px; height:16px; border-radius:5px; background:var(--brand); color:#06281a; display:inline-flex; align-items:center; justify-content:center;"><x-import component-from-global-scope="WIcon" from="./watch-kit.jsx" hint-size="11px,11px" name="shield-check" size="11"></x-import></span><span style="font-size:11px; color:rgba(255,255,255,0.65);">DAF · now</span></div>
+              <div style="font-size:15px; font-weight:600; line-height:1.2;">Oakland: 2 new cameras</div>
+              <div style="font-size:12.5px; color:rgba(255,255,255,0.7); line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">International Blvd &amp; 35th Ave, added 2h ago</div>
+            </div>
+          </div>
+          <div style="width:240px; background:#000; border-radius:var(--radius-md); padding:12px; color:#fff;">
+            <div style="display:flex; align-items:center; gap:8px; padding:0 4px 10px;"><span style="width:20px; height:20px; border-radius:6px; background:var(--brand); color:#06281a; display:inline-flex; align-items:center; justify-content:center;"><x-import component-from-global-scope="WIcon" from="./watch-kit.jsx" hint-size="13px,13px" name="shield-check" size="13"></x-import></span><span style="font-size:13px; font-weight:600; color:var(--brand);">DAF</span><span style="margin-left:auto; font-size:12px; color:rgba(255,255,255,0.55);">now</span></div>
+            <div style="background:rgba(255,255,255,0.1); border-radius:16px; padding:14px 16px;">
+              <div style="font-size:16px; font-weight:600; line-height:1.2;">Oakland: 2 new cameras</div>
+              <div style="font-size:13px; color:rgba(255,255,255,0.7); line-height:1.3; margin-top:4px;">International Blvd &amp; 35th Ave, added 2h ago</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div data-screen-label="C7 · Phone-handoff action" style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; display:flex; flex-direction:column; gap:12px;">
+        <div><div style="font-size:13px; font-weight:600;">C7 · Phone-handoff action</div><div style="font-size:12.5px; color:var(--text-secondary); margin-top:2px;">"Open on phone" — the only cross-device verb. Four states: idle, initiating (spinner, 3 s timeout), sent (check, auto-dismiss 1.5 s), unavailable (muted, explains why).</div></div>
+        <div style="background:#000; border-radius:var(--radius-md); padding:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <span style="display:inline-flex; align-items:center; justify-content:center; gap:8px; height:44px; padding:0 18px; border-radius:999px; background:var(--brand); color:#06281a; font-size:14px; font-weight:700;"><x-import component-from-global-scope="WIcon" from="./watch-kit.jsx" hint-size="16px,16px" name="smartphone" size="16"></x-import>Open on phone</span>
+          <span style="display:inline-flex; align-items:center; justify-content:center; gap:8px; height:44px; padding:0 18px; border-radius:999px; background:rgba(31,191,107,0.25); color:#fff; font-size:14px; font-weight:700;"><x-import component-from-global-scope="WIcon" from="./watch-kit.jsx" hint-size="16px,16px" name="loader" size="16"></x-import>Sending…</span>
+          <span style="display:inline-flex; align-items:center; justify-content:center; gap:8px; height:44px; padding:0 18px; border-radius:999px; background:rgba(31,191,107,0.25); color:var(--brand); font-size:14px; font-weight:700;"><x-import component-from-global-scope="WIcon" from="./watch-kit.jsx" hint-size="16px,16px" name="check" size="16"></x-import>On your phone</span>
+          <span style="display:inline-flex; align-items:center; justify-content:center; gap:8px; height:44px; padding:0 18px; border-radius:999px; background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.5); font-size:14px; font-weight:700;"><x-import component-from-global-scope="WIcon" from="./watch-kit.jsx" hint-size="16px,16px" name="phone-off" size="16"></x-import>Phone unavailable</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- D · SYSTEM STATES -->
+    <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">D · System-state treatments (shared by every screen)</div>
+    <div style="display:flex; flex-wrap:wrap; gap:28px; margin-bottom:56px; align-items:flex-start;">
+      <sc-for as="s" hint-placeholder-count="5" list="{{ sysStates }}">
+        <div data-screen-label="D · {{ s.title }}" style="display:flex; flex-direction:column; gap:14px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px;">
+          <div style="font-size:13px; font-weight:600;">{{ s.n }} · {{ s.name }}</div>
+          <div style="display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap;">
+            <div style="position:relative;">
+              <x-import component-from-global-scope="WearRound" from="./watch-kit.jsx" hint-size="300px,300px" scale="{{ scale }}">
+                <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:30px 32px 26px; gap:6px;">
+                  <span style="color:{{ s.tone }}; display:inline-flex;"><x-import component-from-global-scope="WIcon" from="./watch-kit.jsx" hint-size="30px,30px" name="{{ s.icon }}" size="30"></x-import></span>
+                  <div style="font-size:16px; font-weight:600; line-height:1.2;">{{ s.title }}</div>
+                  <div style="font-size:12.5px; color:rgba(255,255,255,0.68); line-height:1.3;">{{ s.body }}</div>
+                  <sc-if hint-placeholder-val="{{ false }}" value="{{ s.chip }}"><span style="margin-top:6px; display:inline-flex; align-items:center; height:32px; padding:0 14px; border-radius:999px; background:rgba(255,255,255,0.12); font-size:12px; font-weight:600;">{{ s.chip }}</span></sc-if>
+                </div>
+              </x-import>
+              <sc-if hint-placeholder-val="{{ true }}" value="{{ showCallouts }}">
+                <sc-for as="p" hint-placeholder-count="0" list="{{ s.pins }}"><span style="position:absolute; left:{{ p.x }}%; top:{{ p.y }}%; transform:translate(-50%,-50%); width:22px; height:22px; border-radius:50%; background:var(--brand); color:#fff; font:700 11.5px var(--font-mono); display:inline-flex; align-items:center; justify-content:center; box-shadow:0 0 0 2px #fff; z-index:5;">{{ p.n }}</span></sc-for>
+              </sc-if>
+            </div>
+            <x-import component-from-global-scope="AppleWatch" from="./watch-kit.jsx" hint-size="300px,380px" scale="{{ scale }}" title="DAF">
+              <div style="position:absolute; inset:0; display:flex; flex-direction:column; padding:32px 10px 10px; gap:6px;">
+                <div style="flex:1; min-height:0; display:flex; flex-direction:column; justify-content:center; gap:6px; padding:0 4px;">
+                  <span style="color:{{ s.tone }}; display:inline-flex; margin-bottom:4px;"><x-import component-from-global-scope="WIcon" from="./watch-kit.jsx" hint-size="36px,36px" name="{{ s.icon }}" size="36"></x-import></span>
+                  <div style="font-size:19px; font-weight:600; line-height:1.15; letter-spacing:-0.3px;">{{ s.title }}</div>
+                  <div style="font-size:13px; font-weight:500; color:rgba(255,255,255,0.7); line-height:1.3;">{{ s.body }}</div>
+                </div>
+                <sc-if hint-placeholder-val="{{ false }}" value="{{ s.chip }}"><span style="display:inline-flex; align-items:center; justify-content:center; height:44px; width:100%; border-radius:22px; background:rgba(255,255,255,0.14); font-size:15px; font-weight:600;">{{ s.chipApple }}</span></sc-if>
+              </div>
+            </x-import>
+          </div>
+          <ol style="margin:0; padding-left:18px; font-size:12.5px; color:var(--text-secondary); line-height:1.5; max-width:48ch;">
+            <sc-for as="t" hint-placeholder-count="2" list="{{ s.notes }}"><li>{{ t }}</li></sc-for>
+          </ol>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- E · HIERARCHY -->
+    <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">E · Screen hierarchy &amp; navigation flows</div>
+    <div style="display:flex; flex-direction:column; gap:16px; margin-bottom:56px;">
+      <sc-for as="f" hint-placeholder-count="3" list="{{ flows }}">
+        <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px 20px;">
+          <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:12px;"><span style="font-size:13px; font-weight:600;">{{ f.title }}</span><span style="font-size:12px; color:var(--text-tertiary);">{{ f.sub }}</span></div>
+          <div style="display:flex; align-items:center; gap:0; flex-wrap:wrap; row-gap:14px;">
+            <sc-for as="st" hint-placeholder-count="4" list="{{ f.steps }}">
+              <div style="min-width:128px; padding:10px 14px; border:1px solid {{ st.bd }}; border-radius:var(--radius-md); background:{{ st.bg }};"><div style="font-size:13px; font-weight:600;">{{ st.label }}</div><div style="font-size:11.5px; color:var(--text-tertiary); margin-top:1px;">{{ st.sub }}</div></div>
+              <sc-if hint-placeholder-val="{{ true }}" value="{{ st.next }}">
+                <div style="display:flex; flex-direction:column; align-items:center; gap:1px; min-width:96px; padding:0 6px;"><span style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-tertiary); text-align:center; line-height:1.2;">{{ st.next }}</span><svg height="12" style="display:block; color:var(--text-tertiary);" viewBox="0 0 84 12" width="84"><line stroke="currentColor" stroke-width="1.5" x1="0" x2="76" y1="6" y2="6"></line><path d="M76 1l6 5-6 5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></path></svg></div>
+              </sc-if>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+      <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px 20px; font-size:12.5px; color:var(--text-secondary); line-height:1.55; display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:18px;">
+        <div><div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">Wear OS</div>Horizontal pager between peer screens (swipe); swipe-right from the first page exits to the watch face. Active navigation pins itself as an Ongoing Activity chip on the watch face so guidance is one tap away. No back stack deeper than 2.</div>
+        <div><div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">Apple Watch</div>Vertical TabView (page style) between peers; NavigationStack for drill-ins with the system back chevron. Active navigation is the root while a route is live — the Smart Stack pins DAF to the top.</div>
+        <div><div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">Both</div>Opening the app during a routed drive always lands on Active navigation. After arrival the recap (Phase 5) shows once, then the app returns to Idle. Diagnostics is reachable only from Idle (long-press on Wear; scroll-to-bottom on Apple).</div>
+      </div>
+    </div>
+
+    <!-- F · AMBIENT -->
+    <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">F · Ambient / Always On — reduced-update presentation</div>
+    <div style="display:flex; flex-wrap:wrap; gap:28px; margin-bottom:56px; align-items:flex-start;">
+      <div data-screen-label="F1 · Active vs ambient" style="display:flex; flex-direction:column; gap:14px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px;">
+        <div style="font-size:13px; font-weight:600;">F1 · Active navigation — interactive → ambient</div>
+        <div style="display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap;">
+          <x-import component-from-global-scope="WearRound" from="./watch-kit.jsx" hint-size="300px,300px" scale="{{ scale }}">
+            <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; padding:26px 24px 27px;">
+              <span style="display:inline-flex; align-items:center; gap:5px; height:20px; padding:0 9px; border-radius:999px; background:rgba(31,191,107,0.18); color:var(--brand); font-size:10px; font-weight:600;">Live</span>
+              <div style="display:flex; align-items:center; gap:10px; margin-top:8px;"><span style="color:var(--brand);"><x-import component-from-global-scope="Maneuver" from="./watch-kit.jsx" hint-size="56px,56px" kind="left" size="56"></x-import></span><span style="font-family:var(--font-mono); font-size:34px; font-weight:700; line-height:1;">400<span style="font-size:13px; font-weight:600; margin-left:2px; color:rgba(255,255,255,0.7);">ft</span></span></div>
+              <div style="font-size:16px; font-weight:600; text-align:center; line-height:1.2; margin-top:6px;">Turn left onto Market St</div>
+              <div style="margin-top:auto; font-family:var(--font-mono); font-size:10px; color:rgba(255,255,255,0.7);"><span style="color:var(--brand); font-weight:700;">6:15</span> · 27 min · 13.1 mi</div>
+            </div>
+          </x-import>
+          <x-import ambient="{{ true }}" component-from-global-scope="WearRound" from="./watch-kit.jsx" hint-size="300px,300px" scale="{{ scale }}">
+            <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; padding:34px 24px 27px;">
+              <div style="display:flex; align-items:center; gap:10px; margin-top:8px;"><span style="color:#fff;"><x-import component-from-global-scope="Maneuver" from="./watch-kit.jsx" hint-size="56px,56px" kind="left" size="56"></x-import></span><span style="font-family:var(--font-mono); font-size:34px; font-weight:500; line-height:1;">400<span style="font-size:13px; margin-left:2px; color:rgba(255,255,255,0.7);">ft</span></span></div>
+              <div style="font-size:16px; font-weight:500; text-align:center; line-height:1.2; margin-top:6px;">Market St</div>
+              <div style="margin-top:auto; font-family:var(--font-mono); font-size:10px; color:rgba(255,255,255,0.6);">6:15</div>
+            </div>
+          </x-import>
+          <x-import ambient="{{ true }}" component-from-global-scope="AppleWatch" from="./watch-kit.jsx" hint-size="300px,380px" scale="{{ scale }}">
+            <div style="position:absolute; inset:0; display:flex; flex-direction:column; padding:40px 12px 14px;">
+              <div style="display:flex; align-items:center; gap:8px;"><span style="color:#fff;"><x-import component-from-global-scope="Maneuver" from="./watch-kit.jsx" hint-size="56px,56px" kind="left" size="56"></x-import></span><span style="font-family:var(--font-mono); font-size:40px; font-weight:500; line-height:1; letter-spacing:-0.02em;">400<span style="font-size:15px; margin-left:2px; color:rgba(255,255,255,0.7);">ft</span></span></div>
+              <div style="font-size:19px; font-weight:500; line-height:1.15; margin-top:10px;">Market St</div>
+              <div style="margin-top:auto; font-family:var(--font-mono); font-size:15px; font-weight:500; color:rgba(255,255,255,0.65);">6:15</div>
+            </div>
+          </x-import>
+        </div>
+        <ol style="margin:0; padding-left:18px; font-size:12.5px; color:var(--text-secondary); line-height:1.5; max-width:64ch; columns:2; column-gap:28px;">
+          <li>Ambient keeps glyph, distance, and road name only; drops status chip, destination, duration.</li>
+          <li>Color leaves: brand green becomes white; weights drop 700 → 500 to limit burn-in; no fills.</li>
+          <li>Update cadence: once per minute, or immediately when the maneuver changes or distance crosses 500 / 150 ft.</li>
+          <li>Apple Always On dims via the system; we additionally hide the trip strip and redact nothing — the maneuver is never privacy-sensitive.</li>
+          <li>Return-to-active (wrist raise / tap): restore full layout within 200 ms without re-layout jump — positions are shared between modes.</li>
+          <li>Wear: `AmbientLifecycleObserver`; Apple: `isLuminanceReduced`.</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- G · HAPTICS -->
+    <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">G · Haptic vocabulary — one meaning per pattern, both platforms</div>
+    <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:6px 20px; margin-bottom:24px;">
+      <sc-for as="h" hint-placeholder-count="7" list="{{ haptics }}">
+        <div style="display:grid; grid-template-columns:minmax(150px, 1fr) minmax(280px, 2fr) minmax(180px, 1.2fr); gap:18px; align-items:center; padding:14px 0; border-bottom:1px solid var(--border);">
+          <div><div style="font-size:13.5px; font-weight:600;">{{ h.name }}</div><div style="font-size:12px; color:var(--text-tertiary); margin-top:2px; line-height:1.4;">{{ h.meaning }}</div></div>
+          <div><x-import caption="{{ h.wear }}" component-from-global-scope="HapticTrace" from="./watch-kit.jsx" hint-size="420px,86px" pulses="{{ h.pulses }}" total="{{ h.total }}" width="420"></x-import></div>
+          <div style="font-size:12px; color:var(--text-secondary); line-height:1.45;"><span style="font-family:var(--font-mono); font-size:11px; color:var(--text-primary); background:var(--surface-card-alt); padding:2px 7px; border-radius:var(--radius-xs);">{{ h.apple }}</span><div style="margin-top:5px;">{{ h.appleNote }}</div></div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px 20px; margin-bottom:56px; font-size:12.5px; color:var(--text-secondary); line-height:1.55; display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:18px;">
+      <div><div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">Timing rules</div>Minimum 250 ms silence between any two cues. A cue never plays more than 2 s after its trigger — late cues are dropped, not queued. Maneuver cues outrank camera cues, which outrank Area cues; a lower cue that collides is suppressed, not delayed.</div>
+      <div><div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">Platform notes</div>Wear uses `VibrationEffect` compositions with amplitude; Apple uses `WKInterfaceDevice.play(_:)`, which is fixed-amplitude — direction is conveyed by count and type, never by strength. Both honor system silent/DND and the in-app toggle (Phase 2).</div>
+      <div><div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">Accessibility</div>Every haptic has a visible equivalent on screen at the same instant. Haptics never carry information alone. Patterns are previewable from Settings so drivers can learn them parked.</div>
+    </div>
+
+    <!-- H · TEXT + A11Y -->
+    <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">H · Truncation, touch, accessibility</div>
+    <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px 20px; margin-bottom:56px; font-size:12.5px; color:var(--text-secondary); line-height:1.55; display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:18px;">
+      <div><div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">Truncation</div>Road names: drop the type suffix first ("Market St" → "Market"), then middle-ellipsize at 2 lines. Area names: tail-ellipsize at 1 line. Numbers never truncate — the unit shrinks or drops instead.</div>
+      <div><div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">Touch</div>Wear 48dp min, 52dp for in-drive; Apple 44pt. In-drive screens have at most one tappable region; everything else is swipe/crown. No double-tap or long-press for anything safety-related.</div>
+      <div><div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">Accessibility</div>Large-text scales up to 125% on Wear and the `xxxLarge` Dynamic Type step on Apple — layouts drop the trip strip before shrinking type. Screen readers announce maneuver changes (`liveRegion` / `.updatesFrequently`). Color never carries meaning alone: tone is paired with glyph and label.</div>
+    </div>
+    <!-- I · SWIFTUI MAP -->
+    <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">I · SwiftUI equivalents — structure per screen (Apple)</div>
+    <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:6px 20px; margin-bottom:56px;">
+      <sc-for as="s" hint-placeholder-count="7" list="{{ swift }}">
+        <div style="display:grid; grid-template-columns:minmax(150px, 1fr) minmax(200px, 1.4fr) minmax(220px, 2fr); gap:18px; align-items:start; padding:13px 0; border-bottom:1px solid var(--border); font-size:12.5px;">
+          <div><div style="font-weight:600;">{{ s.screen }}</div><div style="font-size:11.5px; color:var(--text-tertiary); margin-top:2px;">{{ s.ref }}</div></div>
+          <div style="font-family:var(--font-mono); font-size:11.5px; color:var(--text-primary); line-height:1.5;">{{ s.view }}</div>
+          <div style="color:var(--text-secondary); line-height:1.5;">{{ s.note }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- J · COMPARISON -->
+    <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">J · Cross-platform comparison sheet — intentional differences</div>
+    <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:6px 20px;">
+      <div style="display:grid; grid-template-columns:minmax(120px, 0.8fr) minmax(200px, 1.5fr) minmax(200px, 1.5fr) minmax(160px, 1.2fr); gap:18px; padding:10px 0; border-bottom:1px solid var(--border); font-family:var(--font-mono); font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-tertiary);"><div>Dimension</div><div>Wear OS</div><div>Apple Watch</div><div>Why it differs</div></div>
+      <sc-for as="c" hint-placeholder-count="10" list="{{ compare }}">
+        <div style="display:grid; grid-template-columns:minmax(120px, 0.8fr) minmax(200px, 1.5fr) minmax(200px, 1.5fr) minmax(160px, 1.2fr); gap:18px; align-items:start; padding:12px 0; border-bottom:1px solid var(--border); font-size:12.5px; line-height:1.5;">
+          <div style="font-weight:600;">{{ c.dim }}</div>
+          <div style="color:var(--text-secondary);">{{ c.wear }}</div>
+          <div style="color:var(--text-secondary);">{{ c.apple }}</div>
+          <div style="color:var(--text-tertiary); font-size:12px;">{{ c.why }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props="{&quot;frameScale&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0.8,&quot;min&quot;:0.5,&quot;max&quot;:1,&quot;step&quot;:0.05,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Gallery&quot;},&quot;showCallouts&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Gallery&quot;},&quot;pageTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;light&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;tsType&quot;:&quot;'light' | 'dark'&quot;,&quot;section&quot;:&quot;Gallery&quot;}}" type="text/x-dc">
+class Component extends DCLogic {
+  state = { theme: 'light' };
+  renderVals() {
+    const theme = this.props.pageTheme ?? this.state.theme;
+    const isLight = theme === 'light';
+    const on = { fg: 'var(--surface-card)', bg: 'var(--text-primary)' }, off = { fg: 'var(--text-secondary)', bg: 'transparent' };
+    const W = 'rgba(255,255,255,0.12)', WF = '#fff';
+    return {
+      theme, scale: this.props.frameScale ?? 0.8, showCallouts: this.props.showCallouts ?? true,
+      setLight: () => this.setState({ theme: 'light' }), setDark: () => this.setState({ theme: 'dark' }),
+      lightFg: isLight ? on.fg : off.fg, lightBg: isLight ? on.bg : off.bg, darkFg: isLight ? off.fg : on.fg, darkBg: isLight ? off.bg : on.bg,
+      typeRows: [
+        { role: 'Display — hero number', sample: '27 min', font: 'var(--font-mono)', size: 30, weight: 700, wear: '40 sp', apple: '40–44 pt' },
+        { role: 'Title — screen / card title', sample: 'Start a route', font: 'var(--font-display)', size: 20, weight: 700, wear: '24 sp', apple: '19–22 pt · SF' },
+        { role: 'Body — instruction, list row', sample: 'Turn left onto Market St', font: 'var(--font-ui)', size: 15, weight: 600, wear: '16 sp', apple: '15–17 pt · SF' },
+        { role: 'Caption — meta, secondary', sample: 'Added 2h ago · Oakland', font: 'var(--font-ui)', size: 13, weight: 500, wear: '14 sp', apple: '12–13 pt · SF' },
+        { role: 'Label — uppercase eyebrow', sample: 'AVOIDED', font: 'var(--font-ui)', size: 11, weight: 700, wear: '11 sp', apple: '9–11 pt · SF' },
+      ],
+      spaceRows: [
+        { name: 'Screen edge inset', wear: '12 (5.2%)', apple: '10' },
+        { name: 'Toolbar / time zone', wear: '24', apple: '30' },
+        { name: 'Stack gap', wear: '8', apple: '6' },
+        { name: 'Card padding', wear: '14 × 16', apple: '9 × 11' },
+        { name: 'Touch target min', wear: '48', apple: '44' },
+        { name: 'In-drive target', wear: '52', apple: '44' },
+        { name: 'Card radius', wear: '22', apple: '20' },
+        { name: 'Chip / button radius', wear: 'pill', apple: 'pill' },
+        { name: 'Icon sizes', wear: '20 · 28 · 56', apple: '16 · 34 · 56' },
+      ],
+      colorRows: [
+        { name: 'Brand green', use: 'Live, private, avoided, primary action', token: '--brand', swatch: 'var(--brand)' },
+        { name: 'Alert red', use: 'Camera, crossed, disconnected', token: '--alert-500', swatch: 'var(--alert-500)' },
+        { name: 'Amber', use: 'Stale, rerouting, caution', token: '--amber-500', swatch: 'var(--amber-500)' },
+        { name: 'Azure', use: 'Fastest route, info', token: '--azure-500', swatch: 'var(--azure-500)' },
+        { name: 'Violet', use: 'Destination', token: '--violet-500', swatch: 'var(--violet-500)' },
+        { name: 'Surface tint', use: 'Cards, chips on black', token: 'white 12%', swatch: 'rgba(120,120,120,0.5)' },
+        { name: 'Canvas', use: 'Every screen background', token: '#000', swatch: '#000' },
+      ],
+      statusChips: [
+        { label: 'Live', icon: 'navigation', bg: 'rgba(31,191,107,0.2)', fg: 'var(--brand)' },
+        { label: 'Connecting', icon: 'loader', bg: W, fg: WF },
+        { label: 'Rerouting', icon: 'rotate-cw', bg: 'rgba(255,176,46,0.2)', fg: 'var(--amber-500)' },
+        { label: 'Stale · 40s', icon: 'history', bg: 'rgba(255,176,46,0.2)', fg: 'var(--amber-500)' },
+        { label: 'Update phone app', icon: 'smartphone', bg: W, fg: WF },
+        { label: 'Disconnected', icon: 'link-off', bg: 'rgba(255,77,79,0.2)', fg: 'var(--alert-500)' },
+      ],
+      sysStates: [
+        { n: 'D1', name: 'Loading', icon: 'loader', tone: 'rgba(255,255,255,0.8)', title: 'Connecting to phone', body: 'Usually a second or two.', chip: null, pins: [{ n: 1, x: 50, y: 40 }], notes: ['Indeterminate spinner (28dp) for up to 8 s, then falls through to Disconnected.', 'Skeletons are not used on watch — one centered message instead.'] },
+        { n: 'D2', name: 'Unavailable', icon: 'eye-off', tone: 'rgba(255,255,255,0.8)', title: 'Not available right now', body: 'The phone is still working on it.', chip: 'Try again', pins: [{ n: 1, x: 50, y: 70 }], notes: ['Used when the phone has no data for this screen (e.g. Scorecard before tracking starts).', 'Single retry action; retries are rate-limited to once per 5 s.'] },
+        { n: 'D3', name: 'Disconnected', icon: 'link-off', tone: 'var(--alert-500)', title: 'Phone disconnected', body: 'Guidance resumes when it reconnects.', chip: 'Open on phone', pins: [{ n: 1, x: 50, y: 32 }, { n: 2, x: 50, y: 72 }], notes: ['Alert red icon is the only red on the screen.', 'Handoff stays visible — it fails gracefully to "Phone unavailable" (C7).'] },
+        { n: 'D4', name: 'Stale', icon: 'history', tone: 'var(--amber-500)', title: 'Last update 40 s ago', body: 'Showing what we had. Keep following the phone.', chip: null, pins: [{ n: 1, x: 50, y: 48 }], notes: ['Stale is an overlay chip on live content (C5) once data is > 10 s old; this full-screen form appears after 30 s.', 'The counter is live so drivers can judge trust.'] },
+        { n: 'D5', name: 'Incompatible version', icon: 'smartphone', tone: 'rgba(255,255,255,0.8)', title: 'Update the phone app', body: 'This watch app needs DAF 3.2 or later.', chip: 'Open on phone', pins: [{ n: 1, x: 50, y: 56 }], notes: ['Blocks every screen except Diagnostics.', 'Version numbers come from the handshake, not a store lookup.'] },
+      ].map((s) => ({ ...s, chipApple: s.chip ? s.chip.replace('phone', 'iPhone') : null })),
+      flows: (() => {
+        const n = (label, sub, next, hot) => ({ label, sub, next, bg: hot ? 'var(--brand-soft)' : 'var(--surface-card)', bd: hot ? 'transparent' : 'var(--border)' });
+        return [
+          { title: 'Idle use', sub: 'no routed drive on the phone', steps: [n('Watch face', 'tile / complication', 'tap'), n('Idle home', 'Start a route · My areas', 'swipe ←'), n('Scorecard', 'tracking summary', 'swipe ←'), n('Diagnostics', 'long-press / scroll end', null)] },
+          { title: 'Active routed navigation', sub: 'phone starts a route', steps: [n('Idle home', '', 'route starts'), n('Active navigation', 'maneuver · ETA', 'swipe ←', true), n('Active Scorecard', 'live metrics', 'swipe ←'), n('Diagnostics', '', null)] },
+          { title: 'Route ends', sub: 'arrival or cancel', steps: [n('Active navigation', '', 'arrive', true), n('Arrived', '3 s confirmation', 'auto'), n('Recap', 'Phase 5', 'dismiss / 20 s'), n('Idle home', '', null)] },
+        ];
+      })(),
+      swift: [
+        { screen: 'App root', ref: 'Foundations E', view: 'TabView(.verticalPage) { Navigation · Scorecard · Diagnostics } while routing; NavigationStack { MyAreasHome } when idle', note: 'Root swaps on route state from the shared `SessionModel` (@Observable). No animation on the swap — the route starting is the transition.' },
+        { screen: 'Active navigation', ref: 'Watch app §6', view: 'VStack { StatusChip · HStack { ManeuverGlyph · DistanceText } · InstructionText · DestinationRow · Spacer · TripStrip }', note: 'Fixed layout, no ScrollView. `.monospacedDigit()` on every number. Chip hides after 3 s via `.transition(.opacity)`.' },
+        { screen: 'Active Scorecard', ref: 'Watch app §14', view: 'ScrollView { ElapsedHero · MetricRow ×3 }', note: 'Crown scrolls; rows are `LabeledContent`-style with trailing mono value.' },
+        { screen: 'Diagnostics', ref: 'Watch app §21', view: 'List { DiagRow ×12 }  .listStyle(.carousel)', note: 'Tap copies the row to the phone log via `WCSession.sendMessage`.' },
+        { screen: 'My areas · Area · Change', ref: 'Watch app §1–5', view: 'NavigationStack { List(areas) → List(changes) → ChangeDetail }', note: 'System back chevron + parent title. `navigationDestination(for:)`. Route start resets the path.' },
+        { screen: 'Recap', ref: 'Watch app §15', view: 'ScrollView { ScoreDelta · MetricGrid · AvoidedRow · CrossedRow · HandoffButton }  .task { autoCloseTimer }', note: 'Presented as a full-screen cover over the idle root; any scroll cancels the timer.' },
+        { screen: 'Haptics preview', ref: 'Watch app §17', view: 'List(patterns) { PatternRow } · WKInterfaceDevice.current().play(_:)', note: 'Reachable from idle root via scroll-past-the-fold; also opened by the phone\u2019s "Preview patterns" through `WCSession.sendMessage` deep link.' },
+      ],
+      compare: [
+        { dim: 'Canvas', wear: '225 dp round; centered text; one bottom action', apple: '198 × 242 pt rect; toolbar title + clock; leading text in stacked cards; full-width bottom action', why: 'Shape. Round forces centered, rectangle reads as a list.' },
+        { dim: 'Navigation model', wear: 'Horizontal pager; swipe-right exits', apple: 'Vertical page TabView while routing; NavigationStack idle', why: 'Platform convention; both land on guidance when a route is live.' },
+        { dim: 'Background surface', wear: 'Ongoing-activity chip on the face', apple: 'Smart Stack widget pinned by relevance', why: 'Apple has no ongoing chip; relevance pin is the nearest equivalent.' },
+        { dim: 'Cue while backgrounded', wear: 'Full pattern plays from the foreground service', apple: 'Notification haptic + short look', why: 'watchOS background haptics are not permitted; directional meaning degrades to a visual.' },
+        { dim: 'Haptic fidelity', wear: 'Amplitude + ms compositions', apple: 'Fixed WKHapticType sequence', why: 'API. Meanings are preserved via count and type.' },
+        { dim: 'Handoff verb', wear: '"Open on phone"', apple: '"Open on iPhone"', why: 'Apple\u2019s device naming; same deep link.' },
+        { dim: 'Notification actions', wear: 'Dismiss (+ Open on phone)', apple: 'Open on iPhone · Mark read · Dismiss', why: 'Apple actions are cheap and expected; Wear keeps one.' },
+        { dim: 'Quick access', wear: 'Tile + 4 complication types', apple: 'Smart Stack widget + 4 accessory families', why: 'One shared data timeline; different containers.' },
+        { dim: 'Ambient', wear: 'AmbientLifecycleObserver; app redraws', apple: 'isLuminanceReduced; system dims', why: 'Same reduced layout; Apple additionally dims the whole frame.' },
+        { dim: 'Diagnostics entry', wear: 'Long-press on Idle', apple: 'Scroll past the fold on Idle', why: 'Long-press is not a watchOS convention.' },
+        { dim: 'Text scaling', wear: 'Font scale ≤ 125%', apple: 'Dynamic Type ≤ xxxLarge', why: 'Both drop the trip strip before shrinking type.' },
+      ],
+      haptics: [
+        { name: 'Left', meaning: 'Upcoming left turn (any sharpness)', total: 1000, pulses: [{ t: 0, d: 60, amp: 1, label: '60 ms' }], wear: '1 × short · amp 255', apple: '.click ×1', appleNote: 'Single click. Same instant as the glyph flips to the cue state.' },
+        { name: 'Right', meaning: 'Upcoming right turn', total: 1000, pulses: [{ t: 0, d: 60, amp: 1, label: '60' }, { t: 180, d: 60, amp: 1, label: '60' }], wear: '2 × short · 120 ms gap', apple: '.click ×2 (180 ms)', appleNote: 'Two clicks scheduled 180 ms apart via a timer; never overlap.' },
+        { name: 'Neutral', meaning: 'Roundabout, U-turn, keep/straight at a fork', total: 1000, pulses: [{ t: 0, d: 300, amp: 0.7, label: '300 ms' }], wear: '1 × long · amp 180', apple: '.notification', appleNote: 'Longer, softer system pattern. Reads as "pay attention", not a direction.' },
+        { name: 'Camera ahead', meaning: 'Phase 3 — ALPR within alert distance', total: 1000, pulses: [{ t: 0, d: 40, amp: 0.6, color: 'var(--alert-500)' }, { t: 110, d: 40, amp: 0.6, color: 'var(--alert-500)' }, { t: 220, d: 40, amp: 0.6, color: 'var(--alert-500)', label: '3 × 40 ms' }], wear: '3 × tick · amp 150', apple: '.retry', appleNote: 'Three quick ticks — distinctly "chattier" than any turn cue.' },
+        { name: 'Arrived', meaning: 'Route complete', total: 1000, pulses: [{ t: 0, d: 80, amp: 0.8 }, { t: 160, d: 220, amp: 1, label: 'short + long' }], wear: 'short + long', apple: '.success', appleNote: 'Rising two-part pattern.' },
+        { name: 'Area change', meaning: 'Phase 4 — digest or single change arrived', total: 1000, pulses: [{ t: 0, d: 120, amp: 0.45, label: '120 ms · soft', color: 'var(--azure-500)' }], wear: '1 × soft · amp 110', apple: '.notification (quiet)', appleNote: 'Only while idle. Never during a route.' },
+        { name: 'Lost / error', meaning: 'Disconnected mid-route, cue failed', total: 1000, pulses: [{ t: 0, d: 200, amp: 0.9, color: 'var(--amber-500)' }, { t: 300, d: 200, amp: 0.9, color: 'var(--amber-500)', label: '2 × 200 ms' }], wear: '2 × long', apple: '.failure', appleNote: 'Plays once per disconnect, not on every retry.' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

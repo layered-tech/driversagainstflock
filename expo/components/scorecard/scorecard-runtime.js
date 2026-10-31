@@ -1056,6 +1056,7 @@ export function createScorecardRuntime({
             confirmedCrossings,
             possibleCrossings,
             cameraCrossings: confirmedCrossings + possibleCrossings,
+            avoidedCameras: session.lockedAvoidedCameraCount ?? 0,
         };
     }
 

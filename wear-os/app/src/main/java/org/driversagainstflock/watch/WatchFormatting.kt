@@ -30,3 +30,6 @@ internal fun duration(seconds: Double?): String {
 internal fun elapsed(seconds: Double?): String = seconds?.toLong()?.let {
     String.format(Locale.US, "%d:%02d", it / 60, it % 60)
 } ?: "—"
+
+internal fun roadName(instruction: String): String = instruction.substringAfter(" onto ",
+    instruction.substringAfter(" toward ", instruction))

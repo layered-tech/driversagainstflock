@@ -1,5 +1,6 @@
 package org.driversagainstflock.watch
 
+import android.content.Intent
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
@@ -19,6 +20,10 @@ class WatchListenerService : WearableListenerService() {
             "/daf/watch/state" -> if (event.data.size <= 65_536) WatchRepository.get(this).accept(event.data.toString(Charsets.UTF_8))
             "/daf/watch/pong" -> WatchRepository.get(this).pong(event.sourceNodeId, event.data)
             "/daf/watch/haptic-cue" -> if (event.data.size <= 2048) WatchRepository.get(this).acceptCue(event.data.toString(Charsets.UTF_8))
+            "/daf/watch/open-haptics" -> if (event.data.isEmpty()) {
+                startActivity(Intent(this, MainActivity::class.java).putExtra("page", 3)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            }
             "/daf/watch/open-ack" -> WatchRepository.get(this).handoffAck(event.sourceNodeId, event.data)
         }
     }

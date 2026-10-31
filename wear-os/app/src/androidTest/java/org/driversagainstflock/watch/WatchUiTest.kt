@@ -72,21 +72,24 @@ class WatchUiTest {
         compose.onNodeWithText("Turn right onto Market St").assertIsDisplayed()
         screenshot("navigation")
         compose.onNodeWithTag("watch-pager").performTouchInput { swipeLeft() }
-        compose.onNodeWithText("Scorecard").assertIsDisplayed()
+        compose.onNodeWithText("SCORECARD").assertIsDisplayed()
+        compose.onNodeWithText("18:42").assertIsDisplayed()
+        compose.onNodeWithText("AVOIDED").assertIsDisplayed()
+        compose.onNodeWithText("CROSSED").assertIsDisplayed()
         screenshot("scorecard")
         compose.onNodeWithTag("watch-pager").performTouchInput { swipeLeft() }
-        compose.onNodeWithText("Diagnostics").assertIsDisplayed()
+        compose.onNodeWithText("DIAGNOSTICS").assertIsDisplayed()
         screenshot("diagnostics")
         compose.runOnIdle { state.snapshot = snapshot("idle") }
-        compose.onNodeWithText("Start a Route").assertIsDisplayed()
+        compose.onNodeWithText("Start a route").assertIsDisplayed()
         screenshot("idle")
         compose.runOnIdle { state.connected = false }
         compose.onNodeWithText("Phone disconnected").assertIsDisplayed()
         screenshot("disconnected")
         compose.runOnIdle { state.connected = true; state.snapshot = null }
-        compose.onNodeWithText("Connecting…").assertIsDisplayed()
+        compose.onNodeWithText("Connecting to phone").assertIsDisplayed()
         compose.runOnIdle { state.incompatible = true }
-        compose.onAllNodesWithText("Incompatible companion")[0].assertIsDisplayed()
+        compose.onNodeWithText("Update the phone app").assertIsDisplayed()
         screenshot("incompatible")
         compose.runOnIdle { state.incompatible = false; state.snapshot = snapshot("rerouting") }
         compose.onAllNodesWithText("Rerouting")[0].assertIsDisplayed()
@@ -101,6 +104,12 @@ class WatchUiTest {
         screenshot("stale")
         compose.runOnIdle { state.snapshot = snapshot("idle"); state.endedAt = System.currentTimeMillis() }
         compose.onNodeWithText("Route ended").assertIsDisplayed()
+    }
+    @Test fun phonePreviewOpensHapticsDuringAnActiveRoute() {
+        val state = Presentation().apply { snapshot = snapshot() }
+        compose.setContent { WatchApp(state, ambient = false, launchPage = 3) }
+        compose.onNodeWithText("FEEL THE TURNS").assertIsDisplayed()
+        compose.onNodeWithText("Left").assertIsDisplayed()
     }
     @Test fun scorecardUnavailableStates() {
         val state = Presentation().apply { snapshot = snapshot() }
@@ -173,10 +182,9 @@ class WatchUiTest {
         val state = Presentation().apply { snapshot = WatchSnapshot.parse(missing.toString()) }
         compose.setContent { WatchApp(state, ambient = false) }
         compose.onNodeWithTag("watch-pager").performTouchInput { swipeLeft() }
-        compose.onNodeWithText("— confirmed · — possible").assertExists()
-        compose.onNodeWithText("0 confirmed · 0 possible").assertDoesNotExist()
-        compose.onNodeWithTag("watch-pager").performTouchInput { swipeUp() }
-        compose.onNodeWithText("— confirmed · — possible").assertIsDisplayed()
+        compose.onNodeWithText("CROSSED").assertIsDisplayed()
+        compose.onNodeWithText("—").assertIsDisplayed()
+        compose.onNodeWithText("0").assertDoesNotExist()
     }
     @Test fun largeTextAndAmbientRemainReadable() {
         val state = Presentation().apply { snapshot = snapshot(instruction = "Turn right onto a very long road name toward the destination") }
@@ -189,7 +197,7 @@ class WatchUiTest {
         compose.onNodeWithText("Turn right onto a very long road name toward the destination").assertIsDisplayed()
         screenshot("large-text")
         compose.runOnIdle { ambient = true }
-        compose.onNodeWithText("Last guidance").assertIsDisplayed()
+        compose.onNodeWithText("a very long road name toward the destination").assertIsDisplayed()
         screenshot("ambient")
     }
 }

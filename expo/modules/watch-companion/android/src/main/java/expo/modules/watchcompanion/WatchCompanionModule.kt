@@ -94,5 +94,25 @@ class WatchCompanionModule : Module() {
                 }
                 .addOnFailureListener { promise.reject("NODE_FAILED", "Watch connection unavailable", it) }
         }
+        AsyncFunction("openHapticsOnWatch") { promise: Promise ->
+            val context = appContext.reactContext ?: run {
+                promise.reject("NO_CONTEXT", "Phone runtime unavailable", null)
+                return@AsyncFunction
+            }
+            Wearable.getNodeClient(context).connectedNodes
+                .addOnSuccessListener { nodes ->
+                    if (nodes.isEmpty()) {
+                        promise.reject("NO_WATCH", "No connected watch", null)
+                        return@addOnSuccessListener
+                    }
+                    val deliveries = nodes.map { node ->
+                        Wearable.getMessageClient(context).sendMessage(node.id, "/daf/watch/open-haptics", byteArrayOf())
+                    }
+                    com.google.android.gms.tasks.Tasks.whenAll(deliveries)
+                        .addOnSuccessListener { promise.resolve(null) }
+                        .addOnFailureListener { promise.reject("OPEN_FAILED", "Watch screen could not open", it) }
+                }
+                .addOnFailureListener { promise.reject("NODE_FAILED", "Watch connection unavailable", it) }
+        }
     }
 }

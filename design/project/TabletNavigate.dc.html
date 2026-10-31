@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1" name="viewport">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- page name="Tablet · Routing & navigation" description="iOS routing: directions form, route comparison, active navigation, police-ahead alert." -->
+<helmet>
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css" rel="stylesheet">
+  <script src="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js"></script>
+  <style>
+    *{ box-sizing:border-box; }
+    .daf-slb, .daf-slb *{ box-sizing:content-box; }
+    body{ margin:0; background:var(--surface-card-alt); }
+    .daf-board::-webkit-scrollbar{ height:10px; width:10px; }
+    /* mobile route cards: drop the middle separator dot so the camera count never wraps in the narrow sheet */
+    [data-route-cards] button[aria-pressed] span[aria-hidden="true"]{ display:none; }
+    /* advanced-settings disclosure chevron */
+    .daf-chev{ transition:transform var(--dur-base) var(--ease-standard); }
+    button[aria-expanded="true"] .daf-chev{ transform:rotate(180deg); }
+    .daf-steps::-webkit-scrollbar{ display:none; }
+  </style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="font-family:var(--font-ui); background:var(--surface-card-alt); min-height:100vh; padding:48px 40px 80px; color:var(--text-primary);">
+  <div style="max-width:1500px; margin:0 auto;">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px;">
+      <img alt="DAF" src="assets/logo-mark.png" style="width:36px; height:36px; object-fit:contain;">
+      <span style="font-family:var(--font-display); font-weight:700; font-size:24px; letter-spacing:var(--ls-heading);">Drivers Against Flock — Tablet · Navigate</span>
+      <a href="TabletScorecard.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Scorecard</a>
+    </div>
+    <p style="font-size:15px; color:var(--text-secondary); margin:0 0 18px; max-width:70ch;">Getting there with fewer cameras: directions, route choice, active guidance, and police reports.</p>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin:0 0 40px;">
+      <a href="TabletApp.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">All screens</a>
+      <a href="TabletExplore.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Explore</a>
+      <span style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; font-weight:600; color:var(--text-brand); background:var(--brand-soft); border:1px solid transparent; padding:6px 13px; border-radius:var(--radius-pill);">Navigate</span>
+      <a href="TabletScorecard.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Scorecard</a>
+      <a href="TabletContribute.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Contribute</a>
+      <a href="TabletSettings.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Settings</a>
+      <a href="TabletAreas.dc.html" style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); padding:6px 13px; border-radius:var(--radius-pill);">Areas</a>
+      <span style="margin-left:auto; display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-pill);"><a href="MobileNavigate.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Phone</a><a href="FoldNavigate.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Foldable</a><span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; color:var(--surface-card); background:var(--text-primary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Tablet</span><a href="DuoNavigate.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Duo</a></span><span style="display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-pill);"><button aria-label="Light theme" aria-pressed="{{ isLight }}" onClick="{{ setLight }}" style="display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; border:none; cursor:pointer; color:{{ lightFg }}; background:{{ lightBg }}; padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;" type="button"><svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="14"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>Light</button><button aria-label="Dark theme" aria-pressed="{{ isDark }}" onClick="{{ setDark }}" style="display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; border:none; cursor:pointer; color:{{ darkFg }}; background:{{ darkBg }}; padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;" type="button"><svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="14"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>Dark</button></span>
+    </div>
+
+    <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-tertiary); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border);">Tablet · landscape 1194 × 834 · Routing &amp; navigation</div>
+    <div style="display:flex; flex-wrap:wrap; gap:44px 40px;">
+
+      <!-- 05 DIRECTIONS FORM -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">05 · Directions form</div>
+<div style="position:relative; flex:0 0 auto; width:1226px; height:866px; padding:16px; border-radius:34px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:1194px; height:834px; border-radius:20px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);"><div style="position:absolute; top:0; left:0; right:0; height:44px; z-index:50; display:flex; align-items:center; justify-content:space-between; padding:0 24px; pointer-events:none; font-size:14px; font-weight:600;"><span style="font-variant-numeric:tabular-nums;">9:41</span><span style="display:inline-flex; align-items:center; gap:7px;"><svg fill="currentColor" height="12" style="display:block;" viewBox="0 0 19 12" width="18"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg fill="currentColor" height="12" style="display:block;" viewBox="0 0 17 12" width="16"><path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z"></path><path d="M8.5 6.8C9.9 6.8 11.1 7.3 12 8.2L13.1 7.1C11.8 5.9 10.2 5.1 8.5 5.1C6.8 5.1 5.2 5.9 3.9 7.1L5 8.2C5.9 7.3 7.1 6.8 8.5 6.8Z"></path><circle cx="8.5" cy="10.5" r="1.5"></circle></svg><svg height="13" style="display:block;" viewBox="0 0 27 13" width="27"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div style="position:absolute; inset:0;">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <div style="position:absolute; inset:0; overflow:hidden;"><dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import></div>
+            <div style="position:absolute; left:430px; top:0; right:0; bottom:0; overflow:hidden;">
+            </div>
+            <div style="position:absolute; left:12px; top:56px; width:406px; max-height:calc(100% - 84px); z-index:10; background:var(--surface-sheet); border:1px solid var(--border-glass); border-radius:var(--radius-xl); box-shadow:var(--shadow-float); color:var(--text-primary); display:flex; flex-direction:column; overflow:hidden; padding:14px; gap:12px; overflow-x:hidden; overflow-y:auto; scrollbar-width:none;"><div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+                  <span style="color:var(--text-secondary);"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="22"><path d="m15 18-6-6 6-6"></path></svg></span>
+                  <span style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-title);">Directions</span>
+                </div>
+                <div style="display:flex; gap:10px; align-items:stretch;">
+                  <div style="position:relative; width:12px; flex:0 0 auto; display:flex; flex-direction:column; gap:8px;">
+                    <span style="position:absolute; left:50%; top:25%; bottom:25%; width:2px; transform:translateX(-50%); background:var(--border-strong); z-index:0;"></span>
+                    <div style="flex:1; display:flex; align-items:center; justify-content:center;"><span style="position:relative; z-index:1; width:11px; height:11px; border-radius:50%; background:var(--brand); border:2px solid var(--surface-card);"></span></div>
+                    <div style="flex:1; display:flex; align-items:center; justify-content:center;"><span style="position:relative; z-index:1; width:11px; height:11px; border-radius:2px; background:var(--marker-destination);"></span></div>
+                  </div>
+                  <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
+                    <x-import component-from-global-scope="DesignSystem_c71fad.Input" hint-size="100%,44px" onChange="{{ noop }}" tone="light" value="Your location"></x-import>
+                    <x-import component-from-global-scope="DesignSystem_c71fad.Input" hint-size="100%,44px" onChange="{{ noop }}" tone="light" value="Ferry Building"></x-import>
+                  </div>
+                  <div style="display:flex; align-items:center;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="40px,40px" label="Swap" size="md" variant="plain"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="m17 3 4 4-4 4"></path><path d="M21 7H7"></path><path d="m7 21-4-4 4-4"></path><path d="M3 17h14"></path></svg></x-import></div>
+                </div>
+                <div style="display:flex; gap:8px; margin-top:12px;">
+                  <x-import component-from-global-scope="DesignSystem_c71fad.Chip" hint-size="auto,34px" selected="{{ true }}" tone="light">Current location</x-import>
+                  <x-import component-from-global-scope="DesignSystem_c71fad.Chip" hint-size="auto,34px" tone="light">Add stop</x-import>
+                </div>
+                <div style="border-top:1px solid var(--border); margin-top:14px; padding-top:10px;">
+                  <button aria-expanded="{{ advOpenForm }}" class="daf-ctl" onClick="{{ toggleAdvForm }}" style="display:flex; align-items:center; gap:9px; width:100%; padding:4px 2px; border:none; background:transparent; cursor:pointer; color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); -webkit-tap-highlight-color:transparent;">
+                    <svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block; flex:0 0 auto;" viewBox="0 0 24 24" width="16"><line x1="4" x2="4" y1="21" y2="14"></line><line x1="4" x2="4" y1="10" y2="3"></line><line x1="12" x2="12" y1="21" y2="12"></line><line x1="12" x2="12" y1="8" y2="3"></line><line x1="20" x2="20" y1="21" y2="16"></line><line x1="20" x2="20" y1="12" y2="3"></line><line x1="2" x2="6" y1="14" y2="14"></line><line x1="10" x2="14" y1="8" y2="8"></line><line x1="18" x2="22" y1="16" y2="16"></line></svg>
+                    <span>Advanced Settings</span>
+                    <span style="flex:1;"></span>
+                    <span style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap;">{{ bufferLabel }}</span>
+                    <span class="daf-chev" style="display:inline-flex; color:var(--text-tertiary);"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="16"><path d="m6 9 6 6 6-6"></path></svg></span>
+                  </button>
+                  <sc-if hint-placeholder-val="{{ false }}" value="{{ advOpenForm }}">
+                    <div style="margin-top:12px; display:grid; gap:12px;">
+                      <div style="display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--surface-card-alt); border-radius:var(--radius-md);">
+                        <span style="flex:1; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary);">Allow ALPR near start &amp; destination</span>
+                        <x-import checked="{{ allowNearEnds }}" component-from-global-scope="DesignSystem_c71fad.Switch" hint-size="48px,28px" onChange="{{ setAllowNearEnds }}"></x-import>
+                      </div>
+                      <x-import component-from-global-scope="DesignSystem_c71fad.Slider" format-value="{{ fmtBuffer }}" hint-size="100%,52px" label="Avoid cameras by" max="{{ bufMax }}" min="{{ bufMin }}" onChange="{{ setBuffer }}" show-value="{{ true }}" step="{{ bufStep }}" value="{{ bufferFt }}"></x-import>
+                    </div>
+                  </sc-if>
+                </div><div><x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,52px" size="lg" variant="primary">Get directions</x-import></div></div>
+          </div>
+        </div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:var(--text-primary); opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+      <!-- 06 ROUTE COMPARISON -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">06 · Route comparison</div>
+<div style="position:relative; flex:0 0 auto; width:1226px; height:866px; padding:16px; border-radius:34px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:1194px; height:834px; border-radius:20px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);"><div style="position:absolute; top:0; left:0; right:0; height:44px; z-index:50; display:flex; align-items:center; justify-content:space-between; padding:0 24px; pointer-events:none; font-size:14px; font-weight:600;"><span style="font-variant-numeric:tabular-nums;">9:41</span><span style="display:inline-flex; align-items:center; gap:7px;"><svg fill="currentColor" height="12" style="display:block;" viewBox="0 0 19 12" width="18"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg fill="currentColor" height="12" style="display:block;" viewBox="0 0 17 12" width="16"><path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z"></path><path d="M8.5 6.8C9.9 6.8 11.1 7.3 12 8.2L13.1 7.1C11.8 5.9 10.2 5.1 8.5 5.1C6.8 5.1 5.2 5.9 3.9 7.1L5 8.2C5.9 7.3 7.1 6.8 8.5 6.8Z"></path><circle cx="8.5" cy="10.5" r="1.5"></circle></svg><svg height="13" style="display:block;" viewBox="0 0 27 13" width="27"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div style="position:absolute; inset:0;">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <div style="position:absolute; inset:0; overflow:hidden;"><dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import></div>
+            <div style="position:absolute; left:430px; top:0; right:0; bottom:0; overflow:hidden;">
+            <svg preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible; z-index:2; pointer-events:none;" viewBox="0 0 100 100">
+              <path d="M52 64 C 50 52, 48 40, 44 30 S 40 20, 40 16" fill="none" stroke="var(--route-fast-casing)" stroke-linecap="round" stroke-width="11" vector-effect="non-scaling-stroke"></path>
+              <path d="M52 64 C 50 52, 48 40, 44 30 S 40 20, 40 16" fill="none" opacity="0.45" stroke="var(--route-fast)" stroke-linecap="round" stroke-width="7" vector-effect="non-scaling-stroke"></path>
+              <path d="M52 64 C 64 58, 70 46, 62 34 S 48 20, 40 16" fill="none" stroke="var(--route-private-casing)" stroke-linecap="round" stroke-width="11" vector-effect="non-scaling-stroke"></path>
+              <path d="M52 64 C 64 58, 70 46, 62 34 S 48 20, 40 16" fill="none" stroke="var(--route-private)" stroke-linecap="round" stroke-width="7" vector-effect="non-scaling-stroke"></path>
+            </svg>
+            <div style="position:absolute; left:40%; top:16%; transform:translate(-50%,-100%); z-index:6;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="46px,72px" icon-name="flag" selected="{{ true }}" variant="destination"></x-import></div>
+            <div style="position:absolute; left:52%; top:64%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="20" hint-size="64px,64px" variant="user"></x-import></div>
+            <div style="position:absolute; left:47%; top:34%; transform:translate(-50%,-50%); z-index:5;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="16px,16px" variant="monitored"></x-import></div>
+            <div style="position:absolute; left:49%; top:46%; transform:translate(-50%,-50%); z-index:5;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="16px,16px" variant="monitored"></x-import></div>
+            </div>
+            <div style="position:absolute; left:12px; top:56px; width:406px; max-height:calc(100% - 84px); z-index:10; background:var(--surface-sheet); border:1px solid var(--border-glass); border-radius:var(--radius-xl); box-shadow:var(--shadow-float); color:var(--text-primary); display:flex; flex-direction:column; overflow:hidden;"><div style="flex:0 0 auto; display:flex; align-items:flex-start; gap:8px; padding:12px 12px 8px 8px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="40px,40px" label="Back" size="md" variant="plain"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="m15 18-6-6 6-6"></path></svg></x-import><div style="flex:1; min-width:0; padding-top:8px;"><div style="font-family:var(--font-display); font-size:var(--fs-h3); font-weight:var(--fw-bold); letter-spacing:var(--ls-heading);">Choose your route</div><div style="font-size:var(--fs-body-sm); color:var(--text-secondary); margin-top:2px;">2 routes · 1 avoids cameras</div></div></div><div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:10px 16px 24px;">
+                <div data-route-cards="" style="display:grid; gap:8px; margin-bottom:12px;">
+                  <x-import arrival="ETA 6:15" cameras="{{ c0 }}" component-from-global-scope="DesignSystem_c71fad.RouteCard" distance="13 mi" eta="27 min" hint-size="100%,76px" kind="private" recommended="{{ true }}" selected="{{ true }}"></x-import>
+                  <x-import arrival="ETA 6:12" cameras="{{ c4 }}" component-from-global-scope="DesignSystem_c71fad.RouteCard" distance="12 mi" eta="24 min" hint-size="100%,76px" kind="fast"></x-import>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; font-size:var(--fs-caption); color:var(--text-secondary); margin-bottom:12px;">
+                  <span style="color:var(--node-monitored); flex:0 0 auto; display:inline-flex;"><svg fill="none" height="15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="15"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg></span>
+                  <span>Private adds <b style="color:var(--text-primary);">3 min</b> and <b style="color:var(--text-primary);">≈$0.15 fuel</b> (+1 mi) to skip 4 monitored points</span>
+                </div>
+                <div style="border-top:1px solid var(--border); padding-top:12px; margin-bottom:12px;">
+                  <button aria-expanded="{{ advOpen }}" class="daf-ctl" onClick="{{ toggleAdv }}" style="display:flex; align-items:center; gap:9px; width:100%; padding:4px 2px; border:none; background:transparent; cursor:pointer; color:var(--text-secondary); font-family:var(--font-ui); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); -webkit-tap-highlight-color:transparent;">
+                    <svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block; flex:0 0 auto;" viewBox="0 0 24 24" width="16"><line x1="4" x2="4" y1="21" y2="14"></line><line x1="4" x2="4" y1="10" y2="3"></line><line x1="12" x2="12" y1="21" y2="12"></line><line x1="12" x2="12" y1="8" y2="3"></line><line x1="20" x2="20" y1="21" y2="16"></line><line x1="20" x2="20" y1="12" y2="3"></line><line x1="2" x2="6" y1="14" y2="14"></line><line x1="10" x2="14" y1="8" y2="8"></line><line x1="18" x2="22" y1="16" y2="16"></line></svg>
+                    <span>Advanced Settings</span>
+                    <span style="flex:1;"></span>
+                    <span style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap;">{{ bufferLabel }}</span>
+                    <span class="daf-chev" style="display:inline-flex; color:var(--text-tertiary);"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="16"><path d="m6 9 6 6 6-6"></path></svg></span>
+                  </button>
+                  <sc-if hint-placeholder-val="{{ false }}" value="{{ advOpen }}">
+                    <div style="margin-top:12px; display:grid; gap:12px;">
+                      <div style="display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--surface-card-alt); border-radius:var(--radius-md);">
+                        <span style="flex:1; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-primary);">Allow ALPR near start &amp; destination</span>
+                        <x-import checked="{{ allowNearEnds }}" component-from-global-scope="DesignSystem_c71fad.Switch" hint-size="48px,28px" onChange="{{ setAllowNearEnds }}"></x-import>
+                      </div>
+                      <x-import component-from-global-scope="DesignSystem_c71fad.Slider" format-value="{{ fmtBuffer }}" hint-size="100%,52px" label="Avoid cameras by" max="{{ bufMax }}" min="{{ bufMin }}" onChange="{{ setBuffer }}" show-value="{{ true }}" step="{{ bufStep }}" value="{{ bufferFt }}"></x-import>
+                    </div>
+                  </sc-if>
+                </div>
+                <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,52px" size="lg" variant="primary">Start drive</x-import>
+</div></div>
+          </div>
+        </div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:var(--text-primary); opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+      <!-- 07 ACTIVE NAVIGATION -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">07 · Active navigation <span style="font-weight:400; color:var(--text-tertiary);">— steps stay open in the left pane</span></div>
+<div style="position:relative; flex:0 0 auto; width:1226px; height:866px; padding:16px; border-radius:34px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:1194px; height:834px; border-radius:20px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);"><div style="position:absolute; top:0; left:0; right:0; height:44px; z-index:50; display:flex; align-items:center; justify-content:space-between; padding:0 24px; pointer-events:none; font-size:14px; font-weight:600;"><span style="font-variant-numeric:tabular-nums;">9:41</span><span style="display:inline-flex; align-items:center; gap:7px;"><svg fill="currentColor" height="12" style="display:block;" viewBox="0 0 19 12" width="18"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg fill="currentColor" height="12" style="display:block;" viewBox="0 0 17 12" width="16"><path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z"></path><path d="M8.5 6.8C9.9 6.8 11.1 7.3 12 8.2L13.1 7.1C11.8 5.9 10.2 5.1 8.5 5.1C6.8 5.1 5.2 5.9 3.9 7.1L5 8.2C5.9 7.3 7.1 6.8 8.5 6.8Z"></path><circle cx="8.5" cy="10.5" r="1.5"></circle></svg><svg height="13" style="display:block;" viewBox="0 0 27 13" width="27"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div style="position:absolute; inset:0;">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <div style="position:absolute; inset:0; overflow:hidden;"><dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import></div>
+            <div style="position:absolute; left:430px; top:0; right:0; bottom:0; overflow:hidden;">
+            <svg preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible; z-index:2; pointer-events:none;" viewBox="0 0 100 100">
+              <path d="M50 78 C 50 62, 52 50, 50 40 S 46 24, 48 12" fill="none" stroke="var(--route-private-casing)" stroke-linecap="round" stroke-width="13" vector-effect="non-scaling-stroke"></path>
+              <path d="M50 78 C 50 62, 52 50, 50 40 S 46 24, 48 12" fill="none" stroke="var(--route-private)" stroke-linecap="round" stroke-width="8" vector-effect="non-scaling-stroke"></path>
+            </svg>
+            <div style="position:absolute; left:50%; bottom:20%; transform:translate(-50%,50%); z-index:3; display:flex; flex-direction:column; align-items:center; gap:8px;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="0" hint-size="64px,64px" variant="user"></x-import><span style="font-family:var(--font-ui); font-size:12px; font-weight:700; letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-primary); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); padding:3px 10px; border-radius:var(--radius-pill); box-shadow:var(--shadow-marker); white-space:nowrap;">Market St</span></div>
+            </div>
+            <div style="position:absolute; top:56px; left:442px; right:12px; z-index:10; display:flex; flex-direction:column;">
+              <div style="position:relative; z-index:2;"><x-import component-from-global-scope="DesignSystem_c71fad.NavBanner" distance="500 ft" hint-size="100%,auto" instruction="Turn right onto Market St" maneuver="right"></x-import></div>
+              <!-- Next-next step: a quiet tab tucked under the banner (banner shadow falls onto it) -->
+              <div style="position:relative; z-index:1; margin:0 16px; padding:7px 12px; display:flex; align-items:center; gap:8px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-top:none; border-radius:0 0 var(--radius-sm) var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-secondary);">
+                <span style="flex:0 0 auto; display:inline-flex; color:var(--text-tertiary);"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="16"><path d="m5 12 7-7 7 7"></path><path d="M12 19V5"></path></svg></span>
+                <span style="flex:1; min-width:0; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Then continue on Market St</span>
+                <span style="flex:0 0 auto; font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-size:var(--fs-caption); font-weight:600; color:var(--text-tertiary);">1.2 mi</span>
+              </div>
+            </div>
+            <div class="daf-slb" style="position:absolute; left:442px; top:182px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" current="{{ n41 }}" hint-size="80px,115px" limit="35" size="lg"></x-import></div>
+            <div style="position:absolute; right:12px; top:182px; z-index:10; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
+              <button aria-label="Zoom in" style="width:46px; height:46px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="22"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+              <button aria-label="Zoom out" style="width:46px; height:46px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><span style="width:15px; height:2px; border-radius:2px; background:currentColor;"></span></button>
+              <button aria-label="Recenter" style="width:46px; height:46px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><line x1="2" x2="5" y1="12" y2="12"></line><line x1="19" x2="22" y1="12" y2="12"></line><line x1="12" x2="12" y1="2" y2="5"></line><line x1="12" x2="12" y1="19" y2="22"></line><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="1"></circle></svg></button>
+            </div>
+            <div style="position:absolute; left:12px; top:56px; width:406px; max-height:calc(100% - 84px); z-index:10; background:var(--surface-sheet); border:1px solid var(--border-glass); border-radius:var(--radius-xl); box-shadow:var(--shadow-float); color:var(--text-primary); display:flex; flex-direction:column; overflow:hidden;">
+              <div style="flex:0 0 auto;">
+                <div style="padding:16px 16px 16px; display:flex; align-items:center; gap:12px;">
+                  <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="40px,40px" label="Open menu" size="md" variant="plain"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M4 12h16"></path><path d="M4 6h16"></path><path d="M4 18h16"></path></svg></x-import>
+                  <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:baseline; gap:4px 10px; flex-wrap:wrap;">
+                      <span style="font-family:var(--font-mono); font-feature-settings:var(--num-feature); font-weight:var(--fw-bold); font-size:var(--fs-h2); line-height:1; letter-spacing:-0.02em; color:var(--text-primary);">12 min</span>
+                      <span style="font-family:var(--font-mono); font-feature-settings:var(--num-feature); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-secondary);">6:15</span>
+                      <span style="font-family:var(--font-mono); font-feature-settings:var(--num-feature); font-size:var(--fs-body-sm); color:var(--text-tertiary);">4.1 mi</span>
+                    </div>
+                    <div style="margin-top:5px; display:flex; align-items:center; gap:7px; min-width:0; font-size:var(--fs-body-sm); line-height:1.2; color:var(--text-secondary);">
+                      <span style="flex:0 0 auto; font-weight:var(--fw-bold); font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand);">Private</span>
+                      <span aria-hidden="true" style="flex:0 0 auto; width:3px; height:3px; border-radius:50%; background:var(--border-strong);"></span>
+                      <span style="min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Ferry Building Marketplace</span>
+                    </div>
+                  </div>
+                  <button aria-label="End route" style="flex:0 0 auto; width:46px; height:46px; border:none; border-radius:var(--radius-sm); background:var(--alert-500); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;" style-active="transform:scale(0.97);"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" style="display:block;" viewBox="0 0 24 24" width="22"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+                </div>
+              </div>
+              <div class="daf-steps" style="flex:1; min-height:0; overflow-y:auto; scrollbar-width:none; border-top:1px solid var(--border); padding:0 16px 34px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0 4px;">
+                  <span style="font-size:var(--fs-label); font-weight:700; letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary);">Steps</span>
+                  <span style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap;">6 · 4.1 mi</span>
+                </div>
+                <sc-for as="step" hint-placeholder-count="4" list="{{ steps }}">
+                  <div style="display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--border);">
+                    <span style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:var(--radius-sm); background:{{ step.tileBg }}; color:{{ step.tileColor }};">{{ step.iconEl }}</span>
+                    <div style="flex:1; min-width:0;">
+                      <div style="font-size:15px; font-weight:var(--fw-semibold); color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ step.text }}</div>
+                      <sc-if hint-placeholder-val="{{ false }}" value="{{ step.sub }}"><div style="font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ step.sub }}</div></sc-if>
+                    </div>
+                    <span style="flex:0 0 auto; font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-weight:600; font-size:14px; color:var(--text-secondary); white-space:nowrap;">{{ step.dist }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:var(--text-primary); opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+      <!-- 07A STEP PREVIEW -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">07a · Step preview <span style="font-weight:400; color:var(--text-tertiary);">— page with the side tabs</span></div>
+<div style="position:relative; flex:0 0 auto; width:1226px; height:866px; padding:16px; border-radius:34px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:1194px; height:834px; border-radius:20px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);"><div style="position:absolute; top:0; left:0; right:0; height:44px; z-index:50; display:flex; align-items:center; justify-content:space-between; padding:0 24px; pointer-events:none; font-size:14px; font-weight:600;"><span style="font-variant-numeric:tabular-nums;">9:41</span><span style="display:inline-flex; align-items:center; gap:7px;"><svg fill="currentColor" height="12" style="display:block;" viewBox="0 0 19 12" width="18"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg fill="currentColor" height="12" style="display:block;" viewBox="0 0 17 12" width="16"><path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z"></path><path d="M8.5 6.8C9.9 6.8 11.1 7.3 12 8.2L13.1 7.1C11.8 5.9 10.2 5.1 8.5 5.1C6.8 5.1 5.2 5.9 3.9 7.1L5 8.2C5.9 7.3 7.1 6.8 8.5 6.8Z"></path><circle cx="8.5" cy="10.5" r="1.5"></circle></svg><svg height="13" style="display:block;" viewBox="0 0 27 13" width="27"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div style="position:absolute; inset:0;">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <div style="position:absolute; inset:0; overflow:hidden;"><dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import></div>
+            <div style="position:absolute; left:430px; top:0; right:0; bottom:0; overflow:hidden;">
+            <svg preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible; z-index:2; pointer-events:none;" viewBox="0 0 100 100">
+              <path d="M50 78 C 50 62, 52 50, 50 40 S 46 24, 48 12" fill="none" stroke="var(--route-private-casing)" stroke-linecap="round" stroke-width="13" vector-effect="non-scaling-stroke"></path>
+              <path d="M50 78 C 50 62, 52 50, 50 40 S 46 24, 48 12" fill="none" stroke="var(--route-private)" stroke-linecap="round" stroke-width="8" vector-effect="non-scaling-stroke"></path>
+            </svg>
+            <div style="position:absolute; left:50%; bottom:20%; transform:translate(-50%,50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="0" hint-size="64px,64px" variant="user"></x-import></div>
+            <div style="position:absolute; left:{{ pvX }}%; top:{{ pvY }}%; transform:translate(-50%,-50%); z-index:4; transition:left 320ms var(--ease-standard), top 320ms var(--ease-standard); width:26px; height:26px; border-radius:50%; background:var(--surface-card); border:5px solid var(--brand); box-shadow:0 0 0 6px var(--brand-soft), var(--shadow-marker);"></div>
+            </div>
+            <div style="position:absolute; top:56px; left:442px; right:12px; z-index:10; display:flex; flex-direction:column;">
+              <div style="display:flex; align-items:stretch;">
+                <button aria-label="Previous step" disabled="{{ pvAtStart }}" onClick="{{ pvPrev }}" style="position:relative; z-index:1; flex:0 0 auto; width:50px; margin:10px -14px 10px 0; padding:0 14px 0 0; display:flex; align-items:center; justify-content:center; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-right:none; border-radius:var(--radius-sm) 0 0 var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); opacity:{{ pvPrevOpacity }}; cursor:pointer; -webkit-tap-highlight-color:transparent;" style-active="transform:scale(0.97);"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" style="display:block;" viewBox="0 0 24 24" width="22"><path d="m15 18-6-6 6-6"></path></svg></button>
+                <div style="position:relative; z-index:2; flex:1; min-width:0;"><x-import component-from-global-scope="DesignSystem_c71fad.NavBanner" distance="{{ pvDist }}" hint-size="100%,auto" instruction="{{ pvText }}" maneuver="{{ pvManeuver }}"></x-import></div>
+                <button aria-label="Next step" disabled="{{ pvAtEnd }}" onClick="{{ pvNext }}" style="position:relative; z-index:1; flex:0 0 auto; width:50px; margin:10px 0 10px -14px; padding:0 0 0 14px; display:flex; align-items:center; justify-content:center; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-left:none; border-radius:0 var(--radius-sm) var(--radius-sm) 0; box-shadow:var(--shadow-float); color:var(--text-primary); opacity:{{ pvNextOpacity }}; cursor:pointer; -webkit-tap-highlight-color:transparent;" style-active="transform:scale(0.97);"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" style="display:block;" viewBox="0 0 24 24" width="22"><path d="m9 18 6-6-6-6"></path></svg></button>
+              </div>
+            </div>
+            <div style="position:absolute; right:12px; top:200px; z-index:10; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
+              <button aria-label="Zoom in" style="width:46px; height:46px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="22"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+              <button aria-label="Zoom out" style="width:46px; height:46px; border:1px solid var(--border-glass); background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border-radius:var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><span style="width:15px; height:2px; border-radius:2px; background:currentColor;"></span></button>
+            </div>
+            <div style="position:absolute; left:12px; top:56px; width:406px; max-height:calc(100% - 84px); z-index:10; background:var(--surface-sheet); border:1px solid var(--border-glass); border-radius:var(--radius-xl); box-shadow:var(--shadow-float); color:var(--text-primary); display:flex; flex-direction:column; overflow:hidden;"><div style="flex:0 0 auto; padding:16px 16px 16px; display:flex; align-items:center; gap:12px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="40px,40px" label="Open menu" size="md" variant="plain"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M4 12h16"></path><path d="M4 6h16"></path><path d="M4 18h16"></path></svg></x-import><div style="flex:1; min-width:0;">
+                <div style="display:flex; align-items:baseline; gap:4px 10px; flex-wrap:wrap;">
+                  <span style="font-family:var(--font-mono); font-feature-settings:var(--num-feature); font-weight:var(--fw-bold); font-size:var(--fs-h2); line-height:1; letter-spacing:-0.02em; color:var(--text-primary);">12 min</span>
+                  <span style="font-family:var(--font-mono); font-feature-settings:var(--num-feature); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-secondary);">6:15</span>
+                  <span style="font-family:var(--font-mono); font-feature-settings:var(--num-feature); font-size:var(--fs-body-sm); color:var(--text-tertiary);">4.1 mi</span>
+                </div>
+                <div style="margin-top:5px; display:flex; align-items:center; gap:7px; min-width:0; font-size:var(--fs-body-sm); line-height:1.2; color:var(--text-secondary);">
+                  <span style="flex:0 0 auto; font-weight:var(--fw-bold); font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand);">Private</span>
+                  <span aria-hidden="true" style="flex:0 0 auto; width:3px; height:3px; border-radius:50%; background:var(--border-strong);"></span>
+                  <span style="min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Ferry Building Marketplace</span>
+                </div>
+              </div>
+              <x-import component-from-global-scope="DesignSystem_c71fad.Button" hint-size="auto,46px" onClick="{{ pvResume }}" size="md" variant="primary">Resume</x-import></div><div class="daf-steps" style="flex:1; min-height:0; overflow-y:auto; scrollbar-width:none; border-top:1px solid var(--border); padding:0 16px 34px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0 4px;">
+                  <span style="font-size:var(--fs-label); font-weight:700; letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary);">Steps</span>
+                  <span style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap;">6 · 4.1 mi</span>
+                </div>
+                <sc-for as="step" hint-placeholder-count="4" list="{{ steps }}">
+                  <div style="display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--border);">
+                    <span style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:var(--radius-sm); background:{{ step.tileBg }}; color:{{ step.tileColor }};">{{ step.iconEl }}</span>
+                    <div style="flex:1; min-width:0;">
+                      <div style="font-size:15px; font-weight:var(--fw-semibold); color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ step.text }}</div>
+                      <sc-if hint-placeholder-val="{{ false }}" value="{{ step.sub }}"><div style="font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ step.sub }}</div></sc-if>
+                    </div>
+                    <span style="flex:0 0 auto; font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-weight:600; font-size:14px; color:var(--text-secondary); white-space:nowrap;">{{ step.dist }}</span>
+                  </div>
+                </sc-for>
+              </div></div>
+          </div>
+        </div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:var(--text-primary); opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+      <!-- 07B ALERT AHEAD — POLICE ONLY -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">07b · Alert ahead — police only</div>
+<div style="position:relative; flex:0 0 auto; width:1226px; height:866px; padding:16px; border-radius:34px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:1194px; height:834px; border-radius:20px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);"><div style="position:absolute; top:0; left:0; right:0; height:44px; z-index:50; display:flex; align-items:center; justify-content:space-between; padding:0 24px; pointer-events:none; font-size:14px; font-weight:600;"><span style="font-variant-numeric:tabular-nums;">9:41</span><span style="display:inline-flex; align-items:center; gap:7px;"><svg fill="currentColor" height="12" style="display:block;" viewBox="0 0 19 12" width="18"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg fill="currentColor" height="12" style="display:block;" viewBox="0 0 17 12" width="16"><path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z"></path><path d="M8.5 6.8C9.9 6.8 11.1 7.3 12 8.2L13.1 7.1C11.8 5.9 10.2 5.1 8.5 5.1C6.8 5.1 5.2 5.9 3.9 7.1L5 8.2C5.9 7.3 7.1 6.8 8.5 6.8Z"></path><circle cx="8.5" cy="10.5" r="1.5"></circle></svg><svg height="13" style="display:block;" viewBox="0 0 27 13" width="27"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div style="position:absolute; inset:0;">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <div style="position:absolute; inset:0; overflow:hidden;"><dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import></div>
+            <div style="position:absolute; left:430px; top:0; right:0; bottom:0; overflow:hidden;">
+            <svg preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible; z-index:2; pointer-events:none;" viewBox="0 0 100 100">
+              <path d="M50 78 C 50 62, 52 50, 50 40 S 46 24, 48 12" fill="none" stroke="var(--route-private-casing)" stroke-linecap="round" stroke-width="13" vector-effect="non-scaling-stroke"></path>
+              <path d="M50 78 C 50 62, 52 50, 50 40 S 46 24, 48 12" fill="none" stroke="var(--route-private)" stroke-linecap="round" stroke-width="8" vector-effect="non-scaling-stroke"></path>
+            </svg>
+            <div style="position:absolute; left:50%; bottom:20%; transform:translate(-50%,50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="0" hint-size="64px,64px" variant="user"></x-import></div>
+            <div style="position:absolute; left:50%; top:41%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="132px,132px" label="Police" variant="police"></x-import></div>
+            </div>
+            <div style="position:absolute; top:56px; left:442px; right:12px; z-index:10; display:flex; flex-direction:column;">
+              <div style="position:relative; z-index:2;"><x-import component-from-global-scope="DesignSystem_c71fad.NavBanner" distance="500 ft" hint-size="100%,auto" instruction="Turn right onto Market St" maneuver="right"></x-import></div>
+              <!-- Next-next step: a quiet tab tucked under the banner (banner shadow falls onto it) -->
+              <div style="position:relative; z-index:1; margin:0 16px; padding:7px 12px; display:flex; align-items:center; gap:8px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-top:none; border-radius:0 0 var(--radius-sm) var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-secondary);">
+                <span style="flex:0 0 auto; display:inline-flex; color:var(--text-tertiary);"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="16"><path d="m5 12 7-7 7 7"></path><path d="M12 19V5"></path></svg></span>
+                <span style="flex:1; min-width:0; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Then continue on Market St</span>
+                <span style="flex:0 0 auto; font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-size:var(--fs-caption); font-weight:600; color:var(--text-tertiary);">1.2 mi</span>
+              </div>
+            </div>
+            <div class="daf-slb" style="position:absolute; left:442px; top:182px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" current="{{ n41 }}" hint-size="80px,115px" limit="35" size="lg"></x-import></div>
+            <div style="position:absolute; left:12px; top:56px; width:406px; max-height:calc(100% - 84px); z-index:10; background:var(--surface-sheet); border:1px solid var(--border-glass); border-radius:var(--radius-xl); box-shadow:var(--shadow-float); color:var(--text-primary); display:flex; flex-direction:column; overflow:hidden;"><div style="flex:0 0 auto; padding:16px 16px 16px; display:flex; align-items:center; gap:12px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="40px,40px" label="Open menu" size="md" variant="plain"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M4 12h16"></path><path d="M4 6h16"></path><path d="M4 18h16"></path></svg></x-import><div style="flex:1; min-width:0;">
+                  <div style="display:flex; align-items:baseline; gap:4px 10px; flex-wrap:wrap;">
+                    <span style="font-family:var(--font-mono); font-feature-settings:var(--num-feature); font-weight:var(--fw-bold); font-size:var(--fs-h2); line-height:1; letter-spacing:-0.02em; color:var(--text-primary);">12 min</span>
+                    <span style="font-family:var(--font-mono); font-feature-settings:var(--num-feature); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-secondary);">6:15</span>
+                    <span style="font-family:var(--font-mono); font-feature-settings:var(--num-feature); font-size:var(--fs-body-sm); color:var(--text-tertiary);">4.1 mi</span>
+                  </div>
+                  <div style="margin-top:5px; display:flex; align-items:center; gap:7px; min-width:0; font-size:var(--fs-body-sm); line-height:1.2; color:var(--text-secondary);">
+                    <span style="flex:0 0 auto; font-weight:var(--fw-bold); font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand);">Private</span>
+                    <span aria-hidden="true" style="flex:0 0 auto; width:3px; height:3px; border-radius:50%; background:var(--border-strong);"></span>
+                    <span style="min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Ferry Building Marketplace</span>
+                  </div>
+                </div>
+                <button aria-label="End route" style="flex:0 0 auto; width:46px; height:46px; border:none; border-radius:var(--radius-sm); background:var(--alert-500); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;" style-active="transform:scale(0.97);"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" style="display:block;" viewBox="0 0 24 24" width="22"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div><div class="daf-steps" style="flex:1; min-height:0; overflow-y:auto; scrollbar-width:none; border-top:1px solid var(--border); padding:0 16px 34px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0 4px;">
+                  <span style="font-size:var(--fs-label); font-weight:700; letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary);">Steps</span>
+                  <span style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap;">6 · 4.1 mi</span>
+                </div>
+                <sc-for as="step" hint-placeholder-count="4" list="{{ steps }}">
+                  <div style="display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--border);">
+                    <span style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:var(--radius-sm); background:{{ step.tileBg }}; color:{{ step.tileColor }};">{{ step.iconEl }}</span>
+                    <div style="flex:1; min-width:0;">
+                      <div style="font-size:15px; font-weight:var(--fw-semibold); color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ step.text }}</div>
+                      <sc-if hint-placeholder-val="{{ false }}" value="{{ step.sub }}"><div style="font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ step.sub }}</div></sc-if>
+                    </div>
+                    <span style="flex:0 0 auto; font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-weight:600; font-size:14px; color:var(--text-secondary); white-space:nowrap;">{{ step.dist }}</span>
+                  </div>
+                </sc-for>
+              </div></div>
+            <div style="position:absolute; left:442px; right:12px; bottom:28px; z-index:10; display:flex; flex-direction:column; gap:12px;"><div style="position:relative; overflow:hidden; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-float); padding:14px 14px 16px; display:flex; flex-direction:column; gap:9px;">
+                <div style="display:flex; align-items:center; gap:11px; min-width:0;">
+                  <span style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:var(--radius-sm); background:rgba(46,139,255,0.14); color:var(--info);"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="22"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg></span>
+                  <div style="flex:1; min-width:0;">
+                    <div style="font-size:16px; font-weight:var(--fw-semibold); color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Police reported</div>
+                    <div style="font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Waze · 4 min ago</div>
+                  </div>
+                  <span style="flex:0 0 auto; white-space:nowrap; font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-weight:800; font-size:22px; line-height:1; color:var(--info);">800 ft</span>
+                  <button aria-label="Dismiss alert" style="flex:0 0 auto; width:30px; height:30px; margin:-4px -4px 0 0; align-self:flex-start; border:none; background:transparent; border-radius:var(--radius-pill); color:var(--text-tertiary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg fill="none" height="17" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="17"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></button>
+                </div>
+                <div style="padding:0 2px;"><div style="position:relative; height:18px;">
+                  <span aria-hidden="true" style="position:absolute; left:0; right:16px; top:50%; transform:translateY(-50%); height:4px; border-radius:var(--radius-pill); background:var(--surface-card-alt);"></span>
+                  <span aria-hidden="true" style="position:absolute; left:0; width:calc((100% - 16px) * 0.82); top:50%; transform:translateY(-50%); height:4px; border-radius:var(--radius-pill); background:var(--info);"></span>
+                  <span aria-hidden="true" style="position:absolute; left:calc((100% - 16px) * 0.82); top:50%; transform:translate(-50%,-50%) rotate(45deg); display:inline-flex; color:var(--brand); filter:drop-shadow(0 1px 2px rgba(11,13,16,0.35));"><svg fill="currentColor" height="26" stroke="var(--surface-card)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="26"><path d="M3 11l19-9-9 19-2-8-8-2z"></path></svg></span>
+                  <span aria-hidden="true" style="position:absolute; right:0; top:50%; transform:translateY(-50%); display:inline-flex; color:var(--info);"><svg fill="none" height="15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="15"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg></span>
+                </div></div>
+              </div></div>
+          </div>
+        </div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:var(--text-primary); opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+      <!-- 07C ALERT AHEAD — ALPR ONLY -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">07c · Alert ahead — ALPR only</div>
+<div style="position:relative; flex:0 0 auto; width:1226px; height:866px; padding:16px; border-radius:34px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:1194px; height:834px; border-radius:20px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);"><div style="position:absolute; top:0; left:0; right:0; height:44px; z-index:50; display:flex; align-items:center; justify-content:space-between; padding:0 24px; pointer-events:none; font-size:14px; font-weight:600;"><span style="font-variant-numeric:tabular-nums;">9:41</span><span style="display:inline-flex; align-items:center; gap:7px;"><svg fill="currentColor" height="12" style="display:block;" viewBox="0 0 19 12" width="18"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg fill="currentColor" height="12" style="display:block;" viewBox="0 0 17 12" width="16"><path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z"></path><path d="M8.5 6.8C9.9 6.8 11.1 7.3 12 8.2L13.1 7.1C11.8 5.9 10.2 5.1 8.5 5.1C6.8 5.1 5.2 5.9 3.9 7.1L5 8.2C5.9 7.3 7.1 6.8 8.5 6.8Z"></path><circle cx="8.5" cy="10.5" r="1.5"></circle></svg><svg height="13" style="display:block;" viewBox="0 0 27 13" width="27"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div style="position:absolute; inset:0;">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <div style="position:absolute; inset:0; overflow:hidden;"><dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import></div>
+            <div style="position:absolute; left:430px; top:0; right:0; bottom:0; overflow:hidden;">
+            <svg preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible; z-index:2; pointer-events:none;" viewBox="0 0 100 100">
+              <path d="M50 78 C 50 62, 52 50, 50 40 S 46 24, 48 12" fill="none" stroke="var(--route-private-casing)" stroke-linecap="round" stroke-width="13" vector-effect="non-scaling-stroke"></path>
+              <path d="M50 78 C 50 62, 52 50, 50 40 S 46 24, 48 12" fill="none" stroke="var(--route-private)" stroke-linecap="round" stroke-width="8" vector-effect="non-scaling-stroke"></path>
+            </svg>
+            <div style="position:absolute; left:50%; bottom:20%; transform:translate(-50%,50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="0" hint-size="64px,64px" variant="user"></x-import></div>
+            <div style="position:absolute; left:47%; top:38%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="200" hint-size="132px,132px" label="ALPR" variant="camera"></x-import></div>
+            </div>
+            <div style="position:absolute; top:56px; left:442px; right:12px; z-index:10; display:flex; flex-direction:column;">
+              <div style="position:relative; z-index:2;"><x-import component-from-global-scope="DesignSystem_c71fad.NavBanner" distance="500 ft" hint-size="100%,auto" instruction="Turn right onto Market St" maneuver="right"></x-import></div>
+              <!-- Next-next step: a quiet tab tucked under the banner (banner shadow falls onto it) -->
+              <div style="position:relative; z-index:1; margin:0 16px; padding:7px 12px; display:flex; align-items:center; gap:8px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-top:none; border-radius:0 0 var(--radius-sm) var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-secondary);">
+                <span style="flex:0 0 auto; display:inline-flex; color:var(--text-tertiary);"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="16"><path d="m5 12 7-7 7 7"></path><path d="M12 19V5"></path></svg></span>
+                <span style="flex:1; min-width:0; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Then continue on Market St</span>
+                <span style="flex:0 0 auto; font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-size:var(--fs-caption); font-weight:600; color:var(--text-tertiary);">1.2 mi</span>
+              </div>
+            </div>
+            <div class="daf-slb" style="position:absolute; left:442px; top:182px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" current="{{ n41 }}" hint-size="80px,115px" limit="35" size="lg"></x-import></div>
+            <div style="position:absolute; left:12px; top:56px; width:406px; max-height:calc(100% - 84px); z-index:10; background:var(--surface-sheet); border:1px solid var(--border-glass); border-radius:var(--radius-xl); box-shadow:var(--shadow-float); color:var(--text-primary); display:flex; flex-direction:column; overflow:hidden;"><div style="flex:0 0 auto; padding:16px 16px 16px; display:flex; align-items:center; gap:12px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="40px,40px" label="Open menu" size="md" variant="plain"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M4 12h16"></path><path d="M4 6h16"></path><path d="M4 18h16"></path></svg></x-import><div style="flex:1; min-width:0;">
+                  <div style="display:flex; align-items:baseline; gap:4px 10px; flex-wrap:wrap;">
+                    <span style="font-family:var(--font-mono); font-feature-settings:var(--num-feature); font-weight:var(--fw-bold); font-size:var(--fs-h2); line-height:1; letter-spacing:-0.02em; color:var(--text-primary);">12 min</span>
+                    <span style="font-family:var(--font-mono); font-feature-settings:var(--num-feature); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-secondary);">6:15</span>
+                    <span style="font-family:var(--font-mono); font-feature-settings:var(--num-feature); font-size:var(--fs-body-sm); color:var(--text-tertiary);">4.1 mi</span>
+                  </div>
+                  <div style="margin-top:5px; display:flex; align-items:center; gap:7px; min-width:0; font-size:var(--fs-body-sm); line-height:1.2; color:var(--text-secondary);">
+                    <span style="flex:0 0 auto; font-weight:var(--fw-bold); font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand);">Private</span>
+                    <span aria-hidden="true" style="flex:0 0 auto; width:3px; height:3px; border-radius:50%; background:var(--border-strong);"></span>
+                    <span style="min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Ferry Building Marketplace</span>
+                  </div>
+                </div>
+                <button aria-label="End route" style="flex:0 0 auto; width:46px; height:46px; border:none; border-radius:var(--radius-sm); background:var(--alert-500); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;" style-active="transform:scale(0.97);"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" style="display:block;" viewBox="0 0 24 24" width="22"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div><div class="daf-steps" style="flex:1; min-height:0; overflow-y:auto; scrollbar-width:none; border-top:1px solid var(--border); padding:0 16px 34px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0 4px;">
+                  <span style="font-size:var(--fs-label); font-weight:700; letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary);">Steps</span>
+                  <span style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap;">6 · 4.1 mi</span>
+                </div>
+                <sc-for as="step" hint-placeholder-count="4" list="{{ steps }}">
+                  <div style="display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--border);">
+                    <span style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:var(--radius-sm); background:{{ step.tileBg }}; color:{{ step.tileColor }};">{{ step.iconEl }}</span>
+                    <div style="flex:1; min-width:0;">
+                      <div style="font-size:15px; font-weight:var(--fw-semibold); color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ step.text }}</div>
+                      <sc-if hint-placeholder-val="{{ false }}" value="{{ step.sub }}"><div style="font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ step.sub }}</div></sc-if>
+                    </div>
+                    <span style="flex:0 0 auto; font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-weight:600; font-size:14px; color:var(--text-secondary); white-space:nowrap;">{{ step.dist }}</span>
+                  </div>
+                </sc-for>
+              </div></div>
+            <div style="position:absolute; left:442px; right:12px; bottom:28px; z-index:10; display:flex; flex-direction:column; gap:12px;"><div style="position:relative; overflow:hidden; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-float); padding:14px 14px 16px; display:flex; flex-direction:column; gap:9px;">
+                <div style="display:flex; align-items:center; gap:11px; min-width:0;">
+                  <span style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:var(--radius-sm); background:rgba(255,77,79,0.14); color:var(--alert-500);"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="22"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg></span>
+                  <div style="flex:1; min-width:0;">
+                    <div style="font-size:16px; font-weight:var(--fw-semibold); color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">ALPR camera</div>
+                    <div style="font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Flock · on your route</div>
+                  </div>
+                  <span style="flex:0 0 auto; white-space:nowrap; font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-weight:800; font-size:22px; line-height:1; color:var(--alert-500);">0.3 mi</span>
+                  <button aria-label="Dismiss alert" style="flex:0 0 auto; width:30px; height:30px; margin:-4px -4px 0 0; align-self:flex-start; border:none; background:transparent; border-radius:var(--radius-pill); color:var(--text-tertiary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg fill="none" height="17" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="17"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></button>
+                </div>
+                <div style="padding:0 2px;"><div style="position:relative; height:18px;">
+                  <span aria-hidden="true" style="position:absolute; left:0; right:16px; top:50%; transform:translateY(-50%); height:4px; border-radius:var(--radius-pill); background:var(--surface-card-alt);"></span>
+                  <span aria-hidden="true" style="position:absolute; left:0; width:calc((100% - 16px) * 0.58); top:50%; transform:translateY(-50%); height:4px; border-radius:var(--radius-pill); background:var(--alert-500);"></span>
+                  <span aria-hidden="true" style="position:absolute; left:calc((100% - 16px) * 0.58); top:50%; transform:translate(-50%,-50%) rotate(45deg); display:inline-flex; color:var(--brand); filter:drop-shadow(0 1px 2px rgba(11,13,16,0.35));"><svg fill="currentColor" height="26" stroke="var(--surface-card)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="26"><path d="M3 11l19-9-9 19-2-8-8-2z"></path></svg></span>
+                  <span aria-hidden="true" style="position:absolute; right:0; top:50%; transform:translateY(-50%); display:inline-flex; color:var(--alert-500);"><svg fill="none" height="15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="15"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg></span>
+                </div></div>
+              </div></div>
+          </div>
+        </div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:var(--text-primary); opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+      <!-- 07D ALERTS AHEAD — POLICE + ALPR -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:13px; font-weight:600;">07d · Alerts ahead — police + ALPR</div>
+<div style="position:relative; flex:0 0 auto; width:1226px; height:866px; padding:16px; border-radius:34px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:1194px; height:834px; border-radius:20px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);"><div style="position:absolute; top:0; left:0; right:0; height:44px; z-index:50; display:flex; align-items:center; justify-content:space-between; padding:0 24px; pointer-events:none; font-size:14px; font-weight:600;"><span style="font-variant-numeric:tabular-nums;">9:41</span><span style="display:inline-flex; align-items:center; gap:7px;"><svg fill="currentColor" height="12" style="display:block;" viewBox="0 0 19 12" width="18"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg fill="currentColor" height="12" style="display:block;" viewBox="0 0 17 12" width="16"><path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z"></path><path d="M8.5 6.8C9.9 6.8 11.1 7.3 12 8.2L13.1 7.1C11.8 5.9 10.2 5.1 8.5 5.1C6.8 5.1 5.2 5.9 3.9 7.1L5 8.2C5.9 7.3 7.1 6.8 8.5 6.8Z"></path><circle cx="8.5" cy="10.5" r="1.5"></circle></svg><svg height="13" style="display:block;" viewBox="0 0 27 13" width="27"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div style="position:absolute; inset:0;">
+          <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
+            <div style="position:absolute; inset:0; overflow:hidden;"><dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import></div>
+            <div style="position:absolute; left:430px; top:0; right:0; bottom:0; overflow:hidden;">
+            <svg preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible; z-index:2; pointer-events:none;" viewBox="0 0 100 100">
+              <path d="M50 78 C 50 62, 52 50, 50 40 S 46 24, 48 12" fill="none" stroke="var(--route-private-casing)" stroke-linecap="round" stroke-width="13" vector-effect="non-scaling-stroke"></path>
+              <path d="M50 78 C 50 62, 52 50, 50 40 S 46 24, 48 12" fill="none" stroke="var(--route-private)" stroke-linecap="round" stroke-width="8" vector-effect="non-scaling-stroke"></path>
+            </svg>
+            <div style="position:absolute; left:50%; bottom:20%; transform:translate(-50%,50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="0" hint-size="64px,64px" variant="user"></x-import></div>
+            <div style="position:absolute; left:50%; top:41%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="132px,132px" label="Police" variant="police"></x-import></div>
+            <div style="position:absolute; left:47%; top:16%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="200" hint-size="132px,132px" label="ALPR" variant="camera"></x-import></div>
+            </div>
+            <div style="position:absolute; top:56px; left:442px; right:12px; z-index:10; display:flex; flex-direction:column;">
+              <div style="position:relative; z-index:2;"><x-import component-from-global-scope="DesignSystem_c71fad.NavBanner" distance="500 ft" hint-size="100%,auto" instruction="Turn right onto Market St" maneuver="right"></x-import></div>
+              <!-- Next-next step: a quiet tab tucked under the banner (banner shadow falls onto it) -->
+              <div style="position:relative; z-index:1; margin:0 16px; padding:7px 12px; display:flex; align-items:center; gap:8px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-top:none; border-radius:0 0 var(--radius-sm) var(--radius-sm); box-shadow:var(--shadow-float); color:var(--text-secondary);">
+                <span style="flex:0 0 auto; display:inline-flex; color:var(--text-tertiary);"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="16"><path d="m5 12 7-7 7 7"></path><path d="M12 19V5"></path></svg></span>
+                <span style="flex:1; min-width:0; font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Then continue on Market St</span>
+                <span style="flex:0 0 auto; font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-size:var(--fs-caption); font-weight:600; color:var(--text-tertiary);">1.2 mi</span>
+              </div>
+            </div>
+            <div class="daf-slb" style="position:absolute; left:442px; top:182px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" current="{{ n41 }}" hint-size="80px,115px" limit="35" size="lg"></x-import></div>
+            <div style="position:absolute; left:12px; top:56px; width:406px; max-height:calc(100% - 84px); z-index:10; background:var(--surface-sheet); border:1px solid var(--border-glass); border-radius:var(--radius-xl); box-shadow:var(--shadow-float); color:var(--text-primary); display:flex; flex-direction:column; overflow:hidden;"><div style="flex:0 0 auto; padding:16px 16px 16px; display:flex; align-items:center; gap:12px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="40px,40px" label="Open menu" size="md" variant="plain"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M4 12h16"></path><path d="M4 6h16"></path><path d="M4 18h16"></path></svg></x-import><div style="flex:1; min-width:0;">
+                  <div style="display:flex; align-items:baseline; gap:4px 10px; flex-wrap:wrap;">
+                    <span style="font-family:var(--font-mono); font-feature-settings:var(--num-feature); font-weight:var(--fw-bold); font-size:var(--fs-h2); line-height:1; letter-spacing:-0.02em; color:var(--text-primary);">12 min</span>
+                    <span style="font-family:var(--font-mono); font-feature-settings:var(--num-feature); font-size:var(--fs-body-sm); font-weight:var(--fw-semibold); color:var(--text-secondary);">6:15</span>
+                    <span style="font-family:var(--font-mono); font-feature-settings:var(--num-feature); font-size:var(--fs-body-sm); color:var(--text-tertiary);">4.1 mi</span>
+                  </div>
+                  <div style="margin-top:5px; display:flex; align-items:center; gap:7px; min-width:0; font-size:var(--fs-body-sm); line-height:1.2; color:var(--text-secondary);">
+                    <span style="flex:0 0 auto; font-weight:var(--fw-bold); font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand);">Private</span>
+                    <span aria-hidden="true" style="flex:0 0 auto; width:3px; height:3px; border-radius:50%; background:var(--border-strong);"></span>
+                    <span style="min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Ferry Building Marketplace</span>
+                  </div>
+                </div>
+                <button aria-label="End route" style="flex:0 0 auto; width:46px; height:46px; border:none; border-radius:var(--radius-sm); background:var(--alert-500); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;" style-active="transform:scale(0.97);"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" style="display:block;" viewBox="0 0 24 24" width="22"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div><div class="daf-steps" style="flex:1; min-height:0; overflow-y:auto; scrollbar-width:none; border-top:1px solid var(--border); padding:0 16px 34px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0 4px;">
+                  <span style="font-size:var(--fs-label); font-weight:700; letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary);">Steps</span>
+                  <span style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap;">6 · 4.1 mi</span>
+                </div>
+                <sc-for as="step" hint-placeholder-count="4" list="{{ steps }}">
+                  <div style="display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--border);">
+                    <span style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:var(--radius-sm); background:{{ step.tileBg }}; color:{{ step.tileColor }};">{{ step.iconEl }}</span>
+                    <div style="flex:1; min-width:0;">
+                      <div style="font-size:15px; font-weight:var(--fw-semibold); color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ step.text }}</div>
+                      <sc-if hint-placeholder-val="{{ false }}" value="{{ step.sub }}"><div style="font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ step.sub }}</div></sc-if>
+                    </div>
+                    <span style="flex:0 0 auto; font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-weight:600; font-size:14px; color:var(--text-secondary); white-space:nowrap;">{{ step.dist }}</span>
+                  </div>
+                </sc-for>
+              </div></div>
+            <div style="position:absolute; left:442px; right:12px; bottom:28px; z-index:10; display:flex; flex-direction:column; gap:12px;"><div style="position:relative; overflow:hidden; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-float); display:grid; grid-template-columns:1fr 1fr;">
+                <span aria-hidden="true" style="position:absolute; left:50%; top:-25%; height:150%; width:1px; background:var(--border); transform:rotate(11deg);"></span>
+                <button aria-label="Dismiss alerts" style="position:absolute; top:7px; right:7px; z-index:2; width:30px; height:30px; border:none; background:transparent; border-radius:var(--radius-pill); color:var(--text-tertiary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg fill="none" height="17" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="17"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></button>
+                <div style="padding:13px 20px 15px 14px; min-width:0; display:flex; flex-direction:column; gap:8px;">
+                  <div style="display:flex; align-items:center; gap:9px; min-width:0;">
+                    <span style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:var(--radius-sm); background:rgba(46,139,255,0.14); color:var(--info);"><svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="18"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg></span>
+                    <span style="font-size:13px; font-weight:var(--fw-semibold); color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Police reported</span>
+                  </div>
+                  <div style="font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-weight:800; font-size:21px; line-height:1; color:var(--info);">800 ft</div>
+                  <div style="position:relative; height:18px;">
+                    <span aria-hidden="true" style="position:absolute; left:0; right:16px; top:50%; transform:translateY(-50%); height:4px; border-radius:var(--radius-pill); background:var(--surface-card-alt);"></span>
+                    <span aria-hidden="true" style="position:absolute; left:0; width:calc((100% - 16px) * 0.82); top:50%; transform:translateY(-50%); height:4px; border-radius:var(--radius-pill); background:var(--info);"></span>
+                    <span aria-hidden="true" style="position:absolute; left:calc((100% - 16px) * 0.82); top:50%; transform:translate(-50%,-50%) rotate(45deg); display:inline-flex; color:var(--brand); filter:drop-shadow(0 1px 2px rgba(11,13,16,0.35));"><svg fill="currentColor" height="26" stroke="var(--surface-card)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="26"><path d="M3 11l19-9-9 19-2-8-8-2z"></path></svg></span>
+                    <span aria-hidden="true" style="position:absolute; right:0; top:50%; transform:translateY(-50%); display:inline-flex; color:var(--info);"><svg fill="none" height="15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="15"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg></span>
+                  </div>
+                  <div style="font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Waze · 4 min ago</div>
+                </div>
+                <div style="padding:13px 14px 15px 20px; min-width:0; display:flex; flex-direction:column; gap:8px;">
+                  <div style="display:flex; align-items:center; gap:9px; min-width:0; padding-right:26px;">
+                    <span style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:var(--radius-sm); background:rgba(255,77,79,0.14); color:var(--alert-500);"><svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="18"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg></span>
+                    <span style="font-size:13px; font-weight:var(--fw-semibold); color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">ALPR camera</span>
+                  </div>
+                  <div style="font-family:var(--font-mono); font-variant-numeric:var(--num-feature); font-weight:800; font-size:21px; line-height:1; color:var(--alert-500);">0.3 mi</div>
+                  <div style="position:relative; height:18px;">
+                    <span aria-hidden="true" style="position:absolute; left:0; right:16px; top:50%; transform:translateY(-50%); height:4px; border-radius:var(--radius-pill); background:var(--surface-card-alt);"></span>
+                    <span aria-hidden="true" style="position:absolute; left:0; width:calc((100% - 16px) * 0.58); top:50%; transform:translateY(-50%); height:4px; border-radius:var(--radius-pill); background:var(--alert-500);"></span>
+                    <span aria-hidden="true" style="position:absolute; left:calc((100% - 16px) * 0.58); top:50%; transform:translate(-50%,-50%) rotate(45deg); display:inline-flex; color:var(--brand); filter:drop-shadow(0 1px 2px rgba(11,13,16,0.35));"><svg fill="currentColor" height="26" stroke="var(--surface-card)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="26"><path d="M3 11l19-9-9 19-2-8-8-2z"></path></svg></span>
+                    <span aria-hidden="true" style="position:absolute; right:0; top:50%; transform:translateY(-50%); display:inline-flex; color:var(--alert-500);"><svg fill="none" height="15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="15"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg></span>
+                  </div>
+                  <div style="font-size:var(--fs-caption); color:var(--text-tertiary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Flock · on your route</div>
+                </div>
+              </div></div>
+          </div>
+        </div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:var(--text-primary); opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1500,&quot;height&quot;:1000},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}" type="text/x-dc">
+class Component extends DCLogic {
+
+  themeVals() {
+    const theme = this.state.themeOverride ?? this.props.theme ?? 'light';
+    const dark = theme === 'dark';
+    const on = { fg: 'var(--surface-card)', bg: 'var(--text-primary)' }, off = { fg: 'var(--text-secondary)', bg: 'transparent' };
+    return { theme, isDark: dark, isLight: !dark,
+      lightFg: dark ? off.fg : on.fg, lightBg: dark ? off.bg : on.bg, darkFg: dark ? on.fg : off.fg, darkBg: dark ? on.bg : off.bg,
+      setLight: () => this.setTheme('light'), setDark: () => this.setTheme('dark') };
+  }
+  setTheme(t) { try { sessionStorage.setItem('daf-gallery-theme', t); } catch (_) {} this.setState({ themeOverride: t }); }
+  componentDidMount() { try { const t = sessionStorage.getItem('daf-gallery-theme'); if (t && t !== (this.props.theme ?? 'light')) this.setState({ themeOverride: t }); } catch (_) {} if (super.componentDidMount) super.componentDidMount(); }
+  state = { themeOverride: null, advOpen: false, advOpenForm: false, bufferFt: 250, allowNearEnds: false, sheetH: 92, sheetDragging: false, previewIdx: 2 };
+  toggleAdv() { this.setState(s => ({ advOpen: !s.advOpen })); }
+  toggleAdvForm() { this.setState(s => ({ advOpenForm: !s.advOpenForm })); }
+  // Steps sheet drag: collapsed (ETA bar + hairline only) ↔ expanded (≤ ⅔ of the 844px map)
+  get sheetMin() { return 92; }
+  get sheetMax() { return 556; }
+  sheetDown(e) {
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+    this._drag = { y: e.clientY, h: this.state.sheetH, moved: false };
+    this.setState({ sheetDragging: true });
+  }
+  sheetMove(e) {
+    if (!this._drag) return;
+    const dy = this._drag.y - e.clientY;
+    if (Math.abs(dy) > 3) this._drag.moved = true;
+    const h = Math.max(this.sheetMin, Math.min(this.sheetMax, this._drag.h + dy));
+    this.setState({ sheetH: h });
+  }
+  sheetUp(e) {
+    const d = this._drag; if (!d) return; this._drag = null;
+    const dy = d.y - e.clientY, mid = (this.sheetMin + this.sheetMax) / 2;
+    let target;
+    if (!d.moved) target = d.h > mid ? this.sheetMin : this.sheetMax;            // tap toggles
+    else if (dy > 40) target = this.sheetMax;                                     // flick up
+    else if (dy < -40) target = this.sheetMin;                                    // flick down
+    else target = this.state.sheetH > mid ? this.sheetMax : this.sheetMin;        // settle nearest
+    this.setState({ sheetH: target, sheetDragging: false });
+  }
+  setBuffer(v) { this.setState({ bufferFt: v }); }
+  setAllowNearEnds(v) { this.setState({ allowNearEnds: v }); }
+  renderVals() {
+    const R = React.createElement;
+    const svg = (w, kids, opts) => R('svg', { width: w, height: w, viewBox: '0 0 24 24', fill: (opts && opts.fill) || 'none', stroke: (opts && opts.fill) ? 'none' : 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, kids);
+
+    // Map-home SearchBar accessories — mirrors the DS SearchBar's own anatomy: a leading
+    // menu button + search glyph, and trailing mic + divider-separated directions button.
+    // The shipped bundle only exposes leading/trailing slots, so we compose them here using
+    // the same Lucide glyphs (menu, search, mic, corner-up-right) and IconBtn styling.
+    const iconBtn = (extra) => ({ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto', width: 36, height: 36, padding: 0, border: 'none', background: 'transparent', borderRadius: 'var(--radius-pill)', cursor: 'pointer', WebkitTapHighlightColor: 'transparent', ...extra });
+    const searchLeading = R('div', { style: { display: 'flex', alignItems: 'center', gap: 4, height: '100%' } },
+      R('button', { key: 'm', type: 'button', 'aria-label': 'Open menu', style: iconBtn({ color: 'var(--text-primary)' }) },
+        svg(20, [R('path', { key: 1, d: 'M4 12h16' }), R('path', { key: 2, d: 'M4 6h16' }), R('path', { key: 3, d: 'M4 18h16' })])),
+      R('span', { key: 's', style: { display: 'inline-flex', flex: '0 0 auto', color: 'var(--text-tertiary)', marginLeft: 2 } },
+        svg(18, [R('circle', { key: 1, cx: 11, cy: 11, r: 8 }), R('path', { key: 2, d: 'm21 21-4.3-4.3' })]))
+    );
+    const searchTrailing = R('div', { style: { display: 'flex', alignItems: 'center', gap: 4, height: '100%' } },
+      R('button', { key: 'mic', type: 'button', 'aria-label': 'Voice search', style: iconBtn({ color: 'var(--text-secondary)' }) },
+        svg(20, [R('path', { key: 1, d: 'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z' }), R('path', { key: 2, d: 'M19 10v2a7 7 0 0 1-14 0v-2' }), R('line', { key: 3, x1: 12, x2: 12, y1: 19, y2: 22 })])),
+      R('span', { key: 'd', 'aria-hidden': 'true', style: { flex: '0 0 auto', width: 1, height: 24, background: 'var(--border-glass)' } }),
+      R('button', { key: 'dir', type: 'button', 'aria-label': 'Directions', style: iconBtn({ color: 'var(--text-primary)' }) },
+        svg(20, [R('polyline', { key: 1, points: '15 14 20 9 15 4' }), R('path', { key: 2, d: 'M4 20v-7a4 4 0 0 1 4-4h12' })]))
+    );
+    const chipStyle = { height: '30px', fontSize: '13px', padding: '0 12px' };
+
+    // Clear (✕) affordance for the search-screen SearchBar. The shipped SearchBar
+    // exposes a `trailing` slot (no onClear prop), so the clear control goes there.
+    const searchClear = R('button', {
+      type: 'button', 'aria-label': 'Clear search',
+      style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, padding: 0, border: 'none', background: 'transparent', borderRadius: 'var(--radius-pill)', color: 'var(--text-tertiary)', cursor: 'pointer', flex: '0 0 auto' },
+    }, svg(18, [R('path', { key: 1, d: 'M18 6 6 18' }), R('path', { key: 2, d: 'm6 6 12 12' })]));
+
+    // OSM editing flow — action + form icons (Lucide geometry, via the shared svg() helper)
+    const pencilIcon = svg(18, [R('path', { key: 1, d: 'M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z' }), R('path', { key: 2, d: 'm15 5 4 4' })]);
+    const trashIcon = svg(18, [R('path', { key: 1, d: 'M3 6h18' }), R('path', { key: 2, d: 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6' }), R('path', { key: 3, d: 'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2' }), R('line', { key: 4, x1: 10, x2: 10, y1: 11, y2: 17 }), R('line', { key: 5, x1: 14, x2: 14, y1: 11, y2: 17 })]);
+    const uploadIcon = svg(18, [R('path', { key: 1, d: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' }), R('polyline', { key: 2, points: '17 8 12 3 7 8' }), R('line', { key: 3, x1: 12, x2: 12, y1: 3, y2: 15 })]);
+    const plusIcon = svg(18, [R('path', { key: 1, d: 'M5 12h14' }), R('path', { key: 2, d: 'M12 5v14' })]);
+    const deleteBtnStyle = { color: 'var(--alert-500)' };
+    const nodeTypeOpts = [ { value: 'alpr', label: 'ALPR' }, { value: 'cctv', label: 'CCTV' }, { value: 'gantry', label: 'Gantry' } ];
+    const mfrOpts = [ { value: 'flock', label: 'Flock' }, { value: 'motorola', label: 'Motorola' }, { value: 'other', label: 'Other' } ];
+
+    const __tv = this.themeVals(); const theme = __tv.theme;
+
+    // Active-nav steps list — maneuver glyphs (Lucide corner-up-right / corner-up-left / arrow-up / flag)
+    const man = {
+      right: svg(20, [R('polyline', { key: 1, points: '15 14 20 9 15 4' }), R('path', { key: 2, d: 'M4 20v-7a4 4 0 0 1 4-4h12' })]),
+      left: svg(20, [R('polyline', { key: 1, points: '9 14 4 9 9 4' }), R('path', { key: 2, d: 'M20 20v-7a4 4 0 0 0-4-4H4' })]),
+      straight: svg(20, [R('path', { key: 1, d: 'm5 12 7-7 7 7' }), R('path', { key: 2, d: 'M12 19V5' })]),
+      flag: svg(20, [R('path', { key: 1, d: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z' }), R('line', { key: 2, x1: 4, x2: 4, y1: 22, y2: 15 })]),
+    };
+    const tile = (now) => now ? { tileBg: 'var(--brand-soft)', tileColor: 'var(--text-brand)' } : { tileBg: 'var(--surface-card-alt)', tileColor: 'var(--text-primary)' };
+    const steps = [
+      { iconEl: man.right, dist: '500 ft', text: 'Turn right onto Market St', sub: 'Now', ...tile(true) },
+      { iconEl: man.straight, dist: '1.2 mi', text: 'Continue on Market St', ...tile(false) },
+      { iconEl: man.left, dist: '0.4 mi', text: 'Turn left onto Steuart St', sub: 'Skips 2 cameras on Howard St', ...tile(false) },
+      { iconEl: man.right, dist: '600 ft', text: 'Turn right onto Mission St', ...tile(false) },
+      { iconEl: man.straight, dist: '0.3 mi', text: 'Continue onto The Embarcadero', ...tile(false) },
+      { iconEl: man.flag, dist: '6:15', text: 'Arrive at Ferry Building Marketplace', sub: 'On the right', ...tile(false) },
+    ];
+
+    const pvM = ['right', 'straight', 'left', 'right', 'straight', 'arrive'];
+    const pvPos = [[50.5, 66], [51.5, 52], [50, 40], [47, 30], [46.8, 21], [48, 12]];
+    const pi = this.state.previewIdx, ps = steps[pi], last = steps.length - 1;
+
+    return { ...__tv,
+      theme,
+      steps,
+      pvManeuver: pvM[pi], pvDist: ps.dist, pvText: ps.text,
+      pvNote: pi === 0 ? 'Next step' : (ps.sub || 'Previewing step'),
+      pvCount: `${pi + 1} / ${steps.length}`,
+      pvX: pvPos[pi][0], pvY: pvPos[pi][1],
+      pvAtStart: pi === 0, pvAtEnd: pi === last,
+      pvPrevOpacity: pi === 0 ? 0.4 : 1, pvNextOpacity: pi === last ? 0.4 : 1,
+      pvPrev: () => this.setState(s => ({ previewIdx: Math.max(0, s.previewIdx - 1) })),
+      pvNext: () => this.setState(s => ({ previewIdx: Math.min(last, s.previewIdx + 1) })),
+      pvResume: () => this.setState({ previewIdx: 0 }),
+      sheetH: this.state.sheetH,
+      sheetTransition: this.state.sheetDragging ? 'none' : 'height 320ms var(--ease-sheet)',
+      sheetDown: (e) => this.sheetDown(e),
+      sheetMove: (e) => this.sheetMove(e),
+      sheetUp: (e) => this.sheetUp(e),
+      isDark: theme === 'dark',
+      searchClear,
+      searchLeading, searchTrailing, chipStyle,
+      pencilIcon, trashIcon, uploadIcon, plusIcon, deleteBtnStyle,
+      nodeTypeOpts, nodeType: 'alpr',
+      mfrOpts, mfr: 'flock',
+      todOpts: [ { value: 'auto', label: 'Auto' }, { value: 'dawn', label: 'Dawn' }, { value: 'day', label: 'Day' }, { value: 'dusk', label: 'Dusk' }, { value: 'night', label: 'Night' } ],
+      tod: 'day',
+
+      // Hotlist screen — recently added nodes (mobile read of the web Hotlist template)
+      hotWin: '7',
+      hotWinOptions: [ { value: '24', label: '24h' }, { value: '7', label: '7 days' }, { value: '30', label: '30 days' } ],
+      setHotWin: () => {},
+      hotStats: [
+        { label: 'Added · 7 days', value: '38', sub: '+11 vs last week' },
+        { label: 'Flock readers', value: '21', sub: '55% of new' },
+      ],
+      hotChips: [
+        { label: 'All · 38', sel: true },
+        { label: 'Flock · 21', sel: false },
+        { label: 'Other vendors · 17', sel: false },
+      ],
+      hotRows: [
+        { typeLabel: 'ALPR reader', street: '16th St & Mission St', osm: 'node/11820431', operator: 'Flock Safety', added: '2h ago' },
+        { typeLabel: 'ALPR reader', street: 'Embarcadero & Market St', osm: 'node/11819007', operator: 'Flock Safety', added: '5h ago' },
+        { typeLabel: 'ALPR reader', street: 'Cesar Chavez & Guerrero', osm: 'node/11817754', operator: 'Flock Safety', added: '9h ago' },
+        { typeLabel: 'ALPR reader', street: 'Geary Blvd & 19th Ave', osm: 'node/11815320', operator: 'Genetec', added: '14h ago' },
+        { typeLabel: 'ALPR reader', street: 'Bayshore Blvd on-ramp', osm: 'node/11813998', operator: 'Genetec', added: '22h ago' },
+        { typeLabel: 'ALPR reader', street: 'Van Ness Ave & Lombard', osm: 'node/11810442', operator: 'Motorola Solutions', added: 'yesterday' },
+        { typeLabel: 'ALPR reader', street: 'Cesar Chavez & Hwy 101', osm: 'node/11806915', operator: 'Leonardo ELSAG', added: '2d ago' },
+      ],
+
+      w: 390,
+      h: 844,
+      aw: 412,
+      ah: 892,
+      chips: ['Restaurants', 'Gas', 'Coffee', 'Hotels', 'Groceries', 'Parking'],
+      c0: 0,
+      c4: 4,
+      n41: 41,
+      n58: 58,
+      advOpen: this.state.advOpen,
+      toggleAdv: () => this.toggleAdv(),
+      advOpenForm: this.state.advOpenForm,
+      toggleAdvForm: () => this.toggleAdvForm(),
+      bufferFt: this.state.bufferFt,
+      bufMin: 0,
+      bufMax: 1000,
+      bufStep: 50,
+      setBuffer: (v) => this.setBuffer(v),
+      fmtBuffer: (v) => `${v.toLocaleString()} ft`,
+      bufferLabel: `${this.state.bufferFt.toLocaleString()} ft`,
+      allowNearEnds: this.state.allowNearEnds,
+      setAllowNearEnds: (v) => this.setAllowNearEnds(v),
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

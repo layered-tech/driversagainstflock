@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1" name="viewport">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- page name="Web — Sign in" description="Internal sign-in: OpenStreetMap OAuth is the only method. Idle, redirecting, denied and error states." -->
+<helmet>
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css" rel="stylesheet">
+  <script src="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js"></script>
+  <style>
+    *{ box-sizing:border-box; }
+    body{ margin:0; background:var(--surface-page); }
+    a{ color:var(--text-brand); }
+    a:hover{ color:var(--brand); }
+    @keyframes daf-spin{ to{ transform:rotate(360deg); } }
+  </style>
+</helmet>
+
+<div data-screen-label="Web — Sign in" data-theme="{{ theme }}" style="font-family:var(--font-ui); color:var(--text-primary); background:var(--surface-page); min-height:100vh; display:flex; flex-direction:column; -webkit-font-smoothing:antialiased;">
+
+  <div style="height:57px; display:flex; align-items:center; gap:12px; padding:0 20px; border-bottom:1px solid var(--border); background:var(--surface-card);">
+    <img alt="DAF" src="assets/logo-mark.png" style="width:26px; height:26px; object-fit:contain;">
+    <div style="font-family:var(--font-display); font-size:15px; font-weight:700; letter-spacing:var(--ls-display);">DAF Moderation</div>
+    <span style="font-family:var(--font-mono); font-size:10px; font-weight:700; letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--amber-600); background:var(--amber-100); border-radius:var(--radius-pill); padding:3px 9px;">Internal</span>
+  </div>
+
+  <div style="flex:1; display:flex; align-items:center; justify-content:center; padding:40px 20px;">
+    <div style="width:100%; max-width:400px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:32px; display:flex; flex-direction:column; gap:24px;">
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <h1 style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h2); line-height:var(--lh-h2); letter-spacing:var(--ls-display); margin:0;">Sign in</h1>
+        <p style="font-size:var(--fs-body-sm); line-height:var(--lh-body); color:var(--text-secondary); margin:0;">Use your OpenStreetMap account. It's the only way in.</p>
+      </div>
+
+      <sc-if hint-placeholder-val="{{ false }}" value="{{ showDenied }}">
+        <div role="alert" style="display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border-radius:var(--radius-md); border:1px solid color-mix(in oklab, var(--amber-500) 45%, transparent); background:var(--amber-100); color:var(--amber-600); font-size:var(--fs-body-sm); line-height:var(--lh-body);">
+          <x-import component-from-global-scope="DesignSystem_c71fad.Icon" hint-size="18px,18px" name="shield-alert" size="{{ 18 }}"></x-import>
+          <div style="min-width:0;"><strong style="font-weight:var(--fw-bold);">Sign-in cancelled.</strong> Nothing was shared. Try again when ready.</div>
+        </div>
+      </sc-if>
+      <sc-if hint-placeholder-val="{{ false }}" value="{{ showError }}">
+        <div role="alert" style="display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border-radius:var(--radius-md); border:1px solid color-mix(in oklab, var(--alert-500) 45%, transparent); background:var(--alert-100); color:var(--alert-600); font-size:var(--fs-body-sm); line-height:var(--lh-body);">
+          <x-import component-from-global-scope="DesignSystem_c71fad.Icon" hint-size="18px,18px" name="triangle-alert" size="{{ 18 }}"></x-import>
+          <div style="min-width:0;"><strong style="font-weight:var(--fw-bold);">OpenStreetMap didn't respond.</strong> Wait a minute and try again.</div>
+        </div>
+      </sc-if>
+
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <button disabled="{{ busy }}" onClick="{{ onSignIn }}" style="height:48px; width:100%; display:inline-flex; align-items:center; justify-content:center; gap:10px; border-radius:var(--radius-pill); border:none; background:var(--brand); color:#fff; font-family:var(--font-ui); font-size:var(--fs-body); font-weight:var(--fw-bold); cursor:{{ cursor }}; opacity:{{ btnOpacity }}; transition:filter var(--dur-fast) var(--ease-standard), transform var(--dur-fast) var(--ease-standard);" style-active="transform:scale(0.97);" style-hover="filter:brightness(1.05);">
+          {{ btnIcon }}
+          <span>{{ btnLabel }}</span>
+        </button>
+        <div style="text-align:center; font-size:var(--fs-caption); color:var(--text-tertiary); line-height:var(--lh-body);">You'll be redirected to openstreetmap.org and back.</div>
+      </div>
+
+      <div style="border-top:1px solid var(--border); padding-top:16px; font-size:var(--fs-caption); color:var(--text-tertiary); line-height:var(--lh-body);">Moderator access is granted per account. Signing in with an unapproved account won't get you further.</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;light&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;tsType&quot;:&quot;'light'|'dark'&quot;},&quot;demoState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;live&quot;,&quot;options&quot;:[&quot;live&quot;,&quot;idle&quot;,&quot;redirecting&quot;,&quot;denied&quot;,&quot;error&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Preview&quot;}}" type="text/x-dc">
+class Component extends DCLogic {
+  state = { phase: 'idle' };
+  componentWillUnmount() { clearTimeout(this.t); }
+  renderVals() {
+    const theme = this.props.theme ?? 'light';
+    const phase = this.props.demoState && this.props.demoState !== 'live' ? this.props.demoState : this.state.phase;
+    const busy = phase === 'redirecting';
+    const Icon = window.DesignSystem_c71fad && window.DesignSystem_c71fad.Icon;
+    const btnIcon = busy
+      ? React.createElement('span', { style: { width: 18, height: 18, borderRadius: '50%', border: '2px solid rgba(255,255,255,.4)', borderTopColor: '#fff', animation: 'daf-spin 800ms linear infinite', display: 'inline-block' } })
+      : (Icon ? React.createElement(Icon, { name: 'shield-check', size: 18 }) : null);
+    return {
+      theme, busy,
+      showDenied: phase === 'denied',
+      showError: phase === 'error',
+      btnLabel: busy ? 'Redirecting to OpenStreetMap…' : (phase === 'idle' ? 'Continue with OpenStreetMap' : 'Try again with OpenStreetMap'),
+      btnIcon,
+      cursor: busy ? 'progress' : 'pointer',
+      btnOpacity: busy ? 0.7 : 1,
+      onSignIn: () => {
+        if (busy) return;
+        this.setState({ phase: 'redirecting' });
+        clearTimeout(this.t);
+        this.t = setTimeout(() => this.setState({ phase: 'idle' }), 2500);
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

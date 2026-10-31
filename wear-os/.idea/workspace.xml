@@ -5,7 +5,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e8b76893-e645-4ab5-8373-9fdc2c2b099c" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/../design/.thumbnail" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/../design/Article.dc.html" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/../design/AutoMap.dc.html" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/../design/AutoRail.dc.html" beforeDir="false" />
@@ -172,26 +171,29 @@
       <change beforePath="$PROJECT_DIR$/../design/uploads/genetec-1.webp" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/../design/uploads/motorola-1.jpg" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/../design/watch-kit.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../expo/components/areas/areas-context.js" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/components/areas/areas-context.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../expo/components/map/shared-map-state.js" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/components/map/shared-map-state.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../expo/components/information/__tests__/app-drawer-icons.test.mjs" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/components/information/__tests__/app-drawer-icons.test.mjs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../expo/components/root/app-drawer-content.js" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/components/root/app-drawer-content.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../expo/components/scorecard/__tests__/scorecard-runtime.test.mjs" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/components/scorecard/__tests__/scorecard-runtime.test.mjs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../expo/components/scorecard/scorecard-runtime.js" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/components/scorecard/scorecard-runtime.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../expo/components/watch/__tests__/watch-contract.test.mjs" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/components/watch/__tests__/watch-contract.test.mjs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../expo/components/watch/watch-contract.js" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/components/watch/watch-contract.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../expo/components/watch/watch-runtime.js" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/components/watch/watch-runtime.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../expo/components/watch/watch-settings-screen.js" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/components/watch/watch-settings-screen.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../expo/modules/watch-companion/android/src/main/java/expo/modules/watchcompanion/WatchCompanionModule.kt" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/modules/watch-companion/android/src/main/java/expo/modules/watchcompanion/WatchCompanionModule.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../expo/modules/watch-companion/android/src/main/java/expo/modules/watchcompanion/WatchCompanionService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/modules/watch-companion/android/src/main/java/expo/modules/watchcompanion/WatchCompanionService.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/app/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/androidTest/java/org/driversagainstflock/watch/WatchTransportTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/androidTest/java/org/driversagainstflock/watch/WatchTransportTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/androidTest/java/org/driversagainstflock/watch/WatchUiTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/androidTest/java/org/driversagainstflock/watch/WatchUiTest.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/MainActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/MainActivity.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchApp.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchApp.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchHaptics.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchHaptics.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchCameraNotification.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchCameraNotification.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchFormatting.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchFormatting.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchListenerService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchListenerService.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchMorePages.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchMorePages.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchOngoingActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchOngoingActivity.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchQuickAccess.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchQuickAccess.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchRepository.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchSnapshot.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchSnapshot.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/test/java/org/driversagainstflock/watch/WatchCueTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/test/java/org/driversagainstflock/watch/WatchCueTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/test/java/org/driversagainstflock/watch/WatchFormattingTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/test/java/org/driversagainstflock/watch/WatchFormattingTest.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/test/java/org/driversagainstflock/watch/WatchSnapshotTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/test/java/org/driversagainstflock/watch/WatchSnapshotTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/contracts/active.json" beforeDir="false" afterPath="$PROJECT_DIR$/contracts/active.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/version-code.json" beforeDir="false" afterPath="$PROJECT_DIR$/version-code.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -219,23 +221,23 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Android App.app.executor": "Run",
-    "CidrDebugProfileConversion": "true",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.cidr.known.project.marker": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.readMode.enableVisualFormatting": "true",
-    "cf.first.check.clang-format": "false",
-    "cidr.known.project.marker": "true",
-    "external.system.has.shared.sources": "true",
-    "git-widget-placeholder": "smartwatch",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Volumes/PfeiferDev/Projects/driversagainstflock/wear-os"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Android App.app.executor&quot;: &quot;Run&quot;,
+    &quot;CidrDebugProfileConversion&quot;: &quot;true&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;external.system.has.shared.sources&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;smartwatch&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Volumes/PfeiferDev/Projects/driversagainstflock/wear-os&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected="Android App.app">
     <configuration name="app.WatchComplicationService" type="AndroidComplicationConfigurationType" factoryName="AndroidComplicationConfigurationFactory" show_console_on_std_err="false" show_console_on_std_out="false">
       <module name="DAFWatch.app" />

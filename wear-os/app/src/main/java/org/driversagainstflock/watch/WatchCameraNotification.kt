@@ -17,15 +17,18 @@ internal class WatchCameraNotification(private val context: Context) {
         if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
             android.content.pm.PackageManager.PERMISSION_GRANTED) return
         manager.createNotificationChannel(NotificationChannel(channelId, "Camera alerts", NotificationManager.IMPORTANCE_HIGH))
-        val detail = listOf(alert.optString("type", "ALPR"), distance(alert.optionalDouble("distanceMeters")),
-            alert.optionalString("road")).filter { !it.isNullOrBlank() }.joinToString(" · ")
+        val type = alert.optString("type", "Camera")
+        val range = distance(alert.optionalDouble("distanceMeters"))
+        val road = alert.optionalString("road")
+        val summary = "$type in $range" + (road?.let { " · $it" } ?: "")
+        val detail = "$range · $type" + (road?.let { " · $it" } ?: "")
         val intent = PendingIntent.getActivity(context, 73,
             Intent(context, MainActivity::class.java).putExtra("page", 0),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = Notification.Builder(context, channelId)
             .setSmallIcon(R.drawable.app_logo)
             .setContentTitle(if (alert.optInt("count") > 1) "${alert.optInt("count")} cameras ahead" else "Camera ahead")
-            .setContentText(detail)
+            .setContentText(summary)
             .setStyle(Notification.BigTextStyle().bigText(detail))
             .setContentIntent(intent)
             .setAutoCancel(true)

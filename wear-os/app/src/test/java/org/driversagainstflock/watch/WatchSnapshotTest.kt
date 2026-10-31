@@ -14,6 +14,7 @@ class WatchSnapshotTest {
         val state = snapshot()
         assertEquals("right", state.navigation.getJSONObject("maneuver").getString("kind"))
         assertEquals(3, state.scorecard.getInt("cameraCrossings"))
+        assertEquals(4, state.scorecard.getInt("avoidedCameras"))
         assertEquals("drive-1", state.sessionId)
     }
     @Test fun productionPhonePayloadIsSupportedAndUnknownEnvironmentsAreRejected() {
@@ -46,6 +47,11 @@ class WatchSnapshotTest {
             assertTrue(runCatching { WatchSnapshot.parse(it) }.isFailure)
         }
     }
+    @Test fun rejectsNegativeAvoidedCount() {
+        val json = JSONObject(fixture())
+        json.getJSONObject("scorecard").put("avoidedCameras", -1)
+        assertTrue(runCatching { WatchSnapshot.parse(json.toString()) }.isFailure)
+    }
     @Test fun cancellationClearsSessionAndReroutingDropsManeuver() {
         val json = JSONObject(fixture())
         json.getJSONObject("navigation").put("status", "idle").put("sessionId", JSONObject.NULL).put("maneuver", JSONObject.NULL)
@@ -63,8 +69,34 @@ class WatchSnapshotTest {
         val snapshot = WatchSnapshot.parse(idle.toString())
         assertEquals("areas", quickAccess(snapshot, 3000, true).mode)
         assertEquals(4, quickAccess(snapshot, 3000, true).unread)
+        idle.getJSONObject("areas").getJSONArray("items").getJSONObject(0).put("unreadCount", 0)
+        assertEquals("1 area watched", quickAccess(WatchSnapshot.parse(idle.toString()), 3000, true).detail)
+        idle.getJSONObject("areas").getJSONArray("items").getJSONObject(0)
+            .put("unreadCount", 4).put("addedCount", 2).put("removedCount", 1)
+        assertEquals("Oakland +2 −1", quickAccess(WatchSnapshot.parse(idle.toString()), 3000, true).detail)
         assertEquals("stale", quickAccess(snapshot, 3_602_000, true).mode)
+        assertEquals("Updated 1h ago", quickAccess(snapshot, 3_602_000, true).chip)
+        assertEquals("Oakland +2 −1", quickAccess(WatchSnapshot.parse(idle.toString()), 3_602_000, true).detail)
         assertEquals("unavailable", quickAccess(snapshot, 86_402_001, false).mode)
-        assertEquals("navigation", quickAccess(WatchSnapshot.parse(json.toString()), 3000, true).mode)
+        assertEquals("Last synced yesterday", quickAccess(snapshot, 86_402_001, false).sub)
+        val guidance = quickAccess(WatchSnapshot.parse(json.toString()), 3000, true)
+        assertEquals("navigation", guidance.mode)
+        assertEquals("right", guidance.maneuverKind)
+        assertEquals("400 ft", guidance.title)
+        assertTrue(guidance.sub.contains("27 min"))
+        assertTrue(guidance.sub.contains("13.0 mi"))
+        val moved = JSONObject(json.toString())
+        moved.getJSONObject("navigation").getJSONObject("maneuver").put("distanceMeters", 75)
+        assertNotEquals(guidance, quickAccess(WatchSnapshot.parse(moved.toString()), 3000, true))
+        assertEquals("navigation", quickAccess(WatchSnapshot.parse(json.toString()), 30_000, true).mode)
+        assertEquals("stale", quickAccess(WatchSnapshot.parse(json.toString()), 3_602_000, false).mode)
+    }
+    @Test fun ongoingActivityUsesTheCurrentManeuverGlance() {
+        val state = snapshot()
+        assertEquals(OngoingGlance("400 ft", "Market St"), ongoingGlance(state))
+        val rerouting = JSONObject(fixture())
+        rerouting.getJSONObject("navigation").put("status", "rerouting").put("maneuver", JSONObject.NULL)
+        assertEquals(OngoingGlance("Guidance updating", "Tap to return to guidance"),
+            ongoingGlance(WatchSnapshot.parse(rerouting.toString())))
     }
 }

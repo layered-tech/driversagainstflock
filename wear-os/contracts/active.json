@@ -32,6 +32,7 @@
     "distanceMeters": 6400,
     "confirmedCrossings": 1,
     "possibleCrossings": 2,
-    "cameraCrossings": 3
+    "cameraCrossings": 3,
+    "avoidedCameras": 4
   }
 }

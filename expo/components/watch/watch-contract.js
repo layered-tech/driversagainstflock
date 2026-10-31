@@ -143,6 +143,10 @@ export function createWatchSnapshot({
                 active && scoreStatus === 'active'
                     ? finite(scorecard.cameraCrossings)
                     : null,
+            avoidedCameras:
+                active && scoreStatus === 'active'
+                    ? finite(scorecard.avoidedCameras)
+                    : null,
         },
     };
     if (cameraAlert !== undefined) snapshot.cameraAlert = cameraAlert;
@@ -162,6 +166,7 @@ export function watchSnapshotStateKey(snapshot) {
         nav.maneuver?.id,
         scorecard.status,
         scorecard.cameraCrossings,
+        scorecard.avoidedCameras,
         snapshot.hapticsEnabled,
         snapshot.cameraAlert?.id,
         snapshot.cameraAlert?.count,

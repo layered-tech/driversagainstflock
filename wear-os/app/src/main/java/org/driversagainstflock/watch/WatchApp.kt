@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,8 +32,9 @@ import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
 import kotlinx.coroutines.delay
-import java.text.DateFormat
 import java.util.Date
+import java.util.Locale
+import java.text.SimpleDateFormat
 import org.json.JSONObject
 
 internal val WatchSans = FontFamily(Font(R.font.hanken_semibold, FontWeight.SemiBold))
@@ -41,6 +43,9 @@ internal val WatchMono = FontFamily(Font(R.font.jetbrains_semibold, FontWeight.S
 internal val Brand = Color(0xFF1FBF6B)
 internal val Amber = Color(0xFFFFB02E)
 internal val Muted = Color(0xFFB3B3B3)
+internal val WatchCard = Color(0xFF1F1F1F)
+internal val WatchAlert = Color(0xFFFF4D4F)
+internal val WatchViolet = Color(0xFF7A5CFF)
 
 @Composable
 fun WatchApp(repository: WatchPresentation, ambient: Boolean, resumed: Boolean = true, resumeRevision: Int = 0, launchPage: Int = 0) {
@@ -64,7 +69,7 @@ fun WatchApp(repository: WatchPresentation, ambient: Boolean, resumed: Boolean =
         }
     }
     LaunchedEffect(snapshot?.sessionId, resumeRevision, launchPage) {
-        pager.scrollToPage(if (snapshot?.sessionId != null) 0 else launchPage.coerceIn(0, 3))
+        pager.scrollToPage(if (launchPage == 3) 3 else if (snapshot?.sessionId != null) 0 else launchPage.coerceIn(0, 3))
         if (snapshot?.sessionId != null) { selectedAreaId = 0; selectedChangeId = 0 }
     }
     val endedAt = repository.endedAt
@@ -104,10 +109,14 @@ fun WatchApp(repository: WatchPresentation, ambient: Boolean, resumed: Boolean =
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    contentPadding = PaddingValues(horizontal = 26.dp, vertical = 24.dp),
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                     autoCentering = null,
                 ) {
+                    if (!(page == 0 && snapshot?.navigation?.optString("status") == "idle" &&
+                        snapshot.cameraAlert != null && !showRecap)) {
+                        item { WatchTime(now) }
+                    }
                     when (page) {
                         0 -> item {
                             when {
@@ -128,7 +137,7 @@ fun WatchApp(repository: WatchPresentation, ambient: Boolean, resumed: Boolean =
                         }
                         1 -> item { ScorecardPage(repository, snapshot, now, ambient) }
                         2 -> {
-                            item { Label("Diagnostics", 18, Color.White) }
+                            item { Label("DIAGNOSTICS", 11, Muted) }
                             val nav = snapshot?.navigation
                             val rows = listOf(
                                 "Connection" to if (repository.connected) "Connected" else "Disconnected",
@@ -147,29 +156,21 @@ fun WatchApp(repository: WatchPresentation, ambient: Boolean, resumed: Boolean =
                                 "Ping" to repository.pingStatus,
                                 "Haptics" to if (snapshot?.hapticsEnabled == false) "Off on phone" else repository.hapticStatus,
                             )
-                            rows.forEach { (key, value) -> item { Metric(key, value) } }
+                            rows.forEach { (key, value) -> item { DiagnosticRow(key, value) } }
                             item { Chip(onClick = { repository.refresh(request = true) }, label = { Text("Retry / ping phone") }, modifier = Modifier.fillMaxWidth()) }
                             item { Label("Recent diagnostics", 12, Muted) }
                             repository.history.takeLast(8).reversed().forEach { event -> item { Label(event, 12, Muted) } }
                         }
                         else -> {
-                            item { Label("Haptic cues", 18, if (ambient) Muted else Color.White) }
-                            item { Label("One advance cue for each maneuver", 12, Muted) }
-                            item { Label(if (snapshot?.hapticsEnabled == false) "Turn vibrations are off" else repository.hapticStatus, 12, Muted) }
+                            item { Label("FEEL THE TURNS", 11, Muted) }
                             if (!ambient) {
-                                listOf("left" to "Left · one tap", "right" to "Right · two taps", "neutral" to "Roundabout / U-turn · long pulse").forEach { (pattern, description) ->
-                                    item { Chip(onClick = { repository.preview(pattern) }, label = { Text(description) }, modifier = Modifier.fillMaxWidth()) }
+                                listOf("left" to "Left", "right" to "Right", "neutral" to "Roundabout").forEach { (pattern, title) ->
+                                    item { HapticPatternRow(pattern, title, repository::preview) }
                                 }
-                                item { Label("Turn vibrations on or off in the phone app.", 12, Muted) }
+                                item { Label(if (snapshot?.hapticsEnabled == false) "Haptics off on phone" else "Turn haptics off in the phone app", 11, Muted) }
                             }
                         }
                     }
-                }
-            }
-            if (!ambient && !showRecap && selectedAreaId == 0 &&
-                !(snapshot?.navigation?.optString("status") == "idle" && snapshot.cameraAlert != null)) {
-                Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    repeat(4) { page -> Box(Modifier.size(4.dp).background(if (pager.currentPage == page) Brand else Color.DarkGray, CircleShape)) }
                 }
             }
         }
@@ -185,19 +186,18 @@ private fun NavigationPage(repository: WatchPresentation, snapshot: WatchSnapsho
     val contentColor = if (ambient) Muted else Color.White
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
         when {
-            repository.incompatible -> Message("Update needed", "Incompatible companion", "Update the phone and watch apps together.", Muted)
-            !repository.connectionChecked -> Message("Connecting", "Connecting…", "Looking for your phone.", Muted)
+            repository.incompatible -> Message("Update needed", "Update the phone app", "This watch app needs a compatible phone app.", Muted)
+            !repository.connectionChecked -> Message("Connecting", "Connecting to phone", "Usually a second or two.", Muted)
             !repository.connected -> Message("Disconnected", "Phone disconnected", "Guidance resumes on reconnect.", if (ambient) Muted else Color(0xFFFF4D4F))
-            snapshot == null -> Message("Connecting", "Connecting…", "Waiting for the phone.", Muted)
+            snapshot == null -> Message("Connecting", "Connecting to phone", "Usually a second or two.", Muted)
             repository.endedAt?.let { now - it < 3_000 } == true -> Message("Ended", if (repository.endedByArrival) "Arrived" else "Route ended", "Returning to idle", Muted)
             status == "idle" -> {
-                Spacer(Modifier.height(17.dp))
+                Label("START A ROUTE", 11, Muted)
                 ManeuverIcon("depart", null, if (ambient) Color.White else Brand)
-                Label("Start a Route", 20, Color.White)
+                Label("Start a route", 24, Color.White)
                 Label("On your phone", 14, Muted)
-                Status("Connected", Muted)
             }
-            status == "rerouting" -> Message("Rerouting", "Rerouting", "New route in a moment.", if (ambient) Color.White else Amber)
+            status == "rerouting" -> Message("Rerouting", "Rerouting", "Keep driving. New route in a moment.", if (ambient) Color.White else Amber)
             status == "waiting-for-location" -> {
                 Message("Locating", "Waiting for location", "Guidance starts when the phone has a fix.", Muted)
                 Label(distance(nav.optionalDouble("distanceRemainingMeters")), 14, Muted)
@@ -208,25 +208,26 @@ private fun NavigationPage(repository: WatchPresentation, snapshot: WatchSnapsho
                 val passedAlert = repository.recentCameraAlert?.takeIf {
                     repository.cameraEndedAt?.let { ended -> now - ended < 5_000 } == true
                 }
-                Status(if (stale) "Stale · ${(snapshot.sourceAge(now)?.div(1000) ?: 0).coerceAtLeast(0)}s" else if (ambient) "Last guidance" else "Live", if (stale && !ambient) Amber else liveColor)
+                if (!ambient) Status(if (stale) "Stale · ${(snapshot.sourceAge(now)?.div(1000) ?: 0).coerceAtLeast(0)}s" else "Live", if (stale) Amber else Brand)
                 val maneuver = nav.optJSONObject("maneuver")
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ManeuverIcon(maneuver?.optString("kind") ?: "straight", maneuver?.optionalLong("exitNumber"), liveColor)
-                    Label(distance(maneuver?.optionalDouble("distanceMeters")), 26, contentColor, mono = true)
+                    ManeuverDistance(distance(maneuver?.optionalDouble("distanceMeters")), contentColor)
                 }
-                var expanded by remember(maneuver?.optString("id")) { mutableStateOf(false) }
                 val instruction = maneuver?.optString("instruction")?.takeIf { it.isNotBlank() } ?: "Follow the road"
-                Text(instruction, fontFamily = WatchSans, fontSize = 16.sp, color = contentColor, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
-                    maxLines = if (expanded) Int.MAX_VALUE else if (liveAlert != null) 1 else 2, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.semantics { contentDescription = instruction })
+                Text(if (ambient) roadName(instruction) else instruction, fontFamily = WatchSans, fontSize = 16.sp, color = contentColor,
+                    fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
+                    maxLines = if (ambient || liveAlert != null) 1 else 2, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth().semantics { contentDescription = instruction })
                 if (stale) Label("Showing the last update", 12, Muted)
-                Text(nav.optString("destination"), fontFamily = WatchSans, fontSize = 12.sp, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                if (!ambient) Text("⌖ ${nav.optString("destination")}", fontFamily = WatchSans, fontSize = 12.sp, color = WatchViolet,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
                 if (liveAlert != null || passedAlert != null) {
                     WatchCameraStrip(liveAlert ?: passedAlert!!, ambient, passed = liveAlert == null,
                         onDismiss = repository::dismissCamera)
                 } else {
-                    val eta = nav.optionalLong("arrivalAt")?.let { DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it)) } ?: "—"
-                    Text(buildAnnotatedString {
+                    val eta = nav.optionalLong("arrivalAt")?.let { SimpleDateFormat("h:mm", Locale.US).format(Date(it)) } ?: "—"
+                    if (!ambient) Text(buildAnnotatedString {
                         withStyle(SpanStyle(color = liveColor)) { append(eta) }
                         append(" · ${duration(nav.optionalDouble("durationRemainingSeconds"))} · ${distance(nav.optionalDouble("distanceRemainingMeters"))}")
                     }, fontSize = 11.sp, color = Muted, fontFamily = WatchMono, textAlign = TextAlign.Center)
@@ -240,32 +241,90 @@ private fun NavigationPage(repository: WatchPresentation, snapshot: WatchSnapsho
 private fun ScorecardPage(repository: WatchPresentation, snapshot: WatchSnapshot?, now: Long, ambient: Boolean) {
     val score = snapshot?.scorecard
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Label("Scorecard", 18, Color.White)
+        Label("SCORECARD", 11, Muted)
         when {
             repository.incompatible -> Message("Update needed", "Incompatible companion", "Update both apps.", Muted)
             score == null -> Message("Connecting", "Starting up", "Waiting for drive metrics.", Muted)
-            score.optString("status") == "tracking-off" -> Message("Tracking off", "Tracking is off", "Manage tracking on your phone.", Muted)
+            score.optString("status") == "tracking-off" -> Message("", "Tracking is off", "Turn it on in the phone app to see drive metrics.", Muted)
             score.optString("status") == "initializing" -> Message("Initializing", "Starting up", "First metrics in a few seconds.", Muted)
-            score.optString("status") == "unavailable" -> Message("Unavailable", "Metrics paused", "Phone is catching up.", Muted)
-            score.optString("status") != "active" -> Message("No active drive", "No drive yet", "Start a route on your phone.", Muted)
+            score.optString("status") == "unavailable" -> Message("", "Metrics paused", "Phone is catching up.", Amber)
+            score.optString("status") != "active" -> Message("", "No drive yet", "Metrics appear when a route starts on your phone.", Muted)
             else -> {
                 val age = score.optionalLong("sourceAt")?.let { now - it }
                 val stale = !repository.connected || age == null || age >= STALE_AFTER_MS || age < -5_000
-                Status(if (stale) "Metrics paused" else "Active drive", if (stale && !ambient) Amber else if (ambient) Muted else Brand)
-                Metric("Elapsed", elapsed(score.optionalDouble("elapsedSeconds")), ambient)
-                Metric("Distance traveled", traveledDistance(score.optionalDouble("distanceMeters")), ambient)
-                Metric("Camera crossings", score.optionalLong("cameraCrossings")?.toString() ?: "—", ambient)
-                Label("${score.optionalLong("confirmedCrossings")?.toString() ?: "—"} confirmed · ${score.optionalLong("possibleCrossings")?.toString() ?: "—"} possible", 12, Muted)
+                Label(elapsed(score.optionalDouble("elapsedSeconds")), 40, if (ambient) Muted else Color.White, mono = true)
+                Label("elapsed · ${traveledDistance(score.optionalDouble("distanceMeters"))}", 12, Muted)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ScoreTile("AVOIDED", score.optionalLong("avoidedCameras")?.toString() ?: "—", if (ambient) Muted else Brand, Modifier.weight(1f))
+                    ScoreTile("CROSSED", score.optionalLong("cameraCrossings")?.toString() ?: "—", if (ambient) Muted else WatchAlert, Modifier.weight(1f))
+                }
+                if (!ambient) Status(if (stale) "Metrics paused" else "Tracking", if (stale) Amber else Brand)
             }
         }
     }
 }
 
 @Composable private fun Message(chip: String, title: String, body: String, color: Color) {
-    Status(chip, color)
-    Spacer(Modifier.height(10.dp))
+    if (chip.isNotEmpty()) Status(chip, color)
+    Spacer(Modifier.height(16.dp))
+    val icon = when {
+        title == "No drive yet" -> R.drawable.watch_navigation
+        title == "Tracking is off" -> R.drawable.watch_eye_off
+        title == "Starting up" || title == "Connecting to phone" -> R.drawable.watch_loader
+        title == "Metrics paused" -> R.drawable.watch_history
+        title == "Phone disconnected" -> R.drawable.watch_link_off
+        title == "Waiting for location" -> R.drawable.watch_crosshair
+        title == "Rerouting" -> R.drawable.watch_rotate_cw
+        title == "Update the phone app" -> R.drawable.watch_smartphone
+        else -> null
+    }
+    if (icon != null) StateGlyph(icon, color)
     Label(title, 18, Color.White)
     Label(body, 13, Muted)
+}
+@Composable internal fun StateGlyph(id: Int, color: Color) {
+    Image(painterResource(id), null, Modifier.size(28.dp), colorFilter = ColorFilter.tint(color))
+}
+@Composable private fun WatchTime(now: Long) {
+    Label(SimpleDateFormat("h:mm", Locale.US).format(Date(now)), 11, Muted, mono = true)
+}
+@Composable private fun ManeuverDistance(formatted: String, color: Color) {
+    val split = formatted.split(' ', limit = 2)
+    Text(buildAnnotatedString {
+        append(split[0])
+        if (split.size > 1) withStyle(SpanStyle(fontSize = 14.sp, color = Muted)) { append(" ${split[1]}") }
+    }, color = color, fontSize = 36.sp, fontFamily = WatchMono, fontWeight = FontWeight.SemiBold, maxLines = 1)
+}
+@Composable private fun ScoreTile(label: String, value: String, color: Color, modifier: Modifier) {
+    Column(modifier.background(WatchCard, RoundedCornerShape(22.dp)).padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Label(value, 24, color, mono = true)
+        Label(label, 11, Muted)
+    }
+}
+@Composable private fun DiagnosticRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().background(WatchCard, RoundedCornerShape(16.dp)).padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, color = Muted, fontFamily = WatchSans, fontSize = 11.sp, modifier = Modifier.weight(0.9f), maxLines = 1)
+        Text(value, color = Color.White, fontFamily = WatchMono, fontSize = 11.sp, modifier = Modifier.weight(1.1f), maxLines = 1,
+            overflow = TextOverflow.Ellipsis)
+    }
+}
+@Composable private fun HapticPatternRow(pattern: String, title: String, onPreview: (String) -> Unit) {
+    var selected by remember { mutableStateOf(false) }
+    LaunchedEffect(selected) { if (selected) { delay(700); selected = false } }
+    val subtitle = when (pattern) { "left" -> "One short tap"; "right" -> "Two short taps"; else -> "One long pulse · also U-turn" }
+    val icon = when (pattern) { "left" -> R.drawable.maneuver_left; "right" -> R.drawable.maneuver_right; else -> R.drawable.maneuver_roundabout }
+    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).background(if (selected) Brand.copy(alpha = 0.25f) else WatchCard, RoundedCornerShape(22.dp))
+        .clickable { selected = true; onPreview(pattern) }.padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Image(painterResource(icon), title, Modifier.size(26.dp), colorFilter = ColorFilter.tint(Brand))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontFamily = WatchSans, fontSize = 15.sp, maxLines = 1)
+            Text(subtitle, color = Muted, fontFamily = WatchSans, fontSize = 11.sp, maxLines = 2)
+        }
+        Text(when (pattern) { "left" -> "●"; "right" -> "●●"; else -> "━" }, color = Brand, fontSize = 13.sp)
+    }
 }
 @Composable private fun Status(text: String, color: Color) {
     Text(text, fontFamily = WatchSans, color = color, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
@@ -275,13 +334,15 @@ private fun ScorecardPage(repository: WatchPresentation, snapshot: WatchSnapshot
     Text(text, color = color, fontSize = size.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
         fontFamily = if (mono) WatchMono else WatchSans)
 }
-@Composable private fun Metric(label: String, value: String, ambient: Boolean = false) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-        Label(label, 12, Muted); Label(value, 16, if (ambient) Muted else Color.White, mono = true)
+@Composable private fun ManeuverIcon(kind: String, exit: Long?, color: Color) {
+    val id = maneuverResourceId(kind)
+    Box(contentAlignment = Alignment.Center) {
+        Image(painterResource(id), kind.replace('-', ' '), Modifier.size(56.dp), colorFilter = ColorFilter.tint(color))
+        if (kind == "roundabout" && exit != null) Text(exit.toString(), fontSize = 13.sp, color = color)
     }
 }
-@Composable private fun ManeuverIcon(kind: String, exit: Long?, color: Color) {
-    val id = when (kind) {
+
+internal fun maneuverResourceId(kind: String): Int = when (kind) {
         "left" -> R.drawable.maneuver_left; "right" -> R.drawable.maneuver_right
         "slight-left" -> R.drawable.maneuver_slight_left; "slight-right" -> R.drawable.maneuver_slight_right
         "sharp-left" -> R.drawable.maneuver_sharp_left; "sharp-right" -> R.drawable.maneuver_sharp_right
@@ -290,8 +351,3 @@ private fun ScorecardPage(repository: WatchPresentation, snapshot: WatchSnapshot
         "depart" -> R.drawable.maneuver_depart; "arrive" -> R.drawable.maneuver_arrive
         else -> R.drawable.maneuver_straight
     }
-    Box(contentAlignment = Alignment.Center) {
-        Image(painterResource(id), kind.replace('-', ' '), Modifier.size(48.dp), colorFilter = ColorFilter.tint(color))
-        if (kind == "roundabout" && exit != null) Text(exit.toString(), fontSize = 13.sp, color = color)
-    }
-}

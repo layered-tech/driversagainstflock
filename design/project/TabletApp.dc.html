@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1" name="viewport">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- page name="Tablet app screens" description="Index of the mobile galleries: explore, navigate, contribute, settings, scorecard, areas &amp; alerts, help &amp; legal." -->
+<helmet>
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css" rel="stylesheet">
+  <link href="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css" rel="stylesheet">
+  <script src="_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js"></script>
+  <style>
+    *{ box-sizing:border-box; }
+    body{ margin:0; background:var(--surface-card-alt); }
+  </style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="font-family:var(--font-ui); background:var(--surface-card-alt); min-height:100vh; padding:48px 40px 80px; color:var(--text-primary);">
+  <div style="max-width:1100px; margin:0 auto;">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px;">
+      <img alt="DAF" src="assets/logo-mark.png" style="width:36px; height:36px; object-fit:contain;">
+      <span style="font-family:var(--font-display); font-weight:700; font-size:24px; letter-spacing:var(--ls-heading);">Drivers Against Flock — Tablet</span>
+    </div>
+    <p style="font-size:15px; color:var(--text-secondary); margin:0 0 18px; max-width:70ch;">Tablet and desktop windows. The phone's bottom sheet becomes a floating left pane and the map fills the rest; active navigation goes edge-to-edge. Same screens, same controls and numbering as the phone set — the menu lives behind the search bar's hamburger, as on the phone.</p>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin:0 0 36px;"><span style="display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-pill);"><a href="MobileApp.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Phone</a><a href="FoldApp.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Foldable</a><span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; color:var(--surface-card); background:var(--text-primary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Tablet</span><a href="DuoApp.dc.html" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-decoration:none; color:var(--text-secondary); padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;">Duo</a></span><span style="display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-pill);"><button aria-label="Light theme" aria-pressed="{{ isLight }}" onClick="{{ setLight }}" style="display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; border:none; cursor:pointer; color:{{ lightFg }}; background:{{ lightBg }}; padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;" type="button"><svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="14"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>Light</button><button aria-label="Dark theme" aria-pressed="{{ isDark }}" onClick="{{ setDark }}" style="display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; font-weight:600; border:none; cursor:pointer; color:{{ darkFg }}; background:{{ darkBg }}; padding:5px 11px; border-radius:var(--radius-pill); white-space:nowrap;" type="button"><svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="14"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>Dark</button></span></div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px;">
+
+      <a href="TabletExplore.dc.html" style="display:flex; flex-direction:column; gap:10px; padding:22px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); text-decoration:none; color:var(--text-primary); transition:border-color 180ms var(--ease-standard), transform 180ms var(--ease-standard), box-shadow 180ms var(--ease-standard);" style-hover="border-color:var(--border-strong); transform:translateY(-2px); box-shadow:var(--shadow-card);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-brand); font-weight:600;">01–04 · Tablet</span>
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary);">6 screens</span>
+        </div>
+        <div style="font-family:var(--font-display); font-weight:700; font-size:20px; letter-spacing:var(--ls-heading);">Explore &amp; search</div>
+        <div style="font-size:14px; color:var(--text-secondary); line-height:1.5;">Map home · Search · Home &amp; Work · Place details · ALPR marker</div>
+        <div style="margin-top:auto; font-size:13px; font-weight:600; color:var(--text-brand);">Open gallery →</div>
+      </a>
+
+      <a href="TabletNavigate.dc.html" style="display:flex; flex-direction:column; gap:10px; padding:22px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); text-decoration:none; color:var(--text-primary); transition:border-color 180ms var(--ease-standard), transform 180ms var(--ease-standard), box-shadow 180ms var(--ease-standard);" style-hover="border-color:var(--border-strong); transform:translateY(-2px); box-shadow:var(--shadow-card);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-brand); font-weight:600;">05–07b · Tablet</span>
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary);">4 screens</span>
+        </div>
+        <div style="font-family:var(--font-display); font-weight:700; font-size:20px; letter-spacing:var(--ls-heading);">Routing &amp; navigation</div>
+        <div style="font-size:14px; color:var(--text-secondary); line-height:1.5;">Directions form · Route comparison · Active navigation · Police ahead</div>
+        <div style="margin-top:auto; font-size:13px; font-weight:600; color:var(--text-brand);">Open gallery →</div>
+      </a>
+
+      <a href="TabletScorecard.dc.html" style="display:flex; flex-direction:column; gap:10px; padding:22px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); text-decoration:none; color:var(--text-primary); transition:border-color 180ms var(--ease-standard), transform 180ms var(--ease-standard), box-shadow 180ms var(--ease-standard);" style-hover="border-color:var(--border-strong); transform:translateY(-2px); box-shadow:var(--shadow-card);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-brand); font-weight:600;">18–23 · Tablet</span>
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary);">7 screens</span>
+        </div>
+        <div style="font-family:var(--font-display); font-weight:700; font-size:20px; letter-spacing:var(--ls-heading);">Scorecard &amp; exposure</div>
+        <div style="font-size:14px; color:var(--text-secondary); line-height:1.5;">Drawer · Dashboard · Exposure timeline · Flock view · Read detail · Post-drive recap · Reconstructed trail</div>
+        <div style="margin-top:auto; font-size:13px; font-weight:600; color:var(--text-brand);">Open gallery →</div>
+      </a>
+
+      <a href="TabletContribute.dc.html" style="display:flex; flex-direction:column; gap:10px; padding:22px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); text-decoration:none; color:var(--text-primary); transition:border-color 180ms var(--ease-standard), transform 180ms var(--ease-standard), box-shadow 180ms var(--ease-standard);" style-hover="border-color:var(--border-strong); transform:translateY(-2px); box-shadow:var(--shadow-card);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-brand); font-weight:600;">10–17 · Tablet</span>
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary);">8 screens</span>
+        </div>
+        <div style="font-family:var(--font-display); font-weight:700; font-size:20px; letter-spacing:var(--ls-heading);">Contribute (OSM)</div>
+        <div style="font-size:14px; color:var(--text-secondary); line-height:1.5;">Base map · Start changeset · Place pins · Camera details · Changeset details · Review &amp; publish · Published · Hotlist</div>
+        <div style="margin-top:auto; font-size:13px; font-weight:600; color:var(--text-brand);">Open gallery →</div>
+      </a>
+
+      <a href="TabletSettings.dc.html" style="display:flex; flex-direction:column; gap:10px; padding:22px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); text-decoration:none; color:var(--text-primary); transition:border-color 180ms var(--ease-standard), transform 180ms var(--ease-standard), box-shadow 180ms var(--ease-standard);" style-hover="border-color:var(--border-strong); transform:translateY(-2px); box-shadow:var(--shadow-card);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-brand); font-weight:600;">08–09 · Tablet</span>
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary);">3 screens</span>
+        </div>
+        <div style="font-family:var(--font-display); font-weight:700; font-size:20px; letter-spacing:var(--ls-heading);">Onboarding &amp; settings</div>
+        <div style="font-size:14px; color:var(--text-secondary); line-height:1.5;">Support DAF · No-location fallback · Map settings</div>
+        <div style="margin-top:auto; font-size:13px; font-weight:600; color:var(--text-brand);">Open gallery →</div>
+      </a>
+
+      <a href="TabletAreas.dc.html" style="display:flex; flex-direction:column; gap:10px; padding:22px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); text-decoration:none; color:var(--text-primary); transition:border-color 180ms var(--ease-standard), transform 180ms var(--ease-standard), box-shadow 180ms var(--ease-standard);" style-hover="border-color:var(--border-strong); transform:translateY(-2px); box-shadow:var(--shadow-card);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-brand); font-weight:600;">24–31 · Tablet</span>
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary);">10 screens</span>
+        </div>
+        <div style="font-family:var(--font-display); font-weight:700; font-size:20px; letter-spacing:var(--ls-heading);">Areas &amp; alerts</div>
+        <div style="font-size:14px; color:var(--text-secondary); line-height:1.5;">Drawer entry · Empty state · Add area (search, around me, draw) · My areas · Area feed · Change detail · Alert settings · Lock screen</div>
+        <div style="margin-top:auto; font-size:13px; font-weight:600; color:var(--text-brand);">Open gallery →</div>
+      </a>
+
+
+
+    </div>
+
+    <p style="font-family:var(--font-mono); font-size:12px; color:var(--text-tertiary); margin:24px 0 0;">Same screens and numbering as the phone set, re-laid for a landscape 1194 × 834 display.</p>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:760},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}" type="text/x-dc">
+class Component extends DCLogic {
+
+  themeVals() {
+    const theme = this.state.themeOverride ?? this.props.theme ?? 'light';
+    const dark = theme === 'dark';
+    const on = { fg: 'var(--surface-card)', bg: 'var(--text-primary)' }, off = { fg: 'var(--text-secondary)', bg: 'transparent' };
+    return { theme, isDark: dark, isLight: !dark,
+      lightFg: dark ? off.fg : on.fg, lightBg: dark ? off.bg : on.bg, darkFg: dark ? on.fg : off.fg, darkBg: dark ? on.bg : off.bg,
+      setLight: () => this.setTheme('light'), setDark: () => this.setTheme('dark') };
+  }
+  setTheme(t) { try { sessionStorage.setItem('daf-gallery-theme', t); } catch (_) {} this.setState({ themeOverride: t }); }
+  componentDidMount() { try { const t = sessionStorage.getItem('daf-gallery-theme'); if (t && t !== (this.props.theme ?? 'light')) this.setState({ themeOverride: t }); } catch (_) {} if (super.componentDidMount) super.componentDidMount(); }
+  state = { themeOverride: null };
+  renderVals() {
+    return { ...this.themeVals() };
+  }
+}
+</script>
+</body>
+</html>
